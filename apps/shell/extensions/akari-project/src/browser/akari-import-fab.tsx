@@ -1,4 +1,5 @@
 import * as React from '@theia/core/shared/react';
+import { createPortal } from '@theia/core/shared/react-dom';
 import { MessageService } from '@theia/core/lib/common';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import type { DroppedAsset } from '../common/akari-project-protocol';
@@ -20,21 +21,21 @@ const css = `
 [data-akari-import-fab]:focus-visible, [data-akari-import-popup] button:focus-visible { outline:2px solid var(--akari-accent); outline-offset:2px; }
 [data-akari-import-fab] .akari-import-fab-plus { display:block; transition:transform 160ms ease; }
 [data-akari-import-fab][aria-expanded="true"] .akari-import-fab-plus { transform:rotate(45deg); }
-[data-akari-import-popup] { position:absolute; right:0; bottom:60px; width:min(264px, 100%);
- max-height:calc(100% - 72px); overflow-y:auto; box-sizing:border-box; padding:8px;
+[data-akari-import-popup] { position:absolute; width:264px; min-width:244px;
+ overflow-y:auto; box-sizing:border-box; padding:8px;
  border:1px solid ${AKARI_LINE.edge}; border-radius:${AKARI_RADIUS.card}px;
  background:${AKARI_SURFACE.raised}; color:${AKARI_INK};
  box-shadow:0 10px 30px rgba(0,0,0,.3); pointer-events:auto; }
 [data-akari-import-popup] h3 { margin:4px 8px 8px; font-size:13px; font-weight:700; }
-[data-akari-import-popup] button { display:flex; align-items:center; gap:9px; width:100%; min-height:40px;
+[data-akari-import-popup] button { display:flex; align-items:center; gap:9px; width:100%; height:40px;
  box-sizing:border-box; margin:0; padding:6px 8px; border:0; border-radius:${AKARI_RADIUS.panel}px;
- background:transparent; color:${AKARI_INK}; text-align:left; font:inherit; font-size:12.5px; cursor:pointer; }
+ background:transparent; color:${AKARI_INK}; text-align:left; white-space:nowrap; font:inherit; font-size:12.5px; cursor:pointer; }
 [data-akari-import-popup] button:hover { background:${AKARI_SURFACE.elevated}; }
 [data-akari-import-popup] button[data-soon] { color:var(--akari-muted); }
 [data-akari-import-popup] button .codicon { width:20px; text-align:center; font-size:16px; }
-[data-akari-import-popup] button .akari-import-fab-label { flex:1; min-width:0; }
+[data-akari-import-popup] button .akari-import-fab-label { flex:1; min-width:0; white-space:nowrap; }
 [data-akari-import-popup] .akari-import-fab-soon { padding:1px 5px; border-radius:${AKARI_RADIUS.chip}px;
- background:${AKARI_SURFACE.elevated}; color:var(--akari-muted); font-size:10px; }
+ background:${AKARI_SURFACE.elevated}; color:var(--akari-muted); font-size:10px; margin-left:auto; white-space:nowrap; }
 [data-akari-import-popup] p { margin:8px 8px 3px; padding-top:9px; border-top:1px solid ${AKARI_LINE.hairline};
  color:var(--akari-muted); font-size:11px; line-height:1.4; }
 @media (prefers-reduced-motion: reduce) {
@@ -50,11 +51,28 @@ export function AkariImportFab(props: Props): React.ReactElement {
     const [open, setOpen] = React.useState(false);
     const container = React.useRef<HTMLDivElement>(null);
     const button = React.useRef<HTMLButtonElement>(null);
+    const popup = React.useRef<HTMLDivElement>(null);
+    const [anchor, setAnchor] = React.useState({ left: 0, top: 0, maxHeight: 0 });
+    const updateAnchor = React.useCallback(() => {
+        const rect = button.current?.getBoundingClientRect();
+        if (!rect) return;
+        setAnchor({ left: Math.max(8, Math.min(window.innerWidth - 272, rect.right - 264)) + window.scrollX,
+            top: rect.top + window.scrollY - 16, maxHeight: Math.max(80, rect.top - 24) });
+    }, []);
+    React.useEffect(() => {
+        if (!open) return;
+        updateAnchor();
+        window.addEventListener('resize', updateAnchor);
+        window.addEventListener('scroll', updateAnchor, true);
+        return () => { window.removeEventListener('resize', updateAnchor);
+            window.removeEventListener('scroll', updateAnchor, true); };
+    }, [open, updateAnchor]);
 
     React.useEffect(() => {
         if (!open) return;
         const outside = (event: PointerEvent): void => {
-            if (event.target instanceof Node && !container.current?.contains(event.target)) setOpen(false);
+            if (event.target instanceof Node && !container.current?.contains(event.target)
+                && !popup.current?.contains(event.target)) setOpen(false);
         };
         const escape = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') {
@@ -100,7 +118,8 @@ export function AkariImportFab(props: Props): React.ReactElement {
         display:'flex', justifyContent:'flex-end', alignItems:'flex-end', paddingBottom:12,
         boxSizing:'border-box', pointerEvents:'none' }}>
         <style>{css}</style>
-        {open && <div data-akari-import-popup role='dialog' aria-label='いま取り込む'>
+        {open && createPortal(<div ref={popup} data-akari-import-popup role='dialog' aria-label='いま取り込む'
+            style={{ left: anchor.left, top: anchor.top, maxHeight: anchor.maxHeight, transform: 'translateY(-100%)' }}>
             <h3>いま取り込む</h3>
             {importFabItems(vibePreviewEnabled).map(item => <button key={item.id} type='button' data-soon={item.soon ? 'true' : undefined}
                 onClick={() => void choose(item)}>
@@ -109,9 +128,9 @@ export function AkariImportFab(props: Props): React.ReactElement {
                 {item.soon && <span className='akari-import-fab-soon'>{item.soon}</span>}
             </button>)}
             <p>ファイルをこのパネルに落としても取り込めます。</p>
-        </div>}
+        </div>, document.body)}
         <button ref={button} type='button' data-akari-import-fab aria-label='いま取り込む'
-            aria-haspopup='dialog' aria-expanded={open} onClick={() => setOpen(value => !value)}
+            aria-haspopup='dialog' aria-expanded={open} onClick={() => { updateAnchor(); setOpen(value => !value); }}
             style={{ pointerEvents:'auto' }}><span className='akari-import-fab-plus'>+</span></button>
     </div>;
 }

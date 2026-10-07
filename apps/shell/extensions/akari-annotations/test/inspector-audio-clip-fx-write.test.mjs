@@ -3,6 +3,7 @@ import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import {
     AUDIO_CLIP_FX_RANGES,
+    AUDIO_DENOISE_METHOD_OPTIONS,
     assertAudioClipFxValue,
     audioClipFxFieldsForSnapshot,
     buildAudioClipFxPatch,
@@ -64,12 +65,12 @@ test('ナレーションの速度・ピッチ・フォルマントは reset も�
     assert.doesNotThrow(() => buildAudioClipFxPatch('narration', 'lowcut_hz', 120));
 });
 
-test('denoise は常に対で書き、method 既定 fft / strength 既定 0.5 を補う', () => {
+test('denoise は常に対で書き、method 既定 nlm / strength 既定 0.75 を補う', () => {
     const snapshot = audioSnapshot();
-    assert.deepEqual(createAudioClipFxWriteRequest(snapshot, 'denoise-method', 'FFT').value,
-        { method: 'fft', strength: 0.5 });
+    assert.deepEqual(createAudioClipFxWriteRequest(snapshot, 'denoise-method', 'NLM（声を保つ・おすすめ）').value,
+        { method: 'nlm', strength: 0.75 });
     assert.deepEqual(createAudioClipFxWriteRequest(snapshot, 'denoise-strength', '0.6').value,
-        { method: 'fft', strength: 0.6 });
+        { method: 'nlm', strength: 0.6 });
     const enabled = audioSnapshot('sfx', { denoise: { method: 'nlm', strength: 0 } });
     assert.deepEqual(createAudioClipFxWriteRequest(enabled, 'denoise-method', 'FFT').value,
         { method: 'fft', strength: 0 });
@@ -81,6 +82,20 @@ test('denoise は常に対で書き、method 既定 fft / strength 既定 0.5 �
         assert.throws(() => buildAudioClipFxPatch('sfx', 'denoise', invalid));
     }
     assert.throws(() => buildAudioClipFxPatch('sfx', 'formant', 'bad'), /フォルマント/);
+});
+
+test('新しい表示ラベルと旧 FFT / NLM ラベルの書き込みは同じ方式になる', () => {
+    const snapshot = audioSnapshot();
+    assert.deepEqual(AUDIO_DENOISE_METHOD_OPTIONS.map(option => option.label),
+        ['オフ', 'NLM（声を保つ・おすすめ）', 'FFT（軽い・速い）']);
+    for (const [label, legacyLabel, method] of [
+        ['NLM（声を保つ・おすすめ）', 'NLM', 'nlm'],
+        ['FFT（軽い・速い）', 'FFT', 'fft']
+    ]) {
+        const expected = { method, strength: 0.75 };
+        assert.deepEqual(createAudioClipFxWriteRequest(snapshot, 'denoise-method', label).value, expected);
+        assert.deepEqual(createAudioClipFxWriteRequest(snapshot, 'denoise-method', legacyLabel).value, expected);
+    }
 });
 
 for (const audioKind of ['sfx', 'bgm', 'narration']) {
@@ -145,7 +160,7 @@ test('実働行は値・reset を単一 audio-clip-fx kind に対応付ける', 
     for (const [name, input, field, value] of [
         ['audio-speed', '2', 'speed', 2], ['audio-pitch', '7', 'pitch_semitones', 7],
         ['audio-formant', '移動', 'formant', 'shift'],
-        ['audio-denoise-method', 'FFT', 'denoise', { method: 'fft', strength: 0.5 }],
+        ['audio-denoise-method', 'FFT（軽い・速い）', 'denoise', { method: 'fft', strength: 0.75 }],
         ['audio-lowcut', '120', 'lowcut_hz', 120]
     ]) {
         const row = rows.find(candidate => candidate.name === name);
@@ -157,6 +172,9 @@ test('実働行は値・reset を単一 audio-clip-fx kind に対応付ける', 
     }
     assert.equal(rows.find(row => row.name === 'audio-speed').getValue(snapshot), '1.00');
     assert.equal(rows.find(row => row.name === 'audio-denoise-strength').disabled, true);
+    assert.equal(rows.find(row => row.name === 'audio-denoise-strength').getValue(snapshot), '75');
+    assert.deepEqual(rows.find(row => row.name === 'audio-denoise-method').options,
+        ['オフ', 'NLM（声を保つ・おすすめ）', 'FFT（軽い・速い）']);
     const invalid = await rows.find(row => row.name === 'audio-lowcut').write(snapshot, '500');
     assert.equal(invalid.ok, false);
     assert.match(invalid.message, /0〜400/);

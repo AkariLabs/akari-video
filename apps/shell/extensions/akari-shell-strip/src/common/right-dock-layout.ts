@@ -1,5 +1,9 @@
 export type DockState = 'closed' | 'open' | 'expanded';
 
+export function nextDockStateOnDoubleClick(state: DockState): DockState {
+    return state === 'expanded' ? 'open' : 'expanded';
+}
+
 export interface DockHeightInput {
     panelHeight: number;
     state: DockState;
@@ -18,7 +22,7 @@ export function computeDockHeight({ panelHeight, state, userHeight }: DockHeight
     }
     const desired = state === 'expanded'
         ? Math.round(available * 2 / 3)
-        : Number.isFinite(userHeight) ? Math.round(userHeight!) : Math.max(180, Math.min(320, Math.round(available / 3)));
+        : Number.isFinite(userHeight) ? Math.round(userHeight!) : Math.max(180, Math.round(available / 3));
     const minimum = state === 'open' && userHeight !== undefined ? 180 : 56;
     return { height: Math.max(56, Math.min(maximum, Math.max(minimum, desired))), state };
 }

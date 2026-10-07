@@ -45,7 +45,7 @@ test('canvas tab opens the sketch command and updates and removes its status lis
         const host = element();
         const disposable = tab.render(host, {});
         const [button, status] = host.children;
-        assert.equal(button.className, 'theia-button secondary');
+        assert.equal(button.className, 'akari-vibe-nav');
         assert.equal(status.textContent, '紙は開いていません');
         button.click();
         assert.deepEqual(commands, ['akari.sketch.open']);

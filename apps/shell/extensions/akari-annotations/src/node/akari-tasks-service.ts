@@ -37,13 +37,17 @@ export class AkariTasksServiceImpl implements AkariTasksService {
             if (!request.task || typeof request.task.body !== 'string' || !request.task.body.trim()) {
                 throw new Error('タスクの本文が必要です。');
             }
-            if (request.task.source != null && request.task.source !== 'annotation') throw new Error('自由な指示の出どころが不正です。');
-            if (request.task.ref != null || request.task.anchor != null) throw new Error('自由な指示に注釈の参照は付けられません。');
-            const source = 'annotation';
+            const source = request.task.source ?? 'annotation';
+            if (!['annotation', 'lint', 'export'].includes(source)) throw new Error('自由な指示の出どころが不正です。');
+            if (source === 'annotation' && (request.task.ref != null || request.task.anchor != null)) {
+                throw new Error('自由な指示に注釈の参照は付けられません。');
+            }
             const state = request.task.state ?? 'unsent';
             if (!['unsent', 'sent', 'review', 'done'].includes(state)) throw new Error('タスクの状態が不正です。');
             const task: TaskRecord = {
-                ...request.task, id: nextTaskId(doc.tasks), source, state, ref: null, anchor: null,
+                ...request.task, id: nextTaskId(doc.tasks), source, state,
+                ref: source === 'annotation' ? null : request.task.ref ?? null,
+                anchor: source === 'annotation' ? null : request.task.anchor ?? null,
                 createdAt: new Date().toISOString(),
                 title: request.task.title ?? Array.from(request.task.body).slice(0, 40).join(''),
                 priority: request.task.priority ?? 'normal'

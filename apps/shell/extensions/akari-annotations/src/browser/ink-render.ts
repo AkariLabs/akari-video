@@ -37,7 +37,14 @@ export function inkToSvg(doc: InkDocument, opts: InkRenderOptions): string {
         }
         if (selected.has(obj.id)) {
             const box = boundingBox(obj);
-            parts.push(`<rect data-ink-selection="${escapeXml(obj.id)}" x="${number(box.x * ratio)}" y="${number(box.y)}" width="${number(box.w * ratio)}" height="${number(box.h)}" fill="none" stroke="var(--akari-accent)" stroke-width="0.002" stroke-dasharray="0.008 0.004" pointer-events="none"/>`);
+            const pad = 0.008;
+            const x = Math.max(0, box.x * ratio - pad); const y = Math.max(0, box.y - pad);
+            const w = Math.min(ratio - x, box.w * ratio + pad * 2);
+            const h = Math.min(1 - y, box.h + pad * 2);
+            parts.push(`<rect data-ink-selection="${escapeXml(obj.id)}" x="${number(x)}" y="${number(y)}" width="${number(w)}" height="${number(h)}" rx="0.004" fill="none" stroke="var(--akari-accent)" stroke-opacity="0.55" stroke-width="0.002" pointer-events="none"/>`);
+            for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
+                parts.push(`<circle cx="${number(cx)}" cy="${number(cy)}" r="0.004" fill="var(--akari-accent)" pointer-events="none"/>`);
+            }
         }
     }
     parts.push('</svg>');

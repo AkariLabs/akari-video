@@ -3,6 +3,8 @@ import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-contex
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
+import { assertPreviewElementAddress } from '../common/preview-element-address';
+import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
 import { previewLiveValues } from '../common/preview-live-values';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { canvasDropTargets } from '../common/canvas-drop-target';
@@ -846,7 +848,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.timelineOverlaySelections.set(key, detail.overlayId);
             const widget = this.openOutputPreviews.get(key);
             if (widget?.isAttached) {
-                widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: detail.overlayId });
+                widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: detail.overlayId,
+                    fromTimeline: true });
             }
         };
         this.lifecycleDisposables.push(listen(window, TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected));
@@ -5268,6 +5271,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
             const overlayHtml = new Map<string, string>();
             const overlayTrackIds = new Map<string, string>();
+            const overlayElementSources = new Map<string, { elements?: Record<string, { style: Record<string, string> }>; plain: boolean }>();
             const seenOverlayUris = new Set<string>();
             const registerOverlayUri = (uri: URI): void => {
                 const uriKey = uri.toString();
@@ -5322,6 +5326,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 for (const child of item.children) pending.push(loadOverlayTree(child, trackId));
                 await Promise.all(pending);
+                if (item.source.kind === 'html') {
+                    const html = overlayHtml.get(item.source.html) ?? item.source.html;
+                    overlayElementSources.set(item.id, { elements: item.source.elements,
+                        plain: isElementSelectionFileReference(item.source.html)
+                            && !item.source.part && scanHtmlParts(html).length === 0 });
+                }
             };
             await Promise.all(internal.tracks.flatMap(track => track.items.map(item => loadOverlayTree(item, track.id))));
             // BEGIN preview selection tree (overlays only, before flattening loses ancestry)
@@ -5409,6 +5419,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 overlays.push({
                     id: String(value?.id ?? ''),
+                    ...(overlayElementSources.get(String(value?.id ?? ''))?.plain
+                        ? { elementSelection: true,
+                            elements: overlayElementSources.get(String(value?.id ?? ''))?.elements ?? {} } : {}),
                     sourcePath: typeof value?.html === 'string' && !value.html.trimStart().startsWith('<') ? value.html : undefined,
                     html: resolvedOverlayHtml[index],
                     start: this.finiteNumber(value?.start, 0),
@@ -6599,6 +6612,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');
             }
+            if (request.patch.element) assertNoElementWriteConflict(request.patch);
             if (request.patch.duplicate) {
                 if (!request.patch.transform) throw new Error('複製を書き込めません');
                 const handled = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
@@ -6626,6 +6640,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 patch: request.patch,
                 playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
             };
+            if (request.patch.element) {
+                const edit = JSON.parse(originalText) as EditV2;
+                const find = (items: any[]): any => {
+                    for (const item of items) {
+                        if (item.id === request.overlayId) return item;
+                        const nested = find(item.items ?? []);
+                        if (nested) return nested;
+                    }
+                    return undefined;
+                };
+                const item = edit.tracks.reduce<any[]>((items, track) =>
+                    items.concat('items' in track ? track.items : []), [])
+                    .map(candidate => find([candidate])).find(Boolean);
+                if (!item || item.source.kind !== 'html' || item.source.part) {
+                    throw new Error('要素の書き戻し対象ではありません');
+                }
+                const sourceUri = await this.resolveEditAssetUri(item.source.path, editUri);
+                const html = await this.readText(sourceUri);
+                if (scanHtmlParts(html).length) throw new Error('袋の中の要素は移動できません');
+                assertPreviewElementAddress(html, request.patch.element.ref, request.patch.element.tag);
+            }
             const resolved = resolvePreviewItemWrite(originalText, write);
             let candidateText = resolved.candidateText;
             // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
@@ -6690,7 +6725,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
-                if ((request.patch.transform || request.patch.xyKeyframes) && request.patch.html === undefined) {
+                if ((request.patch.transform || request.patch.xyKeyframes || request.patch.element) && request.patch.html === undefined) {
                     await this.persistPreviewTransform(editUri, candidateText, write);
                 } else {
                     if (materializedDir) editTextToRestore = originalText;

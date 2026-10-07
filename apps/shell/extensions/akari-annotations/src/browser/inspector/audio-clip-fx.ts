@@ -11,12 +11,18 @@ export type AudioClipFxWriteRequest = Extract<InspectorWriteRequest, { kind: 'au
 export type AudioClipFxField = AudioClipFxWriteRequest['field'];
 export type AudioClipFxRow = Exclude<AudioClipFxField, 'denoise'> | 'denoise-method' | 'denoise-strength';
 
+export const AUDIO_DENOISE_METHOD_OPTIONS = [
+    { label: 'オフ', method: null, legacyLabel: 'オフ' },
+    { label: 'NLM（声を保つ・おすすめ）', method: 'nlm', legacyLabel: 'NLM' },
+    { label: 'FFT（軽い・速い）', method: 'fft', legacyLabel: 'FFT' }
+] as const;
+
 export const AUDIO_CLIP_FX_RANGES = {
     speed: { min: 0.25, max: 4, exclusiveMin: true, default: 1 },
     pitch_semitones: { min: -24, max: 24, default: 0 },
     formant: { values: ['preserve', 'shift'], default: 'preserve' },
     denoise: { methods: ['fft', 'nlm'], default: null },
-    strength: { min: 0, max: 1, default: 0.5 },
+    strength: { min: 0, max: 1, default: 0.75 },
     lowcut_hz: { min: 0, max: 400, default: 0 }
 } as const;
 
@@ -80,15 +86,16 @@ export function createAudioClipFxWriteRequest(
     let value: AudioClipFxWriteRequest['value'];
     if (row === 'denoise-method') {
         field = 'denoise';
-        const method = input === 'FFT' ? 'fft' : input === 'NLM' ? 'nlm' : input;
-        value = method === null || method === 'オフ' || method === 'off' ? null : {
+        const option = AUDIO_DENOISE_METHOD_OPTIONS.find(candidate => input === candidate.label || input === candidate.legacyLabel);
+        const method = option ? option.method : input;
+        value = method === null || method === 'off' ? null : {
             method: method as 'fft' | 'nlm',
             strength: snapshot.denoise?.strength ?? AUDIO_CLIP_FX_RANGES.strength.default
         };
     } else if (row === 'denoise-strength') {
         field = 'denoise';
         value = {
-            method: snapshot.denoise?.method ?? 'fft',
+            method: snapshot.denoise?.method ?? 'nlm',
             strength: input === null ? AUDIO_CLIP_FX_RANGES.strength.default : Number(input)
         };
     } else {

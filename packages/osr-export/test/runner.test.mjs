@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -9,6 +9,7 @@ import test from "node:test";
 
 import {
   buildElectronArguments,
+  appendExportDisabledFeatures,
   desktopCandidates,
   describeElectronExit,
   ELECTRON_CHILD_ENV_BLOCKLIST,
@@ -16,6 +17,7 @@ import {
   isDevRepositoryLayout,
   launchElectronExport,
   resolveElectronLauncher,
+  resolveExitGraceMs,
 } from "../src/runner.mjs";
 
 function spawnMock({ code = 0, signal = null, stdout = [], stderr = [], beforeClose, calls } = {}) {
@@ -49,6 +51,32 @@ function exportOptions(out) {
     height: 1080,
     duration: 1,
     frames: 30,
+  };
+}
+
+function lingeringSpawn({ chunks = [], chunkGapMs = 0, beforeOutput, closeAfterMs = null, closeCode = 0, killError = null, state }) {
+  return (_command, args) => {
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    state.args = args;
+    child.kill = (signal) => {
+      state.kills.push(signal);
+      if (killError) throw killError;
+      child.emit("close", null, signal ?? "SIGTERM");
+      return true;
+    };
+    setImmediate(async () => {
+      try {
+        await beforeOutput?.(args);
+        for (const [index, chunk] of chunks.entries()) {
+          child.stdout.write(chunk);
+          if (index < chunks.length - 1 && chunkGapMs > 0) await new Promise((resolve) => setTimeout(resolve, chunkGapMs));
+        }
+        if (closeAfterMs !== null) setTimeout(() => child.emit("close", closeCode, null), closeAfterMs);
+      } catch (error) { child.emit("error", error); }
+    });
+    return child;
   };
 }
 
@@ -428,6 +456,191 @@ test("exit 1 は Electron の終了状態を報告する", async () => {
   }
 });
 
+test("DIPS は親の起動引数と両ランタイムの ready 前のスイッチに入る", async () => {
+  const args = buildElectronArguments({ tier: 2 }, exportOptions("/out.mp4"));
+  assert.ok(args.includes("--disable-features=DIPS"));
+  assert.equal(args[1], "--force-device-scale-factor=1");
+  const switches = new Map([["disable-features", "ExistingFeature,DIPS"], ["enable-features", "CanvasDrawElement"]]);
+  appendExportDisabledFeatures({
+    getSwitchValue: (name) => switches.get(name) ?? "",
+    appendSwitch: (name, value) => switches.set(name, value),
+  });
+  assert.equal(switches.get("disable-features"), "ExistingFeature,DIPS");
+  assert.equal(switches.get("enable-features"), "CanvasDrawElement");
+  for (const [packageName, count] of [["osr-export", 2], ["gpu-export", 1]]) {
+    const source = await readFile(join(import.meta.dirname, "..", "..", packageName, "src", "electron-main.mjs"), "utf8");
+    assert.equal(source.match(/appendExportDisabledFeatures\(app\.commandLine\)/g)?.length, count);
+    assert.match(source, /process\.stdout\.write\(`PROGRESS exit code=\$\{code\}\\n`\)/u);
+    if (packageName === "gpu-export") assert.match(source, /\["enable-features", "CanvasDrawElement"\]/u);
+  }
+});
+
+test("完了報告後に子が残れば SIGKILL し、報告 code 0 と出力で成功する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    const warnings = [];
+    const stdout = [];
+    const result = await launchElectronExport({ tier: 2, executable: "/electron" }, {
+      ...exportOptions(out), onStderr: (text) => warnings.push(text), onStdout: (text) => stdout.push(text),
+    }, {
+      platform: "linux", env: {}, exitGraceMs: 20,
+      spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=0\n"], beforeOutput: () => writeFile(out, "video"), state }),
+    });
+    assert.equal(result.launcher.tier, 2);
+    assert.deepEqual(state.kills, ["SIGKILL"]);
+    assert.deepEqual(stdout, ["PROGRESS exit code=0\n"]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /^osr-export warning: 書き出しは完了しましたが、Electron が 0\.02 秒/u);
+    assert.equal(warnings[0].split("\n").length, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("完了報告 code 1 の子が残れば停止し、既存形式の失敗を返す", async () => {
+  const state = { kills: [] };
+  const warnings = [];
+  await assert.rejects(launchElectronExport({ tier: 2, executable: "/electron" }, {
+    ...exportOptions("/unused.mp4"), onStderr: (text) => warnings.push(text),
+  }, {
+    platform: "linux", env: {}, exitGraceMs: 20,
+    spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=1\n"], state }),
+  }), /OSR Electron が終了しました（終了コード: 1/u);
+  assert.deepEqual(state.kills, ["SIGKILL"]);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /^osr-export warning: 書き出しは失敗を報告しましたが（終了コード 1）、Electron が 0\.02 秒たっても終了しないため停止しました\n$/u);
+});
+
+test("停止要求が例外を投げても、報告 code 0 と出力で成功する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    const warnings = [];
+    await launchElectronExport({ tier: 2, executable: "/electron" }, {
+      ...exportOptions(out), onStderr: (text) => warnings.push(text),
+    }, {
+      platform: "linux", env: {}, exitGraceMs: 20,
+      spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=0\n"], beforeOutput: () => writeFile(out, "video"),
+        killError: new Error("kill failed"), state }),
+    });
+    assert.deepEqual(state.kills, ["SIGKILL"]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /書き出しは完了しましたが/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("完了報告後に猶予内で close すれば終了コードをそのまま使い、kill しない", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    await launchElectronExport({ tier: 2, executable: "/electron" }, exportOptions(out), {
+      platform: "linux", env: {}, exitGraceMs: 40,
+      spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=0\n"], beforeOutput: () => writeFile(out, "video"), closeAfterMs: 5, state }),
+    });
+    assert.deepEqual(state.kills, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("完了報告なしの子は猶予より長く待っても止めず、close で成功する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    await launchElectronExport({ tier: 2, executable: "/electron" }, exportOptions(out), {
+      platform: "linux", env: {}, exitGraceMs: 10,
+      spawnImpl: lingeringSpawn({ beforeOutput: () => writeFile(out, "video"), closeAfterMs: 30, state }),
+    });
+    assert.deepEqual(state.kills, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("分割された完了行は行末で一度だけ認識する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    const warnings = [];
+    await launchElectronExport({ tier: 2, executable: "/electron" }, {
+      ...exportOptions(out), onStderr: (text) => warnings.push(text),
+    }, {
+      platform: "linux", env: {}, exitGraceMs: 20,
+      spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=", "0\nPROGRESS exit code=0\n"], chunkGapMs: 30,
+        beforeOutput: () => writeFile(out, "video"), state }),
+    });
+    assert.deepEqual(state.kills, ["SIGKILL"]);
+    assert.equal(warnings.length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("終了コードの桁が分割されても改行前の code 1 を誤検出しない", async () => {
+  const state = { kills: [] };
+  const warnings = [];
+  await assert.rejects(launchElectronExport({ tier: 2, executable: "/electron" }, {
+    ...exportOptions("/unused.mp4"), onStderr: (text) => warnings.push(text),
+  }, {
+    platform: "linux", env: {}, exitGraceMs: 20,
+    spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=1", "0\n"], chunkGapMs: 30, state }),
+  }), /終了コード: 10/u);
+  assert.deepEqual(state.kills, ["SIGKILL"]);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /終了コード 10/u);
+});
+
+test("猶予は正の整数だけを受け付け、不正値は 10 秒に戻す", () => {
+  for (const value of [undefined, "", "-1", "abc", "0", "1.5", "9007199254740992"]) {
+    assert.equal(resolveExitGraceMs(value), 10_000);
+  }
+  assert.equal(resolveExitGraceMs("1500"), 1_500);
+  assert.equal(resolveExitGraceMs(25), 25);
+});
+
+test("強制終了でも一時 userData を削除し、注入 stderr へ警告を出す", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    const warnings = [];
+    const otherWarnings = [];
+    let userData;
+    await launchElectronExport({ tier: 2, executable: "/electron" }, {
+      ...exportOptions(out), onStderr: (text) => otherWarnings.push(text),
+    }, {
+      platform: "linux", env: { AKARI_EXPORT_EXIT_GRACE_MS: "20" },
+      temporaryDirectory: () => root,
+      stderr: { write: (text) => warnings.push(text) },
+      spawnImpl: lingeringSpawn({
+        chunks: ["PROGRESS exit code=0\n"], state,
+        beforeOutput: async (args) => {
+          userData = args.find((arg) => arg.startsWith("--user-data-dir=")).slice("--user-data-dir=".length);
+          assert.equal(existsSync(userData), true);
+          await writeFile(join(userData, "lock"), "test");
+          await writeFile(out, "video");
+        },
+      }),
+    });
+    assert.deepEqual(state.kills, ["SIGKILL"]);
+    assert.equal(existsSync(userData), false);
+    assert.equal(warnings.length, 1);
+    assert.deepEqual(otherWarnings, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("Windows の猶予切れは child.kill() で停止する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const state = { kills: [] };
+    await launchElectronExport({ tier: 2, executable: "/electron" }, exportOptions(out), {
+      platform: "win32", env: {}, exitGraceMs: 20,
+      spawnImpl: lingeringSpawn({ chunks: ["PROGRESS exit code=0\n"], beforeOutput: () => writeFile(out, "video"), state }),
+      stderr: { write: () => {} },
+    });
+    assert.deepEqual(state.kills, [undefined]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("describeElectronExit は GPU の出口を正しく表示する", () => {
   assert.match(describeElectronExit({ exit: "gpu", code: 2, signal: null, platform: "linux" }), /^GPU Electron が終了しました（終了コード: 2/u);
 });
@@ -661,6 +874,28 @@ test("win32: 子が exit ≠ 0 でも spawn が error を emit しても restore
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("win32: 完了報告後の強制終了でも GPU 設定を復元する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const mocks = gpuPreferenceMocks();
+    const state = { kills: [] };
+    const result = await launchElectronExport({ tier: 2, executable: WINDOWS_ELECTRON }, {
+      ...exportOptions(out), exit: "gpu", gpuPreference: "auto",
+    }, {
+      ...mocks, platform: "win32", env: { AKARI_HOME: root }, exitGraceMs: 20,
+      spawnImpl: lingeringSpawn({
+        chunks: ["PROGRESS exit code=0\n"], state,
+        beforeOutput: async () => { mocks.log.push(["spawn"]); await writeFile(out, "video"); },
+      }),
+    });
+    assert.deepEqual(state.kills, [undefined]);
+    assert.equal(result.gpuPreference.restored, true);
+    assert.deepEqual(mocks.log.map(([action]) => action), ["read", "sidecar", "write", "spawn", "remove"]);
+    assert.deepEqual(mocks.values, {});
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("win32: 利用者の GpuPreference=1; は auto で尊重し、force は復元まで行う（b・c）", async () => {

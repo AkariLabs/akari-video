@@ -10076,6 +10076,9 @@ export function previewBootstrapScript(): string {
             let applyingOverlaySelection;
             const applyRequestedOverlaySelection = () => {
                 if (requestedOverlayId === undefined) return;
+                const interaction = window.akari.interaction;
+                if (interaction?.elementFocus?.overlayId === requestedOverlayId
+                    && interaction.selectedId === requestedOverlayId) return;
                 if (window.akari.interaction?.hasSelectionTree) {
                     window.akari.interaction.selectFromTimeline(requestedOverlayId);
                     return;
@@ -10786,6 +10789,10 @@ export function previewBootstrapScript(): string {
                 if (index >= 0) current.splice(index, 1);
                 else current.push(hit);
                 applyMixedSelection(current);
+                if (!event.shiftKey && (event.metaKey || event.ctrlKey)
+                    && current.length === 1 && current[0].kind === 'overlay') {
+                    window.akari.interaction?.focusElementAtPoint?.(current[0].id, event.clientX, event.clientY);
+                } else window.akari.interaction?.clearElementFocus?.();
                 window.akari.reportMixedSelection?.(current);
             }, true);
             let suppressMixedClick = false;
@@ -11452,6 +11459,7 @@ export function previewBootstrapScript(): string {
                 }
                 if (message && message.type === 'akari-preview-select-overlay'
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
+                    if (message.fromTimeline === true) window.akari.interaction?.clearElementFocus?.();
                     requestedOverlayId = message.overlayId;
                     const visible = overlaySelectionInRange(requestedOverlayId, outputTime);
                     if (requestedOverlayId && !visible) window.akari.interaction?.clearSelection?.();
@@ -11717,7 +11725,10 @@ export function previewBootstrapScript(): string {
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
                         if (typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
-                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId, selectedOverlayIds);
+                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId,
+                            interaction.scopeId, selectedOverlayIds, interaction.elementFocus ?? null);
+                        else if (interaction?.elementFocus) window.akari.reportOverlaySelection(selectedOverlayId,
+                            undefined, undefined, interaction.elementFocus);
                         else window.akari.reportOverlaySelection(selectedOverlayId);
                     }
                 }

@@ -38,6 +38,8 @@ export interface OverlayTransform {
 
 export interface EditSummaryOverlay {
     id: string;
+    elementSelection?: boolean;
+    elements?: Record<string, { style: Record<string, string> }>;
     sourcePath?: string;
     html: string;
     start: number;
@@ -520,6 +522,7 @@ export interface OverlayWriteRequest {
         // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
         params?: Record<string, string>;
         xyKeyframes?: Array<{ t: number; transform: { x: number; y: number } }>;
+        element?: { ref: string; tag: string; style: Record<string, string | null> };
     };
 }
 

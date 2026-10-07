@@ -1,13 +1,17 @@
 import type { RoughCanvasSubject } from '../../common/rough-canvas-protocol';
 
 export function popupBounds(viewportWidth: number, viewportHeight: number, previewWidth: number | undefined,
-    aspect: { w: number; h: number }, stored?: { left: number; top: number; width: number }) {
+    aspect: { w: number; h: number }, stored?: { left: number; top: number; width: number },
+    preview?: { left: number; top: number; width: number; height: number }) {
     const available = Math.max(0, viewportWidth - 16);
-    const preferred = previewWidth && previewWidth > 0 ? previewWidth * 0.45 : viewportWidth * 0.4;
-    const width = Math.min(available, Math.max(320, stored?.width ?? preferred));
-    const height = Math.min(viewportHeight, width * aspect.h / aspect.w + 176);
-    const left = Math.max(0, Math.min(viewportWidth - width, stored?.left ?? viewportWidth - width - 24));
-    const top = Math.max(0, Math.min(viewportHeight - height, stored?.top ?? 72));
+    const preferred = previewWidth && previewWidth > 0 ? previewWidth * 0.45 : viewportWidth * 0.45;
+    // Open at the comfortable width; dragging the resize corner may reach the 480 px floor.
+    const width = Math.min(available, Math.max(480, stored?.width ?? Math.max(600, preferred)));
+    const height = Math.min(viewportHeight - 16, (width - 32) * aspect.h / aspect.w + 120);
+    const left = Math.max(0, Math.min(viewportWidth - width,
+        stored?.left ?? (preview ? preview.left + (preview.width - width) / 2 : (viewportWidth - width) / 2)));
+    const top = Math.max(0, Math.min(viewportHeight - height,
+        stored?.top ?? (preview ? preview.top + (preview.height - height) / 2 : (viewportHeight - height) / 2)));
     return { left, top, width, height };
 }
 

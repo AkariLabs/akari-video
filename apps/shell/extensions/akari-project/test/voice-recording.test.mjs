@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-    voiceRecordingFileName, formatRecordingClock, canonicalEditUri, preferWorkspaceEditUri,
+    VOICE_RECORDING_DENOISE, voiceRecordingFileName, formatRecordingClock, canonicalEditUri, preferWorkspaceEditUri,
     mixToMono, rmsLevel, levelToBars, resampleToPcm16
 } from '../lib/common/voice-recording.js';
+
+test('recorded voice uses the measured non-muffling denoise preset', () => {
+    assert.deepEqual(VOICE_RECORDING_DENOISE, { method: 'nlm', strength: 0.75 });
+});
 
 test('local recording name and clock', () => {
     const when = new Date(2026, 9, 7, 15, 3, 9);

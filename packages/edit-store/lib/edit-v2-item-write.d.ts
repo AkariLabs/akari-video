@@ -33,6 +33,11 @@ export type PreviewItemWriteCommand = ({
                 y: number;
             };
         }[];
+        element?: {
+            ref: string;
+            tag: string;
+            style: Record<string, string | null>;
+        };
     };
 } | {
     kind: 'layer';

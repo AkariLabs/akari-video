@@ -14,6 +14,7 @@ import { PluginServer } from '@theia/plugin-ext/lib/common/plugin-protocol';
 import { OS } from '@theia/core/lib/common/os';
 import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/common/export-encoder-choices';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { StopReason } from '@theia/core/lib/common/frontend-application-state';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
 import { findSettingsSectionBody, mountSettingsSectionBody } from '../common/settings-section-body';
@@ -522,11 +523,36 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     options: [{ value: '1', label: '1 秒' }, { value: '3', label: '3 秒' }, { value: '10', label: '10 秒' }],
                     value: String(this.preferences.get(STATUS_BAR_KEYS.intervalSec, 3)), onChange: value => this.savePreference(STATUS_BAR_KEYS.intervalSec, Number(value)) }))));
         } else if (id === 'developer') {
+            const vibeLabel = 'AKARI バイブ（開発中）を表示';
+            let pendingVibeValue = this.preferences.get<boolean>(AKARI_VIBE_PREVIEW_ENABLED, false);
+            const applyVibe = action('いま反映する', async () => {
+                await this.preferenceWrites;
+                if (this.preferences.get<boolean>(AKARI_VIBE_PREVIEW_ENABLED, false) !== pendingVibeValue) return;
+                if (await this.windows.isSafeToShutDown(StopReason.Reload)) this.windows.reload();
+            }, { small: true });
+            const applyRow = element('div');
+            applyRow.className = 'akari-set-row';
+            applyRow.style.display = 'none';
+            applyVibe.style.justifySelf = 'start';
+            applyRow.append(applyVibe);
+            const vibe = settingRow(vibeLabel,
+                '切り替えたあと「いま反映する」を押すと、その場で切り替わります',
+                switchControl({ label: vibeLabel, checked: pendingVibeValue, onChange: checked => {
+                    pendingVibeValue = checked;
+                    try { window.localStorage.setItem(AKARI_VIBE_PREVIEW_ENABLED, checked ? '1' : '0'); } catch { /* 設定の保存は続ける。 */ }
+                    this.savePreference(AKARI_VIBE_PREVIEW_ENABLED, checked);
+                    void this.preferenceWrites.then(() => {
+                        if (pendingVibeValue !== checked || this.preferences.get<boolean>(AKARI_VIBE_PREVIEW_ENABLED, false) === checked) return;
+                        try { window.localStorage.setItem(AKARI_VIBE_PREVIEW_ENABLED,
+                            this.preferences.get<boolean>(AKARI_VIBE_PREVIEW_ENABLED, false) ? '1' : '0'); } catch { /* 保存できない環境では設定だけを使う。 */ }
+                        applyRow.style.display = 'none';
+                    });
+                    applyRow.style.display = '';
+                } }));
             section.append(groupCard(undefined,
                 this.preferenceSwitch(AKARI_DEVELOPER_MODE, 'Developer mode', false,
                     'HTML をコードとして開き、フル設定を使えるようにします'),
-                this.preferenceSwitch(AKARI_VIBE_PREVIEW_ENABLED, 'AKARI バイブ（開発中）を表示', false,
-                    '右下の区画・聞き取りの設定・紙・タスクボードなど、作りかけの機能を出します。切り替えはアプリを開き直すと反映されます')));
+                vibe, applyRow));
         } else if (id === 'export') {
             const platform = OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux';
             const directory = textField({ label: '書き出し先フォルダの URI', placeholder: '（プロジェクトの exports/）', wide: true });

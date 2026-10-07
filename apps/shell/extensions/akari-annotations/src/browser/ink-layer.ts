@@ -1,6 +1,6 @@
 import {
     addObject, deleteObject, decimatePoints, duplicateObject, hitTest, INK_PALETTE, InkAspect, InkDocument,
-    InkObject, InkPoint, moveObject, nextId, setColor as recolor, setText as rewriteText
+    InkObject, InkPoint, moveObject, nextId, setColor as recolor, setText as rewriteText, strokeWidthForPaperHeight
 } from '../common/ink-model';
 import { inkToSvg } from './ink-render';
 
@@ -32,6 +32,7 @@ export class InkLayer {
     private future: InkDocument[] = [];
     private readonly changes = new Set<DocumentListener>();
     private readonly selections = new Set<SelectionListener>();
+    private readonly toolChanges = new Set<() => void>();
 
     constructor({ host, aspect, now = () => 0, readOnly = false }: InkLayerOptions) {
         this.host = host; this.aspect = { ...aspect }; this.now = now; this.readOnly = readOnly;
@@ -60,6 +61,7 @@ export class InkLayer {
     setTool(tool: InkTool): void {
         if (this.readOnly || !(['select', 'pen', 'arrow', 'text'] as string[]).includes(tool)) return;
         this.finishText(); this.tool = tool; this.render();
+        for (const listener of this.toolChanges) listener();
     }
     getColor(): string { return this.color; }
     setColor(color: string): void {
@@ -71,8 +73,14 @@ export class InkLayer {
         if (!this.readOnly && this.selectedId) this.commit(rewriteText(this.doc, this.selectedId, text));
     }
     getSelectedId(): string | null { return this.selectedId; }
+    clearSelection(): boolean {
+        if (!this.selectedId) return false;
+        this.select(null);
+        return true;
+    }
     onChange(listener: DocumentListener): () => void { this.changes.add(listener); return () => this.changes.delete(listener); }
     onSelectionChange(listener: SelectionListener): () => void { this.selections.add(listener); return () => this.selections.delete(listener); }
+    onToolChange(listener: () => void): () => void { this.toolChanges.add(listener); return () => this.toolChanges.delete(listener); }
     deleteSelected(): void {
         if (this.readOnly || !this.selectedId) return;
         this.commit(deleteObject(this.doc, this.selectedId)); this.select(null);
@@ -104,6 +112,7 @@ export class InkLayer {
         if (this.oldTabindex === null) this.host.removeAttribute('tabindex'); else this.host.setAttribute('tabindex', this.oldTabindex);
         this.host.style.position = this.oldPosition;
         this.changes.clear(); this.selections.clear();
+        this.toolChanges.clear();
     }
 
     private select(id: string | null): void {
@@ -118,13 +127,14 @@ export class InkLayer {
         this.future = []; this.doc = next; this.render(); this.emitChange();
     }
     private render(): void {
+        const strokeWidth = strokeWidthForPaperHeight(this.surface.clientHeight);
         const objects = [...this.doc.objects];
         if (this.gesture && this.tool === 'pen' && this.gesture.points.length >= 2) {
             const points = decimatePoints(this.gesture.points);
-            objects.push({ id: '__draft__', type: 'pen', color: this.color, x: points[0][0], y: points[0][1], points, strokeWidth: 0.008 });
+            objects.push({ id: '__draft__', type: 'pen', color: this.color, x: points[0][0], y: points[0][1], points, strokeWidth });
         } else if (this.gesture && this.tool === 'arrow' && this.gesture.points.length > 1) {
             const from = this.gesture.start; const to = this.gesture.points[this.gesture.points.length - 1];
-            objects.push({ id: '__draft__', type: 'arrow', color: this.color, x: from[0], y: from[1], from, to, strokeWidth: 0.008 });
+            objects.push({ id: '__draft__', type: 'arrow', color: this.color, x: from[0], y: from[1], from, to, strokeWidth });
         }
         this.surface.innerHTML = inkToSvg({ ...this.doc, objects }, { width: this.aspect.w, height: this.aspect.h, selectedIds: this.selectedId ? [this.selectedId] : [] });
         const svg = this.surface.querySelector('svg');
@@ -182,10 +192,12 @@ export class InkLayer {
             else this.render();
         } else if (this.tool === 'pen' && gesture.points.length >= 2) {
             const points = decimatePoints(gesture.points);
-            const obj: InkObject = { id: nextId(this.doc), type: 'pen', color: this.color, x: points[0][0], y: points[0][1], points, strokeWidth: 0.008, recT: [gesture.recT, this.now()] };
+            const obj: InkObject = { id: nextId(this.doc), type: 'pen', color: this.color, x: points[0][0], y: points[0][1], points,
+                strokeWidth: strokeWidthForPaperHeight(this.surface.clientHeight), recT: [gesture.recT, this.now()] };
             this.commit(addObject(this.doc, obj));
         } else if (this.tool === 'arrow' && gesture.moved) {
-            const obj: InkObject = { id: nextId(this.doc), type: 'arrow', color: this.color, x: gesture.start[0], y: gesture.start[1], from: gesture.start, to: end, strokeWidth: 0.008, recT: [gesture.recT, this.now()] };
+            const obj: InkObject = { id: nextId(this.doc), type: 'arrow', color: this.color, x: gesture.start[0], y: gesture.start[1],
+                from: gesture.start, to: end, strokeWidth: strokeWidthForPaperHeight(this.surface.clientHeight), recT: [gesture.recT, this.now()] };
             this.commit(addObject(this.doc, obj));
         } else this.render();
         event.preventDefault();
@@ -214,10 +226,14 @@ export class InkLayer {
             this.host.focus();
         };
         this.finishTextInput = finish;
+        let composing = false;
+        input.addEventListener('compositionstart', () => { composing = true; });
+        input.addEventListener('compositionend', () => { composing = false; });
         input.addEventListener('keydown', event => {
             event.stopPropagation();
-            if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); finish(true); }
-            if (event.key === 'Escape' && !event.isComposing) { event.preventDefault(); finish(false); }
+            if (composing || event.isComposing || event.keyCode === 229) return;
+            if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+            if (event.key === 'Escape') { event.preventDefault(); finish(false); }
         });
         input.addEventListener('blur', () => finish(true));
         input.focus();
@@ -237,7 +253,7 @@ export class InkLayer {
         else if (!mod && !event.altKey && key === 'a') this.setTool('arrow');
         else if (!mod && !event.altKey && key === 't') this.setTool('text');
         else if (key === 'delete' || key === 'backspace') this.deleteSelected();
-        else if (key === 'escape') { if (this.tool !== 'select') this.setTool('select'); else this.select(null); }
+        else if (key === 'escape') this.clearSelection();
         else handled = false;
         if (handled) { event.preventDefault(); event.stopPropagation(); }
     };

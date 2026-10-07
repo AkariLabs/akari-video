@@ -1,19 +1,33 @@
 import { buildCorrectedSegments, CorrectedApplied } from '../common/corrected-text-model';
 
+export function ensureCorrectedTextStyles(): void {
+    if (document.getElementById('akari-corrected-text-style')) return;
+    const style = document.createElement('style');
+    style.id = 'akari-corrected-text-style';
+    style.textContent = `
+.akari-corrected-word { text-decoration: underline dotted color-mix(in srgb, var(--akari-accent) 55%, transparent); text-underline-offset: 3px; }
+html[data-akari-corrections="false"] .akari-corrected-word { text-decoration: none; }
+.akari-corrected-actions { display: inline-flex; gap: 4px; margin-inline-start: 5px; }
+.akari-corrected-actions[hidden] { display: none; }
+`;
+    document.head.append(style);
+}
+
 export function renderCorrectedText(host: HTMLElement,
     utterance: { raw: string; text: string; applied: CorrectedApplied[] },
     actions: { onRevert(entryId: string): void; onOpen(entryId: string): void }): void {
+    ensureCorrectedTextStyles();
     host.replaceChildren();
     for (const segment of buildCorrectedSegments(utterance.text, utterance.applied)) {
         if (!segment.applied) { host.append(document.createTextNode(segment.text)); continue; }
         const item = segment.applied;
         const wrapper = document.createElement('span');
-        wrapper.style.textDecoration = 'underline dashed';
-        wrapper.style.textUnderlineOffset = '3px';
-        wrapper.title = `${item.from} → ${item.to}（${item.layer === 'builtin' ? '同梱' : '自分'}）`;
+        wrapper.className = 'akari-corrected-word';
+        wrapper.title = `聞こえたまま: ${item.from}`;
         wrapper.tabIndex = 0;
         wrapper.append(document.createTextNode(segment.text));
         const controls = document.createElement('span');
+        controls.className = 'akari-corrected-actions';
         controls.hidden = true;
         const revert = document.createElement('button');
         revert.className = 'theia-button secondary';

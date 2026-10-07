@@ -51,13 +51,14 @@ interface EarServiceOptions {
 
 function upwardFile(relativePath: string): string | undefined {
     let cursor = __dirname;
-    while (true) {
+    let previous: string | undefined;
+    while (cursor !== previous) {
         const candidate = join(cursor, relativePath);
         try { if (statSync(candidate).isFile()) return candidate; } catch { /* 探索を続ける */ }
-        const parent = dirname(cursor);
-        if (parent === cursor) return undefined;
-        cursor = parent;
+        previous = cursor;
+        cursor = dirname(cursor);
     }
+    return undefined;
 }
 
 function resourceFile(relativePath: string): string | undefined {

@@ -121,7 +121,7 @@ export function isOverlayWriteBatchRequest(message: any): message is OverlayWrit
         && Array.isArray(message.writes) && message.writes.length > 0
         && message.writes.every((write: any) => write && typeof write.overlayId === 'string'
             && write.overlayId.length > 0 && write.patch && typeof write.patch === 'object'
-            && !Array.isArray(write.patch)
+            && !Array.isArray(write.patch) && !('element' in write.patch)
             && (!('text' in write.patch) || typeof write.patch.text === 'string'));
 }
 
@@ -131,7 +131,12 @@ export function isOverlayWriteRequest(message: any): message is OverlayWriteRequ
         && typeof message.overlayId === 'string'
         && message.patch
         && typeof message.patch === 'object'
-        && (!('text' in message.patch) || typeof message.patch.text === 'string');
+        && (!('text' in message.patch) || typeof message.patch.text === 'string')
+        && (!('element' in message.patch) || (message.patch.element
+            && typeof message.patch.element.ref === 'string'
+            && typeof message.patch.element.tag === 'string'
+            && message.patch.element.style && typeof message.patch.element.style === 'object'
+            && !Array.isArray(message.patch.element.style)));
 }
 
 // CF-write: layerTransform の schema 定義（edit.schema.json #layerTransform — x/y/rotate は数値・

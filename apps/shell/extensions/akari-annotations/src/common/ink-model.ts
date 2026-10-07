@@ -1,6 +1,8 @@
 /** Ink colors are content colors chosen by the author, not theme colors. */
 export const INK_PALETTE = ['#f97316', '#2563eb', '#dc2626', '#16a34a', '#111827'] as const;
 export const INK_MAX_POINTS = 100;
+/** Store a normalized width that appears as a 2.4 px stroke at the drawing size. */
+export const strokeWidthForPaperHeight = (height: number): number => 2.4 / (Number.isFinite(height) && height > 0 ? height : 300);
 
 export type InkPoint = [number, number];
 export interface InkAspect { w: number; h: number }

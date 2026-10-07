@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import electron from "electron";
+import { appendExportDisabledFeatures } from "../../osr-export/src/runner.mjs";
 
 import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
 import { createMemorySampler, memoryHardStopError, MEMORY_HARD_STOP_MARKER, MEMORY_HARD_STOP_REASON, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
@@ -125,6 +126,7 @@ export async function runGpuExport(options) {
   app.commandLine.appendSwitch("disable-background-timer-throttling");
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  appendExportDisabledFeatures(app.commandLine);
   app.on("window-all-closed", () => {});
   const readyStarted = performance.now();
   const readyPromise = app.isReady() ? Promise.resolve() : app.whenReady();
@@ -705,7 +707,13 @@ async function runCli() {
   let code = 0;
   try { await runGpuExport(parseElectronArguments(process.argv.slice(2))); }
   catch (error) { code = 1; process.stderr.write(`${String(error?.stack ?? error)}\n`); }
-  finally { app.exit(code); }
+  finally {
+    // app.exit() に入ったあと Chromium の終了処理が待ち続けることがある。
+    // 親が書き出し結果を確定できるよう、その前に code を報告する。
+    // 親はこの行を受け取ってから終了の猶予を数える。
+    process.stdout.write(`PROGRESS exit code=${code}\n`);
+    app.exit(code);
+  }
 }
 
 const modulePath = realpathSync(fileURLToPath(import.meta.url));

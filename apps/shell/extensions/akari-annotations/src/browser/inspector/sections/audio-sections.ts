@@ -1,7 +1,7 @@
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult, TimelineAudioSelection, TimelineAudioMasterSnapshot } from '../../timeline-selection-model';
 import { AUDIO_MASTER_DEFAULT_LOUDNORM, AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP } from '../audio-master';
-import { createAudioClipFxWriteRequest, type AudioClipFxRow } from '../audio-clip-fx';
+import { AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS, createAudioClipFxWriteRequest, type AudioClipFxRow } from '../audio-clip-fx';
 import { composeInspectorSections } from '../section-model';
 import { type AudioInspectorSnapshot, type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, formatDecimal1, formatDecimal2, withDefaultNumber, withDefaultBoolean, orDash, formatAudioKindLabel } from './shared-helpers';
@@ -385,20 +385,20 @@ export function AUDIO_CLIP_FX_SECTIONS(
             }]
         });
     }
-    const denoiseLabel = snapshot.denoise?.method === 'fft' ? 'FFT'
-        : snapshot.denoise?.method === 'nlm' ? 'NLM' : 'オフ';
+    const denoiseLabel = AUDIO_DENOISE_METHOD_OPTIONS.find(option => option.method === (snapshot.denoise?.method ?? null))?.label
+        ?? AUDIO_DENOISE_METHOD_OPTIONS[0].label;
     sections.push({
         id: 'audio:enhancement', label: '音声強調',
         fields: [{
             name: 'audio-denoise-method', label: 'ノイズ除去',
             getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
-            inputKind: 'select', options: ['オフ', 'FFT', 'NLM'],
+            inputKind: 'select', options: AUDIO_DENOISE_METHOD_OPTIONS.map(option => option.label),
             reset: () => write('denoise-method', null),
             write: async (_rowSnapshot, value) => write('denoise-method', value)
         }, {
             name: 'audio-denoise-strength', label: '強さ', unit: '%',
-            getValue: () => String(Math.round((snapshot.denoise?.strength ?? 0.5) * 100)),
-            getEditValue: () => String(snapshot.denoise?.strength ?? 0.5),
+            getValue: () => String(Math.round((snapshot.denoise?.strength ?? AUDIO_CLIP_FX_RANGES.strength.default) * 100)),
+            getEditValue: () => String(snapshot.denoise?.strength ?? AUDIO_CLIP_FX_RANGES.strength.default),
             inputKind: 'scrub-number', min: 0, max: 1, scrubStep: 0.05,
             displayScale: 100, displayPrecision: 0,
             disabled: snapshot.denoise === undefined,

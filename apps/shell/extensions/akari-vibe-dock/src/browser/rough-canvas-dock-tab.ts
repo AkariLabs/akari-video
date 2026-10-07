@@ -9,17 +9,20 @@ interface CanvasState { open: boolean; count: number }
 export class RoughCanvasDockTab implements VibeDockTabContribution {
     readonly id = 'canvas';
     readonly label = 'キャンバス';
-    readonly icon = '✎';
+    readonly icon = 'canvas';
     readonly order = 40;
     @inject(CommandService) protected readonly commands!: CommandService;
 
     render(host: HTMLElement, _ctx: VibeDockContext): Disposable {
         host.replaceChildren();
         const button = document.createElement('button');
-        button.className = 'theia-button secondary';
-        button.textContent = '開く';
+        button.className = 'akari-vibe-nav';
+        button.textContent = 'キャンバスのタブを開く ›';
+        button.title = 'キャンバスのタブを開く';
+        button.setAttribute('aria-label', 'キャンバスのタブを開く');
         button.addEventListener('click', () => void this.commands.executeCommand('akari.sketch.open'));
         const status = document.createElement('div');
+        status.className = 'akari-vibe-nav';
         status.setAttribute('role', 'status');
         status.textContent = '紙は開いていません';
         const onState = (event: Event): void => {
