@@ -3,6 +3,7 @@ import { Command, CommandContribution, CommandRegistry, MessageService } from '@
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { PARTNER_CATALOG } from './partner-catalog';
+import { resolveDeliveryTarget } from '../common/delivery-target';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
@@ -49,7 +50,8 @@ export const AkariPartnerCommands = {
     INJECT_PROMPT: {
         id: 'akari.partner.injectPrompt',
         label: '文脈パケットをパートナーへ送る'
-    } as Command
+    } as Command,
+    DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command
 };
 
 @injectable()
@@ -104,6 +106,16 @@ export class AkariPartnerCommandContribution implements CommandContribution {
                     this.messages.warn(PARTNER_NOT_CONNECTED_MESSAGE);
                 }
                 return sent;
+            }
+        });
+        registry.registerCommand(AkariPartnerCommands.DELIVERY_TARGET, {
+            execute: async () => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+                return resolveDeliveryTarget({
+                    cliAgent: widget.deliveryChannelAgent,
+                    visibleWidgetIds: this.shell.widgets.filter(candidate => candidate.isAttached).map(candidate => candidate.id),
+                    catalog: PARTNER_CATALOG
+                });
             }
         });
     }

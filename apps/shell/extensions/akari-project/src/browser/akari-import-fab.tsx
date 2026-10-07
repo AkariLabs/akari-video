@@ -44,6 +44,9 @@ const css = `
 `;
 
 export function AkariImportFab(props: Props): React.ReactElement {
+    // akari-surfaces の設定キーの文字列ミラー。
+    let vibePreviewEnabled = false;
+    try { vibePreviewEnabled = window.localStorage.getItem('akari.vibePreview.enabled') === '1'; } catch { /* off */ }
     const [open, setOpen] = React.useState(false);
     const container = React.useRef<HTMLDivElement>(null);
     const button = React.useRef<HTMLButtonElement>(null);
@@ -75,6 +78,10 @@ export function AkariImportFab(props: Props): React.ReactElement {
             props.messages.info(item.info);
             return;
         }
+        if (item.id === 'internet') {
+            window.dispatchEvent(new CustomEvent('akari.browser.requestOpen'));
+            return;
+        }
         if (!props.projectOpen) {
             props.messages.warn('先にプロジェクトを開いてください。');
             return;
@@ -95,7 +102,7 @@ export function AkariImportFab(props: Props): React.ReactElement {
         <style>{css}</style>
         {open && <div data-akari-import-popup role='dialog' aria-label='いま取り込む'>
             <h3>いま取り込む</h3>
-            {importFabItems().map(item => <button key={item.id} type='button' data-soon={item.soon ? 'true' : undefined}
+            {importFabItems(vibePreviewEnabled).map(item => <button key={item.id} type='button' data-soon={item.soon ? 'true' : undefined}
                 onClick={() => void choose(item)}>
                 <span className={`codicon ${item.icon}`} aria-hidden='true' />
                 <span className='akari-import-fab-label'>{item.label}</span>

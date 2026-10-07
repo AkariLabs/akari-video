@@ -27,13 +27,14 @@ export function LibraryHoverPreview(props: { root: HTMLElement; enabled: boolean
         close();
         if (!props.enabled || props.blocked) return close;
         const cardFor = (target: EventTarget | null): HTMLElement | null =>
-            target instanceof Element ? target.closest<HTMLElement>('[data-akari-hover-preview-src]') : null;
+            target instanceof Element ? target.closest<HTMLElement>('[data-akari-hover-preview-src], [data-akari-hover-preview-kind="font"]') : null;
         const openLater = (card: HTMLElement | null) => {
             close();
             if (!card || dragging.current || !root.contains(card)
                 || card.querySelector('[data-akari-library-dots][aria-expanded="true"]')) return;
             const spec = libraryHoverPreview(card.dataset.akariHoverPreviewKind ?? '',
-                card.dataset.akariHoverPreviewSrc, card.dataset.akariHoverPreviewStrip);
+                card.dataset.akariHoverPreviewSrc, card.dataset.akariHoverPreviewStrip,
+                card.dataset.akariHoverPreviewSource);
             if (!spec) return;
             timer.current = setTimeout(() => {
                 timer.current = undefined;
@@ -91,13 +92,21 @@ export function LibraryHoverPreview(props: { root: HTMLElement; enabled: boolean
             aria-label={`${active.label} の見本`}
             style={{ position: 'fixed', left: position.left, top: position.top, width: active.spec.width,
                 height: active.spec.height, zIndex: 10000, pointerEvents: 'none', overflow: 'hidden',
-                borderRadius: '8px', backgroundColor: '#151515', border: '1px solid var(--akari-border, #777)',
+                borderRadius: '8px', backgroundColor: 'var(--akari-card, var(--theia-editor-background))',
+                color: 'var(--akari-ink, var(--theia-foreground))', border: '1px solid var(--akari-border, #777)',
                 boxShadow: '0 10px 30px #0008',
                 ...(active.spec.kind === 'transition' ? { backgroundImage: `url("${active.spec.src}")` } : {}) }}>
-            <img src={active.spec.src} alt='' loading='lazy' decoding='async' draggable={false}
-                width={active.spec.width} height={active.spec.height}
-                style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain',
-                    opacity: active.spec.kind === 'transition' ? 0 : 1 }} />
+            {active.spec.kind === 'font' ? active.spec.src
+                ? <span data-akari-font-hover-sample style={{ display: 'block', width: '100%', height: '100%',
+                    backgroundColor: 'currentColor', mask: `url("${active.spec.src}") center / contain no-repeat`,
+                    WebkitMask: `url("${active.spec.src}") center / contain no-repeat` }} />
+                : <div style={{ padding: '22px', fontSize: '13px' }}>この書体は入手後に見本を表示します
+                    {active.spec.source && <div style={{ marginTop: '12px', overflowWrap: 'anywhere', opacity: 0.7 }}>
+                        入手先: {active.spec.source}</div>}</div>
+                : <img src={active.spec.src} alt='' loading='lazy' decoding='async' draggable={false}
+                    width={active.spec.width} height={active.spec.height}
+                    style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain',
+                        opacity: active.spec.kind === 'transition' ? 0 : 1 }} />}
         </div>
     </>, document.body);
 }

@@ -23,16 +23,22 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         const input = document.createElement('input');
         input.className = 'theia-input';
         input.placeholder = 'ここに書く';
-        input.setAttribute('aria-label', 'いまのメモ');
+        input.setAttribute('aria-label', 'タスクの内容');
+        const submit = (mode: 'task' | 'send'): void => {
+            if (!input.value.trim()) return;
+            this.state.submitInstruction(input.value, mode);
+            input.value = '';
+        };
         input.addEventListener('keydown', event => {
-            if (event.key === 'Enter') {
-                this.state.submitNote(input.value);
-                input.value = '';
-            }
+            if (event.key === 'Enter' && !event.isComposing) submit('task');
         });
+        const send = document.createElement('button');
+        send.className = 'theia-button secondary';
+        send.textContent = 'すぐ頼む';
+        send.addEventListener('click', () => submit('send'));
         const empty = document.createElement('div');
         empty.textContent = '話したことがここに流れます';
-        host.append(input, empty);
+        host.append(input, send, empty);
         return Disposable.create(() => host.replaceChildren());
     }
 }

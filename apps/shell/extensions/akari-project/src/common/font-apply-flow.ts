@@ -4,7 +4,7 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     resolveBeforeApply(item: AssetCatalogViewItem): Promise<AssetCatalogViewItem['fontAvailability']>;
     confirmDownload(title: string, bytes: number): Promise<boolean>;
     download(id: string): Promise<void>;
-    offerSource(title: string, url?: string): Promise<'open' | 'apply' | undefined>;
+    offerSource(title: string, url?: string, unverified?: boolean): Promise<'open' | 'apply' | undefined>;
     openSource(url: string): void;
     apply(family: string): Promise<void>;
     refresh(): Promise<void>;
@@ -12,8 +12,7 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     let availability = item.fontAvailability;
     if (!availability || availability.status === 'pending' || availability.status === 'failed') {
         availability = await actions.resolveBeforeApply(item) ?? {
-            status: item.licenseSpdx === 'OFL-1.1' && item.sourceUrl?.startsWith('https://fonts.google.com/')
-                ? 'download' : 'source',
+            status: 'failed',
             family: item.title.replace(/（.*$/u, '').trim(), bytes: availability?.bytes
         };
     }
@@ -26,7 +25,7 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
         return;
     }
     if (availability?.status !== 'available') {
-        const choice = await actions.offerSource(item.title, item.sourceUrl);
+        const choice = await actions.offerSource(item.title, item.sourceUrl, availability?.status === 'failed');
         if (choice === 'open' && item.sourceUrl) actions.openSource(item.sourceUrl);
         if (choice !== 'apply') return;
     }

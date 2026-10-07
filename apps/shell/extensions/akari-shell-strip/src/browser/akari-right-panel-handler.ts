@@ -83,7 +83,11 @@ export class AkariRightPanelHandler extends SidePanelHandler {
 
     protected override createContainer(): Panel {
         const container = super.createContainer();
-        if (this.side !== 'right') return container;
+        // 設定キーは akari-surfaces の宣言と一致させる（起動時の同期写し）。
+        if (this.side !== 'right' || (() => {
+            try { return window.localStorage.getItem('akari.vibePreview.enabled') !== '1'; }
+            catch { return true; }
+        })()) return container;
         const outer = container as BoxPanel;
         const rail = outer.widgets[0];
         const content = outer.widgets[1];

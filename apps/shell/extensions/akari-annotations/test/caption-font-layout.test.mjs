@@ -5,10 +5,11 @@ import { CAPTION_PANEL_CSS, createCaptionPanel } from '../lib/browser/inspector/
 
 const source = readFileSync(new URL('../src/browser/inspector/caption-panels.ts', import.meta.url), 'utf8');
 
-test('フォント行は二行折り返し、上下余白、行全体のホバー、太さの左端を揃える', () => {
-    assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-name \{[^}]*line-height:1\.5;[^}]*white-space:normal;[^}]*-webkit-line-clamp:2/u);
+test('フォント行は棚と同じ高さ・余白で一行表示し、太さの左端を揃える', () => {
+    assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-name \{[^}]*white-space:nowrap;[^}]*text-overflow:ellipsis/u);
+    assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-row \{[^}]*min-height:54px/u);
     assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-row:hover,\.akari-caption-font-row:focus-within \{ background:var\(--akari-elevated\)/u);
-    assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-row button \{[^}]*padding:7px 3px/u);
+    assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-row button \{[^}]*padding:5px 8px/u);
     assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-weights \{ grid-column:2/u);
     assert.match(CAPTION_PANEL_CSS, /\.akari-caption-font-weights button \{ padding:5px 3px/u);
 });

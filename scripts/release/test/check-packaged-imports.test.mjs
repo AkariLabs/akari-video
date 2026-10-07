@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { assembleResources, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls, scanRepoFileCalls, walkImports } from '../check-packaged-imports.mjs';
+import { assembleResources, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls,
+  scanRepoFileCalls, scanRequiredBrowserResources, walkImports } from '../check-packaged-imports.mjs';
 import { packagedRoots, resolvePackagedSpecifier } from '../../../apps/shell/test/helpers/packaged-imports.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -15,6 +16,20 @@ function fixture(t) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+
+test('ブラウザ設定と将来のビュー preload が欠けた擬似パッケージを名指しする', (t) => {
+  const dir = fixture(t);
+  const resourcesRoot = path.join(dir, 'Resources');
+  const file = path.join(resourcesRoot, 'catalog/browser/browser-engines.json');
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, '{}');
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot }), []);
+  rmSync(file);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot }), ['catalog/browser/browser-engines.json']);
+  writeFileSync(file, '{}');
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot,
+    viewPreloads: ['app/browser-view-preload.js'] }), ['app/browser-view-preload.js']);
+});
 
 test('createRequire の相対 JSON を検出し、実在だけ検査する', (t) => {
   const resources = fixture(t);

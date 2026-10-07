@@ -5,6 +5,7 @@
   "private": true,
   "main": "lib/browser/akari-annotations-frontend-module.js",
   "theiaExtensions": [
+    { "frontend": "lib/browser/tasks/tasks-frontend-module" },
     {
       "frontend": "lib/browser/akari-annotations-frontend-module"
     },

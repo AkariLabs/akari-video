@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -8,11 +8,18 @@ import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const { normalizeFontName, resolveFontAvailability, downloadFont, sfntFontNames, macSystemFontNames,
-    createSystemFontScanner } = require('../lib/node/font-availability.js');
+    createSystemFontScanner, macFontInventory, scanMacFontFiles, readSfntFontNames, readSystemFontDiskCache,
+    writeSystemFontDiskCache } = require('../lib/node/font-availability.js');
 const { applyCatalogFont } = require('../lib/common/font-apply-flow.js');
 const manifest = JSON.parse(await readFile(new URL('../../../../../catalog/font/download-manifest.json', import.meta.url)));
 const catalogRoot = new URL('../../../../../catalog/font/', import.meta.url);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+const laneTmp = new URL('../../../../../.tmp-lane/', import.meta.url).pathname;
+
+async function temporaryFontDir(prefix) {
+    await mkdir(laneTmp, { recursive: true });
+    return mkdtemp(join(laneTmp, prefix));
+}
 
 function utf16be(value) {
     const bytes = Buffer.alloc(value.length * 2);
@@ -151,6 +158,115 @@ test('走査失敗は空の成功結果にせず、30 秒の間隔後だけ再�
     assert.equal(calls, 2);
 });
 
+test('直接走査は name テーブルから所持書体を拾い、読めないファイルを飛ばす', async () => {
+    const root = await temporaryFontDir('font-direct-');
+    try {
+        await writeFile(join(root, 'face.ttf'), sfnt([{ id: 1, value: 'Direct Family' },
+            { id: 6, value: 'DirectFamily-Regular' }]));
+        await writeFile(join(root, 'broken.otf'), 'broken');
+        const names = await scanMacFontFiles([root]);
+        assert.equal(names.get(normalizeFontName('DirectFamily-Regular')), 'Direct Family');
+    } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('巨大な ttf と ttc の name テーブルだけを読み、全バッファ解析と同じ名前を返す', async () => {
+    const root = await temporaryFontDir('font-large-');
+    const cases = [
+        ['large.ttf', sfnt([{ id: 1, value: 'Large CJK Family' }, { id: 6, value: 'LargeCJK-Regular' }])],
+        ['large.ttc', collection([
+            sfnt([{ id: 1, value: 'Collection One' }, { id: 6, value: 'CollectionOne-Regular' }]),
+            sfnt([{ id: 16, value: 'Collection Two' }, { id: 6, value: 'CollectionTwo-Bold' }], 'otf')
+        ])]
+    ];
+    try {
+        for (const [name, compact] of cases) {
+            const path = join(root, name);
+            const handle = await open(path, 'w');
+            try {
+                await handle.writeFile(compact);
+                await handle.truncate(64 * 1024 * 1024);
+            } finally { await handle.close(); }
+            let bytesRead = 0;
+            const names = await readSfntFontNames(path, bytes => { bytesRead += bytes; });
+            assert.deepEqual([...names], [...sfntFontNames(compact)], name);
+            assert.ok(bytesRead > 0 && bytesRead < 64 * 1024, `${name}: ${bytesRead} bytes read`);
+            assert.ok(bytesRead < 64 * 1024 * 1024 / 1000, name);
+        }
+        const scanned = await scanMacFontFiles([root]);
+        assert.equal(scanned.get(normalizeFontName('LargeCJK-Regular')), 'Large CJK Family');
+        assert.equal(scanned.get(normalizeFontName('CollectionOne-Regular')), 'Collection One');
+        assert.equal(scanned.get(normalizeFontName('CollectionTwo-Bold')), 'Collection Two');
+        const profiler = await macSystemFontNames([{ path: join(root, 'large.ttc'),
+            typefaces: [{ family: 'Collection One' }] }]);
+        assert.equal(profiler.get(normalizeFontName('CollectionTwo-Bold')), 'Collection Two');
+    } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('同梱の日本語フォントでも部分読みと従来の全バッファ解析が一致する', async () => {
+    const path = new URL('../../../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url).pathname;
+    const buffer = await readFile(path);
+    let bytesRead = 0;
+    const partial = await readSfntFontNames(path, bytes => { bytesRead += bytes; });
+    assert.deepEqual([...partial], [...sfntFontNames(buffer)]);
+    assert.ok(partial.size > 0);
+    assert.ok(bytesRead < buffer.length / 100, `${bytesRead} of ${buffer.length} bytes read`);
+});
+
+test('ディスクキャッシュは同じ鍵だけ即利用し、鍵の変化で破棄する', async () => {
+    const root = await temporaryFontDir('font-cache-');
+    try {
+        const before = await macFontInventory([root]);
+        await writeFile(join(root, 'new.ttf'), sfnt([{ id: 1, value: 'New Family' }]));
+        const after = await macFontInventory([root]);
+        assert.notEqual(after.key, before.key);
+        assert.equal(after.files.length, 1);
+        const path = join(root, 'cache', 'system-fonts.json');
+        const names = new Map([[normalizeFontName('Cached Family'), 'Cached Family']]);
+        await writeSystemFontDiskCache(path, before.key, names);
+        const cached = await readSystemFontDiskCache(path, before.key);
+        const scanner = createSystemFontScanner(async () => new Map());
+        scanner.seed(cached);
+        assert.equal(scanner.snapshot().phase, 'ready');
+        assert.equal(scanner.snapshot().names.get(normalizeFontName('Cached Family')), 'Cached Family');
+        assert.equal(await readSystemFontDiskCache(path, after.key), undefined);
+    } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('連続失敗の再試行は 30 秒、2 分、10 分へ伸び、前回の所持結果を維持する', async () => {
+    let now = 0;
+    let calls = 0;
+    const scanner = createSystemFontScanner(async () => {
+        calls++;
+        if (calls > 1 && calls < 5) throw new Error('slow profiler');
+        return new Map([['known', 'Known']]);
+    }, () => now);
+    assert.equal((await scanner.wait(100)).phase, 'ready');
+    for (const delay of [30000, 120000, 600000]) {
+        scanner.snapshot(true);
+        await scanner.wait(100);
+        assert.equal(scanner.snapshot().phase, 'failed');
+        assert.equal(scanner.snapshot().names.get('known'), 'Known');
+        const previous = calls;
+        now += delay - 1;
+        scanner.snapshot(true);
+        await Promise.resolve();
+        assert.equal(calls, previous);
+        now++;
+    }
+    scanner.snapshot(true);
+    await scanner.wait(100);
+    assert.equal(calls, 5);
+});
+
+test('個別判定の時間切れを未所持確定にしない', async () => {
+    const root = await temporaryFontDir('font-check-timeout-');
+    try {
+        const statuses = await resolveFontAvailability([{ id: 'zen-kaku-gothic-new', title: 'Zen Kaku Gothic New' }],
+            manifest, [], { libraryRoot: root, system: new Map(), systemPhase: 'failed' });
+        assert.equal(statuses.get('zen-kaku-gothic-new').status, 'failed');
+    } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('固定 manifest は google/fonts 由来の OFL 13 件だけを収録する', async () => {
     const entries = (await readdir(catalogRoot, { withFileTypes: true })).filter(entry => entry.isDirectory());
     const google = [];
@@ -278,7 +394,7 @@ test('適用は所持状態ごとに確認・取得・案内を分岐する', as
         resolveBeforeApply: async () => { calls.push('recheck'); return { status: 'available', family: 'Mac Family' }; },
         confirmDownload: async () => { calls.push('confirm'); return true; },
         download: async () => { calls.push('download'); },
-        offerSource: async () => { calls.push('offer'); return choice; },
+        offerSource: async (_title, _url, unverified) => { calls.push(unverified ? 'unverified' : 'offer'); return choice; },
         openSource: () => { calls.push('open'); },
         apply: async family => { calls.push(`apply:${family}`); },
         refresh: async () => { calls.push('refresh'); }
@@ -296,6 +412,10 @@ test('適用は所持状態ごとに確認・取得・案内を分岐する', as
     assert.deepEqual(calls.splice(0), ['confirm']);
     await applyCatalogFont(item('source'), actions);
     assert.deepEqual(calls.splice(0), ['offer', 'apply:Test Family']);
+    await applyCatalogFont(item('failed'), { ...actions, resolveBeforeApply: async () => {
+        calls.push('recheck'); return { status: 'failed', family: 'Test Family' };
+    } });
+    assert.deepEqual(calls.splice(0), ['recheck', 'unverified', 'apply:Test Family']);
     choice = 'open';
     await applyCatalogFont(item('source'), actions);
     assert.deepEqual(calls.splice(0), ['offer', 'open']);

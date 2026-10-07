@@ -31,7 +31,7 @@ updated: 2026-08-30
 
 ## 1. データ模型（`version: 2` のまま追加のみ）
 
-**新しいサブスキーマはここに列挙した以外増やさない。** 部品も字幕行もグループも「普通のアイテム」で、共通フィールド（`id` / `at` / `duration` / `transform` / `opacity` / `blend` / `crop` / `perspective` / `keyframes`）をそのまま使う。
+**新しいサブスキーマはここに列挙した以外増やさない。** HTML source の `elements` は要素ごとの inline style 上書きである。部品も字幕行もグループも「普通のアイテム」で、共通フィールド（`id` / `at` / `duration` / `transform` / `opacity` / `blend` / `crop` / `perspective` / `keyframes`）をそのまま使う。
 
 ### 1.1 再帰 — アイテムは `items[]` を持てる
 
@@ -81,7 +81,7 @@ updated: 2026-08-30
 - **見える子 = 袋の名札から写す（projection）**。edit.json には書かない。上の例で `s01.html` に部品 A / B / C があれば、A は写し（触っていない・既定の時間 = 袋と同じ）、B は明示（触ったので `items[]` に居る）、C は `exclude`（袋の中では表示しない = 別の場所へ「出した」か、消した）
 - **触った子だけ明示アイテムになる**。明示アイテムは袋の子として `items[]` に置くか、木の別の場所に置く（= 分離 §3.1）。どちらでも袋側は `source.exclude` に id を持つ
 - **袋の中では並びを変えない・ばらさない**（HTML の DOM 順 / captions.json の行順が正）。変えたい部品は出す
-- 名札の無い断片は「袋ごと 1 アイテム」（`part` 無し・`items` 無し）。既存の overlays はこれ（**回帰なし**）
+- 名札の無い断片は「袋ごと 1 アイテム」（`part` 無し・`items` 無し）。このアイテムも `source.elements` による要素の上書きを持てる。既存の overlays はこれ（**回帰なし**）
 - 名札の読み取り（HTML の走査）は**描画・プレビュー側の仕事**（§4）。edit.json の読み込み層は袋を「子を持ち得るアイテム」として扱うだけ
 
 ### 1.4 部品アイテム `source: { kind: "html", path, part }`
@@ -89,6 +89,14 @@ updated: 2026-08-30
 - 既存 `itemSourceHtmlV2` に任意キーを 3 つ足す: `part: string`（名札）/ `style: { "<css-prop>": "<value>" }`（部品ルートの inline style。開いた map・lint は CSS 値を検証しない）/ `text: string`（本文の差し替え）
 - `vars` / `params`（既存のツマミ経路）は部品アイテムでも使える。`style` / `text` は「設計済みのツマミが無い所を直す」ための逃げ道で、これで HTML を書き換えずに見た目の自由度を持つ
 - 部品アイテムの `at` / `duration` / `transform` / `opacity` / `keyframes` は共通フィールド。**部品専用のサブスキーマは無い**
+
+### 1.4a 要素の上書き `source.elements`
+
+- HTML source は任意の `elements: { "<番地>": { "style": { "<css-prop>": "<value>" } } }` を持てる。CSS 値は検証しない。番地の値に許すキーは `style` だけ。空の `elements` と空の `style` は保存時に畳んで消す。
+- 番地は `#id[0]` または `.class[2]` の形。書式は `^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$`。id 属性の完全一致、または class 属性の空白区切りトークンの一致を、断片ソースの文書順に 0 から数える。CSS セレクタとして解釈しない。コメントと script/style の中身、`<script>` / `<style>` 要素そのもの（番地で指せない）、マウント後に増える要素は数えない。
+- 開始タグを親子とも文書順に数え、重複 id も出現番号で区別する。属性名は大小文字を区別せず、class の区切りはタブ・改行を含む空白とする（`tokenizeHtml` と同じ）。
+- 解決できない番地は描画で読み飛ばし、lint の `v2.element-ref` warning にする。素材 HTML は編集しない。
+- 袋の `elements` は各子へ継承する。同じ番地の同じ CSS プロパティは子の値が勝つ。部品ルートに `source.style` もあるときは `elements` の後に `style` を追記し、部品の値が勝つ。
 
 ### 1.5 字幕 = 袋グループ（専用トラックの廃止）
 
@@ -198,6 +206,7 @@ updated: 2026-08-30
 ## 4. 描画 — クローンマスク
 
 - **部品アイテム 1 つにつき断片全体を 1 回マウント**し、当該 `part` 以外の名札付き要素を `visibility: hidden` にする（`display: none` ではない — レイアウトと CSS の継承を壊さない）。各マウントが自分の時計（アイテム相対時間）・変形・z を持つ
+- `source.elements` は要素を複製せず、同じマウント内の開始タグへ inline style を追記する。部品の複製がある場合は各複製へマスクより先に同じ上書きを適用する。`elements` が無い既存アイテムのレコードは変えない。
 - 袋グループの写しの子（触っていない部品）は、時間・位置が袋と揃っている限り**1 マウントにまとめる**（エンジン側の最適化。データは不変）。`exclude` の部品は `visibility: hidden`
 - `source.style` は部品ルート要素の inline style として適用、`source.text` は部品ルートの textContent を差し替える（子要素を持つ部品に `text` を指定したら lint warning・描画は最初のテキストノードだけ差し替え）
 - 部品内の CSS / GSAP アニメ（L3）は部品アイテムの時計で seek する（既存の HTML seek 規約のまま）
@@ -297,6 +306,7 @@ await p.save();                         // 正規直列化 → lint ゲート �
 | `v2.track-no-overlap` | error | 同一段の items が時間で重ならない（既存 → 明文化）|
 | `v2.group-bake-blocked` | error | `keyframes` / `motion` / `animator` を持つグループを ungroup しようとした（edit-store の操作時）|
 | `v2.part-ref` | warning | `source.part` / `source.exclude` の id が袋に存在するか（**文字列レベル**: HTML は `data-akari-part="…"` の grep、captions は行 id）|
+| `v2.element-ref` | warning | `source.elements` の番地が `source.path` の HTML ソース内で解決できるか |
 | `v2.captions-content-deprecated` | warning | 旧形 `tracks[].content` を使っている |
 | `v2.caption-overlap` | warning | 分離した字幕行と袋の写しが同時刻に重なる |
 | `v2.keyframes-ref` | error | `keyframes: { path, count }` の袋が無い / `count` が実数と違う |

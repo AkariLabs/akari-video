@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
+    visibleSettingsSections,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
     normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
@@ -73,6 +74,12 @@ test('節の順序・グループと DOM ID はナビの契約に一致する', 
         assert.equal(group, id === 'developer' ? 'developer' : ['storage', 'privacy', 'statistics'].includes(id) ? 'data' : ['help', 'about'].includes(id) ? 'support' : 'main');
         assert.equal(settingsSectionElementId(id), `akari-settings-${id}`);
     }
+});
+
+test('プレビュー off のナビだけ聞き取りを除き、on は既存の順を保つ', () => {
+    assert.deepEqual(visibleSettingsSections(true), SETTINGS_SECTIONS);
+    assert.deepEqual(visibleSettingsSections(false).map(section => section.id),
+        SETTINGS_SECTIONS.filter(section => section.id !== 'listening').map(section => section.id));
 });
 
 test('設定値は有効値を保持し、不正値を既定へ正規化する', () => {

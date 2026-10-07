@@ -1,5 +1,5 @@
 export declare const ITEM_V2_KEYS: readonly ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "cut_edge", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "fade_in_shape", "fade_out_shape", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
-export declare const ITEM_SOURCE_V2_KEYS: readonly ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
+export declare const ITEM_SOURCE_V2_KEYS: readonly ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
 export declare const KEYFRAME_V2_KEYS: readonly ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
 export declare const MOTION_V0_KEYS: readonly ["in", "out", "loop"];
 export declare const ANIMATOR_V0_KEYS: readonly ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -19,7 +19,7 @@ export declare const ITEM_V2_KEYS_BY_DEFINITION: {
 export declare const ITEM_SOURCE_V2_KEYS_BY_DEFINITION: {
     readonly itemSourceMediaV2: readonly ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key"];
     readonly itemSourceAudioMediaV2: readonly ["kind", "src", "in", "out", "speed", "pitch_semitones", "formant"];
-    readonly itemSourceHtmlV2: readonly ["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"];
+    readonly itemSourceHtmlV2: readonly ["kind", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params"];
     readonly itemSourceShapeV2: readonly ["kind", "shape", "params"];
     readonly itemSourceTelopV2: readonly ["kind", "preset", "params", "baked", "from"];
     readonly itemSourceFilterV2: readonly ["kind", "filter"];

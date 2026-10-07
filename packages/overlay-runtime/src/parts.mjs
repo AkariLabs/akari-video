@@ -16,6 +16,73 @@ export function scanHtmlParts(htmlText) {
   return parts;
 }
 
+const ELEMENT_ADDRESS = /^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u;
+
+/** Resolve source-only id/class addresses to opening-tag byte offsets. */
+export function resolveElementAddresses(htmlText, addresses) {
+  const tokens = tokenizeHtml(String(htmlText ?? "")).filter(token => !token.closing && !token.ignored);
+  const found = {};
+  const missing = [];
+  for (const address of addresses) {
+    if (!ELEMENT_ADDRESS.test(address)) { missing.push(address); continue; }
+    const bracket = address.lastIndexOf("[");
+    const wanted = address.slice(1, bracket);
+    const index = Number(address.slice(bracket + 1, -1));
+    let occurrence = 0;
+    const target = tokens.find(token => {
+      const attribute = token.attributes.find(entry => entry.name === (address[0] === "#" ? "id" : "class"));
+      const matches = address[0] === "#"
+        ? attribute?.value === wanted
+        : typeof attribute?.value === "string" && attribute.value.split(/\s+/u).includes(wanted);
+      return matches && occurrence++ === index;
+    });
+    if (target) found[address] = { start: target.start, end: target.end };
+    else missing.push(address);
+  }
+  return { found, missing };
+}
+
+/** Append style to source elements without writing the fragment file. */
+export function applyElementOverrides(htmlText, elements) {
+  const html = String(htmlText ?? "");
+  const entries = isRecord(elements) ? Object.entries(elements) : [];
+  if (entries.length === 0) return [html, { missing: [] }];
+  const { found, missing } = resolveElementAddresses(html, entries.map(([address]) => address));
+  const byStart = new Map();
+  for (const [address, override] of entries) {
+    const position = found[address];
+    const style = serializeInlineStyle(override?.style);
+    if (!position || !style) continue;
+    const previous = byStart.get(position.start);
+    byStart.set(position.start, { position, style: previous ? `${previous.style};${style}` : style });
+  }
+  const tokens = tokenizeHtml(html);
+  let modified = html;
+  for (const { position, style } of [...byStart.values()].sort((a, b) => b.position.start - a.position.start)) {
+    const token = tokens.find(entry => entry.start === position.start);
+    const opening = modified.slice(position.start, position.end);
+    modified = modified.slice(0, position.start) + appendInlineStyle(opening, token, style) + modified.slice(position.end);
+  }
+  return [modified, { missing }];
+}
+
+function mergeElementOverrides(parent, child) {
+  if (!isRecord(parent) && !isRecord(child)) return undefined;
+  const merged = { ...(isRecord(parent) ? parent : {}) };
+  for (const [address, override] of Object.entries(isRecord(child) ? child : {})) {
+    merged[address] = { style: {
+      ...(isRecord(merged[address]?.style) ? merged[address].style : {}),
+      ...(isRecord(override?.style) ? override.style : {}),
+    } };
+  }
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function hasElementOverrides(elements) {
+  return isRecord(elements) && Object.values(elements).some(entry =>
+    isRecord(entry?.style) && Object.keys(entry.style).length > 0);
+}
+
 /**
  * 袋の走査名札を写しへ投影し、同じ part の明示子で置き換える。
  * internal-model の children と、生の契約語彙 items のどちらも受け付ける。
@@ -165,7 +232,8 @@ function expandItem(item, track, group, readHtml, records, options) {
   const isBag = explicitChildren.length > 0 || exclude.length > 0 || parts.length > 0;
 
   if (typeof item.source.part === "string") {
-    const [masked] = applyPartMask(htmlText, item.source.part, item.source);
+    const [overridden] = applyElementOverrides(htmlText, item.source.elements);
+    const [masked] = applyPartMask(overridden, item.source.part, item.source);
     const record = overlayRecord(item, track, group, {
       html: masked,
       part: item.source.part,
@@ -176,7 +244,9 @@ function expandItem(item, track, group, readHtml, records, options) {
   }
 
   if (!isBag || (explicitChildren.length === 0 && exclude.length === 0)) {
-    const record = overlayRecord(item, track, group, { html: htmlReference }, options);
+    const [overridden] = hasElementOverrides(item.source.elements)
+      ? applyElementOverrides(htmlText, item.source.elements) : [htmlReference];
+    const record = overlayRecord(item, track, group, { html: overridden }, options);
     if (record) records.push(record);
     return;
   }
@@ -193,7 +263,9 @@ function expandItem(item, track, group, readHtml, records, options) {
     const childHtml = childReference === htmlReference
       ? htmlText
       : String(readHtml(childReference, child) ?? "");
-    const [masked] = applyPartMask(childHtml, part, child.source);
+    const elements = mergeElementOverrides(item.source.elements, child.source.elements);
+    const [overridden] = applyElementOverrides(childHtml, elements);
+    const [masked] = applyPartMask(overridden, part, child.source);
     const record = bagChildRecord(item, child, track, group, masked, part, options);
     if (record) records.push(record);
   }

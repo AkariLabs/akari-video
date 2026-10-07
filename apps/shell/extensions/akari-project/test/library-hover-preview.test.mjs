@@ -42,7 +42,10 @@ function nodes(tree, predicate) {
 }
 
 test('見本の選び方・寸法・遅延', () => {
-    assert.equal(LIBRARY_HOVER_DELAY_MS, 300);
+    assert.equal(LIBRARY_HOVER_DELAY_MS, 400);
+    assert.deepEqual(libraryHoverPreview('font', 'file:///sample.webp', undefined, 'https://example.com'),
+        { src: 'file:///sample.webp', source: 'https://example.com', kind: 'font', width: 320, height: 200 });
+    assert.equal(libraryHoverPreview('font')?.src, undefined);
     assert.deepEqual(libraryHoverPreview('overlay', 'file:///preview.png'),
         { src: 'file:///preview.png', kind: 'asset', width: 320, height: 180 });
     assert.equal(libraryHoverPreview('asset', 'file:///preview.png')?.src, 'file:///preview.png');
