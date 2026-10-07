@@ -105,7 +105,7 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
     try {
         for (const kind of ['video', 'image', 'audio']) {
             const data = JSON.stringify({ relativePath: `assets/${kind}.${kind === 'audio' ? 'm4a' : kind === 'image' ? 'png' : 'mp4'}`,
-                kind, name: kind });
+                kind, name: kind, ...(kind === 'video' ? { in: 2, out: 6 } : {}) });
             emit('akari.material.dragStart', { type: 'akari.material.dragStart', detail: data });
             assert.equal(node.children.at(-1).dataset.akariPreviewLibraryDrop, 'true');
             const drag = transfer('application/x-akari-material', data);
@@ -134,6 +134,7 @@ test('素材 MIME・イベント・Explorer tree-node を受けて配置し、�
             assert.equal(placed[0], 'akari.timeline.addMaterialAtOutputPoint');
             assert.equal(placed[1].kind, kind);
             assert.equal(placed[1].t, 6);
+            assert.deepEqual([placed[1].in, placed[1].out], kind === 'video' ? [2, 6] : [undefined, undefined]);
             if (kind === 'audio') assert.equal(placed[1].transform, undefined);
             else {
                 assert.equal(placed[1].transform.x, -640);

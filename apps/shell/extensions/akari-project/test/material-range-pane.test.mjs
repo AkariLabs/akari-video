@@ -16,6 +16,7 @@ const behaviorCode = ts.transpileModule(`class Pane {
     rangeSavesInFlight = new Map();
     materialRangeRevision = 0;
     materialRangeRevisions = new Map();
+    referenceWatches = new DisposableCollection();
     ${behavior}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 
@@ -23,16 +24,19 @@ function rangeFixture() {
     const events = [];
     const scheduled = new Map();
     const requests = [];
+    const infos = [];
     let nextTimer = 0;
     const listeners = [];
     const window = {
         addEventListener: (_name, listener) => listeners.push(listener),
+        removeEventListener: (_name, listener) => { const index = listeners.indexOf(listener); if (index >= 0) listeners.splice(index, 1); },
         dispatchEvent: event => { events.push(event); listeners.forEach(listener => listener(event)); }
     };
     const CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
     const setTimeout = callback => { const id = ++nextTimer; scheduled.set(id, callback); return id; };
     const clearTimeout = id => scheduled.delete(id);
-    const DisposableCollection = class { dispose() {} push() {} };
+    const DisposableCollection = class { items = []; dispose() { for (const item of this.items) item.dispose(); this.items = []; }
+        push(item) { this.items.push(item); } };
     const Pane = new Function('window', 'CustomEvent', 'setTimeout', 'clearTimeout',
         'DisposableCollection', 'DEFAULT_MATERIALS_SORT', 'isMaterialsList',
         `${behaviorCode}; return Pane;`)(window, CustomEvent, setTimeout, clearTimeout,
@@ -41,7 +45,7 @@ function rangeFixture() {
     const pane = new Pane({
         workflow: { workspaceRoot: { toString: () => 'file:///project' } },
         update: () => { updates++; },
-        messages: { warn: () => {} },
+        messages: { warn: () => {}, info: message => infos.push(message) },
         commandService: { executeCommand: (_id, request) => {
             let resolve;
             const result = new Promise(done => { resolve = done; });
@@ -54,7 +58,7 @@ function rangeFixture() {
         scheduled.delete(id);
         callback();
     };
-    return { pane, events, scheduled, requests, window, CustomEvent, fireTimer, updates: () => updates };
+    return { pane, events, scheduled, requests, infos, window, CustomEvent, fireTimer, updates: () => updates };
 }
 
 test('a delayed save echo cannot roll back a newer handle movement', async () => {
@@ -93,6 +97,29 @@ test('an external range change follows the event and cancels a pending local sav
     }));
     assert.equal(f.pane.materialRanges[entry.relativePath], undefined);
     assert.equal(f.scheduled.size, 0);
+});
+
+test('clearing the range announces it once', () => {
+    const f = rangeFixture();
+    const entry = { relativePath: 'assets/a.mp4' };
+    f.pane.changeMaterialRange(entry, { in: 2, out: 6 });
+    f.pane.changeMaterialRange(entry, null);
+    assert.deepEqual(f.infos, ['範囲をなしに戻しました']);
+    assert.equal(f.events.length, 2);
+    assert.equal(f.scheduled.size, 1);
+    f.pane.changeMaterialRange(entry, null);
+    assert.deepEqual(f.infos, ['範囲をなしに戻しました']);
+    assert.equal(f.events.length, 2);
+    assert.equal(f.scheduled.size, 1);
+});
+
+test('disposing range watches removes the window listener', () => {
+    const f = rangeFixture();
+    f.pane.referenceWatches.dispose();
+    f.window.dispatchEvent(new f.CustomEvent('akari.materials.range.changed', {
+        detail: { relativePath: 'assets/a.mp4', range: { in: 2, out: 6 }, source: 'material-preview' }
+    }));
+    assert.equal(f.pane.materialRanges['assets/a.mp4'], undefined);
 });
 
 test('a stale range read preserves an edit that was awaiting save when reading began', async () => {
@@ -166,8 +193,9 @@ test('range overlay clicks do not reselect or reopen the central preview', () =>
             relativePath: 'assets/a.mp4', name: 'a.mp4', kind: 'video', analyzed: false,
             unorganized: false, durationSeconds: 14 };
         const card = pane.renderMaterialCard(entry).children[0];
+        assert.equal(card.props.onDoubleClick, undefined);
         const listBadge = card.children.find(child => child?.props?.style?.right === '4px');
-        assert.equal(listBadge.children.at(-1), '14s');
+        assert.equal(listBadge, undefined);
         const overlayClick = { target: new Element(true) };
         card.props.onClickCapture(overlayClick);
         assert.deepEqual([events.length, opened.length], [0, 0]);
@@ -201,8 +229,8 @@ test('both handles and the label stop click bubbling but leave double-click free
     }).outputText;
     const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }),
         useRef: () => ({ current: null }), useState: value => [value, () => {}], useEffect: () => {} };
-    const Component = new Function('React', 'formatDurationBadge', 'clampMaterialRange',
-        `${code}; return MaterialRangeHandles;`)(React, n => `${n}s`, () => ({}));
+    const Component = new Function('React', 'materialRangeLabel', 'clampMaterialRange',
+        `${code}; return MaterialRangeHandles;`)(React, () => '0:04', () => ({}));
     const tree = Component({ durationSeconds: 14, range: { in: 2, out: 6 }, onChange: () => {} });
     const flatten = value => Array.isArray(value) ? value.flatMap(flatten)
         : value && typeof value === 'object' && 'props' in value

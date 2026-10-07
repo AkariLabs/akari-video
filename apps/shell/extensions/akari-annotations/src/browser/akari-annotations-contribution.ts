@@ -599,7 +599,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: (request: unknown) => this.addMaterialAtPoint(request)
         });
         commands.registerCommand({ id: 'akari.timeline.addMaterialAtOutputPoint' }, {
-            execute: async (request: { relativePath?: string; kind?: string; t?: number;
+            execute: async (request: { relativePath?: string; kind?: string; t?: number; in?: number; out?: number;
                 transform?: { x: number; y: number }; editUri?: string;
                 outsideCanvas?: boolean; canvasAware?: boolean; sourceWidth?: number;
                 voiceTrack?: boolean; audio?: { in?: number; denoise?: { method: 'fft' | 'nlm'; strength: number };
@@ -610,7 +610,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 // 置いた要素の id を返す。取り寄せに失敗した楽観配置を消すのに要る。
                 return widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
                     request?.transform, request?.outsideCanvas === true, request?.canvasAware === true,
-                    request?.sourceWidth, request?.voiceTrack, request?.audio);
+                    request?.sourceWidth, request?.voiceTrack, request?.audio, request?.in, request?.out);
             }
         });
         // 取り寄せに失敗した楽観配置の後始末。
@@ -1107,18 +1107,22 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * （司令塔裁定4・5）。
      */
     protected async addMaterialAtPlayhead(request: unknown): Promise<void> {
-        const payload = request as { relativePath?: unknown; kind?: unknown; voiceTrack?: boolean } | undefined;
+        const payload = request as { relativePath?: unknown; kind?: unknown; voiceTrack?: boolean;
+            in?: unknown; out?: unknown } | undefined;
         const relativePath = typeof payload?.relativePath === 'string' ? payload.relativePath : '';
         const kind = typeof payload?.kind === 'string' ? payload.kind : '';
+        const range = typeof payload?.in === 'number' && Number.isFinite(payload.in) && payload.in >= 0
+            && typeof payload.out === 'number' && Number.isFinite(payload.out) && payload.out > payload.in
+            ? { in: payload.in, out: payload.out } : undefined;
         const widget = await this.openCurrentTimeline();
         if (!widget) {
             this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
             return;
         }
         if (kind === 'audio' && payload?.voiceTrack === true) {
-            await widget.addMaterialAtPlayhead(relativePath, kind, { createAudioTrack: true, voiceTrack: true });
+            await widget.addMaterialAtPlayhead(relativePath, kind, { createAudioTrack: true, voiceTrack: true, ...range });
         } else {
-            await widget.addMaterialAtPlayhead(relativePath, kind);
+            await widget.addMaterialAtPlayhead(relativePath, kind, range);
         }
     }
 
