@@ -1650,7 +1650,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }, { captions: command.captions });
                         return true;
                     }
-                    await this.commitEditMutation('プレビューで変形を変更', doc => {
+                    const applyPreviewWrite = (doc: EditV2Document): EditV2Document => {
                         if (!Array.isArray(command) && command.kind === 'layer') {
                             const nested = writeNestedPreviewLayer(doc, command);
                             if (nested) return nested;
@@ -1664,7 +1664,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             : resolvePreviewItemWrite(source, command);
                         if (!resolved.candidateText) throw new Error('変形の書き込み結果がありません。');
                         return JSON.parse(resolved.candidateText) as EditV2Document;
-                    });
+                    };
+                    if (!Array.isArray(command) && command.kind === 'overlay' && command.patch.element) {
+                        await this.commitEditMutation('プレビューで要素を移動', doc => applyPreviewWrite(doc));
+                    } else {
+                        await this.commitEditMutation('プレビューで変形を変更', doc => applyPreviewWrite(doc));
+                    }
                     return true;
                 }
             }));
