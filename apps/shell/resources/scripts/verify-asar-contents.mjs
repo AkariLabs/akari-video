@@ -207,6 +207,8 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
 
   const requiredFiles = [
     '/electron-entry.js',
+    // ビュー preload の実体は拡張の node_modules 側に入る。欠けるとプレビューを開けない。
+    '/node_modules/akari-project/lib/electron-main/browser-view-preload.js',
     '/lib/skills/analyze-footage/SKILL.md',
     '/lib/schemas/analysis.schema.json',
     // フラグ on の frame-engine 評価台へ注入する正本。欠けると canvas 面を起動できない。

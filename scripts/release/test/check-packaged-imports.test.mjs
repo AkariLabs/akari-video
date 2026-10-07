@@ -17,28 +17,28 @@ function fixture(t) {
   return dir;
 }
 
-test('ブラウザ設定とビュー preload のビルド成果物が欠けたとき名指しする', (t) => {
+test('ブラウザ設定とビュー preload のソースが欠けたとき名指しする', (t) => {
   const dir = fixture(t);
   const resourcesRoot = path.join(dir, 'Resources');
   const file = path.join(resourcesRoot, 'catalog/browser/browser-engines.json');
-  const builtViewPreload = path.join(dir, 'build/browser-view-preload.js');
+  const sourceViewPreload = path.join(dir, 'src/browser-view-preload.ts');
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, '{}');
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, viewPreloads: [], builtViewPreload }), []);
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
-  mkdirSync(path.dirname(builtViewPreload), { recursive: true });
-  writeFileSync(builtViewPreload, '');
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), []);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, viewPreloads: [], sourceViewPreload }), []);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, sourceViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
+  mkdirSync(path.dirname(sourceViewPreload), { recursive: true });
+  writeFileSync(sourceViewPreload, '');
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, sourceViewPreload }), []);
   rmSync(file);
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), ['catalog/browser/browser-engines.json']);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, sourceViewPreload }), ['catalog/browser/browser-engines.json']);
   writeFileSync(file, '{}');
-  rmSync(builtViewPreload);
+  rmSync(sourceViewPreload);
   const preload = path.join(resourcesRoot, BROWSER_VIEW_PRELOAD_PATHS[0]);
   mkdirSync(path.dirname(preload), { recursive: true });
   writeFileSync(preload, '');
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, sourceViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
   assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot,
-    viewPreloads: ['app/browser-view-preload.js'], builtViewPreload }), ['app/browser-view-preload.js']);
+    viewPreloads: ['app/browser-view-preload.js'], sourceViewPreload }), ['app/browser-view-preload.js']);
 });
 
 test('ビュー preload は拡張の実ファイルとしてあり、sandbox の require は electron だけ', () => {

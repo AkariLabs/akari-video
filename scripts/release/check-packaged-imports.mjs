@@ -50,16 +50,16 @@ export const KNOWN_UNPACKAGED = new Set([]);
 
 export const REQUIRED_BROWSER_RESOURCE_PATHS = ['catalog/browser/browser-engines.json'];
 export const BROWSER_VIEW_PRELOAD_PATHS = ['app.asar/node_modules/akari-project/lib/electron-main/browser-view-preload.js'];
-const BUILT_BROWSER_VIEW_PRELOAD = join(SHELL_DIR, 'extensions', 'akari-project', 'lib', 'electron-main', 'browser-view-preload.js');
+const SOURCE_BROWSER_VIEW_PRELOAD = join(SHELL_DIR, 'extensions', 'akari-project', 'src', 'electron-main', 'browser-view-preload.ts');
 
 export function scanRequiredBrowserResources({ resourcesRoot, viewPreloads = BROWSER_VIEW_PRELOAD_PATHS,
-  builtViewPreload = BUILT_BROWSER_VIEW_PRELOAD }) {
+  sourceViewPreload = SOURCE_BROWSER_VIEW_PRELOAD }) {
   const missing = REQUIRED_BROWSER_RESOURCE_PATHS
     .filter(relativePath => !existsSync(join(resourcesRoot, ...relativePath.split('/'))));
-  // The mock Resources contains extraResources only. electron-builder's files must carry this built extension file into app.asar.
+  // このジョブは拡張をビルドしないのでソースを確認する。実際の asar 内は verify-asar-contents が検査する。
   for (const relativePath of viewPreloads) {
     const source = relativePath === BROWSER_VIEW_PRELOAD_PATHS[0]
-      ? builtViewPreload : join(resourcesRoot, ...relativePath.split('/'));
+      ? sourceViewPreload : join(resourcesRoot, ...relativePath.split('/'));
     if (!existsSync(source)) missing.push(relativePath);
   }
   return missing;

@@ -125,6 +125,13 @@ test('検収スクリプトは専用 entry の存在と package.json main を as
   }
 });
 
+test('検収スクリプトはビュー preload を asar 内の必須ファイルとして検査する', async () => {
+  const source = await readFile(verifyScriptPath, 'utf8');
+  const requiredFiles = source.match(/const requiredFiles = \[([\s\S]*?)\n  \];/)?.[1];
+  assert.ok(requiredFiles);
+  assert.match(requiredFiles, /['"]\/node_modules\/akari-project\/lib\/electron-main\/browser-view-preload\.js['"]/);
+});
+
 test('asar の CJS 閉包は揃えば通り、欠けた参照を報告する', async () => {
   const workDir = await mkdtemp(path.join(os.tmpdir(), 'akari-asar-closure-test-'));
   try {
