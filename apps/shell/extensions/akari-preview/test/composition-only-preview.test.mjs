@@ -71,7 +71,8 @@ function harness({ source, empty = false, frameEngine = true, inside = true } = 
         preferences: { get: (_key, fallback) => fallback },
         envVariables: { getValue: async () => undefined }, resolveFrameEngineReadyTimeoutMs: async () => undefined,
         prepareHtml: (...args) => { calls.htmlArgs = args; return '<html>composition</html>'; },
-        startPreviewAudioTracking: () => { calls.audioTracking = true; }
+        startPreviewAudioTracking: () => { calls.audioTracking = true; },
+        sendPendingLayerDimensions: () => {}
     };
     return { calls, widget, host, model, run: (kind = 'output') => refresh.call(host, widget, sourceUri ?? editUri, kind) };
 }

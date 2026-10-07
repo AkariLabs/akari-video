@@ -1,4 +1,4 @@
-import { readHandlerCompiled, readHandlerSource } from './helpers/handler-source.mjs';
+import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -9,7 +9,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = resolve(here, '..');
 const compiledHandler = readHandlerCompiled();
 
-function section(start, end, source = compiledHandler) {
+function section(start, end) {
+    const source = compiledHandler;
     const startAt = source.indexOf(start);
     assert.notEqual(startAt, -1, `${start} が handler に見つからない`);
     const endAt = source.indexOf(end, startAt + start.length);
@@ -62,7 +63,7 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     assert.match(geometry, /const height = Number\(entry\.video\.videoHeight\) \|\| 0;/u);
     assert.match(geometry, /point\.x >= crop\.x \* width[\s\S]*?point\.y < \(crop\.y \+ crop\.h\) \* height/u);
 
-    const findHit = section('const findVisualMediaHitAt =', '// cuts / layers / overlays / captions', readHandlerSource());
+    const findHit = section('const findVisualMediaHitAt =', '// cuts / layers / overlays / captions');
     const engineBranch = findHit.slice(0, findHit.indexOf('return document.elementsFromPoint'));
     assert.match(engineBranch, /for \(const entry of layerEntries\)/u);
     assert.match(engineBranch, /const size = hasSourceSize\s*\?[\s\S]*?\(specSize \|\| declaredSize\)/u);

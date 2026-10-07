@@ -426,6 +426,7 @@ export interface EditSummary {
 }
 
 export interface PreviewModel {
+    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number }>>;
     previewAudioKeepKeys?: Set<string>;
     previewAudioKeepProbes?: Set<string>;
     previewAudioPendingRequests?: PreviewAudioPendingRequest[];

@@ -1769,6 +1769,8 @@ export function previewBootstrapScript(): string {
                 }
                 entry.spec = layer;
                 const layerVideo = entry.video;
+                const sourceSizeChanged = layerVideo.dataset.akariSourceWidth !== String(layer.sourceWidth || '')
+                    || layerVideo.dataset.akariSourceHeight !== String(layer.sourceHeight || '');
                 layerVideo.dataset.akariSourceWidth = String(layer.sourceWidth || '');
                 layerVideo.dataset.akariSourceHeight = String(layer.sourceHeight || '');
                 if (entry.fxRail && layer.chromaKey) {
@@ -1823,6 +1825,7 @@ export function previewBootstrapScript(): string {
                     ? layer.perspective.corners : null;
                 if (corners) layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(corners);
                 else delete layerVideo.dataset.akariPerspectiveCorners;
+                if (sourceSizeChanged && window.akari.updateLayerLayout) window.akari.updateLayerLayout(layerVideo);
             };
             // CF-select + transform ハンドル: レイヤー実体のクリック選択・タイムラインとの双方向同期・
             // プレビュー内ドラッグ移動/リサイズ(=scale)/回転。確定(pointerup)時のみ layerWrite で

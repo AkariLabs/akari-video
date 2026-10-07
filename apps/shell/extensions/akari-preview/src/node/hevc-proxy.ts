@@ -181,18 +181,37 @@ interface FfprobeStreamsResult {
     streams?: Array<{ codec_name?: string; pix_fmt?: string; r_frame_rate?: string; width?: number; height?: number }>;
 }
 
+/** Display dimensions of the first video stream, including its rotation metadata. */
+export function parseProbedVideoDimensions(json: string | object): { width: number; height: number } | undefined {
+    try {
+        const parsed = (typeof json === 'string' ? JSON.parse(json) : json) as {
+            streams?: Array<{ width?: number; height?: number;
+                side_data_list?: Array<{ rotation?: number }>; tags?: { rotate?: string } }>;
+        };
+        const stream = parsed?.streams?.[0];
+        const width = Number(stream?.width);
+        const height = Number(stream?.height);
+        if (!(width > 0 && height > 0)) return undefined;
+        const rotation = stream?.side_data_list?.find(side => Number.isFinite(side.rotation))?.rotation
+            ?? Number(stream?.tags?.rotate ?? 0);
+        const normalized = ((rotation % 360) + 360) % 360;
+        return normalized === 90 || normalized === 270
+            ? { width: height, height: width } : { width, height };
+    } catch {
+        return undefined;
+    }
+}
+
 /** Dimensions of the first decoded video stream, shared by layers using the same stream. */
 export async function probeVideoDimensions(videoPath: string): Promise<{ width: number; height: number } | undefined> {
     const ffprobePath = await resolveFfprobePath();
     if (!ffprobePath) return undefined;
     try {
         const { stdout } = await execFileAsync(ffprobePath, [
-            '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', videoPath
+            '-v', 'error', '-select_streams', 'v:0', '-show_entries',
+            'stream=width,height:stream_side_data=rotation:stream_tags=rotate', '-of', 'json', videoPath
         ]);
-        const stream = (JSON.parse(stdout) as FfprobeStreamsResult).streams?.[0];
-        const width = Number(stream?.width);
-        const height = Number(stream?.height);
-        return width > 0 && height > 0 ? { width, height } : undefined;
+        return parseProbedVideoDimensions(stdout);
     } catch {
         return undefined;
     }

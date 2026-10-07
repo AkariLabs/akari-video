@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const source = readHandlerSource();
+const windowSeconds = Number(source.match(/const LAYER_METADATA_WINDOW_SECONDS = (\d+);/u)?.[1]);
+assert.ok(Number.isFinite(windowSeconds) && windowSeconds > 0);
 const predicate = source.match(/const layerNeedsMetadataAt = ([\s\S]*?);\s*const syncLayerMediaWindow =/u)?.[1];
 const synchronizer = source.match(/const syncLayerMediaWindow = ([\s\S]*?\n            \});/u)?.[1];
 assert.ok(predicate, 'layer metadata window predicate');
@@ -27,7 +29,7 @@ function entries() {
 
 function windowFor(layerEntries, frameEngineMediaIdle) {
     const layerNeedsMetadataAt = new Function('LAYER_METADATA_WINDOW_SECONDS',
-        `return (${predicate});`)(10);
+        `return (${predicate});`)(windowSeconds);
     return new Function('frameEngineMediaIdle', 'layerEntries', 'optimisticallyRemovedIds',
         'layerNeedsMetadataAt', `return (${synchronizer});`)(frameEngineMediaIdle,
         layerEntries, new Set(), layerNeedsMetadataAt);

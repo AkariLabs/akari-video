@@ -6,7 +6,7 @@ import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
-import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
+import { constants as fsConstants, createReadStream, promises as fsPromises, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
 import { FileHandle, lstat, mkdtemp, open, readFile, readdir, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
@@ -829,14 +829,31 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     private readonly videoDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
 
+    protected probeVideoDimensionsAtPath(videoPath: string): Promise<{ width: number; height: number } | undefined> {
+        return probeVideoDimensions(videoPath);
+    }
+
     async probeVideoDimensions(request: { videoUri: string }): Promise<{ width: number; height: number } | undefined> {
         if (!request || typeof request.videoUri !== 'string') return undefined;
         let videoPath: string;
         try { videoPath = this.filePath(request.videoUri); } catch { return undefined; }
-        let probe = this.videoDimensionProbes.get(videoPath);
+        let fingerprint: string;
+        try {
+            const info = await fsPromises.stat(videoPath);
+            fingerprint = `${videoPath}|${info.size}|${info.mtimeMs}`;
+        } catch {
+            return this.probeVideoDimensionsAtPath(videoPath);
+        }
+        let probe = this.videoDimensionProbes.get(fingerprint);
         if (!probe) {
-            probe = probeVideoDimensions(videoPath);
-            this.videoDimensionProbes.set(videoPath, probe);
+            probe = this.probeVideoDimensionsAtPath(videoPath).then(dimensions => {
+                if (!dimensions) this.videoDimensionProbes.delete(fingerprint);
+                return dimensions;
+            }, error => {
+                this.videoDimensionProbes.delete(fingerprint);
+                throw error;
+            });
+            this.videoDimensionProbes.set(fingerprint, probe);
         }
         return probe;
     }
