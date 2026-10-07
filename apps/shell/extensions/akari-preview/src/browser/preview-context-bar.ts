@@ -739,12 +739,10 @@ export class PreviewContextBar implements Disposable {
         const visibleBar = !this.bar.hidden && !this.report.busy ? this.bar.getBoundingClientRect() : null;
         const barRectInFrame = visibleBar ? { left: visibleBar.left - area.left, top: visibleBar.top - area.top,
             width: visibleBar.width, height: visibleBar.height } : null;
-        const captionBarVisible = !!barRectInFrame && this.state?.kind === 'caption';
-        const barSignature = JSON.stringify([barRectInFrame, captionBarVisible]);
+        const barSignature = JSON.stringify(barRectInFrame);
         if (barSignature !== this.barRectSignature) {
             this.barRectSignature = barSignature;
-            this.host.sendMessage({ type: 'akari-preview-context-bar-rect', rect: barRectInFrame,
-                caption: captionBarVisible });
+            this.host.sendMessage({ type: 'akari-preview-context-bar-rect', rect: barRectInFrame });
         }
         const menuRect = menuBox ? { left: menuBox.left - area.left, top: menuBox.top - area.top,
             width: menuBox.width, height: menuBox.height } : null;

@@ -170,7 +170,7 @@ export function previewBootstrapScript(): string {
             const indicatorPopup = document.getElementById('indicator-popup');
             window.addEventListener('message', event => {
                 if (event.data?.type !== 'akari-preview-context-bar-rect') return;
-                const rect = event.data.caption ? event.data.rect : null;
+                const rect = event.data.rect;
                 indicatorToggle.style.top = rect ? Math.max(8, rect.top + rect.height + 8) + 'px' : '';
             });
             const videoFxFailedIndicators = new Set();
