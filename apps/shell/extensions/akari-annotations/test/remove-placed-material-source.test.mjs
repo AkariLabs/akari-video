@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { removePlacedMaterialAndUnusedSource } from '../lib/common/edit-v2-mutations.js';
+import { readEditV2 } from '@akari-video/edit-store';
 
 const media = (id, src) => ({ id, at: 0, duration: 30,
   source: { kind: 'media', src, in: 0, out: 1 } });
@@ -40,4 +41,27 @@ test('mask-only references keep a source until their last item is removed', () =
 
   const removed = removePlacedMaterialAndUnusedSource(document([masked]), 'masked');
   assert.deepEqual(removed.sources, []);
+});
+
+test('removing the baseline source keeps a valid rebased group', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: ['cam', 'mic', 'mic2'].map(id => ({ id, path: `${id}.mp4` })),
+    sync_groups: [{ id: 'take', members: [
+      { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0.5 },
+      { source: 'mic2', offset_sec: 0.2 } ] }],
+    tracks: [{ id: 'v', lane: 'visual', items: [media('placed', 'cam')] }] };
+  const result = removePlacedMaterialAndUnusedSource(doc, 'placed');
+  assert.deepEqual(readEditV2(result).sync_groups[0].members,
+    [{ source: 'mic', offset_sec: 0 }, { source: 'mic2', offset_sec: -0.3 }]);
+});
+
+test('removing either member of a two-source group removes the empty group key', () => {
+  const doc = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
+    sync_groups: [{ id: 'take', members: [
+      { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0.5 } ] }],
+    tracks: [{ id: 'v', lane: 'visual', items: [media('placed', 'cam')] }] };
+  const result = removePlacedMaterialAndUnusedSource(doc, 'placed');
+  assert.equal(Object.hasOwn(result, 'sync_groups'), false);
+  readEditV2(result);
 });

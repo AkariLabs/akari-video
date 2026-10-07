@@ -61,6 +61,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected sources: PopupSource[] = [];
     protected videoSourceIds = new Set<string>();
     protected syncChoice = new Map<string, string>();
+    protected initialSyncChoice = new Map<string, string>();
     protected selected = new Set<string>();
     protected step: 0 | 1 | 2 | 3 = 0;
     protected reached = 0;
@@ -192,6 +193,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const visual = group.members.find(candidate => this.videoSourceIds.has(candidate.source));
             if (visual && member.source !== visual.source) this.syncChoice.set(member.source, visual.source);
         }
+        this.initialSyncChoice = new Map(this.syncChoice);
         if (this.initialPath && !rawSources.some(source => normalizedCaptionPath(source.path) === normalizedCaptionPath(this.initialPath))) {
             rawSources.push({ id: '__requested_material__', path: this.initialPath, kind: 'unlisted' });
         }
@@ -286,20 +288,23 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             row.style.flexWrap = 'wrap';
             const syncRow = el('div');
             syncRow.style.cssText = 'flex:0 0 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-left:87px;box-sizing:border-box';
-            const syncLabel = el('small', 'このマイクはこの映像と同期');
+            const syncLabel = el('small', '一緒に切る映像');
             syncLabel.style.color = '#aeb7c5';
             const sync = el('select');
             sync.setAttribute('aria-label', `${source.name} をこの映像と同期`);
-            for (const [id, label] of [['', '同期する映像: なし'], ...[...this.videoSourceIds].map(id =>
-                [id, `この映像と同期: ${this.sources.find(candidate => candidate.id === id)?.name ?? id}`])]) {
+            for (const [id, label] of [['', 'なし'], ...[...this.videoSourceIds].map(id =>
+                [id, this.sources.find(candidate => candidate.id === id)?.name ?? id])]) {
                 const option = el('option', label); option.value = id; sync.append(option);
             }
             sync.value = this.syncChoice.get(source.id) ?? '';
             sync.style.minWidth = '180px';
             sync.onclick = event => event.stopPropagation();
             syncRow.onclick = event => { event.stopPropagation(); event.preventDefault(); };
-            sync.onchange = () => { void this.saveSyncChoice(source.id, sync.value); };
-            const hint = el('small', '最初はずれ 0 秒。必要ならあとでタイムラインでずらせます。');
+            sync.onchange = () => {
+                if (sync.value) this.syncChoice.set(source.id, sync.value);
+                else this.syncChoice.delete(source.id);
+            };
+            const hint = el('small', '組にしたあと、タイムラインで声をずらして口と合わせてください。合わせた位置のまま一緒に切れます。');
             hint.style.color = '#aeb7c5';
             syncRow.append(syncLabel, sync, hint);
             row.append(syncRow);
@@ -307,8 +312,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         return row;
     }
 
-    protected async saveSyncChoice(audioSource: string, videoSource: string): Promise<void> {
-        if (!this.editUri) return;
+    protected async saveSyncChoice(audioSource: string, videoSource: string): Promise<boolean> {
+        if (!this.editUri) return true;
         const editUri = this.editUri;
         try {
             const before = (await this.files.readFile(editUri)).value.toString();
@@ -323,9 +328,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             }
             if (videoSource) this.syncChoice.set(audioSource, videoSource);
             else this.syncChoice.delete(audioSource);
+            return true;
         } catch (error) {
             this.notice.textContent = `同期を保存できません: ${error instanceof Error ? error.message : String(error)}`;
             this.render();
+            return false;
         }
     }
 
@@ -619,7 +626,16 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const selected = this.selectedSources();
             const duration = selected.reduce((sum, source) => sum + (source.duration ?? 0), 0);
             this.foot.append(el('span', `${selected.length} 本を選択 · 計 ${time(duration)}`), spacer);
-            const next = button('次へ', () => { this.step = 1; this.reached = Math.max(this.reached, 1); this.render(); },
+            const next = button('次へ', () => { void (async () => {
+                next.disabled = true;
+                for (const source of this.sources.filter(candidate => candidate.status === 'voice'
+                    && !isCaptionVideo(candidate) && this.videoSourceIds.size)) {
+                    const choice = this.syncChoice.get(source.id) ?? '';
+                    if (choice !== (this.initialSyncChoice.get(source.id) ?? '')
+                        && !await this.saveSyncChoice(source.id, choice)) return;
+                }
+                this.step = 1; this.reached = Math.max(this.reached, 1); this.render();
+            })(); },
                 !selected.length || this.unsupportedTimeline);
             next.dataset.primary = 'true'; this.foot.append(next);
         } else if (this.step === 1) {

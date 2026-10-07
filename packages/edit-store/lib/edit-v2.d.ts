@@ -22,6 +22,9 @@ export interface SyncGroupV2 {
         offset_sec: number;
     }>;
 }
+export declare function removeSourceFromSyncGroups<T extends {
+    sync_groups?: SyncGroupV2[];
+}>(edit: T, sourceId: string): T;
 /** 音声素材を 1 つの映像素材と同期させる。解除時は映像 id を省略する。 */
 export declare function setSourceSyncGroup(edit: EditV2, audioSource: string, visualSource?: string): EditV2;
 export interface TransformV2 {

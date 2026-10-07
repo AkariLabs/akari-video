@@ -70,7 +70,6 @@ export function buildCaptionTimelineSegments(
             if (!(duration > 0) || !(speed > 0)) continue;
             let uncovered = [{ start: at, end: at + duration }];
             const group = syncGroups?.find(candidate => candidate.members.some(member => member.source === src));
-            const audioOffset = group?.members.find(member => member.source === src)?.offset_sec ?? 0;
             if (group) {
                 const projected: Array<{ start: number; end: number; in: number; out: number }> = [];
                 for (const member of group.members) {
@@ -82,16 +81,15 @@ export function buildCaptionTimelineSegments(
                             const visualSource = visualItem.source as { kind?: string; src?: string; sourceId?: string; in?: number; out?: number };
                             if (visualSource.kind !== 'media' || (visualSource.sourceId ?? visualSource.src) !== member.source
                                 || visualSource.in === undefined || visualSource.out === undefined) continue;
-                            const offset = member.offset_sec - audioOffset;
-                            const start = Math.max(sourceIn, visualSource.in - offset);
-                            const end = Math.min(sourceOut, visualSource.out - offset);
-                            if (end <= start) continue;
                             const visualAt = typeof timedVisual.atFrames === 'number' ? timedVisual.at ?? 0 : (timedVisual.at ?? 0) / fps;
                             const visualDuration = typeof timedVisual.durationFrames === 'number'
                                 ? timedVisual.duration ?? 0 : (timedVisual.duration ?? 0) / fps;
-                            const ratio = visualDuration / (visualSource.out - visualSource.in);
-                            projected.push({ start: visualAt + (start + offset - visualSource.in) * ratio,
-                                end: visualAt + (end + offset - visualSource.in) * ratio, in: start, out: end });
+                            const start = Math.max(at, visualAt);
+                            const end = Math.min(at + duration, visualAt + visualDuration);
+                            if (end <= start) continue;
+                            projected.push({ start, end,
+                                in: sourceIn + (start - at) * speed,
+                                out: sourceIn + (end - at) * speed });
                         }
                     }
                 }

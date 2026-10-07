@@ -90,11 +90,11 @@ new Function('require', 'exports', 'document', readFileSync(new URL('../lib/brow
 async function harness({ initialPath, previous = false, pending = deferred(), editSources, transcriptState,
     artifact, tools = [{ id: 'speech-analyzer', available: true }], providers = [], addRegistersSource = false,
     analysisByPath = {}, policyError, policyPending, preferences = {}, editName = 'edit.json', transcribeError,
-    notificationAction, dryRunError, initialCaptions, dryRunResult } = {}) {
+    notificationAction, dryRunError, initialCaptions, dryRunResult, editDocument } = {}) {
     const root = new URI('file:///fixture');
     root.editName = editName;
     const requests = [], builds = [], writes = [], notices = [], errors = [], cancels = [], commands = [], policies = [], fieldWrites = [];
-    const edit = { sources: editSources ?? [{ id: 'camera', path: 'assets/camera.mp4' },
+    let edit = editDocument ?? { sources: editSources ?? [{ id: 'camera', path: 'assets/camera.mp4' },
         { id: 'mic', path: 'assets/mic.wav' }, { id: 'image', path: 'assets/title.png' }] };
     let captions = JSON.stringify({ captions: initialCaptions ?? (previous ? [{ id: 'old', src: 'mic', start: 0, end: 1,
         words: [{ start: 0.1, end: 0.8, text: '声' }] }] : []),
@@ -108,7 +108,11 @@ async function harness({ initialPath, previous = false, pending = deferred(), ed
             if (analysis) return { value: { toString: () => JSON.stringify(analysis[1]) } };
             throw new Error('missing');
         },
-        async writeFile(uri, value) { writes.push([uri.toString(), value]); captions = value; },
+        async writeFile(uri, value) {
+            writes.push([uri.toString(), value]);
+            if (uri.toString().endsWith(`/${editName}`)) edit = JSON.parse(value);
+            else captions = value;
+        },
         async resolve() { return { children: [] }; }, async delete() {}
     };
     const service = {
@@ -161,6 +165,64 @@ test('popup opens on materials with a selected source and clamps existing three 
     dialog.foot.querySelector('[data-primary]').click();
     assert.equal(dialog.node.dataset.step, '2');
     assert.equal(dialog.backend, 'auto');
+});
+
+test('同期選択は未設定なら「なし」で、次へで変更した素材だけ保存する', async () => {
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'camera', path: 'assets/camera.mp4' },
+            { id: 'mic', path: 'assets/mic.wav' }, { id: 'mic2', path: 'assets/mic2.wav' }],
+        tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 300,
+            source: { kind: 'media', src: 'camera', in: 0, out: 10 } }] }] };
+    const h = await harness({ initialPath: 'assets/mic.wav', editDocument: edit });
+    const selects = [];
+    const visit = node => { if (node.tagName === 'select') selects.push(node);
+        for (const child of node.children ?? []) if (typeof child !== 'string') visit(child); };
+    visit(h.dialog.body);
+    assert.equal(selects.length, 2);
+    assert.ok(selects.every(select => select.value === ''), 'unset sources default to none');
+    h.dialog.foot.querySelector('[data-primary]').click();
+    await tick();
+    assert.deepEqual(h.writes, [], 'unchanged selections never write edit.json');
+    h.dialog.step = 0;
+    h.dialog.render();
+    selects.length = 0;
+    visit(h.dialog.body);
+    selects[0].value = 'camera';
+    selects[0].onchange();
+    h.dialog.foot.querySelector('[data-primary]').click();
+    await tick();
+    assert.equal(h.writes.length, 1);
+    assert.deepEqual(h.edit.sync_groups[0].members.map(member => member.source), ['camera', 'mic']);
+    assert.equal(h.edit.sync_groups[0].members.some(member => member.source === 'mic2'), false);
+});
+
+test('段 1 は既存の組を選択に反映し、触らず次へなら edit を書かない', async () => {
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'camera', path: 'assets/camera.mp4' },
+            { id: 'mic', path: 'assets/mic.wav' }, { id: 'mic2', path: 'assets/mic2.wav' }],
+        sync_groups: [{ id: 'take', members: [
+            { source: 'camera', offset_sec: 0 }, { source: 'mic', offset_sec: 0.5 } ] }],
+        tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 300,
+            source: { kind: 'media', src: 'camera', in: 0, out: 10 } }] }] };
+    const h = await harness({ initialPath: 'assets/mic.wav', editDocument: edit });
+    const selects = [];
+    const visit = node => { if (node.tagName === 'select') selects.push(node);
+        for (const child of node.children ?? []) if (typeof child !== 'string') visit(child); };
+    visit(h.dialog.body);
+    assert.deepEqual(selects.map(select => select.value), ['camera', '']);
+    h.dialog.foot.querySelector('[data-primary]').click();
+    await tick();
+    assert.deepEqual(h.writes, []);
+    h.dialog.step = 0;
+    h.dialog.render();
+    selects.length = 0;
+    visit(h.dialog.body);
+    selects[0].value = '';
+    selects[0].onchange();
+    h.dialog.foot.querySelector('[data-primary]').click();
+    await tick();
+    assert.equal(h.writes.length, 1);
+    assert.equal(Object.hasOwn(h.edit, 'sync_groups'), false);
 });
 
 test('step one uses checkboxes and can select two materials', async () => {

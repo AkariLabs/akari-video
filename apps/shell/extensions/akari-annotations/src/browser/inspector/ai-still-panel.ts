@@ -1,6 +1,7 @@
 import type { GenerateStillResult, ImageRouteState, StillCandidate, StillCandidateBatch } from '../../common/akari-annotations-protocol';
 import { aiActionCatalog } from '../../common/ai-action-catalog';
 import { stillMakerBadge } from './maker-badge';
+import { removeSourceFromSyncGroups } from '@akari-video/edit-store';
 
 export type StillAspect = import('../../common/akari-annotations-protocol').StillAspect;
 export type StillRoute = ImageRouteState['id'];
@@ -167,6 +168,7 @@ export function replaceStillInEdit<T extends {
 /** Place a completed image in one edit mutation; a deleted frame is a no-op. */
 export function placeStillInEdit<T extends {
     sources?: Array<{ id: string; path: string }>;
+    sync_groups?: Array<{ id: string; members: Array<{ source: string; offset_sec: number }> }>;
     tracks?: Array<{ items?: Array<{ id: string; name?: string; source?: { kind?: string; src?: string; [key: string]: unknown } }> }>;
 }>(doc: T, itemId: string, relativePath: string): T {
     const items = doc.tracks?.flatMap(track => track.items ?? []) ?? [];
@@ -185,6 +187,7 @@ export function placeStillInEdit<T extends {
     if (item.name === '空の枠') delete item.name;
     if (oldId?.startsWith('still-src-') && !items.some(row => row.source?.src === oldId)) {
         doc.sources = sources.filter(row => row.id !== oldId);
+        removeSourceFromSyncGroups(doc, oldId);
     } else doc.sources = sources;
     return doc;
 }

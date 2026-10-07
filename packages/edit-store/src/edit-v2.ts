@@ -25,6 +25,19 @@ export interface SyncGroupV2 {
     members: Array<{ source: string; offset_sec: number }>;
 }
 
+export function removeSourceFromSyncGroups<T extends { sync_groups?: SyncGroupV2[] }>(edit: T, sourceId: string): T {
+    if (!edit.sync_groups?.some(group => group.members.some(member => member.source === sourceId))) return edit;
+    const groups = edit.sync_groups.map(group => {
+        const members = group.members.filter(member => member.source !== sourceId);
+        const baseline = members[0]?.offset_sec ?? 0;
+        return { ...group, members: members.map(member => ({ ...member,
+            offset_sec: member.offset_sec - baseline })) };
+    }).filter(group => group.members.length >= 2);
+    if (groups.length) edit.sync_groups = groups;
+    else delete edit.sync_groups;
+    return edit;
+}
+
 /** 音声素材を 1 つの映像素材と同期させる。解除時は映像 id を省略する。 */
 export function setSourceSyncGroup(edit: EditV2, audioSource: string, visualSource?: string): EditV2 {
     if (!edit.sources.some(source => source.id === audioSource)
@@ -32,20 +45,17 @@ export function setSourceSyncGroup(edit: EditV2, audioSource: string, visualSour
         throw new Error('同期する素材が見つかりません。');
     }
     if (visualSource === audioSource) throw new Error('同じ素材同士は同期できません。');
-    const next = structuredClone(edit);
-    const groups = (next.sync_groups ?? []).map(group => {
-        const members = group.members.filter(member => member.source !== audioSource);
-        const baseline = members[0]?.offset_sec ?? 0;
-        return { ...group, members: members.map(member => ({ ...member,
-            offset_sec: member.offset_sec - baseline })) };
-    })
-        .filter(group => group.members.length >= 2);
+    const next = removeSourceFromSyncGroups(structuredClone(edit), audioSource);
+    const groups = next.sync_groups ?? [];
     if (visualSource) {
         const existing = groups.find(group => group.members.some(member => member.source === visualSource));
+        const previousOffset = edit.sync_groups?.find(group => group.members.some(member => member.source === audioSource)
+            && group.members.some(member => member.source === visualSource))?.members
+            .find(member => member.source === audioSource)?.offset_sec;
         if (existing) existing.members.push({ source: audioSource,
-            offset_sec: existing.members.find(member => member.source === visualSource)!.offset_sec });
+            offset_sec: previousOffset ?? existing.members.find(member => member.source === visualSource)!.offset_sec });
         else groups.push({ id: `sync-${visualSource}-${audioSource}`,
-            members: [{ source: visualSource, offset_sec: 0 }, { source: audioSource, offset_sec: 0 }] });
+            members: [{ source: visualSource, offset_sec: 0 }, { source: audioSource, offset_sec: previousOffset ?? 0 }] });
     }
     if (groups.length) next.sync_groups = groups;
     else delete next.sync_groups;

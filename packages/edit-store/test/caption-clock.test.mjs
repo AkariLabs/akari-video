@@ -5,7 +5,7 @@ import { readInternalEdit } from '../lib/internal-model.js';
 import { applyCutRanges, projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio,
     unlinkCutAudio } from '../lib/index.js';
 
-test('別ファイルの声は同期映像の出力時刻に一度だけ射影する', () => {
+test('別ファイルの声は実配置へ射影し、映像の外の声も一度だけ残す', () => {
     const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
         sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
         sync_groups: [{ id: 'take', members: [
@@ -19,9 +19,9 @@ test('別ファイルの声は同期映像の出力時刻に一度だけ射影�
         ] };
     const segments = buildCaptionTimelineSegments([], readInternalEdit(edit));
     const mic = segments.filter(segment => segment.src === 'mic');
-    assert.equal(mic.length, 1);
+    assert.equal(mic.length, 2);
     assert.deepEqual(mic.map(segment => [segment.in, segment.out, segment.outStart, segment.outEnd]),
-        [[1, 6, 1, 6]]);
+        [[1, 5, 2, 6], [5, 6, 6, 7]]);
 });
 
 test('同期映像が覆わない声の末尾は音声自身の時刻に残り、カット後も重複しない', () => {

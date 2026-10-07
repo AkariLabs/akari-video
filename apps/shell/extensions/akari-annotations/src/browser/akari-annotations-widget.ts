@@ -11856,6 +11856,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.rawV2Item(narration.id) !== undefined
                 );
             }
+            element.querySelector('[data-akari-sync-chip]')?.remove();
+            if (element.title === element.dataset.akariSyncTitle) {
+                element.title = element.dataset.akariSyncBaseTitle ?? '';
+            }
+            delete element.dataset.akariSyncTitle;
+            delete element.dataset.akariSyncBaseTitle;
+            const speechSource = this.audioSpeech?.some(item => item.id === narration.id)
+                ? this.rawV2Item(narration.id)?.source?.src : undefined;
+            const editForSync = this.editDocument as unknown as EditV2 | undefined;
+            const group = speechSource && editForSync?.sync_groups?.find(candidate =>
+                candidate.members.some(member => member.source === speechSource));
+            const video = group?.members.find(member => editForSync?.tracks.some(track =>
+                track.lane === 'visual' && 'items' in track && track.items.some(item =>
+                    item.source.kind === 'media' && item.source.src === member.source)));
+            const videoName = editForSync?.sources.find(source => source.id === video?.source)?.path
+                .replace(/\\/gu, '/').split('/').pop();
+            if (videoName && video?.source !== speechSource) {
+                element.dataset.akariSyncBaseTitle = element.title;
+                element.title = [element.title, `${videoName} と同期`].filter(Boolean).join('\n');
+                element.dataset.akariSyncTitle = element.title;
+                if (this.audioBarWidthPx(narration.t, end) >= 130) {
+                    const chip = document.createElement('span');
+                    chip.dataset.akariSyncChip = 'true';
+                    chip.textContent = `🔗 ${videoName} と同期`;
+                    chip.title = `${videoName} と同期`;
+                    chip.style.cssText = 'position:absolute;right:3px;top:2px;font-size:10px;white-space:nowrap;background:#194638;color:#9ce8bc;border-radius:8px;padding:1px 4px';
+                    element.append(chip);
+                }
+            }
             this.updateNarrationWaveform(
                 element, narration, durationSeconds, itemHeight, actualDuration
             );
@@ -19905,7 +19934,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ) } : {}),
                 copyable: item.kind !== 'audio' || this.audioSfx.some(candidate => candidate.id === item.id),
                 linked: item.kind === 'audio' && this.linkedCutAudioPair(item.id) !== undefined,
-                syncVideo: item.kind === 'audio' && this.audioSpeech.some(candidate => candidate.id === item.id),
+                syncVideo: item.kind === 'audio' && this.audioSpeech.some(candidate => candidate.id === item.id)
+                    && this.linkedCutAudioPair(item.id) === undefined,
                 narrationRedo: item.kind === 'audio' && this.audioNarration.some(candidate => candidate.id === item.id)
                     && this.captions.some(caption => caption.id === this.narrationReadAloudMetadata(item.id)?.caption_ref)
             }
@@ -19934,6 +19964,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             items.push({ id: 'caption-attach', label: '字幕にひも付ける…' });
         }
         const clientX = event.clientX;
+        const clientY = event.clientY;
         openTimelineContextMenu({
             x: event.clientX,
             y: event.clientY,
@@ -19954,7 +19985,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 if (id === 'caption-attach' && 'id' in item) { void this.openCaptionAttachDialog(item.id, event.clientX, event.clientY); return; }
-                this.dispatchTimelineClipMenuAction(id, item, clientX, hasAudio, click.altKey);
+                this.dispatchTimelineClipMenuAction(id, item, clientX, hasAudio, click.altKey, clientY);
             }
         });
     }
@@ -20057,7 +20088,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             top: `${Math.min(y, window.innerHeight - 150)}px`, width: '260px', padding: '10px',
             background: 'var(--theia-editor-background)', border: '1px solid var(--theia-widget-border)',
             borderRadius: '6px', boxShadow: '0 8px 24px #0008' });
-        const title = document.createElement('div'); title.textContent = 'この映像と同期'; popup.append(title);
+        const title = document.createElement('div'); title.textContent = '一緒に切る映像'; popup.append(title);
         const select = document.createElement('select'); select.style.width = '100%';
         const none = document.createElement('option'); none.value = ''; none.textContent = 'なし（同期を解除）'; select.append(none);
         for (const source of edit.sources.filter(entry => videoIds.has(entry.id))) {
@@ -20065,13 +20096,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             option.textContent = source.path.replace(/\\/gu, '/').split('/').pop() || source.id; select.append(option);
         }
         select.value = edit.sync_groups?.find(group => group.members.some(member => member.source === audioSource))
-            ?.members.find(member => videoIds.has(member.source))?.source ?? '';
+            ?.members.find(member => videoIds.has(member.source))?.source ?? [...videoIds][0];
         popup.append(select);
-        const note = document.createElement('small'); note.textContent = '最初はずれ 0 秒。必要ならあとでタイムラインでずらせます。';
+        const note = document.createElement('small'); note.textContent = '組にしたあと、タイムラインで声をずらして口と合わせてください。合わせた位置のまま一緒に切れます。';
         note.style.display = 'block'; popup.append(note);
         const button = document.createElement('button'); button.className = 'theia-button main';
         button.textContent = '保存'; button.style.marginTop = '8px'; popup.append(button);
+        const cancel = document.createElement('button'); cancel.className = 'theia-button';
+        cancel.textContent = '取り消し'; cancel.style.marginLeft = '8px'; popup.append(cancel);
         document.body.append(popup);
+        cancel.onclick = () => popup.remove();
         button.onclick = () => {
             const videoSource = select.value || undefined;
             popup.remove();
@@ -20091,10 +20125,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 右クリックした X 位置（`clientX`）を使う（司令塔裁定1・事実2）。
      */
     protected dispatchTimelineClipMenuAction(
-        id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
+        id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false,
+        clientY = window.innerHeight / 2
     ): void {
         if (id === 'sync-video' && item.kind === 'audio') {
-            this.openSyncVideoDialog(item.id, clientX, window.innerHeight / 2);
+            this.openSyncVideoDialog(item.id, clientX, clientY);
             return;
         }
         if (id === 'narrate-redo' && item.kind === 'audio') {
