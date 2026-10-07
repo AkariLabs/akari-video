@@ -32,6 +32,10 @@ export function nextTargetLabel(target: unknown): string {
     return target.startsWith('ui:') ? target.slice(3) : target;
 }
 
+function nextRowTitle(row: NextRow): string {
+    return String(row.title || row.body || '').replace(/\s+/gu, ' ').trim() || '内容なし';
+}
+
 @injectable()
 export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplicationContribution {
     readonly id = 'next';
@@ -155,6 +159,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 list.append(empty);
             }
             for (const row of this.data.rows.slice(0, 7)) {
+                const rowTitle = nextRowTitle(row);
                 const line = document.createElement('div');
                 line.className = 'akari-vibe-next-row';
                 line.setAttribute('data-task-id', row.id);
@@ -165,7 +170,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 const check = document.createElement('button');
                 check.type = 'button';
                 check.className = 'akari-vibe-next-pick';
-                check.setAttribute('aria-label', `${Array.from(String(row.title || row.body || '').replace(/\s+/gu, ' ').trim()).slice(0, 20).join('') || '内容なし'} を選ぶ`);
+                check.setAttribute('aria-label', `${Array.from(rowTitle).slice(0, 20).join('')} を選ぶ`);
                 check.setAttribute('aria-pressed', String(selected.has(row.id)));
                 check.disabled = !row.actions.some(action => action.id === 'send');
                 check.addEventListener('click', () => { selected.has(row.id) ? selected.delete(row.id) : selected.add(row.id); paint(); });
@@ -173,7 +178,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 label.className = 'akari-vibe-next-text';
                 const title = document.createElement('span');
                 title.className = 'akari-vibe-next-title';
-                title.textContent = String(row.title || row.body || '').replace(/\s+/gu, ' ').trim() || '内容なし';
+                title.textContent = rowTitle;
                 label.title = title.textContent;
                 const target = document.createElement('small');
                 const seconds = row.anchor?.sourceT;

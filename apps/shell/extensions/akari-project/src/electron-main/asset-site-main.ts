@@ -22,6 +22,7 @@ import { readBrowserConfig } from './browser-data';
 type TrustedSite = (AssetSite | BrowserDefinition) & SitePolicy;
 interface SiteState { window: BrowserWindow; view: WebContentsView; site: TrustedSite; temporary: string; url: string;
     navigationLog: { stage: string; url: string; allowed: boolean }[]; lastRect?: CssRect & { visible: boolean };
+    pendingInitialUrl?: string;
     guarded: boolean; pickMode: boolean; blockedNavigation: boolean; zoomListener: () => void; lastPick?: number;
     search: { engine: string; query: string } | null; pendingResolve?: { token: string; timer: ReturnType<typeof setTimeout>;
         show: (payload?: PickPayload) => void } }
@@ -95,7 +96,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 state.search = { engine: input.engine, query: sanitizeExternalText(input.query, 512) };
                 return;
             }
-            if (operation === 'open') return this.open(window, input?.site, input?.url);
+            if (operation === 'open') return this.open(window, input?.site, input?.url, input?.rect);
             const state = this.states.get(window.id);
             if (operation === 'close' && !state) { this.pickModes.delete(window.id); return; }
             if (!state) throw new Error('素材サイトが開いていません');
@@ -136,7 +137,13 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 if (![x, y, width, height].every((value: unknown) => typeof value === 'number' && Number.isFinite(value))
                     || typeof visible !== 'boolean') return;
                 state.lastRect = { x, y, width, height, visible };
-                this.applyBounds(state); return;
+                this.applyBounds(state);
+                if (state.pendingInitialUrl && visible && state.view.getBounds().width > 0
+                    && state.view.getBounds().height > 0) {
+                    const pendingUrl = state.pendingInitialUrl; state.pendingInitialUrl = undefined;
+                    void this.loadSiteUrl(state, pendingUrl).catch(() => void this.close(state));
+                }
+                return;
             }
             if (operation === 'navigate') {
                 if (typeof input?.url !== 'string' || input.url.length > 8192 || !navigationAllowed(input.url, state.site, testHttp))
@@ -221,7 +228,8 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         }
     }
 
-    private async open(window: BrowserWindow, site: AssetSite | BrowserDefinition, url: string): Promise<void> {
+    private async open(window: BrowserWindow, site: AssetSite | BrowserDefinition, url: string,
+        rect?: CssRect & { visible: boolean }): Promise<void> {
         const trusted = await this.readTrustedSite(site?.id);
         if (!trusted || typeof url !== 'string' || url.length > 8192 || !navigationAllowed(url, trusted, testHttp) ||
             ('entry_url' in trusted && !navigationAllowed(trusted.entry_url, trusted, testHttp)))
@@ -245,12 +253,15 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         // Theia's global web-contents-created hook prevents every non-secondary will-navigate.
         // Remove that hook only from this dedicated site view, then install our own hosts[] guard below.
         wc.removeAllListeners('will-navigate');
+        const initialRect = rect && [rect.x, rect.y, rect.width, rect.height].every(value =>
+            typeof value === 'number' && Number.isFinite(value)) && typeof rect.visible === 'boolean' ? rect : undefined;
         const state: SiteState = { window, view, site: trusted, temporary, url, navigationLog: [],
+            lastRect: trusted.navigation === 'open' ? initialRect : undefined,
             guarded: false, pickMode: this.pickModes.get(window.id) ?? false, blockedNavigation: false, search: null,
             zoomListener: () => this.applyBounds(state) };
         this.states.set(window.id, state);
         window.contentView.addChildView(view);
-        view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+        this.applyBounds(state);
         window.webContents.on('zoom-changed', state.zoomListener);
         if (trusted.navigation === 'open') {
             const syncMode = (): void => wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode));
@@ -293,6 +304,9 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             if (trusted.navigation === 'open') wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode)); });
         window.once('closed', () => { void this.close(state); });
         if (state.pickMode) this.emit(state, { type: 'pickMode', on: true });
+        if (trusted.navigation === 'open' && (!initialRect?.visible || !view.getBounds().width || !view.getBounds().height)) {
+            state.pendingInitialUrl = url; return;
+        }
         try { await this.loadSiteUrl(state, url); }
         catch (error) { await this.close(state); throw error; }
     }
@@ -424,6 +438,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
     }
     private async close(state: SiteState): Promise<void> {
         if (this.states.get(state.window.id) !== state) return;
+        state.pendingInitialUrl = undefined;
         this.states.delete(state.window.id);
         this.pickModes.delete(state.window.id);
         if (!state.window.isDestroyed()) state.window.webContents.removeListener('zoom-changed', state.zoomListener);

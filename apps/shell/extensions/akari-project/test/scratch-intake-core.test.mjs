@@ -282,3 +282,25 @@ test('(k) store duplicate, failure cleanup, url_only, isolated home and cleanup 
     assert.equal(await readFile(join(home, 'catalog-cache.json'), 'utf8'), 'keep');
     assert.equal(await readFile(join(otherHome, 'sentinel'), 'utf8'), 'outside');
 });
+
+test('WebP, GIF and AVIF use the isolated thumbnail renderer after writing the scratch file', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'scratch-render-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const seen = [];
+    for (const [mime, ext] of [['image/webp', 'webp'], ['image/gif', 'gif'], ['image/avif', 'avif']]) {
+        const bytes = bytesByMime[mime];
+        const input = { bytes, mime, pageUrl: 'https://example.com', pageTitle: '', alt: '',
+            resolvedFrom: 'img.currentSrc', via: 'browser:pick' };
+        const result = await saveScratch(input, root, undefined, async path => {
+            assert.equal(path.endsWith(`image.${ext}`), true);
+            assert.deepEqual(await readFile(path), bytes);
+            seen.push(mime);
+            return { bytes: Buffer.from('ffd8ff', 'hex'), width: 1024, height: 768 };
+        });
+        assert.deepEqual(await readFile(join(root, result.source.id, 'thumb.jpg')), Buffer.from('ffd8ff', 'hex'));
+        assert.equal(result.source.app.width, 1024);
+        assert.equal(result.source.app.height, 768);
+        assert.equal(result.source.app.quality, 'full');
+    }
+    assert.deepEqual(seen, ['image/webp', 'image/gif', 'image/avif']);
+});

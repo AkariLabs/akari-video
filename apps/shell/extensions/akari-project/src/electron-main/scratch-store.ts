@@ -5,6 +5,7 @@ import { basename, join, resolve, sep } from 'path';
 import { nativeImage } from '@theia/core/electron-shared/electron';
 import { planScratchCleanup, CleanupEntry } from '../common/scratch-cleanup';
 import { makeScratchSource, SCRATCH_ID, ScratchSource, validateScratchSource, scratchLabel } from '../common/scratch-source';
+import { renderScratchThumbnail, ScratchThumbnail } from './scratch-thumbnail';
 
 export interface ScratchListItem {
     ref: string; id: string; kind: 'scratch-image'; origin: 'external'; label: string;
@@ -67,7 +68,8 @@ export async function saveScratch(input: {
     bytes?: Buffer; mime?: string; pageUrl: string; imageUrl?: string; linkUrl?: string; pageTitle: string; alt: string;
     resolvedFrom: string; via: ScratchSource['via']; width?: number; height?: number;
     search?: { engine: string; query: string } | null; dataBytes?: number;
-}, root = scratchRoot(), thumbnail?: (bytes: Buffer) => { bytes?: Buffer; width?: number; height?: number }): Promise<{ source: ScratchSource; duplicate: boolean }> {
+}, root = scratchRoot(), thumbnail?: (bytes: Buffer) => ScratchThumbnail | Promise<ScratchThumbnail>,
+renderThumbnail: (path: string) => Promise<ScratchThumbnail> = renderScratchThumbnail): Promise<{ source: ScratchSource; duplicate: boolean }> {
     await fs.mkdir(root, { recursive: true });
     const hash = input.bytes ? createHash('sha256').update(input.bytes).digest('hex') : undefined;
     if (hash) {
@@ -83,7 +85,9 @@ export async function saveScratch(input: {
                 'image/avif': 'avif' } as Record<string, string>)[input.mime ?? ''];
             if (!ext) throw new Error('unsupported image');
             await fs.writeFile(join(temp, `image.${ext}`), input.bytes);
-            const rendered = thumbnail ? thumbnail(input.bytes) : (() => {
+            const rendered: ScratchThumbnail = thumbnail ? await thumbnail(input.bytes) : input.mime === 'image/webp'
+                || input.mime === 'image/gif' || input.mime === 'image/avif'
+                ? await renderThumbnail(join(temp, `image.${ext}`)).catch(() => ({})) : (() => {
                 try {
                     const image = nativeImage.createFromBuffer(input.bytes!);
                     if (image.isEmpty()) return {};

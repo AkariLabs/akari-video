@@ -20,10 +20,39 @@ test('job event is reported, completed once, and removed', () => {
     assert.match(state.currentStatus()?.line, /ログイン/);
     send([{ jobId: 'c-0001-r1', memoId: 'c-0001', state: 'failed', error: { code: 'rate-limit' } }]);
     assert.match(state.currentStatus()?.line, /利用の上限に達しているようです/);
+    assert.equal(state.currentStatus()?.action?.label, '閉じる');
     send([{ jobId: 'c-0001-r1', memoId: 'c-0001', state: 'done', resultCount: 2 }]);
     send([{ jobId: 'c-0001-r1', memoId: 'c-0001', state: 'done', resultCount: 2 }]);
     assert.equal(state.currentStatus()?.line, 'タスク案が 2 件できました');
     assert.equal(state.statuses.size, 1);
+  } finally { globalThis.window = oldWindow; }
+});
+
+test('running job takes priority over an older failure and keeps cancel available', () => {
+  const oldWindow = globalThis.window;
+  const window = new EventTarget(); globalThis.window = window;
+  const state = new VibeDockState({ getItem: () => null, setItem: () => {} });
+  const bridge = new TaskifyJobsBridge(); bridge.dock = state;
+  try {
+    bridge.onStart();
+    window.dispatchEvent(new CustomEvent('akari.taskify.jobs', { detail: { jobs: [
+      { jobId: 'old', memoId: 'c-0001', state: 'failed', error: { code: 'timeout' } },
+      { jobId: 'new', memoId: 'c-0002', state: 'running' }
+    ] } }));
+    assert.equal(state.currentStatus()?.line, '1 件進めています');
+    assert.deepEqual([...state.jobs.keys()], ['new']);
+    assert.equal(state.jobs.get('new')?.action?.label, 'やめる');
+    window.dispatchEvent(new CustomEvent('akari.taskify.jobs', { detail: { jobs: [
+      { jobId: 'old', memoId: 'c-0001', state: 'failed', error: { code: 'timeout' } },
+      { jobId: 'new', memoId: 'c-0002', state: 'done', resultCount: 3 }
+    ] } }));
+    assert.equal(state.currentStatus()?.line, 'メモ c-0001・時間内に終わりませんでした');
+    window.dispatchEvent(new CustomEvent('akari.taskify.jobs', { detail: { jobs: [
+      { jobId: 'old', memoId: 'c-0001', state: 'failed', error: { code: 'timeout' } }
+    ] } }));
+    assert.equal(state.currentStatus()?.action?.label, '閉じる');
+    state.currentStatus()?.action?.run();
+    assert.equal(state.jobs.size, 0);
   } finally { globalThis.window = oldWindow; }
 });
 

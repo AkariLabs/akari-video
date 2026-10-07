@@ -76,3 +76,19 @@ test('選択したタスクだけをまとめて頼む', async () => {
     assert.deepEqual(notices, ['選んだタスクを頼みました。', 'タスクを頼みました。']);
     view.dispose();
 });
+
+test('案の丸は表示題名の先頭 20 字を aria-label に使う', async () => {
+    const tab = new NextVibeDockTab();
+    Object.assign(tab, { commands: { executeCommand: async () => ({ rows: [
+        { ...row(1), title: `題  ${'あ'.repeat(24)}`, body: '別の本文' }
+    ], summary: { unsent: 1, sent: 0, review: 0, done: 0 } }) }, tabs: { refreshBadges() {} } });
+    await tab.load();
+    const host = new Node(); const view = tab.render(host, {});
+    await tick();
+    const title = walk(host).find(node => node.className === 'akari-vibe-next-title');
+    const pick = walk(host).find(node => node.className === 'akari-vibe-next-pick');
+    assert.equal(title.textContent, `題 ${'あ'.repeat(24)}`);
+    assert.equal(pick.attributes['aria-label'], `${Array.from(title.textContent).slice(0, 20).join('')} を選ぶ`);
+    assert.equal(pick.attributes['aria-label'].includes('t-0001'), false);
+    view.dispose();
+});

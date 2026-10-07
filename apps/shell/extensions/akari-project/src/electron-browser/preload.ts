@@ -15,7 +15,9 @@ const api: ElectronAkariProjectApi = {
     copyFileToClipboard: (fsPath: string): Promise<CopyFileToClipboardResult> =>
         ipcRenderer.invoke(CHANNEL_COPY_FILE_TO_CLIPBOARD, fsPath),
     assetSite: {
-        open: (site, url, agent) => ipcRenderer.invoke(CHANNEL_ASSET_SITE, 'open', { site, url, agent }),
+        open: (site: Parameters<ElectronAkariProjectApi['assetSite']['open']>[0], url: string,
+            agent?: boolean, rect?: { x: number; y: number; width: number; height: number; visible: boolean }) =>
+            ipcRenderer.invoke(CHANNEL_ASSET_SITE, 'open', { site, url, agent, rect }),
         bounds: rect => ipcRenderer.invoke(CHANNEL_ASSET_SITE, 'bounds', rect),
         navigate: url => ipcRenderer.invoke(CHANNEL_ASSET_SITE, 'navigate', { url }),
         highlight: (expectedFilenames, filenamePatterns) => ipcRenderer.invoke(CHANNEL_ASSET_SITE, 'highlight', { expectedFilenames, filenamePatterns }),

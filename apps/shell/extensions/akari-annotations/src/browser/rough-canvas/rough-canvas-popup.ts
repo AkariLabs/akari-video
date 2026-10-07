@@ -27,6 +27,11 @@ export interface RoughCanvasPopupOptions {
 const STORAGE = 'akari.rough-canvas.bounds.v2';
 let draftNumber = 0;
 const emptyInk = (aspect: InkAspect): InkDocument => ({ schema: 'akari.ink.v0', space: 'canvas-rect', aspect, objects: [] });
+export function taskBackdropPresentation(backdrop: RoughCanvasBackdrop | undefined, included: boolean):
+    { disabled: boolean; checked: boolean; label: '今の画面を含む' | '線だけ' } {
+    const checked = !!backdrop && included;
+    return { disabled: !backdrop, checked, label: checked ? '今の画面を含む' : '線だけ' };
+}
 function savedBounds(): { left: number; top: number; width: number } | undefined {
     try {
         const value = JSON.parse(window.localStorage.getItem(STORAGE) ?? 'null');
@@ -54,6 +59,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     private readonly number = document.createElement('span');
     private readonly footer = document.createElement('div');
     private backdropFailed = false;
+    private updateTask?: () => void;
     private closing = false;
     private sendingArmed = false;
     private taskConfirmationOpen = false;
@@ -137,11 +143,16 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         taskPacket.title = '音声は送られません';
         const taskDescription = document.createElement('span');
         const includeLabel = document.createElement('label');
-        const includeBackdrop = document.createElement('input'); includeBackdrop.type = 'checkbox'; includeBackdrop.checked = true;
+        const includeBackdrop = document.createElement('input'); includeBackdrop.type = 'checkbox';
+        let includeBackdropPreferred = true;
         includeBackdrop.setAttribute('aria-label', '今の画面を含める');
         includeLabel.append(includeBackdrop, document.createTextNode('今の画面を含める'));
         taskPacket.append(taskDescription, includeLabel);
         const updateTask = async (): Promise<void> => {
+            const backdropState = taskBackdropPresentation(this.page.backdrop, includeBackdropPreferred);
+            includeBackdrop.disabled = backdropState.disabled;
+            includeBackdrop.checked = backdropState.checked;
+            includeBackdrop.title = includeLabel.title = includeBackdrop.disabled ? '画面を敷いたときだけ選べます' : '';
             const lines = this.layer?.getDocument().objects.length ?? this.page.ink.objects.length;
             const text = this.memo.value.trim().length;
             taskPacket.hidden = !lines && !text;
@@ -151,12 +162,16 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
             task.title = !preview?.available ? preview?.reason === 'disabled' ? 'このプロジェクトでは使えません' : `${preview?.agent === 'codex' ? 'Codex' : 'Claude'} が見つかりません` : '';
             taskHint.title = task.title;
             taskDescription.textContent = !preview?.available ? task.title :
-                `紙 1 枚（${includeBackdrop.checked ? '今の画面を含む' : '線だけ'}）・線 ${lines} 本・一言 ${text} 字 → あなたの ${preview.agent === 'claude' ? 'Claude（Anthropic）' : 'Codex（OpenAI）'}`;
+                `紙 1 枚（${taskBackdropPresentation(this.page.backdrop, includeBackdropPreferred).label}）・線 ${lines} 本・一言 ${text} 字 → あなたの ${preview.agent === 'claude' ? 'Claude（Anthropic）' : 'Codex（OpenAI）'}`;
         };
+        this.updateTask = () => { void updateTask(); };
         this.memo.addEventListener('input', () => { void updateTask(); });
         this.inkHost.addEventListener('pointerup', () => { setTimeout(() => void updateTask(), 0); });
         this.backdropToggle.addEventListener('change', () => this.closeTaskConfirmation());
-        includeBackdrop.addEventListener('change', () => { this.closeTaskConfirmation(); void updateTask(); });
+        includeBackdrop.addEventListener('change', () => {
+            if (this.page.backdrop) includeBackdropPreferred = includeBackdrop.checked;
+            this.closeTaskConfirmation(); void updateTask();
+        });
         window.addEventListener('akari.sketch.opened', () => { void updateTask(); });
         void updateTask();
         const pageControls = document.createElement('span'); pageControls.className = 'akari-rough-canvas-page-controls';
@@ -339,7 +354,8 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.backdropToggle.checked = !!this.page.backdrop;
         this.backdropToggle.disabled = !!this.page.sealed;
         this.hint.hidden = !this.backdropFailed || !!this.page.backdrop;
-        this.hint.textContent = '画面を敷けませんでした';
+        this.hint.textContent = '画面を敷けませんでした。プレビューに映像が出ているときに使えます';
+        this.updateTask?.();
     }
     removeBackdrop(): void {
         if (this.page.sealed) return;
@@ -385,7 +401,8 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
                 return;
             }
             try {
-                const includeBackdrop = this.body.querySelector<HTMLInputElement>('[aria-label="今の画面を含める"]')?.checked !== false;
+                const includeBackdrop = !!this.page.backdrop
+                    && this.body.querySelector<HTMLInputElement>('[aria-label="今の画面を含める"]')?.checked !== false;
                 const scale = Math.min(1, 1280 / Math.max(this.options.aspect.w, this.options.aspect.h));
                 const paperPng = includeBackdrop ? undefined : await inkToPngDataUrl(this.page.ink, {
                     width: Math.round(this.options.aspect.w * scale), height: Math.round(this.options.aspect.h * scale),

@@ -86,8 +86,16 @@ export class AssetSiteWidget extends ReactWidget {
         this.listing = listing; this.address = url ?? listing.site.entry_url; this.agentOpened = agent;
         this.browserView = false; this.snapshot = undefined; this.lastBounds = undefined;
         this.pending = undefined; this.title.label = listing.site.name;
-        await window.electronAkariProject.assetSite.open(listing.site, this.address, agent);
+        this.update();
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const rect = this.host?.getBoundingClientRect();
+        const bounds = rect ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+            visible: this.isVisible && rect.width > 0 && rect.height > 0 } : undefined;
+        const openWithBounds = window.electronAkariProject.assetSite.open as (site: typeof listing.site, url: string,
+            agent?: boolean, rect?: typeof bounds) => Promise<void>;
+        await openWithBounds(listing.site, this.address, agent, this.mode === 'open' ? bounds : undefined);
         this.browserView = this.mode === 'open';
+        this.lastBounds = undefined;
         this.update();
         await this.updateBounds();
         window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
@@ -158,7 +166,12 @@ export class AssetSiteWidget extends ReactWidget {
         if (!this.browserConfig) throw new Error('ブラウザの設定ファイルが見つかりません');
         this.browserError = ''; this.browserLoading = true; this.update();
         if (this.browserView) await window.electronAkariProject.assetSite.navigate(url);
-        else { await window.electronAkariProject.assetSite.open(this.browserConfig.open_web, url);
+        else { const rect = this.host?.getBoundingClientRect();
+            const bounds = rect ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height,
+                visible: this.isVisible && rect.width > 0 && rect.height > 0 } : undefined;
+            const openWithBounds = window.electronAkariProject.assetSite.open as (
+                site: typeof this.browserConfig.open_web, url: string, agent?: boolean, rect?: typeof bounds) => Promise<void>;
+            await openWithBounds(this.browserConfig.open_web, url, false, bounds);
             this.browserView = true; }
         this.address = url; this.update(); await this.updateBounds();
         window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
