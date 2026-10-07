@@ -80,12 +80,16 @@ test('種類を問わず表示中の帯から印を逃がし、帯が消えた�
     } finally { await browser.close(); }
 });
 
-test('音声の知らせは再生ボタンと別行で、省略時の全文を title に持つ', async t => {
-    assert.match(bootstrap, /transport\.append\(statusRow\);\s*statusRow\.append\(audioStatus\)/u);
-    assert.match(bootstrap, /audioStatus\.title = audioStatus\.textContent \|\| ''/u);
-    const rowStyle = bootstrap.match(/statusRow\.style\.cssText = '([^']+)'/u)?.[1];
-    const statusStyle = bootstrap.match(/audioStatus\.style\.cssText = '([^']+)'/u)?.[1];
-    assert.ok(rowStyle && statusStyle);
+test('host の幅が同じでも帯の高さ変更を監視し、印を新しい下端へ移す', async t => {
+    assert.match(contextBar, /resize\.observe\(this\.host\.node\);\s*resize\.observe\(this\.bar\)/u);
+    assert.match(contextBar, /Disposable\.create\(\(\) => resize\.disconnect\(\)\)/u);
+    const start = bootstrap.indexOf("window.addEventListener('message', event => {", bootstrap.indexOf("const indicatorPopup ="));
+    const end = bootstrap.indexOf('            const videoFxFailedIndicators', start);
+    let onMessage;
+    const indicatorToggle = { style: { top: '' } };
+    vm.runInContext(bootstrap.slice(start, end), vm.createContext({
+        window: { addEventListener: (_type, listener) => { onMessage = listener; } }, indicatorToggle
+    }));
     let browser;
     try { browser = await launchBrowser(); }
     catch (error) {
@@ -94,27 +98,92 @@ test('音声の知らせは再生ボタンと別行で、省略時の全文を t
     }
     try {
         const page = await browser.newPage();
-        const css = ['.transport', '.transport-controls', '.transport-left', '.transport-center', '.transport-right', '.audio-status']
+        await page.setViewport({ width: 520, height: 260 });
+        await page.setContent('<style>body{margin:0}.bar{position:absolute;top:5px;left:50%;transform:translateX(-50%);width:300px;height:30px;display:flex;align-items:center;justify-content:flex-end}.bar button{height:100%}#indicator-toggle{position:absolute;top:8px;right:8px;height:24px}</style><div class="bar"><button>スタイル</button></div><button id="indicator-toggle">ⓘ 未対応 3</button>');
+        await page.evaluate(() => {
+            const bar = document.querySelector('.bar');
+            window.__barRects = [];
+            window.__barObserver = new ResizeObserver(() => {
+                const r = bar.getBoundingClientRect();
+                window.__barRects.push({ top: r.top, height: r.height });
+            });
+            window.__barObserver.observe(bar);
+        });
+        await page.waitForFunction(() => window.__barRects.length === 1);
+        await page.evaluate(() => { document.querySelector('.bar').style.height = '58px'; });
+        await page.waitForFunction(() => window.__barRects.length >= 2);
+        const rects = await page.evaluate(() => window.__barRects.slice(0, 2));
+        assert.equal(rects[0].height, 30);
+        assert.equal(rects[1].height, 58);
+        onMessage({ data: { type: 'akari-preview-context-bar-rect', rect: rects[0] } });
+        assert.equal(indicatorToggle.style.top, '43px');
+        onMessage({ data: { type: 'akari-preview-context-bar-rect', rect: rects[1] } });
+        const boxes = await page.evaluate(top => {
+            const indicator = document.querySelector('#indicator-toggle');
+            indicator.style.top = top;
+            const a = indicator.getBoundingClientRect();
+            const b = document.querySelector('.bar button').getBoundingClientRect();
+            return { indicator: { left: a.left, right: a.right, top: a.top, bottom: a.bottom },
+                button: { left: b.left, right: b.right, top: b.top, bottom: b.bottom } };
+        }, indicatorToggle.style.top);
+        assert.equal(indicatorToggle.style.top, '71px');
+        assert.equal(intersects(boxes.indicator, boxes.button), false);
+    } finally { await browser.close(); }
+});
+
+test('音声の知らせは映像領域に重ね、出入りしても映像と再生帯の高さを変えない', async t => {
+    assert.match(bootstrap, /transport\.append\(statusRow\);\s*statusRow\.append\(audioStatus\)/u);
+    assert.match(bootstrap, /transport\.style\.position = 'relative'/u);
+    assert.match(bootstrap, /audioStatus\.title = audioStatus\.textContent \|\| ''/u);
+    const rowStyle = bootstrap.match(/statusRow\.style\.cssText = '([^']+)'/u)?.[1];
+    const statusStyle = bootstrap.match(/audioStatus\.style\.cssText = '([^']+)'/u)?.[1];
+    assert.ok(rowStyle && statusStyle);
+    assert.match(rowStyle, /position:absolute;[^;]*left:0;right:0;bottom:100%/u);
+    let browser;
+    try { browser = await launchBrowser(); }
+    catch (error) {
+        if (error?.message !== 'headless Chrome が見つかりません') throw error;
+        t.skip('headless Chrome 不在'); return;
+    }
+    try {
+        const page = await browser.newPage();
+        const css = ['body', '.workspace', '.preview-pane', '.transport', '.transport-seek', '.transport-controls',
+            '.transport-left', '.transport-center', '.transport-right', '.audio-status']
             .map(rule).filter(Boolean).join('\n');
         for (const width of [320, 480, 900]) {
             await page.setViewport({ width, height: 200 });
             const message = '一部の音声を再生できません: sfx:very-long-name-with-more-details-and-another-source.mp3';
-            await page.setContent(`<style>${css}</style><div class="transport"><div class="transport-controls">
+            await page.setContent(`<style>html,body{margin:0;width:100%;height:100%}${css}</style>
+                <main class="workspace"><section class="preview-pane">映像</section></main>
+                <div class="transport" style="position:relative"><div class="transport-seek"><input id="seek" type="range"></div><div class="transport-controls">
                 <div class="transport-left"><button>音声</button><span>0:00 / 0:00</span></div>
                 <div class="transport-center"><button id="play">再生</button></div><div class="transport-right"><button>全画面</button></div>
-                </div><div style="${rowStyle}"><span id="audio-status" class="audio-status" style="${statusStyle}" title="${message}">${message}</span></div></div>`);
-            const result = await page.evaluate(() => {
-                const r = selector => {
-                    const box = document.querySelector(selector).getBoundingClientRect();
-                    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+                </div><div id="status-row" style="${rowStyle}" hidden><span id="audio-status" class="audio-status" style="${statusStyle}" title="${message}">${message}</span></div></div>`);
+            const measure = () => page.evaluate(() => {
+                const rect = element => {
+                    const r = element.getBoundingClientRect();
+                    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
                 };
                 const status = document.querySelector('#audio-status');
-                return { play: r('#play'), status: r('#audio-status'), clipped: status.scrollWidth > status.clientWidth,
-                    title: status.title };
+                return { transport: rect(document.querySelector('.transport')),
+                    preview: rect(document.querySelector('.preview-pane')),
+                    controls: rect(document.querySelector('.transport-controls')),
+                    buttons: [...document.querySelectorAll('.transport-controls button')].map(rect),
+                    status: rect(status), clipped: status.scrollWidth > status.clientWidth, title: status.title };
             });
-            assert.equal(intersects(result.play, result.status), false, `width ${width}`);
-            assert.equal(result.title, message);
-            if (width === 320) assert.equal(result.clipped, true);
+            const before = await measure();
+            await page.evaluate(() => { document.querySelector('#status-row').hidden = false; });
+            const shown = await measure();
+            assert.deepEqual(shown.transport, before.transport, `transport width ${width}`);
+            assert.deepEqual(shown.preview, before.preview, `preview width ${width}`);
+            assert.ok(shown.status.bottom <= shown.transport.top, `status above transport width ${width}`);
+            assert.ok(shown.buttons.every(button => !intersects(shown.status, button)), `buttons width ${width}`);
+            assert.equal(shown.title, message);
+            if (width === 320) assert.equal(shown.clipped, true);
+            await page.evaluate(() => { document.querySelector('#status-row').hidden = true; });
+            const after = await measure();
+            assert.deepEqual(after.transport, before.transport, `transport after width ${width}`);
+            assert.deepEqual(after.preview, before.preview, `preview after width ${width}`);
         }
     } finally { await browser.close(); }
 });

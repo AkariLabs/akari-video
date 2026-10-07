@@ -280,9 +280,10 @@ export function previewBootstrapScript(): string {
             const audioStatus = document.getElementById('audio-status');
             const transport = document.querySelector('.transport');
             if (audioStatus && transport) {
+                transport.style.position = 'relative';
                 const statusRow = document.createElement('div');
                 statusRow.className = 'transport-audio-status';
-                statusRow.style.cssText = 'min-width:0;padding:0 10px 6px';
+                statusRow.style.cssText = 'position:absolute;left:0;right:0;bottom:100%;box-sizing:border-box;min-width:0;padding:3px 10px;background:var(--akari-transport-bg);z-index:4';
                 audioStatus.style.cssText = 'display:block;max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
                 transport.append(statusRow);
                 statusRow.append(audioStatus);
