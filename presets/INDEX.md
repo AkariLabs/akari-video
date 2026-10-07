@@ -22,6 +22,7 @@
   `packages/render-cut/src/plan.mjs` が `presets/luts/<id>/<id>.cube` を解決する
 - [word-book](./word-book/builtin.json) — 単語帳 v0 の製品出荷デフォルト。
   `packages/word-book/src/index.mjs` が解決する
+- [voice-dictionary](./voice-dictionary/builtin.json) — 声の辞書 v0 の同梱語彙。`packages/akari-ear/src/dictionary.mjs` が解決する
 
 ## 由来（2026-07-29）
 

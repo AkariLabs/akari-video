@@ -7,3 +7,6 @@ export { createSegmenter } from './segmenter.mjs';
 export { classifyUtterance, DEFAULT_LEXICON, normalizeCommand } from './command-lexicon.mjs';
 export { createPaperSessions, engineLabel } from './session.mjs';
 export { createPipeline } from './pipeline.mjs';
+export { voiceDictionaryPaths, loadVoiceDictionary, applyVoiceDictionary, expandSnippet,
+  addUserEntry, updateUserEntry, removeUserEntry, recordApplied, recordReverted } from './dictionary.mjs';
+export { createHistory, sharedHistory } from './history.mjs';

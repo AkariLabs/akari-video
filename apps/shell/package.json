@@ -356,7 +356,9 @@
           "bin/validate-interpretation.mjs",
           "bin/validate-world-map.mjs",
           "bin/validate-word-book.mjs",
+          "bin/validate-voice-dictionary.mjs",
           "word-book.schema.json",
+          "voice-dictionary.schema.json",
           "gen-models.json",
           "ai-models.json",
           "ai-makers.json",
@@ -383,6 +385,10 @@
       {
         "from": "../../presets/word-book",
         "to": "presets/word-book"
+      },
+      {
+        "from": "../../presets/voice-dictionary",
+        "to": "presets/voice-dictionary"
       },
       {
         "from": "../../presets/textstyle",

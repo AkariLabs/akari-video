@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "entries": [
+    { "id": "vd-builtin-telop", "kind": "fix", "to": "テロップ", "from": ["てろっぷ", "テロッぷ"], "source": "builtin" },
+    { "id": "vd-builtin-jev", "kind": "fix", "to": "Jev", "from": ["じぇぶ", "ジェブ", "ジェフ", "JV"], "source": "builtin" },
+    { "id": "vd-builtin-lower-third", "kind": "fix", "to": "ローワーサード", "from": ["ろーわーさーど"], "source": "builtin" },
+    { "id": "vd-builtin-b-roll", "kind": "fix", "to": "B ロール", "from": ["びーろーる", "ビーロール"], "source": "builtin" },
+    { "id": "vd-builtin-akari-video", "kind": "fix", "to": "AKARI Video", "from": ["あかりびでお", "あかりビデオ", "アカリビデオ", "灯りビデオ"], "source": "builtin" },
+    { "id": "vd-builtin-browser", "kind": "fix", "to": "ブラウザ", "from": ["ぶらうざ"], "source": "builtin" },
+    { "id": "vd-builtin-cut", "kind": "fix", "to": "カット", "from": ["かっと"], "source": "builtin" },
+    { "id": "vd-builtin-inspector", "kind": "fix", "to": "インスペクター", "from": ["いんすぺくたー"], "source": "builtin" }
+  ]
+}

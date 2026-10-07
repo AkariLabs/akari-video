@@ -1,0 +1,4 @@
+{ "version": 0, "entries": [
+  { "id": "vd-0001", "kind": "fix", "to": "テロップ", "from": ["てろっぷ"], "source": "manual", "future": { "keep": true } },
+  { "id": "vd-0002", "kind": "snippet", "trigger": ["いつものやつ"], "expand": "先に内容を確認してください。", "scope": ["task"] }
+] }

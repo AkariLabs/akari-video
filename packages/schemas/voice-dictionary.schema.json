@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:voice-dictionary:v0",
+  "title": "AKARI Video voice dictionary v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "type": "integer", "const": 0 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "kind"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["fix", "snippet"] },
+          "to": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "from": { "$ref": "#/$defs/phrases" },
+          "trigger": { "$ref": "#/$defs/phrases" },
+          "expand": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "scope": { "type": "array", "items": { "enum": ["note", "task", "partner"] }, "uniqueItems": true },
+          "note": { "type": "string" },
+          "source": { "type": "string" },
+          "added_at": { "type": "string", "format": "date-time" },
+          "hits": { "type": "integer", "minimum": 0 }
+        },
+        "allOf": [
+          { "if": { "properties": { "kind": { "const": "fix" } } }, "then": { "required": ["to", "from"] } },
+          { "if": { "properties": { "kind": { "const": "snippet" } } }, "then": { "required": ["trigger", "expand"] } }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "phrases": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "pattern": "\\S" } }
+  }
+}
