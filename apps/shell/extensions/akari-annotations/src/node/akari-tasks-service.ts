@@ -12,8 +12,14 @@ import type {
     ListTasksRequest, ListTasksResponse, NextBatchIdRequest, Task, UpdateTaskRequest, WriteOutboxRequest
 } from '../common/akari-tasks-protocol';
 
+export const TASKIFY_IMPORT_TOKEN = Symbol('taskify-import');
+
 @injectable()
 export class AkariTasksServiceImpl implements AkariTasksService {
+    async createProposal(request: CreateTaskRequest, token: symbol): Promise<Task> {
+        if (token !== TASKIFY_IMPORT_TOKEN) throw new Error('案は取り込み係からだけ追加できます。');
+        return this.createEntry(request, true);
+    }
     async list(request: ListTasksRequest): Promise<ListTasksResponse> {
         const { tasksPath, reviewPath } = await this.paths(request.projectRootUri);
         const read = await readTasksFile(tasksPath);
@@ -31,6 +37,10 @@ export class AkariTasksServiceImpl implements AkariTasksService {
     }
 
     async create(request: CreateTaskRequest): Promise<Task> {
+        return this.createEntry(request, false);
+    }
+
+    private async createEntry(request: CreateTaskRequest, fromTaskifier: boolean): Promise<Task> {
         const { tasksPath } = await this.paths(request.projectRootUri);
         return withTasksLock(tasksPath, async () => {
             const doc = await this.readForWrite(tasksPath);
@@ -38,7 +48,18 @@ export class AkariTasksServiceImpl implements AkariTasksService {
                 throw new Error('タスクの本文が必要です。');
             }
             const source = request.task.source ?? 'annotation';
-            if (!['annotation', 'lint', 'export'].includes(source)) throw new Error('自由な指示の出どころが不正です。');
+            const origin = request.task.origin as { kind?: string } | undefined;
+            const proposal = source === 'proposal' && fromTaskifier && request.task.createdBy === 'ai'
+                && origin?.kind === 'rough-canvas' && request.task.needsConfirm === true && request.task.state === 'unsent';
+            if (!['annotation', 'lint', 'export'].includes(source) && !proposal) throw new Error('自由な指示の出どころが不正です。');
+            if (proposal) {
+                const same = doc.tasks.find(task => {
+                    const value = task.origin as { memo?: string; job?: string; ref?: string } | undefined;
+                    const next = request.task.origin as { memo?: string; job?: string; ref?: string };
+                    return value?.memo === next.memo && value?.job === next.job && value?.ref === next.ref;
+                });
+                if (same) return same as Task;
+            }
             if (source === 'annotation' && (request.task.ref != null || request.task.anchor != null)) {
                 throw new Error('自由な指示に注釈の参照は付けられません。');
             }

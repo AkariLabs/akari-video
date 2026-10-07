@@ -9,6 +9,7 @@ import { inkToPngDataUrl } from '../ink-render';
 import { formatRoughCanvasPacket } from './rough-canvas-model';
 import { confirmRoughCanvasSend } from './rough-canvas-command-model';
 import { ensureRoughCanvasStyle } from './rough-canvas-style';
+import { enqueueTaskify, taskifyService } from '../taskify/taskify-client';
 
 interface Page { key: string; id?: string; ink: InkDocument; memo: string; subject: RoughCanvasSubject; backdrop?: RoughCanvasBackdrop;
     sealed?: boolean; openedAt: number }
@@ -55,6 +56,8 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     private backdropFailed = false;
     private closing = false;
     private sendingArmed = false;
+    private taskConfirmationOpen = false;
+    private taskExplanationAccepted = false;
     private dragCleanup?: () => void;
     private markObserver?: MutationObserver;
     private bounds = { left: 0, top: 0, width: 400, height: 340 };
@@ -124,13 +127,38 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.paper.append(this.backdropImage, this.inkHost, this.hint);
         this.memo.className = 'akari-rough-canvas-memo'; this.memo.type = 'text';
         this.memo.placeholder = '紙に添える一言（任意）'; this.memo.setAttribute('aria-label', '紙に添える一言（任意）');
-        this.memo.addEventListener('input', () => { this.page.memo = this.memo.value; this.sendingArmed = false; this.confirm.hidden = true; });
+        this.memo.addEventListener('input', () => { this.page.memo = this.memo.value; this.sendingArmed = false; this.closeTaskConfirmation(); this.confirm.hidden = true; });
         this.error.className = 'akari-rough-canvas-error'; this.error.hidden = true;
         this.confirm.className = 'akari-rough-canvas-confirm'; this.confirm.textContent = 'AI に送りますか？ もう一度押してください。'; this.confirm.hidden = true;
         this.footer.className = 'akari-rough-canvas-footer';
-        const task = this.button('タスクにする', 'secondary small', () => undefined);
-        task.disabled = true; task.title = 'まだ使えません';
-        const taskHint = document.createElement('span'); taskHint.title = 'まだ使えません'; taskHint.appendChild(task);
+        const task = this.button('タスクにする', 'secondary small', () => void this.submit('task'));
+        const taskHint = document.createElement('span'); taskHint.appendChild(task);
+        const taskPacket = document.createElement('div'); taskPacket.className = 'akari-rough-canvas-task-packet';
+        taskPacket.title = '音声は送られません';
+        const taskDescription = document.createElement('span');
+        const includeLabel = document.createElement('label');
+        const includeBackdrop = document.createElement('input'); includeBackdrop.type = 'checkbox'; includeBackdrop.checked = true;
+        includeBackdrop.setAttribute('aria-label', '今の画面を含める');
+        includeLabel.append(includeBackdrop, document.createTextNode('今の画面を含める'));
+        taskPacket.append(taskDescription, includeLabel);
+        const updateTask = async (): Promise<void> => {
+            const lines = this.layer?.getDocument().objects.length ?? this.page.ink.objects.length;
+            const text = this.memo.value.trim().length;
+            taskPacket.hidden = !lines && !text;
+            const preview = await taskifyService()?.preview(this.options.projectRootUri, this.page.id);
+            const available = !!preview?.available && !this.page.sealed && !!(lines || text);
+            task.disabled = !available;
+            task.title = !preview?.available ? preview?.reason === 'disabled' ? 'このプロジェクトでは使えません' : `${preview?.agent === 'codex' ? 'Codex' : 'Claude'} が見つかりません` : '';
+            taskHint.title = task.title;
+            taskDescription.textContent = !preview?.available ? task.title :
+                `紙 1 枚（${includeBackdrop.checked ? '今の画面を含む' : '線だけ'}）・線 ${lines} 本・一言 ${text} 字 → あなたの ${preview.agent === 'claude' ? 'Claude（Anthropic）' : 'Codex（OpenAI）'}`;
+        };
+        this.memo.addEventListener('input', () => { void updateTask(); });
+        this.inkHost.addEventListener('pointerup', () => { setTimeout(() => void updateTask(), 0); });
+        this.backdropToggle.addEventListener('change', () => this.closeTaskConfirmation());
+        includeBackdrop.addEventListener('change', () => { this.closeTaskConfirmation(); void updateTask(); });
+        window.addEventListener('akari.sketch.opened', () => { void updateTask(); });
+        void updateTask();
         const pageControls = document.createElement('span'); pageControls.className = 'akari-rough-canvas-page-controls';
         const previous = this.button('‹', 'quiet small icon', () => void this.move(-1));
         previous.setAttribute('aria-label', '前の紙');
@@ -141,7 +169,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         const resize = document.createElement('div'); resize.className = 'akari-rough-canvas-resize';
         resize.setAttribute('aria-label', '大きさを変える');
         resize.addEventListener('pointerdown', event => this.beginPointer(event, true));
-        this.body.append(this.header, this.paper, this.error, this.confirm, this.footer, resize);
+        this.body.append(this.header, this.paper, this.error, this.confirm, taskPacket, this.footer, resize);
         this.contentNode.appendChild(this.body);
     }
     private get page(): Page { return this.pages[this.index]; }
@@ -225,7 +253,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
             now: () => (performance.now() - this.page.openedAt) / 1000, readOnly: !!this.page.sealed });
         this.layer.setDocument(this.page.ink);
         this.layer.setTool('pen');
-        this.layer.onChange(doc => { this.page.ink = doc; this.sendingArmed = false; this.confirm.hidden = true; });
+        this.layer.onChange(doc => { this.page.ink = doc; this.sendingArmed = false; this.closeTaskConfirmation(); this.confirm.hidden = true; });
         this.layer.onSelectionChange(id => { this.deleteButton.disabled = !id || !!this.page.sealed; });
         this.deleteButton.disabled = true;
         this.tools.querySelector('[role="toolbar"]')?.remove();
@@ -238,7 +266,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         this.memo.value = this.page.memo; this.memo.disabled = !!this.page.sealed;
         this.refreshBackdrop();
         this.number.textContent = `${this.index + 1} / ${this.pages.length}`;
-        this.error.hidden = true; this.confirm.hidden = true; this.sendingArmed = false;
+        this.error.hidden = true; this.closeTaskConfirmation(); this.confirm.hidden = true; this.sendingArmed = false;
     }
     private async savePage(): Promise<boolean> {
         if (this.page.sealed) return true;
@@ -324,8 +352,51 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     }
     setTool(tool: InkTool): void { this.layer?.setTool(tool); }
     deleteSelected(): void { this.layer?.deleteSelected(); }
+    private closeTaskConfirmation(): void {
+        if (!this.taskConfirmationOpen) return;
+        this.taskConfirmationOpen = false;
+        this.confirm.hidden = true;
+        this.confirm.textContent = 'AI に送りますか？ もう一度押してください。';
+    }
     async submit(mode: 'task' | 'send'): Promise<void> {
-        if (mode === 'task') { this.options.notify('まだ使えません。'); return; }
+        if (mode === 'task') {
+            if (this.taskConfirmationOpen) return;
+            if (this.page.sealed || !(this.layer?.getDocument().objects.length || this.memo.value.trim())) return;
+            if (!await this.savePage() || !this.page.id) return;
+            const service = taskifyService();
+            const preview = await service?.preview(this.options.projectRootUri, this.page.id);
+            if (!service || !preview?.available) { this.options.notify(preview?.reason === 'disabled' ? 'このプロジェクトでは使えません。' : `${preview?.agent === 'codex' ? 'Codex' : 'Claude'} が見つかりません。`); return; }
+            let explained = false;
+            try { explained = window.localStorage.getItem('akari.taskify.explained') === '1'; } catch { /* Continue with explanation. */ }
+            if (!explained && !this.taskExplanationAccepted) {
+                this.taskConfirmationOpen = true;
+                this.confirm.replaceChildren();
+                const message = document.createElement('span');
+                message.textContent = `紙の画像・線・一言・対象を、押した今だけ ${preview.agent === 'claude' ? 'Anthropic' : 'OpenAI'} に渡して案を作ります。画面に映る人や未公開の映像が含まれることがあります。音声は送りません。`;
+                const actions = document.createElement('span'); actions.className = 'akari-rough-canvas-confirm-actions';
+                actions.append(this.button('続ける', 'secondary small', () => {
+                    this.taskExplanationAccepted = true;
+                    try { window.localStorage.setItem('akari.taskify.explained', '1'); } catch { /* This popup remembers consent. */ }
+                    this.closeTaskConfirmation();
+                    void this.submit('task');
+                }), this.button('やめる', 'quiet small', () => this.closeTaskConfirmation()));
+                this.confirm.append(message, actions);
+                this.confirm.hidden = false;
+                return;
+            }
+            try {
+                const includeBackdrop = this.body.querySelector<HTMLInputElement>('[aria-label="今の画面を含める"]')?.checked !== false;
+                const scale = Math.min(1, 1280 / Math.max(this.options.aspect.w, this.options.aspect.h));
+                const paperPng = includeBackdrop ? undefined : await inkToPngDataUrl(this.page.ink, {
+                    width: Math.round(this.options.aspect.w * scale), height: Math.round(this.options.aspect.h * scale),
+                    background: getComputedStyle(this.paper).backgroundColor });
+                await this.options.service.sealMemo(this.options.projectRootUri, this.page.id, 'task');
+                await enqueueTaskify({ projectRootUri: this.options.projectRootUri, memoId: this.page.id, includeBackdrop, paperPng }, preview.agent);
+                this.page.sealed = true; this.showPage(); this.options.notify(`メモ ${this.page.id} をタスクにしています`);
+            } catch (error) { this.error.textContent = `タスクにできませんでした: ${String(error)}`; this.error.hidden = false; }
+            return;
+        }
+        this.closeTaskConfirmation();
         if (this.page.sealed) return;
         const confirmation = confirmRoughCanvasSend(this.sendingArmed);
         this.sendingArmed = confirmation.armed;

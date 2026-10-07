@@ -19,8 +19,16 @@ import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariRoughCanvasService, AKARI_ROUGH_CANVAS_SERVICE_PATH } from '../common/rough-canvas-protocol';
 import { RoughCanvasCommands } from './rough-canvas-commands';
+import { AkariTaskifyService, AKARI_TASKIFY_SERVICE_PATH } from '../common/taskify-protocol';
+import { TaskifyClient, taskifyRpcClient } from './taskify/taskify-client';
 
 export default new ContainerModule(bind => {
+    bind(TaskifyClient).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(TaskifyClient);
+    bind(CommandContribution).toService(TaskifyClient);
+    bind(AkariTaskifyService).toDynamicValue(context =>
+        WebSocketConnectionProvider.createProxy(context.container, AKARI_TASKIFY_SERVICE_PATH, taskifyRpcClient)
+    ).inSingletonScope();
     bind(AkariRoughCanvasService).toDynamicValue(context =>
         WebSocketConnectionProvider.createProxy(context.container, AKARI_ROUGH_CANVAS_SERVICE_PATH)
     ).inSingletonScope();

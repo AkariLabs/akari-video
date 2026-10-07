@@ -26,6 +26,7 @@ const sourceLabels: Record<string, string> = { annotation: '注釈', lint: 'リ�
 
 export function nextTargetLabel(target: unknown): string {
     if (typeof target !== 'string' || !target) return '';
+    if (/(?:^|,\s*)(?:cut:\d+|overlay:[^,\s]+)/.test(target)) return '画面';
     const cut = /^ui:timeline:cut:(\d+)$/.exec(target);
     if (cut) return `C${Number(cut[1]) + 1}`;
     return target.startsWith('ui:') ? target.slice(3) : target;
@@ -188,7 +189,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 line.append(bar, content);
                 const actions = document.createElement('span');
                 actions.className = 'akari-vibe-next-actions';
-                for (const action of row.actions.filter(item => ['send', 'dismiss', 'confirm'].includes(item.id))) {
+                for (const action of row.actions.filter(item => ['send', 'dismiss', 'confirm', 'approve'].includes(item.id))) {
                     const button = document.createElement('button');
                     button.className = action.id === 'dismiss' ? 'theia-button quiet small' : 'theia-button secondary small';
                     button.textContent = action.label;

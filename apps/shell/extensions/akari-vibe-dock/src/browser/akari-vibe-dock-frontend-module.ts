@@ -21,6 +21,7 @@ export default new ContainerModule(bind => {
     const { NowVibeDockTab, SettingsVibeDockTab, VibeDockTabContributionSymbol, VibeDockTabs } = require('./vibe-dock-tabs');
     const { RoughCanvasDockTab } = require('./rough-canvas-dock-tab');
     const { RoughCanvasEarBridge } = require('./rough-canvas-ear-bridge');
+    const { TaskifyJobsBridge } = require('./taskify-jobs-bridge');
 
     class VibeDockStartup implements FrontendApplicationContribution {
         constructor(protected readonly container: interfaces.Container) {}
@@ -54,4 +55,6 @@ export default new ContainerModule(bind => {
     bind(FrontendApplicationContribution).toService(VibeDockStartup);
     bind(RoughCanvasEarBridge).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(RoughCanvasEarBridge);
+    bind(TaskifyJobsBridge).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(TaskifyJobsBridge);
 });

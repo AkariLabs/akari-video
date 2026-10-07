@@ -32,6 +32,9 @@ test('次タブは order 20・警告バッジ・上位 7 行を表示する', as
     } }, tabs: { refreshBadges() {} } });
     assert.equal(tab.order, 20);
     assert.equal(nextTargetLabel('ui:timeline:cut:1'), 'C2');
+    assert.equal(nextTargetLabel('overlay:slot-a'), '画面');
+    assert.equal(nextTargetLabel('cut:0, overlay:slot-a'), '画面');
+    assert.equal(nextTargetLabel('画面'), '画面');
     await tab.load();
     assert.deepEqual(tab.badge(), { count: 9, tone: 'warn' });
     const host = new Node();
