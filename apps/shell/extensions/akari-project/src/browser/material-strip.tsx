@@ -20,7 +20,9 @@ export function MaterialStrip({ entry, width }: { entry: MaterialStripEntry; wid
                     objectFit: 'cover', objectPosition: 'left center', borderLeft: index ? '1px solid rgba(0,0,0,.5)' : undefined }} />)
             : image && <img src={image.toString()} alt='' draggable={false} style={{ position: 'absolute', left: 0, top: 0,
                 width: entry.stripUri ? '100%' : 'auto', maxWidth: entry.stripUri ? undefined : `${100 / cells}%`,
-                height: '100%', objectFit: 'cover', objectPosition: 'left center' }} />}
+                // 帯（cells × cellWidth の 1 枚）は行の幅に伸縮させて「最初から最後まで」を出す（cover だと行幅 < 帯幅のとき右側が欠ける）。
+                // strip 未着の 1 コマだけ cover で左に置く。
+                height: '100%', objectFit: entry.stripUri ? 'fill' : 'cover', objectPosition: 'left center' }} />}
         {entry.kind === 'video' && entry.stripUri && Array.from({ length: cells - 1 }, (_, index) =>
             <span key={index} style={{ position: 'absolute', left: `${(index + 1) * 100 / cells}%`, top: 0,
                 width: '1px', height: '100%', background: 'rgba(0,0,0,.5)' }} />)}
