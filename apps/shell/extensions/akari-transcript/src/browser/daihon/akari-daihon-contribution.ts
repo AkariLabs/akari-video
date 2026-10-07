@@ -69,6 +69,12 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                     enum: ['all', 'text', 'none'],
                     default: 'all',
                     description: '台本に表示する添付の種類'
+                },
+                'akari.daihon.hiddenSources': {
+                    type: 'array',
+                    items: { type: 'string' },
+                    default: [],
+                    description: '台本で表示しない素材の id'
                 }
             }
         });
