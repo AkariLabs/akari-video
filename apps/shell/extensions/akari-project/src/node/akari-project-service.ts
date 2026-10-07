@@ -33,6 +33,8 @@ import {
     DiffResourcePair,
     DroppedAsset,
     DroppedAssetImportResult,
+    VoiceRecordingStartResult,
+    VoiceRecordingFinishResult,
     DroppedAssetKind,
     DroppedVideo,
     DroppedVideoImportResult,
@@ -47,6 +49,7 @@ import {
     StoreDevicePollRequest,
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
+import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
@@ -178,6 +181,7 @@ type ProjectCardPlan =
 
 @injectable()
 export class AkariProjectServiceImpl implements AkariProjectService {
+    protected readonly voiceRecordingWriter = new VoiceRecordingWriter();
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
@@ -1380,6 +1384,18 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             }
         }
         return results;
+    }
+
+    async startVoiceRecording(projectUri: string): Promise<VoiceRecordingStartResult> {
+        return this.voiceRecordingWriter.start(this.fsPath(projectUri));
+    }
+
+    async appendVoiceRecording(request: { recordingId: string; pcmBase64: string }): Promise<void> {
+        return this.voiceRecordingWriter.append(request);
+    }
+
+    async finishVoiceRecording(request: { recordingId: string; discard?: boolean }): Promise<VoiceRecordingFinishResult | undefined> {
+        return this.voiceRecordingWriter.finish(request);
     }
 
     protected readonly transcriptions = new Set<string>();

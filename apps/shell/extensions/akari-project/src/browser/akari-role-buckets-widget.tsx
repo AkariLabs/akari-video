@@ -720,6 +720,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         window.addEventListener('akari.mystyle.save', saveMyStyle);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.mystyle.save', saveMyStyle) });
+        const refreshRecordedMaterial = (event: Event): void => {
+            const detail = (event as CustomEvent<{ projectUri: string; assetPath: string }>).detail;
+            if (detail?.projectUri === this.workflow.workspaceRoot?.toString()) void this.loadMaterials();
+        };
+        window.addEventListener('akari.material.added', refreshRecordedMaterial);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.material.added', refreshRecordedMaterial) });
         const resolveMyStyleAsset = (event: Event): void => {
             const detail = (event as CustomEvent<{ projectUri: string; category: string; id: string; file: string;
                 handled?: boolean; resolve: () => void; reject: (error: unknown) => void }>).detail;

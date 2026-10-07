@@ -1165,6 +1165,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly toolbar = document.createElement('div');
     protected readonly frameToolButton = document.createElement('button');
     protected readonly readAloudButton = document.createElement('button');
+    protected readonly voiceRecordButton = document.createElement('button');
     protected placingText = false;
     protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
@@ -1840,6 +1841,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.readAloudButton.textContent = '🔊 読み上げ';
         Object.assign(this.readAloudButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0' });
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
+        this.configureIconButton(this.voiceRecordButton, 'codicon-record', 'アフレコ', 'アフレコ');
+        this.voiceRecordButton.classList.remove('akari-annotations-icon-button');
+        this.voiceRecordButton.classList.add('akari-annotations-text-button', 'akari-timeline-voice-record');
+        this.voiceRecordButton.textContent = '🎙 アフレコ';
+        Object.assign(this.voiceRecordButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0', marginLeft: '10px' });
+        this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record'));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', '自動で詰める', '自動で詰める');
@@ -1915,6 +1922,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
         });
         this.toolbar.append(this.zoomHud);
+        this.toolbar.append(this.voiceRecordButton);
         this.rangeDurationLabel.dataset.akariTimelineRangeDuration = '';
         Object.assign(this.rangeDurationLabel.style, { fontSize: '10px', color: 'var(--theia-descriptionForeground)',
             marginLeft: '8px', whiteSpace: 'nowrap' });

@@ -58,6 +58,9 @@ export type DroppedAssetImportResult =
     | { name: string; success: true; kind: DroppedAssetKind; assetPath: string; eventUri: string }
     | { name: string; success: false; reason: DroppedAssetFailureReason };
 
+export interface VoiceRecordingStartResult { recordingId: string; relativePath: string }
+export interface VoiceRecordingFinishResult { assetPath: string; durationSec: number; eventUri: string }
+
 /** edit-lint の指摘 1 件。 */
 export interface EditLintFinding {
     severity: 'error' | 'warning' | 'info';
@@ -350,6 +353,9 @@ export interface AkariProjectService {
     watchProject(projectUri: string): Promise<void>;
     recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<DroppedVideoImportResult[]>;
     recordDroppedAssets(projectUri: string, assets: DroppedAsset[]): Promise<DroppedAssetImportResult[]>;
+    startVoiceRecording(projectUri: string): Promise<VoiceRecordingStartResult>;
+    appendVoiceRecording(request: { recordingId: string; pcmBase64: string }): Promise<void>;
+    finishVoiceRecording(request: { recordingId: string; discard?: boolean }): Promise<VoiceRecordingFinishResult | undefined>;
     runEditLint(projectUri: string): Promise<EditLintOutcome>;
     prepareDiffs(projectUri: string): Promise<DiffPreparationResult>;
     isAkariProject(projectUri: string): Promise<boolean>;

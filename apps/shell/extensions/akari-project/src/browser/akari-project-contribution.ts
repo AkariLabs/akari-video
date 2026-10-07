@@ -37,6 +37,7 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { AkariAssetInspector } from './akari-asset-inspector';
+import { AkariVoiceRecordDialog } from './voice-recording/akari-voice-record-dialog';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 
 /**
@@ -113,6 +114,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected readonly shell!: ApplicationShell;
 
     protected app?: FrontendApplication;
+    protected voiceRecordDialog?: AkariVoiceRecordDialog;
 
     /** ブランドキットの読み書きの口（インスペクターの色パネルが文字列の id で呼ぶ）。 */
     protected registerBrandKitCommands(commands: CommandRegistry): void {
@@ -145,6 +147,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         this.registerBrandKitCommands?.(commands);
         this.registerTextstyleShowcaseCommand?.(commands);
         commands.registerCommand(NEW_AKARI_PROJECT, { execute: () => this.createProject() });
+        commands.registerCommand({ id: 'akari.voice.record', label: 'アフレコ' }, { execute: () => this.openVoiceRecordDialog() });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {
             execute: () => this.toggleDeveloperMode(),
@@ -161,6 +164,23 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         });
         commands.registerCommand(AKARI_SHOW_ASSET_INFO, {
             execute: (target: unknown) => this.showAssetInfo(this.toRevealUri(target))
+        });
+    }
+
+    protected openVoiceRecordDialog(): void {
+        const projectUri = this.workflow.workspaceRoot?.toString();
+        if (!projectUri) {
+            this.messages.warn('先にプロジェクトを開いてください。');
+            return;
+        }
+        if (this.voiceRecordDialog) {
+            this.voiceRecordDialog.activate();
+            return;
+        }
+        const dialog = new AkariVoiceRecordDialog(this.projectService, this.messages, projectUri);
+        this.voiceRecordDialog = dialog;
+        void dialog.open().finally(() => {
+            if (this.voiceRecordDialog === dialog) this.voiceRecordDialog = undefined;
         });
     }
 
