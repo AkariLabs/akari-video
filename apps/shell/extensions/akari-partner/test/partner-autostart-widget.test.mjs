@@ -15,6 +15,28 @@ function method(name, dependencies) {
     return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
 }
 
+test('restorePartnerTerminals resolves while autoStartLastPartner is still pending', async () => {
+    let finishAutoStart;
+    const pendingAutoStart = new Promise(resolve => { finishAutoStart = resolve; });
+    const calls = [];
+    const widget = {
+        cleanupWebPartners: async () => { calls.push('cleanup'); },
+        update: () => { calls.push('update'); },
+        autoStartLastPartner: () => { calls.push('auto-start'); return pendingAutoStart; }
+    };
+    const restore = method('restorePartnerTerminals', { PARTNER_CATALOG: [], console });
+    try {
+        const result = await Promise.race([
+            restore.call(widget).then(() => 'resolved'),
+            new Promise(resolve => setTimeout(() => resolve('still pending'), 100))
+        ]);
+        assert.equal(result, 'resolved');
+        assert.deepEqual(calls, ['cleanup', 'update', 'auto-start']);
+    } finally {
+        finishAutoStart();
+    }
+});
+
 test('uninstalled automatic partner shows a quiet notice without opening a dialog', async () => {
     const entry = { id: 'cli', agent: 'sample', form: 'cli', name: 'Sample' };
     const notices = [];

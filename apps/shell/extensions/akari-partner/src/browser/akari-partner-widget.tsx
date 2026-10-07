@@ -831,8 +831,7 @@ export class AkariPartnerWidget extends ReactWidget {
             this.syncTerminalState(active.terminal, active.entry, true);
         }
         this.update();
-        try { await this.autoStartLastPartner(); }
-        catch (error) { console.warn('[akari-partner] auto-start failed:', error); }
+        void this.autoStartLastPartner().catch(error => console.warn('[akari-partner] auto-start failed:', error));
     }
 
     protected async autoStartLastPartner(): Promise<void> {
