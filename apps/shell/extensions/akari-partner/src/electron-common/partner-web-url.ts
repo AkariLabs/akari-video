@@ -21,10 +21,16 @@ export function externalUrl(raw: string): string | undefined {
 
 export const PARTNER_WEB_PARTITION = 'persist:akari-partner-deepseek';
 
+export function allowPartnerWebRequest(details: { url: string; resourceType: string }): boolean {
+    if (details.resourceType !== 'mainFrame' && details.resourceType !== 'subFrame') return true;
+    return localWebOrigin(details.url) !== undefined;
+}
+
 export function guardPartnerWebview(
     event: { preventDefault(): void },
     preferences: { partition?: string; preload?: string; preloadURL?: string;
-        nodeIntegration?: boolean; contextIsolation?: boolean; sandbox?: boolean; webSecurity?: boolean },
+        nodeIntegration?: boolean; contextIsolation?: boolean; sandbox?: boolean; webSecurity?: boolean;
+        webviewTag?: boolean; disablePopups?: boolean; backgroundThrottling?: boolean },
     params: Record<string, string>
 ): string | undefined {
     const origin = localWebOrigin(params.src);
@@ -32,14 +38,19 @@ export function guardPartnerWebview(
         event.preventDefault();
         return undefined;
     }
-    delete preferences.preload;
-    delete preferences.preloadURL;
-    delete preferences.webSecurity;
+    for (const key of Object.keys(preferences)) Reflect.deleteProperty(preferences, key);
     delete params.preload;
     delete params.allowpopups;
     delete params.allowPopups;
-    preferences.nodeIntegration = false;
-    preferences.contextIsolation = true;
-    preferences.sandbox = true;
+    Object.assign(preferences, {
+        partition: PARTNER_WEB_PARTITION,
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webviewTag: false,
+        disablePopups: true,
+        backgroundThrottling: false,
+        webSecurity: true
+    });
     return origin;
 }

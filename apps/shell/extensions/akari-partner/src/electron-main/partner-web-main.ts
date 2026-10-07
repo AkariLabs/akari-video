@@ -3,22 +3,22 @@ import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from
 import type { WebContents } from 'electron';
 import { injectable } from '@theia/core/shared/inversify';
 import { CHANNEL_PARTNER_WEB } from '../electron-common/electron-api';
-import { externalUrl, guardPartnerWebview, PARTNER_WEB_PARTITION } from '../electron-common/partner-web-url';
+import { allowPartnerWebRequest, externalUrl, guardPartnerWebview, PARTNER_WEB_PARTITION } from '../electron-common/partner-web-url';
 
 export { externalUrl, localWebOrigin } from '../electron-common/partner-web-url';
 
 const guardedContents = new WeakSet<WebContents>();
 
 export function installWebviewGuard(contents: WebContents): void {
-    if (contents.getType() !== 'window' || guardedContents.has(contents)) return;
+    if (guardedContents.has(contents)) return;
     guardedContents.add(contents);
-    const pendingOrigins: string[] = [];
+    let pendingOrigin: string | undefined;
     contents.on('will-attach-webview', (event, preferences, params) => {
-        const origin = guardPartnerWebview(event, preferences, params);
-        if (origin) pendingOrigins.push(origin);
+        pendingOrigin = guardPartnerWebview(event, preferences, params);
     });
     contents.on('did-attach-webview', (_event, guest) => {
-        const origin = pendingOrigins.shift();
+        const origin = pendingOrigin;
+        pendingOrigin = undefined;
         if (!origin || guest.getType() !== 'webview') {
             guest.close({ waitForBeforeUnload: false });
             return;
@@ -35,6 +35,10 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
         const webSession = session.fromPartition(PARTNER_WEB_PARTITION);
         webSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
         webSession.setPermissionCheckHandler(() => false);
+        webSession.on('will-download', event => event.preventDefault());
+        webSession.webRequest.onBeforeRequest((details, callback) => {
+            callback({ cancel: !allowPartnerWebRequest(details) });
+        });
         for (const contents of webContents.getAllWebContents()) installWebviewGuard(contents);
         ipcMain.handle(CHANNEL_PARTNER_WEB, async (event, operation: string) => {
             if (event.senderFrame !== event.sender.mainFrame) throw new Error('Main frame required');
@@ -52,11 +56,21 @@ function restrictGuest(host: WebContents, guest: WebContents, origin: string): v
         try { return new URL(target).origin === origin; } catch { return false; }
     };
     const outside = (target: string): void => { void offerExternal(host, guest, target); };
+    let recovering = false;
+    guest.removeAllListeners('will-navigate');
     guest.on('will-navigate', (event, target) => {
         if (!allowed(target)) { event.preventDefault(); outside(target); }
     });
     guest.on('will-redirect', (event, target) => {
         if (!allowed(target)) { event.preventDefault(); outside(target); }
+    });
+    guest.on('did-navigate', (_event, target) => {
+        if (allowed(target)) {
+            recovering = false;
+        } else if (!recovering) {
+            recovering = true;
+            void guest.loadURL(`${origin}/`).catch(() => undefined);
+        }
     });
     guest.setWindowOpenHandler(({ url }) => {
         if (allowed(url)) void guest.loadURL(url);

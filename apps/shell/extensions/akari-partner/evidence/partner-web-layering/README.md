@@ -35,3 +35,15 @@
 - 素材サイトの埋め込み（`akari-project` の asset-site）は同じ別レイヤー方式のまま。同じ重なり順の問題がありうる
 - `theia.electron.splashScreenOptions` は Theia が読む場所（`theia.frontend.config.electron`）と違うため現在効いていない（本票では触っていない）
 - 右パネルの幅が再起動のたびに 7px ずつ広がる（本票の前から。レイアウト復元の既存の挙動）
+
+## 追記 — 独立採点の指摘への補修
+
+| 項目 | スクリプト | 実測 |
+|---|---|---|
+| 画面内の全画面遷移 | `cdp-navigation-and-identity.cjs` | ゲスト内の `location.reload()` が通る（土台の全面ナビゲーション禁止をゲストから外した） |
+| attach 後の行き先変更 | 同上 | メイン renderer から `webview.loadURL('https://example.com/')` → 拒否（`ERR_FAILED`）。ゲストは作業画面のまま。専用 partition の通信で、ローカル以外の文書の読み込みを止めている |
+| 作り直されない | 同上 | タブ切替・最大化の前後でゲストの id が変わらない。矩形は host と一致 |
+| コンテキストメニュー | 同上 | 右パネルのタブのメニューが作業画面に重なる位置で、最前面はメニュー |
+| 番人（再確認） | `cdp-guard.cjs` | 不正 4 種を拒否 |
+
+ゲストの設定は許可リストで作り直す（partition・sandbox・contextIsolation・nodeIntegration 無し・popups 無し・webviewTag 無し）。ゲストからのダウンロードは止める。
