@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { assembleResources, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls,
+import { assembleResources, BROWSER_VIEW_PRELOAD_PATHS, isDeclaredResource, relativeRequires, removeAssembledResources, scanAssetFinderCalls,
   scanRepoFileCalls, scanRequiredBrowserResources, walkImports } from '../check-packaged-imports.mjs';
 import { packagedRoots, resolvePackagedSpecifier } from '../../../apps/shell/test/helpers/packaged-imports.mjs';
 
@@ -17,18 +17,36 @@ function fixture(t) {
   return dir;
 }
 
-test('ブラウザ設定と将来のビュー preload が欠けた擬似パッケージを名指しする', (t) => {
+test('ブラウザ設定とビュー preload のビルド成果物が欠けたとき名指しする', (t) => {
   const dir = fixture(t);
   const resourcesRoot = path.join(dir, 'Resources');
   const file = path.join(resourcesRoot, 'catalog/browser/browser-engines.json');
+  const builtViewPreload = path.join(dir, 'build/browser-view-preload.js');
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, '{}');
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot }), []);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, viewPreloads: [], builtViewPreload }), []);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
+  mkdirSync(path.dirname(builtViewPreload), { recursive: true });
+  writeFileSync(builtViewPreload, '');
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), []);
   rmSync(file);
-  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot }), ['catalog/browser/browser-engines.json']);
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), ['catalog/browser/browser-engines.json']);
   writeFileSync(file, '{}');
+  rmSync(builtViewPreload);
+  const preload = path.join(resourcesRoot, BROWSER_VIEW_PRELOAD_PATHS[0]);
+  mkdirSync(path.dirname(preload), { recursive: true });
+  writeFileSync(preload, '');
+  assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot, builtViewPreload }), BROWSER_VIEW_PRELOAD_PATHS);
   assert.deepEqual(scanRequiredBrowserResources({ resourcesRoot,
-    viewPreloads: ['app/browser-view-preload.js'] }), ['app/browser-view-preload.js']);
+    viewPreloads: ['app/browser-view-preload.js'], builtViewPreload }), ['app/browser-view-preload.js']);
+});
+
+test('ビュー preload は拡張の実ファイルとしてあり、sandbox の require は electron だけ', () => {
+  const source = path.join(root, 'apps/shell/extensions/akari-project/src/electron-main/browser-view-preload.ts');
+  const text = readFileSync(source, 'utf8');
+  const imports = [...text.matchAll(/^import(?! type).* from '([^']+)'/gmu)].map(match => match[1]);
+  assert.deepEqual(imports, ['electron']);
+  assert.equal(BROWSER_VIEW_PRELOAD_PATHS[0], 'app.asar/node_modules/akari-project/lib/electron-main/browser-view-preload.js');
 });
 
 test('createRequire の相対 JSON を検出し、実在だけ検査する', (t) => {

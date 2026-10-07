@@ -7,18 +7,26 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import URI from '@theia/core/lib/common/uri';
 import { deriveAnalysisDurationSeconds, formatDurationBadge, type AnalysisJson } from '../common/analysis-summary';
 import { AkariWorkflowService } from './akari-workflow-service';
+import type { ScratchListItem } from '../electron-main/scratch-store';
 
 export interface HandoffItem {
     uri: string;
     path: string;
     name: string;
-    origin: 'output' | 'material';
+    origin: 'output' | 'material' | 'scratch';
     badge: string;
     fresh: boolean;
+    ref?: string; badges?: readonly string[]; thumb?: string; quality?: 'thumbnail' | 'full' | 'unknown';
+    status?: 'ready' | 'url_only';
 }
 
 const MEDIA = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpe?g|gif|webp)$/i;
 const AV = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg)$/i;
+function scratchHandoff(item: ScratchListItem, fresh: boolean): HandoffItem {
+    return { uri: item.path ? `file://${item.path}` : '', path: item.path ?? '', name: item.label,
+        origin: 'scratch', badge: '外', fresh, ref: item.ref, badges: item.badges,
+        thumb: item.thumb, quality: item.quality, status: item.status };
+}
 
 @injectable()
 export class HandoffProvider implements CommandContribution, FrontendApplicationContribution {
@@ -38,6 +46,7 @@ export class HandoffProvider implements CommandContribution, FrontendApplication
         try { if (window.localStorage.getItem('akari.vibePreview.enabled') !== '1') return; }
         catch { return; }
         this.workflow.onDidChange(() => { void this.bindRoot().then(() => this.list()).catch(() => undefined); });
+        window.electronAkariProject?.scratch?.onChanged(() => window.dispatchEvent(new Event('akari.handoff.changed')));
         this.files.onDidFilesChange(event => {
             if (!this.root) return;
             if (event.changes.some(change => {
@@ -107,7 +116,12 @@ export class HandoffProvider implements CommandContribution, FrontendApplication
         try { if (window.localStorage.getItem('akari.vibePreview.enabled') !== '1') return []; }
         catch { return []; }
         const root = this.workflow.workspaceRoot ?? (await this.workspace.roots)[0]?.resource;
-        if (!root) return [];
+        if (!root) {
+            const scratch = await window.electronAkariProject?.scratch?.list().catch(() => []) ?? [];
+            const previous = this.known;
+            this.known = new Set(scratch.map(item => item.ref));
+            return scratch.map(item => scratchHandoff(item, Boolean(previous && !previous.has(item.ref))));
+        }
         if (root.toString() !== this.root?.toString()) await this.bindRoot();
         const [exports, reports, rootReports, assets, rootFiles] = await Promise.all([
             this.children(root.resolve('exports')),
@@ -129,12 +143,19 @@ export class HandoffProvider implements CommandContribution, FrontendApplication
                 badge: await this.badge(root, file, origin), fresh: false };
         }));
         const seen = new Set(items.map(item => item.uri));
+        const previousKnown = this.known;
         if (this.known) for (const item of items) {
             if (item.origin === 'output' && !this.known.has(item.uri)) this.fresh.add(item.uri);
         }
         this.known = seen;
         for (const uri of this.fresh) if (!seen.has(uri)) this.fresh.delete(uri);
-        return items.map(item => ({ ...item, fresh: this.fresh.has(item.uri) }))
+        const existing = items.map(item => ({ ...item, fresh: this.fresh.has(item.uri) }))
             .sort((a, b) => Number(b.fresh) - Number(a.fresh) || a.name.localeCompare(b.name, 'ja'));
+        const scratch = await window.electronAkariProject?.scratch?.list().catch(() => []);
+        if (!scratch?.length) return existing;
+        const next = scratch.map(item => scratchHandoff(item, Boolean(previousKnown && !previousKnown.has(item.ref))));
+        for (const item of scratch) seen.add(item.ref);
+        this.known = seen;
+        return [...next, ...existing];
     }
 }

@@ -27,6 +27,7 @@ import { BrowserOpenListener } from './browser-open-listener';
 import { ShapeShelfService } from './shape-shelf-service';
 import { LintResultsDialog } from './lint-results-dialog';
 import { HandoffProvider } from './handoff-provider';
+import { ScratchCommands } from './scratch-commands';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -36,6 +37,8 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectModeService).toSelf().inSingletonScope();
     bind(AkariWorkflowService).toSelf().inSingletonScope();
     bind(HandoffProvider).toSelf().inSingletonScope();
+    bind(ScratchCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(ScratchCommands);
     bind(CommandContribution).toService(HandoffProvider);
     bind(FrontendApplicationContribution).toService(HandoffProvider);
     bind(LintResultsDialog).toDynamicValue(ctx =>
