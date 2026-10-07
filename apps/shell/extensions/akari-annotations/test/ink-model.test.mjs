@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     addObject, arrowHead, boundingBox, decimatePoints, deleteObject, deriveTargets, duplicateObject, hitTest,
-    inkFromStrokes, moveObject, nextId, setColor, setText, strokesFromInk, validateInk
+    inkFromStrokes, moveObject, nextId, setColor, setText, strokeWidthForPaperHeight, strokesFromInk, validateInk
 } from '../lib/common/ink-model.js';
 
 const aspect = { w: 1920, h: 1080 };
@@ -10,6 +10,11 @@ const empty = () => ({ schema: 'akari.ink.v0', space: 'canvas-rect', aspect, obj
 const pen = (id = 'ink-1', points = [[0.1, 0.1], [0.2, 0.2]]) => ({ id, type: 'pen', color: '#f97316', x: points[0][0], y: points[0][1], points, strokeWidth: 0.008 });
 const arrow = (id = 'ink-2') => ({ id, type: 'arrow', color: '#f97316', x: 0.3, y: 0.4, from: [0.3, 0.4], to: [0.5, 0.4], strokeWidth: 0.008 });
 const text = (id = 'ink-3') => ({ id, type: 'text', color: '#f97316', x: 0.6, y: 0.5, at: [0.6, 0.5], text: '文字', textHeight: 0.05 });
+
+test('ペンと矢印の線幅は描画時の紙で約 2.4px', () => {
+    for (const height of [240, 320, 480]) assert.ok(Math.abs(strokeWidthForPaperHeight(height) * height - 2.4) < 1e-10);
+    assert.equal(strokeWidthForPaperHeight(0), 2.4 / 300);
+});
 
 test('追加、移動、削除、複製は元を変えず、番号を再利用しない', () => {
     const original = empty();

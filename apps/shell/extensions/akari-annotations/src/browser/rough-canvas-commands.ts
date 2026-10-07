@@ -113,11 +113,14 @@ export class RoughCanvasCommands implements CommandContribution {
             if (step === 'capture') backdrop = await capture();
         }
         if (backdrop) subject = await subjectAtOpen(backdrop.outputT);
-        const previewWidth = canCapture ? previewElement?.getBoundingClientRect().width : undefined;
+        const previewRect = canCapture ? previewElement?.getBoundingClientRect() : undefined;
+        const previewWidth = previewRect?.width;
         const popup = new RoughCanvasPopup({ projectRootUri: project.toString(), aspect, aspectSource,
             subject, subjectAtOpen, service: this.service, capture,
             send: async packet => this.commands.executeCommand<boolean>('akari.partner.injectPrompt', packet).catch(() => false),
-            notify: message => this.messages.info(message), previewWidth, backdrop });
+            notify: message => this.messages.info(message), previewWidth,
+            previewRect: previewRect ? { left: previewRect.left, top: previewRect.top,
+                width: previewRect.width, height: previewRect.height } : undefined, backdrop });
         this.popup = popup;
         void popup.open().finally(() => { if (this.popup === popup) this.popup = undefined; });
         return { ok: true };
