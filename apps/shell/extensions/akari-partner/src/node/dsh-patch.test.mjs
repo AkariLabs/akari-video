@@ -73,3 +73,15 @@ test('session id is stable for a project and distinct between projects', () => {
     assert.notEqual(first, buildDshSessionId(resolve('project-two')));
     assert.match(first, /^akari-[0-9a-f]{16}$/);
 });
+
+test('patch rejects malformed session ids and app versions', () => {
+    const valid = { pluginPath, provider: 'opencode-go', appVersion: '1.2.3-rc.1',
+        sessionId: buildDshSessionId(homeDir) };
+    for (const sessionId of ['akari-short', 'akari-0123456789ABCDEF', 'bad-0123456789abcdef']) {
+        assert.throws(() => buildDshPatchYaml({ ...valid, sessionId }), /session id/);
+    }
+    for (const appVersion of ['', '1.2.3/unsafe', '1.2.3\nextra', 'x'.repeat(41)]) {
+        assert.throws(() => buildDshPatchYaml({ ...valid, appVersion }), /app version/);
+    }
+    assert.match(buildDshPatchYaml(valid), /akari-video\/1\.2\.3-rc\.1/);
+});

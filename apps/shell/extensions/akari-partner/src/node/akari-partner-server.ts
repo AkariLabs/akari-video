@@ -26,11 +26,14 @@ import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
-import { launchDshWeb } from './dsh-web-launcher';
+import { launchDshWeb, maskDshOutput } from './dsh-web-launcher';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
+
+interface WebProcessRecord { cwd: string; owners: Set<string>; launch: PartnerWebLaunch; }
+interface PendingWebLaunch { owners: Set<string>; promise: Promise<PartnerWebLaunch>; }
 
 export function resolvePartnerProcessLaunch(
     agent: PartnerAgentId,
@@ -54,7 +57,8 @@ export function resolvePartnerProcessLaunch(
 
 @injectable()
 export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplicationContribution {
-    private readonly webPids = new Set<number>();
+    private readonly webProcesses = new Map<number, WebProcessRecord>();
+    private readonly pendingWebLaunches = new Map<string, PendingWebLaunch>();
 
     constructor() {
         process.once('exit', () => this.stopAllWebPartners());
@@ -63,11 +67,12 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
     onStop(): void { this.stopAllWebPartners(); }
 
     private stopAllWebPartners(): void {
-        for (const pid of this.webPids) this.killWebProcess(pid);
-        this.webPids.clear();
+        for (const pid of this.webProcesses.keys()) this.killWebProcess(pid);
+        this.webProcesses.clear();
+        for (const pending of this.pendingWebLaunches.values()) pending.owners.clear();
     }
 
-    private killWebProcess(pid: number): void {
+    protected killWebProcess(pid: number): void {
         if (process.platform === 'win32') {
             try { spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); } catch { /* Already stopped. */ }
             return;
@@ -76,20 +81,81 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         catch { try { process.kill(pid, 'SIGTERM'); } catch { /* Already stopped. */ } }
     }
 
-    async stopWebPartner(pid: number): Promise<void> {
-        if (!this.webPids.delete(pid)) return;
-        this.killWebProcess(pid);
+    async stopWebPartner(pid: number, ownerId: string): Promise<void> {
+        const record = this.webProcesses.get(pid);
+        if (!record || !record.owners.delete(ownerId)) return;
+        if (record.owners.size === 0) {
+            this.webProcesses.delete(pid);
+            this.killWebProcess(pid);
+        }
     }
 
     async isWebPartnerRunning(pid: number): Promise<boolean> {
-        if (!this.webPids.has(pid)) return false;
-        try { process.kill(pid, 0); return true; }
-        catch { this.webPids.delete(pid); return false; }
+        if (!this.webProcesses.has(pid)) return false;
+        if (this.webProcessAlive(pid)) return true;
+        this.webProcesses.delete(pid);
+        return false;
     }
 
-    async startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string): Promise<PartnerWebLaunch> {
+    protected webProcessAlive(pid: number): boolean {
+        try { process.kill(pid, 0); return true; }
+        catch (error) { return (error as NodeJS.ErrnoException).code === 'EPERM'; }
+    }
+
+    async reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void> {
+        const roots = new Set<string>();
+        for (const uri of activeRootUris) {
+            try { roots.add(await fs.realpath(this.toFsPath(uri))); } catch { /* Invalid or closed root. */ }
+        }
+        for (const [pid, record] of this.webProcesses) {
+            if (record.owners.has(ownerId) && !roots.has(record.cwd)) await this.stopWebPartner(pid, ownerId);
+        }
+        for (const [cwd, pending] of this.pendingWebLaunches) {
+            if (!roots.has(cwd)) pending.owners.delete(ownerId);
+        }
+    }
+
+    async startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined,
+        executablePath: string, ownerId: string): Promise<PartnerWebLaunch> {
         if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
-        const cwd = workspaceRootUri ? this.toFsPath(workspaceRootUri) : homedir();
+        if (!ownerId?.trim()) throw new Error('Web partner owner is required');
+        if (!workspaceRootUri) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
+        if (!path.isAbsolute(executablePath) || !/^dsh(?:\.cmd|\.exe)?$/i.test(path.basename(executablePath))) {
+            throw new Error('DeepSeek Harness の実行ファイルは絶対パスの dsh / dsh.cmd / dsh.exe を指定してください');
+        }
+        if (!(await fs.stat(executablePath).catch(() => undefined))?.isFile()) {
+            throw new Error('DeepSeek Harness の実行ファイルが見つかりません');
+        }
+        let cwd: string;
+        try { cwd = this.toFsPath(workspaceRootUri); }
+        catch { throw new Error('プロジェクトのフォルダが不正です'); }
+        if (!path.isAbsolute(cwd) || !(await fs.stat(cwd).catch(() => undefined))?.isDirectory()) {
+            throw new Error('プロジェクトのフォルダが見つかりません');
+        }
+        cwd = await fs.realpath(cwd);
+        for (const [pid, record] of this.webProcesses) {
+            if (record.cwd !== cwd) continue;
+            if (this.webProcessAlive(pid)) { record.owners.add(ownerId); return record.launch; }
+            this.webProcesses.delete(pid);
+        }
+        const inProgress = this.pendingWebLaunches.get(cwd);
+        if (inProgress) { inProgress.owners.add(ownerId); return inProgress.promise; }
+        const owners = new Set([ownerId]);
+        const promise = this.launchNewWebPartner(agent, cwd, executablePath).then(launch => {
+            if (owners.size === 0) {
+                this.killWebProcess(launch.pid);
+                throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
+            }
+            this.webProcesses.set(launch.pid, { cwd, owners, launch });
+            return launch;
+        });
+        const pending: PendingWebLaunch = { owners, promise };
+        this.pendingWebLaunches.set(cwd, pending);
+        try { return await pending.promise; }
+        finally { if (this.pendingWebLaunches.get(cwd) === pending) this.pendingWebLaunches.delete(cwd); }
+    }
+
+    protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string): Promise<PartnerWebLaunch> {
         const partnersDir = path.join(resolveAkariHomeDir(), 'partners', 'deepseek');
         await fs.mkdir(partnersDir, { recursive: true });
         const pluginPath = path.join(partnersDir, 'akari-cwd-workspace.mjs');
@@ -108,29 +174,26 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         if (connection.provider !== 'opencode-go') delete env.OPENCODE_GO_API_KEY;
         const logPath = path.join(partnersDir, 'web.log');
         const log = (line: string): void => {
-            let safe = line;
-            for (const key of [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]) {
-                if (key) safe = safe.replaceAll(key, '***');
-            }
+            const safe = maskDshOutput(line, [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]);
             appendFileSync(logPath, safe + '\n');
         };
         let result: { url: string; pid: number };
         try {
-            result = await launchDshWeb({
-                executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 60_000,
-                log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webPids.delete(pid)
+            result = await this.launchWebProcess({
+                executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 120_000,
+                log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webProcesses.delete(pid)
             });
         } catch (error) {
-            let message = this.errorMessage(error);
-            for (const key of [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]) {
-                if (key) message = message.replaceAll(key, '***');
-            }
+            const message = maskDshOutput(this.errorMessage(error),
+                [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]);
             throw new Error(message);
         }
-        try { process.kill(result.pid, 0); }
-        catch { throw new Error('dsh web exited after startup'); }
-        this.webPids.add(result.pid);
-        return { ...result, provider: connection.provider, providerNote: connection.note, guidance: connection.guidance };
+        if (!this.webProcessAlive(result.pid)) throw new Error('dsh web exited after startup');
+        return { ...result, cwd, provider: connection.provider, providerNote: connection.note, guidance: connection.guidance };
+    }
+
+    protected launchWebProcess(input: Parameters<typeof launchDshWeb>[0]): ReturnType<typeof launchDshWeb> {
+        return launchDshWeb(input);
     }
 
     async getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure> {
@@ -139,7 +202,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const connection = detectDeepSeekConnection({
             env: process.env, homeDir: homedir(), readFile: file => readFileSync(file, 'utf8')
         });
-        return { ...disclosure, environment: disclosure.environment + '\n' + connection.note };
+        return { ...disclosure, connectionNote: connection.note };
     }
 
     async getPlatformKey(): Promise<string> {

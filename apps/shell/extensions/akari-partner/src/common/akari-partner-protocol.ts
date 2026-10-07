@@ -8,6 +8,7 @@ export interface PartnerInstallDisclosure {
     sourceUrl: string;
     location: string;
     environment: string;
+    connectionNote?: string;
     termsUrl: string;
 }
 
@@ -30,6 +31,7 @@ export type PartnerBootstrapOutcome = BootstrapResult | BootstrapConsentRequired
 export interface PartnerWebLaunch {
     url: string;
     pid: number;
+    cwd: string;
     provider: 'deepseek-official' | 'opencode-go';
     providerNote: string;
     guidance?: string;
@@ -136,8 +138,10 @@ export interface AkariPartnerServer {
      */
     ensureCli(): Promise<EnsureCliResult>;
     prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
-    startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string): Promise<PartnerWebLaunch>;
-    stopWebPartner(pid: number): Promise<void>;
+    startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string,
+        ownerId: string): Promise<PartnerWebLaunch>;
+    stopWebPartner(pid: number, ownerId: string): Promise<void>;
+    reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void>;
     isWebPartnerRunning(pid: number): Promise<boolean>;
     getRenderPins(): Promise<RenderPins>;
     /**

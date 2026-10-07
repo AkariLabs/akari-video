@@ -1,28 +1,13 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
-import { app, BrowserWindow, ipcMain, session, shell, WebContentsView } from '@theia/core/electron-shared/electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell, WebContentsView } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
 import { CHANNEL_PARTNER_WEB } from '../electron-common/electron-api';
+import { externalUrl, isHostMainFrameReload, localWebOrigin } from '../electron-common/partner-web-url';
+import { maskToken } from '../node/dsh-web-launcher';
 
-interface WebState { window: BrowserWindow; view: WebContentsView; origin: string; }
+export { externalUrl, localWebOrigin } from '../electron-common/partner-web-url';
 
-function localWebOrigin(raw: unknown): string | undefined {
-    if (typeof raw !== 'string') return undefined;
-    try {
-        const url = new URL(raw);
-        if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
-            || url.username || url.password || !url.port) return undefined;
-        return url.origin;
-    } catch { return undefined; }
-}
-function externalUrl(raw: string): string | undefined {
-    try {
-        const url = new URL(raw);
-        if (!['http:', 'https:'].includes(url.protocol)) return undefined;
-        const host = url.hostname.toLowerCase().replace(/\.$/, '');
-        if (host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || /^127\./.test(host)) return undefined;
-        return url.toString();
-    } catch { return undefined; }
-}
+interface WebState { window: BrowserWindow; view: WebContentsView; origin: string; detachHostListeners: () => void; }
 
 @injectable()
 export class PartnerWebMain implements ElectronMainApplicationContribution {
@@ -33,8 +18,10 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
         webSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
         webSession.setPermissionCheckHandler(() => false);
         ipcMain.handle(CHANNEL_PARTNER_WEB, async (event, operation: string, input?: any) => {
+            if (event.senderFrame !== event.sender.mainFrame) throw new Error('Main frame required');
             const window = BrowserWindow.fromWebContents(event.sender);
             if (!window) throw new Error('Window unavailable');
+            if (operation === 'ownerId') return String(window.id);
             if (operation === 'open') return this.open(window, input?.url);
             const state = this.states.get(window.id);
             if (operation === 'inspect') {
@@ -67,19 +54,34 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
         const previous = this.states.get(window.id);
         if (previous) this.close(previous);
         const view = new WebContentsView({ webPreferences: {
-            partition: 'persist:akari-partner-deepseek', nodeIntegration: false, contextIsolation: true, sandbox: true
+            partition: 'persist:akari-partner-deepseek', nodeIntegration: false, contextIsolation: true, sandbox: true,
+            // A hidden view can lose renderer CPU priority while the host is busy.
+            // Keep dsh responsive during loading and when another tab hides the view.
+            // This cannot raise the priority of a renderer created while its window is occluded.
+            backgroundThrottling: false
         } });
-        const state: WebState = { window, view, origin };
+        const hostContents = window.webContents;
+        const onHostNavigation = (event: { isMainFrame?: boolean; isSameDocument?: boolean },
+            _url: string, isInPlace: boolean, isMainFrame: boolean): void => {
+            if (isHostMainFrameReload(event, isInPlace, isMainFrame)) this.close(state);
+        };
+        const onHostGone = (): void => this.close(state);
+        const onWindowClosed = (): void => this.close(state);
+        const state: WebState = { window, view, origin, detachHostListeners: () => {
+            hostContents.removeListener('did-start-navigation', onHostNavigation);
+            hostContents.removeListener('render-process-gone', onHostGone);
+            window.removeListener('closed', onWindowClosed);
+        } };
         this.states.set(window.id, state);
+        hostContents.on('did-start-navigation', onHostNavigation);
+        hostContents.on('render-process-gone', onHostGone);
+        window.once('closed', onWindowClosed);
         const wc = view.webContents;
         wc.removeAllListeners('will-navigate');
         const allowed = (target: string): boolean => {
             try { return new URL(target).origin === origin; } catch { return false; }
         };
-        const outside = (target: string): void => {
-            const external = externalUrl(target);
-            if (external) void shell.openExternal(external);
-        };
+        const outside = (target: string): void => { void this.offerExternal(state, target); };
         wc.on('will-navigate', (event, target) => {
             if (!allowed(target)) { event.preventDefault(); outside(target); }
         });
@@ -93,14 +95,23 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
         });
         window.contentView.addChildView(view);
         view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
-        window.once('closed', () => this.close(state));
         try { await wc.loadURL(raw); }
-        catch (error) { this.close(state); throw error; }
+        catch (error) { this.close(state); throw new Error(maskToken(String(error))); }
+    }
+
+    private async offerExternal(state: WebState, raw: string): Promise<void> {
+        const url = externalUrl(raw);
+        if (!url || this.states.get(state.window.id) !== state || state.window.isDestroyed()) return;
+        const answer = await dialog.showMessageBox(state.window, { type: 'question',
+            title: 'DeepSeek Harness の外へ移動', message: `${new URL(url).hostname} を既定のブラウザで開きますか？`,
+            detail: url, buttons: ['開かない', '既定のブラウザで開く'], defaultId: 0, cancelId: 0 });
+        if (answer.response === 1 && this.states.get(state.window.id) === state) await shell.openExternal(url);
     }
 
     private close(state: WebState): void {
         if (this.states.get(state.window.id) !== state) return;
         this.states.delete(state.window.id);
+        state.detachHostListeners();
         if (!state.window.isDestroyed()) state.window.contentView.removeChildView(state.view);
         state.view.webContents.close();
     }

@@ -9,14 +9,29 @@ export function maskToken(line: string): string {
     return line.replace(/token=[^\s&)"']+/g, 'token=***');
 }
 
+export function maskDshOutput(message: string, secrets: readonly (string | undefined)[]): string {
+    let safe = maskToken(message);
+    for (const secret of secrets) {
+        if (secret) safe = safe.replaceAll(secret, '***');
+    }
+    return safe;
+}
+
+function safeCommandArgument(value: string): string {
+    if (/[&^%!"\r\n]/.test(value)) throw new Error('dsh path or argument contains unsupported command characters');
+    return value;
+}
+
 export function buildDshWebArgs(
     executablePath: string, patchPath: string, platform: NodeJS.Platform = process.platform,
     env: NodeJS.ProcessEnv = process.env
-): { command: string; args: string[] } {
-    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0'];
+): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
+    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0'].map(safeCommandArgument);
+    safeCommandArgument(executablePath);
     if (platform === 'win32' && /\.(cmd|bat)$/i.test(executablePath)) {
-        return { command: env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
-            args: ['/d', '/s', '/c', executablePath, ...args] };
+        const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'));
+        const quoted = '"' + [executablePath, ...args].map(arg => `"${arg}"`).join(' ') + '"';
+        return { command, args: ['/d', '/s', '/c', quoted], windowsVerbatimArguments: true };
     }
     return { command: executablePath, args };
 }
@@ -33,9 +48,10 @@ export async function launchDshWeb(input: {
     stop: (pid: number) => void;
     onExit?: (pid: number) => void;
 }): Promise<{ url: string; pid: number }> {
-    const { command, args } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env);
+    const { command, args, windowsVerbatimArguments } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env);
     const options: SpawnOptionsWithoutStdio = {
-        cwd: input.cwd, env: input.env, windowsHide: true, detached: input.platform !== 'win32'
+        cwd: input.cwd, env: input.env, windowsHide: true, detached: input.platform !== 'win32',
+        windowsVerbatimArguments
     };
     const child = (input.spawn ?? nodeSpawn)(command, args, options) as ChildProcessWithoutNullStreams;
     return new Promise((resolve, reject) => {
@@ -71,7 +87,7 @@ export async function launchDshWeb(input: {
         child.stdout.on('data', chunk => consume(chunk, 'stdout'));
         child.stderr.on('data', chunk => consume(chunk, 'stderr'));
         child.on('error', error => finish(error));
-        child.on('exit', code => {
+        child.on('close', code => {
             if (child.pid) input.onExit?.(child.pid);
             if (stdout) consume('\n', 'stdout');
             if (stderr) consume('\n', 'stderr');

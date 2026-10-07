@@ -6,7 +6,7 @@ import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn as spawnProcess, spawnSync } from 'node:child_process';
-import { launchDshWeb, parseDshWebUrlLine, buildDshWebArgs, maskToken } from '../../lib/node/dsh-web-launcher.js';
+import { launchDshWeb, parseDshWebUrlLine, buildDshWebArgs, maskToken, maskDshOutput } from '../../lib/node/dsh-web-launcher.js';
 import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
 
 test('同意なしの導入要求は説明表を含む結果になる', async () => {
@@ -146,8 +146,9 @@ function simulatedSpawn(mode) {
     setImmediate(() => {
         if (mode === 'success') child.stdout.write('dsh web: http://127.0.0.1:42317/?token=abc (LAN: ignored)\n');
         if (mode === 'error') {
-            child.stderr.write('fixture stderr failure\n');
-            setImmediate(() => child.emit('exit', 7));
+            child.emit('exit', 7);
+            child.stderr.write('fixture stderr failure');
+            setImmediate(() => child.emit('close', 7));
         }
     });
     return child;
@@ -194,7 +195,22 @@ test('dsh web arguments keep the patch immediately after the profile', () => {
     assert.deepEqual(posix, { command: 'dsh', args: expected });
     const shim = join(tmpdir(), 'dsh.cmd');
     const windows = buildDshWebArgs(shim, patchPath, 'win32', { ComSpec: 'cmd.exe' });
-    assert.deepEqual(windows, { command: 'cmd.exe', args: ['/d', '/s', '/c', shim, ...expected] });
+    assert.deepEqual(windows, { command: 'cmd.exe',
+        args: ['/d', '/s', '/c', '"' + [shim, ...expected].map(arg => `"${arg}"`).join(' ') + '"'],
+        windowsVerbatimArguments: true });
+});
+
+test('Windows cmd quoting keeps spaced paths in one argument and rejects metacharacters', () => {
+    const shim = join(tmpdir(), 'user with spaces', 'dsh.cmd');
+    const patch = join(tmpdir(), 'user with spaces', 'akari.patch.yml');
+    const result = buildDshWebArgs(shim, patch, 'win32', { ComSpec: 'cmd.exe' });
+    assert.equal(result.args.length, 4);
+    assert.ok(result.args[3].startsWith(`""${shim}" "--profile" "web" "--patch" "${patch}"`));
+    assert.equal(result.windowsVerbatimArguments, true);
+    for (const character of ['&', '^', '%', '!', '"', '\n', '\r']) {
+        assert.throws(() => buildDshWebArgs(shim + character, patch, 'win32', {}), /unsupported command characters/);
+        assert.throws(() => buildDshWebArgs(shim, patch + character, 'win32', {}), /unsupported command characters/);
+    }
 });
 
 test('dsh web URL parser ignores the LAN suffix and log masking hides the token', () => {
@@ -202,6 +218,7 @@ test('dsh web URL parser ignores the LAN suffix and log masking hides the token'
     assert.equal(parseDshWebUrlLine(line), 'http://127.0.0.1:42317/?token=abc');
     assert.equal(parseDshWebUrlLine('other output'), undefined);
     assert.equal(maskToken(line), 'dsh web: http://127.0.0.1:42317/?token=*** (LAN: ignored)');
+    assert.equal(maskDshOutput('token=abc key=fixture-secret', ['fixture-secret']), 'token=*** key=***');
 });
 
 test('fake dsh executable returns a nonzero port, token and pid while masking the log', async t => {

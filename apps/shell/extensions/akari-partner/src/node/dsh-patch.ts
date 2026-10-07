@@ -46,6 +46,8 @@ export function buildDshPatchYaml(input: {
     sessionId: string;
 }): string {
     if (!path.isAbsolute(input.pluginPath) && !path.win32.isAbsolute(input.pluginPath)) throw new Error('Plugin path must be absolute');
+    if (!/^akari-[0-9a-f]{16}$/.test(input.sessionId)) throw new Error('Invalid dsh session id');
+    if (!/^[0-9A-Za-z.+-]{1,40}$/.test(input.appVersion)) throw new Error('Invalid app version');
     const quotedPath = JSON.stringify(input.pluginPath);
     const base = `- insert:
     - id: akari-cwd-workspace

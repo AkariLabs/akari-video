@@ -10,6 +10,7 @@ export interface PartnerWebInspect {
 }
 export interface ElectronAkariPartnerApi {
     web: {
+        ownerId(): Promise<string>;
         open(url: string): Promise<void>;
         bounds(rect: PartnerWebRect): Promise<void>;
         close(): Promise<void>;

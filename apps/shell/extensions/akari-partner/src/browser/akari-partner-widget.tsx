@@ -34,6 +34,7 @@ import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
 import { AkariPartnerConnectDialog } from './akari-partner-connect-dialog';
 import { AkariPartnerInstallDialog } from './akari-partner-install-dialog';
 import { PartnerWebWidget } from './akari-partner-web-widget';
+import { shouldDisposeWebWidget } from '../common/partner-web-cleanup';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -145,6 +146,7 @@ export class AkariPartnerWidget extends ReactWidget {
     // task/2026-07-25-partner-raw-terminal-default: 既定経路からは外れたが
     // renderChat() 自体は温存するため状態は残す（削除禁止）。
     protected webWidget?: PartnerWebWidget;
+    protected webStarting?: Promise<void>;
     protected terminal?: TerminalWidget;
     protected channel?: PartnerChannel;
     protected messages: ChatMessage[] = [];
@@ -189,6 +191,9 @@ export class AkariPartnerWidget extends ReactWidget {
             this.completeDismissTimers.clear();
         }));
         this.toDispose.push(Disposable.create(() => this.stopConnectWatcher()));
+        this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => {
+            void this.cleanupWebPartners().catch(error => console.warn('[akari-partner] web cleanup failed:', error));
+        }));
         this.extensionsModel.onDidChange(() => this.update());
         this.terminalService.onDidCreateTerminal(terminal => {
             if (terminal.kind === PartnerTerminal.KIND) {
@@ -442,6 +447,18 @@ export class AkariPartnerWidget extends ReactWidget {
     }
 
     protected async beginWeb(entry: PartnerWebCatalogEntry): Promise<void> {
+        if (this.webStarting) { await this.webStarting; return; }
+        let finish!: () => void;
+        const starting = new Promise<void>(resolve => { finish = resolve; });
+        this.webStarting = starting;
+        try { await this.beginWebOnce(entry); }
+        finally {
+            this.webStarting = undefined;
+            finish();
+        }
+    }
+
+    protected async beginWebOnce(entry: PartnerWebCatalogEntry): Promise<void> {
         const existing = this.webWidget;
         try {
             if (existing?.isRunning() && existing.pid && await this.partnerServer.isWebPartnerRunning(existing.pid)) {
@@ -460,6 +477,8 @@ export class AkariPartnerWidget extends ReactWidget {
         try {
             const roots = await this.workspaceService.roots;
             const cwd = roots[0]?.resource.toString();
+            if (!cwd) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
+            const ownerId = await window.electronAkariPartner.web.ownerId();
             let bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd);
             if ('consentRequired' in bootstrap) {
                 const accepted = await new AkariPartnerInstallDialog(bootstrap.disclosure, this.windowService).open();
@@ -475,22 +494,32 @@ export class AkariPartnerWidget extends ReactWidget {
             this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
             this.setProgress(entry, '作業画面を起動しています…', entry.name);
-            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath);
+            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId);
+            let widget: PartnerWebWidget | undefined;
             try {
-                const widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);
-                await widget.open(entry.agent, launch);
+                widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);
                 this.webWidget = widget;
                 if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
                 await this.shell.activateWidget(widget.id);
+                const opening = widget.open(entry.agent, launch, ownerId);
+                this.setComplete(entry, 'DeepSeek Harness を開始しました', launch.providerNote);
+                void opening.catch(error => {
+                    if (this.webWidget === widget) this.webWidget = undefined;
+                    this.setFailure(entry, entry.name + ' のセットアップに失敗しました', this.errorMessage(error));
+                    console.error('[akari-partner] web onboarding failed:', error);
+                });
+                await Promise.all([
+                    this.markCloudConnectionOk(),
+                    this.partnerServer.recordConnection(entry.agent, bootstrap.executablePath)
+                        .catch(error => console.warn('[akari-partner] partner connection marker skipped:', error))
+                ]);
             } catch (error) {
+                widget?.dispose();
+                this.webWidget = undefined;
                 await window.electronAkariPartner.web.close().catch(() => undefined);
-                await this.partnerServer.stopWebPartner(launch.pid);
+                await this.partnerServer.stopWebPartner(launch.pid, ownerId);
                 throw error;
             }
-            await this.markCloudConnectionOk();
-            try { await this.partnerServer.recordConnection(entry.agent, bootstrap.executablePath); }
-            catch (error) { console.warn('[akari-partner] partner connection marker skipped:', error); }
-            this.setComplete(entry, 'DeepSeek Harness を開始しました', launch.providerNote);
         } catch (error) {
             this.setFailure(entry, entry.name + ' のセットアップに失敗しました', this.errorMessage(error));
             console.error('[akari-partner] web onboarding failed:', error);
@@ -767,6 +796,8 @@ export class AkariPartnerWidget extends ReactWidget {
      * 同一エントリの重複 widget は破棄する。
      */
     async restorePartnerTerminals(): Promise<void> {
+        try { await this.cleanupWebPartners(); }
+        catch (error) { console.warn('[akari-partner] web cleanup failed:', error); }
         const restored: Array<{ entry: PartnerCliCatalogEntry; terminal: TerminalWidget }> = [];
         for (const entry of PARTNER_CATALOG) {
             if (entry.form !== 'cli') {
@@ -782,6 +813,21 @@ export class AkariPartnerWidget extends ReactWidget {
             this.syncTerminalState(active.terminal, active.entry, true);
         }
         this.update();
+    }
+
+    protected async cleanupWebPartners(): Promise<void> {
+        for (;;) {
+            if (this.webStarting) { await this.webStarting; continue; }
+            const roots = (await this.workspaceService.roots).map(root => root.resource.toString());
+            const widget = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+            if (this.webStarting) continue;
+            if (widget && shouldDisposeWebWidget({
+                hasLaunch: widget.hasLaunch, starting: false, launchCwd: widget.launchCwd, roots
+            })) widget.dispose();
+            const ownerId = await window.electronAkariPartner.web.ownerId();
+            await this.partnerServer.reconcileWebPartners(ownerId, roots);
+            return;
+        }
     }
 
     protected async findExistingCliTerminal(
