@@ -1,0 +1,43 @@
+{
+  "version": 0,
+  "tasks": [
+    {
+      "id": "t-0001",
+      "source": "annotation",
+      "state": "unsent",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "via": "paper",
+      "createdBy": "ai",
+      "needsConfirm": true,
+      "risk": "outbound",
+      "gate": "ask",
+      "origin": {
+        "kind": "rough-canvas",
+        "memo": "m-1",
+        "job": "j-1",
+        "ref": "c-1"
+      },
+      "kind": "generate",
+      "targetDetail": {
+        "refs": [
+          "assets/paper.png"
+        ],
+        "region": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "evidence": {
+        "memo": "指示",
+        "speech": [
+          0,
+          1
+        ],
+        "quote": "作成",
+        "ink": []
+      }
+    }
+  ]
+}

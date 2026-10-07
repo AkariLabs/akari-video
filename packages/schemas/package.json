@@ -10,6 +10,7 @@
     "validate-motion": "bin/validate-motion.mjs",
     "validate-plan": "bin/validate-plan.mjs",
     "validate-review": "bin/validate-review.mjs",
+    "validate-tasks": "bin/validate-tasks.mjs",
     "validate-world-map": "bin/validate-world-map.mjs",
     "validate-sites": "bin/validate-sites.mjs"
   },

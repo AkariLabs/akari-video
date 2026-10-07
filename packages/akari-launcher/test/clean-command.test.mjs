@@ -114,6 +114,22 @@ test('宣言表は全行が pattern / class / reason / regenerated_by を持つ'
   }
 });
 
+test('tasks.json は保持し、古いロックと outbox は一時データに分類する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-clean-tasks-'));
+  try {
+    await put(root, '.akari/tasks.json', '{"version":0,"tasks":[]}\n');
+    await mkdir(join(root, '.akari', 'tasks.json.lock'));
+    await put(root, '.akari/cache/outbox/b-0001.md', '依頼');
+    await setTreeTime(root, OLD);
+    const result = await classifyProject(root, { now: NOW });
+    assert.ok(result.keep.some(entry => entry.path === '.akari/tasks.json'));
+    assert.ok(result.disposable.some(entry => entry.path === '.akari/tasks.json.lock'));
+    assert.ok(result.disposable.some(entry => entry.path === '.akari/cache/outbox'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('fixture をクラス順・パス順に分類し、60 分以内の run を判断保留へ移す', async () => {
   await withFixture(async (root) => {
     const result = await classifyProject(root, { now: NOW });

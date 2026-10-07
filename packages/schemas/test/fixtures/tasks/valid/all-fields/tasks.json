@@ -1,0 +1,92 @@
+{
+  "version": 0,
+  "tasks": [
+    {
+      "id": "t-0001",
+      "source": "annotation",
+      "state": "unsent",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "via": "voice",
+      "priority": "high",
+      "rank": null,
+      "outcome": null,
+      "title": "BGM を調整",
+      "body": "BGM を遅らせる",
+      "target": "ui:timeline:cut:1",
+      "anchor": {
+        "sourceT": 3,
+        "sourceRange": null
+      },
+      "ref": {
+        "kind": "annotation",
+        "id": "a-0001"
+      },
+      "attachments": [
+        {
+          "kind": "image",
+          "path": "assets/a.png"
+        }
+      ],
+      "gate": "ask",
+      "undo": {
+        "reversible": true,
+        "historyId": "h-1",
+        "before": {
+          "edit.json": "abc"
+        },
+        "after": {
+          "edit.json": "def"
+        }
+      },
+      "batchId": "b-0001",
+      "sentAt": null,
+      "sentTo": {
+        "agent": "claude",
+        "form": "cli",
+        "route": "pty"
+      },
+      "response": null,
+      "needsConfirm": false,
+      "createdBy": "human",
+      "updatedAt": "2026-10-07T01:00:00Z",
+      "orphaned": false,
+      "kind": "edit",
+      "targetDetail": {
+        "refs": [
+          "assets/a.png"
+        ],
+        "outputT": 1,
+        "src": "assets/a.mp4",
+        "sourceT": 2,
+        "cutIndex": 0,
+        "region": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "evidence": {
+        "memo": "メモ",
+        "speech": [
+          0,
+          1
+        ],
+        "quote": "引用",
+        "ink": []
+      },
+      "confidence": "high",
+      "question": "確認",
+      "risk": "reversible",
+      "route": "agent",
+      "dependsOn": [],
+      "origin": {
+        "kind": "rough-canvas",
+        "memo": "memo",
+        "job": "job",
+        "ref": "ref"
+      },
+      "mergedFrom": []
+    }
+  ]
+}
