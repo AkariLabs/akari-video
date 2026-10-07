@@ -956,7 +956,7 @@ export class AkariMaterialsPane {
                     const known = this.host.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
                     const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
                     return state.lab
-                        ? <button onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
+                        ? <button className='theia-button secondary small' onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
                         : <span>入れ直してください</span>;
                 })()}
                 <div

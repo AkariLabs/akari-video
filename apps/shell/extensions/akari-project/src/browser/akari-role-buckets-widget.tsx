@@ -2263,7 +2263,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
                     {entries.map(entry => (
                         <button
-                            key={entry.key} type='button' data-recent-key={entry.key}
+                            key={entry.key} type='button' data-akari-library-recent-card data-recent-key={entry.key}
                             onClick={() => this.openRecentLibraryEntry(entry)}
                             title={entry.label}
                             style={{
@@ -2618,7 +2618,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {this.libraryFolderFilter !== undefined && (
                     <div data-library-folder-filter={this.libraryFolderFilter} style={{ padding: '7px 10px', fontSize: '0.78em' }}>
                         フォルダ: {this.libraryFolderFilter}
-                        <button type='button' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }}>×</button>
+                        <button type='button' className='theia-button secondary small' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }} style={{ width: '26px', minWidth: 0, height: '26px', padding: 0 }}>×</button>
                     </div>
                 )}
                 {this.renderLibraryCategoryBody(key)}
