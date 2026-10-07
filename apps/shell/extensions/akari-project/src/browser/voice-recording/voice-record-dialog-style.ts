@@ -5,12 +5,13 @@ export function ensureVoiceRecordDialogStyle(): void {
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-.akari-voice-record-dialog-host .dialogBlock { width:360px!important; max-width:360px!important; max-height:calc(100vh - 32px); padding:0!important; border:0!important; border-radius:14px!important; overflow:hidden; background:var(--akari-card,#141414)!important; }
+.akari-voice-record-dialog-host { background:transparent!important; pointer-events:none; }
+.akari-voice-record-dialog-host .dialogBlock { width:360px!important; min-width:360px!important; max-width:360px!important; max-height:calc(100vh - 32px); padding:0!important; border:0!important; border-radius:14px!important; overflow:hidden; background:var(--akari-card,#141414)!important; pointer-events:auto; position:fixed; margin:0; }
 .akari-voice-record-dialog-host .dialogTitle,.akari-voice-record-dialog-host .dialogControl { display:none!important; }
 .akari-voice-record-dialog-host .dialogContent { padding:0!important; color:var(--akari-ink,#e5e5e5); }
 .akari-voice-record-dialog-host * { box-sizing:border-box; }
 .akari-voice-record-dialog-host .voice-popup { width:360px; max-height:calc(100vh - 32px); overflow-y:auto; background:var(--akari-card,#141414); border:1px solid #333; border-radius:14px; font:12px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif; }
-.akari-voice-record-dialog-host .voice-header { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #303030; font-size:16px; font-weight:700; }
+.akari-voice-record-dialog-host .voice-header { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #303030; font-size:16px; font-weight:700; cursor:move; }
 .akari-voice-record-dialog-host .voice-close-x { width:28px; height:28px; border:0; background:transparent; color:var(--akari-ink,#e5e5e5); font-size:20px; cursor:pointer; }
 .akari-voice-record-dialog-host .voice-body { padding:18px; }
 .akari-voice-record-dialog-host .voice-card { display:flex; align-items:center; gap:18px; padding:14px; border:1px solid #333; border-radius:11px; background:var(--akari-bg,#0a0a0a); }

@@ -1,16 +1,44 @@
 import * as React from '@theia/core/shared/react';
 import { ReactDialog } from '@theia/core/lib/browser/dialogs/react-dialog';
-import { MessageService } from '@theia/core/lib/common';
+import { Disposable, MessageService } from '@theia/core/lib/common';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariProjectService } from '../../common/akari-project-protocol';
 import { formatRecordingClock, levelToBars } from '../../common/voice-recording';
 import { VoiceRecorder, VoiceRecorderState } from './voice-recorder';
 import { ensureVoiceRecordDialogStyle } from './voice-record-dialog-style';
 
+interface DialogPosition { left: number; top: number }
+
+const POSITION_KEY = 'akari.voice.record.position';
+let rememberedPosition: DialogPosition | undefined;
+
+function readPosition(): DialogPosition | undefined {
+    if (rememberedPosition) return rememberedPosition;
+    try {
+        const stored = window.localStorage.getItem(POSITION_KEY);
+        if (!stored) return undefined;
+        const parsed = JSON.parse(stored) as Partial<DialogPosition>;
+        if (Number.isFinite(parsed.left) && Number.isFinite(parsed.top)) {
+            rememberedPosition = { left: parsed.left!, top: parsed.top! };
+        }
+    } catch { /* Storage may be unavailable in a private or restricted window. */ }
+    return rememberedPosition;
+}
+
+function rememberPosition(position: DialogPosition): void {
+    rememberedPosition = position;
+    try { window.localStorage.setItem(POSITION_KEY, JSON.stringify(position)); }
+    catch { /* Keep the position for this session. */ }
+}
+
 export class AkariVoiceRecordDialog extends ReactDialog<void> {
     protected readonly recorder: VoiceRecorder;
     protected state: VoiceRecorderState;
     protected closing = false;
+    protected position?: DialogPosition;
+    protected dragCleanup?: () => void;
+    protected positionFrame?: number;
+    protected readonly handleResize = (): void => { this.placeWithinViewport(false); };
 
     constructor(protected readonly service: AkariProjectService, protected readonly messages: MessageService,
         protected readonly projectUri: string) {
@@ -30,12 +58,77 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
 
     get value(): void { return undefined; }
 
+    protected override preventTabbingOutsideDialog(): Disposable { return Disposable.NULL; }
+
+    protected override handleEnter(): boolean { return false; }
+
+    protected dialogBlock(): HTMLElement | null { return this.node.querySelector<HTMLElement>('.dialogBlock'); }
+
+    protected placeWithinViewport(useDefaultWhenStoredPositionDoesNotFit: boolean): void {
+        const block = this.dialogBlock();
+        if (!block) return;
+        const rect = block.getBoundingClientRect();
+        const width = rect.width || 360;
+        const height = rect.height || block.scrollHeight;
+        const maxLeft = Math.max(0, window.innerWidth - width);
+        const maxTop = Math.max(0, window.innerHeight - height);
+        const defaultPosition = { left: window.innerWidth - 360 - 24, top: 72 };
+        const position = this.position && (!useDefaultWhenStoredPositionDoesNotFit ||
+            (this.position.left >= 0 && this.position.left <= maxLeft && this.position.top >= 0 && this.position.top <= maxTop))
+            ? this.position : defaultPosition;
+        this.position = {
+            left: Math.min(maxLeft, Math.max(0, position.left)),
+            top: Math.min(maxTop, Math.max(0, position.top))
+        };
+        block.style.left = `${this.position.left}px`;
+        block.style.top = `${this.position.top}px`;
+    }
+
+    protected startDrag(event: React.PointerEvent<HTMLDivElement>): void {
+        if (event.button !== 0 || (event.target as HTMLElement).closest?.('button')) return;
+        const block = this.dialogBlock();
+        if (!block) return;
+        event.preventDefault();
+        this.dragCleanup?.();
+        const pointerId = event.pointerId;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const start = this.position ?? { left: block.getBoundingClientRect().left, top: block.getBoundingClientRect().top };
+        const move = (next: PointerEvent): void => {
+            if (next.pointerId !== pointerId) return;
+            this.position = { left: start.left + next.clientX - startX, top: start.top + next.clientY - startY };
+            this.placeWithinViewport(false);
+        };
+        const end = (next: PointerEvent): void => {
+            if (next.pointerId !== pointerId) return;
+            this.dragCleanup?.();
+            this.dragCleanup = undefined;
+            if (this.position) rememberPosition(this.position);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', end);
+        window.addEventListener('pointercancel', end);
+        this.dragCleanup = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', end);
+            window.removeEventListener('pointercancel', end);
+        };
+    }
+
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
+        this.position = readPosition();
+        this.placeWithinViewport(true);
+        this.positionFrame = window.requestAnimationFrame(() => this.placeWithinViewport(true));
+        window.addEventListener('resize', this.handleResize);
         void this.recorder.openMonitor();
     }
 
     protected override onAfterDetach(msg: Message): void {
+        this.dragCleanup?.();
+        this.dragCleanup = undefined;
+        window.removeEventListener('resize', this.handleResize);
+        if (this.positionFrame !== undefined) window.cancelAnimationFrame(this.positionFrame);
         super.onAfterDetach(msg);
         void this.recorder.dispose();
     }
@@ -56,8 +149,8 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                     ? `保存しました: ${state.lastSaved.assetPath.split('/').pop()}（${Math.round(state.lastSaved.durationSec)} 秒）`
                     : '録音は始まっていません');
         const lit = levelToBars(state.level, 40);
-        return <div className='voice-popup' role='dialog' aria-modal='true' aria-labelledby='akari-voice-title'>
-            <div className='voice-header'><span id='akari-voice-title'>アフレコ</span>
+        return <div className='voice-popup' role='dialog' aria-modal='false' aria-labelledby='akari-voice-title'>
+            <div className='voice-header' onPointerDown={event => this.startDrag(event)}><span id='akari-voice-title'>アフレコ</span>
                 <button type='button' className='voice-close-x' aria-label='閉じる'
                     data-akari-ui='voice-record:close' data-akari-ui-label='閉じる' onClick={() => this.close()}>×</button></div>
             <div className='voice-body'>

@@ -1841,11 +1841,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.readAloudButton.textContent = '🔊 読み上げ';
         Object.assign(this.readAloudButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0' });
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
-        this.configureIconButton(this.voiceRecordButton, 'codicon-record', 'アフレコ', 'アフレコ');
-        this.voiceRecordButton.classList.remove('akari-annotations-icon-button');
-        this.voiceRecordButton.classList.add('akari-annotations-text-button', 'akari-timeline-voice-record');
-        this.voiceRecordButton.textContent = '🎙 アフレコ';
-        Object.assign(this.voiceRecordButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0', marginLeft: '10px' });
+        this.configureIconButton(this.voiceRecordButton, 'codicon-mic', 'アフレコ', 'アフレコ（マイクで録る）');
+        Object.assign(this.voiceRecordButton.style, { flexShrink: '0', marginLeft: 'auto' });
         this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record'));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
@@ -1872,7 +1869,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(this.historyService.onDidChange(() => this.updateHistoryButtons()));
         this.toDispose.push(this.historyService.onDidExecute(execution => this.applyHistoryExecution(execution)));
         Object.assign(this.zoomHud.style, {
-            display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
+            display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px'
         });
         this.zoomIcon.className = 'codicon codicon-search';
         this.zoomIcon.setAttribute('aria-hidden', 'true');
@@ -1922,11 +1919,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
         });
         this.toolbar.append(this.zoomHud);
-        this.toolbar.append(this.voiceRecordButton);
         this.rangeDurationLabel.dataset.akariTimelineRangeDuration = '';
         Object.assign(this.rangeDurationLabel.style, { fontSize: '10px', color: 'var(--theia-descriptionForeground)',
             marginLeft: '8px', whiteSpace: 'nowrap' });
         this.toolbar.insertBefore(this.rangeDurationLabel, this.zoomHud);
+        this.toolbar.insertBefore(this.voiceRecordButton, this.zoomHud);
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
