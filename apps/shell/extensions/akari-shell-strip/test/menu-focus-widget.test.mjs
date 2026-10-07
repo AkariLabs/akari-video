@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { exportUnavailableReason } from '../lib/common/export-toolbar-state.js';
 
 const source = readFileSync(new URL('../src/browser/akari-menu-widget.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -40,6 +41,8 @@ test('stylesheet loading is guarded for node tests', () => {
 // Full expected method, including the variant target notice and its declaration.
 const baselineExportSection = `protected renderExportSection(): React.ReactNode {
         const status = this.exportSession.snapshot.status;
+        const availability = this.exportAvailability.snapshot;
+        const unavailableReason = exportUnavailableReason(availability);
         const running = status.phase === 'linting' || status.phase === 'rendering';
         const visible = running || status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed';
         const percent = status.progressPercent ?? 0;
@@ -55,20 +58,20 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
                 <button
                     className='theia-button secondary'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!this.editJsonExists}
-                    title={!this.editJsonExists ? EDIT_JSON_MISSING_TOOLTIP : undefined}
+                    disabled={!!unavailableReason}
+                    title={unavailableReason}
                     onClick={() => void this.openExportDialog()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し…</span>
                 </button>
-                {this.selectedEditName !== 'edit.json' && (
+                {availability.selectedEditName !== 'edit.json' && (
                     <p style={{ opacity: 0.75, fontSize: '0.85em', margin: '6px 0 0' }}>
-                        書き出し対象: {this.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
+                        書き出し対象: {availability.selectedEditName}。{unavailableReason}
                     </p>
                 )}
-                {!this.editJsonExists && (
-                    <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
+                {availability.selectedEditName === 'edit.json' && unavailableReason && (
+                    <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{unavailableReason}</p>
                 )}
                 {visible && (
                     <div data-akari-export-mini-status={status.phase} style={{ marginTop: '8px', border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '7px 9px' }}>
@@ -97,11 +100,44 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
         );
     }`;
 
-test('renderExportSection exactly matches the variant target UI', () => {
+test('renderExportSection exactly matches the shared export availability UI', () => {
     const current = method('renderExportSection').getText(ast);
     assert.match(current, /data-akari-onboarding-target='export-button'/);
-    const expected = baselineExportSection
-        .replaceAll('this.editJsonExists', 'this.exportAvailability.snapshot.exists')
-        .replaceAll('this.selectedEditName', 'this.exportAvailability.snapshot.selectedEditName');
-    assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), expected);
+    assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), baselineExportSection);
+});
+
+test('メニューの書き出しボタンと説明文は共有の利用不可理由に従う', () => {
+    const code = ts.transpileModule(`class Menu { ${method('renderExportSection').getText(ast)} }`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
+    }).outputText;
+    const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
+    const Menu = new Function('React', 'quickExportStageLabel', 'exportUnavailableReason',
+        `${code}\nreturn Menu;`)(React, () => undefined, exportUnavailableReason);
+    const visit = (node, predicate) => {
+        if (Array.isArray(node)) return node.flatMap(child => visit(child, predicate));
+        if (!node || typeof node !== 'object') return [];
+        return [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => visit(child, predicate))];
+    };
+    const cases = [
+        { exists: true, selectedEditName: 'edit.json' },
+        { exists: false, selectedEditName: 'edit.json' },
+        { exists: true, selectedEditName: 'edit.v2.json' },
+        { exists: false, selectedEditName: 'edit.v2.json' }
+    ];
+    for (const availability of cases) {
+        const menu = Object.assign(new Menu(), {
+            exportAvailability: { snapshot: { workspaceOpened: true, ...availability } },
+            exportSession: { snapshot: { status: { phase: 'idle' } } },
+            workspaceOpened: true,
+            cleaningProject: false
+        });
+        const tree = menu.renderExportSection();
+        const button = visit(tree, node => node.props?.['data-akari-onboarding-target'] === 'export-button')[0];
+        const reason = exportUnavailableReason(menu.exportAvailability.snapshot);
+        assert.equal(button.props.disabled, !!reason);
+        assert.equal(button.props.title, reason);
+        const paragraphs = visit(tree, node => node.type === 'p');
+        assert.equal(paragraphs.length, reason ? 1 : 0);
+        if (reason) assert.equal(paragraphs[0].children.at(-1), reason);
+    }
 });

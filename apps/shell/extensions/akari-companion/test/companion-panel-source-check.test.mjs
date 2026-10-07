@@ -15,11 +15,11 @@ test('指示の分岐と表示切替コマンドを配線する', async () => {
   assert.match(toolbar, /COMPANION_TOGGLE_COMMAND_ID = 'akari\.companion\.togglePanel'/);
 });
 
-test('呼び出しボタンは「変更を見る」より左に出て、枠の既定位置になる', async () => {
+test('AKARI バイブは書き出しボタンより左に出て、枠の既定位置になる', async () => {
   const toolbar = await source('browser/companion-toolbar-contribution.ts');
   const frame = await source('browser/companion-panel-frame.ts');
   const contribution = await source('browser/akari-companion-contribution.ts');
-  // 「変更を見る」は同じ group の priority 100。帯が row-reverse なので
+  // 書き出しボタンは同じ group の priority 100。帯が row-reverse なので
   // priority が小さいほど左に出る（実機の CDP で実測）。
   const priority = Number(toolbar.match(/COMPANION_TOGGLE_PRIORITY = (\d+)/)?.[1]);
   assert.ok(Number.isInteger(priority) && priority < 100, `priority=${priority}`);

@@ -16,7 +16,7 @@ import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-serve
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportAvailabilityService } from './akari-export-availability-service';
 import { OPEN_EXPORT_DIALOG } from './akari-export-toolbar-contribution';
-import { EDIT_JSON_MISSING_TOOLTIP } from '../common/export-toolbar-state';
+import { exportUnavailableReason } from '../common/export-toolbar-state';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
@@ -709,6 +709,8 @@ export class AkariMenuWidget extends ReactWidget {
 
     protected renderExportSection(): React.ReactNode {
         const status = this.exportSession.snapshot.status;
+        const availability = this.exportAvailability.snapshot;
+        const unavailableReason = exportUnavailableReason(availability);
         const running = status.phase === 'linting' || status.phase === 'rendering';
         const visible = running || status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed';
         const percent = status.progressPercent ?? 0;
@@ -725,20 +727,20 @@ export class AkariMenuWidget extends ReactWidget {
                     className='theia-button secondary'
                     data-akari-onboarding-target='export-button'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!this.exportAvailability.snapshot.exists}
-                    title={!this.exportAvailability.snapshot.exists ? EDIT_JSON_MISSING_TOOLTIP : undefined}
+                    disabled={!!unavailableReason}
+                    title={unavailableReason}
                     onClick={() => void this.openExportDialog()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し…</span>
                 </button>
-                {this.exportAvailability.snapshot.selectedEditName !== 'edit.json' && (
+                {availability.selectedEditName !== 'edit.json' && (
                     <p style={{ opacity: 0.75, fontSize: '0.85em', margin: '6px 0 0' }}>
-                        書き出し対象: {this.exportAvailability.snapshot.selectedEditName}。別タイムラインは現在書き出せません。edit.json のタブに戻すと書き出せます。
+                        書き出し対象: {availability.selectedEditName}。{unavailableReason}
                     </p>
                 )}
-                {!this.exportAvailability.snapshot.exists && (
-                    <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
+                {availability.selectedEditName === 'edit.json' && unavailableReason && (
+                    <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{unavailableReason}</p>
                 )}
                 {visible && (
                     <div data-akari-export-mini-status={status.phase} style={{ marginTop: '8px', border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '7px 9px' }}>

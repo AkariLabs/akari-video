@@ -14,7 +14,7 @@ export const COMPANION_TOGGLE_LABEL = 'AKARI バイブ';
 export const COMPANION_STARTING_LABEL = 'AKARI バイブを起動しています…';
 export const COMPANION_STARTING_LABEL_DELAY_MS = 5_000;
 /**
- * 「変更を見る」は同じ group の priority 100。Theia のツールバーは
+ * 書き出しボタンは同じ group の priority 100。Theia のツールバーは
  * `items.sort(PRIORITY_COMPARATOR).reverse()` で DOM に並べたうえで、
  * 帯そのものが `flex-direction: row-reverse` なので、**priority が小さいほど左**に出る
  * （2026-09-20 実機の CDP で実測）。それより小さい値にして すぐ左 へ置く。

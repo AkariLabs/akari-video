@@ -87,8 +87,7 @@ import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import { AkariKitsService } from '../common/akari-kits-protocol';
-import { AkariExportDialog } from 'akari-shell-strip/lib/browser/export-dialog/akari-export-dialog';
-import { AkariExportSessionService } from 'akari-shell-strip/lib/browser/akari-export-session-service';
+import { OPEN_EXPORT_DIALOG } from 'akari-shell-strip/lib/browser/akari-export-toolbar-contribution';
 import { buildKitCardModel, KitCardModel, KIT_LAB_URL } from '../common/kit-card-model';
 import {
     AKARI_BORDER,
@@ -252,8 +251,6 @@ export class AkariHomeWidget extends ReactWidget {
 
     @inject(FileDialogService) protected readonly fileDialogs: FileDialogService;
     @inject(AkariUpdateToast) protected readonly updateToast: AkariUpdateToast;
-    @inject(AkariExportDialog) protected readonly exportDialog: AkariExportDialog;
-    @inject(AkariExportSessionService) protected readonly exportSession: AkariExportSessionService;
 
     @inject(WorkspaceService)
     protected readonly workspaceService: WorkspaceService;
@@ -1972,12 +1969,7 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected async openExportDialog(): Promise<void> {
-        if (!this.currentProjectUri || !await this.fileService.exists(this.currentProjectUri.resolve('edit.json'))) {
-            this.messages.info('まだ編集データがありません。');
-            return;
-        }
-        await this.exportSession.prepareCurrentProject();
-        void this.exportDialog.open(false);
+        await this.commands.executeCommand(OPEN_EXPORT_DIALOG.id);
     }
 
     protected async openOutputPreview(play: boolean): Promise<void> {
