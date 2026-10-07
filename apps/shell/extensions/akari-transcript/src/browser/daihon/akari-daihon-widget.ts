@@ -1753,6 +1753,20 @@ export class AkariDaihonWidget extends BaseWidget {
         } else if (this.selection.selected.length) {
             title.textContent = `${this.selection.selected.length} 行を選択中`; bar.append(title);
             add('🔊 読み上げ', () => this.readSelectedRowsAloud());
+            const voiceRows = this.rows.filter(item => this.selection.selected.includes(item.id) && item.outStart !== null)
+                .sort((left, right) => left.outStart! - right.outStart!);
+            const voice = add('🎙 アフレコ', () => {
+                if (!voiceRows.length) return;
+                void this.commands.executeCommand('akari.voice.record', {
+                    editUri: this.editUri?.toString(),
+                    script: { text: voiceRows.map(row => row.text).join('\n'), start: voiceRows[0].outStart!,
+                        ...(voiceRows[voiceRows.length - 1].outEnd === null ? {} : { end: voiceRows[voiceRows.length - 1].outEnd! }),
+                        ...(voiceRows.length === 1 ? { captionId: voiceRows[0].id } : {}) }
+                });
+            });
+            voice.disabled = !voiceRows.length;
+            voice.setAttribute('data-akari-ui', 'daihon:voice-record');
+            voice.setAttribute('data-akari-ui-label', 'アフレコ');
             add('🎨 見た目', () => this.openRowDock('template'));
             add('T 文字を置く', () => void this.placeTextFromSelection());
             const rowCut = add('✂ カット', () => void this.cutSelectedRows());
@@ -3116,6 +3130,25 @@ export class AkariDaihonWidget extends BaseWidget {
             this.replaceRenderedRow(row);
         });
         head.appendChild(split);
+        const voice = document.createElement('button');
+        voice.type = 'button';
+        voice.className = 'akari-daihon-voice-record';
+        voice.textContent = '🎙';
+        voice.title = row.outStart === null ? '切られた行は録れません' : 'この行をアフレコで録る';
+        voice.setAttribute('aria-label', voice.title);
+        voice.setAttribute('data-akari-ui', 'daihon:voice-record');
+        voice.setAttribute('data-akari-ui-label', 'アフレコ');
+        voice.disabled = row.outStart === null;
+        voice.addEventListener('click', event => {
+            event.stopPropagation();
+            if (row.outStart === null) return;
+            void this.commands.executeCommand('akari.voice.record', {
+                editUri: this.editUri?.toString(),
+                script: { text: row.text, captionId: row.id, start: row.outStart,
+                    ...(row.outEnd === null ? {} : { end: row.outEnd }) }
+            });
+        });
+        head.appendChild(voice);
         const gear = document.createElement('button');
         gear.type = 'button';
         gear.className = 'akari-daihon-gear';

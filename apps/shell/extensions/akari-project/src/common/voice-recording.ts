@@ -2,6 +2,28 @@ export const VOICE_RECORDING_SAMPLE_RATE = 48_000;
 export const VOICE_RECORDING_MIN_SEC = 0.5;
 export const VOICE_RECORDING_DIRECTORY = 'assets/afreco';
 
+/** Preview と同じ macOS の固定ルート別名・パス表記へ揃える。 */
+export function canonicalEditUri(value: string): string {
+    try {
+        const uri = new URL(value);
+        if (uri.protocol !== 'file:') return value;
+        const parts: string[] = [];
+        for (const part of decodeURIComponent(uri.pathname).normalize('NFC').split('/')) {
+            if (!part || part === '.') continue;
+            if (part === '..') parts.pop();
+            else parts.push(part);
+        }
+        if (!uri.host && ['tmp', 'var', 'etc'].includes(parts[0])) parts.unshift('private');
+        return `file://${uri.host}/${parts.join('/')}`;
+    } catch { return value; }
+}
+
+/** 同じ edit.json なら、プレビューを開けるワークスペース表記を優先する。 */
+export function preferWorkspaceEditUri(given: string | undefined, candidate: string | undefined): string | undefined {
+    if (given === undefined) return undefined;
+    return candidate !== undefined && canonicalEditUri(given) === canonicalEditUri(candidate) ? candidate : given;
+}
+
 export function voiceRecordingFileName(now: Date): string {
     const pad = (value: number): string => String(value).padStart(2, '0');
     return `afreco-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.wav`;
@@ -11,6 +33,12 @@ export function formatRecordingClock(sec: number): string {
     const whole = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
     const pad = (value: number): string => String(value).padStart(2, '0');
     return `${pad(Math.floor(whole / 3600))}:${pad(Math.floor(whole / 60) % 60)}:${pad(whole % 60)}`;
+}
+
+export function formatTimelineTime(sec: number): string {
+    const value = Math.max(0, Number.isFinite(sec) ? sec : 0);
+    const pad = (part: number): string => String(part).padStart(2, '0');
+    return `${pad(Math.floor(value / 60))}:${pad(Math.floor(value % 60))}.${Math.floor(value * 10) % 10}`;
 }
 
 export function mixToMono(channels: Float32Array[]): Float32Array {

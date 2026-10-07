@@ -1,10 +1,10 @@
 import * as React from '@theia/core/shared/react';
 import { ReactDialog } from '@theia/core/lib/browser/dialogs/react-dialog';
-import { Disposable, MessageService } from '@theia/core/lib/common';
+import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariProjectService } from '../../common/akari-project-protocol';
-import { formatRecordingClock, levelToBars } from '../../common/voice-recording';
-import { VoiceRecorder, VoiceRecorderState } from './voice-recorder';
+import { formatRecordingClock, formatTimelineTime, levelToBars } from '../../common/voice-recording';
+import { VoiceRecorder, VoiceRecorderState, VoiceRecordScript } from './voice-recorder';
 import { ensureVoiceRecordDialogStyle } from './voice-record-dialog-style';
 
 interface DialogPosition { left: number; top: number }
@@ -39,10 +39,13 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
     protected dragCleanup?: () => void;
     protected positionFrame?: number;
     protected readonly handleResize = (): void => { this.placeWithinViewport(false); };
+    protected readonly editUri?: string;
 
     constructor(protected readonly service: AkariProjectService, protected readonly messages: MessageService,
-        protected readonly projectUri: string) {
+        protected readonly projectUri: string, commands: CommandService, editUri?: string,
+        script?: VoiceRecordScript) {
         super({ title: 'アフレコ' });
+        this.editUri = editUri;
         this.addClass('akari-voice-record-dialog-host');
         ensureVoiceRecordDialogStyle();
         this.recorder = new VoiceRecorder(service, state => {
@@ -52,9 +55,12 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                 this.messages.info(`アフレコを素材に保存しました: ${state.lastSaved.assetPath.split('/').pop()}`);
             }
             this.update();
-        });
+        }, commands);
+        this.recorder.setScript(script);
         this.state = this.recorder.state;
     }
+
+    setScript(script?: VoiceRecordScript): void { this.recorder.setScript(script); }
 
     get value(): void { return undefined; }
 
@@ -121,11 +127,13 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
         this.placeWithinViewport(true);
         this.positionFrame = window.requestAnimationFrame(() => this.placeWithinViewport(true));
         window.addEventListener('resize', this.handleResize);
+        this.recorder.attachTransport(this.editUri);
         void this.recorder.openMonitor();
     }
 
     protected override onAfterDetach(msg: Message): void {
         this.dragCleanup?.();
+        this.recorder.detachTransport();
         this.dragCleanup = undefined;
         window.removeEventListener('resize', this.handleResize);
         if (this.positionFrame !== undefined) window.cancelAnimationFrame(this.positionFrame);
@@ -143,10 +151,10 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
         const state = this.state;
         const recording = state.phase === 'recording';
         const error = state.error;
-        const status = error || (state.phase === 'saving' ? '保存しています…'
-            : recording ? '録音中'
+        const status = error || state.placeError || (state.phase === 'saving' ? '保存しています…'
+            : recording ? state.sync && this.editUri ? `録音中 · ${formatTimelineTime(state.startT ?? 0)} から` : '録音中'
                 : state.lastSaved && state.phase === 'monitoring'
-                    ? `保存しました: ${state.lastSaved.assetPath.split('/').pop()}（${Math.round(state.lastSaved.durationSec)} 秒）`
+                    ? `${state.placed ? `保存して ${formatTimelineTime(state.placed.t)} に置きました` : '保存しました'}: ${state.lastSaved.assetPath.split('/').pop()}（${Math.round(state.lastSaved.durationSec)} 秒）`
                     : '録音は始まっていません');
         const lit = levelToBars(state.level, 40);
         return <div className='voice-popup' role='dialog' aria-modal='false' aria-labelledby='akari-voice-title'>
@@ -154,12 +162,16 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                 <button type='button' className='voice-close-x' aria-label='閉じる'
                     data-akari-ui='voice-record:close' data-akari-ui-label='閉じる' onClick={() => this.close()}>×</button></div>
             <div className='voice-body'>
+                {state.script && <div className='voice-script'><strong>読む文</strong>
+                    <div className='voice-script-text'>{state.script.text}</div>
+                    <small>{formatTimelineTime(state.script.start)}{state.script.end === undefined ? '' : ` 〜 ${formatTimelineTime(state.script.end)}`} の行</small>
+                </div>}
                 <div className='voice-card'>
                     <button type='button' className={`voice-record${recording ? ' is-recording' : ''}`}
                         aria-label={recording ? '録音停止' : '録音開始'}
                         data-akari-ui='voice-record:record' data-akari-ui-label={recording ? '録音停止' : '録音開始'}
                         disabled={state.phase !== 'monitoring' && !recording}
-                        onClick={() => void (recording ? this.recorder.stop() : this.recorder.start(this.projectUri))}>
+                        onClick={() => void (recording ? this.recorder.stop() : this.recorder.start(this.projectUri, this.editUri))}>
                         {recording && <span className='stop-square' />}
                     </button>
                     <div><div className='voice-clock'>{formatRecordingClock(state.elapsedSec)}</div>
@@ -189,10 +201,15 @@ export class AkariVoiceRecordDialog extends ReactDialog<void> {
                 </div>
             </div>
             <div className='voice-options'>
-                <label className='voice-option'><input type='checkbox' disabled /><span>録音中はプロジェクトの音を消す
-                    <small>録音の間だけプレビューの音を止めます</small></span><span className='voice-soon'>近日</span></label>
-                <label className='voice-option'><input type='checkbox' disabled /><span>ノイズを取り除く
-                    <small>録った音からエコーやクリック音を自動で除きます</small></span><span className='voice-soon'>近日</span></label>
+                <label className='voice-option'><input type='checkbox' checked={state.sync} disabled={!this.editUri || recording || state.phase === 'saving'}
+                    data-akari-ui='voice-record:sync' onChange={event => this.recorder.setOption('sync', event.currentTarget.checked)} />
+                    <span>再生しながら録る{!this.editUri && <small>edit.json が見つからないので素材に入れるだけになります</small>}</span></label>
+                <label className='voice-option'><input type='checkbox' checked={state.muteProject} disabled={!this.editUri || !state.sync || recording || state.phase === 'saving'}
+                    data-akari-ui='voice-record:mute-project' onChange={event => this.recorder.setOption('muteProject', event.currentTarget.checked)} />
+                    <span>録音中はプロジェクトの音を消す<small>録音の間だけプレビューの音を止めます。イヤホンなら OFF にして音を聞きながら録れます</small></span></label>
+                <label className='voice-option'><input type='checkbox' checked={state.denoise} disabled={!this.editUri || !state.sync || recording || state.phase === 'saving'}
+                    data-akari-ui='voice-record:denoise' onChange={event => this.recorder.setOption('denoise', event.currentTarget.checked)} />
+                    <span>ノイズを取り除く<small>タイムラインに置くときに denoise（fft・0.5）を付けます。あとでインスペクタで変えられます</small></span></label>
             </div>
             <div className='voice-footer'><button type='button' data-akari-ui='voice-record:close'
                 data-akari-ui-label='閉じる' onClick={() => this.close()}>閉じる</button></div>
