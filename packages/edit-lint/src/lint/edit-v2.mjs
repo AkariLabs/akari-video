@@ -5,6 +5,7 @@ import { EPSILON, addFinding, effectiveSourceOut, formatNumber, isFiniteNumber, 
 import { isStillImageSourcePath, resolveItemAnchors, toAnchorCaptions } from "./external.mjs";
 import { validateAudioClipFxDeclaration, validateAudioDuckKeys, validateAudioEnvelopeDeclaration } from "./audio.mjs";
 import { validateAdjust, validateChromaKey, validateLook } from "./look-adjust.mjs";
+import { resolveElementAddresses } from "../../../overlay-runtime/src/parts.mjs";
 
 const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"]);
 
@@ -723,6 +724,22 @@ export async function validateV2ObjectTreeFiles(edit, findings, paths) {
   for (const { item, path: itemPath } of entries) {
     if (!isRecord(item.source)) continue;
     const source = item.source;
+    if (source.kind === "html" && isRecord(source.elements) && Object.keys(source.elements).length > 0) {
+      let html = "";
+      try {
+        html = await readFile(resolve(paths.projectRoot, source.path), "utf8");
+      } catch {
+        // The existing overlay file check reports a missing fragment.
+      }
+      for (const address of resolveElementAddresses(html, Object.keys(source.elements)).missing) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "v2.element-ref",
+          message: `HTML element address was not found at source level: ${address}`,
+          path: `${itemPath}.source.elements[${JSON.stringify(address)}]`,
+        });
+      }
+    }
     if (source.kind === "html" && (isNonEmptyString(source.part) || Array.isArray(source.exclude))) {
       let html = "";
       try {
