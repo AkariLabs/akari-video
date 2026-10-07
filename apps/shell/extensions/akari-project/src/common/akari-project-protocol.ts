@@ -86,6 +86,14 @@ export interface MaterialThumbnailOutcome {
     cacheRelativePath?: string;
 }
 
+export interface MaterialMetaEntry {
+    durationSeconds?: number;
+    createdAt?: string;
+    importedAt: string;
+    width?: number;
+    height?: number;
+}
+
 /**
  * プロジェクトカードのサムネ解決の結果（プロジェクト選択画面のカード 1 枚ぶん）。
  * `MaterialThumbnailOutcome` と同じく available=false は「プレースホルダのまま運用する」の意で、
@@ -375,6 +383,7 @@ export interface AkariProjectService {
      * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
      */
     resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image' | 'audio'): Promise<MaterialThumbnailOutcome>;
+    materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>>;
     /**
      * プロジェクト選択画面のカード用サムネ（ポスター + ホバーでループするコマ）を解決する。
      * 元動画は「`.akari/render.json` が記録した検収済み出力 → `exports/` の最新動画 →

@@ -1,6 +1,20 @@
 // タスク契約 §指示の確定値・オーナー裁定（2026-09-08）:
 // 全種を 1:1・contain・同じ列幅に統一し、名前は重ね、格子の余白と間隔は 4px にする。
 
+import type { MaterialMetaEntry } from './akari-project-protocol';
+
+/** analysis の尺を優先し、ファイル由来の日時と不足分の尺を補う。 */
+export function mergeMaterialCardMeta<T extends { durationSeconds?: number; createdAt?: string; importedAt?: string }>(
+    entry: T, meta: MaterialMetaEntry
+): T {
+    return {
+        ...entry,
+        durationSeconds: entry.durationSeconds !== undefined ? entry.durationSeconds : meta.durationSeconds,
+        createdAt: meta.createdAt,
+        importedAt: meta.importedAt
+    };
+}
+
 export interface MaterialCardLayoutEntry {
     kind: 'video' | 'audio' | 'image' | 'other';
     name?: string;
