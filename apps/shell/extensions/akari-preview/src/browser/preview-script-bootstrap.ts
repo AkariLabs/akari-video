@@ -2515,6 +2515,10 @@ export function previewBootstrapScript(): string {
                 }
                 cropModeActive = !!(active && (selectedLayerId || cutSelected));
                 if (cropModeActive && !selectedLayerId && !cutCropEditable()) cropModeActive = false;
+                if (cropModeActive && !selectedLayerId && !cutCropEntrySizeReady()) {
+                    cropModeActive = false;
+                    reportUnknownCutCropSize();
+                }
                 if (cropModeActive && !photoCropTarget) {
                     const entry = findLayerEntry(selectedLayerId);
                     const src = String(entry?.spec.src || '');
@@ -3682,6 +3686,10 @@ export function previewBootstrapScript(): string {
             // 変わる transform.x/y を混ぜない）ため、この錨補正はハンドル自体の追従性に影響しない。
             const beginMediaCropDrag = (target, dir, event) => {
                 if (selectionDragActive) return;
+                if (target.kind === 'cut' && !cutCropEntrySizeReady()) {
+                    reportUnknownCutCropSize();
+                    return;
+                }
                 const natural = target.naturalSize();
                 if (!(natural.width > 0) || !(natural.height > 0)) return;
                 const restorePoint = target.cropRestorePoint();
@@ -4121,9 +4129,14 @@ export function previewBootstrapScript(): string {
                 const sourceId = segment && segment.kind === 'src' && typeof segment.src === 'string'
                     ? segment.src : null;
                 if (!sourceId) return null;
+                const declared = frameEngineMediaIdle && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0
+                    && !declared.sourceSizeFallback) return null;
                 if (cutSourceNaturalSizes.has(sourceId)) return cutSourceNaturalSizes.get(sourceId);
                 const imageUrl = (initial.imageSources || {})[sourceId];
-                const videoUrl = (initial.videoSources || {})[sourceId];
+                const videoUrl = frameEngineMediaIdle
+                    ? (initial.videoSourceOriginals || {})[sourceId] || (initial.videoSources || {})[sourceId]
+                    : (initial.videoSources || {})[sourceId];
                 const url = typeof imageUrl === 'string' && imageUrl ? imageUrl : videoUrl;
                 if (typeof url !== 'string' || !url) return null;
                 cutSourceNaturalSizes.set(sourceId, null);
@@ -4141,7 +4154,8 @@ export function previewBootstrapScript(): string {
                         cutSourceNaturalSizes.set(sourceId, { width, height });
                         updateCutSelectBox();
                         if (cropModeActive && photoCropTarget?.kind === 'cut'
-                            && cutSelectionVideo().dataset.akariCutCropDeclared !== 'true') {
+                            && cutSelectionVideo().dataset.akariCutCropDeclared !== 'true'
+                            && !(summary.cuts || []).find(cut => cut.id === cutInteractionSegment()?.id)?.sourceSizeFallback) {
                             photoCropTarget.applyCropAndTransform(photoCropTarget.cropNow(),
                                 photoCropTarget.cropEntryTransform(photoCropTarget.transformNow(), { width, height }));
                             photoCropTarget.flushCrop();
@@ -4166,8 +4180,22 @@ export function previewBootstrapScript(): string {
                 }
                 const measured = mediaNaturalSizeOf(cutMediaNow());
                 if (measured.width > 0 && measured.height > 0) return measured;
-                return ensureCutSourceNaturalSize() || { width: 0, height: 0 };
+                const original = ensureCutSourceNaturalSize();
+                if (original?.width > 0 && original?.height > 0) return original;
+                return { width: 0, height: 0 };
             };
+            const cutCropEntrySizeReady = () => {
+                if (!frameEngineMediaIdle || outputGeometryIsSource) return true;
+                if (cutSelectionVideo().dataset.akariCutCropDeclared === 'true') return true;
+                const segment = cutInteractionSegment();
+                const declared = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (declared?.sourceSizeFallback) return false;
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0) return true;
+                const original = ensureCutSourceNaturalSize();
+                return !!original && original.width > 0 && original.height > 0;
+            };
+            const reportUnknownCutCropSize = () => window.akari.showWriteError(
+                '素材の寸法を確認できないため切り抜きを開始できません');
             const cutCropNow = () => ({ ...clampCrop(
                 Number(cutSelectionVideo().dataset.akariCropX),
                 Number(cutSelectionVideo().dataset.akariCropY),

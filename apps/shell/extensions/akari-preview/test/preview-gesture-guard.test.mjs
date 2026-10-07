@@ -209,6 +209,8 @@ function dragFixture(crop = false) {
             removeEventListener: name => listeners.delete(name)
         },
         isPlaying: false, CLICK_THRESHOLD_PX: 3, cropModeActive: true, CROP_MIN: 0.02,
+        cutCropEntrySizeReady: () => true,
+        reportUnknownCutCropSize: () => errors.push('unknown cut size'),
         layerVideoPointForPivot: (_t, _p, x, y) => ({ x, y }),
         cropRectAfterEdgeDragFn: (_original, _dir, point) => ({ x: point.x, y: 0, w: 1 - point.x, h: 1 }),
         cropAnchorCorrectedTransformFn: () => ({ x: 0, y: 0 })

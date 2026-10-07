@@ -69,6 +69,7 @@ export interface EditSummaryLayer {
     src?: string;
     sourceWidth?: number;
     sourceHeight?: number;
+    sourceSizeFallback?: boolean;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
     /** v2 item.mask の動画ソース、または alpha intake が生成するマスクの asset stream URL。
@@ -189,6 +190,7 @@ export interface EditSummaryCut {
     /** 原本（表示回転後）の画素数。幾何の基準。 */
     sourceWidth?: number;
     sourceHeight?: number;
+    sourceSizeFallback?: boolean;
     /** contract-2026-07-22-render-basics.md #6 (静的クロップ / ズームキーフレーム）。
      * 深いバリデーションは common/cut-framing-visual.ts の computeCutFramingVisual が担う
      * ため、ここでは「非配列オブジェクト」であることだけ確認して素通しする。 */
@@ -429,7 +431,7 @@ export interface EditSummary {
 }
 
 export interface PreviewModel {
-    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number }>>;
+    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number; sourceSizeFallback?: boolean }>>;
     previewAudioKeepKeys?: Set<string>;
     previewAudioKeepProbes?: Set<string>;
     previewAudioPendingRequests?: PreviewAudioPendingRequest[];

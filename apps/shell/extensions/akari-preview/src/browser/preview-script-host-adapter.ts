@@ -1126,7 +1126,9 @@ export function hostAdapterScript(): string {
                 const width = media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth;
                 const height = media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight;
                 if (width > 0 && height > 0) return { width, height };
-                return { width: Number(output.width) || 1280, height: Number(output.height) || 720 };
+                return initial.frameEngineEnabled === true
+                    ? { width: Number(output.width) || 1280, height: Number(output.height) || 720 }
+                    : { width: 0, height: 0 };
             };
             const photoCropClipPolygonFn = (${photoCropClipPolygon.toString()});
             const photoFrameVisualFn = (${photoFrameVisual.toString()});
