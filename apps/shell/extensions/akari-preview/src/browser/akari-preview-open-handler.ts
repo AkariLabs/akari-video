@@ -590,6 +590,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             writeText: async (uri, text) => {
                 await this.fileService.writeFile(new URI(uri), BinaryBuffer.fromString(text));
             },
+            ...(window.electronAkariPreview?.appendDiagnosticLog
+                ? { appendLines: (lines: string[]) => window.electronAkariPreview.appendDiagnosticLog(lines) }
+                : {}),
             warn: (message, error) => console.warn(message, error)
         });
     }

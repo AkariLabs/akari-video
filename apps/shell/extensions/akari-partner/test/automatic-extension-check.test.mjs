@@ -12,8 +12,9 @@ const methods = ['checkAvailability', 'runStartupCheck'].map(name =>
 const compiled = ts.transpileModule(`class Updater { ${methods.join('\n')} }\nUpdater`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
+const catalog = [{ form: 'extension', extensionId: 'example.extension', name: 'Claude Code' }];
 const Updater = vm.runInContext(compiled, vm.createContext({
-    PARTNER_CATALOG: [{ form: 'extension', extensionId: 'example.extension', name: 'Example' }],
+    PARTNER_CATALOG: catalog,
     decideExtensionUpdate: ({ installedVersion, latestVersion }) => ({
         action: installedVersion === latestVersion ? 'none' : 'update',
         reason: installedVersion === latestVersion ? 'up-to-date' : 'newer-available'
@@ -31,7 +32,9 @@ function updater(choice = '後で') {
         return commandResult;
     } };
     subject.extensionsModel = { resolve: async () => ({ installed: true, installedVersion: '1.0.0' }) };
-    subject.vsxRegistryService = { findLatestCompatibleExtension: async () => ({ version: '2.0.0' }) };
+    subject.vsxRegistryService = { findLatestCompatibleExtension: async ({ extensionId }) => ({
+        version: extensionId === 'example.extension' ? '2.1.293' : '3.0.0'
+    }) };
     subject.applicationServer = { getApplicationPlatform: async () => 'darwin-arm64' };
     subject.pluginServer = { install: () => { calls.push('install'); } };
     subject.checkAndUpdate = async () => { calls.push('update'); return { kind: 'updated', detail: '更新しました' }; };
@@ -54,9 +57,23 @@ test('Open VSX automatic check obeys persisted autoCheck', async () => {
     enable();
     await subject.runStartupCheck();
     assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], 'Claude Code の新しい版 2.1.293 があります');
     assert.equal(calls[0][1], '今すぐ更新');
     assert.equal(calls.includes('install'), false);
     assert.equal(calls.includes('update'), false);
+});
+
+test('startup lists each available extension and version on its own line', async () => {
+    catalog.push({ form: 'extension', extensionId: 'second.extension', name: 'Pi' });
+    try {
+        const { subject, calls, enable } = updater();
+        enable();
+        await subject.runStartupCheck();
+        assert.equal(calls[0][0], 'Claude Code の新しい版 2.1.293 があります\nPi の新しい版 3.0.0 があります');
+        assert.equal(calls.includes('install'), false);
+    } finally {
+        catalog.pop();
+    }
 });
 
 test('startup offers update, then keeps reload confirmation after user chooses it', async () => {

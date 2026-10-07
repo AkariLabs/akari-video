@@ -6,6 +6,7 @@ import {
     CHANNEL_FINISH_PREVIEW_FRAME,
     CHANNEL_PREVIEW_RENDERER_GONE,
     CHANNEL_CONNECTION_DIAGNOSTIC,
+    CHANNEL_APPEND_DIAGNOSTIC_LOG,
     ElectronAkariPreviewApi
 } from '../electron-common/electron-api';
 
@@ -15,6 +16,7 @@ const api: ElectronAkariPreviewApi = {
     captureVisualThumbnail: page => ipcRenderer.invoke(CHANNEL_CAPTURE_VISUAL_THUMBNAIL, page),
     askForMicrophoneAccess: () => ipcRenderer.invoke(CHANNEL_ASK_MICROPHONE_ACCESS),
     recordConnectionDiagnostic: (event, reason) => ipcRenderer.send(CHANNEL_CONNECTION_DIAGNOSTIC, event, reason),
+    appendDiagnosticLog: lines => ipcRenderer.invoke(CHANNEL_APPEND_DIAGNOSTIC_LOG, lines),
     onPreviewRendererGone: listener => {
         const handler = (_event: unknown, notice: Parameters<typeof listener>[0]): void => listener(notice);
         ipcRenderer.on(CHANNEL_PREVIEW_RENDERER_GONE, handler);

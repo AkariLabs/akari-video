@@ -5,8 +5,8 @@ import {
 import { app, ipcMain, powerMonitor, systemPreferences, webContents, webFrameMain } from '@theia/core/electron-shared/electron';
 import type { WebContents, RenderProcessGoneDetails } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { CHANNEL_ASK_MICROPHONE_ACCESS, CHANNEL_CAPTURE_VISUAL_THUMBNAIL, CHANNEL_CAPTURE_PREVIEW_FRAME, CHANNEL_FINISH_PREVIEW_FRAME, CHANNEL_PREVIEW_RENDERER_GONE, CHANNEL_CONNECTION_DIAGNOSTIC } from '../electron-common/electron-api';
-import { appendConnectionDiagnostic } from './connection-diagnostics-log';
+import { CHANNEL_ASK_MICROPHONE_ACCESS, CHANNEL_CAPTURE_VISUAL_THUMBNAIL, CHANNEL_CAPTURE_PREVIEW_FRAME, CHANNEL_FINISH_PREVIEW_FRAME, CHANNEL_PREVIEW_RENDERER_GONE, CHANNEL_CONNECTION_DIAGNOSTIC, CHANNEL_APPEND_DIAGNOSTIC_LOG } from '../electron-common/electron-api';
+import { appendConnectionDiagnostic, appendDiagnosticLogLines } from './connection-diagnostics-log';
 import { capturePreviewFrame, finishPreviewFrame } from './preview-frame-capture';
 import { captureVisualThumbnail } from './visual-thumbnail-capture';
 import { PREVIEW_RENDERER_POLL_MS, PreviewRendererTracker, previewWidgetIdFromUrl } from './preview-renderer-tracker';
@@ -20,6 +20,7 @@ export class AkariPreviewElectronApi implements ElectronMainApplicationContribut
     onStart(_application: ElectronMainApplication): void {
         this.watchPreviewRenderers();
         this.watchConnectionAndPower();
+        ipcMain.handle(CHANNEL_APPEND_DIAGNOSTIC_LOG, (_event, lines: string[]) => appendDiagnosticLogLines(lines));
         ipcMain.handle(CHANNEL_CAPTURE_PREVIEW_FRAME, (event, request) => capturePreviewFrame(event.sender, request));
         ipcMain.handle(CHANNEL_FINISH_PREVIEW_FRAME, (event, captureId, discard) => finishPreviewFrame(event.sender, captureId, discard));
         ipcMain.handle(CHANNEL_CAPTURE_VISUAL_THUMBNAIL, (_event, page) => captureVisualThumbnail(page));

@@ -149,23 +149,24 @@ export class PartnerExtensionUpdater {
             return;
         }
         if (enabled !== true) return;
-        const available: PartnerExtensionCatalogEntry[] = [];
+        const available: Array<{ entry: PartnerExtensionCatalogEntry; latestVersion: string }> = [];
         for (const entry of PARTNER_CATALOG) {
             if (entry.form !== 'extension') {
                 continue;
             }
             const outcome = await this.checkAvailability(entry);
             if (outcome.kind === 'available') {
-                available.push(entry);
+                available.push({ entry, latestVersion: outcome.latestVersion! });
             } else if (outcome.kind === 'failed' || outcome.reason === 'registry-unavailable') {
                 console.warn('[akari-partner] extension freshness check skipped:', entry.extensionId, outcome.detail);
             }
         }
         if (available.length) {
-            const choice = await this.messageService.info('拡張の更新があります。', '今すぐ更新', '後で');
+            const notices = available.map(({ entry, latestVersion }) => `${entry.name} の新しい版 ${latestVersion} があります`);
+            const choice = await this.messageService.info(notices.join('\n'), '今すぐ更新', '後で');
             if (choice === '今すぐ更新') {
                 const updated: string[] = [];
-                for (const entry of available) {
+                for (const { entry } of available) {
                     const outcome = await this.checkAndUpdate(entry);
                     if (outcome.kind === 'updated') updated.push(outcome.detail);
                 }

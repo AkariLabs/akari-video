@@ -5,6 +5,7 @@ export const CHANNEL_CAPTURE_PREVIEW_FRAME = 'AkariPreviewCaptureFrame';
 export const CHANNEL_FINISH_PREVIEW_FRAME = 'AkariPreviewFinishFrame';
 export const CHANNEL_PREVIEW_RENDERER_GONE = 'AkariPreviewRendererGone';
 export const CHANNEL_CONNECTION_DIAGNOSTIC = 'AkariConnectionDiagnostic';
+export const CHANNEL_APPEND_DIAGNOSTIC_LOG = 'AkariAppendDiagnosticLog';
 
 export type ConnectionDiagnosticEvent = 'socket-disconnect' | 'socket-reconnect';
 
@@ -24,6 +25,7 @@ export interface ElectronAkariPreviewApi {
     askForMicrophoneAccess(): Promise<boolean>;
     onPreviewRendererGone(listener: (notice: PreviewRendererGoneNotice) => void): () => void;
     recordConnectionDiagnostic(event: ConnectionDiagnosticEvent, reason?: string): void;
+    appendDiagnosticLog(lines: string[]): Promise<void>;
 }
 
 declare global {
