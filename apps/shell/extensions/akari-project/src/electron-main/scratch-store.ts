@@ -2,7 +2,6 @@ import { createHash, randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
 import { basename, join, resolve, sep } from 'path';
-import { nativeImage } from '@theia/core/electron-shared/electron';
 import { planScratchCleanup, CleanupEntry } from '../common/scratch-cleanup';
 import { makeScratchSource, SCRATCH_ID, ScratchSource, validateScratchSource, scratchLabel } from '../common/scratch-source';
 import { renderScratchThumbnail, ScratchThumbnail } from './scratch-thumbnail';
@@ -27,7 +26,11 @@ function thumbDataUri(bytes: Buffer): string | undefined {
     return uri.length <= LIST_THUMB_DATA_URI_MAX ? uri : undefined;
 }
 export function listThumbnailDataUri(bytes: Buffer,
-    decode: (value: Buffer) => ListThumbnailImage = value => nativeImage.createFromBuffer(value)): string | undefined {
+    decode: (value: Buffer) => ListThumbnailImage = value => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- Defer Electron loading while keeping webpack resolution static.
+        const electron = require('@theia/core/electron-shared/electron') as typeof import('@theia/core/electron-shared/electron');
+        return electron.nativeImage.createFromBuffer(value);
+    }): string | undefined {
     const original = thumbDataUri(bytes);
     if (original) return original;
     try {
@@ -89,7 +92,9 @@ renderThumbnail: (path: string) => Promise<ScratchThumbnail> = renderScratchThum
                 || input.mime === 'image/gif' || input.mime === 'image/avif'
                 ? await renderThumbnail(join(temp, `image.${ext}`)).catch(() => ({})) : (() => {
                 try {
-                    const image = nativeImage.createFromBuffer(input.bytes!);
+                    // eslint-disable-next-line @typescript-eslint/no-var-requires -- Defer Electron loading while keeping webpack resolution static.
+                    const electron = require('@theia/core/electron-shared/electron') as typeof import('@theia/core/electron-shared/electron');
+                    const image = electron.nativeImage.createFromBuffer(input.bytes!);
                     if (image.isEmpty()) return {};
                     const size = image.getSize();
                     const ratio = Math.min(1, 512 / Math.max(size.width, size.height));

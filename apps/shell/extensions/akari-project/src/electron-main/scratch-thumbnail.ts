@@ -1,4 +1,3 @@
-import { BrowserWindow, session } from '@theia/core/electron-shared/electron';
 import { randomBytes } from 'crypto';
 import { pathToFileURL } from 'url';
 
@@ -6,6 +5,9 @@ export interface ScratchThumbnail { bytes?: Buffer; width?: number; height?: num
 
 /** Decode untrusted image bytes only in a short-lived sandboxed renderer. */
 export async function renderScratchThumbnail(path: string): Promise<ScratchThumbnail> {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- Defer Electron loading while keeping webpack resolution static.
+    const electron = require('@theia/core/electron-shared/electron') as typeof import('@theia/core/electron-shared/electron');
+    const { BrowserWindow, session } = electron;
     const partition = `akari-scratch-thumb-${randomBytes(12).toString('hex')}`;
     const isolated = session.fromPartition(partition);
     isolated.webRequest.onBeforeRequest((details, callback) => {
