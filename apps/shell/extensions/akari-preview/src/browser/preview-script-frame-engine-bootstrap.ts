@@ -94,6 +94,11 @@ export function frameEngineBootstrapScript(): string {
                     }, value);
                 });
             };
+            const audioComparableCuts = cuts => cuts.map(cut => {
+                const { sourceWidth: _width, sourceHeight: _height,
+                    sourceSizeFallback: _fallback, ...audioCut } = cut;
+                return audioCut;
+            });
             let normalizedCuts = normalizeSummaryCuts(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
 
             stage.dataset.frameEngineActive = 'true';
@@ -252,6 +257,15 @@ export function frameEngineBootstrapScript(): string {
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
                 const declaredSourceUrls = new Map(sourceUrls);
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
+                const declaredSizeForSource = id => {
+                    const cut = (engineSummary.cuts || []).find(item => item.src === id
+                        && Number(item.sourceWidth) > 0 && Number(item.sourceHeight) > 0);
+                    const layer = (engineSummary.layers || []).find(item =>
+                        (item.src === id || item.src === sourceUrls.get(id))
+                        && Number(item.sourceWidth) > 0 && Number(item.sourceHeight) > 0);
+                    const item = cut || layer;
+                    return item ? { width: Number(item.sourceWidth), height: Number(item.sourceHeight) } : null;
+                };
                 const sourceSupports = new Map();
                 const sourceSelections = [];
                 let disposed = false;
@@ -341,6 +355,7 @@ export function frameEngineBootstrapScript(): string {
                             if (currentAccesses) currentAccesses.push(access);
                         }
                     });
+                    source.logicalSize = declaredSizeForSource(id);
                     pools.set(id, pool);
                     lookahead.set(id, source);
                     return source;
@@ -1292,7 +1307,8 @@ export function frameEngineBootstrapScript(): string {
                             window.akari.previewCaptions ?? [], nextVisualDuration, window.akari.previewAudioEndSeconds ?? 0, window.akari.previewBgmEndSeconds ?? 0) };
                         const nextDuration = nextTimeline.totalDuration;
                         const retainAudioSupply = rebuildServices && !audioChanged && nextDuration === totalDuration
-                            && JSON.stringify(nextCuts) === JSON.stringify(normalizedCuts);
+                            && JSON.stringify(audioComparableCuts(nextCuts))
+                                === JSON.stringify(audioComparableCuts(normalizedCuts));
                         const resume = playing;
                         if (rebuildServices) {
                             if (resume) position = audioSupply.position(position);
@@ -1318,6 +1334,9 @@ export function frameEngineBootstrapScript(): string {
                             if (!retainAudioSupply) previousAudioSupply.dispose();
                         }
                         engineSummary = nextSummary;
+                        for (const [id, source] of sources) {
+                            if (!images.has(id)) source.logicalSize = declaredSizeForSource(id);
+                        }
                         normalizedCuts = nextCuts;
                         timeline = nextTimeline;
                         visualDuration = nextVisualDuration;
@@ -1416,6 +1435,14 @@ export function frameEngineBootstrapScript(): string {
                     if (renderScaleDprQuery) renderScaleDprQuery.removeEventListener('change', onRenderScaleDprChange);
                 }, { once: true });
 
+                const pendingSummary = window.akari && window.akari.frameEnginePendingSummary;
+                if (pendingSummary && typeof pendingSummary === 'object') {
+                    delete window.akari.frameEnginePendingSummary;
+                    // updateModel は現在位置を準備して描く。復元位置を先に置き、0 秒の描画を防ぐ。
+                    position = Math.round(Math.max(0,
+                        Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0) * fps) / fps;
+                    await clock.updateModel(pendingSummary);
+                }
                 // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
                 if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();
                 updateMetrics();
@@ -1434,11 +1461,6 @@ export function frameEngineBootstrapScript(): string {
                     await operation;
                 } finally {
                     if (rendering === operation) rendering = null;
-                }
-                const pendingSummary = window.akari && window.akari.frameEnginePendingSummary;
-                if (pendingSummary && typeof pendingSummary === 'object') {
-                    delete window.akari.frameEnginePendingSummary;
-                    await clock.updateModel(pendingSummary);
                 }
                 root.dataset.frameEngineReady = 'true';
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));

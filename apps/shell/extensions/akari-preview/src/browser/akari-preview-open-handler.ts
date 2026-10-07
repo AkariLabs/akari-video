@@ -470,8 +470,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 一度成功/失敗した判定を使い回す — アプリ再起動でクリアされる程度の弱いキャッシュで十分）。
     protected readonly hevcFallbackProxyUris = new Map<string, string>();
     protected readonly hevcFallbackAttempted = new Set<string>();
-    protected readonly layerDimensionCache = new Map<string, { width: number; height: number }>();
+    protected readonly layerDimensionCache = new Map<string, { width: number; height: number; sourceSizeFallback?: boolean; expiresAt?: number }>();
     protected readonly layerDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+    protected readonly layerDimensionNotedUris = new Set<string>();
+    protected readonly layerDimensionFailureReasons = new Map<string, string>();
     protected readonly previewMessageReadyPages = new WeakMap<PreviewWidgetMarker, string>();
     protected previewItemWriteTail = Promise.resolve();
     protected captionWriteTail = Promise.resolve();
@@ -3968,18 +3970,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId
                     || widget.akariPreviewSummary !== summary) return;
                 const layers = summary.layers.map(layer => {
-                    const size = dimensions.get(layer.id);
-                    return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
+                    const size = dimensions.get(`layer:${layer.id}`);
+                    return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height,
+                        ...(size.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : layer;
                 });
-                if (layers.every((layer, index) => layer === summary.layers[index])) return;
-                const updated = { ...summary, layers };
+                const cuts = summary.cuts.map(cut => {
+                    const size = dimensions.get(`cut:${cut.id}`);
+                    return size ? { ...cut, sourceWidth: size.width, sourceHeight: size.height,
+                        ...(size.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : cut;
+                });
+                if (layers.every((layer, index) => layer === summary.layers[index])
+                    && cuts.every((cut, index) => cut === summary.cuts[index])) return;
+                const updated = { ...summary, layers, cuts };
                 const snapshot = widget.akariPreviewModelSnapshot;
                 if (snapshot) {
                     const snapshotLayers = (snapshot.summary.layers ?? []) as EditSummaryLayer[];
                     widget.akariPreviewModelSnapshot = { ...snapshot, summary: { ...snapshot.summary,
                         layers: snapshotLayers.map(layer => {
-                            const size = dimensions.get(layer.id);
-                            return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
+                            const size = dimensions.get(`layer:${layer.id}`);
+                            return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height,
+                                ...(size.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : layer;
+                        }), cuts: ((snapshot.summary.cuts ?? []) as EditSummaryCut[]).map(cut => {
+                            const size = dimensions.get(`cut:${cut.id}`);
+                            return size ? { ...cut, sourceWidth: size.width, sourceHeight: size.height,
+                                ...(size.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : cut;
                         }) } };
                 }
                 widget.akariPreviewSummary = updated;
@@ -5109,6 +5123,67 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
             const primaryId = firstCutSourceId ?? '';
             sourceUri = sourcesById.get(primaryId)?.uri;
+            const pendingLayerDimensions = new Map<string, Promise<{ width: number; height: number; sourceSizeFallback?: boolean } | undefined>>();
+            const dimensionUrisByItem = new Map<string, string>();
+            const probeDimensions = (uri: URI, fallback?: URI): { width: number; height: number; sourceSizeFallback?: boolean } | undefined => {
+                try {
+                    const key = uri.toString();
+                    const cached = this.layerDimensionCache.get(key);
+                    if (cached && (!cached.sourceSizeFallback || (cached.expiresAt ?? 0) > Date.now())) return cached;
+                    if (cached) this.layerDimensionCache.delete(key);
+                    if (!pendingLayerDimensions.has(key)) {
+                        let probe = this.layerDimensionProbes.get(key);
+                        if (!probe) {
+                            probe = Promise.resolve().then(() => this.previewService.probeVideoDimensions({ videoUri: key }))
+                                .then(size => {
+                                    if (size) {
+                                        this.layerDimensionCache.set(key, size);
+                                        this.layerDimensionFailureReasons.delete(key);
+                                    }
+                                    return size;
+                                }).catch(error => {
+                                    this.layerDimensionFailureReasons.set(key, String(error));
+                                    return undefined;
+                                })
+                                .finally(() => this.layerDimensionProbes.delete(key));
+                            this.layerDimensionProbes.set(key, probe);
+                        }
+                        pendingLayerDimensions.set(key, probe.then(async size => {
+                            if (size) return size;
+                            const fallbackKey = fallback?.toString();
+                            const fallbackSize = fallbackKey && fallbackKey !== key
+                                ? this.layerDimensionCache.get(fallbackKey)
+                                    ?? await Promise.resolve()
+                                        .then(() => this.previewService.probeVideoDimensions({ videoUri: fallbackKey }))
+                                        .catch(() => undefined)
+                                : undefined;
+                            if (fallbackSize && fallbackKey) this.layerDimensionCache.set(fallbackKey, fallbackSize);
+                            if (!this.layerDimensionNotedUris.has(key)) {
+                                this.layerDimensionNotedUris.add(key);
+                                const reason = this.layerDimensionFailureReasons.get(key);
+                                const detail = reason ? ` (${reason})` : '';
+                                this.previewDiagnostics?.note(fallbackSize
+                                    ? `原本の寸法が取得できずプロキシ寸法を使用: ${key}${detail}`
+                                    : `原本とプロキシの寸法を取得できません: ${key}${detail}`);
+                            }
+                            if (!fallbackSize) return undefined;
+                            const result = { width: fallbackSize.width, height: fallbackSize.height,
+                                sourceSizeFallback: true, expiresAt: Date.now() + 60_000 };
+                            this.layerDimensionCache.set(key, result);
+                            return result;
+                        }).catch(() => undefined));
+                    }
+                    return undefined;
+                } catch (error) {
+                    this.previewDiagnostics?.note(`寸法の取得を開始できません: ${String(error)}`);
+                    return undefined;
+                }
+            };
+            const itemDimensions = (uri: URI, itemKey: string, fallback?: URI) => {
+                const size = probeDimensions(uri, fallback);
+                if (!size) dimensionUrisByItem.set(itemKey, uri.toString());
+                return size;
+            };
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
@@ -5205,11 +5280,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return undefined;
                 }
                 const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
+                const cutSource = sourcesById.get(result.fields.src);
+                const dimensions = options.frameEngineEnabled === true && cutSource
+                    && !isImageLayerSrc(cutSource.uri.path.base)
+                    ? itemDimensions(cutSource.uri, `cut:${item.id}`, cutSource.proxyUri) : undefined;
                 return {
                     id: item.id,
                     ...(item.source.kind === 'media' && typeof item.source.path === 'string'
                         ? { sourcePath: item.source.path } : {}),
                     ...result.fields,
+                    ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height,
+                        ...(dimensions.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : {}),
                     ...(value.motionSource ? { motionSource: value.motionSource,
                         motionParents: value.motionParents } : {}),
                     ...(value.audio === false ? { audio: false } : {}),
@@ -5449,25 +5530,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const filters: EditSummaryFilter[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers', itemWarningState);
-            const pendingLayerDimensions = new Map<string, Promise<{ width: number; height: number } | undefined>>();
-            const layerDimensionUrisById = new Map<string, string>();
-            const layerDimensions = (uri: URI, layerId: string) => {
-                const key = uri.toString();
-                const cached = this.layerDimensionCache.get(key);
-                if (cached) return cached;
-                layerDimensionUrisById.set(layerId, key);
-                let probe = this.layerDimensionProbes.get(key);
-                if (!probe) {
-                    probe = Promise.resolve().then(() => this.previewService.probeVideoDimensions({ videoUri: key }))
-                        .then(dimensions => {
-                            if (dimensions) this.layerDimensionCache.set(key, dimensions);
-                            return dimensions;
-                        }).catch(() => undefined).finally(() => this.layerDimensionProbes.delete(key));
-                    this.layerDimensionProbes.set(key, probe);
-                }
-                pendingLayerDimensions.set(key, probe);
-                return undefined;
-            };
+            // DOM と frame-engine は同じ宣言寸法を使うため、両経路で原本を probe する。
+            const layerDimensions = (uri: URI, layerId: string, fallback?: URI) =>
+                itemDimensions(uri, `layer:${layerId}`, fallback);
             type LayerResolution =
                 | { kind: 'filter'; filter: EditSummaryFilter }
                 | { kind: 'layer'; layer: EditSummaryLayer; unsupportedBlend?: boolean }
@@ -5587,10 +5652,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const color = await ensureAssetStream(colorUri.toString(), colorUri);
                             const mask = await ensureAssetStream(maskUri.toString(), maskUri);
                             const dimensions = options.frameEngineEnabled === true
-                                ? layerDimensions(colorUri, item.id) : undefined;
+                                ? layerDimensions(sourceUri, item.id, colorUri) : undefined;
                             return { kind: 'layer', unsupportedBlend, layer: { ...base,
                                 src: color.url, mask: mask.url, sourceUri: sourceUri.toString(),
-                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
+                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height,
+                                    ...(dimensions.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : {}),
                                 proxyMissing: false, isImage: false } };
                         }
                     }
@@ -5613,12 +5679,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
                     const mask = await resolveLayerMask();
                     const dimensions = options.frameEngineEnabled === true && src
-                        ? layerDimensions(sidecarUri, item.id) : undefined;
+                        ? layerDimensions(sourceUri, item.id, sidecarUri) : undefined;
                     return {
                         kind: 'layer',
                         unsupportedBlend,
                         layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}),
-                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
+                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height,
+                                ...(dimensions.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : {}),
                             proxyMissing: !src, isImage: false }
                     };
                 }
@@ -5657,7 +5724,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
                         const mask = await ensureAssetStream(maskUri.toString(), maskUri);
                         const dimensions = options.frameEngineEnabled === true
-                            ? layerDimensions(colorUri, item.id) : undefined;
+                            ? layerDimensions(sourceUri, item.id, colorUri) : undefined;
                         return {
                             kind: 'layer',
                             unsupportedBlend,
@@ -5666,7 +5733,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 src: color.url,
                                 mask: mask.url,
                                 sourceUri: sourceUri.toString(),
-                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
+                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height,
+                                    ...(dimensions.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : {}),
                                 proxyMissing: false,
                                 isImage: false
                             }
@@ -5679,7 +5747,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
                     const dimensions = options.frameEngineEnabled === true && !isImage
-                        ? layerDimensions(streamUri, item.id) : undefined;
+                        ? layerDimensions(sourceUri, item.id, streamUri) : undefined;
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
                     const mask = await resolveLayerMask();
                     const regions = await resolveLayerRegions();
@@ -5692,7 +5760,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ...(mask ? { mask } : {}),
                             ...(regions ? { regions } : {}),
                             ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
-                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
+                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height,
+                                ...(dimensions.sourceSizeFallback ? { sourceSizeFallback: true } : {}) } : {}),
                             proxyMissing: false,
                             isImage
                         }
@@ -5843,11 +5912,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ? Promise.all([...pendingLayerDimensions].map(async ([uri, probe]) => [uri, await probe] as const))
                     .then(entries => {
                         const byUri = new Map(entries);
-                        const resolved = new Map<string, { width: number; height: number }>();
-                        for (const layer of layers) {
-                            const uri = layerDimensionUrisById.get(layer.id);
+                        const resolved = new Map<string, { width: number; height: number; sourceSizeFallback?: boolean }>();
+                        for (const [itemKey, uri] of dimensionUrisByItem) {
                             const size = uri ? byUri.get(uri) : undefined;
-                            if (size) resolved.set(layer.id, size);
+                            if (size) resolved.set(itemKey, size);
                         }
                         return resolved;
                     })

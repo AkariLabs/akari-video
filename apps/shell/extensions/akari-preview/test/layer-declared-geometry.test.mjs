@@ -50,7 +50,7 @@ test('geometry helpers are injected inside previewBootstrapScript and inside the
     }
 });
 
-test('zero metadata uses declared output; real dimensions supersede the coherent fallback pair', () => {
+test('declared dimensions precede decoded media, then media and output provide fallback', () => {
     assert.deepEqual(resolveLayerDeclaredSize(0, 0, output), output);
     assert.deepEqual(resolveLayerDeclaredSize(1920, 0, output), output);
     assert.deepEqual(resolveLayerDeclaredSize(1920, 1080, output), { width: 1920, height: 1080 });
@@ -58,6 +58,8 @@ test('zero metadata uses declared output; real dimensions supersede the coherent
         { width: 2000, height: 1000 });
     assert.deepEqual(resolveLayerDeclaredSize(0, 0, output, { width: 2000 }), output);
     assert.deepEqual(resolveLayerDeclaredSize(800, 400, output, { width: 2000, height: 1000 }),
+        { width: 2000, height: 1000 });
+    assert.deepEqual(resolveLayerDeclaredSize(800, 400, output, { width: 2000 }),
         { width: 800, height: 400 });
 });
 

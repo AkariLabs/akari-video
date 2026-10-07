@@ -50,12 +50,14 @@ function extractTemplate(methodName) {
 
 const watchdog = extractTemplate('frameEngineWatchdogScript');
 
-test('startup primes audio then presents the restored frame once before ready and background warmup', () => {
+test('startup applies pending model before the restored frame and ready event', () => {
     const bootstrap = extractTemplate('frameEngineBootstrapScript');
-    const startup = bootstrap.slice(bootstrap.indexOf('// 非同期 mount 中'));
+    const startup = bootstrap.slice(bootstrap.indexOf('const pendingSummary = window.akari && window.akari.frameEnginePendingSummary'));
     assert.doesNotMatch(bootstrap, /renderFrame\(0, 'seek'/u);
     assert.equal([...startup.matchAll(/renderFrame\(restoredPosition/gu)].length, 1);
     const ordered = [
+        'position = Math.round(Math.max(0,',
+        'await clock.updateModel(pendingSummary)',
         'audioSupply.prime()',
         'const restoredPosition = clock.seek(',
         'await waitForRender()',
@@ -63,7 +65,6 @@ test('startup primes audio then presents the restored frame once before ready an
         'rendering = operation',
         'await operation',
         'if (rendering === operation) rendering = null',
-        'await clock.updateModel(pendingSummary)',
         "root.dataset.frameEngineReady = 'true'",
         "window.dispatchEvent(new Event('akari-frame-engine-ready'))",
         'scheduler.primeHeaders()',
@@ -76,6 +77,33 @@ test('startup primes audio then presents the restored frame once before ready an
         assert.ok(at > previous, `${token} must follow the previous startup step`);
         previous = at;
     }
+});
+
+test('pending startup summary draws its first frame at the rounded restored position', async () => {
+    const bootstrap = extractTemplate('frameEngineBootstrapScript');
+    const start = bootstrap.indexOf('const pendingSummary = window.akari && window.akari.frameEnginePendingSummary;');
+    const end = bootstrap.indexOf('// 非同期 mount 中に受け取った A/B', start);
+    assert.ok(start >= 0 && end > start);
+    const startup = bootstrap.slice(start, end);
+    const drawn = [];
+    const summary = { cuts: [{ sourceWidth: 1920, sourceHeight: 1080 }] };
+    const window = { akari: { frameEnginePendingSummary: summary } };
+    const clock = { updateModel: async applied => {
+        assert.equal(applied, summary);
+        drawn.push({ time: positionAtUpdate(), width: applied.cuts[0].sourceWidth });
+    } };
+    let positionAtUpdate = () => 0;
+    const run = new Function('window', 'initial', 'fps', 'clock', 'setPositionReader',
+        `return (async () => { let position = 0; setPositionReader(() => position); ${startup} return position; })();`);
+    const restored = await run(window, { initialSeekTime: 2.43 }, 30, clock,
+        reader => { positionAtUpdate = reader; });
+    assert.equal(restored, 73 / 30);
+    assert.deepEqual(drawn, [{ time: 73 / 30, width: 1920 }]);
+    assert.equal(drawn.some(frame => frame.time === 0), false);
+    assert.equal(window.akari.frameEnginePendingSummary, undefined);
+    const noPending = await run({ akari: {} }, { initialSeekTime: 2.43 }, 30,
+        { updateModel: () => { throw new Error('unexpected update'); } }, () => {});
+    assert.equal(noPending, 0);
 });
 
 function executeWatchdog({ error, rejection, engine = {}, root = null, engineErrorText = '' } = {}) {
