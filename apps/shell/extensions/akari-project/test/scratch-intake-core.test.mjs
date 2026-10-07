@@ -90,6 +90,47 @@ test('(b) hostname lookup connects to the validated resolver address', async t =
     assert.equal(peerAddress, '127.0.0.1');
 });
 
+test('(b) hostname with a public DNS answer passes the host guard without opening a connection', async () => {
+    let resolved = 0;
+    await assert.rejects(fetchScratchImage('http://scratch-image.test/image.png', {
+        pageUrl: 'http://scratch-image.test/page', userAgent: 'Test UA', timeoutMs: 0,
+        resolver: async host => {
+            assert.equal(host, 'scratch-image.test');
+            resolved++;
+            return [{ address: '93.184.216.34', family: 4 }];
+        }
+    }), error => error.reason === 'timeout');
+    // A zero deadline expires after DNS validation and before http.request, so no public connection is attempted.
+    assert.equal(resolved, 1);
+});
+
+test('(b) hostname with any internal DNS answer is blocked before a local server receives a request', async t => {
+    let received = 0;
+    const server = createServer((_req, res) => { received++; res.end(bytesByMime['image/png']); });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => server.close());
+    const hostname = 'scratch-image.test';
+    const imageUrl = `http://${hostname}:${server.address().port}/image.png`;
+    const options = { pageUrl: `http://${hostname}:${server.address().port}/page`, userAgent: 'Test UA' };
+    for (const address of ['10.0.0.1', '169.254.169.254', '::1', '::ffff:127.0.0.1', 'fd00::1']) {
+        let resolved = 0;
+        await assert.rejects(fetchScratchImage(imageUrl, { ...options, resolver: async host => {
+            assert.equal(host, hostname); resolved++;
+            return [{ address, family: address.includes(':') ? 6 : 4 }];
+        } }), error => error.reason === 'blocked-host', address);
+        assert.equal(resolved, 1, address);
+        assert.equal(received, 0, address);
+    }
+    const publicAddress = { address: '93.184.216.34', family: 4 };
+    const internalAddress = { address: '10.0.0.1', family: 4 };
+    for (const answers of [[publicAddress, internalAddress], [internalAddress, publicAddress]]) {
+        await assert.rejects(fetchScratchImage(imageUrl, {
+            ...options, resolver: async () => answers
+        }), error => error.reason === 'blocked-host');
+        assert.equal(received, 0);
+    }
+});
+
 test('(c) browser pick validates and resolves image models', () => {
     const valid = { kind: 'url', imageUrl: 'https://example.com/a.png', pageUrl: 'https://example.com/',
         pageTitle: 'title', alt: 'alt', naturalWidth: 800, naturalHeight: 600, resolvedFrom: 'img.currentSrc' };
