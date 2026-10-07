@@ -252,6 +252,15 @@ export function frameEngineBootstrapScript(): string {
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
                 const declaredSourceUrls = new Map(sourceUrls);
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
+                const declaredSizeForSource = id => {
+                    const cut = (engineSummary.cuts || []).find(item => item.src === id
+                        && Number(item.sourceWidth) > 0 && Number(item.sourceHeight) > 0);
+                    const layer = (engineSummary.layers || []).find(item =>
+                        (item.src === id || item.src === sourceUrls.get(id))
+                        && Number(item.sourceWidth) > 0 && Number(item.sourceHeight) > 0);
+                    const item = cut || layer;
+                    return item ? { width: Number(item.sourceWidth), height: Number(item.sourceHeight) } : null;
+                };
                 const sourceSupports = new Map();
                 const sourceSelections = [];
                 let disposed = false;
@@ -341,6 +350,7 @@ export function frameEngineBootstrapScript(): string {
                             if (currentAccesses) currentAccesses.push(access);
                         }
                     });
+                    source.logicalSize = declaredSizeForSource(id);
                     pools.set(id, pool);
                     lookahead.set(id, source);
                     return source;
@@ -1318,6 +1328,9 @@ export function frameEngineBootstrapScript(): string {
                             if (!retainAudioSupply) previousAudioSupply.dispose();
                         }
                         engineSummary = nextSummary;
+                        for (const [id, source] of sources) {
+                            if (!images.has(id)) source.logicalSize = declaredSizeForSource(id);
+                        }
                         normalizedCuts = nextCuts;
                         timeline = nextTimeline;
                         visualDuration = nextVisualDuration;

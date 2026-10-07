@@ -1239,6 +1239,9 @@ export function previewBootstrapScript(): string {
                 && (segment.crop || segment.frame || segment.perspective
                     || (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2)));
             const writeCutLayerStyleBase = (media, segment) => {
+                const declaredCut = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                media.dataset.akariSourceWidth = String(declaredCut?.sourceWidth || '');
+                media.dataset.akariSourceHeight = String(declaredCut?.sourceHeight || '');
                 const active = cutHasLayerStyleVisual(segment);
                 media.dataset.akariCutLayerStyleActive = String(active);
                 if (!active) {
@@ -3289,10 +3292,10 @@ export function previewBootstrapScript(): string {
                         const specSize = entry.spec && Number(entry.spec.sourceWidth) > 0
                             && Number(entry.spec.sourceHeight) > 0
                             ? { width: Number(entry.spec.sourceWidth), height: Number(entry.spec.sourceHeight) } : null;
-                        const size = hasSourceSize
+                        const mediaSize = hasSourceSize
                             ? { width: entry.video.videoWidth || entry.video.naturalWidth,
-                                height: entry.video.videoHeight || entry.video.naturalHeight }
-                            : (specSize || declaredSize);
+                                height: entry.video.videoHeight || entry.video.naturalHeight } : null;
+                        const size = specSize || mediaSize || declaredSize;
                         if (!size) continue;
                         if (sourcePoint) {
                             const pixel = sourcePoint(size, summary.output, layerVisualTransformNow(entry), layerCropNow(entry), stagePoint,
@@ -3300,8 +3303,12 @@ export function previewBootstrapScript(): string {
                                 entry.spec?.isImage ? entry.spec.frame?.cornerRadius : 0);
                             if (!pixel) continue;
                             const alpha = entry.video.akariPhotoHitAlpha;
-                            if (alpha && hasSourceSize && alpha[pixel.y * size.width + pixel.x] <= 16) continue;
-                            if (!alpha && hasSourceSize && layerAlphaAtSourcePoint(entry, pixel) <= 16) continue;
+                            const sample = mediaSize && size
+                                ? { x: Math.min(mediaSize.width - 1, Math.floor(pixel.x * mediaSize.width / size.width)),
+                                    y: Math.min(mediaSize.height - 1, Math.floor(pixel.y * mediaSize.height / size.height)) }
+                                : pixel;
+                            if (alpha && mediaSize && alpha[sample.y * mediaSize.width + sample.x] <= 16) continue;
+                            if (!alpha && mediaSize && layerAlphaAtSourcePoint(entry, sample) <= 16) continue;
                         } else if (!layerGeometryHitAt(entry, event.clientX, event.clientY, hasSourceSize ? undefined : size)) continue;
                         hits.push({ element: entry.video, z: Number(entry.video.style.zIndex) || 0, order: order++ });
                     }
@@ -4152,6 +4159,11 @@ export function previewBootstrapScript(): string {
                 return null;
             };
             const cutNaturalSizeNow = () => {
+                const segment = cutInteractionSegment();
+                const declared = segment && (summary.cuts || []).find(cut => cut.id === segment.id);
+                if (Number(declared?.sourceWidth) > 0 && Number(declared?.sourceHeight) > 0) {
+                    return { width: Number(declared.sourceWidth), height: Number(declared.sourceHeight) };
+                }
                 const measured = mediaNaturalSizeOf(cutMediaNow());
                 if (measured.width > 0 && measured.height > 0) return measured;
                 return ensureCutSourceNaturalSize() || { width: 0, height: 0 };
@@ -10203,8 +10215,10 @@ export function previewBootstrapScript(): string {
                 const layerMedia = clip.kind === 'layer'
                     ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
                         .find(media => media.dataset.akariLayerId === String(clip.id)) : null;
-                const naturalWidth = Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
-                const naturalHeight = Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
+                const naturalWidth = Number(layerMedia?.dataset.akariSourceWidth)
+                    || Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
+                const naturalHeight = Number(layerMedia?.dataset.akariSourceHeight)
+                    || Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
                 const sourceWidth = Number.isFinite(naturalWidth) && naturalWidth > 0 ? naturalWidth : stageWidth;
                 const sourceHeight = Number.isFinite(naturalHeight) && naturalHeight > 0 ? naturalHeight : stageHeight;
                 const boxWidth = clip.kind === 'audio' ? stageWidth * .7
@@ -10242,8 +10256,10 @@ export function previewBootstrapScript(): string {
                     const otherMedia = other.kind === 'layer'
                         ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
                             .find(media => media.dataset.akariLayerId === key) : null;
-                    const otherWidth = Number(otherMedia?.videoWidth || otherMedia?.naturalWidth);
-                    const otherHeight = Number(otherMedia?.videoHeight || otherMedia?.naturalHeight);
+                    const otherWidth = Number(otherMedia?.dataset.akariSourceWidth)
+                        || Number(otherMedia?.videoWidth || otherMedia?.naturalWidth);
+                    const otherHeight = Number(otherMedia?.dataset.akariSourceHeight)
+                        || Number(otherMedia?.videoHeight || otherMedia?.naturalHeight);
                     const otherBoxWidth = other.kind === 'audio' ? stageWidth * .7
                         : (Number.isFinite(otherWidth) && otherWidth > 0 ? otherWidth : stageWidth)
                             * Math.max(.01, finite(otherCrop.w, 1)) * Math.max(.01, finite(otherTransform.scaleX, otherScale));

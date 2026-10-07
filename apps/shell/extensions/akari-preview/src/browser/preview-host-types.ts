@@ -186,6 +186,9 @@ export interface EditSummaryCut {
     track: number;
     trackId: string;
     renderTrack: number;
+    /** 原本（表示回転後）の画素数。幾何の基準。 */
+    sourceWidth?: number;
+    sourceHeight?: number;
     /** contract-2026-07-22-render-basics.md #6 (静的クロップ / ズームキーフレーム）。
      * 深いバリデーションは common/cut-framing-visual.ts の computeCutFramingVisual が担う
      * ため、ここでは「非配列オブジェクト」であることだけ確認して素通しする。 */
@@ -436,7 +439,7 @@ export interface PreviewModel {
     relatedEditUri?: URI;
     sourceUri?: URI;
     /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1/v2 は sources[] 全件） */
-    sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
+    sourcesById?: Map<string, { uri: URI; proxyUri?: URI; sourceWidth?: number; sourceHeight?: number }>;
     overlayUris: URI[];
     motionBagUris?: URI[];
     assetUris: URI[];

@@ -1120,13 +1120,13 @@ export function hostAdapterScript(): string {
             // 必ず通るよう、既存 layer loop の本体をこの 1 関数へ寄せる。perspective と clip は
             // layer 側の既存純関数をそのまま使い、cut 用の計算は持たない。
             const mediaNaturalSize = media => {
+                const sourceWidth = Number(media.dataset.akariSourceWidth);
+                const sourceHeight = Number(media.dataset.akariSourceHeight);
+                if (sourceWidth > 0 && sourceHeight > 0) return { width: sourceWidth, height: sourceHeight };
                 const width = media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth;
                 const height = media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight;
                 if (width > 0 && height > 0) return { width, height };
-                const sourceWidth = Number(media.dataset.akariSourceWidth);
-                const sourceHeight = Number(media.dataset.akariSourceHeight);
-                return sourceWidth > 0 && sourceHeight > 0
-                    ? { width: sourceWidth, height: sourceHeight } : { width: 0, height: 0 };
+                return { width: Number(output.width) || 1280, height: Number(output.height) || 720 };
             };
             const photoCropClipPolygonFn = (${photoCropClipPolygon.toString()});
             const photoFrameVisualFn = (${photoFrameVisual.toString()});

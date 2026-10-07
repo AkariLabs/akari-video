@@ -63,6 +63,7 @@ export function captionHost(fixture) {
     const host = new Host();
     Object.assign(host, {
         workspaceService: { roots: Promise.resolve([]) }, lastRawEditVersionByUri: new Map(),
+        layerDimensionCache: new Map(), layerDimensionProbes: new Map(),
         currentWorkspaceRoots: async () => ['file:///project'],
         migrationCompactionPrompted: new Set(),
         loadPreviewCaptions: async () => ({ captions: fixture.captions }),
@@ -72,6 +73,7 @@ export function captionHost(fixture) {
         createAssetStream: async ({ assetUri }) => ({ id: assetUri, url: assetUri }),
         disposeAssetStreams: async () => {}, resolveAudioAssets: async () => ({}),
         previewService: { sweepPreviewAudioSidecars: async () => {},
+            probeVideoDimensions: async () => undefined,
             requestPreviewAudioSidecar: async () => ({ state: 'not-needed' }) }
     });
     const URI = require('@theia/core/lib/common/uri').default;

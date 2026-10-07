@@ -3947,18 +3947,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId
                     || widget.akariPreviewSummary !== summary) return;
                 const layers = summary.layers.map(layer => {
-                    const size = dimensions.get(layer.id);
+                    const size = dimensions.get(`layer:${layer.id}`);
                     return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
                 });
-                if (layers.every((layer, index) => layer === summary.layers[index])) return;
-                const updated = { ...summary, layers };
+                const cuts = summary.cuts.map(cut => {
+                    const size = dimensions.get(`cut:${cut.id}`);
+                    return size ? { ...cut, sourceWidth: size.width, sourceHeight: size.height } : cut;
+                });
+                if (layers.every((layer, index) => layer === summary.layers[index])
+                    && cuts.every((cut, index) => cut === summary.cuts[index])) return;
+                const updated = { ...summary, layers, cuts };
                 const snapshot = widget.akariPreviewModelSnapshot;
                 if (snapshot) {
                     const snapshotLayers = (snapshot.summary.layers ?? []) as EditSummaryLayer[];
                     widget.akariPreviewModelSnapshot = { ...snapshot, summary: { ...snapshot.summary,
                         layers: snapshotLayers.map(layer => {
-                            const size = dimensions.get(layer.id);
+                            const size = dimensions.get(`layer:${layer.id}`);
                             return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
+                        }), cuts: ((snapshot.summary.cuts ?? []) as EditSummaryCut[]).map(cut => {
+                            const size = dimensions.get(`cut:${cut.id}`);
+                            return size ? { ...cut, sourceWidth: size.width, sourceHeight: size.height } : cut;
                         }) } };
                 }
                 widget.akariPreviewSummary = updated;
@@ -4937,7 +4945,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         let sourceUri: URI | undefined;
         let legacyEmphasisWords: unknown;
-        const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
+        const sourcesById = new Map<string, { uri: URI; proxyUri?: URI; sourceWidth?: number; sourceHeight?: number }>();
         try {
             // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
             // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
@@ -5087,6 +5095,53 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
             const primaryId = firstCutSourceId ?? '';
             sourceUri = sourcesById.get(primaryId)?.uri;
+            const pendingLayerDimensions = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+            const dimensionUrisByItem = new Map<string, string>();
+            const probeDimensions = (uri: URI, fallback?: URI): { width: number; height: number } | undefined => {
+                try {
+                    const key = uri.toString();
+                    const cached = this.layerDimensionCache.get(key);
+                    if (cached) return cached;
+                    if (!pendingLayerDimensions.has(key)) {
+                        let probe = this.layerDimensionProbes.get(key);
+                        if (!probe) {
+                            probe = Promise.resolve().then(() => this.previewService.probeVideoDimensions({ videoUri: key }))
+                                .then(size => {
+                                    if (size) this.layerDimensionCache.set(key, size);
+                                    return size;
+                                }).catch(error => {
+                                    this.previewDiagnostics?.note(`原本の寸法を取得できません: ${key} (${String(error)})`);
+                                    return undefined;
+                                }).finally(() => this.layerDimensionProbes.delete(key));
+                            this.layerDimensionProbes.set(key, probe);
+                        }
+                        pendingLayerDimensions.set(key, probe.then(async size => {
+                            if (size) return size;
+                            this.previewDiagnostics?.note(`原本の寸法が未設定です: ${key}`);
+                            if (!fallback || fallback.toString() === key) return undefined;
+                            const fallbackKey = fallback.toString();
+                            const fallbackSize = this.layerDimensionCache.get(fallbackKey)
+                                ?? await Promise.resolve()
+                                    .then(() => this.previewService.probeVideoDimensions({ videoUri: fallbackKey }))
+                                    .catch(() => undefined);
+                            if (fallbackSize) this.layerDimensionCache.set(fallbackKey, fallbackSize);
+                            this.previewDiagnostics?.note(fallbackSize
+                                ? `原本の寸法が取得できずプロキシ寸法を使用: ${key}`
+                                : `原本とプロキシの寸法を取得できません: ${key}`);
+                            return fallbackSize;
+                        }));
+                    }
+                    return undefined;
+                } catch (error) {
+                    this.previewDiagnostics?.note(`寸法の取得を開始できません: ${String(error)}`);
+                    return undefined;
+                }
+            };
+            const itemDimensions = (uri: URI, itemKey: string, fallback?: URI) => {
+                const size = probeDimensions(uri, fallback);
+                if (!size) dimensionUrisByItem.set(itemKey, uri.toString());
+                return size;
+            };
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
@@ -5183,11 +5238,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return undefined;
                 }
                 const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
+                const cutSource = sourcesById.get(result.fields.src);
+                const dimensions = cutSource
+                    ? itemDimensions(cutSource.uri, `cut:${item.id}`, cutSource.proxyUri) : undefined;
+                if (cutSource && dimensions) {
+                    cutSource.sourceWidth = dimensions.width;
+                    cutSource.sourceHeight = dimensions.height;
+                }
                 return {
                     id: item.id,
                     ...(item.source.kind === 'media' && typeof item.source.path === 'string'
                         ? { sourcePath: item.source.path } : {}),
                     ...result.fields,
+                    ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
                     ...(value.motionSource ? { motionSource: value.motionSource,
                         motionParents: value.motionParents } : {}),
                     ...(value.audio === false ? { audio: false } : {}),
@@ -5417,25 +5480,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const filters: EditSummaryFilter[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers', itemWarningState);
-            const pendingLayerDimensions = new Map<string, Promise<{ width: number; height: number } | undefined>>();
-            const layerDimensionUrisById = new Map<string, string>();
-            const layerDimensions = (uri: URI, layerId: string) => {
-                const key = uri.toString();
-                const cached = this.layerDimensionCache.get(key);
-                if (cached) return cached;
-                layerDimensionUrisById.set(layerId, key);
-                let probe = this.layerDimensionProbes.get(key);
-                if (!probe) {
-                    probe = Promise.resolve().then(() => this.previewService.probeVideoDimensions({ videoUri: key }))
-                        .then(dimensions => {
-                            if (dimensions) this.layerDimensionCache.set(key, dimensions);
-                            return dimensions;
-                        }).catch(() => undefined).finally(() => this.layerDimensionProbes.delete(key));
-                    this.layerDimensionProbes.set(key, probe);
-                }
-                pendingLayerDimensions.set(key, probe);
-                return undefined;
-            };
+            // DOM と frame-engine は同じ宣言寸法を使うため、両経路で原本を probe する。
+            const layerDimensions = (uri: URI, layerId: string, fallback?: URI) =>
+                itemDimensions(uri, `layer:${layerId}`, fallback);
             type LayerResolution =
                 | { kind: 'filter'; filter: EditSummaryFilter }
                 | { kind: 'layer'; layer: EditSummaryLayer; unsupportedBlend?: boolean }
@@ -5554,8 +5601,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const colorUri = new URI(intake.colorUri), maskUri = new URI(intake.maskUri);
                             const color = await ensureAssetStream(colorUri.toString(), colorUri);
                             const mask = await ensureAssetStream(maskUri.toString(), maskUri);
-                            const dimensions = options.frameEngineEnabled === true
-                                ? layerDimensions(colorUri, item.id) : undefined;
+                            const dimensions = layerDimensions(sourceUri, item.id, colorUri);
                             return { kind: 'layer', unsupportedBlend, layer: { ...base,
                                 src: color.url, mask: mask.url, sourceUri: sourceUri.toString(),
                                 ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
@@ -5580,8 +5626,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
                     const mask = await resolveLayerMask();
-                    const dimensions = options.frameEngineEnabled === true && src
-                        ? layerDimensions(sidecarUri, item.id) : undefined;
+                    const dimensions = src
+                        ? layerDimensions(sourceUri, item.id, sidecarUri) : undefined;
                     return {
                         kind: 'layer',
                         unsupportedBlend,
@@ -5624,8 +5670,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const maskUri = new URI(intake.maskUri);
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
                         const mask = await ensureAssetStream(maskUri.toString(), maskUri);
-                        const dimensions = options.frameEngineEnabled === true
-                            ? layerDimensions(colorUri, item.id) : undefined;
+                        const dimensions = layerDimensions(sourceUri, item.id, colorUri);
                         return {
                             kind: 'layer',
                             unsupportedBlend,
@@ -5646,8 +5691,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const streamUri = isImage
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
-                    const dimensions = options.frameEngineEnabled === true && !isImage
-                        ? layerDimensions(streamUri, item.id) : undefined;
+                    const dimensions = !isImage
+                        ? layerDimensions(sourceUri, item.id, streamUri) : undefined;
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
                     const mask = await resolveLayerMask();
                     const regions = await resolveLayerRegions();
@@ -5812,10 +5857,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     .then(entries => {
                         const byUri = new Map(entries);
                         const resolved = new Map<string, { width: number; height: number }>();
-                        for (const layer of layers) {
-                            const uri = layerDimensionUrisById.get(layer.id);
+                        for (const source of sourcesById.values()) {
+                            const size = byUri.get(source.uri.toString());
+                            if (size) {
+                                source.sourceWidth = size.width;
+                                source.sourceHeight = size.height;
+                            }
+                        }
+                        for (const [itemKey, uri] of dimensionUrisByItem) {
                             const size = uri ? byUri.get(uri) : undefined;
-                            if (size) resolved.set(layer.id, size);
+                            if (size) resolved.set(itemKey, size);
                         }
                         return resolved;
                     })

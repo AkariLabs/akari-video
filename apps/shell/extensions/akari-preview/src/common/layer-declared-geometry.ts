@@ -10,10 +10,10 @@ export function resolveLayerDeclaredSize(
     output: LayerDeclaredSize,
     source?: Partial<LayerDeclaredSize>
 ): LayerDeclaredSize {
-    if (videoWidth > 0 && videoHeight > 0) return { width: videoWidth, height: videoHeight };
     if (Number(source?.width) > 0 && Number(source?.height) > 0) {
         return { width: Number(source?.width), height: Number(source?.height) };
     }
+    if (videoWidth > 0 && videoHeight > 0) return { width: videoWidth, height: videoHeight };
     return { width: output.width, height: output.height };
 }
 
