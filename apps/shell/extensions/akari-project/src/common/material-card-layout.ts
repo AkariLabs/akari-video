@@ -39,6 +39,7 @@ export function materialCardLayout(entry: MaterialCardLayoutEntry, options: Mate
         kindLabel,
         gridGap: `${options.gridGapPx ?? 6}px`,
         gridPadding: `${options.gridPaddingPx ?? 8}px`,
-        cardMinWidth: `${options.cardMinWidthPx ?? 104}px`
+        // With the panel chrome, 95px keeps the intended steps: 320px -> 2, 400px -> 3, 500px -> 4 columns.
+        cardMinWidth: `${options.cardMinWidthPx ?? 95}px`
     };
 }

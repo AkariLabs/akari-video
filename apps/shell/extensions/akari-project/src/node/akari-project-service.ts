@@ -40,6 +40,8 @@ import {
     DroppedVideoImportResult,
     EditLintOutcome,
     MaterialThumbnailOutcome,
+    MaterialStripOptions,
+    MaterialStripOutcome,
     MaterialMetaEntry,
     PresetShowcase,
     PresetShowcaseKind,
@@ -53,6 +55,7 @@ import {
 import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
 import { MaterialMetaReader } from './material-meta';
+import { MaterialStripGenerator } from './material-strip';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
     deriveEditTimelineSamples,
@@ -201,6 +204,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
     protected readonly materialMetaReader = new MaterialMetaReader({ ffprobePath: () => this.resolveFfprobePath() });
+    protected readonly materialStripGenerator = new MaterialStripGenerator({
+        ffmpegPath: () => this.resolveFfmpegPath(),
+        durationSeconds: sourcePath => this.probeDurationSeconds(sourcePath)
+    });
     /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
@@ -1881,6 +1888,12 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
 
     async materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>> {
         return this.materialMetaReader.read(this.fsPath(projectUri), relativePaths);
+    }
+
+    async resolveMaterialStrip(projectUri: string, relativePath: string, options: MaterialStripOptions): Promise<MaterialStripOutcome> {
+        const root = this.fsPath(projectUri);
+        const metadata = await this.materialMetaReader.read(root, [relativePath]).catch(() => ({} as Record<string, MaterialMetaEntry>));
+        return this.materialStripGenerator.resolve(root, relativePath, options, metadata[relativePath]?.durationSeconds);
     }
 
     async readUiState(projectUri: string): Promise<Record<string, unknown>> {

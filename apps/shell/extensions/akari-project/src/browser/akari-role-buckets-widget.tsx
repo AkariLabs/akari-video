@@ -600,6 +600,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected materialsPopoverAnchor?: DOMRect;
     protected materialsFilterButton?: HTMLButtonElement;
     protected materialsSortButton?: HTMLButtonElement;
+    protected readonly handleMaterialsPopoverKey = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape' || !this.materialsPopover) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMaterialsPopover();
+        this.update();
+    };
     protected materialsUiSave: Promise<void> = Promise.resolve();
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
@@ -772,9 +779,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         installCatalogFocusPulseStyle();
         installCatalogAudioDockStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
+        document.addEventListener('keydown', this.handleMaterialsPopoverKey, true);
         window.addEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener('keydown', this.handleGenerationPickKey, true);
+            document.removeEventListener('keydown', this.handleMaterialsPopoverKey, true);
             window.removeEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
             this.generationTimelineSelections.clear();
             this.generationPickSelectionsAtStart.clear();
@@ -901,6 +910,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.generationPick.cancel();
         this.materialsPopover = undefined;
         this.materialsPopoverAnchor = undefined;
+        if (this.materialsFilterButton) {
+            this.materialsFilterButton.style.background = 'transparent';
+            this.materialsFilterButton.style.borderColor = 'transparent';
+        }
+        if (this.materialsSortButton) {
+            this.materialsSortButton.style.background = 'transparent';
+            this.materialsSortButton.style.borderColor = 'transparent';
+        }
         super.onAfterHide(msg);
         this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
@@ -917,8 +934,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected selectTopView(view: TopView, refreshCatalog = true): void {
         if (view !== 'materials') {
-            this.materialsPopover = undefined;
-            this.materialsPopoverAnchor = undefined;
+            this.closeMaterialsPopover();
         }
         if (view !== 'catalog' && this.materialSwap) this.closeMaterialSwap();
         if (this.topView === 'catalog' && view !== 'catalog') {
@@ -2269,11 +2285,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.projectService.writeUiState(root.toString(), { materialsPane: { filter, sort } })).catch(() => undefined);
     }
 
+    protected closeMaterialsPopover(): void {
+        this.materialsPopover = undefined;
+        this.materialsPopoverAnchor = undefined;
+        for (const button of [this.materialsFilterButton, this.materialsSortButton]) {
+            if (!button) continue;
+            button.style.background = 'transparent';
+            button.style.borderColor = 'transparent';
+        }
+    }
+
     protected toggleMaterialsPopover(kind: 'filter' | 'sort', button?: HTMLButtonElement): void {
         if (this.materialsPopover === kind || !button) {
-            this.materialsPopover = undefined;
-            this.materialsPopoverAnchor = undefined;
+            this.closeMaterialsPopover();
         } else {
+            this.closeMaterialsPopover();
             this.materialsPopover = kind;
             this.materialsPopoverAnchor = button.getBoundingClientRect();
         }
@@ -2323,8 +2349,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 if (event.key === 'Escape' && this.materialsPopover) {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.materialsPopover = undefined;
-                    this.materialsPopoverAnchor = undefined;
+                    this.closeMaterialsPopover();
                     this.update();
                 }
             }}>
@@ -2354,7 +2379,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 aria-label='表示を切り替え' title='表示を切り替え'
                 onClick={() => { const next = mode === 'grid' ? 'list' : 'grid'; this.materialsPane.setMaterialView({ mode: next });
                     try { window.localStorage.setItem('akari.materials.viewMode', next); } catch { /* Session state still works. */ }
-                    this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined; }}>
+                    this.closeMaterialsPopover(); }}>
                 <svg {...svg}>{mode === 'grid'
                     ? <><rect x='3' y='3' width='7' height='7' rx='1' /><rect x='14' y='3' width='7' height='7' rx='1' />
                         <rect x='3' y='14' width='7' height='7' rx='1' /><rect x='14' y='14' width='7' height='7' rx='1' /></>
@@ -2363,7 +2388,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             {this.materialsPopover && anchor && createPortal(<div
                 style={{ position: 'fixed', inset: 0, zIndex: 9000 }}
                 onMouseDown={event => { if (event.target === event.currentTarget) {
-                    this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined; this.update();
+                    this.closeMaterialsPopover(); this.update();
                 } }}>
                 <div style={popStyle} role='menu'>
                 <div style={{ fontSize: '11px', color: '#737373', padding: '4px 8px 2px' }}>
@@ -2381,7 +2406,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         <button key={value} type='button' className='akari-materials-popover-option'
                             role='menuitemradio' aria-checked={sort === value} style={rowStyle}
                             onClick={() => { this.materialsPane.setMaterialView({ sort: value });
-                                this.materialsPopover = undefined; this.materialsPopoverAnchor = undefined;
+                                this.closeMaterialsPopover();
                                 this.saveMaterialsUiState(); }}>
                             <span style={{ width: '14px', color: '#f97316' }}>{sort === value ? '✓' : ''}</span>{label}</button>)}
                 </div>
@@ -2519,7 +2544,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         data-akari-panel-search={this.topView}
                         style={{
                             flex: '1 1 auto',
-                            minWidth: 0,
+                            minWidth: '64px',
                             width: '100%',
                             boxSizing: 'border-box',
                             padding: '5px 8px',

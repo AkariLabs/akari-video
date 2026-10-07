@@ -21,7 +21,8 @@ import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
-import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, visibleMaterials } from '../common/materials-view';
+import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, materialStripCells, visibleMaterials } from '../common/materials-view';
+import { MaterialStrip } from './material-strip';
 import { applyMaterialViewPatch, filterMaterials, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
@@ -50,6 +51,7 @@ export interface MaterialCardEntry {
     createdAt?: string;
     importedAt?: string;
     thumbnailUri?: URI;
+    stripUri?: URI;
     /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
     analysisRelativePath?: string;
     /** true = プロジェクトルート直下（非再帰）の未整理素材。「assets へ移動」アクションを持つ。 */
@@ -92,28 +94,13 @@ const MATERIAL_GRID_CARD_MIN_WIDTH = MATERIAL_GRID_LAYOUT.cardMinWidth;
 const MATERIAL_GRID_COLUMNS =
     `repeat(auto-fill, minmax(min(${MATERIAL_GRID_CARD_MIN_WIDTH}, calc(50% - ${MATERIAL_GRID_GAP} / 2)), 1fr))`;
 
-// 素材カード左上の札（2026-09-26 オーナー指示）。丸いバッジ + 座布団の余白をやめ、
-// 角のない灰色ラベルをカードの左上へ**詰めて**置く。カードの主役はサムネなので、
-// 札は「読めるが前に出ない」強さに落とす（アクセント色は分析済みドットだけに残す）。
-const MATERIAL_CARD_FLAG_STYLE: React.CSSProperties = {
-    maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden',
-    textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px',
-    borderRadius: 0, fontSize: '0.58em', lineHeight: '13px', fontWeight: 600,
-    background: 'rgba(205, 205, 205, 0.92)', color: '#141414'
-};
-// 「参照」は種別札の補足なので、さらに一段小さくする（オーナー指示「もっともっとちっちゃく」）。
-const MATERIAL_CARD_SUBFLAG_STYLE: React.CSSProperties = {
-    ...MATERIAL_CARD_FLAG_STYLE, padding: '0 3px', fontSize: '0.5em', lineHeight: '11px',
-    background: 'rgba(205, 205, 205, 0.78)'
-};
-
 export interface MaterialsPaneHost {
     /** 現在のプロジェクトと相対パス。 */
     readonly workflow: Pick<AkariWorkflowService, 'workspaceRoot' | 'relativePath' | 'current'>;
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'materialMeta' | 'readUiState' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'resolveMaterialStrip' | 'materialMeta' | 'readUiState' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -147,6 +134,7 @@ export class AkariMaterialsPane {
     public materialsLoading = false;
     public materialsLoadedOnce = false;
     protected materialsGeneration = 0;
+    protected metaHydratedGeneration = 0;
     protected materialsWatch = new DisposableCollection();
     protected materialsWatchRootKey?: string;
     protected materialsWatchTimer?: ReturnType<typeof setTimeout>;
@@ -169,6 +157,10 @@ export class AkariMaterialsPane {
         if (patch.sort && MATERIALS_SORT_OPTIONS.includes(patch.sort)) this.sort = patch.sort;
         if (patch.mode) this.mode = patch.mode;
         this.host.update();
+        const root = this.host.workflow.workspaceRoot;
+        if (root && isMaterialsList(this.mode) && this.metaHydratedGeneration === this.materialsGeneration) {
+            void this.hydrateMaterialStrips(root, this.materialsGeneration);
+        }
     }
 
     public getMaterialView(): { filter: string[]; sort: MaterialsSort; mode: MaterialsMode } {
@@ -278,7 +270,11 @@ export class AkariMaterialsPane {
         this.materialsLoadedOnce = true;
         this.host.update();
         void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
-        void this.hydrateMaterialMeta(root, generation, [...materials, ...unorganizedMaterials]);
+        void this.hydrateMaterialMeta(root, generation, [...materials, ...unorganizedMaterials]).then(() => {
+            if (generation !== this.materialsGeneration) return;
+            this.metaHydratedGeneration = generation;
+            if (isMaterialsList(this.mode)) void this.hydrateMaterialStrips(root, generation);
+        });
     }
 
     /**
@@ -502,6 +498,29 @@ export class AkariMaterialsPane {
             } catch {
                 // Metadata is supplemental; continue with later batches.
             }
+        }
+    }
+
+    protected async hydrateMaterialStrips(root: URI, generation: number): Promise<void> {
+        const candidates = [
+            ...visibleMaterials(this.materials, this.filter, this.host.materialQuery, this.sort),
+            ...visibleMaterials(this.unorganizedMaterials, this.filter, this.host.materialQuery, this.sort)
+        ].filter(entry => !entry.stripUri && !entry.assetGroup && !entry.reference
+            && (entry.kind === 'video' || entry.kind === 'audio'));
+        for (let start = 0; start < candidates.length; start += 20) {
+            if (generation !== this.materialsGeneration || !isMaterialsList(this.mode)) return;
+            const batch = candidates.slice(start, start + 20);
+            await Promise.all(batch.map(async entry => {
+                try {
+                    const outcome = await this.host.projectService.resolveMaterialStrip(root.toString(), entry.relativePath,
+                        { cells: materialStripCells(entry.durationSeconds), cellWidth: 80 });
+                    if (generation === this.materialsGeneration && isMaterialsList(this.mode)
+                        && outcome.available && outcome.cacheRelativePath) {
+                        entry.stripUri = root.resolve(outcome.cacheRelativePath);
+                        this.host.update();
+                    }
+                } catch { /* Keep the first thumbnail when strip generation is unavailable. */ }
+            }));
         }
     }
 
@@ -1004,6 +1023,26 @@ export class AkariMaterialsPane {
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
+        const iconStyle: React.CSSProperties = { width: '14px', height: '14px', color: '#e5e5e5',
+            background: 'rgba(0,0,0,.55)', borderRadius: '2px', flex: '0 0 14px' };
+        const flags: React.ReactNode[] = [];
+        if (!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio')) flags.push(
+            <svg key='transcript' data-akari-transcript-state={transcriptState} aria-label={transcriptLabel}
+                viewBox='0 0 14 14' fill='none' stroke='currentColor' strokeWidth='1.3' style={iconStyle}>
+                <title>{transcriptLabel}</title>
+                <path d='M3 1.5h6l2 2v9H3zM9 1.5v2h2M5 6h4M5 8h4M5 10h3' />
+            </svg>);
+        if (entry.reference) flags.push(<svg key='reference' data-akari-reference-badge
+            aria-label='ライブラリを参照しています' viewBox='0 0 14 14' fill='none' stroke='currentColor'
+            strokeWidth='1.3' style={iconStyle}><title>ライブラリを参照しています</title><path d='M5.5 4.5l1-1a3 3 0 014.2 4.2l-1.4 1.4M8.5 9.5l-1 1a3 3 0 01-4.2-4.2l1.4-1.4M5 9l4-4' /></svg>);
+        if (entry.missing) flags.unshift(<svg key='missing' data-akari-reference-missing
+            aria-label='見つかりません' viewBox='0 0 14 14' fill='none' stroke='#f85149' strokeWidth='1.3'
+            style={iconStyle}><title>見つかりません</title><path d='M7 1.5l5.5 10h-11zM7 5v3M7 10v1' /></svg>);
+        if (entry.unorganized) flags.unshift(<svg key='unorganized' aria-label='未整理'
+            viewBox='0 0 14 14' fill='none' stroke='currentColor' strokeWidth='1.3' strokeDasharray='2 1'
+            style={iconStyle}><title>未整理</title><rect x='2' y='2' width='10' height='10' rx='1' /></svg>);
+        if (entry.analyzed) flags.push(<span key='analyzed' title='分析済み' aria-label='分析済み'
+            style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316', flex: '0 0 6px' }} />);
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
         const draggable = !entry.missing && !this.host.generationPick.request && !entry.unorganized
@@ -1019,9 +1058,7 @@ export class AkariMaterialsPane {
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
                 style={{
                     display: 'flex',
-                    flexDirection: isMaterialsList(this.mode) ? 'row' : 'column',
-                    alignItems: isMaterialsList(this.mode) ? 'center' : undefined,
-                    gap: isMaterialsList(this.mode) ? '8px' : undefined,
+                    flexDirection: 'column',
                     minWidth: 0,
                     gridColumn: layout.gridColumn,
                     position: 'relative'
@@ -1055,10 +1092,9 @@ export class AkariMaterialsPane {
                     {...this.host.generationPickCardProps(pickCandidate)}
                     style={{
                         position: 'relative',
-                        aspectRatio: layout.aspectRatio,
-                        width: isMaterialsList(this.mode) ? '64px' : '100%',
-                        height: isMaterialsList(this.mode) ? '36px' : undefined,
-                        flex: isMaterialsList(this.mode) ? '0 0 64px' : undefined,
+                        aspectRatio: isMaterialsList(this.mode) ? undefined : layout.aspectRatio,
+                        width: '100%',
+                        height: isMaterialsList(this.mode) ? '46px' : undefined,
                         background: '#000',
                         border: `1px solid ${this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT}`,
                         boxShadow: this.selectedMaterialPath === entry.relativePath ? '0 0 0 1.5px #f97316' : undefined,
@@ -1071,7 +1107,9 @@ export class AkariMaterialsPane {
                         justifyContent: 'center'
                     }}
                 >
-                    {entry.thumbnailUri
+                    {isMaterialsList(this.mode) && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image')
+                        ? <MaterialStrip entry={entry} width='100%' />
+                        : entry.thumbnailUri
                         // position: absolute で img をフレックスの外に出す。flex 子のまま
                         // height:'100%' にすると、親の aspectRatio を無視して img 自身の
                         // 縦長比率で高さが決まってしまう。
@@ -1089,28 +1127,11 @@ export class AkariMaterialsPane {
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {!isMaterialsList(this.mode) && <div style={{
                         position: 'absolute', top: '3px', left: '3px', maxWidth: 'calc(100% - 42px)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '1px'
+                        display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '2px'
                     }}>
-                        {entry.analyzed && <span title='分析済み' aria-label='分析済み'
-                            style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316' }} />}
-                        {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') &&
-                            <span data-akari-transcript-state={transcriptState} title={transcriptLabel}
-                                aria-label={transcriptLabel} style={MATERIAL_CARD_SUBFLAG_STYLE}>文字起こし {transcriptStatus}</span>}
-                        {entry.reference && <span data-akari-reference-badge title='ライブラリを参照しています'
-                            style={MATERIAL_CARD_SUBFLAG_STYLE}>参照</span>}
-                        {entry.missing && <span data-akari-reference-missing
-                            style={{ ...MATERIAL_CARD_SUBFLAG_STYLE, background: 'var(--theia-editorWarning-foreground)' }}>見つかりません</span>}
-                        {entry.unorganized && (
-                            <span
-                                title='未整理'
-                                aria-label='未整理'
-                                style={{ ...MATERIAL_CARD_SUBFLAG_STYLE, background: 'var(--theia-editorWarning-foreground)' }}
-                            >
-                                未整理
-                            </span>
-                        )}
+                        {flags.slice(0, 3)}
                     </div>}
-                    {!isMaterialsList(this.mode) && entry.durationSeconds !== undefined &&
+                    {entry.durationSeconds !== undefined &&
                         <span style={{ position: 'absolute', top: '3px', right: '4px', color: '#fff',
                             font: '600 10px/1 monospace', textShadow: '0 0 3px #000, 0 0 2px #000' }}>
                             {formatDurationBadge(entry.durationSeconds)}
@@ -1129,8 +1150,6 @@ export class AkariMaterialsPane {
                     {isMaterialsList(this.mode) && entry.unorganized && <span
                         style={{ flex: '0 0 auto', fontSize: '10px', color: '#737373' }}>未整理</span>}
                 </div>
-                {isMaterialsList(this.mode) && <span style={{ flex: '0 0 auto', font: '600 10px monospace', color: '#737373' }}>
-                    {entry.durationSeconds !== undefined ? formatDurationBadge(entry.durationSeconds) : ''}</span>}
                 {this.host.renderGenerationPickBadge(pickCandidate)}
                 {entry.missing && entry.reference && (() => {
                     const known = this.host.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);

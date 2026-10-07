@@ -21,7 +21,7 @@ for (const [label, entry, kindLabel] of cases) {
         assert.equal(layout.kindLabel, kindLabel);
         assert.equal(layout.gridGap, '6px');
         assert.equal(layout.gridPadding, '8px');
-        assert.equal(layout.cardMinWidth, '104px');
+        assert.equal(layout.cardMinWidth, '95px');
         assert.equal(materialCardLayout(entry, { cardMinWidthPx: 120 }).cardMinWidth, '120px');
         const customized = materialCardLayout(entry, { gridGapPx: 0, gridPaddingPx: 8 });
         assert.equal(customized.gridGap, '0px');

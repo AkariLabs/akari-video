@@ -7,6 +7,13 @@ export const MATERIALS_SORT_OPTIONS: readonly MaterialsSort[] =
     ['imported-desc', 'imported-asc', 'name', 'dur', 'kind', 'created'];
 export const MATERIALS_KINDS: readonly MaterialKind[] = ['video', 'audio', 'image', 'other'];
 
+export function materialStripCells(durationSeconds: number | undefined): number {
+    return durationSeconds !== undefined && Number.isFinite(durationSeconds) && durationSeconds > 0
+        ? Math.max(4, Math.min(12, Math.round(durationSeconds / 5))) : 12;
+}
+
+export function materialImageRepeatCount(): number { return 5; }
+
 export interface MaterialsViewEntry {
     name: string;
     kind: MaterialKind;
@@ -41,7 +48,7 @@ export function visibleMaterials<T extends MaterialsViewEntry>(
                 case 'imported-desc': case 'imported-asc': return entry.importedAt;
                 case 'dur': return entry.durationSeconds;
                 case 'created': return entry.createdAt;
-                case 'kind': return materialViewKind(entry);
+                case 'kind': return MATERIALS_KINDS.indexOf(materialViewKind(entry));
                 default: return entry.name;
             }
         };
