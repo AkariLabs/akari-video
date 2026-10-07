@@ -24,6 +24,7 @@ import {
     PreviewInitSummary,
     PreviewInitTrace,
     PreviewRendererGone,
+    PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES,
     createPreviewInitTrace,
     describeKeyEventConversionFailure,
     describePreviewWebviewRole,
@@ -45,7 +46,7 @@ export const PREVIEW_DIAGNOSTICS_WATCHDOG_MS = 20000;
 export const PREVIEW_DIAGNOSTICS_HEARTBEAT_CHECK_MS = 5000;
 
 /** 1 ファイルに貯める上限。超えたら古い行を落とす（診断ログでディスクを埋めない）。 */
-export const PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES = 512 * 1024;
+export { PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES };
 
 /** キー変換失敗の記録上限（1 セッション）。第12項の「Console が埋まる」を再現しない。 */
 export const PREVIEW_DIAGNOSTICS_KEY_LOG_LIMIT = 20;
@@ -55,13 +56,12 @@ export interface PreviewDiagnosticsLogIo {
     resolveLogUri(): Promise<string>;
     readText(uri: string): Promise<string | undefined>;
     writeText(uri: string, text: string): Promise<void>;
+    /** Electron main に JSON Lines を追記する経路。あれば readText / writeText を使わない。 */
+    appendLines?(lines: string[]): Promise<void>;
     warn(message: string, error?: unknown): void;
 }
 
-/**
- * JSON Lines 追記器。Theia の FileService に追記 API が無いため、
- * セッション中の内容をメモリに持って毎回書き切る（上限で古い行を落とす）。
- */
+/** JSON Lines 追記器。Electron では main へ渡し、それ以外は FileService で上限付き保存する。 */
 export class PreviewDiagnosticsLog {
     protected text: string | undefined;
     protected uri: string | undefined;
@@ -100,6 +100,10 @@ export class PreviewDiagnosticsLog {
                 this.io.warn('[akari-preview] 診断ログの保存先を解決できませんでした', error);
                 return;
             }
+        }
+        if (this.io.appendLines) {
+            await this.io.appendLines(this.pending.splice(0, this.pending.length));
+            return;
         }
         if (this.text === undefined) {
             let existing: string | undefined;

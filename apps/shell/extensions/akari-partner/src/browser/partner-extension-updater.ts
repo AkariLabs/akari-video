@@ -11,7 +11,7 @@ import { decideExtensionUpdate, ExtensionFreshnessReason, formatExtensionUpdateN
 import { PARTNER_CATALOG, PartnerExtensionCatalogEntry } from './partner-catalog';
 
 export interface ExtensionUpdateOutcome {
-    kind: 'up-to-date' | 'updated' | 'skipped' | 'failed';
+    kind: 'up-to-date' | 'available' | 'updated' | 'skipped' | 'failed';
     reason: ExtensionFreshnessReason | 'install-failed' | 'uninstall-failed';
     installedVersion?: string;
     latestVersion?: string;
@@ -56,6 +56,45 @@ export class PartnerExtensionUpdater {
     }
 
     protected async updateExtension(entry: PartnerExtensionCatalogEntry, progress?: (status: string, detail: string) => void): Promise<ExtensionUpdateOutcome> {
+        const availability = await this.checkAvailability(entry);
+        if (availability.kind !== 'available') return availability;
+        const installed = availability.installedVersion!;
+        const latest = availability.latestVersion!;
+        const versions = { installedVersion: installed, latestVersion: latest };
+        try {
+            progress?.('拡張を更新しています…', `${installed} → ${latest}`);
+            await this.pluginServer.install(VSCodeExtensionUri.fromId(entry.extensionId).toString());
+            const newId = PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: latest });
+            let deployed = false;
+            for (let attempt = 0; attempt < 40; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                // HostedPluginServerImpl.isInstalledPlugin は id をセッション開始時の版にピン留めするため、
+                // getDeployedPluginIds() には同一セッション中の新版が現れない（実測 2026-09-05）。
+                // 実際の配備を反映する getInstalledPlugins() で新版を確認する。
+                if ((await this.pluginServer.getInstalledPlugins()).includes(newId)) {
+                    deployed = true;
+                    break;
+                }
+            }
+            if (!deployed) {
+                return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備を確認できませんでした' };
+            }
+        } catch {
+            return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備に失敗しました' };
+        }
+        let reason: ExtensionUpdateOutcome['reason'] = 'newer-available';
+        let detail = formatExtensionUpdateNotice(entry.name, installed, latest);
+        try {
+            await this.pluginServer.uninstall(PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: installed }));
+        } catch {
+            reason = 'uninstall-failed';
+            detail += '。旧版の撤去に失敗しました（次回起動では新版が優先されます）';
+        }
+        console.info('[akari-partner] extension updated', { id: entry.extensionId, from: installed, to: latest });
+        return { ...versions, kind: 'updated', reason, needsReload: true, detail };
+    }
+
+    protected async checkAvailability(entry: PartnerExtensionCatalogEntry): Promise<ExtensionUpdateOutcome> {
         let ext;
         try {
             ext = await this.extensionsModel.resolve(entry.extensionId);
@@ -89,37 +128,8 @@ export class PartnerExtensionUpdater {
             return { ...versions, kind: decision.reason === 'up-to-date' ? 'up-to-date' : 'skipped',
                 reason: decision.reason, needsReload: false, detail: details[decision.reason] };
         }
-        try {
-            progress?.('拡張を更新しています…', `${installed} → ${latest}`);
-            await this.pluginServer.install(VSCodeExtensionUri.fromId(entry.extensionId).toString());
-            const newId = PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: latest! });
-            let deployed = false;
-            for (let attempt = 0; attempt < 40; attempt++) {
-                await new Promise(resolve => setTimeout(resolve, 250));
-                // HostedPluginServerImpl.isInstalledPlugin は id をセッション開始時の版にピン留めするため、
-                // getDeployedPluginIds() には同一セッション中の新版が現れない（実測 2026-09-05）。
-                // 実際の配備を反映する getInstalledPlugins() で新版を確認する。
-                if ((await this.pluginServer.getInstalledPlugins()).includes(newId)) {
-                    deployed = true;
-                    break;
-                }
-            }
-            if (!deployed) {
-                return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備を確認できませんでした' };
-            }
-        } catch {
-            return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備に失敗しました' };
-        }
-        let reason: ExtensionUpdateOutcome['reason'] = 'newer-available';
-        let detail = formatExtensionUpdateNotice(entry.name, installed!, latest!);
-        try {
-            await this.pluginServer.uninstall(PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: installed! }));
-        } catch {
-            reason = 'uninstall-failed';
-            detail += '。旧版の撤去に失敗しました（次回起動では新版が優先されます）';
-        }
-        console.info('[akari-partner] extension updated', { id: entry.extensionId, from: installed, to: latest });
-        return { ...versions, kind: 'updated', reason, needsReload: true, detail };
+        return { ...versions, kind: 'available', reason: 'newer-available', needsReload: false,
+            detail: formatExtensionUpdateNotice(entry.name, installed!, latest!) };
     }
 
     checkOnStartup(): Promise<void> {
@@ -139,22 +149,31 @@ export class PartnerExtensionUpdater {
             return;
         }
         if (enabled !== true) return;
-        const notices: string[] = [];
+        const available: Array<{ entry: PartnerExtensionCatalogEntry; latestVersion: string }> = [];
         for (const entry of PARTNER_CATALOG) {
             if (entry.form !== 'extension') {
                 continue;
             }
-            const outcome = await this.checkAndUpdate(entry);
-            if (outcome.kind === 'updated') {
-                notices.push(formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!));
+            const outcome = await this.checkAvailability(entry);
+            if (outcome.kind === 'available') {
+                available.push({ entry, latestVersion: outcome.latestVersion! });
             } else if (outcome.kind === 'failed' || outcome.reason === 'registry-unavailable') {
                 console.warn('[akari-partner] extension freshness check skipped:', entry.extensionId, outcome.detail);
             }
         }
-        if (notices.length) {
-            const choice = await this.messageService.info(notices.join('\n'), '今すぐ再読み込み', '後で');
-            if (choice === '今すぐ再読み込み') {
-                this.windowService.reload();
+        if (available.length) {
+            const notices = available.map(({ entry, latestVersion }) => `${entry.name} の新しい版 ${latestVersion} があります`);
+            const choice = await this.messageService.info(notices.join('\n'), '今すぐ更新', '後で');
+            if (choice === '今すぐ更新') {
+                const updated: string[] = [];
+                for (const { entry } of available) {
+                    const outcome = await this.checkAndUpdate(entry);
+                    if (outcome.kind === 'updated') updated.push(outcome.detail);
+                }
+                if (updated.length) {
+                    const reload = await this.messageService.info(updated.join('\n'), '今すぐ再読み込み', '後で');
+                    if (reload === '今すぐ再読み込み') this.windowService.reload();
+                }
             }
         }
     }
