@@ -86,6 +86,7 @@ globalThis.akariHandleGeometry = (() => {
         && (!coefficients || Math.abs(coefficients[previous.sourceIndex]) > 1e-9)
         && (!options.centerPriority?.[axis] || previous.sourceIndex === 1)) {
         const kept = targets.find(target => target.kind === previous.kind
+          && (!options.resizeEdgesOnly || target.targetIndex !== 1)
           && Math.abs(target.value - previous.target) <= 1e-6
           && !startedOnTarget(previous.sourceIndex, target));
         const correction = previous.target - own[previous.sourceIndex];
@@ -98,6 +99,7 @@ globalThis.akariHandleGeometry = (() => {
       const candidates = [];
       own.forEach((source, sourceIndex) => targets.forEach(target => {
         if (coefficients && !(Math.abs(coefficients[sourceIndex]) > 1e-9)) return;
+        if (options.resizeEdgesOnly && target.targetIndex === 1) return;
         if (startedOnTarget(sourceIndex, target)) return;
         if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)
           && !(options.centerToItemEdges && CENTER_EDGE_PAIRS.has(sourceIndex + ':' + target.targetIndex))) return;
@@ -146,7 +148,7 @@ globalThis.akariHandleGeometry = (() => {
   // at(s) supplies the visible bounds at scale s. Each edge and centre must be affine
   // in s; this also covers a rotated rectangle while its rotation stays fixed.
   function snapScale({ scale, at, others = [], canvas, displayScale = 1, tolerance = 6,
-    previous = null, initialBounds = null, options = {}, clamp = value => value }) {
+    previous = null, initialBounds = null, movingEdges = null, options = {}, clamp = value => value }) {
     if (!Number.isFinite(scale) || typeof at !== 'function') return null;
     const bounds = at(scale);
     const next = at(scale + 1);
@@ -154,10 +156,14 @@ globalThis.akariHandleGeometry = (() => {
     const coefficients = {};
     for (const [axis, first, last] of [['x', 'left', 'right'], ['y', 'top', 'bottom']]) {
       const a = next[first] - bounds[first], b = next[last] - bounds[last];
-      coefficients[axis] = [a, (a + b) / 2, b];
+      // Resize snaps the dragged edge only. The centre travels at half its speed,
+      // making a 6px magnet feel much wider; the opposite edge may be stationary.
+      const edge = movingEdges?.[axis] ?? (Math.abs(a) > Math.abs(b) ? 0 : 2);
+      coefficients[axis] = edge === 0 ? [a, 0, 0] : [0, 0, b];
     }
     const snaps = snapBounds(bounds, others, canvas, displayScale, tolerance,
-      { ...options, previous, initialBounds, sourceCoefficients: coefficients });
+      { ...options, previous, initialBounds, sourceCoefficients: coefficients,
+        resizeEdgesOnly: true, edgeTolerance: tolerance });
     const choices = ['x', 'y'].flatMap(axis => {
       const snap = snaps[axis];
       if (!snap) return [];

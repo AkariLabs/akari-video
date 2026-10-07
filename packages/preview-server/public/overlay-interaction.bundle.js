@@ -2061,6 +2061,7 @@
       previous = null,
       movingItem = null,
       initialBounds = null,
+      movingEdges = null,
       clamp = (value) => value
     }) {
       const solved = globalThis.akariHandleGeometry?.snapScale({
@@ -2071,6 +2072,7 @@
         displayScale: currentDisplayScale(),
         previous,
         initialBounds,
+        movingEdges,
         clamp
       });
       showSnapGuides(solved?.snapX, solved?.snapY);
@@ -2801,6 +2803,10 @@
         previous: { x: snapX, y: snapY },
         movingItem,
         initialBounds: base,
+        movingEdges: {
+          x: draggedStageX < anchorStageX ? 0 : 2,
+          y: draggedStageY < anchorStageY ? 0 : 2
+        },
         clamp: clampScale
       });
     }
@@ -2888,6 +2894,7 @@
         movingItem: { kind: "shape", id: resize.overlayId },
         previous: { x: resize.snapX, y: resize.snapY },
         initialBounds: resize.startBounds,
+        movingEdges: axis === "x" ? { x: resize.edge === "w" ? 0 : 2 } : { y: resize.edge === "n" ? 0 : 2 },
         clamp: clampScale
       });
       resize.snapX = solved?.snapX ?? null;
@@ -2976,6 +2983,10 @@
             previous: { x: resize.snapX, y: resize.snapY },
             movingItem,
             initialBounds: resize.startBounds,
+            movingEdges: {
+              x: resize.corner?.includes("w") ? 0 : 2,
+              y: resize.corner?.includes("n") ? 0 : 2
+            },
             clamp: clampScale
           }) : computeAnchorResizeSnap({
             anchorStageX: resize.anchorStageX,
