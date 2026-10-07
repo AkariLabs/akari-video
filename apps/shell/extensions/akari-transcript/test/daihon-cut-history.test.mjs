@@ -145,11 +145,33 @@ test('同期映像がない区間のカット拒否理由を台本と範囲修�
   await run.widget.applyCutEntries([{ rowId: row.id,
     range: { in: 0.2, out: 0.6, kind: 'row', captionId: 'mic', label: '行' } }], '行をカット');
   assert.match(run.notifications.at(-1), warning);
+  run.notifications.length = 0;
+  await run.widget.applyCutEntries([
+    { rowId: row.id, range: { in: 1.2, out: 1.6, kind: 'row', captionId: 'mic', label: '行' } },
+    { rowId: row.id, range: { in: 0.2, out: 0.6, kind: 'row', captionId: 'mic', label: '行' } }
+  ], '選択行をカット');
+  assert.equal(run.toasts.at(-1), '1 件をカットしました');
+  assert.deepEqual(run.notifications, ['1 箇所は切りませんでした（同期した映像がこの区間にないため）']);
   run.widget.annotationsService.restoreCutRange = async () => ({ restored: true });
   await run.widget.applyCutRangeEditor({ ...row, src: 'mic' },
     { kind: 'silence', gap: { start: 0.2, end: 0.6 } }, { from: 0.2, to: 0.6 },
     { range: { in: 1, out: 2, captionId: 'mic' } });
   assert.match(run.notifications.at(-1), warning);
+
+  const edge = harness(grouped);
+  edge.widget.rows = [{ ...row, src: 'mic' }];
+  await edge.widget.applyCutEntries([{ rowId: row.id,
+    range: { in: 0.6, out: 1.5, kind: 'row', captionId: 'mic', label: '行' } }], '行をカット');
+  assert.deepEqual(edge.notifications, ['映像のある部分だけ切りました']);
+});
+
+test('組なしの複数カットでは部分カットの通知を出さない', async () => {
+  const run = harness();
+  await run.widget.applyCutEntries([
+    { rowId: row.id, range: { in: 1.001, out: 1.201, kind: 'filler', captionId: 'main' } },
+    { rowId: row.id, range: { in: 2.001, out: 2.201, kind: 'filler', captionId: 'main' } }
+  ], '複数カット');
+  assert.deepEqual(run.notifications, []);
 });
 
 test('トーストの取り消すは履歴に別の操作が積まれると消える', () => {

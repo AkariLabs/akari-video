@@ -47,12 +47,12 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
     protected state: DaihonCutReview = initialDaihonCutReview();
     protected candidates: DaihonCutCandidate[];
     protected busy = false;
-    protected appliedSummary?: { changed: boolean; count: number; seconds: number; refused: number; partial: boolean };
+    protected appliedSummary?: { changed: boolean; count: number; seconds: number; refused: number; refusal?: string; partial: boolean };
 
     constructor(candidates: DaihonCutCandidate[], protected readonly context: (candidate: DaihonCutCandidate) => string[],
         protected readonly preview: (candidate: DaihonCutCandidate, cut: boolean) => void,
         protected readonly apply: (selected: DaihonCutCandidate[]) => Promise<boolean | {
-            changed: boolean; count: number; seconds: number; refused: number; partial: boolean }>,
+            changed: boolean; count: number; seconds: number; refused: number; refusal?: string; partial: boolean }>,
         protected readonly undo: () => Promise<void>,
         protected readonly updateSilence: (min: number, keep: number) => Promise<DaihonCutCandidate[]>,
         protected minGapSec: number, protected keepSec: number, candidateId?: string,
@@ -219,7 +219,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             });
             this.notice.textContent = this.state.step === 2 ? ''
                 : this.appliedSummary?.refused
-                    ? `${this.appliedSummary.refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`
+                    ? `${this.appliedSummary.refused} 箇所は切りませんでした（${this.appliedSummary.refusal ?? '理由を確認してください'}）`
                     : '変更はありませんでした。';
         } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); }
         finally { this.busy = false; this.render(); }
@@ -232,7 +232,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         const count = this.appliedSummary?.count ?? selected.length;
         this.body.append(element('h3', `${count} 箇所を切りました`));
         if (this.appliedSummary?.refused) this.body.append(element('p',
-            `${this.appliedSummary.refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`));
+            `${this.appliedSummary.refused} 箇所は切りませんでした（${this.appliedSummary.refusal ?? '理由を確認してください'}）`));
         if (this.appliedSummary?.partial) this.body.append(element('p', '映像のある部分だけ切りました'));
         const metrics = element('div'); metrics.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0';
         for (const [value, label] of [[String(count), '切った箇所'], [`${seconds.toFixed(1)} 秒`, '短くなった秒'],

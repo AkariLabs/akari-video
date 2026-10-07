@@ -20095,8 +20095,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         document.querySelector('[data-akari-sync-video-dialog]')?.remove();
         const popup = document.createElement('div');
         popup.setAttribute('data-akari-sync-video-dialog', '');
-        Object.assign(popup.style, { position: 'fixed', zIndex: '100000', left: `${Math.min(x, window.innerWidth - 280)}px`,
-            top: `${Math.min(y, window.innerHeight - 150)}px`, width: '260px', padding: '10px',
+        Object.assign(popup.style, { position: 'fixed', zIndex: '100000', left: '0px',
+            top: '0px', width: '260px', maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)',
+            boxSizing: 'border-box', overflowY: 'auto', padding: '10px',
             background: 'var(--theia-editor-background)', border: '1px solid var(--theia-widget-border)',
             borderRadius: '6px', boxShadow: '0 8px 24px #0008' });
         const title = document.createElement('div'); title.textContent = '一緒に切る映像'; popup.append(title);
@@ -20116,6 +20117,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const cancel = document.createElement('button'); cancel.className = 'theia-button';
         cancel.textContent = '取り消し'; cancel.style.marginLeft = '8px'; popup.append(cancel);
         document.body.append(popup);
+        const bounds = popup.getBoundingClientRect();
+        popup.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`;
+        popup.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`;
         cancel.onclick = () => popup.remove();
         button.onclick = () => {
             const videoSource = select.value || undefined;

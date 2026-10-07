@@ -16486,28 +16486,32 @@ ${indent}`);
           return { source, removedFrames: 0, warnings: [] };
         const edit = version === 2 ? JSON.parse(source) : void 0;
         if (edit && normalized.some((range) => syncGroupForRange(edit, range))) {
-          const batch = applySimpleSyncBatch(edit, ranges, opts);
-          if (batch)
-            return batch;
-          let current = source;
+          (0, edit_v2_1.readEditV2)(edit);
+          let current = edit;
           let removedFrames = 0;
           const warnings2 = [];
           for (const range of ranges) {
-            const group = syncGroupForRange(JSON.parse(current), range);
+            const group = syncGroupForRange(current, range);
             let result;
             try {
-              result = group ? applySyncGroupCut(current, range, group, opts) : applyV2(current, [range], opts);
+              result = group ? applySyncGroupCutEdit(current, range, group, opts, false) : applyV2Edit(current, [range], opts, [], void 0, false, false);
             } catch (error) {
               if (!group)
                 throw error;
               warnings2.push(`\u540C\u671F\u3057\u305F\u7D20\u6750\u3092\u5207\u308C\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u914D\u7F6E\u3068\u30AB\u30C3\u30C8\u7BC4\u56F2\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
               continue;
             }
-            current = result.source;
+            current = result.edit;
             removedFrames += result.removedFrames;
             warnings2.push(...result.warnings);
           }
-          return { source: current, removedFrames, warnings: warnings2 };
+          (0, edit_v2_1.readEditV2)(current);
+          return {
+            source: current === edit ? source : `${JSON.stringify(current, null, 2)}
+`,
+            removedFrames,
+            warnings: warnings2
+          };
         }
         if (version === 2 && ranges.length > 1 && hasLinkedAudioOverhang(source) && ranges.every((range, index) => ranges.slice(index + 1).every((other) => range.captionId !== other.captionId || range.out <= other.in || other.out <= range.in))) {
           let current = source;
@@ -16523,101 +16527,51 @@ ${indent}`);
         }
         return version === 2 ? applyV2(source, normalized, opts) : applyLegacy(source, normalized, opts);
       }
-      function applySimpleSyncBatch(edit, ranges, opts) {
-        if (ranges.length < 32 || edit.tracks.length !== 2 || edit.sync_groups?.length !== 1)
-          return void 0;
-        const visual = visualTracks(edit)[0];
-        const audio = audioTracks(edit)[0];
-        const group = edit.sync_groups[0];
-        if (!visual || !audio || group.members.length !== 2 || visual.items.length !== audio.items.length || !visual.items.length || ranges.some((range) => range.captionId !== audio.items[0].source.src))
-          return void 0;
-        const fps = requireFps(opts.fps ?? edit.output.fps);
-        const simple = (item) => item.source.kind === "media" && item.source.in !== void 0 && item.source.out !== void 0 && !item.cut_edge && !("link" in item && item.link) && splitRootId(item.id) === item.id && Math.abs((item.source.out - item.source.in) * fps - item.duration) < 0.01;
-        for (let index = 0; index < visual.items.length; index++) {
-          const v2 = visual.items[index];
-          const a = audio.items[index];
-          if (!media(v2) || !simple(v2) || !simple(a) || a.role !== "speech" || v2.source.src !== group.members[0].source && v2.source.src !== group.members[1].source || a.source.src === v2.source.src || v2.at !== a.at || v2.duration !== a.duration || index > 0 && v2.at !== visual.items[index - 1].at + visual.items[index - 1].duration)
-            return void 0;
-        }
-        const cuts = [];
-        for (const range of ranges) {
-          const item = audio.items.find((candidate) => range.in >= candidate.source.in - SOURCE_TOLERANCE && range.out <= candidate.source.out + SOURCE_TOLERANCE);
-          if (!item || !(range.out > range.in))
-            return void 0;
-          const start = item.at + Math.round((range.in - item.source.in) * fps);
-          const end = item.at + Math.round((range.out - item.source.in) * fps);
-          if (end <= start || start < item.at || end > item.at + item.duration)
-            return void 0;
-          cuts.push({ start, end, range });
-        }
-        cuts.sort((left, right) => left.start - right.start);
-        if (cuts.some((cut, index) => index > 0 && cut.start < cuts[index - 1].end))
-          return void 0;
-        (0, edit_v2_1.readEditV2)(edit);
-        const next = structuredClone(edit);
-        const split = (items) => {
-          const output = [];
-          let cutIndex = 0;
-          let removed = 0;
-          for (const item of items) {
-            const firstPiece = output.length;
-            const itemEnd = item.at + item.duration;
-            while (cutIndex < cuts.length && cuts[cutIndex].end <= item.at) {
-              removed += cuts[cutIndex].end - cuts[cutIndex].start;
-              cutIndex++;
-            }
-            const itemAt = item.at - removed;
-            let cursor = item.at;
-            let local = cutIndex;
-            while (local < cuts.length && cuts[local].start < itemEnd) {
-              const cut = cuts[local];
-              if (cursor < cut.start) {
-                const piece = structuredClone(item);
-                piece.id = output.some((other) => splitRootId(other.id) === item.id) ? `${item.id}-split-${output.length}` : item.id;
-                piece.at = cursor - removed;
-                piece.duration = cut.start - cursor;
-                piece.source.in = item.source.in + (cursor - item.at) / fps;
-                piece.source.out = item.source.in + (cut.start - item.at) / fps;
-                piece.cut_edge = { in: item.source.in, out: item.source.out, at: itemAt };
-                copyRangeMetadata(piece, cut.range);
-                output.push(piece);
-              }
-              removed += cut.end - cut.start;
-              cursor = cut.end;
-              local++;
-            }
-            if (cursor < itemEnd) {
-              const piece = structuredClone(item);
-              piece.id = output.some((other) => splitRootId(other.id) === item.id) ? `${item.id}-split-${output.length}` : item.id;
-              piece.at = cursor - removed;
-              piece.duration = itemEnd - cursor;
-              piece.source.in = item.source.in + (cursor - item.at) / fps;
-              piece.source.out = item.source.out;
-              if (cursor > item.at) {
-                piece.cut_edge = { in: item.source.in, out: item.source.out, at: itemAt };
-                copyRangeMetadata(piece, cuts[local - 1].range);
-              }
-              output.push(piece);
-            }
-            cutIndex = local;
-            if (output.length - firstPiece > 1)
-              for (const piece of output.slice(firstPiece))
-                delete piece.cut_edge;
-          }
-          return output;
-        };
-        visualTracks(next)[0].items = split(visual.items);
-        audioTracks(next)[0].items = split(audio.items);
-        (0, edit_v2_1.readEditV2)(next);
-        return {
-          source: `${JSON.stringify(next, null, 2)}
-`,
-          removedFrames: cuts.reduce((sum, cut) => sum + cut.end - cut.start, 0),
-          warnings: []
-        };
-      }
       function syncGroupForRange(edit, range) {
         return edit.sync_groups?.find((group) => group.members.some((member) => member.source === range.captionId));
+      }
+      function coveredFrames(ranges) {
+        const ordered = [...ranges].sort((left, right) => left.start - right.start);
+        let end = -Infinity, count = 0;
+        for (const range of ordered) {
+          count += Math.max(0, range.end - Math.max(range.start, end));
+          end = Math.max(end, range.end);
+        }
+        return count;
+      }
+      function sourceFamilyIndex(items) {
+        const byRoot = /* @__PURE__ */ new Map();
+        for (const item of items) {
+          const root = splitRootId(item.id);
+          const family = byRoot.get(root);
+          if (family)
+            family.push(item);
+          else
+            byRoot.set(root, [item]);
+        }
+        return byRoot;
+      }
+      function firstSourceEndAfter(items, boundary) {
+        let low = 0, high = items.length;
+        while (low < high) {
+          const middle = low + high >>> 1;
+          if (items[middle].source.out <= boundary)
+            low = middle + 1;
+          else
+            high = middle;
+        }
+        return low;
+      }
+      function firstSourceStartAtLeast(items, boundary) {
+        let low = 0, high = items.length;
+        while (low < high) {
+          const middle = low + high >>> 1;
+          if (items[middle].source.in < boundary)
+            low = middle + 1;
+          else
+            high = middle;
+        }
+        return low;
       }
       function syncOutputRanges(edit, range) {
         const visual = visualTracks(edit).flatMap((track) => track.items.filter(media)).filter((item) => item.source.src === range.captionId);
@@ -16633,16 +16587,38 @@ ${indent}`);
           return last > first ? [{ start: first, end: last }] : [];
         });
       }
-      function syncVisualShift(before, after, group, audio) {
+      function syncVisualShift(before, after, group, audio, cached) {
         const members = new Set(group.members.map((member) => member.source));
-        const beforeVisual = visualTracks(before).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
-        const afterVisual = visualTracks(after).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
+        const beforeVisual = cached?.before ?? visualTracks(before).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
+        const afterVisual = cached?.after ?? visualTracks(after).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
         for (const frame of [audio.at, audio.at + Math.floor(audio.duration / 2), audio.at + audio.duration - 1]) {
-          const visual = beforeVisual.find((item) => frame >= item.at && frame < item.at + item.duration);
+          let visual;
+          if (cached?.orderedBefore) {
+            let low = 0, high = beforeVisual.length;
+            while (low < high) {
+              const middle = low + high >>> 1;
+              if (beforeVisual[middle].at + beforeVisual[middle].duration <= frame)
+                low = middle + 1;
+              else
+                high = middle;
+            }
+            const candidate = beforeVisual[low];
+            if (candidate && frame >= candidate.at && frame < candidate.at + candidate.duration)
+              visual = candidate;
+          } else
+            visual = beforeVisual.find((item) => frame >= item.at && frame < item.at + item.duration);
           if (!visual)
             continue;
           const sourceTime = visual.source.in + (frame + 0.5 - visual.at) / visual.duration * (visual.source.out - visual.source.in);
-          const moved = afterVisual.find((item) => item.source.src === visual.source.src && sourceTime >= item.source.in - SOURCE_TOLERANCE && sourceTime < item.source.out - SOURCE_TOLERANCE);
+          let moved;
+          const sourceFamily = cached?.afterBySource.get(visual.source.src);
+          if (sourceFamily && cached?.orderedAfter.get(visual.source.src)) {
+            const first = firstSourceEndAfter(sourceFamily, sourceTime + SOURCE_TOLERANCE);
+            const candidate = sourceFamily[first];
+            if (candidate && sourceTime >= candidate.source.in - SOURCE_TOLERANCE && sourceTime < candidate.source.out - SOURCE_TOLERANCE)
+              moved = candidate;
+          } else
+            moved = afterVisual.find((item) => item.source.src === visual.source.src && sourceTime >= item.source.in - SOURCE_TOLERANCE && sourceTime < item.source.out - SOURCE_TOLERANCE);
           if (moved)
             return Math.round(moved.at + (sourceTime - moved.source.in) / (moved.source.out - moved.source.in) * moved.duration - frame - 0.5);
         }
@@ -16660,6 +16636,15 @@ ${indent}`);
       function applySyncGroupCut(source, range, group, opts) {
         const original = JSON.parse(source);
         (0, edit_v2_1.readEditV2)(original);
+        const result = applySyncGroupCutEdit(original, range, group, opts);
+        return {
+          source: result.edit === original ? source : `${JSON.stringify(result.edit, null, 2)}
+`,
+          removedFrames: result.removedFrames,
+          warnings: result.warnings
+        };
+      }
+      function applySyncGroupCutEdit(original, range, group, opts, validate = true) {
         const gapTrackIds = new Set(visualTracks(original).filter((track) => {
           const items = track.items.filter(media);
           return items.some((item) => group.members.some((member) => member.source === item.source.src)) && (items[0]?.at > 0 || items.some((item, index) => index > 0 && item.at > items[index - 1].at + items[index - 1].duration));
@@ -16686,26 +16671,47 @@ ${indent}`);
         })));
         if (!targets.length)
           return {
-            source,
+            edit: original,
             removedFrames: 0,
             warnings: ["\u540C\u671F\u3057\u305F\u6620\u50CF\u304C\u3053\u306E\u533A\u9593\u306B\u306A\u3044\u305F\u3081\u3001\u30AB\u30C3\u30C8\u3057\u307E\u305B\u3093\u3067\u3057\u305F\u3002"]
           };
-        let current = source;
+        const partial = coveredFrames(targets) + 1 < coveredFrames(outputRanges);
+        let current = original;
         let removedFrames = 0;
         let matched = false;
         for (const target of targets) {
-          const before = JSON.parse(current);
+          const before = current;
           if (!visualTracks(before).some((track) => track.items.some((item) => media(item) && item.source.src === target.captionId && item.source.in < target.out && item.source.out > target.in)))
             continue;
           const preserveGaps = new Map(visualTracks(before).flatMap((track) => [...precedingTrackGaps(track, Infinity)]));
-          const result = applyV2(current, [target], opts, preserveLeadingGapTrackIds, preserveGaps, true);
-          const after = JSON.parse(result.source);
+          const result = applyV2Edit(current, [target], opts, preserveLeadingGapTrackIds, preserveGaps, true, validate);
+          const after = result.edit;
           for (const track of visualTracks(after)) {
             const previous = visualTracks(before).find((candidate) => candidate.id === track.id);
             if (!previous)
               continue;
-            for (const item of previous.items.filter(media)) {
-              const family = track.items.filter((candidate) => media(candidate) && splitRootId(candidate.id) === splitRootId(item.id) && candidate.source.in >= item.source.in - audioFrameTolerance(item) && candidate.source.out <= item.source.out + audioFrameTolerance(item));
+            const oldItems = previous.items.filter(media);
+            const newItems = track.items.filter(media);
+            const oldByRoot = sourceFamilyIndex(oldItems);
+            const newByRoot = sourceFamilyIndex(newItems);
+            const ordered = (family) => family.every((item, index) => index === 0 || item.source.in >= family[index - 1].source.out - SOURCE_TOLERANCE);
+            const sortedNew = new Map([...newByRoot].map(([root, family]) => [
+              root,
+              family.every((item, index) => index === 0 || item.source.in >= family[index - 1].source.in)
+            ]));
+            for (const item of oldItems) {
+              const root = splitRootId(item.id);
+              const candidates = newByRoot.get(root) ?? [];
+              const tolerance = audioFrameTolerance(item);
+              const start = sortedNew.get(root) ? firstSourceStartAtLeast(candidates, item.source.in - tolerance) : 0;
+              const family = [];
+              for (let index = start; index < candidates.length; index++) {
+                const candidate = candidates[index];
+                if (sortedNew.get(root) && candidate.source.in > item.source.out + tolerance)
+                  break;
+                if (candidate.source.in >= item.source.in - tolerance && candidate.source.out <= item.source.out + tolerance)
+                  family.push(candidate);
+              }
               for (const piece of family) {
                 if (near(piece.source.in, item.source.in))
                   piece.source.in = item.source.in;
@@ -16752,9 +16758,18 @@ ${indent}`);
                   };
               }
             }
-            const oldItems = previous.items.filter(media);
-            const newItems = track.items.filter(media);
-            const originIndex = (piece) => oldItems.findIndex((item) => splitRootId(item.id) === splitRootId(piece.id) && Math.min(item.source.out, piece.source.out) - Math.max(item.source.in, piece.source.in) > SOURCE_TOLERANCE);
+            const oldIndex = new Map(oldItems.map((item, index) => [item, index]));
+            const orderedOld = new Map([...oldByRoot].map(([root, family]) => [root, ordered(family)]));
+            const originIndex = (piece) => {
+              const root = splitRootId(piece.id);
+              const candidates = oldByRoot.get(root) ?? [];
+              if (orderedOld.get(root)) {
+                const first = firstSourceEndAfter(candidates, piece.source.in + SOURCE_TOLERANCE);
+                const item = candidates[first];
+                return item && Math.min(item.source.out, piece.source.out) - Math.max(item.source.in, piece.source.in) > SOURCE_TOLERANCE ? oldIndex.get(item) : -1;
+              }
+              return oldItems.findIndex((item) => splitRootId(item.id) === root && Math.min(item.source.out, piece.source.out) - Math.max(item.source.in, piece.source.in) > SOURCE_TOLERANCE);
+            };
             let prior;
             let priorIndex = -1;
             for (const piece of newItems) {
@@ -16775,12 +16790,11 @@ ${indent}`);
               priorIndex = index;
             }
           }
-          current = `${JSON.stringify(after, null, 2)}
-`;
+          current = after;
           removedFrames = Math.max(removedFrames, result.removedFrames);
           matched ||= result.removedFrames > 0;
         }
-        const edit = JSON.parse(current);
+        const edit = current;
         const cutFrames = targets.map((target) => ({ start: target.start, end: target.end })).sort((left, right) => left.start - right.start).reduce((merged, frame) => {
           const last = merged[merged.length - 1];
           if (last && frame.start <= last.end)
@@ -16796,6 +16810,26 @@ ${indent}`);
           if ("items" in candidateTrack)
             for (const candidate of candidateTrack.items)
               collectIds(candidate, audioIds);
+        const beforeVisual = visualTracks(original).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
+        const afterVisual = visualTracks(edit).flatMap((track) => track.items.filter(media)).filter((item) => members.has(item.source.src));
+        const afterBySource = /* @__PURE__ */ new Map();
+        for (const item of afterVisual) {
+          const family = afterBySource.get(item.source.src);
+          if (family)
+            family.push(item);
+          else
+            afterBySource.set(item.source.src, [item]);
+        }
+        const visualIndex = {
+          before: beforeVisual,
+          after: afterVisual,
+          orderedBefore: beforeVisual.every((item, index) => index === 0 || item.at >= beforeVisual[index - 1].at + beforeVisual[index - 1].duration),
+          afterBySource,
+          orderedAfter: new Map([...afterBySource].map(([source, family]) => [
+            source,
+            family.every((item, index) => index === 0 || item.source.in >= family[index - 1].source.out - SOURCE_TOLERANCE)
+          ]))
+        };
         for (const target of group.members)
           for (const track of audioTracks(edit)) {
             const next = [];
@@ -16838,7 +16872,7 @@ ${indent}`);
                 });
               }
               for (const piece of pieces) {
-                const shift = syncVisualShift(original, edit, group, piece);
+                const shift = syncVisualShift(original, edit, group, piece, visualIndex);
                 if (shift !== void 0) {
                   piece.at += shift;
                   if (piece.cut_edge && !wasCut)
@@ -16885,13 +16919,13 @@ ${indent}`);
           }
         if (!matched)
           return {
-            source,
+            edit: original,
             removedFrames: 0,
-            warnings: [`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`]
+            warnings: ["\u540C\u671F\u3057\u305F\u6620\u50CF\u304C\u3053\u306E\u533A\u9593\u306B\u306A\u3044\u305F\u3081\u3001\u30AB\u30C3\u30C8\u3057\u307E\u305B\u3093\u3067\u3057\u305F\u3002"]
           };
-        (0, edit_v2_1.readEditV2)(edit);
-        return { source: `${JSON.stringify(edit, null, 2)}
-`, removedFrames, warnings: [] };
+        if (validate)
+          (0, edit_v2_1.readEditV2)(edit);
+        return { edit, removedFrames, warnings: partial ? ["\u6620\u50CF\u306E\u3042\u308B\u90E8\u5206\u3060\u3051\u5207\u308A\u307E\u3057\u305F\u3002"] : [] };
       }
       function hasLinkedAudioOverhang(source) {
         const edit = JSON.parse(source);
@@ -16952,9 +16986,19 @@ ${indent}`);
       }
       function applyV2(source, ranges, opts, preserveLeadingGapTrackIds = [], preserveGapBeforeItems, forceSourceEdges = false) {
         const raw = JSON.parse(source);
-        const validated = (0, edit_v2_1.readEditV2)(raw);
-        requireFps(opts.fps ?? validated.output.fps);
-        const edit = JSON.parse(JSON.stringify(raw));
+        const result = applyV2Edit(raw, ranges, opts, preserveLeadingGapTrackIds, preserveGapBeforeItems, forceSourceEdges);
+        return {
+          source: `${JSON.stringify(result.edit, null, 2)}
+`,
+          removedFrames: result.removedFrames,
+          warnings: result.warnings
+        };
+      }
+      function applyV2Edit(raw, ranges, opts, preserveLeadingGapTrackIds = [], preserveGapBeforeItems, forceSourceEdges = false, validate = true) {
+        if (validate)
+          (0, edit_v2_1.readEditV2)(raw);
+        requireFps(opts.fps ?? raw.output.fps);
+        const edit = structuredClone(raw);
         const warnings2 = [];
         const affectedTrackIds = /* @__PURE__ */ new Set();
         const preserveSourceEdges = forceSourceEdges || audioTracks(edit).some((track) => track.items.some((item) => item.link));
@@ -17098,9 +17142,9 @@ ${indent}`);
               item.at = Math.max(0, item.at + visual.at - previousVisual.get(item.link));
           }
         refreshCutEdges(compacted);
-        (0, edit_v2_1.readEditV2)(compacted);
-        return { source: `${JSON.stringify(compacted, null, 2)}
-`, removedFrames, warnings: warnings2 };
+        if (validate)
+          (0, edit_v2_1.readEditV2)(compacted);
+        return { edit: compacted, removedFrames, warnings: warnings2 };
       }
       var RESTORE_UNAVAILABLE = "\u3053\u306E\u7B87\u6240\u306E\u3042\u3068\u306B\u7DE8\u96C6\u304C\u3042\u308B\u305F\u3081\u623B\u305B\u307E\u305B\u3093\u3002\u2318Z \u306E\u5C65\u6B74\u304B\u3089\u623B\u305B\u307E\u3059\u3002";
       var RESTORE_LEGACY = "\u53E4\u3044\u5F62\u5F0F\u306E\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u305F\u3081\u623B\u305B\u307E\u305B\u3093\u3002\u2318Z \u306E\u5C65\u6B74\u304B\u3089\u623B\u305B\u307E\u3059\u3002";

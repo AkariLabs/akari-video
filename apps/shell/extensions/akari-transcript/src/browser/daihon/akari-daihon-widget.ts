@@ -2835,8 +2835,6 @@ export class AkariDaihonWidget extends BaseWidget {
             menu.appendChild(button);
         }
         document.body.appendChild(menu);
-        const menuHeight = menu.getBoundingClientRect?.().height || menu.offsetHeight || 220;
-        menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))}px`;
     }
 
     protected enterSplitMode(row: DaihonRow): void {
@@ -3937,12 +3935,13 @@ export class AkariDaihonWidget extends BaseWidget {
             const rowLabel = rowCharacters.length > 12 ? `${rowCharacters.slice(0, 12).join('')}…` : rowText;
             const cutLabel = only?.range.kind === 'row' && only.range.label === '行'
                 ? rowLabel || 'この行' : only?.range.label ?? 'この箇所';
-            const refused = Math.min(entries.length, cutWarnings.length);
+            const refusals = cutWarnings.filter(warning => warning !== '映像のある部分だけ切りました。');
+            const refused = Math.min(entries.length, refusals.length);
             const cutCount = entries.length - refused;
             this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${cutCount} 件をカットしました`,
                 () => void this.historyService.undo());
-            if (refused) this.notify(`${refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`);
-            if (removedFrames / this.editFps + 1 / this.editFps < ranges.reduce((sum, range) => sum + range.out - range.in, 0))
+            if (refused) this.notify(`${refused} 箇所は切りませんでした（${refusals[0].replace(/、カットしませんでした。$/, '')}）`);
+            if (cutWarnings.includes('映像のある部分だけ切りました。'))
                 this.notify('映像のある部分だけ切りました');
         } catch (error) {
             this.notifyError(this.errorMessage(error));
@@ -4477,10 +4476,11 @@ export class AkariDaihonWidget extends BaseWidget {
             const changed = before !== await this.readText(this.editUri);
             if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
             const seconds = removedFrames / this.editFps;
-            const refused = Math.min(selected.length, warnings.length);
+            const refusals = warnings.filter(warning => warning !== '映像のある部分だけ切りました。');
+            const refused = Math.min(selected.length, refusals.length);
             return { changed, count: Math.max(0, selected.length - refused), seconds, refused,
-                partial: changed && seconds + 1 / this.editFps < selected.reduce((sum, candidate) =>
-                    sum + candidate.end - candidate.start, 0) };
+                refusal: refusals[0]?.replace(/、カットしませんでした。$/, ''),
+                partial: warnings.includes('映像のある部分だけ切りました。') };
         }, () => this.historyService.undo(), async (min, keep) => {
             this.silenceMin = min; this.silenceKeep = keep;
             await Promise.all([

@@ -39,17 +39,43 @@ test('an internal visual gap survives three cuts and never overlaps the voice', 
   assert.ok(audio.every((item, index) => index === 0 || item.at >= audio[index - 1].at + audio[index - 1].duration));
 });
 
-test('a large aligned group batch removes every requested frame', () => {
-  const initial = doc([video('cam-0', 0, 36000, 0, 1200)], [voice('mic-0', 0, 36000, .5, 1200.5)]);
-  const ranges = Array.from({ length: 500 }, (_, index) => {
-    const start = (index + .3) * 2.4 + .5;
-    return { ...cut(start, start + .2, 'mic', 'filler'), reason: 'word', label: 'えー' };
-  });
-  const result = applyCutRanges(initial, ranges);
-  assert.equal(result.removedFrames, 3000);
-  assert.deepEqual(result.warnings, []);
-  const visual = JSON.parse(result.source).tracks[0].items;
-  assert.equal(visual.reduce((sum, item) => sum + item.duration, 0), 33000);
-  assert.ok(visual.every(item => item.reason === 'word' && item.label === 'えー'));
-  assert.ok(visual.every(item => !item.cut_edge));
+test('a large mixed group batch matches sequential cuts and restores byte for byte', () => {
+  const edit = JSON.parse(doc([video('cam-0', 0, 3600, 0, 120)], [voice('mic-0', 0, 3600, .5, 120.5)]));
+  edit.sources.push({ id: 'music', path: 'music.wav' });
+  edit.tracks.push({ id: 'bgm', lane: 'audio', items: [{ id: 'music-0', role: 'bgm', at: 0, duration: 3600,
+    source: { kind: 'media', src: 'music', in: 0, out: 120 } }] });
+  edit.tracks.push({ id: 'captions', lane: 'visual', content: { from: 'captions.json' } });
+  const initial = source(edit);
+  const ranges = Array.from({ length: 40 }, (_, index) => {
+    const start = 1 + index * 2 + (index % 2 ? .5 : 0);
+    return { ...cut(start, start + .2, index % 2 ? 'mic' : 'cam', 'filler'),
+      reason: 'word', label: 'えー' };
+  }).reverse();
+  const batch = applyCutRanges(initial, ranges);
+  let sequential = initial;
+  for (const range of ranges) sequential = applyCutRanges(sequential, [range]).source;
+  assert.equal(batch.source, sequential);
+  assert.deepEqual(batch.warnings, []);
+  let restored = batch.source;
+  for (const range of [...ranges].reverse()) {
+    const result = restoreCutRange(restored, range);
+    assert.equal(result.restored, true);
+    restored = result.source;
+  }
+  assert.equal(restored, initial);
+});
+
+test('group warnings distinguish a refused range from a partially covered range', () => {
+  const initial = doc([video('cam-0', 0, 150, 0, 5)], [voice('mic-0', 0, 180, 0, 6)]);
+  const refused = applyCutRanges(initial, [cut(1, 1.2), cut(5.2, 5.8)]);
+  assert.deepEqual(refused.warnings, ['同期した映像がこの区間にないため、カットしませんでした。']);
+  const partial = applyCutRanges(initial, [cut(4.5, 5.5)]);
+  assert.deepEqual(partial.warnings, ['映像のある部分だけ切りました。']);
+});
+
+test('multiple cuts without a group do not report partial video coverage', () => {
+  const edit = JSON.parse(doc([video('cam-0', 0, 180, 0, 6)], []));
+  delete edit.sync_groups;
+  const result = applyCutRanges(source(edit), [cut(1, 1.2, 'cam'), cut(2, 2.2, 'cam')]);
+  assert.ok(!result.warnings.includes('映像のある部分だけ切りました。'));
 });
