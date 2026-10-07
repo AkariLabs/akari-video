@@ -123,13 +123,35 @@ test('10 秒内の 6 件目は操作せずメモへ落とす', async () => {
     assert.equal(calls.length, before);
 });
 
-test('二節は順に実行し、当たらない節だけメモへ残す', async () => {
-    const { runner, getView, cards } = rig();
-    assert.equal((await runner.route(utterance('動画で、短い順'))).outcome, 'handled');
-    assert.deepEqual(getView().materials.kinds, ['video']);
-    assert.equal(getView().materials.sort.by, 'duration');
-    assert.equal((await runner.route(utterance('音だけ、今日は晴れ'))).outcome, 'handled');
-    assert.ok(cards.some(card => card.kind === 'メモ' && card.text === '今日は晴れ'));
+test('読点で分けた文は全節が操作のときだけ実行し、つなぎ語はメモにしない', async () => {
+    const cases = [
+        { text: '動画だけ見せて、じゃなくて今のは独り言', outcome: 'memo', commands: [] },
+        { text: '紙を出して、とは言ってないからね', outcome: 'memo', commands: [] },
+        { text: '設定を開いて、いややっぱりいいや', outcome: 'memo', commands: [] },
+        { text: '動画だけ見せて、あとテロップを全部消して', outcome: 'memo', commands: [] },
+        { text: 'えっと、動画だけ見せてください。', outcome: 'handled', commands: ['akari.catalog.setMaterialFilter'] },
+        { text: '動画だけ見せて、短い順', outcome: 'handled', commands: ['akari.catalog.setMaterialFilter', 'akari.catalog.setMaterialSort'] },
+        { text: '違う、動画だけ見せて', outcome: 'memo', commands: [] }
+    ];
+    for (const row of cases) {
+        const { runner, calls, cards } = rig();
+        const result = await runner.route(utterance(row.text));
+        if (result.outcome === 'memo') runner.now.acceptUtterance(utterance(row.text), 0);
+        assert.equal(result.outcome, row.outcome, row.text);
+        assert.deepEqual(calls.filter(([id]) => id !== 'akari.catalog.getView').map(([id]) => id), row.commands, row.text);
+        assert.deepEqual(cards.filter(card => card.kind === 'メモ').map(card => card.text),
+            row.outcome === 'memo' ? [row.text] : [], row.text);
+    }
+});
+
+test('3 回目の取り消しが「違う」でも停止の知らせを最後に残す', async () => {
+    const { runner, lines, written } = rig();
+    for (const text of ['動画だけ', '短い順', '無料だけ']) await runner.route(utterance(text));
+    await runner.route(utterance('戻して'));
+    await runner.route(utterance('戻して'));
+    assert.equal((await runner.route(utterance('違う'))).outcome, 'handled');
+    assert.equal(written.at(-1)?.[1], 'off');
+    assert.equal(lines.at(-1).line, 'Jev を止めました。続けるときは設定の聞き取りから');
 });
 
 test('ライブラリ検索を戻すと両面の語と元のタブが戻る', async () => {

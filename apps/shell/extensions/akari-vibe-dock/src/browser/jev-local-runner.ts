@@ -6,7 +6,7 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariEarFrontend } from '../common/ear-frontend';
 import type { EarUtterance } from '../common/ear-protocol';
 import { AkariEarService, type AkariEarService as EarService } from '../common/ear-protocol';
-import { matchJev, type JevPlan } from '../common/jev-local-grammar';
+import { matchJev, normalizeJev, type JevPlan } from '../common/jev-local-grammar';
 import { JEV_LOCAL_ACTIONS, validateValue, type JevValueSchema } from '../common/jev-catalog.generated';
 import type { JevRouteResult, JevUtteranceRouter } from '../common/jev-utterance-router';
 import { effectiveVibeMode, readVibeMode, VIBE_MODE_KEY } from '../common/vibe-mode';
@@ -146,17 +146,21 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             this.clearPending(true);
         }
         if (this.paperOpen && utterance.kind !== 'command') return { outcome: 'pass' };
-        const clauses = utterance.text.split(/[、，]/u).map(text => text.trim()).filter(Boolean);
-        if (clauses.length > 1 && !this.paperOpen) {
-            let handled = false;
-            const unmatched: EarUtterance[] = [];
+        const split = utterance.text.split(/[、，]/u);
+        if (split.length > 1 && !this.paperOpen) {
+            if (utterance.text.normalize('NFKC').length > 40) return { outcome: 'memo' };
+            const clauses = split.map(text => text.trim()).filter(text => normalizeJev(text) !== '');
+            if (!clauses.length) return { outcome: 'memo' };
+            // 全節を先に調べる。言い直し・否定・編集依頼が混ざる文では前半も動かさない。
+            if (clauses.some(text => {
+                const matched = matchJev(text, { paperOpen: false, confirming: false });
+                return matched?.kind !== 'plan' || !this.steps(matched.plan)?.length;
+            })) return { outcome: 'memo' };
             for (const clause of clauses) {
                 const result = await this.routeSingle({ ...utterance, text: clause });
-                if (result.outcome === 'handled') handled = true;
-                else if (result.outcome === 'memo') unmatched.push({ ...utterance, text: clause });
+                if (result.outcome !== 'handled') return { outcome: 'memo' };
             }
-            if (handled) for (const item of unmatched) this.now.acceptUtterance(item, this.playback.time);
-            return { outcome: handled ? 'handled' : 'memo' };
+            return { outcome: 'handled' };
         }
         return this.routeSingle(utterance);
     }
@@ -330,8 +334,8 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             return { outcome: 'memo' };
         } finally { this.dock.setMark(previousMark); }
     }
-    protected async undoEntry(entry: LedgerEntry): Promise<boolean> {
-        if (entry.undone || !entry.inverse.length) return false;
+    protected async undoEntry(entry: LedgerEntry): Promise<{ undone: boolean; stopped: boolean }> {
+        if (entry.undone || !entry.inverse.length) return { undone: false, stopped: false };
         try {
             const currentView = entry.resultView ? await this.snapshot() : undefined;
             const changed = currentView && JSON.stringify(currentView) !== JSON.stringify(entry.resultView);
@@ -340,7 +344,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
                 const taskId = entry.inverse[0].args.id;
                 if (!board?.rows?.some(row => row.id === taskId && row.state === 'unsent')) {
                     this.say('もう始まっています', 'warn');
-                    return false;
+                    return { undone: false, stopped: false };
                 }
             }
             for (const step of entry.inverse) await this.commands.executeCommand(step.commandId, step.args);
@@ -352,19 +356,20 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             this.undoTimes.push(at);
             this.undoStreak++;
             while (this.undoTimes[0] < at - 60000) this.undoTimes.shift();
-            if (this.undoStreak >= 3 || this.undoTimes.length >= 3) {
+            const stopped = this.undoStreak >= 3 || this.undoTimes.length >= 3;
+            if (stopped) {
                 await this.preferences.set(VIBE_MODE_KEY, 'off', PreferenceScope.User);
                 this.say('Jev を止めました。続けるときは設定の聞き取りから', 'warn', undefined, 0);
             }
-            return true;
-        } catch { this.say('元に戻せませんでした', 'warn'); return false; }
+            return { undone: true, stopped };
+        } catch { this.say('元に戻せませんでした', 'warn'); return { undone: false, stopped: false }; }
     }
     protected async undo(wrong: boolean): Promise<JevRouteResult> {
         const entry = [...this.ledger].reverse().find(item => !item.undone && item.inverse.length);
         if (!entry) { this.say('戻せる操作がありません'); return { outcome: 'memo' }; }
-        const undone = await this.undoEntry(entry);
-        if (wrong && undone) this.say('もう一度言ってください', 'warn');
-        return { outcome: undone ? 'handled' : 'memo', entryId: entry.id };
+        const result = await this.undoEntry(entry);
+        if (wrong && result.undone && !result.stopped) this.say('もう一度言ってください', 'warn');
+        return { outcome: result.undone ? 'handled' : 'memo', entryId: entry.id };
     }
     protected async redo(): Promise<JevRouteResult> {
         const entry = this.latestUndone;
