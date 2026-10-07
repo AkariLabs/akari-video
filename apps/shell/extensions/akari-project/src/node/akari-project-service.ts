@@ -404,7 +404,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             const key = deriveThumbnailCacheKey(`library-preview-v1:${source}`, stat.size, stat.mtimeMs);
             const cacheDir = join(dirname(libraryFavoritesPath()), 'cache', 'library-thumbnails');
             const cachePath = join(cacheDir, thumbnailCacheFileName(key, '.webp'));
+            // Keep recent item keys for polling; reopening an older view registers its keys again.
+            this.libraryThumbnailCandidates.delete(item.key);
             this.libraryThumbnailCandidates.set(item.key, cachePath);
+            if (this.libraryThumbnailCandidates.size > 2000) {
+                const oldest = this.libraryThumbnailCandidates.keys().next().value;
+                if (oldest !== undefined) this.libraryThumbnailCandidates.delete(oldest);
+            }
             if (await fs.stat(cachePath).then(file => file.size > 0, () => false)) return pathToFileURL(cachePath).toString();
             if (!this.libraryThumbnailSkipped.has(cachePath)) this.enqueueLibraryThumbnail(source, cachePath);
         } catch {

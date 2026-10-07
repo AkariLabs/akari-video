@@ -141,7 +141,7 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
         ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
     assert.ok(widgetClass);
-    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails'].map(name => {
+    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling'].map(name => {
         const member = widgetClass.members.find(node => node.name?.getText(widgetSource) === name);
         assert.ok(member, `missing ${name}`);
         return member.getText(widgetSource);
@@ -161,7 +161,7 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
     let renders = 0;
     let polls = 0;
     Object.assign(widget, {
-        catalogThumbnailPollGeneration: 0,
+        catalogThumbnailPollGeneration: 0, isVisible: true, topView: 'catalog',
         libraryPane: {}, preferences: { get: () => '' }, update: () => { renders++; },
         projectService: {
             getAssetCatalogView: async () => ({ items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] }),
@@ -188,4 +188,105 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
     assert.equal(widget.assetCatalogItems[0].thumbUrl, 'file:///cache/a.webp');
     assert.equal(timers.length, 0);
     assert.equal(renders, 3);
+});
+
+test('disposing the shelf clears its poll timer and invalidates an already queued callback', async () => {
+    const widgetSource = ts.createSourceFile('akari-role-buckets-widget.tsx',
+        readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'),
+        ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+    const init = widgetClass?.members.find(node => node.name?.getText(widgetSource) === 'init');
+    assert.match(init?.getText(widgetSource) ?? '', /this\.registerCatalogThumbnailPollingCleanup\(\)/);
+    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling',
+        'registerCatalogThumbnailPollingCleanup'].map(name => {
+        const member = widgetClass.members.find(node => node.name?.getText(widgetSource) === name);
+        assert.ok(member, `missing ${name}`);
+        return member.getText(widgetSource);
+    });
+    const code = ts.transpileModule(`class Widget { ${members.join('\n')} }\nthis.Widget = Widget;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021 }
+    }).outputText;
+    const timers = [];
+    const disposables = [];
+    const context = vm.createContext({
+        setTimeout: callback => { timers.push(callback); return callback; },
+        clearTimeout: callback => { const index = timers.indexOf(callback); if (index >= 0) timers.splice(index, 1); },
+        AKARI_CATALOG_ROOT_PREFERENCE: 'catalogRoot', EMPTY_PRESET_SHOWCASE: {},
+        registerLibraryTextstylePresets: () => undefined
+    });
+    vm.runInContext(code, context);
+    const widget = new context.Widget();
+    let polls = 0;
+    Object.assign(widget, {
+        catalogThumbnailPollGeneration: 0, isVisible: true, topView: 'catalog',
+        toDispose: { push: entry => disposables.push(entry) },
+        libraryPane: {}, preferences: { get: () => '' }, update: () => undefined,
+        projectService: {
+            getAssetCatalogView: async () => ({ items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] }),
+            getPresetShowcase: async () => ({}), getLibraryTextstylePresets: async () => [],
+            getLibraryUsage: async () => ({}), listMyStyles: async () => [],
+            getLibraryFavorites: async () => [], getTransitionPreviewUrls: async () => ({}),
+            getLibraryThumbnails: async () => { polls++; return { urls: {}, pending: true }; }
+        }
+    });
+    widget.registerCatalogThumbnailPollingCleanup();
+    await widget.loadAssetCatalogView();
+    assert.equal(timers.length, 1);
+    const pendingTimer = timers[0];
+    const generation = widget.catalogThumbnailPollGeneration;
+    disposables[0].dispose();
+    assert.equal(widget.catalogThumbnailPollGeneration, generation + 1);
+    assert.equal(timers.length, 0);
+    pendingTimer();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(polls, 0);
+});
+
+test('hiding the widget or leaving the catalog also stops polling', () => {
+    const widgetSource = ts.createSourceFile('akari-role-buckets-widget.tsx',
+        readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'),
+        ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+    const members = ['onAfterHide', 'selectTopView', 'stopCatalogThumbnailPolling'].map(name => {
+        const member = widgetClass?.members.find(node => node.name?.getText(widgetSource) === name);
+        assert.ok(member, `missing ${name}`);
+        return member.getText(widgetSource);
+    });
+    const code = ts.transpileModule(`class Base { onAfterHide() {} }\nclass Widget extends Base { ${members.join('\n')} }\nthis.Widget = Widget;`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021 }
+    }).outputText;
+    const cleared = [];
+    const context = vm.createContext({ clearTimeout: timer => cleared.push(timer), Event: class Event {},
+        setTimeout: () => undefined });
+    vm.runInContext(code, context);
+    const widget = new context.Widget();
+    Object.assign(widget, {
+        catalogThumbnailPollGeneration: 0, catalogThumbnailPollTimer: 1,
+        topView: 'catalog', generationPick: { cancel: () => undefined },
+        node: { dispatchEvent: () => undefined }, stopCatalogAudio: () => undefined,
+        update: () => undefined
+    });
+    widget.onAfterHide({});
+    assert.deepEqual(cleared, [1]);
+    assert.equal(widget.catalogThumbnailPollTimer, undefined);
+    assert.equal(widget.catalogThumbnailPollGeneration, 1);
+    widget.catalogThumbnailPollTimer = 2;
+    widget.selectTopView('materials');
+    assert.deepEqual(cleared, [1, 2]);
+    assert.equal(widget.catalogThumbnailPollGeneration, 2);
+});
+
+test('thumbnail candidate keys are bounded and a reopened item can resolve its cached URL', async () => {
+    const f = fixture(2001);
+    f.service.enqueueLibraryThumbnail = () => undefined;
+    for (const item of f.items) await f.service.prepareLibraryPreviewThumbnail(item);
+    assert.equal(f.service.libraryThumbnailCandidates.size, 2000);
+    assert.equal(f.service.libraryThumbnailCandidates.has(f.items[0].key), false);
+    const first = f.items[0];
+    const sourcePath = fileURLToPath(first.previewUrl);
+    const key = `library-preview-v1:${sourcePath}`.replace(/\W/g, '_');
+    f.generated.add(join('/isolated/cache/library-thumbnails', `${key}.webp`));
+    assert.equal((await f.service.prepareLibraryPreviewThumbnail(first))?.startsWith('file:'), true);
+    assert.equal(f.service.libraryThumbnailCandidates.size, 2000);
+    assert.ok((await f.service.getLibraryThumbnails([first.key])).urls[first.key]?.startsWith('file:'));
 });
