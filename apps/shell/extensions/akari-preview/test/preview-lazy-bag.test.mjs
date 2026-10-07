@@ -59,3 +59,18 @@ test('explicit children and excludes remain eagerly projected by the shared rend
   const excludedOnly = { ...bag, children: [] };
   assert.deepEqual(expandBagOverlays({ tracks: [{ items: [excludedOnly] }] }).map(o => o.id), ['s01#A', 's01#B']);
 });
+
+test('lazy bag expands an already overridden summary without dropping or applying the style twice', () => {
+  const html = '<div data-akari-part="A"></div><div data-akari-part="B"></div><div class="free"></div>';
+  const source = { kind: 'html', html: 'fragment.html', elements: { '.free[0]': { style: { width: '180px' } } } };
+  const [overlay] = expandBagOverlays({ tracks: [{ items: [{ id: 'bag', at: 0, duration: 2, source }] }] }, () => html);
+  assert.match(overlay.html, /class="free" style="width:180px"/u);
+  const bag = { id: overlay.id, at: overlay.start, duration: overlay.duration,
+    source: { kind: 'html', html: overlay.html }, declaration: overlay };
+  const children = projectBagChildren(bag, scanHtmlParts(overlay.html));
+  const expanded = expandBagOverlays({ tracks: [{ items: [{ ...bag, children }] }] });
+  assert.equal(expanded.length, 2);
+  for (const record of expanded) {
+    assert.equal((record.html.match(/width:180px/gu) ?? []).length, 1);
+  }
+});

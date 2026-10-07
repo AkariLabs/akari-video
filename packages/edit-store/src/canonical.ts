@@ -175,7 +175,16 @@ function inlineField(key: string, value: unknown, item: boolean): string {
     if (item && key === 'transform' && isRecord(value) && (value.scaleX !== undefined || value.scaleY !== undefined)) {
         return inlineObject({ ...normalizeTransform(value) }, ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
     }
-    if (item && key === 'source' && isRecord(value)) return inlineObject(value, ['kind', 'canvas']);
+    if (item && key === 'source' && isRecord(value)) {
+        const source = { ...value };
+        if (source.kind === 'html' && isRecord(source.elements)) {
+            const elements = Object.fromEntries(Object.entries(source.elements)
+                .filter(([, entry]) => isRecord(entry) && isRecord(entry.style) && Object.keys(entry.style).length > 0));
+            if (Object.keys(elements).length) source.elements = elements;
+            else delete source.elements;
+        }
+        return inlineObject(source, ['kind', 'canvas']);
+    }
     if (item && key === 'keyframes' && Array.isArray(value)) {
         return `[${value.map(point => inlineOrdered(point, KEYFRAME_V2_KEYS)).join(', ')}]`;
     }
