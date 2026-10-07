@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires -- browser bindings load after the module is applied */
-import { ContainerModule, inject, injectable } from '@theia/core/shared/inversify';
+import { ContainerModule, interfaces } from '@theia/core/shared/inversify';
 import type { FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import type { Widget } from '@theia/core/shared/@lumino/widgets';
+import { isVibePreviewEnabled } from '../common/vibe-preview';
 
 export default new ContainerModule(bind => {
     // Browser-only widgets are loaded when Theia applies the module, so importing this module
@@ -21,12 +22,14 @@ export default new ContainerModule(bind => {
     const { RoughCanvasDockTab } = require('./rough-canvas-dock-tab');
     const { RoughCanvasEarBridge } = require('./rough-canvas-ear-bridge');
 
-    @injectable()
     class VibeDockStartup implements FrontendApplicationContribution {
-        @inject(RightPanelDockSlot) protected readonly slot!: InstanceType<typeof RightPanelDockSlot>;
-        @inject(VibeDockWidget) protected readonly widget!: Widget;
+        constructor(protected readonly container: interfaces.Container) {}
         onDidInitializeLayout(_app: FrontendApplication): Promise<void> {
-            return guardInitLayout('akari-vibe-dock', () => { this.slot.attach(this.widget); });
+            if (!isVibePreviewEnabled(window.localStorage)) return Promise.resolve();
+            return guardInitLayout('akari-vibe-dock', () => {
+                this.container.get<InstanceType<typeof RightPanelDockSlot>>(RightPanelDockSlot)
+                    .attach(this.container.get<Widget>(VibeDockWidget));
+            });
         }
     }
 
@@ -47,7 +50,7 @@ export default new ContainerModule(bind => {
     bind(VibeDockTabContributionSymbol).toService(SettingsVibeDockTab);
     bind(VibeDockTabContributionSymbol).toService(RoughCanvasDockTab);
     bind(VibeDockWidget).toSelf().inSingletonScope();
-    bind(VibeDockStartup).toSelf().inSingletonScope();
+    bind(VibeDockStartup).toDynamicValue(context => new VibeDockStartup(context.container)).inSingletonScope();
     bind(FrontendApplicationContribution).toService(VibeDockStartup);
     bind(RoughCanvasEarBridge).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(RoughCanvasEarBridge);

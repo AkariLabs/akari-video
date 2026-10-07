@@ -118,10 +118,10 @@ test('(a) ナビは AKARI アカウント先頭・外観を新設し、開発者
     assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.group === 'developer').map(section => section.id), ['developer']);
     const { SETTINGS_ICON_PATHS } = require('../../lib/browser/settings/settings-icons.js');
     for (const section of SETTINGS_SECTIONS) { assert.ok(section.icon in SETTINGS_ICON_PATHS, section.id); }
-    // テーマは外観へ。開発者モードの節にはスイッチ 1 個（Developer mode）だけが残る。
+    // テーマは外観へ。開発者の節には Developer mode とプレビューの独立したスイッチ。
     assert.ok(SECTION_PREFERENCE_KEYS.appearance.includes('workbench.colorTheme'));
     assert.ok(SECTION_PREFERENCE_KEYS.appearance.includes('akari.appearance.zoom'));
-    assert.deepEqual(SECTION_PREFERENCE_KEYS.developer, ['akari.developerMode']);
+    assert.deepEqual(SECTION_PREFERENCE_KEYS.developer, ['akari.developerMode', 'akari.vibePreview.enabled']);
     assert.equal(sectionForPreferenceKey('workbench.colorTheme'), 'appearance');
     // 旧 id developer でテーマを指して来た場合は外観へ寄せる。developer だけなら開発者モードのまま。
     assert.equal(resolveSettingsSectionId({ section: 'developer', preference: 'workbench.colorTheme' }), 'appearance');
@@ -387,7 +387,7 @@ test('外観: テーマはプレビュー付きのカードで選び、ダーク
     const developer = new FakeNode('section');
     const other = makeDialog({}, { sections: new Map([['developer', developer]]) });
     other.dialog.renderSection('developer');
-    assert.equal(all(developer).filter(node => node.getAttribute('role') === 'switch').length, 1);
+    assert.equal(all(developer).filter(node => node.getAttribute('role') === 'switch').length, 2);
     assert.equal(all(developer).some(node => node.attributes['data-akari-choice-cards']), false);
 });
 

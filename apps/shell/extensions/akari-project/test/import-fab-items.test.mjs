@@ -3,14 +3,21 @@ import assert from 'node:assert/strict';
 import { classifySelectedFiles, importFabItems } from '../lib/common/import-fab-items.js';
 
 test('取り込み項目は指定の順番・文言・近日札で並ぶ', () => {
-    assert.deepEqual(importFabItems().map(({ id, label, soon }) => ({ id, label, soon })), [
+    assert.deepEqual(importFabItems(true).map(({ id, label, soon }) => ({ id, label, soon })), [
         { id: 'device', label: 'デバイスから', soon: undefined },
         { id: 'studio', label: 'スタジオ', soon: '近日' },
         { id: 'internet', label: 'インターネットから', soon: undefined }
     ]);
-    assert.equal(importFabItems()[1].info,
+    assert.equal(importFabItems(true)[1].info,
         'スタジオ（近日）: マイクで録音・画面キャプチャ・カメラで撮影を 1 つの画面で。止めると素材に入ります。');
-    assert.equal(importFabItems()[2].info, undefined);
+    assert.equal(importFabItems(true)[2].info, undefined);
+});
+
+test('プレビュー off ではインターネットからは近日案内、on でブラウザの入口になる', () => {
+    assert.equal(importFabItems(false)[2].soon, '近日');
+    assert.match(importFabItems(false)[2].info, /インターネットから（近日）/);
+    assert.equal(importFabItems(true)[2].soon, undefined);
+    assert.equal(importFabItems(true)[2].info, undefined);
 });
 
 const file = (name, sourcePath = `selected/${name}`) => ({ path: { base: name, fsPath: () => sourcePath } });

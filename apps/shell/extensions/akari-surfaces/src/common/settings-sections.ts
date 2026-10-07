@@ -55,6 +55,11 @@ export const QUALITY_TIER_RESERVED_NOTE = '今はこの値を読む機能があ�
 
 export const SETTINGS_LAST_SECTION_KEY = 'akari.settings.lastSection';
 
+/** SETTINGS_SECTIONS の定義・順は変えず、表示するナビだけを絞る。 */
+export function visibleSettingsSections(vibePreviewEnabled: boolean): readonly typeof SETTINGS_SECTIONS[number][] {
+    return vibePreviewEnabled ? SETTINGS_SECTIONS : SETTINGS_SECTIONS.filter(section => section.id !== 'listening');
+}
+
 export function initialSettingsSection(explicit: unknown, stored: unknown): SettingsSectionId {
     return resolveSettingsSectionId(explicit) ?? resolveSettingsSectionId(stored) ?? SETTINGS_SECTIONS[0].id;
 }
@@ -68,6 +73,7 @@ export const AKARI_QUALITY_TIER = 'akari.qualityTier';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
+export const AKARI_VIBE_PREVIEW_ENABLED = 'akari.vibePreview.enabled';
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
@@ -124,7 +130,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     tools: [AKARI_CATALOG_ROOT],
     shortcuts: [],
     storage: [], privacy: [], statistics: [], help: [], about: [],
-    developer: [AKARI_DEVELOPER_MODE]
+    developer: [AKARI_DEVELOPER_MODE, AKARI_VIBE_PREVIEW_ENABLED]
 };
 
 export function sectionForPreferenceKey(key: string): SettingsSectionId | undefined {

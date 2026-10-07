@@ -1,4 +1,5 @@
 import { BaseWidget } from '@theia/core/lib/browser';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { MessageService } from '@theia/core/lib/common';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import type { Task } from '../../common/akari-tasks-protocol';
@@ -52,6 +53,13 @@ export class AkariTaskBoardWidget extends BaseWidget {
             background: 'var(--akari-bg)', color: 'var(--akari-ink)', overflow: 'hidden' });
         this.toDispose.push(this.tasks.onDidChange(() => this.renderBoard()));
         this.renderBoard();
+    }
+
+    protected override onAfterAttach(message: Message): void {
+        super.onAfterAttach(message);
+        // 保存済みレイアウトにこの widget が残っていても、off では復元直後に閉じる。
+        try { if (window.localStorage.getItem('akari.vibePreview.enabled') !== '1') this.close(); }
+        catch { this.close(); }
     }
 
     protected visibleTasks(): Task[] {

@@ -5,6 +5,11 @@ import { navigationAllowed } from '../common/site-navigation-policy';
 import { BROWSER_COMMAND_IDS, BrowserCommandResult, OPEN_WEB_POLICY, validateBrowserArgs } from '../common/browser-engines';
 import { AssetSiteWidget } from './asset-site-widget';
 
+const VIBE_PREVIEW_KEY = 'akari.vibePreview.enabled';
+const previewEnabled = (): boolean => {
+    try { return window.localStorage.getItem(VIBE_PREVIEW_KEY) === '1'; } catch { return false; }
+};
+
 export const BROWSER_SEARCH: Command = { id: BROWSER_COMMAND_IDS.search, label: 'ブラウザで検索' };
 export const BROWSER_PICK_MODE: Command = { id: BROWSER_COMMAND_IDS.pickMode, label: 'ブラウザの選ぶモード' };
 export const BROWSER_CLOSE: Command = { id: BROWSER_COMMAND_IDS.close, label: 'ブラウザを閉じる' };
@@ -16,10 +21,11 @@ export class BrowserCommands implements CommandContribution {
     @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
 
     registerCommands(registry: CommandRegistry): void {
-        registry.registerCommand(BROWSER_SEARCH, { execute: (args: unknown) => this.search(args) });
-        registry.registerCommand(BROWSER_PICK_MODE, { execute: (args: unknown) => this.pickMode(args) });
-        registry.registerCommand(BROWSER_CLOSE, { execute: (args: unknown) => this.close(args) });
-        registry.registerCommand(BROWSER_OPEN, { execute: (args: unknown) => this.open(args) });
+        const available = { isEnabled: previewEnabled, isVisible: previewEnabled };
+        registry.registerCommand(BROWSER_SEARCH, { ...available, execute: (args: unknown) => previewEnabled() && this.search(args) });
+        registry.registerCommand(BROWSER_PICK_MODE, { ...available, execute: (args: unknown) => previewEnabled() && this.pickMode(args) });
+        registry.registerCommand(BROWSER_CLOSE, { ...available, execute: (args: unknown) => previewEnabled() && this.close(args) });
+        registry.registerCommand(BROWSER_OPEN, { ...available, execute: (args: unknown) => previewEnabled() && this.open(args) });
     }
 
     private async activate(): Promise<AssetSiteWidget> {

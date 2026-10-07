@@ -3,6 +3,11 @@ import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { TaskService, type NewTask } from './task-service';
 
+const VIBE_PREVIEW_KEY = 'akari.vibePreview.enabled';
+const previewEnabled = (): boolean => {
+    try { return window.localStorage.getItem(VIBE_PREVIEW_KEY) === '1'; } catch { return false; }
+};
+
 @injectable()
 export class TaskCommands implements CommandContribution {
     @inject(TaskService) protected readonly tasks!: TaskService;
@@ -10,8 +15,14 @@ export class TaskCommands implements CommandContribution {
     @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
 
     registerCommands(registry: CommandRegistry): void {
-        const add = (name: string, execute: (...args: any[]) => unknown) =>
-            registry.registerCommand({ id: `akari.tasks.${name}` }, { execute });
+        const add = (name: string, execute: (...args: any[]) => unknown) => {
+            const gated = ['create', 'send', 'nextRows', 'openBoard'].includes(name);
+            registry.registerCommand({ id: `akari.tasks.${name}` }, {
+                execute: (...args: any[]) => gated && !previewEnabled() ? undefined : execute(...args),
+                isEnabled: () => !gated || previewEnabled(),
+                isVisible: () => !gated || previewEnabled()
+            });
+        };
         add('create', (input: NewTask) => this.tasks.create(input));
         add('summary', () => this.tasks.summary());
         add('nextRows', () => this.tasks.nextRows());

@@ -11,6 +11,12 @@ import { RoughCanvasPopup } from './rough-canvas/rough-canvas-popup';
 import { buildRoughCanvasSubject, openingPlan } from './rough-canvas/rough-canvas-model';
 import { ROUGH_CANVAS_COMMANDS, SKETCH_NOT_OPEN, validRoughCanvasTool, withOpenRoughCanvas } from './rough-canvas/rough-canvas-command-model';
 
+// akari-surfaces の設定キーの文字列ミラー（拡張間の依存を増やさない）。
+const VIBE_PREVIEW_KEY = 'akari.vibePreview.enabled';
+const previewEnabled = (): boolean => {
+    try { return window.localStorage.getItem(VIBE_PREVIEW_KEY) === '1'; } catch { return false; }
+};
+
 function selectionTargets(snapshot: TimelineSelectionSnapshot): string[] {
     if (!snapshot) return [];
     if (snapshot.kind === 'multi') return snapshot.items.flatMap(selectionTargets);
@@ -36,17 +42,20 @@ export class RoughCanvasCommands implements CommandContribution {
             const detail = (event as CustomEvent<{ videoUri?: string; playing?: boolean }>).detail;
             if (detail?.videoUri && typeof detail.playing === 'boolean') this.playing.set(detail.videoUri, detail.playing);
         });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.open, { execute: () => this.open() });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.close, { execute: () => this.withPopup(p => p.closeSafely()) });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.next, { execute: () => this.withPopup(p => p.next()) });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.backdrop, { execute: () => this.withPopup(p => p.setBackdrop()) });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.tool, { execute: (argument: unknown) => {
+        const available = { isEnabled: previewEnabled, isVisible: previewEnabled };
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.open, { ...available, execute: () => previewEnabled() ? this.open() : SKETCH_NOT_OPEN });
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.close, { ...available, execute: () => previewEnabled() && this.withPopup(p => p.closeSafely()) });
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.next, { ...available, execute: () => previewEnabled() && this.withPopup(p => p.next()) });
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.backdrop, { ...available, execute: () => previewEnabled() && this.withPopup(p => p.setBackdrop()) });
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.tool, { ...available, execute: (argument: unknown) => {
+            if (!previewEnabled()) return SKETCH_NOT_OPEN;
             if (!this.popup?.isOpen) return SKETCH_NOT_OPEN;
             return validRoughCanvasTool(argument) ? this.withPopup(p => p.setTool(argument.tool))
                 : { ok: false, reason: 'invalid-tool' };
         } });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.deleteSelected, { execute: () => this.withPopup(p => p.deleteSelected()) });
-        registry.registerCommand(ROUGH_CANVAS_COMMANDS.submit, { execute: (argument: unknown) => {
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.deleteSelected, { ...available, execute: () => previewEnabled() && this.withPopup(p => p.deleteSelected()) });
+        registry.registerCommand(ROUGH_CANVAS_COMMANDS.submit, { ...available, execute: (argument: unknown) => {
+            if (!previewEnabled()) return SKETCH_NOT_OPEN;
             if (!this.popup?.isOpen) return SKETCH_NOT_OPEN;
             const mode = (argument as { mode?: unknown } | undefined)?.mode;
             if (mode !== 'task' && mode !== 'send') return { ok: false, reason: 'invalid-mode' };

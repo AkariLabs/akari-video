@@ -1,4 +1,4 @@
-import { PreferenceContribution, PreferenceSchema } from '@theia/core/lib/common/preferences';
+import { PreferenceContribution, PreferenceSchema, PreferenceScope } from '@theia/core/lib/common/preferences';
 import { injectable } from '@theia/core/shared/inversify';
 
 import { TRANSCRIBE_BACKENDS } from 'akari-shell-strip/lib/common/akari-connections-protocol';
@@ -15,12 +15,17 @@ export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 // 読む側の文字列ミラー。スキーマは akari-project/src/browser/akari-project-frontend-module.ts が所有する。
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
+export const AKARI_VIBE_PREVIEW_ENABLED = 'akari.vibePreview.enabled';
 // パートナー PTY（Claude Code 等）の応答完了 OS 通知（読む側: akari-partner の
 // PartnerTurnNotifier — スキーマはここが所有し読む側は文字列ミラー）。
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
 
 const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
+        [AKARI_VIBE_PREVIEW_ENABLED]: {
+            type: 'boolean', default: false, scope: PreferenceScope.User,
+            description: '開発中の AKARI バイブの画面と入口を表示する（再起動後に反映）'
+        },
         [AKARI_NARRATION_ENGINE]: { type: 'string', default: 'voicevox', description: '読み上げの既定エンジン' },
         [AKARI_NARRATION_VOICE]: { type: 'object', default: {}, description: 'エンジン別の読み上げ音声' },
         [AKARI_NARRATION_IRODORI_URL]: { type: 'string', default: 'http://127.0.0.1:8088', description: '彩サーバーの接続先 URL' },

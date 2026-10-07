@@ -523,7 +523,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 this.openSessionViewer(options)
         });
         commands.registerCommand(OPEN_AKARI_CANVAS, {
-            execute: () => this.commands.executeCommand('akari.sketch.open')
+            execute: () => {
+                try {
+                    if (window.localStorage.getItem('akari.vibePreview.enabled') === '1')
+                        return this.commands.executeCommand('akari.sketch.open');
+                } catch { /* 設定の写しが読めなければ旧キャンバスを開く。 */ }
+                return this.openCanvas();
+            }
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()

@@ -4,6 +4,7 @@ import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { PreferenceContribution, PreferenceSchema, PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariVoiceDictionaryService, AKARI_VOICE_DICTIONARY_SERVICE_PATH } from '../common/voice-dictionary-protocol';
 import { VoiceDictionaryDialog } from './voice-dictionary-dialog';
+import { isVibePreviewEnabled } from '../common/vibe-preview';
 
 const HISTORY_KEY = 'akari.listening.history';
 const schema: PreferenceSchema = { properties: {
@@ -20,7 +21,9 @@ export class VoiceDictionaryFrontendContribution implements CommandContribution,
 
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({ id: 'akari.voiceDictionary.open', label: '声の辞書を開く' }, {
-            execute: () => new VoiceDictionaryDialog(this.service, this.preferences).open()
+            execute: () => isVibePreviewEnabled(window.localStorage) && new VoiceDictionaryDialog(this.service, this.preferences).open(),
+            isEnabled: () => isVibePreviewEnabled(window.localStorage),
+            isVisible: () => isVibePreviewEnabled(window.localStorage)
         });
     }
 

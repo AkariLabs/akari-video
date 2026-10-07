@@ -3,6 +3,7 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { LISTENING_ENGINE_KEY, migrateVibeMode, VIBE_MODE_KEY } from '../common/vibe-mode';
 import type { EarStatus } from '../common/ear-protocol';
+import { isVibePreviewEnabled } from '../common/vibe-preview';
 
 export let lastKnownListeningMic: EarStatus['mic'] = 'unknown';
 export function rememberListeningMic(mic: EarStatus['mic']): void {
@@ -30,6 +31,7 @@ export class VibeModeMigration implements FrontendApplicationContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
 
     async onStart(): Promise<void> {
+        if (!isVibePreviewEnabled(window.localStorage)) return;
         let storage: Storage;
         try {
             storage = window.localStorage;

@@ -12,12 +12,14 @@ export interface ImportFabItem {
     readonly info?: string;
 }
 
-export function importFabItems(): readonly ImportFabItem[] {
+export function importFabItems(vibePreviewEnabled = false): readonly ImportFabItem[] {
     return [
         { id: 'device', label: 'デバイスから', icon: 'codicon-device-desktop' },
         { id: 'studio', label: 'スタジオ', icon: 'codicon-record', soon: '近日',
             info: 'スタジオ（近日）: マイクで録音・画面キャプチャ・カメラで撮影を 1 つの画面で。止めると素材に入ります。' },
-        { id: 'internet', label: 'インターネットから', icon: 'codicon-globe' }
+        { id: 'internet', label: 'インターネットから', icon: 'codicon-globe',
+            ...(vibePreviewEnabled ? {} : { soon: '近日' as const,
+                info: 'インターネットから（近日）: URL を貼って取得（許可された素材だけ）・ブラウザで拾う。' }) }
     ];
 }
 

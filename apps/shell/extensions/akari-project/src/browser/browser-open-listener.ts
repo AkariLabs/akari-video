@@ -14,6 +14,8 @@ export class BrowserOpenListener implements FrontendApplicationContribution {
     onStop(): void { window.removeEventListener(BROWSER_REQUEST_OPEN_EVENT, this.handle); }
 
     async open(): Promise<void> {
+        try { if (window.localStorage.getItem('akari.vibePreview.enabled') !== '1') return; }
+        catch { return; }
         const widget = await this.widgets.getOrCreateWidget<AssetSiteWidget>(AssetSiteWidget.ID);
         if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
         await this.shell.activateWidget(widget.id);
