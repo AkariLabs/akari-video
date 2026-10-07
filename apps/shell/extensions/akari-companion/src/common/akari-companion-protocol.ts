@@ -8,7 +8,7 @@ export const AKARI_COMPANION_SERVICE_PATH = '/services/akari-companion';
 
 export type CompanionInstructionKind = 'command' | 'applyEdit' | 'annotate' | 'flyTo' | 'panel' | 'getState';
 
-export interface CompanionCommandArgs { commandId: string; args?: Record<string, unknown>; }
+export interface CompanionCommandArgs { commandId: string; args?: Record<string, unknown>; projectSessionId?: string; }
 export interface CompanionApplyEditArgs {
     projectSessionId: string;
     label: string;

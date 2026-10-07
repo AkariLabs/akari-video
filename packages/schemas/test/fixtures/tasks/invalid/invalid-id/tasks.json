@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "tasks": [
+    {
+      "id": "bad",
+      "source": "annotation",
+      "state": "unsent",
+      "createdAt": "2026-10-07T00:00:00Z"
+    }
+  ]
+}

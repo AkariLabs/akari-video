@@ -1,5 +1,5 @@
 export type JevValueSchema = {
-    type: 'object' | 'string' | 'number' | 'integer' | 'boolean' | 'array';
+    type: 'object' | 'string' | 'number' | 'integer' | 'boolean' | 'array' | ('number' | 'string' | 'boolean')[];
     enum?: (string | number | boolean)[];
     items?: JevValueSchema;
     maxItems?: number;
@@ -14,6 +14,7 @@ export type JevValueSchema = {
 export function validateValue(schema: JevValueSchema, value: unknown): boolean {
     if (!schema || typeof schema !== 'object') return false;
     if (schema.enum && !schema.enum.includes(value as never)) return false;
+    if (Array.isArray(schema.type)) return schema.type.some(type => validateValue({ ...schema, type }, value));
     switch (schema.type) {
         case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength);
         case 'number':

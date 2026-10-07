@@ -1,0 +1,17 @@
+{
+  "version": 0,
+  "tasks": [
+    {
+      "id": "t-0001",
+      "source": "annotation",
+      "state": "unsent",
+      "createdAt": "2026-10-07T00:00:00Z"
+    },
+    {
+      "id": "t-0001",
+      "source": "annotation",
+      "state": "unsent",
+      "createdAt": "2026-10-07T00:00:00Z"
+    }
+  ]
+}

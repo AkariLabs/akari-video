@@ -1,4 +1,5 @@
-import {JEV_DERIVED_COMMAND_IDS, JEV_COMMAND_VALUE_SCHEMAS} from './jev-actions.generated';
+import {JEV_DERIVED_COMMAND_IDS, JEV_COMMAND_VALUE_SCHEMAS, JEV_SETTINGS_OPEN_SECTIONS} from './jev-actions.generated';
+import { isJevSettingKey } from './jev-settings-allowlist';
 import {validateValue} from './jev-catalog-validate';
 
 export const ALLOWED_COMMAND_IDS = [
@@ -76,7 +77,14 @@ const positive = (value: unknown): boolean => isFiniteNumber(value) && value > 0
 export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgValidation {
     switch (id) {
         case 'akari.settings.open':
-            return objectResult(value, ['section'], args => args.section === 'connections');
+            return objectResult(value, ['section'], args => typeof args.section === 'string'
+                && (JEV_SETTINGS_OPEN_SECTIONS as readonly string[]).includes(args.section));
+        case 'akari.settings.setByVoice':
+            if (isRecord(value) && hasOnly(value, ['key', 'value']) && Object.keys(value).length === 2
+                && typeof value.key === 'string' && isJevSettingKey(value.key) && value.value === null) {
+                return { ok: true, args: value };
+            }
+            break;
         case 'akari.preview.ensureVisible':
         case 'akari.preview.togglePlayback':
             return objectResult(value, ['editUri'], args => optional(args, 'editUri', bounded), true);

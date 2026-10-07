@@ -13,6 +13,10 @@ export default new ContainerModule(bind => {
     const { VibeDockState } = require('../common/vibe-dock-state');
     const { VibeDockPointing } = require('./vibe-dock-pointing');
     const { VibeDockWidget } = require('./vibe-dock-widget');
+    const { PreferenceContribution } = require('@theia/core/lib/common/preferences');
+    const { SettingsSectionBodyContributionSymbol } = require('akari-surfaces/lib/common/settings-section-body');
+    const { ListeningPreferenceContribution, VibeModeMigration } = require('./listening-preferences');
+    const { ListeningSettingsSection } = require('./listening-settings-section');
     const { NowVibeDockTab, SettingsVibeDockTab, VibeDockTabContributionSymbol, VibeDockTabs } = require('./vibe-dock-tabs');
 
     @injectable()
@@ -25,6 +29,12 @@ export default new ContainerModule(bind => {
     }
 
     bind(VibeDockState).toDynamicValue(() => new VibeDockState()).inSingletonScope();
+    bind(ListeningPreferenceContribution).toSelf().inSingletonScope();
+    bind(PreferenceContribution).toService(ListeningPreferenceContribution);
+    bind(VibeModeMigration).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(VibeModeMigration);
+    bind(ListeningSettingsSection).toSelf().inSingletonScope();
+    bind(SettingsSectionBodyContributionSymbol).toService(ListeningSettingsSection);
     bind(VibeDockPointing).toSelf().inSingletonScope();
     bind(VibeDockTabs).toSelf().inSingletonScope();
     bindRootContributionProvider(bind, VibeDockTabContributionSymbol);

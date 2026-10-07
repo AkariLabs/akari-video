@@ -5,7 +5,8 @@ import { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey, is
 
 test('読み上げ節は文字起こしの直後にあり、narration の設定キーを所有する', () => {
     const ids = SETTINGS_SECTIONS.map(section => section.id);
-    assert.equal(ids[ids.indexOf('transcribe') + 1], 'narration');
+    assert.equal(ids[ids.indexOf('transcribe') + 1], 'listening');
+    assert.equal(ids[ids.indexOf('listening') + 1], 'narration');
     assert.deepEqual(SECTION_PREFERENCE_KEYS.narration, ['akari.narration.engine', 'akari.narration.voice', 'akari.narration.irodoriUrl']);
     assert.equal(sectionForPreferenceKey('akari.narration.engine'), 'narration');
     assert.equal(sectionForPreferenceKey('akari.narration.voice'), 'narration');

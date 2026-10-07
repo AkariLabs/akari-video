@@ -38,15 +38,16 @@ export function generatedData(catalog) {
             schemas[commandId] = schema;
         }
     }
-    return {base, derived, schemas};
+    return {base, derived, schemas, settingsOpenSections: catalog.settingsOpenSections};
 }
 
 export function generateJevActions(catalog) {
-    const {base, derived, schemas} = generatedData(catalog);
+    const {base, derived, schemas, settingsOpenSections} = generatedData(catalog);
     const json = value => JSON.stringify(value, null, 2);
     return `// 自動生成・編集しない・再生成は npm run gen:jev\n` +
         `export const JEV_BASE_ALLOWED_COMMAND_IDS = ${json(base)} as const;\n` +
         `export const JEV_DERIVED_COMMAND_IDS = ${json(derived)} as const;\n` +
+        `export const JEV_SETTINGS_OPEN_SECTIONS = ${json(settingsOpenSections)} as const;\n` +
         `export const JEV_COMMAND_VALUE_SCHEMAS = ${json(schemas)} as Record<string, import('./jev-catalog-validate').JevValueSchema>;\n`;
 }
 

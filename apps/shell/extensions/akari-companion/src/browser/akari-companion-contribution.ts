@@ -294,6 +294,9 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         if (!isAllowedCommandId(command?.commandId)) {
             return { id: instruction.id, ok: false, error: 'not-allowed' };
         }
+        if (command.projectSessionId !== undefined && command.projectSessionId !== this.projectSessionId) {
+            return { id: instruction.id, ok: false, error: 'stale-session' };
+        }
         // `editUri` は橋が今のプロジェクトから入れる（係からは受け取らない）。
         // 検査より **先** に入れないと、editUri が必須のコマンド（play / pause など）が
         // 「係が渡していない」という理由で invalid-args に落ちる（2026-09-20 実機で観測）。

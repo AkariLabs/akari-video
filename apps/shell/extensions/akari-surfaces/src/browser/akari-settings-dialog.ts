@@ -16,6 +16,7 @@ import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
+import { findSettingsSectionBody, mountSettingsSectionBody } from '../common/settings-section-body';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { KeymapsService } from '@theia/keymaps/lib/browser/keymaps-service';
 import { KeyboardLayoutService } from '@theia/core/lib/browser/keyboard/keyboard-layout-service';
@@ -399,6 +400,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderSection(id: SettingsSectionId): void {
+        if (id === 'listening') {
+            const section = this.sections.get(id)!;
+            section.replaceChildren(...this.sectionHeading(id));
+            const contribution = findSettingsSectionBody(id);
+            if (contribution) { this.toDispose.push(mountSettingsSectionBody(section, contribution)); }
+            return;
+        }
         if (id === 'transcribe') { this.renderTranscribe(); return; }
         if (id === 'narration') { this.renderNarration(); return; }
         if (id === 'connections') { return; }
@@ -765,6 +773,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
         section.append(groupCard('macOS のアクセス許可', ...rows),
         groupCard('外へ送るもの', settingRow('利用状況の送信', 'AKARI Video は利用状況を送っていません', statusPill('送っていない')),
+            settingRow('聞き取り（マイク）', '試し聞きとメモは、この PC の中だけで文字にします。Jev を「画面を動かす」「画面も編集も」にしたときだけ、話した内容と編集中の動画の構成（字幕は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります'),
             settingRow('API キー', `鍵は ${this.credentialsPath || (OS.type() === OS.Type.Windows ? '%USERPROFILE%\\.akari\\credentials.env' : '~/.akari/credentials.env')} に保存します（このパソコンだけ・600）。AKARI のサーバーには送りません`, action('場所を開く', () => {
                 if (this.credentialsPath) { void this.maintenance.openPath(this.credentialsPath.replace(/[\\/][^\\/]+$/, '')); }
             }, { small: true }))));

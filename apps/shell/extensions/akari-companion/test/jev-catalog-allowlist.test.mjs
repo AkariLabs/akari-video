@@ -36,7 +36,7 @@ test('a removed baseline ID fails catalog validation', () => {
 
 test('an unavailable command cannot enter either source of allowed IDs', () => {
     const original = loadCatalog();
-    const placeholder = original.actions.find(action => action.id === 'A1').commands[0].commandId;
+    const placeholder = original.actions.find(action => action.id === 'D2').commands[0].commandId;
     const inBase = structuredClone(original);
     inBase.baseAllowedCommandIds[0] = placeholder;
     assert.equal(validateCatalog(inBase).ok, false);
@@ -61,16 +61,16 @@ test('changing one generated character fails the regeneration byte comparison', 
 });
 
 test('unavailable action command IDs are absent from both allowlists', () => {
-    const selected = new Set(['A1', 'A2', 'A5', 'A7', 'C2', 'D1', 'D2', 'D3']);
+    const selected = new Set(['C2', 'D2', 'D3']);
     const actions = loadCatalog().actions.filter(action => selected.has(action.id) ||
         ['roughCanvas.', 'browser.', 'scratch.'].some(prefix => action.id.startsWith(prefix)));
-    assert.equal(actions.length, 22);
+    assert.equal(actions.length, 17);
     const commandIds = actions.flatMap(action => {
         assert.equal(action.available, false, action.id);
         return action.commands.map(command => command.commandId);
     });
-    assert.equal(commandIds.length, 19);
-    assert.ok(commandIds.includes('akari.catalog.setMaterialFilter'));
+    assert.equal(commandIds.length, 14);
+    assert.ok(commandIds.includes('akari.settings.setTimelineDefault'));
     for (const id of commandIds) {
         assert.equal(judgementIds.includes(id), false, `judgement: ${id}`);
         assert.equal(shellIds.includes(id), false, `shell: ${id}`);
@@ -87,12 +87,12 @@ test('a new shipped action is derived, validated, while an unavailable action st
     action.valueSchema = {type:'object', properties:{thing:{type:'string', maxLength:4}}, required:['thing'], additionalProperties:false};
     assert.equal(validateCatalog(catalog).ok, true);
     assert.deepEqual(derivedAllowedCommandIds(catalog).slice(0, 33), catalog.baseAllowedCommandIds);
-    assert.equal(derivedAllowedCommandIds(catalog).at(-1), 'akari.example.setThing');
+    assert.ok(derivedAllowedCommandIds(catalog).includes('akari.example.setThing'));
     assert.ok(!derivedAllowedCommandIds(catalog).includes('akari.sketch.open'));
     const source = generateJevActions(catalog);
     assert.match(source, /akari\.example\.setThing/);
     const generated = generatedData(catalog);
-    assert.deepEqual(generated.derived, ['akari.example.setThing']);
+    assert.ok(generated.derived.includes('akari.example.setThing'));
     const schema = generated.schemas['akari.example.setThing'];
     assert.equal(validateValue(schema, {name:'yes'}), true);
     assert.equal(validateValue(schema, {name:'longer'}), false);
