@@ -46,6 +46,11 @@ too, e.g. "make local whisper the default for transcription."
 
 ## Partner agents (the app's connect button)
 
+When you open a project, the last successfully used CLI or web partner for that
+project opens automatically. If there is no project history, the last app-wide
+partner is used. Turn off Settings → Partner → “起動したら前回のパートナーを開く,” or close its tab to stop
+automatic opening in that project. An uninstalled partner is never installed automatically.
+
 The desktop shell's connect button opens a partner catalog. It offers
 **10 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,
 Devin, Copilot, Cursor, Antigravity, and Grok Build — plus the Claude Code
