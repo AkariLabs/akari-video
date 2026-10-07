@@ -35,6 +35,7 @@ import { renderTimelineRangeOverlay } from './timeline/timeline-range-overlay';
 import { calculateFrameDraw, frameDrawDestination, isPlayheadLineGrab, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
+import { previewElementUndoKind } from 'akari-preview/lib/common/preview-element-undo';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
 import { imageAiBindingMatches, type ImageAiBinding } from '../common/image-ai-binding';
 import URI from '@theia/core/lib/common/uri';
@@ -1666,7 +1667,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return JSON.parse(resolved.candidateText) as EditV2Document;
                     };
                     if (!Array.isArray(command) && command.kind === 'overlay' && command.patch.element) {
-                        await this.commitEditMutation('プレビューで要素を移動', doc => applyPreviewWrite(doc));
+                        const undoKind = previewElementUndoKind(command.patch.element.style);
+                        if (undoKind === 'size') {
+                            await this.commitEditMutation('プレビューで要素の大きさを変更', doc => applyPreviewWrite(doc));
+                        } else if (undoKind === 'rotate') {
+                            await this.commitEditMutation('プレビューで要素を回転', doc => applyPreviewWrite(doc));
+                        } else {
+                            await this.commitEditMutation('プレビューで要素を移動', doc => applyPreviewWrite(doc));
+                        }
                     } else {
                         await this.commitEditMutation('プレビューで変形を変更', doc => applyPreviewWrite(doc));
                     }
