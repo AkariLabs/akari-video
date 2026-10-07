@@ -2661,6 +2661,7 @@ export class AkariHomeWidget extends ReactWidget {
                 </>}
                 <button
                     type='button'
+                    className='theia-button quiet'
                     style={homeFlowStyles.welcomeOpenFolder}
                     data-akari-welcome-open-folder='true'
                     onClick={this.openFolderAdvanced}
@@ -3043,7 +3044,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected renderIntakeForm(): React.ReactNode {
         return (
             <div style={homeFlowStyles.intakeSection}>
-                <button type='button' style={homeFlowStyles.backLink} onClick={this.closeIntakeForm}>
+                <button type='button' className='theia-button quiet' style={homeFlowStyles.backLink} onClick={this.closeIntakeForm}>
                     <span className='codicon codicon-arrow-left' aria-hidden='true' /> ダッシュボードに戻る
                 </button>
                 {this.intakeStatus === 'submitted' && (
@@ -3261,7 +3262,6 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     // 展開フォームを畳む唯一の導線「← ダッシュボードに戻る」。
     backLink: {
         display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: 0,
-        background: 'transparent', border: 'none', color: 'var(--theia-descriptionForeground)',
         fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
     },
     reviewNotice: {
@@ -3324,15 +3324,13 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         color: 'var(--theia-descriptionForeground)', background: 'transparent'
     },
     welcomeOpenFolder: {
-        display: 'block', margin: '14px auto 0', background: 'transparent', border: 'none',
-        color: 'var(--theia-descriptionForeground)', fontSize: 12, cursor: 'pointer',
+        display: 'block', margin: '14px auto 0', fontSize: 12, cursor: 'pointer',
         textDecoration: 'underline', padding: 0, minHeight: 'auto', height: 'auto'
     },
     welcomeSetupButton: {
         alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6,
         marginTop: 10, padding: '5px 9px', minHeight: 'auto', height: 'auto',
-        borderColor: 'transparent', background: 'transparent',
-        color: 'var(--theia-descriptionForeground)', fontSize: 11.5
+        fontSize: 11.5
     }
 };
 

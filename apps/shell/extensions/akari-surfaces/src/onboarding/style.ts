@@ -16,12 +16,12 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-coach p { line-height:1.65; margin:7px 0; font-size:14px; }
 #akari-onboarding-v1 .ao-note { color:#766c63; font-size:12px!important; }
 #akari-onboarding-v1 .ao-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
-#akari-onboarding-v1 .ao-actions button,#akari-onboarding-v1 .ao-choices button { border:1px solid #d9b896; background:#fff; color:#4d3828; border-radius:8px; padding:8px 12px; }
-#akari-onboarding-v1 .ao-actions button.primary { background:#ed772e; border-color:#ed772e; color:#fff; font-weight:700; }
+#akari-onboarding-v1 .ao-actions button,#akari-onboarding-v1 .ao-choices button { border:1px solid var(--akari-button-secondary-line); background:var(--akari-button-secondary); color:var(--akari-ink); border-radius:8px; padding:8px 12px; }
+#akari-onboarding-v1 .ao-actions button.primary { background:var(--akari-accent); border-color:var(--akari-accent); color:var(--akari-bg); font-weight:700; }
 #akari-onboarding-v1 .ao-choices { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:14px; }
 #akari-onboarding-v1 .ao-choices button { text-align:left; font-weight:700; }
-#akari-onboarding-v1 .ao-choices small { display:block; font-size:11px; font-weight:400; color:#756858; margin-top:3px; }
-#akari-onboarding-v1 .ao-link { border:0; background:none; padding:6px 0; color:#ac5924; text-decoration:underline; font-size:12px; }
+#akari-onboarding-v1 .ao-choices small { display:block; font-size:11px; font-weight:400; color:var(--akari-button-quiet-ink); margin-top:3px; }
+#akari-onboarding-v1 .ao-link { border:0; background:none; padding:6px 0; color:var(--akari-accent); text-decoration:underline; font-size:12px; }
 #akari-onboarding-v1 .ao-takeover { position:absolute; inset:0; background:#101417; display:flex; align-items:center; justify-content:center; pointer-events:auto; }
 #akari-onboarding-v1 .ao-takeover-inner { width:min(760px,calc(100vw - 36px)); max-height:calc(100vh - 36px); overflow:auto; text-align:center; background:#1d2426; border:1px solid #485153; border-radius:18px; padding:22px 30px 30px; box-shadow:0 28px 80px #000b; }
 #akari-onboarding-v1 .ao-hero { position:relative; height:min(42vh,310px); overflow:hidden; border-radius:12px; background:#374436; }
@@ -36,8 +36,8 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-takeover h2 { font-size:29px; line-height:1.4; margin:10px 0; }
 #akari-onboarding-v1 .ao-takeover p { color:#c9d0ce; line-height:1.7; }
 #akari-onboarding-v1 .ao-takeover .ao-actions { justify-content:center; margin-top:20px; }
-#akari-onboarding-v1 .ao-takeover button { border:1px solid #697370; color:#f4f4f1; background:#313a3b; padding:10px 19px; border-radius:8px; }
-#akari-onboarding-v1 .ao-takeover button.primary { background:#eb7731; border-color:#eb7731; color:#fff; }
+#akari-onboarding-v1 .ao-takeover button { border:1px solid var(--akari-button-secondary-line); color:var(--akari-ink); background:var(--akari-button-secondary); padding:10px 19px; border-radius:8px; }
+#akari-onboarding-v1 .ao-takeover button.primary { background:var(--akari-accent); border-color:var(--akari-accent); color:var(--akari-bg); }
 #akari-onboarding-v1 .ao-chip { display:inline-block; padding:10px 16px; background:#293133; border:1px solid #55605d; border-radius:9px; text-align:left; }
 #akari-onboarding-v1 .ao-chip small { display:block; color:#aab3af; margin-top:3px; }
 #akari-onboarding-v1 .ao-donelist { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; color:#e6b78a; }
@@ -69,7 +69,7 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-chat-note { color:#d7c5b7; font-size:12px; margin:0 2px 12px; }
 #akari-onboarding-v1 .ao-chat-fallback::before { content:"案内用ビュー"; display:block; padding:5px 12px; color:#d7c5b7; background:#29221d; font-size:11px; }
 #akari-onboarding-v1 .ao-chat-input { margin:9px; padding:9px; min-height:55px; border:1px solid #596068; border-radius:7px; color:#e9edef; background:#2a3036; font-size:13px; line-height:1.6; }
-#akari-onboarding-v1 .ao-chat button { margin:0 9px 9px auto; padding:6px 14px; border:0; border-radius:6px; background:#e77731; color:#fff; }
+#akari-onboarding-v1 .ao-chat button { margin:0 9px 9px auto; padding:6px 14px; border:0; border-radius:6px; background:var(--akari-accent); color:var(--akari-bg); }
 #akari-onboarding-v1 .ao-pulse { outline:3px solid #ffa249!important; box-shadow:0 0 24px #ff8a38!important; }
 /* Round 2: one animated fog layer, separate contextual openings and one actionable ring. */
 #akari-onboarding-v1 .ao-example-host,#akari-onboarding-v1 .ao-chat-host,
@@ -106,18 +106,18 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-coach .ao-note { color:#a3a3a3; font-size:12px!important; }
 #akari-onboarding-v1 .ao-coach .ao-live { color:#fdba74; font-weight:700; }
 #akari-onboarding-v1 .ao-coach .ao-actions { justify-content:flex-end; align-items:center; gap:9px; }
-#akari-onboarding-v1 .ao-coach .ao-actions button { background:#2a2521; border:1px solid #554333; color:#fff; padding:7px 13px; }
-#akari-onboarding-v1 .ao-coach .ao-actions button.primary { background:#f97316; border-color:#f97316; color:#230d00; }
-#akari-onboarding-v1 .ao-coach .ao-actions .ao-back { background:none; border:0; color:#a3a3a3; font-size:12px; padding:6px 0; margin-right:auto; }
+#akari-onboarding-v1 .ao-coach .ao-actions button { background:var(--akari-button-secondary); border:1px solid var(--akari-button-secondary-line); color:var(--akari-ink); padding:7px 13px; }
+#akari-onboarding-v1 .ao-coach .ao-actions button.primary { background:var(--akari-accent); border-color:var(--akari-accent); color:var(--akari-bg); }
+#akari-onboarding-v1 .ao-coach .ao-actions .ao-back { background:none; border:0; color:inherit; opacity:.7; font-size:12px; padding:6px 0; margin-right:auto; }
 #akari-onboarding-v1 .ao-coach.minimal .ao-actions { justify-content:center; }
-#akari-onboarding-v1 .ao-coach.minimal .ao-actions button { border:0; background:none; color:#f5f5f5; text-decoration:underline; text-underline-offset:6px; }
-#akari-onboarding-v1 .ao-choices button { display:flex; align-items:center; gap:10px; background:#25211d; color:#eee; border:1px solid #57473b; }
-#akari-onboarding-v1 .ao-choices small { color:#a3a3a3; }
+#akari-onboarding-v1 .ao-coach.minimal .ao-actions button { border:0; background:none; color:inherit; text-decoration:underline; text-underline-offset:6px; }
+#akari-onboarding-v1 .ao-choices button { display:flex; align-items:center; gap:10px; background:var(--akari-button-secondary); color:var(--akari-ink); border:1px solid var(--akari-button-secondary-line); }
+#akari-onboarding-v1 .ao-choices small { color:var(--akari-button-quiet-ink); }
 #akari-onboarding-v1 .ao-choice-icon { width:25px; height:25px; flex:none; display:grid; place-items:center; }
 #akari-onboarding-v1 .ao-choice-icon > span { width:22px; height:22px; display:block; background-size:contain; }
 #akari-onboarding-v1 .ao-google { display:block; width:23px; height:23px; }
-#akari-onboarding-v1 .ao-choice-symbol { font-size:22px; color:#aaa; }
-#akari-onboarding-v1 .ao-link { color:#fb923c; }
+#akari-onboarding-v1 .ao-choice-symbol { font-size:22px; color:var(--akari-button-quiet-ink); }
+#akari-onboarding-v1 .ao-link { color:var(--akari-accent); }
 #akari-onboarding-v1 .ao-takeover { background:#0b0907; transition:opacity .38s ease; }
 #akari-onboarding-v1 .ao-takeover.out { opacity:0; }
 #akari-onboarding-v1 .ao-takeover-inner { width:min(820px,calc(100vw - 32px)); border:0; box-shadow:none; background:transparent; overflow:visible; }
@@ -143,7 +143,7 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-magic i:nth-of-type(2) { right:-9px; bottom:-17px; animation-delay:.5s; }
 #akari-onboarding-v1 .ao-magic i:nth-of-type(3) { right:20px; top:-19px; animation-delay:1s; }
 #akari-onboarding-v1 .ao-secondary { margin-top:27px; display:flex; gap:10px; align-items:center; justify-content:center; color:#777; font-size:12px; }
-#akari-onboarding-v1 .ao-secondary button { border:0; background:none; color:#888; padding:0; }
+#akari-onboarding-v1 .ao-secondary button { border:0; background:none; color:inherit; padding:0; }
 #akari-onboarding-v1 .ao-celebrate { position:absolute; inset:0; z-index:3; pointer-events:none; overflow:hidden; }
 #akari-onboarding-v1 .ao-confetti { position:absolute; left:0; top:0; display:block; }
 #akari-onboarding-v1 .ao-popper { position:absolute; width:120px; height:120px; }
@@ -198,12 +198,12 @@ body.akari-onboarding-daihon-active [data-akari-onboarding-target="daihon-first-
 #akari-onboarding-v1 .ao-recovery-host { z-index:20; }
 #akari-onboarding-v1 .ao-recovery-host:not(:empty) { background:#0009; pointer-events:auto; }
 #akari-onboarding-v1 .ao-close-host { z-index:21; }
-#akari-onboarding-v1 .ao-idle-close { position:absolute; top:17px; right:18px; padding:7px 11px; border:1px solid #aa8b68; border-radius:7px; background:#201b17e8; color:#eee; font-size:12px; pointer-events:auto; animation:ao-rise .45s ease both; }
+#akari-onboarding-v1 .ao-idle-close { position:absolute; top:17px; right:18px; padding:7px 11px; border:1px solid var(--akari-button-secondary-line); border-radius:7px; background:var(--akari-button-secondary); color:var(--akari-ink); font-size:12px; pointer-events:auto; animation:ao-rise .45s ease both; }
 #akari-onboarding-v1 .ao-transition-error { position:absolute; left:50%; top:50%; width:min(390px,calc(100vw - 32px)); padding:22px; transform:translate(-50%,-50%); border:1px solid #f97316; border-radius:12px; background:#1d1916; box-shadow:0 18px 55px #000c; color:#f3eee9; pointer-events:auto; }
 #akari-onboarding-v1 .ao-transition-error p { margin:0; line-height:1.7; font-size:14px; }
 #akari-onboarding-v1 .ao-transition-error .ao-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:17px; }
-#akari-onboarding-v1 .ao-transition-error button { padding:8px 13px; border:1px solid #73665a; border-radius:7px; background:#302a25; color:#eee; }
-#akari-onboarding-v1 .ao-transition-error button.primary { border-color:#f97316; background:#f97316; color:#231103; font-weight:700; }
+#akari-onboarding-v1 .ao-transition-error button { padding:8px 13px; border:1px solid var(--akari-button-secondary-line); border-radius:7px; background:var(--akari-button-secondary); color:var(--akari-ink); }
+#akari-onboarding-v1 .ao-transition-error button.primary { border-color:var(--akari-accent); background:var(--akari-accent); color:var(--akari-bg); font-weight:700; }
 #akari-onboarding-v1 .ao-transition-error button:disabled { opacity:.45; cursor:default; }
 @keyframes ao-rise { from { opacity:0; transform:translateY(12px); filter:blur(8px); } to { opacity:1; transform:none; filter:none; } }
 @keyframes ao-hero-in { from { opacity:0; transform:scale(1.03); filter:blur(10px); } }

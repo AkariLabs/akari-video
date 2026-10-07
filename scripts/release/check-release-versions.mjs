@@ -2,11 +2,12 @@
 // 版整合ゲート — タグ名（例 v0.1.0）と各コンポーネントの現在 version を照合する。
 // 契約（非公開の内部リポジトリ akari-video-internal 側で管理）:
 // 「タグ ↔ 各 package.json 版 ↔ latest.json の一致」を CI で機械検証し、ズレたらリリース
-// 作成を失敗させる。ここではタグ ↔ 各 package.json / plugin.json の一致のみを扱う
+// 作成を失敗させる。ここではタグ ↔ 各 package.json / plugin.json と shell の
+// package.json ↔ 2 つの package-lock.json の一致を扱う
 // （latest.json との一致は gen-latest-json.mjs がタグ版を全成分へ使うため保証される）。
 //
 // 使い方:
-//   node scripts/release/check-release-versions.mjs v0.1.0
+//   node scripts/release/check-release-versions.mjs [v0.1.0]
 import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -22,6 +23,12 @@ export const COMPONENTS = [
 ];
 
 export const TAG_RE = /^v(\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?)$/;
+
+const SHELL_LOCK_FIELDS = [
+  { label: 'apps/shell/package-lock.json トップ', relPath: 'apps/shell/package-lock.json', getVersion: lock => lock.version },
+  { label: 'apps/shell/package-lock.json packages[""]', relPath: 'apps/shell/package-lock.json', getVersion: lock => lock.packages?.['']?.version },
+  { label: 'package-lock.json packages["apps/shell"]', relPath: 'package-lock.json', getVersion: lock => lock.packages?.['apps/shell']?.version }
+];
 
 // "v0.1.0" -> "0.1.0"。vX.Y.Z 形式でなければ null。
 export function parseTag(tag) {
@@ -42,12 +49,14 @@ export async function checkReleaseVersions(tag, { repoRoot = defaultRepoRoot, co
   }
 
   const mismatches = [];
+  let shellVersion = null;
   for (const component of components) {
     const path = join(repoRoot, component.relPath);
     let version = null;
     try {
       const raw = await readFile(path, 'utf8');
       version = JSON.parse(raw).version ?? null;
+      if (component.relPath === 'apps/shell/package.json') shellVersion = version;
     } catch (error) {
       mismatches.push({
         label: component.label,
@@ -67,9 +76,32 @@ export async function checkReleaseVersions(tag, { repoRoot = defaultRepoRoot, co
     }
   }
 
+  if (shellVersion !== null) {
+    const locks = new Map();
+    for (const field of SHELL_LOCK_FIELDS) {
+      const path = join(repoRoot, field.relPath);
+      let version = null;
+      try {
+        if (!locks.has(path)) locks.set(path, JSON.parse(await readFile(path, 'utf8')));
+        version = field.getVersion(locks.get(path)) ?? null;
+      } catch (error) {
+        mismatches.push({ label: field.label, path, version: null, reason: `読み込み失敗（${error.code ?? error.message}）` });
+        continue;
+      }
+      if (version !== shellVersion) {
+        mismatches.push({
+          label: field.label,
+          path,
+          version,
+          reason: `shell package.json の version ${shellVersion} と不一致（実際: ${version ?? '(version フィールドなし)'}）`
+        });
+      }
+    }
+  }
+
   const ok = mismatches.length === 0;
   const messages = ok
-    ? [`版整合ゲート PASS: タグ ${tag} と shell / cli / plugin の version が全て一致（${tagVersion}）`]
+    ? [`版整合ゲート PASS: タグ ${tag} と shell / cli / plugin / shell ロックファイルの version が全て一致（${tagVersion}）`]
     : [
         `版整合ゲート FAIL: タグ ${tag}（プロダクト版 ${tagVersion}）と以下がズレています`,
         ...mismatches.map((m) => `  - ${m.label}: ${m.reason}`)
@@ -79,11 +111,16 @@ export async function checkReleaseVersions(tag, { repoRoot = defaultRepoRoot, co
 }
 
 async function main() {
-  const tag = process.argv[2];
+  let tag = process.argv[2];
   if (!tag) {
-    console.error('エラー: タグ名を引数で指定してください（例: node scripts/release/check-release-versions.mjs v0.1.0）');
-    process.exitCode = 1;
-    return;
+    try {
+      const shell = JSON.parse(await readFile(join(defaultRepoRoot, 'apps/shell/package.json'), 'utf8'));
+      tag = `v${shell.version}`;
+    } catch (error) {
+      console.error(`shell package.json の読み込み失敗（${error.code ?? error.message}）`);
+      process.exitCode = 1;
+      return;
+    }
   }
   const result = await checkReleaseVersions(tag);
   for (const line of result.messages) {

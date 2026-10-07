@@ -14,6 +14,13 @@ async function withFixtureRepo(versions, callback) {
     await mkdir(join(root, 'plugin/.claude-plugin'), { recursive: true });
     if (versions.shell !== undefined) {
       await writeFile(join(root, 'apps/shell/package.json'), JSON.stringify({ version: versions.shell }), 'utf8');
+      await writeFile(join(root, 'apps/shell/package-lock.json'), JSON.stringify({
+        version: versions.shellLockTop ?? versions.shell,
+        packages: { '': { version: versions.shellLockPackage ?? versions.shell } }
+      }), 'utf8');
+      await writeFile(join(root, 'package-lock.json'), JSON.stringify({
+        packages: { 'apps/shell': { version: versions.rootLockShell ?? versions.shell } }
+      }), 'utf8');
     }
     if (versions.cli !== undefined) {
       await writeFile(
@@ -62,6 +69,23 @@ test('checkReleaseVersions: 一致ケース — shell/cli/plugin が全てタグ
     assert.ok(result.messages[0].includes('PASS'));
   });
 });
+
+for (const [field, label] of [
+  ['shellLockTop', 'apps/shell/package-lock.json トップ'],
+  ['shellLockPackage', 'apps/shell/package-lock.json packages[""]'],
+  ['rootLockShell', 'package-lock.json packages["apps/shell"]']
+]) {
+  test(`checkReleaseVersions: ${label} の版ずれを名指しして FAIL`, async () => {
+    await withFixtureRepo({ shell: '1.1.1', cli: '1.1.1', plugin: '1.1.1', [field]: '1.0.1' }, async repoRoot => {
+      const result = await checkReleaseVersions('v1.1.1', { repoRoot });
+      assert.equal(result.ok, false);
+      assert.equal(result.mismatches.length, 1);
+      assert.equal(result.mismatches[0].label, label);
+      assert.match(result.mismatches[0].reason, /1\.1\.1.*1\.0\.1/);
+      assert.ok(result.messages.some(message => message.includes(label)));
+    });
+  });
+}
 
 test('checkReleaseVersions: 不一致ケース — shell だけズレていたら FAIL し、ラベル付きで報告する', async () => {
   await withFixtureRepo({ shell: '0.0.1', cli: '0.1.0', plugin: '0.1.0' }, async (repoRoot) => {
