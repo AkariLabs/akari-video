@@ -601,6 +601,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
     protected catalogThumbnailErrorTimer?: ReturnType<typeof setTimeout>;
+    protected catalogThumbnailPollTimer?: ReturnType<typeof setTimeout>;
+    protected catalogThumbnailPollGeneration = 0;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
@@ -1187,6 +1189,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 空配列（=完全に何も無い）のときだけ従来の「フォルダを選ぶ」空状態を出す。
      */
     public async loadAssetCatalogView(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
+        const pollGeneration = ++this.catalogThumbnailPollGeneration;
+        if (this.catalogThumbnailPollTimer) clearTimeout(this.catalogThumbnailPollTimer);
+        this.catalogThumbnailPollTimer = undefined;
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
@@ -1213,6 +1218,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.myStyles = myStyles;
         this.catalogLoading = false;
         this.update();
+        if (this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
+            this.pollLibraryThumbnails(pollGeneration, 0);
+        }
+    }
+
+    protected pollLibraryThumbnails(generation: number, attempt: number): void {
+        if (generation !== this.catalogThumbnailPollGeneration || attempt >= 20) return;
+        this.catalogThumbnailPollTimer = setTimeout(() => {
+            this.catalogThumbnailPollTimer = undefined;
+            const keys = this.assetCatalogItems.filter(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))
+                .map(item => item.key);
+            if (!keys.length || generation !== this.catalogThumbnailPollGeneration) return;
+            void this.projectService.getLibraryThumbnails(keys).then(result => {
+                if (generation !== this.catalogThumbnailPollGeneration) return;
+                if (Object.keys(result.urls).length) {
+                    this.assetCatalogItems = this.assetCatalogItems.map(item => result.urls[item.key]
+                        ? { ...item, thumbUrl: result.urls[item.key] } : item);
+                    this.update();
+                }
+                if (result.pending) this.pollLibraryThumbnails(generation, attempt + 1);
+            }).catch(() => {
+                if (generation === this.catalogThumbnailPollGeneration) this.pollLibraryThumbnails(generation, attempt + 1);
+            });
+        }, 1500);
     }
 
     /** 促しのシートをコマンドから開くとき、一覧をまだ読んでいなければ読む。 */
