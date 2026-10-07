@@ -153,6 +153,26 @@ test('a held magnet is kept until it is released, but yields to a clearly closer
   assert.equal(switched.kind, 'canvas'); assert.equal(switched.target, 500);
 });
 
+test('resize does not retain a target already aligned with its starting edge or centre', () => {
+  const canvas = { width: 1000, height: 600 };
+  const initialBounds = { left: 400, right: 600, top: 250, bottom: 350 };
+  const at = scale => ({ left: 400, right: 400 + 200 * scale,
+    top: 250, bottom: 250 + 100 * scale });
+  const other = { left: 600, right: 700, top: 350, bottom: 400 };
+  const previous = { x: { kind: 'item', target: 600, sourceIndex: 2 },
+    y: { kind: 'canvas', target: 300, sourceIndex: 1 } };
+  const result = g.snapScale({ scale: 1.08, at, others: [other], canvas,
+    initialBounds, previous, displayScale: .25 });
+  near(result.scale, 1.08);
+  assert.equal(result.snapX, null);
+  assert.equal(result.snapY, null);
+  const nearlyAligned = { left: 150, right: 250, top: 275.0001, bottom: 325.0001 };
+  const nearResult = g.snapScale({ scale: 1.08, at, others: [nearlyAligned], canvas,
+    initialBounds, displayScale: .25 });
+  near(nearResult.scale, 1.08);
+  assert.equal(nearResult.snapY, null);
+});
+
 test('a fast axis keeps an existing magnet but does not grab a new one, while the slow axis still snaps', () => {
   const canvas = { width: 1000, height: 600 };
   const moving = { left: 497, right: 547, top: 273, bottom: 323 };

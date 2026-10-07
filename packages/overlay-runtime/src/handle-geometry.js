@@ -72,6 +72,11 @@ globalThis.akariHandleGeometry = (() => {
         ...others.flatMap(bounds => coordinates(bounds, axis)
           .map((value, targetIndex) => ({ value, kind: 'item', bounds, targetIndex })))
       ];
+      const initial = options.initialBounds && coordinates(options.initialBounds, axis);
+      // A resize must be able to leave a guide that its own edge/centre occupied
+      // on pointerdown. Otherwise that initial alignment solves back to the old size.
+      const startedOnTarget = (sourceIndex, target) => initial
+        && Math.abs(initial[sourceIndex] - target.value) * displayScale <= .5;
       const limitFor = target => target.kind === 'item' ? itemTolerance
         : target.targetIndex === 1 ? tolerance : edgeTolerance;
       // いったん吸着した先は、その吸着距離を超えて離れるまで保つ。近くの別候補へ毎回
@@ -81,7 +86,8 @@ globalThis.akariHandleGeometry = (() => {
         && (!coefficients || Math.abs(coefficients[previous.sourceIndex]) > 1e-9)
         && (!options.centerPriority?.[axis] || previous.sourceIndex === 1)) {
         const kept = targets.find(target => target.kind === previous.kind
-          && Math.abs(target.value - previous.target) <= 1e-6);
+          && Math.abs(target.value - previous.target) <= 1e-6
+          && !startedOnTarget(previous.sourceIndex, target));
         const correction = previous.target - own[previous.sourceIndex];
         if (kept && Number.isFinite(correction) && Math.abs(correction) * displayScale <= limitFor(kept)) {
           held = { ...previous, correction, bounds: kept.bounds, distance: Math.abs(correction) * displayScale };
@@ -92,6 +98,7 @@ globalThis.akariHandleGeometry = (() => {
       const candidates = [];
       own.forEach((source, sourceIndex) => targets.forEach(target => {
         if (coefficients && !(Math.abs(coefficients[sourceIndex]) > 1e-9)) return;
+        if (startedOnTarget(sourceIndex, target)) return;
         if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)
           && !(options.centerToItemEdges && CENTER_EDGE_PAIRS.has(sourceIndex + ':' + target.targetIndex))) return;
         const correction = target.value - source;
@@ -139,7 +146,7 @@ globalThis.akariHandleGeometry = (() => {
   // at(s) supplies the visible bounds at scale s. Each edge and centre must be affine
   // in s; this also covers a rotated rectangle while its rotation stays fixed.
   function snapScale({ scale, at, others = [], canvas, displayScale = 1, tolerance = 6,
-    previous = null, options = {}, clamp = value => value }) {
+    previous = null, initialBounds = null, options = {}, clamp = value => value }) {
     if (!Number.isFinite(scale) || typeof at !== 'function') return null;
     const bounds = at(scale);
     const next = at(scale + 1);
@@ -150,7 +157,7 @@ globalThis.akariHandleGeometry = (() => {
       coefficients[axis] = [a, (a + b) / 2, b];
     }
     const snaps = snapBounds(bounds, others, canvas, displayScale, tolerance,
-      { ...options, previous, sourceCoefficients: coefficients });
+      { ...options, previous, initialBounds, sourceCoefficients: coefficients });
     const choices = ['x', 'y'].flatMap(axis => {
       const snap = snaps[axis];
       if (!snap) return [];

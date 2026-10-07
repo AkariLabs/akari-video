@@ -203,6 +203,84 @@ test('single-overlay corner path applies the shared scale correction', () => {
   assert.equal(applied.at(-1)[0], applied.at(-1)[1]);
 });
 
+test('small preview corner and edge drags leave their starting canvas guides', () => {
+  const corners = ['nw', 'ne', 'sw', 'se'];
+  const edges = ['n', 's', 'e', 'w'];
+  for (const displayScale of [0.1, 0.25, 0.5, 1]) {
+    for (const pixels of [2, 8, 18]) {
+      for (const corner of corners) {
+        const h = snapHarness();
+        h.context.currentDisplayScale = () => displayScale;
+        h.context.outputSize = () => ({ width: 1920, height: 1080 });
+        h.context.showSnapGuides = () => {};
+        h.context.clampScale = value => value;
+        vm.runInContext(interaction.slice(interaction.indexOf('function computeAnchorResizeSnap('),
+          interaction.indexOf('function applyResizeTransformAt(')), h.context);
+        // Keep the visible frame at 132×75px at every preview zoom.
+        const width = 132 / displayScale, height = 75 / displayScale;
+        const bounds = box(960 - width / 2, 960 + width / 2,
+          540 - height / 2, 540 + height / 2);
+        const anchorStageX = corner.includes('w') ? bounds.right : bounds.left;
+        const anchorStageY = corner.includes('n') ? bounds.bottom : bounds.top;
+        const draggedStageX = corner.includes('w') ? bounds.left : bounds.right;
+        const draggedStageY = corner.includes('n') ? bounds.top : bounds.bottom;
+        const rawScale = 1 + pixels / 132;
+        const solved = h.context.computeAnchorResizeSnap({ anchorStageX, anchorStageY,
+          draggedStageX, draggedStageY, startScale: 1, scale: rawScale, startBounds: bounds,
+          movingItem: { kind: 'shape', id: 'moving' } });
+        assert.ok(Math.abs(solved.scale - rawScale) < 1e-6,
+          `corner ${corner}, displayScale ${displayScale}, drag ${pixels}px: ${solved.scale}`);
+      }
+      for (const edge of edges) {
+        const h = snapHarness();
+        h.context.currentDisplayScale = () => displayScale;
+        h.context.outputSize = () => ({ width: 1920, height: 1080 });
+        h.context.showSnapGuides = () => {};
+        h.context.clampScale = value => value;
+        const width = 80 / displayScale, height = 60 / displayScale;
+        let bounds = edge === 'e' ? box(960 - width, 960, 100, 200)
+          : edge === 'w' ? box(960, 960 + width, 100, 200)
+            : edge === 's' ? box(200, 250, 540 - height, 540)
+              : box(200, 250, 540, 540 + height);
+        const startBounds = bounds;
+        h.context.applyAxisResize = (_resize, x, y) => {
+          bounds = edge === 'e' ? box(960 - width, 960 - width + width * x, 100, 200)
+            : edge === 'w' ? box(960 + width - width * x, 960 + width, 100, 200)
+              : edge === 's' ? box(200, 250, 540 - height, 540 - height + height * y)
+                : box(200, 250, 540 + height - height * y, 540 + height);
+        };
+        h.context.fragmentVideoBounds = () => bounds;
+        vm.runInContext(interaction.slice(interaction.indexOf('function axisResizeSnap('),
+          interaction.indexOf('function updateAxisResize(')), h.context);
+        const resize = { container: {}, overlayId: 'moving', edge, startBounds,
+          startScaleX: 1, startScaleY: 1, snapX: null, snapY: null };
+        const rawScale = 1 + pixels / (edge === 'e' || edge === 'w' ? 80 : 60);
+        const solved = h.context.axisResizeSnap(resize, edge === 'e' || edge === 'w' ? 'x' : 'y',
+          edge === 'e' || edge === 'w' ? rawScale : 1,
+          edge === 'n' || edge === 's' ? rawScale : 1);
+        assert.ok(Math.abs(solved - rawScale) < 1e-6,
+          `edge ${edge}, displayScale ${displayScale}, drag ${pixels}px: ${solved}`);
+      }
+    }
+  }
+});
+
+test('resize magnet measures 5px and 7px in preview pixels', () => {
+  const g = snapHarness().context.akariHandleGeometry;
+  const canvas = { width: 1000, height: 600 };
+  for (const displayScale of [0.1, 0.25, 0.5, 1]) {
+    const at = scale => ({ left: 100, right: 100 + 100 * scale, top: 400, bottom: 450 });
+    const target = 300;
+    const other = box(target, 350, 100, 150);
+    const near = g.snapScale({ scale: (target - 100 - 5 / displayScale) / 100,
+      at, others: [other], canvas, displayScale });
+    assert.equal(near.snapX?.target, target, `5px at ${displayScale}`);
+    const far = g.snapScale({ scale: (target - 100 - 7 / displayScale) / 100,
+      at, others: [other], canvas, displayScale });
+    assert.equal(far.snapX, null, `7px at ${displayScale}`);
+  }
+});
+
 test('canvas target helper is only called by the central movement fallback', () => {
   assert.equal([...interaction.matchAll(/canvasSnapTargets\(/g)].length, 2);
   assert.match(interaction, /function snapTargetsFor\(moving = null\)/);

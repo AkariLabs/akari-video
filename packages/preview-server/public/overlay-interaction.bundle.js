@@ -2055,7 +2055,14 @@
       if (Array.isArray(extra)) others.push(...extra.filter((item) => item && [item.left, item.right, item.top, item.bottom].every(Number.isFinite)));
       return others;
     }
-    function computeScaleSnap({ scale, at, previous = null, movingItem = null, clamp = (value) => value }) {
+    function computeScaleSnap({
+      scale,
+      at,
+      previous = null,
+      movingItem = null,
+      initialBounds = null,
+      clamp = (value) => value
+    }) {
       const solved = globalThis.akariHandleGeometry?.snapScale({
         scale,
         at,
@@ -2063,6 +2070,7 @@
         canvas: outputSize(),
         displayScale: currentDisplayScale(),
         previous,
+        initialBounds,
         clamp
       });
       showSnapGuides(solved?.snapX, solved?.snapY);
@@ -2792,6 +2800,7 @@
         at,
         previous: { x: snapX, y: snapY },
         movingItem,
+        initialBounds: base,
         clamp: clampScale
       });
     }
@@ -2878,6 +2887,7 @@
         at,
         movingItem: { kind: "shape", id: resize.overlayId },
         previous: { x: resize.snapX, y: resize.snapY },
+        initialBounds: resize.startBounds,
         clamp: clampScale
       });
       resize.snapX = solved?.snapX ?? null;
@@ -2965,6 +2975,7 @@
             },
             previous: { x: resize.snapX, y: resize.snapY },
             movingItem,
+            initialBounds: resize.startBounds,
             clamp: clampScale
           }) : computeAnchorResizeSnap({
             anchorStageX: resize.anchorStageX,
