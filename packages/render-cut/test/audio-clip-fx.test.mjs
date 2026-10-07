@@ -33,7 +33,7 @@ test('SFX chain is atrim -> two highpass stages -> denoise -> rubberband -> volu
     denoise: { method: 'fft', strength: 0.6 }, fade_out: 0.5,
   }] });
   try {
-    assert.match(graph, /atrim=start=0\.5:end=4\.5,asetpts=PTS-STARTPTS,highpass=f=120:p=2,highpass=f=120:p=2,afftdn=nr=57\.6:nf=-30,rubberband=tempo=2:pitch=2:formant=preserved:pitchq=quality,volume=0dB,afade=t=out:st=1\.5:d=0\.5,adelay=1000:all=1/u);
+    assert.match(graph, /atrim=start=0\.5:end=4\.5,asetpts=PTS-STARTPTS,highpass=f=120:p=2,highpass=f=120:p=2,afftdn=nr=16\.8:nf=-50:tn=1,rubberband=tempo=2:pitch=2:formant=preserved:pitchq=quality,volume=0dB,afade=t=out:st=1\.5:d=0\.5,adelay=1000:all=1/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

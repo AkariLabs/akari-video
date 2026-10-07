@@ -6,7 +6,7 @@ import {
 } from '../lib/common/voice-recording.js';
 
 test('recorded voice uses the measured non-muffling denoise preset', () => {
-    assert.deepEqual(VOICE_RECORDING_DENOISE, { method: 'nlm', strength: 1 });
+    assert.deepEqual(VOICE_RECORDING_DENOISE, { method: 'nlm', strength: 0.75 });
 });
 
 test('local recording name and clock', () => {

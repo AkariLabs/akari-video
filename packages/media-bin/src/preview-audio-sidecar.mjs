@@ -323,6 +323,9 @@ export function hasAudioClipFx(value = {}) {
 }
 
 // Single canonical clip-FX chain shared by render-cut and preview sidecars.
+// A fixed nf=-30 treated the voice's high frequencies as noise and muffled them.
+// Track the noise floor (tn=1) with a restrained nr instead.
+// NLM preserves the voice, so its strength spans a wider range logarithmically.
 export function buildAudioClipFxFilters(value = {}) {
   const normalized = normalizeAudioClipFx(value);
   const filters = [];
@@ -331,9 +334,9 @@ export function buildAudioClipFxFilters(value = {}) {
     filters.push(highpass, highpass);
   }
   if (normalized.denoise?.method === 'fft') {
-    filters.push(`afftdn=nr=${formatNumber(12 + normalized.denoise.strength * 76)}:nf=-30`);
+    filters.push(`afftdn=nr=${formatNumber(6 + normalized.denoise.strength * 18)}:nf=-50:tn=1`);
   } else if (normalized.denoise?.method === 'nlm') {
-    filters.push(`anlmdn=s=${formatNumber(0.00001 + normalized.denoise.strength * 0.0002)}`);
+    filters.push(`anlmdn=s=${formatNumber(10 ** (-5 + 4 * normalized.denoise.strength))}`);
   }
   if (normalized.speed !== 1 || normalized.pitchSemitones !== 0) {
     filters.push([
