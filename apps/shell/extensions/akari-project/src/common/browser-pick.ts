@@ -6,6 +6,16 @@ export const PICK_OUTLINE_COLOR = { accent: '#f97316', edge: '#261b16' } as cons
 export function viewModeMessage(on: boolean): { on: boolean; color: typeof PICK_OUTLINE_COLOR } {
     return { on, color: PICK_OUTLINE_COLOR };
 }
+
+export function isReplacedBrowserNavigation(error: unknown,
+    state: { windowAlive: boolean; viewAlive: boolean; blocked: boolean }): boolean {
+    if (!state.windowAlive || !state.viewAlive || state.blocked || !error || typeof error !== 'object') return false;
+    const value = error as { code?: unknown; errno?: unknown; message?: unknown };
+    if (value.code !== undefined && value.code !== 'ERR_ABORTED' && value.code !== -3
+        || value.errno !== undefined && value.errno !== -3) return false;
+    return value.code === 'ERR_ABORTED' || value.code === -3 || value.errno === -3
+        || typeof value.message === 'string' && /^(?:Error:\s*)?ERR_ABORTED \(-3\) loading(?:\s|$)/u.test(value.message);
+}
 export type ContextMenuAction = 'pick' | 'separator' | 'copy-image' | 'copy-image-address' | 'copy-link-address'
     | 'back' | 'forward' | 'reload' | 'copy' | 'selectAll';
 export function contextMenuActions(hasPick: boolean, hasImage: boolean, hasLink: boolean): ContextMenuAction[] {

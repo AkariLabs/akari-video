@@ -5,7 +5,7 @@ import { injectable } from '@theia/core/shared/inversify';
 import { existsSync, promises as fs } from 'fs';
 import { homedir } from 'os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'path';
-import { contextMenuActions, originalUrlHint, PickPayload, validatePickPayload, validatedViewPick,
+import { contextMenuActions, isReplacedBrowserNavigation, originalUrlHint, PickPayload, validatePickPayload, validatedViewPick,
     viewModeMessage } from '../common/browser-pick';
 import { sanitizeExternalText } from '../common/external-text';
 import { AssetSite, highlightCandidateIndex, markHighlightScript, READ_HIGHLIGHT_CANDIDATES_SCRIPT } from '../common/asset-sites';
@@ -22,7 +22,7 @@ import { readBrowserConfig } from './browser-data';
 type TrustedSite = (AssetSite | BrowserDefinition) & SitePolicy;
 interface SiteState { window: BrowserWindow; view: WebContentsView; site: TrustedSite; temporary: string; url: string;
     navigationLog: { stage: string; url: string; allowed: boolean }[]; lastRect?: CssRect & { visible: boolean };
-    guarded: boolean; pickMode: boolean; zoomListener: () => void; lastPick?: number;
+    guarded: boolean; pickMode: boolean; blockedNavigation: boolean; zoomListener: () => void; lastPick?: number;
     search: { engine: string; query: string } | null; pendingResolve?: { token: string; timer: ReturnType<typeof setTimeout>;
         show: (payload?: PickPayload) => void } }
 const HIGHLIGHT_CSS = '[data-akari-site-highlight="true"] { outline: 4px solid #f97316 !important; outline-offset: 4px !important; box-shadow: 0 0 0 7px #f9731666 !important; }';
@@ -141,7 +141,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             if (operation === 'navigate') {
                 if (typeof input?.url !== 'string' || input.url.length > 8192 || !navigationAllowed(input.url, state.site, testHttp))
                     throw new Error('このアドレスは開けません');
-                await state.view.webContents.loadURL(input.url); return;
+                await this.loadSiteUrl(state, input.url); return;
             }
             if (operation === 'highlight') {
                 if (state.site.downloads === 'deny') return false;
@@ -206,6 +206,21 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         state.view.setVisible(visible);
     }
 
+    private async loadSiteUrl(state: SiteState, url: string): Promise<void> {
+        state.blockedNavigation = false;
+        try {
+            await state.view.webContents.loadURL(url);
+            if (state.blockedNavigation) throw new Error('このアドレスは開けません');
+        }
+        catch (error) {
+            if (!isReplacedBrowserNavigation(error, {
+                windowAlive: !state.window.isDestroyed(),
+                viewAlive: this.states.get(state.window.id) === state && !state.view.webContents.isDestroyed(),
+                blocked: state.blockedNavigation
+            })) throw error;
+        }
+    }
+
     private async open(window: BrowserWindow, site: AssetSite | BrowserDefinition, url: string): Promise<void> {
         const trusted = await this.readTrustedSite(site?.id);
         if (!trusted || typeof url !== 'string' || url.length > 8192 || !navigationAllowed(url, trusted, testHttp) ||
@@ -231,7 +246,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         // Remove that hook only from this dedicated site view, then install our own hosts[] guard below.
         wc.removeAllListeners('will-navigate');
         const state: SiteState = { window, view, site: trusted, temporary, url, navigationLog: [],
-            guarded: false, pickMode: this.pickModes.get(window.id) ?? false, search: null,
+            guarded: false, pickMode: this.pickModes.get(window.id) ?? false, blockedNavigation: false, search: null,
             zoomListener: () => this.applyBounds(state) };
         this.states.set(window.id, state);
         window.contentView.addChildView(view);
@@ -263,12 +278,12 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         wc.on('will-navigate', (event, target) => { const allowed = navigationAllowed(target, state.site, testHttp);
             if (testHttp) state.navigationLog.push({ stage: 'will-navigate', url: target, allowed });
             if (!allowed) {
-            event.preventDefault(); this.rejectNavigation(state, target);
+            state.blockedNavigation = true; event.preventDefault(); this.rejectNavigation(state, target);
         } });
         wc.on('will-redirect', (event, target) => { const allowed = navigationAllowed(target, state.site, testHttp);
             if (testHttp) state.navigationLog.push({ stage: 'will-redirect', url: target, allowed });
             if (!allowed) {
-            event.preventDefault(); this.rejectNavigation(state, target);
+            state.blockedNavigation = true; event.preventDefault(); this.rejectNavigation(state, target);
         } });
         wc.on('did-navigate', (_event, target) => { state.url = target;
             if (testHttp) state.navigationLog.push({ stage: 'did-navigate', url: target, allowed: true });
@@ -278,7 +293,8 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
             if (trusted.navigation === 'open') wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode)); });
         window.once('closed', () => { void this.close(state); });
         if (state.pickMode) this.emit(state, { type: 'pickMode', on: true });
-        await wc.loadURL(url);
+        try { await this.loadSiteUrl(state, url); }
+        catch (error) { await this.close(state); throw error; }
     }
 
     private async libraryRoot(): Promise<string> {

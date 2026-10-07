@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { blockedAddress, safeImageUrl, safeResolvedAddresses } = require('../lib/common/ssrf-guard.js');
 const { MAX_IMAGE_BYTES, ORIGINAL_URL_PARAMS, validatePickPayload, originalUrlHint, imageQuality,
     resolveImageModel, firstBackgroundUrl, validatedViewPick, contextMenuActions, PICK_OUTLINE_COLOR,
-    viewModeMessage } = require('../lib/common/browser-pick.js');
+    viewModeMessage, isReplacedBrowserNavigation } = require('../lib/common/browser-pick.js');
 const { makeScratchSource, validateScratchSource, licenseHint, scratchLabel } = require('../lib/common/scratch-source.js');
 const { planScratchCleanup } = require('../lib/common/scratch-cleanup.js');
 const { sanitizeExternalText, wrapExternalText, detectInjectionSuspect } = require('../lib/common/external-text.js');
@@ -182,6 +182,21 @@ test('view mode carries the same orange and edge colors for on, off and navigati
     assert.deepEqual(viewModeMessage(false), { on: false, color: PICK_OUTLINE_COLOR });
     assert.match(PICK_OUTLINE_COLOR.accent, /^#[0-9a-f]{6}$/u);
     assert.match(PICK_OUTLINE_COLOR.edge, /^#[0-9a-f]{6}$/u);
+});
+
+test('only an aborted, still-live and allowed replacement navigation is accepted', () => {
+    const live = { windowAlive: true, viewAlive: true, blocked: false };
+    assert.equal(isReplacedBrowserNavigation(new Error("ERR_ABORTED (-3) loading 'https://example.com'"), live), true);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_ABORTED', errno: -3 }, live), true);
+    assert.equal(isReplacedBrowserNavigation({ code: -3, errno: -3 }, live), true);
+    assert.equal(isReplacedBrowserNavigation({ errno: -3 }, live), true);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_NAME_NOT_RESOLVED', errno: -105 }, live), false);
+    assert.equal(isReplacedBrowserNavigation(new Error('ERR_ABORTED (-2) loading'), live), false);
+    assert.equal(isReplacedBrowserNavigation(new Error('Some ERR_ABORTED (-3) text'), live), false);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_NAME_NOT_RESOLVED', errno: -3 }, live), false);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_ABORTED', errno: -3 }, { ...live, windowAlive: false }), false);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_ABORTED', errno: -3 }, { ...live, viewAlive: false }), false);
+    assert.equal(isReplacedBrowserNavigation({ code: 'ERR_ABORTED', errno: -3 }, { ...live, blocked: true }), false);
 });
 
 test('(d) source validation, external separation and license hints', () => {
