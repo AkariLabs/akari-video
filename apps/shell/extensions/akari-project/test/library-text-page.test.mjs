@@ -66,7 +66,7 @@ test('フォントは1行1書体で、名前は重複せず、元カードの押
     assert.equal(nodes(row, node => node.type === 'img').length, 0, '登録済みの面を使う');
     assert.equal(nodes(row, node => node.props['data-akari-font-name'])[0].props.style.fontFamily, 'sans-serif');
     assert.equal(row.props.style.flexDirection, 'column', 'どの書体も二段に並ぶ');
-    assert.equal(row.props.style.height, '76px');
+    assert.equal(row.props.style.height, '60px');
     for (const attribute of ['data-akari-font-name', 'data-akari-font-english']) {
         const text = nodes(row, node => node.props[attribute])[0];
         assert.equal(text.props.style.whiteSpace, 'nowrap');
@@ -79,7 +79,7 @@ test('フォントは1行1書体で、名前は重複せず、元カードの押
     const remote = LibraryTextFontRow({ item: { id: '851-chikara-dzuyoku', key: 'font/851-chikara-dzuyoku',
         title: '851チカラヅヨク', previewUrl: 'preview.png' }, card });
     assert.equal(remote.props.style.flexDirection, 'column', '未所持の行も二段に並ぶ');
-    assert.equal(remote.props.style.height, '76px');
+    assert.equal(remote.props.style.height, '60px');
     const remoteName = nodes(remote, node => node.props['data-akari-font-name'])[0];
     assert.equal(remoteName.props.style.whiteSpace, 'nowrap');
     assert.equal(remoteName.props.style.textOverflow, 'ellipsis');
@@ -99,7 +99,8 @@ test('フォントは1行1書体で、名前は重複せず、元カードの押
     const secondary = nodes(download, node => node.props['data-akari-font-secondary'])[0];
     const status = nodes(secondary, node => node.props['data-akari-font-status'])[0];
     assert.equal(status.children.join(''), '↓ ダウンロード');
-    assert.equal(status.props.style.flex, '0 0 auto');
+    assert.equal(status.props.style.flex, '0 1 auto');
     assert.equal(nodes(secondary, node => node.props['aria-label'] === 'お気に入り').length, 1);
-    assert.equal(nodes(download.children[0], node => node.type === LibraryDotsButton).length, 1);
+    assert.equal(nodes(download.children[0], node => node.type === LibraryDotsButton).length, 0);
+    assert.equal(nodes(download.children[1], node => node.type === LibraryDotsButton).length, 1);
 });

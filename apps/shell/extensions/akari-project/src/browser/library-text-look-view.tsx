@@ -32,34 +32,37 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
             event.preventDefault(); card.onApply();
         } }}
         style={{ display: 'flex', flexDirection: 'column', gap: '2px',
-            height: '76px', boxSizing: 'border-box', padding: '6px 8px', minWidth: 0,
+            height: '60px', boxSizing: 'border-box', padding: '5px 8px', minWidth: 0,
             borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
             color: AKARI_INK, border: AKARI_BORDER.ghost, cursor: 'grab',
             opacity: card.availability?.status === 'available' ? 1 : 0.65 }}>
-        <div data-akari-font-primary style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', height: '44px' }}>
-            <span style={{ flex: '1 1 auto', minWidth: 0, height: '44px' }}>
+        <div data-akari-font-primary style={{ width: '100%', height: '32px' }}>
+            <span style={{ display: 'block', width: '100%', height: '32px', overflow: 'hidden' }}>
                 {rowUrl ? <span data-akari-font-preview role='img' aria-label={`${item.title} 文字もじモジ`}
-                    style={{ display: 'block', width: '100%', height: '44px', backgroundColor: 'currentColor',
-                        mask: `url("${rowUrl}") left center / contain no-repeat`,
-                        WebkitMask: `url("${rowUrl}") left center / contain no-repeat` }} />
+                    style={{ display: 'block', width: '100%', height: '32px', backgroundColor: 'currentColor',
+                        mask: `url("${rowUrl}") left center / auto 32px no-repeat`,
+                        WebkitMask: `url("${rowUrl}") left center / auto 32px no-repeat` }} />
                     : <span data-akari-font-name style={{ display: 'block', fontFamily: 'sans-serif',
-                        fontSize: '17px', lineHeight: '44px', whiteSpace: 'nowrap', overflow: 'hidden',
-                        textOverflow: 'ellipsis' }}>{item.title}</span>}
+                        fontSize: '22px', lineHeight: '32px', whiteSpace: 'nowrap', overflow: 'hidden',
+                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}</span>}
             </span>
-            <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
         </div>
-        <div data-akari-font-secondary style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%',
+        <div data-akari-font-secondary style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%',
             minWidth: 0, height: '16px' }}>
-            {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り' />}
-            <small data-akari-font-english style={{ flex: '1 1 auto', minWidth: 0, fontSize: '10px', opacity: 0.65,
+            <small data-akari-font-english title={label.english ?? item.title}
+                style={{ flex: '1 1 0', minWidth: 0, fontSize: '10px', opacity: 0.65,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.english ?? item.title}</small>
-            <small data-akari-font-status style={{ flex: '0 0 auto', marginLeft: 'auto', whiteSpace: 'nowrap',
-                fontSize: '10px', opacity: 0.8 }}>
+            {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り'
+                style={{ flex: '0 0 auto' }} />}
+            <small data-akari-font-status title={card.availability?.status === 'failed' ? '確認できませんでした' : undefined}
+                style={{ flex: '0 1 auto', minWidth: 0, marginLeft: 'auto', whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px', opacity: 0.8 }}>
                 {card.availability?.status === 'available' ? '使える'
                     : card.availability?.status === 'download' ? '↓ ダウンロード'
                         : card.availability?.status === 'source' ? '入手が必要'
                             : card.availability?.status === 'failed' ? '確認できませんでした' : '確認中'}
             </small>
+            <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
         </div>
     </div>;
 }

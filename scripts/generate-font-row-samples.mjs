@@ -16,6 +16,7 @@ const output = resolve(options['out-dir'] ?? join(root, 'catalog', 'font'));
 const manifest = JSON.parse(await fs.readFile(join(root, 'catalog', 'font', 'download-manifest.json'), 'utf8'));
 const dirs = await fs.readdir(join(root, 'catalog', 'font'), { withFileTypes: true });
 const only = options.only?.split(',');
+const rowOnly = 'row-only' in options;
 let produced = 0;
 for (const entry of dirs.filter(dir => dir.isDirectory() && (!only || only.includes(dir.name)))) {
     const id = entry.name;
@@ -42,29 +43,32 @@ for (const entry of dirs.filter(dir => dir.isDirectory() && (!only || only.inclu
     const row = join(dest, 'row.webp');
     const sample = join(dest, 'sample.webp');
     const common = ['-background', 'none', '-fill', 'white', '-font', font, '-alpha', 'on'];
-    await run('magick', ['-size', '480x96', 'xc:none',
-        '(', '+size', '-background', 'none', '-fill', 'white', '-font', font, '-pointsize', '64',
-        `label:${title}`, '-trim', '+repage', '-resize', '408x44', ')',
-        '-gravity', 'NorthWest', '-geometry', '+8+2', '-composite',
-        '(', '+size', '-background', 'none', '-fill', 'white', '-font', font, '-pointsize', '42',
-        'label:文字もじモジ', '-trim', '+repage', '-resize', '408x28', ')',
-        '-gravity', 'NorthWest', '-geometry', '+8+59', '-composite',
+    const rowText = `${title} 文字もじモジ`;
+    const rowGlyph = ['+size', '-background', 'none', '-fill', 'white', '-font', font, '-pointsize', '64',
+        `label:${rowText}`, '-trim', '+repage', '-resize', 'x44'];
+    const { stdout: textWidth } = await run('magick', [...rowGlyph, '-format', '%w', 'info:']);
+    const rowWidth = Math.min(960, Math.max(64, Number(textWidth)));
+    if (!Number.isFinite(rowWidth)) throw new Error(`Cannot measure font specimen: ${id}`);
+    await run('magick', ['-size', `${rowWidth}x64`, 'xc:none',
+        '(', ...rowGlyph, ')', '-gravity', 'West', '-geometry', '+0+0', '-composite',
         '-define', 'webp:lossless=true', row]);
-    const lines = ['永あア字', 'あいうえお アイウエオ', 'AaBbCc 0123'];
-    const sizes = [84, 46, 52];
-    const positions = [84, 184, 270];
-    const args = ['-size', '640x400', 'xc:none', ...common, '-gravity', 'NorthWest'];
-    for (let index = 0; index < lines.length; index++) {
-        args.push('-pointsize', String(sizes[index]), '-annotate', `+24+${positions[index]}`, lines[index]);
+    if (!rowOnly) {
+        const lines = ['永あア字', 'あいうえお アイウエオ', 'AaBbCc 0123'];
+        const sizes = [84, 46, 52];
+        const positions = [84, 184, 270];
+        const args = ['-size', '640x400', 'xc:none', ...common, '-gravity', 'NorthWest'];
+        for (let index = 0; index < lines.length; index++) {
+            args.push('-pointsize', String(sizes[index]), '-annotate', `+24+${positions[index]}`, lines[index]);
+        }
+        if (boldFile || /Variable|\[wght\]/i.test(font)) {
+            args.push('-font', font, '-weight', '400', '-pointsize', '31', '-annotate', '+24+340', 'Regular 文字 Aa');
+            args.push('-font', boldFile ? join(bundledDir, boldFile) : font, '-weight', '700',
+                '-pointsize', '31', '-annotate', '+340+340', 'Bold 文字 Aa');
+        }
+        args.push('-define', 'webp:lossless=true', sample);
+        await run('magick', args);
     }
-    if (boldFile || /Variable|\[wght\]/i.test(font)) {
-        args.push('-font', font, '-weight', '400', '-pointsize', '31', '-annotate', '+24+340', 'Regular 文字 Aa');
-        args.push('-font', boldFile ? join(bundledDir, boldFile) : font, '-weight', '700',
-            '-pointsize', '31', '-annotate', '+340+340', 'Bold 文字 Aa');
-    }
-    args.push('-define', 'webp:lossless=true', sample);
-    await run('magick', args);
     produced++;
-    console.log(`${id}: row.webp 480x96, sample.webp 640x400`);
+    console.log(`${id}: row.webp ${rowWidth}x64${rowOnly ? '' : ', sample.webp 640x400'}`);
 }
-console.log(`Generated ${produced} font specimen pairs`);
+console.log(`Generated ${produced} font ${rowOnly ? 'rows' : 'specimen pairs'}`);
