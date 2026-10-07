@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><title>読み込み中の遷移</title>
+<!-- The fixture server serves /slow.png with a 3-second response delay. -->
+<main id="content"></main>
+<template id="before"><img src="/slow.png" alt="読み込み中の画像" width="800" height="600"></template>
+<template id="after"><img src="/image/full.png" alt="画像" width="800" height="600"></template>
+<script>
+const replaced = new URLSearchParams(location.search).get('first') === '1';
+document.querySelector('#content').append(document.querySelector(replaced ? '#after' : '#before').content.cloneNode(true));
+if (replaced) document.title = '書き換え後の画像';
+else setTimeout(() => location.replace(location.pathname + '?q=x&first=1'), 300);
+</script>

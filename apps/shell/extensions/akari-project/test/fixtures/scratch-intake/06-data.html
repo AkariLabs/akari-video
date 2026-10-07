@@ -1,0 +1,5 @@
+<!doctype html><meta charset="utf-8"><title>埋め込み画像</title>
+<img id="target" alt="花" width="800" height="600">
+<script>const c = document.createElement('canvas'); c.width = 800; c.height = 600;
+const x = c.getContext('2d'); x.fillStyle = 'orange'; x.fillRect(0, 0, 800, 600);
+document.querySelector('#target').src = c.toDataURL('image/png')</script>

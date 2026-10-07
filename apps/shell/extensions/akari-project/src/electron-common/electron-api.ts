@@ -2,9 +2,17 @@ export const CHANNEL_REVEAL_IN_FILE_MANAGER = 'AkariProjectRevealInFileManager';
 export const CHANNEL_COPY_FILE_TO_CLIPBOARD = 'AkariProjectCopyFileToClipboard';
 export const CHANNEL_ASSET_SITE = 'AkariProjectAssetSite';
 export const CHANNEL_ASSET_SITE_EVENT = 'AkariProjectAssetSiteEvent';
+export const CHANNEL_VIEW_MODE = 'AkariBrowserViewMode';
+export const CHANNEL_VIEW_PICK = 'AkariBrowserViewPick';
+export const CHANNEL_VIEW_RESOLVE_AT = 'AkariBrowserViewResolveAt';
+export const CHANNEL_SCRATCH = 'AkariProjectScratch';
+export const CHANNEL_SCRATCH_CHANGED = 'AkariProjectScratchChanged';
 
 export interface AssetSiteEvent {
-    type: 'navigated' | 'received' | 'error' | 'pickMode'; url?: string; name?: string; paths?: string[]; message?: string; on?: boolean;
+    type: 'navigated' | 'received' | 'error' | 'pickMode' | 'scratch'; url?: string; name?: string; paths?: string[]; message?: string; on?: boolean;
+    result?: 'added' | 'duplicate' | 'failed'; id?: string; quality?: 'thumbnail' | 'full' | 'unknown';
+    reason?: import('../electron-main/scratch-fetch').FetchReason; flags?: string[];
+    unresolved?: 'not-loaded' | 'unsupported';
 }
 export interface AssetSiteElectronApi {
     open(site: import('../common/asset-sites').AssetSite | import('../common/browser-engines').BrowserDefinition,
@@ -22,6 +30,7 @@ export interface AssetSiteElectronApi {
     forward(): Promise<void>;
     reload(): Promise<void>;
     pickMode(on: boolean): Promise<void>;
+    searchContext(value: { engine: string; query: string }): Promise<void>;
     /** Available only with the unpackaged local-site test flag. */
     inspect(): Promise<{ viewBounds: { x: number; y: number; width: number; height: number };
         windowBounds: { x: number; y: number; width: number; height: number };
@@ -44,6 +53,8 @@ export interface ElectronAkariProjectApi {
     revealInFileManager(fsPath: string): Promise<RevealInFileManagerResult>;
     copyFileToClipboard(fsPath: string): Promise<CopyFileToClipboardResult>;
     assetSite: AssetSiteElectronApi;
+    scratch: { list(): Promise<import('../electron-main/scratch-store').ScratchListItem[]>;
+        onChanged(listener: () => void): () => void };
 }
 
 declare global {
