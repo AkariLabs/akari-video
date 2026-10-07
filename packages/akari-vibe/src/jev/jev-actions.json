@@ -1,0 +1,1685 @@
+{
+  "schema": "akari.jev-actions/v0",
+  "baseAllowedCommandIds": [
+    "akari.preview.ensureVisible",
+    "akari.preview.seekOutput",
+    "akari.preview.togglePlayback",
+    "akari.preview.play",
+    "akari.preview.pause",
+    "akari.preview.setFullscreen",
+    "akari.preview.setViewZoom",
+    "akari.preview.setPlaybackRate",
+    "akari.preview.setLoopRange",
+    "akari.preview.enterCropMode",
+    "akari.preview.openPerspectivePanel",
+    "akari.preview.pulseItem",
+    "akari.preview.showZoneHint",
+    "akari.timeline.focusItem",
+    "akari.timeline.seek",
+    "akari.timeline.setView",
+    "akari.timeline.setTool",
+    "akari.timeline.setSnap",
+    "akari.timeline.reveal",
+    "akari.inspector.open",
+    "akari.daihon.open",
+    "akari.cuts.open",
+    "akari.transcribe.openDialog",
+    "akari.catalog.open",
+    "akari.catalog.importAsset",
+    "akari.catalog.listCategories",
+    "akari.menu.focus",
+    "akari.menu.listSkills",
+    "akari.menu.listOpenTargets",
+    "akari.review.open",
+    "akari.review.board.open",
+    "akari.partner.open",
+    "akari.settings.open"
+  ],
+  "neverByVoice": [
+    "jev.mode",
+    "listening.destination",
+    "credentials",
+    "apiKey",
+    "connections.write",
+    "subscription",
+    "login",
+    "billing.model",
+    "aiModel.paid",
+    "autoAdvance",
+    "dictionary.delete",
+    "data.delete",
+    "export.destination"
+  ],
+  "uiReceptors": {
+    "materials.filter": "pending",
+    "materials.sort": "pending",
+    "materials.search": "pending",
+    "library.filter": "pending",
+    "dock.tabs": "pending",
+    "settings.voiceWrite": "pending",
+    "sketch.popup": "pending",
+    "browser.tab": "pending",
+    "scratch.store": "pending"
+  },
+  "actions": [
+    {
+      "id": "A1",
+      "family": "ui",
+      "action": "filter",
+      "target": "library.project",
+      "intent": "素材を種類で絞る",
+      "commands": [
+        {
+          "commandId": "akari.catalog.setMaterialFilter"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "video",
+                "audio",
+                "image",
+                "3d"
+              ]
+            },
+            "maxItems": 4
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "materials.filter"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "A1",
+      "notes": "受け口の仮名。実装待ち。検索語を保つ。"
+    },
+    {
+      "id": "A2",
+      "family": "ui",
+      "action": "sort",
+      "target": "library.project",
+      "intent": "素材を並べ替える",
+      "commands": [
+        {
+          "commandId": "akari.catalog.setMaterialSort"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "enum": [
+              "duration",
+              "created"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "by",
+          "order"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "materials.sort"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "A2",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "A3",
+      "family": "ui",
+      "action": "search",
+      "target": "library.project",
+      "intent": "素材を名前で探す",
+      "commands": [
+        {
+          "commandId": "akari.catalog.setMaterialQuery"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "materials.search"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "A3",
+      "notes": "受け口の仮名。実装待ち。既存 akari.catalog.open は呼ぶたびに検索語をリセットするため、新コマンドが必要。"
+    },
+    {
+      "id": "A4",
+      "family": "ui",
+      "action": "search",
+      "target": "library.lab",
+      "intent": "素材集を探す",
+      "commands": [
+        {
+          "commandId": "akari.catalog.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string",
+            "enum": [
+              "library"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "tab",
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "A4",
+      "notes": "既存 akari.catalog.open は呼ぶたびに検索語をリセットする。"
+    },
+    {
+      "id": "A5",
+      "family": "ui",
+      "action": "filter",
+      "target": "library.lab",
+      "intent": "素材集の絞りを変える",
+      "commands": [
+        {
+          "commandId": "akari.library.setFilter"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "maxItems": 8
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "license": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "library.filter"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "A5",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "A6",
+      "family": "ui",
+      "action": "openCategory",
+      "target": "library.lab",
+      "intent": "素材集のカテゴリを開く",
+      "commands": [
+        {
+          "commandId": "akari.catalog.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string",
+            "enum": [
+              "library"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "tab",
+          "category"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "A6",
+      "notes": "既存 akari.catalog.open は呼ぶたびに検索語をリセットする。"
+    },
+    {
+      "id": "A7",
+      "family": "ui",
+      "action": "clear",
+      "target": "library.*",
+      "intent": "絞りを解除する",
+      "commands": [
+        {
+          "commandId": "akari.catalog.clearFilters"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "materials.filter",
+        "library.filter"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "A7",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "B1",
+      "family": "ui",
+      "action": "select",
+      "target": "timeline",
+      "intent": "タイムラインの要素を選ぶ",
+      "commands": [
+        {
+          "commandId": "akari.timeline.focusItem"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "seek": {
+            "type": "boolean"
+          },
+          "pulse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "itemId"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B1"
+    },
+    {
+      "id": "B2",
+      "family": "ui",
+      "action": "select",
+      "target": "daihon",
+      "intent": "字幕・台本の行へ",
+      "commands": [
+        {
+          "commandId": "akari.daihon.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "captionId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "pulse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "captionId"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B2"
+    },
+    {
+      "id": "B3",
+      "family": "ui",
+      "action": "seek",
+      "target": "timeline",
+      "intent": "再生位置を動かす",
+      "commands": [
+        {
+          "commandId": "akari.timeline.seek",
+          "argsMap": {
+            "seconds": "value.seconds"
+          }
+        },
+        {
+          "commandId": "akari.preview.seekOutput",
+          "argsMap": {
+            "time": "value.seconds"
+          }
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "seconds"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B3",
+      "notes": "相対位置・カット・単語の解決は判断側で秒へ変換。"
+    },
+    {
+      "id": "B4",
+      "family": "ui",
+      "action": "play",
+      "target": "preview",
+      "intent": "再生・停止・速度・ループ・拡大",
+      "commands": [
+        {
+          "commandId": "akari.preview.play"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "editUri": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "editUri"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B4",
+      "notes": "ほかの再生操作は B4.* に列挙。"
+    },
+    {
+      "id": "B4.zoom",
+      "family": "ui",
+      "action": "zoom",
+      "target": "preview",
+      "intent": "プレビューを拡大する",
+      "commands": [
+        {
+          "commandId": "akari.preview.setViewZoom"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "editUri": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "editUri",
+          "scale"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B4"
+    },
+    {
+      "id": "B4.setLoop",
+      "family": "ui",
+      "action": "setLoop",
+      "target": "preview",
+      "intent": "ループを変える",
+      "commands": [
+        {
+          "commandId": "akari.preview.setLoopRange"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "editUri": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "startSeconds": {
+            "type": "number"
+          },
+          "endSeconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "editUri",
+          "startSeconds",
+          "endSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B4"
+    },
+    {
+      "id": "B4.setRate",
+      "family": "ui",
+      "action": "setRate",
+      "target": "preview",
+      "intent": "再生速度を変える",
+      "commands": [
+        {
+          "commandId": "akari.preview.setPlaybackRate"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "editUri": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "rate": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "editUri",
+          "rate"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B4"
+    },
+    {
+      "id": "B4.pause",
+      "family": "ui",
+      "action": "pause",
+      "target": "preview",
+      "intent": "再生を止める",
+      "commands": [
+        {
+          "commandId": "akari.preview.pause"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "editUri": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "editUri"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B4"
+    },
+    {
+      "id": "B5",
+      "family": "ui",
+      "action": "view",
+      "target": "timeline",
+      "intent": "タイムラインの見える範囲",
+      "commands": [
+        {
+          "commandId": "akari.timeline.setView"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "fit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fit"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B5"
+    },
+    {
+      "id": "B6",
+      "family": "ui",
+      "action": "reveal",
+      "target": "library.lab",
+      "intent": "素材集のカードへ飛ぶ",
+      "commands": [
+        {
+          "commandId": "akari.catalog.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string",
+            "enum": [
+              "library"
+            ]
+          },
+          "assetId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "pulse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tab",
+          "assetId"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "B6"
+    },
+    {
+      "id": "C1",
+      "family": "ui",
+      "action": "open",
+      "target": "inspector",
+      "intent": "面を開く",
+      "commands": [
+        {
+          "commandId": "akari.inspector.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C1",
+      "notes": "代表の面。ほかの面は C1.* に列挙。"
+    },
+    {
+      "id": "C1.review",
+      "family": "ui",
+      "action": "open",
+      "target": "review",
+      "intent": "レビューを開く",
+      "commands": [
+        {
+          "commandId": "akari.review.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C1"
+    },
+    {
+      "id": "C1.timeline",
+      "family": "ui",
+      "action": "open",
+      "target": "timeline",
+      "intent": "タイムラインを開く",
+      "commands": [
+        {
+          "commandId": "akari.timeline.reveal"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C1"
+    },
+    {
+      "id": "C1.cuts",
+      "family": "ui",
+      "action": "open",
+      "target": "cuts",
+      "intent": "カットを開く",
+      "commands": [
+        {
+          "commandId": "akari.cuts.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C1"
+    },
+    {
+      "id": "C1.daihon",
+      "family": "ui",
+      "action": "open",
+      "target": "daihon",
+      "intent": "台本を開く",
+      "commands": [
+        {
+          "commandId": "akari.daihon.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C1"
+    },
+    {
+      "id": "C2",
+      "family": "ui",
+      "action": "openTab",
+      "target": "dock",
+      "intent": "区画のタブを替える",
+      "commands": [
+        {
+          "commandId": "akari.vibe.dock.showTab"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string",
+            "enum": [
+              "now",
+              "next",
+              "handoff",
+              "canvas",
+              "settings"
+            ]
+          }
+        },
+        "required": [
+          "tab"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "dock.tabs"
+      ],
+      "available": false,
+      "owner": "E1",
+      "contract": "C2",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "C3",
+      "family": "ui",
+      "action": "open",
+      "target": "settings",
+      "intent": "設定の節を開く",
+      "commands": [
+        {
+          "commandId": "akari.settings.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "C3",
+      "notes": "現行シェルの引数検査は section=connections 固定。拡張は後続の便。"
+    },
+    {
+      "id": "C4",
+      "family": "ui",
+      "action": "open",
+      "target": "sketch",
+      "intent": "ざっくりキャンバスを開く",
+      "commands": [
+        {
+          "commandId": "akari.sketch.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "C4",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "D1",
+      "family": "ui",
+      "action": "setDisplay",
+      "target": "settings",
+      "intent": "見た目・表示の設定を書く",
+      "commands": [
+        {
+          "commandId": "akari.settings.setByVoice"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "appearance.zoom"
+            ]
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "settings.voiceWrite"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "D1",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "D2",
+      "family": "ui",
+      "action": "setDefault",
+      "target": "timeline",
+      "intent": "スナップ・ツール・再生の既定を書く",
+      "commands": [
+        {
+          "commandId": "akari.settings.setTimelineDefault"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "timeline.snap",
+              "timeline.tool",
+              "preview.playbackRate"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "settings.voiceWrite"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "D2",
+      "notes": "受け口の仮名。実装待ち。既存の一時状態コマンド setSnap・setTool と異なり、既定の永続化は未提供。"
+    },
+    {
+      "id": "D3",
+      "family": "ui",
+      "action": "setPersistentDefault",
+      "target": "settings",
+      "intent": "保存され続ける既定を書く",
+      "commands": [
+        {
+          "commandId": "akari.settings.setPersistentDefault"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "export.quality",
+              "language",
+              "partner.default"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 2,
+      "reversible": "conditional",
+      "explicitWords": [],
+      "needsUi": [
+        "settings.voiceWrite"
+      ],
+      "available": false,
+      "owner": "J2",
+      "contract": "D3",
+      "notes": "受け口の仮名。実装待ち。課金に関わるモデル選択は対象外。"
+    },
+    {
+      "id": "E1",
+      "family": "task",
+      "action": "generate",
+      "target": "task",
+      "intent": "画像・動画・音声の生成",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "utterance": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "refId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "utterance"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": false,
+      "owner": "J2",
+      "contract": "E1",
+      "notes": "選択・再生位置・素材 ID・ゾーン名など参照が構造化されて取れるときだけ種にする。"
+    },
+    {
+      "id": "E2",
+      "family": "task",
+      "action": "export",
+      "target": "task",
+      "intent": "書き出し",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "utterance": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "refId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "utterance"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": false,
+      "owner": "J2",
+      "contract": "E2",
+      "notes": "書き出しの実行は人が押す。指定語を種にする。"
+    },
+    {
+      "id": "E3",
+      "family": "task",
+      "action": "share",
+      "target": "task",
+      "intent": "外への共有・投稿",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "utterance": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "refId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "utterance"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": false,
+      "owner": "J2",
+      "contract": "E3",
+      "notes": "対象が構造化されて取れるときだけ種にする。"
+    },
+    {
+      "id": "E4",
+      "family": "task",
+      "action": "import",
+      "target": "task",
+      "intent": "素材集から取り込む・置く",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "utterance": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "refId": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "utterance"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": false,
+      "owner": "J2",
+      "contract": "E4",
+      "notes": "素材 ID と置き先が構造化されて取れるときだけ種にする。"
+    },
+    {
+      "id": "roughCanvas.open",
+      "family": "ui",
+      "action": "roughCanvas.open",
+      "target": "sketch",
+      "intent": "open",
+      "commands": [
+        {
+          "commandId": "akari.sketch.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.open",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.close",
+      "family": "ui",
+      "action": "roughCanvas.close",
+      "target": "sketch",
+      "intent": "close",
+      "commands": [
+        {
+          "commandId": "akari.sketch.close"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.close",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.next",
+      "family": "ui",
+      "action": "roughCanvas.next",
+      "target": "sketch",
+      "intent": "next",
+      "commands": [
+        {
+          "commandId": "akari.sketch.next"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.next",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.backdrop",
+      "family": "ui",
+      "action": "roughCanvas.backdrop",
+      "target": "sketch",
+      "intent": "backdrop",
+      "commands": [
+        {
+          "commandId": "akari.sketch.backdrop"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.backdrop",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.tool",
+      "family": "ui",
+      "action": "roughCanvas.tool",
+      "target": "sketch",
+      "intent": "tool",
+      "commands": [
+        {
+          "commandId": "akari.sketch.tool"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "select",
+              "pen",
+              "arrow",
+              "text"
+            ]
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.tool",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.deleteSelected",
+      "family": "ui",
+      "action": "roughCanvas.deleteSelected",
+      "target": "sketch",
+      "intent": "deleteSelected",
+      "commands": [
+        {
+          "commandId": "akari.sketch.deleteSelected"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.deleteSelected",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "roughCanvas.submit",
+      "family": "ui",
+      "action": "roughCanvas.submit",
+      "target": "sketch",
+      "intent": "submit",
+      "commands": [
+        {
+          "commandId": "akari.sketch.submit"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "task",
+              "send"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 2,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "sketch.popup"
+      ],
+      "available": false,
+      "owner": "E5",
+      "contract": "roughCanvas.submit",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "browser.search",
+      "family": "ui",
+      "action": "browser.search",
+      "target": "browser",
+      "intent": "search",
+      "commands": [
+        {
+          "commandId": "akari.browser.search"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "engine",
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [
+        "ブラウザで",
+        "ネットで",
+        "ウェブで"
+      ],
+      "needsUi": [
+        "browser.tab"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "browser.search",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "browser.open",
+      "family": "ui",
+      "action": "browser.open",
+      "target": "browser",
+      "intent": "open",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [
+        "ブラウザで",
+        "ネットで",
+        "ウェブで"
+      ],
+      "needsUi": [
+        "browser.tab"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "browser.open",
+      "notes": "人が言った URL のみ。段 3 のためコマンドは送らず種で止める。"
+    },
+    {
+      "id": "browser.pickMode",
+      "family": "ui",
+      "action": "browser.pickMode",
+      "target": "browser",
+      "intent": "pickMode",
+      "commands": [
+        {
+          "commandId": "akari.browser.pickMode"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "browser.tab"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "browser.pickMode",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "browser.close",
+      "family": "ui",
+      "action": "browser.close",
+      "target": "browser",
+      "intent": "close",
+      "commands": [
+        {
+          "commandId": "akari.browser.close"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "browser.tab"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "browser.close",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "scratch.list",
+      "family": "ui",
+      "action": "scratch.list",
+      "target": "scratch",
+      "intent": "一時取り込み一覧を読む",
+      "commands": [
+        {
+          "commandId": "akari.scratch.list"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [
+        "scratch.store"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "scratch.list",
+      "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "scratch.discard",
+      "family": "ui",
+      "action": "scratch.discard",
+      "target": "scratch",
+      "intent": "discard",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [
+        "scratch.store"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "scratch.discard",
+      "notes": "取り消せないため種で止める。受け口は未提供。"
+    },
+    {
+      "id": "scratch.promote",
+      "family": "ui",
+      "action": "scratch.promote",
+      "target": "scratch",
+      "intent": "promote",
+      "commands": [],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "projectPath": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "id",
+          "projectPath"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 3,
+      "reversible": "no",
+      "explicitWords": [],
+      "needsUi": [
+        "scratch.store"
+      ],
+      "available": false,
+      "owner": "E4",
+      "contract": "scratch.promote",
+      "notes": "取り消せないため種で止める。受け口は未提供。"
+    }
+  ]
+}

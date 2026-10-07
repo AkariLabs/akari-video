@@ -1,3 +1,6 @@
+import {JEV_DERIVED_COMMAND_IDS, JEV_COMMAND_VALUE_SCHEMAS} from './jev-actions.generated';
+import {validateValue} from './jev-catalog-validate';
+
 export const ALLOWED_COMMAND_IDS = [
     'akari.preview.ensureVisible', 'akari.preview.seekOutput', 'akari.preview.togglePlayback',
     'akari.preview.play', 'akari.preview.pause',
@@ -9,7 +12,8 @@ export const ALLOWED_COMMAND_IDS = [
     'akari.inspector.open', 'akari.daihon.open', 'akari.cuts.open', 'akari.transcribe.openDialog',
     'akari.catalog.open', 'akari.catalog.importAsset', 'akari.catalog.listCategories',
     'akari.menu.focus', 'akari.menu.listSkills', 'akari.menu.listOpenTargets',
-    'akari.review.open', 'akari.review.board.open', 'akari.partner.open', 'akari.settings.open'
+    'akari.review.open', 'akari.review.board.open', 'akari.partner.open', 'akari.settings.open',
+    ...JEV_DERIVED_COMMAND_IDS
 ] as const;
 
 export type AllowedCommandId = typeof ALLOWED_COMMAND_IDS[number];
@@ -168,4 +172,8 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
         case 'akari.partner.open':
             return noArgs(value);
     }
+    const schema = JEV_COMMAND_VALUE_SCHEMAS[id];
+    return schema && validateValue(schema, value)
+        ? {ok: true, args: value as Record<string, unknown>}
+        : {ok: false};
 }

@@ -1,0 +1,38 @@
+// 自動生成・編集しない・再生成は npm run gen:jev
+export const JEV_BASE_ALLOWED_COMMAND_IDS = [
+  "akari.preview.ensureVisible",
+  "akari.preview.seekOutput",
+  "akari.preview.togglePlayback",
+  "akari.preview.play",
+  "akari.preview.pause",
+  "akari.preview.setFullscreen",
+  "akari.preview.setViewZoom",
+  "akari.preview.setPlaybackRate",
+  "akari.preview.setLoopRange",
+  "akari.preview.enterCropMode",
+  "akari.preview.openPerspectivePanel",
+  "akari.preview.pulseItem",
+  "akari.preview.showZoneHint",
+  "akari.timeline.focusItem",
+  "akari.timeline.seek",
+  "akari.timeline.setView",
+  "akari.timeline.setTool",
+  "akari.timeline.setSnap",
+  "akari.timeline.reveal",
+  "akari.inspector.open",
+  "akari.daihon.open",
+  "akari.cuts.open",
+  "akari.transcribe.openDialog",
+  "akari.catalog.open",
+  "akari.catalog.importAsset",
+  "akari.catalog.listCategories",
+  "akari.menu.focus",
+  "akari.menu.listSkills",
+  "akari.menu.listOpenTargets",
+  "akari.review.open",
+  "akari.review.board.open",
+  "akari.partner.open",
+  "akari.settings.open"
+] as const;
+export const JEV_DERIVED_COMMAND_IDS = [] as const;
+export const JEV_COMMAND_VALUE_SCHEMAS = {} as Record<string, import('./jev-catalog-validate').JevValueSchema>;

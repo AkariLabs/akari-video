@@ -1,4 +1,6 @@
-export const ALLOWED_COMMAND_IDS = Object.freeze([
+import {loadCatalog, derivedAllowedCommandIds} from '../jev/jev-actions.mjs';
+
+const ORIGINAL_ALLOWED_COMMAND_IDS = Object.freeze([
     'akari.preview.ensureVisible', 'akari.preview.seekOutput', 'akari.preview.togglePlayback',
     'akari.preview.play', 'akari.preview.pause', 'akari.preview.setFullscreen', 'akari.preview.setViewZoom',
     'akari.preview.setPlaybackRate', 'akari.preview.setLoopRange', 'akari.preview.enterCropMode',
@@ -9,6 +11,11 @@ export const ALLOWED_COMMAND_IDS = Object.freeze([
     'akari.menu.listSkills', 'akari.menu.listOpenTargets', 'akari.review.open',
     'akari.review.board.open', 'akari.partner.open', 'akari.settings.open',
 ]);
+const jevCatalog = loadCatalog();
+if (JSON.stringify(ORIGINAL_ALLOWED_COMMAND_IDS) !== JSON.stringify(jevCatalog.baseAllowedCommandIds)) {
+    throw new Error('Jev catalog baseline differs from companion commands');
+}
+export const ALLOWED_COMMAND_IDS = Object.freeze(derivedAllowedCommandIds(jevCatalog));
 
 const rows = [
     ['command_akari_canvas_open', 'command:akari.canvas.open', 'キャンバスを開く'],
