@@ -539,7 +539,6 @@ export class AkariPartnerWidget extends ReactWidget {
             } catch (error) {
                 widget?.dispose();
                 this.webWidget = undefined;
-                await window.electronAkariPartner.web.close().catch(() => undefined);
                 await this.partnerServer.stopWebPartner(launch.pid, ownerId);
                 throw error;
             }

@@ -19,13 +19,27 @@ export function externalUrl(raw: string): string | undefined {
     } catch { return undefined; }
 }
 
-export function isHostMainFrameReload(
-    details: { isMainFrame?: boolean; isSameDocument?: boolean },
-    isInPlace?: boolean,
-    legacyIsMainFrame?: boolean
-): boolean {
-    if (typeof details.isMainFrame === 'boolean' && typeof details.isSameDocument === 'boolean') {
-        return details.isMainFrame && !details.isSameDocument;
+export const PARTNER_WEB_PARTITION = 'persist:akari-partner-deepseek';
+
+export function guardPartnerWebview(
+    event: { preventDefault(): void },
+    preferences: { partition?: string; preload?: string; preloadURL?: string;
+        nodeIntegration?: boolean; contextIsolation?: boolean; sandbox?: boolean; webSecurity?: boolean },
+    params: Record<string, string>
+): string | undefined {
+    const origin = localWebOrigin(params.src);
+    if (!origin || preferences.partition !== PARTNER_WEB_PARTITION) {
+        event.preventDefault();
+        return undefined;
     }
-    return legacyIsMainFrame === true && isInPlace === false;
+    delete preferences.preload;
+    delete preferences.preloadURL;
+    delete preferences.webSecurity;
+    delete params.preload;
+    delete params.allowpopups;
+    delete params.allowPopups;
+    preferences.nodeIntegration = false;
+    preferences.contextIsolation = true;
+    preferences.sandbox = true;
+    return origin;
 }

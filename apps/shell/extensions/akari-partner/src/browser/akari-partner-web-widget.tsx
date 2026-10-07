@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
+import type { WebviewTag } from 'electron';
 import { AkariPartnerServer, PartnerAgentId, PartnerWebLaunch } from '../common/akari-partner-protocol';
 import { PARTNER_AGENT_LABELS, PARTNER_CLI_ICON_CLASSES } from './partner-catalog';
 import '../electron-common/electron-api';
@@ -12,7 +13,7 @@ export class PartnerWebWidget extends ReactWidget {
     private launch?: PartnerWebLaunch;
     private ownerId?: string;
     private host?: HTMLElement;
-    private ticker?: ReturnType<typeof setInterval>;
+    private webview?: WebviewTag;
     private loaded = false;
     private slowLoading = false;
     private retryLoading?: () => void;
@@ -26,10 +27,9 @@ export class PartnerWebWidget extends ReactWidget {
         this.title.iconClass = PARTNER_CLI_ICON_CLASSES.deepseek;
         this.title.closable = true;
         this.node.style.height = '100%';
-        this.ticker = setInterval(() => void this.updateBounds().catch(() => undefined), 120);
         this.disposed.connect(() => {
-            if (this.ticker) clearInterval(this.ticker);
             this.cancelLoading?.(new Error('DeepSeek Harness の作業画面が閉じられました'));
+            this.removeWebview();
             void this.closeLaunch();
         });
         this.update();
@@ -67,7 +67,7 @@ export class PartnerWebWidget extends ReactWidget {
                 let outcome: 'retry' | 'loaded';
                 try {
                     outcome = await Promise.race([
-                        window.electronAkariPartner.web.open(launch.url).then(() => 'loaded' as const),
+                        this.createWebview(launch.url).then(() => 'loaded' as const),
                         retry, cancelled
                     ]);
                 } finally {
@@ -76,7 +76,7 @@ export class PartnerWebWidget extends ReactWidget {
                     this.cancelLoading = undefined;
                 }
                 if (outcome === 'retry') {
-                    await window.electronAkariPartner.web.close().catch(() => undefined);
+                    this.removeWebview();
                     if (this.isDisposed) throw new Error('DeepSeek Harness の作業画面が閉じられました');
                     continue;
                 }
@@ -84,7 +84,6 @@ export class PartnerWebWidget extends ReactWidget {
                 this.loaded = true;
                 this.slowLoading = false;
                 this.update();
-                await this.updateBounds();
                 return;
             }
         } catch (error) {
@@ -101,19 +100,34 @@ export class PartnerWebWidget extends ReactWidget {
         this.launch = undefined;
         this.ownerId = undefined;
         this.closePromise = (async () => {
-            await window.electronAkariPartner.web.close().catch(() => undefined);
             if (pid && ownerId) await this.server.stopWebPartner(pid, ownerId).catch(() => undefined);
         })();
         return this.closePromise;
     }
 
-    private async updateBounds(): Promise<void> {
-        if (!this.host || !this.launch) return;
-        const rect = this.host.getBoundingClientRect();
-        const visible = this.isVisible && rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth;
-        await window.electronAkariPartner.web.bounds({
-            x: rect.left, y: rect.top, width: rect.width, height: rect.height, visible
+    private createWebview(url: string): Promise<void> {
+        const webview = document.createElement('webview') as WebviewTag;
+        webview.setAttribute('src', url);
+        webview.setAttribute('partition', 'persist:akari-partner-deepseek');
+        webview.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, backgroundThrottling=no');
+        webview.style.width = '100%';
+        webview.style.height = '100%';
+        webview.style.display = 'flex';
+        const loading = new Promise<void>((resolve, reject) => {
+            webview.addEventListener('did-finish-load', () => resolve());
+            webview.addEventListener('did-fail-load', event => {
+                if (event.isMainFrame && event.errorCode !== -3) reject(new Error(event.errorDescription));
+            });
+            webview.addEventListener('render-process-gone', () => reject(new Error('DeepSeek Harness の画面が停止しました')));
         });
+        this.webview = webview;
+        this.host?.appendChild(webview);
+        return loading;
+    }
+
+    private removeWebview(): void {
+        this.webview?.remove();
+        this.webview = undefined;
     }
 
     protected override render(): React.ReactNode {
@@ -130,7 +144,10 @@ export class PartnerWebWidget extends ReactWidget {
                     </div>}
                 </>}
             </div>
-            <div ref={node => { this.host = node ?? undefined; }}
+            <div ref={node => {
+                this.host = node ?? undefined;
+                if (node && this.webview && this.webview.parentElement !== node) node.appendChild(this.webview);
+            }}
                 style={{ flex: '1 1 auto', minHeight: 0, background: 'var(--theia-editor-background)' }} />
         </div>;
     }
