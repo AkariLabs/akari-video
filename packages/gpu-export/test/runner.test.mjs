@@ -20,6 +20,38 @@ test("tier 2 uses the GPU main and product flags", () => {
   assert.equal(args.includes("--quantizer"), false);
   assert.equal(args[args.indexOf("--quality") + 1], "high");
   assert.ok(args.includes("--soft"));
+  assert.ok(args.includes("--disable-features=DIPS"));
+});
+
+test("GPU 経路も完了報告後に残る Electron を止める", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-exit-grace-"));
+  try {
+    const out = join(root, "video.mp4");
+    const kills = [];
+    const warnings = [];
+    const spawnImpl = () => {
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.kill = (signal) => {
+        kills.push(signal);
+        child.emit("close", null, signal);
+        return true;
+      };
+      setImmediate(async () => {
+        await writeFile(out, "video");
+        child.stdout.write("PROGRESS exit code=0\n");
+      });
+      return child;
+    };
+    const result = await launchGpuExport({ tier: 2, executable: "/electron" }, {
+      projectRoot: "/p", out, fps: 30, width: 16, height: 16, duration: 1, frames: 30,
+      onStderr: (text) => warnings.push(text),
+    }, { spawnImpl, platform: "linux", env: {}, exitGraceMs: 20 });
+    assert.equal(result.launcher.tier, 2);
+    assert.deepEqual(kills, ["SIGKILL"]);
+    assert.equal(warnings.length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("runner places a forwarded quantizer immediately after bitrate", () => {
