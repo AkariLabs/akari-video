@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryFilterOptionOn, LIBRARY_FILTER_SECTIONS, libraryFilterCount,
+    applyLibraryFilterPatch, EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryFilterOptionOn, LIBRARY_FILTER_SECTIONS, libraryFilterCount,
     libraryItemPrice, matchesLibraryFilter, presetMatchesLibraryFilter, toggleLibraryFilterOption
 } from '../lib/common/library-filter.js';
 import { countLibraryCategory } from '../lib/common/library-source-view.js';
@@ -22,6 +22,14 @@ const items = [
         licenseSpdx: 'OFL-1.1', licenseScope: 'commercial-ok' }
 ];
 const keys = (filter, favorites = new Set()) => filterLibraryItems(items, { ...EMPTY_LIBRARY_FILTER, ...filter }, favorites).map(row => row.key);
+
+test('節の部分更新と previous での往復', () => {
+    const previous = { source: 'own', price: ['free'], license: ['commercial'], status: ['cached'] };
+    const applied = applyLibraryFilterPatch(previous, { source: 'lab', status: ['favorite'] });
+    assert.deepEqual(applied, { source: 'lab', price: ['free'], license: ['commercial'], status: ['favorite'] });
+    assert.deepEqual(applyLibraryFilterPatch(applied, previous), previous);
+    assert.notEqual(applied.price, previous.price);
+});
 
 test('4 節の見出しと選択肢（種類は入れない）', () => {
     assert.deepEqual(LIBRARY_FILTER_SECTIONS.map(section => section.label), ['出どころ', 'tier', 'ライセンス', '状態']);

@@ -6,6 +6,12 @@ export interface PartMaskOverrides {
 }
 
 export interface PartMaskResult { missing: boolean }
+export type ElementOverrides = Record<string, { style: Record<string, string> }>;
+export function resolveElementAddresses(htmlText: string, addresses: readonly string[]): {
+  found: Record<string, { start: number; end: number }>;
+  missing: string[];
+};
+export function applyElementOverrides(htmlText: string, elements?: ElementOverrides): [string, { missing: string[] }];
 
 export interface OverlayRecord {
   id: string;

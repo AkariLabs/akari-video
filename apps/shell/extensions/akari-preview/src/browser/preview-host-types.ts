@@ -67,6 +67,8 @@ export interface EditSummaryLayer {
     duration: number;
     kind: 'baked' | 'video';
     src?: string;
+    sourceWidth?: number;
+    sourceHeight?: number;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
     /** v2 item.mask の動画ソース、または alpha intake が生成するマスクの asset stream URL。
@@ -424,6 +426,7 @@ export interface EditSummary {
 }
 
 export interface PreviewModel {
+    pendingLayerDimensions?: Promise<Map<string, { width: number; height: number }>>;
     previewAudioKeepKeys?: Set<string>;
     previewAudioKeepProbes?: Set<string>;
     previewAudioPendingRequests?: PreviewAudioPendingRequest[];

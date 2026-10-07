@@ -1,5 +1,6 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { DockLayout, DockPanel, TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+import { BoxPanel, Panel, SplitPanel } from '@theia/core/shared/@lumino/widgets';
 import { Drag } from '@theia/core/shared/@lumino/dragdrop';
 import { MimeData } from '@theia/core/shared/@lumino/coreutils';
 import { Emitter, Event } from '@theia/core/lib/common/event';
@@ -15,6 +16,7 @@ import { installRightRailStyle, RIGHT_RAIL_CLOSE_ICON_SVG } from './right-rail-s
 import { installRightRailIconStyle } from './right-rail-icons';
 import { RightRailTooltip } from './right-rail-tooltip';
 import { trackDragGesture } from './right-rail-drag-gesture';
+import { RightPanelDockSlot } from './right-panel-dock-slot';
 
 type RailLayoutData = SidePanel.LayoutData & { akariRail?: unknown };
 type PanelMover = (widget: Widget, area: 'main' | 'bottom' | 'right') => Promise<void>;
@@ -42,6 +44,8 @@ const RAIL_CLASS_PREFIX = 'akari-rail-';
 export class AkariRightPanelHandler extends SidePanelHandler {
     @inject(DockPanelRendererFactory)
     protected readonly railRendererFactory!: DockPanelRendererFactory;
+    @inject(RightPanelDockSlot)
+    protected readonly vibeDockSlot!: RightPanelDockSlot;
 
     protected rail: RightRailState = defaultRightRailState();
     protected rebuilding = false;
@@ -75,6 +79,27 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             new ResizeObserver(() => this.scheduleSeparator()).observe(this.tabBar.node);
         }
         this.rebuild();
+    }
+
+    protected override createContainer(): Panel {
+        const container = super.createContainer();
+        // 設定キーは akari-surfaces の宣言と一致させる（起動時の同期写し）。
+        if (this.side !== 'right' || (() => {
+            try { return window.localStorage.getItem('akari.vibePreview.enabled') !== '1'; }
+            catch { return true; }
+        })()) return container;
+        const outer = container as BoxPanel;
+        const rail = outer.widgets[0];
+        const content = outer.widgets[1];
+        const split = new SplitPanel({ orientation: 'vertical', spacing: 0 });
+        split.addClass('akari-vibe-dock-split');
+        content.parent = null;
+        split.addWidget(content);
+        split.addWidget(this.vibeDockSlot.slotWidget());
+        BoxPanel.setStretch(split, 1);
+        outer.insertWidget(1, split);
+        this.vibeDockSlot.connect(split, container, rail.node, () => this.expand());
+        return container;
     }
 
     // ───────────────────────── dock ─────────────────────────

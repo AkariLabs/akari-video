@@ -1,0 +1,16 @@
+{
+  "schema": "akari.frame-scene",
+  "version": 0,
+  "objects": [
+    {
+      "id": "p1",
+      "kind": "human",
+      "at": [
+        0,
+        0
+      ],
+      "pose": "stand"
+    }
+  ],
+  "scenes": []
+}

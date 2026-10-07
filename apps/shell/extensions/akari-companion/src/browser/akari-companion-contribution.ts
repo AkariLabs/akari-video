@@ -289,9 +289,13 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     }
 
     protected async dispatchCommand(instruction: CompanionInstruction): Promise<CompanionResultMessage> {
+        const recvAt = instruction.trace === true ? performance.timeOrigin + performance.now() : null;
         const command = instruction.command;
         if (!isAllowedCommandId(command?.commandId)) {
             return { id: instruction.id, ok: false, error: 'not-allowed' };
+        }
+        if (command.projectSessionId !== undefined && command.projectSessionId !== this.projectSessionId) {
+            return { id: instruction.id, ok: false, error: 'stale-session' };
         }
         // `editUri` は橋が今のプロジェクトから入れる（係からは受け取らない）。
         // 検査より **先** に入れないと、editUri が必須のコマンド（play / pause など）が
@@ -309,7 +313,12 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         const returned = args
             ? await this.commands.executeCommand(command.commandId, args)
             : await this.commands.executeCommand(command.commandId);
+        const doneAt = recvAt === null ? null : performance.timeOrigin + performance.now();
         const result: CompanionResultMessage = { id: instruction.id, ok: true };
+        if (recvAt !== null && doneAt !== null) {
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+            result.timing = { recvAt, doneAt, paintedAt: performance.timeOrigin + performance.now() };
+        }
         try {
             const encoded = JSON.stringify(returned);
             if (encoded !== undefined) result.value = JSON.parse(encoded);

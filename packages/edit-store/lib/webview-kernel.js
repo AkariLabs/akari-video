@@ -1717,8 +1717,9 @@ var AkariEditKernel = (() => {
     return object(style) && object(style.background) && style.background.fit === "frame" || vars?.["--caption-plate-fit"] === "frame";
   }
   function cssCaptionFontFamily(value) {
-    if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim())) return value;
-    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    if (value.includes(",")) return value;
+    const primary = /^(['"]).*\1$/s.test(value.trim()) ? value : `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    return `${primary}, "Noto Sans JP", sans-serif`;
   }
   var RICH_PATTERN_SHAPES = {
     diamond: { size: 26, svgSize: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity="0.5"/>' },
@@ -4164,11 +4165,21 @@ var AkariEditKernel = (() => {
         if (hasOwn(value, "mute") && typeof value.mute !== "boolean") throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         return;
       case "html":
-        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params"]), path);
         requireText(value.path, `${path}.path`);
         for (const key of ["part", "derivedFrom"]) if (hasOwn(value, key)) requireText(value[key], `${path}.${key}`);
         if (hasOwn(value, "text") && typeof value.text !== "string") throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         if (hasOwn(value, "style")) validateStringMap(value.style, `${path}.style`);
+        if (hasOwn(value, "elements")) {
+          requireRecord2(value.elements, `${path}.elements`);
+          for (const [address, override] of Object.entries(value.elements)) {
+            if (!/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/.test(address)) throw invalid(`${path}.elements.${address}`, "\u8981\u7D20\u306E\u756A\u5730\u304C\u4E0D\u6B63\u3067\u3059");
+            requireRecord2(override, `${path}.elements.${address}`);
+            requireExactKeys(override, /* @__PURE__ */ new Set(["style"]), `${path}.elements.${address}`);
+            if (!hasOwn(override, "style")) throw invalid(`${path}.elements.${address}.style`, "style \u304C\u5FC5\u8981\u3067\u3059");
+            validateStringMap(override.style, `${path}.elements.${address}.style`);
+          }
+        }
         if (hasOwn(value, "exclude")) validateStringList(value.exclude, `${path}.exclude`);
         if (hasOwn(value, "vars")) requireRecord2(value.vars, `${path}.vars`);
         if (hasOwn(value, "params")) {
@@ -5887,6 +5898,7 @@ var AkariEditKernel = (() => {
               ...item.source.part !== void 0 ? { part: item.source.part } : {},
               ...item.source.style !== void 0 ? { style: item.source.style } : {},
               ...item.source.text !== void 0 ? { text: item.source.text } : {},
+              ...item.source.elements !== void 0 ? { elements: item.source.elements } : {},
               ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
               ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
             },

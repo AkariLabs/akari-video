@@ -8,7 +8,8 @@ import { composePreviewTransforms, previewTransformAxes } from '../common/previe
 import { canvasDropTargets } from '../common/canvas-drop-target';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { PreviewFrameCapturePending } from '../common/preview-frame-controller';
-import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
+import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand, PreviewFrameCapturePurpose,
+    PreviewFrameCommandRequest, PreviewFrameCommandResult, completePreviewFrameCapture } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek } from '../common/preview-ready-seek';
 import { PreviewPlaceholderInput, previewPlaceholderHtml } from '../common/preview-placeholder';
@@ -445,6 +446,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         audioTimer?: ReturnType<typeof setTimeout>;
     }>();
     protected readonly pendingFrameCaptures = new PreviewFrameCapturePending<PreviewWidgetMarker>();
+    protected readonly pendingFrameCapturePurposes = new Map<string, PreviewFrameCapturePurpose>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly placeholderPreviewStates = new WeakMap<WebviewWidget, {
@@ -465,6 +467,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 一度成功/失敗した判定を使い回す — アプリ再起動でクリアされる程度の弱いキャッシュで十分）。
     protected readonly hevcFallbackProxyUris = new Map<string, string>();
     protected readonly hevcFallbackAttempted = new Set<string>();
+    protected readonly layerDimensionCache = new Map<string, { width: number; height: number }>();
+    protected readonly layerDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+    protected readonly previewMessageReadyPages = new WeakMap<PreviewWidgetMarker, string>();
     protected previewItemWriteTail = Promise.resolve();
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
@@ -758,12 +763,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
         this.lifecycleDisposables.push(this.commandRegistry.registerCommand(CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND, {
-            execute: async (request?: { editUri: string }): Promise<{ path: string }> => {
+            execute: async (request?: PreviewFrameCommandRequest): Promise<PreviewFrameCommandResult> => {
                 if (!request?.editUri) throw new Error('出力プレビューを開いてください');
                 const widget = this.openOutputPreviews.get(new URI(request.editUri).normalizePath().toString());
                 const pageId = widget?.akariPreviewPlaybackPageId;
                 if (!widget || widget.isDisposed || !pageId) throw new Error('出力プレビューを開いてください');
                 const token = globalThis.crypto.randomUUID();
+                if (request.purpose === 'memo') this.pendingFrameCapturePurposes.set(token, 'memo');
                 const pending = this.pendingFrameCaptures.begin(token, widget, pageId);
                 try {
                     widget.sendMessage({ type: 'akari-preview-capture-start', pageId, token });
@@ -771,7 +777,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.pendingFrameCaptures.reject(token, widget, pageId,
                         error instanceof Error ? error : new Error(String(error)));
                 }
-                return { path: await pending };
+                try {
+                    const result = await pending;
+                    return request.purpose === 'memo' ? JSON.parse(result) as PreviewFrameCommandResult : { path: result };
+                } finally {
+                    this.pendingFrameCapturePurposes.delete(token);
+                }
             }
         }));
         this.registerTogglePlaybackCommand();
@@ -1823,6 +1834,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!widget || widget.isDisposed || !widget.akariPreviewConfigured) return;
                 this.queueRefresh(widget, uri, 'output', widget.akariPreviewLastKnownTime, true);
             }
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.refreshFontAssets' }, {
+            execute: (request?: { editUri?: string }) => this.refreshFontAssets(request)
         });
         this.commandRegistry.registerCommand({ id: 'akari.preview.measureOverlayBox' }, {
             execute: (request: { editUri?: string; fragment?: string;
@@ -2984,7 +2998,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (token === undefined) void this.capturePreviewFrame(widget, message);
                     else if (typeof token === 'string' && typeof message.pageId === 'string'
                         && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
-                        void this.capturePreviewFrame(widget, message).then(path =>
+                        void this.capturePreviewFrame(widget, message, this.pendingFrameCapturePurposes.get(token)).then(path =>
                             this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
                             this.pendingFrameCaptures.reject(token, widget, message.pageId,
                                 error instanceof Error ? error : new Error(String(error))));
@@ -3166,6 +3180,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.timelineLayerSelections.set(selectionKey, null);
             }
             if (message?.type === 'akari-preview-primary-selection-ready') {
+                if (message.pageId === widget.akariPreviewPlaybackPageId) {
+                    this.previewMessageReadyPages.set(widget, message.pageId);
+                }
                 this.noteSwapReload(widget, 'reload_complete', message.pageId);
                 const key = widget.akariPreviewEditUri?.normalizePath().toString();
                 if (key && this.timelineOverlaySelections.has(key)) widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: this.timelineOverlaySelections.get(key) });
@@ -3927,6 +3944,48 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
     }
 
+    protected sendPendingLayerDimensions(
+        widget: PreviewWidgetMarker, model: PreviewModel, summary: EditSummary
+    ): void {
+        if (!model.pendingLayerDimensions) return;
+        const pageId = widget.akariPreviewPlaybackPageId;
+        void model.pendingLayerDimensions.then(dimensions => {
+            if (dimensions.size === 0) return;
+            const deliver = (): void => {
+                if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId
+                    || widget.akariPreviewSummary !== summary) return;
+                const layers = summary.layers.map(layer => {
+                    const size = dimensions.get(layer.id);
+                    return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
+                });
+                if (layers.every((layer, index) => layer === summary.layers[index])) return;
+                const updated = { ...summary, layers };
+                const snapshot = widget.akariPreviewModelSnapshot;
+                if (snapshot) {
+                    const snapshotLayers = (snapshot.summary.layers ?? []) as EditSummaryLayer[];
+                    widget.akariPreviewModelSnapshot = { ...snapshot, summary: { ...snapshot.summary,
+                        layers: snapshotLayers.map(layer => {
+                            const size = dimensions.get(layer.id);
+                            return size ? { ...layer, sourceWidth: size.width, sourceHeight: size.height } : layer;
+                        }) } };
+                }
+                widget.akariPreviewSummary = updated;
+                widget.sendMessage({ type: 'akari-preview-model-update', summary: updated });
+            };
+            // The page posts this only after installing its model-update message listener.
+            if (this.previewMessageReadyPages.get(widget) === pageId) {
+                deliver();
+            } else {
+                const listener = widget.onMessage(message => {
+                    if (message?.type !== 'akari-preview-primary-selection-ready') return;
+                    listener.dispose();
+                    if (message.pageId === pageId) deliver();
+                });
+                widget.disposed.connect(() => listener.dispose());
+            }
+        });
+    }
+
     protected replacePreviewAssetUrls(value: unknown, replacements: ReadonlyArray<readonly [string, string]>): unknown {
         if (typeof value === 'string') {
             let result = value;
@@ -3957,6 +4016,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     // 資産は URL で受ける（OverlayRuntimeAssetUrls）。本文を RPC で運んで HTML に埋めていた頃は
     // 開くたびに約 15 MB の setHTML になっていた（task/2026-09-02-preview-perf）。
+    protected refreshFontAssets(request?: { editUri?: string }): void {
+        // フォントの取得後だけ静的アセットを読み直す。通常のプレビュー更新は従来のキャッシュを使う。
+        this.overlayRuntimeAssetsPromise = undefined;
+        this.frameEngineOverlayRuntimeAssetsPromise = undefined;
+        if (!request?.editUri) return;
+        const uri = new URI(request.editUri).normalizePath();
+        const widget = this.openOutputPreviews.get(uri.toString());
+        if (widget && !widget.isDisposed && widget.akariPreviewConfigured) {
+            this.queueRefresh(widget, uri, 'output', widget.akariPreviewLastKnownTime, true);
+        }
+    }
+
     protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssetUrls> {
         if (includeFrameEngine) {
             if (!this.frameEngineOverlayRuntimeAssetsPromise) {
@@ -4080,6 +4151,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const summary = this.summaryWithPreviousAssetUrls(widget, model);
                     widget.akariPreviewSummary = summary;
                     widget.akariPreviewModelSnapshot = nextSnapshot;
+                    this.sendPendingLayerDimensions(widget, model, summary);
                     this.retainPreviewAudioStreams(widget, model, summary);
                     widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
                 }
@@ -4173,6 +4245,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 widget.sendMessage({ type: 'akari-preview-captions-update', captions: model.captions });
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
+                this.sendPendingLayerDimensions(widget, model, summary);
                 widget.sendMessage({
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
@@ -4528,6 +4601,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
         widget.akariPreviewSummary = model.summary;
+        this.sendPendingLayerDimensions(widget, model, model.summary);
         this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
         if (kind === 'raw' && hasSourceAudio === true) {
             void this.startRawPreviewAudio(widget, videoUri, hasSourceAudio, widget.akariPreviewPlaybackPageId)
@@ -5351,6 +5425,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const filters: EditSummaryFilter[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers', itemWarningState);
+            const pendingLayerDimensions = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+            const layerDimensionUrisById = new Map<string, string>();
+            const layerDimensions = (uri: URI, layerId: string) => {
+                const key = uri.toString();
+                const cached = this.layerDimensionCache.get(key);
+                if (cached) return cached;
+                layerDimensionUrisById.set(layerId, key);
+                let probe = this.layerDimensionProbes.get(key);
+                if (!probe) {
+                    probe = Promise.resolve().then(() => this.previewService.probeVideoDimensions({ videoUri: key }))
+                        .then(dimensions => {
+                            if (dimensions) this.layerDimensionCache.set(key, dimensions);
+                            return dimensions;
+                        }).catch(() => undefined).finally(() => this.layerDimensionProbes.delete(key));
+                    this.layerDimensionProbes.set(key, probe);
+                }
+                pendingLayerDimensions.set(key, probe);
+                return undefined;
+            };
             type LayerResolution =
                 | { kind: 'filter'; filter: EditSummaryFilter }
                 | { kind: 'layer'; layer: EditSummaryLayer; unsupportedBlend?: boolean }
@@ -5469,8 +5562,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const colorUri = new URI(intake.colorUri), maskUri = new URI(intake.maskUri);
                             const color = await ensureAssetStream(colorUri.toString(), colorUri);
                             const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                            const dimensions = options.frameEngineEnabled === true
+                                ? layerDimensions(colorUri, item.id) : undefined;
                             return { kind: 'layer', unsupportedBlend, layer: { ...base,
                                 src: color.url, mask: mask.url, sourceUri: sourceUri.toString(),
+                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
                                 proxyMissing: false, isImage: false } };
                         }
                     }
@@ -5492,10 +5588,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
                     const mask = await resolveLayerMask();
+                    const dimensions = options.frameEngineEnabled === true && src
+                        ? layerDimensions(sidecarUri, item.id) : undefined;
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}), proxyMissing: !src, isImage: false }
+                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}),
+                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
+                            proxyMissing: !src, isImage: false }
                     };
                 }
 
@@ -5532,6 +5632,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const maskUri = new URI(intake.maskUri);
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
                         const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                        const dimensions = options.frameEngineEnabled === true
+                            ? layerDimensions(colorUri, item.id) : undefined;
                         return {
                             kind: 'layer',
                             unsupportedBlend,
@@ -5540,6 +5642,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 src: color.url,
                                 mask: mask.url,
                                 sourceUri: sourceUri.toString(),
+                                ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
                                 proxyMissing: false,
                                 isImage: false
                             }
@@ -5551,6 +5654,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const streamUri = isImage
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
+                    const dimensions = options.frameEngineEnabled === true && !isImage
+                        ? layerDimensions(streamUri, item.id) : undefined;
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
                     const mask = await resolveLayerMask();
                     const regions = await resolveLayerRegions();
@@ -5563,6 +5668,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ...(mask ? { mask } : {}),
                             ...(regions ? { regions } : {}),
                             ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
+                            ...(dimensions ? { sourceWidth: dimensions.width, sourceHeight: dimensions.height } : {}),
                             proxyMissing: false,
                             isImage
                         }
@@ -5709,7 +5815,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 captions,
                 this.previewCaptionTimelineSegments(cuts, internal.output.fps, internal)
             ), internal);
+            const pendingDimensions = pendingLayerDimensions.size > 0
+                ? Promise.all([...pendingLayerDimensions].map(async ([uri, probe]) => [uri, await probe] as const))
+                    .then(entries => {
+                        const byUri = new Map(entries);
+                        const resolved = new Map<string, { width: number; height: number }>();
+                        for (const layer of layers) {
+                            const uri = layerDimensionUrisById.get(layer.id);
+                            const size = uri ? byUri.get(uri) : undefined;
+                            if (size) resolved.set(layer.id, size);
+                        }
+                        return resolved;
+                    })
+                : undefined;
             return {
+                ...(pendingDimensions ? { pendingLayerDimensions: pendingDimensions } : {}),
                 editUri,
                 sourceUri,
                 sourcesById,
@@ -8016,7 +8136,8 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     /** Pair messages by page and request, including restoration before the slower node write. */
-    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<string | undefined> {
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage,
+        purpose?: PreviewFrameCapturePurpose): Promise<string | undefined> {
         const pageId = widget.akariPreviewPlaybackPageId;
         if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
         const send = (type: PreviewFrameCommand['type'], options: { keepFrozen?: boolean; success?: boolean } = {}): void => {
@@ -8112,12 +8233,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     return inspection;
                 },
                 save: async ({ captured, time }) => {
-                    const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image,
-                        workspaceRoots: await this.currentWorkspaceRoots() });
-                    savedPath = saved.path;
-                    void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
-                    if (captured.reduced) void this.messages.info(
-                        '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                    const result = await completePreviewFrameCapture(purpose, captured, time, async () =>
+                        this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image,
+                            workspaceRoots: await this.currentWorkspaceRoots() }));
+                    if ('image' in result) {
+                        savedPath = JSON.stringify(result);
+                    } else {
+                        savedPath = result.path;
+                        void this.messages.info('コマを保存しました: ' + result.path, { timeout: 3000 });
+                        if (captured.reduced) void this.messages.info(
+                            '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                    }
                 },
                 notify: message => { void this.messages.error(message); }
             });

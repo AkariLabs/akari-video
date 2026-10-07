@@ -17,6 +17,23 @@
 - 円弧や連続曲線が本当に必要な場合も、値を読める DOM の要約を残す。外部 chart library を安易に追加しない。
 - 行数、文字サイズ、余白の一律閾値はリポ契約にない。収まらない場合は縮小せず、画面を分割する。具体値は出力プロファイルで **要検証** とする。
 
+グラフ全体が 1 つとして動けば足りるなら、上記の track + fill を `--ratio` の scale で表す構成でよい。プレビューで棒を 1 本ずつ触れる対象にするなら、div の列を flex / grid で並べ、各棒の先頭 class を `bar`、値を `value-label`、軸ラベルを `axis-label` とし、仕上がりの長さを `height`（横棒なら `width`）の px で決める。scale は `0` → `1`（終わりが等倍）の出現演出だけに使い、`width` / `height` は毎フレーム動かさない。表は semantic な `<table>` を保ち、個別に触れそうなセル内の値やラベルに class を付ける。SVG の棒は 1 本ずつ選ぶ対象にならないため、個別に触れる想定なら div で組む。
+
+```html
+<div class="sales-chart" style="display: flex; align-items: flex-end; gap: var(--bar-gap, 16px)">
+  <div class="bar-group" style="display: flex; flex-direction: column; align-items: center">
+    <span class="value-label">44</span>
+    <div class="bar" style="width: var(--bar-width, 48px); height: var(--bar-apr-height, 176px); background: var(--bar-color, #5c8df6)"></div>
+    <span class="axis-label">4月</span>
+  </div>
+  <div class="bar-group" style="display: flex; flex-direction: column; align-items: center">
+    <span class="value-label">75</span>
+    <div class="bar" style="width: var(--bar-width, 48px); height: var(--bar-may-height, 300px); background: var(--bar-color, #5c8df6)"></div>
+    <span class="axis-label">5月</span>
+  </div>
+</div>
+```
+
 ## アニメーション
 
 - 棒は `transform-origin` を基点側へ置き、scale で伸ばす。`width` / `height` を毎フレーム変えない。

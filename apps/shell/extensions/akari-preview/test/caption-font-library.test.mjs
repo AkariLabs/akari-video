@@ -17,7 +17,9 @@ test('preview publishes library fonts in the existing font-face list', async t =
     await copyFile(fileURLToPath(new URL('../../../../../assets/font/dela-gothic-one/DelaGothicOne-Regular.ttf', import.meta.url)), join(dir, 'ProbeHand-Regular.ttf'));
     await writeFile(join(dir, 'meta.json'), JSON.stringify({ id: 'probe-hand', category: 'font', title: 'Probe Hand（検証）', tags: [], license: {} }));
     const previous = process.env.AKARI_HOME;
+    const previousLibrary = process.env.AKARI_LIBRARY_ROOT;
     process.env.AKARI_HOME = home;
+    delete process.env.AKARI_LIBRARY_ROOT;
     const service = new AkariPreviewServiceImpl();
     try {
         const assets = await service.getOverlayRuntimeAssetUrls();
@@ -27,6 +29,7 @@ test('preview publishes library fonts in the existing font-face list', async t =
     } finally {
         service.server?.close();
         if (previous === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = previous;
+        if (previousLibrary === undefined) delete process.env.AKARI_LIBRARY_ROOT; else process.env.AKARI_LIBRARY_ROOT = previousLibrary;
     }
 });
 

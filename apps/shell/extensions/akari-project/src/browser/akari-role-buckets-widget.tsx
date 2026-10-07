@@ -13,6 +13,7 @@ import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-prot
 import { pendingAssetFetches, summarizeFetchFailure } from 'akari-preview/lib/common/pending-asset-fetch';
 import { CAPTION_FONT_FAMILY, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import * as React from '@theia/core/shared/react';
+import { createPortal } from '@theia/core/shared/react-dom';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -68,7 +69,7 @@ import {
     LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankLibraryShelfItems
 } from '../common/library-source-view';
 import {
-    EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
+    applyLibraryFilterPatch, EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
     presetMatchesLibraryFilter, toggleLibraryFilterOption
 } from '../common/library-filter';
 import {
@@ -76,6 +77,7 @@ import {
     LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
+import { applyCatalogFont } from '../common/font-apply-flow';
 import {
     LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
@@ -83,6 +85,8 @@ import {
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
+import { MaterialsSort } from '../common/materials-view';
+import { DEFAULT_MATERIAL_VIEW, MaterialViewPatch } from '../common/material-view';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/my-style';
@@ -116,6 +120,8 @@ import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../com
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
+import { AkariImportFab } from './akari-import-fab';
+import { SUPPORTED_DROP_EXTENSIONS } from '../common/import-fab-items';
 
 try { require('../../src/browser/style/generation-pick.css'); } catch { /* node 単体テスト環境 */ }
 try { require('../../src/browser/style/library-tiles.css'); } catch { /* node 単体テスト環境 */ }
@@ -216,8 +222,6 @@ export interface AkariCatalogCategorySummary {
     /** status='soon' のときは undefined。 */
     readonly count?: number;
 }
-
-const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
 
 /**
  * 「編集データ」グループに出すルート直下の契約ファイル。project-structure-v0 §2-1
@@ -592,6 +596,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected libraryFolderFilter: string | undefined;
     /** プロジェクト面の素材名フィルタ。catalogQuery とは面ごとに独立して保持する。 */
     protected materialQuery = '';
+    protected materialsPopover?: 'filter' | 'sort';
+    protected materialsPopoverAnchor?: DOMRect;
+    protected materialsFilterButton?: HTMLButtonElement;
+    protected materialsSortButton?: HTMLButtonElement;
+    protected readonly handleMaterialsPopoverKey = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape' || !this.materialsPopover) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeMaterialsPopover();
+        this.update();
+    };
+    protected materialsUiSave: Promise<void> = Promise.resolve();
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
     protected libraryTextLookOpen = false;
@@ -603,10 +619,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogThumbnailErrorTimer?: ReturnType<typeof setTimeout>;
     protected catalogThumbnailPollTimer?: ReturnType<typeof setTimeout>;
     protected catalogThumbnailPollGeneration = 0;
+    protected fontAvailabilityPollTimer?: ReturnType<typeof setTimeout>;
+    protected fontAvailabilityPollGeneration = 0;
+    protected fontAvailabilityPollFailures = 0;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
     protected readonly resolvingAssetKeys = new Set<string>();
+    protected readonly applyingFontIds = new Set<string>();
 
     /**
      * カタログ面 audio カードの共有試聴プレイヤー。ウィジェット全体で 1 本だけ生成し、
@@ -673,6 +693,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             get assetCatalogItems() { return widget().assetCatalogItems; },
         };
         this.materialsPane = new AkariMaterialsPane(materialsHost);
+        try {
+            if (window.localStorage.getItem('akari.materials.viewMode') === 'list') {
+                this.materialsPane.setMaterialView({ mode: 'list' });
+            }
+        } catch { /* The view remains usable without localStorage. */ }
         const libraryHost: LibraryPaneHost = {
             get dialogs() { return widget().dialogs; },
             get preferences() { return widget().preferences; },
@@ -754,9 +779,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         installCatalogFocusPulseStyle();
         installCatalogAudioDockStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
+        document.addEventListener('keydown', this.handleMaterialsPopoverKey, true);
         window.addEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener('keydown', this.handleGenerationPickKey, true);
+            document.removeEventListener('keydown', this.handleMaterialsPopoverKey, true);
             window.removeEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
             this.generationTimelineSelections.clear();
             this.generationPickSelectionsAtStart.clear();
@@ -867,6 +894,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.topView === 'catalog' && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
             this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
         }
+        if (this.topView === 'catalog' && this.assetCatalogItems.some(item => item.category === 'font'
+            && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+            this.pollFontAvailability(this.fontAvailabilityPollGeneration);
+        }
     }
 
     /**
@@ -877,10 +908,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected override onAfterHide(msg: Message): void {
         this.generationPick.cancel();
+        this.materialsPopover = undefined;
+        this.materialsPopoverAnchor = undefined;
+        if (this.materialsFilterButton) {
+            this.materialsFilterButton.style.background = 'transparent';
+            this.materialsFilterButton.style.borderColor = 'transparent';
+        }
+        if (this.materialsSortButton) {
+            this.materialsSortButton.style.background = 'transparent';
+            this.materialsSortButton.style.borderColor = 'transparent';
+        }
         super.onAfterHide(msg);
         this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
         this.stopCatalogThumbnailPolling();
+        this.stopFontAvailabilityPolling();
+        this.update();
     }
 
     protected refresh(): void {
@@ -890,11 +933,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected selectTopView(view: TopView, refreshCatalog = true): void {
+        if (view !== 'materials') {
+            this.closeMaterialsPopover();
+        }
         if (view !== 'catalog' && this.materialSwap) this.closeMaterialSwap();
         if (this.topView === 'catalog' && view !== 'catalog') {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
             this.stopCatalogAudio();
             this.stopCatalogThumbnailPolling();
+            this.stopFontAvailabilityPolling();
         }
         this.topView = view;
         if (view === 'catalog') {
@@ -903,6 +950,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             if (refreshCatalog) void this.loadAssetCatalogView('user');
             else if (this.isVisible && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
                 this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
+            }
+            if (!refreshCatalog && this.isVisible && this.assetCatalogItems.some(item => item.category === 'font'
+                && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+                this.pollFontAvailability(this.fontAvailabilityPollGeneration);
             }
             void this.refreshStoreConnectionStatus();
         }
@@ -947,6 +998,41 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             matched = matched && focused;
         }
         return matched;
+    }
+
+    /** 外部コマンドからの状態変更はここで既存の更新経路へ委譲する。 */
+    public setMaterialViewFromCommand(patch: MaterialViewPatch) {
+        if (!this.workflow.workspaceRoot) return { applied: null, previous: null, matched: false };
+        const tab = this.topView;
+        if (tab !== 'materials') this.selectTopView('materials');
+        const result = this.materialsPane.setVoiceMaterialView(patch);
+        return { applied: result.applied, previous: { ...result.previous, tab }, matched: true };
+    }
+
+    public setMaterialQueryFromCommand(query: string) {
+        if (!this.workflow.workspaceRoot) return { applied: null, previous: null, matched: false };
+        const previous = this.materialQuery;
+        if (this.topView !== 'materials') this.selectTopView('materials');
+        this.setMaterialQuery(query);
+        return { applied: this.materialQuery, previous, matched: true };
+    }
+
+    public setLibraryFilterFromCommand(patch: Partial<LibraryFilterState>) {
+        const tab = this.topView;
+        const previous = { ...this.libraryFilter(), tab };
+        if (tab !== 'catalog') this.selectTopView('catalog');
+        const applied = applyLibraryFilterPatch(this.libraryFilter(), patch);
+        this.librarySourceFilter = applied.source;
+        this.libraryFilterRest = { price: applied.price, license: applied.license, status: applied.status };
+        this.update();
+        return { applied, previous, matched: true };
+    }
+
+    public clearFiltersFromCommand() {
+        const previous = { materials: this.materialsPane.getVoiceMaterialView(), library: this.libraryFilter() };
+        const materials = this.materialsPane.setVoiceMaterialView(DEFAULT_MATERIAL_VIEW).applied;
+        this.clearLibraryFilter();
+        return { applied: { materials, library: this.libraryFilter() }, previous, matched: true };
     }
 
     // --- 素材カード ---------------------------------------------------------
@@ -1205,7 +1291,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     public async loadAssetCatalogView(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
         this.stopCatalogThumbnailPolling();
+        this.stopFontAvailabilityPolling();
         const pollGeneration = this.catalogThumbnailPollGeneration;
+        const fontPollGeneration = this.fontAvailabilityPollGeneration;
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
@@ -1223,6 +1311,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.assetCatalogItems = view.items.filter(item => item.category !== 'textstyle')
             .map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
+        if (typeof window !== 'undefined') {
+            (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(item => item.category === 'font')
+                    .map(item => [item.id, item.fontAvailability]));
+            window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+        }
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
@@ -1236,10 +1330,59 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
             this.pollLibraryThumbnails(pollGeneration, 0);
         }
+        if (this.isVisible && this.topView === 'catalog' && this.assetCatalogItems.some(item => item.category === 'font'
+            && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+            this.pollFontAvailability(fontPollGeneration);
+        }
     }
 
     protected registerCatalogThumbnailPollingCleanup(): void {
-        this.toDispose.push({ dispose: () => this.stopCatalogThumbnailPolling() });
+        this.toDispose.push({ dispose: () => { this.stopCatalogThumbnailPolling(); this.stopFontAvailabilityPolling(); } });
+    }
+
+    protected stopFontAvailabilityPolling(): void {
+        this.fontAvailabilityPollGeneration++;
+        this.fontAvailabilityPollFailures = 0;
+        if (this.fontAvailabilityPollTimer) clearTimeout(this.fontAvailabilityPollTimer);
+        this.fontAvailabilityPollTimer = undefined;
+    }
+
+    protected pollFontAvailability(generation: number): void {
+        if (generation !== this.fontAvailabilityPollGeneration || this.fontAvailabilityPollTimer
+            || !this.isVisible || this.topView !== 'catalog') return;
+        this.fontAvailabilityPollTimer = setTimeout(() => {
+            this.fontAvailabilityPollTimer = undefined;
+            if (generation !== this.fontAvailabilityPollGeneration) return;
+            const fonts = this.assetCatalogItems.filter(item => item.category === 'font');
+            if (!fonts.length) return;
+            const root = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
+            void this.projectService.getCatalogFontAvailability(root, fonts).then(result => {
+                if (generation !== this.fontAvailabilityPollGeneration || !this.isVisible || this.topView !== 'catalog') return;
+                let changed = false;
+                this.assetCatalogItems = this.assetCatalogItems.map(item => {
+                    const next = result.statuses[item.id];
+                    if (item.category !== 'font' || !next || JSON.stringify(next) === JSON.stringify(item.fontAvailability)) return item;
+                    changed = true;
+                    return { ...item, fontAvailability: next };
+                });
+                if (changed) {
+                    (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                        .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(item => item.category === 'font')
+                            .map(item => [item.id, item.fontAvailability]));
+                    window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+                    this.update();
+                }
+                this.fontAvailabilityPollFailures = result.phase === 'failed'
+                    ? Math.min((this.fontAvailabilityPollFailures || 0) + 1, 3) : 0;
+                if (result.phase !== 'ready' || this.assetCatalogItems.some(item => item.category === 'font'
+                    && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+                    this.pollFontAvailability(generation);
+                }
+            }).catch(() => {
+                this.fontAvailabilityPollFailures = Math.min((this.fontAvailabilityPollFailures || 0) + 1, 3);
+                if (generation === this.fontAvailabilityPollGeneration) this.pollFontAvailability(generation);
+            });
+        }, [1500, 30000, 120000, 600000][this.fontAvailabilityPollFailures || 0]);
     }
 
     protected stopCatalogThumbnailPolling(): void {
@@ -1336,7 +1479,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected applySearchQuery(value: string, rerender: boolean): void {
         if (this.topView === 'materials') this.materialQuery = value;
         else this.catalogQuery = value;
-        if (rerender) this.update();
+        if (rerender) {
+            this.update();
+            if (this.topView === 'materials') this.materialsPane.hydrateVisibleMaterialStrips();
+        }
     }
 
     /** 非制御の検索欄に、外から変えた値を書き戻す（タブ切り替え・クリア・履歴からの指定）。 */
@@ -1784,7 +1930,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const { key, id, category, title } = item;
         if (category === 'font') {
-            const payload = { kind: 'font', id, fontFamily: title.replace(/（.*$/, '').trim(), key,
+            if (item.fontAvailability?.status !== 'available') {
+                event.preventDefault();
+                void this.applyFontItem(item);
+                return;
+            }
+            const payload = { kind: 'font', id, fontFamily: item.fontAvailability.family || title.replace(/（.*$/, '').trim(), key,
                 ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'copy';
@@ -2003,12 +2154,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{
                     flex: libraryOnly ? '1 1 0%' : '1.2 1 0%',
                     minHeight: 0,
+                    position: libraryOnly ? undefined : 'relative',
                     display: 'flex',
                     flexDirection: 'column',
                     background: libraryOnly ? undefined : AKARI_PROJECT_SURFACE.base,
                     borderBottom: libraryOnly ? undefined : `1px solid ${AKARI_PROJECT_LINE}`
                 }}>
                     {this.renderMaterialsPane()}
+                    {!libraryOnly && <AkariImportFab dialogs={this.dialogs} messages={this.messages}
+                        projectOpen={!!this.workflow.workspaceRoot} importAssets={assets => this.importDropped(assets)} />}
                 </div>
                 {!libraryOnly && (
                     <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -2075,7 +2229,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     // （2026-09-26 オーナー指示「パネルの右側が見切れる」）。桁を常に確保しておけば、
                     // 素材が増えて溢れた前後でグリッドの列幅が動かない。
                     scrollbarGutter: 'stable',
-                    paddingBottom: this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey ? '56px' : undefined,
+                    paddingBottom: this.topView === 'materials' || (this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey) ? '56px' : undefined,
                     boxSizing: 'border-box' }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
@@ -2125,6 +2279,143 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             media.removeEventListener('change', syncMotion);
         };
     };
+
+    protected saveMaterialsUiState(): void {
+        const root = this.workflow.workspaceRoot;
+        if (!root) return;
+        const { filter, sort } = this.materialsPane.getMaterialView();
+        this.materialsUiSave = this.materialsUiSave.then(() =>
+            this.projectService.writeUiState(root.toString(), { materialsPane: { filter, sort } })).catch(() => undefined);
+    }
+
+    protected closeMaterialsPopover(): void {
+        this.materialsPopover = undefined;
+        this.materialsPopoverAnchor = undefined;
+        for (const button of [this.materialsFilterButton, this.materialsSortButton]) {
+            if (!button) continue;
+            button.style.background = 'transparent';
+            button.style.borderColor = 'transparent';
+        }
+    }
+
+    protected toggleMaterialsPopover(kind: 'filter' | 'sort', button?: HTMLButtonElement): void {
+        if (this.materialsPopover === kind || !button) {
+            this.closeMaterialsPopover();
+        } else {
+            this.closeMaterialsPopover();
+            this.materialsPopover = kind;
+            this.materialsPopoverAnchor = button.getBoundingClientRect();
+        }
+        this.update();
+    }
+
+    protected renderMaterialsViewButtons(): React.ReactNode {
+        const { filter, sort, mode } = this.materialsPane.getMaterialView();
+        const buttonStyle: React.CSSProperties = { position: 'relative', display: 'inline-flex', alignItems: 'center',
+            justifyContent: 'center', height: '28px', minWidth: '28px', padding: '3px 5px',
+            border: '1px solid transparent', borderRadius: '6px', background: 'transparent',
+            color: AKARI_INK, cursor: 'pointer' };
+        const activeButtonStyle: React.CSSProperties = {
+            background: AKARI_PROJECT_SURFACE.elevated, borderColor: AKARI_LINE.edge
+        };
+        const buttonEnter = (event: React.MouseEvent<HTMLButtonElement>): void => {
+            event.currentTarget.style.background = AKARI_PROJECT_SURFACE.elevated;
+            event.currentTarget.style.borderColor = AKARI_LINE.edge;
+        };
+        const buttonLeave = (event: React.MouseEvent<HTMLButtonElement>, active: boolean): void => {
+            if (!active) {
+                event.currentTarget.style.background = 'transparent';
+                event.currentTarget.style.borderColor = 'transparent';
+            }
+        };
+        const popoverWidth = 220;
+        const anchor = this.materialsPopoverAnchor;
+        const popStyle: React.CSSProperties = { position: 'fixed',
+            left: anchor ? Math.max(8, Math.min(window.innerWidth - popoverWidth - 8, anchor.right - popoverWidth)) : 8,
+            top: anchor ? anchor.bottom + 4 : 8,
+            width: `${popoverWidth}px`, boxSizing: 'border-box', padding: '6px',
+            borderRadius: '8px', border: AKARI_BORDER.hairline,
+            background: AKARI_PROJECT_SURFACE.elevated, boxShadow: '0 8px 24px rgba(0,0,0,.5)' };
+        const rowStyle: React.CSSProperties = { display: 'flex', width: '100%', alignItems: 'center', gap: '8px',
+            padding: '6px 8px', border: 0, borderRadius: '5px', background: 'transparent', color: AKARI_INK,
+            textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer' };
+        const kindOptions: readonly [MaterialKind | 'all', string][] =
+            [['all', 'すべて'], ['video', '動画'], ['audio', '音声'], ['image', '画像'], ['other', 'ほか（HTML・3D・フォント…）']];
+        const sortOptions: readonly [MaterialsSort, string][] = [
+            ['imported-desc', '取り込んだ順（新しい順）'], ['imported-asc', '取り込んだ順（古い順）'],
+            ['name', '名前'], ['dur', '長さ'], ['kind', '種類'], ['created', '作成日時']
+        ];
+        const svg = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+            strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+        return <div style={{ display: 'flex', gap: '2px', position: 'relative' }}
+            onKeyDownCapture={event => {
+                if (event.key === 'Escape' && this.materialsPopover) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.closeMaterialsPopover();
+                    this.update();
+                }
+            }}>
+            <button type='button' className='akari-materials-toolbar-button'
+                ref={element => { this.materialsFilterButton = element ?? undefined; }}
+                style={{ ...buttonStyle, ...(this.materialsPopover === 'filter' ? activeButtonStyle : {}) }}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'filter')}
+                aria-label='絞り込み' title='絞り込み'
+                aria-haspopup='true' aria-expanded={this.materialsPopover === 'filter'}
+                onClick={() => this.toggleMaterialsPopover('filter', this.materialsFilterButton)}>
+                <svg {...svg}><path d='M3 5h18l-7 8v6l-4 2v-8z' /></svg><span style={{ fontSize: '8px' }}>▾</span>
+                {filter.length > 0 && <span aria-hidden='true' style={{ position: 'absolute', width: '6px', height: '6px',
+                    right: '3px', top: '2px', borderRadius: '50%', background: '#f97316' }} />}
+            </button>
+            <button type='button' className='akari-materials-toolbar-button'
+                ref={element => { this.materialsSortButton = element ?? undefined; }}
+                style={{ ...buttonStyle, ...(this.materialsPopover === 'sort' ? activeButtonStyle : {}) }}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, this.materialsPopover === 'sort')}
+                aria-label='並び替え' title='並び替え'
+                aria-haspopup='true' aria-expanded={this.materialsPopover === 'sort'}
+                onClick={() => this.toggleMaterialsPopover('sort', this.materialsSortButton)}>
+                <svg {...svg}><path d='M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3' /></svg>
+                <span style={{ fontSize: '8px' }}>▾</span>
+            </button>
+            <button type='button' className='akari-materials-toolbar-button' style={buttonStyle}
+                onMouseEnter={buttonEnter} onMouseLeave={event => buttonLeave(event, false)}
+                aria-label='表示を切り替え' title='表示を切り替え'
+                onClick={() => { const next = mode === 'grid' ? 'list' : 'grid'; this.materialsPane.setMaterialView({ mode: next });
+                    try { window.localStorage.setItem('akari.materials.viewMode', next); } catch { /* Session state still works. */ }
+                    this.closeMaterialsPopover(); }}>
+                <svg {...svg}>{mode === 'grid'
+                    ? <><rect x='3' y='3' width='7' height='7' rx='1' /><rect x='14' y='3' width='7' height='7' rx='1' />
+                        <rect x='3' y='14' width='7' height='7' rx='1' /><rect x='14' y='14' width='7' height='7' rx='1' /></>
+                    : <path d='M4 6h16M4 12h16M4 18h16' />}</svg>
+            </button>
+            {this.materialsPopover && anchor && createPortal(<div
+                style={{ position: 'fixed', inset: 0, zIndex: 9000 }}
+                onMouseDown={event => { if (event.target === event.currentTarget) {
+                    this.closeMaterialsPopover(); this.update();
+                } }}>
+                <div style={popStyle} role='menu'>
+                <div style={{ fontSize: '11px', color: '#737373', padding: '4px 8px 2px' }}>
+                    {this.materialsPopover === 'filter' ? '種類（複数可）' : '並び替え'}
+                </div>
+                {this.materialsPopover === 'filter' ? kindOptions.map(([kind, label]) =>
+                    <button key={kind} type='button' className='akari-materials-popover-option'
+                        role='menuitemcheckbox' aria-checked={kind === 'all' ? filter.length === 0 : filter.includes(kind)}
+                        style={rowStyle} onClick={() => {
+                            const next = kind === 'all' ? [] : filter.includes(kind) ? filter.filter(value => value !== kind) : [...filter, kind];
+                            this.materialsPane.setMaterialView({ filter: next }); this.saveMaterialsUiState();
+                        }}><span style={{ width: '14px', color: '#f97316' }}>
+                            {(kind === 'all' ? filter.length === 0 : filter.includes(kind)) ? '✓' : ''}</span>{label}</button>)
+                    : sortOptions.map(([value, label]) =>
+                        <button key={value} type='button' className='akari-materials-popover-option'
+                            role='menuitemradio' aria-checked={sort === value} style={rowStyle}
+                            onClick={() => { this.materialsPane.setMaterialView({ sort: value });
+                                this.closeMaterialsPopover();
+                                this.saveMaterialsUiState(); }}>
+                            <span style={{ width: '14px', color: '#f97316' }}>{sort === value ? '✓' : ''}</span>{label}</button>)}
+                </div>
+            </div>, document.body)}
+        </div>;
+    }
 
     protected renderTopControls(): React.ReactNode {
         const query = this.topView === 'materials' ? this.materialQuery : this.catalogQuery;
@@ -2256,7 +2547,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         data-akari-panel-search={this.topView}
                         style={{
                             flex: '1 1 auto',
-                            minWidth: 0,
+                            minWidth: '64px',
                             width: '100%',
                             boxSizing: 'border-box',
                             padding: '5px 8px',
@@ -2269,6 +2560,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {this.topView === 'catalog' && !this.materialSwap && <LibraryFilterButton filter={this.libraryFilter()}
                         open={!!this.libraryFilterAnchor}
                         onToggle={() => this.toggleLibraryFilterPopover()} />}
+                    {this.topView === 'materials' && this.renderMaterialsViewButtons()}
                     {this.topView === 'materials' && this.workflow.workspaceRoot && this.materialsPane.renderMaterialsMenuButton()}
                 </div>
             </div>
@@ -2879,6 +3171,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
         if (item.category === 'font' && !this.generationPick.request) {
             return <FontShelfCard key={item.key} item={item} layout={this.catalogViewMode}
+                availability={item.fontAvailability}
                 favorite={this.libraryFavorites.has(item.key)} onApply={() => { void this.applyFontItem(item); }}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
@@ -2897,10 +3190,55 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async applyFontItem(item: AssetCatalogViewItem): Promise<void> {
         if (isPremiumLocked(item) || item.state === 'locked') { this.showPremiumPrompt(item.key); return; }
-        await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
-            payload: { kind: 'font', id: item.id, fontFamily: item.title.replace(/（.*$/, '').trim() },
-            editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
-        });
+        if (this.applyingFontIds.has(item.id)) return;
+        this.applyingFontIds.add(item.id);
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        try {
+            await applyCatalogFont(item, {
+                resolveBeforeApply: async font => {
+                    const checked = await this.projectService.checkCatalogFontAvailability(font.id,
+                        this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')).catch(() => undefined);
+                    if (checked) {
+                        this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === font.key
+                            ? { ...entry, fontAvailability: checked } : entry);
+                        if (typeof window !== 'undefined') {
+                            (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                                .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(entry => entry.category === 'font')
+                                    .map(entry => [entry.id, entry.fontAvailability]));
+                            window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+                        }
+                        this.update();
+                    }
+                    return checked;
+                },
+                confirmDownload: async (title, bytes) => new ConfirmDialog({ title: `${title}をダウンロードしますか？`,
+                    msg: `約 ${(bytes / 1048576).toFixed(1)} MB を取得して、この Mac で使えるようにします。`,
+                    ok: 'ダウンロードして当てる', cancel: 'キャンセル' }).open(),
+                download: async id => this.projectService.downloadCatalogFont(id,
+                    this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
+                offerSource: async (_title, source, unverified) => {
+                    const provider = source ? new URL(source).hostname : '配布元';
+                    const message = unverified
+                        ? `この書体を確認できませんでした。配布元（${provider}）で確認できます。今当てる場合は代わりの書体で表示されます。`
+                        : `この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`;
+                    const choice = await this.messages.info(message,
+                        '配布元を開く', '代わりの書体で当てる');
+                    return choice === '配布元を開く' ? 'open' : choice === '代わりの書体で当てる' ? 'apply' : undefined;
+                },
+                openSource: source => this.windowService.openNewWindow(source, { external: true }),
+                apply: async family => { await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+                    payload: { kind: 'font', id: item.id, fontFamily: family }, editUri
+                }); },
+                refresh: async () => {
+                    await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+                    void this.loadAssetCatalogView('user');
+                }
+            });
+        } catch (error) {
+            this.messages.error(`フォントを当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            this.applyingFontIds.delete(item.id);
+        }
     }
 
     protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {

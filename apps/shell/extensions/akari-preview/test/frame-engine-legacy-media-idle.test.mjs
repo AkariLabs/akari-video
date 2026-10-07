@@ -10,11 +10,12 @@ const extensionRoot = resolve(here, '..');
 const compiledHandler = readHandlerCompiled();
 
 function section(start, end) {
-    const startAt = compiledHandler.indexOf(start);
-    assert.notEqual(startAt, -1, `${start} が compiled handler に見つからない`);
-    const endAt = compiledHandler.indexOf(end, startAt + start.length);
-    assert.notEqual(endAt, -1, `${end} が compiled handler に見つからない`);
-    return compiledHandler.slice(startAt, endAt);
+    const source = compiledHandler;
+    const startAt = source.indexOf(start);
+    assert.notEqual(startAt, -1, `${start} が handler に見つからない`);
+    const endAt = source.indexOf(end, startAt + start.length);
+    assert.notEqual(endAt, -1, `${end} が handler に見つからない`);
+    return source.slice(startAt, endAt);
 }
 
 test('engine 面の生成 HTML は土台 video に src を持たせない', () => {
@@ -36,14 +37,14 @@ test('engine 面の enterSegment は土台 video にインライン visibility=h
     assert.doesNotMatch(engineBranch, /video\.style\.visibility = 'hidden'/u);
 });
 
-test('engine 面の layer video は src より先に metadata-only を宣言する', () => {
+test('engine 面の layer video は初期 src を持たず、legacy 面は全件に src を付ける', () => {
     const layerSetup = section('const createLayerEntry =', '// video FX rail');
     const preloadAt = layerSetup.indexOf("layerVideo.preload = frameEngineMediaIdle ? 'metadata' : 'auto';");
-    const sourceAt = layerSetup.indexOf('layerVideo.src = layer.src;');
+    const sourceAt = layerSetup.indexOf('if (layerIsImage || !frameEngineMediaIdle) layerVideo.src = layer.src;');
     assert.notEqual(preloadAt, -1);
     assert.notEqual(sourceAt, -1);
     assert.ok(preloadAt < sourceAt, 'preload=metadata は layer src の割り当てより先であること');
-    assert.match(layerSetup, /if \(!layerIsImage && frameEngineMediaIdle\) layerVideo\.preload = 'metadata';\s*layerVideo\.src = layer\.src;/u);
+    assert.match(layerSetup, /if \(layerIsImage \|\| !frameEngineMediaIdle\) layerVideo\.src = layer\.src;/u);
 });
 
 test('engine 面の renderLayers は表示と幾何だけを更新して媒体を再生・シークしない', () => {
@@ -52,7 +53,7 @@ test('engine 面の renderLayers は表示と幾何だけを更新して媒体�
     assert.match(renderLayers, /if \(!frameEngineMediaIdle && !layerVideo\.paused\) layerVideo\.pause\(\);/u);
     assert.match(renderLayers, /if \(frameEngineMediaIdle\) continue;[\s\S]*?layerVideo\.currentTime = target;/u);
     assert.match(renderLayers, /if \(frameEngineMediaIdle\) continue;[\s\S]*?layerVideo\.play\(\)/u);
-    assert.match(renderLayers, /if \(anyKeyframeApplied && window\.akari\.updateLayerLayout\)/u);
+    assert.match(renderLayers, /for \(const layerVideo of keyframedLayers\) window\.akari\.updateLayerLayout\(layerVideo\)/u);
     assert.match(renderLayers, /entry\.element\.style\.display = !allTracksHiddenByScope\.layers/u);
 });
 
@@ -65,7 +66,7 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     const findHit = section('const findVisualMediaHitAt =', '// cuts / layers / overlays / captions');
     const engineBranch = findHit.slice(0, findHit.indexOf('return document.elementsFromPoint'));
     assert.match(engineBranch, /for \(const entry of layerEntries\)/u);
-    assert.match(engineBranch, /\(entry\.video\.videoWidth \|\| entry\.video\.naturalWidth\) > 0[\s\S]*?\(entry\.video\.videoHeight \|\| entry\.video\.naturalHeight\) > 0/u);
+    assert.match(engineBranch, /const size = hasSourceSize\s*\?[\s\S]*?\(specSize \|\| declaredSize\)/u);
     assert.match(engineBranch, /sourcePoint\(size, summary\.output, layerVisualTransformNow\(entry\), layerCropNow\(entry\), stagePoint/u);
     assert.match(engineBranch, /if \(!pixel\) continue;/u);
     assert.match(engineBranch, /layerGeometryHitAt\(entry, event\.clientX, event\.clientY, hasSourceSize \? undefined : size\)/u);

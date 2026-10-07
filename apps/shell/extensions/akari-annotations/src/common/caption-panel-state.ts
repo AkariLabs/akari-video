@@ -50,7 +50,9 @@ export function filterCaptionFonts<T extends { title: string; family: string; ta
 
 export function renderableCaptionFonts<T extends { id: string }>(fonts: readonly T[],
     faces: ReadonlyMap<string, string>): T[] {
-    return fonts.filter(font => faces.has(font.id));
+    const available = typeof window === 'undefined' ? {} : (window as Window & {
+        akariFontAvailability?: Record<string, { status: string; family: string }> }).akariFontAvailability ?? {};
+    return fonts.filter(font => faces.has(font.id) || available[font.id]?.status === 'available');
 }
 
 export function captionFontRowDetail(tags: readonly string[]): string {

@@ -1,0 +1,4 @@
+{ "version": 0, "entries": [
+  { "id": "vd-0001", "kind": "fix", "to": "語", "from": ["ＡＢＣ"] },
+  { "id": "vd-0002", "kind": "snippet", "trigger": ["abc"], "expand": "本文" }
+] }

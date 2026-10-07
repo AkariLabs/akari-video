@@ -31,8 +31,8 @@ test('textstyle Pro カードは preview URL の見本と鍵を表示する', ()
         uiTarget: { target: 'asset:textstyle/telop-fixture-style', label: '字幕スタイルの見本' },
         onDragStart() {}, onDragEnd() {}, onContextMenu() {}, onInfo() {}, onThumbnailError() {} };
     const card = LibraryAssetCard(props);
-    assert.equal(card.props['data-akari-premium'], 'true');
-    assert.equal(card.props['data-akari-catalog-item-state'], 'locked');
+    assert.equal(card.children[0].props['data-akari-premium'], 'true');
+    assert.equal(card.children[0].props['data-akari-catalog-item-state'], 'locked');
     assert.equal(nodes(card, node => node.type === Badge).length, 1);
     const thumbnail = nodes(card, node => node.type === Thumbnail)[0];
     assert.equal(Thumbnail(thumbnail.props).props.src, previewUrl);

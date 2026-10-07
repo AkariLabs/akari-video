@@ -437,7 +437,11 @@ export async function loadAndBuildGpuPage({
   const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false
     && !animatedCaptions.overlayIds.has(String(overlay.id))).map(async (overlay) => {
     const expanded = { ...overlay, z: resolveRecordTrackZ(trackZByItemId, overlay) };
-    if (typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")) return expanded;
+    if (typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")) {
+      return overlay.htmlPath
+        ? { ...expanded, html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }) }
+        : expanded;
+    }
     const htmlPath = overlay.html;
     const html = await readFile(resolveDeclaredProjectInput(projectRoot, htmlPath, `overlay:${overlay.id}`, process.env), "utf8");
     return { ...expanded, htmlPath, html: embedFragmentAssets(html, { projectRoot, htmlPath, overlayId: overlay.id }) };

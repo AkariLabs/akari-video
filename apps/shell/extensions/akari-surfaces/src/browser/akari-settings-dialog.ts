@@ -16,6 +16,7 @@ import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
+import { findSettingsSectionBody, mountSettingsSectionBody } from '../common/settings-section-body';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { KeymapsService } from '@theia/keymaps/lib/browser/keymaps-service';
 import { KeyboardLayoutService } from '@theia/core/lib/browser/keyboard/keyboard-layout-service';
@@ -46,12 +47,12 @@ import { AkariAnnotationsService,
 import {
     AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
-    AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
+    AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_VIBE_PREVIEW_ENABLED, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
-    SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
+    SETTINGS_SECTIONS, visibleSettingsSections, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
@@ -113,6 +114,10 @@ const TOOL_ICONS: Record<AkariToolId, SettingsIconName> = {
 const STORAGE_COLORS = ['#9a9a9a', '#7a7a7a', '#5c5c5c', '#454545', '#333333'] as const;
 
 export class AkariSettingsDialog extends AbstractDialog<void> {
+    protected vibePreviewEnabled(): boolean {
+        try { return window.localStorage.getItem(AKARI_VIBE_PREVIEW_ENABLED) === '1'; }
+        catch { return false; }
+    }
     protected readonly body = element('main');
     protected readonly transcribe = element('section');
     protected readonly connections = element('section');
@@ -273,7 +278,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         search.append(settingsIcon('search', 'sm'), this.searchInput, keyHint);
         nav.append(search);
         let previousGroup: string = 'main';
-        for (const section of SETTINGS_SECTIONS) {
+        for (const section of visibleSettingsSections(this.vibePreviewEnabled())) {
             if (section.group !== previousGroup) {
                 const group = element('h3', section.group === 'data' ? 'データとプライバシー' : section.group === 'support' ? 'サポート' : '開発者');
                 group.className = 'akari-set-nav-group';
@@ -314,6 +319,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     showSection(section: SettingsSectionId): void {
+        if (section === 'listening' && !this.vibePreviewEnabled()) section = SETTINGS_SECTIONS[0].id;
         if (section !== 'about') { this.stopAboutUpdaterEvents(); }
         const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
@@ -335,7 +341,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected filterSections(): void {
         const query = this.searchInput.value;
         let first: SettingsSectionId | undefined;
-        for (const item of SETTINGS_SECTIONS) {
+        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) {
             const node = this.sections.get(item.id)!;
             const rows = Array.from(node.querySelectorAll<HTMLElement>(
                 '.akari-set-row-label,.akari-set-row-desc,.akari-set-group-title,.akari-set-partner-name,.akari-set-partner-sub,.akari-set-storage-header,.akari-set-permission-row'
@@ -347,10 +353,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         }
         const visible = Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]')).find(item => item.getAttribute('aria-current') === 'true' && !item.hidden);
         if (!visible && first) { this.showSection(first); }
-        for (const item of SETTINGS_SECTIONS) { this.highlightSearch(item.id); }
+        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) { this.highlightSearch(item.id); }
         for (const group of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav-group]'))) {
             const name = group.getAttribute('data-settings-nav-group');
-            group.hidden = !SETTINGS_SECTIONS.some(item => item.group === name && !this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`)?.hidden);
+            group.hidden = !visibleSettingsSections(this.vibePreviewEnabled()).some(item => item.group === name && !this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`)?.hidden);
         }
     }
 
@@ -399,6 +405,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderSection(id: SettingsSectionId): void {
+        if (id === 'listening') {
+            const section = this.sections.get(id)!;
+            section.replaceChildren(...this.sectionHeading(id));
+            const contribution = findSettingsSectionBody(id);
+            if (contribution) { this.toDispose.push(mountSettingsSectionBody(section, contribution)); }
+            return;
+        }
         if (id === 'transcribe') { this.renderTranscribe(); return; }
         if (id === 'narration') { this.renderNarration(); return; }
         if (id === 'connections') { return; }
@@ -509,8 +522,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     options: [{ value: '1', label: '1 秒' }, { value: '3', label: '3 秒' }, { value: '10', label: '10 秒' }],
                     value: String(this.preferences.get(STATUS_BAR_KEYS.intervalSec, 3)), onChange: value => this.savePreference(STATUS_BAR_KEYS.intervalSec, Number(value)) }))));
         } else if (id === 'developer') {
-            section.append(groupCard(undefined, this.preferenceSwitch(AKARI_DEVELOPER_MODE, 'Developer mode', false,
-                'HTML をコードとして開き、フル設定を使えるようにします')));
+            section.append(groupCard(undefined,
+                this.preferenceSwitch(AKARI_DEVELOPER_MODE, 'Developer mode', false,
+                    'HTML をコードとして開き、フル設定を使えるようにします'),
+                this.preferenceSwitch(AKARI_VIBE_PREVIEW_ENABLED, 'AKARI バイブ（開発中）を表示', false,
+                    '右下の区画・聞き取りの設定・紙・タスクボードなど、作りかけの機能を出します。切り替えはアプリを開き直すと反映されます')));
         } else if (id === 'export') {
             const platform = OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux';
             const directory = textField({ label: '書き出し先フォルダの URI', placeholder: '（プロジェクトの exports/）', wide: true });
@@ -750,7 +766,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             : value === 'denied' || value === 'restricted' ? '拒否' : value === 'not-determined' ? '未設定' : 'システム設定で確認';
         const notification = typeof Notification !== 'undefined' ? Notification.permission : undefined;
         const permissions: { icon: SettingsIconName; name: string; description: string; state: string; url: string }[] = [
-            { icon: 'mic', name: 'マイク', description: '声で編集（Akari Vibe）・注釈の録音', state: permissionLabel(microphone), url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone' },
+            { icon: 'mic', name: 'マイク', description: this.vibePreviewEnabled() ? '声で編集（Akari Vibe）・注釈の録音' : '注釈の録音', state: permissionLabel(microphone), url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone' },
             { icon: 'folder', name: '書類・デスクトップ・ダウンロード', description: 'そこに置いたプロジェクトや素材を開く', state: 'システム設定で確認', url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders' },
             { icon: 'bell', name: '通知', description: '書き出し・AI の作業が終わったとき', state: permissionLabel(notification), url: 'x-apple.systempreferences:com.apple.preference.notifications' },
             { icon: 'terminal', name: 'フルディスクアクセス', description: 'ふつうは不要。外付けドライブの一部で要ることがある', state: 'システム設定で確認', url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles' }
@@ -765,6 +781,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
         section.append(groupCard('macOS のアクセス許可', ...rows),
         groupCard('外へ送るもの', settingRow('利用状況の送信', 'AKARI Video は利用状況を送っていません', statusPill('送っていない')),
+            ...(this.vibePreviewEnabled() ? [settingRow('聞き取り（マイク）', '試し聞きとメモは、この PC の中だけで文字にします。Jev を「画面を動かす」「画面も編集も」にしたときだけ、話した内容と編集中の動画の構成（字幕は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります')] : []),
             settingRow('API キー', `鍵は ${this.credentialsPath || (OS.type() === OS.Type.Windows ? '%USERPROFILE%\\.akari\\credentials.env' : '~/.akari/credentials.env')} に保存します（このパソコンだけ・600）。AKARI のサーバーには送りません`, action('場所を開く', () => {
                 if (this.credentialsPath) { void this.maintenance.openPath(this.credentialsPath.replace(/[\\/][^\\/]+$/, '')); }
             }, { small: true }))));

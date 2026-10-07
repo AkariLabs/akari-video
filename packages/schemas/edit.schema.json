@@ -1504,6 +1504,16 @@
         "part": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "style": { "type": "object", "additionalProperties": { "type": "string" } },
         "text": { "type": "string" },
+        "elements": {
+          "type": "object",
+          "patternProperties": {
+            "^[#.][^\\s\\[\\]]+\\[(0|[1-9]\\d*)\\]$": {
+              "type": "object", "additionalProperties": false, "required": ["style"],
+              "properties": { "style": { "type": "object", "additionalProperties": { "type": "string" } } }
+            }
+          },
+          "additionalProperties": false
+        },
         "exclude": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" }, "uniqueItems": true },
         "derivedFrom": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "vars": { "type": "object" },

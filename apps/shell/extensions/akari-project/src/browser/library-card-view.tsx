@@ -273,26 +273,33 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
             </div>
         );
     }
+    const kind = item.category === 'audio' ? 'audio'
+        : item.category === 'image' || item.category === 'still' ? 'image'
+        : item.category === 'video' || item.category === 'broll' ? 'video' : 'other';
     return (
-        <div key={item.key} {...common}
+        <div key={item.key}
             style={{
-                display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden',
-                borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost,
+                display: 'flex', flexDirection: 'column', minWidth: 0
+            }}>
+            <div {...common} style={{
+                position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden', background: '#000',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: AKARI_BORDER.ghost, borderRadius: '4px', boxSizing: 'border-box',
                 cursor: props.draggable ? 'grab' : props.onPreview ? 'pointer' : 'default'
-            }}>
-            <div style={{
-                position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden', background: AKARI_SURFACE.card,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
+            }} onMouseEnter={event => { event.currentTarget.style.borderColor = AKARI_FAINT; }}
+                onMouseLeave={event => { event.currentTarget.style.borderColor = ''; }}>
                 <Thumbnail {...props} />
                 {marks}
                 {props.interactive && <LibraryDotsButton label={item.title} expanded={props.infoOpen} onOpen={props.onInfo} />}
                 {props.interactive && props.audioControl}
             </div>
             {props.pickBadge}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, padding: '5px 7px 6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0,
+                padding: '3px 1px 0', color: '#737373', fontSize: '10px', lineHeight: 1.3 }}>
+                <span aria-hidden='true' style={{ width: '6px', height: '6px', flex: '0 0 6px',
+                    borderRadius: '2px', background: { video: '#58a6ff', audio: '#3fb950', image: '#d2a8ff', other: '#e3b341' }[kind] }} />
                 {props.favorite && <FavoriteStar />}
-                <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.title}
                 </span>
             </div>

@@ -142,6 +142,19 @@ test('formatDoctorReport は Electron の node 実行方法と Node の実行体
   assert.match(legacy, /node\s+unknown\s+診断情報がありません/u);
 });
 
+test('doctor は Electron 実行体と render-cut の実パスを使った書き出し手順を示す', () => {
+  const report = {
+    cli: { version: '1.0.0', entry_path: '/app/akari.mjs', node: {
+      runtime: 'electron', version: '22.0.0', exec_path: '/Applications/AKARI Video.app/Contents/MacOS/AKARI Video',
+    } },
+    app_managed: { status: 'valid' }, app_bundle: { found: true },
+    render_cut: { origin: 'app-bundle', path: '/Applications/AKARI Video.app/Contents/Resources/packages/render-cut/bin/render-cut.mjs' },
+    edit_lint: { origin: 'none' }, ffmpeg: { origin: 'none' }, ffprobe: { origin: 'none' },
+    path: { on_path: false }, verdict: 'degraded', next_steps: [],
+  };
+  assert.match(formatDoctorReport(report), /ELECTRON_RUN_AS_NODE=1 "\/Applications\/AKARI Video\.app\/Contents\/MacOS\/AKARI Video" "\/Applications\/AKARI Video\.app\/Contents\/Resources\/packages\/render-cut\/bin\/render-cut\.mjs" <project-root>/u);
+});
+
 test('render-cut 解決順は monorepo → managed-app → app-bundle → none', async () => {
   await withFixture(async (root) => {
     const launcherDirectory = join(root, 'checkout', 'packages', 'akari-launcher', 'src');

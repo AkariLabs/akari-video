@@ -29,6 +29,7 @@ import { AkariExportThumbnailStripStore } from './export-dialog/export-thumbnail
 import { AkariScopeService } from './akari-scope-service';
 import { SidePanelHandler } from '@theia/core/lib/browser/shell/side-panel-handler';
 import { AkariRightPanelHandler } from './akari-right-panel-handler';
+import { RightPanelDockSlot } from './right-panel-dock-slot';
 import { AkariRightRailDnd } from './akari-right-rail-dnd';
 import { AkariStatusbarResources } from './statusbar/akari-statusbar-resources';
 import { AkariStatusBar } from './statusbar/akari-statusbar';
@@ -120,6 +121,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // 右レール（task 2026-09-22-right-rail-regroup）: 1 本のレール + 真ん中の区切り線 / 既定 1 面・必要なときだけ 2 段 /
     // 遅れなしの名前ツールチップ / ドラッグでメイン・下・レールの線の上下・右の上下へ。左の SidePanelHandler は既定のまま。
     rebind(SidePanelHandler).to(AkariRightPanelHandler);
+    bind(RightPanelDockSlot).toSelf().inSingletonScope();
     bind(AkariRightRailDnd).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariRightRailDnd);
 

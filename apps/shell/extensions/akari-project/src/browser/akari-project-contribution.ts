@@ -38,6 +38,8 @@ import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { AkariAssetInspector } from './akari-asset-inspector';
 import { AkariVoiceRecordDialog } from './voice-recording/akari-voice-record-dialog';
+import { VoiceRecordScript } from './voice-recording/voice-recorder';
+import { preferWorkspaceEditUri } from '../common/voice-recording';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 
 /**
@@ -136,6 +138,20 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     }
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: 'akari.materials.range.get' }, {
+            execute: async (request: { projectUri: string; relativePath: string }) =>
+                (await this.projectService.readMaterialRanges(request.projectUri))[request.relativePath]
+        });
+        commands.registerCommand({ id: 'akari.materials.range.set' }, {
+            execute: async (request: { projectUri: string; relativePath: string;
+                range: import('../common/material-range').MaterialRange | null; source?: string }) => {
+                await this.projectService.writeMaterialRange(request.projectUri, request.relativePath, request.range);
+                window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
+                    detail: { relativePath: request.relativePath, range: request.range,
+                        ...(request.source === undefined ? {} : { source: request.source }) }
+                }));
+            }
+        });
         commands.registerCommand({ id: LIST_MY_STYLES_COMMAND_ID }, {
             execute: async (): Promise<MyStyleListItem[]> => (await this.projectService.listMyStyles()).map(style => ({
                 id: style.id,
@@ -147,7 +163,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         this.registerBrandKitCommands?.(commands);
         this.registerTextstyleShowcaseCommand?.(commands);
         commands.registerCommand(NEW_AKARI_PROJECT, { execute: () => this.createProject() });
-        commands.registerCommand({ id: 'akari.voice.record', label: 'アフレコ' }, { execute: () => this.openVoiceRecordDialog() });
+        commands.registerCommand({ id: 'akari.voice.record', label: 'アフレコ' }, {
+            execute: (args?: { editUri?: string; script?: VoiceRecordScript }) => this.openVoiceRecordDialog(args)
+        });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {
             execute: () => this.toggleDeveloperMode(),
@@ -167,17 +185,23 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         });
     }
 
-    protected openVoiceRecordDialog(): void {
+    protected async openVoiceRecordDialog(args?: { editUri?: string; script?: VoiceRecordScript }): Promise<void> {
         const projectUri = this.workflow.workspaceRoot?.toString();
         if (!projectUri) {
             this.messages.warn('先にプロジェクトを開いてください。');
             return;
         }
+        const candidate = this.workflow.workspaceRoot?.resolve('edit.json');
+        const workspaceEditUri = candidate?.toString();
+        const editUri = args?.editUri !== undefined
+            ? preferWorkspaceEditUri(args.editUri, workspaceEditUri)
+            : candidate && await this.files.exists(candidate) ? workspaceEditUri : undefined;
         if (this.voiceRecordDialog) {
+            this.voiceRecordDialog.setScript(args?.script);
             this.voiceRecordDialog.activate();
             return;
         }
-        const dialog = new AkariVoiceRecordDialog(this.projectService, this.messages, projectUri);
+        const dialog = new AkariVoiceRecordDialog(this.projectService, this.messages, projectUri, this.commands, editUri, args?.script);
         this.voiceRecordDialog = dialog;
         void dialog.open().finally(() => {
             if (this.voiceRecordDialog === dialog) this.voiceRecordDialog = undefined;

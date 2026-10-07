@@ -528,3 +528,20 @@ function escapeRegExp(value) {
 function messageOf(error) {
   return error instanceof Error ? error.message : String(error);
 }
+
+// 置換器と同じ計画を、呼び出し側が元の文字列と置換後の範囲へ結び付けられる形で返す。
+export function locateMatches(text, matcher, options = {}) {
+  const record = { text: String(text ?? '') };
+  const plans = findPlans(tokensForRecord(record, options.locale ?? 'ja'), matcher, true)
+    .filter(plan => !isAlreadyCanonical(plan));
+  return locatePlans(record.text, plans)
+    .filter(item => item.location)
+    .map(({ plan, location }) => ({
+      start: location.start,
+      end: location.end,
+      from: record.text.slice(location.start, location.end),
+      to: plan.candidate.surface,
+      priority: plan.candidate.priority,
+      scope: plan.candidate.scope,
+    }));
+}

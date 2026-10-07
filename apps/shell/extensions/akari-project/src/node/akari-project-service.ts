@@ -40,6 +40,9 @@ import {
     DroppedVideoImportResult,
     EditLintOutcome,
     MaterialThumbnailOutcome,
+    MaterialStripOptions,
+    MaterialStripOutcome,
+    MaterialMetaEntry,
     PresetShowcase,
     PresetShowcaseKind,
     ProjectCardThumbnailsOutcome,
@@ -51,6 +54,8 @@ import {
 } from '../common/akari-project-protocol';
 import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
+import { MaterialMetaReader } from './material-meta';
+import { MaterialStripGenerator } from './material-strip';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
     deriveEditTimelineSamples,
@@ -74,6 +79,8 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
+import { clearSystemFontCache, downloadFont, loadSystemFontCache, readFontManifest, resolveFontAvailability,
+    systemFontSnapshot, waitForSystemFontNames } from './font-availability';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
@@ -187,14 +194,21 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
     protected readonly libraryThumbnailInFlight = new Map<string, Promise<string | undefined>>();
+    protected readonly catalogFontDownloads = new Map<string, Promise<void>>();
     protected readonly libraryThumbnailQueue: Array<() => Promise<void>> = [];
     protected readonly libraryThumbnailCandidates = new Map<string, string>();
     protected readonly libraryThumbnailSkipped = new Set<string>();
     protected libraryThumbnailActive = 0;
     protected libraryThumbnailQueueTimer?: ReturnType<typeof setTimeout>;
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
+    protected readonly materialRangeWrites = new Map<string, Promise<void>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
+    protected readonly materialMetaReader = new MaterialMetaReader({ ffprobePath: () => this.resolveFfprobePath() });
+    protected readonly materialStripGenerator = new MaterialStripGenerator({
+        ffmpegPath: () => this.resolveFfmpegPath(),
+        durationSeconds: sourcePath => this.probeDurationSeconds(sourcePath)
+    });
     /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
@@ -376,6 +390,19 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadLibraryPacks()
         ]);
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
+        const fontItems = merged.filter(item => item.category === 'font');
+        const localFontRows = new Map(local.items.filter(item => item.category === 'font'
+            && item.previewUrl?.endsWith('/row.webp')).map(item => [item.key, item.previewUrl]));
+        for (const item of fontItems) item.previewUrl = localFontRows.get(item.key) ?? item.previewUrl;
+        if (fontItems.length) {
+            try {
+                if (intent === 'user') clearSystemFontCache();
+                const result = await this.getCatalogFontAvailability(preferenceRoot, fontItems);
+                for (const item of fontItems) item.fontAvailability = result.statuses[item.id];
+            } catch {
+                for (const item of fontItems) item.fontAvailability = { status: 'failed', family: item.title };
+            }
+        }
         const items = await Promise.all(merged.map(async item => {
             if (item.thumbUrl) return item;
             const thumbUrl = await this.prepareLibraryPreviewThumbnail(item);
@@ -392,6 +419,59 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             entitlementsStatus: resolverResult.entitlementsStatus,
             entitledProducts: resolverResult.entitledProducts
         };
+    }
+
+    async getCatalogFontAvailability(preferenceRoot: string | undefined,
+        items: Array<{ id: string; title: string; aliases?: string[] }>): Promise<{
+            phase: 'ready' | 'pending' | 'failed'; statuses: Record<string, AssetCatalogViewItem['fontAvailability']>
+        }> {
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        await loadSystemFontCache();
+        const manifest = await readFontManifest(fileURLToPath(catalogUrl));
+        const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
+        const snapshot = systemFontSnapshot();
+        const statuses = await resolveFontAvailability(items, manifest, bundled,
+            { system: snapshot.names ?? new Map(), systemPhase: snapshot.phase });
+        return { phase: snapshot.phase, statuses: Object.fromEntries(statuses) };
+    }
+
+    async checkCatalogFontAvailability(id: string, preferenceRoot: string | undefined): Promise<AssetCatalogViewItem['fontAvailability']> {
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('フォント ID が不正です。');
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        const root = fileURLToPath(catalogUrl);
+        const meta = parseCatalogItemMeta(await fs.readFile(join(root, 'font', id, 'meta.json'), 'utf8'));
+        if (!meta || meta.id !== id || meta.category !== 'font') throw new Error('フォントを確認できません。');
+        await loadSystemFontCache();
+        let snapshot = systemFontSnapshot();
+        if (snapshot.phase !== 'ready') snapshot = await waitForSystemFontNames(2500);
+        const manifest = await readFontManifest(root);
+        const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
+        const statuses = await resolveFontAvailability([meta], manifest, bundled,
+            { system: snapshot.names ?? new Map(), systemPhase: snapshot.phase === 'ready' ? 'ready' : 'failed' });
+        return statuses.get(id);
+    }
+
+    downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void> {
+        const existing = this.catalogFontDownloads.get(id);
+        if (existing) return existing;
+        const work = this.downloadCatalogFontOnce(id, preferenceRoot).finally(() => {
+            if (this.catalogFontDownloads.get(id) === work) this.catalogFontDownloads.delete(id);
+        });
+        this.catalogFontDownloads.set(id, work);
+        return work;
+    }
+
+    protected async downloadCatalogFontOnce(id: string, preferenceRoot: string | undefined): Promise<void> {
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        const root = fileURLToPath(catalogUrl);
+        const raw = await fs.readFile(join(root, 'font', id, 'meta.json'), 'utf8');
+        const meta = parseCatalogItemMeta(raw);
+        if (!meta || meta.id !== id || meta.category !== 'font' || meta.license?.spdx !== 'OFL-1.1'
+            || !meta.source?.url?.startsWith('https://fonts.google.com/')) throw new Error('この書体は配布元から入手してください。');
+        await downloadFont(id, meta.title, meta.aliases ?? [], await readFontManifest(root));
     }
 
     /** Check only file metadata on the catalog path; generation runs after the view has returned. */
@@ -695,12 +775,17 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 }
                 const installed = installedKeys.has(`${parsed.category}/${parsed.id}`);
                 const localPreviewUrl = await this.resolveLocalCatalogPreviewUrl(itemDir);
+                const fontRowUrl = parsed.category === 'font'
+                    ? await fs.access(join(itemDir, 'row.webp'))
+                        .then(() => pathToFileURL(join(itemDir, 'row.webp')).toString(), () => undefined)
+                    : undefined;
                 items.push({
                     origin: 'local',
                     key: `${parsed.category}/${parsed.id}`,
                     id: parsed.id,
                     category: parsed.category,
                     title: parsed.title,
+                    aliases: parsed.aliases,
                     description: parsed.description,
                     tags: parsed.tags ?? [],
                     licenseSpdx: parsed.license?.spdx,
@@ -710,7 +795,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     ...(parsed.author ? { author: parsed.author } : {}),
                     whenToUse: parsed.when_to_use,
                     sourceUrl: parsed.source?.url,
-                    previewUrl: localPreviewUrl ?? parsed.source?.preview_url,
+                    previewUrl: fontRowUrl ?? localPreviewUrl ?? parsed.source?.preview_url,
                     installed,
                     distribution: deriveAssetDistribution({
                         installed,
@@ -1800,6 +1885,70 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             .finally(() => this.thumbnailGenerationInFlight.delete(cachePath));
         this.thumbnailGenerationInFlight.set(cachePath, generation);
         return generation;
+    }
+
+    async materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>> {
+        return this.materialMetaReader.read(this.fsPath(projectUri), relativePaths);
+    }
+
+    async resolveMaterialStrip(projectUri: string, relativePath: string, options: MaterialStripOptions): Promise<MaterialStripOutcome> {
+        const root = this.fsPath(projectUri);
+        const metadata = await this.materialMetaReader.read(root, [relativePath]).catch(() => ({} as Record<string, MaterialMetaEntry>));
+        return this.materialStripGenerator.resolve(root, relativePath, options, metadata[relativePath]?.durationSeconds);
+    }
+
+    async readUiState(projectUri: string): Promise<Record<string, unknown>> {
+        const value = await this.readJsonFile(join(this.fsPath(projectUri), '.akari', 'ui-state.json'));
+        return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    }
+
+    async readMaterialRanges(projectUri: string): Promise<Record<string, import('../common/material-range').MaterialRange>> {
+        const value = await this.readJsonFile(join(this.fsPath(projectUri), '.akari', 'material-ranges.json'));
+        const ranges = value && typeof value === 'object' && !Array.isArray(value)
+            ? (value as Record<string, unknown>).ranges : undefined;
+        if (!ranges || typeof ranges !== 'object' || Array.isArray(ranges)) return {};
+        return Object.fromEntries(Object.entries(ranges).filter(([, candidate]) => {
+            if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+            const range = candidate as Record<string, unknown>;
+            return typeof range.in === 'number' && Number.isFinite(range.in) && range.in >= 0
+                && typeof range.out === 'number' && Number.isFinite(range.out) && range.out > range.in;
+        })) as Record<string, import('../common/material-range').MaterialRange>;
+    }
+
+    async writeMaterialRange(projectUri: string, relativePath: string,
+        range: import('../common/material-range').MaterialRange | null): Promise<void> {
+        if (!relativePath) throw new Error('Material path is required');
+        const destination = join(this.fsPath(projectUri), '.akari', 'material-ranges.json');
+        const previous = this.materialRangeWrites.get(destination) ?? Promise.resolve();
+        const write = previous.catch(() => undefined).then(async () => {
+            const raw = await this.readJsonFile(destination);
+            const current = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+            const ranges = { ...await this.readMaterialRanges(projectUri) };
+            if (range === null) delete ranges[relativePath];
+            else {
+                if (!Number.isFinite(range.in) || range.in < 0 || !Number.isFinite(range.out) || range.out <= range.in)
+                    throw new Error('Invalid material range');
+                ranges[relativePath] = { in: range.in, out: range.out };
+            }
+            await this.writeJsonAtomic(destination, { ...current, version: 1, ranges });
+        });
+        this.materialRangeWrites.set(destination, write);
+        try { await write; } finally {
+            if (this.materialRangeWrites.get(destination) === write) this.materialRangeWrites.delete(destination);
+        }
+    }
+
+    async writeUiState(projectUri: string, patch: Record<string, unknown>): Promise<void> {
+        const current = await this.readUiState(projectUri);
+        const merged = { ...current, ...patch };
+        if (patch.materialsPane && typeof patch.materialsPane === 'object' && !Array.isArray(patch.materialsPane)) {
+            const previous = current.materialsPane;
+            merged.materialsPane = {
+                ...(previous && typeof previous === 'object' && !Array.isArray(previous) ? previous as Record<string, unknown> : {}),
+                ...patch.materialsPane as Record<string, unknown>
+            };
+        }
+        await this.writeJsonAtomic(join(this.fsPath(projectUri), '.akari', 'ui-state.json'), merged);
     }
 
     protected async generateThumbnail(

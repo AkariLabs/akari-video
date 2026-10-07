@@ -1099,8 +1099,7 @@ export function hostAdapterScript(): string {
                     height: stageRect.height / (zoomScaleY || 1)
                 };
             };
-            const computeContentRect = () => {
-                const frameRect = computeOutputFrameRect();
+            const computeContentRect = (frameRect = computeOutputFrameRect()) => {
                 const boxWidth = frameRect.width;
                 const boxHeight = frameRect.height;
                 const videoWidth = video.videoWidth;
@@ -1120,10 +1119,15 @@ export function hostAdapterScript(): string {
             // （ソース実寸基準、crop 中心を錨に配置）へ入る。layer DOM と cut DOM が同じ描画式を
             // 必ず通るよう、既存 layer loop の本体をこの 1 関数へ寄せる。perspective と clip は
             // layer 側の既存純関数をそのまま使い、cut 用の計算は持たない。
-            const mediaNaturalSize = media => ({
-                width: media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth,
-                height: media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight
-            });
+            const mediaNaturalSize = media => {
+                const width = media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth;
+                const height = media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight;
+                if (width > 0 && height > 0) return { width, height };
+                const sourceWidth = Number(media.dataset.akariSourceWidth);
+                const sourceHeight = Number(media.dataset.akariSourceHeight);
+                return sourceWidth > 0 && sourceHeight > 0
+                    ? { width: sourceWidth, height: sourceHeight } : { width: 0, height: 0 };
+            };
             const photoCropClipPolygonFn = (${photoCropClipPolygon.toString()});
             const photoFrameVisualFn = (${photoFrameVisual.toString()});
             const composePhotoPreviewMaskFn = (${composePhotoPreviewMask.toString()});
@@ -1340,7 +1344,7 @@ export function hostAdapterScript(): string {
             window.akari.applyCutLayerStyleLayout = applyCutLayerStyleLayout;
             const updateStageScale = () => {
                 const frameRect = computeOutputFrameRect();
-                const rect = computeContentRect();
+                const rect = computeContentRect(frameRect);
                 const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
                 const outputWidth = Number(output.width || 1280);
@@ -1413,13 +1417,25 @@ export function hostAdapterScript(): string {
             };
             window.akari.computeOutputFrameRect = computeOutputFrameRect;
             window.akari.computeContentRect = computeContentRect;
-            window.akari.updateLayerLayout = updateStageScale;
+            window.akari.updateLayerLayout = media => {
+                if (media?.dataset?.akariLayerId) {
+                    applyLayerStyleMediaLayout(media, Number(output.width || 1280), Number(output.height || 720));
+                } else updateStageScale();
+            };
             window.akari.activateStandbyVideoElement = (active, standby) => {
                 video = active;
                 standbyVideo = standby;
                 updateStageScale();
             };
-            new ResizeObserver(updateStageScale).observe(previewStage);
+            let resizeLayoutQueued = false;
+            new ResizeObserver(() => {
+                if (resizeLayoutQueued) return;
+                resizeLayoutQueued = true;
+                window.requestAnimationFrame(() => {
+                    resizeLayoutQueued = false;
+                    updateStageScale();
+                });
+            }).observe(previewStage);
             video.addEventListener('loadedmetadata', updateStageScale);
             standbyVideo.addEventListener('loadedmetadata', updateStageScale);
             if (initial.kind === 'raw') {

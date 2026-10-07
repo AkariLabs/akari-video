@@ -564,7 +564,7 @@ function validateItemSource(value, path, sourceIds) {
                 throw invalid(`${path}.mute`, 'boolean である必要があります');
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'exclude', 'derivedFrom', 'vars', 'params']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'elements', 'exclude', 'derivedFrom', 'vars', 'params']), path);
             requireText(value.path, `${path}.path`);
             for (const key of ['part', 'derivedFrom'])
                 if (hasOwn(value, key))
@@ -573,6 +573,18 @@ function validateItemSource(value, path, sourceIds) {
                 throw invalid(`${path}.text`, '文字列である必要があります');
             if (hasOwn(value, 'style'))
                 validateStringMap(value.style, `${path}.style`);
+            if (hasOwn(value, 'elements')) {
+                requireRecord(value.elements, `${path}.elements`);
+                for (const [address, override] of Object.entries(value.elements)) {
+                    if (!/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/.test(address))
+                        throw invalid(`${path}.elements.${address}`, '要素の番地が不正です');
+                    requireRecord(override, `${path}.elements.${address}`);
+                    requireExactKeys(override, new Set(['style']), `${path}.elements.${address}`);
+                    if (!hasOwn(override, 'style'))
+                        throw invalid(`${path}.elements.${address}.style`, 'style が必要です');
+                    validateStringMap(override.style, `${path}.elements.${address}.style`);
+                }
+            }
             if (hasOwn(value, 'exclude'))
                 validateStringList(value.exclude, `${path}.exclude`);
             if (hasOwn(value, 'vars'))

@@ -2102,8 +2102,10 @@ export function captionStyleFitsFrame(style: unknown, vars?: Record<string, stri
 }
 
 function cssCaptionFontFamily(value: string): string {
-    if (value.includes(',') || /^(['"]).*\1$/s.test(value.trim())) return value;
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    if (value.includes(',')) return value;
+    const primary = /^(['"]).*\1$/s.test(value.trim())
+        ? value : `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    return `${primary}, "Noto Sans JP", sans-serif`;
 }
 
 const METALLIC_POSITIONS = {

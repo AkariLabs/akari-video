@@ -3,11 +3,17 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { WidgetManager } from '@theia/core/lib/browser';
 import { CommandService, MessageService } from '@theia/core/lib/common';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { AkariProjectService } from '../common/akari-project-protocol';
 import { AssetSiteListing, AssetSiteRecommendation, siteImportMetadata } from '../common/asset-sites';
 import { AssetSiteEvent } from '../electron-common/electron-api';
 import { composeSiteAgentPrompt, PARTNER_INJECT_PROMPT_COMMAND_ID } from '../common/asset-site-prompt';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
+import { BrowserConfig, BrowserEngine, buildSearchUrl, validUserEngines } from '../common/browser-engines';
+import { BrowserSearchBar } from './browser-search-bar';
+import { BROWSER_HOST_GUARD_EVENT, BROWSER_HOST_GUARD_QUERY_EVENT } from './browser-host-guard-contribution';
+import { AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 const layoutCss = `
 .akari-asset-site-browser .akari-site-body { display:flex; flex:1 1 auto; min-height:0; min-width:0; overflow:hidden; }
@@ -28,12 +34,26 @@ export class AssetSiteWidget extends ReactWidget {
     @inject(CommandService) protected readonly commands!: CommandService;
     @inject(MessageService) protected readonly messages!: MessageService;
     @inject(WidgetManager) protected readonly widgets!: WidgetManager;
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     private listing?: AssetSiteListing;
+    private mode: 'allowlist' | 'open' = 'allowlist';
+    private browserConfig?: BrowserConfig;
+    private browserEngines: BrowserEngine[] = [];
+    private selectedEngine = '';
+    private query = '';
+    private browserView = false;
+    private browserError = '';
+    private pickMode = false;
+    private warnedSettings = new Set<string>();
+    private snapshot?: string;
+    private guardQueued = Promise.resolve();
     private address = '';
     private agentOpened = false;
     private pending?: { paths: string[]; name: string; sourceUrl: string };
     private host?: HTMLElement;
     private ticker?: ReturnType<typeof setInterval>;
+    private resizeObserver?: ResizeObserver;
+    private lastBounds?: string;
     private unsubscribe?: () => void;
     private busy = false;
 
@@ -43,38 +63,144 @@ export class AssetSiteWidget extends ReactWidget {
         this.title.label = '素材サイト'; this.title.closable = true;
         this.node.style.height = '100%';
         this.unsubscribe = window.electronAkariProject.assetSite.onEvent(event => this.receive(event));
-        this.ticker = setInterval(() => void this.updateBounds(), 120);
+        this.ticker = setInterval(() => void this.updateBounds(), 500);
+        window.addEventListener('resize', this.onWindowResize);
+        window.addEventListener(BROWSER_HOST_GUARD_EVENT, this.onHostGuard);
         this.disposed.connect(() => { if (this.ticker) clearInterval(this.ticker); this.unsubscribe?.();
-            void window.electronAkariProject.assetSite.close(); });
+            window.removeEventListener('resize', this.onWindowResize);
+            window.removeEventListener(BROWSER_HOST_GUARD_EVENT, this.onHostGuard);
+            this.resizeObserver?.disconnect();
+            void window.electronAkariProject.assetSite.close().catch(() => undefined); });
         this.update();
     }
 
     async open(listing: AssetSiteListing, url?: string, agent = false): Promise<void> {
+        this.mode = listing.site.navigation === 'open' ? 'open' : 'allowlist';
         this.listing = listing; this.address = url ?? listing.site.entry_url; this.agentOpened = agent;
+        this.browserView = false; this.snapshot = undefined; this.lastBounds = undefined;
         this.pending = undefined; this.title.label = listing.site.name;
         await window.electronAkariProject.assetSite.open(listing.site, this.address, agent);
+        this.browserView = this.mode === 'open';
         this.update();
         await this.updateBounds();
+        window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
     }
 
     async highlight(expectedFilenames: string[], filenamePatterns: string[] = []): Promise<boolean> {
         return window.electronAkariProject.assetSite.highlight(expectedFilenames, filenamePatterns);
     }
 
+    private readonly onWindowResize = (): void => { void this.updateBounds(); };
+    private readonly onHostGuard = (event: Event): void => {
+        const hide = (event as CustomEvent<{ hide: boolean }>).detail?.hide;
+        this.guardQueued = this.guardQueued.then(async () => {
+            if (!this.browserView && !this.listing) return;
+            if (hide) {
+                const image = await window.electronAkariProject.assetSite.guard(true);
+                if (image) { this.snapshot = image; this.update(); }
+                await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+                await window.electronAkariProject.assetSite.guardHide();
+            } else {
+                await window.electronAkariProject.assetSite.guard(false);
+                this.snapshot = undefined; this.update();
+            }
+        }).catch(() => undefined);
+    };
+
+    private bindHost = (node: HTMLDivElement | null): void => {
+        if (this.host === (node ?? undefined)) return;
+        this.resizeObserver?.disconnect(); this.host = node ?? undefined;
+        if (node) { this.resizeObserver = new ResizeObserver(() => void this.updateBounds());
+            this.resizeObserver.observe(node); void this.updateBounds(); }
+    };
+
+    private loadUserEngines(): void {
+        const builtIn = this.browserConfig?.engines ?? [];
+        const { engines, invalidIds } = validUserEngines(this.preferences.get('akari.browser.userEngines', []), builtIn);
+        this.browserEngines = [...builtIn, ...engines];
+        for (const id of invalidIds) if (!this.warnedSettings.has(id)) {
+            this.warnedSettings.add(id); this.messages.warn(`検索サイトの設定に使えないものがあります: ${id.slice(0, 40)}`);
+        }
+    }
+
+    async openEmptyBrowser(): Promise<void> {
+        this.browserConfig = await window.electronAkariProject.assetSite.browserConfig();
+        this.mode = 'open'; this.listing = undefined; this.browserView = false; this.address = ''; this.pickMode = false;
+        this.snapshot = undefined; this.pending = undefined; this.browserError = '';
+        this.title.label = 'ブラウザ';
+        await window.electronAkariProject.assetSite.close();
+        this.lastBounds = undefined;
+        this.loadUserEngines();
+        let recent = '';
+        try { recent = localStorage.getItem('akari.browser.recentEngine') ?? ''; } catch { /* Storage can be unavailable. */ }
+        this.selectedEngine = this.browserEngines.find(engine => engine.id === recent)?.id ?? this.browserEngines[0]?.id ?? '';
+        this.update();
+    }
+
+    async ensureBrowser(): Promise<boolean> {
+        if (this.mode !== 'open') await this.openEmptyBrowser();
+        else { this.browserConfig = await window.electronAkariProject.assetSite.browserConfig(); this.loadUserEngines(); }
+        return Boolean(this.browserConfig);
+    }
+
+    get engines(): readonly BrowserEngine[] { return this.browserEngines; }
+    get isBrowser(): boolean { return this.mode === 'open'; }
+    get testHttp(): boolean { return Boolean(this.browserConfig?.testHttp); }
+
+    async openBrowserUrl(url: string): Promise<void> {
+        if (!this.browserConfig) throw new Error('ブラウザの設定ファイルが見つかりません');
+        if (this.browserView) await window.electronAkariProject.assetSite.navigate(url);
+        else { await window.electronAkariProject.assetSite.open(this.browserConfig.open_web, url);
+            this.browserView = true; }
+        this.address = url; this.browserError = ''; this.update(); await this.updateBounds();
+        window.dispatchEvent(new CustomEvent(BROWSER_HOST_GUARD_QUERY_EVENT));
+    }
+
+    async search(engineId: string, query: string): Promise<'ok' | 'empty-query' | 'invalid-url' | 'unknown-engine' | 'unavailable'> {
+        if (!await this.ensureBrowser()) return 'unavailable';
+        const engine = this.browserEngines.find(item => item.id === engineId);
+        if (!engine) return 'unknown-engine';
+        const built = buildSearchUrl(engine, query, this.testHttp);
+        if (built.ok === false) return built.code;
+        this.selectedEngine = engine.id; this.query = query;
+        try { localStorage.setItem('akari.browser.recentEngine', engine.id); } catch { /* Storage can be unavailable. */ }
+        await this.openBrowserUrl(built.url);
+        return 'ok';
+    }
+
+    async setPickMode(on: boolean): Promise<void> {
+        await window.electronAkariProject.assetSite.pickMode(on);
+        this.pickMode = on; this.update();
+    }
+
+    private async clearBrowserHistory(): Promise<void> {
+        if (!await new ConfirmDialog({ title: 'ブラウザの記録を消す',
+            msg: 'ログイン状態や閲覧の記録が消えます', ok: '消す', cancel: 'キャンセル' }).open()) return;
+        await window.electronAkariProject.assetSite.clearBrowserHistory();
+        this.messages.info('ブラウザの記録を消しました');
+    }
+
     private async updateBounds(): Promise<void> {
-        if (!this.host || !this.listing) return;
+        if (!this.host || !(this.listing || this.browserView)) return;
         const rect = this.host.getBoundingClientRect();
         const visible = this.isVisible && rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth;
-        await window.electronAkariProject.assetSite.bounds({ x: rect.left, y: rect.top,
-            width: rect.width, height: rect.height, visible });
+        const bounds = { x: rect.left, y: rect.top, width: rect.width, height: rect.height, visible };
+        const key = JSON.stringify(bounds);
+        if (key === this.lastBounds) return;
+        this.lastBounds = key;
+        await window.electronAkariProject.assetSite.bounds(bounds);
     }
 
     private receive(event: AssetSiteEvent): void {
         if (event.type === 'navigated' && event.url) this.address = event.url;
+        if (event.type === 'pickMode') this.pickMode = Boolean(event.on);
         if (event.type === 'received' && event.paths?.length) this.pending = {
             paths: event.paths, name: event.name ?? '素材', sourceUrl: event.url ?? this.address
         };
-        if (event.type === 'error') this.messages.error(event.message ?? '受け取りに失敗しました');
+        if (event.type === 'error') {
+            if (this.mode === 'open') this.browserError = event.message ?? 'このアドレスは開けません';
+            else this.messages.error(event.message ?? '受け取りに失敗しました');
+        }
         this.update();
     }
 
@@ -98,6 +224,33 @@ export class AssetSiteWidget extends ReactWidget {
     }
 
     protected override render(): React.ReactNode {
+        if (this.mode === 'open') return <div data-akari-browser className='akari-asset-site-browser'
+            style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+            <style>{layoutCss}</style>
+            {this.browserConfig ? <BrowserSearchBar engines={this.browserEngines} selected={this.selectedEngine}
+                query={this.query} address={this.address} pickMode={this.pickMode}
+                onSelect={id => { this.selectedEngine = id; this.update(); }}
+                onQuery={value => { this.query = value; this.update(); }}
+                onSearch={() => { void this.search(this.selectedEngine, this.query).then(code => {
+                    if (code !== 'ok') { this.browserError = code === 'empty-query' ? '検索語を入力してください' :
+                        '検索サイトを開けません'; this.update(); }
+                }).catch(() => { this.browserError = '検索サイトを開けません'; this.update(); }); }}
+                onPickMode={() => { void this.setPickMode(!this.pickMode).catch(() => {
+                    this.browserError = '操作できませんでした'; this.update();
+                }); }}
+                onBack={() => { if (this.browserView) void window.electronAkariProject.assetSite.back(); }}
+                onForward={() => { if (this.browserView) void window.electronAkariProject.assetSite.forward(); }}
+                onReload={() => { if (this.browserView) void window.electronAkariProject.assetSite.reload(); }}
+                onClearHistory={() => void this.clearBrowserHistory()} />
+                : <header style={{ padding: '8px 12px' }}>ブラウザの設定ファイルが見つかりません</header>}
+            {this.browserError && <div role='alert' style={{ padding: '4px 12px' }}>{this.browserError}</div>}
+            <div className='akari-site-body'><div ref={this.bindHost} data-akari-site-surface className='akari-site-surface'
+                style={{ position: 'relative', background: AKARI_SURFACE.card }}>
+                {!this.browserView && <p style={{ padding: 16 }}>検索サイトを選んで、言葉を入れてください</p>}
+                {this.snapshot && <img src={this.snapshot} alt='' aria-hidden='true'
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            </div></div>
+        </div>;
         const listing = this.listing;
         if (!listing) return <div>素材サイトを開いています…</div>;
         return <div data-akari-asset-site className='akari-asset-site-browser'
@@ -112,7 +265,10 @@ export class AssetSiteWidget extends ReactWidget {
                 <small title={listing.site.terms.source_url} style={{ display: 'block', maxHeight: 32, overflow: 'hidden' }}>{listing.site.terms.summary_ja}</small>
             </header>
             <div className='akari-site-body'>
-                <div ref={node => { this.host = node ?? undefined; }} data-akari-site-surface className='akari-site-surface' />
+                <div ref={this.bindHost} data-akari-site-surface className='akari-site-surface'>
+                    {this.snapshot && <img src={this.snapshot} alt='' aria-hidden='true'
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                </div>
                 <aside className='akari-site-recommendations'>
                     <strong>AKARI のおすすめ</strong>
                     {listing.recommendations.length ? listing.recommendations.map(item =>

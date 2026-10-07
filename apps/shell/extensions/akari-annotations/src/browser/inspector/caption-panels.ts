@@ -65,16 +65,20 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-filter-row button[aria-pressed="true"] { border-color:var(--akari-accent);color:var(--akari-accent); }
 .akari-caption-panel-title { display:flex;justify-content:space-between;align-items:center;margin:4px 0 0;font-size:11px;font-weight:700;color:var(--akari-muted); }
 .akari-caption-font-list { display:grid;gap:2px; }
-.akari-caption-font-row { display:grid;grid-template-columns:22px minmax(0,1fr);border-bottom:1px solid var(--akari-line-inner); }
-.akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:5px 3px;min-width:0; }
+.akari-caption-font-row { display:grid;grid-template-columns:22px minmax(0,1fr);min-height:54px;border-bottom:1px solid var(--akari-line-inner); }
+.akari-caption-font-row:hover,.akari-caption-font-row:focus-within { background:var(--akari-elevated); }
+.akari-inspector-widget .akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:5px 8px;min-width:0;height:auto;min-height:28px; }
+.akari-inspector-widget .akari-caption-font-face { display:flex;align-items:center;gap:8px; }
+.akari-caption-font-face-text { flex:1;min-width:0; }
+.akari-caption-font-status { flex:none;font-size:10px;color:var(--akari-muted); }
 .akari-caption-font-chevron:not(:disabled)::before { content:'';display:block;width:6px;height:6px;margin:auto;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .16s ease; }
 .akari-caption-font-chevron[aria-expanded="true"]::before { transform:rotate(45deg); }
-.akari-caption-font-row button:hover,.akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
-.akari-caption-font-name { display:block;font-size:19px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
+.akari-caption-font-name { display:block;font-size:18px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-detail { display:block;font-size:10px;color:var(--akari-muted); }
 .akari-caption-font-english { display:block;font-size:10px;color:var(--akari-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-weights { grid-column:2;display:grid; }
-.akari-caption-font-weights button { padding:5px 8px;font-size:14px; }
+.akari-inspector-widget .akari-caption-font-weights button { padding:5px 3px;font-size:14px;height:auto;min-height:28px; }
 .akari-caption-style-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px; }
 .akari-caption-style-card { display:grid;min-width:0;gap:3px;text-align:left;border:1px solid var(--akari-line);border-radius:6px;background:var(--akari-card);padding:5px; }
 .akari-caption-style-card .akari-caption-hover-preview { width:100%!important;height:62px!important; }
@@ -168,6 +172,8 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
     presets: readonly CaptionPanelPreset[] = CAPTION_PANEL_STYLES,
     currentSize = CAPTION_DEFAULT_SIZE_PX, allowStyle = true): HTMLElement {
     const root = document.createElement('div');
+    const catalogAvailability = (document.defaultView as (Window & { akariFontAvailability?: Record<string,
+        { status: string; family: string }> }) | null)?.akariFontAvailability ?? {};
     root.className = 'akari-caption-panel';
     root.setAttribute('data-akari-caption-panel', panel);
     const head = document.createElement('div');
@@ -218,17 +224,16 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             }
             root.append(chips);
         }
-        root.append(heading(document, '最近使ったフォント'));
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentFonts) {
             const font = CAPTION_PANEL_FONTS.find(item => item.id === id);
-            const family = fontFaces.get(id);
+            const family = fontFaces.get(id) ?? catalogAvailability[id]?.family;
             if (!font || !family) continue;
             recent.append(previewable(button(document, font.title, () => {
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
-        root.append(recent);
+        if (recent.children.length) root.append(heading(document, '最近使ったフォント'), recent);
         const visible = filterCaptionPanelFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
             state.query, state.filters);
         const title = heading(document, `フォント一覧（${visible.length}件）`);
@@ -236,9 +241,10 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         add.setAttribute('aria-label', 'ライブラリから探す'); title.append(add); root.append(title);
         const list = document.createElement('div'); list.className = 'akari-caption-font-list';
         for (const font of visible) {
-            const family = fontFaces.get(font.id)!;
+            const family = fontFaces.get(font.id) ?? catalogAvailability[font.id]?.family ?? font.family;
             const row = document.createElement('div'); row.className = 'akari-caption-font-row';
             row.setAttribute('data-akari-font-row', font.id);
+            row.setAttribute('data-akari-font-availability', 'available');
             const weights = captionFontWeights(font.id);
             const chevron = button(document, '', () => {
                 state.expandedFont = state.expandedFont === font.id ? undefined : font.id; actions.rerender();
@@ -251,6 +257,8 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const face = button(document, '', () => {
                 actions.confirm(); actions.font(family, undefined, font.id);
             });
+            face.className = 'akari-caption-font-face';
+            const faceText = document.createElement('span'); faceText.className = 'akari-caption-font-face-text';
             const name = document.createElement('span'); name.className = 'akari-caption-font-name';
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
             name.textContent = font.displayName ?? font.title;
@@ -258,7 +266,10 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             english.textContent = font.title;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
             detail.textContent = captionFontRowDetail(font.tags);
-            face.append(name, english, detail); row.append(previewable(face, { fontFamily: family }, actions));
+            const status = document.createElement('span'); status.className = 'akari-caption-font-status';
+            status.textContent = '使える';
+            faceText.append(name, english, detail); face.append(faceText, status);
+            row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
                 const weightList = document.createElement('div'); weightList.className = 'akari-caption-font-weights';
                 for (const weight of weights) {

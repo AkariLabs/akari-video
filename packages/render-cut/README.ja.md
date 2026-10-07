@@ -15,6 +15,8 @@ render-cut /path/to/project --engine osr
 node packages/render-cut/bin/render-cut.mjs <project-root>
 ```
 
+`node` が PATH に無い場合は、`akari doctor` に表示される実パスを使い、ログイン中のターミナルから `ELECTRON_RUN_AS_NODE=1 "<Electron 実行体>" "<render-cut.mjs のパス>" <project-root>` と実行できます。この設定は親を Node として起動するためのもので、GUI セッション無しの問題は解消しません。
+
 ## プロジェクト入力パス
 
 宣言した入力パスは、シンボリックリンクを解決した後もプロジェクト内に収まる必要があります。

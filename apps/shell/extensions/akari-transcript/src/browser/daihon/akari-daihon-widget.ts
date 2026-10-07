@@ -131,6 +131,7 @@ import {
 import { emphasisIdsCovering, planEmphasisUpserts, readEmphasisWords } from './daihon-emphasis-words';
 import { openWordContextMenu, wordContextMenuGroups, type WordMenuAction } from './daihon-word-context-menu';
 import { nextDaihonCaptionId } from '../../common/daihon-caption-id';
+import { captionRecordingsFromEdit, recordedBadge, type CaptionRecording } from '../../common/daihon-recordings';
 import { canMergeRows, canSplitRow, splitWordBoundaries } from '../../common/daihon-split-merge';
 import { insertWordIntoText } from '../../common/daihon-word-insert';
 import {
@@ -178,7 +179,7 @@ const DAIHON_SILENCE_KEEP_PREFERENCE = 'akari.daihon.silenceKeep';
 const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
 const DAIHON_HIDDEN_SOURCES_PREFERENCE = 'akari.daihon.hiddenSources';
 const FOCUS_TIMELINE_ITEM_COMMAND_ID = 'akari.timeline.focusItem';
-const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, button.akari-daihon-duplicate, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-tpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
+const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, button.akari-daihon-duplicate, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-recorded, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-tpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 const ROW_BUTTON_FOCUS_SELECTOR = '.akari-daihon-row-head > button.akari-daihon-speaker, .akari-daihon-row-head > button.akari-daihon-tc, .akari-daihon-row-head > button.akari-daihon-cut, .akari-daihon-row-head > button.akari-daihon-split, .akari-daihon-row-head > button.akari-daihon-gear';
 
 interface PreviewPlaybackTick {
@@ -316,6 +317,8 @@ const STYLE = `
 .akari-daihon-tc { font-family:"JetBrains Mono",ui-monospace,monospace; font-size:8.5px; letter-spacing:-.02em; color:var(--akari-muted); background:none; border:none; padding:0 1px; cursor:pointer; font-variant-numeric:tabular-nums; line-height:1.3; white-space:nowrap; }
 .akari-daihon-tc:hover { color:color-mix(in srgb, #53d1bc 40%, var(--akari-ink, var(--theia-foreground))); }
 .akari-daihon-badge-edited { font-size:9.5px; font-weight:700; color:color-mix(in srgb, #7fe7d3 40%, var(--akari-ink, var(--theia-foreground))); border:1px solid rgba(83,209,188,.4); border-radius:4px; padding:0 5px; white-space:nowrap; }
+.akari-daihon-badge-recorded { font-size:9.5px; font-weight:700; color:color-mix(in srgb, var(--akari-accent) 55%, var(--akari-ink, var(--theia-foreground))); border:1px solid color-mix(in srgb, var(--akari-accent) 45%, transparent); border-radius:4px; padding:0 5px; white-space:nowrap; background:transparent; cursor:pointer; }
+.akari-daihon-badge-recorded.is-stale { color:color-mix(in srgb, #f0b45a 40%, var(--akari-ink, var(--theia-foreground))); border-color:rgba(240,180,90,.45); }
 .akari-daihon-badge-tpl { font-size:9px; font-weight:700; color:color-mix(in srgb, #c9b8ff 40%, var(--akari-ink, var(--theia-foreground))); border:1px solid rgba(183,165,255,.4); border-radius:4px; padding:0 5px; }
 .akari-daihon-badge-qc { font-size:9.5px; font-weight:700; color:color-mix(in srgb, #f0b45a 40%, var(--akari-ink, var(--theia-foreground))); border:1px solid rgba(240,180,90,.45); border-radius:4px; padding:0 5px; white-space:nowrap; }
 .akari-daihon-row-text { font-size:13px; line-height:1.55; letter-spacing:.005em; cursor:text; }
@@ -606,6 +609,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
     protected captionExtraById = new Map<string, CaptionExtras>();
+    protected captionRecordings = new Map<string, CaptionRecording[]>();
     protected readonly captionOverflowUnitsById = new Map<string, number>();
     protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
@@ -1296,6 +1300,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notifyError(this.errorMessage(error));
         });
         if (!this.editUri || !this.captionsUri) {
+            this.captionRecordings = new Map();
             this.segments = [];
             this.renderRows([]);
             this.showEmpty();
@@ -1319,6 +1324,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.defaultCaptionTextStyle = parsed.shape.defaultTextStyle;
             const edit = JSON.parse(editSource) as { output?: { fps?: number } };
             this.editFps = edit.output?.fps || 30;
+            this.captionRecordings = captionRecordingsFromEdit(edit, this.editFps);
             const captions = this.daihonCaptionsForDisplay();
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
@@ -1359,6 +1365,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.refreshDockLook();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
+            this.captionRecordings = new Map();
             this.notifyError(`台本を読み取れません: ${this.errorMessage(error)}`);
         }
     }
@@ -1766,6 +1773,20 @@ export class AkariDaihonWidget extends BaseWidget {
         } else if (this.selection.selected.length) {
             title.textContent = `${this.selection.selected.length} 行を選択中`; bar.append(title);
             add('🔊 読み上げ', () => this.readSelectedRowsAloud());
+            const voiceRows = this.rows.filter(item => this.selection.selected.includes(item.id) && item.outStart !== null)
+                .sort((left, right) => left.outStart! - right.outStart!);
+            const voice = add('🎙 アフレコ', () => {
+                if (!voiceRows.length) return;
+                void this.commands.executeCommand('akari.voice.record', {
+                    editUri: this.editUri?.toString(),
+                    script: { text: voiceRows.map(row => row.text).join('\n'), start: voiceRows[0].outStart!,
+                        ...(voiceRows[voiceRows.length - 1].outEnd === null ? {} : { end: voiceRows[voiceRows.length - 1].outEnd! }),
+                        ...(voiceRows.length === 1 ? { captionId: voiceRows[0].id } : {}) }
+                });
+            });
+            voice.disabled = !voiceRows.length;
+            voice.setAttribute('data-akari-ui', 'daihon:voice-record');
+            voice.setAttribute('data-akari-ui-label', 'アフレコ');
             add('🎨 見た目', () => this.openRowDock('template'));
             add('T 文字を置く', () => void this.placeTextFromSelection());
             const rowCut = add('✂ カット', () => void this.cutSelectedRows());
@@ -3129,6 +3150,27 @@ export class AkariDaihonWidget extends BaseWidget {
             this.replaceRenderedRow(row);
         });
         head.appendChild(split);
+        const voice = document.createElement('button');
+        voice.type = 'button';
+        voice.className = 'akari-daihon-voice-record';
+        voice.textContent = '🎙';
+        voice.title = row.outStart === null ? '切られた行は録れません'
+            : this.captionRecordings?.get(row.id)?.some(recording => recording.engine === 'microphone')
+                ? 'もう一度アフレコで録る' : 'この行をアフレコで録る';
+        voice.setAttribute('aria-label', voice.title);
+        voice.setAttribute('data-akari-ui', 'daihon:voice-record');
+        voice.setAttribute('data-akari-ui-label', 'アフレコ');
+        voice.disabled = row.outStart === null;
+        voice.addEventListener('click', event => {
+            event.stopPropagation();
+            if (row.outStart === null) return;
+            void this.commands.executeCommand('akari.voice.record', {
+                editUri: this.editUri?.toString(),
+                script: { text: row.text, captionId: row.id, start: row.outStart,
+                    ...(row.outEnd === null ? {} : { end: row.outEnd }) }
+            });
+        });
+        head.appendChild(voice);
         const gear = document.createElement('button');
         gear.type = 'button';
         gear.className = 'akari-daihon-gear';
@@ -3139,6 +3181,21 @@ export class AkariDaihonWidget extends BaseWidget {
             this.openGearPop(gear, row);
         });
         head.appendChild(gear);
+        const recordingBadge = recordedBadge(this.captionRecordings.get(row.id), row.text);
+        if (recordingBadge) {
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.className = `akari-daihon-badge-recorded${recordingBadge.stale ? ' is-stale' : ''}`;
+            badge.textContent = recordingBadge.label;
+            badge.title = recordingBadge.title;
+            badge.setAttribute('data-akari-ui', 'daihon:recorded');
+            badge.setAttribute('data-akari-ui-label', '録音済み');
+            badge.addEventListener('click', event => {
+                event.stopPropagation();
+                this.seek(recordingBadge.atSec);
+            });
+            head.appendChild(badge);
+        }
         if (row.edited) {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-edited';

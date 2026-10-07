@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
+    visibleSettingsSections,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
     normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
@@ -31,6 +32,7 @@ test('全節の設定キーは節へ往復し、複数の節に重複しない',
         }
     }
     assert.equal(sectionForPreferenceKey('akari.transcribe.future'), 'transcribe');
+    assert.equal(sectionForPreferenceKey('akari.listening.future'), 'listening');
     assert.equal(sectionForPreferenceKey('akari.export.codec'), 'export');
     assert.equal(sectionForPreferenceKey('unknown'), undefined);
 });
@@ -63,13 +65,21 @@ test('節指定はオブジェクトと文字列を受け付け、未知の値�
 
 test('節の順序・グループと DOM ID はナビの契約に一致する', () => {
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.id),
-        ['account', 'start', 'export', 'appearance', 'connections', 'ai-models', 'partner', 'transcribe', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
+        ['account', 'start', 'export', 'appearance', 'connections', 'ai-models', 'partner', 'transcribe', 'listening', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['AKARI アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'AI モデル', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+        ['AKARI アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'AI モデル', 'パートナー', '文字起こし', '聞き取り', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+    assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.id !== 'listening').map(section => section.id),
+        ['account', 'start', 'export', 'appearance', 'connections', 'ai-models', 'partner', 'transcribe', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
     for (const { id, group } of SETTINGS_SECTIONS) {
         assert.equal(group, id === 'developer' ? 'developer' : ['storage', 'privacy', 'statistics'].includes(id) ? 'data' : ['help', 'about'].includes(id) ? 'support' : 'main');
         assert.equal(settingsSectionElementId(id), `akari-settings-${id}`);
     }
+});
+
+test('プレビュー off のナビだけ聞き取りを除き、on は既存の順を保つ', () => {
+    assert.deepEqual(visibleSettingsSections(true), SETTINGS_SECTIONS);
+    assert.deepEqual(visibleSettingsSections(false).map(section => section.id),
+        SETTINGS_SECTIONS.filter(section => section.id !== 'listening').map(section => section.id));
 });
 
 test('設定値は有効値を保持し、不正値を既定へ正規化する', () => {

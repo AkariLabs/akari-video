@@ -50,6 +50,7 @@ export interface InternalHtmlSource {
     part?: string;
     style?: Record<string, string>;
     text?: string;
+    elements?: Record<string, { style: Record<string, string> }>;
     exclude?: string[];
     derivedFrom?: string;
 }
@@ -1087,6 +1088,7 @@ function buildV2VisualItem(
                         ...(item.source.part !== undefined ? { part: item.source.part } : {}),
                         ...(item.source.style !== undefined ? { style: item.source.style } : {}),
                         ...(item.source.text !== undefined ? { text: item.source.text } : {}),
+                        ...(item.source.elements !== undefined ? { elements: item.source.elements } : {}),
                         ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}),
                         ...(item.source.derivedFrom !== undefined ? { derivedFrom: item.source.derivedFrom } : {})
                     },

@@ -2,6 +2,7 @@
   "id": "biz-udgothic",
   "category": "font",
   "title": "BIZ UDGothic",
+  "aliases": ["BIZ UDGothic","BIZUDGothic-Regular"],
   "description": "UD（ユニバーサルデザイン）系の日本語ゴシック体。読み間違えにくさを目的に設計されており、ニュース・報道・情報系字幕の定番トーン。 実体（Regular・Bold の 2 ウェイト）は本リポの assets/font/biz-udgothic/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "ニュース・報道・解説の字幕/テロップ。可読性最優先のシーン",
   "tags": [

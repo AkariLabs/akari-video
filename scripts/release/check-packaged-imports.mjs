@@ -48,6 +48,15 @@ const keep = args.includes('--keep');
 // 将来また意図的に同梱しないサブコマンドが出たら、ここへ追加すること。
 export const KNOWN_UNPACKAGED = new Set([]);
 
+export const REQUIRED_BROWSER_RESOURCE_PATHS = ['catalog/browser/browser-engines.json'];
+// The browser view has no preload yet. A future preload must be listed here for packaging checks.
+export const BROWSER_VIEW_PRELOAD_PATHS = [];
+
+export function scanRequiredBrowserResources({ resourcesRoot, viewPreloads = BROWSER_VIEW_PRELOAD_PATHS }) {
+  return [...REQUIRED_BROWSER_RESOURCE_PATHS, ...viewPreloads]
+    .filter(relativePath => !existsSync(join(resourcesRoot, ...relativePath.split('/'))));
+}
+
 // resolvePackageDir はまだ export されていないが、追加時に走査漏れを作らないため同じ正本へ置く。
 export const PACKAGE_RESOLVER_NAMES = new Set([
   'resolvePackageFile',
@@ -568,6 +577,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
   const assetFinders = scanAssetFinderCalls({ resourcesRoot, generatedResources });
   const repoFiles = scanRepoFileCalls({ resourcesRoot, generatedResources });
   const launcherSubcommands = scanLauncherSubcommands({ resourcesRoot });
+  const missingBrowserResources = scanRequiredBrowserResources({ resourcesRoot });
   console.log(`check-packaged-imports: entries ${entries.length} / walked ${walked} files / Resources = ${resourcesRoot}`);
   if (skipped.length > 0) console.log(`  skipped (from が存在しない・生成物など): ${skipped.join(', ')}`);
   for (const entry of entries) console.log(`  entry: ${relative(resourcesRoot, entry)}`);
@@ -635,8 +645,13 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
     console.error(`check-packaged-imports: MISSING ${missing.length}（パッケージ版で ERR_MODULE_NOT_FOUND になる）`);
     for (const item of missing) console.error(`    ${item.specifier}  <- imported from ${item.from}`);
   }
+  if (missingBrowserResources.length > 0) {
+    console.error(`check-packaged-imports: BROWSER RESOURCE MISSING ${missingBrowserResources.length}`);
+    for (const item of missingBrowserResources) console.error(`    ${item}`);
+  }
   if (missing.length > 0 || packageResolvers.missing.length > 0 || assetFinders.missing.length > 0 || repoFiles.missing.length > 0
-    || launcherSubcommands.missing.length > 0 || launcherSubcommands.staleKnownUnpackaged.length > 0) {
+    || launcherSubcommands.missing.length > 0 || launcherSubcommands.staleKnownUnpackaged.length > 0
+    || missingBrowserResources.length > 0) {
     if (!keep) removeAssembledResources(resourcesRoot, linkedDirectories);
     process.exit(1);
   }

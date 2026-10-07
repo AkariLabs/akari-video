@@ -6,7 +6,7 @@ import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
-import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
+import { constants as fsConstants, createReadStream, promises as fsPromises, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
 import { FileHandle, lstat, mkdtemp, open, readFile, readdir, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
@@ -62,7 +62,7 @@ import {
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
 } from '../common/preview-emphasis-seat';
-import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
+import { getH264Proxy, probeHasAudioStream, probeVideoDimensions, resolveFfmpegPath } from './hevc-proxy';
 import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
 import { writePreviewFrame } from './preview-frame-writer';
@@ -825,6 +825,37 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return { hasAudio: undefined };
         }
         return { hasAudio: await probeHasAudioStream(videoPath) };
+    }
+
+    private readonly videoDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+
+    protected probeVideoDimensionsAtPath(videoPath: string): Promise<{ width: number; height: number } | undefined> {
+        return probeVideoDimensions(videoPath);
+    }
+
+    async probeVideoDimensions(request: { videoUri: string }): Promise<{ width: number; height: number } | undefined> {
+        if (!request || typeof request.videoUri !== 'string') return undefined;
+        let videoPath: string;
+        try { videoPath = this.filePath(request.videoUri); } catch { return undefined; }
+        let fingerprint: string;
+        try {
+            const info = await fsPromises.stat(videoPath);
+            fingerprint = `${videoPath}|${info.size}|${info.mtimeMs}`;
+        } catch {
+            return this.probeVideoDimensionsAtPath(videoPath);
+        }
+        let probe = this.videoDimensionProbes.get(fingerprint);
+        if (!probe) {
+            probe = this.probeVideoDimensionsAtPath(videoPath).then(dimensions => {
+                if (!dimensions) this.videoDimensionProbes.delete(fingerprint);
+                return dimensions;
+            }, error => {
+                this.videoDimensionProbes.delete(fingerprint);
+                throw error;
+            });
+            this.videoDimensionProbes.set(fingerprint, probe);
+        }
+        return probe;
     }
 
     async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {

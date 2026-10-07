@@ -4,11 +4,13 @@ const frame = instruction => `id: ${instruction.id}\ndata: ${JSON.stringify(inst
 
 export class CompanionLink {
     constructor({ timeoutMs = 5000, setTimer = setTimeout, clearTimer = clearTimeout,
-        randomId = () => crypto.randomUUID() } = {}) {
+        randomId = () => crypto.randomUUID(), onSent, onResult } = {}) {
         this.timeoutMs = timeoutMs;
         this.setTimer = setTimer;
         this.clearTimer = clearTimer;
         this.randomId = randomId;
+        this.onSent = onSent;
+        this.onResult = onResult;
         this.clients = new Set();
         this.pending = new Map();
         this.sequenceById = new Map();
@@ -24,12 +26,13 @@ export class CompanionLink {
         return () => this.clients.delete(res);
     }
 
-    async sendInstruction(kind, args) {
+    async sendInstruction(kind, args, traceOperationId = null) {
         if (this.clients.size === 0) return { ok: false, error: 'not-connected' };
         const id = this.randomId();
-        const instruction = { id, kind, ...(args === undefined ? {} : { [kind]: args }) };
+        const instruction = { id, kind, ...(args === undefined ? {} : { [kind]: args }),
+            ...(traceOperationId == null ? {} : { trace: true }) };
         return new Promise(resolve => {
-            const row = { instruction, sequence: ++this.sequence, resolve, timer: null };
+            const row = { instruction, sequence: ++this.sequence, resolve, timer: null, traceOperationId };
             this.sequenceById.set(id, row.sequence);
             if (this.sequenceById.size > 4096) this.sequenceById.delete(this.sequenceById.keys().next().value);
             row.timer = this.setTimer(() => {
@@ -37,6 +40,7 @@ export class CompanionLink {
                 resolve({ id, ok: false, error: 'timeout' });
             }, this.timeoutMs);
             this.pending.set(id, row);
+            if (traceOperationId != null) this.onSent?.(instruction, performance.timeOrigin + performance.now(), traceOperationId);
             const payload = frame(instruction);
             for (const client of this.clients) client.write(payload);
         });
@@ -48,6 +52,7 @@ export class CompanionLink {
         if (!row) return false;
         this.pending.delete(id);
         this.clearTimer(row.timer);
+        if (row.traceOperationId != null) this.onResult?.(result, performance.timeOrigin + performance.now(), row.traceOperationId);
         row.resolve(result);
         return true;
     }
@@ -64,9 +69,9 @@ export class CompanionLink {
     }
 }
 
-export function createInstructionSenders(link, currentProjectSessionId) {
+export function createInstructionSenders(link, currentProjectSessionId, traceOperationId = null) {
     return {
-        sendCommand: (commandId, args) => link.sendInstruction('command', { commandId, ...(args === undefined ? {} : { args }) }),
+        sendCommand: (commandId, args) => link.sendInstruction('command', { commandId, ...(args === undefined ? {} : { args }) }, traceOperationId),
         sendFlyTo: target => link.sendInstruction('flyTo', { target }),
         sendAnnotate: args => link.sendInstruction('annotate', { projectSessionId: currentProjectSessionId(), ...args }),
     };

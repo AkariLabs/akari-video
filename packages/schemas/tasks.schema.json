@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:tasks:v0",
+  "title": "AKARI Video tasks.json v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "tasks"],
+  "properties": {
+    "version": { "const": 0 },
+    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "nullableNumber": { "type": ["number", "null"] },
+    "anchor": {
+      "type": ["object", "null"], "additionalProperties": true,
+      "properties": {
+        "sourceT": { "$ref": "#/$defs/nullableNumber" },
+        "sourceRange": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+      }
+    },
+    "ref": {
+      "type": ["object", "null"], "additionalProperties": true,
+      "properties": {
+        "kind": { "type": "string", "$comment": "annotation | lint | export | proposal。未知値は warning。" },
+        "id": { "type": "string" }, "key": { "type": "string" },
+        "path": { "type": "string" }, "rule": { "type": "string" }
+      }
+    },
+    "attachment": {
+      "type": "object", "additionalProperties": true, "required": ["kind", "path"],
+      "properties": { "kind": { "type": "string" }, "path": { "type": "string" }, "external": { "type": "boolean" } }
+    },
+    "undo": {
+      "type": "object", "additionalProperties": true, "required": ["reversible"],
+      "properties": {
+        "reversible": { "type": "boolean" }, "historyId": { "type": "string" },
+        "before": { "type": "object", "additionalProperties": { "type": "string" } },
+        "after": { "type": "object", "additionalProperties": { "type": "string" } },
+        "undoneAt": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "targetDetail": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "refs": { "type": "array", "items": { "type": "string" } },
+        "outputT": { "type": "number" }, "src": { "type": "string" },
+        "sourceT": { "type": "number" }, "cutIndex": { "type": "integer" },
+        "region": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 4, "maxItems": 4 }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "memo": { "type": "string" },
+        "speech": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "quote": { "type": "string" }, "ink": { "type": "array", "items": {} }
+      }
+    },
+    "origin": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "kind": { "type": "string" }, "memo": { "type": "string" },
+        "job": { "type": "string" }, "ref": { "type": "string" }
+      }
+    },
+    "task": {
+      "type": "object", "additionalProperties": true,
+      "required": ["id", "source", "state", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^t-\\d{4,}$" },
+        "source": { "enum": ["annotation", "lint", "proposal", "export"] },
+        "state": { "enum": ["unsent", "sent", "review", "done"] },
+        "createdAt": { "type": "string" },
+        "via": { "$ref": "#/$defs/nullableString", "$comment": "未知値は warning。" },
+        "priority": { "type": "string", "$comment": "high | normal | low。未知値は warning。" },
+        "rank": { "$ref": "#/$defs/nullableNumber" },
+        "outcome": { "$ref": "#/$defs/nullableString", "$comment": "edited | declined | failed | dismissed。未知値は warning。" },
+        "title": { "type": "string" }, "body": { "type": "string" },
+        "target": { "$ref": "#/$defs/nullableString" },
+        "anchor": { "$ref": "#/$defs/anchor" }, "ref": { "$ref": "#/$defs/ref" },
+        "attachments": { "type": "array", "items": { "$ref": "#/$defs/attachment" } },
+        "gate": { "type": "string", "$comment": "auto-ok | ask。未知値は warning。" },
+        "undo": { "$ref": "#/$defs/undo" }, "batchId": { "type": "string" },
+        "sentAt": { "$ref": "#/$defs/nullableString" },
+        "sentTo": {
+          "type": "object", "additionalProperties": true,
+          "required": ["agent", "form", "route"],
+          "properties": { "agent": { "type": "string" }, "form": { "type": "string" }, "route": { "type": "string" } }
+        },
+        "response": {
+          "type": ["object", "null"], "additionalProperties": true,
+          "required": ["summary", "action", "respondedAt"],
+          "properties": {
+            "summary": { "type": "string" }, "action": { "enum": ["edited", "declined"] },
+            "respondedAt": { "type": "string" }
+          }
+        },
+        "needsConfirm": { "type": "boolean" },
+        "createdBy": { "type": "string", "$comment": "human | app | ai。未知値は warning。" },
+        "updatedAt": { "type": "string" }, "orphaned": { "type": "boolean" },
+        "kind": { "type": "string", "$comment": "edit | generate | fix | ask | note。未知値は warning。" },
+        "targetDetail": { "$ref": "#/$defs/targetDetail" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "confidence": { "type": "string", "$comment": "high | low。未知値は warning。" },
+        "question": { "type": "string" },
+        "risk": { "type": "string", "$comment": "reversible | outbound。未知値は warning。" },
+        "route": { "type": "string", "$comment": "agent | human。未知値は warning。" },
+        "dependsOn": { "type": "array", "items": { "type": "string", "pattern": "^t-\\d{4,}$" } },
+        "origin": { "$ref": "#/$defs/origin" },
+        "mergedFrom": { "type": "array", "items": { "type": "string", "pattern": "^t-\\d{4,}$" } }
+      }
+    }
+  }
+}

@@ -1,6 +1,9 @@
-import { PreferenceContribution } from '@theia/core/lib/common/preferences';
+import { PreferenceContribution, PreferenceService } from '@theia/core/lib/common/preferences';
 import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { bindRootContributionProvider } from '@theia/core/lib/common/contribution-provider';
+import { ContributionProvider } from '@theia/core/lib/common';
+import { SettingsSectionBodyContributionSymbol, setSettingsSectionBodyProvider } from '../common/settings-section-body';
 import {
     FrontendApplicationContribution,
     KeybindingContribution,
@@ -16,7 +19,7 @@ import { AkariModeSwitchContribution } from './akari-mode-switch-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
 import { AkariUpdateToast } from './home/update-toast';
 import { AkariProjectLauncherCommandContribution } from './akari-project-launcher-dialog';
-import { AkariPreferenceContribution } from './akari-preferences';
+import { AkariPreferenceContribution, AKARI_VIBE_PREVIEW_ENABLED } from './akari-preferences';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
 import { AkariWelcomeWindowTitleContribution, AkariWelcomeWindowTitleUpdater } from './akari-welcome-window-title-contribution';
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
@@ -30,6 +33,28 @@ import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboar
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
 
 export default new ContainerModule(bind => {
+    // 設定値が決まった時点と変更時に同期読み取り用の写しを更新する。書き手はここだけ。
+    bind(FrontendApplicationContribution).toDynamicValue(context => ({
+        onStart: async () => {
+            const preferences = context.container.get<PreferenceService>(PreferenceService);
+            await preferences.ready;
+            const writeMirror = () => {
+                try { window.localStorage.setItem(AKARI_VIBE_PREVIEW_ENABLED,
+                    preferences.get<boolean>(AKARI_VIBE_PREVIEW_ENABLED, false) ? '1' : '0'); }
+                catch { /* 保存不可ならプレビューは off 扱い。 */ }
+            };
+            writeMirror();
+            preferences.onPreferenceChanged(change => {
+                if (change.preferenceName === AKARI_VIBE_PREVIEW_ENABLED) writeMirror();
+            });
+        }
+    })).inSingletonScope();
+    bindRootContributionProvider(bind, SettingsSectionBodyContributionSymbol);
+    bind(FrontendApplicationContribution).toDynamicValue(context => ({
+        onStart: () => setSettingsSectionBodyProvider(
+            context.container.getNamed(ContributionProvider, SettingsSectionBodyContributionSymbol)
+        )
+    })).inSingletonScope();
     bind(AkariOnboardingService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_ONBOARDING_SERVICE_PATH)
     ).inSingletonScope();

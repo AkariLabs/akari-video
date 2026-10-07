@@ -1,4 +1,5 @@
 export interface AssetSite {
+    navigation?: 'allowlist' | 'open'; downloads?: 'allowlist' | 'deny'; partition?: string;
     id: string; name: string; tab: 'audio' | 'font' | 'visual'; entry_url: string;
     hosts: string[]; download_hosts: string[]; price: 'free' | 'subscription' | 'purchase';
     terms: { summary_ja: string; source_url: string; checked_at: string };

@@ -148,6 +148,7 @@ export interface HtmlSourceV2 {
     part?: string;
     style?: Record<string, string>;
     text?: string;
+    elements?: Record<string, { style: Record<string, string> }>;
     exclude?: string[];
     derivedFrom?: string;
     vars?: Record<string, unknown>;
@@ -955,11 +956,21 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean') throw invalid(`${path}.mute`, 'boolean である必要があります');
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'exclude', 'derivedFrom', 'vars', 'params']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'elements', 'exclude', 'derivedFrom', 'vars', 'params']), path);
             requireText(value.path, `${path}.path`);
             for (const key of ['part', 'derivedFrom']) if (hasOwn(value, key)) requireText(value[key], `${path}.${key}`);
             if (hasOwn(value, 'text') && typeof value.text !== 'string') throw invalid(`${path}.text`, '文字列である必要があります');
             if (hasOwn(value, 'style')) validateStringMap(value.style, `${path}.style`);
+            if (hasOwn(value, 'elements')) {
+                requireRecord(value.elements, `${path}.elements`);
+                for (const [address, override] of Object.entries(value.elements)) {
+                    if (!/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/.test(address)) throw invalid(`${path}.elements.${address}`, '要素の番地が不正です');
+                    requireRecord(override, `${path}.elements.${address}`);
+                    requireExactKeys(override, new Set(['style']), `${path}.elements.${address}`);
+                    if (!hasOwn(override, 'style')) throw invalid(`${path}.elements.${address}.style`, 'style が必要です');
+                    validateStringMap(override.style, `${path}.elements.${address}.style`);
+                }
+            }
             if (hasOwn(value, 'exclude')) validateStringList(value.exclude, `${path}.exclude`);
             if (hasOwn(value, 'vars')) requireRecord(value.vars, `${path}.vars`);
             if (hasOwn(value, 'params')) {

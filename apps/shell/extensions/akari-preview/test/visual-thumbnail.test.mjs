@@ -240,6 +240,29 @@ test('implicit HTML parts remain renderable with file-relative image dependencie
   assert.ok(page.dependencyUris.some(uri => uri.endsWith('/overlays/logo.png')));
 });
 
+test('plain element override reaches thumbnail with fragment-relative image and CSS asset', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-thumbnail-elements-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'overlays'));
+  const fragment = '<style>.tile{background-image:url(./y.png)}</style><img class="tile" src="./x.png">';
+  await writeFile(join(root, 'overlays', 'fragment.html'), fragment);
+  await writeFile(join(root, 'overlays', 'x.png'), 'x');
+  await writeFile(join(root, 'overlays', 'y.png'), 'y');
+  const editPath = join(root, 'edit.json');
+  await writeFile(editPath, JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [],
+    tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'tile', at: 0, duration: 60,
+      source: { kind: 'html', path: 'overlays/fragment.html',
+        elements: { '.tile[0]': { style: { width: '180px' } } } } }] }] }));
+  const page = await prepareVisualThumbnailPage(editPath, 'tile', assets,
+    async uri => ({ id: uri, url: `http://127.0.0.1:1234/${uri.endsWith('x.png') ? 'x' : 'y'}` }), async () => {});
+  assert.match(page.html, /width:180px/u);
+  assert.match(page.html, /\/x/u);
+  assert.match(page.html, /\/y/u);
+  assert.ok(page.dependencyUris.some(uri => uri.endsWith('/overlays/x.png')));
+  assert.ok(page.dependencyUris.some(uri => uri.endsWith('/overlays/y.png')));
+  assert.equal(await readFile(join(root, 'overlays', 'fragment.html'), 'utf8'), fragment);
+});
+
 test('capture is registered in the existing bundled Electron main and preload entries', async () => {
   const main = await readFile(new URL('../src/electron-main/electron-api-main.ts', import.meta.url), 'utf8');
   const preload = await readFile(new URL('../src/electron-browser/preload.ts', import.meta.url), 'utf8');

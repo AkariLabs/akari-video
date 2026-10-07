@@ -11,6 +11,7 @@ export const SETTINGS_SECTIONS = [
     { id: 'ai-models', label: 'AI モデル', group: 'main', icon: 'spark' },
     { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot', badge: '新' },
     { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
+    { id: 'listening', label: '聞き取り', group: 'main', icon: 'mic' },
     { id: 'narration', label: '読み上げ', group: 'main', icon: 'mic' },
     { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
     { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
@@ -40,6 +41,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     'ai-models': 'モデルを探して、お気に入りといつものモデルを選び、できることを比べます。',
     transcribe: '文字起こしのエンジンを選びます。',
+    listening: 'マイクで話しかける側の設定。試し聞き・聞き取りエンジン・Jev のモードを選びます。',
     narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
@@ -52,6 +54,11 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
 export const QUALITY_TIER_RESERVED_NOTE = '今はこの値を読む機能がありません（AI 生成の品質段階として予約）';
 
 export const SETTINGS_LAST_SECTION_KEY = 'akari.settings.lastSection';
+
+/** SETTINGS_SECTIONS の定義・順は変えず、表示するナビだけを絞る。 */
+export function visibleSettingsSections(vibePreviewEnabled: boolean): readonly typeof SETTINGS_SECTIONS[number][] {
+    return vibePreviewEnabled ? SETTINGS_SECTIONS : SETTINGS_SECTIONS.filter(section => section.id !== 'listening');
+}
 
 export function initialSettingsSection(explicit: unknown, stored: unknown): SettingsSectionId {
     return resolveSettingsSectionId(explicit) ?? resolveSettingsSectionId(stored) ?? SETTINGS_SECTIONS[0].id;
@@ -66,6 +73,7 @@ export const AKARI_QUALITY_TIER = 'akari.qualityTier';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
+export const AKARI_VIBE_PREVIEW_ENABLED = 'akari.vibePreview.enabled';
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
@@ -115,19 +123,21 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     'ai-models': [],
     partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
+    listening: ['akari.listening.engine', 'akari.vibe.mode'],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
     shortcuts: [],
     storage: [], privacy: [], statistics: [], help: [], about: [],
-    developer: [AKARI_DEVELOPER_MODE]
+    developer: [AKARI_DEVELOPER_MODE, AKARI_VIBE_PREVIEW_ENABLED]
 };
 
 export function sectionForPreferenceKey(key: string): SettingsSectionId | undefined {
     const section = SETTINGS_SECTIONS.find(item => SECTION_PREFERENCE_KEYS[item.id].includes(key));
     if (section) { return section.id; }
     if (key.startsWith('akari.transcribe.')) { return 'transcribe'; }
+    if (key.startsWith('akari.listening.')) { return 'listening'; }
     if (key.startsWith('akari.narration.')) { return 'narration'; }
     if (key.startsWith('akari.export.')) { return 'export'; }
     return undefined;

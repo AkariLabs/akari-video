@@ -523,7 +523,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 this.openSessionViewer(options)
         });
         commands.registerCommand(OPEN_AKARI_CANVAS, {
-            execute: () => this.openCanvas()
+            execute: () => {
+                try {
+                    if (window.localStorage.getItem('akari.vibePreview.enabled') === '1')
+                        return this.commands.executeCommand('akari.sketch.open');
+                } catch { /* 設定の写しが読めなければ旧キャンバスを開く。 */ }
+                return this.openCanvas();
+            }
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
@@ -595,14 +601,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand({ id: 'akari.timeline.addMaterialAtOutputPoint' }, {
             execute: async (request: { relativePath?: string; kind?: string; t?: number;
                 transform?: { x: number; y: number }; editUri?: string;
-                outsideCanvas?: boolean; canvasAware?: boolean; sourceWidth?: number }) => {
+                outsideCanvas?: boolean; canvasAware?: boolean; sourceWidth?: number;
+                voiceTrack?: boolean; audio?: { in?: number; denoise?: { method: 'fft' | 'nlm'; strength: number };
+                    script?: string; captionRef?: string; provenance?: Record<string, unknown> } }) => {
                 const location = request?.editUri ? await this.findProjectLocation(request.editUri) : undefined;
                 if (!location) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
                 const widget = await this.configureQuietTimeline(location);
                 // 置いた要素の id を返す。取り寄せに失敗した楽観配置を消すのに要る。
                 return widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
                     request?.transform, request?.outsideCanvas === true, request?.canvasAware === true,
-                    request?.sourceWidth);
+                    request?.sourceWidth, request?.voiceTrack, request?.audio);
             }
         });
         // 取り寄せに失敗した楽観配置の後始末。

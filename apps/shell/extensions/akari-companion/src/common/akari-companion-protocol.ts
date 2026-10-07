@@ -8,7 +8,7 @@ export const AKARI_COMPANION_SERVICE_PATH = '/services/akari-companion';
 
 export type CompanionInstructionKind = 'command' | 'applyEdit' | 'annotate' | 'flyTo' | 'panel' | 'getState';
 
-export interface CompanionCommandArgs { commandId: string; args?: Record<string, unknown>; }
+export interface CompanionCommandArgs { commandId: string; args?: Record<string, unknown>; projectSessionId?: string; }
 export interface CompanionApplyEditArgs {
     projectSessionId: string;
     label: string;
@@ -30,6 +30,7 @@ export interface CompanionPanelArgs { width?: number; height?: number; x?: numbe
 export interface CompanionInstruction {
     id: string;
     kind: CompanionInstructionKind;
+    trace?: boolean;
     command?: CompanionCommandArgs;
     applyEdit?: CompanionApplyEditArgs;
     annotate?: CompanionAnnotateArgs;
@@ -44,6 +45,7 @@ export type CompanionErrorCode =
 export interface CompanionResultMessage {
     id: string;
     ok: boolean;
+    timing?: { recvAt: number; doneAt: number; paintedAt: number };
     value?: unknown;
     error?: CompanionErrorCode;
 }

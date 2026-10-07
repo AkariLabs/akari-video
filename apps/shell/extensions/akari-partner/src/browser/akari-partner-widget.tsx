@@ -140,6 +140,9 @@ export class AkariPartnerWidget extends ReactWidget {
     // renderChat() 自体は温存するため状態は残す（削除禁止）。
     protected terminal?: TerminalWidget;
     protected channel?: PartnerChannel;
+    get deliveryChannelAgent(): string | undefined {
+        return this.channel && this.selected?.form === 'cli' ? this.selected.agent : undefined;
+    }
     protected messages: ChatMessage[] = [];
     protected composerValue = '';
     protected devMode = false;

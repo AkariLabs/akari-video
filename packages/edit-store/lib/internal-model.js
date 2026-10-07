@@ -807,6 +807,7 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                         ...(item.source.part !== undefined ? { part: item.source.part } : {}),
                         ...(item.source.style !== undefined ? { style: item.source.style } : {}),
                         ...(item.source.text !== undefined ? { text: item.source.text } : {}),
+                        ...(item.source.elements !== undefined ? { elements: item.source.elements } : {}),
                         ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}),
                         ...(item.source.derivedFrom !== undefined ? { derivedFrom: item.source.derivedFrom } : {})
                     },

@@ -1,0 +1,3 @@
+{ "version": 0, "entries": [
+  { "id": "vd-0001", "kind": "snippet", "trigger": ["合言葉"], "expand": "本文", "scope": ["jev"] }
+] }

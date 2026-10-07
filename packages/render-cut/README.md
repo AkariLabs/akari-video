@@ -16,6 +16,8 @@ You can also run it through the package binary:
 node packages/render-cut/bin/render-cut.mjs <project-root>
 ```
 
+If `node` is not on PATH, use the actual paths shown by `akari doctor` and run `ELECTRON_RUN_AS_NODE=1 "<Electron executable>" "<path to render-cut.mjs>" <project-root>` from a terminal in the logged-in desktop session. This setting runs the parent as Node; it does not fix a missing GUI session.
+
 ## Project input paths
 
 Declared input paths must stay inside the project after symbolic links are resolved. A symlink is

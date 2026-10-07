@@ -195,6 +195,27 @@ test("launchGpuExport passes exit: \"gpu\" to launchElectronExport (observed thr
   }
 });
 
+test("GPU 経路の Electron 終了エラーは GPU Electron と表示する", async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  const promise = launchGpuExport({ tier: 2, executable: "/npm/electron" }, {
+    projectRoot: "/p", out: "/unused.mp4", fps: 30, width: 16, height: 16,
+    duration: 1, frames: 30, quality: "high",
+  }, {
+    platform: "linux", env: {},
+    spawnImpl: () => {
+      setImmediate(() => { child.stdout.end(); child.stderr.end(); child.emit("close", 1, null); });
+      return child;
+    },
+  });
+  await assert.rejects(promise, (error) => {
+    assert.match(error.message, /^GPU Electron が終了しました（終了コード: 1/u);
+    assert.equal(error.electronExit.exit, "gpu");
+    return true;
+  });
+});
+
 test("auto preserves VGPU failure instead of falling back to OSR", async () => {
   const { runGpuWithRuntimeFallback } = await import('../../render-cut/src/render-cut.mjs');
   let osrCalls = 0;

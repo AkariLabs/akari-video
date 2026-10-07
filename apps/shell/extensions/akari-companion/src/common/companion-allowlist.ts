@@ -1,3 +1,7 @@
+import {JEV_DERIVED_COMMAND_IDS, JEV_COMMAND_VALUE_SCHEMAS, JEV_SETTINGS_OPEN_SECTIONS} from './jev-actions.generated';
+import { isJevSettingKey } from './jev-settings-allowlist';
+import {validateValue} from './jev-catalog-validate';
+
 export const ALLOWED_COMMAND_IDS = [
     'akari.preview.ensureVisible', 'akari.preview.seekOutput', 'akari.preview.togglePlayback',
     'akari.preview.play', 'akari.preview.pause',
@@ -9,7 +13,8 @@ export const ALLOWED_COMMAND_IDS = [
     'akari.inspector.open', 'akari.daihon.open', 'akari.cuts.open', 'akari.transcribe.openDialog',
     'akari.catalog.open', 'akari.catalog.importAsset', 'akari.catalog.listCategories',
     'akari.menu.focus', 'akari.menu.listSkills', 'akari.menu.listOpenTargets',
-    'akari.review.open', 'akari.review.board.open', 'akari.partner.open', 'akari.settings.open'
+    'akari.review.open', 'akari.review.board.open', 'akari.partner.open', 'akari.settings.open',
+    ...JEV_DERIVED_COMMAND_IDS
 ] as const;
 
 export type AllowedCommandId = typeof ALLOWED_COMMAND_IDS[number];
@@ -72,7 +77,14 @@ const positive = (value: unknown): boolean => isFiniteNumber(value) && value > 0
 export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgValidation {
     switch (id) {
         case 'akari.settings.open':
-            return objectResult(value, ['section'], args => args.section === 'connections');
+            return objectResult(value, ['section'], args => typeof args.section === 'string'
+                && (JEV_SETTINGS_OPEN_SECTIONS as readonly string[]).includes(args.section));
+        case 'akari.settings.setByVoice':
+            if (isRecord(value) && hasOnly(value, ['key', 'value']) && Object.keys(value).length === 2
+                && typeof value.key === 'string' && isJevSettingKey(value.key) && value.value === null) {
+                return { ok: true, args: value };
+            }
+            break;
         case 'akari.preview.ensureVisible':
         case 'akari.preview.togglePlayback':
             return objectResult(value, ['editUri'], args => optional(args, 'editUri', bounded), true);
@@ -168,4 +180,8 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
         case 'akari.partner.open':
             return noArgs(value);
     }
+    const schema = JEV_COMMAND_VALUE_SCHEMAS[id];
+    return schema && validateValue(schema, value)
+        ? {ok: true, args: value as Record<string, unknown>}
+        : {ok: false};
 }

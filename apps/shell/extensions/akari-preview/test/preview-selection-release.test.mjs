@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { captionOrientedFrame } from '../lib/common/caption-edit-geometry.js';
+import { resolveLayerDeclaredSize } from '../lib/common/layer-declared-geometry.js';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 // Execute the webview's actual source fragments; no compiled lib is required.
@@ -14,7 +15,8 @@ function between(start, end) {
     return source.slice(from, to);
 }
 function declaration(name) {
-    return between(`const ${name} =`, '\n            };') + '\n};';
+    return (between(`const ${name} =`, '\n            };') + '\n};')
+        .replaceAll('${resolveLayerDeclaredSize.toString()}', resolveLayerDeclaredSize.toString());
 }
 
 const stageStyle = source.match(/^#preview-stage \{ (.+) \}$/m)?.[1];

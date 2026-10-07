@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
@@ -41,7 +42,10 @@ function nodes(tree, predicate) {
 }
 
 test('見本の選び方・寸法・遅延', () => {
-    assert.equal(LIBRARY_HOVER_DELAY_MS, 300);
+    assert.equal(LIBRARY_HOVER_DELAY_MS, 400);
+    assert.deepEqual(libraryHoverPreview('font', 'file:///sample.webp', undefined, 'https://example.com'),
+        { src: 'file:///sample.webp', source: 'https://example.com', kind: 'font', width: 320, height: 200 });
+    assert.equal(libraryHoverPreview('font')?.src, undefined);
     assert.deepEqual(libraryHoverPreview('overlay', 'file:///preview.png'),
         { src: 'file:///preview.png', kind: 'asset', width: 320, height: 180 });
     assert.equal(libraryHoverPreview('asset', 'file:///preview.png')?.src, 'file:///preview.png');
@@ -64,13 +68,18 @@ test('カードは縮小画像を遅延デコードし、Enter でプレビュ�
         infoOpen: false, audioControl: null, audioError: null, uiTarget: { target: 'asset:overlay/example', label: '見本' },
         onDragStart() {}, onDragEnd() {}, onContextMenu() {}, onInfo() {}, onThumbnailError() {}, onPreview: preview };
     const card = context.LibraryAssetCard(props);
-    assert.equal(card.props['data-akari-hover-preview-src'], item.previewUrl);
-    assert.equal(card.props.tabIndex, 0);
-    assert.equal(card.props['aria-describedby'], 'preview');
-    card.props.onKeyDown({ key: 'Enter', target: card, currentTarget: card, preventDefault() {} });
+    const face = card.children[0];
+    assert.equal(card.props.draggable, undefined);
+    assert.equal(face.props.draggable, true);
+    assert.equal(card.children[2].props.draggable, undefined);
+    assert.equal(face.props['data-akari-hover-preview-src'], item.previewUrl);
+    assert.equal(face.props.tabIndex, 0);
+    assert.equal(face.props['aria-describedby'], 'preview');
+    face.props.onKeyDown({ key: 'Enter', target: face, currentTarget: face, preventDefault() {} });
     assert.equal(calls, 1);
     const keyboardCard = context.LibraryAssetCard({ ...props, onKeyboardPreview: () => { calls += 10; } });
-    keyboardCard.props.onKeyDown({ key: 'Enter', target: keyboardCard, currentTarget: keyboardCard, preventDefault() {} });
+    const keyboardFace = keyboardCard.children[0];
+    keyboardFace.props.onKeyDown({ key: 'Enter', target: keyboardFace, currentTarget: keyboardFace, preventDefault() {} });
     assert.equal(calls, 11);
     const thumbnail = nodes(card, node => node.type === context.Thumbnail)[0];
     const image = context.Thumbnail(thumbnail.props);
@@ -81,9 +90,9 @@ test('カードは縮小画像を遅延デコードし、Enter でプレビュ�
     assert.equal(image.props.height, 270);
     const withStrip = context.LibraryAssetCard({ ...props, item: { ...item,
         previewStripUrl: 'file:///strip.webp' } });
-    assert.equal(withStrip.props['data-akari-hover-preview-src'], 'file:///strip.webp');
-    assert.equal(withStrip.props['data-akari-hover-preview-strip'], 'file:///strip.webp');
-    assert.equal(withStrip.props['data-akari-hover-preview-kind'], 'transition');
+    assert.equal(withStrip.children[0].props['data-akari-hover-preview-src'], 'file:///strip.webp');
+    assert.equal(withStrip.children[0].props['data-akari-hover-preview-strip'], 'file:///strip.webp');
+    assert.equal(withStrip.children[0].props['data-akari-hover-preview-kind'], 'transition');
     assert.equal(context.Thumbnail(nodes(withStrip, node => node.type === context.Thumbnail)[0].props).props.src,
         item.thumbUrl);
 });
@@ -104,7 +113,7 @@ test('テロップ棚の初回描画は 24 件以下', () => {
 });
 
 test('大きい PNG の幅をヘッダから読む', async () => {
-    const width = await pngPreviewWidth(new URL('../../../../../catalog/font/reggae-one/preview.png', import.meta.url).pathname);
+    const width = await pngPreviewWidth(fileURLToPath(new URL('../../../../../catalog/font/reggae-one/preview.png', import.meta.url)));
     assert.ok(width > 0);
 });
 

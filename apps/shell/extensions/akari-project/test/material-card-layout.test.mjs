@@ -12,15 +12,15 @@ const cases = [
 ];
 
 for (const [label, entry, kindLabel] of cases) {
-    test(`materialCardLayout: ${label} は共通の正方形カード`, () => {
+    test(`materialCardLayout: ${label} は 16:9 の顔と外の名前`, () => {
         const layout = materialCardLayout(entry);
-        assert.equal(layout.aspectRatio, '1 / 1');
+        assert.equal(layout.aspectRatio, '16 / 9');
         assert.equal(layout.gridColumn, undefined);
         assert.equal(layout.objectFit, 'contain');
-        assert.equal(layout.namePlacement, 'overlay');
+        assert.equal(layout.namePlacement, 'below');
         assert.equal(layout.kindLabel, kindLabel);
-        assert.equal(layout.gridGap, '4px');
-        assert.equal(layout.gridPadding, '4px');
+        assert.equal(layout.gridGap, '6px');
+        assert.equal(layout.gridPadding, '8px');
         assert.equal(layout.cardMinWidth, '95px');
         assert.equal(materialCardLayout(entry, { cardMinWidthPx: 120 }).cardMinWidth, '120px');
         const customized = materialCardLayout(entry, { gridGapPx: 0, gridPaddingPx: 8 });
