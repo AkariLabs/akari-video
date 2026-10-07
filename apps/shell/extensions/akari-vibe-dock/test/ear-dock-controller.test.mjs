@@ -18,6 +18,8 @@ function setup(enabled) {
     const ear = {
         state: { state: 'idle', mic: 'unknown' },
         onDidChange: changes.event, onUtterance: utterances.event,
+        flushPending() {},
+        setPaperOpen() {},
         start: async options => { calls.push(['start', options]); ear.state = { state: 'listening', mic: 'ok', engine: 'speechanalyzer-live', purpose: options.purpose };
             changes.fire(ear.state); return ear.state; },
         stop: async () => { calls.push(['stop']); ear.state = { state: 'idle', mic: 'unknown' };
@@ -126,5 +128,20 @@ test('error のあと idle が来ても理由が残り、次の押下で消え�
         assert.equal(data.dock.unavailable, undefined);
         assert.equal(data.dock.mark, 'listening');
         assert.equal(data.dock.currentStatus()?.line, '聞いています');
+    } finally { data.restore(); }
+});
+
+test('紙を開く直前に残った文を「いま」へ確定してから行き先を切り替える', async () => {
+    const data = setup(true);
+    try {
+        data.controller.onStart();
+        data.dock.pressMark();
+        await tick();
+        data.ear.flushPending = () => data.utterances.fire({ kind: 'speech', raw: '紙の前', text: '紙の前', final: true });
+        emit(data.target, 'akari.sketch.opened', { key: 'paper', at: 10 });
+        assert.equal(data.notes.length, 1);
+        assert.equal(data.notes[0][0].text, '紙の前');
+        data.utterances.fire({ kind: 'speech', raw: '紙の中', text: '紙の中', final: true });
+        assert.equal(data.notes.length, 1);
     } finally { data.restore(); }
 });

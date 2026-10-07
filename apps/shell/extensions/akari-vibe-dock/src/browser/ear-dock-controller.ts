@@ -36,7 +36,9 @@ export class EarDockController implements FrontendApplicationContribution {
     }
 
     protected readonly opened = (): void => {
+        this.ear.flushPending();
         this.paperOpen = true;
+        this.ear.setPaperOpen(true);
         this.now.clearPartial();
         if (this.ear.state.state === 'listening') this.setLine('紙のメモに残しています');
     };
@@ -46,6 +48,7 @@ export class EarDockController implements FrontendApplicationContribution {
     };
     protected readonly earClosed = (): void => {
         this.paperOpen = false;
+        this.ear.setPaperOpen(false);
         this.paintStatus(this.ear.state);
     };
     protected readonly playbackTick = (event: Event): void => {
