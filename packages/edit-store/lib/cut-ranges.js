@@ -400,7 +400,7 @@ function sameCutResult(left, right, sourceTolerance = SOURCE_TOLERANCE, frameTol
     };
     return sameValue(comparable(left), comparable(right));
 }
-function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightId, range) {
+function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightId, range, soloFrames) {
     const beforeVisual = original.tracks[visualTrackIndex];
     const afterVisual = restored.tracks[visualTrackIndex];
     const originalLeft = beforeVisual.items.find(item => item.id === leftId);
@@ -435,24 +435,30 @@ function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightI
             if (leftIndex < 0)
                 candidate.at += restoredFrames;
             if (!outsideCut && solo.cut_edge) {
+                soloFrames.attempted = true;
                 const edge = solo.cut_edge;
                 const sourceStep = ((solo.source.out ?? 0) - (solo.source.in ?? 0)) / solo.duration;
                 if (!(sourceStep > 0))
                     return RESTORE_UNAVAILABLE;
                 if (leftIndex < 0) {
-                    if (!near(solo.source.in ?? NaN, range.out)
+                    // The cut boundary is in seconds; the surviving audio edge lands on a frame.
+                    if (Math.abs((solo.source.in ?? NaN) - range.out) > tolerance
                         || edge.in > solo.source.in || edge.in < range.in - tolerance)
                         return RESTORE_UNAVAILABLE;
-                    const frames = Math.round((solo.source.in - edge.in) / sourceStep);
+                    const frames = Math.round((solo.source.in - edge.in) / sourceStep) + soloFrames.offset;
+                    if (frames <= 0)
+                        return RESTORE_UNAVAILABLE;
                     candidate.source.in = edge.in;
                     candidate.duration += frames;
                     candidate.at -= frames;
                 }
                 else {
-                    if (!near(solo.source.out ?? NaN, range.in)
+                    if (Math.abs((solo.source.out ?? NaN) - range.in) > tolerance
                         || edge.out < solo.source.out || edge.out > range.out + tolerance)
                         return RESTORE_UNAVAILABLE;
-                    const frames = Math.round((edge.out - solo.source.out) / sourceStep);
+                    const frames = Math.round((edge.out - solo.source.out) / sourceStep) + soloFrames.offset;
+                    if (frames <= 0)
+                        return RESTORE_UNAVAILABLE;
                     candidate.source.out = edge.out;
                     candidate.duration += frames;
                 }
@@ -640,14 +646,27 @@ function restoreOneTrack(edit, trackIndex, range, exactLeft, exactRight) {
 }
 /** Inverts one source-time cut from the surviving media items, without a stored snapshot. */
 function restoreCutRange(source, range) {
-    try {
-        return restoreCutRangeUnchecked(source, range);
+    let first;
+    // Each attempt replays the cut below and accepts only a matching sameCutResult.
+    for (const offset of [0, -1, 1, -2, 2]) {
+        const soloFrames = { offset, attempted: false };
+        let result;
+        try {
+            result = restoreCutRangeUnchecked(source, range, soloFrames);
+        }
+        catch {
+            result = { source, restored: false, reason: RESTORE_UNAVAILABLE };
+        }
+        if (offset === 0)
+            first = result;
+        if (result.restored)
+            return result;
+        if (!soloFrames.attempted)
+            break;
     }
-    catch {
-        return { source, restored: false, reason: RESTORE_UNAVAILABLE };
-    }
+    return first ?? { source, restored: false, reason: RESTORE_UNAVAILABLE };
 }
-function restoreCutRangeUnchecked(source, range) {
+function restoreCutRangeUnchecked(source, range, soloFrames) {
     if (detectEditVersion(source) !== 2) {
         return { source, restored: false, reason: RESTORE_LEGACY };
     }
@@ -676,7 +695,7 @@ function restoreCutRangeUnchecked(source, range) {
             return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
         restored.tracks[index] = next.track;
         if (leftId && rightId) {
-            const audioReason = restoreLinkedAudio(edit, restored, index, leftId, rightId, range);
+            const audioReason = restoreLinkedAudio(edit, restored, index, leftId, rightId, range, soloFrames);
             if (audioReason)
                 return { source, restored: false, reason: audioReason };
         }

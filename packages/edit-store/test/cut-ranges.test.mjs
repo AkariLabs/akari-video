@@ -1004,6 +1004,55 @@ test('near equal fragment edges do not leave a restoration record after a plain 
     .every(item => item.cut_edge === undefined));
 });
 
+test('unaligned J/L audio edges restore across four frame rates', () => {
+  for (const fps of [24, 25, 30, 60]) for (const kind of ['J', 'L']) {
+    for (const [material, boundary] of [
+      ['aligned', 'frame'], ['aligned', 'ms'], ['real', 'ms'],
+    ]) {
+      const out0 = material === 'real' ? 5.1234 : 5;
+      const out1 = material === 'real' ? 10.3456 : 10;
+      let doc = { version: 2, output: { width: 320, height: 180, fps },
+        sources: [{ id: 'main', path: 'main.mp4' }],
+        tracks: [{ id: 'v', lane: 'visual', items: [
+          media('c0', 0, Math.round(out0 * fps), 0, out0),
+          media('c1', Math.round(out0 * fps), Math.round((out1 - out0) * fps), out0, out1),
+        ] }] };
+      for (const cutId of ['c0', 'c1']) {
+        doc = splitCutAudio(doc, { cutId, hasAudio: true }).document;
+      }
+      const audios = doc.tracks.find(track => track.lane === 'audio').items;
+      const a0 = audios.find(item => item.link === 'c0');
+      const a1 = audios.find(item => item.link === 'c1');
+      const step0 = (a0.source.out - a0.source.in) / a0.duration;
+      const step1 = (a1.source.out - a1.source.in) / a1.duration;
+      const frames = Math.round(fps / 2);
+      let edge;
+      if (kind === 'J') {
+        a1.at -= frames; a1.duration += frames;
+        a1.source.in = +(a1.source.in - frames * step1).toFixed(6);
+        a0.duration -= frames;
+        a0.source.out = +(a0.source.out - frames * step0).toFixed(6);
+        edge = a0.source.out;
+      } else {
+        a0.duration += frames;
+        a0.source.out = +(a0.source.out + frames * step0).toFixed(6);
+        a1.at += frames; a1.duration -= frames;
+        a1.source.in = +(a1.source.in + frames * step1).toFixed(6);
+        edge = a1.source.in;
+      }
+      const original = text(doc);
+      const snap = value => boundary === 'frame'
+        ? Math.round(value * fps) / fps : +value.toFixed(3);
+      const cut = range([snap(edge - 0.18), snap(edge + 0.25)],
+        'filler', { captionId: 'main', label: 'removed' });
+      const edited = applyCutRanges(original, [cut]).source;
+      assert.equal(canRestoreCutRange(edited, cut), undefined, `${fps} ${kind} ${material} ${boundary}`);
+      assert.equal(restoreCutRange(edited, cut).source, original,
+        `${fps} ${kind} ${material} ${boundary}`);
+    }
+  }
+});
+
 function fractionalSeparated(fps, out, trim) {
   const doc = { version: 2, output: { width: 320, height: 180, fps },
     sources: [{ id: 'main', path: 'main.mp4' }], tracks: [{ id: 'v', lane: 'visual', items: [

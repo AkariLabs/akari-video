@@ -16605,7 +16605,7 @@ ${indent}`);
         };
         return sameValue(comparable(left), comparable(right));
       }
-      function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightId, range) {
+      function restoreLinkedAudio(original, restored, visualTrackIndex, leftId, rightId, range, soloFrames) {
         const beforeVisual = original.tracks[visualTrackIndex];
         const afterVisual = restored.tracks[visualTrackIndex];
         const originalLeft = beforeVisual.items.find((item) => item.id === leftId);
@@ -16638,21 +16638,26 @@ ${indent}`);
             if (leftIndex < 0)
               candidate.at += restoredFrames;
             if (!outsideCut && solo.cut_edge) {
+              soloFrames.attempted = true;
               const edge = solo.cut_edge;
               const sourceStep = ((solo.source.out ?? 0) - (solo.source.in ?? 0)) / solo.duration;
               if (!(sourceStep > 0))
                 return RESTORE_UNAVAILABLE;
               if (leftIndex < 0) {
-                if (!near(solo.source.in ?? NaN, range.out) || edge.in > solo.source.in || edge.in < range.in - tolerance2)
+                if (Math.abs((solo.source.in ?? NaN) - range.out) > tolerance2 || edge.in > solo.source.in || edge.in < range.in - tolerance2)
                   return RESTORE_UNAVAILABLE;
-                const frames = Math.round((solo.source.in - edge.in) / sourceStep);
+                const frames = Math.round((solo.source.in - edge.in) / sourceStep) + soloFrames.offset;
+                if (frames <= 0)
+                  return RESTORE_UNAVAILABLE;
                 candidate.source.in = edge.in;
                 candidate.duration += frames;
                 candidate.at -= frames;
               } else {
-                if (!near(solo.source.out ?? NaN, range.in) || edge.out < solo.source.out || edge.out > range.out + tolerance2)
+                if (Math.abs((solo.source.out ?? NaN) - range.in) > tolerance2 || edge.out < solo.source.out || edge.out > range.out + tolerance2)
                   return RESTORE_UNAVAILABLE;
-                const frames = Math.round((edge.out - solo.source.out) / sourceStep);
+                const frames = Math.round((edge.out - solo.source.out) / sourceStep) + soloFrames.offset;
+                if (frames <= 0)
+                  return RESTORE_UNAVAILABLE;
                 candidate.source.out = edge.out;
                 candidate.duration += frames;
               }
@@ -16812,13 +16817,25 @@ ${indent}`);
         return {};
       }
       function restoreCutRange(source, range) {
-        try {
-          return restoreCutRangeUnchecked(source, range);
-        } catch {
-          return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+        let first;
+        for (const offset of [0, -1, 1, -2, 2]) {
+          const soloFrames = { offset, attempted: false };
+          let result;
+          try {
+            result = restoreCutRangeUnchecked(source, range, soloFrames);
+          } catch {
+            result = { source, restored: false, reason: RESTORE_UNAVAILABLE };
+          }
+          if (offset === 0)
+            first = result;
+          if (result.restored)
+            return result;
+          if (!soloFrames.attempted)
+            break;
         }
+        return first ?? { source, restored: false, reason: RESTORE_UNAVAILABLE };
       }
-      function restoreCutRangeUnchecked(source, range) {
+      function restoreCutRangeUnchecked(source, range, soloFrames) {
         if (detectEditVersion(source) !== 2) {
           return { source, restored: false, reason: RESTORE_LEGACY };
         }
@@ -16847,7 +16864,7 @@ ${indent}`);
             return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
           restored.tracks[index] = next.track;
           if (leftId && rightId) {
-            const audioReason = restoreLinkedAudio(edit, restored, index, leftId, rightId, range);
+            const audioReason = restoreLinkedAudio(edit, restored, index, leftId, rightId, range, soloFrames);
             if (audioReason)
               return { source, restored: false, reason: audioReason };
           }
