@@ -44,6 +44,8 @@
 - **verify FAIL** → レポートの stderr 要約を確認。「render の失敗を調べて」で診断まで頼めます
 - **`verify.audio-level` FAIL** → 宣言した音声が全サンプル区間で無音、または音量を測定不能。
   宣言した BGM / SFX / narration / 素材音声とレポートを確認します
+- **`OSR Electron` / `GPU Electron` と `SIGABRT`** → ログイン中の画面（GUI セッション）に接続できない環境から起動した可能性があります。ログイン中のターミナルか AKARI Video のアプリ内から書き出してください。
+- **`node` が PATH に無い** → `akari doctor` に表示される実パスを使い、ログイン中のターミナルで `ELECTRON_RUN_AS_NODE=1 "<Electron 実行体>" "<render-cut.mjs のパス>" <project-root>` と実行します。この設定は親を Node として起動するためのもので、GUI セッション無しの問題は解消しません。
 
 ## 次のステップ
 
