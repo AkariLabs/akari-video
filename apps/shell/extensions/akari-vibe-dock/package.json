@@ -18,6 +18,7 @@
   "dependencies": {
     "@theia/core": "1.73.1",
     "akari-annotations": "file:../akari-annotations",
+    "akari-project": "file:../akari-project",
     "akari-shell-strip": "file:../akari-shell-strip",
     "akari-surfaces": "file:../akari-surfaces",
     "akari-theme": "file:../akari-theme"

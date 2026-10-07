@@ -1,4 +1,6 @@
 export function sanitizeExternalText(value: string, max: number): string {
+    // External text must have control and formatting characters removed before display.
+    // eslint-disable-next-line no-control-regex
     return value.normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/gu, '').slice(0, max);
 }
 

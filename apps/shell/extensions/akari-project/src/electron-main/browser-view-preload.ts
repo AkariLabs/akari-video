@@ -95,7 +95,7 @@ async function payloadAt(x: number, y: number): Promise<PickPayload | 'too-large
             if (!response.body) return 'network';
             const reader = response.body.getReader();
             const chunks: Uint8Array[] = []; let total = 0;
-            while (true) {
+            for (;;) {
                 const part = await reader.read(); if (part.done) break;
                 total += part.value.byteLength;
                 if (total > MAX_IMAGE_BYTES) { await reader.cancel(); return 'too-large'; }
