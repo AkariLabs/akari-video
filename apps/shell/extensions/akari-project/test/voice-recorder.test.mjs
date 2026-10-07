@@ -130,7 +130,7 @@ test('sync recording seeks, plays, unmutes, and places one speech take with scri
         assert.equal(placed.t, 12.5);
         assert.equal(placed.voiceTrack, true);
         assert.equal(placed.audio.in, .25);
-        assert.deepEqual(placed.audio.denoise, { method: 'fft', strength: .5 });
+        assert.deepEqual(placed.audio.denoise, { method: 'nlm', strength: 1 });
         assert.equal(placed.audio.script, '読む文');
         assert.equal(placed.audio.captionRef, 'c-0001');
         assert.deepEqual(recorder.state.placed, { itemId: 'audio-1', t: 12.5 });

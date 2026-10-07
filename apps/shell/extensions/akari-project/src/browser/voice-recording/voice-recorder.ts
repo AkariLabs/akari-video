@@ -1,7 +1,7 @@
 import { AkariProjectService } from '../../common/akari-project-protocol';
 import { CommandService } from '@theia/core/lib/common';
 import {
-    VOICE_RECORDING_SAMPLE_RATE, bytesToBase64, canonicalEditUri, mixToMono, resampleToPcm16, rmsLevel
+    VOICE_RECORDING_DENOISE, VOICE_RECORDING_SAMPLE_RATE, bytesToBase64, canonicalEditUri, mixToMono, resampleToPcm16, rmsLevel
 } from '../../common/voice-recording';
 
 export interface VoiceRecorderState {
@@ -297,7 +297,7 @@ export class VoiceRecorder {
                             'akari.timeline.addMaterialAtOutputPoint', { editUri, relativePath: result.assetPath,
                                 kind: 'audio', t: this.current.startT, voiceTrack: true,
                                 audio: { in: lead,
-                                    ...(this.current.denoise ? { denoise: { method: 'fft', strength: 0.5 } } : {}),
+                                    ...(this.current.denoise ? { denoise: VOICE_RECORDING_DENOISE } : {}),
                                     ...(this.current.script ? { script: this.current.script.text } : {}),
                                     ...(this.current.script?.captionId ? { captionRef: this.current.script.captionId } : {}),
                                     provenance: { provider: 'human', engine: 'microphone' } } });
