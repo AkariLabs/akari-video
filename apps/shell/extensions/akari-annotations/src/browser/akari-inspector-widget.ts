@@ -5096,6 +5096,9 @@ export class AkariInspectorWidget extends BaseWidget {
                     const notice = document.createElement('span');
                     notice.setAttribute('data-akari-font-unavailable', '');
                     notice.textContent = 'この書体は入っていないため代わりの書体で表示中';
+                    notice.style.gridColumn = '1 / -1';
+                    notice.style.display = 'block';
+                    notice.style.width = '100%';
                     row.appendChild(notice);
                 }
             }

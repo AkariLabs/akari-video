@@ -76,7 +76,7 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
-import { clearSystemFontCache, downloadFont, readFontManifest, resolveFontAvailability,
+import { clearSystemFontCache, downloadFont, loadSystemFontCache, readFontManifest, resolveFontAvailability,
     systemFontSnapshot, waitForSystemFontNames } from './font-availability';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
@@ -383,6 +383,9 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         ]);
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
         const fontItems = merged.filter(item => item.category === 'font');
+        const localFontRows = new Map(local.items.filter(item => item.category === 'font'
+            && item.previewUrl?.endsWith('/row.webp')).map(item => [item.key, item.previewUrl]));
+        for (const item of fontItems) item.previewUrl = localFontRows.get(item.key) ?? item.previewUrl;
         if (fontItems.length) {
             try {
                 if (intent === 'user') clearSystemFontCache();
@@ -416,6 +419,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }> {
         const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
         if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        await loadSystemFontCache();
         const manifest = await readFontManifest(fileURLToPath(catalogUrl));
         const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
         const snapshot = systemFontSnapshot();
@@ -431,12 +435,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const root = fileURLToPath(catalogUrl);
         const meta = parseCatalogItemMeta(await fs.readFile(join(root, 'font', id, 'meta.json'), 'utf8'));
         if (!meta || meta.id !== id || meta.category !== 'font') throw new Error('フォントを確認できません。');
+        await loadSystemFontCache();
         let snapshot = systemFontSnapshot();
         if (snapshot.phase !== 'ready') snapshot = await waitForSystemFontNames(2500);
         const manifest = await readFontManifest(root);
         const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
         const statuses = await resolveFontAvailability([meta], manifest, bundled,
-            { system: snapshot.names ?? new Map(), systemPhase: 'ready' });
+            { system: snapshot.names ?? new Map(), systemPhase: snapshot.phase === 'ready' ? 'ready' : 'failed' });
         return statuses.get(id);
     }
 
@@ -762,6 +767,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 }
                 const installed = installedKeys.has(`${parsed.category}/${parsed.id}`);
                 const localPreviewUrl = await this.resolveLocalCatalogPreviewUrl(itemDir);
+                const fontRowUrl = parsed.category === 'font'
+                    ? await fs.access(join(itemDir, 'row.webp'))
+                        .then(() => pathToFileURL(join(itemDir, 'row.webp')).toString(), () => undefined)
+                    : undefined;
                 items.push({
                     origin: 'local',
                     key: `${parsed.category}/${parsed.id}`,
@@ -778,7 +787,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     ...(parsed.author ? { author: parsed.author } : {}),
                     whenToUse: parsed.when_to_use,
                     sourceUrl: parsed.source?.url,
-                    previewUrl: localPreviewUrl ?? parsed.source?.preview_url,
+                    previewUrl: fontRowUrl ?? localPreviewUrl ?? parsed.source?.preview_url,
                     installed,
                     distribution: deriveAssetDistribution({
                         installed,

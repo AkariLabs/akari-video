@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AkariProjectServiceImpl } from '../lib/node/akari-project-service.js';
 
 const repoRoot = fileURLToPath(new URL('../../../../..', import.meta.url));
@@ -48,8 +48,15 @@ test('Resources/catalog のフォント項目数は開発時 catalog/font と一
 
     const { items } = await service.loadLocalCatalogViewItems(undefined);
     const fonts = items.filter(item => item.category === 'font');
+    const nonFonts = items.filter(item => item.category !== 'font');
     assert.ok(expected > 0);
     assert.equal(fonts.length, expected);
+    assert.ok(nonFonts.length > 0, '実カタログのフォント以外も検査する');
+    for (const item of items) {
+        assert.ok(item.previewUrl === undefined || typeof item.previewUrl === 'string', item.key);
+    }
+    assert.equal(fonts.find(item => item.id === 'noto-sans-jp')?.previewUrl,
+        pathToFileURL(join(catalog, 'font', 'noto-sans-jp', 'row.webp')).toString());
     assert.ok(fonts.some(item => item.previewUrl?.startsWith('file:')));
     assert.equal(await service.findBundledCatalog(), catalog);
 });

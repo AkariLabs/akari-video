@@ -606,6 +606,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogThumbnailPollGeneration = 0;
     protected fontAvailabilityPollTimer?: ReturnType<typeof setTimeout>;
     protected fontAvailabilityPollGeneration = 0;
+    protected fontAvailabilityPollFailures = 0;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
@@ -1270,6 +1271,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected stopFontAvailabilityPolling(): void {
         this.fontAvailabilityPollGeneration++;
+        this.fontAvailabilityPollFailures = 0;
         if (this.fontAvailabilityPollTimer) clearTimeout(this.fontAvailabilityPollTimer);
         this.fontAvailabilityPollTimer = undefined;
     }
@@ -1299,12 +1301,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     window.dispatchEvent(new Event('akari.fontAvailability.changed'));
                     this.update();
                 }
+                this.fontAvailabilityPollFailures = result.phase === 'failed'
+                    ? Math.min((this.fontAvailabilityPollFailures || 0) + 1, 3) : 0;
                 if (result.phase !== 'ready' || this.assetCatalogItems.some(item => item.category === 'font'
                     && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
                     this.pollFontAvailability(generation);
                 }
-            }).catch(() => { if (generation === this.fontAvailabilityPollGeneration) this.pollFontAvailability(generation); });
-        }, 1500);
+            }).catch(() => {
+                this.fontAvailabilityPollFailures = Math.min((this.fontAvailabilityPollFailures || 0) + 1, 3);
+                if (generation === this.fontAvailabilityPollGeneration) this.pollFontAvailability(generation);
+            });
+        }, [1500, 30000, 120000, 600000][this.fontAvailabilityPollFailures || 0]);
     }
 
     protected stopCatalogThumbnailPolling(): void {
@@ -2997,9 +3004,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     ok: 'ダウンロードして当てる', cancel: 'キャンセル' }).open(),
                 download: async id => this.projectService.downloadCatalogFont(id,
                     this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
-                offerSource: async (_title, source) => {
+                offerSource: async (_title, source, unverified) => {
                     const provider = source ? new URL(source).hostname : '配布元';
-                    const choice = await this.messages.info(`この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`,
+                    const message = unverified
+                        ? `この書体を確認できませんでした。配布元（${provider}）で確認できます。今当てる場合は代わりの書体で表示されます。`
+                        : `この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`;
+                    const choice = await this.messages.info(message,
                         '配布元を開く', '代わりの書体で当てる');
                     return choice === '配布元を開く' ? 'open' : choice === '代わりの書体で当てる' ? 'apply' : undefined;
                 },

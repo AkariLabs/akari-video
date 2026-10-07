@@ -71,10 +71,10 @@ test('マイスタイルと動きカードが使うキーフレームは方向�
     assert.equal(textAnimationSampleKeyframes('other', 'in', 999, 99).durationMs, 1800);
 });
 
-test('フォント一覧用の 32 件は各 id の preview.png を指せる', () => {
-    const ids = Array.from({ length: 32 }, (_, index) => `font-${index + 1}`);
-    assert.equal(new Set(ids.map(fontPreviewPath)).size, 32);
-    assert.ok(ids.every(id => fontPreviewPath(id) === `catalog/font/${id}/preview.png`));
+test('フォント一覧用の 31 件は各 id の row.webp を指せる', () => {
+    const ids = Array.from({ length: 31 }, (_, index) => `font-${index + 1}`);
+    assert.equal(new Set(ids.map(fontPreviewPath)).size, 31);
+    assert.ok(ids.every(id => fontPreviewPath(id) === `catalog/font/${id}/row.webp`));
 });
 
 test('手元のフォント索引と見本の実数を記録する', async t => {

@@ -8,7 +8,7 @@ export function shelfPreviewPath(kind: 'lut' | 'transition', id: string, strip =
 }
 
 export function fontPreviewPath(id: string): string | undefined {
-    return /^[a-z0-9][a-z0-9-]*$/.test(id) ? `catalog/font/${id}/preview.png` : undefined;
+    return /^[a-z0-9][a-z0-9-]*$/.test(id) ? `catalog/font/${id}/row.webp` : undefined;
 }
 
 export function fitStyleSpecimen(stageWidth: number, stageHeight: number, width: number, height: number): number {
