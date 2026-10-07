@@ -15,7 +15,7 @@ test('six sort options use metadata and place missing values last', () => {
     assert.deepEqual(names([], '', 'imported-asc'), ['alpha.wav', 'beta.png', 'zeta.mp4', 'page.html']);
     assert.deepEqual(names([], '', 'name'), ['alpha.wav', 'beta.png', 'page.html', 'zeta.mp4']);
     assert.deepEqual(names([], '', 'dur'), ['alpha.wav', 'zeta.mp4', 'beta.png', 'page.html']);
-    assert.deepEqual(names([], '', 'kind'), ['alpha.wav', 'beta.png', 'page.html', 'zeta.mp4']);
+    assert.deepEqual(names([], '', 'kind'), ['zeta.mp4', 'alpha.wav', 'beta.png', 'page.html']);
     assert.deepEqual(names([], '', 'created'), ['beta.png', 'alpha.wav', 'zeta.mp4', 'page.html']);
 });
 

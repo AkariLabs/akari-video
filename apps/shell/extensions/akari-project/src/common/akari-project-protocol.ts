@@ -86,6 +86,9 @@ export interface MaterialThumbnailOutcome {
     cacheRelativePath?: string;
 }
 
+export interface MaterialStripOptions { cells: number; cellWidth: number; }
+export interface MaterialStripOutcome extends MaterialThumbnailOutcome { cells?: number; }
+
 export interface MaterialMetaEntry {
     durationSeconds?: number;
     createdAt?: string;
@@ -389,6 +392,7 @@ export interface AkariProjectService {
      * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
      */
     resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image' | 'audio'): Promise<MaterialThumbnailOutcome>;
+    resolveMaterialStrip(projectUri: string, relativePath: string, options: MaterialStripOptions): Promise<MaterialStripOutcome>;
     materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>>;
     readUiState(projectUri: string): Promise<Record<string, unknown>>;
     writeUiState(projectUri: string, patch: Record<string, unknown>): Promise<void>;
