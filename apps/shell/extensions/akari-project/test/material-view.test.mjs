@@ -73,3 +73,27 @@ test('状態の短い説明は既定で空、種類と並べ替えを表示す�
     assert.equal(describeMaterialView({ kinds: ['video'], sort: { by: 'duration', order: 'asc' } }), '動画 · 長さの短い順');
     assert.equal(describeMaterialView({ kinds: ['audio', 'image'], sort: { by: 'name', order: 'desc' } }), '音・画像 · 名前の降順');
 });
+
+test('3D グループは実効種類で絞り、既存の動画とは区別する', () => {
+    const values = [
+        { name: 'シーン', kind: 'video', assetGroup: { category: 'scene3d' } },
+        { name: '動画', kind: 'video' },
+        { name: '画像', kind: 'image' }
+    ];
+    const threeD = applyMaterialViewPatch(DEFAULT_MATERIAL_VIEW, { kinds: ['3d'] }).applied;
+    assert.deepEqual(filterMaterials(values, threeD, '').map(item => item.name), ['シーン']);
+    const video = applyMaterialViewPatch(DEFAULT_MATERIAL_VIEW, { kinds: ['video'] }).applied;
+    assert.deepEqual(filterMaterials(values, video, '').map(item => item.name), ['動画']);
+});
+
+test('作成日順は取り込み日時へフォールバックし、日時なしは最後', () => {
+    const values = [
+        { name: 'なし' },
+        { name: '取り込み', importedAt: '2026-01-02T00:00:00Z' },
+        { name: '作成', createdAt: '2026-01-03T00:00:00Z', importedAt: '2026-01-01T00:00:00Z' }
+    ];
+    assert.deepEqual(sortMaterials(values, { by: 'created', order: 'desc' }).map(item => item.name), ['作成', '取り込み', 'なし']);
+    assert.deepEqual(sortMaterials(values, { by: 'created', order: 'asc' }).map(item => item.name), ['取り込み', '作成', 'なし']);
+    assert.equal(describeMaterialView({ kinds: [], sort: { by: 'created', order: 'desc' } }), '新しい順');
+    assert.equal(describeMaterialView({ kinds: [], sort: { by: 'created', order: 'asc' } }), '古い順');
+});

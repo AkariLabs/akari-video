@@ -26,6 +26,16 @@ export interface LibraryFilterState {
 
 export const EMPTY_LIBRARY_FILTER: LibraryFilterState = { source: 'all', price: [], license: [], status: [] };
 
+/** 指定された節だけを置き換え、呼び出し元の配列は共有しない。 */
+export function applyLibraryFilterPatch(state: LibraryFilterState, patch: Partial<LibraryFilterState>): LibraryFilterState {
+    return {
+        source: patch.source ?? state.source,
+        price: [...(patch.price ?? state.price)],
+        license: [...(patch.license ?? state.license)],
+        status: [...(patch.status ?? state.status)]
+    };
+}
+
 export type LibraryFilterSectionKey = 'source' | 'tier' | 'price' | 'license' | 'status';
 
 export interface LibraryFilterSection {

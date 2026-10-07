@@ -14,7 +14,8 @@ test('the catalog covers the contracted action families and preserves the 33 bas
         for (let n = 1; n <= length; n++) assert.ok(ids.has(`${letter}${n}`));
     }
     for (const prefix of ['roughCanvas.', 'browser.', 'scratch.']) assert.ok([...ids].some(id => id.startsWith(prefix)));
-    assert.deepEqual(derivedAllowedCommandIds(catalog), catalog.baseAllowedCommandIds);
+    assert.equal(derivedAllowedCommandIds(catalog).length, 39);
+    assert.deepEqual(derivedAllowedCommandIds(catalog).slice(0, 33), catalog.baseAllowedCommandIds);
     assert.equal(catalog.baseAllowedCommandIds.length, 33);
     assert.ok(Object.isFrozen(catalog.actions[0].valueSchema));
 });
@@ -24,8 +25,9 @@ test('catalog validator rejects unsafe or inconsistent edits', () => {
         value => { value.baseAllowedCommandIds.pop(); },
         value => { value.actions.push(structuredClone(value.actions[0])); },
         value => { value.actions.find(action => action.id === 'E1').commands.push({commandId:'akari.example.bad'}); },
-        value => { value.actions.find(action => action.id === 'A1').available = true; },
-        value => { value.actions.find(action => action.id === 'A1').commands[0].commandId = 'akari.catalog.open'; },
+        value => { value.uiReceptors['materials.filter'] = 'pending'; },
+        value => { value.settingsOpenSections.push('appearance'); },
+        value => { value.actions.find(action => action.id === 'D2').commands[0].commandId = 'akari.catalog.open'; },
         value => { value.actions.find(action => action.id === 'D1').action = 'data.delete'; },
         value => { value.actions.find(action => action.id === 'D1').commands[0].commandId = 'akari.data.delete'; },
         value => { value.actions.find(action => action.id === 'D1').valueSchema.properties.key.enum = ['jev.mode']; },

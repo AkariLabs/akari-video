@@ -156,17 +156,40 @@ test('first Vibe activation explains the data sent and does not repeat it', asyn
   assert.match(notices[0], /OpenRouter キー/);
 });
 
-test('settings command accepts only connections and returns invalid-args otherwise', async t => {
+test('settings command accepts known sections and rejects unknown or extra args', async t => {
   const { app } = ui(t);
   const executed = [];
   app.commands = { executeCommand: async (...args) => executed.push(args) };
   const dispatch = args => app.dispatchCommand({ id: 'settings', kind: 'command', command: { commandId: 'akari.settings.open', args } });
   assert.equal((await dispatch({ section: 'connections' })).ok, true);
-  assert.deepEqual(executed, [['akari.settings.open', { section: 'connections' }]]);
-  for (const args of [{ section: 'tools' }, { section: 'connections', extra: true }, undefined, {}, null, []]) {
+  assert.equal((await dispatch({ section: 'appearance' })).ok, true);
+  assert.equal((await dispatch({ section: 'tools' })).ok, true);
+  assert.deepEqual(executed, [
+    ['akari.settings.open', { section: 'connections' }],
+    ['akari.settings.open', { section: 'appearance' }],
+    ['akari.settings.open', { section: 'tools' }]
+  ]);
+  for (const args of [{ section: 'unknown' }, { section: 'connections', extra: true }, undefined, {}, null, []]) {
     assert.equal((await dispatch(args)).error, 'invalid-args');
   }
-  assert.equal(executed.length, 1);
+  assert.equal(executed.length, 3);
+});
+
+test('command session が違えば実行前に拒否し、省略時は通す', async t => {
+  const { app } = ui(t);
+  const executed = [];
+  app.projectSessionId = 'current';
+  app.commands = { executeCommand: async (...args) => executed.push(args) };
+  const dispatch = projectSessionId => app.dispatchCommand({
+    id: 'session', kind: 'command', command: {
+      commandId: 'akari.settings.open', args: { section: 'appearance' }, projectSessionId
+    }
+  });
+  assert.equal((await dispatch('old')).error, 'stale-session');
+  assert.equal(executed.length, 0);
+  assert.equal((await dispatch(undefined)).ok, true);
+  assert.equal((await dispatch('current')).ok, true);
+  assert.equal(executed.length, 2);
 });
 
 test('public label is AKARI バイブ and obsolete word prohibition test is removed', async () => {
