@@ -21,6 +21,26 @@
     "tier"
   ],
   "properties": {
+    "model3d": {
+      "type": "object", "additionalProperties": false, "required": ["unit", "up", "front", "ground", "size_cm"],
+      "properties": {
+        "unit": { "enum": ["mm", "cm", "m"] },
+        "up": { "type": "string" }, "front": { "type": "string" },
+        "ground": { "enum": ["bottom-center", "origin", "center"] },
+        "size_cm": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 3, "maxItems": 3 },
+        "screen": { "type": "object", "additionalProperties": false, "required": ["material", "aspect"], "properties": { "material": { "type": "string" }, "aspect": { "type": "number", "exclusiveMinimum": 0 } } },
+        "skeleton": { "const": "vrm-humanoid" },
+        "poses": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "world": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "camera_height_cm", "files"],
+      "properties": {
+        "kind": { "const": "hdri" },
+        "camera_height_cm": { "type": "number", "exclusiveMinimum": 0 },
+        "files": { "type": "object", "additionalProperties": false, "required": ["light", "background"], "properties": { "light": { "type": "string", "minLength": 1 }, "background": { "type": "string", "minLength": 1 } } }
+      }
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"

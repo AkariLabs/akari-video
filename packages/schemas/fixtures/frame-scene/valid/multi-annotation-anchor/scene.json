@@ -1,0 +1,70 @@
+{
+  "schema": "akari.frame-scene",
+  "version": 0,
+  "objects": [
+    {
+      "id": "p1",
+      "kind": "human",
+      "at": [
+        0,
+        0
+      ],
+      "pose": "stand"
+    },
+    {
+      "id": "desk",
+      "kind": "shape",
+      "shape": "box",
+      "size": [
+        120,
+        70,
+        60
+      ],
+      "at": [
+        20,
+        0
+      ]
+    },
+    {
+      "id": "phone",
+      "kind": "model",
+      "asset": "scene3d/smartphone-mockup",
+      "at": [
+        20,
+        10
+      ],
+      "on": "desk",
+      "facing": "camera"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s1",
+      "camera": {
+        "pos": [
+          150,
+          140,
+          300
+        ],
+        "look": "p1"
+      },
+      "annotations": [
+        {
+          "id": "a1",
+          "type": "arrow",
+          "x": 0.5,
+          "y": 0.5,
+          "anchor": {
+            "object": "phone"
+          },
+          "frame": {
+            "to": [
+              0.4,
+              0.3
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

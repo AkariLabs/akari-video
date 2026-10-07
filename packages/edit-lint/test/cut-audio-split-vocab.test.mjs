@@ -30,6 +30,17 @@ const passes = (findings, result) => {
   assert.equal(result.verdict, 'pass', JSON.stringify(result.findings));
 };
 
+test('cut audio edge accepts an integer historical position and rejects malformed values', async () => {
+  await check(doc => { doc.tracks[1].items[0].cut_edge = { in: 0, out: 3, at: -2 }; }, passes);
+  for (const edge of [{ in: 2, out: 2, at: 0 }, { in: -1, out: 3, at: 0 },
+    { in: 0, out: 3, at: 0.5 }, { in: 0, out: 3, at: 0, extra: true }]) {
+    await check(doc => { doc.tracks[1].items[0].cut_edge = edge; }, (findings, result) => {
+      assert.equal(result.verdict, 'fail');
+      assert.equal(findings.filter(finding => finding.check === 'v2.audio-cut-edge').length, 1);
+    });
+  }
+});
+
 test('cut audio link requires audio:false on its target', async () => {
   await check(doc => { delete doc.tracks[0].items[0].audio; }, (findings, result) => {
     assert.equal(result.verdict, 'fail');

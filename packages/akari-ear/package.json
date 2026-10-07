@@ -1,0 +1,11 @@
+{
+  "name": "@akari-video/akari-ear",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AKARI バイブの耳（マイク → 文字起こし → 辞書）の共有部品。依存ゼロ。",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

@@ -432,6 +432,19 @@ export function validateEditV2(edit, findings) {
 
       if (track.lane === "audio") {
         const role = item.role ?? "sfx";
+        if (Object.hasOwn(item, "cut_edge")) {
+          const edge = item.cut_edge;
+          if (!isRecord(edge) || !isFiniteNumber(edge.in) || edge.in < 0
+            || !isFiniteNumber(edge.out) || edge.out <= edge.in
+            || !Number.isInteger(edge.at)
+            || Object.keys(edge).some(key => !["in", "out", "at"].includes(key))) {
+            addFinding(findings, {
+              severity: "error", check: "v2.audio-cut-edge",
+              message: "cut_edge requires non-negative in < out (seconds) and at (integer frames)",
+              path: `${itemPath}.cut_edge`,
+            });
+          }
+        }
         if (Object.hasOwn(item, "gain_db")
           && (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)) {
           addFinding(findings, {

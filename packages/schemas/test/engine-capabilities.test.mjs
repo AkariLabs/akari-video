@@ -32,7 +32,7 @@ test("engine capability table declares the version, engines, and status vocabula
 });
 
 test("generated keys all have capability rows including audio fade shapes", () => {
-  assert.equal(canonicalPaths.size, 80);
+  assert.equal(canonicalPaths.size, 81);
   const covered = new Set(table.fields.map(field => field.path));
   assert.ok(covered.has('tracks[].items[].adjust.fx'));
   assert.deepEqual([...canonicalPaths].filter(path => !covered.has(path)), []);

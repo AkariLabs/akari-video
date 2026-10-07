@@ -30,6 +30,7 @@ export interface CompanionPanelArgs { width?: number; height?: number; x?: numbe
 export interface CompanionInstruction {
     id: string;
     kind: CompanionInstructionKind;
+    trace?: boolean;
     command?: CompanionCommandArgs;
     applyEdit?: CompanionApplyEditArgs;
     annotate?: CompanionAnnotateArgs;
@@ -44,6 +45,7 @@ export type CompanionErrorCode =
 export interface CompanionResultMessage {
     id: string;
     ok: boolean;
+    timing?: { recvAt: number; doneAt: number; paintedAt: number };
     value?: unknown;
     error?: CompanionErrorCode;
 }

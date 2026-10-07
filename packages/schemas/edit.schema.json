@@ -1915,6 +1915,7 @@
         "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "role": { "enum": ["sfx", "narration", "bgm", "speech"] },
         "link": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "cut_edge": { "$ref": "#/$defs/cutEdgeV2" },
         "mute": { "type": "boolean" },
         "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
@@ -1944,6 +1945,14 @@
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       },
       "$comment": "audio lane 専用 item。role 省略時は sfx。at/duration は整数フレームで、duration 0 は実尺未解決を表す明示的センチネル。素材側 in/out と fade は秒。script/reading/provenance は narration 用の任意メタデータ。\ncontract-2026-09-06-cut-audio-split-v0.md: link は編集上の関連（同じ edit 内の visual media id と一対一）で、source や時刻の再計算命令ではない。mute 省略は false。speech は分離した本編音声。"
+    },
+    "cutEdgeV2": {
+      "type": "object", "additionalProperties": false, "required": ["in", "out", "at"],
+      "properties": {
+        "in": { "type": "number", "minimum": 0 },
+        "out": { "type": "number", "minimum": 0 },
+        "at": { "type": "integer" }
+      }
     },
     "itemV2": {
       "oneOf": [
