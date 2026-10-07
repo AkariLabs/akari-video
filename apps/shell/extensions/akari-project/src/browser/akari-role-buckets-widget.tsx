@@ -76,6 +76,7 @@ import {
     LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
+import { applyCatalogFont } from '../common/font-apply-flow';
 import {
     LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
@@ -1217,6 +1218,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.assetCatalogItems = view.items.filter(item => item.category !== 'textstyle')
             .map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
+        if (typeof window !== 'undefined') {
+            (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(item => item.category === 'font')
+                    .map(item => [item.id, item.fontAvailability]));
+            window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+        }
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
@@ -1778,7 +1785,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const { key, id, category, title } = item;
         if (category === 'font') {
-            const payload = { kind: 'font', id, fontFamily: title.replace(/（.*$/, '').trim(), key,
+            if (item.fontAvailability?.status !== 'available') {
+                event.preventDefault();
+                void this.applyFontItem(item);
+                return;
+            }
+            const payload = { kind: 'font', id, fontFamily: item.fontAvailability.family || title.replace(/（.*$/, '').trim(), key,
                 ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'copy';
@@ -2873,6 +2885,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
         if (item.category === 'font' && !this.generationPick.request) {
             return <FontShelfCard key={item.key} item={item} layout={this.catalogViewMode}
+                availability={item.fontAvailability}
                 favorite={this.libraryFavorites.has(item.key)} onApply={() => { void this.applyFontItem(item); }}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
@@ -2891,10 +2904,32 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async applyFontItem(item: AssetCatalogViewItem): Promise<void> {
         if (isPremiumLocked(item) || item.state === 'locked') { this.showPremiumPrompt(item.key); return; }
-        await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
-            payload: { kind: 'font', id: item.id, fontFamily: item.title.replace(/（.*$/, '').trim() },
-            editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
-        });
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        try {
+            await applyCatalogFont(item, {
+                confirmDownload: async (title, bytes) => new ConfirmDialog({ title: `${title}をダウンロードしますか？`,
+                    msg: `約 ${(bytes / 1048576).toFixed(1)} MB を取得して、この Mac で使えるようにします。`,
+                    ok: 'ダウンロードして当てる', cancel: 'キャンセル' }).open(),
+                download: async id => this.projectService.downloadCatalogFont(id,
+                    this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
+                offerSource: async (_title, source) => {
+                    const provider = source ? new URL(source).hostname : '配布元';
+                    const choice = await this.messages.info(`この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`,
+                        '配布元を開く', '代わりの書体で当てる');
+                    return choice === '配布元を開く' ? 'open' : choice === '代わりの書体で当てる' ? 'apply' : undefined;
+                },
+                openSource: source => this.windowService.openNewWindow(source, { external: true }),
+                apply: async family => { await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+                    payload: { kind: 'font', id: item.id, fontFamily: family }, editUri
+                }); },
+                refresh: async () => {
+                    await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+                    void this.loadAssetCatalogView('user');
+                }
+            });
+        } catch (error) {
+            this.messages.error(`フォントを当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {

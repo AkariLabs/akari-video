@@ -72,11 +72,12 @@ const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-s
 
 test('font_family is a valid CSS family in line and word style variables', () => {
   const cases = [
-    ['M PLUS Rounded 1c', '"M PLUS Rounded 1c"'],
-    ['Noto Sans JP', '"Noto Sans JP"'],
+    ['M PLUS Rounded 1c', '"M PLUS Rounded 1c", "Noto Sans JP", sans-serif'],
+    ['Noto Sans JP', '"Noto Sans JP", "Noto Sans JP", sans-serif'],
     ['A, sans-serif', 'A, sans-serif'],
-    ['"X"', '"X"'],
-    ['A "B" \\ C', '"A \\"B\\" \\\\ C"'],
+    ["'Shippori Mincho', 'Noto Serif JP', serif", "'Shippori Mincho', 'Noto Serif JP', serif"],
+    ['"X"', '"X", "Noto Sans JP", sans-serif'],
+    ['A "B" \\ C', '"A \\"B\\" \\\\ C", "Noto Sans JP", sans-serif'],
   ];
   for (const [family, expected] of cases) {
     assert.equal(resolveCaptionLineStyleVars({ font_family: family })['--caption-font-family'], expected);

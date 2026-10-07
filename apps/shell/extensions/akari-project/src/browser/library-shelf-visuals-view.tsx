@@ -48,18 +48,28 @@ export function playTextAnimationSample(card: HTMLElement, id: string, slot: 'in
 }
 
 export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid' | 'list'; favorite: boolean;
+    availability?: AssetCatalogViewItem['fontAvailability'];
     onApply(): void; onDragStart(event: React.DragEvent<HTMLElement>): void; onDragEnd(): void;
     onContextMenu(event: React.MouseEvent<HTMLElement>): void; onInfo(anchor: HTMLElement): void }): React.ReactElement {
     const { item } = props;
     return <LibrarySimpleCard cardKey={item.key} name={item.title} layout={props.layout} infoOpen={false}
         favorite={props.favorite} attributes={{ 'data-akari-font-card': item.id, 'data-akari-catalog-item': item.key,
+            'data-akari-font-availability': props.availability?.status,
             'data-akari-font-preview-path': fontPreviewPath(item.id) }}
         draggable onDragStart={props.onDragStart} onDragEnd={props.onDragEnd}
         onClick={props.onApply} onContextMenu={props.onContextMenu} onInfo={props.onInfo}
-        face={item.previewUrl
-            ? <img src={item.previewUrl} alt={`${item.title} の見本`} draggable={false}
-                style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
-            : <span data-akari-font-fallback style={{ fontFamily: item.title.replace(/（.*$/, ''), fontSize: '0.72em', textAlign: 'center', padding: '4px', color: 'var(--akari-muted)' }}>
-                あア亜 ABC 123
-            </span>} />;
+        face={<span style={{ display: 'block', width: '100%', height: '100%', position: 'relative',
+            opacity: props.availability?.status === 'available' ? 1 : 0.65 }}>
+            {item.previewUrl
+                ? <img src={item.previewUrl} alt={`${item.title} の見本`} draggable={false}
+                    style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
+                : <span data-akari-font-fallback style={{ fontFamily: item.title.replace(/（.*$/, ''), fontSize: '0.72em', textAlign: 'center', padding: '4px', color: 'var(--akari-muted)' }}>
+                    あア亜 ABC 123
+                </span>}
+            <small data-akari-font-status style={{ position: 'absolute', bottom: 2, right: 3,
+                background: 'var(--theia-editor-background)', padding: '1px 3px', fontSize: '10px' }}>
+                {props.availability?.status === 'available' ? '使える'
+                    : props.availability?.status === 'download' ? '↓ ダウンロード' : '入手が必要'}
+            </small>
+        </span>} />;
 }

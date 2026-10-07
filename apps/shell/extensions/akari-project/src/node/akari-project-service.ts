@@ -71,6 +71,7 @@ import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-read
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
+import { clearSystemFontCache, downloadFont, readFontManifest, resolveFontAvailability } from './font-availability';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
@@ -372,6 +373,18 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadLibraryPacks()
         ]);
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
+        const fontItems = merged.filter(item => item.category === 'font');
+        if (fontItems.length) {
+            try {
+                if (intent === 'user') clearSystemFontCache();
+                const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+                if (!catalogUrl) throw new Error('font catalog unavailable');
+                const manifest = await readFontManifest(fileURLToPath(catalogUrl));
+                const bundled = (await import('../../../../../../packages/render-cut/src/caption-font-faces.json')) as Array<{ id: string; family: string }>;
+                const statuses = await resolveFontAvailability(fontItems, manifest, bundled);
+                for (const item of fontItems) item.fontAvailability = statuses.get(item.id);
+            } catch { /* Keep the catalog usable if font discovery fails. */ }
+        }
         const items = await Promise.all(merged.map(async item => {
             if (item.thumbUrl) return item;
             const thumbUrl = await this.prepareLibraryPreviewThumbnail(item);
@@ -388,6 +401,17 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             entitlementsStatus: resolverResult.entitlementsStatus,
             entitledProducts: resolverResult.entitledProducts
         };
+    }
+
+    async downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void> {
+        const catalogUrl = await this.resolveCatalogRoot(preferenceRoot);
+        if (!catalogUrl) throw new Error('フォントのカタログを開けません。');
+        const root = fileURLToPath(catalogUrl);
+        const raw = await fs.readFile(join(root, 'font', id, 'meta.json'), 'utf8');
+        const meta = parseCatalogItemMeta(raw);
+        if (!meta || meta.id !== id || meta.category !== 'font' || meta.license?.spdx !== 'OFL-1.1'
+            || !meta.source?.url?.startsWith('https://fonts.google.com/')) throw new Error('この書体は配布元から入手してください。');
+        await downloadFont(id, meta.title, meta.aliases ?? [], await readFontManifest(root));
     }
 
     /** Check only file metadata on the catalog path; generation runs after the view has returned. */
@@ -697,6 +721,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     id: parsed.id,
                     category: parsed.category,
                     title: parsed.title,
+                    aliases: parsed.aliases,
                     description: parsed.description,
                     tags: parsed.tags ?? [],
                     licenseSpdx: parsed.license?.spdx,

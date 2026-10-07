@@ -35,6 +35,11 @@
       "minLength": 1,
       "pattern": "\\S"
     },
+    "aliases": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
     "description": {
       "type": "string",
       "minLength": 1,

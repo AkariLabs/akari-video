@@ -5172,9 +5172,10 @@ ${indent}`);
         return object(style) && object(style.background) && style.background.fit === "frame" || vars?.["--caption-plate-fit"] === "frame";
       }
       function cssCaptionFontFamily(value) {
-        if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim()))
+        if (value.includes(","))
           return value;
-        return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+        const primary = /^(['"]).*\1$/s.test(value.trim()) ? value : `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+        return `${primary}, "Noto Sans JP", sans-serif`;
       }
       var METALLIC_POSITIONS = {
         gold: [0, 26, 44, 50, 58, 78, 100],

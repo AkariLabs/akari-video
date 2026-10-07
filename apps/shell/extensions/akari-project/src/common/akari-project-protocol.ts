@@ -149,6 +149,8 @@ export interface AssetCatalogViewItem {
     product_id?: string;
     category: string;
     title: string;
+    aliases?: string[];
+    fontAvailability?: { status: 'available' | 'download' | 'source'; family: string; source?: 'bundled' | 'library' | 'system'; bytes?: number };
     tags: string[];
     licenseSpdx?: string;
     /** meta.json license.scope（自由文字列。ライセンスの 2 軸は library-license.ts が導出する）。 */
@@ -334,6 +336,7 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void>;
     getAssetSiteListings(): Promise<import('./asset-sites').AssetSiteListing[]>;
     planLibraryImport(paths: string[]): Promise<LibraryImportPlan>;
     applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult>;

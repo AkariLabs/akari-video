@@ -2,6 +2,7 @@
   "id": "zen-maru-gothic",
   "category": "font",
   "title": "Zen Maru Gothic",
+  "aliases": ["Zen Maru Gothic","ZenMaruGothic-Regular"],
   "description": "やわらかい印象の丸ゴシック。M PLUS Rounded 1c より落ち着いた骨格で、やさしい・ほっこり系のトーンに向く。 実体（Regular・Bold の 2 ウェイト）は本リポの assets/font/zen-maru-gothic/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "キッズ・ライフスタイル・やさしい解説のテロップ/字幕",
   "tags": [
