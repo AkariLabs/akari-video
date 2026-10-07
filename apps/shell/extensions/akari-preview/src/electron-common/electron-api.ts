@@ -4,6 +4,9 @@ export const CHANNEL_CAPTURE_VISUAL_THUMBNAIL = 'AkariPreviewCaptureVisualThumbn
 export const CHANNEL_CAPTURE_PREVIEW_FRAME = 'AkariPreviewCaptureFrame';
 export const CHANNEL_FINISH_PREVIEW_FRAME = 'AkariPreviewFinishFrame';
 export const CHANNEL_PREVIEW_RENDERER_GONE = 'AkariPreviewRendererGone';
+export const CHANNEL_CONNECTION_DIAGNOSTIC = 'AkariConnectionDiagnostic';
+
+export type ConnectionDiagnosticEvent = 'socket-disconnect' | 'socket-reconnect';
 
 export interface PreviewRendererGoneNotice {
     webviewId: string;
@@ -20,6 +23,7 @@ export interface ElectronAkariPreviewApi {
     captureVisualThumbnail(page: import('../common/visual-thumbnail').VisualThumbnailPage): Promise<import('../common/visual-thumbnail').VisualThumbnailCapture>;
     askForMicrophoneAccess(): Promise<boolean>;
     onPreviewRendererGone(listener: (notice: PreviewRendererGoneNotice) => void): () => void;
+    recordConnectionDiagnostic(event: ConnectionDiagnosticEvent, reason?: string): void;
 }
 
 declare global {

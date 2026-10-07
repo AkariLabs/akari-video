@@ -51,7 +51,8 @@
     "target": "electron",
     "backend": {
       "config": {
-        "singleInstance": true
+        "singleInstance": true,
+        "frontendConnectionTimeout": 600000
       }
     },
     "frontend": {

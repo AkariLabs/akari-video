@@ -101,18 +101,17 @@ export class PreviewDiagnosticsLog {
                 return;
             }
         }
-        if (this.text === undefined) {
-            let existing: string | undefined;
-            try {
-                existing = await this.io.readText(this.uri);
-            } catch {
-                existing = undefined;
-            }
-            this.text = typeof existing === 'string' ? existing : '';
+        // Electron main も同じファイルへ接続・電源イベントを追記するため、毎回現在の内容を読む。
+        let base = this.text ?? '';
+        try {
+            const existing = await this.io.readText(this.uri);
+            if (typeof existing === 'string') base = existing;
+        } catch {
+            // 読み取り失敗時は、このセッションで最後に書いた内容を使う。
         }
         // URI 解決・既存読み取りを待っている間に積まれた行もまとめて書く。
         const lines = this.pending.splice(0, this.pending.length);
-        let next = this.text + lines.map(line => line + '\n').join('');
+        let next = base + lines.map(line => line + '\n').join('');
         if (next.length > PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES) {
             const lines = next.split('\n');
             while (lines.join('\n').length > PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES && lines.length > 1) {

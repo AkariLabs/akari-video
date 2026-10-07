@@ -2,10 +2,11 @@ import {
     ElectronMainApplication,
     ElectronMainApplicationContribution
 } from '@theia/core/lib/electron-main/electron-main-application';
-import { app, ipcMain, systemPreferences, webContents, webFrameMain } from '@theia/core/electron-shared/electron';
+import { app, ipcMain, powerMonitor, systemPreferences, webContents, webFrameMain } from '@theia/core/electron-shared/electron';
 import type { WebContents, RenderProcessGoneDetails } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { CHANNEL_ASK_MICROPHONE_ACCESS, CHANNEL_CAPTURE_VISUAL_THUMBNAIL, CHANNEL_CAPTURE_PREVIEW_FRAME, CHANNEL_FINISH_PREVIEW_FRAME, CHANNEL_PREVIEW_RENDERER_GONE } from '../electron-common/electron-api';
+import { CHANNEL_ASK_MICROPHONE_ACCESS, CHANNEL_CAPTURE_VISUAL_THUMBNAIL, CHANNEL_CAPTURE_PREVIEW_FRAME, CHANNEL_FINISH_PREVIEW_FRAME, CHANNEL_PREVIEW_RENDERER_GONE, CHANNEL_CONNECTION_DIAGNOSTIC } from '../electron-common/electron-api';
+import { appendConnectionDiagnostic } from './connection-diagnostics-log';
 import { capturePreviewFrame, finishPreviewFrame } from './preview-frame-capture';
 import { captureVisualThumbnail } from './visual-thumbnail-capture';
 import { PREVIEW_RENDERER_POLL_MS, PreviewRendererTracker, previewWidgetIdFromUrl } from './preview-renderer-tracker';
@@ -18,6 +19,7 @@ export class AkariPreviewElectronApi implements ElectronMainApplicationContribut
 
     onStart(_application: ElectronMainApplication): void {
         this.watchPreviewRenderers();
+        this.watchConnectionAndPower();
         ipcMain.handle(CHANNEL_CAPTURE_PREVIEW_FRAME, (event, request) => capturePreviewFrame(event.sender, request));
         ipcMain.handle(CHANNEL_FINISH_PREVIEW_FRAME, (event, captureId, discard) => finishPreviewFrame(event.sender, captureId, discard));
         ipcMain.handle(CHANNEL_CAPTURE_VISUAL_THUMBNAIL, (_event, page) => captureVisualThumbnail(page));
@@ -28,6 +30,17 @@ export class AkariPreviewElectronApi implements ElectronMainApplicationContribut
             const allowed = await systemPreferences.askForMediaAccess('microphone');
             return allowed;
         });
+    }
+
+    protected watchConnectionAndPower(): void {
+        ipcMain.on(CHANNEL_CONNECTION_DIAGNOSTIC, (_event, event: unknown, reason: unknown) => {
+            if (event !== 'socket-disconnect' && event !== 'socket-reconnect') return;
+            appendConnectionDiagnostic(event, typeof reason === 'string' ? reason : undefined);
+        });
+        powerMonitor.on('suspend', () => appendConnectionDiagnostic('power-suspend'));
+        powerMonitor.on('resume', () => appendConnectionDiagnostic('power-resume'));
+        powerMonitor.on('lock-screen', () => appendConnectionDiagnostic('power-lock-screen'));
+        powerMonitor.on('unlock-screen', () => appendConnectionDiagnostic('power-unlock-screen'));
     }
 
     protected watchPreviewRenderers(): void {
