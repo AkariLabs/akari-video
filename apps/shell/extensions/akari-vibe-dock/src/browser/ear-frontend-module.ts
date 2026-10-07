@@ -3,6 +3,9 @@ import { WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { AkariEarService, AKARI_EAR_SERVICE_PATH } from '../common/ear-protocol';
 import { AkariEarFrontend } from '../common/ear-frontend';
 import { AkariEarClientImpl } from './ear-client';
+import { EarSession } from './ear-session';
+import { EarDockController } from './ear-dock-controller';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 
 export default new ContainerModule(bind => {
     bind(AkariEarClientImpl).toSelf().inSingletonScope();
@@ -24,4 +27,7 @@ export default new ContainerModule(bind => {
             onUtterance: client.utteranceEvent
         } satisfies AkariEarFrontend;
     }).inSingletonScope();
+    bind(EarSession).toSelf().inSingletonScope();
+    bind(EarDockController).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(EarDockController);
 });

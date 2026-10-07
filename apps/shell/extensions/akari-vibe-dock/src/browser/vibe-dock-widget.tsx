@@ -10,6 +10,7 @@ import { VibeDockPointing } from './vibe-dock-pointing';
 import { VibeDockTabs } from './vibe-dock-tabs';
 import { vibeDockIcon } from './vibe-dock-icons';
 import { VibeDockNotificationOffset } from './vibe-dock-notification-offset';
+import { EarDockController } from './ear-dock-controller';
 
 const h = React.createElement;
 
@@ -48,9 +49,14 @@ function installStyle(): void {
 .akari-vibe-overflow button { display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .akari-vibe-overflow svg { width: 16px; height: 16px; }
 .akari-vibe-utt { display: grid; gap: 3px; padding: 5px 8px; margin-bottom: 5px; border-radius: ${AKARI_RADIUS.panel}px; background: ${AKARI_SURFACE.raised}; }
+.akari-vibe-utt-content { display: flex; align-items: flex-start; gap: 6px; }
+.akari-vibe-utt-content > span { flex: 1; min-width: 0; }
+.akari-vibe-utt-content > button { flex: none; }
 .akari-vibe-utt-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--akari-faint); font-size: 10px; }
 .akari-vibe-target { font-family: monospace; padding: 0 4px; border-radius: 3px; color: var(--akari-muted); background: ${AKARI_SURFACE.elevated}; }
 .akari-vibe-empty { color: var(--akari-muted); }
+.akari-vibe-live { color: var(--akari-muted); background: transparent; }
+.akari-vibe-save-note { color: var(--akari-faint); }
 .akari-vibe-now { display: flex; flex-direction: column; min-height: 100%; }
 .akari-vibe-now-stream { flex: 1; }
 .akari-vibe-typein { display: flex; gap: 4px; align-items: center; position: sticky; bottom: 0; padding-top: 4px; background: ${AKARI_SURFACE.card}; }
@@ -86,6 +92,7 @@ export class VibeDockWidget extends ReactWidget {
     @inject(VibeDockTabs) protected readonly tabs!: VibeDockTabs;
     @inject(VibeDockPointing) protected readonly pointing!: VibeDockPointing;
     @inject(RightPanelDockSlot) protected readonly slot!: RightPanelDockSlot;
+    @inject(EarDockController) protected readonly earController!: EarDockController;
     protected readonly ear = createIdleEar();
     protected selected = 'now';
     protected width = 320;
@@ -151,6 +158,7 @@ export class VibeDockWidget extends ReactWidget {
         this.notificationOffset?.dispose();
         this.notificationOffset = undefined;
         super.onBeforeDetach(msg);
+        this.earController.onDockDisposed();
         this.tabDisposable?.dispose();
         this.tabDisposable = undefined;
         this.renderedTab = undefined;

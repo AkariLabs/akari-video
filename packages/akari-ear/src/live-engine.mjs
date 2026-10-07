@@ -1,7 +1,7 @@
 import { spawn as defaultSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 
-export function createLiveEngine({ helperPath, spawn = defaultSpawn, now = Date.now }) {
+export function createLiveEngine({ helperPath, args = [], spawn = defaultSpawn, now = Date.now }) {
   const events = new EventEmitter();
   events.on('error', () => {});
   let child;
@@ -12,7 +12,7 @@ export function createLiveEngine({ helperPath, spawn = defaultSpawn, now = Date.
     if (child || stopped) return;
     startedAt = now();
     try {
-      child = spawn(helperPath, [], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+      child = spawn(helperPath, args, { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     } catch (error) {
       events.emit('error', error);
       return;
