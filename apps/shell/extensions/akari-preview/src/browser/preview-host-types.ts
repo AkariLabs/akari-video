@@ -1,5 +1,6 @@
 // F-50: akari-preview-open-handler.ts から機械移設した interface / type（実行時には残らない。宣言は無改変で `export` を足しただけ）。
 import { PreviewLibraryDrop } from './preview-library-drop';
+import type { MaterialPreviewRangeHost } from './preview-script-host-adapter';
 import URI from '@theia/core/lib/common/uri';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, InternalEdit } from '@akari-video/edit-store';
@@ -676,6 +677,7 @@ export interface RawPreviewAudioState {
 }
 
 export interface PreviewWidgetMarker extends WebviewWidget {
+    akariMaterialRangeHost?: MaterialPreviewRangeHost;
     akariLibraryDrop?: PreviewLibraryDrop;
     akariPreviewFrameCaptureRequest?: string;
     akariPreviewAudioKeepKeys?: Set<string>;

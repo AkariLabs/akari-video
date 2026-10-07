@@ -197,10 +197,11 @@ import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } 
 import { ReviewSessionRecordingIndicator } from './review-session-recording-indicator';
 import { describeOverlay, resolveGenerationState } from '../common/generation-overlay-model';
 import { previewDiagnosticsGuardScript, previewDiagnosticsTailScript } from './preview-script-diagnostics';
-import { hostAdapterScript } from './preview-script-host-adapter';
+import { hostAdapterScript, MaterialPreviewRangeHost, materialPreviewContext } from './preview-script-host-adapter';
+import type { MaterialDragIdentity } from '../common/material-range-messages';
 import { frameEngineWatchdogScript } from './preview-script-frame-engine-watchdog';
 import { frameEngineBootstrapScript } from './preview-script-frame-engine-bootstrap';
-import { previewBootstrapScript } from './preview-script-bootstrap';
+import { previewBootstrapScript, materialRangeWebviewScript, materialRangeWebviewStyle } from './preview-script-bootstrap';
 import type {
     OverlayTransform,
     EditSummaryOverlay,
@@ -2705,6 +2706,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const seekKey = identityUri.normalizePath().toString();
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
         previews.set(seekKey, widget);
+        if (kind === 'raw' && !widget.akariMaterialRangeHost) {
+            try {
+                const context = materialPreviewContext(identityUri, await this.currentWorkspaceRoots());
+                if (context && await this.fileService.exists(new URI(context.projectUri).resolve('.akari'))) {
+                    widget.akariMaterialRangeHost = new MaterialPreviewRangeHost(widget, this.commandService,
+                        this.messages, context.projectUri, context.relativePath, 'video', identityUri.path.base);
+                }
+            } catch { /* An unknown root keeps the ordinary raw preview available. */ }
+        }
         const session = kind === 'output' ? this.previewSessionSettings.get(seekKey) : undefined;
         if (session) {
             widget.akariPreviewMuted = session.muted;
@@ -4592,7 +4602,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     : undefined,
                 assetOrigin: assets.origin
             },
-            widget.akariPreviewPlaybackPageId
+            widget.akariPreviewPlaybackPageId,
+            kind === 'raw' ? widget.akariMaterialRangeHost?.dragIdentity : undefined
         ));
         this.armPlaceholderPreviewTimeout?.(widget);
         // ここから先はページ側の段（スクリプト読込 → エンジン初期化 → メディア供給 → 初回描画）。
@@ -7390,8 +7401,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 診断用の頁文脈（不具合メモ 第11・12項）。Console に出る Webview ID を
         // ページ自身にも持たせ、診断カードとログの id を突き合わせられるようにする。
         pageDiagnostics: { webviewId?: string; webviewRole?: string; assetOrigin?: string } = {},
-        playbackPageId?: string
+        playbackPageId?: string,
+        materialIdentity?: MaterialDragIdentity
     ): string {
+        const materialRangeEnabled = !!materialIdentity;
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
             ? `${this.externalScriptTag(assets.threeTextJavaScriptUrl)}\n`
@@ -7484,6 +7497,7 @@ ${this.inlineStyle(assets.motionVocabCss)}
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
 ${bundledCaptionFontFaceCss(assets.bundledCaptionFontFaces ?? [])}
+${materialRangeEnabled ? materialRangeWebviewStyle() : ''}
 :root {
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
@@ -7837,6 +7851,7 @@ html.akari-gen-capturing [data-akari-caption-edit-hint] { display: none !importa
 .transport { display: grid; gap: 0; padding: 0; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
 .transport-seek { display: flex; width: 100%; margin: 0; order: -1; margin-top: 8px; }
 .transport-seek #seek { width: 100%; margin: 0; }
+${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-seek-wrap #seek { height: 22px; }' : ''}
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]) { appearance: none; -webkit-appearance: none; height: 16px; min-width: 0; margin: 0; padding: 0; border: none; background: transparent; outline: none; box-shadow: none; cursor: pointer; --seek-progress: 0%; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus { outline: none; box-shadow: none; }
 #seek:focus-visible { outline: none; box-shadow: none; }
@@ -7921,6 +7936,7 @@ ${previewSelectionHandlesStyle}
   <section class="preview-pane" aria-label="動画プレビュー">
     <nav data-akari-ui="preview-scope-breadcrumb" aria-label="プレビューの階層" hidden></nav>
     <div id="preview-wrapper">${kind === 'raw' ? `<div class="akari-material-chip" id="material-chip"><span id="material-chip-name">${this.escapeHtml(videoUri.path.base)}</span><span id="material-chip-duration" hidden></span></div>` : ''}
+      ${materialRangeEnabled ? `<button id="material-range-place" type="button" title="タイムラインに置く" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>タイムラインに置く</button>` : ''}
       <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
       <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
       <div id="zoom-layer">
@@ -8020,7 +8036,8 @@ ${previewSelectionHandlesStyle}
 </main>
 <div class="transport">
   <div class="transport-seek">
-    <input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
+    ${materialRangeEnabled ? '<div class="material-seek-wrap">' : ''}<input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
+    ${materialRangeEnabled ? `<div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="in をここに（I）">I</button><button id="material-range-button-out" title="out をここに（O）">O</button><button id="material-range-button-clear" title="範囲をなしに">×</button></div>` : ''}
   </div>
   <div class="transport-controls">
     <div class="transport-left">
@@ -8077,6 +8094,7 @@ ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 ${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${previewBootstrapScript()}</script>
+${materialIdentity ? `<script>${materialRangeWebviewScript('video', materialIdentity)}</script>` : ''}
 ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {
     try {

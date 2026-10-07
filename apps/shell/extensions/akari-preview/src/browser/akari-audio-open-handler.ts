@@ -1,6 +1,6 @@
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
-import { CommandRegistry } from '@theia/core/lib/common';
+import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import {
     ApplicationShell,
@@ -17,8 +17,11 @@ import {
     TranscodeAudioErrorKind,
     TranscodeAudioResult
 } from '../common/akari-preview-protocol';
+import { MaterialPreviewRangeHost, materialPreviewContext } from './preview-script-host-adapter';
+import { materialRangeWebviewScript, materialRangeWebviewStyle } from './preview-script-bootstrap';
 
 interface AudioWidgetMarker extends WebviewWidget {
+    akariAudioRangeHost?: MaterialPreviewRangeHost;
     akariAudioConfigured?: boolean;
     akariAudioFallbackAttempted?: boolean;
     akariAudioUri?: string;
@@ -77,6 +80,9 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
     @inject(CommandRegistry)
     protected readonly commandRegistry: CommandRegistry;
 
+    @inject(MessageService)
+    protected readonly messages: MessageService;
+
     onStart(): void {
         this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(() => {
             this.syncAudioAnnotationContext();
@@ -95,6 +101,16 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         const identifier = { id: `akari-audio-${this.hash(uri.toString())}`, viewId: uri.toString() };
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, identifier);
         this.configureWidget(widget, uri);
+        const marker = widget as AudioWidgetMarker;
+        if (!marker.akariAudioRangeHost) {
+            try {
+                const context = materialPreviewContext(uri, await this.currentWorkspaceRoots());
+                if (context && await this.fileService.exists(new URI(context.projectUri).resolve('.akari'))) {
+                    marker.akariAudioRangeHost = new MaterialPreviewRangeHost(widget, this.commandRegistry,
+                        this.messages, context.projectUri, context.relativePath, 'audio', uri.path.base);
+                }
+            } catch { /* An unknown root keeps the ordinary audio preview available. */ }
+        }
         await this.render(widget, uri);
         this.attachTimelinePassively();
         await this.materialSlot.claim(widget, uri);
@@ -301,6 +317,8 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         transcoded: boolean
     ): string {
         const mediaSource = transcoded ? new URL(sourceUri).origin : 'data:';
+        const materialIdentity = this.openAudioPreviews.get(uri.normalizePath().toString())?.akariAudioRangeHost?.dragIdentity;
+        const materialRangeEnabled = !!materialIdentity;
         return `<!doctype html>
 <html lang="ja">
 <head>
@@ -308,6 +326,7 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(mediaSource)}; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <style>
+${materialRangeEnabled ? materialRangeWebviewStyle() : ''}
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; background: #111; color: #eee; }
@@ -318,6 +337,11 @@ body { position: relative; display: grid; place-items: center; padding: 32px; }
 .metadata { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 22px; color: #aaa; font-size: 13px; }
 .note { margin: -12px 0 18px; color: #888; font-size: 12px; }
 audio { display: block; width: 100%; }
+${materialRangeEnabled ? `.material-audio-surface { height: 120px; position: relative; margin: 0 0 12px; border-radius: 6px; background: repeating-linear-gradient(90deg, #333 0 3px, #181818 3px 8px); overflow: hidden; cursor: grab; }
+.material-audio-surface::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #666; }
+.material-audio-surface #material-range-place { bottom: 10px; }
+.material-audio-seek { display: flex; align-items: center; margin: 12px 0 8px; }
+#material-audio-seek { width: 100%; height: 22px; margin: 0; opacity: 0; cursor: pointer; }` : ''}
 .message { margin: 0 0 16px; line-height: 1.7; font-size: 15px; }
 [hidden] { display: none; }
 </style>
@@ -329,7 +353,9 @@ audio { display: block; width: 100%; }
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
 <p class="metadata"><span>実尺: <span id="duration">読み込み中</span></span><span>サイズ: ${this.escapeHtml(this.formatBytes(fileSize))}</span></p>
 ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
+${materialRangeEnabled ? `<div id="material-drag-surface" class="material-audio-surface"><button id="material-range-place" type="button" title="タイムラインに置く" draggable="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>タイムラインに置く</button></div>` : ''}
 <audio id="audio" controls preload="metadata" data-source="${this.escapeHtml(sourceUri)}"></audio>
+${materialRangeEnabled ? `<div class="material-audio-seek"><div class="material-seek-wrap"><input id="material-audio-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置"><div id="material-range-strip"><div class="bar"></div><div id="material-range-shade-in" class="shade"></div><div id="material-range-shade-out" class="shade"></div><div id="material-range-fill"></div><div id="material-range-in" class="mk" title="in"></div><div id="material-range-out" class="mk" title="out"></div><div id="material-range-cursor"></div></div></div><div class="material-io"><button id="material-range-button-in" title="in をここに（I）">I</button><button id="material-range-button-out" title="out をここに（O）">O</button><button id="material-range-button-clear" title="範囲をなしに">×</button></div></div>` : ''}
 </section>
 <section id="error-card" hidden>
 <p class="message">${this.escapeHtml(PLAYBACK_ERROR_MESSAGE)}</p>
@@ -344,6 +370,7 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
     const playerCard = document.getElementById('player-card');
     const errorCard = document.getElementById('error-card');
     const vscode = acquireVsCodeApi();
+    ${materialRangeEnabled ? 'window.akariAudioPostMessage = message => vscode.postMessage(message);' : ''}
     const canRequestTranscodeFallback = ${allowTranscodeFallback};
     let fallbackRequested = false;
 
@@ -394,6 +421,7 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
     }
 })();
 </script>
+${materialIdentity ? `<script>${materialRangeWebviewScript('audio', materialIdentity)}</script>` : ''}
 </body>
 </html>`;
     }

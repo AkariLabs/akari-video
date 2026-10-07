@@ -1,5 +1,6 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
+import { materialDragPayload, normalizeMaterialRange, type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
 import { createPreviewLiveDomController } from '../common/preview-live-dom';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
@@ -9254,6 +9255,10 @@ export function previewBootstrapScript(): string {
             const tick = (immediatePlaybackTick = false) => {
                 if (typeof applyInitialPosition === 'function' && !initialPositionApplied) applyInitialPosition();
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
+                if (window.akari?.materialRange && isPlaying && !frameEngineClock
+                    && video.currentTime >= window.akari.materialRange.out - 0.025) {
+                    seekTimelineTime(window.akari.materialRange.in);
+                }
                 if (frameEngineClock) {
                     if (window.akari.previewPositionReady === true
                         && window.akari.previewSyncedFrameEngineClock !== frameEngineClock
@@ -9262,6 +9267,10 @@ export function previewBootstrapScript(): string {
                         window.akari.previewSyncedFrameEngineClock = frameEngineClock;
                     }
                     outputTime = frameEngineClock.tick(outputTime, isPlaying);
+                    if (window.akari?.materialRange && isPlaying
+                        && outputTime >= window.akari.materialRange.out - 0.025) {
+                        seekTimelineTime(window.akari.materialRange.in);
+                    }
                     if (isPlaying && loopRange && outputTime >= loopRange.end) {
                         seekTimelineTime(loopRange.start);
                     }
@@ -9532,6 +9541,10 @@ export function previewBootstrapScript(): string {
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
+                    if (window.akari?.materialRange
+                        && (outputTime < window.akari.materialRange.in || outputTime >= window.akari.materialRange.out)) {
+                        seekTimelineTime(window.akari.materialRange.in);
+                    }
                     abortCurrentStroke();
                     abortCurrentRect();
                     isPlaying = true;
@@ -9588,6 +9601,11 @@ export function previewBootstrapScript(): string {
                     video.pause();
                     stopAnimation();
                 }
+            };
+            if (initial.kind === 'raw') window.akari.materialPreviewSeek = time => {
+                if (isPlaying) togglePlayback();
+                seekTimelineTime(time);
+                tick(true);
             };
             restoreInitialPlayback = () => {
                 if (!initialPlaybackRestorePending || !initialPositionApplied) return;
@@ -11948,4 +11966,200 @@ export function previewBootstrapScript(): string {
                 }
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
+}
+/** The same clamp function is embedded in both material webviews and tested against the host copy. */
+export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: MaterialDragIdentity): string {
+    const safeIdentity = JSON.stringify(identity).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+    return `(() => {
+        const mode = ${JSON.stringify(mode)};
+        const normalizeMaterialRange = (${normalizeMaterialRange.toString()});
+        const materialDragPayload = (${materialDragPayload.toString()});
+        const dragIdentity = ${safeIdentity};
+        const post = mode === 'video' ? window.akari?.materialPostMessage : window.akariAudioPostMessage;
+        const media = document.getElementById(mode === 'video' ? 'preview-video' : 'audio');
+        const seek = document.getElementById(mode === 'video' ? 'seek' : 'material-audio-seek');
+        const strip = document.getElementById('material-range-strip');
+        const rangeFill = document.getElementById('material-range-fill');
+        const shadeIn = document.getElementById('material-range-shade-in');
+        const shadeOut = document.getElementById('material-range-shade-out');
+        const markIn = document.getElementById('material-range-in');
+        const markOut = document.getElementById('material-range-out');
+        const cursor = document.getElementById('material-range-cursor');
+        const surface = document.getElementById(mode === 'video' ? 'preview-stage' : 'material-drag-surface');
+        if (!post || !media || !seek || !strip || !surface) return;
+        let range = null;
+        let duration = 0;
+        let dragging = null;
+        const currentTime = () => mode === 'video' ? Number(seek.value) || 0 : media.currentTime || 0;
+        const getDuration = () => mode === 'video'
+            ? (Number(seek.max) || Number(media.duration) || 0) : (Number(media.duration) || 0);
+        const bounds = () => range || { in: 0, out: duration };
+        const draw = () => {
+            if (!(duration > 0)) return;
+            const points = bounds();
+            const left = points.in / duration * 100;
+            const right = points.out / duration * 100;
+            shadeIn.style.width = left + '%';
+            shadeOut.style.left = right + '%';
+            shadeOut.style.width = (100 - right) + '%';
+            rangeFill.style.left = left + '%';
+            rangeFill.style.width = (right - left) + '%';
+            markIn.style.left = left + '%';
+            markOut.style.left = right + '%';
+            cursor.style.left = Math.max(0, Math.min(100, currentTime() / duration * 100)) + '%';
+        };
+        const announce = (moving, final) => {
+            post({ type: 'akari-material-range-change', range,
+                durationSeconds: duration, stripWidthPx: strip.clientWidth, moving, final });
+        };
+        const setRange = (next, moving, final = true, preview = false) => {
+            if (!(duration > 0) || !(strip.clientWidth > 0)) return;
+            range = normalizeMaterialRange(next, duration, strip.clientWidth, moving);
+            if (mode === 'video') window.akari.materialRange = range;
+            else media.loop = !range;
+            if (preview) {
+                const time = bounds()[moving];
+                if (mode === 'video') window.akari.materialPreviewSeek?.(time);
+                else { media.pause(); media.currentTime = time; }
+            }
+            draw();
+            announce(moving, final);
+        };
+        const place = document.getElementById('material-range-place');
+        place?.addEventListener('click', event => { event.stopPropagation(); post({ type: 'akari-material-place' }); });
+        document.getElementById('material-range-button-in')?.addEventListener('click', () =>
+            setRange({ ...bounds(), in: currentTime() }, 'in'));
+        document.getElementById('material-range-button-out')?.addEventListener('click', () =>
+            setRange({ ...bounds(), out: currentTime() }, 'out'));
+        document.getElementById('material-range-button-clear')?.addEventListener('click', () => setRange(null, 'out'));
+        window.addEventListener('keydown', event => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat) return;
+            const target = event.target;
+            if (target?.closest?.('textarea, select, [contenteditable="true"]')) return;
+            const input = target?.closest?.('input');
+            if (input && !['range', 'checkbox', 'radio', 'button'].includes(input.type)) return;
+            if (event.key.toLowerCase() === 'i') { event.preventDefault(); setRange({ ...bounds(), in: currentTime() }, 'in'); }
+            if (event.key.toLowerCase() === 'o') { event.preventDefault(); setRange({ ...bounds(), out: currentTime() }, 'out'); }
+        });
+        for (const [mark, moving] of [[markIn, 'in'], [markOut, 'out']]) {
+            mark.addEventListener('pointerdown', event => {
+                if (!(duration > 0)) return;
+                event.preventDefault(); event.stopPropagation();
+                dragging = moving;
+                mark.setPointerCapture(event.pointerId);
+            });
+            mark.addEventListener('pointermove', event => {
+                if (dragging !== moving) return;
+                const rect = strip.getBoundingClientRect();
+                const time = Math.max(0, Math.min(duration, (event.clientX - rect.left) / rect.width * duration));
+                setRange({ ...bounds(), [moving]: time }, moving, false, true);
+            });
+            const finish = event => {
+                if (dragging !== moving) return;
+                dragging = null;
+                if (mark.hasPointerCapture(event.pointerId)) mark.releasePointerCapture(event.pointerId);
+                announce(moving, true);
+            };
+            mark.addEventListener('pointerup', finish);
+            mark.addEventListener('pointercancel', finish);
+        }
+        const refreshDuration = () => {
+            const next = getDuration();
+            if (!(Number.isFinite(next) && next > 0) || !(strip.clientWidth > 0)) return;
+            if (next !== duration) {
+                duration = next;
+                range = normalizeMaterialRange(range, duration, strip.clientWidth, 'out');
+                post({ type: 'akari-material-range-ready', durationSeconds: duration, stripWidthPx: strip.clientWidth });
+            }
+            draw();
+        };
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message?.type === 'akari-material-range-update'
+                && (message.range === null || (Number.isFinite(message.range?.in)
+                    && Number.isFinite(message.range?.out) && message.range.in >= 0
+                    && message.range.out > message.range.in))) {
+                range = normalizeMaterialRange(message.range, duration, strip.clientWidth, 'out');
+                if (mode === 'video') window.akari.materialRange = range;
+                else media.loop = !range;
+                draw();
+            }
+        });
+        const positionPlace = () => {
+            if (mode !== 'video' || !place) return;
+            const rect = surface.getBoundingClientRect();
+            const wrapper = document.getElementById('preview-wrapper').getBoundingClientRect();
+            place.style.left = (rect.left - wrapper.left + rect.width / 2) + 'px';
+            place.style.top = (rect.bottom - wrapper.top - place.offsetHeight - 10) + 'px';
+            place.style.bottom = 'auto';
+        };
+        const previewPane = mode === 'video' ? document.querySelector('.preview-pane') : null;
+        const syncDraggable = () => {
+            surface.draggable = !previewPane?.classList.contains('is-draggable');
+        };
+        if (previewPane) new MutationObserver(syncDraggable).observe(previewPane, { attributes: true, attributeFilter: ['class'] });
+        syncDraggable();
+        let dragBlocked = false;
+        const interactive = 'button, [role="button"], input, textarea, select, a[href], [contenteditable="true"], '
+            + '[data-akari-interaction], [data-overlay-id], #layer-select-box, #layer-crop-box, #cut-select-box, #caption-select-box';
+        surface.addEventListener('pointerdown', event => {
+            dragBlocked = !!event.target?.closest?.(interactive);
+        }, true);
+        surface.addEventListener('dragstart', event => {
+            if (dragBlocked || !surface.draggable || event.target?.closest?.(interactive) || !event.dataTransfer) {
+                event.preventDefault();
+                return;
+            }
+            const payload = materialDragPayload(dragIdentity, duration || undefined, range);
+            event.dataTransfer.setData('application/x-akari-material', JSON.stringify(payload));
+            event.dataTransfer.effectAllowed = 'copy';
+            post({ type: 'akari-material-drag-start' });
+        });
+        surface.addEventListener('dragend', () => post({ type: 'akari-material-drag-end' }));
+        place?.addEventListener('dragstart', event => { event.preventDefault(); event.stopPropagation(); });
+        new ResizeObserver(refreshDuration).observe(strip);
+        media.addEventListener('loadedmetadata', refreshDuration);
+        if (mode === 'audio') {
+            media.loop = true;
+            media.addEventListener('ended', () => {
+                if (range) { media.currentTime = range.in; void media.play(); }
+            });
+            media.addEventListener('timeupdate', () => {
+                seek.max = String(media.duration || 0);
+                seek.value = String(media.currentTime || 0);
+                draw();
+            });
+            seek.addEventListener('input', () => { media.currentTime = Number(seek.value); draw(); });
+        }
+        const frame = () => {
+            refreshDuration();
+            if (mode === 'audio' && range && !media.paused && media.currentTime >= range.out - 0.02) {
+                media.currentTime = range.in;
+                seek.value = String(range.in);
+            }
+            positionPlace();
+            draw();
+            requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+    })();`;
+}
+export function materialRangeWebviewStyle(): string {
+    return `
+.material-seek-wrap { position: relative; flex: 1; min-width: 0; height: 22px; }
+#material-range-strip { position: absolute; inset: 0; height: 22px; pointer-events: none; touch-action: none; }
+#material-range-strip .bar { position: absolute; left: 0; right: 0; top: 9px; height: 4px; background: #535353; border-radius: 2px; }
+#material-range-strip .shade { position: absolute; top: 9px; height: 4px; background: rgba(0,0,0,.65); }
+#material-range-fill { position: absolute; top: 9px; height: 4px; background: #f97316; border-radius: 2px; }
+#material-range-strip .mk { position: absolute; top: 2px; width: 8px; height: 18px; margin-left: -4px; border-radius: 2px; background: #fdba74; cursor: ew-resize; pointer-events: auto; z-index: 3; }
+#material-range-strip .mk::after { content: ''; position: absolute; left: 3px; top: 4px; width: 2px; height: 10px; background: #000; opacity: .5; }
+#material-range-cursor { position: absolute; top: 4px; width: 2px; height: 14px; margin-left: -1px; background: #fff; pointer-events: none; z-index: 2; }
+.material-io { display: flex; gap: 4px; margin-left: 8px; align-items: center; }
+.material-io button { background: #242424; border: 1px solid #434343; border-radius: 5px; color: #a5a5a5; font: 600 11px/1 monospace; padding: 5px 8px; cursor: pointer; }
+.material-io button:hover { color: #eee; border-color: #777; }
+#material-range-place { position: absolute; z-index: 80; left: 50%; bottom: 10px; transform: translateX(-50%); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; padding: 5px 12px 5px 10px; border: 1px solid #666; border-radius: 999px; background: rgba(10,10,10,.78); color: #eee; font: 600 12px/1.4 system-ui,sans-serif; backdrop-filter: blur(4px); cursor: pointer; }
+#material-range-place:hover { border-color: #f97316; color: #fdba74; }
+#material-range-place svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+`;
 }

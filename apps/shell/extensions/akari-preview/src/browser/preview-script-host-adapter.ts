@@ -18,6 +18,14 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { buildPreviewContextMenuMessage } from '../common/preview-context-menu';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { clampPreviewPlaybackRate } from '../common/preview-playback-rate';
+import URI from '@theia/core/lib/common/uri';
+import { CommandService, MessageService } from '@theia/core/lib/common';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import {
+    MaterialDragIdentity, MaterialKind, MaterialRange, materialDragPayload, materialPlacementArgs,
+    MaterialDragSessionSignal, MaterialDragSessionState, materialRangeEventUpdate, materialRangeSetArgs,
+    normalizeMaterialRange, parseMaterialRangeMessage, transitionMaterialDragSession
+} from '../common/material-range-messages';
 
 export function hostAdapterScript(): string {
         return `(() => {
@@ -28,6 +36,9 @@ export function hostAdapterScript(): string {
             const audioMeterOpen = document.getElementById('audio-meter-open');
             audioMeterOpen.addEventListener('click', () => {
                 vscode.postMessage({ type: 'akari-preview-open-audio-meter' });
+            });
+            if (initial.kind === 'raw') window.akari = Object.assign(window.akari || {}, {
+                materialPostMessage: message => vscode.postMessage(message)
             });
             // 診断（第11・12項）: acquireVsCodeApi は 1 ページ 1 回きりなので、head のガード
             // スクリプトはここで取得したものを借りる（貯めてあった報告もここで流れる）。
@@ -1475,4 +1486,198 @@ export function hostAdapterScript(): string {
             }
             updateStageScale();
         })();`;
+}
+export function materialPreviewContext(uri: URI, workspaceRoots: readonly string[]):
+    { projectUri: string; relativePath: string } | undefined {
+    const path = uri.path.toString();
+    const root = workspaceRoots.map(value => new URI(value))
+        .filter(candidate => candidate.scheme === uri.scheme && candidate.authority === uri.authority)
+        .filter(candidate => {
+            const rootPath = candidate.path.toString().replace(/\/$/, '');
+            return path.startsWith(rootPath + '/');
+        }).sort((left, right) => right.path.toString().length - left.path.toString().length)[0];
+    if (!root) return undefined;
+    const rootPath = root.path.toString().replace(/\/$/, '');
+    return { projectUri: root.toString(), relativePath: path.slice(rootPath.length + 1) };
+}
+
+/** Host-side bridge shared by raw video and audio material tabs. */
+export class MaterialPreviewRangeHost {
+    private range: MaterialRange | null = null;
+    private durationSeconds?: number;
+    private stripWidthPx = 1;
+    private pendingRange: MaterialRange | null | undefined;
+    private saveTimer?: ReturnType<typeof setTimeout>;
+    private saveChain: Promise<void> = Promise.resolve();
+    private revision = 0;
+    private disposed = false;
+    private dragSession: MaterialDragSessionState = { active: false, pointerArmed: false };
+    private dragListeners?: () => void;
+    private dragGraceTimer?: ReturnType<typeof setTimeout>;
+    private dragDropTimer?: ReturnType<typeof setTimeout>;
+    private dragDropPending = false;
+    private readonly messagesListener: { dispose(): void };
+    private readonly onRangeChanged = (event: Event): void => {
+        const detail = (event as CustomEvent<unknown>).detail;
+        const update = materialRangeEventUpdate(detail, this.relativePath);
+        if (!update) return;
+        this.revision += 1;
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        this.saveTimer = undefined;
+        this.pendingRange = undefined;
+        this.range = this.durationSeconds
+            ? normalizeMaterialRange(update.range, this.durationSeconds, this.stripWidthPx, 'out') : update.range;
+        this.widget.sendMessage({ type: 'akari-material-range-update', range: this.range });
+    };
+
+    get dragIdentity(): MaterialDragIdentity {
+        return { relativePath: this.relativePath, kind: this.kind, name: this.name };
+    }
+
+    constructor(
+        private readonly widget: WebviewWidget,
+        private readonly commands: CommandService,
+        private readonly messages: MessageService,
+        private readonly projectUri: string,
+        private readonly relativePath: string,
+        private readonly kind: MaterialKind,
+        private readonly name: string
+    ) {
+        this.messagesListener = widget.onMessage(value => {
+            const message = parseMaterialRangeMessage(value);
+            if (!message || this.disposed) return;
+            if (message.type === 'akari-material-range-ready') {
+                this.durationSeconds = message.durationSeconds;
+                this.stripWidthPx = message.stripWidthPx;
+                const revision = this.revision;
+                void this.commands.executeCommand<MaterialRange | undefined>('akari.materials.range.get', {
+                    projectUri: this.projectUri, relativePath: this.relativePath
+                }).then(value => {
+                    if (this.disposed || revision !== this.revision) return;
+                    this.range = value && Number.isFinite(value.in) && Number.isFinite(value.out)
+                        ? normalizeMaterialRange(value, message.durationSeconds, message.stripWidthPx, 'out') : null;
+                    this.widget.sendMessage({ type: 'akari-material-range-update', range: this.range });
+                }).catch(() => { /* A project without saved ranges starts at the full source. */ });
+            } else if (message.type === 'akari-material-range-change') {
+                this.durationSeconds = message.durationSeconds;
+                this.stripWidthPx = message.stripWidthPx;
+                this.range = normalizeMaterialRange(message.range, message.durationSeconds,
+                    message.stripWidthPx, message.moving);
+                this.revision += 1;
+                this.pendingRange = this.range;
+                window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
+                    detail: { relativePath: this.relativePath, range: this.range, source: 'material-preview' }
+                }));
+                if (this.saveTimer) clearTimeout(this.saveTimer);
+                if (message.final) this.saveInBackground();
+                else this.saveTimer = setTimeout(() => this.saveInBackground(), 80);
+            } else if (message.type === 'akari-material-drag-start') {
+                this.beginDrag();
+            } else if (message.type === 'akari-material-drag-end') {
+                this.finishDrag('webview-end');
+            } else if (message.type === 'akari-material-place') {
+                void this.place();
+            }
+        });
+        window.addEventListener('akari.materials.range.changed', this.onRangeChanged);
+        widget.disposed.connect(() => this.dispose());
+    }
+
+    private beginDrag(): void {
+        this.finishDrag('webview-end', true);
+        this.dragSession = transitionMaterialDragSession(this.dragSession, 'start').state;
+        this.watchDragEnd();
+        this.saveInBackground();
+        window.dispatchEvent(new CustomEvent('akari.material.dragStart', {
+            detail: materialDragPayload(this.dragIdentity, this.durationSeconds, this.range)
+        }));
+    }
+
+    private finishDrag(signal: MaterialDragSessionSignal, replacing = false): void {
+        // Once drop propagation begins, the target keeps its payload until the next task.
+        if (this.dragDropPending && signal !== 'drop' && !replacing) return;
+        const result = transitionMaterialDragSession(this.dragSession, signal);
+        this.dragSession = result.state;
+        if (!result.ended) return;
+        this.dragListeners?.();
+        this.dragListeners = undefined;
+        window.dispatchEvent(new CustomEvent('akari.material.dragEnd'));
+    }
+
+    private watchDragEnd(): void {
+        const listeners: Array<[string, EventListener]> = [];
+        const listen = (type: string, handler: EventListener): void => {
+            window.addEventListener(type, handler, true);
+            listeners.push([type, handler]);
+        };
+        const armPointer = (): void => {
+            this.dragSession = transitionMaterialDragSession(this.dragSession, 'arm-pointer').state;
+        };
+        const onPointer = (): void => {
+            if (!this.dragDropPending) this.finishDrag('pointer');
+        };
+        listen('dragenter', armPointer);
+        listen('dragover', armPointer);
+        for (const type of ['pointermove', 'pointerdown', 'mousemove', 'mousedown']) listen(type, onPointer);
+        listen('drop', () => {
+            if (this.dragDropPending) return;
+            this.dragDropPending = true;
+            // The drop target reads the mirrored payload during this event's propagation.
+            this.dragDropTimer = setTimeout(() => this.finishDrag('drop'), 0);
+        });
+        listen('dragend', () => this.finishDrag('host-dragend'));
+        listen('keydown', event => {
+            if ((event as KeyboardEvent).key === 'Escape') this.finishDrag('escape');
+        });
+        listen('blur', () => this.finishDrag('blur'));
+        this.dragGraceTimer = setTimeout(armPointer, 120);
+        this.dragListeners = () => {
+            for (const [type, handler] of listeners) window.removeEventListener(type, handler, true);
+            if (this.dragGraceTimer) clearTimeout(this.dragGraceTimer);
+            if (this.dragDropTimer) clearTimeout(this.dragDropTimer);
+            this.dragGraceTimer = undefined;
+            this.dragDropTimer = undefined;
+            this.dragDropPending = false;
+        };
+    }
+
+    private async flushSave(): Promise<void> {
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        this.saveTimer = undefined;
+        if (this.pendingRange !== undefined) {
+            const range = this.pendingRange;
+            this.pendingRange = undefined;
+            this.saveChain = this.saveChain.catch(() => undefined).then(async () => {
+                await this.commands.executeCommand('akari.materials.range.set',
+                    materialRangeSetArgs(this.projectUri, this.relativePath, range));
+            });
+        }
+        await this.saveChain;
+        if (this.pendingRange !== undefined) await this.flushSave();
+    }
+
+    private saveInBackground(): void {
+        void this.flushSave().catch(() => { void this.messages.error('範囲を保存できませんでした。'); });
+    }
+
+    private async place(): Promise<void> {
+        try {
+            await this.flushSave();
+            await this.commands.executeCommand('akari.timeline.addMaterialAtPlayhead',
+                materialPlacementArgs(this.relativePath, this.kind, this.durationSeconds, this.range));
+        } catch {
+            void this.messages.error('タイムラインに素材を置けませんでした。');
+        }
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.finishDrag('dispose');
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        // A final pointer value is still persisted when the tab closes.
+        if (this.pendingRange !== undefined) this.saveInBackground();
+        this.messagesListener.dispose();
+        window.removeEventListener('akari.materials.range.changed', this.onRangeChanged);
+    }
 }
