@@ -4922,10 +4922,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new TypeError(`このプロジェクトは変換できません: ${prepared.blockers.join(' / ')}`);
                 }
                 editText = prepared.nextText;
-                this.messages.warn(
-                    `edit.json version ${prepared.version} を読み取り専用でプレビュしています。`
-                    + '元ファイルは変更されていません。タイムラインか `akari migrate` で変換できます。'
-                );
+                if (!(rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                    && Object.keys(rawEdit).length === 0)) {
+                    this.messages.warn(
+                        `edit.json version ${prepared.version} を読み取り専用でプレビュしています。`
+                        + '元ファイルは変更されていません。タイムラインか `akari migrate` で変換できます。'
+                    );
+                }
             }
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。

@@ -8888,6 +8888,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const proposal = planned as EditMigrationProposal;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0) {
+            await this.annotationsService.applyEditMigration(proposal);
+            this.setLegacyReadOnly(false);
+            return proposal.nextText;
+        }
         const summary = proposal.changes.map(change => `${change.path}: ${change.note}`).join('\n');
         const choice = await this.messages.info(
             `${proposal.filePath} は edit.json version ${proposal.version} です。\n${summary}`,

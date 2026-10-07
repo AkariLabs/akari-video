@@ -72,10 +72,10 @@ test('canonical file sorts first, other slugs sort ascending without mutating in
 
 test('creation keeps the v2 skeleton and chosen dimensions and fps without meta', () => {
     assert.deepEqual(createTimelineEditContent({ width: 1080, height: 1920 }), {
-        version: 2, output: { width: 1080, height: 1920, fps: 30 }, sources: [], tracks: []
+        version: 2, output: { width: 1080, height: 1920, fps: 30, geometry: 'source' }, sources: [], tracks: []
     });
     assert.deepEqual(createTimelineEditContent({ width: 640, height: 480, fps: 24 }), {
-        version: 2, output: { width: 640, height: 480, fps: 24 }, sources: [], tracks: []
+        version: 2, output: { width: 640, height: 480, fps: 24, geometry: 'source' }, sources: [], tracks: []
     });
     assert.equal('meta' in createTimelineEditContent({ width: 1, height: 1 }), false);
 });

@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 // 除外規則が片方だけ育つ。相対パスなのは npm 配布 tarball の vendor ミラーでも同じ深さに
 // 焼かれるため（akari-launcher/scripts/prepack.mjs の VENDOR_SOURCES）。
 import { PROJECT_GITIGNORE } from '../../akari-launcher/src/history-policy.mjs';
+import editStore from '../../edit-store/lib/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -99,12 +100,7 @@ const FALLBACK_WORKFLOW = {
 
 // 新規プロジェクトの edit.json 雛形。新規作成は常に v2 で、
 // 素材投入前の空 sources / tracks も editV2 schema をそのまま満たす。
-const FALLBACK_EDIT_JSON = {
-    version: 2,
-    output: { width: 1920, height: 1080, fps: 30, geometry: 'source' },
-    sources: [],
-    tracks: []
-};
+const FALLBACK_EDIT_JSON = editStore.createEmptyEditV2();
 
 function portablePath(value) {
     return value.split(path.sep).join('/');

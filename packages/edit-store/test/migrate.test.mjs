@@ -16,6 +16,7 @@ import {
 import { readEditV2 } from '../lib/edit-v2.js';
 import { projectLegacyEdit, readInternalEdit } from '../lib/internal-model.js';
 import { serializeCaptions, serializeEdit, serializeMotion } from '../lib/canonical.js';
+import { createEmptyEditV2 } from '../lib/index.js';
 
 function base(version = 0) {
   return {
@@ -28,6 +29,46 @@ function base(version = 0) {
     overlays: [],
   };
 }
+
+test('空の edit.json は退避後に新規 v2 として開け、原文へ戻せる', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-empty-'));
+  const editPath = join(root, 'edit.json');
+  const text = '{}\n';
+  try {
+    await writeFile(editPath, text);
+    const proposal = planMigration(root, editPath, text, { now: new Date('2026-10-07T00:00:00.000Z') });
+    assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
+    assert.equal(proposal.emptyProject, true);
+    assert.match(proposal.changes[0].note, /空の edit\.json を新規 v2 として初期化/u);
+    assert.deepEqual(JSON.parse(proposal.nextText), createEmptyEditV2());
+    assert.doesNotThrow(() => readEditV2(proposal.nextText));
+    await applyMigration(proposal);
+    assert.equal(await readFile(proposal.backupPath, 'utf8'), text);
+    assert.deepEqual(JSON.parse(await readFile(editPath, 'utf8')), createEmptyEditV2());
+    await revertMigration(proposal);
+    assert.equal(await readFile(editPath, 'utf8'), text);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('中身のある version 不在は曖昧な形式として止め、v0/v1 は従来どおり変換する', () => {
+  for (const raw of [{ output: {} }, { sources: [] }]) {
+    const proposal = planMigration('/project', '/project/edit.json', JSON.stringify(raw));
+    assert.equal(proposal.ok, false);
+    assert.deepEqual(proposal.blockers, [
+      'edit.json に version が無いため形式を判別できません（中身あり）。.akari/backup/ からの復元か、版の指定が必要です'
+    ]);
+  }
+  for (const version of [0, 1]) {
+    const raw = base(version);
+    const result = planMigration('/project', '/project/edit.json', JSON.stringify(raw));
+    assert.equal('blockers' in result, false, result.blockers?.join('\n'));
+    assert.equal(result.version, version);
+    assert.equal(result.emptyProject, undefined);
+    assert.deepEqual(JSON.parse(result.nextText), migrateEditToV2(raw).doc);
+  }
+});
 
 test('v2 migrate は content を captions 袋へ正規化し、関連 JSON を canonical 化して冪等になる', async () => {
   const root = await mkdtemp(join(tmpdir(), 'akari-migrate-v2-normalize-'));

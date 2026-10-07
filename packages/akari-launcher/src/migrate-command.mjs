@@ -64,11 +64,14 @@ export async function runMigrateCommand(args, options = {}) {
   }
   if (parsed.json) {
     log(JSON.stringify({
-      ok: true, dryRun: parsed.dryRun, version: proposal.version,
+      ok: true, dryRun: parsed.dryRun, version: proposal.emptyProject ? null : proposal.version,
+      ...(proposal.emptyProject ? { emptyProject: true } : {}),
       filePath: proposal.filePath, backupPath: proposal.backupPath, changes: proposal.changes
     }));
   } else {
-    log(`変換対象: ${proposal.filePath} (version ${proposal.version}${proposal.version === 2 ? ' 正規化' : ' -> 2'})`);
+    log(proposal.emptyProject
+      ? `初期化対象: ${proposal.filePath} (空の edit.json -> version 2)`
+      : `変換対象: ${proposal.filePath} (version ${proposal.version}${proposal.version === 2 ? ' 正規化' : ' -> 2'})`);
     for (const change of proposal.changes) log(`- ${change.path}: ${change.note}`);
     log(`変換前の退避先: ${proposal.backupPath}`);
   }
@@ -92,7 +95,9 @@ export async function runMigrateCommand(args, options = {}) {
   }
   await migrate.applyMigration(proposal);
   if (!parsed.json) {
-    log(proposal.version === 2
+    log(proposal.emptyProject
+      ? `空の edit.json を初期化しました。元ファイル: ${proposal.backupPath}`
+      : proposal.version === 2
       ? `version 2 を正規化しました。元ファイル: ${proposal.backupPath}`
       : `version 2 へ変換しました。元ファイル: ${proposal.backupPath}`);
   }

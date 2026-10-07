@@ -33,6 +33,7 @@ const expectedSources = [
   'edit-store.ts',
   'edit-v2-item-write.ts',
   'edit-v2.ts',
+  'empty-edit-v2.ts',
   'envelope.ts',
   'generation-meta-node.ts',
   'generation-meta.ts',
