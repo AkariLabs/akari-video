@@ -22,9 +22,10 @@ import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import {
-    MaterialDragIdentity, MaterialKind, MaterialRange, materialDragPayload, materialPlacementArgs,
-    MaterialDragSessionSignal, MaterialDragSessionState, materialRangeEventUpdate, materialRangeSetArgs,
-    normalizeMaterialRange, parseMaterialRangeMessage, transitionMaterialDragSession
+    MaterialDragIdentity, MaterialKind, MaterialRange, appendMaterialRangeSave,
+    materialDragPayload, materialPlacementArgs,
+    MaterialDragSessionSignal, MaterialDragSessionState, materialRangeEventUpdate, materialRangeHostTransition,
+    materialRangeSetArgs, normalizeMaterialRange, parseMaterialRangeMessage, transitionMaterialDragSession
 } from '../common/material-range-messages';
 
 export function hostAdapterScript(): string {
@@ -1525,8 +1526,7 @@ export class MaterialPreviewRangeHost {
         if (this.saveTimer) clearTimeout(this.saveTimer);
         this.saveTimer = undefined;
         this.pendingRange = undefined;
-        this.range = this.durationSeconds
-            ? normalizeMaterialRange(update.range, this.durationSeconds, this.stripWidthPx, 'out') : update.range;
+        this.range = this.durationSeconds ? normalizeMaterialRange(update.range, this.durationSeconds) : update.range;
         this.widget.sendMessage({ type: 'akari-material-range-update', range: this.range });
     };
 
@@ -1547,22 +1547,23 @@ export class MaterialPreviewRangeHost {
             const message = parseMaterialRangeMessage(value);
             if (!message || this.disposed) return;
             if (message.type === 'akari-material-range-ready') {
-                this.durationSeconds = message.durationSeconds;
+                const transition = materialRangeHostTransition(this.durationSeconds, message);
+                if (!transition) return;
+                this.durationSeconds = transition.durationSeconds;
                 this.stripWidthPx = message.stripWidthPx;
-                const revision = this.revision;
+                const revision = ++this.revision;
                 void this.commands.executeCommand<MaterialRange | undefined>('akari.materials.range.get', {
                     projectUri: this.projectUri, relativePath: this.relativePath
                 }).then(value => {
                     if (this.disposed || revision !== this.revision) return;
-                    this.range = value && Number.isFinite(value.in) && Number.isFinite(value.out)
-                        ? normalizeMaterialRange(value, message.durationSeconds, message.stripWidthPx, 'out') : null;
+                    this.range = value ? normalizeMaterialRange(value, this.durationSeconds!) : null;
                     this.widget.sendMessage({ type: 'akari-material-range-update', range: this.range });
                 }).catch(() => { /* A project without saved ranges starts at the full source. */ });
             } else if (message.type === 'akari-material-range-change') {
-                this.durationSeconds = message.durationSeconds;
+                const transition = materialRangeHostTransition(this.durationSeconds, message);
+                if (!transition || transition.type !== 'change') return;
                 this.stripWidthPx = message.stripWidthPx;
-                this.range = normalizeMaterialRange(message.range, message.durationSeconds,
-                    message.stripWidthPx, message.moving);
+                this.range = transition.range;
                 this.revision += 1;
                 this.pendingRange = this.range;
                 window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
@@ -1647,17 +1648,17 @@ export class MaterialPreviewRangeHost {
         if (this.pendingRange !== undefined) {
             const range = this.pendingRange;
             this.pendingRange = undefined;
-            this.saveChain = this.saveChain.catch(() => undefined).then(async () => {
-                await this.commands.executeCommand('akari.materials.range.set',
-                    materialRangeSetArgs(this.projectUri, this.relativePath, range));
-            });
+            this.saveChain = appendMaterialRangeSave(this.saveChain,
+                () => this.commands.executeCommand('akari.materials.range.set',
+                    materialRangeSetArgs(this.projectUri, this.relativePath, range)),
+                () => { void this.messages.error('範囲を保存できませんでした。'); });
         }
         await this.saveChain;
         if (this.pendingRange !== undefined) await this.flushSave();
     }
 
     private saveInBackground(): void {
-        void this.flushSave().catch(() => { void this.messages.error('範囲を保存できませんでした。'); });
+        void this.flushSave().catch(() => undefined);
     }
 
     private async place(): Promise<void> {

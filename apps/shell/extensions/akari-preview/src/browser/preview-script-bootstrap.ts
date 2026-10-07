@@ -1,6 +1,7 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
-import { materialDragPayload, normalizeMaterialRange, type MaterialDragIdentity } from '../common/material-range-messages';
+import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
+    type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
 import { createPreviewLiveDomController } from '../common/preview-live-dom';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
@@ -11967,13 +11968,15 @@ export function previewBootstrapScript(): string {
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
 }
-/** The same clamp function is embedded in both material webviews and tested against the host copy. */
+/** Embed self-contained range and placement functions in both material webviews. */
 export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: MaterialDragIdentity): string {
     const safeIdentity = JSON.stringify(identity).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
         .replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
     return `(() => {
         const mode = ${JSON.stringify(mode)};
         const normalizeMaterialRange = (${normalizeMaterialRange.toString()});
+        const clampPreviewMaterialRange = (${clampPreviewMaterialRange.toString()});
+        const positionMaterialPlace = (${positionMaterialPlace.toString()});
         const materialDragPayload = (${materialDragPayload.toString()});
         const dragIdentity = ${safeIdentity};
         const post = mode === 'video' ? window.akari?.materialPostMessage : window.akariAudioPostMessage;
@@ -12015,9 +12018,8 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
         };
         const setRange = (next, moving, final = true, preview = false) => {
             if (!(duration > 0) || !(strip.clientWidth > 0)) return;
-            range = normalizeMaterialRange(next, duration, strip.clientWidth, moving);
+            range = next === null ? null : clampPreviewMaterialRange(next, duration, strip.clientWidth, moving);
             if (mode === 'video') window.akari.materialRange = range;
-            else media.loop = !range;
             if (preview) {
                 const time = bounds()[moving];
                 if (mode === 'video') window.akari.materialPreviewSeek?.(time);
@@ -12034,14 +12036,21 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
             setRange({ ...bounds(), out: currentTime() }, 'out'));
         document.getElementById('material-range-button-clear')?.addEventListener('click', () => setRange(null, 'out'));
         window.addEventListener('keydown', event => {
-            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat) return;
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+                || event.isComposing || event.keyCode === 229) return;
             const target = event.target;
             if (target?.closest?.('textarea, select, [contenteditable="true"]')) return;
             const input = target?.closest?.('input');
             if (input && !['range', 'checkbox', 'radio', 'button'].includes(input.type)) return;
-            if (event.key.toLowerCase() === 'i') { event.preventDefault(); setRange({ ...bounds(), in: currentTime() }, 'in'); }
-            if (event.key.toLowerCase() === 'o') { event.preventDefault(); setRange({ ...bounds(), out: currentTime() }, 'out'); }
-        });
+            const key = event.key?.toLowerCase();
+            if (key !== 'i' && key !== 'o') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (event.repeat) return;
+            if (key === 'i') setRange({ ...bounds(), in: currentTime() }, 'in');
+            else setRange({ ...bounds(), out: currentTime() }, 'out');
+        }, true);
         for (const [mark, moving] of [[markIn, 'in'], [markOut, 'out']]) {
             mark.addEventListener('pointerdown', event => {
                 if (!(duration > 0)) return;
@@ -12069,7 +12078,8 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
             if (!(Number.isFinite(next) && next > 0) || !(strip.clientWidth > 0)) return;
             if (next !== duration) {
                 duration = next;
-                range = normalizeMaterialRange(range, duration, strip.clientWidth, 'out');
+                if (mode === 'audio') seek.max = String(duration);
+                range = normalizeMaterialRange(range, duration);
                 post({ type: 'akari-material-range-ready', durationSeconds: duration, stripWidthPx: strip.clientWidth });
             }
             draw();
@@ -12080,9 +12090,8 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
                 && (message.range === null || (Number.isFinite(message.range?.in)
                     && Number.isFinite(message.range?.out) && message.range.in >= 0
                     && message.range.out > message.range.in))) {
-                range = normalizeMaterialRange(message.range, duration, strip.clientWidth, 'out');
+                range = normalizeMaterialRange(message.range, duration);
                 if (mode === 'video') window.akari.materialRange = range;
-                else media.loop = !range;
                 draw();
             }
         });
@@ -12090,8 +12099,9 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
             if (mode !== 'video' || !place) return;
             const rect = surface.getBoundingClientRect();
             const wrapper = document.getElementById('preview-wrapper').getBoundingClientRect();
-            place.style.left = (rect.left - wrapper.left + rect.width / 2) + 'px';
-            place.style.top = (rect.bottom - wrapper.top - place.offsetHeight - 10) + 'px';
+            const position = positionMaterialPlace(rect, wrapper, place.offsetWidth, place.offsetHeight);
+            place.style.left = position.left + 'px';
+            place.style.top = position.top + 'px';
             place.style.bottom = 'auto';
         };
         const previewPane = mode === 'video' ? document.querySelector('.preview-pane') : null;
@@ -12121,7 +12131,13 @@ export function materialRangeWebviewScript(mode: 'video' | 'audio', identity: Ma
         new ResizeObserver(refreshDuration).observe(strip);
         media.addEventListener('loadedmetadata', refreshDuration);
         if (mode === 'audio') {
-            media.loop = true;
+            media.addEventListener('play', () => {
+                if (range && (media.currentTime < range.in || media.currentTime >= range.out)) {
+                    media.currentTime = range.in;
+                    seek.value = String(range.in);
+                    draw();
+                }
+            });
             media.addEventListener('ended', () => {
                 if (range) { media.currentTime = range.in; void media.play(); }
             });
