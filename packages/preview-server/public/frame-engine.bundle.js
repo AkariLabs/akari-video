@@ -8842,7 +8842,7 @@ var require_edit_v2 = __commonJS({
             throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           return;
         case "html":
-          requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
+          requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params"]), path);
           requireText(value.path, `${path}.path`);
           for (const key of ["part", "derivedFrom"])
             if (hasOwn(value, key))
@@ -8851,6 +8851,18 @@ var require_edit_v2 = __commonJS({
             throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           if (hasOwn(value, "style"))
             validateStringMap(value.style, `${path}.style`);
+          if (hasOwn(value, "elements")) {
+            requireRecord(value.elements, `${path}.elements`);
+            for (const [address, override] of Object.entries(value.elements)) {
+              if (!/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/.test(address))
+                throw invalid(`${path}.elements.${address}`, "\u8981\u7D20\u306E\u756A\u5730\u304C\u4E0D\u6B63\u3067\u3059");
+              requireRecord(override, `${path}.elements.${address}`);
+              requireExactKeys(override, /* @__PURE__ */ new Set(["style"]), `${path}.elements.${address}`);
+              if (!hasOwn(override, "style"))
+                throw invalid(`${path}.elements.${address}.style`, "style \u304C\u5FC5\u8981\u3067\u3059");
+              validateStringMap(override.style, `${path}.elements.${address}.style`);
+            }
+          }
           if (hasOwn(value, "exclude"))
             validateStringList(value.exclude, `${path}.exclude`);
           if (hasOwn(value, "vars"))
@@ -12864,6 +12876,7 @@ var require_internal_model = __commonJS({
                 ...item.source.part !== void 0 ? { part: item.source.part } : {},
                 ...item.source.style !== void 0 ? { style: item.source.style } : {},
                 ...item.source.text !== void 0 ? { text: item.source.text } : {},
+                ...item.source.elements !== void 0 ? { elements: item.source.elements } : {},
                 ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
                 ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
               },
@@ -15257,7 +15270,7 @@ var require_edit_v2_keys = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
     exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "cut_edge", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "fade_in_shape", "fade_out_shape", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -15489,6 +15502,7 @@ var require_edit_v2_keys = __commonJS({
         "part",
         "style",
         "text",
+        "elements",
         "exclude",
         "derivedFrom",
         "vars",
@@ -15728,8 +15742,17 @@ var require_canonical = __commonJS({
       if (item && key === "transform" && isRecord2(value) && (value.scaleX !== void 0 || value.scaleY !== void 0)) {
         return inlineObject({ ...(0, transform_1.normalizeTransform)(value) }, ["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
       }
-      if (item && key === "source" && isRecord2(value))
-        return inlineObject(value, ["kind", "canvas"]);
+      if (item && key === "source" && isRecord2(value)) {
+        const source = { ...value };
+        if (source.kind === "html" && isRecord2(source.elements)) {
+          const elements = Object.fromEntries(Object.entries(source.elements).filter(([, entry]) => isRecord2(entry) && isRecord2(entry.style) && Object.keys(entry.style).length > 0));
+          if (Object.keys(elements).length)
+            source.elements = elements;
+          else
+            delete source.elements;
+        }
+        return inlineObject(source, ["kind", "canvas"]);
+      }
       if (item && key === "keyframes" && Array.isArray(value)) {
         return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
       }

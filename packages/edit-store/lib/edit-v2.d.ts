@@ -118,6 +118,9 @@ export interface HtmlSourceV2 {
     part?: string;
     style?: Record<string, string>;
     text?: string;
+    elements?: Record<string, {
+        style: Record<string, string>;
+    }>;
     exclude?: string[];
     derivedFrom?: string;
     vars?: Record<string, unknown>;
