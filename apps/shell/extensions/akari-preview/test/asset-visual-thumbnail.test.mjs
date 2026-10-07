@@ -50,6 +50,17 @@ test('groups resolve directory/meta.json and missing duration/output default to 
     }
 });
 
+test('natural duration wins over legacy data-duration and both are readable', async t => {
+    const root = await fixture(t);
+    const path = join(root, 'duration.html');
+    await writeFile(path, '<div data-duration="6">OLD</div>');
+    assert.equal((await prepareAssetVisualThumbnailPage(path, root, undefined, assets, createStream, disposeStream)).duration, 6);
+    await writeFile(path, '<div data-duration="6" data-akari-natural-duration="9">NEW</div>');
+    const page = await prepareAssetVisualThumbnailPage(path, root, undefined, assets, createStream, disposeStream);
+    assert.equal(page.duration, 9);
+    assert.equal(page.time, 4.5);
+});
+
 test('file relative dependencies are rewritten and their streams released on failure', async t => {
     const root = await fixture(t);
     await mkdir(join(root, 'assets'));

@@ -12,7 +12,7 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, realpath, stat, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format } from 'node:util';
@@ -94,6 +94,52 @@ async function validateAsset(assetDir) {
 
 export { AssetResolverError };
 
+// overlay-runtime は resolver の依存にしない。断片ルートの変換規則は両方を同じテストで固定する。
+export function withoutFragmentRootTiming(source, { preserveNaturalDuration = false } = {}) {
+  let cursor = 0;
+  while (cursor < source.length) {
+    const start = source.indexOf('<', cursor);
+    if (start < 0) break;
+    if (source.startsWith('<!--', start)) {
+      const end = source.indexOf('-->', start + 4);
+      if (end < 0) throw new Error('HTML コメントが閉じていません');
+      cursor = end + 3;
+      continue;
+    }
+    const tag = /^<([A-Za-z][\w:-]*)(?:"[^"]*"|'[^']*'|[^'">])*>/u.exec(source.slice(start));
+    if (!tag) { cursor = start + 1; continue; }
+    if (/^(?:style|script)$/iu.test(tag[1])) {
+      const closing = new RegExp(`</${tag[1]}\\s*>`, 'iu').exec(source.slice(start + tag[0].length));
+      if (!closing) throw new Error('HTML の前置要素が閉じていません');
+      cursor = start + tag[0].length + closing.index + closing[0].length;
+      continue;
+    }
+    if (/^link$/iu.test(tag[1])) { cursor = start + tag[0].length; continue; }
+    const nameEnd = tag[1].length + 1;
+    const attributes = tag[0].slice(nameEnd, -1);
+    const tokens = /([^\s=/>]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gu;
+    const removals = [];
+    let duration = null;
+    let hasNaturalDuration = false;
+    for (const token of attributes.matchAll(tokens)) {
+      if (preserveNaturalDuration && /^data-akari-natural-duration$/iu.test(token[1])) hasNaturalDuration = true;
+      if (!/^data-(?:start|duration)$/iu.test(token[1])) continue;
+      if (preserveNaturalDuration && /^data-duration$/iu.test(token[1])) {
+        const value = token[0].match(/=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/u)?.slice(1).find(part => part !== undefined);
+        if (value !== undefined && Number.isFinite(Number(value)) && Number(value) > 0) duration = value;
+      }
+      let from = token.index;
+      while (from > 0 && /\s/u.test(attributes[from - 1])) from--;
+      removals.push([from, token.index + token[0].length]);
+    }
+    let changed = attributes;
+    for (const [from, to] of removals.reverse()) changed = changed.slice(0, from) + changed.slice(to);
+    if (preserveNaturalDuration && !hasNaturalDuration && duration !== null) changed += ` data-akari-natural-duration="${duration}"`;
+    return source.slice(0, start + nameEnd) + changed + source.slice(start + tag[0].length - 1);
+  }
+  throw new Error('HTML 断片のルート要素がありません');
+}
+
 /** category/id を優先し、bare id はカタログ内で一意な場合だけ解決する。 */
 export function findCatalogItem(catalog, ref) {
   if (typeof ref === 'string' && ref.includes('/')) {
@@ -132,6 +178,12 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
       child.on('close', code => resolveResult(code === 0));
     });
     if (cloned) {
+      try {
+        await normalizeCopiedFragments(dest, category);
+      } catch (error) {
+        await rm(dest, { recursive: true, force: true });
+        throw error;
+      }
       return dest;
     }
     // クロスボリューム等で -c が失敗したケース。部分的に書かれた dest を掃除してから
@@ -142,7 +194,39 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
   // COPYFILE_FICLONE（_FORCE ではない）: 対応 FS（APFS 等）では CoW クローンで実体化コピーを
   // 省略し、非対応環境では黙って通常コピーへフォールバックする（失敗しない）。
   await cp(realSourceDir, dest, { recursive: true, mode: constants.COPYFILE_FICLONE });
+  try {
+    await normalizeCopiedFragments(dest, category);
+  } catch (error) {
+    await rm(dest, { recursive: true, force: true });
+    throw error;
+  }
   return dest;
+}
+
+async function normalizeCopiedFragments(dest, category) {
+  if (category !== 'overlay' && category !== 'scene3d') return;
+  const files = ['fragment.html'];
+  const variants = path.join(dest, 'variants');
+  const variantInfo = await lstat(variants).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (variantInfo && !variantInfo.isDirectory()) throw new Error('variants が通常のディレクトリではありません');
+  for (const entry of variantInfo ? await readdir(variants) : []) {
+    if (entry.endsWith('.html')) files.push(path.join('variants', entry));
+  }
+  for (const file of files) {
+    const target = path.join(dest, file);
+    const info = await lstat(target).catch(error => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (info === null) continue;
+    if (!info.isFile()) throw new Error(`断片ファイルが通常のファイルではありません: ${file}`);
+    const source = await readFile(target, 'utf8');
+    const cleaned = withoutFragmentRootTiming(source, { preserveNaturalDuration: true });
+    if (cleaned !== source) await writeFile(target, cleaned);
+  }
 }
 
 async function moveIntoLibrary(tempDir, destDir) {
