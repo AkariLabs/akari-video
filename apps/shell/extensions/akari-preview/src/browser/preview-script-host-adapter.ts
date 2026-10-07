@@ -187,6 +187,7 @@ export function hostAdapterScript(): string {
             }
             window.akari.previewPlaybackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
             window.akari.state = { editPath: initial.editPath, summary: initial.summary, selectionFloor: initial.selectionFloor };
+            window.akari.capabilities = { ...(window.akari.capabilities || {}), elementSelection: true };
             window.akari.showWriteError = error => {
                 const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
                 writeErrorMessage.textContent = reason;
@@ -955,11 +956,12 @@ export function hostAdapterScript(): string {
                 vscode.postMessage({ type: 'akari-preview-expand-bag', bagId, requestId: ++bagExpansionRequest });
             };
             window.akari.isCurrentBagExpansion = requestId => requestId === bagExpansionRequest;
-            window.akari.reportOverlaySelection = (overlayId, scopeId, overlayIds) => {
+            window.akari.reportOverlaySelection = (overlayId, scopeId, overlayIds, element) => {
                 if (overlayId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId,
                     ...(scopeId !== undefined ? { scopeId } : {}),
-                    ...(overlayIds !== undefined ? { overlayIds } : {}) });
+                    ...(overlayIds !== undefined ? { overlayIds } : {}),
+                    element: element ? { ref: element.ref, label: element.label } : null });
             };
             window.akari.reportLayerSelection = layerId => {
                 if (layerId) selectedPrimary = null;

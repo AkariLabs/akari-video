@@ -1643,7 +1643,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }, { captions: command.captions });
                         return true;
                     }
-                    await this.commitEditMutation('プレビューで変形を変更', doc => {
+                    await this.commitEditMutation(!Array.isArray(command) && command.kind === 'overlay' && command.patch.element
+                        ? 'プレビューで要素を移動' : 'プレビューで変形を変更', doc => {
                         if (!Array.isArray(command) && command.kind === 'layer') {
                             const nested = writeNestedPreviewLayer(doc, command);
                             if (nested) return nested;
