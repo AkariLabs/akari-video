@@ -17,8 +17,15 @@ import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
+import { AkariRoughCanvasService, AKARI_ROUGH_CANVAS_SERVICE_PATH } from '../common/rough-canvas-protocol';
+import { RoughCanvasCommands } from './rough-canvas-commands';
 
 export default new ContainerModule(bind => {
+    bind(AkariRoughCanvasService).toDynamicValue(context =>
+        WebSocketConnectionProvider.createProxy(context.container, AKARI_ROUGH_CANVAS_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(RoughCanvasCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(RoughCanvasCommands);
     bind(AkariAnnotationsClientImpl).toSelf().inSingletonScope();
     bind(AkariAnnotationsService).toDynamicValue(context =>
         WebSocketConnectionProvider.createProxy(
