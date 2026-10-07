@@ -36,7 +36,7 @@ test('案内は17段で、実演の9段だけを数える', () => {
     assert.equal(state.step, 'done');
     assert.equal(state.completed, true);
     assert.deepEqual(createEmptyOnboardingEdit(), {
-        version: 2, output: { width: 1280, height: 720, fps: 30, geometry: 'source' }, sources: [], tracks: []
+        version: 2, output: { width: 1280, height: 720, fps: 30 }, sources: [], tracks: []
     });
 });
 

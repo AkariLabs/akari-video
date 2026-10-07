@@ -65,5 +65,5 @@ export function sortTimelineEditFileNames(names: readonly string[]): string[] {
 // v2 の語彙に meta はなく、packages/schemas/** は本タスクでは編集禁止のため出力しない。
 // 表示名は slug へフォールバックする。スキーマ拡張は別票で扱う。
 export function createTimelineEditContent(options: { width: number; height: number; fps?: number }): object {
-    return createEmptyEditV2(options);
+    return createEmptyEditV2({ ...options, geometry: 'omit' });
 }

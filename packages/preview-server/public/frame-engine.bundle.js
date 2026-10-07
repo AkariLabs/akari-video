@@ -9300,7 +9300,7 @@ var require_empty_edit_v2 = __commonJS({
           width: options.width ?? 1920,
           height: options.height ?? 1080,
           fps: options.fps ?? 30,
-          geometry: "source"
+          ...options.geometry === "omit" ? {} : { geometry: "source" }
         },
         sources: [],
         tracks: []

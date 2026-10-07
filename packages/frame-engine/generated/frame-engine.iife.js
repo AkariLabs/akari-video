@@ -9308,7 +9308,7 @@ ${indent}`);
             width: options.width ?? 1920,
             height: options.height ?? 1080,
             fps: options.fps ?? 30,
-            geometry: "source"
+            ...options.geometry === "omit" ? {} : { geometry: "source" }
           },
           sources: [],
           tracks: []

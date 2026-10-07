@@ -52,6 +52,25 @@ test('空の edit.json は退避後に新規 v2 として開け、原文へ戻�
   }
 });
 
+test('退避先への書き込み失敗では空の edit.json を初期化しない', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-backup-failure-'));
+  const editPath = join(root, 'edit.json');
+  const text = '{}\n';
+  try {
+    await writeFile(editPath, text);
+    await mkdir(join(root, '.akari'));
+    await writeFile(join(root, '.akari', 'backup'), 'directory-blocker');
+    const proposal = planMigration(root, editPath, text);
+    assert.equal(proposal.emptyProject, true);
+    await assert.rejects(applyMigration(proposal), error =>
+      error.code === 'ENOTDIR' || error.code === 'EEXIST');
+    assert.equal(await readFile(editPath, 'utf8'), text);
+    assert.equal(await readFile(join(root, '.akari', 'backup'), 'utf8'), 'directory-blocker');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('中身のある version 不在は曖昧な形式として止め、v0/v1 は従来どおり変換する', () => {
   for (const raw of [{ output: {} }, { sources: [] }]) {
     const proposal = planMigration('/project', '/project/edit.json', JSON.stringify(raw));

@@ -4,4 +4,5 @@ export declare function createEmptyEditV2(options?: {
     width?: number;
     height?: number;
     fps?: number;
+    geometry?: 'source' | 'omit';
 }): EditV2;

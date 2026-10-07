@@ -164,7 +164,7 @@ export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): Trans
 }
 
 export function createEmptyOnboardingEdit(): object {
-    return createEmptyEditV2({ width: 1280, height: 720 });
+    return createEmptyEditV2({ width: 1280, height: 720, geometry: 'omit' });
 }
 
 export function createOnboardingEdit(samplePath: string, withTitle = false): object {
