@@ -1,6 +1,6 @@
 import * as React from '@theia/core/shared/react';
 import { ApplicationShell } from '@theia/core/lib/browser';
-import { Command, CommandContribution, CommandRegistry, CommandService, DisposableCollection, Emitter } from '@theia/core/lib/common';
+import { Command, CommandContribution, CommandRegistry, CommandService, DisposableCollection, Emitter, MessageService } from '@theia/core/lib/common';
 import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariExportAvailabilityService } from './akari-export-availability-service';
@@ -14,6 +14,7 @@ export const OPEN_EXPORT_DIALOG: Command = { id: 'akari.export.openDialog', labe
 export class AkariExportToolbarContribution implements CommandContribution, TabBarToolbarContribution {
     @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
     @inject(CommandService) protected readonly commands!: CommandService;
+    @inject(MessageService) protected readonly messages!: MessageService;
     @inject(AkariExportAvailabilityService) protected readonly availability!: AkariExportAvailabilityService;
     @inject(AkariExportSessionService) protected readonly exportSession!: AkariExportSessionService;
     @inject(AkariExportDialog) protected readonly exportDialog!: AkariExportDialog;
@@ -34,7 +35,11 @@ export class AkariExportToolbarContribution implements CommandContribution, TabB
 
     protected async openExportDialog(): Promise<void> {
         const availability = await this.availability.refresh();
-        if (!this.exportSession.running && exportUnavailableReason(availability)) return;
+        const reason = exportUnavailableReason(availability);
+        if (!this.exportSession.running && reason) {
+            this.messages.info(reason);
+            return;
+        }
         await this.exportSession.prepareCurrentProject();
         void this.exportDialog.open(false);
     }

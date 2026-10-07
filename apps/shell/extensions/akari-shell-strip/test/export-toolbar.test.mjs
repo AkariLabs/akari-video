@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { EDIT_JSON_MISSING_TOOLTIP, exportToolbarState } from '../lib/common/export-toolbar-state.js';
+import { EDIT_JSON_MISSING_TOOLTIP, exportToolbarState, exportUnavailableReason } from '../lib/common/export-toolbar-state.js';
 
 const source = ts.createSourceFile('export-toolbar.ts', readFileSync(new URL(
     '../src/browser/akari-export-toolbar-contribution.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -16,16 +16,17 @@ const controller = (...names) => {
     const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
     return new Function('React', 'OPEN_EXPORT_DIALOG', 'exportToolbarState',
         'exportUnavailableReason', `${code}\nreturn Controller;`)(React, { id: 'akari.export.openDialog', label: '書き出し…' },
-        exportToolbarState, value => value.selectedEditName !== 'edit.json' ? '別タイムライン' :
-            value.exists ? undefined : EDIT_JSON_MISSING_TOOLTIP);
+        exportToolbarState, exportUnavailableReason);
 };
 
 test('書き出しコマンドは対象が無ければ止まり、対象があれば準備後に一度だけ開く', async () => {
     const Controller = controller('registerCommands', 'openExportDialog');
     const calls = [];
+    const notices = [];
     const state = { workspaceOpened: true, exists: false, selectedEditName: 'edit.json' };
     const instance = Object.assign(new Controller(), {
         availability: { refresh: async () => state },
+        messages: { info: message => notices.push(message) },
         exportSession: { running: false, prepareCurrentProject: async () => calls.push('prepare') },
         exportDialog: { open: value => calls.push(['open', value]) }
     });
@@ -35,16 +36,22 @@ test('書き出しコマンドは対象が無ければ止まり、対象があ�
     assert.equal(command.definition.label, '書き出し…');
     await command.handler.execute();
     assert.deepEqual(calls, []);
+    assert.deepEqual(notices, [exportUnavailableReason(state)]);
+    notices.length = 0;
     state.exists = true;
     await command.handler.execute();
     assert.deepEqual(calls, ['prepare', ['open', false]]);
+    assert.deepEqual(notices, []);
     calls.length = 0;
     state.selectedEditName = 'edit.v2.json';
     await command.handler.execute();
     assert.deepEqual(calls, []);
+    assert.deepEqual(notices, [exportUnavailableReason(state)]);
+    notices.length = 0;
     instance.exportSession.running = true;
     await command.handler.execute();
     assert.deepEqual(calls, ['prepare', ['open', false]]);
+    assert.deepEqual(notices, []);
 });
 
 test('帯の表示は通常・無効・書き出し中を共有状態から決める', () => {
