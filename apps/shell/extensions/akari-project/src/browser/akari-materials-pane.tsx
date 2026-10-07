@@ -23,7 +23,7 @@ import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { applyMaterialViewPatch, DEFAULT_MATERIAL_VIEW, filterMaterials, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
-import { materialCardLayout } from '../common/material-card-layout';
+import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
@@ -46,6 +46,8 @@ export interface MaterialCardEntry {
     kind: MaterialKind;
     analyzed: boolean;
     durationSeconds?: number;
+    createdAt?: string;
+    importedAt?: string;
     thumbnailUri?: URI;
     /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
     analysisRelativePath?: string;
@@ -110,7 +112,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'materialMeta' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -232,6 +234,7 @@ export class AkariMaterialsPane {
         this.materialsLoadedOnce = true;
         this.host.update();
         void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
+        void this.hydrateMaterialMeta(root, generation, [...materials, ...unorganizedMaterials]);
     }
 
     /**
@@ -436,6 +439,22 @@ export class AkariMaterialsPane {
             entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
             this.host.update();
         }));
+    }
+
+    protected async hydrateMaterialMeta(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
+        const candidates = entries.filter(entry => !entry.assetGroup && !entry.reference);
+        if (candidates.length === 0) return;
+        try {
+            const metadata = await this.host.projectService.materialMeta(root.toString(), candidates.map(entry => entry.relativePath));
+            if (generation !== this.materialsGeneration) return;
+            for (const entry of candidates) {
+                const meta = metadata[entry.relativePath];
+                if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+            }
+            this.host.update();
+        } catch {
+            // Metadata is supplemental; keep the visible material list on failure.
+        }
     }
 
     // --- ライブ反映（assets/ とルート直下の watch） ---------------------------
@@ -1098,7 +1117,7 @@ export class AkariMaterialsPane {
                             {entry.name}
                         </span>
                         <span style={{ flex: '0 0 auto', fontSize: '0.55em', whiteSpace: 'nowrap' }}>
-                            {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
+                            {entry.durationSeconds !== undefined ? formatDurationBadge(entry.durationSeconds) : '--:--'}
                         </span>
                     </div>
                 </div>
@@ -1166,7 +1185,8 @@ export class AkariMaterialsPane {
         try {
             await this.host.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
                 relativePath: entry.mediaRelativePath ?? entry.relativePath,
-                kind: entry.kind
+                kind: entry.kind,
+                ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
             });
         } catch {
             this.host.messages.error('タイムライン機能の更新が必要です。');

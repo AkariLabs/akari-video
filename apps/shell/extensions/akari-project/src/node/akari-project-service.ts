@@ -40,6 +40,7 @@ import {
     DroppedVideoImportResult,
     EditLintOutcome,
     MaterialThumbnailOutcome,
+    MaterialMetaEntry,
     PresetShowcase,
     PresetShowcaseKind,
     ProjectCardThumbnailsOutcome,
@@ -51,6 +52,7 @@ import {
 } from '../common/akari-project-protocol';
 import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
+import { MaterialMetaReader } from './material-meta';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
     deriveEditTimelineSamples,
@@ -198,6 +200,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
+    protected readonly materialMetaReader = new MaterialMetaReader({ ffprobePath: () => this.resolveFfprobePath() });
     /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
@@ -1865,6 +1868,10 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             .finally(() => this.thumbnailGenerationInFlight.delete(cachePath));
         this.thumbnailGenerationInFlight.set(cachePath, generation);
         return generation;
+    }
+
+    async materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>> {
+        return this.materialMetaReader.read(this.fsPath(projectUri), relativePaths);
     }
 
     protected async generateThumbnail(
