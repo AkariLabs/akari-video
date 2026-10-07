@@ -187,3 +187,42 @@ test('音声の知らせは映像領域に重ね、出入りしても映像と�
         }
     } finally { await browser.close(); }
 });
+
+test('音声の知らせはライト・ダーク両方で背景が半透明になり、文字はテーマ前景色になる', async t => {
+    const rowStyle = bootstrap.match(/statusRow\.style\.cssText = '([^']+)'/u)?.[1];
+    const statusStyle = bootstrap.match(/audioStatus\.style\.cssText = '([^']+)'/u)?.[1];
+    assert.ok(rowStyle && statusStyle);
+    assert.match(rowStyle, /background:color-mix\(in srgb, var\(--akari-transport-bg\) 60%, transparent\)/u);
+    let browser;
+    try { browser = await launchBrowser(); }
+    catch (error) {
+        if (error?.message !== 'headless Chrome が見つかりません') throw error;
+        t.skip('headless Chrome 不在'); return;
+    }
+    try {
+        const page = await browser.newPage();
+        for (const theme of [
+            { name: 'light', background: '#f2f2f2', foreground: 'rgb(36, 36, 36)' },
+            { name: 'dark', background: '#242424', foreground: 'rgb(241, 241, 241)' }
+        ]) {
+            const foreground = theme.name === 'light' ? '#242424' : '#f1f1f1';
+            await page.setContent(`<style>:root{--akari-transport-bg:${theme.background};--akari-transport-fg:${foreground}}</style>
+                <div style="position:relative;width:300px;margin-top:40px"><div id="status-row" style="${rowStyle}">
+                <span id="audio-status" style="${statusStyle}" title="音声を準備中 1/2">音声を準備中 1/2</span></div></div>`);
+            const actual = await page.evaluate(() => {
+                const row = document.querySelector('#status-row');
+                const status = document.querySelector('#audio-status');
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = 1;
+                const context = canvas.getContext('2d');
+                context.fillStyle = getComputedStyle(row).backgroundColor;
+                context.fillRect(0, 0, 1, 1);
+                return { alpha: context.getImageData(0, 0, 1, 1).data[3] / 255,
+                    color: getComputedStyle(status).color, title: status.title };
+            });
+            assert.ok(actual.alpha > 0 && actual.alpha < 1, `${theme.name}: alpha ${actual.alpha}`);
+            assert.equal(actual.color, theme.foreground, theme.name);
+            assert.equal(actual.title, '音声を準備中 1/2');
+        }
+    } finally { await browser.close(); }
+});

@@ -283,8 +283,8 @@ export function previewBootstrapScript(): string {
                 transport.style.position = 'relative';
                 const statusRow = document.createElement('div');
                 statusRow.className = 'transport-audio-status';
-                statusRow.style.cssText = 'position:absolute;left:0;right:0;bottom:100%;box-sizing:border-box;min-width:0;padding:3px 10px;background:var(--akari-transport-bg);z-index:4';
-                audioStatus.style.cssText = 'display:block;max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+                statusRow.style.cssText = 'position:absolute;left:0;right:0;bottom:100%;box-sizing:border-box;min-width:0;padding:3px 10px;background:color-mix(in srgb, var(--akari-transport-bg) 60%, transparent);z-index:4';
+                audioStatus.style.cssText = 'display:block;max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--akari-transport-fg);text-shadow:0 1px 1px rgba(0,0,0,.2)';
                 transport.append(statusRow);
                 statusRow.append(audioStatus);
                 const syncAudioStatus = () => {
