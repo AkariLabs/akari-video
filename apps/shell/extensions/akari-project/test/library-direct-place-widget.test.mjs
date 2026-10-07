@@ -109,9 +109,11 @@ test('フォントはかける payload でドラッグでき、未購入は促�
     const { handler } = fixture();
     let raw;
     const event = { dataTransfer: { setData: (_mime, value) => { raw = value; } }, preventDefault: () => assert.fail('フォントはドラッグできる') };
-    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku（日本語）' });
+    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku（日本語）',
+        fontAvailability: { status: 'available', family: 'Zen Kaku' } });
     assert.deepEqual(JSON.parse(raw), { kind: 'font', id: 'zen', fontFamily: 'Zen Kaku', key: 'font/zen' });
-    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku', state: 'locked' });
+    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku', state: 'locked',
+        fontAvailability: { status: 'available', family: 'Zen Kaku' } });
     assert.equal(JSON.parse(raw).locked, true);
 });
 

@@ -247,6 +247,7 @@ import {
     timelineDurationSeconds
 } from '../common/edit-store';
 import { materialOverlapInsertIndex } from '../common/material-drop-overlap';
+import { voiceAudioPatch, type VoiceAudioOptions } from '../common/voice-audio-patch';
 import { emptyFrameTransform } from './inspector/frame-geometry';
 import {
     EditV2Document,
@@ -1843,7 +1844,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
         this.configureIconButton(this.voiceRecordButton, 'codicon-mic', 'アフレコ', 'アフレコ（マイクで録る）');
         Object.assign(this.voiceRecordButton.style, { flexShrink: '0', marginLeft: 'auto' });
-        this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record'));
+        this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record',
+            { editUri: this.location?.editUri?.toString() }));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', '自動で詰める', '自動で詰める');
@@ -6630,13 +6632,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
         transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false,
-        knownSourceWidth?: number): Promise<string | undefined> {
+        knownSourceWidth?: number, voiceTrack?: boolean,
+        audio?: VoiceAudioOptions): Promise<string | undefined> {
         if (!Number.isFinite(t)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return undefined;
         }
         if (kind === 'audio') {
-            return this.addMaterialAt(relativePath, kind, t, 0);
+            return this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: voiceTrack, voiceTrack, audio });
         }
         if (kind !== 'image' && kind !== 'video') return undefined;
         const outputWidth = (this.editDocument?.output as { width?: number } | undefined)?.width;
@@ -6828,6 +6831,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         options?: {
             durationSeconds?: number; insertTrack?: number; insertIndex?: number;
             zone?: MaterialDropZone; createAudioTrack?: boolean; voiceTrack?: boolean; targetTrackId?: string;
+            audio?: VoiceAudioOptions;
             transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
             outsideCanvas?: boolean; canvasAware?: boolean; canvasId?: string;
         }
@@ -7008,6 +7012,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     } else if ('reason' in measured) {
                         autoLevelNotice = `自動レベルを適用できませんでした（${measured.reason}）。gain は手動で調整してください`;
                     }
+                }
+                if (insertedV2Item && options?.audio) {
+                    value = updateV2Item(value, { itemId, patch: voiceAudioPatch(options.audio, durationSeconds, this.fps) });
                 }
                 editAfter ??= stringifyEditV2(value);
                 await this.writeTimelineSnapshots(editAfter);

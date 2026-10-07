@@ -19,12 +19,21 @@ export interface EarUtterance { // 1 発話
     final: boolean;
     applied: Array<{ from: string; to: string; layer: 'builtin' | 'user'; id: string }>;
     t: number; // 開始からの経過秒
+    kind?: 'speech' | 'command';
+    confidence?: number;
 }
+
+export interface EarSegment { t0: number; t1: number; text: string; kind: 'speech' | 'command'; confidence?: number }
+export interface EarTranscript { engine: 'speech-analyzer' | 'whisper' | 'typed'; locale: string; openedRecT: number; segments: EarSegment[] }
+export type RoughCanvasEarEvent = { type: 'roughCanvas.opened' | 'roughCanvas.closed'; canvasId: string; at: number };
 
 export interface AkariEarService {
     getCapabilities(): Promise<{ engines: Array<{ id: EarEngineId; available: boolean; reason?: string }> }>;
     start(options: { purpose: EarPurpose; engine?: EarEngineId }): Promise<EarStatus>;
     stop(): Promise<EarStatus>;
+    notifyRoughCanvas(event: RoughCanvasEarEvent): Promise<void>;
+    takeTranscript(canvasId: string): Promise<EarTranscript | undefined>;
+    appendAudio(chunk: Uint8Array): Promise<void>;
     setClient(client: AkariEarClient | undefined): void;
 }
 

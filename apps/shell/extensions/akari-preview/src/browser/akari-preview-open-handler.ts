@@ -1824,6 +1824,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, uri, 'output', widget.akariPreviewLastKnownTime, true);
             }
         });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.refreshFontAssets' }, {
+            execute: (request?: { editUri?: string }) => this.refreshFontAssets(request)
+        });
         this.commandRegistry.registerCommand({ id: 'akari.preview.measureOverlayBox' }, {
             execute: (request: { editUri?: string; fragment?: string;
                 relativePath?: string; vars?: Record<string, string | number | boolean> }) => this.measureOverlayBox(request)
@@ -3957,6 +3960,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     // 資産は URL で受ける（OverlayRuntimeAssetUrls）。本文を RPC で運んで HTML に埋めていた頃は
     // 開くたびに約 15 MB の setHTML になっていた（task/2026-09-02-preview-perf）。
+    protected refreshFontAssets(request?: { editUri?: string }): void {
+        // フォントの取得後だけ静的アセットを読み直す。通常のプレビュー更新は従来のキャッシュを使う。
+        this.overlayRuntimeAssetsPromise = undefined;
+        this.frameEngineOverlayRuntimeAssetsPromise = undefined;
+        if (!request?.editUri) return;
+        const uri = new URI(request.editUri).normalizePath();
+        const widget = this.openOutputPreviews.get(uri.toString());
+        if (widget && !widget.isDisposed && widget.akariPreviewConfigured) {
+            this.queueRefresh(widget, uri, 'output', widget.akariPreviewLastKnownTime, true);
+        }
+    }
+
     protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssetUrls> {
         if (includeFrameEngine) {
             if (!this.frameEngineOverlayRuntimeAssetsPromise) {

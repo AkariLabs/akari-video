@@ -25,10 +25,17 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
     </span>;
     const actions = <span style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: '0 0 auto' }}>
         {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り' />}
+        <small data-akari-font-status style={{ whiteSpace: 'nowrap', fontSize: '10px', opacity: 0.8 }}>
+            {card.availability?.status === 'available' ? '使える'
+                : card.availability?.status === 'download' ? '↓ ダウンロード'
+                    : card.availability?.status === 'source' ? '入手が必要'
+                        : card.availability?.status === 'failed' ? '確認できません' : '確認中'}
+        </small>
         <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
     </span>;
     return <div role='button' tabIndex={0} draggable data-akari-library-card='list'
         data-akari-font-card={item.id} data-akari-catalog-item={item.key}
+        data-akari-font-availability={card.availability?.status}
         data-akari-font-preview-path={fontPreviewPath(item.id)}
         data-akari-favorite={card.favorite ? 'true' : undefined}
         aria-label={item.title} title={item.title}
@@ -40,7 +47,8 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
         style={{ display: 'flex', flexDirection: faceFamily ? 'row' : 'column',
             alignItems: faceFamily ? 'center' : 'stretch', gap: faceFamily ? '9px' : '5px', padding: '7px 8px', minWidth: 0,
             borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
-            color: AKARI_INK, border: AKARI_BORDER.ghost, cursor: 'grab' }}>
+            color: AKARI_INK, border: AKARI_BORDER.ghost, cursor: 'grab',
+            opacity: card.availability?.status === 'available' ? 1 : 0.65 }}>
         {faceFamily ? <>{name}{actions}</> : <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>{name}{actions}</div>
             <div data-akari-font-preview style={{ width: '100%', height: '44px', overflow: 'hidden',

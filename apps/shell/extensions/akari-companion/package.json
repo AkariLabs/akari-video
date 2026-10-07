@@ -9,6 +9,7 @@
     { "backend": "lib/node/akari-companion-backend-module" }
   ],
   "scripts": {
+    "gen:jev": "node scripts/gen-jev-actions.mjs",
     "build": "tsc -b",
     "clean": "rimraf lib",
     "test": "tsc -b && node --test test/*.test.mjs"

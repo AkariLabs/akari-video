@@ -235,6 +235,7 @@ export class PreviewContextBar implements Disposable {
         this.pop.addEventListener('pointerdown', event => this.onLayerPointerDown(event));
         const resize = new ResizeObserver(() => { this.barSignature = ''; this.render(); });
         resize.observe(this.host.node);
+        resize.observe(this.bar);
         this.toDispose.push(Disposable.create(() => resize.disconnect()));
         void this.commands.executeCommand<unknown>(GET_STATE_COMMAND).then(state => this.setState(state), () => undefined);
         this.render();

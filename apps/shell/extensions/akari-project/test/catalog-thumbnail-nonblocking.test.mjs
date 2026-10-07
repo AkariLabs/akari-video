@@ -141,7 +141,7 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
         ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
     assert.ok(widgetClass);
-    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling'].map(name => {
+    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling', 'stopFontAvailabilityPolling'].map(name => {
         const member = widgetClass.members.find(node => node.name?.getText(widgetSource) === name);
         assert.ok(member, `missing ${name}`);
         return member.getText(widgetSource);
@@ -197,7 +197,7 @@ test('disposing the shelf clears its poll timer and invalidates an already queue
     const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
     const init = widgetClass?.members.find(node => node.name?.getText(widgetSource) === 'init');
     assert.match(init?.getText(widgetSource) ?? '', /this\.registerCatalogThumbnailPollingCleanup\(\)/);
-    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling',
+    const members = ['loadAssetCatalogView', 'pollLibraryThumbnails', 'stopCatalogThumbnailPolling', 'stopFontAvailabilityPolling',
         'registerCatalogThumbnailPollingCleanup'].map(name => {
         const member = widgetClass.members.find(node => node.name?.getText(widgetSource) === name);
         assert.ok(member, `missing ${name}`);
@@ -247,7 +247,7 @@ test('hiding the widget or leaving the catalog also stops polling', () => {
         readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'),
         ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const widgetClass = widgetSource.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-    const members = ['onAfterHide', 'selectTopView', 'stopCatalogThumbnailPolling'].map(name => {
+    const members = ['onAfterHide', 'selectTopView', 'stopCatalogThumbnailPolling', 'stopFontAvailabilityPolling'].map(name => {
         const member = widgetClass?.members.find(node => node.name?.getText(widgetSource) === name);
         assert.ok(member, `missing ${name}`);
         return member.getText(widgetSource);

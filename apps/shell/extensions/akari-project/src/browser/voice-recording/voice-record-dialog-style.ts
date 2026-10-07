@@ -14,6 +14,10 @@ export function ensureVoiceRecordDialogStyle(): void {
 .akari-voice-record-dialog-host .voice-header { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #303030; font-size:16px; font-weight:700; cursor:move; }
 .akari-voice-record-dialog-host .voice-close-x { width:28px; height:28px; border:0; background:transparent; color:var(--akari-ink,#e5e5e5); font-size:20px; cursor:pointer; }
 .akari-voice-record-dialog-host .voice-body { padding:18px; }
+.akari-voice-record-dialog-host .voice-script { margin-bottom:14px; padding:12px; border:1px solid #393939; border-radius:9px; }
+.akari-voice-record-dialog-host .voice-script strong { display:block; margin-bottom:6px; }
+.akari-voice-record-dialog-host .voice-script-text { max-height:9.6em; overflow-y:auto; white-space:pre-wrap; font-size:14px; line-height:1.6; }
+.akari-voice-record-dialog-host .voice-script small { display:block; margin-top:7px; color:#aaa; }
 .akari-voice-record-dialog-host .voice-card { display:flex; align-items:center; gap:18px; padding:14px; border:1px solid #333; border-radius:11px; background:var(--akari-bg,#0a0a0a); }
 .akari-voice-record-dialog-host .voice-record { width:72px; height:72px; border-radius:50%; border:0; background:#e24444; color:white; display:grid; place-items:center; cursor:pointer; flex:none; box-shadow:0 0 0 5px rgba(226,68,68,.12); }
 .akari-voice-record-dialog-host .voice-record:disabled { opacity:.45; cursor:default; }
@@ -35,9 +39,9 @@ export function ensureVoiceRecordDialogStyle(): void {
 .akari-voice-record-dialog-host .voice-gain input[type=range] { flex:1; accent-color:var(--akari-accent,#f97316); }
 .akari-voice-record-dialog-host .voice-gain-number { width:62px; }
 .akari-voice-record-dialog-host .voice-options { border-top:1px solid #303030; padding:12px 18px 2px; }
-.akari-voice-record-dialog-host .voice-option { display:flex; gap:8px; opacity:.45; margin-bottom:14px; }
+.akari-voice-record-dialog-host .voice-option { display:flex; gap:8px; margin-bottom:14px; }
+.akari-voice-record-dialog-host .voice-option:has(input:disabled) { opacity:.45; }
 .akari-voice-record-dialog-host .voice-option small { display:block; color:#aaa; margin-top:2px; }
-.akari-voice-record-dialog-host .voice-soon { margin-left:auto; border:1px solid #777; border-radius:10px; padding:0 5px; height:17px; font-size:10px; white-space:nowrap; }
 .akari-voice-record-dialog-host .voice-footer { border-top:1px solid #303030; padding:12px 18px; text-align:right; }
 .akari-voice-record-dialog-host .voice-footer button { padding:7px 18px; border:1px solid #555; border-radius:7px; background:#282828; color:var(--akari-ink,#e5e5e5); cursor:pointer; }
 `;

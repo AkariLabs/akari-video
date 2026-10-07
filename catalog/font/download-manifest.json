@@ -1,0 +1,174 @@
+{
+  "commit": "7085eb89a950e85db5b166b7a58d414544b4140c",
+  "fonts": {
+    "biz-udgothic": {
+      "family": "BIZ UDGothic",
+      "file": "BIZUDGothic-Regular.ttf",
+      "bytes": 4667376,
+      "sha256": "709fcd41e3209fb765da750472f55ccdf925653e9fa7e1eb007cb65c8f749c75",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/bizudgothic/BIZUDGothic-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4408,
+        "sha256": "e753d7155d53c747d037a445e584c8ecfca6dd79846db610417e282a736b28bc",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/bizudgothic/OFL.txt"
+      }
+    },
+    "dela-gothic-one": {
+      "family": "Dela Gothic One",
+      "file": "DelaGothicOne-Regular.ttf",
+      "bytes": 2508848,
+      "sha256": "4ff87a0965f1b0505e5a2c58424bc6ad3cff27e56a82f21c2fc9d6b0e3857ee2",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/delagothicone/DelaGothicOne-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4392,
+        "sha256": "c0014792d4f4abc0508c295b277f2b17ae44465c8dc88d12af9cea48279b5fda",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/delagothicone/OFL.txt"
+      }
+    },
+    "dotgothic16": {
+      "family": "DotGothic16",
+      "file": "DotGothic16-Regular.ttf",
+      "bytes": 2069236,
+      "sha256": "3ad9af88726d42b40f7f365f0dcac785af73cf20ea6f1d5b44e57cc21150b8f1",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/dotgothic16/DotGothic16-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4492,
+        "sha256": "b6630c61ea078cacd7fabe37d14ffe557a0b45b06683374a9aa9e24262993e33",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/dotgothic16/OFL.txt"
+      }
+    },
+    "klee-one": {
+      "family": "Klee One",
+      "file": "KleeOne-Regular.ttf",
+      "bytes": 8724204,
+      "sha256": "bf4063f030cc2ae6adf0a11424a1888e5c0eb4438f1f6d02f52294af868e9b3a",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/kleeone/KleeOne-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4479,
+        "sha256": "e376b0df8e8a2345a9533db6f0a5333a1107975569ad9d1973a7ee557161ca38",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/kleeone/OFL.txt"
+      }
+    },
+    "mplus-1p": {
+      "family": "M PLUS 1p",
+      "file": "MPLUS1p-Regular.ttf",
+      "bytes": 1758688,
+      "sha256": "2f294ad496432b1608f070d310e3aa2adcf1de4af429f4901df97ec4bd361ed1",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/mplus1p/MPLUS1p-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4389,
+        "sha256": "da15da6b1496d4de18f97e2ad1b722ef8a1c121149c2c93b2cf7eac6ac27b35c",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/mplus1p/OFL.txt"
+      }
+    },
+    "mplus-rounded-1c": {
+      "family": "M PLUS Rounded 1c",
+      "file": "MPLUSRounded1c-Regular.ttf",
+      "bytes": 3389792,
+      "sha256": "b75708b53e45b06d17d470aeeca5b766e3d1b3999f03f13ec4eb863ca846c14c",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/mplusrounded1c/MPLUSRounded1c-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4351,
+        "sha256": "7de73e85e8fd2858f8d44936a6c9c498512daaa7b26332a5279034469324cea0",
+        "text": "Copyright 2016 The Rounded M+ Project Authors.\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.\nThis license is copied below, and is also available with a FAQ at:\nhttps://scripts.sil.org/OFL\n\n\n-----------------------------------------------------------\nSIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\n-----------------------------------------------------------\n\nPREAMBLE\nThe goals of the Open Font License (OFL) are to stimulate worldwide\ndevelopment of collaborative font projects, to support the font creation\nefforts of academic and linguistic communities, and to provide a free and\nopen framework in which fonts may be shared and improved in partnership\nwith others.\n\nThe OFL allows the licensed fonts to be used, studied, modified and\nredistributed freely as long as they are not sold by themselves. The\nfonts, including any derivative works, can be bundled, embedded, \nredistributed and/or sold with any software provided that any reserved\nnames are not used by derivative works. The fonts and derivatives,\nhowever, cannot be released under any other type of license. The\nrequirement for fonts to remain under this license does not apply\nto any document created using the fonts or their derivatives.\n\nDEFINITIONS\n\"Font Software\" refers to the set of files released by the Copyright\nHolder(s) under this license and clearly marked as such. This may\ninclude source files, build scripts and documentation.\n\n\"Reserved Font Name\" refers to any names specified as such after the\ncopyright statement(s).\n\n\"Original Version\" refers to the collection of Font Software components as\ndistributed by the Copyright Holder(s).\n\n\"Modified Version\" refers to any derivative made by adding to, deleting,\nor substituting -- in part or in whole -- any of the components of the\nOriginal Version, by changing formats or by porting the Font Software to a\nnew environment.\n\n\"Author\" refers to any designer, engineer, programmer, technical\nwriter or other person who contributed to the Font Software.\n\nPERMISSION & CONDITIONS\nPermission is hereby granted, free of charge, to any person obtaining\na copy of the Font Software, to use, study, copy, merge, embed, modify,\nredistribute, and sell modified and unmodified copies of the Font\nSoftware, subject to the following conditions:\n\n1) Neither the Font Software nor any of its individual components,\nin Original or Modified Versions, may be sold by itself.\n\n2) Original or Modified Versions of the Font Software may be bundled,\nredistributed and/or sold with any software, provided that each copy\ncontains the above copyright notice and this license. These can be\nincluded either as stand-alone text files, human-readable headers or\nin the appropriate machine-readable metadata fields within text or\nbinary files as long as those fields can be easily viewed by the user.\n\n3) No Modified Version of the Font Software may use the Reserved Font\nName(s) unless explicit written permission is granted by the corresponding\nCopyright Holder. This restriction only applies to the primary font name as\npresented to the users.\n\n4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font\nSoftware shall not be used to promote, endorse or advertise any\nModified Version, except to acknowledge the contribution(s) of the\nCopyright Holder(s) and the Author(s) or with their explicit written\npermission.\n\n5) The Font Software, modified or unmodified, in part or in whole,\nmust be distributed entirely under this license, and must not be\ndistributed under any other license. The requirement for fonts to\nremain under this license does not apply to any document created\nusing the Font Software.\n\nTERMINATION\nThis license becomes null and void if any of the above conditions are\nnot met.\n\nDISCLAIMER\nTHE FONT SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT\nOF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE\nCOPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nINCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL\nDAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM\nOTHER DEALINGS IN THE FONT SOFTWARE.\n"
+      }
+    },
+    "noto-sans-jp": {
+      "family": "Noto Sans JP",
+      "file": "NotoSansJP[wght].ttf",
+      "bytes": 9589900,
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4388,
+        "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/notosansjp/OFL.txt"
+      }
+    },
+    "noto-serif-jp": {
+      "family": "Noto Serif JP",
+      "file": "NotoSerifJP[wght].ttf",
+      "bytes": 13574352,
+      "sha256": "2fd527ba12b6a44ec30d796d633360da0aeba6c5d4af1304ce12bb4dc15a7dfc",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/notoserifjp/NotoSerifJP%5Bwght%5D.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4350,
+        "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/notoserifjp/OFL.txt"
+      }
+    },
+    "reggae-one": {
+      "family": "Reggae One",
+      "file": "ReggaeOne-Regular.ttf",
+      "bytes": 2153256,
+      "sha256": "aebe62598732d76036f30ec11bb0ec5f68938e373a06d1b4ceb6b9cf1abf3db2",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/reggaeone/ReggaeOne-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4483,
+        "sha256": "2756c3dcd85ad997b742330f91332fb478afad302708d4149f7bcd4600543ce2",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/reggaeone/OFL.txt"
+      }
+    },
+    "rocknroll-one": {
+      "family": "RocknRoll One",
+      "file": "RocknRollOne-Regular.ttf",
+      "bytes": 2682824,
+      "sha256": "dc0f5ff975851827f63f2c6bfed128ffbca14b6399a10fb5e1711215c0108526",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/rocknrollone/RocknRollOne-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4488,
+        "sha256": "b2f42a005a6a48ead81e369021e300184f0cbecb48aee6f831e46c7897f6055b",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/rocknrollone/OFL.txt"
+      }
+    },
+    "shippori-mincho": {
+      "family": "Shippori Mincho",
+      "file": "ShipporiMincho-Regular.ttf",
+      "bytes": 8677284,
+      "sha256": "769b5269f0f9bc6534b352c0e6bd856a566e03ff788f107191c2d835863570b2",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/shipporimincho/ShipporiMincho-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4399,
+        "sha256": "41fba056279be5f45ff9a99e44b7b53897b42732f5806d8e666e0ab49ac6bd38",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/shipporimincho/OFL.txt"
+      }
+    },
+    "zen-kaku-gothic-new": {
+      "family": "Zen Kaku Gothic New",
+      "file": "ZenKakuGothicNew-Regular.ttf",
+      "bytes": 2360248,
+      "sha256": "b840cd07a67d89cacca44249ae49aa99ee7640eb5ce623be8d8983d6aabac801",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/zenkakugothicnew/ZenKakuGothicNew-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4401,
+        "sha256": "0fac78a235c98d640cb06332eb5362c211d86fa03c011df438c35005d22ad2c7",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/zenkakugothicnew/OFL.txt"
+      }
+    },
+    "zen-maru-gothic": {
+      "family": "Zen Maru Gothic",
+      "file": "ZenMaruGothic-Regular.ttf",
+      "bytes": 3832756,
+      "sha256": "a0c0b53543e0993ae2225e629c833f3d51495ad31720694ff112ce4ce11111ef",
+      "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/zenmarugothic/ZenMaruGothic-Regular.ttf",
+      "ofl": {
+        "file": "OFL.txt",
+        "bytes": 4402,
+        "sha256": "2a20cf7ce1909d8ee1e949095d340f7d7656705f7c810a2d6faf56800ad0cb3d",
+        "url": "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl/zenmarugothic/OFL.txt"
+      }
+    }
+  }
+}

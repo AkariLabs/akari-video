@@ -2,6 +2,7 @@
   "id": "vdl-v7-mincho",
   "category": "font",
   "title": "VDL V7明朝",
+  "aliases": ["VDL V7明朝","VDL V7 Mincho"],
   "description": "視覚デザイン研究所（VDL）の映像テロップ定番明朝。有料書体のため索引のみ（購入者の環境でのみ fontFamily 参照が効く）。",
   "when_to_use": "上質・情緒系の基本テロップや語りの字幕に（所持環境限定）",
   "tags": [

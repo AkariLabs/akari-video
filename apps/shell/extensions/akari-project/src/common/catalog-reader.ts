@@ -24,6 +24,7 @@ export interface CatalogItemMeta {
     id: string;
     category: string;
     title: string;
+    aliases?: string[];
     description?: string;
     tags?: string[];
     when_to_use?: string;
@@ -151,6 +152,7 @@ export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
         id,
         category,
         title,
+        ...(Array.isArray(parsed.aliases) ? { aliases: parsed.aliases.filter((alias): alias is string => typeof alias === 'string' && !!alias.trim()) } : {}),
         description: typeof parsed.description === 'string' ? parsed.description : undefined,
         tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
         when_to_use: typeof parsed.when_to_use === 'string' ? parsed.when_to_use : undefined,

@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {ALLOWED_COMMAND_IDS as judgementIds} from '../../../../../packages/akari-vibe/src/exec-support/companion-commands.mjs';
+import {loadCatalog} from '../../../../../packages/akari-vibe/src/jev/jev-actions.mjs';
+import {JEV_BASE_ALLOWED_COMMAND_IDS} from '../lib/common/jev-actions.generated.js';
 import {
   ALLOWED_COMMAND_IDS,
   isAllowedCommandId,
@@ -107,4 +115,22 @@ test('editUri は橋が入れる — 必須のコマンドでも係は渡さな�
     assert.equal(validateCommandArgs(id, args).ok, true, id);
     assert.equal(validateCommandArgs(id, id === 'akari.preview.pulseItem' ? { itemId: 'a' } : {}).ok, false, id + ' without editUri');
   }
+});
+
+test('catalog baseline, the shell baseline, and judgement allowlist agree in order', () => {
+  const catalog = loadCatalog();
+  assert.deepEqual(ALLOWED_COMMAND_IDS.slice(0, 33), catalog.baseAllowedCommandIds);
+  assert.deepEqual([...JEV_BASE_ALLOWED_COMMAND_IDS], catalog.baseAllowedCommandIds);
+  assert.deepEqual(judgementIds.slice(0, 33), catalog.baseAllowedCommandIds);
+  assert.deepEqual([...ALLOWED_COMMAND_IDS].sort(), [...judgementIds].sort());
+});
+
+test('generated TypeScript is byte-identical after regeneration', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-generated-'));
+  try {
+    const output = path.join(directory, 'jev-actions.generated.ts');
+    execFileSync('npm', ['run', 'gen:jev', '--', '--out', output],
+      {cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'pipe'});
+    assert.ok(fs.readFileSync(output).equals(fs.readFileSync(new URL('../src/common/jev-actions.generated.ts', import.meta.url))));
+  } finally { fs.rmSync(directory, {recursive:true, force:true}); }
 });

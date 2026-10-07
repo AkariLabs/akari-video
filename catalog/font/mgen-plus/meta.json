@@ -2,6 +2,7 @@
   "id": "mgen-plus",
   "category": "font",
   "title": "Mgen+（ムゲンプラス）",
+  "aliases": ["Mgen+"],
   "description": "自家製フォント工房が M+ OUTLINE FONTS と Noto Sans CJK を合成した日本語ゴシック。M+ 系の骨格のまま漢字収録数を大幅に補完している。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
   "when_to_use": "M+ 系のトーンで漢字の取りこぼしを避けたい字幕・テロップに",
   "tags": [

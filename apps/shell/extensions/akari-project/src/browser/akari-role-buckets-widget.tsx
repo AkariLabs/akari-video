@@ -77,6 +77,7 @@ import {
     LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
+import { applyCatalogFont } from '../common/font-apply-flow';
 import {
     LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
@@ -610,10 +611,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogThumbnailErrorTimer?: ReturnType<typeof setTimeout>;
     protected catalogThumbnailPollTimer?: ReturnType<typeof setTimeout>;
     protected catalogThumbnailPollGeneration = 0;
+    protected fontAvailabilityPollTimer?: ReturnType<typeof setTimeout>;
+    protected fontAvailabilityPollGeneration = 0;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
     protected readonly resolvingAssetKeys = new Set<string>();
+    protected readonly applyingFontIds = new Set<string>();
 
     /**
      * カタログ面 audio カードの共有試聴プレイヤー。ウィジェット全体で 1 本だけ生成し、
@@ -879,6 +883,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.topView === 'catalog' && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
             this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
         }
+        if (this.topView === 'catalog' && this.assetCatalogItems.some(item => item.category === 'font'
+            && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+            this.pollFontAvailability(this.fontAvailabilityPollGeneration);
+        }
     }
 
     /**
@@ -895,6 +903,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
         this.stopCatalogThumbnailPolling();
+        this.stopFontAvailabilityPolling();
         this.update();
     }
 
@@ -914,6 +923,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
             this.stopCatalogAudio();
             this.stopCatalogThumbnailPolling();
+            this.stopFontAvailabilityPolling();
         }
         this.topView = view;
         if (view === 'catalog') {
@@ -922,6 +932,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             if (refreshCatalog) void this.loadAssetCatalogView('user');
             else if (this.isVisible && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
                 this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
+            }
+            if (!refreshCatalog && this.isVisible && this.assetCatalogItems.some(item => item.category === 'font'
+                && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+                this.pollFontAvailability(this.fontAvailabilityPollGeneration);
             }
             void this.refreshStoreConnectionStatus();
         }
@@ -1224,7 +1238,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     public async loadAssetCatalogView(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
         this.stopCatalogThumbnailPolling();
+        this.stopFontAvailabilityPolling();
         const pollGeneration = this.catalogThumbnailPollGeneration;
+        const fontPollGeneration = this.fontAvailabilityPollGeneration;
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
@@ -1242,6 +1258,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.assetCatalogItems = view.items.filter(item => item.category !== 'textstyle')
             .map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
+        if (typeof window !== 'undefined') {
+            (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(item => item.category === 'font')
+                    .map(item => [item.id, item.fontAvailability]));
+            window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+        }
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
@@ -1255,10 +1277,53 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
             this.pollLibraryThumbnails(pollGeneration, 0);
         }
+        if (this.isVisible && this.topView === 'catalog' && this.assetCatalogItems.some(item => item.category === 'font'
+            && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+            this.pollFontAvailability(fontPollGeneration);
+        }
     }
 
     protected registerCatalogThumbnailPollingCleanup(): void {
-        this.toDispose.push({ dispose: () => this.stopCatalogThumbnailPolling() });
+        this.toDispose.push({ dispose: () => { this.stopCatalogThumbnailPolling(); this.stopFontAvailabilityPolling(); } });
+    }
+
+    protected stopFontAvailabilityPolling(): void {
+        this.fontAvailabilityPollGeneration++;
+        if (this.fontAvailabilityPollTimer) clearTimeout(this.fontAvailabilityPollTimer);
+        this.fontAvailabilityPollTimer = undefined;
+    }
+
+    protected pollFontAvailability(generation: number): void {
+        if (generation !== this.fontAvailabilityPollGeneration || this.fontAvailabilityPollTimer
+            || !this.isVisible || this.topView !== 'catalog') return;
+        this.fontAvailabilityPollTimer = setTimeout(() => {
+            this.fontAvailabilityPollTimer = undefined;
+            if (generation !== this.fontAvailabilityPollGeneration) return;
+            const fonts = this.assetCatalogItems.filter(item => item.category === 'font');
+            if (!fonts.length) return;
+            const root = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
+            void this.projectService.getCatalogFontAvailability(root, fonts).then(result => {
+                if (generation !== this.fontAvailabilityPollGeneration || !this.isVisible || this.topView !== 'catalog') return;
+                let changed = false;
+                this.assetCatalogItems = this.assetCatalogItems.map(item => {
+                    const next = result.statuses[item.id];
+                    if (item.category !== 'font' || !next || JSON.stringify(next) === JSON.stringify(item.fontAvailability)) return item;
+                    changed = true;
+                    return { ...item, fontAvailability: next };
+                });
+                if (changed) {
+                    (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                        .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(item => item.category === 'font')
+                            .map(item => [item.id, item.fontAvailability]));
+                    window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+                    this.update();
+                }
+                if (result.phase !== 'ready' || this.assetCatalogItems.some(item => item.category === 'font'
+                    && ['pending', 'failed'].includes(item.fontAvailability?.status ?? 'pending'))) {
+                    this.pollFontAvailability(generation);
+                }
+            }).catch(() => { if (generation === this.fontAvailabilityPollGeneration) this.pollFontAvailability(generation); });
+        }, 1500);
     }
 
     protected stopCatalogThumbnailPolling(): void {
@@ -1803,7 +1868,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const { key, id, category, title } = item;
         if (category === 'font') {
-            const payload = { kind: 'font', id, fontFamily: title.replace(/（.*$/, '').trim(), key,
+            if (item.fontAvailability?.status !== 'available') {
+                event.preventDefault();
+                void this.applyFontItem(item);
+                return;
+            }
+            const payload = { kind: 'font', id, fontFamily: item.fontAvailability.family || title.replace(/（.*$/, '').trim(), key,
                 ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'copy';
@@ -3030,6 +3100,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
         if (item.category === 'font' && !this.generationPick.request) {
             return <FontShelfCard key={item.key} item={item} layout={this.catalogViewMode}
+                availability={item.fontAvailability}
                 favorite={this.libraryFavorites.has(item.key)} onApply={() => { void this.applyFontItem(item); }}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
@@ -3048,10 +3119,52 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async applyFontItem(item: AssetCatalogViewItem): Promise<void> {
         if (isPremiumLocked(item) || item.state === 'locked') { this.showPremiumPrompt(item.key); return; }
-        await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
-            payload: { kind: 'font', id: item.id, fontFamily: item.title.replace(/（.*$/, '').trim() },
-            editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
-        });
+        if (this.applyingFontIds.has(item.id)) return;
+        this.applyingFontIds.add(item.id);
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        try {
+            await applyCatalogFont(item, {
+                resolveBeforeApply: async font => {
+                    const checked = await this.projectService.checkCatalogFontAvailability(font.id,
+                        this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')).catch(() => undefined);
+                    if (checked) {
+                        this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === font.key
+                            ? { ...entry, fontAvailability: checked } : entry);
+                        if (typeof window !== 'undefined') {
+                            (window as Window & { akariFontAvailability?: Record<string, AssetCatalogViewItem['fontAvailability']> })
+                                .akariFontAvailability = Object.fromEntries(this.assetCatalogItems.filter(entry => entry.category === 'font')
+                                    .map(entry => [entry.id, entry.fontAvailability]));
+                            window.dispatchEvent(new Event('akari.fontAvailability.changed'));
+                        }
+                        this.update();
+                    }
+                    return checked;
+                },
+                confirmDownload: async (title, bytes) => new ConfirmDialog({ title: `${title}をダウンロードしますか？`,
+                    msg: `約 ${(bytes / 1048576).toFixed(1)} MB を取得して、この Mac で使えるようにします。`,
+                    ok: 'ダウンロードして当てる', cancel: 'キャンセル' }).open(),
+                download: async id => this.projectService.downloadCatalogFont(id,
+                    this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
+                offerSource: async (_title, source) => {
+                    const provider = source ? new URL(source).hostname : '配布元';
+                    const choice = await this.messages.info(`この書体はこの Mac に入っていません。配布元（${provider}）で入手して Mac に入れると使えます。今当てる場合は代わりの書体で表示されます。`,
+                        '配布元を開く', '代わりの書体で当てる');
+                    return choice === '配布元を開く' ? 'open' : choice === '代わりの書体で当てる' ? 'apply' : undefined;
+                },
+                openSource: source => this.windowService.openNewWindow(source, { external: true }),
+                apply: async family => { await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+                    payload: { kind: 'font', id: item.id, fontFamily: family }, editUri
+                }); },
+                refresh: async () => {
+                    await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+                    void this.loadAssetCatalogView('user');
+                }
+            });
+        } catch (error) {
+            this.messages.error(`フォントを当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            this.applyingFontIds.delete(item.id);
+        }
     }
 
     protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {

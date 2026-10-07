@@ -830,7 +830,7 @@ test('行の選択は操作バーを出し、見た目を押した後のドッ�
     assert.equal(actionBar.classList.contains('visible'), true);
     assert.equal(footer.hidden, true);
     assert.deepEqual(actionBar.children.map(child => child.textContent),
-      ['1 行を選択中', '🔊 読み上げ', '🎨 見た目', 'T 文字を置く', '✂ カット', '結合', '⋯', '✕']);
+      ['1 行を選択中', '🔊 読み上げ', '🎙 アフレコ', '🎨 見た目', 'T 文字を置く', '✂ カット', '結合', '⋯', '✕']);
     assert.equal(actionBar.children[5].disabled, false);
     instance.openRowDock('template');
     assert.equal(editor.children[0], actionBar);
@@ -854,8 +854,8 @@ test('行の選択は操作バーを出し、見た目を押した後のドッ�
     assert.equal(actionBar.classList.contains('visible'), false);
     assert.equal(footer.hidden, false);
     instance.setSelection({ selected: ['r7'], anchorId: 'r7' }, false);
-    assert.equal(actionBar.children[5].disabled, true);
-    assert.match(actionBar.children[5].title, /次の行/);
+    assert.equal(actionBar.children[6].disabled, true);
+    assert.match(actionBar.children[6].title, /次の行/);
     instance.setSelection({ selected: ['r1'], anchorId: 'r1' }, false);
     assert.equal(instance.dockKind, undefined, '外部同期の選択ではドックを開かない');
   } finally {

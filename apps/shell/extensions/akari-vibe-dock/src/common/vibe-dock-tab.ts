@@ -10,6 +10,14 @@ export interface PointedTarget {
     source: 'dom' | 'preview';
 }
 
+export interface VibeDockJob {
+    id: string;
+    state: 'queued' | 'running' | 'blocked' | 'failed';
+    label: string;
+    reason?: string;
+    action?: { label: string; run(): void | Promise<void> };
+}
+
 export interface VibeDockTabContribution {
     readonly id: 'now' | 'next' | 'handoff' | 'canvas' | 'settings' | string;
     readonly label: string;
@@ -22,7 +30,8 @@ export interface VibeDockTabContribution {
 
 export interface VibeDockContext {
     readonly ear: EarClient;
-    readonly status: { set(line: string, tone?: 'info' | 'warn' | 'error'): Disposable };
+    readonly status: { set(line: string, tone?: 'info' | 'warn' | 'error', source?: 'ear' | 'auto' | 'jev' | 'job'): Disposable };
+    readonly jobs: { report(job: VibeDockJob): Disposable };
     readonly pointed: Event<PointedTarget | undefined>;
     readonly layout: { expanded: boolean; requestExpand(on: boolean): void };
     readonly project: { rootUri: string; reviewUri: string; editUri: string } | undefined;

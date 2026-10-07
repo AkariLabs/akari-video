@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-    voiceRecordingFileName, formatRecordingClock, mixToMono, rmsLevel, levelToBars, resampleToPcm16
+    voiceRecordingFileName, formatRecordingClock, canonicalEditUri, preferWorkspaceEditUri,
+    mixToMono, rmsLevel, levelToBars, resampleToPcm16
 } from '../lib/common/voice-recording.js';
 
 test('local recording name and clock', () => {
@@ -9,6 +10,23 @@ test('local recording name and clock', () => {
     assert.equal(voiceRecordingFileName(when), 'afreco-2026-10-07-150309.wav');
     assert.equal(formatRecordingClock(0), '00:00:00');
     assert.equal(formatRecordingClock(3661.9), '01:01:01');
+});
+
+test('edit URI canonicalization matches preview root aliases and path tails', () => {
+    assert.equal(canonicalEditUri('file:///tmp/a/edit.json'), 'file:///private/tmp/a/edit.json');
+    assert.equal(canonicalEditUri('file:///private/tmp/a/edit.json'), 'file:///private/tmp/a/edit.json');
+    assert.equal(canonicalEditUri('file:///Users/x/edit.json'), 'file:///Users/x/edit.json');
+    assert.equal(canonicalEditUri('file:///tmp/a/./edit.json/'), 'file:///private/tmp/a/edit.json');
+    assert.equal(canonicalEditUri('file:///var/a/../b/edit.json'), 'file:///private/var/b/edit.json');
+    assert.equal(canonicalEditUri('file:///etc/a/edit.json'), 'file:///private/etc/a/edit.json');
+});
+
+test('the workspace URI is preferred only when it identifies the given edit file', () => {
+    assert.equal(preferWorkspaceEditUri('file:///private/tmp/p/edit.json', 'file:///tmp/p/edit.json'),
+        'file:///tmp/p/edit.json');
+    assert.equal(preferWorkspaceEditUri('file:///Users/x/edit.json', 'file:///Users/y/edit.json'),
+        'file:///Users/x/edit.json');
+    assert.equal(preferWorkspaceEditUri(undefined, 'file:///tmp/p/edit.json'), undefined);
 });
 
 test('level meter, mixing and RMS', () => {

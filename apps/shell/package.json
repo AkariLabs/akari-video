@@ -281,6 +281,14 @@
         ]
       },
       {
+        "from": "../../packages/akari-ear",
+        "to": "packages/akari-ear",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "../../packages/creator-root",
         "to": "packages/creator-root",
         "filter": [
