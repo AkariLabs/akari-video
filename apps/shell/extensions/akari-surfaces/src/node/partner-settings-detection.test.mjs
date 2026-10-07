@@ -33,7 +33,7 @@ test('Command Code は PATH 外の正式名で検出し、専用 Node の bin �
     });
     assert.equal(result.status, 0, result.stderr);
     const [availability, details] = JSON.parse(result.stdout);
-    assert.equal(Object.keys(details).length, 10);
+    assert.equal(Object.keys(details).length, 11);
     assert.equal(availability.commandcode, true);
     assert.deepEqual(details.commandcode, { installed: true, version: 'command-code-1.45.0', detail: 'command-code-1.45.0' });
 });
