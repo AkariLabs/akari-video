@@ -13,30 +13,17 @@ export type LibraryTextTab = 'style' | 'font';
 /** The visual changes here; actions are taken from the existing FontShelfCard element. */
 export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFamily?: string;
     card: React.ReactElement<React.ComponentProps<typeof FontShelfCard>> }): React.ReactElement {
-    const { item, faceFamily } = props;
+    const { item } = props;
     const card = props.card.props;
     const label = libraryFontLabel(item.id, item.title);
-    const name = <span style={{ flex: '1 1 auto', minWidth: 0 }}>
-        <span data-akari-font-name style={{ display: 'block', fontFamily: faceFamily ? `${JSON.stringify(faceFamily)}, sans-serif` : undefined,
-            fontSize: faceFamily ? '19px' : '13px', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden',
-            textOverflow: 'ellipsis' }}>{label.display}</span>
-        {label.english && <small data-akari-font-english style={{ display: 'block', fontSize: '10px', opacity: 0.65,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.english}</small>}
-    </span>;
-    const actions = <span style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: '0 0 auto' }}>
-        {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り' />}
-        <small data-akari-font-status style={{ whiteSpace: 'nowrap', fontSize: '10px', opacity: 0.8 }}>
-            {card.availability?.status === 'available' ? '使える'
-                : card.availability?.status === 'download' ? '↓ ダウンロード'
-                    : card.availability?.status === 'source' ? '入手が必要'
-                        : card.availability?.status === 'failed' ? '確認できません' : '確認中'}
-        </small>
-        <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
-    </span>;
+    const rowUrl = item.previewUrl?.endsWith('/row.webp') ? item.previewUrl : undefined;
+    const sampleUrl = rowUrl?.replace(/row\.webp$/, 'sample.webp');
     return <div role='button' tabIndex={0} draggable data-akari-library-card='list'
         data-akari-font-card={item.id} data-akari-catalog-item={item.key}
         data-akari-font-availability={card.availability?.status}
         data-akari-font-preview-path={fontPreviewPath(item.id)}
+        data-akari-hover-preview-kind='font' data-akari-hover-preview-src={sampleUrl}
+        data-akari-hover-preview-label={item.title} data-akari-hover-preview-source={item.sourceUrl}
         data-akari-favorite={card.favorite ? 'true' : undefined}
         aria-label={item.title} title={item.title}
         onClick={card.onApply} onDragStart={card.onDragStart} onDragEnd={card.onDragEnd}
@@ -44,22 +31,39 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
         onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault(); card.onApply();
         } }}
-        style={{ display: 'flex', flexDirection: faceFamily ? 'row' : 'column',
-            alignItems: faceFamily ? 'center' : 'stretch', gap: faceFamily ? '9px' : '5px', padding: '7px 8px', minWidth: 0,
+        style={{ display: 'flex', flexDirection: 'column', gap: '2px',
+            height: '60px', boxSizing: 'border-box', padding: '5px 8px', minWidth: 0,
             borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
             color: AKARI_INK, border: AKARI_BORDER.ghost, cursor: 'grab',
             opacity: card.availability?.status === 'available' ? 1 : 0.65 }}>
-        {faceFamily ? <>{name}{actions}</> : <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>{name}{actions}</div>
-            <div data-akari-font-preview style={{ width: '100%', height: '44px', overflow: 'hidden',
-                background: AKARI_SURFACE.card, borderRadius: `${AKARI_RADIUS.chip}px`,
-                display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-            {item.previewUrl
-                ? <img src={item.previewUrl} alt='' draggable={false}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'left center' }} />
-                : <small style={{ opacity: 0.6, fontSize: '0.66em' }}>見本は取得後</small>}
-            </div>
-        </>}
+        <div data-akari-font-primary style={{ width: '100%', height: '32px' }}>
+            <span style={{ display: 'block', width: '100%', height: '32px', overflow: 'hidden' }}>
+                {rowUrl ? <span data-akari-font-preview role='img' aria-label={`${item.title} 文字もじモジ`}
+                    style={{ display: 'block', width: '100%', height: '32px', backgroundColor: 'currentColor',
+                        mask: `url("${rowUrl}") left center / auto 32px no-repeat`,
+                        WebkitMask: `url("${rowUrl}") left center / auto 32px no-repeat` }} />
+                    : <span data-akari-font-name style={{ display: 'block', fontFamily: 'sans-serif',
+                        fontSize: '22px', lineHeight: '32px', whiteSpace: 'nowrap', overflow: 'hidden',
+                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}</span>}
+            </span>
+        </div>
+        <div data-akari-font-secondary style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%',
+            minWidth: 0, height: '16px' }}>
+            <small data-akari-font-english title={label.english ?? item.title}
+                style={{ flex: '1 1 0', minWidth: 0, fontSize: '10px', opacity: 0.65,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label.english ?? item.title}</small>
+            {card.favorite && <span className='codicon codicon-star-full' aria-label='お気に入り'
+                style={{ flex: '0 0 auto' }} />}
+            <small data-akari-font-status title={card.availability?.status === 'failed' ? '確認できませんでした' : undefined}
+                style={{ flex: '0 1 auto', minWidth: 0, marginLeft: 'auto', whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px', opacity: 0.8 }}>
+                {card.availability?.status === 'available' ? '使える'
+                    : card.availability?.status === 'download' ? '↓ ダウンロード'
+                        : card.availability?.status === 'source' ? '入手が必要'
+                            : card.availability?.status === 'failed' ? '確認できませんでした' : '確認中'}
+            </small>
+            <LibraryDotsButton variant='inline' label={item.title} onOpen={card.onInfo} />
+        </div>
     </div>;
 }
 

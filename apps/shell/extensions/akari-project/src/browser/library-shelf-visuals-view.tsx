@@ -71,7 +71,7 @@ export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid
                 {props.availability?.status === 'available' ? '使える'
                     : props.availability?.status === 'download' ? '↓ ダウンロード'
                         : props.availability?.status === 'source' ? '入手が必要'
-                            : props.availability?.status === 'failed' ? '確認できません' : '確認中'}
+                            : props.availability?.status === 'failed' ? '確認できませんでした' : '確認中'}
             </small>
         </span>} />;
 }

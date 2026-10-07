@@ -2,11 +2,11 @@ import { createHash, randomUUID } from 'crypto';
 import { execFile } from 'child_process';
 import { constants, promises as fs } from 'fs';
 import { homedir } from 'os';
-import { basename, join } from 'path';
+import { basename, dirname, join } from 'path';
 import { promisify } from 'util';
 
 const run = promisify(execFile);
-const EXTENSION = /\.(?:ttf|otf|woff2?)$/i;
+const EXTENSION = /\.(?:ttf|otf|ttc|woff2?)$/i;
 type FontEntry = { family: string; file: string; bytes: number; sha256: string; url: string;
     ofl: { file: string; bytes: number; sha256: string; url?: string; text?: string } };
 export type FontManifest = { commit: string; fonts: Record<string, FontEntry> };
@@ -34,6 +34,9 @@ function addName(names: Map<string, string>, value: unknown, family?: string): v
 }
 
 type SfntName = { id: number; value: string; priority: number };
+const SFNT_SIGNATURES = ['\0\x01\0\0', 'OTTO', 'true', 'typ1'];
+const MAX_SFNT_TABLES = 256;
+const MAX_NAME_TABLE_BYTES = 4 * 1024 * 1024;
 
 function sfntName(buffer: Buffer, offset: number, length: number, platform: number): string | undefined {
     if (offset < 0 || length < 1 || offset + length > buffer.length) return undefined;
@@ -46,62 +49,114 @@ function sfntName(buffer: Buffer, offset: number, length: number, platform: numb
     } catch { return undefined; }
 }
 
+function addSfntNameTable(names: Map<string, string>, table: Buffer): void {
+    if (table.length < 6) return;
+    const count = table.readUInt16BE(2);
+    const stringOffset = table.readUInt16BE(4);
+    if (6 + count * 12 > table.length) return;
+    const records: SfntName[] = [];
+    for (let nameIndex = 0; nameIndex < count; nameIndex++) {
+        const record = 6 + nameIndex * 12;
+        const platform = table.readUInt16BE(record);
+        const language = table.readUInt16BE(record + 4);
+        const id = table.readUInt16BE(record + 6);
+        if (![1, 16, 4, 6].includes(id)) continue;
+        const length = table.readUInt16BE(record + 8);
+        const start = stringOffset + table.readUInt16BE(record + 10);
+        if (start + length > table.length) continue;
+        const value = sfntName(table, start, length, platform);
+        if (!value) continue;
+        const priority = platform === 3 && language === 0x0409 ? 3
+            : platform === 1 && language === 0 ? 2 : platform === 0 ? 1 : 0;
+        records.push({ id, value, priority });
+    }
+    const family = records.filter(record => record.id === 16 || record.id === 1)
+        .sort((left, right) => right.priority - left.priority || (right.id === 16 ? 1 : 0) - (left.id === 16 ? 1 : 0))[0]?.value
+        ?? records.find(record => record.id === 4)?.value;
+    if (family) for (const record of records) addName(names, record.value, family);
+}
+
 /** sfnt の英語名を CSS に使える family へ対応づける。TTC は全サブフォントを読む。 */
 export function sfntFontNames(buffer: Buffer): Map<string, string> {
     const names = new Map<string, string>();
     try {
-        const collection = buffer.toString('ascii', 0, 4) === 'ttcf';
         const offsets: number[] = [];
-        if (collection) {
+        if (buffer.toString('ascii', 0, 4) === 'ttcf') {
             if (buffer.length < 12) return names;
             const count = buffer.readUInt32BE(8);
-            if (count > 256 || 12 + count * 4 > buffer.length) return names;
+            if (count > MAX_SFNT_TABLES || 12 + count * 4 > buffer.length) return names;
             for (let index = 0; index < count; index++) offsets.push(buffer.readUInt32BE(12 + index * 4));
         } else offsets.push(0);
         for (const fontOffset of offsets) {
-            if (fontOffset + 12 > buffer.length) continue;
-            const signature = buffer.toString('ascii', fontOffset, fontOffset + 4);
-            if (!['\0\x01\0\0', 'OTTO', 'true', 'typ1'].includes(signature)) continue;
+            if (fontOffset + 12 > buffer.length || !SFNT_SIGNATURES.includes(buffer.toString('ascii', fontOffset, fontOffset + 4))) continue;
             const tableCount = buffer.readUInt16BE(fontOffset + 4);
-            if (tableCount > 256 || fontOffset + 12 + tableCount * 16 > buffer.length) continue;
-            const records: SfntName[] = [];
+            if (tableCount > MAX_SFNT_TABLES || fontOffset + 12 + tableCount * 16 > buffer.length) continue;
             for (let index = 0; index < tableCount; index++) {
-                const table = fontOffset + 12 + index * 16;
-                if (buffer.toString('ascii', table, table + 4) !== 'name') continue;
-                const tableOffset = buffer.readUInt32BE(table + 8);
-                const tableLength = buffer.readUInt32BE(table + 12);
-                if (tableLength < 6 || tableOffset + tableLength > buffer.length) break;
-                const count = buffer.readUInt16BE(tableOffset + 2);
-                const stringOffset = buffer.readUInt16BE(tableOffset + 4);
-                if (6 + count * 12 > tableLength) break;
-                for (let nameIndex = 0; nameIndex < count; nameIndex++) {
-                    const record = tableOffset + 6 + nameIndex * 12;
-                    const platform = buffer.readUInt16BE(record);
-                    const language = buffer.readUInt16BE(record + 4);
-                    const id = buffer.readUInt16BE(record + 6);
-                    if (![1, 16, 4, 6].includes(id)) continue;
-                    const length = buffer.readUInt16BE(record + 8);
-                    const start = stringOffset + buffer.readUInt16BE(record + 10);
-                    if (start + length > tableLength) continue;
-                    const value = sfntName(buffer, tableOffset + start, length, platform);
-                    if (!value) continue;
-                    const priority = platform === 3 && language === 0x0409 ? 3
-                        : platform === 1 && language === 0 ? 2 : platform === 0 ? 1 : 0;
-                    records.push({ id, value, priority });
-                }
+                const record = fontOffset + 12 + index * 16;
+                if (buffer.toString('ascii', record, record + 4) !== 'name') continue;
+                const offset = buffer.readUInt32BE(record + 8);
+                const length = buffer.readUInt32BE(record + 12);
+                if (length >= 6 && offset + length <= buffer.length) addSfntNameTable(names, buffer.subarray(offset, offset + length));
                 break;
             }
-            const family = records.filter(record => record.id === 16 || record.id === 1)
-                .sort((left, right) => right.priority - left.priority || (right.id === 16 ? 1 : 0) - (left.id === 16 ? 1 : 0))[0]?.value
-                ?? records.find(record => record.id === 4)?.value;
-            if (family) for (const record of records) addName(names, record.value, family);
         }
     } catch { /* 壊れたフォントは他の書体の判定を妨げない。 */ }
     return names;
 }
 
+/** Positioned reads keep large CJK glyph tables out of memory. */
+export async function readSfntFontNames(path: string, onRead?: (bytes: number) => void): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    const file = await fs.open(path, 'r');
+    try {
+        const size = (await file.stat()).size;
+        const readAt = async (offset: number, length: number): Promise<Buffer | undefined> => {
+            if (!Number.isSafeInteger(offset) || offset < 0 || length < 0 || offset + length > size) return undefined;
+            const buffer = Buffer.alloc(length);
+            let filled = 0;
+            while (filled < length) {
+                const { bytesRead } = await file.read(buffer, filled, length - filled, offset + filled);
+                onRead?.(bytesRead);
+                if (!bytesRead) return undefined;
+                filled += bytesRead;
+            }
+            return buffer;
+        };
+        const header = await readAt(0, 12);
+        if (!header) return names;
+        const offsets: number[] = [];
+        if (header.toString('ascii', 0, 4) === 'ttcf') {
+            const count = header.readUInt32BE(8);
+            if (count > MAX_SFNT_TABLES) return names;
+            const table = await readAt(12, count * 4);
+            if (!table) return names;
+            for (let index = 0; index < count; index++) offsets.push(table.readUInt32BE(index * 4));
+        } else offsets.push(0);
+        for (const fontOffset of offsets) {
+            const fontHeader = fontOffset === 0 ? header : await readAt(fontOffset, 12);
+            if (!fontHeader || !SFNT_SIGNATURES.includes(fontHeader.toString('ascii', 0, 4))) continue;
+            const tableCount = fontHeader.readUInt16BE(4);
+            if (tableCount > MAX_SFNT_TABLES) continue;
+            const directory = await readAt(fontOffset + 12, tableCount * 16);
+            if (!directory) continue;
+            for (let index = 0; index < tableCount; index++) {
+                const record = index * 16;
+                if (directory.toString('ascii', record, record + 4) !== 'name') continue;
+                const offset = directory.readUInt32BE(record + 8);
+                const length = directory.readUInt32BE(record + 12);
+                if (length >= 6 && length <= MAX_NAME_TABLE_BYTES) {
+                    const nameTable = await readAt(offset, length);
+                    if (nameTable) addSfntNameTable(names, nameTable);
+                }
+                break;
+            }
+        }
+    } finally { await file.close(); }
+    return names;
+}
+
 export async function macSystemFontNames(fonts: unknown,
-    readFontFile: (path: string) => Promise<Buffer> = path => fs.readFile(path)): Promise<Map<string, string>> {
+    readFontFile?: (path: string) => Promise<Buffer>): Promise<Map<string, string>> {
     const names = new Map<string, string>();
     const paths = new Set<string>();
     for (const font of Array.isArray(fonts) ? fonts : []) {
@@ -118,11 +173,12 @@ export async function macSystemFontNames(fonts: unknown,
     }
     const pending = [...paths];
     let next = 0;
-    await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
+    await Promise.all(Array.from({ length: Math.min(4, pending.length) }, async () => {
         while (next < pending.length) {
             const path = pending[next++];
             try {
-                for (const [key, value] of sfntFontNames(await readFontFile(path))) names.set(key, value);
+                const fileNames = readFontFile ? sfntFontNames(await readFontFile(path)) : await readSfntFontNames(path);
+                for (const [key, value] of fileNames) names.set(key, value);
             } catch { /* 読めないファイルだけ飛ばす。 */ }
         }
     }));
@@ -136,24 +192,28 @@ export function createSystemFontScanner(scan: () => Promise<Map<string, string>>
     now: () => number = Date.now, retryMs = 30000): {
         snapshot(refresh?: boolean): SystemFontSnapshot;
         wait(timeoutMs: number): Promise<SystemFontSnapshot>;
+        seed(names: Map<string, string>): void;
     } {
     let names: Map<string, string> | undefined;
     let running: Promise<void> | undefined;
     let failedAt: number | undefined;
+    let failures = 0;
     const start = (refresh = false): void => {
         if (running || !refresh && names && failedAt === undefined
-            || failedAt !== undefined && now() - failedAt < retryMs) return;
+            || failedAt !== undefined && now() - failedAt < [retryMs, 120000, 600000][Math.min(failures - 1, 2)]) return;
         running = Promise.resolve().then(scan).then(result => {
             names = result;
             failedAt = undefined;
-        }).catch(() => { failedAt = now(); }).finally(() => { running = undefined; });
+            failures = 0;
+        }).catch(() => { failedAt = now(); failures++; }).finally(() => { running = undefined; });
     };
     const snapshot = (refresh = false): SystemFontSnapshot => {
         start(refresh);
-        return { phase: running ? 'pending' : failedAt !== undefined ? 'failed' : 'ready', names };
+        return { phase: failedAt !== undefined ? 'failed' : names ? 'ready' : running ? 'pending' : 'ready', names };
     };
     return {
         snapshot,
+        seed(cached): void { if (!names) names = cached; },
         async wait(timeoutMs): Promise<SystemFontSnapshot> {
             start();
             if (running) {
@@ -174,12 +234,83 @@ export async function waitForSystemFontNames(timeoutMs = 2500): Promise<SystemFo
     return systemScanner.wait(timeoutMs);
 }
 
+const macFontDirs = [join(homedir(), 'Library', 'Fonts'), '/Library/Fonts', '/System/Library/Fonts'];
+const cacheFile = (): string => join(process.env.AKARI_HOME || join(homedir(), '.akari'), 'cache', 'system-fonts.json');
+
+export async function readSystemFontDiskCache(path: string, key: string): Promise<Map<string, string> | undefined> {
+    try {
+        const cache = JSON.parse(await fs.readFile(path, 'utf8')) as { key: string; names: [string, string][] };
+        if (cache.key === key && Array.isArray(cache.names)) return new Map(cache.names);
+    } catch { /* missing or incomplete cache */ }
+    return undefined;
+}
+
+export async function writeSystemFontDiskCache(path: string, key: string, names: Map<string, string>): Promise<void> {
+    await fs.mkdir(dirname(path), { recursive: true });
+    await fs.writeFile(path, JSON.stringify({ key, names: [...names] }));
+}
+
+export async function macFontInventory(dirs = macFontDirs): Promise<{ files: string[]; key: string }> {
+    const files: string[] = [];
+    const folders: Array<[string, number, number]> = [];
+    const visit = async (dir: string): Promise<void> => {
+        const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+        const info = await fs.stat(dir).catch(() => undefined);
+        folders.push([dir, info?.mtimeMs ?? 0, entries.length]);
+        for (const entry of entries) {
+            const path = join(dir, entry.name);
+            if (entry.isDirectory()) await visit(path);
+            else if (entry.isFile() && /\.(?:ttf|otf|ttc)$/i.test(entry.name)) files.push(path);
+        }
+    };
+    for (const dir of dirs) await visit(dir);
+    return { files, key: createHash('sha256').update(JSON.stringify(folders)).digest('hex') };
+}
+
+export async function scanMacFontFiles(dirs: string[],
+    readFontFile?: (path: string) => Promise<Buffer>): Promise<Map<string, string>> {
+    const { files } = await macFontInventory(dirs);
+    const names = new Map<string, string>();
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(4, files.length) }, async () => {
+        while (next < files.length) {
+            const path = files[next++];
+            try {
+                const fileNames = readFontFile ? sfntFontNames(await readFontFile(path)) : await readSfntFontNames(path);
+                for (const [key, value] of fileNames) names.set(key, value);
+            } catch { /* unreadable face */ }
+        }
+    }));
+    return names;
+}
+
+let cacheLoading: Promise<void> | undefined;
+/** Read a validated cache before the first shelf response; refresh remains in the background. */
+export function loadSystemFontCache(): Promise<void> {
+    if (process.platform !== 'darwin') return Promise.resolve();
+    return cacheLoading ??= (async () => {
+        const inventory = await macFontInventory();
+        const cached = await readSystemFontDiskCache(cacheFile(), inventory.key);
+        if (cached) {
+            systemScanner.seed(cached);
+            systemScanner.snapshot(true);
+        }
+    })().catch(() => { /* cache miss */ });
+}
+
 async function collectSystemFontNames(): Promise<Map<string, string>> {
     const names = new Map<string, string>();
     if (process.platform === 'darwin') {
-        const { stdout } = await run('system_profiler', ['SPFontsDataType', '-json'], { maxBuffer: 64 * 1024 * 1024, timeout: 120000 });
-        const fonts = JSON.parse(stdout).SPFontsDataType;
-        return macSystemFontNames(fonts);
+        const inventory = await macFontInventory();
+        const direct = await scanMacFontFiles(macFontDirs);
+        if (direct.size) {
+            await writeSystemFontDiskCache(cacheFile(), inventory.key, direct).catch(() => {});
+            return direct;
+        }
+        const { stdout } = await run('system_profiler', ['SPFontsDataType', '-json'], { maxBuffer: 64 * 1024 * 1024, timeout: 240000 });
+        const fallback = await macSystemFontNames(JSON.parse(stdout).SPFontsDataType);
+        if (!fallback.size) throw new Error('No system fonts found');
+        return fallback;
     } else if (process.platform === 'linux') {
         const { stdout } = await run('fc-list', ['--format', '%{family}|%{postscriptname}\n'], { maxBuffer: 32 * 1024 * 1024 });
         for (const line of stdout.split('\n')) {

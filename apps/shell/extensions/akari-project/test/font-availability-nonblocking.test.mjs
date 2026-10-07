@@ -63,12 +63,14 @@ const compiled = ts.transpileModule(`class PollHarness { ${methods.join('\n')} }
 
 test('pending 完了で棚とインスペクターへ変更イベントを出し、棚を閉じたらポーリングを止める', async () => {
     let timer;
+    let timerDelay;
     const events = [];
     const context = vm.createContext({
         AKARI_CATALOG_ROOT_PREFERENCE: 'akari.catalog.root',
         window: { dispatchEvent: event => events.push(event.type) },
         Event: class { constructor(type) { this.type = type; } },
-        setTimeout: callback => { timer = callback; return 1; }, clearTimeout: () => { timer = undefined; }
+        setTimeout: (callback, delay) => { timer = callback; timerDelay = delay; return 1; },
+        clearTimeout: () => { timer = undefined; }
     });
     const Harness = vm.runInContext(`${compiled}\nPollHarness`, context);
     const widget = new Harness();
@@ -84,12 +86,25 @@ test('pending 完了で棚とインスペクターへ変更イベントを出し
     widget.update = () => { renders++; };
     widget.pollFontAvailability(0);
     assert.equal(typeof timer, 'function');
+    assert.equal(timerDelay, 1500);
     timer();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(widget.assetCatalogItems[0].fontAvailability.status, 'available');
     assert.deepEqual(events, ['akari.fontAvailability.changed']);
     assert.equal(renders, 1);
+    widget.fontAvailabilityPollFailures = 1;
     widget.pollFontAvailability(0);
+    assert.equal(timerDelay, 30000);
+    widget.stopFontAvailabilityPolling();
+    widget.fontAvailabilityPollGeneration = 0;
+    widget.fontAvailabilityPollFailures = 2;
+    widget.pollFontAvailability(0);
+    assert.equal(timerDelay, 120000);
+    widget.stopFontAvailabilityPolling();
+    widget.fontAvailabilityPollGeneration = 0;
+    widget.fontAvailabilityPollFailures = 3;
+    widget.pollFontAvailability(0);
+    assert.equal(timerDelay, 600000);
     widget.stopFontAvailabilityPolling();
     assert.equal(timer, undefined);
     assert.equal(widget.fontAvailabilityPollGeneration, 1);

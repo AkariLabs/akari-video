@@ -65,13 +65,16 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-filter-row button[aria-pressed="true"] { border-color:var(--akari-accent);color:var(--akari-accent); }
 .akari-caption-panel-title { display:flex;justify-content:space-between;align-items:center;margin:4px 0 0;font-size:11px;font-weight:700;color:var(--akari-muted); }
 .akari-caption-font-list { display:grid;gap:2px; }
-.akari-caption-font-row { display:grid;grid-template-columns:22px minmax(0,1fr);border-bottom:1px solid var(--akari-line-inner); }
+.akari-caption-font-row { display:grid;grid-template-columns:22px minmax(0,1fr);min-height:54px;border-bottom:1px solid var(--akari-line-inner); }
 .akari-caption-font-row:hover,.akari-caption-font-row:focus-within { background:var(--akari-elevated); }
-.akari-inspector-widget .akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:7px 3px;min-width:0;height:auto;min-height:28px; }
+.akari-inspector-widget .akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:5px 8px;min-width:0;height:auto;min-height:28px; }
+.akari-inspector-widget .akari-caption-font-face { display:flex;align-items:center;gap:8px; }
+.akari-caption-font-face-text { flex:1;min-width:0; }
+.akari-caption-font-status { flex:none;font-size:10px;color:var(--akari-muted); }
 .akari-caption-font-chevron:not(:disabled)::before { content:'';display:block;width:6px;height:6px;margin:auto;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .16s ease; }
 .akari-caption-font-chevron[aria-expanded="true"]::before { transform:rotate(45deg); }
 .akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
-.akari-caption-font-name { display:-webkit-box;font-size:19px;line-height:1.5;white-space:normal;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere; }
+.akari-caption-font-name { display:block;font-size:18px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-detail { display:block;font-size:10px;color:var(--akari-muted); }
 .akari-caption-font-english { display:block;font-size:10px;color:var(--akari-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-weights { grid-column:2;display:grid; }
@@ -254,14 +257,19 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const face = button(document, '', () => {
                 actions.confirm(); actions.font(family, undefined, font.id);
             });
+            face.className = 'akari-caption-font-face';
+            const faceText = document.createElement('span'); faceText.className = 'akari-caption-font-face-text';
             const name = document.createElement('span'); name.className = 'akari-caption-font-name';
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
             name.textContent = font.displayName ?? font.title;
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
             english.textContent = font.title;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
-            detail.textContent = `${captionFontRowDetail(font.tags)} · 使える`;
-            face.append(name, english, detail); row.append(previewable(face, { fontFamily: family }, actions));
+            detail.textContent = captionFontRowDetail(font.tags);
+            const status = document.createElement('span'); status.className = 'akari-caption-font-status';
+            status.textContent = '使える';
+            faceText.append(name, english, detail); face.append(faceText, status);
+            row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
                 const weightList = document.createElement('div'); weightList.className = 'akari-caption-font-weights';
                 for (const weight of weights) {
