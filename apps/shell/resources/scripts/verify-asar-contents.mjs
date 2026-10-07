@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { listPackage, extractFile } from '@electron/asar';
 import { fileURLToPath } from 'node:url';
+import { describeUnresolved, traceAsarPackageClosure } from './cross-package-closure.mjs';
 
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const outputRoot = path.join(shellRoot, 'electron-builder-out');
@@ -230,6 +231,25 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
       console.error(`❌ MISSING: ${required}`);
       failed = true;
     }
+  }
+  // 上の決め打ちの 3 ファイルがすべて在っても、配布版では edit-store/lib/index.js の
+  // CJS require("./edit-store") の先が入らず「新しい動画の作成」に失敗した。
+  // リポ内では本物の packages/ を上方探索できて露見しないため、asar 自身の
+  // エントリと内容から閉包を辿り、写しと同じ規則で届いた先をすべて検査する。
+  const closure = await traceAsarPackageClosure({
+    entries,
+    readFile: entry => extractFile(asar, entry.slice(1).split('/').join(path.sep)).toString('utf8')
+  });
+  for (const missing of closure.unresolved) {
+    if (missing.reason === 'missing') {
+      console.error(`❌ MISSING: ${missing.path}（${missing.file} の ${missing.specifier ?? '(起点)'}）`);
+    } else {
+      console.error(`❌ 参照を同梱できません: ${describeUnresolved(missing)}`);
+    }
+    failed = true;
+  }
+  if (closure.unresolved.length === 0) {
+    console.log(`✅ packages の参照閉包 ${closure.files.length} ファイル`);
   }
   try {
     const bundledPackageJson = JSON.parse(extractFile(asar, 'package.json').toString('utf8'));
