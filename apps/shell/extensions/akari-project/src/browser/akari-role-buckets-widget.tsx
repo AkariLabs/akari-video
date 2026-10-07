@@ -116,6 +116,8 @@ import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../com
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
+import { AkariImportFab } from './akari-import-fab';
+import { SUPPORTED_DROP_EXTENSIONS } from '../common/import-fab-items';
 
 try { require('../../src/browser/style/generation-pick.css'); } catch { /* node 単体テスト環境 */ }
 try { require('../../src/browser/style/library-tiles.css'); } catch { /* node 単体テスト環境 */ }
@@ -216,8 +218,6 @@ export interface AkariCatalogCategorySummary {
     /** status='soon' のときは undefined。 */
     readonly count?: number;
 }
-
-const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
 
 /**
  * 「編集データ」グループに出すルート直下の契約ファイル。project-structure-v0 §2-1
@@ -2003,12 +2003,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{
                     flex: libraryOnly ? '1 1 0%' : '1.2 1 0%',
                     minHeight: 0,
+                    position: libraryOnly ? undefined : 'relative',
                     display: 'flex',
                     flexDirection: 'column',
                     background: libraryOnly ? undefined : AKARI_PROJECT_SURFACE.base,
                     borderBottom: libraryOnly ? undefined : `1px solid ${AKARI_PROJECT_LINE}`
                 }}>
                     {this.renderMaterialsPane()}
+                    {!libraryOnly && <AkariImportFab dialogs={this.dialogs} messages={this.messages}
+                        projectOpen={!!this.workflow.workspaceRoot} importAssets={assets => this.importDropped(assets)} />}
                 </div>
                 {!libraryOnly && (
                     <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
