@@ -14,7 +14,7 @@ test('4 段・小サイズ・共通状態を生成 CSS に持つ', () => {
         ['.theia-button', '--akari-accent'],
         ['.theia-button.secondary', '--akari-button-secondary'],
         ['.theia-button.quiet', '--akari-button-quiet-ink'],
-        ['.theia-button.danger', '--akari-button-danger']
+        ['.theia-button.danger', '--akari-danger']
     ]) {
         const rule = selector === '.theia-button'
             ? rules.find(item => item.selector === '.theia-button' && item.declarations.includes('background-color'))

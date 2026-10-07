@@ -192,6 +192,9 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         // --theia-* と違い他所から書き換えられないので、テーマ追従はここで一元管理する。
         root.setProperty('--akari-accent', palette.accent);
         root.setProperty('--akari-accent-light', palette.accentLight);
+        root.setProperty('--akari-success', palette.success);
+        root.setProperty('--akari-warning', palette.warning);
+        root.setProperty('--akari-danger', palette.danger);
         root.setProperty('--akari-card', palette.card);
         root.setProperty('--akari-elevated', palette.elevated);
         root.setProperty('--akari-panel-project', palette.panelProject);

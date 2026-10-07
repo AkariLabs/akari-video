@@ -104,8 +104,8 @@ export class LintResultsDialog extends ReactDialog<void> implements FrontendAppl
                                 borderBottom: AKARI_BORDER.hairline }}>
                                 <span style={{ flex: '0 0 auto', alignSelf: 'flex-start', padding: '2px 6px',
                                     borderRadius: `${AKARI_RADIUS.chip}px`, border: AKARI_BORDER.hairline,
-                                    color: finding.severity === 'error' ? 'var(--theia-errorForeground)' :
-                                        finding.severity === 'warning' ? 'var(--theia-editorWarning-foreground)' : AKARI_FAINT }}>
+                                    color: finding.severity === 'error' ? 'var(--akari-danger)' :
+                                        finding.severity === 'warning' ? 'var(--akari-warning)' : AKARI_FAINT }}>
                                     {SEVERITY_LABEL[finding.severity]}
                                 </span>
                                 <div style={{ minWidth: 0 }}>

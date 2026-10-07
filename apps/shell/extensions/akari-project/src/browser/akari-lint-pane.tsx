@@ -101,7 +101,7 @@ export class AkariLintPane {
                     onClick={() => void this.openResults()}
                     style={{ width: '100%', height: '28px', minHeight: '28px', display: 'flex',
                         justifyContent: 'space-between', alignItems: 'center', padding: '0 10px',
-                        color: hasErrors ? 'var(--theia-errorForeground)' : 'inherit' }}
+                        color: hasErrors ? 'var(--akari-danger)' : 'inherit' }}
                 >
                     <span>{label}</span>
                     <span aria-hidden='true' style={{ color: AKARI_FAINT }}>›</span>

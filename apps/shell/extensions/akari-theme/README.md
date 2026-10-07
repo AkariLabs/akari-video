@@ -7,3 +7,9 @@
 - 小さいボタンには `small` を加える。
 - 切り替え・タブは `akari-seg` に入れ、選択を `aria-pressed="true"` またはタブの `aria-selected="true"` で示す。
 - AKARI の widget・シート・ダイアログ内で class のない `button` は副の見た目になる。
+
+# 役割色の使い分け
+
+- 成功・完了の表示には `--akari-success` を使う。
+- 注意・警告の表示には `--akari-warning` を使う。
+- エラー・危険な操作の表示には `--akari-danger` を使う。

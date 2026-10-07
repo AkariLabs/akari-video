@@ -79,11 +79,11 @@ iframe.webview { color-scheme: light; }
 
 .theia-button.danger {
     background-color: transparent !important;
-    color: var(--akari-button-danger) !important;
+    color: var(--akari-danger) !important;
     font-weight: 500;
 }
 .theia-button.danger:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--akari-button-danger) 12%, transparent) !important;
+    background-color: color-mix(in srgb, var(--akari-danger) 12%, transparent) !important;
 }
 
 .theia-button.small {
