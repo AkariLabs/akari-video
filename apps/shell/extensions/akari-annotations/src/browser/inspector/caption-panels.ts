@@ -168,6 +168,8 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
     presets: readonly CaptionPanelPreset[] = CAPTION_PANEL_STYLES,
     currentSize = CAPTION_DEFAULT_SIZE_PX, allowStyle = true): HTMLElement {
     const root = document.createElement('div');
+    const catalogAvailability = (document.defaultView as (Window & { akariFontAvailability?: Record<string,
+        { status: string; family: string }> }) | null)?.akariFontAvailability ?? {};
     root.className = 'akari-caption-panel';
     root.setAttribute('data-akari-caption-panel', panel);
     const head = document.createElement('div');
@@ -222,7 +224,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentFonts) {
             const font = CAPTION_PANEL_FONTS.find(item => item.id === id);
-            const family = fontFaces.get(id);
+            const family = fontFaces.get(id) ?? catalogAvailability[id]?.family;
             if (!font || !family) continue;
             recent.append(previewable(button(document, font.title, () => {
                 actions.confirm(); actions.font(family, undefined, id);
@@ -236,9 +238,10 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         add.setAttribute('aria-label', 'ライブラリから探す'); title.append(add); root.append(title);
         const list = document.createElement('div'); list.className = 'akari-caption-font-list';
         for (const font of visible) {
-            const family = fontFaces.get(font.id)!;
+            const family = fontFaces.get(font.id) ?? catalogAvailability[font.id]?.family ?? font.family;
             const row = document.createElement('div'); row.className = 'akari-caption-font-row';
             row.setAttribute('data-akari-font-row', font.id);
+            row.setAttribute('data-akari-font-availability', 'available');
             const weights = captionFontWeights(font.id);
             const chevron = button(document, '', () => {
                 state.expandedFont = state.expandedFont === font.id ? undefined : font.id; actions.rerender();
@@ -257,7 +260,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
             english.textContent = font.title;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
-            detail.textContent = captionFontRowDetail(font.tags);
+            detail.textContent = `${captionFontRowDetail(font.tags)} · 使える`;
             face.append(name, english, detail); row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
                 const weightList = document.createElement('div'); weightList.className = 'akari-caption-font-weights';

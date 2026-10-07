@@ -13,7 +13,17 @@ const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-
 const cue = (font_family, id = 'c-font') => ({ id, src: 'base', start: 0, end: 1,
   text: '字幕', text_style: { font_family } });
 
-test('one bundled registry supplies nine families and resolved CSS uses its faces', () => {
+test('one bundled registry supplies nine families and resolved CSS uses its faces', async t => {
+  const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-bundled-home-'));
+  const previousHome = process.env.AKARI_HOME;
+  const previousLibrary = process.env.AKARI_LIBRARY_ROOT;
+  process.env.AKARI_HOME = home;
+  delete process.env.AKARI_LIBRARY_ROOT;
+  t.after(async () => {
+    if (previousHome === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = previousHome;
+    if (previousLibrary === undefined) delete process.env.AKARI_LIBRARY_ROOT; else process.env.AKARI_LIBRARY_ROOT = previousLibrary;
+    await rm(home, { recursive: true, force: true });
+  });
   assert.equal(BUNDLED_CAPTION_FONT_FACES.length, 13);
   assert.equal(new Set(BUNDLED_CAPTION_FONT_FACES.map(face => face.family)).size, 9);
   const alias = captionFontFaces().find(face => face.family === 'AKARI Noto Sans JP');

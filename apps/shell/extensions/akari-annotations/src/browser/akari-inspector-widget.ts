@@ -283,18 +283,20 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
-        if (this.captionPanelFontsLoaded) return;
         this.captionPanelFontsLoaded = true;
         const faces = [...assets.bundledCaptionFontFaces,
             { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
-        const css = document.createElement('style');
-        css.setAttribute('data-akari-caption-panel-fonts', '');
+        let css = document.querySelector<HTMLStyleElement>('style[data-akari-caption-panel-fonts]');
+        if (!css) {
+            css = document.createElement('style');
+            css.setAttribute('data-akari-caption-panel-fonts', '');
+            document.head.append(css);
+            this.toDispose.push({ dispose: () => css?.remove() });
+        }
         css.textContent = faces.filter(face => face.id !== 'noto-sans-jp').map(face => {
             const weight = face.id === 'noto-serif-jp' ? '200 900' : face.weight;
             return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('truetype');font-weight:${weight};font-style:normal;font-display:swap}`;
         }).join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
-        document.head.append(css);
-        this.toDispose.push({ dispose: () => css.remove() });
         void Promise.all(faces.map(async face => {
             const weight = face.id === 'noto-serif-jp' ? '200' : face.weight.split(' ')[0];
             const descriptor = face.id === 'noto-sans-jp' ? CAPTION_FONT_LOAD_DESCRIPTOR
@@ -305,6 +307,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
             } catch { /* A failed font is not offered as an applicable row. */ }
         })).then(() => {
+            const available = (window as Window & { akariFontAvailability?: Record<string,
+                { status: string; family: string }> }).akariFontAvailability ?? {};
+            for (const [id, status] of Object.entries(available)) {
+                if (status?.status === 'available') this.captionPanelFontFaces.set(id, status.family);
+            }
             if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
                 || this.model.snapshot?.kind === 'overlay'
                 || this.model.snapshot?.kind === 'multi') this.render();
@@ -451,6 +458,15 @@ export class AkariInspectorWidget extends BaseWidget {
         this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
+        const refreshFonts = (): void => {
+            if (!this.captionPreviewService) return;
+            void this.captionPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
+                this.registerCaptionPanelFonts(assets);
+                this.render();
+            }).catch(() => undefined);
+        };
+        window.addEventListener('akari.fontAvailability.changed', refreshFonts);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.fontAvailability.changed', refreshFonts) });
         const openImageAi = (event: Event): void => {
             const itemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId;
             const selectedId = () => this.model.snapshot?.kind === 'item' ? this.model.snapshot.id
@@ -5068,6 +5084,21 @@ export class AkariInspectorWidget extends BaseWidget {
                         if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed())); });
             });
             row.appendChild(action);
+            if (fieldName === 'caption-font-family') {
+                const family = String(field.getValue(snapshot) ?? '').replace(/^["']|["']$/g, '').trim();
+                const normalized = (name: string): string => name.normalize('NFKC').replace(/[\s\u3000._-]+/gu, '').toLocaleLowerCase();
+                const available = (window as Window & { akariFontAvailability?: Record<string,
+                    { status: string; family: string }> }).akariFontAvailability ?? {};
+                const installed = [...this.captionPanelFontFaces.values(),
+                    ...Object.values(available).filter(status => status?.status === 'available').map(status => status.family)];
+                if (family && !installed.some(name => normalized(name) === normalized(family))
+                    && normalized(family) !== normalized('Noto Sans JP')) {
+                    const notice = document.createElement('span');
+                    notice.setAttribute('data-akari-font-unavailable', '');
+                    notice.textContent = 'この書体は入っていないため代わりの書体で表示中';
+                    row.appendChild(notice);
+                }
+            }
             if (field.disabled && field.title && ['photo-cutout-panel', 'photo-region-panel', 'photo-mask-generate'].includes(fieldName)) {
                 const reason = document.createElement('span');
                 reason.className = 'akari-inspector-ai-reason';

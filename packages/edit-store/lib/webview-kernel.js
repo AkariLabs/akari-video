@@ -1662,8 +1662,9 @@ var AkariEditKernel = (() => {
     return object(style) && object(style.background) && style.background.fit === "frame" || vars?.["--caption-plate-fit"] === "frame";
   }
   function cssCaptionFontFamily(value) {
-    if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim())) return value;
-    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    if (value.includes(",")) return value;
+    const primary = /^(['"]).*\1$/s.test(value.trim()) ? value : `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    return `${primary}, "Noto Sans JP", sans-serif`;
   }
   var RICH_PATTERN_SHAPES = {
     diamond: { size: 26, svgSize: 46, viewBox: 24, shape: '<path d="M12 2 21 12 12 22 3 12z" fill="FG" fill-opacity="0.5"/>' },
