@@ -9,6 +9,7 @@ import { EarClient, VibeDockContext, VibeDockTabContribution } from '../common/v
 import { VibeDockPointing } from './vibe-dock-pointing';
 import { VibeDockTabs } from './vibe-dock-tabs';
 import { vibeDockIcon } from './vibe-dock-icons';
+import { VibeDockNotificationOffset } from './vibe-dock-notification-offset';
 
 const h = React.createElement;
 
@@ -97,6 +98,7 @@ export class VibeDockWidget extends ReactWidget {
     protected tabDisposable: Disposable | undefined;
     protected badgeTimer: ReturnType<typeof setInterval> | undefined;
     protected context!: VibeDockContext;
+    protected notificationOffset?: VibeDockNotificationOffset;
 
     @postConstruct()
     protected init(): void {
@@ -126,6 +128,7 @@ export class VibeDockWidget extends ReactWidget {
             this.panelHeight = panelHeight;
             this.width = panelWidth;
             this.update();
+            this.notificationOffset?.schedule();
         });
         this.slot.onDidPressRailMark(() => state.setLayout('open'));
         this.slot.onDidDoubleClickHandle(next => state.setLayout(next));
@@ -138,7 +141,15 @@ export class VibeDockWidget extends ReactWidget {
         this.update();
     }
 
+    protected override onAfterAttach(msg: import('@theia/core/shared/@lumino/messaging').Message): void {
+        super.onAfterAttach(msg);
+        this.notificationOffset = new VibeDockNotificationOffset(this.node);
+        this.notificationOffset.start();
+    }
+
     protected override onBeforeDetach(msg: import('@theia/core/shared/@lumino/messaging').Message): void {
+        this.notificationOffset?.dispose();
+        this.notificationOffset = undefined;
         super.onBeforeDetach(msg);
         this.tabDisposable?.dispose();
         this.tabDisposable = undefined;

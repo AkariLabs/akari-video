@@ -6,7 +6,7 @@ import { AkariRoughCanvasService, RoughCanvasBackdrop, RoughCanvasSubject } from
 import { InkLayer, InkTool } from '../ink-layer';
 import { createInkToolbar } from '../ink-toolbar';
 import { inkToPngDataUrl } from '../ink-render';
-import { formatRoughCanvasPacket, popupBounds } from './rough-canvas-model';
+import { formatRoughCanvasPacket } from './rough-canvas-model';
 import { confirmRoughCanvasSend } from './rough-canvas-command-model';
 import { ensureRoughCanvasStyle } from './rough-canvas-style';
 
@@ -132,9 +132,11 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         task.disabled = true; task.title = 'まだ使えません';
         const taskHint = document.createElement('span'); taskHint.title = 'まだ使えません'; taskHint.appendChild(task);
         const pageControls = document.createElement('span'); pageControls.className = 'akari-rough-canvas-page-controls';
-        pageControls.append(this.button('もう 1 枚', 'quiet small', () => void this.next()),
-            this.button('‹', 'quiet small icon', () => void this.move(-1)), this.number,
-            this.button('›', 'quiet small icon', () => void this.move(1)));
+        const previous = this.button('‹', 'quiet small icon', () => void this.move(-1));
+        previous.setAttribute('aria-label', '前の紙');
+        const next = this.button('›', 'quiet small icon', () => void this.move(1));
+        next.setAttribute('aria-label', '次の紙');
+        pageControls.append(this.button('もう 1 枚', 'quiet small', () => void this.next()), previous, this.number, next);
         this.footer.append(this.memo, pageControls, taskHint, this.button('AI に送る', 'small', () => void this.submit('send')));
         const resize = document.createElement('div'); resize.className = 'akari-rough-canvas-resize';
         resize.setAttribute('aria-label', '大きさを変える');
@@ -151,8 +153,7 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
     }
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
-        this.bounds = popupBounds(window.innerWidth, window.innerHeight, this.options.previewWidth,
-            this.options.aspect, savedBounds(), this.options.previewRect);
+        this.bounds = this.constrainBounds(savedBounds());
         this.place(); window.addEventListener('resize', this.onWindowResize);
         const markHost = document.querySelector('.akari-vibe-mark')?.parentElement;
         if (markHost) {
@@ -173,9 +174,32 @@ export class RoughCanvasPopup extends AbstractDialog<void> {
         try { window.localStorage.setItem(STORAGE, JSON.stringify({ left: this.bounds.left, top: this.bounds.top, width: this.bounds.width })); }
         catch { /* The window can have disabled storage. */ }
     }
+    private constrainBounds(stored?: { left: number; top: number; width: number }): typeof this.bounds {
+        const main = document.querySelector<HTMLElement>('#theia-main-content-panel')?.getBoundingClientRect();
+        const leftPanel = document.querySelector<HTMLElement>('#theia-left-content-panel')?.getBoundingClientRect();
+        const rightPanel = document.querySelector<HTMLElement>('#theia-right-content-panel')?.getBoundingClientRect();
+        const left = Math.max(8, (main?.left ?? 0) + 8, leftPanel?.right ?? 0);
+        const right = Math.max(left, Math.min(window.innerWidth - 8, (main?.right ?? window.innerWidth) - 8,
+            rightPanel && rightPanel.width > 0 && rightPanel.left > left ? rightPanel.left : window.innerWidth));
+        const top = Math.max(8, (main?.top ?? 0) + 8);
+        const bottom = Math.max(top, Math.min(window.innerHeight - 8, (main?.bottom ?? window.innerHeight) - 8));
+        const areaWidth = right - left;
+        const areaHeight = bottom - top;
+        const preferred = (main?.width ?? window.innerWidth) * 0.45;
+        const width = Math.min(areaWidth, Math.max(480, stored?.width ?? preferred));
+        const height = Math.min(areaHeight, Math.max(0,
+            (width - 32) * this.options.aspect.h / this.options.aspect.w + 120));
+        const previewNode = document.querySelector<HTMLElement>('[data-akari-onboarding-target="output"]');
+        const preview = previewNode?.getClientRects().length ? previewNode.getBoundingClientRect() : undefined;
+        const centerX = preview && preview.right > left && preview.left < right
+            ? preview.left + preview.width / 2 : left + areaWidth / 2;
+        const centerY = preview && preview.bottom > top && preview.top < bottom
+            ? preview.top + preview.height / 2 : top + areaHeight / 2;
+        return { left: Math.max(left, Math.min(right - width, stored?.left ?? centerX - width / 2)),
+            top: Math.max(top, Math.min(bottom - height, stored?.top ?? centerY - height / 2)), width, height };
+    }
     private place(): void {
-        this.bounds = popupBounds(window.innerWidth, window.innerHeight, this.options.previewWidth,
-            this.options.aspect, this.bounds, this.options.previewRect);
+        this.bounds = this.constrainBounds(this.bounds);
         const block = this.node.querySelector<HTMLElement>('.dialogBlock'); if (!block) return;
         Object.assign(block.style, { left: `${this.bounds.left}px`, top: `${this.bounds.top}px`,
             width: `${this.bounds.width}px`, height: `${this.bounds.height}px` });

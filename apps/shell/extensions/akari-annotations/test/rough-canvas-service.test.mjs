@@ -33,6 +33,8 @@ test('採番、5 ファイル、旧 canvas 読み手との互換、封印と代�
         assert.deepEqual((await readdir(dir)).sort(), ['backdrop.png', 'canvas.json', 'ink.json', 'paper.png', 'strokes.json']);
         const canvas = JSON.parse(await readFile(join(dir, 'canvas.json'), 'utf8'));
         assert.equal(canvas.version, 0); assert.equal(canvas.status, 'recorded'); assert.equal(canvas.audio, null);
+        assert.deepEqual(canvas.background, { ref: 'backdrop.png',
+            hash: `sha256:${createHash('sha256').update(await readFile(join(dir, 'backdrop.png'))).digest('hex')}` });
         assert.deepEqual(canvas.aspect, aspect); assert.equal(canvas.memo, 'ここに字幕');
         assert.ok(validateCanvasManifest(canvas));
         const strokes = JSON.parse(await readFile(join(dir, 'strokes.json'), 'utf8'));
@@ -72,6 +74,10 @@ test('空メモは保存せず、不正 PNG を拒否', async () => {
         const service = new AkariRoughCanvasServiceImpl();
         const base = request(root);
         assert.deepEqual(await service.saveMemo({ ...base, ink: { ...ink, objects: [] }, memo: '', backdrop: undefined }), { id: null });
+        const blank = await service.saveMemo({ ...base, backdrop: undefined });
+        const blankCanvas = JSON.parse(await readFile(join(root, 'review/canvas', blank.id, 'canvas.json'), 'utf8'));
+        assert.equal(blankCanvas.background, null);
+        assert.ok(validateCanvasManifest(blankCanvas));
         for (const paperPng of ['oops', 'data:image/png;base64,YWJj', `data:image/png;base64,${Buffer.alloc(17 * 1024 * 1024).toString('base64')}`]) {
             await assert.rejects(service.saveMemo({ ...base, paperPng }));
         }
