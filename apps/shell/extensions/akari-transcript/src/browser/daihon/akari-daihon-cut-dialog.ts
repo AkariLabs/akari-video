@@ -47,10 +47,12 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
     protected state: DaihonCutReview = initialDaihonCutReview();
     protected candidates: DaihonCutCandidate[];
     protected busy = false;
+    protected appliedSummary?: { changed: boolean; count: number; seconds: number; refused: number; partial: boolean };
 
     constructor(candidates: DaihonCutCandidate[], protected readonly context: (candidate: DaihonCutCandidate) => string[],
         protected readonly preview: (candidate: DaihonCutCandidate, cut: boolean) => void,
-        protected readonly apply: (selected: DaihonCutCandidate[]) => Promise<boolean>,
+        protected readonly apply: (selected: DaihonCutCandidate[]) => Promise<boolean | {
+            changed: boolean; count: number; seconds: number; refused: number; partial: boolean }>,
         protected readonly undo: () => Promise<void>,
         protected readonly updateSilence: (min: number, keep: number) => Promise<DaihonCutCandidate[]>,
         protected minGapSec: number, protected keepSec: number, candidateId?: string,
@@ -210,18 +212,30 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         if (!selected.length) return;
         this.busy = true; this.render();
         try {
-            this.state = await confirmDaihonCutReview(this.state, this.candidates, this.apply);
-            this.notice.textContent = this.state.step === 2 ? '' : '変更はありませんでした。';
+            this.state = await confirmDaihonCutReview(this.state, this.candidates, async candidates => {
+                const result = await this.apply(candidates);
+                this.appliedSummary = typeof result === 'boolean' ? undefined : result;
+                return typeof result === 'boolean' ? result : result.changed;
+            });
+            this.notice.textContent = this.state.step === 2 ? ''
+                : this.appliedSummary?.refused
+                    ? `${this.appliedSummary.refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`
+                    : '変更はありませんでした。';
         } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); }
         finally { this.busy = false; this.render(); }
     }
 
     protected renderDone(): void {
         const selected = this.state.applied;
-        const seconds = selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
-        this.body.append(element('h3', `${selected.length} 箇所を切りました`));
+        const seconds = this.appliedSummary?.seconds
+            ?? selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
+        const count = this.appliedSummary?.count ?? selected.length;
+        this.body.append(element('h3', `${count} 箇所を切りました`));
+        if (this.appliedSummary?.refused) this.body.append(element('p',
+            `${this.appliedSummary.refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`));
+        if (this.appliedSummary?.partial) this.body.append(element('p', '映像のある部分だけ切りました'));
         const metrics = element('div'); metrics.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0';
-        for (const [value, label] of [[String(selected.length), '切った箇所'], [`${seconds.toFixed(1)} 秒`, '短くなった秒'],
+        for (const [value, label] of [[String(count), '切った箇所'], [`${seconds.toFixed(1)} 秒`, '短くなった秒'],
             [`${Math.max(0, this.videoDuration - seconds).toFixed(1)} 秒`, '区間の長さ']] as const) {
             const tile = element('div'); tile.style.cssText = 'padding:12px;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:8px;background:var(--akari-card, var(--theia-editorWidget-background))';
             const number = element('strong', value); number.style.cssText = 'display:block;font-size:22px;color:var(--akari-accent, var(--theia-focusBorder))';

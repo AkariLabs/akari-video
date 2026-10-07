@@ -2835,6 +2835,8 @@ export class AkariDaihonWidget extends BaseWidget {
             menu.appendChild(button);
         }
         document.body.appendChild(menu);
+        const menuHeight = menu.getBoundingClientRect?.().height || menu.offsetHeight || 220;
+        menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))}px`;
     }
 
     protected enterSplitMode(row: DaihonRow): void {
@@ -3918,15 +3920,15 @@ export class AkariDaihonWidget extends BaseWidget {
         try {
             const ranges = normalizeCutRanges(entries.map(entry => entry.range));
             let removedFrames = 0;
-            let cutWarning: string | undefined;
+            let cutWarnings: string[] = [];
             await this.withHistory(label, async () => {
                 const result = await this.annotationsService.applyCutRanges({
                     editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges, label
                 });
                 removedFrames = result.removedFrames;
-                cutWarning = result.warnings?.[0];
+                cutWarnings = result.warnings ?? [];
             }, true);
-            if (removedFrames === 0) { this.notifyError(cutWarning ?? 'カットできる区間が見つかりませんでした。'); return; }
+            if (removedFrames === 0) { this.notifyError(cutWarnings[0] ?? 'カットできる区間が見つかりませんでした。'); return; }
             await this.reload();
             this.refreshCutTimeline();
             const only = entries[0];
@@ -3935,8 +3937,13 @@ export class AkariDaihonWidget extends BaseWidget {
             const rowLabel = rowCharacters.length > 12 ? `${rowCharacters.slice(0, 12).join('')}…` : rowText;
             const cutLabel = only?.range.kind === 'row' && only.range.label === '行'
                 ? rowLabel || 'この行' : only?.range.label ?? 'この箇所';
-            this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${entries.length} 件をカットしました`,
+            const refused = Math.min(entries.length, cutWarnings.length);
+            const cutCount = entries.length - refused;
+            this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${cutCount} 件をカットしました`,
                 () => void this.historyService.undo());
+            if (refused) this.notify(`${refused} 箇所は切りませんでした（同期した映像がこの区間にないため）`);
+            if (removedFrames / this.editFps + 1 / this.editFps < ranges.reduce((sum, range) => sum + range.out - range.in, 0))
+                this.notify('映像のある部分だけ切りました');
         } catch (error) {
             this.notifyError(this.errorMessage(error));
         }
@@ -4457,15 +4464,23 @@ export class AkariDaihonWidget extends BaseWidget {
                 captionId: candidate.sourceId ?? candidate.rowId, label: candidate.text
             } }));
             const before = await this.readText(this.editUri);
+            let removedFrames = 0;
+            let warnings: string[] = [];
             await this.withHistory('カットを整える', async () => {
-                await this.annotationsService.applyCutRanges({
+                const result = await this.annotationsService.applyCutRanges({
                     editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     ranges: normalizeCutRanges(entries.map(entry => entry.range)), label: 'カットを整える'
                 });
+                removedFrames = result.removedFrames;
+                warnings = result.warnings ?? [];
             }, true);
             const changed = before !== await this.readText(this.editUri);
             if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
-            return changed;
+            const seconds = removedFrames / this.editFps;
+            const refused = Math.min(selected.length, warnings.length);
+            return { changed, count: Math.max(0, selected.length - refused), seconds, refused,
+                partial: changed && seconds + 1 / this.editFps < selected.reduce((sum, candidate) =>
+                    sum + candidate.end - candidate.start, 0) };
         }, () => this.historyService.undo(), async (min, keep) => {
             this.silenceMin = min; this.silenceKeep = keep;
             await Promise.all([
