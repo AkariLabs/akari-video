@@ -283,6 +283,9 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         }
         row.append(check, icon, detail, meta);
         if (source.status === 'voice' && !isCaptionVideo(source) && this.videoSourceIds.size) {
+            row.style.flexWrap = 'wrap';
+            const syncRow = el('div');
+            syncRow.style.cssText = 'flex:0 0 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-left:87px;box-sizing:border-box';
             const syncLabel = el('small', 'このマイクはこの映像と同期');
             syncLabel.style.color = '#aeb7c5';
             const sync = el('select');
@@ -292,11 +295,14 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const option = el('option', label); option.value = id; sync.append(option);
             }
             sync.value = this.syncChoice.get(source.id) ?? '';
+            sync.style.minWidth = '180px';
             sync.onclick = event => event.stopPropagation();
+            syncRow.onclick = event => { event.stopPropagation(); event.preventDefault(); };
             sync.onchange = () => { void this.saveSyncChoice(source.id, sync.value); };
-            row.append(syncLabel, sync);
             const hint = el('small', '最初はずれ 0 秒。必要ならあとでタイムラインでずらせます。');
-            hint.style.color = '#aeb7c5'; row.append(hint);
+            hint.style.color = '#aeb7c5';
+            syncRow.append(syncLabel, sync, hint);
+            row.append(syncRow);
         }
         return row;
     }

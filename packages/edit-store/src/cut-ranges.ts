@@ -90,9 +90,38 @@ function syncGroupForRange(edit: EditV2, range: Pick<CutRange, 'captionId'>): Sy
     return edit.sync_groups?.find(group => group.members.some(member => member.source === range.captionId));
 }
 
+function syncVisualPosition(edit: EditV2, group: SyncGroupV2, audioSource: string,
+    sourceTime: number): number | undefined {
+    const audioMember = group.members.find(member => member.source === audioSource);
+    if (!audioMember) return undefined;
+    for (const member of group.members) {
+        const time = sourceTime + member.offset_sec - audioMember.offset_sec;
+        for (const track of visualTracks(edit)) for (const item of track.items) {
+            if (!media(item) || item.source.src !== member.source || item.duration <= 0
+                || time < item.source.in - SOURCE_TOLERANCE
+                || time >= item.source.out - SOURCE_TOLERANCE) continue;
+            return item.at + Math.round((time - item.source.in)
+                / (item.source.out - item.source.in) * item.duration);
+        }
+    }
+    return undefined;
+}
+
 function applySyncGroupCut(source: string, range: CutRange, group: SyncGroupV2,
     opts: ApplyCutRangesOptions): ApplyCutRangesResult {
     readEditV2(JSON.parse(source));
+    const original = JSON.parse(source) as EditV2;
+    const gapTrackIds = new Set(visualTracks(original).filter(track => {
+        const items = track.items.filter(media);
+        return items.some(item => group.members.some(member => member.source === item.source.src))
+            && (items[0]?.at > 0 || items.some((item, index) => index > 0
+                && item.at > items[index - 1].at + items[index - 1].duration));
+    }).map(track => track.id));
+    const preserveLeadingGapTrackIds = visualTracks(original).filter(track => gapTrackIds.has(track.id)
+        && track.items.filter(media)[0]?.at > 0
+        && audioTracks(original).some(audioTrack => audioTrack.items.some(audio => !audio.link
+            && group.members.some(member => member.source === audio.source.src)
+            && audio.at < track.items.filter(media)[0].at))).map(track => track.id);
     const origin = group.members.find(member => member.source === range.captionId)!;
     const targets = group.members.map(member => ({ ...range, reason: range.reason ?? 'word' as const, captionId: member.source,
         in: range.in + member.offset_sec - origin.offset_sec,
@@ -104,7 +133,7 @@ function applySyncGroupCut(source: string, range: CutRange, group: SyncGroupV2,
         const before = JSON.parse(current) as EditV2;
         if (!visualTracks(before).some(track => track.items.some(item =>
             media(item) && item.source.src === target.captionId && item.source.in < target.out && item.source.out > target.in))) continue;
-        const result = applyV2(current, [target], opts, [], undefined, true);
+        const result = applyV2(current, [target], opts, preserveLeadingGapTrackIds, undefined, true);
         const after = JSON.parse(result.source) as EditV2;
         for (const track of visualTracks(after)) {
             const previous = visualTracks(before).find(candidate => candidate.id === track.id);
@@ -149,11 +178,15 @@ function applySyncGroupCut(source: string, range: CutRange, group: SyncGroupV2,
     const rippleFrames = removedFrames || Math.round((range.out - range.in) * edit.output.fps);
     for (const target of targets) for (const track of audioTracks(edit)) {
         const next: AudioMediaItemV2[] = [];
+        const shifts: Array<number | undefined> = [];
+        const shiftableEdges: boolean[] = [];
         for (const item of track.items) {
             if (item.link || (item.role !== 'speech' && item.role !== 'narration')
                 || item.source.kind !== 'media' || item.source.src !== target.captionId
                 || item.source.in === undefined || item.source.out === undefined) {
                 next.push(item);
+                shifts.push(undefined);
+                shiftableEdges.push(false);
                 continue;
             }
             const overlapIn = Math.max(item.source.in, target.in);
@@ -175,11 +208,37 @@ function applySyncGroupCut(source: string, range: CutRange, group: SyncGroupV2,
                 matched = true;
             }
             for (const piece of replacement.items) {
-                if (piece.source.in! >= target.out - audioFrameTolerance(piece)) {
+                const oldPosition = gapTrackIds.size
+                    ? syncVisualPosition(original, group, target.captionId!, piece.source.in!) : undefined;
+                const newPosition = gapTrackIds.size
+                    ? syncVisualPosition(edit, group, target.captionId!, piece.source.in!) : undefined;
+                const shift = oldPosition !== undefined && newPosition !== undefined
+                    ? newPosition - oldPosition : undefined;
+                if (shift !== undefined) {
+                    piece.at += shift;
+                    if (piece.cut_edge && !replacement.removedFrames) piece.cut_edge.at += shift;
+                } else if (piece.source.in! >= target.out - audioFrameTolerance(piece)) {
                     piece.at -= rippleFrames;
                     if (piece.cut_edge && !replacement.removedFrames) piece.cut_edge.at -= rippleFrames;
                 }
                 next.push(piece);
+                shifts.push(shift);
+                shiftableEdges.push(!replacement.removedFrames);
+            }
+        }
+        if (gapTrackIds.size) {
+            for (let index = 0; index < next.length; index++) {
+                if (shifts[index] !== undefined || next[index].link
+                    || (next[index].role !== 'speech' && next[index].role !== 'narration')
+                    || next[index].source.src !== target.captionId) continue;
+                const neighbor = [...shifts.slice(0, index)].reverse().find(value => value !== undefined)
+                    ?? shifts.slice(index + 1).find(value => value !== undefined);
+                if (neighbor === undefined) continue;
+                const fallback = next[index].source.in! >= target.out - audioFrameTolerance(next[index])
+                    ? -rippleFrames : 0;
+                next[index].at += neighbor - fallback;
+                if (next[index].cut_edge && shiftableEdges[index])
+                    next[index].cut_edge!.at += neighbor - fallback;
             }
         }
         track.items = next;
@@ -692,7 +751,7 @@ function restoreLinkedAudio(
 
 function restoreOneTrack(
     edit: EditV2, trackIndex: number, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>,
-    exactLeft: boolean, exactRight: boolean
+    exactLeft: boolean, exactRight: boolean, preserveLeadingGap = false
 ): { track?: VisualItemsTrackV2; reason?: string } {
     const original = edit.tracks[trackIndex] as VisualItemsTrackV2;
     const items = original.items;
@@ -775,7 +834,8 @@ function restoreOneTrack(
         const linked = audioTracks(edit).some(audioTrack => audioTrack.items.some(item => item.link));
         let trial: ApplyCutRangesResult;
         if (!linked) {
-            trial = applyV2(`${JSON.stringify(candidate, null, 2)}\n`, [{ ...range, kind: 'row' }], {});
+            trial = applyV2(`${JSON.stringify(candidate, null, 2)}\n`, [{ ...range, kind: 'row' }], {},
+                preserveLeadingGap ? [original.id] : []);
         } else {
             const visualOnly = { ...candidate, tracks: candidate.tracks.filter(track => track.lane !== 'audio') };
             const preserveLeadingGap = target.find(media)?.at ? [original.id] : [];
@@ -917,7 +977,8 @@ function restoreSyncAudio(edit: EditV2, target: CutRange, rippleFrames: number):
     return changed;
 }
 
-function restoreSyncVisualEdges(source: string, target: CutRange): RestoreCutRangeResult {
+function restoreSyncVisualEdges(source: string, target: CutRange,
+    preserveLeadingGapTrackIds: readonly string[] = []): RestoreCutRangeResult {
     const original = JSON.parse(source) as EditV2;
     const restored = structuredClone(original);
     let changed = false;
@@ -972,7 +1033,8 @@ function restoreSyncVisualEdges(source: string, target: CutRange): RestoreCutRan
         changed = true;
     }
     if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
-    const replay = JSON.parse(applyV2(`${JSON.stringify(restored, null, 2)}\n`, [target], {}).source) as EditV2;
+    const replay = JSON.parse(applyV2(`${JSON.stringify(restored, null, 2)}\n`,
+        [target], {}, preserveLeadingGapTrackIds).source) as EditV2;
     for (const originalTrack of visualTracks(original)) {
         if (!originalTrack.items.some(item => media(item) && item.source.src === target.captionId)) continue;
         const next = visualTracks(replay).find(track => track.id === originalTrack.id);
@@ -988,6 +1050,13 @@ function restoreSyncGroupCut(source: string,
     group: SyncGroupV2): RestoreCutRangeResult {
     const original = JSON.parse(source) as EditV2;
     readEditV2(original);
+    const preserveLeadingGapTrackIds = visualTracks(original).filter(track => {
+        const first = track.items.find(media);
+        return first && first.at > 0 && group.members.some(member => member.source === first.source.src)
+            && audioTracks(original).some(audioTrack => audioTrack.items.some(audio => !audio.link
+                && group.members.some(member => member.source === audio.source.src)
+                && audio.at < first.at));
+    }).map(track => track.id);
     const origin = group.members.find(member => member.source === range.captionId)!;
     const targets = group.members.map(member => ({ ...range, kind: 'row' as const,
         captionId: member.source, in: range.in + member.offset_sec - origin.offset_sec,
@@ -1019,8 +1088,9 @@ function restoreSyncGroupCut(source: string,
         const audioEdges = new Map(audioTracks(current).flatMap(track => track.items
             .filter(item => !item.link && item.cut_edge).map(item => [item.id, structuredClone(item.cut_edge!)] as const)));
         const visualSource = `${JSON.stringify(current, null, 2)}\n`;
-        let result = restoreCutRangeUnchecked(visualSource, target, { offset: 0, attempted: false });
-        if (!result.restored) result = restoreSyncVisualEdges(visualSource, target);
+        let result = restoreCutRangeUnchecked(visualSource, target, { offset: 0, attempted: false },
+            preserveLeadingGapTrackIds);
+        if (!result.restored) result = restoreSyncVisualEdges(visualSource, target, preserveLeadingGapTrackIds);
         if (!result.restored) return { source, restored: false, reason: result.reason };
         current = JSON.parse(result.source) as EditV2;
         const afterDuration = visualTracks(current).flatMap(track => track.items)
@@ -1117,7 +1187,8 @@ export function restoreCutRange(
 
 function restoreCutRangeUnchecked(
     source: string, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>,
-    soloFrames: { offset: number; attempted: boolean }
+    soloFrames: { offset: number; attempted: boolean },
+    preserveLeadingGapTrackIds: readonly string[] = []
 ): RestoreCutRangeResult {
     if (detectEditVersion(source) !== 2) {
         return { source, restored: false, reason: RESTORE_LEGACY };
@@ -1140,7 +1211,8 @@ function restoreCutRangeUnchecked(
         if (!leftIndices.length && !rightIndices.length) continue;
         const leftId = leftIndices.length === 1 ? track.items[leftIndices[0]].id : undefined;
         const rightId = rightIndices.length === 1 ? track.items[rightIndices[0]].id : undefined;
-        const next = restoreOneTrack(edit, index, range, exactLeft, exactRight);
+        const next = restoreOneTrack(edit, index, range, exactLeft, exactRight,
+            preserveLeadingGapTrackIds.includes(track.id));
         if (!next.track) return { source, restored: false, reason: next.reason ?? RESTORE_UNAVAILABLE };
         restored.tracks[index] = next.track;
         if (leftId && rightId) {

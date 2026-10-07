@@ -47,6 +47,57 @@ function syncFixture(cam = [media('cam-1', 0, 300, 0, 10, 'cam')], mic = [
     ] });
 }
 
+test('sync cuts keep audio and visual source-time skew across track gaps', () => {
+  const voice = (id, at, duration, sourceIn, sourceOut) => ({ id, role: 'speech', at, duration,
+    source: { kind: 'media', src: 'mic', in: sourceIn, out: sourceOut } });
+  const scenarios = [
+    { name: 'leading gap', cam: [media('cam-0', 30, 300, 0, 10, 'cam')],
+      mic: [voice('mic-0', 30, 300, 0, 10)], cut: [3, 4], skew: 0 },
+    { name: 'middle gap, first item',
+      cam: [media('cam-0', 0, 150, 0, 5, 'cam'), media('cam-1', 180, 150, 5, 10, 'cam')],
+      mic: [voice('mic-0', 0, 150, 0, 5), voice('mic-1', 180, 150, 5, 10)],
+      cut: [2, 3], skew: 0 },
+    { name: 'middle gap, second item',
+      cam: [media('cam-0', 0, 150, 0, 5, 'cam'), media('cam-1', 180, 150, 5, 10, 'cam')],
+      mic: [voice('mic-0', 0, 150, 0, 5), voice('mic-1', 180, 150, 5, 10)],
+      cut: [7, 8], skew: 0 },
+    { name: 'shifted audio and leading gap', cam: [media('cam-0', 30, 300, 0, 10, 'cam')],
+      mic: [voice('mic-0', 45, 300, 0, 10)], cut: [3, 4], skew: 15 },
+    { name: 'audio before visual and leading gap', cam: [media('cam-0', 30, 300, 0, 10, 'cam')],
+      mic: [voice('mic-0', 15, 300, 0, 10)], cut: [3, 4], skew: -15 },
+  ];
+  const skews = doc => {
+    const visual = doc.tracks[0].items;
+    return doc.tracks[1].items.flatMap(audio => {
+      const step = (audio.source.out - audio.source.in) / audio.duration;
+      return [0, Math.floor(audio.duration / 2), audio.duration - 1].flatMap(frame => {
+        const sourceTime = audio.source.in + (frame + 0.5) * step;
+        const video = visual.find(item => item.source.in <= sourceTime && sourceTime < item.source.out);
+        return video ? [audio.at + frame - video.at - Math.floor((sourceTime - video.source.in)
+          * video.duration / (video.source.out - video.source.in))] : [];
+      });
+    });
+  };
+  const check = (doc, expected, context) => {
+    assert.ok(doc.tracks.every(track => track.items.every(item => item.at >= 0)), context);
+    const items = doc.tracks[1].items;
+    assert.ok(items.every((item, index) => index === 0
+      || item.at >= items[index - 1].at + items[index - 1].duration), context);
+    const values = skews(doc);
+    assert.ok(values.length > 0, context);
+    assert.ok(values.every(value => Math.abs(value - expected) <= 1), `${context}: ${values}`);
+  };
+  for (const scenario of scenarios) for (const source of ['cam', 'mic']) {
+    const original = syncFixture(scenario.cam, scenario.mic);
+    const cut = range(scenario.cut, 'row', { captionId: source });
+    const applied = applyCutRanges(original, [cut]);
+    check(JSON.parse(applied.source), scenario.skew, `${scenario.name} cut via ${source}`);
+    const restored = restoreCutRange(applied.source, cut);
+    assert.equal(restored.restored, true, `${scenario.name} restore via ${source}: ${restored.reason}`);
+    check(JSON.parse(restored.source), scenario.skew, `${scenario.name} restore via ${source}`);
+  }
+});
+
 test('同期組の三か所はどの順で戻しても元の宣言に一致する', () => {
   const original = syncFixture();
   const cuts = [range([1, 1.5], 'row', { captionId: 'mic' }),
