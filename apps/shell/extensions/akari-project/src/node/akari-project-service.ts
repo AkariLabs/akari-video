@@ -33,6 +33,8 @@ import {
     DiffResourcePair,
     DroppedAsset,
     DroppedAssetImportResult,
+    VoiceRecordingStartResult,
+    VoiceRecordingFinishResult,
     DroppedAssetKind,
     DroppedVideo,
     DroppedVideoImportResult,
@@ -47,6 +49,7 @@ import {
     StoreDevicePollRequest,
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
+import { VoiceRecordingWriter } from './voice-recording-writer';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName, pngPreviewWidth } from './thumbnail-cache';
 import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
@@ -178,11 +181,17 @@ type ProjectCardPlan =
 
 @injectable()
 export class AkariProjectServiceImpl implements AkariProjectService {
+    protected readonly voiceRecordingWriter = new VoiceRecordingWriter();
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
     protected readonly libraryThumbnailInFlight = new Map<string, Promise<string | undefined>>();
+    protected readonly libraryThumbnailQueue: Array<() => Promise<void>> = [];
+    protected readonly libraryThumbnailCandidates = new Map<string, string>();
+    protected readonly libraryThumbnailSkipped = new Set<string>();
+    protected libraryThumbnailActive = 0;
+    protected libraryThumbnailQueueTimer?: ReturnType<typeof setTimeout>;
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
@@ -369,7 +378,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const merged = mergeAssetCatalogViews(local.items, resolverResult.items);
         const items = await Promise.all(merged.map(async item => {
             if (item.thumbUrl) return item;
-            const thumbUrl = await this.resolveLibraryPreviewThumbnail(item);
+            const thumbUrl = await this.prepareLibraryPreviewThumbnail(item);
             return thumbUrl ? { ...item, thumbUrl } : item;
         }));
         return {
@@ -385,24 +394,85 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         };
     }
 
-    /** Rebuildable application cache; an unreadable poster simply keeps its original URL. */
-    protected async resolveLibraryPreviewThumbnail(item: AssetCatalogViewItem): Promise<string | undefined> {
+    /** Check only file metadata on the catalog path; generation runs after the view has returned. */
+    protected async prepareLibraryPreviewThumbnail(item: AssetCatalogViewItem): Promise<string | undefined> {
         let source: string;
-        let localOriginal = false;
         if (item.libraryDir && await this.isFile(join(item.libraryDir, 'preview.png'))) {
             source = join(item.libraryDir, 'preview.png');
-            localOriginal = true;
         } else if (item.previewUrl?.startsWith('file:')) {
             try { source = fileURLToPath(item.previewUrl); } catch { return undefined; }
         } else return undefined;
-        const fallbackUrl = localOriginal ? pathToFileURL(source).toString() : undefined;
         try {
             const stat = await fs.stat(source);
             if (!stat.isFile()) return undefined;
             const key = deriveThumbnailCacheKey(`library-preview-v1:${source}`, stat.size, stat.mtimeMs);
             const cacheDir = join(dirname(libraryFavoritesPath()), 'cache', 'library-thumbnails');
             const cachePath = join(cacheDir, thumbnailCacheFileName(key, '.webp'));
+            // Keep recent item keys for polling; reopening an older view registers its keys again.
+            this.libraryThumbnailCandidates.delete(item.key);
+            this.libraryThumbnailCandidates.set(item.key, cachePath);
+            if (this.libraryThumbnailCandidates.size > 2000) {
+                const oldest = this.libraryThumbnailCandidates.keys().next().value;
+                if (oldest !== undefined) this.libraryThumbnailCandidates.delete(oldest);
+            }
             if (await fs.stat(cachePath).then(file => file.size > 0, () => false)) return pathToFileURL(cachePath).toString();
+            if (!this.libraryThumbnailSkipped.has(cachePath)) this.enqueueLibraryThumbnail(source, cachePath);
+        } catch {
+            // An absent or unreadable original keeps its existing previewUrl.
+        }
+        return undefined;
+    }
+
+    /** Polling clients get only thumbnails already on disk and whether any requested ones are still queued. */
+    async getLibraryThumbnails(keys: string[]): Promise<{ urls: Record<string, string>; pending: boolean }> {
+        const urls: Record<string, string> = {};
+        let pending = false;
+        await Promise.all(keys.map(async key => {
+            const cachePath = this.libraryThumbnailCandidates.get(key);
+            if (!cachePath) return;
+            if (await fs.stat(cachePath).then(file => file.size > 0, () => false)) {
+                urls[key] = pathToFileURL(cachePath).toString();
+            } else if (this.libraryThumbnailInFlight.has(cachePath)) {
+                pending = true;
+            }
+        }));
+        return { urls, pending };
+    }
+
+    protected enqueueLibraryThumbnail(source: string, cachePath: string): void {
+        if (this.libraryThumbnailInFlight.has(cachePath)) return;
+        let finish!: (url: string | undefined) => void;
+        const generation = new Promise<string | undefined>(resolve => { finish = resolve; });
+        this.libraryThumbnailInFlight.set(cachePath, generation);
+        this.libraryThumbnailQueue.push(async () => {
+            let url: string | undefined;
+            try { url = await this.resolveLibraryPreviewThumbnail(source, cachePath); } catch { /* Keep original preview. */ }
+            if (!url) this.libraryThumbnailSkipped.add(cachePath);
+            this.libraryThumbnailInFlight.delete(cachePath);
+            finish(url);
+        });
+        if (!this.libraryThumbnailQueueTimer) {
+            this.libraryThumbnailQueueTimer = setTimeout(() => {
+                this.libraryThumbnailQueueTimer = undefined;
+                this.drainLibraryThumbnailQueue();
+            }, 0);
+        }
+    }
+
+    protected drainLibraryThumbnailQueue(): void {
+        while (this.libraryThumbnailActive < 3 && this.libraryThumbnailQueue.length) {
+            const task = this.libraryThumbnailQueue.shift()!;
+            this.libraryThumbnailActive++;
+            void task().finally(() => {
+                this.libraryThumbnailActive--;
+                this.drainLibraryThumbnailQueue();
+            });
+        }
+    }
+
+    /** Rebuildable application cache; an unreadable poster simply keeps its original URL. */
+    protected async resolveLibraryPreviewThumbnail(source: string, cachePath: string): Promise<string | undefined> {
+        try {
             let width = extname(source).toLowerCase() === '.png' ? await pngPreviewWidth(source) : undefined;
             if (width === undefined) {
                 const ffprobe = await this.resolveFfprobePath();
@@ -411,35 +481,24 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     '-show_entries', 'stream=width', '-of', 'default=noprint_wrappers=1:nokey=1', source]);
                 width = Number(result.stdout.trim());
             }
-            if (!Number.isFinite(width)) return fallbackUrl;
-            if (width <= 640) return fallbackUrl;
-            const pending = this.libraryThumbnailInFlight.get(cachePath);
-            if (pending) return pending;
-            const generation = (async () => {
-                const ffmpeg = await this.resolveFfmpegPath();
-                await fs.mkdir(cacheDir, { recursive: true });
-                try {
-                    if (!ffmpeg) throw new Error('ffmpeg unavailable');
-                    await execFileAsync(ffmpeg, ['-y', '-loglevel', 'error', '-i', source,
-                        '-vf', 'scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2',
-                        '-frames:v', '1', '-c:v', 'libwebp', cachePath]);
-                } catch {
-                    // Some system ffmpeg builds omit libwebp; cwebp is an optional local fallback.
-                    await fs.rm(cachePath, { force: true }).catch(() => undefined);
-                    try { await execFileAsync('cwebp', ['-quiet', '-resize', '480', '270', source, '-o', cachePath]); }
-                    catch { await fs.rm(cachePath, { force: true }).catch(() => undefined); return fallbackUrl; }
-                }
-                try {
-                    if (!(await fs.stat(cachePath)).size) return fallbackUrl;
-                    return pathToFileURL(cachePath).toString();
-                } catch {
-                    return fallbackUrl;
-                }
-            })().finally(() => this.libraryThumbnailInFlight.delete(cachePath));
-            this.libraryThumbnailInFlight.set(cachePath, generation);
-            return generation;
+            if (!Number.isFinite(width) || width <= 640) return undefined;
+            const ffmpeg = await this.resolveFfmpegPath();
+            await fs.mkdir(dirname(cachePath), { recursive: true });
+            try {
+                if (!ffmpeg) throw new Error('ffmpeg unavailable');
+                await execFileAsync(ffmpeg, ['-y', '-loglevel', 'error', '-i', source,
+                    '-vf', 'scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2',
+                    '-frames:v', '1', '-c:v', 'libwebp', cachePath]);
+            } catch {
+                // Some system ffmpeg builds omit libwebp; cwebp is an optional local fallback.
+                await fs.rm(cachePath, { force: true }).catch(() => undefined);
+                try { await execFileAsync('cwebp', ['-quiet', '-resize', '480', '270', source, '-o', cachePath]); }
+                catch { await fs.rm(cachePath, { force: true }).catch(() => undefined); return undefined; }
+            }
+            return await fs.stat(cachePath).then(file => file.size > 0 ? pathToFileURL(cachePath).toString() : undefined,
+                () => undefined);
         } catch {
-            return localOriginal ? pathToFileURL(source).toString() : undefined;
+            return undefined;
         }
     }
 
@@ -1325,6 +1384,18 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             }
         }
         return results;
+    }
+
+    async startVoiceRecording(projectUri: string): Promise<VoiceRecordingStartResult> {
+        return this.voiceRecordingWriter.start(this.fsPath(projectUri));
+    }
+
+    async appendVoiceRecording(request: { recordingId: string; pcmBase64: string }): Promise<void> {
+        return this.voiceRecordingWriter.append(request);
+    }
+
+    async finishVoiceRecording(request: { recordingId: string; discard?: boolean }): Promise<VoiceRecordingFinishResult | undefined> {
+        return this.voiceRecordingWriter.finish(request);
     }
 
     protected readonly transcriptions = new Set<string>();

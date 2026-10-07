@@ -12,6 +12,7 @@ import { basename, join, resolve } from 'path';
 import { serializeCaptions, serializeEdit, serializeMotion } from '../canonical';
 import { writeAtomic } from '../write-gate';
 import { readEditV2 } from '../edit-v2';
+import { createEmptyEditV2 } from '../empty-edit-v2';
 import type { AudioMediaItemV2, EditV2, FilterV2, ItemV2, TrackV2 } from '../edit-v2';
 import { GEOMETRY_SOURCE, normalizeGeometry, type DimensionsOf, type GeometryChange } from './geometry';
 export { LegacyEditVersionError } from './error';
@@ -51,6 +52,8 @@ export interface MigrationProposal {
     nextText: string;
     previousText: string;
     backupPath: string;
+    /** version の無い、キー 0 個の edit.json を初期化する提案。 */
+    emptyProject?: true;
     captions?: {
         filePath: string;
         nextText: string;
@@ -162,7 +165,9 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         return { ok: false, version, blockers: ['edit.json はすでに version 2 です。再変換は行いません。'] };
     }
     if (version !== 0 && version !== 1) {
-        return { ok: false, version: version ?? -1, blockers: ['edit.json.version が 0 または 1 ではありません。'] };
+        return { ok: false, version: version ?? -1, blockers: [version === undefined && isRecord(raw) && !hasOwn(raw, 'version')
+            ? 'edit.json に version が無いため形式を判別できません（中身あり）。.akari/backup/ からの復元か、版の指定が必要です'
+            : 'edit.json.version が 0 または 1 ではありません。'] };
     }
     if (!isRecord(raw)) {
         return { ok: false, version, blockers: ['edit.json のルートが object ではありません。'] };
@@ -616,6 +621,16 @@ export function planMigration(
         raw = JSON.parse(text);
     } catch (error) {
         return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
+    }
+    if (isRecord(raw) && Object.keys(raw).length === 0) {
+        const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+        return {
+            filePath: resolve(editPath), version: 0, emptyProject: true,
+            changes: [{ path: 'edit.json', note: '空の edit.json を新規 v2 として初期化' }],
+            warnings: [], nextText: `${JSON.stringify(createEmptyEditV2(), null, 2)}\n`,
+            previousText: text,
+            backupPath: join(resolve(projectRoot), '.akari', 'backup', `edit-${iso}.json`)
+        };
     }
     // annotations の書き込み経路も projectRoot 付きで planMigration を呼ぶため、ここでの解決だけで
     // CLI と同じ cue 判定が適用され、呼び出し元への追加配線は要らない。

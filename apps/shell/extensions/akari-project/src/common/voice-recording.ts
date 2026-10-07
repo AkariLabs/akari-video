@@ -1,0 +1,60 @@
+export const VOICE_RECORDING_SAMPLE_RATE = 48_000;
+export const VOICE_RECORDING_MIN_SEC = 0.5;
+export const VOICE_RECORDING_DIRECTORY = 'assets/afreco';
+
+export function voiceRecordingFileName(now: Date): string {
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return `afreco-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.wav`;
+}
+
+export function formatRecordingClock(sec: number): string {
+    const whole = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return `${pad(Math.floor(whole / 3600))}:${pad(Math.floor(whole / 60) % 60)}:${pad(whole % 60)}`;
+}
+
+export function mixToMono(channels: Float32Array[]): Float32Array {
+    const length = channels[0]?.length ?? 0;
+    const mono = new Float32Array(length);
+    for (const channel of channels) {
+        for (let index = 0; index < length; index += 1) mono[index] += channel[index] / channels.length;
+    }
+    return mono;
+}
+
+export function rmsLevel(samples: Float32Array): number {
+    if (!samples.length) return 0;
+    let squared = 0;
+    for (const sample of samples) squared += sample * sample;
+    return Math.min(1, Math.sqrt(squared / samples.length));
+}
+
+export function levelToBars(level: number, bars: number): number {
+    return Math.round(Math.min(1, Math.max(0, level * 4)) * bars);
+}
+
+export function resampleToPcm16(samples: Float32Array, inputRate: number, outputRate: number): Uint8Array {
+    if (!samples.length) return new Uint8Array();
+    if (!(inputRate > 0) || !(outputRate > 0)) throw new Error('Sample rates must be positive');
+    const outputLength = Math.max(1, Math.round(samples.length * outputRate / inputRate));
+    const output = new Uint8Array(outputLength * 2);
+    const view = new DataView(output.buffer);
+    const ratio = inputRate / outputRate;
+    for (let index = 0; index < outputLength; index += 1) {
+        const start = Math.min(samples.length - 1, Math.floor(index * ratio));
+        const end = Math.min(samples.length, Math.max(start + 1, Math.floor((index + 1) * ratio)));
+        let total = 0;
+        for (let source = start; source < end; source += 1) total += samples[source];
+        const sample = Math.max(-1, Math.min(1, total / (end - start)));
+        view.setInt16(index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    }
+    return output;
+}
+
+export function bytesToBase64(bytes: Uint8Array): string {
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return btoa(binary);
+}

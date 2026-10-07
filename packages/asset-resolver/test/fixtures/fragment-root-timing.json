@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "comment and child timing",
+      "source": "<!-- data-duration=\"90\" -->\n<div data-start=\"0\" data-duration=\"8\"><span data-duration=\"2\">text</span></div>",
+      "plain": "<!-- data-duration=\"90\" -->\n<div><span data-duration=\"2\">text</span></div>",
+      "preserved": "<!-- data-duration=\"90\" -->\n<div data-akari-natural-duration=\"8\"><span data-duration=\"2\">text</span></div>"
+    },
+    {
+      "name": "leading style and existing natural duration",
+      "source": "<style>.x{color:red}</style><div data-start=0 data-duration=6 data-akari-natural-duration=\"9\">text</div>",
+      "plain": "<style>.x{color:red}</style><div data-akari-natural-duration=\"9\">text</div>",
+      "preserved": "<style>.x{color:red}</style><div data-akari-natural-duration=\"9\">text</div>"
+    },
+    {
+      "name": "duration before class",
+      "source": "<div data-start=\"0\" data-duration=\"4\" class=\"x\">text</div>",
+      "plain": "<div class=\"x\">text</div>",
+      "preserved": "<div class=\"x\" data-akari-natural-duration=\"4\">text</div>"
+    },
+    {
+      "name": "start only with child duration",
+      "source": "<div data-start=\"3\"><span data-duration=\"2\">text</span></div>",
+      "plain": "<div><span data-duration=\"2\">text</span></div>",
+      "preserved": "<div><span data-duration=\"2\">text</span></div>"
+    },
+    {
+      "name": "single quoted duration",
+      "source": "<div data-duration='2.5' data-start='0'>text</div>",
+      "plain": "<div>text</div>",
+      "preserved": "<div data-akari-natural-duration=\"2.5\">text</div>"
+    }
+  ]
+}

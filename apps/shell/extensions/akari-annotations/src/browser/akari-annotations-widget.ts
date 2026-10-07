@@ -1165,6 +1165,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly toolbar = document.createElement('div');
     protected readonly frameToolButton = document.createElement('button');
     protected readonly readAloudButton = document.createElement('button');
+    protected readonly voiceRecordButton = document.createElement('button');
     protected placingText = false;
     protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
@@ -1840,6 +1841,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.readAloudButton.textContent = '🔊 読み上げ';
         Object.assign(this.readAloudButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0' });
         this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
+        this.configureIconButton(this.voiceRecordButton, 'codicon-mic', 'アフレコ', 'アフレコ（マイクで録る）');
+        Object.assign(this.voiceRecordButton.style, { flexShrink: '0', marginLeft: 'auto' });
+        this.voiceRecordButton.addEventListener('click', () => void this.commands.executeCommand('akari.voice.record'));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.autoRippleButton, 'codicon-arrow-left', '自動で詰める', '自動で詰める');
@@ -1865,7 +1869,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(this.historyService.onDidChange(() => this.updateHistoryButtons()));
         this.toDispose.push(this.historyService.onDidExecute(execution => this.applyHistoryExecution(execution)));
         Object.assign(this.zoomHud.style, {
-            display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
+            display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px'
         });
         this.zoomIcon.className = 'codicon codicon-search';
         this.zoomIcon.setAttribute('aria-hidden', 'true');
@@ -1919,6 +1923,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         Object.assign(this.rangeDurationLabel.style, { fontSize: '10px', color: 'var(--theia-descriptionForeground)',
             marginLeft: '8px', whiteSpace: 'nowrap' });
         this.toolbar.insertBefore(this.rangeDurationLabel, this.zoomHud);
+        this.toolbar.insertBefore(this.voiceRecordButton, this.zoomHud);
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
@@ -8888,6 +8893,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const proposal = planned as EditMigrationProposal;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0) {
+            try {
+                await this.annotationsService.applyEditMigration(proposal);
+            } catch (error) {
+                this.setLegacyReadOnly(true);
+                const reason = error instanceof Error ? error.message : String(error);
+                this.showNotice(`空の edit.json を初期化できませんでした（退避に失敗）: ${reason}。元ファイルは変更されていません。`);
+                return undefined;
+            }
+            this.setLegacyReadOnly(false);
+            return proposal.nextText;
+        }
         const summary = proposal.changes.map(change => `${change.path}: ${change.note}`).join('\n');
         const choice = await this.messages.info(
             `${proposal.filePath} は edit.json version ${proposal.version} です。\n${summary}`,

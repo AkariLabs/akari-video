@@ -35,15 +35,19 @@ async function lintOverlay(t, { shared }) {
   const result = await lintProject(project, {
     writeReports: false, env: { ...process.env, AKARI_HOME: libraryHome, AKARI_LIBRARY_ROOT: "" },
   });
-  return result.findings.filter(finding => finding.check.startsWith("overlays.")).map(finding => finding.check);
+  return result;
 }
 
 test("shared-library overlay fragments are not checked for root data-start/data-duration", async t => {
-  assert.deepEqual(await lintOverlay(t, { shared: true }), []);
+  const result = await lintOverlay(t, { shared: true });
+  assert.deepEqual(result.findings.filter(finding => finding.check.startsWith("overlays.")), []);
 });
 
-test("project-local overlay fragments keep the root data-start/data-duration checks", async t => {
-  assert.deepEqual((await lintOverlay(t, { shared: false })).sort(), [
-    "overlays.data-attributes", "overlays.data-attributes", "overlays.root-data-attributes",
-  ]);
+test("trimmed project-local overlay with old root timing warns without stopping export", async t => {
+  const result = await lintOverlay(t, { shared: false });
+  assert.equal(result.verdict, "pass");
+  const findings = result.findings.filter(finding => finding.check.startsWith("overlays."));
+  assert.deepEqual(findings.map(finding => finding.check), ["overlays.root-data-attributes"]);
+  assert.equal(findings[0].severity, "warning");
+  assert.match(findings[0].message, /edit\.json の時刻が正です/);
 });

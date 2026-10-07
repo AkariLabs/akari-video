@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,7 @@ async function lintCase(id) {
   const project = await mkdtemp(join(tmpdir(), "edit-lint-fragment-tokenizer-"));
   try {
     await cp(fixture, project, { recursive: true });
+    await mkdir(join(project, ".akari"), { recursive: true });
     const editPath = join(project, "edit.json");
     const edit = JSON.parse(await readFile(editPath, "utf8"));
     edit.overlays = edit.overlays.filter((overlay) => overlay.id === id);
@@ -52,7 +53,7 @@ test("a genuinely unbalanced fragment still reports overlays.html-root as an err
   assert.equal(findings[0].severity, "error");
 });
 
-test("root data-start always warns and a mismatched value also keeps the existing error", async (t) => {
+test("root data-start always warns without a timing mismatch error", async (t) => {
   await t.test("matching data-start warns without overlays.data-attributes", async () => {
     const result = await lintCase("root-data-matched");
     const warnings = findingsFor(result, "overlays.root-data-attributes");
@@ -61,13 +62,11 @@ test("root data-start always warns and a mismatched value also keeps the existin
     assert.deepEqual(findingsFor(result, "overlays.data-attributes"), []);
   });
 
-  await t.test("mismatched data-start warns and reports overlays.data-attributes", async () => {
+  await t.test("mismatched data-start warns without overlays.data-attributes", async () => {
     const result = await lintCase("root-data-mismatched");
     const warnings = findingsFor(result, "overlays.root-data-attributes");
     assert.equal(warnings.length, 1, JSON.stringify(result.findings, null, 2));
     assert.equal(warnings[0].severity, "warning");
-    const errors = findingsFor(result, "overlays.data-attributes");
-    assert.equal(errors.length, 1, JSON.stringify(result.findings, null, 2));
-    assert.equal(errors[0].severity, "error");
+    assert.deepEqual(findingsFor(result, "overlays.data-attributes"), []);
   });
 });

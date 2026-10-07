@@ -118,7 +118,7 @@ export function materializedFragmentPlan(declaredPath, itemId, nonce) {
 }
 
 /** The placed item's edit.json supplies timing; library root timing must not travel into a project copy. */
-export function withoutFragmentRootTiming(source) {
+export function withoutFragmentRootTiming(source, { preserveNaturalDuration = false } = {}) {
     let cursor = 0;
     while (cursor < source.length) {
         const start = source.indexOf('<', cursor);
@@ -131,18 +131,33 @@ export function withoutFragmentRootTiming(source) {
         }
         const tag = /^<([A-Za-z][\w:-]*)(?:"[^"]*"|'[^']*'|[^'">])*>/u.exec(source.slice(start));
         if (!tag) { cursor = start + 1; continue; }
+        if (/^(?:style|script)$/iu.test(tag[1])) {
+            const closing = new RegExp(`</${tag[1]}\\s*>`, 'iu').exec(source.slice(start + tag[0].length));
+            if (!closing) throw new Error('HTML の前置要素が閉じていません');
+            cursor = start + tag[0].length + closing.index + closing[0].length;
+            continue;
+        }
+        if (/^link$/iu.test(tag[1])) { cursor = start + tag[0].length; continue; }
         const nameEnd = tag[1].length + 1;
         const attributes = tag[0].slice(nameEnd, -1);
         const tokens = /([^\s=/>]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gu;
         const removals = [];
+        let duration = null;
+        let hasNaturalDuration = false;
         for (const token of attributes.matchAll(tokens)) {
+            if (preserveNaturalDuration && /^data-akari-natural-duration$/iu.test(token[1])) hasNaturalDuration = true;
             if (!/^data-(?:start|duration)$/iu.test(token[1])) continue;
+            if (preserveNaturalDuration && /^data-duration$/iu.test(token[1])) {
+                const value = token[0].match(/=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/u)?.slice(1).find(part => part !== undefined);
+                if (value !== undefined && Number.isFinite(Number(value)) && Number(value) > 0) duration = value;
+            }
             let from = token.index;
             while (from > 0 && /\s/u.test(attributes[from - 1])) from--;
             removals.push([from, token.index + token[0].length]);
         }
         let changed = attributes;
         for (const [from, to] of removals.reverse()) changed = changed.slice(0, from) + changed.slice(to);
+        if (preserveNaturalDuration && !hasNaturalDuration && duration !== null) changed += ` data-akari-natural-duration="${duration}"`;
         return source.slice(0, start + nameEnd) + changed + source.slice(start + tag[0].length - 1);
     }
     throw new Error('HTML 断片のルート要素がありません');

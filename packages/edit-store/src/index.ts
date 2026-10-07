@@ -18,6 +18,7 @@ export * from './caption-runs';
 export * from './generation-meta';
 // Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.
 export * from './edit-v2';
+export * from './empty-edit-v2';
 export * from './edit-v2-item-write';
 export * from './internal-model';
 export * from './legacy-audio-view';

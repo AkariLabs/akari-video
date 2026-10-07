@@ -601,6 +601,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
     protected catalogThumbnailErrorTimer?: ReturnType<typeof setTimeout>;
+    protected catalogThumbnailPollTimer?: ReturnType<typeof setTimeout>;
+    protected catalogThumbnailPollGeneration = 0;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
@@ -718,6 +720,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         window.addEventListener('akari.mystyle.save', saveMyStyle);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.mystyle.save', saveMyStyle) });
+        const refreshRecordedMaterial = (event: Event): void => {
+            const detail = (event as CustomEvent<{ projectUri: string; assetPath: string }>).detail;
+            if (detail?.projectUri === this.workflow.workspaceRoot?.toString()) void this.loadMaterials();
+        };
+        window.addEventListener('akari.material.added', refreshRecordedMaterial);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.material.added', refreshRecordedMaterial) });
         const resolveMyStyleAsset = (event: Event): void => {
             const detail = (event as CustomEvent<{ projectUri: string; category: string; id: string; file: string;
                 handled?: boolean; resolve: () => void; reject: (error: unknown) => void }>).detail;
@@ -781,6 +789,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             }
         });
         this.toDispose.push({ dispose: () => this.storeConnectionFlow.dispose() });
+        this.registerCatalogThumbnailPollingCleanup();
         // Theia 本体（frontend-application.ts）が document の **バブル段階**で
         // `dataTransfer.dropEffect = 'none'` を無条件に入れている（ウィンドウへのファイル
         // ドロップでブラウザ既定の遷移が起きるのを止めるため）。dropEffect が none のまま
@@ -855,6 +864,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
         this.refresh();
+        if (this.topView === 'catalog' && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
+            this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
+        }
     }
 
     /**
@@ -868,6 +880,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         super.onAfterHide(msg);
         this.node?.dispatchEvent?.(new Event('akari-library-hide'));
         this.stopCatalogAudio();
+        this.stopCatalogThumbnailPolling();
     }
 
     protected refresh(): void {
@@ -881,12 +894,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.topView === 'catalog' && view !== 'catalog') {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
             this.stopCatalogAudio();
+            this.stopCatalogThumbnailPolling();
         }
         this.topView = view;
         if (view === 'catalog') {
             // この入口はクリック・キーボード・明示コマンドからだけ呼ぶ。
             // レイアウト復元や初期化は通らないため、ここでは利用者操作として再取得する。
             if (refreshCatalog) void this.loadAssetCatalogView('user');
+            else if (this.isVisible && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
+                this.pollLibraryThumbnails(this.catalogThumbnailPollGeneration, 0);
+            }
             void this.refreshStoreConnectionStatus();
         }
         this.update();
@@ -1187,6 +1204,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 空配列（=完全に何も無い）のときだけ従来の「フォルダを選ぶ」空状態を出す。
      */
     public async loadAssetCatalogView(intent: 'automatic' | 'user' = 'automatic'): Promise<void> {
+        this.stopCatalogThumbnailPolling();
+        const pollGeneration = this.catalogThumbnailPollGeneration;
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
@@ -1213,6 +1232,41 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.myStyles = myStyles;
         this.catalogLoading = false;
         this.update();
+        if (this.isVisible && this.topView === 'catalog'
+            && this.assetCatalogItems.some(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))) {
+            this.pollLibraryThumbnails(pollGeneration, 0);
+        }
+    }
+
+    protected registerCatalogThumbnailPollingCleanup(): void {
+        this.toDispose.push({ dispose: () => this.stopCatalogThumbnailPolling() });
+    }
+
+    protected stopCatalogThumbnailPolling(): void {
+        this.catalogThumbnailPollGeneration++;
+        if (this.catalogThumbnailPollTimer) clearTimeout(this.catalogThumbnailPollTimer);
+        this.catalogThumbnailPollTimer = undefined;
+    }
+
+    protected pollLibraryThumbnails(generation: number, attempt: number): void {
+        if (generation !== this.catalogThumbnailPollGeneration || attempt >= 20 || this.catalogThumbnailPollTimer) return;
+        this.catalogThumbnailPollTimer = setTimeout(() => {
+            this.catalogThumbnailPollTimer = undefined;
+            const keys = this.assetCatalogItems.filter(item => !item.thumbUrl && (item.previewUrl || item.libraryDir))
+                .map(item => item.key);
+            if (!keys.length || generation !== this.catalogThumbnailPollGeneration) return;
+            void this.projectService.getLibraryThumbnails(keys).then(result => {
+                if (generation !== this.catalogThumbnailPollGeneration) return;
+                if (Object.keys(result.urls).length) {
+                    this.assetCatalogItems = this.assetCatalogItems.map(item => result.urls[item.key]
+                        ? { ...item, thumbUrl: result.urls[item.key] } : item);
+                    this.update();
+                }
+                if (result.pending) this.pollLibraryThumbnails(generation, attempt + 1);
+            }).catch(() => {
+                if (generation === this.catalogThumbnailPollGeneration) this.pollLibraryThumbnails(generation, attempt + 1);
+            });
+        }, 1500);
     }
 
     /** 促しのシートをコマンドから開くとき、一覧をまだ読んでいなければ読む。 */

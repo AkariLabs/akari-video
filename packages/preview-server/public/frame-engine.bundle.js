@@ -9300,6 +9300,28 @@ var require_edit_v2 = __commonJS({
   }
 });
 
+// ../edit-store/lib/empty-edit-v2.js
+var require_empty_edit_v2 = __commonJS({
+  "../edit-store/lib/empty-edit-v2.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.createEmptyEditV2 = createEmptyEditV2;
+    function createEmptyEditV2(options = {}) {
+      return {
+        version: 2,
+        output: {
+          width: options.width ?? 1920,
+          height: options.height ?? 1080,
+          fps: options.fps ?? 30,
+          ...options.geometry === "omit" ? {} : { geometry: "source" }
+        },
+        sources: [],
+        tracks: []
+      };
+    }
+  }
+});
+
 // ../edit-store/lib/transform.js
 var require_transform = __commonJS({
   "../edit-store/lib/transform.js"(exports) {
@@ -17632,6 +17654,7 @@ var require_lib = __commonJS({
     __exportStar(require_caption_runs(), exports);
     __exportStar(require_generation_meta(), exports);
     __exportStar(require_edit_v2(), exports);
+    __exportStar(require_empty_edit_v2(), exports);
     __exportStar(require_edit_v2_item_write(), exports);
     __exportStar(require_internal_model(), exports);
     __exportStar(require_legacy_audio_view(), exports);

@@ -36,6 +36,8 @@ export interface MigrationProposal {
     nextText: string;
     previousText: string;
     backupPath: string;
+    /** version の無い、キー 0 個の edit.json を初期化する提案。 */
+    emptyProject?: true;
     captions?: {
         filePath: string;
         nextText: string;

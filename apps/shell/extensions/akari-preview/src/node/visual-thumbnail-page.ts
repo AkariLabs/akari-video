@@ -180,7 +180,10 @@ export async function prepareAssetVisualThumbnailPage(
     // Styles/scripts may precede the fragment root; only inspect the first content element.
     const markup = html.replace(/<!--[\s\S]*?-->|<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>|<link\b[^>]*>|<!doctype[^>]*>/gi, '');
     const rootTag = markup.match(/<[a-z][^>]*>/i)?.[0] ?? '';
-    const declared = Number(rootTag.match(/\bdata-duration\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)?.slice(1).find(value => value !== undefined));
+    const durationAttribute = (name: string): string | undefined =>
+        rootTag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))
+            ?.slice(1).find(value => value !== undefined);
+    const declared = Number(durationAttribute('data-akari-natural-duration') ?? durationAttribute('data-duration'));
     const duration = Number.isFinite(declared) && declared > 0 ? declared : 5;
     if (time !== undefined && (!Number.isFinite(time) || time < 0 || time >= duration)) throw new Error('Invalid thumbnail time');
     const at = time ?? duration / 2;

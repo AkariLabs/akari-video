@@ -499,7 +499,9 @@ export function neutralizePressureObserver(
 export interface PreviewDiagnosticsLogEntry {
     at: string;
     entry: PreviewDiagnosticsContext['entry'];
-    event: 'webview-registered' | 'stage' | 'report' | 'watchdog' | 'renderer-gone' | 'key-conversion' | 'note';
+    event: 'webview-registered' | 'stage' | 'report' | 'watchdog' | 'renderer-gone' | 'key-conversion' | 'note'
+        | 'socket-disconnect' | 'socket-reconnect' | 'power-suspend' | 'power-resume' | 'power-lock-screen' | 'power-unlock-screen';
+    reason?: string;
     webviewId?: string;
     webviewRole?: string;
     editUri?: string;
@@ -520,6 +522,9 @@ export interface PreviewDiagnosticsLogEntry {
         events: PreviewDiagnosticEvent[];
     };
 }
+
+/** 診断 JSON Lines の共有上限。Electron main とブラウザ代替経路で同じ値を使う。 */
+export const PREVIEW_DIAGNOSTICS_LOG_MAX_BYTES = 512 * 1024;
 
 export function previewDiagnosticsLogLine(entry: PreviewDiagnosticsLogEntry): string {
     return JSON.stringify(entry);

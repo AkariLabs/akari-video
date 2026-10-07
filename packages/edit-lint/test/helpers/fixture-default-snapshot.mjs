@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -31,6 +31,8 @@ export async function collectFixtureDefaultSnapshot(fixtureRoot) {
       .sort((left, right) => left.localeCompare(right, "en"));
     const fixtures = {};
     for (const fixtureName of fixtureNames) {
+      // 親ディレクトリの .akari に影響されず、fixture 自身を project root として検査する。
+      await mkdir(join(copiedRoot, fixtureName, ".akari"), { recursive: true });
       try {
         const result = await lintProject(join(copiedRoot, fixtureName), {
           checkedAt: CHECKED_AT,

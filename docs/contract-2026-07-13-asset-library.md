@@ -373,7 +373,7 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 
 | v1 category | 形の定義 | 判定 | 旧 category |
 |---|---|---|---|
-| `overlay` | 時間を持つ HTML 断片 | `fragment.html` + `data-start` / `data-duration` を持ち `overlays[]` から合成 | `telop` / `motion` |
+| `overlay` | 時間を持つ HTML 断片 | `fragment.html` を `overlays[]` から合成。断片ルートに時刻を置かず、素材本来の長さは `data-akari-natural-duration`（秒）に記録 | `telop` / `motion` |
 | `still` | 時間を持たない HTML シート | `fragment.html`。決定的スクショで画像に焼く | `thumbnail` |
 | `scene3d` | 3D モデル + 表示断片、またはベイクレシピ | `fragment.html` + glTF、または `scene.py` | `3d` |
 | `audio` | 音声トラックに載るバイナリ | `edit.json` の `audio.bgm` / `sfx` が参照 | `audio`（変更なし） |

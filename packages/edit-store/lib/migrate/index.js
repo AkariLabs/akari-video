@@ -22,6 +22,7 @@ const path_1 = require("path");
 const canonical_1 = require("../canonical");
 const write_gate_1 = require("../write-gate");
 const edit_v2_1 = require("../edit-v2");
+const empty_edit_v2_1 = require("../empty-edit-v2");
 const geometry_1 = require("./geometry");
 var error_1 = require("./error");
 Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });
@@ -68,7 +69,9 @@ function migrateEditToV2(raw, options = {}) {
         return { ok: false, version, blockers: ['edit.json はすでに version 2 です。再変換は行いません。'] };
     }
     if (version !== 0 && version !== 1) {
-        return { ok: false, version: version ?? -1, blockers: ['edit.json.version が 0 または 1 ではありません。'] };
+        return { ok: false, version: version ?? -1, blockers: [version === undefined && isRecord(raw) && !hasOwn(raw, 'version')
+                    ? 'edit.json に version が無いため形式を判別できません（中身あり）。.akari/backup/ からの復元か、版の指定が必要です'
+                    : 'edit.json.version が 0 または 1 ではありません。'] };
     }
     if (!isRecord(raw)) {
         return { ok: false, version, blockers: ['edit.json のルートが object ではありません。'] };
@@ -529,6 +532,16 @@ function planMigration(projectRoot, editPath, text, options = {}) {
     }
     catch (error) {
         return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
+    }
+    if (isRecord(raw) && Object.keys(raw).length === 0) {
+        const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+        return {
+            filePath: (0, path_1.resolve)(editPath), version: 0, emptyProject: true,
+            changes: [{ path: 'edit.json', note: '空の edit.json を新規 v2 として初期化' }],
+            warnings: [], nextText: `${JSON.stringify((0, empty_edit_v2_1.createEmptyEditV2)(), null, 2)}\n`,
+            previousText: text,
+            backupPath: (0, path_1.join)((0, path_1.resolve)(projectRoot), '.akari', 'backup', `edit-${iso}.json`)
+        };
     }
     // annotations の書き込み経路も projectRoot 付きで planMigration を呼ぶため、ここでの解決だけで
     // CLI と同じ cue 判定が適用され、呼び出し元への追加配線は要らない。

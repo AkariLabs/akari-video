@@ -107,8 +107,7 @@ function safeRelativePath(value) {
         && !path.win32.isAbsolute(value) && !value.includes('\0');
 }
 
-// 公開側の検査（edit-lint の overlays.data-attributes）は「断片の data-duration = 置いた要素の長さ」を求める。
-// 素材が持つ長さで置く（実機 2026-09-21: 8 秒の黒板を一律 3 秒で置いて「編集が検査で拒否された」）。
+// 素材本来の長さを読む。旧ライブラリの data-duration も移行期間中は受け付ける。
 // 読むのは手元のディスクだけ。長さ（数）以外は判断にも記録にも出さない。
 export function fragmentDurationSeconds(location, assetPath, readFile = fs.readFileSync) {
     try {
@@ -116,34 +115,75 @@ export function fragmentDurationSeconds(location, assetPath, readFile = fs.readF
         if (!location?.rootFsPath || !location.editPath || !fragment) return null;
         const file = path.resolve(location.rootFsPath, path.dirname(location.editPath), fragment);
         if (!file.startsWith(path.resolve(location.rootFsPath) + path.sep)) return null;
-        const root = String(readFile(file, 'utf8')).match(/<[a-zA-Z][^>]*\bdata-duration\s*=\s*"([0-9]+(?:\.[0-9]+)?)"/);
-        const seconds = root ? Number(root[1]) : NaN;
+        const markup = String(readFile(file, 'utf8')).replace(/<!--[\s\S]*?-->|<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>|<link\b[^>]*>|<!doctype[^>]*>/gi, '');
+        const root = markup.match(/<[a-zA-Z][^>]*>/)?.[0] ?? '';
+        const attribute = name => root.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))
+            ?.slice(1).find(value => value !== undefined);
+        const seconds = Number(attribute('data-akari-natural-duration') ?? attribute('data-duration'));
         return Number.isFinite(seconds) && seconds > 0 && seconds <= 3600 ? seconds : null;
     } catch { return null; }
 }
 
-// 公開側の検査は断片の data-start / data-duration が「置いた時刻・長さ（秒）」と一致することも求める
-// （実機 2026-09-21: 2 秒に置いて「data-start must match edit.json value 2」）。ライブラリの断片は data-start="0" で配られるので、
-// 取り込んだ素材のフォルダの中に、置く時刻を書き込んだ写しを作って要素はそれを指す（同じフォルダ = 断片内の相対参照が壊れない）。
-// 書くのは取り込み済みの素材のフォルダの中だけ。戻り値は edit.json からの相対パス（絶対パスは外へ出さない）。
-export function placedFragmentCopy(location, assetPath, { edit, atSeconds } = {}, io = fs) {
+// akari-vibe は他パッケージへの import を持てないため、断片ルートの変換をここにも閉じ込める。
+// resolver / overlay-runtime と同じ規則を回帰テストで固定する。
+export function withoutFragmentRootTiming(source, { preserveNaturalDuration = false } = {}) {
+    let cursor = 0;
+    while (cursor < source.length) {
+        const start = source.indexOf('<', cursor);
+        if (start < 0) break;
+        if (source.startsWith('<!--', start)) {
+            const end = source.indexOf('-->', start + 4);
+            if (end < 0) throw new Error('HTML コメントが閉じていません');
+            cursor = end + 3;
+            continue;
+        }
+        const tag = /^<([A-Za-z][\w:-]*)(?:"[^"]*"|'[^']*'|[^'">])*>/u.exec(source.slice(start));
+        if (!tag) { cursor = start + 1; continue; }
+        if (/^(?:style|script)$/iu.test(tag[1])) {
+            const closing = new RegExp(`</${tag[1]}\\s*>`, 'iu').exec(source.slice(start + tag[0].length));
+            if (!closing) throw new Error('HTML の前置要素が閉じていません');
+            cursor = start + tag[0].length + closing.index + closing[0].length;
+            continue;
+        }
+        if (/^link$/iu.test(tag[1])) { cursor = start + tag[0].length; continue; }
+        const nameEnd = tag[1].length + 1;
+        const attributes = tag[0].slice(nameEnd, -1);
+        const tokens = /([^\s=/>]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gu;
+        const removals = [];
+        let duration = null;
+        let hasNaturalDuration = false;
+        for (const token of attributes.matchAll(tokens)) {
+            if (preserveNaturalDuration && /^data-akari-natural-duration$/iu.test(token[1])) hasNaturalDuration = true;
+            if (!/^data-(?:start|duration)$/iu.test(token[1])) continue;
+            if (preserveNaturalDuration && /^data-duration$/iu.test(token[1])) {
+                const value = token[0].match(/=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/u)?.slice(1).find(part => part !== undefined);
+                if (value !== undefined && Number.isFinite(Number(value)) && Number(value) > 0) duration = value;
+            }
+            let from = token.index;
+            while (from > 0 && /\s/u.test(attributes[from - 1])) from--;
+            removals.push([from, token.index + token[0].length]);
+        }
+        let changed = attributes;
+        for (const [from, to] of removals.reverse()) changed = changed.slice(0, from) + changed.slice(to);
+        if (preserveNaturalDuration && !hasNaturalDuration && duration !== null) changed += ` data-akari-natural-duration="${duration}"`;
+        return source.slice(0, start + nameEnd) + changed + source.slice(start + tag[0].length - 1);
+    }
+    throw new Error('HTML 断片のルート要素がありません');
+}
+
+// 取り込み済みの断片を配置時刻から独立させる。同じ素材を複数回置いても写しは不要。
+export function placedFragmentCopy(location, assetPath, _placement = {}, io = fs) {
     try {
         const fragment = (assetPath?.files ?? []).find(file => /(^|\/)fragment\.html$/.test(file));
-        const fps = Number(edit?.output?.fps);
-        if (!location?.rootFsPath || !location.editPath || !fragment || !(fps > 0) || !Number.isFinite(atSeconds) || atSeconds < 0) return null;
+        if (!location?.rootFsPath || !location.editPath || !fragment) return null;
         const editDirectory = path.resolve(location.rootFsPath, path.dirname(location.editPath));
         const source = path.resolve(editDirectory, fragment);
         if (!source.startsWith(path.resolve(location.rootFsPath) + path.sep)) return null;
+        if (!io.lstatSync(source).isFile()) return null;
         const html = String(io.readFileSync(source, 'utf8'));
-        const rootTag = html.match(/<[a-zA-Z][^>]*\bdata-start\s*=\s*"[^"]*"[^>]*>/);
-        if (!rootTag) return fragment; // 時刻を持たない断片はそのまま置ける
-        const frames = Math.round(atSeconds * fps), start = frames / fps;
-        const startText = String(Number(start.toFixed(6)));
-        if (rootTag[0].match(/\bdata-start\s*=\s*"([^"]*)"/)[1] === startText) return fragment;
-        const placed = html.replace(rootTag[0], rootTag[0].replace(/\bdata-start\s*=\s*"[^"]*"/, `data-start="${startText}"`));
-        const relative = fragment.replace(/fragment\.html$/, `fragment.at-${frames}f.html`);
-        io.writeFileSync(path.resolve(editDirectory, relative), placed, 'utf8');
-        return relative;
+        const cleaned = withoutFragmentRootTiming(html, { preserveNaturalDuration: true });
+        if (cleaned !== html) io.writeFileSync(source, cleaned, 'utf8');
+        return fragment;
     } catch { return null; }
 }
 
@@ -234,14 +274,15 @@ export async function prepareLibraryInsert({ decision = {}, confidence = {}, ins
     // 置き場所は素材のツマミ（位置・揃え）かドラッグで直す。
     const planned = placementFor({ decision, assetId, edit, playheadT, persons });
     const placement = planned ? { ...planned, transform: null } : planned;
+    const durationSeconds = fragmentDurationSeconds(location, assetPath);
     return {
         decision,
         applyLabel: `素材を入れる: ${byId.get(assetId)?.title?.trim()
             || audioAssets.find(asset => asset.id === assetId)?.title?.trim() || assetId}`,
         runtime: { companion:true,assetPaths: { [assetId]: assetPath }, placement,
-            durationSeconds: fragmentDurationSeconds(location, assetPath),
+            durationSeconds,
             fragmentPath: decision.op === 'insert_from_library_add'
-                ? placedFragmentCopy(location, assetPath, { edit, atSeconds: decision.w11_at === 'spoken' ? decision.seconds : playheadT })
+                ? placedFragmentCopy(location, assetPath)
                 : null },
         shellEffect: placement?.zones?.length ? { zoneHint: { zones: placement.zones, durationMs: 4000 } } : {},
     };
