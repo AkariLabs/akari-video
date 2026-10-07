@@ -9,7 +9,7 @@ import { validateWorldSceneDeclaration } from "../world-scene-declaration.mjs";
 import { resolveLibraryFallback } from "../library-reference.mjs";
 import { inspectHtmlFragment, parseHtmlAttributes } from "./html-fragment.mjs";
 import { parseOverlayStyles, splitCssTopLevel, missingProperties, normalizeMotionSelector, referencedKeyframeNames, baseHiddenState, endpointClearsHiddenState } from "./overlay-css.mjs";
-import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, isRegularFile, isRegularFileSync, numbersEqual, readRequiredText, relativePath, resolveReferenceBinding } from "./shared.mjs";
+import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, isRegularFile, isRegularFileSync, readRequiredText, relativePath, resolveReferenceBinding } from "./shared.mjs";
 import { findTrackOverlaps } from "./cuts-tracks.mjs";
 
 export async function validateOverlays(overlays, timeline, findings, paths) {
@@ -120,11 +120,8 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       });
       continue;
     }
-    // 共有ライブラリ参照（.akari/asset-references.json 経由で原本を読む）の断片は、ライブラリが
-    // data-start="0" data-duration="<素材の長さ>" で配っていて、プロジェクト側からは書き換えられない。
-    // 置いた時刻・長さの写しを作る取り込み（placedFragmentCopy）も参照では走らないため、ここで
-    // 検査すると置いた時点で必ず不一致になり書き出しが止まる。ランタイムは edit.json から作る
-    // .akari-overlay-container の値だけを使うので、原本ルートの値は検査しない。
+    // ランタイムは edit.json から作る外側コンテナの時刻だけを使う。
+    // 旧ライブラリ断片をプロジェクトへ写した場合も、ルートの時刻は案内だけにする。
     const libraryFragment = htmlBinding.scope === "library";
     if (
       !libraryFragment
@@ -134,10 +131,7 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       addFinding(findings, {
         severity: "warning",
         check: "overlays.root-data-attributes",
-        message:
-          "overlay fragment root must not declare data-start or data-duration; edit.json is the "
-          + "source of truth, and animation-delay inside the fragment uses local seconds from clip "
-          + "start 0, not absolute timeline seconds",
+        message: "断片ルートの data-start / data-duration は使われません。edit.json の時刻が正です。素材の長さは data-akari-natural-duration に記録してください",
         path: relativePath(paths.projectRoot, htmlPath),
       });
     }
@@ -160,22 +154,6 @@ export async function validateOverlays(overlays, timeline, findings, paths) {
       }
     }
 
-    for (const [attribute, expected] of libraryFragment ? [] : [
-      ["data-start", overlay.start],
-      ["data-duration", overlay.duration],
-    ]) {
-      const actualText = fragment.rootAttributes[attribute];
-      if (actualText === undefined) continue;
-      const actual = Number(actualText);
-      if (!Number.isFinite(actual) || !numbersEqual(actual, expected)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "overlays.data-attributes",
-          message: `${attribute} must match edit.json value ${formatNumber(expected)}`,
-          path: relativePath(paths.projectRoot, htmlPath),
-        });
-      }
-    }
   }
 }
 
