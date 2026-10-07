@@ -4,7 +4,7 @@ import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { getCaptionDisplayWordStyle, setCaptionDisplayWordStyle, type CaptionDisplayPolicy } from '@akari-video/edit-store';
+import { getCaptionDisplayWordStyle, setCaptionDisplayWordStyle, setSourceSyncGroup, type CaptionDisplayPolicy, type EditV2 } from '@akari-video/edit-store';
 import { currentTimelineCaptionsUri, currentTimelineEditUri } from 'akari-annotations/lib/browser/active-timeline';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts } from 'akari-project/lib/common/akari-project-protocol';
@@ -59,6 +59,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected editUri: URI | undefined;
     protected unsupportedTimeline = false;
     protected sources: PopupSource[] = [];
+    protected videoSourceIds = new Set<string>();
+    protected syncChoice = new Map<string, string>();
     protected selected = new Set<string>();
     protected step: 0 | 1 | 2 | 3 = 0;
     protected reached = 0;
@@ -177,10 +179,19 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const edit = JSON.parse((await this.files.readFile(this.editUri)).value.toString()) as {
             sources?: Array<{ id: string; path: string; kind?: string }>;
             audio?: { bgm?: { path?: string; source?: string; src?: string } };
+            sync_groups?: Array<{ members: Array<{ source: string }> }>;
             tracks?: Array<{ lane?: string; items?: Array<{ role?: string; path?: string; source?: { src?: string; path?: string } }> }>;
         };
         const bgmIds = captionBgmSourceIds(edit);
         const rawSources = (edit.sources ?? []).filter(source => typeof source.id === 'string' && typeof source.path === 'string');
+        this.videoSourceIds = new Set((edit.tracks ?? []).filter(track => track.lane === 'visual')
+            .flatMap(track => track.items ?? []).map(item => item.source?.src)
+            .filter((id): id is string => typeof id === 'string' && rawSources.some(source => source.id === id && isCaptionVideo(source))));
+        this.syncChoice.clear();
+        for (const group of edit.sync_groups ?? []) for (const member of group.members) {
+            const visual = group.members.find(candidate => this.videoSourceIds.has(candidate.source));
+            if (visual && member.source !== visual.source) this.syncChoice.set(member.source, visual.source);
+        }
         if (this.initialPath && !rawSources.some(source => normalizedCaptionPath(source.path) === normalizedCaptionPath(this.initialPath))) {
             rawSources.push({ id: '__requested_material__', path: this.initialPath, kind: 'unlisted' });
         }
@@ -271,7 +282,45 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             meta.append(chip);
         }
         row.append(check, icon, detail, meta);
+        if (source.status === 'voice' && !isCaptionVideo(source) && this.videoSourceIds.size) {
+            const syncLabel = el('small', 'このマイクはこの映像と同期');
+            syncLabel.style.color = '#aeb7c5';
+            const sync = el('select');
+            sync.setAttribute('aria-label', `${source.name} をこの映像と同期`);
+            for (const [id, label] of [['', '同期する映像: なし'], ...[...this.videoSourceIds].map(id =>
+                [id, `この映像と同期: ${this.sources.find(candidate => candidate.id === id)?.name ?? id}`])]) {
+                const option = el('option', label); option.value = id; sync.append(option);
+            }
+            sync.value = this.syncChoice.get(source.id) ?? '';
+            sync.onclick = event => event.stopPropagation();
+            sync.onchange = () => { void this.saveSyncChoice(source.id, sync.value); };
+            row.append(syncLabel, sync);
+            const hint = el('small', '最初はずれ 0 秒。必要ならあとでタイムラインでずらせます。');
+            hint.style.color = '#aeb7c5'; row.append(hint);
+        }
         return row;
+    }
+
+    protected async saveSyncChoice(audioSource: string, videoSource: string): Promise<void> {
+        if (!this.editUri) return;
+        const editUri = this.editUri;
+        try {
+            const before = (await this.files.readFile(editUri)).value.toString();
+            const edit = JSON.parse(before) as EditV2;
+            const next = setSourceSyncGroup(edit, audioSource, videoSource || undefined);
+            const after = `${JSON.stringify(next, null, 2)}\n`;
+            if (before !== after) {
+                await this.files.writeFile(editUri, BinaryBuffer.fromString(after));
+                daihonHistoryService()?.push({ label: videoSource ? '映像と同期' : '同期を解除',
+                    undo: async () => void await this.files.writeFile(editUri, BinaryBuffer.fromString(before)),
+                    redo: async () => void await this.files.writeFile(editUri, BinaryBuffer.fromString(after)) });
+            }
+            if (videoSource) this.syncChoice.set(audioSource, videoSource);
+            else this.syncChoice.delete(audioSource);
+        } catch (error) {
+            this.notice.textContent = `同期を保存できません: ${error instanceof Error ? error.message : String(error)}`;
+            this.render();
+        }
     }
 
     protected renderSources(): void {

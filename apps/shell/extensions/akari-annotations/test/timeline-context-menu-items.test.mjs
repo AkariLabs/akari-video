@@ -26,6 +26,13 @@ test('BGM とナレーションはコピー・切り取り・複製を出さな�
         ['paste', 'annotate', 'ripple-delete', 'lift-delete', 'delete']);
 });
 
+test('声の item にだけ映像との同期設定を出す', () => {
+    const menu = buildTimelineClipMenuItems('audio', true, {}, { syncVideo: true });
+    assert.equal(menu.find(item => item.id === 'sync-video')?.label, '映像と同期させる…');
+    assert.ok(!buildTimelineClipMenuItems('audio', true, {}, { copyable: false })
+        .some(item => item.id === 'sync-video'));
+});
+
 test('字幕だけ「音声を作る…」を注釈の直前へ出す', () => {
     const caption = buildTimelineClipMenuItems('caption', false);
     assert.equal(caption.find(item => item.id === 'narrate')?.label, '音声を作る…');

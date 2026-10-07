@@ -16,7 +16,7 @@ import {
     LayerBlendMode,
     TimelineTrackKind,
 } from './edit-store';
-import { AudioMediaItemV2, EditV2, GroupSourceV2, ItemV2, KeyframesReferenceV2, TrackV2, TransformV2, readEditV2 } from './edit-v2';
+import { AudioMediaItemV2, EditV2, GroupSourceV2, ItemV2, KeyframesReferenceV2, SyncGroupV2, TrackV2, TransformV2, readEditV2 } from './edit-v2';
 import { composeTransforms } from './tree-ops';
 import { AnchorCaption, resolveItemAnchors, withoutItemAnchors } from './item-anchor';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
@@ -192,6 +192,7 @@ export interface InternalEdit {
     output: InternalOutput;
     /** 素材表。 */
     sources: InternalSource[];
+    syncGroups?: SyncGroupV2[];
     /**
      * 素材表として宣言されていたか。
      */
@@ -459,6 +460,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
             ...(edit.output.look !== undefined ? { look: edit.output.look } : {})
         },
         sources,
+        ...(edit.sync_groups !== undefined ? { syncGroups: structuredClone(edit.sync_groups) } : {}),
         sourceTableDeclared: true,
         emptyProject: sources.length === 0,
         tracks,

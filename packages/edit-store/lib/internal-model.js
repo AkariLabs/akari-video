@@ -248,6 +248,7 @@ function readV2Internal(raw) {
             ...(edit.output.look !== undefined ? { look: edit.output.look } : {})
         },
         sources,
+        ...(edit.sync_groups !== undefined ? { syncGroups: structuredClone(edit.sync_groups) } : {}),
         sourceTableDeclared: true,
         emptyProject: sources.length === 0,
         tracks,

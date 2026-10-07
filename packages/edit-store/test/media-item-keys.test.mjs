@@ -20,8 +20,8 @@ const literalPatterns = Object.keys(media.patternProperties).map((pattern) => {
   assert.ok(match, `literal pattern を解釈できません: ${pattern}`);
   return match[1];
 });
-// readInternalEdit は検証前に anchor を解決・除去し、有効な media captions を抜き出す。
-const beforeValidation = new Set(['anchor', 'captions']);
+// anchor / captions は投影前に処理され、cut_edge は media item 専用の復元情報。
+const beforeValidation = new Set(['anchor', 'captions', 'cut_edge']);
 
 test('schema の media item 語彙と edit-store の語彙が両方向で一致する', () => {
   const schemaKeys = new Set([...Object.keys(media.properties), ...literalPatterns]);

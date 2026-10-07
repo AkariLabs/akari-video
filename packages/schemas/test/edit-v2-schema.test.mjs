@@ -11,6 +11,22 @@ const examplesRoot = join(packageRoot, "examples");
 const schema = JSON.parse(readFileSync(join(packageRoot, "edit.schema.json"), "utf8"));
 const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
 
+test('v2 sync_groups accepts source offsets and rejects malformed members', () => {
+  const value = fixture('edit-v2-valid');
+  value.sync_groups = [{ id: 'take', members: [
+    { source: value.sources[0].id, offset_sec: 0 },
+    { source: value.sources[1].id, offset_sec: -0.25 },
+  ] }];
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  for (const member of [{ source: value.sources[1].id },
+    { source: value.sources[1].id, offset_sec: '0' },
+    { source: value.sources[1].id, offset_sec: 0, extra: true }]) {
+    const invalid = structuredClone(value);
+    invalid.sync_groups[0].members[1] = member;
+    assert.equal(validate(invalid), false);
+  }
+});
+
 test('audio cut_edge is optional and has closed source edges and integer placement', () => {
   const value = fixture('edit-v2-cut-audio-split-valid');
   assert.equal(validate(value), true, JSON.stringify(validate.errors));

@@ -9,6 +9,8 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
         return visual;
     const audio = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;
+    const syncGroups = edit.syncGroups
+        ?? edit.sync_groups;
     const subtract = (parts, start, end) => parts.flatMap(part => end <= part.start || start >= part.end ? [part] : [
         ...(start > part.start ? [{ start: part.start, end: Math.min(start, part.end) }] : []),
         ...(end < part.end ? [{ start: Math.max(end, part.start), end: part.end }] : [])
@@ -54,6 +56,52 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
             if (!(duration > 0) || !(speed > 0))
                 continue;
             let uncovered = [{ start: at, end: at + duration }];
+            const group = syncGroups?.find(candidate => candidate.members.some(member => member.source === src));
+            const audioOffset = group?.members.find(member => member.source === src)?.offset_sec ?? 0;
+            if (group) {
+                const projected = [];
+                for (const member of group.members) {
+                    if (member.source === src)
+                        continue;
+                    for (const visualTrack of edit.tracks) {
+                        if (visualTrack.lane !== 'visual')
+                            continue;
+                        for (const visualItem of visualTrack.items ?? []) {
+                            const timedVisual = visualItem;
+                            const visualSource = visualItem.source;
+                            if (visualSource.kind !== 'media' || (visualSource.sourceId ?? visualSource.src) !== member.source
+                                || visualSource.in === undefined || visualSource.out === undefined)
+                                continue;
+                            const offset = member.offset_sec - audioOffset;
+                            const start = Math.max(sourceIn, visualSource.in - offset);
+                            const end = Math.min(sourceOut, visualSource.out - offset);
+                            if (end <= start)
+                                continue;
+                            const visualAt = typeof timedVisual.atFrames === 'number' ? timedVisual.at ?? 0 : (timedVisual.at ?? 0) / fps;
+                            const visualDuration = typeof timedVisual.durationFrames === 'number'
+                                ? timedVisual.duration ?? 0 : (timedVisual.duration ?? 0) / fps;
+                            const ratio = visualDuration / (visualSource.out - visualSource.in);
+                            projected.push({ start: visualAt + (start + offset - visualSource.in) * ratio,
+                                end: visualAt + (end + offset - visualSource.in) * ratio, in: start, out: end });
+                        }
+                    }
+                }
+                if (projected.length) {
+                    for (const part of projected)
+                        audio.push({ kind: 'src', outStart: part.start,
+                            outEnd: part.end, cutIndex: null, src, in: part.in, out: part.out,
+                            speed: (part.out - part.in) / (part.end - part.start) });
+                    let sourceRemainder = [{ start: sourceIn, end: sourceOut }];
+                    for (const part of projected)
+                        sourceRemainder = subtract(sourceRemainder, part.in, part.out);
+                    for (const part of sourceRemainder)
+                        audio.push({ kind: 'src',
+                            outStart: at + (part.start - sourceIn) / speed,
+                            outEnd: at + (part.end - sourceIn) / speed,
+                            cutIndex: null, src, in: part.start, out: part.end, speed });
+                    continue;
+                }
+            }
             const root = item.id?.match(/^(.*)-audio(?:-split(?:-\d+)*)*$/)?.[1];
             const family = root && visualFamilies.get(`${src}\0${root}`);
             if (family && (family.length > 1 || family[0].id !== root

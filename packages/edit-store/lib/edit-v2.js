@@ -1,7 +1,40 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.setSourceSyncGroup = setSourceSyncGroup;
 exports.readEditV2 = readEditV2;
 const shape_source_validation_1 = require("./shape-source-validation");
+/** 音声素材を 1 つの映像素材と同期させる。解除時は映像 id を省略する。 */
+function setSourceSyncGroup(edit, audioSource, visualSource) {
+    if (!edit.sources.some(source => source.id === audioSource)
+        || (visualSource && !edit.sources.some(source => source.id === visualSource))) {
+        throw new Error('同期する素材が見つかりません。');
+    }
+    if (visualSource === audioSource)
+        throw new Error('同じ素材同士は同期できません。');
+    const next = structuredClone(edit);
+    const groups = (next.sync_groups ?? []).map(group => {
+        const members = group.members.filter(member => member.source !== audioSource);
+        const baseline = members[0]?.offset_sec ?? 0;
+        return { ...group, members: members.map(member => ({ ...member,
+                offset_sec: member.offset_sec - baseline })) };
+    })
+        .filter(group => group.members.length >= 2);
+    if (visualSource) {
+        const existing = groups.find(group => group.members.some(member => member.source === visualSource));
+        if (existing)
+            existing.members.push({ source: audioSource,
+                offset_sec: existing.members.find(member => member.source === visualSource).offset_sec });
+        else
+            groups.push({ id: `sync-${visualSource}-${audioSource}`,
+                members: [{ source: visualSource, offset_sec: 0 }, { source: audioSource, offset_sec: 0 }] });
+    }
+    if (groups.length)
+        next.sync_groups = groups;
+    else
+        delete next.sync_groups;
+    readEditV2(next);
+    return next;
+}
 const BLEND_MODES = new Set([
     'normal', 'screen', 'multiply', 'add', 'difference',
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
@@ -10,9 +43,9 @@ const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'source', 'audio', 'anchor'
 ]);
-const MEDIA_ITEM_KEYS = new Set([...ITEM_KEYS, 'captions']);
+const MEDIA_ITEM_KEYS = new Set([...ITEM_KEYS, 'captions', 'cut_edge']);
 const AUDIO_ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'cut_edge', 'mute', 'source', 'gain_db', 'keyframes',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'cut_edge', 'reason', 'label', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
     'denoise', 'lowcut_hz', 'script', 'reading', 'caption_ref', 'provenance', 'anchor'
 ]);
@@ -23,7 +56,7 @@ const AUDIO_ITEM_KEYS = new Set([
 function readEditV2(json) {
     const parsed = parseInput(json);
     requireRecord(parsed, 'edit.json');
-    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'tracks', 'audio', 'captions', 'thumbnail']), 'edit.json');
+    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'sync_groups', 'tracks', 'audio', 'captions', 'thumbnail']), 'edit.json');
     if (parsed.version !== 2) {
         throw invalid('edit.json.version', '2 である必要があります（v0/v1 はこの reader の対象外です）');
     }
@@ -54,6 +87,39 @@ function readEditV2(json) {
         requireRecord(parsed.thumbnail, 'edit.json.thumbnail');
     const sourceIds = new Set();
     parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
+    if (hasOwn(parsed, 'sync_groups')) {
+        if (!Array.isArray(parsed.sync_groups))
+            throw invalid('edit.json.sync_groups', '配列である必要があります');
+        const groupIds = new Set();
+        const groupedSources = new Set();
+        parsed.sync_groups.forEach((value, index) => {
+            const path = `edit.json.sync_groups[${index}]`;
+            requireRecord(value, path);
+            requireExactKeys(value, new Set(['id', 'members']), path);
+            requireText(value.id, `${path}.id`);
+            if (groupIds.has(value.id))
+                throw invalid(`${path}.id`, '組 id が重複しています');
+            groupIds.add(value.id);
+            if (!Array.isArray(value.members) || value.members.length < 2)
+                throw invalid(`${path}.members`, '2 素材以上が必要です');
+            value.members.forEach((member, memberIndex) => {
+                const memberPath = `${path}.members[${memberIndex}]`;
+                requireRecord(member, memberPath);
+                requireExactKeys(member, new Set(['source', 'offset_sec']), memberPath);
+                requireText(member.source, `${memberPath}.source`);
+                if (!sourceIds.has(member.source))
+                    throw invalid(`${memberPath}.source`, '素材が見つかりません');
+                if (groupedSources.has(member.source))
+                    throw invalid(`${memberPath}.source`, '素材は 1 つの組にだけ入れられます');
+                groupedSources.add(member.source);
+                if (typeof member.offset_sec !== 'number' || !Number.isFinite(member.offset_sec)) {
+                    throw invalid(`${memberPath}.offset_sec`, '有限の数値である必要があります');
+                }
+            });
+            if (value.members[0].offset_sec !== 0)
+                throw invalid(`${path}.members[0].offset_sec`, '基準素材は 0 です');
+        });
+    }
     const trackIds = new Set();
     const itemIds = new Set();
     parsed.tracks.forEach((track, index) => validateTrack(track, index, trackIds, itemIds, sourceIds));
@@ -62,6 +128,7 @@ function readEditV2(json) {
         version: 2,
         output: { ...edit.output },
         sources: edit.sources.map(source => ({ ...source })),
+        ...(edit.sync_groups !== undefined ? { sync_groups: structuredClone(edit.sync_groups) } : {}),
         ...(edit.audio !== undefined ? { audio: edit.audio } : {}),
         ...(edit.captions !== undefined ? { captions: edit.captions } : {}),
         ...(edit.thumbnail !== undefined ? { thumbnail: { ...edit.thumbnail } } : {}),
@@ -183,6 +250,10 @@ function validateAudioItem(value, path, ids, sourceIds) {
         requireText(value.link, `${path}.link`);
     if (hasOwn(value, 'cut_edge'))
         validateCutEdge(value.cut_edge, `${path}.cut_edge`);
+    if (hasOwn(value, 'reason') && value.reason !== 'silence' && value.reason !== 'word')
+        throw invalid(`${path}.reason`, 'silence/word である必要があります');
+    if (hasOwn(value, 'label') && typeof value.label !== 'string')
+        throw invalid(`${path}.label`, '文字列である必要があります');
     if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean') {
         throw invalid(`${path}.mute`, 'boolean である必要があります');
     }
@@ -309,6 +380,8 @@ function validateItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'cut_edge'))
+        validateCutEdge(value.cut_edge, `${path}.cut_edge`);
     if (hasOwn(value, 'captions') && value.captions !== 'on' && value.captions !== 'off') {
         throw invalid(`${path}.captions`, 'on または off である必要があります');
     }

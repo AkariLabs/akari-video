@@ -1725,7 +1725,8 @@
         "flip": { "type": "object", "additionalProperties": false, "properties": { "h": { "type": "boolean" }, "v": { "type": "boolean" } } },
         "frame": { "type": "object", "additionalProperties": false, "properties": { "stroke": { "type": "object", "additionalProperties": false, "required": ["color", "width"], "properties": { "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "width": { "type": "number", "minimum": 0, "maximum": 100 } } }, "cornerRadius": { "type": "number", "minimum": 0, "maximum": 100 } } },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" },
-        "audio": { "const": false }
+        "audio": { "const": false },
+        "cut_edge": { "$ref": "#/$defs/cutEdgeV2" }
       },
       "$comment": "mask は sources[].id。動画はグレースケール動画、静止画は白が見える 8bit グレー PNG。erase は EXIF 補正後・切り抜き前の素材座標。flip は切り抜き後の表示反転。\ncontract-2026-09-06-cut-audio-split-v0.md: audio は visual media 限定。false は埋め込み音声を停止、省略は従来どおり。"
     },
@@ -1915,7 +1916,9 @@
         "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "role": { "enum": ["sfx", "narration", "bgm", "speech"] },
         "link": { "type": "string", "minLength": 1, "pattern": "\\S" },
-        "cut_edge": { "$ref": "#/$defs/cutEdgeV2" },
+          "cut_edge": { "$ref": "#/$defs/cutEdgeV2" },
+          "reason": { "enum": ["silence", "word"] },
+          "label": { "type": "string" },
         "mute": { "type": "boolean" },
         "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
@@ -2111,6 +2114,28 @@
         "sources": {
           "type": "array",
           "items": { "$ref": "#/$defs/sourceV2" }
+        },
+        "sync_groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "members"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "members": {
+                "type": "array", "minItems": 2,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["source", "offset_sec"],
+                  "properties": {
+                    "source": { "type": "string", "minLength": 1 },
+                    "offset_sec": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
         },
         "tracks": {
           "type": "array",

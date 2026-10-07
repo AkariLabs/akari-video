@@ -4,7 +4,35 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { readEditV2 } from "../lib/edit-v2.js";
+import { readEditV2, setSourceSyncGroup } from "../lib/edit-v2.js";
+
+test('同期の組は保存・解除でき、未知素材と重複所属を拒否する', () => {
+  const value = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
+    tracks: [{ id: 'v', lane: 'visual', items: [] }] };
+  const synced = setSourceSyncGroup(value, 'mic', 'cam');
+  assert.deepEqual(readEditV2(synced).sync_groups, [{ id: 'sync-cam-mic', members: [
+    { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0 },
+  ] }]);
+  assert.equal(setSourceSyncGroup(synced, 'mic').sync_groups, undefined);
+  assert.throws(() => setSourceSyncGroup(value, 'mic', 'missing'), /素材/);
+  const duplicate = structuredClone(synced);
+  duplicate.sync_groups.push({ id: 'another', members: [
+    { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0 },
+  ] });
+  assert.throws(() => readEditV2(duplicate), /1 つの組/);
+  const three = structuredClone(synced);
+  three.sources.push({ id: 'mic2', path: 'mic2.wav' });
+  three.sync_groups[0].members.push({ source: 'mic2', offset_sec: 1 });
+  assert.deepEqual(setSourceSyncGroup(three, 'mic').sync_groups[0].members,
+    [{ source: 'cam', offset_sec: 0 }, { source: 'mic2', offset_sec: 1 }]);
+  const alternate = structuredClone(three);
+  alternate.sync_groups[0].members = [
+    { source: 'mic', offset_sec: 0 }, { source: 'cam', offset_sec: 1 },
+    { source: 'mic2', offset_sec: 2 } ];
+  assert.deepEqual(setSourceSyncGroup(alternate, 'mic').sync_groups[0].members,
+    [{ source: 'cam', offset_sec: 0 }, { source: 'mic2', offset_sec: 1 }]);
+});
 import { serializeEdit } from "../lib/canonical.js";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "edit-v2.json");

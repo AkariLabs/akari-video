@@ -7,7 +7,7 @@ import {
     trimCutInSource,
     type EditCut,
 } from './edit-store';
-import { readEditV2, type AudioMediaItemV2, type AudioItemsTrackV2, type EditV2, type ItemV2, type ItemsTrackV2, type MediaItemV2, type VisualItemsTrackV2 } from './edit-v2';
+import { readEditV2, type AudioMediaItemV2, type AudioItemsTrackV2, type EditV2, type ItemV2, type ItemsTrackV2, type MediaItemV2, type SyncGroupV2, type VisualItemsTrackV2 } from './edit-v2';
 import { compactTrackGaps, removeTimelineItemRange } from './ripple';
 
 export interface CutRange {
@@ -53,6 +53,19 @@ export function applyCutRanges(
     const version = detectEditVersion(source);
     const normalized = normalizeRanges(ranges);
     if (normalized.length === 0) return { source, removedFrames: 0, warnings: [] };
+    if (version === 2 && normalized.some(range => syncGroupForRange(JSON.parse(source) as EditV2, range))) {
+        let current = source;
+        let removedFrames = 0;
+        const warnings: string[] = [];
+        for (const range of ranges) {
+            const group = syncGroupForRange(JSON.parse(current) as EditV2, range);
+            const result = group ? applySyncGroupCut(current, range, group, opts) : applyV2(current, [range], opts);
+            current = result.source;
+            removedFrames += result.removedFrames;
+            warnings.push(...result.warnings);
+        }
+        return { source: current, removedFrames, warnings };
+    }
     // A linked J/L overhang must see each preceding cut's ripple before its next split.
     if (version === 2 && ranges.length > 1 && hasLinkedAudioOverhang(source)
         && ranges.every((range, index) => ranges.slice(index + 1).every(other =>
@@ -71,6 +84,110 @@ export function applyCutRanges(
     return version === 2
         ? applyV2(source, normalized, opts)
         : applyLegacy(source, normalized, opts);
+}
+
+function syncGroupForRange(edit: EditV2, range: Pick<CutRange, 'captionId'>): SyncGroupV2 | undefined {
+    return edit.sync_groups?.find(group => group.members.some(member => member.source === range.captionId));
+}
+
+function applySyncGroupCut(source: string, range: CutRange, group: SyncGroupV2,
+    opts: ApplyCutRangesOptions): ApplyCutRangesResult {
+    readEditV2(JSON.parse(source));
+    const origin = group.members.find(member => member.source === range.captionId)!;
+    const targets = group.members.map(member => ({ ...range, reason: range.reason ?? 'word' as const, captionId: member.source,
+        in: range.in + member.offset_sec - origin.offset_sec,
+        out: range.out + member.offset_sec - origin.offset_sec }));
+    let current = source;
+    let removedFrames = 0;
+    let matched = false;
+    for (const target of targets) {
+        const before = JSON.parse(current) as EditV2;
+        if (!visualTracks(before).some(track => track.items.some(item =>
+            media(item) && item.source.src === target.captionId && item.source.in < target.out && item.source.out > target.in))) continue;
+        const result = applyV2(current, [target], opts, [], undefined, true);
+        const after = JSON.parse(result.source) as EditV2;
+        for (const track of visualTracks(after)) {
+            const previous = visualTracks(before).find(candidate => candidate.id === track.id);
+            if (!previous) continue;
+            for (const item of previous.items.filter(media)) {
+                const family = track.items.filter((candidate): candidate is MediaItemV2 => media(candidate)
+                    && splitRootId(candidate.id) === splitRootId(item.id)
+                    && candidate.source.in >= item.source.in - audioFrameTolerance(item)
+                    && candidate.source.out <= item.source.out + audioFrameTolerance(item));
+                const untouched = family.find(piece => piece.id === item.id
+                    && piece.duration === item.duration
+                    && near(piece.source.in, item.source.in) && near(piece.source.out, item.source.out));
+                if (untouched) {
+                    const clean = untouched as MediaItemV2 & { reason?: 'silence' | 'word'; label?: string };
+                    const prior = item as MediaItemV2 & { reason?: 'silence' | 'word'; label?: string };
+                    if (prior.reason === undefined) delete clean.reason; else clean.reason = prior.reason;
+                    if (prior.label === undefined) delete clean.label; else clean.label = prior.label;
+                    if (prior.cut_edge) clean.cut_edge = { ...prior.cut_edge,
+                        at: prior.cut_edge.at + untouched.at - item.at };
+                    else delete clean.cut_edge;
+                    continue;
+                }
+                if (item.source.src === target.captionId && item.source.in < target.out && item.source.out > target.in) {
+                    for (const piece of family) {
+                        if (family.length === 1 || item.cut_edge) {
+                            piece.cut_edge = { in: item.cut_edge?.in ?? item.source.in,
+                                out: item.cut_edge?.out ?? item.source.out, at: item.cut_edge?.at ?? item.at };
+                        }
+                    }
+                } else if (item.cut_edge) {
+                    const survivor = family.find(candidate => candidate.id === item.id);
+                    if (survivor) survivor.cut_edge = { ...item.cut_edge,
+                        at: item.cut_edge.at + survivor.at - item.at };
+                }
+            }
+        }
+        current = `${JSON.stringify(after, null, 2)}\n`;
+        removedFrames = Math.max(removedFrames, result.removedFrames);
+        matched ||= result.removedFrames > 0;
+    }
+    const edit = JSON.parse(current) as EditV2;
+    const rippleFrames = removedFrames || Math.round((range.out - range.in) * edit.output.fps);
+    for (const target of targets) for (const track of audioTracks(edit)) {
+        const next: AudioMediaItemV2[] = [];
+        for (const item of track.items) {
+            if (item.link || (item.role !== 'speech' && item.role !== 'narration')
+                || item.source.kind !== 'media' || item.source.src !== target.captionId
+                || item.source.in === undefined || item.source.out === undefined) {
+                next.push(item);
+                continue;
+            }
+            const overlapIn = Math.max(item.source.in, target.in);
+            const overlapOut = Math.min(item.source.out, target.out);
+            const replacement = overlapOut > overlapIn
+                ? splitAndRemove(item, overlapIn, overlapOut, edit, true)
+                : { items: [item], removedFrames: 0 };
+            if (replacement.removedFrames) {
+                for (const piece of replacement.items) {
+                    copyRangeMetadata(piece, target);
+                    if (replacement.items.length === 1) {
+                        piece.cut_edge = { in: item.cut_edge?.in ?? item.source.in,
+                            out: item.cut_edge?.out ?? item.source.out, at: item.cut_edge?.at ?? item.at };
+                    } else if (item.cut_edge) {
+                        piece.cut_edge = { ...item.cut_edge };
+                    }
+                }
+                removedFrames = Math.max(removedFrames, replacement.removedFrames);
+                matched = true;
+            }
+            for (const piece of replacement.items) {
+                if (piece.source.in! >= target.out - audioFrameTolerance(piece)) {
+                    piece.at -= rippleFrames;
+                    if (piece.cut_edge && !replacement.removedFrames) piece.cut_edge.at -= rippleFrames;
+                }
+                next.push(piece);
+            }
+        }
+        track.items = next;
+    }
+    if (!matched) return { source, removedFrames: 0,
+        warnings: [`カット対象が見つかりません: ${range.in}–${range.out}`] };
+    readEditV2(edit);
+    return { source: `${JSON.stringify(edit, null, 2)}\n`, removedFrames, warnings: [] };
 }
 
 function hasLinkedAudioOverhang(source: string): boolean {
@@ -145,7 +262,8 @@ function applyV2(
     ranges: readonly CutRange[],
     opts: ApplyCutRangesOptions,
     preserveLeadingGapTrackIds: readonly string[] = [],
-    preserveGapBeforeItems?: ReadonlyMap<string, number>
+    preserveGapBeforeItems?: ReadonlyMap<string, number>,
+    forceSourceEdges = false
 ): ApplyCutRangesResult {
     const raw = JSON.parse(source) as EditV2;
     const validated = readEditV2(raw);
@@ -153,7 +271,7 @@ function applyV2(
     const edit = JSON.parse(JSON.stringify(raw)) as EditV2;
     const warnings: string[] = [];
     const affectedTrackIds = new Set<string>();
-    const preserveSourceEdges = audioTracks(edit).some(track => track.items.some(item => item.link));
+    const preserveSourceEdges = forceSourceEdges || audioTracks(edit).some(track => track.items.some(item => item.link));
     const originalLinkedGaps = new Map<string, number>();
     for (const track of visualTracks(edit)) {
         const items = track.items.filter(media);
@@ -618,6 +736,13 @@ function restoreOneTrack(
         const merged = structuredClone(left);
         merged.duration = left.duration + frames + right.duration;
         merged.source.out = right.source.out;
+        if (left.cut_edge || right.cut_edge) {
+            const outerIn = left.cut_edge?.in ?? left.source.in;
+            const outerOut = right.cut_edge?.out ?? right.source.out;
+            if (!near(outerIn, merged.source.in) || !near(outerOut, merged.source.out)) {
+                merged.cut_edge = { in: outerIn, out: outerOut, at: left.cut_edge?.at ?? left.at };
+            } else delete merged.cut_edge;
+        }
         const mergedMeta = merged as MediaItemV2 & { reason?: string; label?: string };
         if (leftMeta.reason !== undefined || rightMeta.reason !== undefined) {
             mergedMeta.reason = leftMeta.reason ?? rightMeta.reason;
@@ -638,7 +763,7 @@ function restoreOneTrack(
             return (leftAudio?.cut_edge && leftAudio.cut_edge.in !== leftAudio.source.in)
                 || (rightAudio?.cut_edge && rightAudio.cut_edge.out !== rightAudio.source.out);
         });
-        if (noRemainingCut && !hasRemainingAudioEdge) {
+        if (noRemainingCut && !hasRemainingAudioEdge && !merged.cut_edge) {
             delete mergedMeta.reason;
             delete mergedMeta.label;
         }
@@ -672,10 +797,307 @@ function restoreOneTrack(
     return {};
 }
 
+function restoreSyncAudio(edit: EditV2, target: CutRange, rippleFrames: number): boolean {
+    let changed = false;
+    const fps = edit.output.fps;
+    for (const track of audioTracks(edit)) {
+        const items = track.items;
+        const matches = (item: AudioMediaItemV2) => !item.link
+            && (item.role === 'speech' || item.role === 'narration')
+            && item.source.src === target.captionId;
+        const leftIndex = items.findIndex(item => matches(item)
+            && Math.abs((item.source.out ?? NaN) - target.in) <= audioFrameTolerance(item));
+        const rightIndex = items.findIndex(item => matches(item)
+            && Math.abs((item.source.in ?? NaN) - target.out) <= audioFrameTolerance(item));
+        if (leftIndex < 0 && rightIndex < 0) {
+            for (const item of items) if (matches(item)
+                && item.source.in! >= target.out - audioFrameTolerance(item)) {
+                item.at += rippleFrames;
+                if (item.cut_edge) item.cut_edge.at += rippleFrames;
+                changed = true;
+            }
+            continue;
+        }
+        const left = leftIndex < 0 ? undefined : items[leftIndex];
+        const right = rightIndex < 0 ? undefined : items[rightIndex];
+        const meta = (item: AudioMediaItemV2) => item.reason !== undefined || item.label !== undefined;
+        if (left && right && splitRootId(left.id) !== splitRootId(right.id)) {
+            if (!left.cut_edge || !right.cut_edge || !meta(left) || !meta(right)) return false;
+            const leftStep = (left.source.out! - left.source.in!) / left.duration;
+            const rightStep = (right.source.out! - right.source.in!) / right.duration;
+            if (!(leftStep > 0) || !(rightStep > 0)) return false;
+            const leftFrames = Math.round((left.cut_edge.out - left.source.out!) / leftStep);
+            const rightFrames = Math.round((right.source.in! - right.cut_edge.in) / rightStep);
+            if (leftFrames < 0 || rightFrames < 0)
+                return false;
+            const boundary = right.at;
+            left.source.out = left.cut_edge.out;
+            left.duration += leftFrames;
+            right.source.in = right.cut_edge.in;
+            right.duration += rightFrames;
+            right.at = right.cut_edge.at;
+            for (const item of items) if (item !== left && item !== right
+                && matches(item) && item.at >= boundary) {
+                item.at += rippleFrames;
+                if (item.cut_edge) item.cut_edge.at += rippleFrames;
+            }
+            for (const restored of [left, right]) {
+                const family = items.filter(item => matches(item)
+                    && splitRootId(item.id) === splitRootId(restored.id))
+                    .sort((a, b) => a.source.in! - b.source.in!);
+                if (family.every((item, index) => index === 0
+                    || near(family[index - 1].source.out!, item.source.in!))
+                    && family.every(item => !item.cut_edge || (near(item.cut_edge.in, item.source.in!)
+                        && near(item.cut_edge.out, item.source.out!)))) {
+                    for (const item of family) { delete item.cut_edge; delete item.reason; delete item.label; }
+                    if (family.length === 1) family[0].id = splitRootId(family[0].id);
+                }
+            }
+            changed = true;
+            continue;
+        }
+        let boundary: number;
+        let frames: number;
+        if (left && right) {
+            const gap = right.at - left.at - left.duration;
+            if (rightIndex <= leftIndex || splitRootId(left.id) !== splitRootId(right.id)
+                || !meta(left) || !meta(right)
+                || !sameSplitProperties(left, right)) return false;
+            const step = (left.source.out! - left.source.in!) / left.duration;
+            frames = rippleFrames ? rippleFrames + gap : Math.round((target.out - target.in) / step);
+            const sourceFrames = Math.round((right.source.in! - left.source.out!) / step);
+            if (!(frames > 0) || Math.abs(frames - sourceFrames) > 2) return false;
+            boundary = right.at;
+            const merged = structuredClone(left);
+            merged.duration = left.duration + frames + right.duration;
+            merged.source.out = right.source.out;
+            if (left.cut_edge || right.cut_edge) merged.cut_edge = {
+                in: left.cut_edge?.in ?? left.source.in!,
+                out: right.cut_edge?.out ?? right.source.out!, at: left.cut_edge?.at ?? left.at };
+            items.splice(rightIndex, 1);
+            items.splice(leftIndex, 1, merged);
+        } else {
+            const survivor = left ?? right!;
+            const edge = survivor.cut_edge;
+            if (!edge || !meta(survivor)) return false;
+            const step = (survivor.source.out! - survivor.source.in!) / survivor.duration;
+            if (!(step > 0)) return false;
+            frames = Math.round(((right ? survivor.source.in! - edge.in : edge.out - survivor.source.out!)) / step);
+            if (!(frames > 0)) return false;
+            boundary = right ? survivor.at : survivor.at + survivor.duration;
+            if (right) {
+                survivor.source.in = edge.in;
+                survivor.at = edge.at;
+            } else survivor.source.out = edge.out;
+            survivor.duration += frames;
+        }
+        for (const item of items) {
+            if (item.source.src === target.captionId && item.at >= boundary
+                && item !== (left ? items[leftIndex] : right)) {
+                const ripple = rippleFrames || Math.round((target.out - target.in) * fps);
+                item.at += ripple;
+                if (item.cut_edge) item.cut_edge.at += ripple;
+            }
+        }
+        const family = items.filter(item => matches(item) && splitRootId(item.id) === splitRootId((left ?? right)!.id))
+            .sort((a, b) => a.source.in! - b.source.in!);
+        const complete = family.every((item, index) => index === 0
+            || near(family[index - 1].source.out!, item.source.in!))
+            && family.every(item => !item.cut_edge || (near(item.cut_edge.in, item.source.in!)
+                && near(item.cut_edge.out, item.source.out!)));
+        if (complete) for (const item of family) {
+            delete item.reason;
+            delete item.label;
+            delete item.cut_edge;
+            if (!items.some(other => other !== item && matches(other)
+                && splitRootId(other.id) === splitRootId(item.id))) item.id = splitRootId(item.id);
+        }
+        changed = true;
+    }
+    return changed;
+}
+
+function restoreSyncVisualEdges(source: string, target: CutRange): RestoreCutRangeResult {
+    const original = JSON.parse(source) as EditV2;
+    const restored = structuredClone(original);
+    let changed = false;
+    for (const track of visualTracks(restored)) {
+        const edgePieces = track.items.filter((item): item is MediaItemV2 => media(item)
+            && item.source.src === target.captionId && !!item.cut_edge
+            && ((Math.abs(item.source.out - target.in) <= audioFrameTolerance(item)
+                && item.cut_edge.out > item.source.out + SOURCE_TOLERANCE)
+                || (Math.abs(item.source.in - target.out) <= audioFrameTolerance(item)
+                    && item.cut_edge.in < item.source.in - SOURCE_TOLERANCE)));
+        if (!edgePieces.length) continue;
+        const boundary = Math.max(...edgePieces.map(item => item.at + item.duration));
+        let addedFrames = 0;
+        for (const item of edgePieces) {
+            if (hasTimedAppearance(item) || !item.cut_edge || (item as MediaItemV2 & { reason?: string; label?: string }).reason === undefined
+                && (item as MediaItemV2 & { reason?: string; label?: string }).label === undefined) {
+                return { source, restored: false, reason: RESTORE_PROVENANCE };
+            }
+            const step = (item.source.out - item.source.in) / item.duration;
+            if (!(step > 0)) return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+            const edge = item.cut_edge;
+            const restoresStart = Math.abs(item.source.in - target.out) <= audioFrameTolerance(item)
+                && edge.in < item.source.in - SOURCE_TOLERANCE;
+            const restoresEnd = Math.abs(item.source.out - target.in) <= audioFrameTolerance(item)
+                && edge.out > item.source.out + SOURCE_TOLERANCE;
+            const extra = Math.round(((restoresStart ? item.source.in - edge.in : 0)
+                + (restoresEnd ? edge.out - item.source.out : 0)) / step);
+            addedFrames += extra;
+            if (restoresStart) {
+                item.source.in = edge.in;
+                item.at = edge.at;
+            }
+            if (restoresEnd) item.source.out = edge.out;
+            item.duration += extra;
+            const root = splitRootId(item.id);
+            if (!track.items.some(other => other !== item && other.id === root)) item.id = root;
+            if (near(edge.in, item.source.in) && near(edge.out, item.source.out)) delete item.cut_edge;
+            const meta = item as MediaItemV2 & { reason?: string; label?: string };
+            const family = track.items.filter((candidate): candidate is MediaItemV2 => media(candidate)
+                && splitRootId(candidate.id) === root).sort((a, b) => a.source.in - b.source.in);
+            if (family.every((piece, index) => index === 0 || near(family[index - 1].source.out, piece.source.in))) {
+                delete meta.reason;
+                delete meta.label;
+            }
+        }
+        for (const item of track.items) {
+            if (!edgePieces.includes(item as MediaItemV2) && item.at >= boundary) {
+                item.at += addedFrames;
+                if (media(item) && item.cut_edge) item.cut_edge.at += addedFrames;
+            }
+        }
+        changed = true;
+    }
+    if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
+    const replay = JSON.parse(applyV2(`${JSON.stringify(restored, null, 2)}\n`, [target], {}).source) as EditV2;
+    for (const originalTrack of visualTracks(original)) {
+        if (!originalTrack.items.some(item => media(item) && item.source.src === target.captionId)) continue;
+        const next = visualTracks(replay).find(track => track.id === originalTrack.id);
+        if (!next || !sameCutResult(next, originalTrack)) {
+            return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+        }
+    }
+    return { source: `${JSON.stringify(restored, null, 2)}\n`, restored: true };
+}
+
+function restoreSyncGroupCut(source: string,
+    range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>,
+    group: SyncGroupV2): RestoreCutRangeResult {
+    const original = JSON.parse(source) as EditV2;
+    readEditV2(original);
+    const origin = group.members.find(member => member.source === range.captionId)!;
+    const targets = group.members.map(member => ({ ...range, kind: 'row' as const,
+        captionId: member.source, in: range.in + member.offset_sec - origin.offset_sec,
+        out: range.out + member.offset_sec - origin.offset_sec }));
+    let current = structuredClone(original);
+    let changed = false;
+    const unrelated = new Map<string, Array<{ index: number; item: ItemV2 }>>();
+    let restoredVisualFrames = 0;
+    for (const target of targets) {
+        if (!visualTracks(original).some(track => track.items.some(item =>
+            media(item) && item.source.src === target.captionId))) continue;
+        for (const track of visualTracks(current)) {
+            const originalTrack = visualTracks(original).find(candidate => candidate.id === track.id)!;
+            const extras = originalTrack.items.flatMap((item, index) => {
+                if (index === 0 || !media(item) || item.source.src !== target.captionId) return [];
+                const previous = originalTrack.items[index - 1];
+                return item.at > previous.at + previous.duration && item.source.in > target.out
+                    ? [{ index, item: structuredClone(item) }] : [];
+            });
+            if (extras.length) {
+                unrelated.set(track.id, [...(unrelated.get(track.id) ?? []), ...extras]);
+                const ids = new Set(extras.map(extra => extra.item.id));
+                track.items = track.items.filter(item => !ids.has(item.id));
+            }
+        }
+        const beforeDuration = visualTracks(current).flatMap(track => track.items)
+            .filter(item => media(item) && item.source.src === target.captionId)
+            .reduce((total, item) => total + item.duration, 0);
+        const audioEdges = new Map(audioTracks(current).flatMap(track => track.items
+            .filter(item => !item.link && item.cut_edge).map(item => [item.id, structuredClone(item.cut_edge!)] as const)));
+        const visualSource = `${JSON.stringify(current, null, 2)}\n`;
+        let result = restoreCutRangeUnchecked(visualSource, target, { offset: 0, attempted: false });
+        if (!result.restored) result = restoreSyncVisualEdges(visualSource, target);
+        if (!result.restored) return { source, restored: false, reason: result.reason };
+        current = JSON.parse(result.source) as EditV2;
+        const afterDuration = visualTracks(current).flatMap(track => track.items)
+            .filter(item => media(item) && item.source.src === target.captionId)
+            .reduce((total, item) => total + item.duration, 0);
+        restoredVisualFrames = Math.max(restoredVisualFrames, afterDuration - beforeDuration);
+        for (const track of audioTracks(current)) for (const item of track.items) {
+            if (!item.link && audioEdges.has(item.id)) item.cut_edge = audioEdges.get(item.id);
+        }
+        for (const [id, extras] of unrelated) {
+            const track = current.tracks.find(candidate => candidate.id === id);
+            if (track && 'items' in track) for (const extra of extras) {
+                if (!track.items.some(item => item.id === extra.item.id))
+                    track.items.splice(Math.min(extra.index, track.items.length), 0, structuredClone(extra.item));
+            }
+        }
+        changed = true;
+    }
+    for (const target of targets) {
+        if (audioTracks(original).some(track => track.items.some(item => !item.link
+            && (item.role === 'speech' || item.role === 'narration') && item.source.src === target.captionId))) {
+            if (!restoreSyncAudio(current, target, restoredVisualFrames))
+                return { source, restored: false, reason: RESTORE_PROVENANCE };
+            changed = true;
+        }
+    }
+    if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
+    for (const track of visualTracks(current)) for (const item of track.items) {
+        if (!media(item) || item.cut_edge || splitRootId(item.id) === item.id) continue;
+        const meta = item as MediaItemV2 & { reason?: string; label?: string };
+        const root = splitRootId(item.id);
+        if (meta.reason !== undefined || meta.label !== undefined
+            || track.items.some(other => other !== item && splitRootId(other.id) === root)) continue;
+        const previous = visualTracks(original).find(candidate => candidate.id === track.id);
+        if (!previous?.items.some(candidate => media(candidate) && splitRootId(candidate.id) === root
+            && ((candidate as MediaItemV2 & { reason?: string; label?: string }).reason !== undefined
+                || (candidate as MediaItemV2 & { reason?: string; label?: string }).label !== undefined))) continue;
+        const oldId = item.id;
+        item.id = root;
+        for (const audioTrack of audioTracks(current)) for (const audio of audioTrack.items) {
+            if (audio.link === oldId) audio.link = root;
+        }
+    }
+    const replay = JSON.parse(applySyncGroupCut(`${JSON.stringify(current, null, 2)}\n`,
+        { ...range, kind: 'row' }, group, {}).source) as EditV2;
+    const members = new Set(group.members.map(member => member.source));
+    for (const track of original.tracks) {
+        if (!('items' in track) || !track.items.some(item => item.source.kind === 'media'
+            && members.has(item.source.src))) continue;
+        const trial = replay.tracks.find(candidate => candidate.id === track.id);
+        const excluded = new Set(unrelated.get(track.id)?.map(extra => extra.item.id) ?? []);
+        const comparable = (candidate: typeof track) => ({ ...candidate,
+            items: candidate.items.filter(item => !excluded.has(item.id)) }) as ItemsTrackV2;
+        if (!trial || !('items' in trial)
+            || !sameCutResult(comparable(trial), comparable(track))) {
+            return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+        }
+    }
+    readEditV2(current);
+    return { source: `${JSON.stringify(current, null, 2)}\n`, restored: true };
+}
+
 /** Inverts one source-time cut from the surviving media items, without a stored snapshot. */
 export function restoreCutRange(
     source: string, range: Pick<CutRange, 'in' | 'out' | 'captionId' | 'reason' | 'label'>
 ): RestoreCutRangeResult {
+    if (detectEditVersion(source) === 2) {
+        const edit = JSON.parse(source) as EditV2;
+        const group = syncGroupForRange(edit, range);
+        if (group) {
+            try {
+                return restoreSyncGroupCut(source, range, group);
+            } catch {
+                return { source, restored: false, reason: RESTORE_UNAVAILABLE };
+            }
+        }
+    }
     let first: RestoreCutRangeResult | undefined;
     // Each attempt replays the cut below and accepts only a matching sameCutResult.
     for (const offset of [0, -1, 1, -2, 2]) {
@@ -730,6 +1152,11 @@ function restoreCutRangeUnchecked(
     if (!changed) return { source, restored: false, reason: RESTORE_PROVENANCE };
     const beforePositions = new Map(visualTracks(edit).flatMap(track => track.items.map(item => [item.id, item.at] as const)));
     const afterPositions = new Map(visualTracks(restored).flatMap(track => track.items.map(item => [item.id, item.at] as const)));
+    for (const track of visualTracks(restored)) for (const item of track.items) {
+        if (!media(item) || !item.cut_edge) continue;
+        const before = beforePositions.get(item.id);
+        if (before !== undefined) item.cut_edge.at += item.at - before;
+    }
     let hasLinkedAudio = false;
     for (const track of audioTracks(restored)) for (const item of track.items) {
         if (!item.link) continue;

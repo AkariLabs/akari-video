@@ -55,7 +55,7 @@ import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
 import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWriteBatch,
-    selectGenerationSidecarForSource, setCaptionTimingLine,
+    selectGenerationSidecarForSource, setCaptionTimingLine, setSourceSyncGroup,
     type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { isCurrentPhotoResponse } from './inspector/photo-response-state';
@@ -19880,6 +19880,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ) } : {}),
                 copyable: item.kind !== 'audio' || this.audioSfx.some(candidate => candidate.id === item.id),
                 linked: item.kind === 'audio' && this.linkedCutAudioPair(item.id) !== undefined,
+                syncVideo: item.kind === 'audio' && this.audioSpeech.some(candidate => candidate.id === item.id),
                 narrationRedo: item.kind === 'audio' && this.audioNarration.some(candidate => candidate.id === item.id)
                     && this.captions.some(caption => caption.id === this.narrationReadAloudMetadata(item.id)?.caption_ref)
             }
@@ -20007,6 +20008,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         document.addEventListener('pointerdown', close, true);
     }
 
+    protected openSyncVideoDialog(audioItemId: string, x: number, y: number): void {
+        const edit = this.editDocument as unknown as EditV2 | undefined;
+        const audioSource = this.rawV2Item(audioItemId)?.source?.src as string | undefined;
+        if (!edit || !audioSource) { this.showNotice('音声の素材が見つかりません。'); return; }
+        const videoIds = new Set<string>();
+        for (const track of edit.tracks) {
+            if (track.lane !== 'visual' || !('items' in track)) continue;
+            for (const candidate of track.items) {
+                if (candidate.source.kind !== 'media') continue;
+                const candidateSourceId = candidate.source.src;
+                const source = edit.sources.find(entry => entry.id === candidateSourceId);
+                if (source && /\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpg|mpeg|ts|mts)$/iu.test(source.path)) {
+                    videoIds.add(source.id);
+                }
+            }
+        }
+        if (!videoIds.size) { this.showNotice('同期できる映像がありません。'); return; }
+        document.querySelector('[data-akari-sync-video-dialog]')?.remove();
+        const popup = document.createElement('div');
+        popup.setAttribute('data-akari-sync-video-dialog', '');
+        Object.assign(popup.style, { position: 'fixed', zIndex: '100000', left: `${Math.min(x, window.innerWidth - 280)}px`,
+            top: `${Math.min(y, window.innerHeight - 150)}px`, width: '260px', padding: '10px',
+            background: 'var(--theia-editor-background)', border: '1px solid var(--theia-widget-border)',
+            borderRadius: '6px', boxShadow: '0 8px 24px #0008' });
+        const title = document.createElement('div'); title.textContent = 'この映像と同期'; popup.append(title);
+        const select = document.createElement('select'); select.style.width = '100%';
+        const none = document.createElement('option'); none.value = ''; none.textContent = 'なし（同期を解除）'; select.append(none);
+        for (const source of edit.sources.filter(entry => videoIds.has(entry.id))) {
+            const option = document.createElement('option'); option.value = source.id;
+            option.textContent = source.path.replace(/\\/gu, '/').split('/').pop() || source.id; select.append(option);
+        }
+        select.value = edit.sync_groups?.find(group => group.members.some(member => member.source === audioSource))
+            ?.members.find(member => videoIds.has(member.source))?.source ?? '';
+        popup.append(select);
+        const note = document.createElement('small'); note.textContent = '最初はずれ 0 秒。必要ならあとでタイムラインでずらせます。';
+        note.style.display = 'block'; popup.append(note);
+        const button = document.createElement('button'); button.className = 'theia-button main';
+        button.textContent = '保存'; button.style.marginTop = '8px'; popup.append(button);
+        document.body.append(popup);
+        button.onclick = () => {
+            const videoSource = select.value || undefined;
+            popup.remove();
+            void this.commitEditMutation(videoSource ? '映像と同期' : '同期を解除', doc =>
+                setSourceSyncGroup(doc as unknown as EditV2, audioSource, videoSource) as unknown as EditV2Document)
+                .catch(error => this.showNotice(this.errorMessage(error)));
+        };
+        const close = (event: PointerEvent): void => {
+            if (popup.contains(event.target as Node)) return;
+            popup.remove(); document.removeEventListener('pointerdown', close, true);
+        };
+        document.addEventListener('pointerdown', close, true);
+    }
+
     /**
      * メニュー id → 既存ハンドラへのディスパッチ（司令塔裁定1）。分割の分割位置は
      * 右クリックした X 位置（`clientX`）を使う（司令塔裁定1・事実2）。
@@ -20014,6 +20068,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'sync-video' && item.kind === 'audio') {
+            this.openSyncVideoDialog(item.id, clientX, window.innerHeight / 2);
+            return;
+        }
         if (id === 'narrate-redo' && item.kind === 'audio') {
             const narration = this.narrationReadAloudMetadata(item.id);
             if (narration?.caption_ref && this.captions.some(caption => caption.id === narration.caption_ref)) {

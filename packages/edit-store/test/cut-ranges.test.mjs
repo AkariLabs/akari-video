@@ -34,6 +34,212 @@ function v2(items = [media('main-1', 0, 300, 0, 10)], extraTracks = []) {
   });
 }
 
+function syncFixture(cam = [media('cam-1', 0, 300, 0, 10, 'cam')], mic = [
+  { id: 'mic-1', role: 'speech', at: 0, duration: 300,
+    source: { kind: 'media', src: 'mic', in: 0, out: 10 } },
+]) {
+  return text({ version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
+    sync_groups: [{ id: 'take', members: [
+      { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0 },
+    ] }], tracks: [
+      { id: 'v-cam', lane: 'visual', items: cam }, { id: 'a-mic', lane: 'audio', items: mic },
+    ] });
+}
+
+test('同期組の三か所はどの順で戻しても元の宣言に一致する', () => {
+  const original = syncFixture();
+  const cuts = [range([1, 1.5], 'row', { captionId: 'mic' }),
+    range([4, 5], 'row', { captionId: 'cam' }),
+    range([7, 7.2], 'row', { captionId: 'mic' })];
+  const edited = cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original);
+  assert.equal(JSON.parse(edited).sync_cut_history, undefined);
+  for (const order of [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]) {
+    let source = edited;
+    for (const index of order) {
+      assert.equal(canRestoreCutRange(source, cuts[index]), undefined);
+      source = restoreCutRange(source, cuts[index]).source;
+    }
+    assert.equal(source, original, order.join(','));
+  }
+  const changed = JSON.parse(edited);
+  changed.tracks[1].items[1].at++;
+  assert.match(canRestoreCutRange(text(changed), cuts[0]), /戻せません/);
+});
+
+test('同期組の十か所は前後どちらから戻しても元に戻る', () => {
+  const cam = Array.from({ length: 10 }, (_, index) =>
+    media(`cam-${index}`, index * 300, 300, index * 10, index * 10 + 10, 'cam'));
+  const mic = Array.from({ length: 10 }, (_, index) => ({ id: `mic-${index}`, role: 'speech',
+    at: index * 300, duration: 300,
+    source: { kind: 'media', src: 'mic', in: index * 10, out: index * 10 + 10 } }));
+  const original = syncFixture(cam, mic);
+  const cuts = Array.from({ length: 10 }, (_, index) =>
+    range([index * 10 + 2, index * 10 + 3], 'row', { captionId: 'mic' }));
+  const edited = cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original);
+  assert.ok(edited.length < original.length * 3);
+  for (const order of [cuts, [...cuts].reverse()]) {
+    const restored = order.reduce((source, cut) => {
+      const result = restoreCutRange(source, cut);
+      assert.equal(result.restored, true, result.reason);
+      return result.source;
+    }, edited);
+    assert.equal(restored, original);
+  }
+});
+
+test('同期音声の先頭をまたぐカットは映像と同じ位置へ詰まり端情報から戻る', () => {
+  const original = syncFixture(undefined, [{ id: 'mic-1', role: 'speech', at: 60, duration: 240,
+    source: { kind: 'media', src: 'mic', in: 2, out: 10 } }]);
+  const cut = range([1.5, 2.5], 'row', { captionId: 'cam' });
+  const edited = applyCutRanges(original, [cut]).source;
+  const doc = JSON.parse(edited);
+  assert.deepEqual(doc.tracks[1].items.map(item => [item.at, item.duration]), [[45, 225]]);
+  assert.deepEqual(doc.tracks[1].items[0].cut_edge, { in: 2, out: 10, at: 60 });
+  assert.equal(restoreCutRange(edited, cut).source, original);
+});
+
+test('同期音声の末尾と全域をまたぐカットも後続を映像の時刻へ詰める', () => {
+  const cut = range([1.5, 2.5], 'row', { captionId: 'cam' });
+  const tail = syncFixture(undefined, [{ id: 'mic-1', role: 'speech', at: 0, duration: 60,
+    source: { kind: 'media', src: 'mic', in: 0, out: 2 } }]);
+  const tailCut = applyCutRanges(tail, [cut]).source;
+  assert.deepEqual(JSON.parse(tailCut).tracks[1].items.map(item => [item.at, item.duration]), [[0, 45]]);
+  assert.equal(restoreCutRange(tailCut, cut).source, tail);
+  const covered = syncFixture(undefined, [
+    { id: 'mic-short', role: 'speech', at: 48, duration: 24,
+      source: { kind: 'media', src: 'mic', in: 1.6, out: 2.4 } },
+    { id: 'mic-later', role: 'speech', at: 75, duration: 225,
+      source: { kind: 'media', src: 'mic', in: 2.5, out: 10 } },
+  ]);
+  assert.deepEqual(JSON.parse(applyCutRanges(covered, [cut]).source).tracks[1].items
+    .map(item => [item.at, item.duration]), [[45, 225]]);
+});
+
+test('非整列の組カットは 24・30・60 fps と素材 offset を保って戻る', () => {
+  for (const fps of [24, 30, 60]) {
+    const doc = JSON.parse(syncFixture());
+    doc.output.fps = fps;
+    doc.tracks[0].items[0].duration = 10 * fps;
+    doc.tracks[1].items[0].duration = 10 * fps;
+    doc.sync_groups[0].members[1].offset_sec = 1.2345;
+    doc.tracks[1].items[0].source.in = 1.2345;
+    doc.tracks[1].items[0].source.out = 11.2345;
+    const original = text(doc);
+    for (const who of ['cam', 'mic']) {
+      const offset = who === 'mic' ? 1.2345 : 0;
+      const cut = range([3.1234 + offset, 4.0567 + offset], 'row',
+        { captionId: who, reason: 'word', label: '行' });
+      const edited = applyCutRanges(original, [cut]).source;
+      assert.equal(restoreCutRange(edited, cut).source, original, `${fps} fps / ${who}`);
+    }
+  }
+});
+
+test('映像の二片・三片の境目をまたぐ組カットも元の item に戻る', () => {
+  for (const count of [2, 3]) {
+    const frames = 300 / count;
+    const cam = Array.from({ length: count }, (_, index) =>
+      media(`cam-${index}`, index * frames, frames, index * 10 / count,
+        (index + 1) * 10 / count, 'cam'));
+    const original = syncFixture(cam);
+    const seam = 10 / count;
+    const cut = range([seam - 0.5, seam + 0.5], 'row', { captionId: 'mic', label: '行' });
+    const edited = applyCutRanges(original, [cut]).source;
+    assert.equal(restoreCutRange(edited, cut).source, original, `${count} pieces`);
+  }
+});
+
+test('組カットが声の開始前でも後続 item を映像と同じ量だけ詰める', () => {
+  const cam = [media('cam-1', 0, 600, 0, 10, 'cam')];
+  const mic = [{ id: 'mic-1', role: 'speech', at: 156, duration: 444,
+    source: { kind: 'media', src: 'mic', in: 2.6, out: 10 } }];
+  const doc = JSON.parse(syncFixture(cam, mic));
+  doc.output.fps = 60;
+  const original = text(doc);
+  const cut = range([1.8421, 1.9627], 'row', { captionId: 'mic', label: '行' });
+  const applied = applyCutRanges(original, [cut]);
+  assert.equal(JSON.parse(applied.source).tracks[1].items[0].at, 156 - applied.removedFrames);
+  assert.equal(restoreCutRange(applied.source, cut).source, original);
+});
+
+test('複数の映像片と声片を非整列で切っても声は重ならず順不同で戻る', () => {
+  const cam = Array.from({ length: 3 }, (_, index) =>
+    media(`cam-${index}`, index * 120, 120, index * 4, index * 4 + 4, 'cam'));
+  const mic = [0, 1].map(index => ({ id: `mic-${index}`, role: 'speech',
+    at: index * 180, duration: 180,
+    source: { kind: 'media', src: 'mic', in: index * 6, out: index * 6 + 6 } }));
+  const original = syncFixture(cam, mic);
+  const cuts = [[1.1234, 1.4567], [3.6234, 4.4567], [8.1234, 8.4567]]
+    .map(interval => range(interval, 'row', { captionId: 'mic', label: '行' }));
+  const edited = cuts.reduce((source, cut) => applyCutRanges(source, [cut]).source, original);
+  const pieces = JSON.parse(edited).tracks[1].items;
+  for (let index = 1; index < pieces.length; index++) {
+    assert.ok(pieces[index].at >= pieces[index - 1].at + pieces[index - 1].duration);
+  }
+  for (const order of [cuts, [...cuts].reverse()]) {
+    assert.equal(order.reduce((source, cut) => restoreCutRange(source, cut).source, edited), original);
+  }
+});
+
+test('同期組の link の無い narration も映像と一緒に切って戻る', () => {
+  const doc = JSON.parse(syncFixture());
+  doc.tracks[1].items[0].role = 'narration';
+  const original = text(doc);
+  const cut = range([3.1234, 4.0567], 'row', { captionId: 'cam', label: '行' });
+  const edited = applyCutRanges(original, [cut]).source;
+  assert.deepEqual(JSON.parse(edited).tracks[1].items.map(item => [item.at, item.duration]),
+    JSON.parse(edited).tracks[0].items.map(item => [item.at, item.duration]));
+  assert.equal(restoreCutRange(edited, cut).source, original);
+});
+
+test('同期した映像とマイクをどちらの行からも一緒に切り、組ごと戻す', () => {
+  for (const [sourceId, start] of [['mic', 2], ['main', 2]]) {
+    const doc = JSON.parse(v2());
+    doc.sources.push({ id: 'mic', path: 'mic.wav' }, { id: 'outside', path: 'outside.mp4' });
+    doc.sync_groups = [{ id: 'take-1', members: [
+      { source: 'main', offset_sec: 0 }, { source: 'mic', offset_sec: 0 },
+    ] }];
+    doc.tracks.push({ id: 'a-mic', lane: 'audio', items: [
+      { id: 'mic-1', role: 'speech', at: 0, duration: 300,
+        source: { kind: 'media', src: 'mic', in: 0, out: 10 } },
+    ] });
+    doc.tracks.push({ id: 'v-outside', lane: 'visual', items: [media('outside-1', 0, 300, 0, 10, 'outside')] });
+    doc.tracks.push({ id: 'a-effect', lane: 'audio', items: [
+      { id: 'effect-1', role: 'sfx', at: 45, duration: 60,
+        source: { kind: 'media', src: 'mic', in: 1.5, out: 3.5 } },
+    ] });
+    const original = text(doc);
+    const cut = range([start, start + 2], 'filler', { captionId: sourceId });
+    const applied = applyCutRanges(original, [cut]);
+    assert.equal(applied.removedFrames, 60);
+    const after = JSON.parse(applied.source);
+    const video = after.tracks.find(track => track.id === 'v-main').items;
+    const mic = after.tracks.find(track => track.id === 'a-mic').items;
+    assert.deepEqual(video.map(item => [item.at, item.duration]), mic.map(item => [item.at, item.duration]));
+    assert.deepEqual(after.tracks.find(track => track.id === 'v-outside'), doc.tracks.find(track => track.id === 'v-outside'));
+    assert.deepEqual(after.tracks.find(track => track.id === 'a-effect'), doc.tracks.find(track => track.id === 'a-effect'));
+    assert.equal(restoreCutRange(applied.source, cut).source, original);
+    after.tracks.find(track => track.id === 'a-mic').items[0].at++;
+    assert.match(canRestoreCutRange(text(after), cut), /戻せません/);
+  }
+});
+
+test('同期 offset に合わせて別の素材時刻を切る', () => {
+  const doc = JSON.parse(v2());
+  doc.sources.push({ id: 'mic', path: 'mic.wav' });
+  doc.sync_groups = [{ id: 'offset', members: [
+    { source: 'main', offset_sec: 0 }, { source: 'mic', offset_sec: 1 },
+  ] }];
+  doc.tracks.push({ id: 'a-mic', lane: 'audio', items: [
+    { id: 'mic-1', role: 'speech', at: 0, duration: 300,
+      source: { kind: 'media', src: 'mic', in: 1, out: 11 } },
+  ] });
+  const after = JSON.parse(applyCutRanges(text(doc), [range([3, 5], 'row', { captionId: 'mic' })]).source);
+  assert.deepEqual(after.tracks[0].items.map(item => [item.source.in, item.source.out]), [[0, 2], [4, 10]]);
+  assert.deepEqual(after.tracks[1].items.map(item => [item.source.in, item.source.out]), [[1, 3], [5, 11]]);
+});
+
 function assertLinkedAudioVisibleSync(doc) {
   const fps = doc.output.fps;
   const visual = doc.tracks.filter(track => track.lane === 'visual').flatMap(track => track.items);
