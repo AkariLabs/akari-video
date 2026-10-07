@@ -4,7 +4,9 @@
   "private": true,
   "main": "lib/browser/akari-vibe-dock-frontend-module.js",
   "theiaExtensions": [
-    { "frontend": "lib/browser/akari-vibe-dock-frontend-module" }
+    { "frontend": "lib/browser/akari-vibe-dock-frontend-module" },
+    { "backend": "lib/node/akari-vibe-dock-backend-module" },
+    { "frontend": "lib/browser/ear-frontend-module" }
   ],
   "scripts": {
     "build": "tsc -b",
