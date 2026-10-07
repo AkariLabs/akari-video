@@ -1503,6 +1503,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.materialQuery = query;
         this.syncSearchInput();
         this.update();
+        this.materialsPane.hydrateVisibleMaterialStrips();
     }
 
     protected libraryCategoryDefinition(key: LibraryCategoryKey): LibraryCategoryDefinition {

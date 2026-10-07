@@ -168,7 +168,7 @@ test('挿入フックは gain_db 既指定なら RPC を呼ばない guard を�
 
 test('voiceTrack の audio は speech item と声の計測基準を使い、通常 audio は sfx を使う', () => {
   assert.match(contributionSource,
-    /payload\?\.voiceTrack === true[\s\S]*?addMaterialAtPlayhead\(relativePath, kind, \{ createAudioTrack: true, voiceTrack: true \}\)/u);
+    /payload\?\.voiceTrack === true[\s\S]*?addMaterialAtPlayhead\(relativePath, kind, \{ createAudioTrack: true, voiceTrack: true, \.\.\.range \}\)/u);
   assert.match(widgetSource,
     /options\?\.voiceTrack \? \{ role: 'speech' \} : \{\}/u);
   assert.match(widgetSource, /role: options\?\.voiceTrack \? 'narration' : 'sfx'/u);

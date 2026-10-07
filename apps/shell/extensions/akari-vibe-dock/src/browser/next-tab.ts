@@ -164,7 +164,7 @@ export class NextVibeDockTab implements VibeDockTabContribution, FrontendApplica
                 const check = document.createElement('button');
                 check.type = 'button';
                 check.className = 'akari-vibe-next-pick';
-                check.setAttribute('aria-label', `${row.id} を選ぶ`);
+                check.setAttribute('aria-label', `${Array.from(String(row.title || row.body || '').replace(/\s+/gu, ' ').trim()).slice(0, 20).join('') || '内容なし'} を選ぶ`);
                 check.setAttribute('aria-pressed', String(selected.has(row.id)));
                 check.disabled = !row.actions.some(action => action.id === 'send');
                 check.addEventListener('click', () => { selected.has(row.id) ? selected.delete(row.id) : selected.add(row.id); paint(); });

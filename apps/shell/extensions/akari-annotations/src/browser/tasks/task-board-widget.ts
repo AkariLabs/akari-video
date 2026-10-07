@@ -146,11 +146,11 @@ export class AkariTaskBoardWidget extends BaseWidget {
         for (const action of actions) footer.append(this.makeButton(action.label, () => { void this.act(task, action); },
             action.id === 'send' || action.id === 'markPasted' ? 'secondary' : 'quiet'));
         const ui = parseUiTarget(typeof task.target === 'string' ? task.target : null);
-        if (ui && buildUiTargetRow(ui.id).revealable && this.review.location?.editUri) {
+        if (task.state !== 'done' && ui && buildUiTargetRow(ui.id).revealable && this.review.location?.editUri) {
             footer.append(this.makeButton('要素へ', () => window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
                 detail: { editUri: this.review.location?.editUri?.normalizePath().toString(), target: ui.id }
             }))));
-        } else if (sourceT !== undefined) {
+        } else if (task.state !== 'done' && sourceT !== undefined) {
             footer.append(this.makeButton('時刻へ', () => this.review.requestSeek(sourceT)));
         }
         if (footer.childElementCount) card.append(footer);

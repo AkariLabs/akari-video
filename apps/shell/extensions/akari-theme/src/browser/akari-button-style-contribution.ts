@@ -36,6 +36,17 @@ const CSS = `
    で作る外側 iframe だけ light に一致させ、キャンバスを透明に戻す。 */
 iframe.webview { color-scheme: light; }
 
+/* The dock publishes these offsets only while it is visible. Keep Theia's
+   absolute toast placement and the guide's own positioning unchanged. */
+.theia-notifications-overlay .theia-notifications-container.theia-notification-toasts {
+    bottom: calc(36px + var(--akari-vibe-dock-toast-lift, 0px));
+    right: var(--akari-vibe-dock-toast-right, 16px);
+}
+body aside.akari-guide-announcement {
+    bottom: calc(20px + var(--akari-vibe-dock-guide-lift, 0px));
+    right: var(--akari-vibe-dock-guide-right, 20px);
+}
+
 .theia-button {
     box-sizing: border-box;
     height: 28px;

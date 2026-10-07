@@ -38,12 +38,12 @@ function ensureStyles(): void {
 .akari-voice-dict-header .closeButton { color: var(--akari-muted); cursor: pointer; }
 .akari-voice-dict-lead { flex: none; margin: 0; padding: 10px 20px 18px; color: var(--akari-muted); font-size: 12px; line-height: 1.6; }
 .akari-voice-dict-table-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 40px 8px; padding: 0 20px; }
-.akari-voice-dict-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.akari-voice-dict-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
 .akari-voice-dict-table th { position: sticky; top: 0; background: var(--akari-card); padding: 9px 10px; text-align: left; color: var(--akari-faint); font-size: 11px; font-weight: 500; border-bottom: 1px solid var(--akari-line-inner); }
 .akari-voice-dict-table th:first-child { width: 27%; }
 .akari-voice-dict-table th:last-child { width: 24%; }
 .akari-voice-dict-table td { padding: 9px 10px; border-bottom: 1px solid var(--akari-line-inner); vertical-align: middle; overflow-wrap: anywhere; }
-.akari-voice-dict-table tr.akari-voice-dict-overridden { opacity: .48; }
+.akari-voice-dict-table tr.akari-voice-dict-overridden td { color: var(--akari-faint); }
 .akari-voice-dict-source { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; color: var(--akari-faint); font-size: 11px; }
 .akari-voice-dict-source .theia-button { margin-inline-start: auto; }
 .akari-voice-dict-badge { padding: 2px 6px; border: 1px solid var(--akari-line); border-radius: 999px; font-size: 10px; }
