@@ -1,8 +1,13 @@
 import { inject, injectable, named } from '@theia/core/shared/inversify';
 import { ContributionProvider, Disposable, Emitter, Event } from '@theia/core/lib/common';
 import { CommandService } from '@theia/core/lib/common/command';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { VibeDockContext, VibeDockTabContribution } from '../common/vibe-dock-tab';
 import { VibeDockState } from '../common/vibe-dock-state';
+import { AkariEarFrontend } from '../common/ear-frontend';
+import type { EarStatus } from '../common/ear-protocol';
+import { EAR_ENGINE_LABELS, EarCapabilities, effectiveVibeMode, readEngine, readVibeMode, resolveEarEngine, VIBE_MODE_LABELS } from '../common/vibe-mode';
+import { lastKnownListeningMic, rememberListeningMic } from './listening-preferences';
 
 export const VibeDockTabContributionSymbol = Symbol('VibeDockTabContribution');
 
@@ -39,8 +44,13 @@ export class SettingsVibeDockTab implements VibeDockTabContribution {
     readonly icon = '⚙';
     readonly order = 100;
     @inject(CommandService) protected readonly commands!: CommandService;
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(AkariEarFrontend) protected readonly ear!: AkariEarFrontend;
     render(host: HTMLElement, _ctx: VibeDockContext): Disposable {
         host.replaceChildren();
+        let disposed = false;
+        let capabilities: EarCapabilities = { engines: [] };
+        let mic: EarStatus['mic'] = lastKnownListeningMic;
         const button = document.createElement('button');
         button.className = 'theia-button secondary';
         button.textContent = '設定を開く';
@@ -48,7 +58,42 @@ export class SettingsVibeDockTab implements VibeDockTabContribution {
         const summary = document.createElement('div');
         summary.setAttribute('aria-label', '設定の要約');
         host.append(button, summary);
-        return Disposable.create(() => host.replaceChildren());
+        const paint = (): void => {
+            const engine = resolveEarEngine(this.preferences, capabilities);
+            const engineLabel = readEngine(this.preferences) === 'auto' && !engine ? EAR_ENGINE_LABELS.auto
+                : engine ? EAR_ENGINE_LABELS[engine] : EAR_ENGINE_LABELS[readEngine(this.preferences)];
+            const mode = effectiveVibeMode({
+                mode: readVibeMode(this.preferences),
+                companionEnabled: this.preferences.inspect<boolean>('akari.companion.enabled')?.globalValue !== false,
+                liveAvailable: capabilities.engines.some(value => value.id === 'speechanalyzer-live' && value.available)
+            });
+            const lines = [
+                `聞き取り: ${engineLabel}`,
+                `Jev: ${VIBE_MODE_LABELS[mode.mode]}`,
+                `マイク: ${mic === 'ok' ? '許可あり' : mic === 'denied' ? '許可なし' : '未確認'}`
+            ];
+            summary.replaceChildren(...lines.map(line => {
+                const row = document.createElement('div');
+                row.textContent = line;
+                return row;
+            }));
+        };
+        paint();
+        const statusSubscription = this.ear.onStatus(status => {
+            if (status.mic === 'ok' || status.mic === 'denied') {
+                mic = status.mic; rememberListeningMic(mic); if (!disposed) paint();
+            }
+        });
+        const preferenceSubscription = this.preferences.onPreferenceChanged(change => {
+            if (['akari.listening.engine', 'akari.vibe.mode', 'akari.companion.enabled'].includes(change.preferenceName) && !disposed) { paint(); }
+        });
+        void this.ear.capabilities().then(value => { if (!disposed) { capabilities = value; paint(); } });
+        return Disposable.create(() => {
+            disposed = true;
+            statusSubscription.dispose();
+            preferenceSubscription.dispose();
+            host.replaceChildren();
+        });
     }
 }
 

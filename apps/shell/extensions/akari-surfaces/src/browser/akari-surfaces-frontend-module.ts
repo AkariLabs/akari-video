@@ -1,6 +1,9 @@
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { bindRootContributionProvider } from '@theia/core/lib/common/contribution-provider';
+import { ContributionProvider } from '@theia/core/lib/common';
+import { SettingsSectionBodyContributionSymbol, setSettingsSectionBodyProvider } from '../common/settings-section-body';
 import {
     FrontendApplicationContribution,
     KeybindingContribution,
@@ -30,6 +33,12 @@ import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboar
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
 
 export default new ContainerModule(bind => {
+    bindRootContributionProvider(bind, SettingsSectionBodyContributionSymbol);
+    bind(FrontendApplicationContribution).toDynamicValue(context => ({
+        onStart: () => setSettingsSectionBodyProvider(
+            context.container.getNamed(ContributionProvider, SettingsSectionBodyContributionSymbol)
+        )
+    })).inSingletonScope();
     bind(AkariOnboardingService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_ONBOARDING_SERVICE_PATH)
     ).inSingletonScope();

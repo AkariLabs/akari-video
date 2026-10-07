@@ -11,6 +11,7 @@ export const SETTINGS_SECTIONS = [
     { id: 'ai-models', label: 'AI モデル', group: 'main', icon: 'spark' },
     { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot', badge: '新' },
     { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
+    { id: 'listening', label: '聞き取り', group: 'main', icon: 'mic' },
     { id: 'narration', label: '読み上げ', group: 'main', icon: 'mic' },
     { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
     { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
@@ -40,6 +41,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     'ai-models': 'モデルを探して、お気に入りといつものモデルを選び、できることを比べます。',
     transcribe: '文字起こしのエンジンを選びます。',
+    listening: 'マイクで話しかける側の設定。試し聞き・聞き取りエンジン・Jev のモードを選びます。',
     narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
@@ -115,6 +117,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     'ai-models': [],
     partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
+    listening: ['akari.listening.engine', 'akari.vibe.mode'],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
@@ -128,6 +131,7 @@ export function sectionForPreferenceKey(key: string): SettingsSectionId | undefi
     const section = SETTINGS_SECTIONS.find(item => SECTION_PREFERENCE_KEYS[item.id].includes(key));
     if (section) { return section.id; }
     if (key.startsWith('akari.transcribe.')) { return 'transcribe'; }
+    if (key.startsWith('akari.listening.')) { return 'listening'; }
     if (key.startsWith('akari.narration.')) { return 'narration'; }
     if (key.startsWith('akari.export.')) { return 'export'; }
     return undefined;
