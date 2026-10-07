@@ -240,7 +240,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         onMouseEnter={event => { const position = hoverPopupPosition(event.currentTarget.getBoundingClientRect(),
             { width: window.innerWidth, height: window.innerHeight }, { width: 300, height: 220 }); hideHover(); hoverDelay.current = setTimeout(() => setHover({ item, ...position }), 250); }}
         onMouseLeave={hideHover}>
-        {item.category === 'audio' && <button type='button' className='theia-button secondary akari-import-audio' style={{ width: 26, height: 26, minWidth: 26, padding: 0, borderRadius: '50%' }} aria-label={`${item.name} を試聴`} aria-pressed={playing === item.path}
+        {item.category === 'audio' && <button type='button' className='theia-button secondary icon akari-import-audio' style={{ borderRadius: '50%' }} aria-label={`${item.name} を試聴`} aria-pressed={playing === item.path}
             onClick={() => void play(item)}>{playing === item.path ? '■' : '▶'}</button>}
         <span className='akari-import-name' title={item.path}>{item.name}</span>
         <small className='akari-import-duration'>{item.durationSec !== null ? `${item.durationSec.toFixed(1)} 秒` : `${((item.bytes ?? 0) / 1024).toFixed(0)} KB`}</small>

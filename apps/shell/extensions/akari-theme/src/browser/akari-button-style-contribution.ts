@@ -90,6 +90,17 @@ iframe.webview { color-scheme: light; }
     height: 24px;
     padding: 0 9px;
 }
+.theia-button.icon {
+    width: 26px;
+    height: 26px;
+    min-width: 0;
+    padding: 0;
+    margin-left: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
 .theia-button:focus-visible {
     outline: 2px solid;
     outline-color: var(--akari-accent) !important;

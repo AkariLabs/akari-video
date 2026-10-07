@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { exportUnavailableReason } from '../lib/common/export-toolbar-state.js';
+import { exportToolbarState, exportUnavailableReason } from '../lib/common/export-toolbar-state.js';
 
 const source = readFileSync(new URL('../src/browser/akari-menu-widget.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -43,6 +43,7 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
         const status = this.exportSession.snapshot.status;
         const availability = this.exportAvailability.snapshot;
         const unavailableReason = exportUnavailableReason(availability);
+        const state = exportToolbarState(availability, status);
         const running = status.phase === 'linting' || status.phase === 'rendering';
         const visible = running || status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed';
         const percent = status.progressPercent ?? 0;
@@ -58,8 +59,8 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
                 <button
                     className='theia-button secondary'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!!unavailableReason}
-                    title={unavailableReason}
+                    disabled={state.disabled}
+                    title={state.title}
                     onClick={() => void this.openExportDialog()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
@@ -106,13 +107,13 @@ test('renderExportSection exactly matches the shared export availability UI', ()
     assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), baselineExportSection);
 });
 
-test('メニューの書き出しボタンと説明文は共有の利用不可理由に従う', () => {
+test('メニューの書き出しボタンは帯と同じ状態、説明文は利用不可理由に従う', () => {
     const code = ts.transpileModule(`class Menu { ${method('renderExportSection').getText(ast)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React }
     }).outputText;
     const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
-    const Menu = new Function('React', 'quickExportStageLabel', 'exportUnavailableReason',
-        `${code}\nreturn Menu;`)(React, () => undefined, exportUnavailableReason);
+    const Menu = new Function('React', 'quickExportStageLabel', 'exportUnavailableReason', 'exportToolbarState',
+        `${code}\nreturn Menu;`)(React, () => undefined, exportUnavailableReason, exportToolbarState);
     const visit = (node, predicate) => {
         if (Array.isArray(node)) return node.flatMap(child => visit(child, predicate));
         if (!node || typeof node !== 'object') return [];
@@ -124,18 +125,24 @@ test('メニューの書き出しボタンと説明文は共有の利用不可�
         { exists: true, selectedEditName: 'edit.v2.json' },
         { exists: false, selectedEditName: 'edit.v2.json' }
     ];
-    for (const availability of cases) {
+    for (const availability of cases) for (const status of [
+        { phase: 'idle' },
+        { phase: 'linting', progressPercent: 32 },
+        { phase: 'rendering', progressPercent: 74 }
+    ]) {
         const menu = Object.assign(new Menu(), {
             exportAvailability: { snapshot: { workspaceOpened: true, ...availability } },
-            exportSession: { snapshot: { status: { phase: 'idle' } } },
+            exportSession: { snapshot: { status } },
             workspaceOpened: true,
             cleaningProject: false
         });
         const tree = menu.renderExportSection();
         const button = visit(tree, node => node.props?.['data-akari-onboarding-target'] === 'export-button')[0];
         const reason = exportUnavailableReason(menu.exportAvailability.snapshot);
-        assert.equal(button.props.disabled, !!reason);
-        assert.equal(button.props.title, reason);
+        const state = exportToolbarState(menu.exportAvailability.snapshot, status);
+        assert.equal(button.props.disabled, state.disabled);
+        assert.equal(button.props.title, state.title);
+        assert.equal(button.children[1].children[0], '書き出し…');
         const paragraphs = visit(tree, node => node.type === 'p');
         assert.equal(paragraphs.length, reason ? 1 : 0);
         if (reason) assert.equal(paragraphs[0].children.at(-1), reason);

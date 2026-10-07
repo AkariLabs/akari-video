@@ -32,6 +32,20 @@ test('4 段・小サイズ・共通状態を生成 CSS に持つ', () => {
     assert.match(ruleFor('.theia-button:disabled').declarations, /opacity:\s*\.42/);
 });
 
+test('icon 段は small と併用しても 26px 正方形で余白を持たない', () => {
+    const icon = rules.find(rule => rule.selector === '.theia-button.icon');
+    assert.ok(icon);
+    for (const declaration of [
+        /width:\s*26px/, /height:\s*26px/, /min-width:\s*0/,
+        /padding:\s*0/, /margin-left:\s*0/,
+        /display:\s*inline-flex/, /align-items:\s*center/,
+        /justify-content:\s*center/, /border-radius:\s*6px/
+    ]) {
+        assert.match(icon.declarations, declaration);
+    }
+    assert.ok(rules.indexOf(icon) > rules.findIndex(rule => rule.selector === '.theia-button.small'));
+});
+
 test('素のボタンは AKARI 範囲の無装飾要素だけに詳細度 0 で当てる', () => {
     const fallback = rules.filter(rule => rule.selector.includes('button:not([class])'));
     const states = ['', ':hover:not(:disabled)', ':focus-visible', ':disabled'];

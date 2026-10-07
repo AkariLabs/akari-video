@@ -398,20 +398,11 @@ export class AkariOutputsPane {
                     <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>できたもの</span>
                     <button
                         type='button'
-                        className='theia-button quiet small'
+                        className='theia-button quiet small icon'
                         title='できたものを更新'
                         aria-label='できたものを更新'
                         data-akari-outputs-refresh
                         onClick={() => void this.loadOutputs()}
-                        style={{
-                            width: '26px',
-                            minWidth: 0,
-                            height: '26px',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
                     >
                         <span className='codicon codicon-refresh' aria-hidden='true' />
                     </button>
@@ -517,7 +508,7 @@ export class AkariOutputsPane {
                 </div>
                 <button
                     type='button'
-                    className='theia-button quiet small'
+                    className='theia-button quiet small icon'
                     title={revealInFileManagerActionLabel(label)}
                     aria-label={revealInFileManagerActionLabel(label)}
                     data-akari-output-reveal={entry.relativePath}
@@ -525,16 +516,7 @@ export class AkariOutputsPane {
                         event.stopPropagation();
                         void this.revealOutputInFileManager(entry);
                     }}
-                    style={{
-                        flex: 'none',
-                        width: '26px',
-                        minWidth: 0,
-                        height: '26px',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
+                    style={{ flex: 'none' }}
                 >
                     <span className='codicon codicon-folder-opened' aria-hidden='true' />
                 </button>

@@ -16,7 +16,7 @@ import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-serve
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportAvailabilityService } from './akari-export-availability-service';
 import { OPEN_EXPORT_DIALOG } from './akari-export-toolbar-contribution';
-import { exportUnavailableReason } from '../common/export-toolbar-state';
+import { exportToolbarState, exportUnavailableReason } from '../common/export-toolbar-state';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
@@ -711,6 +711,7 @@ export class AkariMenuWidget extends ReactWidget {
         const status = this.exportSession.snapshot.status;
         const availability = this.exportAvailability.snapshot;
         const unavailableReason = exportUnavailableReason(availability);
+        const state = exportToolbarState(availability, status);
         const running = status.phase === 'linting' || status.phase === 'rendering';
         const visible = running || status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed';
         const percent = status.progressPercent ?? 0;
@@ -727,8 +728,8 @@ export class AkariMenuWidget extends ReactWidget {
                     className='theia-button secondary'
                     data-akari-onboarding-target='export-button'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!!unavailableReason}
-                    title={unavailableReason}
+                    disabled={state.disabled}
+                    title={state.title}
                     onClick={() => void this.openExportDialog()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />

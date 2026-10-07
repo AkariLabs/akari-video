@@ -2618,7 +2618,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {this.libraryFolderFilter !== undefined && (
                     <div data-library-folder-filter={this.libraryFolderFilter} style={{ padding: '7px 10px', fontSize: '0.78em' }}>
                         フォルダ: {this.libraryFolderFilter}
-                        <button type='button' className='theia-button quiet small' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }} style={{ width: '26px', minWidth: 0, height: '26px', padding: 0 }}>×</button>
+                        <button type='button' className='theia-button quiet small icon' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }}>×</button>
                     </div>
                 )}
                 {this.renderLibraryCategoryBody(key)}

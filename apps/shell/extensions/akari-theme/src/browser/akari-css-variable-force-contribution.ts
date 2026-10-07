@@ -208,7 +208,6 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         root.setProperty('--akari-button-secondary-hover', palette.buttonSecondaryHover);
         root.setProperty('--akari-button-secondary-hover-line', palette.buttonSecondaryHoverLine);
         root.setProperty('--akari-button-quiet-ink', palette.buttonQuietInk);
-        root.setProperty('--akari-button-danger', palette.placedTextRed);
         root.setProperty('--akari-selected', palette.selected);
         root.setProperty('--akari-selected-ink', palette.selectedInk);
         // akari-shell-card-layout.ts が参照するカードレイアウト用の 2 値。
