@@ -115,6 +115,8 @@ export class AkariEarServiceImpl implements AkariEarService {
     protected readonly env: NodeJS.ProcessEnv;
     protected testFeed: ReturnType<typeof setTimeout> | undefined;
     protected testFeedPending: Promise<void> | undefined;
+    protected testUtteranceId = 0;
+    protected testPaperOpen = false;
 
     constructor(protected readonly options: EarServiceOptions = {}) {
         this.nowEpochMs = options.nowEpochMs ?? Date.now;
@@ -211,13 +213,27 @@ export class AkariEarServiceImpl implements AkariEarService {
         if (!module) return { engines: [
             { id: 'speechanalyzer-live', available: false, reason: '聞き取り部品が見つかりません' },
             { id: 'record-then-transcribe', available: false, reason: '聞き取り部品が見つかりません' }
-        ], ...(testInput ? { testInput: true } : {}) };
+        ], ...(testInput ? { testInput: true } : {}), ...(this.env.AKARI_JEV_TEST_TEXT === '1' ? { testText: true } : {}) };
         const capabilities = module.getCapabilities({
             platform: this.options.platform ?? process.platform,
             darwinMajor: this.options.darwinMajor ?? Number(release().split('.')[0]),
             helperPath: this.helperPath(), env: this.env, transcribe: this.transcriber()
         });
-        return testInput ? { ...capabilities, testInput: true } : capabilities;
+        return { ...capabilities, ...(testInput ? { testInput: true } : {}),
+            ...(this.env.AKARI_JEV_TEST_TEXT === '1' ? { testText: true } : {}) };
+    }
+
+    // 検証用
+    async injectTestUtterance(text: string): Promise<void> {
+        if (this.env.AKARI_JEV_TEST_TEXT !== '1' || typeof text !== 'string' || !text.trim()) return;
+        const module = await this.earModule();
+        if (!module) return;
+        let corrected: { text: string; applied: EarUtterance['applied'] };
+        try { corrected = module.applyVoiceDictionary(text, module.loadVoiceDictionary({ env: this.env }), { final: true }); }
+        catch { corrected = { text, applied: [] }; }
+        this.client?.onUtterance({ id: `test-utterance-${++this.testUtteranceId}`, raw: text, text: corrected.text,
+            final: true, applied: corrected.applied, t: 0,
+            kind: module.classifyUtterance(corrected.text, { paperOpen: this.active?.sessions.isOpen() ?? this.testPaperOpen }) });
     }
 
     setClient(client: AkariEarClient | undefined): void { this.client = client; }
@@ -314,6 +330,7 @@ export class AkariEarServiceImpl implements AkariEarService {
     }
 
     async notifyRoughCanvas(event: RoughCanvasEarEvent): Promise<void> {
+        if (this.env.AKARI_JEV_TEST_TEXT === '1') this.testPaperOpen = event.type === 'roughCanvas.opened';
         const sessions = this.active?.sessions;
         if (!sessions) return;
         if (event.type === 'roughCanvas.opened') {

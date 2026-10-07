@@ -28,7 +28,8 @@ export interface EarTranscript { engine: 'speech-analyzer' | 'whisper' | 'typed'
 export type RoughCanvasEarEvent = { type: 'roughCanvas.opened' | 'roughCanvas.closed'; canvasId: string; at: number };
 
 export interface AkariEarService {
-    getCapabilities(): Promise<{ engines: Array<{ id: EarEngineId; available: boolean; reason?: string }>; testInput?: boolean }>;
+    getCapabilities(): Promise<{ engines: Array<{ id: EarEngineId; available: boolean; reason?: string }>; testInput?: boolean; testText?: boolean }>;
+    injectTestUtterance?(text: string): Promise<void>;
     start(options: { purpose: EarPurpose; engine?: EarEngineId }): Promise<EarStatus>;
     stop(): Promise<EarStatus>;
     notifyRoughCanvas(event: RoughCanvasEarEvent): Promise<void>;

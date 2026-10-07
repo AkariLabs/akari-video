@@ -33,7 +33,8 @@ export function validateValue(schema, value) {
     if (schema.enum && !schema.enum.includes(value)) return false;
     if (Array.isArray(schema.type)) return schema.type.some(type => validateValue({...schema, type}, value));
     switch (schema.type) {
-        case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength);
+        case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength)
+            && (schema.pattern === undefined || new RegExp(schema.pattern).test(value));
         case 'number':
         case 'integer': return typeof value === 'number' && Number.isFinite(value)
             && (schema.type !== 'integer' || Number.isInteger(value))

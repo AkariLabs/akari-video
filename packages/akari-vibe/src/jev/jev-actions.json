@@ -57,8 +57,8 @@
     "library.filter": "shipped",
     "dock.tabs": "pending",
     "settings.voiceWrite": "shipped",
-    "sketch.popup": "pending",
-    "browser.tab": "pending",
+    "sketch.popup": "shipped",
+    "browser.tab": "shipped",
     "scratch.store": "pending"
   },
   "actions": [
@@ -375,6 +375,42 @@
       "owner": "J2",
       "contract": "A7",
       "notes": "受け口の仮名。実装待ち。"
+    },
+    {
+      "id": "A8",
+      "family": "ui",
+      "action": "openTab",
+      "target": "library.tabs",
+      "intent": "素材面を切り替える",
+      "commands": [
+        {
+          "commandId": "akari.catalog.open"
+        }
+      ],
+      "valueSchema": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string",
+            "enum": [
+              "project",
+              "library"
+            ]
+          }
+        },
+        "required": [
+          "tab"
+        ],
+        "additionalProperties": false
+      },
+      "tierMax": 1,
+      "reversible": "yes",
+      "explicitWords": [],
+      "needsUi": [],
+      "available": true,
+      "owner": "existing",
+      "contract": "A8",
+      "notes": "素材面の切り替え。"
     },
     {
       "id": "B1",
@@ -965,7 +1001,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "C4",
       "notes": "受け口の仮名。実装待ち。"
@@ -1277,7 +1313,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.open",
       "notes": "受け口の仮名。実装待ち。"
@@ -1305,7 +1341,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.close",
       "notes": "受け口の仮名。実装待ち。"
@@ -1333,7 +1369,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.next",
       "notes": "受け口の仮名。実装待ち。"
@@ -1361,7 +1397,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.backdrop",
       "notes": "受け口の仮名。実装待ち。"
@@ -1401,7 +1437,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.tool",
       "notes": "受け口の仮名。実装待ち。"
@@ -1429,7 +1465,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.deleteSelected",
       "notes": "受け口の仮名。実装待ち。"
@@ -1467,7 +1503,7 @@
       "needsUi": [
         "sketch.popup"
       ],
-      "available": false,
+      "available": true,
       "owner": "E5",
       "contract": "roughCanvas.submit",
       "notes": "受け口の仮名。実装待ち。"
@@ -1488,7 +1524,8 @@
         "properties": {
           "engine": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[a-z0-9-]{1,64}$"
           },
           "query": {
             "type": "string",
@@ -1511,7 +1548,7 @@
       "needsUi": [
         "browser.tab"
       ],
-      "available": false,
+      "available": true,
       "owner": "E4",
       "contract": "browser.search",
       "notes": "受け口の仮名。実装待ち。"
@@ -1580,7 +1617,7 @@
       "needsUi": [
         "browser.tab"
       ],
-      "available": false,
+      "available": true,
       "owner": "E4",
       "contract": "browser.pickMode",
       "notes": "受け口の仮名。実装待ち。"
@@ -1608,7 +1645,7 @@
       "needsUi": [
         "browser.tab"
       ],
-      "available": false,
+      "available": true,
       "owner": "E4",
       "contract": "browser.close",
       "notes": "受け口の仮名。実装待ち。"

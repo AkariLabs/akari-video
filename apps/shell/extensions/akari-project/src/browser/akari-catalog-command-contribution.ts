@@ -98,6 +98,12 @@ export class AkariCatalogCommandContribution implements CommandContribution {
     });
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand({ id: 'akari.catalog.getView' }, {
+            execute: async () => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.getCatalogView();
+            }
+        });
         registry.registerCommand({ id: 'akari.catalog.setMaterialFilter' }, {
             execute: async (args: { kind: MaterialViewKind[] }) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);

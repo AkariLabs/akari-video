@@ -53,7 +53,17 @@ const valid = {
   'akari.catalog.setMaterialQuery': { query: '素材' },
   'akari.library.setFilter': { source: 'lab', price: ['free'] },
   'akari.catalog.clearFilters': {},
-  'akari.settings.setByVoice': { key: 'appearance.zoom', value: 90 }
+  'akari.settings.setByVoice': { key: 'appearance.zoom', value: 90 },
+  'akari.sketch.open': {},
+  'akari.sketch.close': {},
+  'akari.sketch.next': {},
+  'akari.sketch.backdrop': {},
+  'akari.sketch.tool': { tool: 'pen' },
+  'akari.sketch.deleteSelected': {},
+  'akari.sketch.submit': { mode: 'task' },
+  'akari.browser.search': { engine: 'google-images', query: '朝食' },
+  'akari.browser.pickMode': { on: true },
+  'akari.browser.close': {}
 };
 
 test('許可された全コマンドの正常な引数を受ける', () => {

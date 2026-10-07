@@ -57,4 +57,5 @@ export default new ContainerModule(bind => {
     bind(FrontendApplicationContribution).toService(RoughCanvasEarBridge);
     bind(TaskifyJobsBridge).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(TaskifyJobsBridge);
+    if (isVibePreviewEnabled(window.localStorage)) require('./jev-frontend-module').bindJev(bind);
 });

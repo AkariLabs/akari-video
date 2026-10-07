@@ -4,6 +4,7 @@ export type JevValueSchema = {
     items?: JevValueSchema;
     maxItems?: number;
     maxLength?: number;
+    pattern?: string;
     minimum?: number;
     exclusiveMinimum?: number;
     required?: string[];
@@ -16,7 +17,8 @@ export function validateValue(schema: JevValueSchema, value: unknown): boolean {
     if (schema.enum && !schema.enum.includes(value as never)) return false;
     if (Array.isArray(schema.type)) return schema.type.some(type => validateValue({ ...schema, type }, value));
     switch (schema.type) {
-        case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength);
+        case 'string': return typeof value === 'string' && (schema.maxLength === undefined || value.length <= schema.maxLength)
+            && (schema.pattern === undefined || new RegExp(schema.pattern).test(value));
         case 'number':
         case 'integer': return typeof value === 'number' && Number.isFinite(value)
             && (schema.type !== 'integer' || Number.isInteger(value))

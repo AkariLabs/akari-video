@@ -40,7 +40,17 @@ export const JEV_DERIVED_COMMAND_IDS = [
   "akari.catalog.setMaterialQuery",
   "akari.library.setFilter",
   "akari.catalog.clearFilters",
-  "akari.settings.setByVoice"
+  "akari.sketch.open",
+  "akari.settings.setByVoice",
+  "akari.sketch.close",
+  "akari.sketch.next",
+  "akari.sketch.backdrop",
+  "akari.sketch.tool",
+  "akari.sketch.deleteSelected",
+  "akari.sketch.submit",
+  "akari.browser.search",
+  "akari.browser.pickMode",
+  "akari.browser.close"
 ] as const;
 export const JEV_SETTINGS_OPEN_SECTIONS = [
   "account",
@@ -184,6 +194,12 @@ export const JEV_COMMAND_VALUE_SCHEMAS = {
     "required": [],
     "additionalProperties": false
   },
+  "akari.sketch.open": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
   "akari.settings.setByVoice": {
     "type": "object",
     "properties": {
@@ -208,6 +224,101 @@ export const JEV_COMMAND_VALUE_SCHEMAS = {
       "key",
       "value"
     ],
+    "additionalProperties": false
+  },
+  "akari.sketch.close": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "akari.sketch.next": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "akari.sketch.backdrop": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "akari.sketch.tool": {
+    "type": "object",
+    "properties": {
+      "tool": {
+        "type": "string",
+        "enum": [
+          "select",
+          "pen",
+          "arrow",
+          "text"
+        ]
+      }
+    },
+    "required": [
+      "tool"
+    ],
+    "additionalProperties": false
+  },
+  "akari.sketch.deleteSelected": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "akari.sketch.submit": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "task",
+          "send"
+        ]
+      }
+    },
+    "required": [
+      "mode"
+    ],
+    "additionalProperties": false
+  },
+  "akari.browser.search": {
+    "type": "object",
+    "properties": {
+      "engine": {
+        "type": "string",
+        "maxLength": 64,
+        "pattern": "^[a-z0-9-]{1,64}$"
+      },
+      "query": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "required": [
+      "engine",
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  "akari.browser.pickMode": {
+    "type": "object",
+    "properties": {
+      "on": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "on"
+    ],
+    "additionalProperties": false
+  },
+  "akari.browser.close": {
+    "type": "object",
+    "properties": {},
+    "required": [],
     "additionalProperties": false
   }
 } as Record<string, import('./jev-catalog-validate').JevValueSchema>;

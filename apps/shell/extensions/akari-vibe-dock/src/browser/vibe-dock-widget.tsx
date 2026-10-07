@@ -43,6 +43,8 @@ function installStyle(): void {
 .akari-vibe-dock-subrow { display: flex; flex: none; align-items: center; gap: 4px; min-width: 0; height: 38px; padding: 0 10px; border-bottom: ${AKARI_BORDER.hairline}; }
 .akari-vibe-dock .akari-vibe-dock-subrow .akari-vibe-auto { min-width: 0; margin-left: 0; padding-inline: 8px; }
 .akari-vibe-dock-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--akari-muted); }
+.akari-vibe-dock-status-line { display: flex; flex: 1; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; }
+.akari-vibe-dock .akari-vibe-dock-status-line > .theia-button { flex: 0 0 auto; width: auto; min-width: 0; margin-left: 0; white-space: nowrap; }
 .akari-vibe-dock-grip { position: absolute; top: 0; left: 24px; right: 24px; height: 5px; cursor: ns-resize; }
 .akari-vibe-dock-body { flex: 1; min-height: 0; overflow: auto; padding: 6px 8px; }
 .akari-vibe-overflow { position: absolute; right: 8px; top: 48px; padding: 5px; display: grid; gap: 3px; background: ${AKARI_SURFACE.raised}; border: ${AKARI_BORDER.edge}; border-radius: ${AKARI_RADIUS.panel}px; box-shadow: var(--theia-widget-shadow); }
@@ -244,6 +246,14 @@ export class VibeDockWidget extends ReactWidget {
         const status = this.state.currentStatus();
         const line = this.state.unavailable ?? status?.line ?? MARK_PRESENTATION[this.state.mark].line;
         const statusText = this.state.pointedTarget ? `対象: ${this.state.pointedTarget.label}` : line;
+        const statusLabel = h('span', { className: 'akari-vibe-dock-status', title: statusText }, statusText);
+        const statusLine = !this.state.pointedTarget && status?.actions?.length
+            ? h('span', { className: 'akari-vibe-dock-status-line' }, statusLabel,
+                ...status.actions.map(action => h('button', {
+                    key: action.label, className: 'theia-button quiet small', title: action.label,
+                    'aria-label': action.label, onClick: () => action.run()
+                }, action.label)))
+            : statusLabel;
         const showBody = this.effectiveState !== 'closed';
         return h('div', { className: 'akari-vibe-dock', 'data-layout': this.effectiveState },
             showBody && h('div', { className: 'akari-vibe-dock-grip', onPointerDown: this.startResize,
@@ -264,7 +274,7 @@ export class VibeDockWidget extends ReactWidget {
                     'aria-label': this.state.layout === 'expanded' ? '元に戻す' : '広げる', 'aria-expanded': this.state.layout === 'expanded',
                     onClick: () => this.state.setLayout(this.state.layout === 'expanded' ? 'open' : 'expanded') },
                 h('span', { style: { transform: this.state.layout === 'expanded' ? 'rotate(180deg)' : undefined } }, vibeDockIcon('expand'))),
-                h('span', { className: 'akari-vibe-dock-status', title: statusText }, statusText),
+                statusLine,
                 this.state.pointedTarget && this.action('解除', () => this.state.setPointed(undefined), '対象を外す'),
                 !this.state.pointedTarget && status?.action && h('button', { className: 'theia-button secondary small',
                     title: status.action.label, 'aria-label': status.action.label, onClick: () => void status.action?.run() }, status.action.label)),

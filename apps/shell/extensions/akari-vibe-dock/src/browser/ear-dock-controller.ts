@@ -1,9 +1,10 @@
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common';
-import { inject, injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, optional } from '@theia/core/shared/inversify';
 import { EarStatus } from '../common/ear-protocol';
 import { VibeDockState } from '../common/vibe-dock-state';
 import { isVibePreviewEnabled } from '../common/vibe-preview';
+import { JevUtteranceRouter, type JevUtteranceRouter as JevRouter } from '../common/jev-utterance-router';
 import { EarSession } from './ear-session';
 import { NowVibeDockTab } from './vibe-dock-tabs';
 
@@ -12,12 +13,14 @@ export class EarDockController implements FrontendApplicationContribution {
     @inject(EarSession) protected readonly ear!: EarSession;
     @inject(VibeDockState) protected readonly dock!: VibeDockState;
     @inject(NowVibeDockTab) protected readonly now!: NowVibeDockTab;
+    @inject(JevUtteranceRouter) @optional() protected readonly router?: JevRouter;
     protected readonly subscriptions = new DisposableCollection();
     protected statusLine: Disposable | undefined;
     protected paperOpen = false;
     protected playbackT = 0;
     protected enabled = false;
     protected errorReason: string | undefined;
+    protected utteranceQueue: Promise<void> = Promise.resolve();
 
     onStart(): void {
         this.enabled = isVibePreviewEnabled(window.localStorage);
@@ -25,9 +28,29 @@ export class EarDockController implements FrontendApplicationContribution {
         this.subscriptions.push(this.dock.onDidPressMark(() => { void this.toggle(); }));
         this.subscriptions.push(this.ear.onDidChange(status => this.paintStatus(status)));
         this.subscriptions.push(this.ear.onUtterance(value => {
-            if (this.ear.state.purpose !== 'note' || value.kind === 'command') return;
+            if (this.ear.state.purpose !== 'note') return;
             if (!value.final && this.ear.state.state !== 'listening') return;
-            if (!this.paperOpen) this.now.acceptUtterance(value, this.playbackT);
+            if (!value.final) {
+                if (value.kind !== 'command' && !this.paperOpen) this.now.acceptUtterance(value, this.playbackT);
+                return;
+            }
+            if (!this.router) {
+                if (value.kind !== 'command' && !this.paperOpen) this.now.acceptUtterance(value, this.playbackT);
+                return;
+            }
+            const router = this.router;
+            this.utteranceQueue = this.utteranceQueue.then(async () => {
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                const timeout = new Promise<'memo'>(resolve => { timer = setTimeout(() => resolve('memo'), 8000); });
+                try {
+                    const result = await Promise.race([router.route(value), timeout]);
+                    if ((result === 'memo' || result.outcome === 'memo') && value.kind !== 'command') {
+                        this.now.acceptUtterance(value, this.playbackT, result !== 'memo' && result.label === 'negated');
+                    }
+                } catch {
+                    if (value.kind !== 'command') this.now.acceptUtterance(value, this.playbackT);
+                } finally { if (timer) clearTimeout(timer); }
+            });
         }));
         window.addEventListener('akari.sketch.opened', this.opened);
         window.addEventListener('akari.sketch.closed', this.closed);
