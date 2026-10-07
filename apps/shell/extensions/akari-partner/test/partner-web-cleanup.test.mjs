@@ -15,6 +15,11 @@ test('web widget for the current root stays open across path case and separator 
         launchCwd: 'c:\\Work\\Project\\', roots: ['file:///C:/work/project/'] }), false);
 });
 
+test('web widget compares the requested drive path with the current root', () => {
+    assert.equal(shouldDisposeWebWidget({ hasLaunch: true, starting: false,
+        launchCwd: 'X:\\Project', roots: ['file:///X:/Project'] }), false);
+});
+
 test('web widget for another root is disposed', () => {
     assert.equal(shouldDisposeWebWidget({ hasLaunch: true, starting: false,
         launchCwd: 'C:\\Work\\old', roots: ['file:///C:/Work/new'] }), true);

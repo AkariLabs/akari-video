@@ -1,24 +1,15 @@
 import { spawn as nodeSpawn, ChildProcessWithoutNullStreams, SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
+import { maskToken } from '../common/dsh-output-mask';
 
 export function parseDshWebUrlLine(line: string): string | undefined {
     return /^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)/.exec(line)?.[1];
 }
 
-export function maskToken(line: string): string {
-    return line.replace(/token=[^\s&)"']+/g, 'token=***');
-}
-
-export function maskDshOutput(message: string, secrets: readonly (string | undefined)[]): string {
-    let safe = maskToken(message);
-    for (const secret of secrets) {
-        if (secret) safe = safe.replaceAll(secret, '***');
+function safeCommandArgument(value: string, label: string): string {
+    if (/[&^%!"\r\n]/.test(value)) {
+        throw new Error(`Windows の .cmd/.bat 起動で使えない文字が ${label} に含まれています: ${value}`);
     }
-    return safe;
-}
-
-function safeCommandArgument(value: string): string {
-    if (/[&^%!"\r\n]/.test(value)) throw new Error('dsh path or argument contains unsupported command characters');
     return value;
 }
 
@@ -26,10 +17,11 @@ export function buildDshWebArgs(
     executablePath: string, patchPath: string, platform: NodeJS.Platform = process.platform,
     env: NodeJS.ProcessEnv = process.env
 ): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
-    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0'].map(safeCommandArgument);
-    safeCommandArgument(executablePath);
+    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0'];
     if (platform === 'win32' && /\.(cmd|bat)$/i.test(executablePath)) {
-        const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'));
+        const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), 'cmd.exe のパス');
+        safeCommandArgument(executablePath, '実行ファイルのパス');
+        safeCommandArgument(patchPath, 'パッチのパス');
         const quoted = '"' + [executablePath, ...args].map(arg => `"${arg}"`).join(' ') + '"';
         return { command, args: ['/d', '/s', '/c', quoted], windowsVerbatimArguments: true };
     }

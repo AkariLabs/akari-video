@@ -26,13 +26,14 @@ import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
-import { launchDshWeb, maskDshOutput } from './dsh-web-launcher';
+import { launchDshWeb } from './dsh-web-launcher';
+import { maskDshOutput } from '../common/dsh-output-mask';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
 
-interface WebProcessRecord { cwd: string; owners: Set<string>; launch: PartnerWebLaunch; }
+interface WebProcessRecord { cwdKey: string; owners: Set<string>; launch: PartnerWebLaunch; }
 interface PendingWebLaunch { owners: Set<string>; promise: Promise<PartnerWebLaunch>; }
 
 export function resolvePartnerProcessLaunch(
@@ -102,13 +103,15 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         catch (error) { return (error as NodeJS.ErrnoException).code === 'EPERM'; }
     }
 
+    protected resolveWebCwdKey(cwd: string): Promise<string> { return fs.realpath(cwd); }
+
     async reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void> {
         const roots = new Set<string>();
         for (const uri of activeRootUris) {
-            try { roots.add(await fs.realpath(this.toFsPath(uri))); } catch { /* Invalid or closed root. */ }
+            try { roots.add(await this.resolveWebCwdKey(this.toFsPath(uri))); } catch { /* Invalid or closed root. */ }
         }
         for (const [pid, record] of this.webProcesses) {
-            if (record.owners.has(ownerId) && !roots.has(record.cwd)) await this.stopWebPartner(pid, ownerId);
+            if (record.owners.has(ownerId) && !roots.has(record.cwdKey)) await this.stopWebPartner(pid, ownerId);
         }
         for (const [cwd, pending] of this.pendingWebLaunches) {
             if (!roots.has(cwd)) pending.owners.delete(ownerId);
@@ -129,30 +132,33 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         let cwd: string;
         try { cwd = this.toFsPath(workspaceRootUri); }
         catch { throw new Error('プロジェクトのフォルダが不正です'); }
+        if (cwd.startsWith('\\\\') || cwd.startsWith('//')) {
+            throw new Error('ネットワークの場所（\\\\server\\share）を直接開いたプロジェクトでは DeepSeek Harness を起動できません。ドライブ文字を割り当てて開き直してください');
+        }
         if (!path.isAbsolute(cwd) || !(await fs.stat(cwd).catch(() => undefined))?.isDirectory()) {
             throw new Error('プロジェクトのフォルダが見つかりません');
         }
-        cwd = await fs.realpath(cwd);
+        const cwdKey = await this.resolveWebCwdKey(cwd);
         for (const [pid, record] of this.webProcesses) {
-            if (record.cwd !== cwd) continue;
-            if (this.webProcessAlive(pid)) { record.owners.add(ownerId); return record.launch; }
+            if (record.cwdKey !== cwdKey) continue;
+            if (this.webProcessAlive(pid)) { record.owners.add(ownerId); return { ...record.launch, cwd }; }
             this.webProcesses.delete(pid);
         }
-        const inProgress = this.pendingWebLaunches.get(cwd);
-        if (inProgress) { inProgress.owners.add(ownerId); return inProgress.promise; }
+        const inProgress = this.pendingWebLaunches.get(cwdKey);
+        if (inProgress) { inProgress.owners.add(ownerId); return { ...await inProgress.promise, cwd }; }
         const owners = new Set([ownerId]);
         const promise = this.launchNewWebPartner(agent, cwd, executablePath).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
                 throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
             }
-            this.webProcesses.set(launch.pid, { cwd, owners, launch });
+            this.webProcesses.set(launch.pid, { cwdKey, owners, launch });
             return launch;
         });
         const pending: PendingWebLaunch = { owners, promise };
-        this.pendingWebLaunches.set(cwd, pending);
+        this.pendingWebLaunches.set(cwdKey, pending);
         try { return await pending.promise; }
-        finally { if (this.pendingWebLaunches.get(cwd) === pending) this.pendingWebLaunches.delete(cwd); }
+        finally { if (this.pendingWebLaunches.get(cwdKey) === pending) this.pendingWebLaunches.delete(cwdKey); }
     }
 
     protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string): Promise<PartnerWebLaunch> {

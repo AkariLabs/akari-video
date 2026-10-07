@@ -66,6 +66,64 @@ test('reconcile releases only the calling window ownership', async t => {
     assert.deepEqual(server.killed, [other.pid, shared.pid]);
 });
 
+test('realpath is only a reuse key; spawn and each returned cwd keep the requested path', async t => {
+    const { root, first, second, executable } = await fixture(t);
+    const previousHome = process.env.AKARI_HOME;
+    const previousKey = process.env.DEEPSEEK_API_KEY;
+    process.env.AKARI_HOME = join(root, 'home');
+    delete process.env.DEEPSEEK_API_KEY;
+    const uncKey = '\\\\server\\share\\project';
+    class KeyedWebServer extends AkariPartnerServerImpl {
+        keyInputs = [];
+        spawnCwds = [];
+        killed = [];
+        async resolveWebCwdKey(cwd) { this.keyInputs.push(cwd); return uncKey; }
+        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
+        async launchWebProcess(input) {
+            this.spawnCwds.push(input.cwd);
+            return { url: 'http://127.0.0.1:41000/?token=fixture', pid: 41007 };
+        }
+        webProcessAlive() { return true; }
+        killWebProcess(pid) { this.killed.push(pid); }
+    }
+    try {
+        const server = new KeyedWebServer();
+        const firstUri = pathToFileURL(first).href;
+        const secondUri = pathToFileURL(second).href;
+        const launched = await server.startWebPartner('deepseek', firstUri, executable, 'window-a');
+        const reused = await server.startWebPartner('deepseek', secondUri, executable, 'window-b');
+        assert.deepEqual(server.spawnCwds, [first]);
+        assert.deepEqual(server.keyInputs, [first, second]);
+        assert.equal(launched.cwd, first);
+        assert.equal(reused.cwd, second);
+        assert.equal(reused.pid, launched.pid);
+        assert.equal(reused.url, launched.url);
+        await server.reconcileWebPartners('window-a', []);
+        await server.reconcileWebPartners('window-b', [secondUri]);
+        assert.deepEqual(server.killed, []);
+        await server.reconcileWebPartners('window-b', []);
+        assert.deepEqual(server.killed, [launched.pid]);
+    } finally {
+        if (previousHome === undefined) delete process.env.AKARI_HOME;
+        else process.env.AKARI_HOME = previousHome;
+        if (previousKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+        else process.env.DEEPSEEK_API_KEY = previousKey;
+    }
+});
+
+test('a directly opened UNC project is rejected before spawn', async t => {
+    const { executable } = await fixture(t);
+    const server = new StubWebServer();
+    for (const cwd of ['\\\\server\\share\\project', '//server/share/project']) {
+        await assert.rejects(server.startWebPartner('deepseek', cwd, executable, 'window-a'), error => {
+            assert.match(error.message, /ネットワークの場所/);
+            assert.match(error.message, /ドライブ文字を割り当てて開き直してください/);
+            return true;
+        });
+    }
+    assert.equal(server.launches, 0);
+});
+
 test('web launch validates executable and project folder before spawning', async t => {
     const { root, first, executable } = await fixture(t);
     const server = new StubWebServer();

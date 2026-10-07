@@ -3,7 +3,7 @@ import { app, BrowserWindow, dialog, ipcMain, session, shell, WebContentsView } 
 import { injectable } from '@theia/core/shared/inversify';
 import { CHANNEL_PARTNER_WEB } from '../electron-common/electron-api';
 import { externalUrl, isHostMainFrameReload, localWebOrigin } from '../electron-common/partner-web-url';
-import { maskToken } from '../node/dsh-web-launcher';
+import { maskToken } from '../common/dsh-output-mask';
 
 export { externalUrl, localWebOrigin } from '../electron-common/partner-web-url';
 

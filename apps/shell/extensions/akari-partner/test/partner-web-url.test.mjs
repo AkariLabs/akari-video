@@ -17,7 +17,9 @@ test('external navigation requires HTTPS, consent eligibility and no userinfo or
     for (const url of [
         'http://example.com/', 'https://user@example.com/', 'https://user:pass@example.com/',
         'https://localhost/', 'https://[::1]/', 'https://127.0.0.1:42318/',
-        'https://127.0.0.2/', 'https://foo.localhost/', 'file:///tmp/test', 'javascript:alert(1)'
+        'https://127.0.0.2/', 'https://foo.localhost/', 'https://0.0.0.0/', 'https://[::]/',
+        'https://[::ffff:127.0.0.1]/', 'https://[::ffff:7f00:1]/',
+        'https://[::ffff:192.168.1.1]/', 'file:///tmp/test', 'javascript:alert(1)'
     ]) assert.equal(externalUrl(url), undefined, url);
 });
 

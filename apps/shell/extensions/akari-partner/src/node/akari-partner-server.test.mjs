@@ -6,7 +6,8 @@ import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn as spawnProcess, spawnSync } from 'node:child_process';
-import { launchDshWeb, parseDshWebUrlLine, buildDshWebArgs, maskToken, maskDshOutput } from '../../lib/node/dsh-web-launcher.js';
+import { launchDshWeb, parseDshWebUrlLine, buildDshWebArgs } from '../../lib/node/dsh-web-launcher.js';
+import { maskToken, maskDshOutput } from '../../lib/common/dsh-output-mask.js';
 import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
 
 test('同意なしの導入要求は説明表を含む結果になる', async () => {
@@ -208,9 +209,24 @@ test('Windows cmd quoting keeps spaced paths in one argument and rejects metacha
     assert.ok(result.args[3].startsWith(`""${shim}" "--profile" "web" "--patch" "${patch}"`));
     assert.equal(result.windowsVerbatimArguments, true);
     for (const character of ['&', '^', '%', '!', '"', '\n', '\r']) {
-        assert.throws(() => buildDshWebArgs(shim + character, patch, 'win32', {}), /unsupported command characters/);
-        assert.throws(() => buildDshWebArgs(shim, patch + character, 'win32', {}), /unsupported command characters/);
+        const unsafeShim = shim.replace(/\.cmd$/, `${character}.cmd`);
+        assert.throws(() => buildDshWebArgs(unsafeShim, patch, 'win32', {}), error => {
+            assert.match(error.message, /実行ファイルのパス/);
+            assert.ok(error.message.includes(unsafeShim));
+            return true;
+        });
+        assert.throws(() => buildDshWebArgs(shim, patch + character, 'win32', {}), error => {
+            assert.match(error.message, /パッチのパス/);
+            assert.ok(error.message.includes(patch));
+            return true;
+        });
+        assert.deepEqual(buildDshWebArgs(unsafeShim, patch, 'linux', {}).args,
+            ['--profile', 'web', '--patch', patch, '--no-open', '--port', '0']);
+        assert.equal(buildDshWebArgs(shim + character, patch, 'win32', {}).command, shim + character);
     }
+    const native = buildDshWebArgs('C:\\tools\\dsh.exe', patch + '&', 'win32', {});
+    assert.equal(native.command, 'C:\\tools\\dsh.exe');
+    assert.equal(native.args[3], patch + '&');
 });
 
 test('dsh web URL parser ignores the LAN suffix and log masking hides the token', () => {

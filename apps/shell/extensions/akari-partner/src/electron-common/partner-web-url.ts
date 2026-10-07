@@ -13,8 +13,8 @@ export function externalUrl(raw: string): string | undefined {
         const url = new URL(raw);
         if (url.protocol !== 'https:' || url.username || url.password) return undefined;
         const host = url.hostname.toLowerCase().replace(/\.$/, '');
-        if (host === 'localhost' || host.endsWith('.localhost') || host === '[::1]'
-            || /^127\./.test(host) || /^\[::ffff:127\./.test(host)) return undefined;
+        if (host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || host === '[::]'
+            || host === '0.0.0.0' || /^127\./.test(host) || host.startsWith('[::ffff:')) return undefined;
         return url.toString();
     } catch { return undefined; }
 }
