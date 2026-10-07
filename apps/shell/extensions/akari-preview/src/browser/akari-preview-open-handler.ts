@@ -5351,6 +5351,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const filters: EditSummaryFilter[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers', itemWarningState);
+            const layerDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+            const layerDimensions = (uri: URI) => {
+                const key = uri.toString();
+                let probe = layerDimensionProbes.get(key);
+                if (!probe) {
+                    const service = this.previewService as AkariPreviewService & {
+                        probeVideoDimensions?: (request: { videoUri: string }) => Promise<{ width: number; height: number } | undefined>;
+                    };
+                    const probeDimensions = service.probeVideoDimensions;
+                    probe = typeof probeDimensions === 'function'
+                        ? Promise.resolve().then(() => probeDimensions.call(service, { videoUri: key }))
+                            .catch(() => undefined)
+                        : Promise.resolve(undefined);
+                    layerDimensionProbes.set(key, probe);
+                }
+                return probe;
+            };
             type LayerResolution =
                 | { kind: 'filter'; filter: EditSummaryFilter }
                 | { kind: 'layer'; layer: EditSummaryLayer; unsupportedBlend?: boolean }
@@ -5469,8 +5486,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const colorUri = new URI(intake.colorUri), maskUri = new URI(intake.maskUri);
                             const color = await ensureAssetStream(colorUri.toString(), colorUri);
                             const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                            const dimensions = await layerDimensions(colorUri);
                             return { kind: 'layer', unsupportedBlend, layer: { ...base,
                                 src: color.url, mask: mask.url, sourceUri: sourceUri.toString(),
+                                sourceWidth: dimensions?.width, sourceHeight: dimensions?.height,
                                 proxyMissing: false, isImage: false } };
                         }
                     }
@@ -5492,10 +5511,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
                     const mask = await resolveLayerMask();
+                    const dimensions = options.frameEngineEnabled === true && src
+                        ? await layerDimensions(sidecarUri) : undefined;
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}), proxyMissing: !src, isImage: false }
+                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}),
+                            sourceWidth: dimensions?.width, sourceHeight: dimensions?.height,
+                            proxyMissing: !src, isImage: false }
                     };
                 }
 
@@ -5532,6 +5555,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const maskUri = new URI(intake.maskUri);
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
                         const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                        const dimensions = await layerDimensions(colorUri);
                         return {
                             kind: 'layer',
                             unsupportedBlend,
@@ -5540,6 +5564,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 src: color.url,
                                 mask: mask.url,
                                 sourceUri: sourceUri.toString(),
+                                sourceWidth: dimensions?.width,
+                                sourceHeight: dimensions?.height,
                                 proxyMissing: false,
                                 isImage: false
                             }
@@ -5551,6 +5577,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const streamUri = isImage
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
+                    const dimensions = options.frameEngineEnabled === true && !isImage
+                        ? await layerDimensions(streamUri) : undefined;
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
                     const mask = await resolveLayerMask();
                     const regions = await resolveLayerRegions();
@@ -5563,6 +5591,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ...(mask ? { mask } : {}),
                             ...(regions ? { regions } : {}),
                             ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
+                            sourceWidth: dimensions?.width,
+                            sourceHeight: dimensions?.height,
                             proxyMissing: false,
                             isImage
                         }

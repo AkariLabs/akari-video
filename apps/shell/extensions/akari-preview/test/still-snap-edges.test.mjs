@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { previewMotionGeometryTransform, previewMotionLiveItem } from '../lib/common/preview-motion-geometry.js';
+import { resolveLayerDeclaredSize } from '../lib/common/layer-declared-geometry.js';
 import { readHandlerSource, sliceBetween } from './helpers/handler-source.mjs';
 
 const source = readHandlerSource();
@@ -11,7 +12,8 @@ const interaction = readFileSync(new URL('../../../../../packages/overlay-runtim
 const output = { width: 1000, height: 500, fps: 30 };
 
 function declaration(start, end) {
-    return sliceBetween(start, end, { source });
+    return sliceBetween(start, end, { source })
+        .replaceAll('${resolveLayerDeclaredSize.toString()}', resolveLayerDeclaredSize.toString());
 }
 
 function createSnapCorrection() {

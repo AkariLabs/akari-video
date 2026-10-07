@@ -178,7 +178,24 @@ async function ensureCacheDirectory(directory: string, projectRoot: string): Pro
 }
 
 interface FfprobeStreamsResult {
-    streams?: Array<{ codec_name?: string; pix_fmt?: string; r_frame_rate?: string }>;
+    streams?: Array<{ codec_name?: string; pix_fmt?: string; r_frame_rate?: string; width?: number; height?: number }>;
+}
+
+/** Dimensions of the first decoded video stream, shared by layers using the same stream. */
+export async function probeVideoDimensions(videoPath: string): Promise<{ width: number; height: number } | undefined> {
+    const ffprobePath = await resolveFfprobePath();
+    if (!ffprobePath) return undefined;
+    try {
+        const { stdout } = await execFileAsync(ffprobePath, [
+            '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', videoPath
+        ]);
+        const stream = (JSON.parse(stdout) as FfprobeStreamsResult).streams?.[0];
+        const width = Number(stream?.width);
+        const height = Number(stream?.height);
+        return width > 0 && height > 0 ? { width, height } : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 /**

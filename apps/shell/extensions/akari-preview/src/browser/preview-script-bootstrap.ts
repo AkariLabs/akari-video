@@ -1416,8 +1416,8 @@ export function previewBootstrapScript(): string {
                     layerVideo.muted = true;
                     layerVideo.preservesPitch = true;
                     layerVideo.playsInline = true;
-                    // engine 面は配置・選択に必要な媒体実寸だけを取得する。src より先に
-                    // metadata を宣言し、既定の auto として本体を読み始める競合を避ける。
+                    // engine 面で窓内の src を付ける際は metadata だけを取得する。
+                    // preload は src より先に宣言し、本体を読み始める競合を避ける。
                     layerVideo.preload = frameEngineMediaIdle ? 'metadata' : 'auto';
                     layerVideo.disablePictureInPicture = true;
                 }
@@ -1428,6 +1428,8 @@ export function previewBootstrapScript(): string {
                 layerVideo.dataset.akariLayerId = String(layer.id);
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
+                layerVideo.dataset.akariSourceWidth = String(layer.sourceWidth || '');
+                layerVideo.dataset.akariSourceHeight = String(layer.sourceHeight || '');
                 if (layer.kind === 'baked') layerVideo.style.pointerEvents = 'none';
                 layerVideo.style.opacity = previewDomOpacityFn('media', layer.opacity, frameEngineMediaIdle, false);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
@@ -1466,7 +1468,7 @@ export function previewBootstrapScript(): string {
                 else delete layerVideo.dataset.akariPerspectiveCorners;
                 const position = () => {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) return;
-                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(layerVideo);
                 };
                 layerVideo.addEventListener('loadedmetadata', () => {
                     position();
@@ -1486,6 +1488,8 @@ export function previewBootstrapScript(): string {
                     tick(true);
                 });
                 layerVideo.addEventListener('error', () => {
+                    if (frameEngineMediaIdle && layerVideo.tagName === 'VIDEO'
+                        && (!layerVideo.hasAttribute('src') || !layerVideo.error)) return;
                     layerVideo.style.display = 'none';
                     console.warn('[akari-preview] layer media failed to load', layer.id);
                     const errorCode = layerVideo.error ? layerVideo.error.code : 0;
@@ -1495,8 +1499,7 @@ export function previewBootstrapScript(): string {
                     }
                 });
                 if (typeof layer.src === 'string' && layer.src) {
-                    if (!layerIsImage && frameEngineMediaIdle) layerVideo.preload = 'metadata';
-                    layerVideo.src = layer.src;
+                    if (layerIsImage || !frameEngineMediaIdle) layerVideo.src = layer.src;
                 }
                 if (initialEntry && index === summary.layers.length - 1) {
                     const reportInitialPaint = () => window.requestAnimationFrame(() =>
@@ -1519,6 +1522,34 @@ export function previewBootstrapScript(): string {
             };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : [])
                 .map((layer, index) => createLayerEntry(layer, index, true));
+            const layerSourceSize = entry => (${resolveLayerDeclaredSize.toString()})(
+                entry.video.videoWidth || entry.video.naturalWidth,
+                entry.video.videoHeight || entry.video.naturalHeight,
+                summary.output,
+                { width: entry.spec.sourceWidth, height: entry.spec.sourceHeight });
+            if (frameEngineMediaIdle && window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+            // Ten seconds primes nearby seeks while keeping distant layers off the network.
+            const LAYER_METADATA_WINDOW_SECONDS = 10;
+            const layerNeedsMetadataAt = (layer, time) => Number.isFinite(layer.t)
+                && Number.isFinite(layer.duration)
+                && layer.t < time + LAYER_METADATA_WINDOW_SECONDS
+                && layer.t + layer.duration > time - LAYER_METADATA_WINDOW_SECONDS;
+            const syncLayerMediaWindow = time => {
+                if (!frameEngineMediaIdle) return;
+                for (const entry of layerEntries) {
+                    if (entry.video.tagName !== 'VIDEO') continue;
+                    const src = entry.spec.src;
+                    const wanted = typeof src === 'string' && src && !entry.spec.proxyMissing
+                        && !optimisticallyRemovedIds.has(String(entry.spec.id))
+                        && layerNeedsMetadataAt(entry.spec, time);
+                    if (wanted) {
+                        if (entry.video.getAttribute('src') !== src) entry.video.src = src;
+                    } else if (entry.video.hasAttribute('src')) {
+                        entry.video.removeAttribute('src');
+                        entry.video.load();
+                    }
+                }
+            };
             const optimisticallyRemovedIds = new Set();
             window.akari.optimisticallyRemovedIds = optimisticallyRemovedIds;
             let videoCandidatePreview = null;
@@ -1738,13 +1769,17 @@ export function previewBootstrapScript(): string {
                 }
                 entry.spec = layer;
                 const layerVideo = entry.video;
+                layerVideo.dataset.akariSourceWidth = String(layer.sourceWidth || '');
+                layerVideo.dataset.akariSourceHeight = String(layer.sourceHeight || '');
                 if (entry.fxRail && layer.chromaKey) {
                     configureVideoFxRail(entry.fxRail, 'layer:' + layer.id + ':' + JSON.stringify(layer.chromaKey), {
                         chromaKey: layer.chromaKey
                     });
                 }
                 if (typeof layer.src === 'string' && layer.src
-                    && layerVideo.getAttribute('src') !== layer.src) {
+                    && layerVideo.getAttribute('src') !== layer.src
+                    && (layerVideo.tagName !== 'VIDEO' || !frameEngineMediaIdle
+                        || layerNeedsMetadataAt(layer, outputTime))) {
                     if (entry.deferredTelop) {
                         entry.deferredMediaLoading = true;
                         entry.deferredSeekPending = false;
@@ -1872,14 +1907,14 @@ export function previewBootstrapScript(): string {
             };
             // RAF スロットリング（2026-08-09 raf-throttle・オーナー実機フィードバック「サイズ変更が
             // すごくもたつく」）: dataset への書き込みは常に同期（pointerup の確定読み取りが最新値を
-            // 読めるように）。重い方（updateLayerLayout = 全レイヤー + stage 再配置、と選択枠の再描画）
+            // 読めるように）。重い方（対象レイヤーの配置と選択枠の再描画）
             // だけを 1 フレーム 1 回へ間引く。ドラッグ終了直後は各 finish() 側で flush() して
             // 最終値の反映を RAF 待ちにしない。
             const layerTransformVisualThrottle = createRafThrottleFn(() => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : null;
                 if (entry) void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'layer', id: entry.spec.id },
                     entry.previewPositionPatch ?? layerTransformNow(entry), outputTime);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(entry?.video);
                 updateLayerSelectBox();
             });
             const applyLayerTransformNow = (entry, transform, previewPatch = transform, visiblePosition = null) => {
@@ -1930,7 +1965,7 @@ export function previewBootstrapScript(): string {
                     void window.akari.frameEngineClock?.applyCropPreview?.(
                         { kind: 'layer', id: entry.spec.id }, layerCropNow(entry), layerTransformNow(entry));
                 }
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(entry?.video);
                 if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
                 if (!cropModeActive) updateLayerSelectBox();
             });
@@ -1990,8 +2025,14 @@ export function previewBootstrapScript(): string {
                 entry,
                 media: entry.video,
                 visible: () => entry.video.style.display !== 'none',
-                naturalSize: () => ({ width: entry.video.videoWidth || entry.video.naturalWidth || entry.spec.width || 0,
-                    height: entry.video.videoHeight || entry.video.naturalHeight || entry.spec.height || 0 }),
+                naturalSize: () => frameEngineMediaIdle || window.akari.frameEngineClock
+                    ? (${resolveLayerDeclaredSize.toString()})(
+                        entry.video.videoWidth || entry.video.naturalWidth,
+                        entry.video.videoHeight || entry.video.naturalHeight,
+                        summary.output,
+                        { width: entry.spec.sourceWidth, height: entry.spec.sourceHeight })
+                    : { width: entry.video.videoWidth || entry.video.naturalWidth || entry.spec.width || 0,
+                        height: entry.video.videoHeight || entry.video.naturalHeight || entry.spec.height || 0 },
                 transformNow: () => layerTransformNow(entry),
                 visualNow: () => layerVisualTransformNow(entry),
                 motionAt: () => motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration),
@@ -2049,7 +2090,8 @@ export function previewBootstrapScript(): string {
                     const resolveDeclaredSize = (${resolveLayerDeclaredSize.toString()});
                     const declaredHitAt = (${layerDeclaredGeometryHitAt.toString()});
                     const size = resolveDeclaredSize(entry.video.videoWidth || entry.video.naturalWidth,
-                        entry.video.videoHeight || entry.video.naturalHeight, dimensions || summary.output);
+                        entry.video.videoHeight || entry.video.naturalHeight, dimensions || summary.output,
+                        { width: entry.spec.sourceWidth, height: entry.spec.sourceHeight });
                     const point = window.akari.interaction?.stageLocalPoint?.(clientX, clientY) || null;
                     const transform = typeof layerVisualTransformNow === 'function'
                         ? layerVisualTransformNow(entry) : layerTransformNow(entry);
@@ -2171,7 +2213,7 @@ export function previewBootstrapScript(): string {
                     delete entry.video.dataset.akariOpaqueW;
                     delete entry.video.dataset.akariOpaqueH;
                     entry.video.style.pointerEvents = entry.spec.kind === 'baked' ? 'none' : 'auto';
-                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(entry.video);
                     return null;
                 }
                 if (forceMeasure) entry.opaqueBox = undefined;
@@ -2190,7 +2232,7 @@ export function previewBootstrapScript(): string {
                     delete entry.video.dataset.akariOpaqueH;
                     if (entry.spec.kind === 'baked') entry.video.style.pointerEvents = 'none';
                 }
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(entry.video);
                 return box;
             };
             for (const entry of layerEntries) {
@@ -2202,7 +2244,8 @@ export function previewBootstrapScript(): string {
                 const engineGeometry = Boolean(frameEngineMediaIdle || window.akari.frameEngineClock);
                 const resolveDeclaredSize = (${resolveLayerDeclaredSize.toString()});
                 const size = entry && resolveDeclaredSize(entry.video.videoWidth || entry.video.naturalWidth,
-                    entry.video.videoHeight || entry.video.naturalHeight, summary.output);
+                    entry.video.videoHeight || entry.video.naturalHeight, summary.output,
+                    { width: entry.spec.sourceWidth, height: entry.spec.sourceHeight });
                 if (entry && engineGeometry && !entry.selectBoxMetadataBound) {
                     entry.selectBoxMetadataBound = true;
                     entry.video.addEventListener('loadedmetadata', () => {
@@ -2536,7 +2579,7 @@ export function previewBootstrapScript(): string {
                 if (corners) entry.video.dataset.akariPerspectiveCorners = JSON.stringify(corners);
                 else delete entry.video.dataset.akariPerspectiveCorners;
                 layerPerspectiveToggle.classList.toggle('is-declared', !!corners);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout(entry.video);
                 const previewCorners = corners || [[0, 0], [1, 0], [0, 1], [1, 1]];
                 for (const [index, corner] of ['tl', 'tr', 'bl', 'br'].entries()) {
                     for (const [axisIndex, axis] of ['x', 'y'].entries()) {
@@ -2724,8 +2767,7 @@ export function previewBootstrapScript(): string {
                 const point = photoBrush && photoBrushPoint(event);
                 photoBrushCursor.hidden = !point;
                 if (!point || !entry) return;
-                const width = entry.video.naturalWidth || entry.video.videoWidth;
-                const height = entry.video.naturalHeight || entry.video.videoHeight;
+                const { width, height } = layerSourceSize(entry);
                 const transform = layerTransformNow(entry);
                 const scale = Math.max(transform.scaleX ?? transform.scale ?? 1,
                     transform.scaleY ?? transform.scale ?? 1);
@@ -2740,8 +2782,7 @@ export function previewBootstrapScript(): string {
                 const entry = (photoBrush || photoSelect) && findLayerEntry((photoBrush || photoSelect).itemId);
                 const stagePoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                 if (!entry || !stagePoint) return null;
-                const width = entry.video.naturalWidth || entry.video.videoWidth;
-                const height = entry.video.naturalHeight || entry.video.videoHeight;
+                const { width, height } = layerSourceSize(entry);
                 if (!(width > 0 && height > 0)) return null;
                 return photoBrushMapPoint(stagePoint, {
                     output: summary.output, image: { width, height },
@@ -2922,12 +2963,11 @@ export function previewBootstrapScript(): string {
             const cutResizeCornersFn = (${cutResizeCorners.toString()});
             const cutResizeScaleFn = (${cutResizeScale.toString()});
             const layerOutputBoundsForTransform = (entry, transform) => {
-                const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                const outputHeight = Number(summary.output && summary.output.height) || 720;
-                const videoWidth = entry.video.videoWidth || entry.video.naturalWidth;
-                const videoHeight = entry.video.videoHeight || entry.video.naturalHeight;
-                const width = videoWidth > 0 && videoHeight > 0 ? videoWidth : outputWidth;
-                const height = videoWidth > 0 && videoHeight > 0 ? videoHeight : outputHeight;
+                const { width, height } = (${resolveLayerDeclaredSize.toString()})(
+                    entry.video.videoWidth || entry.video.naturalWidth,
+                    entry.video.videoHeight || entry.video.naturalHeight,
+                    summary.output,
+                    { width: entry.spec.sourceWidth, height: entry.spec.sourceHeight });
                 const crop = layerCropNow(entry);
                 // 選択枠と同じソース矩形を使う。透明余白を含む素材でも、枠の辺が吸着点になる。
                 const naturalBox = entry.opaqueBox || { x: 0, y: 0, w: width, h: height };
@@ -3220,10 +3260,13 @@ export function previewBootstrapScript(): string {
                             || (Number.isFinite(motionOpacity) && motionOpacity <= 0)) continue;
                         const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
                             && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
+                        const specSize = entry.spec && Number(entry.spec.sourceWidth) > 0
+                            && Number(entry.spec.sourceHeight) > 0
+                            ? { width: Number(entry.spec.sourceWidth), height: Number(entry.spec.sourceHeight) } : null;
                         const size = hasSourceSize
                             ? { width: entry.video.videoWidth || entry.video.naturalWidth,
                                 height: entry.video.videoHeight || entry.video.naturalHeight }
-                            : declaredSize;
+                            : (specSize || declaredSize);
                         if (!size) continue;
                         if (sourcePoint) {
                             const pixel = sourcePoint(size, summary.output, layerVisualTransformNow(entry), layerCropNow(entry), stagePoint,
@@ -8899,12 +8942,12 @@ export function previewBootstrapScript(): string {
                 }
             };
             const renderLayers = timelineTime => {
+                syncLayerMediaWindow(timelineTime);
                 // ㉘ layers[].keyframes（contract-2026-08-09-transform-keyframes-v0.md）: dataset
-                // が変わっても DOM スタイルには自動反映されない（updateStageScale が dataset ->
-                // style を書く唯一の場所）ので、このフレームで実際に何か上書きしたときだけ最後に
-                // 1 回まとめて呼ぶ -- keyframes の無いプロジェクト（大多数）はここで一切コストが
+                // が変わっても DOM スタイルには自動反映されないので、このフレームで実際に
+                // 上書きした要素だけ配置する。keyframes の無いプロジェクトはここで一切コストが
                 // 増えない。
-                let anyKeyframeApplied = false;
+                const keyframedLayers = [];
                 for (const entry of layerEntries) {
                     const layer = entry.spec;
                     const layerVideo = entry.video;
@@ -9065,7 +9108,7 @@ export function previewBootstrapScript(): string {
                                 if (resolved.perspective) {
                                     layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(resolved.perspective.corners);
                                 }
-                                if (resolved.transform || resolved.crop || resolved.perspective) anyKeyframeApplied = true;
+                                if (resolved.transform || resolved.crop || resolved.perspective) keyframedLayers.push(layerVideo);
                             }
                         } catch (error) {
                             console.warn('[akari-preview] layer keyframes visual failed; rendering without them', layer.id, error);
@@ -9100,7 +9143,9 @@ export function previewBootstrapScript(): string {
                         }
                     }
                 }
-                if (anyKeyframeApplied && window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (window.akari.updateLayerLayout) {
+                    for (const layerVideo of keyframedLayers) window.akari.updateLayerLayout(layerVideo);
+                }
                 for (const entry of filterEntries) {
                     const filter = entry.spec;
                     entry.element.style.display = !allTracksHiddenByScope.layers
@@ -11853,6 +11898,8 @@ export function previewBootstrapScript(): string {
                 if (motionDraw) stopMotionDraw();
             }, true);
 
+            // Attach nearby metadata sources before the frame engine can report its first frame.
+            if (frameEngineMediaIdle) renderLayers(Number.isFinite(initialSeekTarget) ? initialSeekTarget : outputTime);
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, transitionFallbackLabel, captionLayer);

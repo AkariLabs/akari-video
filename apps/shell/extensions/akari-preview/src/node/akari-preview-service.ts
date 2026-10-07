@@ -62,7 +62,7 @@ import {
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
 } from '../common/preview-emphasis-seat';
-import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
+import { getH264Proxy, probeHasAudioStream, probeVideoDimensions, resolveFfmpegPath } from './hevc-proxy';
 import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
 import { writePreviewFrame } from './preview-frame-writer';
@@ -825,6 +825,20 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return { hasAudio: undefined };
         }
         return { hasAudio: await probeHasAudioStream(videoPath) };
+    }
+
+    private readonly videoDimensionProbes = new Map<string, Promise<{ width: number; height: number } | undefined>>();
+
+    async probeVideoDimensions(request: { videoUri: string }): Promise<{ width: number; height: number } | undefined> {
+        if (!request || typeof request.videoUri !== 'string') return undefined;
+        let videoPath: string;
+        try { videoPath = this.filePath(request.videoUri); } catch { return undefined; }
+        let probe = this.videoDimensionProbes.get(videoPath);
+        if (!probe) {
+            probe = probeVideoDimensions(videoPath);
+            this.videoDimensionProbes.set(videoPath, probe);
+        }
+        return probe;
     }
 
     async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {
