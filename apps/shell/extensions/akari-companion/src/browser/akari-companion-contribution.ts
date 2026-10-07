@@ -289,6 +289,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     }
 
     protected async dispatchCommand(instruction: CompanionInstruction): Promise<CompanionResultMessage> {
+        const recvAt = instruction.trace === true ? performance.timeOrigin + performance.now() : null;
         const command = instruction.command;
         if (!isAllowedCommandId(command?.commandId)) {
             return { id: instruction.id, ok: false, error: 'not-allowed' };
@@ -309,7 +310,12 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         const returned = args
             ? await this.commands.executeCommand(command.commandId, args)
             : await this.commands.executeCommand(command.commandId);
+        const doneAt = recvAt === null ? null : performance.timeOrigin + performance.now();
         const result: CompanionResultMessage = { id: instruction.id, ok: true };
+        if (recvAt !== null && doneAt !== null) {
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+            result.timing = { recvAt, doneAt, paintedAt: performance.timeOrigin + performance.now() };
+        }
         try {
             const encoded = JSON.stringify(returned);
             if (encoded !== undefined) result.value = JSON.parse(encoded);
