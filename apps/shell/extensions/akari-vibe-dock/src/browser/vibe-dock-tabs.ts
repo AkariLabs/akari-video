@@ -19,7 +19,15 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     readonly icon = 'now';
     readonly order = 0;
     @inject(VibeDockState) protected readonly state!: VibeDockState;
+    protected taskNotice?: Disposable;
     protected readonly entries: Array<{ text: string; at: string; kind: string; target?: string }> = [];
+    /** 作成が実際に成功した後だけ、全タブ共通の状況行へ知らせる。 */
+    showTaskCreated(): void {
+        this.taskNotice?.dispose();
+        const notice = this.state.status.set('タスクにしました。', 'info');
+        this.taskNotice = notice;
+        setTimeout(() => { if (this.taskNotice === notice) this.taskNotice = undefined; notice.dispose(); }, 4000);
+    }
     render(host: HTMLElement, _ctx: VibeDockContext): Disposable {
         host.replaceChildren();
         const root = document.createElement('div');

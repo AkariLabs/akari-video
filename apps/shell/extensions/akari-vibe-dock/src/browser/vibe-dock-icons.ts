@@ -4,9 +4,10 @@ import { VibeDockIconName } from '../common/vibe-dock-tab';
 const h = React.createElement;
 
 /** Paths and geometry from mock-sample-A-excerpt.html #dockTabs and #expand. */
-const paths: Record<VibeDockIconName | 'expand' | 'more', React.ReactNode[]> = {
+const paths: Record<VibeDockIconName | 'handoff' | 'expand' | 'more', React.ReactNode[]> = {
     now: [h('path', { key: 'a', d: 'M3 4h10M3 8h7M3 12h5' })],
     next: [h('path', { key: 'a', d: 'M3 4.5l1.5 1.5L7 3.5M3 9.5l1.5 1.5L7 8.5M9 5h4M9 10h4' })],
+    handoff: [h('path', { key: 'a', d: 'M1.5 4.5h4l1.5 1.5h7.5v7h-13z' })],
     canvas: [h('rect', { key: 'a', x: 2.5, y: 2.5, width: 11, height: 11, rx: 1.5 }),
         h('path', { key: 'b', d: 'M5 11l2.5-3 2 2 1.5-2 2 3' })],
     settings: [h('circle', { key: 'a', cx: 8, cy: 8, r: 2.2 }),

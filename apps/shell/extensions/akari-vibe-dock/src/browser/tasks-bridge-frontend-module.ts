@@ -2,13 +2,14 @@ import { ContainerModule, inject, injectable } from '@theia/core/shared/inversif
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import type { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { VibeDockState } from '../common/vibe-dock-state';
-import { VibeDockTabContributionSymbol } from './vibe-dock-tabs';
+import { NowVibeDockTab, VibeDockTabContributionSymbol } from './vibe-dock-tabs';
 
 @injectable()
 export class NoteToTaskBridge implements FrontendApplicationContribution {
     @inject(VibeDockState) protected readonly state!: VibeDockState;
     @inject(CommandService) protected readonly commands!: CommandService;
     @inject(MessageService) protected readonly messages!: MessageService;
+    @inject(NowVibeDockTab) protected readonly now!: NowVibeDockTab;
 
     onStart(): void {
         this.state.onDidSubmitInstruction(input => { void this.submit(input); });
@@ -26,7 +27,7 @@ export class NoteToTaskBridge implements FrontendApplicationContribution {
             if (input.mode === 'send') {
                 await this.commands.executeCommand('akari.tasks.send', { ids: [created.id] });
             } else {
-                this.messages.info('タスクにしました。');
+                this.now.showTaskCreated();
             }
         } catch (error) {
             this.messages.error(`タスクを作れませんでした: ${String(error)}`);
@@ -40,9 +41,14 @@ export default new ContainerModule(bind => {
     const { FrontendApplicationContribution } = require('@theia/core/lib/browser');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { NextVibeDockTab } = require('./next-tab');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { HandoffVibeDockTab } = require('./handoff-tab');
     bind(NextVibeDockTab).toSelf().inSingletonScope();
     bind(VibeDockTabContributionSymbol).toService(NextVibeDockTab);
     bind(FrontendApplicationContribution).toService(NextVibeDockTab);
+    bind(HandoffVibeDockTab).toSelf().inSingletonScope();
+    bind(VibeDockTabContributionSymbol).toService(HandoffVibeDockTab);
+    bind(FrontendApplicationContribution).toService(HandoffVibeDockTab);
     bind(NoteToTaskBridge).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(NoteToTaskBridge);
 });

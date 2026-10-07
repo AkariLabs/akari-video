@@ -108,6 +108,9 @@ test('注釈の写像・食い違い・孤児・要確認・壊れた review', (
   const overlay = { version: 0, tasks: [{ ...base, state: 'sent', ref: { kind: 'annotation', id: 'a-0001' }, body: '古い本文' }] };
   assert.equal(deriveTasks(review(), overlay).tasks[0].state, 'sent');
   assert.equal(deriveTasks(review('addressed'), overlay).tasks[0].outcome, 'edited');
+  const dismissed = { version: 0, tasks: [{ ...base, state: 'done', outcome: 'dismissed', ref: { kind: 'annotation', id: 'a-0001' } }] };
+  assert.equal(deriveTasks(review('addressed'), dismissed).tasks[0].state, 'done');
+  assert.equal(deriveTasks(review('addressed'), dismissed).tasks[0].outcome, 'dismissed');
   assert.equal(deriveTasks(review('resolved'), overlay).tasks[0].state, 'done');
   assert.equal(deriveTasks(review('open', '[要確認] 調整'), overlay).tasks[0].gate, 'ask');
   assert.equal(deriveTasks(review(), { version: 0, tasks: [{ ...base, state: 'review', ref: { kind: 'annotation', id: 'a-0001' } }] }).tasks[0].state, 'unsent');

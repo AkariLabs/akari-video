@@ -79,6 +79,31 @@ test('注釈タスクの確認は tasks.json にだけ書き、注釈の正本�
   assert.equal((await service.list(request)).tasks[0].state, 'review');
 }));
 
+test('リントと書き出しの作成を受け、提案は拒否する', async () => fixture(async (service, request, _root, reviewPath) => {
+  await unchanged(reviewPath, async () => {
+    for (const source of ['lint', 'export']) {
+      const created = await service.create({ ...request, task: { source, body: `${source} の確認`, ref: { kind: source, id: source } } });
+      assert.equal(created.source, source);
+      assert.equal(created.ref.kind, source);
+    }
+    await assert.rejects(service.create({ ...request, task: { source: 'proposal', body: '提案' } }), /出どころ/);
+    assert.deepEqual((await service.list(request)).tasks.filter(task => task.source !== 'annotation').map(task => task.source), ['lint', 'export']);
+  });
+}));
+
+test('対応済み注釈の無視を読み込み直しても保持し、review.json を変更しない', async () => fixture(async (service, request, _root, reviewPath) => {
+  const addressed = JSON.parse(review);
+  addressed.annotations[0].status = 'addressed';
+  addressed.annotations[0].response = { summary: '編集', action: 'edited', respondedAt: '2026-10-07T01:00:00Z' };
+  await fs.writeFile(reviewPath, JSON.stringify(addressed) + '\n');
+  const task = (await service.list(request)).tasks[0];
+  await unchanged(reviewPath, () => service.update({ ...request, id: task.id,
+    patch: { state: 'done', outcome: 'dismissed' }, actor: 'human' }));
+  const reread = (await service.list(request)).tasks[0];
+  assert.equal(reread.state, 'done');
+  assert.equal(reread.outcome, 'dismissed');
+}));
+
 test('プロジェクト外を指すサイドカーは拒否する', async () => fixture(async (service, request, root) => {
   const elsewhere = await fs.mkdtemp(join(tmpdir(), 'akari-tasks-outside-'));
   try {
