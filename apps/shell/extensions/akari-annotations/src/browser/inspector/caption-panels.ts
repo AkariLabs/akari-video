@@ -66,15 +66,16 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-panel-title { display:flex;justify-content:space-between;align-items:center;margin:4px 0 0;font-size:11px;font-weight:700;color:var(--akari-muted); }
 .akari-caption-font-list { display:grid;gap:2px; }
 .akari-caption-font-row { display:grid;grid-template-columns:22px minmax(0,1fr);border-bottom:1px solid var(--akari-line-inner); }
-.akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:5px 3px;min-width:0; }
+.akari-caption-font-row:hover,.akari-caption-font-row:focus-within { background:var(--akari-elevated); }
+.akari-inspector-widget .akari-caption-font-row button { border:0;background:transparent;text-align:left;padding:7px 3px;min-width:0;height:auto;min-height:28px; }
 .akari-caption-font-chevron:not(:disabled)::before { content:'';display:block;width:6px;height:6px;margin:auto;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .16s ease; }
 .akari-caption-font-chevron[aria-expanded="true"]::before { transform:rotate(45deg); }
-.akari-caption-font-row button:hover,.akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
-.akari-caption-font-name { display:block;font-size:19px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
+.akari-caption-font-name { display:-webkit-box;font-size:19px;line-height:1.5;white-space:normal;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere; }
 .akari-caption-font-detail { display:block;font-size:10px;color:var(--akari-muted); }
 .akari-caption-font-english { display:block;font-size:10px;color:var(--akari-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-weights { grid-column:2;display:grid; }
-.akari-caption-font-weights button { padding:5px 8px;font-size:14px; }
+.akari-inspector-widget .akari-caption-font-weights button { padding:5px 3px;font-size:14px;height:auto;min-height:28px; }
 .akari-caption-style-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px; }
 .akari-caption-style-card { display:grid;min-width:0;gap:3px;text-align:left;border:1px solid var(--akari-line);border-radius:6px;background:var(--akari-card);padding:5px; }
 .akari-caption-style-card .akari-caption-hover-preview { width:100%!important;height:62px!important; }
@@ -218,7 +219,6 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             }
             root.append(chips);
         }
-        root.append(heading(document, '最近使ったフォント'));
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentFonts) {
             const font = CAPTION_PANEL_FONTS.find(item => item.id === id);
@@ -228,7 +228,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
-        root.append(recent);
+        if (recent.children.length) root.append(heading(document, '最近使ったフォント'), recent);
         const visible = filterCaptionPanelFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
             state.query, state.filters);
         const title = heading(document, `フォント一覧（${visible.length}件）`);

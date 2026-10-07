@@ -168,6 +168,11 @@ export function previewBootstrapScript(): string {
             const skipForward = document.getElementById('skip-forward');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                const rect = event.data.caption ? event.data.rect : null;
+                indicatorToggle.style.top = rect ? Math.max(8, rect.top + rect.height + 8) + 'px' : '';
+            });
             const videoFxFailedIndicators = new Set();
             let adjustCssApproximationActive = false;
             const INDICATOR_GLOSSARY = {
@@ -272,6 +277,23 @@ export function previewBootstrapScript(): string {
             const previewMessageReload = document.getElementById('preview-message-reload');
             const audioNotice = document.getElementById('audio-notice');
             const audioNoticeDismiss = document.getElementById('audio-notice-dismiss');
+            const audioStatus = document.getElementById('audio-status');
+            const transport = document.querySelector('.transport');
+            if (audioStatus && transport) {
+                const statusRow = document.createElement('div');
+                statusRow.className = 'transport-audio-status';
+                statusRow.style.cssText = 'min-width:0;padding:0 10px 6px';
+                audioStatus.style.cssText = 'display:block;max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+                transport.append(statusRow);
+                statusRow.append(audioStatus);
+                const syncAudioStatus = () => {
+                    statusRow.hidden = audioStatus.hidden;
+                    audioStatus.title = audioStatus.textContent || '';
+                };
+                new MutationObserver(syncAudioStatus).observe(audioStatus,
+                    { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
+                syncAudioStatus();
+            }
             const fps = Number(summary.output && summary.output.fps) > 0 ? Number(summary.output.fps) : 30;
             const ZOOM_MIN = 0.25;
             const ZOOM_MAX = 8;
