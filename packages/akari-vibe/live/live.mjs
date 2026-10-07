@@ -29,6 +29,7 @@ import { credentialStatus } from './companion/judge-client.mjs';
 import { writeCompanionConfig } from './companion/home.mjs';
 import { startCompanionServer } from './companion/server.mjs';
 import { createInstructionSenders } from './companion/link.mjs';
+import { createJevTrace } from './jev-trace.mjs';
 import { ProjectContextTracker, emptyProject } from './companion/project-context.mjs';
 import { sendApplyEdit } from './companion/apply-edit.mjs';
 import { redactJudgeRequest } from './companion/redact-request.mjs';
@@ -167,6 +168,8 @@ function setListening(on) {
         if (status.platform !== 'ok' || status.lab !== 'connected' || status.providerKey !== 'set' || status.mic === 'unsupported') return;
     }
     listening = on; listenEpoch++; scheduler.reset();
+    trace?.reset();
+    traceVoiceOnset = null; traceVoiceEnd = null;
     if (on && USE_MIC && !FILE && !inputStarted) void startInput();
     activeOperation = null; range.tail = ''; carry = null; lastFinalSeen = null;
     log({ type: 'listen', on }); send('snapshot', snapshot());
@@ -194,6 +197,9 @@ const sessionFile = sessionDirectory ? path.join(sessionDirectory, `${new Date()
 if (sessionFile) console.log(`記録: ${path.relative(process.cwd(), sessionFile)}`);
 const t0 = Date.now();
 const log = (o) => { if (sessionFile) fs.appendFileSync(sessionFile, JSON.stringify({ at: (Date.now() - t0) / 1000, ...o }) + '\n'); };
+const trace = process.env.AKARI_VIBE_LOG_DIR && sessionFile ? createJevTrace({ emit: row => log(row) }) : null;
+let traceVoiceOnset = null;
+let traceVoiceEnd = null;
 
 const clients = new Set();
 const send = (type, data) => { const s = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(s); };
@@ -456,9 +462,9 @@ function sendPlayback(intent, merged){
 
 // 「連れていく」を実物のシェルへ渡す（決定 1 = 段 1 は連れていくが主役）。
 // これまで手元の ctx を書き換えるだけで、実物の画面は動いていなかった（2026-09-20 実機で観測）。
-function companionSenders(){
+function companionSenders(operationId = currentOperationId){
     if(!COMPANION||!companionLink)return null;
-    return createInstructionSenders(companionLink,()=>projectTracker.state.projectSessionId);
+    return createInstructionSenders(companionLink,()=>projectTracker.state.projectSessionId,trace ? operationId : null);
 }
 function selectionItemId(selection,sourceText=source){
     const id=Array.isArray(selection)?selection[0]:selection;
@@ -473,8 +479,8 @@ function selectionItemId(selection,sourceText=source){
     }
     return itemId;
 }
-function dispatchShellEffects(instructions){
-    const senders=companionSenders();
+function dispatchShellEffects(instructions, traceOperationId = currentOperationId){
+    const senders=companionSenders(traceOperationId);
     if(!senders||!instructions.length)return Promise.resolve();
     const operationId=currentOperationId;
     return (async()=>{
@@ -507,31 +513,36 @@ async function judge(item) {
         return false;
     }
     currentOperationId = operationId; expireTransient();
+    trace?.attach(operationId,{ final:Boolean(final), early:Boolean(early) });
     const edit = JSON.parse(source), lite = !final;
     const fullRequest = { requestId:operationId, text, final, early:Boolean(early), noSplit:Boolean(noSplit), mode:MODE, lite,
         edit, captionsSource, context, ctx:{...judgeCtx(), judgeRuntime:{lastExecuted,earlySeek,seekFiredFor:range.seekFiredFor}} };
     const request = COMPANION ? redactJudgeRequest(fullRequest) : fullRequest;
     let timeout;
+    if (!item.localGrammar) { trace?.mark(operationId,'t6JudgeSent'); trace?.attach(operationId,{path:'judge'}); }
     const selected=await resolveLocalGrammarOrJev(item,{operationId,requestJev:signal=>Promise.race([judgeClient.judge(request,{signal}),
         new Promise(resolve=>{timeout=setTimeout(()=>resolve(null),Math.max(0,STALE_MS-(Date.now()-receivedAt)));})]).finally(()=>clearTimeout(timeout))});
+    if (!item.localGrammar && !item.promotedFinal?.localGrammar && selected.response) trace?.mark(operationId,'t7JudgeRecv');
+    if(item.localGrammar||item.promotedFinal?.localGrammar)trace?.attach(operationId,{path:'local-grammar'});
     if(selected.supersededGeneration!=null)log({type:'discard',operationId,reason:'superseded-jev-generation',generation:selected.supersededGeneration});
     const response=selected.response;
     if (!response) { log({type:'discard',operationId,reason:'timeout'}); return false; }
     let r = response;
     const usage=normalizeUsage(r.usage,r.calls), utteranceCost=recordUsage(operationId,usage,lite,r.latencyMs);
     if(item.promotedFinal) { receivedAt=item.promotedFinal.receivedAt ?? receivedAt; lags=item.promotedFinal.lags ?? lags; final=true;early=false; r=item.promotedFinal.localGrammar?.response??response.promotedFinal; }
-    if(stale()) { log({type:'decision',operationId,text,final,early:Boolean(early),discarded:'stale',usage,utteranceCost,decision:r.decision,conf:r.conf,answers:r.answers});return {wasFinal:false,complete:r.decision?.complete,stateKey:item.stateKey}; }
+    if(stale()) { log({type:'decision',operationId,text,final,early:Boolean(early),discarded:'stale',usage,utteranceCost,decision:r.decision,conf:r.conf,answers:r.answers});trace?.attach(operationId,{decision:true});return {wasFinal:false,complete:r.decision?.complete,stateKey:item.stateKey}; }
     const {intents,display,lifecycle}=r;
     displayGate=display.gate ?? {};
     final=lifecycle.final; early=lifecycle.early;
     const d=r.decision, conf=r.conf, fired=[...r.fired];let held=intents.held;
+    trace?.attach(operationId,{op:d?.op??null,final:Boolean(final),early:Boolean(early)});
     for(const event of r.events)log(event);
-    if(lifecycle.discarded){log({type:'decision',operationId,text,final,discarded:lifecycle.discarded,usage,utteranceCost,decision:d,conf,answers:r.answers});return {wasFinal:false,complete:d.complete,stateKey:item.stateKey};}
+    if(lifecycle.discarded){log({type:'decision',operationId,text,final,discarded:lifecycle.discarded,usage,utteranceCost,decision:d,conf,answers:r.answers});trace?.attach(operationId,{decision:true});return {wasFinal:false,complete:d.complete,stateKey:item.stateKey};}
     if(intents.split) {
         scheduler.prepend(intents.split.map(text=>({kind:'final',text,final:true,noSplit:true,receivedAt,lags,operationId,epoch})));
         const payload={utt:operationId,operationId,text,final:false,latencyMs:r.latencyMs,decision:d,conf,fired:[],held:null,lags:{},
             note:`操作が ${intents.split.length} つ → 分けて順に実行`,usage,utteranceCost,probs:display.probs,extra:{direction:'—',color:'none',amount:1,position:'none'},labels:display.labels};
-        send('decision',payload);log({type:'decision',...payload,answers:r.answers,state:r.state});log({type:'split',utt:operationId,text,clauses:intents.split});return {wasFinal:false,complete:d.complete,stateKey:item.stateKey};
+        send('decision',payload);log({type:'decision',...payload,answers:r.answers,state:r.state});trace?.attach(operationId,{decision:true});log({type:'split',utt:operationId,text,clauses:intents.split});return {wasFinal:false,complete:d.complete,stateKey:item.stateKey};
     }
     if(Object.hasOwn(lifecycle,'chatLen'))range.chatLen=lifecycle.chatLen;
     if(intents.navigate)ctx.playheadT=intents.navigate.at;
@@ -553,6 +564,7 @@ async function judge(item) {
         previewSelection:Boolean(intents.select)&&!inspectorPlan&&!intents.execute,
         inspectorOpenArgs:inspectorPlan?.openArgs??null,catalogOpen:libraryIntent.catalogOpen??null,
         flyAlreadySent:range.flyFiredFor===operationId});
+    if(preShellEffects.length)trace?.mark(operationId,'t8PlanDone');
     const preShellDispatch=dispatchShellEffects(preShellEffects);
     if(preShellEffects.some(instruction=>instruction.kind==='flyTo'))range.flyFiredFor=operationId;
     range.seekFiredFor=lifecycle.seekFiredFor;
@@ -653,8 +665,9 @@ async function judge(item) {
         catalogOpen:libraryShellEffectsForPost.find(effect=>effect.catalogOpen)?.catalogOpen??null,
         zoneHint:libraryShellEffectsForPost.find(effect=>effect.zoneHint)?.zoneHint??null,
         flyAlreadySent:range.flyFiredFor===operationId});
+    trace?.mark(operationId,'t8PlanDone');
     if(postShellEffects.some(instruction=>instruction.kind==='flyTo'))range.flyFiredFor=operationId;
-    void preShellDispatch.then(()=>dispatchShellEffects(postShellEffects));
+    void preShellDispatch.then(()=>dispatchShellEffects(postShellEffects,operationId));
     if(applied && lifecycle.lastExecuted) { lastExecuted={...lifecycle.lastExecuted,opLabel:display.opLabel}; }
     if(lifecycle.task) { const t=lifecycle.task;task(t.text,t.target,t.reason,t.operationId ?? operationId); }
     if(final)carry=intents.carry?{text,at:Date.now()}:null;
@@ -664,6 +677,7 @@ async function judge(item) {
         lags:{...(lags??{}),textToDecision:receivedAt?Date.now()-receivedAt:null},carried:final&&carry?true:undefined,
         probs:display.probs,lite:lite||undefined,extra:display.extra,labels:display.labels,usage,utteranceCost,risk:r.risk,editGate:r.editGate,reject:r.reject,missingArgs:r.missingArgs,...localGrammarAudit(r,applied)};
     log({type:'decision',...payload,answers:r.answers,state:final?r.state:undefined});send('decision',payload);
+    trace?.attach(operationId,{decision:true});
     if(fired.length||final)send('snapshot',snapshot());
     if(final){history.push(payload);range.seekFiredFor=null;range.flyFiredFor=null;ctx={...ctx,stroke:null,strokeCut:null,pointer:fired.some(f=>f.startsWith('move_pos'))?null:ctx.pointer};send('snapshot',snapshot());}
     return {wasFinal:final,complete:d.complete,stateKey:item.stateKey};
@@ -753,6 +767,11 @@ function onStt(rawText, final, sttT, suppliedId) {
         utterances.set(id,record);
     }
     activeOperation = record; record.rawText = rawText;
+    if (trace) {
+        if (traceVoiceOnset != null) trace.mark(record.id,'t0Onset',{at:traceVoiceOnset});
+        if (final && traceVoiceEnd != null) trace.mark(record.id,'t1VoiceEnd',{at:traceVoiceEnd});
+        trace.mark(record.id,final?'t3SttFinal':'t2FirstPartial');
+    }
     if (voice.firstTextAt == null) voice.firstTextAt = now;
     const lags = { voiceToText: voice.onsetAt == null ? null : voice.firstTextAt-voice.onsetAt,
         endToFinal: final && voice.lastVoiceAt != null ? now-voice.lastVoiceAt : null };
@@ -760,10 +779,13 @@ function onStt(rawText, final, sttT, suppliedId) {
     send('stt', { utt: record.id, operationId: record.id, text: rawText, final, lags });
     const normalized = normalize(rawText);
     if (final && isLocalPause(normalized)) {
+        trace?.mark(record.id,'t5GrammarDone',{path:'local-grammar'});
+        trace?.mark(record.id,'t8PlanDone');
+        trace?.attach(record.id,{op:'pause',final:true,decision:true});
         record.closed = true; activeOperation = null; listenEpoch++; scheduler.reset();
         ui = { ...ui, playing:false, revision:ui.revision+1 };
         // 手元の文法で止めたときも実物のプレビューへ渡す（判断を通らないので ui の意図を送る係を通らない）
-        void companionSenders()?.sendCommand('akari.preview.pause',{});
+        void companionSenders(record.id)?.sendCommand('akari.preview.pause',{});
         range.tail = ''; range.chatLen = null; range.seekFiredFor = null; range.flyFiredFor = null; carry = null;
         log({ type:'local-stop', operationId:record.id, text:normalized });
         send('note', { utt:record.id, text:'ローカルで再生を停止' }); send('snapshot', snapshot());
@@ -789,11 +811,13 @@ function onStt(rawText, final, sttT, suppliedId) {
     if (final) lastFinalSeen = { text:itemText, at:now, stateFingerprint:record.stateFingerprint };
     const grammarState=final?localState({edit:JSON.parse(source),context,ctx:judgeCtx(),text:itemText,captions:parseCaptionList(captionsSource)}):null;
     const localGrammar=grammarState&&prepareLocalGrammarFinal({text:itemText,final,ctx:{...judgeCtx(),libraryTitles:COMPANION?libraryTitlesForGrammar():[],cutCount:grammarState.segments.length,duration:grammarState.segments.at(-1)?.end},segments:grammarState.segments,lastExecuted,operationId:record.id,stateFingerprint:decisionStateKey()});
+    if (localGrammar) trace?.mark(record.id,'t5GrammarDone',{path:'local-grammar'});
     const item = { text:itemText, final, receivedAt: now, lags, operationId: record.id, epoch: listenEpoch, jevGeneration:localGrammar?.generation??localGrammarGeneration(record.id), ...(localGrammar?{localGrammar}:{}) };
     if (final) {
         record.closed = true; activeOperation = null;
         scheduler.final({ ...item, recognizerFinal: true });
         range.tail = ''; range.chatLen = null; voice.onsetAt = null; voice.firstTextAt = null;
+        traceVoiceOnset = null; traceVoiceEnd = null;
     } else if (rawText !== range.tail) {
         range.tail = rawText; range.tailAt = now; range.tailJudged = null;
         if (!record.executedText) schedulePartial(item);
@@ -813,12 +837,18 @@ function onLevel(rms) {
     const speaking = rms > Math.max(0.012, voice.floor * 4);
     if (speaking) {
         if (!voice.active && (voice.lastVoiceAt == null || now - voice.lastVoiceAt > SILENCE_MS) && voice.onsetAt == null) { voice.onsetAt = now; log({ type: 'voice-onset' }); }
+        if (trace && voice.onsetAt === now && traceVoiceOnset == null) traceVoiceOnset = performance.timeOrigin + performance.now();
         voice.lastVoiceAt = now;
+        if (trace) traceVoiceEnd = performance.timeOrigin + performance.now();
     }
     voice.active = speaking;
     // 黙って SILENCE_MS 経ち、言いかけの文字が残っているなら、音声認識の確定を待たずに判断へ回す
     if (!activeOperation?.executedText && !speaking && range.tail && range.tailJudged !== range.tail && voice.lastVoiceAt && now - voice.lastVoiceAt >= (range.needSilence ?? SILENCE_MS) && now - range.tailAt >= 300) {
         range.tailJudged = range.tail;
+        if (activeOperation?.id) {
+            if (traceVoiceEnd != null) trace?.mark(activeOperation.id,'t1VoiceEnd',{at:traceVoiceEnd});
+            trace?.mark(activeOperation.id,'t4EarlyDecision',{early:true});
+        }
         scheduler.early({ text: withCarry(range.tail), final: true, early: true, operationId: activeOperation?.id, epoch: listenEpoch, receivedAt: now, jevGeneration:localGrammarGeneration(activeOperation?.id), lags: { earlyAfterSilence: now - voice.lastVoiceAt } });
     }
     send('level', { rms, speaking });
@@ -1001,6 +1031,10 @@ if (COMPANION) {
         else projectTracker.update(state);
     }});
     companionLink=started.link;
+    if (trace) {
+        companionLink.onSent = (instruction,at,operationId) => trace.commandSent(operationId,instruction,at);
+        companionLink.onResult = (result,at,operationId) => trace.commandResult(operationId,result,at);
+    }
     if (SERVE) {
         productServer = started;
         if (stopping) { started.handler.close(); started.server.close(); }

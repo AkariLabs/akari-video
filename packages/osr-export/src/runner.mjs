@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -30,6 +30,8 @@ export const ELECTRON_CHILD_ENV_BLOCKLIST = Object.freeze(["ELECTRON_RUN_AS_NODE
 // インストール済みアプリは --akari-main を resourcesPath 優先で解決するため、リポジトリ側の変更が実機に乗らない。
 // 明示 allowDesktop は env より優先し、明示 allowInstalledDesktop は dev レイアウト自動判定より優先する。
 export const EXPORT_ALLOW_DESKTOP_ENV = "AKARI_EXPORT_ALLOW_DESKTOP";
+const GUI_SESSION_HINT = "書き出し用の Electron が起動直後に落ちました。ログイン中の画面（GUI セッション）に繋がらない環境（SSH・バックグラウンドのサービス・サンドボックス）から起動すると、macOS が Electron の登録を拒否して SIGABRT になります。ログイン中のターミナルか AKARI Video のアプリ内から書き出してください。";
+const NON_AQUA_MANAGERS = new Set(["Background", "System", "LoginWindow", "StandardIO"]);
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_REPOSITORY_ROOT = resolve(PACKAGE_ROOT, "..", "..");
 const packageRequire = createRequire(import.meta.url);
@@ -112,12 +114,30 @@ export function electronChildEnvironment(env = process.env) {
   return child;
 }
 
+export function describeElectronExit({ exit, code, signal, stderrTail, platform } = {}) {
+  const label = exit === "gpu" ? "GPU Electron" : "OSR Electron";
+  const hint = electronExitHint({ code, signal, platform });
+  return `${label} が終了しました（終了コード: ${code ?? "null"}、シグナル: ${signal ?? "なし"}）${hint ? `: ${hint}` : ""}${stderrTail ? `\nElectron の標準エラー出力（末尾）:\n${stderrTail}` : ""}`;
+}
+
+function electronExitHint({ code, signal, platform }) {
+  return platform === "darwin" && (signal === "SIGABRT" || code === 134) ? GUI_SESSION_HINT : null;
+}
+
+function defaultGuiSessionProbe() {
+  const result = spawnSync("/bin/launchctl", ["managername"], {
+    encoding: "utf8", timeout: 35, maxBuffer: 256, windowsHide: true,
+  });
+  return result.status === 0 && !result.error ? result.stdout.trim() : null;
+}
+
 export async function launchElectronExport(launcher, options, {
   spawnImpl = spawn,
   argumentBuilder = buildElectronArguments,
   env = process.env,
   // Windows のアプリ別 GPU 設定の一時上書き（gpu-preference.mjs・osr 契約 §11.7）。テストは registry / sidecar を注入する。
   platform = process.platform,
+  guiSession = { probe: defaultGuiSessionProbe },
   registry = undefined,
   sidecar = undefined,
   executableExists = undefined,
@@ -126,6 +146,15 @@ export async function launchElectronExport(launcher, options, {
 } = {}) {
   if (launcher.tier === 3) {
     throw new Error(`osr-export error: Electron launcher unavailable: ${launcher.reason ?? "Electron unavailable"}`);
+  }
+  if (platform === "darwin" && env.AKARI_EXPORT_SKIP_GUI_SESSION_CHECK !== "1") {
+    let manager = null;
+    try { manager = guiSession.probe(); } catch { /* 判定できない場合は従来どおり起動する。 */ }
+    if (NON_AQUA_MANAGERS.has(String(manager).trim())) {
+      const error = new Error(`osr-export error: ${GUI_SESSION_HINT}`);
+      error.electronExit = { exit: options.exit, code: null, signal: null, hint: GUI_SESSION_HINT };
+      throw error;
+    }
   }
   const temporaryUserData = options.userDataDir == null
     ? await mkdtemp(join(temporaryDirectory(), "akari-osr-")) : null;
@@ -145,7 +174,7 @@ export async function launchElectronExport(launcher, options, {
     const { gpuPreference } = await withGpuPreference(
       launcher,
       options,
-      () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr }),
+      () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr, exit: options.exit, platform }),
       { env, platform, registry, sidecar, executableExists, stderr },
     );
     if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
@@ -271,15 +300,30 @@ async function defaultProbe(path) {
   return existsSync(path);
 }
 
-function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr }) {
+function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr, exit, platform }) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawnImpl(command, args, { env: electronChildEnvironment(env), stdio: ["ignore", "pipe", "pipe"] });
+    let stderrTail = Buffer.alloc(0);
+    const failure = (code, signal, cause) => {
+      const tail = stderrTail.toString("utf8");
+      const message = describeElectronExit({ exit, code, signal, stderrTail: tail, platform });
+      const error = new Error(cause ? `${message}\nElectron の起動エラー: ${cause.message}` : message);
+      error.electronExit = { exit, code, signal, hint: electronExitHint({ code, signal, platform }) };
+      if (cause) error.cause = cause;
+      return error;
+    };
+    let child;
+    try { child = spawnImpl(command, args, { env: electronChildEnvironment(env), stdio: ["ignore", "pipe", "pipe"] }); }
+    catch (error) { rejectPromise(failure(null, null, error)); return; }
     child.stdout?.on("data", (chunk) => { onStdout?.(chunk.toString()); });
-    child.stderr?.on("data", (chunk) => { onStderr?.(chunk.toString()); });
-    child.once("error", rejectPromise);
+    child.stderr?.on("data", (chunk) => {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      stderrTail = Buffer.concat([stderrTail, bytes]).subarray(-4096);
+      onStderr?.(chunk.toString());
+    });
+    child.once("error", (error) => rejectPromise(failure(null, null, error)));
     child.once("close", (code, signal) => {
       if (code === 0) resolvePromise();
-      else rejectPromise(new Error(`OSR Electron exited ${code} (${signal ?? "no signal"})`));
+      else rejectPromise(failure(code, signal));
     });
   });
 }

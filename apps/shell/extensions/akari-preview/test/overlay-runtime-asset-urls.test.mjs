@@ -2,7 +2,10 @@
 // URL で配る（getOverlayRuntimeAssetUrls）。従来は本文（フォントは base64 data: URI）を
 // prepareHtml() の HTML に埋めていたため、開くたびに約 15 MB の setHTML になっていた。
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
 import { readHandlerSource } from './helpers/handler-source.mjs';
@@ -24,6 +27,11 @@ const URL_KEYS = [
 ];
 
 test('overlay runtime assets are served by content-hashed URL with immutable caching', async () => {
+    const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'preview-font-isolated-'));
+    const previousHome = process.env.AKARI_HOME;
+    const previousLibrary = process.env.AKARI_LIBRARY_ROOT;
+    process.env.AKARI_HOME = home;
+    delete process.env.AKARI_LIBRARY_ROOT;
     const service = new AkariPreviewServiceImpl();
     try {
         const urls = await service.getOverlayRuntimeAssetUrls({ includeFrameEngine: true });
@@ -86,6 +94,9 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
         assert.equal((await fetch(urls.threeJavaScriptUrl, { method: 'POST' })).status, 405);
     } finally {
         service.server?.close();
+        if (previousHome === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = previousHome;
+        if (previousLibrary === undefined) delete process.env.AKARI_LIBRARY_ROOT; else process.env.AKARI_LIBRARY_ROOT = previousLibrary;
+        await rm(home, { recursive: true, force: true });
     }
 });
 

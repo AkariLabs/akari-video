@@ -21,8 +21,9 @@ import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from
 import { CatalogItemMeta, parseCatalogItemMeta } from '../common/catalog-reader';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
+import { applyMaterialViewPatch, DEFAULT_MATERIAL_VIEW, filterMaterials, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
-import { materialCardLayout } from '../common/material-card-layout';
+import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
@@ -45,6 +46,8 @@ export interface MaterialCardEntry {
     kind: MaterialKind;
     analyzed: boolean;
     durationSeconds?: number;
+    createdAt?: string;
+    importedAt?: string;
     thumbnailUri?: URI;
     /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
     analysisRelativePath?: string;
@@ -109,7 +112,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'materialMeta' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -149,11 +152,33 @@ export class AkariMaterialsPane {
     public referenceWatches = new DisposableCollection();
     protected referenceWatchRoot = '';
     protected referenceWatchParents = new Set<string>();
+    protected view: MaterialViewState = DEFAULT_MATERIAL_VIEW;
+    protected viewRootKey?: string;
 
     constructor(protected readonly host: MaterialsPaneHost) {}
 
+    public setMaterialView(patch: MaterialViewPatch): { applied: MaterialViewState; previous: MaterialViewState } {
+        const result = applyMaterialViewPatch(this.view, patch);
+        if (result.applied.kinds.join('|') !== result.previous.kinds.join('|')
+            || result.applied.sort.by !== result.previous.sort.by
+            || result.applied.sort.order !== result.previous.sort.order) {
+            this.view = result.applied;
+            this.host.update();
+        }
+        return result;
+    }
+
+    public getMaterialView(): MaterialViewState {
+        return { kinds: [...this.view.kinds], sort: { ...this.view.sort } };
+    }
+
     public async loadMaterials(): Promise<void> {
         const root = this.host.workflow.workspaceRoot;
+        const rootKey = root?.toString();
+        if (rootKey !== this.viewRootKey) {
+            this.viewRootKey = rootKey;
+            this.view = DEFAULT_MATERIAL_VIEW;
+        }
         const generation = ++this.materialsGeneration;
         if (!root) {
             this.referenceWatches.dispose();
@@ -209,6 +234,7 @@ export class AkariMaterialsPane {
         this.materialsLoadedOnce = true;
         this.host.update();
         void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
+        void this.hydrateMaterialMeta(root, generation, [...materials, ...unorganizedMaterials]);
     }
 
     /**
@@ -413,6 +439,22 @@ export class AkariMaterialsPane {
             entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
             this.host.update();
         }));
+    }
+
+    protected async hydrateMaterialMeta(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
+        const candidates = entries.filter(entry => !entry.assetGroup && !entry.reference);
+        if (candidates.length === 0) return;
+        try {
+            const metadata = await this.host.projectService.materialMeta(root.toString(), candidates.map(entry => entry.relativePath));
+            if (generation !== this.materialsGeneration) return;
+            for (const entry of candidates) {
+                const meta = metadata[entry.relativePath];
+                if (meta) Object.assign(entry, mergeMaterialCardMeta(entry, meta));
+            }
+            this.host.update();
+        } catch {
+            // Metadata is supplemental; keep the visible material list on failure.
+        }
     }
 
     // --- ライブ反映（assets/ とルート直下の watch） ---------------------------
@@ -798,19 +840,38 @@ export class AkariMaterialsPane {
                 </p>
             );
         }
-        const normalizedQuery = this.host.materialQuery.trim().toLowerCase();
-        const materials = normalizedQuery
-            ? this.materials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.materials;
-        const unorganizedMaterials = normalizedQuery
-            ? this.unorganizedMaterials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
-            : this.unorganizedMaterials;
-        if (!materials.length && !unorganizedMaterials.length) {
-            return <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>;
-        }
+        const materials = sortMaterials(filterMaterials(this.materials, this.view, this.host.materialQuery), this.view.sort);
+        const unorganizedMaterials = sortMaterials(filterMaterials(this.unorganizedMaterials, this.view, this.host.materialQuery), this.view.sort);
+        const total = this.materials.length + this.unorganizedMaterials.length;
+        const visible = materials.length + unorganizedMaterials.length;
+        const isFiltered = this.view.kinds.length > 0 || this.host.materialQuery.trim().length > 0;
+        const selectedKind = this.view.kinds.length === 0 ? 'all'
+            : this.view.kinds.length === 1 && this.view.kinds[0] !== 'other' ? this.view.kinds[0] : undefined;
         return (
             <div>
-                {materials.length
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '8px 10px 0', overflowX: 'auto' }}>
+                    <div role='group' aria-label='素材の種類' className='akari-seg'>
+                        {([['all', 'すべて'], ['video', '動画'], ['audio', '音'], ['image', '画像']] as const).map(([kind, label]) =>
+                            <button key={kind} type='button' className='theia-button quiet small' aria-pressed={selectedKind === kind}
+                                onClick={() => this.setMaterialView({ kinds: kind === 'all' ? [] : [kind] })}>{label}</button>)}
+                    </div>
+                    <div role='group' aria-label='素材の並べ替え' className='akari-seg'>
+                        {([['name', '名前'], ['duration', '長さ']] as const).map(([by, label]) =>
+                            <button key={by} type='button' className='theia-button quiet small' aria-pressed={this.view.sort.by === by}
+                                onClick={() => this.setMaterialView({ sort: { by, order: this.view.sort.by === by && this.view.sort.order === 'asc' ? 'desc' : 'asc' } })}>
+                                {label}{this.view.sort.by === by ? this.view.sort.order === 'asc' ? ' ↑' : ' ↓' : ''}
+                            </button>)}
+                    </div>
+                </div>
+                {isFiltered && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 10px 0', fontSize: '0.78em', color: 'var(--akari-muted)' }}>
+                    <span>{visible} / {total} 件</span>
+                    {selectedKind === undefined && <span>絞り込み中</span>}
+                    {this.view.kinds.length > 0 && <button type='button' className='theia-button quiet small'
+                        onClick={() => this.setMaterialView({ kinds: [] })}>絞り込みをやめる</button>}
+                </div>}
+                {!visible
+                    ? <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>
+                    : materials.length
                     ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
                         {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
@@ -1056,7 +1117,7 @@ export class AkariMaterialsPane {
                             {entry.name}
                         </span>
                         <span style={{ flex: '0 0 auto', fontSize: '0.55em', whiteSpace: 'nowrap' }}>
-                            {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
+                            {entry.durationSeconds !== undefined ? formatDurationBadge(entry.durationSeconds) : '--:--'}
                         </span>
                     </div>
                 </div>
@@ -1124,7 +1185,8 @@ export class AkariMaterialsPane {
         try {
             await this.host.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
                 relativePath: entry.mediaRelativePath ?? entry.relativePath,
-                kind: entry.kind
+                kind: entry.kind,
+                ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
             });
         } catch {
             this.host.messages.error('タイムライン機能の更新が必要です。');

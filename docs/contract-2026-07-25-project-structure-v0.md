@@ -40,12 +40,15 @@ updated: 2026-09-06
 |---|---|---|
 | 人間の一次素材 | `assets/`（下位分類自由） | 人間・取り込み UI |
 | 企画・プラン | `planning/` | スキル + 人間承認 |
+| 仮枠のシーン JSON（AI が書く・人が微調整。仮枠の meta の `frame.content.scene` が指す） | `planning/frames/` | スキル・仮枠の編集 |
 | エージェント中間物・ad-hoc 検証スクリプトと結果 | `.akari/work/` | スキル・エージェント |
 | 検証証跡・レポート（キーフレーム視認 PNG・render-report 等） | `.akari/reports/` | スキル |
 | 絵コンテ（タイムラインの印刷・初回だけ・AI は後から読まない） | `.akari/reports/storyboard/` | スキル |
 | キャッシュ（サムネ・プロキシ等の再生成可能物） | `.akari/cache/` | アプリ・スキル |
 | 納品物 | `exports/` | `render-cut` |
 | 契約サイドカー（既存） | `.akari/`（`sidecars/` `diffs/` `events/` 等） | 既存のまま |
+
+`planning/frames/<stem>.scene.json` は仮枠（生成 v0 契約）の中身を記述する正本で、変更履歴に入る（`planning/**`）。仮枠の絵（png）と meta は従来どおり `assets/generated/`。
 
 `.akari/` 直下にはこの表にない契約サイドカーファイルも存在する（`intake.json`・
 `workflow.json`・`connections.json`・`lint.json`・`render.json` 等）。これらは各自の

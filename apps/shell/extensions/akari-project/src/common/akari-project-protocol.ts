@@ -86,6 +86,14 @@ export interface MaterialThumbnailOutcome {
     cacheRelativePath?: string;
 }
 
+export interface MaterialMetaEntry {
+    durationSeconds?: number;
+    createdAt?: string;
+    importedAt: string;
+    width?: number;
+    height?: number;
+}
+
 /**
  * プロジェクトカードのサムネ解決の結果（プロジェクト選択画面のカード 1 枚ぶん）。
  * `MaterialThumbnailOutcome` と同じく available=false は「プレースホルダのまま運用する」の意で、
@@ -152,6 +160,8 @@ export interface AssetCatalogViewItem {
     product_id?: string;
     category: string;
     title: string;
+    aliases?: string[];
+    fontAvailability?: { status: 'available' | 'download' | 'source' | 'pending' | 'failed'; family: string; source?: 'bundled' | 'library' | 'system'; bytes?: number };
     tags: string[];
     licenseSpdx?: string;
     /** meta.json license.scope（自由文字列。ライセンスの 2 軸は library-license.ts が導出する）。 */
@@ -337,6 +347,10 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    getCatalogFontAvailability(preferenceRoot: string | undefined, items: Array<{ id: string; title: string; aliases?: string[] }>):
+        Promise<{ phase: 'ready' | 'pending' | 'failed'; statuses: Record<string, AssetCatalogViewItem['fontAvailability']> }>;
+    checkCatalogFontAvailability(id: string, preferenceRoot: string | undefined): Promise<AssetCatalogViewItem['fontAvailability']>;
+    downloadCatalogFont(id: string, preferenceRoot: string | undefined): Promise<void>;
     getAssetSiteListings(): Promise<import('./asset-sites').AssetSiteListing[]>;
     planLibraryImport(paths: string[]): Promise<LibraryImportPlan>;
     applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult>;
@@ -375,6 +389,7 @@ export interface AkariProjectService {
      * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
      */
     resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image' | 'audio'): Promise<MaterialThumbnailOutcome>;
+    materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>>;
     /**
      * プロジェクト選択画面のカード用サムネ（ポスター + ホバーでループするコマ）を解決する。
      * 元動画は「`.akari/render.json` が記録した検収済み出力 → `exports/` の最新動画 →

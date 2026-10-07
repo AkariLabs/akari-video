@@ -60,9 +60,14 @@ export function formatDoctorReport(report) {
     '',
     `判定: ${report.verdict}`,
   ];
-  if (report.next_steps.length > 0) {
+  const steps = [...report.next_steps];
+  if (report.cli.node?.runtime === 'electron' && report.cli.node.exec_path && report.render_cut.path) {
+    const quote = (value) => `"${value.replaceAll('"', '\\"')}"`;
+    steps.push(`Node が PATH に無い場合の書き出し: ELECTRON_RUN_AS_NODE=1 ${quote(report.cli.node.exec_path)} ${quote(report.render_cut.path)} <project-root>`);
+  }
+  if (steps.length > 0) {
     lines.push('次の手順:');
-    lines.push(...report.next_steps.map((step) => `  - ${step}`));
+    lines.push(...steps.map((step) => `  - ${step}`));
   }
   return lines.join('\n');
 }

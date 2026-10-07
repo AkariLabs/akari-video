@@ -10,6 +10,7 @@ import test from "node:test";
 import {
   buildElectronArguments,
   desktopCandidates,
+  describeElectronExit,
   ELECTRON_CHILD_ENV_BLOCKLIST,
   electronChildEnvironment,
   isDevRepositoryLayout,
@@ -17,7 +18,7 @@ import {
   resolveElectronLauncher,
 } from "../src/runner.mjs";
 
-function spawnMock({ code = 0, stdout = [], beforeClose, calls } = {}) {
+function spawnMock({ code = 0, signal = null, stdout = [], stderr = [], beforeClose, calls } = {}) {
   return (command, args, options) => {
     calls?.push({ command, args, options });
     const child = new EventEmitter();
@@ -26,10 +27,11 @@ function spawnMock({ code = 0, stdout = [], beforeClose, calls } = {}) {
     setImmediate(async () => {
       try {
         for (const chunk of stdout) child.stdout.write(chunk);
+        for (const chunk of stderr) child.stderr.write(chunk);
         child.stdout.end();
         child.stderr.end();
         await beforeClose?.();
-        child.emit("close", code, null);
+        child.emit("close", code, signal);
       } catch (error) {
         child.emit("error", error);
       }
@@ -413,14 +415,91 @@ test("exit 0 で空でない出力を作れば成功する", async () => {
   }
 });
 
-test("exit 1 は既存の Electron 終了エラーを維持する", async () => {
+test("exit 1 は Electron の終了状態を報告する", async () => {
   const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
   try {
     const out = join(root, "video.mp4");
     await assert.rejects(
       launchElectronExport({ tier: 1, executable: "/electron" }, exportOptions(out), { spawnImpl: spawnMock({ code: 1 }) }),
-      /OSR Electron exited 1/,
+      /OSR Electron が終了しました（終了コード: 1/u,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("describeElectronExit は GPU の出口を正しく表示する", () => {
+  assert.match(describeElectronExit({ exit: "gpu", code: 2, signal: null, platform: "linux" }), /^GPU Electron が終了しました（終了コード: 2/u);
+});
+
+test("describeElectronExit は macOS の SIGABRT に GUI セッションの案内を添える", () => {
+  const message = describeElectronExit({ exit: "gpu", code: null, signal: "SIGABRT", platform: "darwin" });
+  assert.match(message, /^GPU Electron が終了しました（終了コード: null、シグナル: SIGABRT/u);
+  assert.match(message, /GUI セッション/u);
+  assert.match(message, /ログイン中のターミナル/u);
+  assert.match(describeElectronExit({ code: 134, platform: "darwin" }), /GUI セッション/u);
+});
+
+test("describeElectronExit は通常の linux 失敗で手がかりを付けず stderr 末尾を表示する", () => {
+  const message = describeElectronExit({ code: 1, signal: null, stderrTail: "failure detail", platform: "linux" });
+  assert.match(message, /^OSR Electron が終了しました（終了コード: 1、シグナル: なし/u);
+  assert.match(message, /failure detail/u);
+  assert.doesNotMatch(message, /GUI セッション/u);
+});
+
+test("Electron の失敗は stderr の末尾 4KB を保持して転送する", async () => {
+  const forwarded = [];
+  const tail = "末尾のエラー";
+  await assert.rejects(
+    launchElectronExport({ tier: 1, executable: "/electron" }, { ...exportOptions("/unused.mp4"), onStderr: (text) => forwarded.push(text) }, {
+      spawnImpl: spawnMock({ code: 1, stderr: ["x".repeat(5000), tail] }),
+      platform: "linux", env: {},
+    }),
+    (error) => {
+      assert.match(error.message, /末尾のエラー/u);
+      const reportedTail = error.message.split("Electron の標準エラー出力（末尾）:\n")[1];
+      assert.ok(Buffer.byteLength(reportedTail, "utf8") <= 4096);
+      assert.deepEqual(error.electronExit, { exit: undefined, code: 1, signal: null, hint: null });
+      return true;
+    },
+  );
+  assert.equal(forwarded.join(""), "x".repeat(5000) + tail);
+});
+
+for (const [manager, shouldSpawn] of [["Background", false], ["Aqua", true], ["FutureSession", true], ["Foo", true], [null, true]]) {
+  test(`GUI セッション ${manager ?? "probe 失敗"} は ${shouldSpawn ? "spawn する" : "spawn しない"}`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "osr-gui-session-"));
+    try {
+      const out = join(root, "out.mp4");
+      const calls = [];
+      const guiSession = { probe: () => {
+        if (manager === null) throw new Error("probe unavailable");
+        return manager;
+      } };
+      const promise = launchElectronExport({ tier: 1, executable: "/electron" }, exportOptions(out), {
+        platform: "darwin", env: {}, guiSession,
+        spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+      });
+      if (shouldSpawn) await promise;
+      else await assert.rejects(promise, /osr-export error:.*GUI セッション/u);
+      assert.equal(calls.length, shouldSpawn ? 1 : 0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("AKARI_EXPORT_SKIP_GUI_SESSION_CHECK=1 は GUI 判定を飛ばす", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-gui-skip-"));
+  try {
+    const out = join(root, "out.mp4");
+    const calls = [];
+    await launchElectronExport({ tier: 1, executable: "/electron" }, exportOptions(out), {
+      platform: "darwin", env: { AKARI_EXPORT_SKIP_GUI_SESSION_CHECK: "1" },
+      guiSession: { probe: () => "Background" },
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+    });
+    assert.equal(calls.length, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

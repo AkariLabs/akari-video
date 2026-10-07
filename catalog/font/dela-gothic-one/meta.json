@@ -2,6 +2,7 @@
   "id": "dela-gothic-one",
   "category": "font",
   "title": "Dela Gothic One",
+  "aliases": ["Dela Gothic One","DelaGothicOne-Regular"],
   "description": "画面を支配する極太ディスプレイゴシック。一撃のインパクト・サムネイル級の見出しに向く。 実体（Regular のみ（書体自体が単ウェイト））は本リポの assets/font/dela-gothic-one/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "サムネ級の極太見出し・バラエティの強い一言・煽りテロップ",
   "tags": [

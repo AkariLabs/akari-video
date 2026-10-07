@@ -47,6 +47,8 @@ same save data**, so what you saw is exactly what comes out.
   render failure" for diagnosis
 - **`verify.audio-level` FAIL** → declared audio was silent in every sampled interval, or its
   level could not be measured; check the declared BGM/SFX/narration/source audio and the report
+- **`OSR Electron` / `GPU Electron` with `SIGABRT`** → the export may have started without access to a logged-in GUI session. Export from a terminal in the logged-in desktop session or from the AKARI Video app.
+- **`node` is not on PATH** → use the actual paths shown by `akari doctor` and run `ELECTRON_RUN_AS_NODE=1 "<Electron executable>" "<path to render-cut.mjs>" <project-root>` from a terminal in the logged-in desktop session. This setting runs the parent as Node; it does not fix a missing GUI session.
 
 ## Next steps
 

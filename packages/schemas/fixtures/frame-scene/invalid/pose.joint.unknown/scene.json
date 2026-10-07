@@ -1,0 +1,35 @@
+{
+  "schema": "akari.frame-scene",
+  "version": 0,
+  "objects": [
+    {
+      "id": "p1",
+      "kind": "human",
+      "at": [
+        0,
+        0
+      ],
+      "pose": {
+        "base": "stand",
+        "joints": {
+          "tail": {
+            "x": 1
+          }
+        }
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s1",
+      "camera": {
+        "pos": [
+          150,
+          140,
+          300
+        ],
+        "look": "p1"
+      }
+    }
+  ]
+}

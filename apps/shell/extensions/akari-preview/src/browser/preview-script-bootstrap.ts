@@ -168,6 +168,11 @@ export function previewBootstrapScript(): string {
             const skipForward = document.getElementById('skip-forward');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                const rect = event.data.rect;
+                indicatorToggle.style.top = rect ? Math.max(8, rect.top + rect.height + 8) + 'px' : '';
+            });
             const videoFxFailedIndicators = new Set();
             let adjustCssApproximationActive = false;
             const INDICATOR_GLOSSARY = {
@@ -272,6 +277,24 @@ export function previewBootstrapScript(): string {
             const previewMessageReload = document.getElementById('preview-message-reload');
             const audioNotice = document.getElementById('audio-notice');
             const audioNoticeDismiss = document.getElementById('audio-notice-dismiss');
+            const audioStatus = document.getElementById('audio-status');
+            const transport = document.querySelector('.transport');
+            if (audioStatus && transport) {
+                transport.style.position = 'relative';
+                const statusRow = document.createElement('div');
+                statusRow.className = 'transport-audio-status';
+                statusRow.style.cssText = 'position:absolute;left:0;right:0;bottom:100%;box-sizing:border-box;min-width:0;padding:3px 10px;background:color-mix(in srgb, var(--akari-transport-bg) 60%, transparent);z-index:4';
+                audioStatus.style.cssText = 'display:block;max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--akari-transport-fg);text-shadow:0 1px 1px rgba(0,0,0,.2)';
+                transport.append(statusRow);
+                statusRow.append(audioStatus);
+                const syncAudioStatus = () => {
+                    statusRow.hidden = audioStatus.hidden;
+                    audioStatus.title = audioStatus.textContent || '';
+                };
+                new MutationObserver(syncAudioStatus).observe(audioStatus,
+                    { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
+                syncAudioStatus();
+            }
             const fps = Number(summary.output && summary.output.fps) > 0 ? Number(summary.output.fps) : 30;
             const ZOOM_MIN = 0.25;
             const ZOOM_MAX = 8;
