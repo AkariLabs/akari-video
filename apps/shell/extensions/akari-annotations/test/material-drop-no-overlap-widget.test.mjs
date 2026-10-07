@@ -49,6 +49,8 @@ const bindings = {
     SUBROW_STRIDE: 32, LANE_GAP: 4, LIBRARY_DRAG_MIME: 'application/x-akari-library-item'
 };
 const Handler = new Function(...Object.keys(bindings), `${code}\nreturn Handler;`)(...Object.values(bindings));
+const parseMaterialDragPayload = new Function(`${ts.transpileModule(parser,
+    { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText}; return parseMaterialDragPayload;`)();
 const contributionMethod = memberText('addMaterialAtPlayhead', { in: 'contribution', files: [
     { key: 'contribution', path: 'akari-annotations-contribution.ts', className: 'AkariAnnotationsContribution' }
 ] });
@@ -57,6 +59,40 @@ const Contribution = new Function(`${ts.transpileModule(`class Contribution { ${
 
 const item = (id, at = 0, duration = 180) => ({ id, at, duration, source: { kind: 'media', src: 'base', in: 0, out: duration / 30 } });
 const track = (id, lane, items = []) => ({ id, lane, items });
+test('material drag payload accepts finite in/out seconds', () => {
+    assert.deepEqual(parseMaterialDragPayload({ relativePath: 'assets/a.mp4', kind: 'video',
+        durationSeconds: 12, in: 2, out: 8 }),
+    { relativePath: 'assets/a.mp4', kind: 'video', durationSeconds: 12, in: 2, out: 8 });
+    assert.equal(parseMaterialDragPayload({ relativePath: 'assets/a.mp4', kind: 'video', in: -1, out: 4 }).in, undefined);
+});
+
+test('material placement uses selected source seconds for video and audio', async () => {
+    for (const kind of ['video', 'audio']) {
+        const f = fixture([track(kind === 'audio' ? 'a1' : 'v1', kind === 'audio' ? 'audio' : 'visual')]);
+        await f.handler.addMaterialAt(`assets/new.${kind === 'audio' ? 'mp3' : 'mp4'}`, kind, 2, 0,
+            { durationSeconds: 10, in: 2, out: 30, ...(kind === 'audio' ? { createAudioTrack: true } : {}) });
+        const placed = f.doc().tracks.flatMap(row => row.items).find(row => row.id.startsWith(kind === 'audio' ? 'audio-' : 'clip-'));
+        assert.ok(placed);
+        assert.deepEqual([placed.source.in, placed.source.out, placed.duration], [2, 10, 240]);
+    }
+});
+
+test('playhead audio placement reads the saved range and creates a ranged audio item', async () => {
+    const f = fixture([track('v1', 'visual')]);
+    f.handler.commands = { executeCommand: async () => ({ in: 2, out: 6 }) };
+    await f.handler.addMaterialAtPlayhead('assets/new.mp3', 'audio');
+    const audio = f.doc().tracks.find(row => row.lane === 'audio').items[0];
+    assert.deepEqual([audio.source.in, audio.source.out, audio.duration], [2, 6, 120]);
+});
+
+test('drop forwards in/out into the placed clip duration', async () => {
+    const f = fixture([track('v1', 'visual')]);
+    await f.handler.placeMaterialAtTarget({ relativePath: 'assets/new.mp4', kind: 'video',
+        durationSeconds: 10, in: 2, out: 6 },
+    { zone: 'layers', track: 0, top: 0, height: 32, rejected: false, targetTrackId: 'v1' }, 20);
+    const clip = f.doc().tracks.flatMap(row => row.items).find(row => row.id.startsWith('clip-'));
+    assert.deepEqual([clip.source.in, clip.source.out, clip.duration], [2, 6, 120]);
+});
 function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2', 'visual')]) {
     const before = JSON.stringify({ version: 2, output: { width: 1920, height: 1080, fps: 30 },
         sources: [{ id: 'base', path: 'assets/base.mp4' }], tracks }, null, 4) + '\n';

@@ -21,6 +21,14 @@
  * — 拡張をまたぐ import は作らない。
  */
 export const MATERIAL_DRAG_MIME = 'application/x-akari-material';
+/** DataTransfer and drag-start event payload for project materials. */
+export interface MaterialDragPayload {
+    relativePath: string;
+    kind: 'video' | 'audio' | 'image';
+    durationSeconds?: number;
+    in?: number;
+    out?: number;
+}
 export const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 
 /** 画像由来の Files が混ざっても、内部 MIME があれば素材取り込みの対象にはしない。 */

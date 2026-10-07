@@ -40,6 +40,8 @@ export function materialCardLayout(entry: MaterialCardLayoutEntry, options: Mate
         gridGap: `${options.gridGapPx ?? 6}px`,
         gridPadding: `${options.gridPaddingPx ?? 8}px`,
         // With the panel chrome, 95px keeps the intended steps: 320px -> 2, 400px -> 3, 500px -> 4 columns.
+        // Electron + CDP calibration: a 255.92px grid fits two 121.96px cards;
+        // at 400px it fits three 111.83px cards. Keep the 95px threshold.
         cardMinWidth: `${options.cardMinWidthPx ?? 95}px`
     };
 }

@@ -1472,7 +1472,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected applySearchQuery(value: string, rerender: boolean): void {
         if (this.topView === 'materials') this.materialQuery = value;
         else this.catalogQuery = value;
-        if (rerender) this.update();
+        if (rerender) {
+            this.update();
+            if (this.topView === 'materials') this.materialsPane.hydrateVisibleMaterialStrips();
+        }
     }
 
     /** 非制御の検索欄に、外から変えた値を書き戻す（タブ切り替え・クリア・履歴からの指定）。 */

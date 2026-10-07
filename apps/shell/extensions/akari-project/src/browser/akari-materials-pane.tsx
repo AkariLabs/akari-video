@@ -23,6 +23,8 @@ import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin
 import { MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { DEFAULT_MATERIALS_SORT, isMaterialsList, MATERIALS_KINDS, MATERIALS_SORT_OPTIONS, MaterialsMode, MaterialsSort, materialStripCells, visibleMaterials } from '../common/materials-view';
 import { MaterialStrip } from './material-strip';
+import { MaterialRangeHandles } from './material-range-handles';
+import { MaterialRange } from '../common/material-range';
 import { applyMaterialViewPatch, filterMaterials, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
 import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
@@ -100,7 +102,7 @@ export interface MaterialsPaneHost {
     /** 素材一覧の読み込みと監視。 */
     readonly files: FileService;
     /** 参照素材、クレジット、文字起こし状態とサムネイル。 */
-    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'resolveMaterialStrip' | 'materialMeta' | 'readUiState' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
+    readonly projectService: Pick<AkariProjectService, 'listProjectAssetReferences' | 'projectCredits' | 'transcriptStates' | 'resolveMaterialThumbnail' | 'resolveMaterialStrip' | 'materialMeta' | 'readUiState' | 'readMaterialRanges' | 'bundleProjectAssets' | 'resolveAsset' | 'removeProjectAssetReference' | 'planLibraryImport' | 'applyLibraryImport' | 'transcribeMaterial'>;
     /** 素材操作の通知。 */
     readonly messages: Pick<MessageService, 'info' | 'warn' | 'error'>;
     /** 素材移動中の確認。 */
@@ -147,8 +149,71 @@ export class AkariMaterialsPane {
     protected commandKinds?: readonly MaterialViewKind[];
     protected commandSort?: MaterialViewState['sort'];
     protected viewRootKey?: string;
+    protected materialRanges: Record<string, MaterialRange> = {};
+    protected rangeSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    protected rangeSavesInFlight = new Map<string, Promise<unknown>>();
+    protected materialRangeRevision = 0;
+    protected materialRangeRevisions = new Map<string, number>();
+    protected readonly materialRangeSource = 'materials-pane';
 
-    constructor(protected readonly host: MaterialsPaneHost) {}
+    constructor(protected readonly host: MaterialsPaneHost) {
+        window.addEventListener('akari.materials.range.changed', event => {
+            const detail = (event as CustomEvent<{ relativePath: string; range: MaterialRange | null; source?: string }>).detail;
+            if (!detail || typeof detail.relativePath !== 'string') return;
+            if (detail.source === this.materialRangeSource) return;
+            const current = this.materialRanges[detail.relativePath];
+            const root = this.host.workflow.workspaceRoot;
+            const timerKey = root ? `${root.toString()}\n${detail.relativePath}` : '';
+            const pending = this.rangeSaveTimers.get(timerKey);
+            if (pending) {
+                clearTimeout(pending);
+                this.rangeSaveTimers.delete(timerKey);
+            }
+            this.materialRangeRevisions.set(timerKey, ++this.materialRangeRevision);
+            if (current?.in === detail.range?.in && current?.out === detail.range?.out) return;
+            if (!current && !detail.range) return;
+            if (detail.range) this.materialRanges[detail.relativePath] = detail.range;
+            else delete this.materialRanges[detail.relativePath];
+            this.host.update();
+        });
+    }
+
+    protected rangePath(entry: MaterialCardEntry): string {
+        return entry.mediaRelativePath ?? entry.relativePath;
+    }
+
+    protected changeMaterialRange(entry: MaterialCardEntry, range: MaterialRange | null): void {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root) return;
+        const relativePath = this.rangePath(entry);
+        const timerKey = `${root.toString()}\n${relativePath}`;
+        this.materialRangeRevisions.set(timerKey, ++this.materialRangeRevision);
+        if (range) this.materialRanges[relativePath] = range;
+        else delete this.materialRanges[relativePath];
+        this.host.update();
+        window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
+            detail: { relativePath, range, source: this.materialRangeSource }
+        }));
+        const previous = this.rangeSaveTimers.get(timerKey);
+        if (previous) clearTimeout(previous);
+        this.rangeSaveTimers.set(timerKey, setTimeout(() => {
+            this.rangeSaveTimers.delete(timerKey);
+            const save = this.host.commandService.executeCommand('akari.materials.range.set', {
+                projectUri: root.toString(), relativePath, range, source: this.materialRangeSource
+            });
+            this.rangeSavesInFlight.set(timerKey, save);
+            void save.catch(error => this.host.messages.warn(`範囲を保存できませんでした: ${String(error)}`))
+                .finally(() => {
+                    if (this.rangeSavesInFlight.get(timerKey) === save) this.rangeSavesInFlight.delete(timerKey);
+                });
+        }, 150));
+    }
+
+    public hydrateVisibleMaterialStrips(): void {
+        const root = this.host.workflow.workspaceRoot;
+        if (root && isMaterialsList(this.mode) && this.metaHydratedGeneration === this.materialsGeneration)
+            void this.hydrateMaterialStrips(root, this.materialsGeneration);
+    }
 
     public setMaterialView(patch: { filter?: string[]; sort?: MaterialsSort; mode?: MaterialsMode }): void {
         if (patch.filter) this.commandKinds = undefined;
@@ -198,6 +263,7 @@ export class AkariMaterialsPane {
         const root = this.host.workflow.workspaceRoot;
         const rootKey = root?.toString();
         if (rootKey !== this.viewRootKey) {
+            this.materialRanges = {};
             this.viewRootKey = rootKey;
             this.filter = [];
             this.sort = DEFAULT_MATERIALS_SORT;
@@ -227,6 +293,22 @@ export class AkariMaterialsPane {
         }
         this.materialsLoading = true;
         this.host.update();
+        const rangeReadRevision = this.materialRangeRevision;
+        const rangeReadProtectedKeys = new Set([...this.rangeSaveTimers.keys(), ...this.rangeSavesInFlight.keys()]);
+        void this.host.projectService.readMaterialRanges(root.toString()).then(ranges => {
+            if (generation !== this.materialsGeneration) return;
+            const merged = { ...ranges };
+            const prefix = `${root.toString()}\n`;
+            for (const [key, revision] of this.materialRangeRevisions) {
+                if (!key.startsWith(prefix) || (revision <= rangeReadRevision && !rangeReadProtectedKeys.has(key)
+                    && !this.rangeSaveTimers.has(key) && !this.rangeSavesInFlight.has(key))) continue;
+                const path = key.slice(prefix.length);
+                if (Object.prototype.hasOwnProperty.call(this.materialRanges, path)) merged[path] = this.materialRanges[path];
+                else delete merged[path];
+            }
+            this.materialRanges = merged;
+            this.host.update();
+        }).catch(() => undefined);
         const [assetEntries, rootFiles, references, credits] = await Promise.all([
             this.collectAssetEntries(root.resolve('assets')),
             this.collectUnorganizedRootFiles(root),
@@ -972,7 +1054,8 @@ export class AkariMaterialsPane {
         const known = entry.reference && this.host.assetCatalogItems.find(item =>
             item.key === `${entry.reference!.category}/${entry.reference!.id}`) as
             (AssetCatalogViewItem & { width?: number; height?: number }) | undefined;
-        const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number;
+        const range = this.materialRanges?.[entry.mediaRelativePath ?? entry.relativePath];
+        const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number; in?: number; out?: number;
             name: string; thumb?: string; width?: number; height?: number } = {
             relativePath: entry.mediaRelativePath ?? entry.relativePath,
             kind: entry.kind,
@@ -981,7 +1064,8 @@ export class AkariMaterialsPane {
                 && Number.isFinite(known.height) && (known.height ?? 0) > 0
                 ? { width: known.width, height: known.height } : {}),
             ...(entry.thumbnailUri ? { thumb: entry.thumbnailUri.toString() } : {}),
-            ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
+            ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {}),
+            ...(range ? { in: range.in, out: range.out } : {})
         };
         event.dataTransfer.setData(MATERIAL_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
@@ -1017,6 +1101,7 @@ export class AkariMaterialsPane {
     protected selectedMaterialPath?: string;
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const range = this.materialRanges?.[entry.mediaRelativePath ?? entry.relativePath];
         const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
@@ -1074,7 +1159,8 @@ export class AkariMaterialsPane {
                     onMouseDown={!this.host.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
                     onClickCapture={event => {
                         if (entry.missing || this.host.generationPick.request
-                            || (typeof Element !== 'undefined' && event.target instanceof Element && event.target.closest('button'))) return;
+                            || (typeof Element !== 'undefined' && event.target instanceof Element
+                                && event.target.closest('button, [data-akari-material-range-handles]'))) return;
                         this.selectedMaterialPath = entry.relativePath;
                         this.host.update();
                         const root = this.host.workflow.workspaceRoot;
@@ -1084,6 +1170,11 @@ export class AkariMaterialsPane {
                         }));
                     }}
                     onClick={() => { if (!entry.missing) void this.host.openFile(entry.uri); }}
+                    onDoubleClick={event => {
+                        if (isMaterialsList(this.mode) && entry.durationSeconds && this.selectedMaterialPath === entry.relativePath) {
+                            event.preventDefault(); event.stopPropagation(); this.changeMaterialRange(entry, null);
+                        }
+                    }}
                     onMouseEnter={event => { event.currentTarget.style.borderColor =
                         this.selectedMaterialPath === entry.relativePath ? '#f97316' : '#a3a3a3'; }}
                     onMouseLeave={event => { event.currentTarget.style.borderColor = this.selectedMaterialPath === entry.relativePath ? '#f97316' : AKARI_FAINT; }}
@@ -1125,6 +1216,10 @@ export class AkariMaterialsPane {
                                 files={this.host.files} icon={this.host.placeholderIcon(displayKind)} />
                             : <span className={this.host.placeholderIcon(displayKind)} aria-hidden='true' draggable={false}
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                    {isMaterialsList(this.mode) && this.selectedMaterialPath === entry.relativePath
+                        && typeof entry.durationSeconds === 'number' && entry.durationSeconds > 0
+                        && <MaterialRangeHandles durationSeconds={entry.durationSeconds} range={range}
+                            onChange={next => this.changeMaterialRange(entry, next)} />}
                     {!isMaterialsList(this.mode) && <div style={{
                         position: 'absolute', top: '3px', left: '3px', maxWidth: 'calc(100% - 42px)',
                         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '2px'
@@ -1134,7 +1229,9 @@ export class AkariMaterialsPane {
                     {entry.durationSeconds !== undefined &&
                         <span style={{ position: 'absolute', top: '3px', right: '4px', color: '#fff',
                             font: '600 10px/1 monospace', textShadow: '0 0 3px #000, 0 0 2px #000' }}>
-                            {formatDurationBadge(entry.durationSeconds)}
+                            {!isMaterialsList(this.mode) && range && <span style={{ marginRight: '3px' }}>✂</span>}
+                            {formatDurationBadge(!isMaterialsList(this.mode) && range
+                                ? range.out - range.in : entry.durationSeconds)}
                         </span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0,
@@ -1219,10 +1316,30 @@ export class AkariMaterialsPane {
      */
     public async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
         try {
+            const relativePath = this.rangePath(entry);
+            const root = this.host.workflow.workspaceRoot;
+            const timerKey = root ? `${root.toString()}\n${relativePath}` : '';
+            const timer = this.rangeSaveTimers.get(timerKey);
+            if (timer) {
+                clearTimeout(timer);
+                this.rangeSaveTimers.delete(timerKey);
+                const save = this.host.commandService.executeCommand('akari.materials.range.set', {
+                    projectUri: root?.toString(), relativePath,
+                    range: this.materialRanges[relativePath] ?? null, source: this.materialRangeSource
+                });
+                this.rangeSavesInFlight.set(timerKey, save);
+                try { await save; } finally {
+                    if (this.rangeSavesInFlight.get(timerKey) === save) this.rangeSavesInFlight.delete(timerKey);
+                }
+            } else {
+                await this.rangeSavesInFlight.get(timerKey);
+            }
+            const range = this.materialRanges[relativePath];
             await this.host.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
-                relativePath: entry.mediaRelativePath ?? entry.relativePath,
+                relativePath,
                 kind: entry.kind,
-                ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
+                ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {}),
+                ...(range ? { in: range.in, out: range.out } : {})
             });
         } catch {
             this.host.messages.error('タイムライン機能の更新が必要です。');

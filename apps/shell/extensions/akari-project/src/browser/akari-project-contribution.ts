@@ -138,6 +138,20 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     }
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: 'akari.materials.range.get' }, {
+            execute: async (request: { projectUri: string; relativePath: string }) =>
+                (await this.projectService.readMaterialRanges(request.projectUri))[request.relativePath]
+        });
+        commands.registerCommand({ id: 'akari.materials.range.set' }, {
+            execute: async (request: { projectUri: string; relativePath: string;
+                range: import('../common/material-range').MaterialRange | null; source?: string }) => {
+                await this.projectService.writeMaterialRange(request.projectUri, request.relativePath, request.range);
+                window.dispatchEvent(new CustomEvent('akari.materials.range.changed', {
+                    detail: { relativePath: request.relativePath, range: request.range,
+                        ...(request.source === undefined ? {} : { source: request.source }) }
+                }));
+            }
+        });
         commands.registerCommand({ id: LIST_MY_STYLES_COMMAND_ID }, {
             execute: async (): Promise<MyStyleListItem[]> => (await this.projectService.listMyStyles()).map(style => ({
                 id: style.id,

@@ -804,6 +804,8 @@ interface MaterialDragPayload {
     relativePath: string;
     kind: MaterialDragKind;
     durationSeconds?: number;
+    in?: number;
+    out?: number;
 }
 
 /** 未検証の値（DataTransfer.getData の JSON.parse 結果・CustomEvent.detail）を安全に絞り込む。 */
@@ -811,7 +813,7 @@ function parseMaterialDragPayload(value: unknown): MaterialDragPayload | undefin
     if (!value || typeof value !== 'object') {
         return undefined;
     }
-    const candidate = value as { relativePath?: unknown; kind?: unknown; durationSeconds?: unknown };
+    const candidate = value as { relativePath?: unknown; kind?: unknown; durationSeconds?: unknown; in?: unknown; out?: unknown };
     if (typeof candidate.relativePath !== 'string' || !candidate.relativePath) {
         return undefined;
     }
@@ -821,7 +823,12 @@ function parseMaterialDragPayload(value: unknown): MaterialDragPayload | undefin
     const durationSeconds = typeof candidate.durationSeconds === 'number' && candidate.durationSeconds > 0
         ? candidate.durationSeconds
         : undefined;
-    return { relativePath: candidate.relativePath, kind: candidate.kind, durationSeconds };
+    const inPoint = typeof candidate.in === 'number' && Number.isFinite(candidate.in) && candidate.in >= 0
+        ? candidate.in : undefined;
+    const outPoint = typeof candidate.out === 'number' && Number.isFinite(candidate.out) && candidate.out > (inPoint ?? 0)
+        ? candidate.out : undefined;
+    return { relativePath: candidate.relativePath, kind: candidate.kind, durationSeconds,
+        ...(inPoint !== undefined && outPoint !== undefined ? { in: inPoint, out: outPoint } : {}) };
 }
 
 interface OverlayTrackLayout {
@@ -6534,10 +6541,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean; voiceTrack?: boolean }): Promise<void> {
         const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
-        if (kind === 'audio' && options?.createAudioTrack === true) {
-            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options.voiceTrack });
+        // The command bridge supplies path and kind; read the current saved range here.
+        const range = this.location?.root ? await this.commands?.executeCommand<{ in: number; out: number } | undefined>(
+            'akari.materials.range.get', { projectUri: this.location.root.toString(), relativePath }
+        ).catch(() => undefined) : undefined;
+        if (kind === 'audio' && (options?.createAudioTrack === true || range !== undefined)) {
+            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options?.voiceTrack, ...range });
         } else {
-            await this.addMaterialAt(relativePath, kind, t, 0);
+            await this.addMaterialAt(relativePath, kind, t, 0, range);
         }
     }
 
@@ -6829,7 +6840,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         t: number,
         track: number,
         options?: {
-            durationSeconds?: number; insertTrack?: number; insertIndex?: number;
+            durationSeconds?: number; in?: number; out?: number; insertTrack?: number; insertIndex?: number;
             zone?: MaterialDropZone; createAudioTrack?: boolean; voiceTrack?: boolean; targetTrackId?: string;
             audio?: VoiceAudioOptions;
             transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
@@ -6900,6 +6911,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
+        const sourceIn = typeof options?.in === 'number' && Number.isFinite(options.in)
+            && options.in >= 0 && options.in < durationSeconds ? options.in : 0;
+        const sourceOut = typeof options?.out === 'number' && Number.isFinite(options.out)
+            && options.out > sourceIn ? Math.min(durationSeconds, options.out) : durationSeconds;
+        durationSeconds = sourceOut - sourceIn;
         const tail = this.editMutationTail ?? Promise.resolve();
         const operation = tail.then(async () => {
         try {
@@ -6958,7 +6974,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         ...(options?.voiceTrack ? { role: 'speech' } : {}),
                         at: this.frameAt(Math.max(0, t)),
                         duration: Math.max(1, this.frameAt(durationSeconds)),
-                        source: { kind: 'media', src: sourceId, in: 0, out: durationSeconds }
+                        source: { kind: 'media', src: sourceId, in: sourceIn, out: sourceOut }
                     },
                     legacyItem: { id: itemId, path: relativePath, t: Math.max(0, t), track }
                 });
@@ -7065,7 +7081,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 id: `${baseId}-${serial}`,
                 at: this.frameAt(t),
                 duration,
-                source: { kind: 'media', src: source.id, in: 0, out: Math.max(1 / this.fps, durationSeconds) }
+                source: { kind: 'media', src: source.id, in: sourceIn, out: sourceOut }
             };
             const canvas = !options?.outsideCanvas
                 ? options?.canvasId
@@ -7079,7 +7095,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (canvas && (item.at as number) >= canvas.at && (item.at as number) < canvas.at + canvas.duration) {
                 item.duration = canvasDropDuration(item.at as number, duration, canvas);
-                (item.source as Record<string, unknown>).out = (item.duration as number) / this.fps;
+                (item.source as Record<string, unknown>).out = sourceIn + (item.duration as number) / this.fps;
             }
             if (options?.transform) item.transform = options.transform;
             const lane = 'visual';
@@ -7551,7 +7567,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const durationSeconds = payload.kind === 'image'
             ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
-        const resolvedDuration = durationSeconds ?? this.materialGhostDurationSeconds(payload);
+        const fullDuration = durationSeconds ?? payload.durationSeconds
+            ?? (payload.kind === 'image' ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS : MATERIAL_INSERT_FALLBACK_DURATION_SECONDS);
+        const resolvedDuration = payload.in !== undefined && payload.out !== undefined
+            ? Math.max(0, Math.min(fullDuration, payload.out) - payload.in) : fullDuration;
         const t = panelZone === 'header-column'
             ? (Number.isFinite(this.playheadT) ? this.playheadT : 0)
             : this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
@@ -7562,6 +7581,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             {
                 zone: target.zone,
                 ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
+                ...(payload.in !== undefined && payload.out !== undefined ? { in: payload.in, out: payload.out } : {}),
                 ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {}),
                 ...(target.insertIndex !== undefined ? { insertIndex: target.insertIndex } : {}),
                 ...(target.targetTrackId !== undefined ? { targetTrackId: target.targetTrackId } : {}),
@@ -8012,13 +8032,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return IMAGE_LAYER_DEFAULT_DURATION_SECONDS;
         }
         const probed = this.materialDurationCache.get(payload.relativePath);
-        if (typeof probed === 'number' && probed > 0) {
-            return probed;
-        }
-        if (typeof payload.durationSeconds === 'number' && payload.durationSeconds > 0) {
-            return payload.durationSeconds;
-        }
-        return MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
+        const full = typeof probed === 'number' && probed > 0 ? probed
+            : typeof payload.durationSeconds === 'number' && payload.durationSeconds > 0
+                ? payload.durationSeconds : MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
+        return payload.in !== undefined && payload.out !== undefined
+            ? Math.max(0, Math.min(full, payload.out) - payload.in) : full;
     }
 
     /** ゴーストだけを挿入先へ切り替える。確定時は addMaterialAt が実尺で再判定する。 */

@@ -396,6 +396,8 @@ export interface AkariProjectService {
     materialMeta(projectUri: string, relativePaths: string[]): Promise<Record<string, MaterialMetaEntry>>;
     readUiState(projectUri: string): Promise<Record<string, unknown>>;
     writeUiState(projectUri: string, patch: Record<string, unknown>): Promise<void>;
+    readMaterialRanges(projectUri: string): Promise<Record<string, import('./material-range').MaterialRange>>;
+    writeMaterialRange(projectUri: string, relativePath: string, range: import('./material-range').MaterialRange | null): Promise<void>;
     /**
      * プロジェクト選択画面のカード用サムネ（ポスター + ホバーでループするコマ）を解決する。
      * 元動画は「`.akari/render.json` が記録した検収済み出力 → `exports/` の最新動画 →

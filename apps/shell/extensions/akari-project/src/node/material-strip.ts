@@ -72,10 +72,14 @@ export class MaterialStripGenerator {
                 : ['-y', '-loglevel', 'error', '-i', sourcePath, '-filter_complex', filter,
                     '-frames:v', '1', temporaryPath];
             try {
-                await (this.deps.runFfmpeg ?? (async (binary, command) => { await execFileAsync(binary, command); }))(ffmpeg, args);
+                await (this.deps.runFfmpeg ?? (async (binary, command) => {
+                    await execFileAsync(binary, command, { timeout: 60_000, killSignal: 'SIGKILL' });
+                }))(ffmpeg, args);
                 await fs.rename(temporaryPath, cachePath);
                 return { available: true, cacheRelativePath, cells };
-            } catch {
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.warn(`[akari-project] material strip generation failed; falling back to thumbnail: ${reason.replace(/[\r\n]+/g, ' ')}`);
                 await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
                 return { available: false };
             }

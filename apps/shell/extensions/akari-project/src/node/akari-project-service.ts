@@ -201,6 +201,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected libraryThumbnailActive = 0;
     protected libraryThumbnailQueueTimer?: ReturnType<typeof setTimeout>;
     protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
+    protected readonly materialRangeWrites = new Map<string, Promise<void>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
     protected ffprobePathPromise?: Promise<string | undefined>;
     protected readonly materialMetaReader = new MaterialMetaReader({ ffprobePath: () => this.resolveFfprobePath() });
@@ -1890,6 +1891,42 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
     async readUiState(projectUri: string): Promise<Record<string, unknown>> {
         const value = await this.readJsonFile(join(this.fsPath(projectUri), '.akari', 'ui-state.json'));
         return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    }
+
+    async readMaterialRanges(projectUri: string): Promise<Record<string, import('../common/material-range').MaterialRange>> {
+        const value = await this.readJsonFile(join(this.fsPath(projectUri), '.akari', 'material-ranges.json'));
+        const ranges = value && typeof value === 'object' && !Array.isArray(value)
+            ? (value as Record<string, unknown>).ranges : undefined;
+        if (!ranges || typeof ranges !== 'object' || Array.isArray(ranges)) return {};
+        return Object.fromEntries(Object.entries(ranges).filter(([, candidate]) => {
+            if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+            const range = candidate as Record<string, unknown>;
+            return typeof range.in === 'number' && Number.isFinite(range.in) && range.in >= 0
+                && typeof range.out === 'number' && Number.isFinite(range.out) && range.out > range.in;
+        })) as Record<string, import('../common/material-range').MaterialRange>;
+    }
+
+    async writeMaterialRange(projectUri: string, relativePath: string,
+        range: import('../common/material-range').MaterialRange | null): Promise<void> {
+        if (!relativePath) throw new Error('Material path is required');
+        const destination = join(this.fsPath(projectUri), '.akari', 'material-ranges.json');
+        const previous = this.materialRangeWrites.get(destination) ?? Promise.resolve();
+        const write = previous.catch(() => undefined).then(async () => {
+            const raw = await this.readJsonFile(destination);
+            const current = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+            const ranges = { ...await this.readMaterialRanges(projectUri) };
+            if (range === null) delete ranges[relativePath];
+            else {
+                if (!Number.isFinite(range.in) || range.in < 0 || !Number.isFinite(range.out) || range.out <= range.in)
+                    throw new Error('Invalid material range');
+                ranges[relativePath] = { in: range.in, out: range.out };
+            }
+            await this.writeJsonAtomic(destination, { ...current, version: 1, ranges });
+        });
+        this.materialRangeWrites.set(destination, write);
+        try { await write; } finally {
+            if (this.materialRangeWrites.get(destination) === write) this.materialRangeWrites.delete(destination);
+        }
     }
 
     async writeUiState(projectUri: string, patch: Record<string, unknown>): Promise<void> {
