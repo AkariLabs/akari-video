@@ -398,7 +398,7 @@ export class AkariOutputsPane {
                     <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>できたもの</span>
                     <button
                         type='button'
-                        className='theia-button secondary small'
+                        className='theia-button quiet small'
                         title='できたものを更新'
                         aria-label='できたものを更新'
                         data-akari-outputs-refresh
@@ -517,7 +517,7 @@ export class AkariOutputsPane {
                 </div>
                 <button
                     type='button'
-                    className='theia-button secondary small'
+                    className='theia-button quiet small'
                     title={revealInFileManagerActionLabel(label)}
                     aria-label={revealInFileManagerActionLabel(label)}
                     data-akari-output-reveal={entry.relativePath}
