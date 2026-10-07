@@ -12,7 +12,7 @@ const ITEM_KEYS = new Set([
 ]);
 const MEDIA_ITEM_KEYS = new Set([...ITEM_KEYS, 'captions']);
 const AUDIO_ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'cut_edge', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'fade_in_shape', 'fade_out_shape', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
     'denoise', 'lowcut_hz', 'script', 'reading', 'caption_ref', 'provenance', 'anchor'
 ]);
@@ -181,6 +181,8 @@ function validateAudioItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'link'))
         requireText(value.link, `${path}.link`);
+    if (hasOwn(value, 'cut_edge'))
+        validateCutEdge(value.cut_edge, `${path}.cut_edge`);
     if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean') {
         throw invalid(`${path}.mute`, 'boolean である必要があります');
     }
@@ -421,6 +423,16 @@ function validateItemMetadata(value, path) {
         if (hasOwn(value, key) && typeof value[key] !== 'boolean')
             throw invalid(`${path}.${key}`, 'boolean である必要があります');
     }
+}
+function validateCutEdge(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['in', 'out', 'at']), path);
+    requireNonNegativeNumber(value.in, `${path}.in`);
+    requireNonNegativeNumber(value.out, `${path}.out`);
+    if (value.out <= value.in)
+        throw invalid(path, 'out > in が必要です');
+    if (!Number.isInteger(value.at))
+        throw invalid(`${path}.at`, '整数である必要があります');
 }
 function validateItemAnchor(value, path) {
     requireRecord(value, path);

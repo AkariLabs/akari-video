@@ -11,6 +11,21 @@ const examplesRoot = join(packageRoot, "examples");
 const schema = JSON.parse(readFileSync(join(packageRoot, "edit.schema.json"), "utf8"));
 const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
 
+test('audio cut_edge is optional and has closed source edges and integer placement', () => {
+  const value = fixture('edit-v2-cut-audio-split-valid');
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  const audio = value.tracks[1].items[0];
+  audio.cut_edge = { in: 0, out: 3, at: -2 };
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  for (const edge of [
+    { in: -1, out: 3, at: 0 }, { in: 0, out: -1, at: 0 },
+    { in: 0, out: 3, at: 0.5 }, { in: 0, out: 3, at: 0, extra: 1 },
+  ]) {
+    audio.cut_edge = edge;
+    assert.equal(validate(value), false, JSON.stringify(edge));
+  }
+});
+
 test('photo crop rotation and inside frame accept bounded values', () => {
   const value = fixture('edit-v2-valid');
   const item = value.tracks[3].items[0];

@@ -9,6 +9,23 @@ import { serializeEdit } from "../lib/canonical.js";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "edit-v2.json");
 
+test('readEditV2 accepts audio cut_edge and rejects invalid edges', () => {
+  const value = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4' }], tracks: [
+      { id: 'v', lane: 'visual', items: [{ id: 'clip', at: 0, duration: 90,
+        source: { kind: 'media', src: 'main', in: 0, out: 3 }, audio: false }] },
+      { id: 'a', lane: 'audio', items: [{ id: 'voice', at: 0, duration: 90,
+        role: 'speech', link: 'clip', source: { kind: 'media', src: 'main', in: 0, out: 3 },
+        cut_edge: { in: 0, out: 3, at: -2 } }] },
+    ] };
+  assert.deepEqual(readEditV2(value).tracks[1].items[0].cut_edge, { in: 0, out: 3, at: -2 });
+  for (const edge of [{ in: 2, out: 2, at: 0 }, { in: -1, out: 3, at: 0 },
+    { in: 0, out: 3, at: 0.5 }, { in: 0, out: 3, at: 0, extra: true }]) {
+    value.tracks[1].items[0].cut_edge = edge;
+    assert.throws(() => readEditV2(value), /cut_edge/);
+  }
+});
+
 test('media captions on/off survive strict reading and serialization, while other uses fail', async () => {
   const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
   for (const captions of ['on', 'off']) {

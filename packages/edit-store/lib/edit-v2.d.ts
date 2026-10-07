@@ -420,6 +420,12 @@ export interface AudioMediaItemV2 {
     role?: AudioRoleV2;
     /** 同じ edit 内の visual media id。編集上の関連であり時刻・source の正本ではない。 */
     link?: string;
+    /** カット前の音声片の素材端（秒）と配置（フレーム）。 */
+    cut_edge?: {
+        in: number;
+        out: number;
+        at: number;
+    };
     /** item 単位のミュート。省略時は false。 */
     mute?: boolean;
     source: AudioMediaSourceV2;

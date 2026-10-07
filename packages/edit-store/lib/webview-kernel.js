@@ -3652,6 +3652,7 @@ var AkariEditKernel = (() => {
     "duration",
     "role",
     "link",
+    "cut_edge",
     "mute",
     "source",
     "gain_db",
@@ -3818,6 +3819,7 @@ var AkariEditKernel = (() => {
       throw invalid(`${path}.role`, "sfx/narration/bgm/speech \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
     if (hasOwn(value, "link")) requireText(value.link, `${path}.link`);
+    if (hasOwn(value, "cut_edge")) validateCutEdge(value.cut_edge, `${path}.cut_edge`);
     if (hasOwn(value, "mute") && typeof value.mute !== "boolean") {
       throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
@@ -4011,6 +4013,14 @@ var AkariEditKernel = (() => {
     for (const key of ["hidden", "locked"]) {
       if (hasOwn(value, key) && typeof value[key] !== "boolean") throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
+  }
+  function validateCutEdge(value, path) {
+    requireRecord2(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["in", "out", "at"]), path);
+    requireNonNegativeNumber(value.in, `${path}.in`);
+    requireNonNegativeNumber(value.out, `${path}.out`);
+    if (value.out <= value.in) throw invalid(path, "out > in \u304C\u5FC5\u8981\u3067\u3059");
+    if (!Number.isInteger(value.at)) throw invalid(`${path}.at`, "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
   function validateItemAnchor(value, path) {
     requireRecord2(value, path);
