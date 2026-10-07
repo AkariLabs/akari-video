@@ -1,6 +1,5 @@
 import * as React from '@theia/core/shared/react';
-import { clampMaterialRange, MaterialRange } from '../common/material-range';
-import { formatDurationBadge } from '../common/analysis-summary';
+import { clampMaterialRange, materialRangeLabel, MaterialRange } from '../common/material-range';
 
 interface Props {
     durationSeconds: number;
@@ -76,7 +75,7 @@ export function MaterialRangeHandles({ durationSeconds, range, onChange }: Props
             transform: 'translateX(-50%)', font: '600 10px/1 monospace', color: '#000',
             background: '#ffb47a', padding: '2px 5px', borderRadius: '3px', whiteSpace: 'nowrap',
             pointerEvents: 'auto', zIndex: 4 }}>
-            {formatDurationBadge(current.in)} → {formatDurationBadge(current.out)} · {formatDurationBadge(current.out - current.in)}
+            {materialRangeLabel(current, width < 240)}
             <button type='button' title='範囲をなしに戻す' onClick={event => { event.stopPropagation(); onChange(null); }}
                 style={{ marginLeft: '4px', border: 0, padding: 0, background: 'transparent', cursor: 'pointer' }}>×</button>
         </div>

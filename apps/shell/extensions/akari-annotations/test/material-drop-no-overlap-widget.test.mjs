@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { memberText, findTopLevelFunction } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
+import { readFileSync } from 'node:fs';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
 import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
@@ -77,12 +78,67 @@ test('material placement uses selected source seconds for video and audio', asyn
     }
 });
 
-test('playhead audio placement reads the saved range and creates a ranged audio item', async () => {
+test('playhead audio placement uses only the explicit range and never reads the saved range', async () => {
     const f = fixture([track('v1', 'visual')]);
-    f.handler.commands = { executeCommand: async () => ({ in: 2, out: 6 }) };
-    await f.handler.addMaterialAtPlayhead('assets/new.mp3', 'audio');
+    f.handler.commands = { executeCommand: () => { throw new Error('unexpected range.get'); } };
+    await f.handler.addMaterialAtPlayhead('assets/new.mp3', 'audio', { in: 2, out: 6 });
     const audio = f.doc().tracks.find(row => row.lane === 'audio').items[0];
     assert.deepEqual([audio.source.in, audio.source.out, audio.duration], [2, 6, 120]);
+});
+
+test('playhead request forwards a valid pair and leaves an absent or invalid pair full length', async () => {
+    for (const request of [{ in: 2, out: 6 }, {}, { in: -1, out: 6 }, { in: 12, out: 14 }]) {
+        const f = fixture([track('v1', 'visual')]);
+        let commandCalls = 0;
+        f.handler.commands = { executeCommand: () => { commandCalls++; return { in: 2, out: 6 }; } };
+        const contribution = Object.assign(new Contribution(), {
+            openCurrentTimeline: async () => f.handler, messages: { warn: message => f.errors.push(message) }
+        });
+        await contribution.addMaterialAtPlayhead({ relativePath: 'assets/new.mp4', kind: 'video', ...request });
+        const clip = f.doc().tracks.flatMap(row => row.items).find(row => row.id.startsWith('clip-'));
+        assert.deepEqual([clip.source.in, clip.source.out, clip.duration],
+            request.in === 2 ? [2, 6, 120] : [0, 10, 300]);
+        assert.equal(commandCalls, 0);
+    }
+});
+
+test('output point uses a valid pair and caps out at media duration', async () => {
+    for (const [inPoint, outPoint, expected] of [[2, 30, [2, 10, 240]], [12, 14, [0, 10, 300]]]) {
+        const f = fixture([track('v1', 'visual')]);
+        await f.handler.addMaterialAtOutputPoint('assets/new.mp4', 'video', 3,
+            { x: 0, y: 0 }, false, false, 4000, false, undefined, inPoint, outPoint);
+        const clip = f.doc().tracks.flatMap(row => row.items).find(row => row.id.startsWith('clip-'));
+        assert.deepEqual([clip.source.in, clip.source.out, clip.duration], expected);
+    }
+});
+
+test('output point places ranged audio on an audio track with source in and out', async () => {
+    const f = fixture([track('v1', 'visual')]);
+    await f.handler.addMaterialAtOutputPoint('assets/new.mp3', 'audio', 3,
+        undefined, false, false, undefined, false, undefined, 2, 6);
+    const audio = f.doc().tracks.find(row => row.lane === 'audio').items[0];
+    assert.deepEqual([audio.source.in, audio.source.out, audio.duration], [2, 6, 120]);
+    assert.equal(f.doc().audio?.sfx?.length ?? 0, 0);
+});
+
+test('output point without a range keeps ordinary audio in legacy sfx', async () => {
+    const f = fixture([track('a1', 'audio')]);
+    f.handler.annotationsService.measureAudioForLevel = async () => ({ ok: false, reason: 'test' });
+    await f.handler.addMaterialAtOutputPoint('assets/new.mp3', 'audio', 3);
+    assert.equal(f.doc().audio.sfx.length, 1);
+    assert.equal(f.doc().tracks.find(row => row.lane === 'audio').items.length, 0);
+});
+
+test('output point command bridge forwards request in and out', () => {
+    const source = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
+    assert.match(source, /request\?\.sourceWidth, request\?\.voiceTrack, request\?\.audio, request\?\.in, request\?\.out/u);
+});
+
+test('ghost uses full duration when saved in reaches the measured duration', () => {
+    const f = fixture();
+    f.handler.materialDurationCache.set('assets/new.mp4', 10);
+    assert.equal(f.handler.materialGhostDurationSeconds({ relativePath: 'assets/new.mp4', kind: 'video',
+        in: 12, out: 14 }), 10);
 });
 
 test('drop forwards in/out into the placed clip duration', async () => {

@@ -6544,16 +6544,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 2026-08-10-timeline-clip-menu 指示4）。再生ヘッド位置・トラック 0 固定で addMaterialAt
      * へ委譲する（task 2026-08-10-material-dnd-timeline 指示6）。
      */
-    async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean; voiceTrack?: boolean }): Promise<void> {
+    async addMaterialAtPlayhead(relativePath: string, kind: string, options?: { createAudioTrack?: boolean; voiceTrack?: boolean; in?: number; out?: number }): Promise<void> {
         const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
-        // The command bridge supplies path and kind; read the current saved range here.
-        const range = this.location?.root ? await this.commands?.executeCommand<{ in: number; out: number } | undefined>(
-            'akari.materials.range.get', { projectUri: this.location.root.toString(), relativePath }
-        ).catch(() => undefined) : undefined;
-        if (kind === 'audio' && (options?.createAudioTrack === true || range !== undefined)) {
-            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options?.voiceTrack, ...range });
+        const sourceRange = typeof options?.in === 'number' && Number.isFinite(options.in) && options.in >= 0
+            && typeof options.out === 'number' && Number.isFinite(options.out) && options.out > options.in
+            ? { in: options.in, out: options.out } : undefined;
+        if (kind === 'audio' && (options?.createAudioTrack === true || sourceRange !== undefined)) {
+            await this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack: options?.voiceTrack, ...sourceRange });
         } else {
-            await this.addMaterialAt(relativePath, kind, t, 0, range);
+            await this.addMaterialAt(relativePath, kind, t, 0, sourceRange);
         }
     }
 
@@ -6649,12 +6648,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
     async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
         transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false,
         knownSourceWidth?: number, voiceTrack?: boolean,
-        audio?: VoiceAudioOptions): Promise<string | undefined> {
+        audio?: VoiceAudioOptions, inPoint?: number, outPoint?: number): Promise<string | undefined> {
         if (!Number.isFinite(t)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return undefined;
         }
+        const sourceRange = typeof inPoint === 'number' && Number.isFinite(inPoint) && inPoint >= 0
+            && typeof outPoint === 'number' && Number.isFinite(outPoint) && outPoint > inPoint
+            ? { in: inPoint, out: outPoint } : {};
         if (kind === 'audio') {
+            if ('in' in sourceRange) {
+                return this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: true, voiceTrack, audio, ...sourceRange });
+            }
             return this.addMaterialAt(relativePath, kind, t, 0, { createAudioTrack: voiceTrack, voiceTrack, audio });
         }
         if (kind !== 'image' && kind !== 'video') return undefined;
@@ -6687,7 +6692,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const placed = await this.addMaterialAt(relativePath, kind, t, 0, {
                 transform: { ...transform, scale: 1 }, placeOnTop: true,
                 ...(outsideCanvas ? { outsideCanvas: true } : {}),
-                ...(canvasAware ? { canvasAware: true } : {})
+                ...(canvasAware ? { canvasAware: true } : {}), ...sourceRange
             });
             this.messages.warn('素材の大きさを取得できなかったため、既定の大きさで置きました。');
             return placed;
@@ -6695,7 +6700,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.addMaterialAt(relativePath, kind, t, 0, {
             transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true,
             ...(outsideCanvas ? { outsideCanvas: true } : {}),
-            ...(canvasAware ? { canvasAware: true } : {})
+            ...(canvasAware ? { canvasAware: true } : {}), ...sourceRange
         });
     }
 
@@ -6916,10 +6921,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
-        const sourceIn = typeof options?.in === 'number' && Number.isFinite(options.in)
-            && options.in >= 0 && options.in < durationSeconds ? options.in : 0;
-        const sourceOut = typeof options?.out === 'number' && Number.isFinite(options.out)
-            && options.out > sourceIn ? Math.min(durationSeconds, options.out) : durationSeconds;
+        const validRange = typeof options?.in === 'number' && Number.isFinite(options.in)
+            && options.in >= 0 && options.in < durationSeconds
+            && typeof options.out === 'number' && Number.isFinite(options.out) && options.out > options.in;
+        const sourceIn = validRange ? options!.in! : 0;
+        const sourceOut = validRange ? Math.min(durationSeconds, options!.out!) : durationSeconds;
         durationSeconds = sourceOut - sourceIn;
         const tail = this.editMutationTail ?? Promise.resolve();
         const operation = tail.then(async () => {
@@ -8040,7 +8046,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const full = typeof probed === 'number' && probed > 0 ? probed
             : typeof payload.durationSeconds === 'number' && payload.durationSeconds > 0
                 ? payload.durationSeconds : MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
-        return payload.in !== undefined && payload.out !== undefined
+        return payload.in !== undefined && payload.out !== undefined && payload.in < full
             ? Math.max(0, Math.min(full, payload.out) - payload.in) : full;
     }
 
