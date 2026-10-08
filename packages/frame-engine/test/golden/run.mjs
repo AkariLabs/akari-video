@@ -11,6 +11,10 @@ const repository = resolve(packageDirectory, '../..');
 const generated = resolve(goldenDirectory, '.generated');
 const resultsPath = resolve(generated, 'results.json');
 const requestedUploadPath = process.env.FRAME_ENGINE_UPLOAD_PATH === 'copyTo' ? 'copyTo' : 'direct';
+const configuredTimeout = Number(process.env.FRAME_ENGINE_GOLDEN_TIMEOUT_MS ?? 300_000);
+if (!Number.isSafeInteger(configuredTimeout) || configuredTimeout <= 0) {
+  throw new Error('FRAME_ENGINE_GOLDEN_TIMEOUT_MS must be a positive integer');
+}
 
 execFileSync(process.execPath, [resolve(goldenDirectory, 'generate-fixture.mjs')], {
   cwd: packageDirectory,
@@ -39,7 +43,7 @@ if (existsSync(resultsPath)) unlinkSync(resultsPath);
 const execution = spawnSync(electron, ['--no-sandbox', resolve(goldenDirectory, 'main.cjs')], {
   cwd: packageDirectory,
   encoding: 'utf8',
-  timeout: 330_000,
+  timeout: configuredTimeout + 30_000,
   env: electronEnvironment,
   maxBuffer: 16 * 1024 * 1024
 });
@@ -63,6 +67,9 @@ if (requestedUploadPath === 'direct') assert.equal(results.uploadPath.fallbackRe
 assert.equal(results.colorPatches.pass, true);
 assert.equal(results.colorPatches.direct.pass, true);
 assert.equal(results.colorPatches.copyTo.pass, true);
+if (!/SwiftShader/i.test(results.environment.glRenderer)) {
+  assert.deepEqual(results.colorPatches.direct.tolerance.rgb, [2, 2, 2]);
+}
 assert.equal(results.colorPatches.maskFidelity.pass, true);
 assert.equal(results.colorPatches.direct.rows.every(row => row.timestampInWindow), true);
 assert.equal(results.colorPatches.copyTo.rows.every(row => row.timestampInWindow), true);
@@ -177,8 +184,8 @@ execFileSync(process.execPath, [resolve(goldenDirectory, 'filter-compare.mjs')],
 const filterComparison = JSON.parse(readFileSync(resolve(generated, 'filter-compare.json'), 'utf8'));
 assert.equal(filterComparison.rows.length, 3);
 assert.equal(filterComparison.rows.every(row => row.mathMAD <= 1), true);
-assert.equal(filterComparison.rows.every(row => row.legacyMAD <= 8), true);
-assert.equal(filterComparison.rows.every(row => row.legacyDelta <= 2), true);
+assert.equal(filterComparison.rows.every(row => row.exportMAD <= 8), true);
+assert.equal(filterComparison.rows.every(row => row.exportDelta <= 2), true);
 assert.equal(filterComparison.rows.every(row => row.outsideDifferingPixels === 0), true);
 assert.equal(filterComparison.rows.every(row => row.firstSha256 === row.secondSha256), true);
 

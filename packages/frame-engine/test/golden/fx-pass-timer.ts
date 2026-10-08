@@ -14,6 +14,28 @@ export function median(values: readonly number[]): number | null {
   return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
 }
 
+// A full 1080p FX batch can leave roughly 45s of SwiftShader work queued on CI;
+// 120s allows more than twice that backlog before reporting a stuck GPU.
+export async function drainGpu(gl: WebGL2RenderingContext, deadlineMs = 120_000): Promise<void> {
+  const start = performance.now();
+  const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+  if (!fence) throw new Error('GPU drain fence allocation failed (status=null, elapsed=0ms)');
+  try {
+    gl.flush();
+    for (;;) {
+      const status = gl.clientWaitSync(fence, 0, 0);
+      if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) return;
+      const elapsed = Math.round(performance.now() - start);
+      if (status === gl.WAIT_FAILED || elapsed >= deadlineMs) {
+        throw new Error(`GPU drain failed (status=${status}, elapsed=${elapsed}ms, deadline=${deadlineMs}ms)`);
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    }
+  } finally {
+    gl.deleteSync(fence);
+  }
+}
+
 /** A separate batch: never nest stage queries inside the whole-compose query. */
 export async function measureFxPasses(
   gl: WebGL2RenderingContext,
@@ -40,7 +62,8 @@ export async function measureFxPasses(
       active = true;
     };
     try {
-      gl.finish(); // Drain earlier work outside every measured interval.
+      // Chromium's WebGL finish() acts like a flush, so wait on a fence instead.
+      await drainGpu(gl); // Drain earlier work outside every measured interval.
       gl.getParameter(timer.GPU_DISJOINT_EXT);
       try {
         await compose(index, passTimer);

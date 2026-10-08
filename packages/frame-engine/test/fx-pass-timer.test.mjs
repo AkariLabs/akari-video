@@ -6,15 +6,30 @@ import ts from 'typescript';
 // Exercise the same browser helper without launching a native renderer or emitting files.
 const source = await readFile(new URL('./golden/fx-pass-timer.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
-const { FX_COST_STAGES, measureFxPasses, median } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString('base64')}`);
+const { FX_COST_STAGES, drainGpu, measureFxPasses, median } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputText).toString('base64')}`);
 
-function fakeGpu({ disjoint = false, invalid = false } = {}) {
+function fakeGpu({ disjoint = false, invalid = false, fenceStatuses = [1] } = {}) {
   let active = null, next = 0, yielded = false;
-  const deleted = [];
+  const deleted = [], deletedFences = [];
   const timer = { TIME_ELAPSED_EXT: 1, GPU_DISJOINT_EXT: 2 };
   const gl = {
     QUERY_RESULT_AVAILABLE: 3, QUERY_RESULT: 4,
-    finish() { assert.equal(active, null); }, flush() { yielded = true; },
+    ALREADY_SIGNALED: 1, CONDITION_SATISFIED: 2, TIMEOUT_EXPIRED: 5, WAIT_FAILED: 6,
+    SYNC_GPU_COMMANDS_COMPLETE: 7,
+    flush() { yielded = true; },
+    fenceSync(condition, flags) {
+      assert.equal(active, null);
+      assert.equal(condition, 7);
+      assert.equal(flags, 0);
+      return { polls: 0 };
+    },
+    clientWaitSync(fence, flags, timeout) {
+      assert.equal(yielded, true);
+      assert.equal(flags, 0);
+      assert.equal(timeout, 0);
+      return fenceStatuses[Math.min(fence.polls++, fenceStatuses.length - 1)];
+    },
+    deleteSync(fence) { deletedFences.push(fence); },
     getParameter() { return yielded && disjoint; },
     createQuery() { return { id: next++, ns: invalid ? NaN : 1_000_000 }; },
     beginQuery(_target, query) { assert.equal(active, null, 'elapsed queries cannot nest'); active = query; },
@@ -22,8 +37,27 @@ function fakeGpu({ disjoint = false, invalid = false } = {}) {
     getQueryParameter(query, key) { return key === 3 ? true : query.ns; },
     deleteQuery(query) { assert.notStrictEqual(query, active); deleted.push(query); },
   };
-  return { gl, timer, deleted, count: () => next };
+  return { gl, timer, deleted, deletedFences, count: () => next };
 }
+
+test('GPU drain polls a fence after yielding and deletes it on success', async () => {
+  const gpu = fakeGpu({ fenceStatuses: [5, 2] });
+  await drainGpu(gpu.gl, 100);
+  assert.equal(gpu.deletedFences.length, 1);
+  assert.equal(gpu.deletedFences[0].polls, 2);
+});
+
+test('GPU drain reports WAIT_FAILED and deletes the fence', async () => {
+  const gpu = fakeGpu({ fenceStatuses: [6] });
+  await assert.rejects(drainGpu(gpu.gl, 100), /status=6, elapsed=\d+ms/);
+  assert.equal(gpu.deletedFences.length, 1);
+});
+
+test('GPU drain reports its deadline and deletes the fence', async () => {
+  const gpu = fakeGpu({ fenceStatuses: [5] });
+  await assert.rejects(drainGpu(gpu.gl, 0), /status=5, elapsed=\d+ms, deadline=0ms/);
+  assert.equal(gpu.deletedFences.length, 1);
+});
 
 test('pass timing uses 60 separate frames with non-nested queries and reconciles both sums', async () => {
   const gpu = fakeGpu();

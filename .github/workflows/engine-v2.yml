@@ -167,6 +167,13 @@ jobs:
             "exec node \"${electron_cli}\" --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader \"\$@\"" \
             > node_modules/.bin/electron
           chmod +x node_modules/.bin/electron
+      - name: Prepare SwiftShader golden and OSR runtime
+        shell: bash
+        run: |
+          # SwiftShader takes several times longer than a real GPU; the Electron stage previously reached failure after about 225s.
+          echo 'FRAME_ENGINE_GOLDEN_TIMEOUT_MS=600000' >> "$GITHUB_ENV"
+          # The Ubuntu runner has no SUID sandbox configured for the child OSR Electron.
+          echo 'ELECTRON_DISABLE_SANDBOX=1' >> "$GITHUB_ENV"
       - name: Run golden under SwiftShader (reference only)
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
