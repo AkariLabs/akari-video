@@ -82,6 +82,7 @@ import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
 import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
+import { resolveListChannel } from './home/project-list-channel';
 import { projectHomeCss } from './home/project-home-style';
 import { animateProjectOpen } from './home/open-motion';
 import { decideOpenFlow, openChoices, OpenChoice } from './home/home-open-decision';
@@ -379,6 +380,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected chosenFolder: URI | undefined;
     protected openChoice: 'channel' | 'standalone' = 'channel';
     protected channels: string[] = [];
+    protected listChannelOverride: string | undefined;
     protected pendingChannel: string | undefined;
     protected pendingChannelProjectUri: URI | undefined;
     protected newChannelName = '';
@@ -450,6 +452,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.title.label = this.scope.scope === 'channel' ? 'プロジェクト一覧' : 'ホーム';
         this.toDispose.push(this.scope.onDidChangeScope(scope => {
             this.title.label = scope === 'channel' ? 'プロジェクト一覧' : 'ホーム';
+            if (scope === 'channel') this.setListChannelOverride(undefined);
             this.update();
         }));
         this.toDispose.push(this.progress.onDidChange(() => this.update()));
@@ -2095,10 +2098,22 @@ export class AkariHomeWidget extends ReactWidget {
         this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.update();
     }
 
+    setListChannelOverride(channel: string | undefined): void {
+        const next = channel !== undefined && this.channels.includes(channel) ? channel : undefined;
+        if (this.listChannelOverride === next) return;
+        this.listChannelOverride = next;
+        this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.update();
+    }
+
     protected listChannel(): string {
-        if (this.scope.scope === 'project' && this.currentLocation?.kind === 'inside') return this.currentLocation.channel;
-        const saved = localStorage.getItem(AKARI_LAST_CHANNEL_STORAGE_KEY);
-        return saved && this.channels.includes(saved) ? saved : this.channels[0] ?? CREATOR_ROOT_DEFAULT_CHANNEL;
+        return resolveListChannel({
+            scope: this.scope.scope,
+            override: this.listChannelOverride,
+            workspaceChannel: this.scope.scope === 'project' && this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined,
+            channels: this.channels,
+            lastChannel: localStorage.getItem(AKARI_LAST_CHANNEL_STORAGE_KEY),
+            fallback: CREATOR_ROOT_DEFAULT_CHANNEL
+        });
     }
 
     renderProjectListForTab(): React.ReactNode {

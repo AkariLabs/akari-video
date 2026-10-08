@@ -50,6 +50,7 @@ export const AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE = 'akari.home.openProj
 /** コマンド ID（契約 §2.2）。 */
 export const AKARI_COMMANDS = {
     openProject: 'akari.home.openProject',
+    // 省略可能な { channel?: string } で一覧に表示するチャンネルを指定する。
     openProjectList: 'akari.home.openProjectList',
     closeProject: 'akari.home.closeProject',
     partnerTypePrompt: 'akari.partner.typePrompt',

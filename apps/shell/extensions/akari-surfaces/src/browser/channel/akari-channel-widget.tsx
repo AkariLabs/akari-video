@@ -144,7 +144,8 @@ export class AkariChannelWidget extends ReactWidget {
     }
 
     protected async openProjectList(): Promise<void> {
-        await this.commands.executeCommand(AKARI_COMMANDS.openProjectList);
+        const channel = this.context.viewingChannel;
+        await this.commands.executeCommand(AKARI_COMMANDS.openProjectList, ...(channel ? [{ channel }] : []));
     }
 
     protected async chooseChannel(name: string): Promise<void> {

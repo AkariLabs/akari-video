@@ -94,7 +94,9 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
             }
         });
         registry.registerCommand({ id: AKARI_COMMANDS.openProjectList, label: 'プロジェクト一覧' }, {
-            execute: async () => {
+            execute: async (request?: { channel?: string }) => {
+                const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
+                home.setListChannelOverride(request?.channel);
                 if (this.scope.scope === 'channel') { await this.revealHome(); return; }
                 const list = await this.widgetManager.getOrCreateWidget<AkariProjectListWidget>(AkariProjectListWidget.ID);
                 if (!list.isAttached) this.shell.addWidget(list, { area: 'main' });
