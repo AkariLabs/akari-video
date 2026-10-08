@@ -36,8 +36,11 @@ import { AkariStatusbarResources } from './statusbar/akari-statusbar-resources';
 import { AkariStatusBar } from './statusbar/akari-statusbar';
 import { StatusBar, StatusBarImpl } from '@theia/core/lib/browser/status-bar/status-bar';
 import { AkariStatusbarResourcesService, AKARI_STATUSBAR_RESOURCES_PATH } from '../common/statusbar-resources-protocol';
+import { bindSkillsPanel } from './akari-skills-bindings';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    // 1 枚の画面 v0（contract-2026-10-08-one-shell-v0 §3 レーン S）: スキルの左パネルの束ね口。
+    bindSkillsPanel(bind);
     // ApplicationShell と各 contribution が同じ StatusBar 実体を使う。
     rebind(StatusBarImpl).to(AkariStatusBar).inSingletonScope();
     rebind(StatusBar).toService(StatusBarImpl);

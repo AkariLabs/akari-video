@@ -944,6 +944,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.stopFontAvailabilityPolling();
         }
         this.topView = view;
+        // 1 枚の画面 v0: 左端のアイコン列（akari-shell-strip）が「プロジェクト / ライブラリ」の擬似タブの
+        // 選択表示を決めるために読む。拡張間で型を import しない代わりに body の属性で渡す（契約 §2.3）。
+        if (typeof document !== 'undefined') { document.body.setAttribute('data-akari-catalog-tab', view === 'materials' ? 'project' : 'library'); }
         if (view === 'catalog') {
             // この入口はクリック・キーボード・明示コマンドからだけ呼ぶ。
             // レイアウト復元や初期化は通らないため、ここでは利用者操作として再取得する。

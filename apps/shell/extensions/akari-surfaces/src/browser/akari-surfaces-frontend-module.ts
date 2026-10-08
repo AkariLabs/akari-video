@@ -31,8 +31,19 @@ import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-
 import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
 import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
+import { ProjectProgressService } from './home/project-progress';
+import { bindHomeOneShell } from './akari-home-bindings';
+import { bindChannelPanel } from './akari-channel-bindings';
+import { bindTitleBar } from './akari-title-bar-bindings';
 
-export default new ContainerModule(bind => {
+export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+    // 1 枚の画面 v0（contract-2026-10-08-one-shell-v0 §2.4 / §3）: 進み具合 5 段と、レーンごとの束ね口。
+    bind(ProjectProgressService).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(ProjectProgressService);
+    bindHomeOneShell(bind);
+    bindChannelPanel(bind);
+    bindTitleBar(bind, rebind);
+
     // 設定値が決まった時点と変更時に同期読み取り用の写しを更新する。書き手はここだけ。
     bind(FrontendApplicationContribution).toDynamicValue(context => ({
         onStart: async () => {
