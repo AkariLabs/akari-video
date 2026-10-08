@@ -54,6 +54,7 @@ function cachedChromeCandidates() {
 
 function findChrome() {
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cachedChromeCandidates(),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -69,7 +70,8 @@ test("data-akari-hit とルート素通しのブラウザハーネスが PASS �
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
-    args: [
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
+    args: [ ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
       "--single-process",
       "--no-zygote",
       "--allow-file-access-from-files",

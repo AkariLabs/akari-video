@@ -50,6 +50,7 @@ function findChrome() {
     }
   }
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cached,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -186,6 +187,7 @@ before(async () => {
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
     args: [
       "--no-sandbox",
       "--no-zygote",

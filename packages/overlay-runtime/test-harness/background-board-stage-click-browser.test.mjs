@@ -44,10 +44,13 @@ async function openHarness(t) {
   t.after(() => rmSync(tempDir, { recursive: true, force: true }));
 
   const browser = await loadPuppeteer().launch({
-    executablePath: process.env.CHROME_PATH,
+    executablePath: process.env.AKARI_TEST_CHROME_PATH || process.env.CHROME_PATH,
     headless: "shell",
     pipe: true,
-    args: ["--single-process", "--no-zygote", "--allow-file-access-from-files", "--disable-gpu"],
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === "1",
+    // Linux の CI ランナーはサンドボックスを張れない（hit-policy.test.mjs ほかと同じ流儀）。
+    args: [...(process.platform === "linux" ? ["--no-sandbox"] : []),
+      "--single-process", "--no-zygote", "--allow-file-access-from-files", "--disable-gpu"],
   });
   t.after(() => browser.close());
   const page = await browser.newPage();

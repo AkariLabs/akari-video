@@ -115,8 +115,7 @@ jobs:
       - name: unit tests (lane quarantine)
         run: node scripts/ci/run-unit-tests.mjs --lane quarantine
 
-  # 参考: ffmpeg / ffprobe / Chrome が要るパッケージ。Linux ランナーで通る保証は無い（symlink 権限・
-  # GPU・フォントの差）。緑が安定したら required 化を検討する。
+  # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージ。緑が安定したら required 化を検討する。
   unit-media:
     name: unit-media (ffmpeg / Chrome が要る — 参考)
     runs-on: ubuntu-latest
@@ -124,22 +123,120 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
           cache: npm
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install media and Electron system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
-      # preview-server は @playwright/test（root devDependency）の chromium を、overlay-runtime は
-      # puppeteer-core + CHROME_PATH（ubuntu-latest 同梱の Google Chrome）を使う
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Install Electron from the package version
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -e
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
+          test -x node_modules/electron/dist/electron
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Build transcript import dependencies
+        continue-on-error: true
+        run: |
+          npm --prefix packages/edit-store run build
+          npm --prefix apps/shell/extensions/akari-preview run build
+          npm --prefix apps/shell/extensions/akari-project run build
+          npm --prefix apps/shell/extensions/akari-annotations run build
+          npm --prefix apps/shell/extensions/akari-transcript run build
+      # preview-server は Playwright chromium、overlay-runtime は puppeteer-core と
+      # 専用の chrome-headless-shell を使う。CHROME_PATH は既存の他パッケージ向けに維持する。
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
+      # ランナーは kernel.apparmor_restrict_unprivileged_userns=1 で Chrome sandbox を張れないため、Linux だけ --no-sandbox が要る。
+      # headless-shell + single-process で overlay-runtime は 396/396 pass。
+      # Google Chrome は EGL 初期化失敗で多数 fail したため、overlay-runtime には headless-shell を使う。
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Install overlay Chrome headless shell
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -e
+          shell_version="$(node -p "require('puppeteer-core').PUPPETEER_REVISIONS['chrome-headless-shell']")"
+          shell_bin="$(node node_modules/puppeteer-core/node_modules/@puppeteer/browsers/lib/main-cli.js \
+            install "chrome-headless-shell@$shell_version" --path "$HOME/.cache/puppeteer" --format '{{path}}')"
+          test -x "$shell_bin"
+          echo "Installed chrome-headless-shell version=$shell_version path=$shell_bin"
+          echo "AKARI_TEST_CHROME_PATH=$shell_bin" >> "$GITHUB_ENV"
+      # 製品が配布するものと同じ同梱 ffmpeg で測る。
+      # apt 6.1 は RGB→YUV を BT.601 の係数で変換し、BT.709 のタグだけを付けていたため、
+      # OSR の色の 4 件が失敗していた。
+      # apt の ffmpeg は取得・確認失敗時の予備と、PATH 上の ffmpeg を前提にする media-bin のテストのために残す。
+      - name: Prepare bundled ffmpeg for media lane
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set +e
+          timeout -k 5s 4m node packages/media-bin/scripts/fetch-binaries.mjs
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg fetch failed (exit=$code); using apt ffmpeg"
+            exit 0
+          fi
+          vendor_binary="$(node --input-type=module -e "import { vendorBinaryPath } from './packages/media-bin/src/binary-manifest.mjs'; process.stdout.write(vendorBinaryPath('ffmpeg'))")"
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg path lookup failed (exit=$code); using apt ffmpeg"
+            exit 0
+          fi
+          vendor_dir="$(dirname "$vendor_binary")"
+          for binary in ffmpeg ffprobe; do
+            if [ ! -x "$vendor_dir/$binary" ]; then
+              echo "::warning::Bundled $binary is not executable (exit=1); using apt ffmpeg"
+              exit 0
+            fi
+            version="$("$vendor_dir/$binary" -version)"
+            code=$?
+            if [ "$code" -ne 0 ]; then
+              echo "::warning::Bundled $binary version check failed (exit=$code); using apt ffmpeg"
+              exit 0
+            fi
+            if [ "$binary" = ffmpeg ]; then
+              vendor_version="${version%%$'\n'*}"
+            fi
+          done
+          printf '%s\n' "$vendor_dir" >> "$GITHUB_PATH"
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg PATH update failed (exit=$code); using apt ffmpeg"
+            exit 0
+          fi
+          echo "Using bundled ffmpeg dir=$vendor_dir version=$vendor_version"
+          exit 0
       - name: unit tests (lane media)
-        run: node scripts/ci/run-unit-tests.mjs --lane media
+        run: |
+          ffmpeg_path="$(command -v ffmpeg || true)"
+          ffprobe_path="$(command -v ffprobe || true)"
+          ffmpeg_version="$(ffmpeg -version 2>/dev/null)" || ffmpeg_version=missing
+          ffprobe_version="$(ffprobe -version 2>/dev/null)" || ffprobe_version=missing
+          ffmpeg_version="${ffmpeg_version%%$'\n'*}"
+          ffprobe_version="${ffprobe_version%%$'\n'*}"
+          printf 'MEDIA_FFMPEG ffmpeg=%s version=%s\n' "${ffmpeg_path:-missing}" "${ffmpeg_version:-missing}"
+          printf 'MEDIA_FFMPEG ffprobe=%s version=%s\n' "${ffprobe_path:-missing}" "${ffprobe_version:-missing}"
+          xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
         env:
           CHROME_PATH: /usr/bin/google-chrome
+          ELECTRON_DISABLE_SANDBOX: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
 
   l0:
     name: L0 (build:ext + lint + shell unit tests)

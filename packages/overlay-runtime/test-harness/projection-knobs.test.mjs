@@ -45,6 +45,7 @@ function puppeteerCacheCandidates() {
 }
 
 const CHROME_CANDIDATES = [
+  process.env.AKARI_TEST_CHROME_PATH,
   ...puppeteerCacheCandidates(),
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ];
@@ -171,6 +172,7 @@ async function main() {
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
     args: [
       "--no-sandbox",
       "--no-zygote",

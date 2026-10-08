@@ -10,6 +10,7 @@ import { buildRenderMediaReferences, enumerateDeclaredRenderInputs, projectResol
 import { withRenderMediaReferences } from "../src/render-cut.mjs";
 import { renderMediaReferencesPath } from "../../osr-export/src/static-server.mjs";
 import { resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { HARDWARE_ENCODER_UNSUPPORTED_MARKER } from "../../gpu-export/src/gpu-diagnostics.mjs";
 
 const cli = fileURLToPath(new URL("../bin/render-cut.mjs", import.meta.url));
 const videoPath = "assets/broll/intro/clip.mp4";
@@ -288,7 +289,23 @@ for (const engine of ["osr", "gpu"]) for (const phase of ["legacy", "both", "new
     await placeFixture(fixture, phase);
     const out = join(projectRoot, "output.mp4");
     const started = performance.now();
-    run(process.execPath, [cli, projectRoot, "--engine", engine, "--out", out], { env });
+    if (engine === "gpu") {
+      const result = spawnSync(process.execPath, [cli, projectRoot, "--engine", engine, "--out", out],
+        { encoding: "utf8", timeout: 120_000, maxBuffer: 8 * 1024 * 1024, env });
+      // render-cut only requests prefer-hardware WebCodecs; it has no soft path. engine-v2's
+      // gpu-export-soft exercises the separate gpu-export bin. Without a hardware H.264 encoder,
+      // gpu-diagnostics intentionally fails closed and asks for --engine osr. Distributed macOS
+      // and Windows machines have hardware encoders, unlike a software-GL CI runner.
+      const diagnostic = result.stderr?.split(/\r?\n/).find(line => line.includes(HARDWARE_ENCODER_UNSUPPORTED_MARKER));
+      const renderer = diagnostic?.match(/renderer=(.*)/)?.[1];
+      if (result.status !== 0 && renderer && /SwiftShader|llvmpipe|softpipe/i.test(renderer)) {
+        t.skip(`software GL has no hardware H.264 encoder: ${diagnostic}`);
+        return;
+      }
+      assert.equal(result.status, 0, `${process.execPath}: ${result.error ?? ""}\n${result.stderr}\n${result.stdout}`);
+    } else {
+      run(process.execPath, [cli, projectRoot, "--engine", engine, "--out", out], { env });
+    }
     const elapsed = ((performance.now() - started) / 1000).toFixed(2);
     const state = JSON.parse(await readFile(join(projectRoot, ".akari/render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");

@@ -124,9 +124,10 @@ test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → d
     assert.match(source, /handler\.railGroupOf\?\.\(id\) \?\? defaultRightRailGroup\(id\)/);
 });
 
-test('defaultRightRailGroup: partner onboarding and terminal-<n> are above the line, everything else (incl. unknown) below', () => {
+test('defaultRightRailGroup: partner onboarding, partner webview and terminal-<n> are above the line', () => {
     const table = [
-        ['akari-partner-onboarding', 'agent'], ['terminal-0', 'agent'], ['terminal-12', 'agent'],
+        ['akari-partner-onboarding', 'agent'], [rail.RIGHT_RAIL_PARTNER_WEB_ID, 'agent'],
+        ['terminal-0', 'agent'], ['terminal-12', 'agent'],
         ['akari-daihon-widget', 'lower'], ['akari-review-panel-widget', 'lower'],
         ['akari-inspector-widget', 'lower'], ['akari-audio-meter-widget', 'lower'], ['outline-view', 'lower'],
         ['terminal-x', 'lower'], ['my-terminal-1', 'lower']
@@ -134,6 +135,15 @@ test('defaultRightRailGroup: partner onboarding and terminal-<n> are above the l
     for (const [id, group] of table) {
         assert.equal(rail.defaultRightRailGroup(id), group, id);
     }
+});
+
+test('partner webview rail id matches PartnerWebWidget.ID and stays outside fixed and transient ids', () => {
+    const source = readFileSync(new URL('../../akari-partner/src/browser/akari-partner-web-widget.tsx', import.meta.url), 'utf8');
+    const match = source.match(/static readonly ID\s*=\s*'([^']+)'/);
+    assert.ok(match, 'PartnerWebWidget.ID');
+    assert.equal(rail.RIGHT_RAIL_PARTNER_WEB_ID, match[1]);
+    assert.ok(!RAIL_FIXED.includes(rail.RIGHT_RAIL_PARTNER_WEB_ID));
+    assert.equal(rail.isTransientRailId(rail.RIGHT_RAIL_PARTNER_WEB_ID), false);
 });
 
 test('partner extension view ids come from partner-catalog.json and are above the line', () => {
@@ -163,6 +173,31 @@ test('computeRightPanelOrder with groupOf: agents (terminals → partner last) a
     assert.deepEqual(ordered, ['terminal-3', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget',
         'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget', 'outline-view']);
     assert.deepEqual(rail.computeRightPanelOrder(ordered, RAIL_FIXED, rail.defaultRightRailGroup), ordered, 'idempotent');
+});
+
+test('partner webview stays above meter and partner onboarding while keeping loose agent order', () => {
+    const web = rail.RIGHT_RAIL_PARTNER_WEB_ID;
+    const current = ['terminal-2', 'akari-audio-meter-widget', web, 'akari-partner-onboarding',
+        'akari-inspector-widget', 'terminal-1'];
+    const expected = ['terminal-2', web, 'terminal-1', 'akari-partner-onboarding',
+        'akari-inspector-widget', 'akari-audio-meter-widget'];
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED, rail.defaultRightRailGroup), expected);
+});
+
+test('saved order from before the partner webview default changed cannot keep it below the line', () => {
+    const web = rail.RIGHT_RAIL_PARTNER_WEB_ID;
+    const current = ['terminal-0', 'akari-partner-onboarding', 'akari-audio-meter-widget', web];
+    const saved = [...current]; // 旧状態: 所属の保存なし、並びだけ下側に残っている。
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED, rail.defaultRightRailGroup, saved),
+        ['terminal-0', web, 'akari-partner-onboarding', 'akari-audio-meter-widget']);
+});
+
+test('saved lower membership for the partner webview wins over its new default', () => {
+    const web = rail.RIGHT_RAIL_PARTNER_WEB_ID;
+    const current = ['terminal-0', web, 'akari-partner-onboarding', 'akari-audio-meter-widget'];
+    const saved = ['terminal-0', 'akari-partner-onboarding', 'akari-audio-meter-widget', web];
+    const groupOf = id => id === web ? 'lower' : rail.defaultRightRailGroup(id);
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED, groupOf, saved), saved);
 });
 
 test('computeRightPanelOrder with groupOf: a panel moved above the line sits before "パートナーを追加", a terminal moved below goes last', () => {

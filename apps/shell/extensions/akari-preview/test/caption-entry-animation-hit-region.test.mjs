@@ -62,6 +62,7 @@ function cachedChromeCandidates() {
 
 function findChrome() {
     const candidates = [
+        process.env.AKARI_TEST_CHROME_PATH,
         process.env.CHROME_PATH,
         ...cachedChromeCandidates(),
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -186,11 +187,16 @@ function assertContainsCurrentBbox(result, pathName) {
 
 async function openBrowser(t) {
     const puppeteer = loadPuppeteer();
+    // Keep this test's three launch flags; the shared fixture adds different rendering flags.
     const browser = await puppeteer.launch({
         executablePath: findChrome(),
         headless: 'shell',
         pipe: true,
-        args: ['--single-process', '--no-zygote', '--disable-gpu']
+        dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
+        args: [
+            ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
+            '--single-process', '--no-zygote', '--disable-gpu'
+        ]
     });
     t.after(() => browser.close());
     return browser;

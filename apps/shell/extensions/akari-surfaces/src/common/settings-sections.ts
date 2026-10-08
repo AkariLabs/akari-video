@@ -111,6 +111,7 @@ export const STATUS_BAR_KEYS = {
     intervalSec: 'akari.statusBar.intervalSec', accountBalance: 'akari.statusBar.accountBalance'
 } as const;
 export const AKARI_PARTNER_REOPEN = 'akari.partner.reopenLast';
+export const AKARI_PARTNER_PERMISSION_MODE = 'akari.partner.permissionMode';
 
 export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[]> = {
     account: [], // AKARI Store は PreferenceService ではなく Store の接続フローが所有する。
@@ -121,7 +122,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     appearance: [WORKBENCH_COLOR_THEME, AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, ...Object.values(STATUS_BAR_KEYS)],
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
     'ai-models': [],
-    partner: [AKARI_PARTNER_REOPEN],
+    partner: [AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE],
     transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     listening: ['akari.listening.engine', 'akari.vibe.mode'],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],

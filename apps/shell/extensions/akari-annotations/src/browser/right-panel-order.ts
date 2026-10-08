@@ -20,6 +20,9 @@ export type RightRailGroup = 'agent' | 'lower';
 /** 「パートナーを追加」（オンボーディング）。上の区画の末尾に置く。 */
 export const RIGHT_RAIL_PARTNER_ID = 'akari-partner-onboarding';
 
+/** DeepSeek Harness の webview。PartnerWebWidget.ID と同じ id で、端末と同じ非固定の住人。 */
+export const RIGHT_RAIL_PARTNER_WEB_ID = 'akari-partner-web';
+
 /**
  * 右レールの固定の住人（上から: パートナーを追加 → 台本 → 注釈 → インスペクター → 音声メーター）。
  * akari-annotations-contribution.ts の RIGHT_PANEL_FIXED_ORDER と akari-shell-strip の右パネルハンドラーが
@@ -42,9 +45,10 @@ const partnerViewIds = new Set(partnerCatalog.flatMap(entry => entry.viewContain
 
 export const isTransientRailId = (id: string): boolean => /^terminal-\d+$/.test(id);
 
-/** 既定の所属: パートナーを追加・端末・カタログ掲載の拡張ビューが上、未知の新顔は下。 */
+/** 既定の所属: パートナーを追加・パートナー webview・端末・カタログ掲載の拡張ビューが上、未知の新顔は下。 */
 export function defaultRightRailGroup(id: string): RightRailGroup {
-    return id === RIGHT_RAIL_PARTNER_ID || isTransientRailId(id) || partnerViewIds.has(id) ? 'agent' : 'lower';
+    return id === RIGHT_RAIL_PARTNER_ID || id === RIGHT_RAIL_PARTNER_WEB_ID || isTransientRailId(id) || partnerViewIds.has(id)
+        ? 'agent' : 'lower';
 }
 
 /** 保存された並びに新顔を既定順で差し込み、既存の利用者順を保つ。 */

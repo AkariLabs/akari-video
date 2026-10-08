@@ -100,7 +100,7 @@ test('サイドカー生成中もイベントループは止まらない（spawn
     assert.equal(result.ok, true, result.reason);
     assert.equal(result.skipped, false);
     assert.deepEqual(Object.keys(result).sort(),
-      ['channels', 'durationSec', 'key', 'ok', 'path', 'reason', 'sampleRate', 'skipped']);
+      ['channels', 'durationSec', 'format', 'key', 'ok', 'path', 'reason', 'sampleRate', 'skipped']);
     assert.equal(result.sampleRate, 48000);
     assert.equal(result.channels, 1);
     assert.equal(result.durationSec, 1);

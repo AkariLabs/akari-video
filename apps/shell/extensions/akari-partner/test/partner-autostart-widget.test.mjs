@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { decideAutoStart } from '../lib/common/partner-autostart.js';
 import { rememberPartnerClose } from '../lib/common/partner-last-session.js';
+import { normalizePartnerPermissionMode } from '../lib/common/partner-permissions.js';
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-partner-widget.tsx', import.meta.url), 'utf8'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -13,6 +14,13 @@ function method(name, dependencies) {
     const code = ts.transpileModule(`class Widget { ${member.getText(source)} }`,
         { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
     return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
+}
+
+function topLevelFunction(name) {
+    const declaration = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    const code = ts.transpileModule(declaration.getText(source),
+        { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+    return new Function(`${code}\nreturn ${name};`)();
 }
 
 function deferred() {
@@ -27,6 +35,64 @@ function autoStartMethod(catalog) {
         PARTNER_CATALOG: catalog, PartnerWebWidget: { ID: 'web' }
     });
 }
+
+test('権限モードの読取は User 値だけを採用する', () => {
+    const read = method('partnerPermissionMode', {
+        normalizePartnerPermissionMode, PARTNER_PERMISSION_PREFERENCE: 'akari.partner.permissionMode'
+    });
+    const widget = { preferences: {
+        get: () => assert.fail('merged preference must not be read'),
+        inspect: () => ({ globalValue: undefined, workspaceValue: 'bypass', workspaceFolderValue: 'bypass' })
+    } };
+    assert.equal(read.call(widget), 'auto');
+    widget.preferences.inspect = () => ({ globalValue: 'ask', workspaceValue: 'bypass' });
+    assert.equal(read.call(widget), 'ask');
+});
+
+test('ワークスペースの bypass 指定があっても CLI は User 既定の auto で起動する', async () => {
+    const entry = { id: 'codex-cli', agent: 'codex', form: 'cli', name: 'Codex CLI' };
+    const terminal = { start: async () => {} };
+    let requestedMode;
+    const widget = {
+        shell: { addWidget: async () => {} }, workspaceService: { roots: [] },
+        preferences: { inspect: () => ({ globalValue: undefined, workspaceValue: 'bypass', workspaceFolderValue: 'bypass' }) },
+        partnerServer: { async prepareLaunch(_agent, _path, mode) {
+            requestedMode = mode;
+            return { args: ['--approve-for-me'], env: {}, appliedPermissionMode: 'auto' };
+        } },
+        terminalService: { async newTerminal(options) { assert.deepEqual(options.shellArgs, ['--approve-for-me']); return terminal; } },
+        setProgress() {}, setComplete() {}, setFailure: (_entry, _status, detail) => assert.fail(detail),
+        ensureCliProvisioned: async () => {}, attachTerminal: async () => {}, rememberPartnerStart: async () => {}
+    };
+    widget.partnerPermissionMode = method('partnerPermissionMode', {
+        normalizePartnerPermissionMode, PARTNER_PERMISSION_PREFERENCE: 'akari.partner.permissionMode'
+    }).bind(widget);
+    const beginCli = method('beginCli', {
+        appliedPartnerPermissionMode: () => 'auto', partnerPermissionEnv: () => ({}),
+        permissionModeLabel: topLevelFunction('permissionModeLabel'),
+        PARTNER_CLI_ICON_CLASSES: { codex: 'codex-icon' }, PartnerTerminal: { KIND: 'partner' },
+        AkariPartnerInstallDialog: class {}
+    });
+    await beginCli.call(widget, entry, { executablePath: 'fake-codex', reused: true, runtimeMode: 'node', runtimePath: 'fake-node', log: [] }, true);
+    assert.equal(requestedMode, 'auto');
+});
+
+test('ツールの既定で起動したタブ名は復元時にも再利用される', async () => {
+    const entry = { id: 'cli', agent: 'claude', form: 'cli', name: 'Claude Code CLI' };
+    const terminal = { kind: 'partner', title: { label: 'Claude Code CLI（ツールの既定で起動）' }, isDisposed: false };
+    const widget = {
+        terminalService: { all: [terminal] }, liveTerminals: new Map(),
+        isTerminalAlive: async (_terminal, waitForRestore) => { assert.equal(waitForRestore, true); return true; },
+        observeTerminalLifecycle(found, foundEntry) { assert.equal(found, terminal); assert.equal(foundEntry, entry); }
+    };
+    const findExisting = method('findExistingCliTerminal', {
+        LEGACY_CLI_LABELS: { claude: [] }, PartnerTerminal: { KIND: 'partner' },
+        permissionModeLabel: topLevelFunction('permissionModeLabel')
+    });
+    assert.equal(await findExisting.call(widget, entry, true), terminal);
+    assert.equal(widget.liveTerminals.get(entry.id), terminal);
+    assert.equal(terminal.title.label, 'Claude Code CLI（ツールの既定で起動）');
+});
 
 test('working auto-start blocks the same manual begin and later reuses one CLI terminal', async () => {
     const entry = { id: 'cli', agent: 'sample', form: 'cli', name: 'Sample' };

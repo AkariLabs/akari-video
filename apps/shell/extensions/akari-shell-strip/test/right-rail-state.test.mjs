@@ -14,6 +14,7 @@ const NOTE = 'akari-review-panel-widget';
 const INSP = 'akari-inspector-widget';
 const METER = 'akari-audio-meter-widget';
 const PARTNER = 'akari-partner-onboarding';
+const PARTNER_WEB = 'akari-partner-web';
 const CLAUDE = 'terminal-0';
 const RAIL = [CLAUDE, PARTNER, DAIHON, CUTS, NOTE, INSP, METER];
 
@@ -24,9 +25,25 @@ test('default: one pane, default groups, no displaced panels', () => {
     assert.deepEqual(state, { version: 1, groups: {}, order: [], split: false, top: null, bottom: null, focus: 'top', ratio: 0.5, displaced: {} });
     assert.equal(S.rightRailGroupOf(state, CLAUDE), 'agent');
     assert.equal(S.rightRailGroupOf(state, PARTNER), 'agent');
+    assert.equal(S.rightRailGroupOf(state, PARTNER_WEB), 'agent');
     for (const id of [DAIHON, CUTS, NOTE, INSP, METER]) {
         assert.equal(S.rightRailGroupOf(state, id), 'lower', id);
     }
+});
+
+test('partner webview keeps its saved order and explicit lower membership across restart', () => {
+    const ids = [CLAUDE, PARTNER, METER, PARTNER_WEB];
+    const oldState = fresh();
+    oldState.order = [...ids]; // 旧状態では webview がメーターの下、所属の保存なし。
+    const migrated = S.readRightRailState(S.saveRightRailState(oldState));
+    assert.deepEqual(S.rightRailOrder(migrated, ids), [CLAUDE, PARTNER_WEB, PARTNER, METER]);
+    assert.ok(migrated.order.includes(PARTNER_WEB), 'stable webview id remains saved');
+
+    S.setRightRailGroup(migrated, PARTNER_WEB, 'lower');
+    assert.equal(migrated.groups[PARTNER_WEB], 'lower');
+    const restored = S.readRightRailState(JSON.parse(JSON.stringify(S.saveRightRailState(migrated))));
+    assert.equal(S.rightRailGroupOf(restored, PARTNER_WEB), 'lower');
+    assert.deepEqual(S.rightRailOrder(restored, ids), ids);
 });
 
 test('readRightRailState: valid data round-trips', () => {

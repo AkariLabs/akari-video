@@ -37,6 +37,7 @@ function findChrome() {
     }
   }
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cached,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -52,5 +53,7 @@ export async function launchBrowser() {
   const multiProcess = process.env.AKARI_TEST_BROWSER_MULTI_PROCESS === '1';
   const args = ['--disable-gpu','--use-angle=swiftshader','--allow-file-access-from-files'];
   if (!multiProcess) args.unshift('--single-process','--no-zygote');
-  return loadPuppeteer().launch({executablePath:findChrome(), headless:"shell", pipe:true, args});
+  if (process.platform === 'linux') args.push('--no-sandbox');
+  return loadPuppeteer().launch({executablePath:findChrome(), headless:"shell", pipe:true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1', args});
 }
