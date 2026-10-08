@@ -137,14 +137,14 @@ test('frame tool keeps its original line grab route', () => {
   assert.equal(frame.call(state, pointer(106)), false);
 });
 
-test('playhead is crisp white with a hollow idle handle and resize cursor', () => {
-  assert.match(source, /const PLAYHEAD_COLOR = '#fff'/u);
+test('playhead uses the theme color with a hollow idle handle and resize cursor', () => {
+  assert.match(source, /const PLAYHEAD_COLOR = 'var\(--akari-tl-playhead\)'/u);
   const line = source.slice(source.indexOf('Object.assign(this.playhead.style'), source.indexOf('this.playheadHandle.addEventListener'));
   assert.match(line, /width: '1px'/u);
   assert.match(line, /fill="none"/u);
-  assert.match(line, /stroke="\$\{PLAYHEAD_COLOR\}"/u);
+  assert.match(line, /style="stroke: \$\{PLAYHEAD_COLOR\}"/u);
   assert.doesNotMatch(line, /boxShadow|filter|dropShadow|textShadow/iu);
   assert.match(style, /akari-annotations-line-grab-hover[^\n]*cursor: ew-resize|akari-annotations-line-grab-hover[\s\S]*?cursor: ew-resize/u);
-  assert.match(style, /data-grabbing="true"[\s\S]*?fill:\s*#fff/u);
+  assert.match(style, /data-grabbing="true"[\s\S]*?fill:\s*var\(--akari-tl-playhead\)/u);
   assert.doesNotMatch(style, /akari-annotations-line-grab-hover:hover|akari-annotations-playhead:hover/u);
 });

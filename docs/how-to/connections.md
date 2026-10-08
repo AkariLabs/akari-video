@@ -62,6 +62,13 @@ through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
 in the right panel without opening a browser. Its workspace is the
 currently open project folder. The shell automatically detects an
 OpenCode Go login or a DeepSeek API key and chooses the connection.
+When you reopen a project, DeepSeek returns to its last open conversation if the project's assigned port is available.
+If that port is occupied and another is used, the last conversation may not reopen.
+For conversations created in earlier versions, you may need to select the project folder once.
+The DeepSeek work screen follows the app's Dark, Light, or System
+appearance and updates when that appearance changes.
+A theme explicitly chosen in DeepSeek Settings takes priority; AKARI
+leaves DeepSeek font size and other settings unchanged.
 The catalog is data-driven
 (`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
 not a promise. Whichever partner you connect, everything converges on the same file

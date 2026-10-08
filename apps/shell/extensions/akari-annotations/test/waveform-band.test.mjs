@@ -33,10 +33,13 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
     closePath() { this.closed = true; }
   }
   const window = { devicePixelRatio: 2 };
+  const theme = { base: '#fff', red: '#ef4444', yellow: '#facc15',
+    fill: 'rgba(255,255,255,.7)', stroke: 'rgba(255,255,255,.95)' };
   const widget = runInNewContext(`({${widgetMethod("updateWaveformCanvas", "segmentLabel")}})`, {
     window, Path2D: Path, timeline_metrics_1: { CLIP_HEADER_HEIGHT },
     waveform_band_1: { waveformBandLayout }, filmstrip_geometry_1: geometry,
   });
+  widget.currentWaveformThemeColors = () => theme;
   const identities = new WeakMap();
   let identity = 0;
   widget.audioWaveformPeakIdentity = peaks => {
@@ -44,6 +47,7 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
     return identities.get(peaks);
   };
   const canvas = { style: {}, dataset: {}, getContext: () => context };
+  widget.node = {};
   let peaks = [0.1, 1, 0.2, 0.3];
   const placement = { clipLocalOffsetPx: 0, fullClipWidthPx: 2 };
   const paint = (width = 2, height = 48) => widget.updateWaveformCanvas(canvas, peaks, width, placement, height);
@@ -91,6 +95,13 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
   assert.equal(canvas.style.height, "12px");
   assert.equal(canvas.style.top, "0.5px");
   assert.ok(calls.length > count, "帯高が同じでもtop変更で描き直す");
+  count = calls.length;
+  theme.fill = 'rgba(24,24,27,.7)';
+  theme.stroke = 'rgba(24,24,27,.95)';
+  paint(3, 13);
+  assert.ok(calls.length > count, '保持したテーマ色の変更で描き直す');
+  assert.equal(context.fillStyle, theme.fill);
+  assert.equal(context.strokeStyle, theme.stroke);
 });
 
 test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS配置を維持する", () => {
@@ -100,9 +111,14 @@ test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS�
   const context = Object.fromEntries(["setTransform", "scale", "drawImage"].map(name =>
     [name, (...args) => calls.push([name, ...args])]));
   const canvas = { style: {}, dataset: {}, getContext: () => context };
+  const theme = { base: '#fff', red: '#ef4444', yellow: '#facc15',
+    fill: 'rgba(255,255,255,.7)', stroke: 'rgba(255,255,255,.95)' };
   const widget = runInNewContext(`({${widgetMethod("updateAudioWaveformCanvas", "audioWaveformMaster")}})`, {
     window, timeline_metrics_1: { CLIP_HEADER_HEIGHT }, filmstrip_geometry_1: geometry,
   });
+  widget.currentWaveformThemeColors = () => theme;
+  widget.node = {};
+  widget.audioWaveformMasterCache = new Map();
   widget.audioWaveformPeakIdentity = () => 1;
   widget.audioWaveformMaster = (key, factory, height) => {
     masters.push({ key, height });
@@ -129,6 +145,10 @@ test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS�
   const draw = calls.filter(([name]) => name === "drawImage").at(-1);
   assert.equal(draw[5], canvas.height, "sourceはmasterのデバイスpx高");
   assert.deepEqual(draw.slice(6), [0, 0, 100, band.heightPx], "転送先はCSS px");
+  const darkKey = masters.at(-1).key;
+  theme.base = '#171717';
+  paint();
+  assert.notEqual(masters.at(-1).key, darkKey, '基準色が変わると master のキーも変わる');
 });
 
 test("波形帯はヘッダーを引かずアイテム中央でトラック高さいっぱいに拡大する", () => {

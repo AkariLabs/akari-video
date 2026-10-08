@@ -65,6 +65,17 @@ body :is(input, textarea, [contenteditable]:not([contenteditable="false"]),
     -webkit-user-select: text;
 }
 
+/* Theia の既定タイトルは status bar と同じ色になる。通常のダイアログだけに
+   外枠を足し、独自ヘッダと外枠を持つポップアップには触れない。 */
+#theia-dialog-shell .dialogTitle {
+    background-color: var(--akari-card);
+    color: var(--akari-ink);
+    border-bottom: 1px solid var(--akari-line-inner);
+}
+#theia-dialog-shell:not(.akari-export-dialog-host):not(.akari-voice-record-dialog-host):not(.akari-lint-results-dialog):not(.akari-rough-canvas-host):not(.akari-voice-dict-dialog) .dialogBlock {
+    border: 1px solid var(--akari-line);
+}
+
 /* ══ 1. 二重線の除去 ═══════════════════════════════════════════
    カード外周のすぐ内側 / 仕切りの上に重なる Theia 由来の border を落とす。
    仕切りそのものは akari-shell-card-layout.ts の inset box-shadow が 1 本だけ引く。 */
@@ -84,6 +95,18 @@ body :is(input, textarea, [contenteditable]:not([contenteditable="false"]),
     max-height: 20px;
     font-size: 11px;
 }
+/* The 20px + glyph stretches the row to 27px; flex-end pushes its top above the band.
+   The bottom panel clips the overflowing labels and icons. */
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .theia-tabBar-tab-row,
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-content-container,
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-addButton {
+    height: 20px;
+    min-height: 20px;
+    max-height: 20px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-addButton {
+    line-height: 20px;
+}
 #theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-content,
 #theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-toolbar {
     height: 20px;
@@ -101,6 +124,16 @@ body :is(input, textarea, [contenteditable]:not([contenteditable="false"]),
 #theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tabCloseIcon {
     font-size: 11px;
     line-height: 18px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tab .theia-tab-icon-label,
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tab .lm-TabBar-tabLabel {
+    line-height: 16px;
+}
+#theia-app-shell #theia-bottom-content-panel .lm-TabBar.theia-app-centers .lm-TabBar-tab > .lm-TabBar-tabCloseIcon {
+    line-height: 14px;
+    width: 14px;
+    height: 14px;
+    padding: 0;
 }
 /* 分割エディタの上辺も同様（縦分割時にだけ出る）。 */
 #theia-main-content-panel .lm-DockPanel-handle[data-orientation="vertical"] + .lm-TabBar {

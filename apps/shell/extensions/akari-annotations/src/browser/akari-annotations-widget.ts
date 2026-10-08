@@ -550,9 +550,9 @@ const MIN_VIEW_DURATION_FRAMES = 4;
 const RULER_MIN_TICK_SPACING_PX = 80;
 const RULER_STEP_MULTIPLIERS_FRAMES = [1, 2, 5, 10, 20, 50, 100];
 const RULER_STEP_SECONDS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-const RULER_TICK_COLOR = '#3f3f46';
-const RULER_BAND_BACKGROUND = '#1e1e21';
-const STRIP_BORDER_COLOR = '#2a2d33';
+const RULER_TICK_COLOR = 'var(--akari-tl-tick)';
+const RULER_BAND_BACKGROUND = 'var(--akari-tl-ruler)';
+const STRIP_BORDER_COLOR = 'var(--akari-tl-border)';
 
 interface ReviewSessionRange {
     start: number;
@@ -579,7 +579,14 @@ const PAN_SETTLE_RATIO = 0.25;
 const LAYOUT_PERCENT_MIN = -60;
 const LAYOUT_PERCENT_MAX = 160;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
-const PLAYHEAD_COLOR = '#fff';
+const PLAYHEAD_COLOR = 'var(--akari-tl-playhead)';
+interface TimelineWaveformColors {
+    readonly base: string;
+    readonly red: string;
+    readonly yellow: string;
+    readonly fill: string;
+    readonly stroke: string;
+}
 const MICRO_CLIP_WIDTH_PX = 28;
 /** 細いチップでもポインタで掴める実効当たり幅の目標下限（px）。 */
 const MIN_CLIP_HIT_WIDTH_PX = 24;
@@ -629,7 +636,7 @@ const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
 const TRANSITION_BADGE_SIZE_PX = 16;
 const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
-const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'rgba(255,255,255,.4)';
+const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'var(--akari-tl-transition-neutral)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
 const TRANSITION_DROP_HIT_TOLERANCE_PX = 24;
 const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
@@ -1466,6 +1473,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly waveformT2PanTargets = new Map<string, () => void>();
     protected readonly waveformT2Coverages = new Map<string, AudioWaveformT2Coverage>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
+    protected audioWaveformPaletteKey = '';
+    protected waveformThemeColors: TimelineWaveformColors | undefined;
     protected readonly audioWaveformPeakIds = new WeakMap<readonly number[], number>();
     protected nextAudioWaveformPeakId = 1;
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
@@ -1563,6 +1572,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        // Theia switches the body class; AKARI tokens are then written on the document root.
+        // Observe both so existing canvas pixels are repainted without reopening the timeline.
+        let timelineThemeSignature = '';
+        const timelineThemeObserver = new MutationObserver(() => {
+            if (!this.node.isConnected) return;
+            const colors = this.readWaveformThemeColors();
+            const signature = JSON.stringify([
+                document.body.classList.contains('theia-light'),
+                colors.base, colors.red, colors.yellow, colors.fill, colors.stroke
+            ]);
+            if (signature === timelineThemeSignature) return;
+            timelineThemeSignature = signature;
+            this.waveformThemeColors = colors;
+            this.audioWaveformMasterCache.clear();
+            this.audioWaveformPaletteKey = '';
+            this.scheduleStripRender();
+        });
+        timelineThemeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        timelineThemeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+        this.toDispose.push(Disposable.create(() => timelineThemeObserver.disconnect()));
         const onVideoModelsChanged = (): void => { if (this.location) this.renderStrip(); };
         window.addEventListener('akari.videoModelsChanged', onVideoModelsChanged);
         this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.videoModelsChanged', onVideoModelsChanged)));
@@ -1847,8 +1876,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.setAttribute('data-akari-dropzone', 'true');
 
         Object.assign(this.toolbar.style, {
-            alignItems: 'center', display: 'flex', gap: '2px', minHeight: '26px',
-            padding: '0 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
+            alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
+            padding: '3px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
         this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
@@ -2054,7 +2083,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playheadHandle.setAttribute('aria-hidden', 'true');
         this.playheadHandle.innerHTML =
             `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
-            `<path d="M1 1H13V9.5L7 15L1 9.5Z" fill="none" stroke="${PLAYHEAD_COLOR}" stroke-width="2"/></svg>`;
+            `<path d="M1 1H13V9.5L7 15L1 9.5Z" fill="none" style="stroke: ${PLAYHEAD_COLOR}" stroke-width="2"/></svg>`;
         this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
         const playheadLineHit = document.createElement('div');
         playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
@@ -9449,7 +9478,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (text) {
                 text.textContent = label;
                 Object.assign(text.style, { position: 'absolute', left: '0', bottom: '0', top: 'auto', zIndex: '2',
-                    maxWidth: '100%', background: '#111c', color: '#fff', fontSize: '11px', lineHeight: '16px' });
+                    maxWidth: '100%', background: 'var(--akari-tl-visual-label-face)',
+                    color: 'var(--akari-tl-chip-text)', fontSize: '11px', lineHeight: '16px' });
             }
         }
         // Keyed elements keep their listeners across edits and preference changes.
@@ -9496,7 +9526,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const name = document.createElement('div'); name.textContent = element.title; popup.append(name);
                 Object.assign(name.style, { height: '16px', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
                 Object.assign(popup.style, { position: 'fixed', boxSizing: 'content-box', zIndex: '10000', padding: '6px',
-                    background: '#171d25', color: '#fff', border: '1px solid #657080', borderRadius: '5px', pointerEvents: 'none' });
+                    background: 'var(--akari-tl-hover-face)', color: 'var(--akari-tl-hover-text)',
+                    border: '1px solid var(--akari-tl-hover-border)',
+                    borderRadius: '5px', pointerEvents: 'none' });
                 popup.dataset.akariVisualThumbnailHover = 'true';
                 document.body.append(popup); this.visualHover = popup;
                 const updateGeometry = (): void => {
@@ -9861,8 +9893,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             Object.assign(badge.style, {
                 position: 'absolute', inset: '0', zIndex: '9', display: 'flex', gap: '4px',
                 alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
-                borderRadius: 'inherit', fontSize: '10px', color: '#fff',
-                background: 'rgba(0,0,0,.45)'
+                borderRadius: 'inherit', fontSize: '10px', color: 'var(--akari-tl-fetch-text)',
+                background: 'var(--akari-tl-fetch-overlay)'
             });
             const spinner = document.createElement('span');
             spinner.className = 'codicon codicon-loading codicon-modifier-spin';
@@ -9943,7 +9975,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label.textContent = text;
             Object.assign(label.style, {
                 position: 'absolute', left: '4px', top: '26px', padding: '1px 4px',
-                borderRadius: '2px', background: 'rgba(22, 25, 30, .96)', color: '#f2f5f7',
+                borderRadius: '2px', background: 'var(--akari-tl-generating)', color: 'var(--akari-tl-generating-text)',
                 lineHeight: '14px', whiteSpace: 'nowrap'
             });
             overhang.appendChild(label);
@@ -9952,8 +9984,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute', left: `${this.layoutPercent(segment.tlEnd)}%`,
             top: element.style.top, height: element.style.height,
             width: `${widthPx}px`,
-            border: '1px dashed rgba(210, 220, 225, .55)', borderRadius: '4px', boxSizing: 'border-box',
-            background: 'transparent', color: 'rgba(235, 240, 242, .75)',
+            border: '1px dashed var(--akari-tl-generating-overhang-border)', borderRadius: '4px', boxSizing: 'border-box',
+            background: 'transparent', color: 'var(--akari-tl-generating-overhang-text)',
             fontSize: '10px', lineHeight: '14px', padding: labelLayout === 'plain' ? '28px 4px 2px' : '0', whiteSpace: 'nowrap',
             overflow: 'hidden', pointerEvents: 'none', zIndex: '3'
         });
@@ -13036,7 +13068,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             mark.title = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
             Object.assign(mark.style, {
                 position: 'absolute', left, bottom: '2px', width: '4px', height: '4px',
-                borderRadius: slot === 'loop' ? '50%' : '0', background: '#fff', pointerEvents: 'none'
+                borderRadius: slot === 'loop' ? '50%' : '0', background: 'var(--akari-tl-playhead)', pointerEvents: 'none'
             });
             element.appendChild(mark);
         }
@@ -13060,7 +13092,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             Object.assign(marker.style, {
                 position: 'absolute', left: `${durationFrames > 0 ? diamond.t / durationFrames * 100 : 0}%`,
                 bottom: '-1px', width: '7px', height: '7px', transform: 'translateX(-50%) rotate(45deg)',
-                border: '1px solid #fff', background: diamond.filled ? '#fff' : 'transparent', pointerEvents: 'auto'
+                border: '1px solid var(--akari-tl-playhead)',
+                background: diamond.filled ? 'var(--akari-tl-playhead)' : 'transparent', pointerEvents: 'auto'
             });
             marker.addEventListener('pointerdown', event => {
                 const startX = event.clientX;
@@ -16396,6 +16429,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
     }
 
+    protected readWaveformThemeColors(): TimelineWaveformColors {
+        const waveformStyle = getComputedStyle(this.node);
+        return {
+            base: waveformStyle.getPropertyValue('--akari-tl-waveform').trim() || '#fff',
+            red: waveformStyle.getPropertyValue('--akari-tl-waveform-red').trim() || '#ef4444',
+            yellow: waveformStyle.getPropertyValue('--akari-tl-waveform-yellow').trim() || '#facc15',
+            fill: waveformStyle.getPropertyValue('--akari-tl-waveform-fill').trim() || 'rgba(255,255,255,.7)',
+            stroke: waveformStyle.getPropertyValue('--akari-tl-waveform-stroke').trim() || 'rgba(255,255,255,.95)'
+        };
+    }
+
+    protected currentWaveformThemeColors(): TimelineWaveformColors {
+        if (this.waveformThemeColors) return this.waveformThemeColors;
+        // A detached node has no reliable theme values. Resolve again on its first attached paint.
+        const colors = this.readWaveformThemeColors();
+        if (this.node.isConnected) this.waveformThemeColors = colors;
+        return colors;
+    }
+
     protected updateAudioWaveformCanvas(
         element: HTMLDivElement,
         fullPeaks: readonly number[],
@@ -16408,10 +16460,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const deviceHeightPx = Math.round(band.heightPx * dpr);
-        const masterKey = audioWaveformMasterKey(
+        const { base: baseColor, red: redColor, yellow: yellowColor } = this.currentWaveformThemeColors();
+        const paletteKey = `${baseColor}:${redColor}:${yellowColor}`;
+        if (this.audioWaveformPaletteKey !== paletteKey) {
+            this.audioWaveformMasterCache.clear();
+            this.audioWaveformPaletteKey = paletteKey;
+        }
+        const masterKey = `${paletteKey}:${audioWaveformMasterKey(
             this.audioWaveformPeakIdentity(fullPeaks), sliceKey, deviceHeightPx, envelope
-        );
-        const master = this.audioWaveformMaster(masterKey, peaksFactory, deviceHeightPx, envelope);
+        )}`;
+        const master = this.audioWaveformMaster(masterKey, peaksFactory, deviceHeightPx,
+            envelope, baseColor, redColor, yellowColor);
         if (!master) {
             this.removeAudioWaveformCanvas(element);
             return;
@@ -16468,7 +16527,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected audioWaveformMaster(
         key: string, peaksFactory: () => readonly number[], heightPx: number,
-        envelope: AudioLoudnessEnvelope
+        envelope: AudioLoudnessEnvelope, baseColor: string, redColor: string, yellowColor: string
     ): HTMLCanvasElement | undefined {
         const cached = this.audioWaveformMasterCache.get(key);
         if (cached) return cached;
@@ -16479,7 +16538,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         master.height = heightPx;
         const context = master.getContext('2d');
         if (!context) return undefined;
-        const colors = audioLoudnessBucketColors(peaks, envelope);
+        const colors = audioLoudnessBucketColors(peaks, envelope, baseColor, redColor, yellowColor);
         for (let bucket = 0; bucket < peaks.length; bucket++) {
             context.fillStyle = colors[bucket];
             const barHeight = waveformHeightForPeak(peaks[bucket]) * heightPx;
@@ -16645,9 +16704,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const band = waveformBandLayout(clipHeightPx, CLIP_HEADER_HEIGHT);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const bucketCount = peaks.length;
+        const { fill: fillColor, stroke: strokeColor } = this.currentWaveformThemeColors();
         const paintKey = JSON.stringify([
             this.audioWaveformPeakIdentity(peaks), bucketCount, visibleWidthPx,
-            geometry.clipLocalOffsetPx, geometry.fullClipWidthPx, band.heightPx, band.topPx, dpr
+            geometry.clipLocalOffsetPx, geometry.fullClipWidthPx, band.heightPx, band.topPx, dpr,
+            fillColor, strokeColor
         ]);
         if (canvas.dataset.akariClipWaveformPaintKey === paintKey) return;
         canvas.width = Math.round(visibleWidthPx * dpr);
@@ -16691,10 +16752,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 envelope.lineTo(x, band.heightPx - topEdges[x]);
             }
             envelope.closePath();
-            context.fillStyle = 'rgba(255,255,255,.7)';
+            context.fillStyle = fillColor;
             context.fill(envelope);
             context.setTransform(1, 0, 0, 1, 0, 0);
-            context.strokeStyle = 'rgba(255,255,255,.95)';
+            context.strokeStyle = strokeColor;
             context.lineWidth = 1;
             context.stroke(upperEdge);
         }

@@ -54,17 +54,25 @@ function textSpans(html, tags = []) {
                 if (!frame?.inSlot || frame.isSlotRoot) tags.push('/' + closing[1].toLowerCase());
             } else if (opening) {
                 const name = opening[1].toLowerCase();
-                const parentInSlot = slotStack.length > 0 && slotStack[slotStack.length - 1].inSlot;
+                const parent = slotStack[slotStack.length - 1];
+                const parentInSlot = parent?.inSlot ?? false;
+                const namespace = name === 'svg' || name === 'math' ? name
+                    : parent?.name === 'foreignobject' && parent.namespace === 'svg'
+                        ? 'html' : (parent?.namespace ?? 'html');
+                const selfClosing = tag[0].endsWith('/>');
                 if (!parentInSlot) tags.push(name);
-                if ((name === 'style' || name === 'script') && !tag[0].endsWith('/>')) {
+                if ((name === 'style' || name === 'script') && !selfClosing) {
                     const close = new RegExp(`</${name}\\s*>`, 'ig');
                     close.lastIndex = cursor;
                     const end = close.exec(html);
                     if (!end) throw new Error(`${name} タグが閉じていません`);
                     cursor = close.lastIndex;
-                } else if (!VOID_ELEMENTS.has(name) && !tag[0].endsWith('/>')) {
+                } else if (selfClosing && namespace !== 'html' && name !== 'style' && name !== 'script') {
+                    if (!parentInSlot) tags.push('/' + name);
+                } else if (!VOID_ELEMENTS.has(name) && !selfClosing) {
                     const isSlotRoot = !parentInSlot && hasSlotAttribute(tag[0], opening[1]);
-                    slotStack.push({ inSlot: parentInSlot || isSlotRoot, isSlotRoot });
+                    slotStack.push({ inSlot: parentInSlot || isSlotRoot, isSlotRoot,
+                        name, namespace });
                 }
             }
             continue;
@@ -85,8 +93,15 @@ export function patchFragmentSourceText(source, edited) {
     const afterTags = [];
     const before = textSpans(source, beforeTags);
     const after = textSpans(edited, afterTags);
-    if (before.length !== after.length || beforeTags.join('\0') !== afterTags.join('\0')) {
-        throw new Error('断片の構造が変わったため、元ソースの文字だけを安全に保存できません');
+    const refusal = '断片の構造が変わったため、元ソースの文字だけを安全に保存できません';
+    const tagIndex = beforeTags.findIndex((tag, index) => tag !== afterTags[index]);
+    if (tagIndex >= 0 || beforeTags.length !== afterTags.length) {
+        const index = tagIndex >= 0 ? tagIndex : Math.min(beforeTags.length, afterTags.length);
+        const label = tag => tag === undefined ? 'なし' : `<${tag}>`;
+        throw new Error(`${refusal}（最初の違い: ${index + 1} 番目・元 ${label(beforeTags[index])} / 編集後 ${label(afterTags[index])}）`);
+    }
+    if (before.length !== after.length) {
+        throw new Error(`${refusal}（文字の区切りの数: 元 ${before.length} / 編集後 ${after.length}）`);
     }
     let result = source;
     for (let index = before.length - 1; index >= 0; index--) {

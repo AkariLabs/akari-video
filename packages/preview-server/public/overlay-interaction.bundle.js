@@ -1525,54 +1525,168 @@
         height: `${rect.height}px`
       });
     }
+    let breadcrumbResizeObserver = null;
+    let breadcrumbHoverActive = false;
+    let breadcrumbHoverSuppressedAt = null;
+    function clearBreadcrumbHover() {
+      if (!breadcrumbHoverActive) return;
+      hideHover();
+    }
+    function breadcrumbBounds(target) {
+      if (target.kind === "stage") return { rect: stage?.getBoundingClientRect() };
+      if (target.kind === "node") {
+        const node = treeNode(target.id);
+        const leaf = containerById(target.id);
+        const lineRect = leaf && lineFrameGeometry(leaf);
+        const rect = node?.kind !== "leaf" ? unionBounds(visibleMembers(target.id)) : lineRect ?? (leaf ? fragmentBounds(leaf) : null);
+        return { rect, angle: lineRect?.angle ?? null };
+      }
+      if (target.kind === "item") {
+        const container = containerById(target.id);
+        return { rect: container ? fragmentBounds(container) : null };
+      }
+      const element = target.element?.isConnected ? target.element : elementByAddress(fragmentRoot(containerById(target.overlayId)), target.ref);
+      if (!element?.isConnected) return null;
+      const geometry = elementScreenGeometry(element);
+      const width = geometry.width * Math.hypot(geometry.axes.x.x, geometry.axes.x.y);
+      const height = geometry.height * Math.hypot(geometry.axes.y.x, geometry.axes.y.y);
+      return { rect: {
+        left: geometry.center.x - width / 2,
+        top: geometry.center.y - height / 2,
+        width,
+        height
+      }, angle: Math.atan2(geometry.axes.x.y, geometry.axes.x.x) * 180 / Math.PI };
+    }
     function renderScopeBreadcrumb() {
       const nav = document.querySelector('[data-akari-ui="preview-scope-breadcrumb"]');
       if (!nav) return;
+      if (!breadcrumbResizeObserver && typeof ResizeObserver !== "undefined" && nav.parentElement) {
+        breadcrumbResizeObserver = new ResizeObserver(() => renderScopeBreadcrumb());
+        breadcrumbResizeObserver.observe(nav.parentElement);
+      }
+      clearBreadcrumbHover();
+      const entries = [];
+      const append = (label, action, target) => entries.push({ label, action, target });
       if (selectedElementFocus() && selectedOverlay) {
-        nav.hidden = false;
-        nav.replaceChildren();
-        const append = (label, action) => {
-          if (nav.childNodes.length) nav.append(" \u203A ");
-          const button = document.createElement("button");
-          button.type = "button";
-          button.textContent = label;
-          button.addEventListener("click", action);
-          nav.appendChild(button);
-        };
         append("\u5168\u4F53", () => {
           clearSelection();
           publishScopedSelection();
-        });
+        }, { kind: "stage" });
         for (const id of lineage(selectionTree(), scopeId)) {
-          append(treeNode(id)?.label ?? id, () => applyScopedSelection({ selectId: id, scopeId: treeNode(id)?.parentId ?? null }));
+          append(
+            treeNode(id)?.label ?? id,
+            () => applyScopedSelection({ selectId: id, scopeId: treeNode(id)?.parentId ?? null }),
+            { kind: "node", id }
+          );
         }
         const name = window.akari.state?.summary?.overlays?.find((overlay) => overlay.id === selectedId)?.name ?? selectedId;
-        append(name, () => focusElement(null));
+        append(name, () => focusElement(null), { kind: "item", id: selectedId });
         const root = fragmentRoot(selectedOverlay);
-        const path2 = [];
+        const path = [];
         for (let node = focusedElement(); node && node !== root; node = node.parentElement) {
-          if (selectableElement(root, node, stage?.getBoundingClientRect())) path2.unshift(node);
+          if (selectableElement(root, node, stage?.getBoundingClientRect())) path.unshift(node);
         }
-        for (const node of path2) append(elementLabel(root, node), () => focusElement(node));
-        return;
-      }
-      nav.hidden = scopeId === floorScopeId || !selectionTree().length;
-      nav.replaceChildren();
-      if (nav.hidden) return;
-      const path = lineage(selectionTree(), scopeId);
-      const ids = floorScopeId === null ? [null, ...path] : path.slice(path.indexOf(floorScopeId));
-      ids.forEach((id, index) => {
-        if (index) nav.append(" \u203A ");
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = id === null ? "\u5168\u4F53" : treeNode(id)?.label ?? id;
-        button.addEventListener("click", () => {
+        for (const node of path) append(
+          elementLabel(root, node),
+          () => focusElement(node),
+          { kind: "element", element: node, overlayId: selectedId, ref: elementAddress(root, node) }
+        );
+      } else if (scopeId !== floorScopeId && selectionTree().length) {
+        const path = lineage(selectionTree(), scopeId);
+        const ids = floorScopeId === null ? [null, ...path] : path.slice(path.indexOf(floorScopeId));
+        ids.forEach((id) => append(id === null ? "\u5168\u4F53" : treeNode(id)?.label ?? id, () => {
           const hit = descendantLeafIds(selectionTree(), selectedId)[0] ?? selectedId;
           const next = resolveScopedSelection(selectionTree(), id, hit);
           applyScopedSelection({ scopeId: id, selectId: next.scopeId === id ? next.selectId : null });
+        }, id === null ? { kind: "stage" } : { kind: "node", id }));
+      }
+      nav.replaceChildren();
+      nav.hidden = entries.length === 0;
+      if (nav.hidden) return;
+      const separator = () => {
+        const span = document.createElement("span");
+        span.className = "akari-breadcrumb-separator";
+        span.textContent = " \u203A ";
+        return span;
+      };
+      const button = (entry) => {
+        const node = document.createElement("button");
+        node.type = "button";
+        node.textContent = entry.label;
+        const show = () => {
+          let geometry;
+          try {
+            geometry = breadcrumbBounds(entry.target);
+          } catch {
+            return;
+          }
+          if (!geometry?.rect || geometry.rect.width <= 0 || geometry.rect.height <= 0) return;
+          breadcrumbHoverActive = true;
+          showHoverFrame(geometry.rect, geometry.angle ?? null, entry.target.id ?? "", true);
+        };
+        node.addEventListener("pointerenter", () => {
+          if (!breadcrumbHoverSuppressedAt) show();
         });
-        nav.appendChild(button);
-      });
+        node.addEventListener("pointermove", (event) => {
+          const point = breadcrumbHoverSuppressedAt;
+          if (!point || Math.hypot(event.clientX - point.x, event.clientY - point.y) < 1) return;
+          breadcrumbHoverSuppressedAt = null;
+          show();
+        });
+        node.addEventListener("focus", show);
+        node.addEventListener("pointerleave", () => {
+          if (node.isConnected) breadcrumbHoverSuppressedAt = null;
+          clearBreadcrumbHover();
+        });
+        node.addEventListener("blur", clearBreadcrumbHover);
+        node.addEventListener("click", (event) => {
+          breadcrumbHoverSuppressedAt = { x: event.clientX, y: event.clientY };
+          clearBreadcrumbHover();
+          entry.action();
+        });
+        return node;
+      };
+      const add = (entry, index) => {
+        if (index) nav.appendChild(separator());
+        nav.appendChild(button(entry));
+      };
+      entries.forEach(add);
+      const buttons = [...nav.querySelectorAll("button")];
+      const widths = buttons.map((node) => node.getBoundingClientRect().width);
+      const separatorWidth = nav.querySelector(".akari-breadcrumb-separator")?.getBoundingClientRect().width ?? 0;
+      const available = Math.max(0, nav.parentElement.getBoundingClientRect().width - 16);
+      if (widths.reduce((sum, width) => sum + width, 0) + separatorWidth * (entries.length - 1) <= available) return;
+      if (entries.length < 4) {
+        const each = Math.max(3 * 10, (available - separatorWidth * (entries.length - 1) - widths[0]) / Math.max(1, entries.length - 1));
+        buttons.slice(1).forEach((node) => {
+          node.style.maxWidth = `${each}px`;
+        });
+        return;
+      }
+      const ellipsis = document.createElement("span");
+      ellipsis.textContent = "\u2026";
+      ellipsis.setAttribute("aria-hidden", "true");
+      nav.appendChild(ellipsis);
+      const ellipsisWidth = ellipsis.getBoundingClientRect().width;
+      ellipsis.remove();
+      let start = entries.length - 2;
+      let used = widths[0] + widths[start] + widths[start + 1] + ellipsisWidth + 3 * separatorWidth;
+      while (start > 2 && used + widths[start - 1] + separatorWidth <= available) {
+        start--;
+        used += widths[start] + separatorWidth;
+      }
+      nav.replaceChildren();
+      add(entries[0], 0);
+      nav.appendChild(separator());
+      nav.appendChild(ellipsis);
+      for (let index = start; index < entries.length; index++) add(entries[index], index);
+      if (used > available) {
+        const tails = [...nav.querySelectorAll("button")].slice(1);
+        const tailWidth = Math.max(30, (available - widths[0] - ellipsisWidth - 3 * separatorWidth) / tails.length);
+        tails.forEach((node) => {
+          node.style.maxWidth = `${tailWidth}px`;
+        });
+      }
     }
     function publishScopedSelection(notify = true) {
       syncLazyBag();
@@ -1972,6 +2086,13 @@
       const parts = String(value ?? "").match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?px/giu) ?? [];
       return { x: Number.parseFloat(parts[0]) || 0, y: Number.parseFloat(parts[1]) || 0 };
     }
+    const elementDecimal = new Intl.NumberFormat("en-US", { useGrouping: false, maximumFractionDigits: 2 });
+    function formatElementNumber(value) {
+      return elementDecimal.format(Math.round((value + Number.EPSILON) * 100) / 100 || 0);
+    }
+    function formatElementTranslate(x, y) {
+      return `${formatElementNumber(x)}px ${formatElementNumber(y)}px`;
+    }
     function elementScreenGeometry(element) {
       const rect = element.getBoundingClientRect();
       const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -2081,14 +2202,18 @@
     }
     function elementWriteStyle(gesture, dimensionNames = []) {
       const style = {};
-      for (const name of dimensionNames) style[name] = gesture.element.style.getPropertyValue(name);
+      for (const name of dimensionNames) {
+        style[name] = `${formatElementNumber(Number.parseFloat(gesture.element.style.getPropertyValue(name)))}px`;
+      }
       for (const name of elementInlineProperties) {
         if (name === "translate" || dimensionNames.includes(name)) continue;
         const now = gesture.element.style.getPropertyValue(name);
-        if (now && now !== gesture.originalInline[name][0]) style[name] = now;
+        if (now && now !== gesture.originalInline[name][0]) {
+          style[name] = name === "rotate" ? `${formatElementNumber(Number.parseFloat(now))}deg` : now;
+        }
       }
-      const translate = gesture.element.style.translate;
-      if (translate && translate !== gesture.originalInline.translate[0]) style.translate = translate;
+      const translate = formatElementTranslate(gesture.x, gesture.y);
+      if (translate !== formatElementTranslate(gesture.startX, gesture.startY)) style.translate = translate;
       return style;
     }
     function beginElementGesture(event, handleEl) {
@@ -2128,6 +2253,8 @@
         startHeight: Number.parseFloat(declared.height) || before.height,
         x: translate.x,
         y: translate.y,
+        startX: translate.x,
+        startY: translate.y,
         moved: false,
         writeContext: captureWriteContext()
       };
@@ -2299,12 +2426,14 @@
       const gesture = elementNudge;
       elementNudge = null;
       if (!gesture) return;
-      if (Math.abs(gesture.x - gesture.startX) < 0.5 && Math.abs(gesture.y - gesture.startY) < 0.5) {
+      const translate = formatElementTranslate(gesture.x, gesture.y);
+      if (Math.abs(gesture.x - gesture.startX) < 0.5 && Math.abs(gesture.y - gesture.startY) < 0.5 || translate === formatElementTranslate(gesture.startX, gesture.startY)) {
         gesture.element.style.translate = gesture.originalInline;
         if (gesture.originalDisplay !== void 0) gesture.element.style.display = gesture.originalDisplay;
+        refreshSelectionFrame();
         return;
       }
-      const style = { translate: `${gesture.x}px ${gesture.y}px` };
+      const style = { translate };
       if (gesture.originalDisplay !== void 0) style.display = "inline-block";
       enqueueWrite(
         gesture.writeContext,
@@ -2448,12 +2577,44 @@
       return candidates;
     }
     function hideHover() {
+      breadcrumbHoverActive = false;
       hoverEvent = null;
       if (hoverTick !== null) cancelAnimationFrame(hoverTick);
       hoverTick = null;
-      if (hoverFrame) hoverFrame.hidden = true;
+      if (hoverFrame) {
+        hoverFrame.hidden = true;
+        hoverFrame.removeAttribute("data-breadcrumb-hover");
+      }
+    }
+    function showHoverFrame(rect, angle = null, overlayId = "", breadcrumb = false, ariaHidden = true) {
+      if (!hoverFrame) {
+        hoverFrame = document.createElement("div");
+        hoverFrame.setAttribute("data-akari-ui", "preview-hover-frame");
+        if (ariaHidden) hoverFrame.setAttribute("aria-hidden", "true");
+        Object.assign(hoverFrame.style, {
+          position: "fixed",
+          pointerEvents: "none",
+          boxSizing: "border-box",
+          border: "1px solid var(--akari-accent, #4da3ff)",
+          opacity: "0.45",
+          zIndex: "90"
+        });
+        document.body.appendChild(hoverFrame);
+      }
+      if (breadcrumb) hoverFrame.setAttribute("data-breadcrumb-hover", "true");
+      else hoverFrame.removeAttribute("data-breadcrumb-hover");
+      hoverFrame.dataset.overlayId = overlayId;
+      hoverFrame.hidden = false;
+      Object.assign(hoverFrame.style, {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        transform: angle === null ? "" : `rotate(${angle}deg)`
+      });
     }
     function scheduleHover(event) {
+      if (breadcrumbHoverActive) return;
       if (!interactionEnabled || activeDrag || activeResize || activeEdit || event.buttons) {
         hideHover();
         return;
@@ -2462,6 +2623,10 @@
       if (hoverTick !== null) return;
       hoverTick = requestAnimationFrame(() => {
         hoverTick = null;
+        if (breadcrumbHoverActive) {
+          hoverEvent = null;
+          return;
+        }
         const event2 = hoverEvent;
         if (!event2 || activeDrag || activeResize || activeEdit) {
           hideHover();
@@ -2484,28 +2649,7 @@
             hideHover();
             return;
           }
-          if (!hoverFrame) {
-            hoverFrame = document.createElement("div");
-            hoverFrame.setAttribute("data-akari-ui", "preview-hover-frame");
-            Object.assign(hoverFrame.style, {
-              position: "fixed",
-              pointerEvents: "none",
-              boxSizing: "border-box",
-              border: "1px solid var(--akari-accent, #4da3ff)",
-              opacity: "0.45",
-              zIndex: "90"
-            });
-            document.body.appendChild(hoverFrame);
-          }
-          hoverFrame.dataset.overlayId = container.dataset.overlayId;
-          hoverFrame.hidden = false;
-          Object.assign(hoverFrame.style, {
-            left: `${rect2.left}px`,
-            top: `${rect2.top}px`,
-            width: `${rect2.width}px`,
-            height: `${rect2.height}px`,
-            transform: ""
-          });
+          showHoverFrame(rect2, null, container.dataset.overlayId, false, false);
           return;
         }
         const next = isSelectable(container) && resolveScopedSelection(
@@ -2526,29 +2670,7 @@
           hideHover();
           return;
         }
-        if (!hoverFrame) {
-          hoverFrame = document.createElement("div");
-          hoverFrame.setAttribute("data-akari-ui", "preview-hover-frame");
-          hoverFrame.setAttribute("aria-hidden", "true");
-          Object.assign(hoverFrame.style, {
-            position: "fixed",
-            pointerEvents: "none",
-            boxSizing: "border-box",
-            border: "1px solid var(--akari-accent, #4da3ff)",
-            opacity: "0.45",
-            zIndex: "90"
-          });
-          document.body.appendChild(hoverFrame);
-        }
-        hoverFrame.dataset.overlayId = next.selectId;
-        hoverFrame.hidden = false;
-        Object.assign(hoverFrame.style, {
-          left: `${rect.left}px`,
-          top: `${rect.top}px`,
-          width: `${rect.width}px`,
-          height: `${rect.height}px`,
-          transform: lineRect ? `rotate(${lineRect.angle}deg)` : ""
-        });
+        showHoverFrame(rect, lineRect?.angle ?? null, next.selectId);
       });
     }
     function releasePointer(drag) {
@@ -2598,13 +2720,14 @@
         const displayScale = stage?.getBoundingClientRect().width / outputSize().width || 1;
         const outputDx = (rect.left + rect.width / 2 - drag.startCenterX) / displayScale;
         const outputDy = (rect.top + rect.height / 2 - drag.startCenterY) / displayScale;
-        if (!drag.moved || Math.abs(outputDx) < 0.5 && Math.abs(outputDy) < 0.5) {
+        const translate = formatElementTranslate(drag.x, drag.y);
+        if (!drag.moved || Math.abs(outputDx) < 0.5 && Math.abs(outputDy) < 0.5 || translate === formatElementTranslate(drag.startX, drag.startY)) {
           drag.element.style.translate = drag.originalInline;
           if (drag.originalDisplay !== void 0) drag.element.style.display = drag.originalDisplay;
           refreshSelectionFrame();
           return null;
         }
-        const style = { translate: `${drag.x}px ${drag.y}px` };
+        const style = { translate };
         if (drag.originalDisplay !== void 0) style.display = "inline-block";
         const record2 = enqueueWrite(
           drag.writeContext,
@@ -3952,8 +4075,8 @@
       flushNudge();
       hideHover();
       clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
+      if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
       if (selectionTree().length) {
-        if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
         const handle = findHandleElement(event.target);
         if (handle) {
           if (selectedIds.length > 1) return;

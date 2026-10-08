@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { VoiceRecorder } from '../lib/browser/voice-recording/voice-recorder.js';
+const macRealpathEditUri = 'file:///private/tmp/project/edit.json';
 
 function replaceGlobal(name, value) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, name);
@@ -87,7 +88,7 @@ test('monitor, device list, gain, append and finish event', async () => {
 test('sync recording seeks, plays, unmutes, and places one speech take with script and denoise', async () => {
     const fake = setup();
     const editUri = 'file:///tmp/project/edit.json';
-    const previewUri = 'file:///private/tmp/project/edit.json';
+    const previewUri = macRealpathEditUri;
     const order = [];
     const originalStart = fake.service.startVoiceRecording;
     const originalFinish = fake.service.finishVoiceRecording;

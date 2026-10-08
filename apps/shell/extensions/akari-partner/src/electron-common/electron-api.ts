@@ -1,8 +1,11 @@
 export const CHANNEL_PARTNER_WEB = 'AkariPartnerWeb';
 
+export type PartnerWebTheme = 'dark' | 'light';
+
 export interface ElectronAkariPartnerApi {
     web: {
         ownerId(): Promise<string>;
+        setTheme(ownerId: string, theme: PartnerWebTheme): Promise<void>;
     };
 }
 declare global {

@@ -822,7 +822,7 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected async openStoreSettings(): Promise<void> {
-        await this.commands.executeCommand('akari.settings.open', { section: 'connections' });
+        await this.commands.executeCommand('akari.settings.open', { section: 'account' });
     }
 
     /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */
@@ -2951,7 +2951,7 @@ export class AkariHomeWidget extends ReactWidget {
      * 今の状態 = メールアドレスを出す」）。旧 `renderStoreCard`（帯の下の
      * 「AKARI Store · 接続中」ボタン）の置き換え。
      *
-     * 押すと従来と同じ接続設定（設定面の connections セクション）を開く。
+     * 押すと設定面の AKARI アカウント節を開く。
      * `data-akari-store-connection` は旧カードと同じ語彙のまま残してあるので、
      * 既存の L1 / evidence の掴みどころは変わらない。
      */

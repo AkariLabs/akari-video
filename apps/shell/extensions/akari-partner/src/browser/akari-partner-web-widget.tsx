@@ -1,15 +1,19 @@
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
+import { ThemeService } from '@theia/core/lib/browser/theming';
+import type { Disposable } from '@theia/core/lib/common';
 import type { WebviewTag } from 'electron';
 import { AkariPartnerServer, PartnerAgentId, PartnerWebLaunch } from '../common/akari-partner-protocol';
 import { PARTNER_AGENT_LABELS, PARTNER_CLI_ICON_CLASSES } from './partner-catalog';
+import { resolvePartnerWebTheme } from '../common/partner-web-theme';
 import '../electron-common/electron-api';
 
 @injectable()
 export class PartnerWebWidget extends ReactWidget {
     static readonly ID = 'akari-partner-web';
     @inject(AkariPartnerServer) protected readonly server!: AkariPartnerServer;
+    @inject(ThemeService) protected readonly themeService!: ThemeService;
     private launch?: PartnerWebLaunch;
     private ownerId?: string;
     private host?: HTMLElement;
@@ -19,6 +23,7 @@ export class PartnerWebWidget extends ReactWidget {
     private retryLoading?: () => void;
     private cancelLoading?: (error: Error) => void;
     private closePromise?: Promise<void>;
+    private readonly themeListeners: Disposable[] = [];
 
     @postConstruct()
     protected init(): void {
@@ -28,6 +33,10 @@ export class PartnerWebWidget extends ReactWidget {
         this.title.closable = true;
         this.node.style.height = '100%';
         this.disposed.connect(() => {
+            for (const listener of this.themeListeners) {
+                try { listener.dispose(); } catch { /* Theme cleanup must not block widget disposal. */ }
+            }
+            this.themeListeners.length = 0;
             this.cancelLoading?.(new Error('DeepSeek Harness の作業画面が閉じられました'));
             this.removeWebview();
             void this.closeLaunch();
@@ -48,6 +57,8 @@ export class PartnerWebWidget extends ReactWidget {
         this.loaded = false;
         this.update();
         try {
+            this.watchTheme();
+            this.sendTheme();
             for (;;) {
                 if (this.slowLoading) {
                     this.slowLoading = false;
@@ -91,6 +102,29 @@ export class PartnerWebWidget extends ReactWidget {
             await this.closeLaunch();
             throw error;
         }
+    }
+
+    private watchTheme(): void {
+        if (this.themeListeners.length) return;
+        try {
+            const registration = this.themeService.onDidColorThemeChange(() => this.sendTheme());
+            void Promise.resolve(registration).then(listener => {
+                if (this.isDisposed) {
+                    try { listener.dispose(); } catch { /* Already closed. */ }
+                } else {
+                    this.themeListeners.push(listener);
+                }
+            }).catch(() => undefined);
+        } catch { /* Theme observation must not block the webview. */ }
+    }
+
+    private sendTheme(): void {
+        if (!this.ownerId || this.isDisposed) return;
+        try {
+            const theme = resolvePartnerWebTheme(this.themeService.getCurrentTheme().type);
+            void Promise.resolve(window.electronAkariPartner.web.setTheme(this.ownerId, theme))
+                .catch(() => undefined);
+        } catch { /* Theme lookup or IPC must not block the webview. */ }
     }
 
     private closeLaunch(): Promise<void> {

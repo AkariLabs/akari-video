@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chmod, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -83,7 +83,14 @@ test('one active job and ten waiting; cancel kills running child', async () => {
   for (let i = 2; i <= 10; i++) await f.queue.enqueue({ ...f.job, jobId: `c-0001-r${i}`, jobDir: join(f.memoDir, `extra-${i}`) });
   await assert.rejects(f.queue.enqueue({ ...f.job, jobId: 'eleventh', jobDir: join(f.memoDir, 'eleventh') }), /あとで/);
   release(true); await waitFor(() => f.job.state === 'running');
-  await waitFor(() => existsSync(join(f.inputDir, 'last-call.json')));
+  // ファイル作成直後に子を止めると空の JSON が残るため、書き込み完了まで待つ。
+  await waitFor(() => {
+    try {
+      return Array.isArray(JSON.parse(readFileSync(join(f.inputDir, 'last-call.json'), 'utf8')).args);
+    } catch {
+      return false;
+    }
+  });
   await f.queue.cancel(f.job.jobId);
   await waitFor(() => f.job.state === 'cancelled'); await checkedCall(f.inputDir);
   for (let i = 2; i <= 10; i++) await f.queue.cancel(`c-0001-r${i}`);

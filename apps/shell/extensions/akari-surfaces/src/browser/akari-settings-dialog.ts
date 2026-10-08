@@ -112,7 +112,17 @@ const ENCODER_SHORT_LABELS: Record<ExportEncoder, string> = {
 const TOOL_ICONS: Record<AkariToolId, SettingsIconName> = {
     ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
 };
-const STORAGE_COLORS = ['#9a9a9a', '#7a7a7a', '#5c5c5c', '#454545', '#333333'] as const;
+const STORAGE_COLORS: Record<string, string> = {
+    cache: 'var(--theia-akariTheme-placedTextBlue)',
+    models: 'var(--theia-akariTheme-placedTextViolet)',
+    library: 'var(--theia-akariTheme-placedTextGreen)',
+    exports: 'var(--theia-akariTheme-placedTextOrange)',
+    history: 'var(--theia-akariTheme-placedTextCyan)'
+};
+
+export function storageColorFor(id: string): string {
+    return Object.prototype.hasOwnProperty.call(STORAGE_COLORS, id) ? STORAGE_COLORS[id] : 'var(--akari-muted)';
+}
 
 export class AkariSettingsDialog extends AbstractDialog<void> {
     protected vibePreviewEnabled(): boolean {
@@ -694,11 +704,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · このパソコンの空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
             const usage = element('div'); usage.className = 'akari-set-storage-usage';
             const legend = element('div'); legend.className = 'akari-set-storage-legend';
-            entries.forEach((entry, index) => {
-                const part = element('i'); part.style.width = `${total ? entry.bytes / total * 100 : 20}%`; part.style.background = STORAGE_COLORS[index];
+            entries.forEach(entry => {
+                const color = storageColorFor(entry.id);
+                const part = element('i'); part.style.width = `${total ? entry.bytes / total * 100 : 20}%`; part.style.background = color;
                 usage.append(part);
                 const item = element('span', `${entry.label} ${formatBytes(entry.bytes)}`);
-                item.style.setProperty('--akari-storage-color', STORAGE_COLORS[index]); legend.append(item);
+                item.style.setProperty('--akari-storage-color', color); legend.append(item);
             });
             section.append(groupCard(undefined, summary, usage, legend));
             const rows = entries.map(entry => this.storageDetailRow(entry));

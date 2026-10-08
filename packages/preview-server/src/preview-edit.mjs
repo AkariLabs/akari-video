@@ -1,6 +1,7 @@
 import { readRenderEdit } from '../../render-cut/src/internal-render.mjs';
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences, rewriteFragmentAssetUrls } from '../../render-cut/src/fragment-assets.mjs';
 import { resolveDeclaredProjectInput } from '../../render-cut/src/render-inputs.mjs';
+import { PREVIEW_AUDIO_SUMMARY_DERIVED_FIELDS } from './preview-audio-summary.mjs';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -212,23 +213,33 @@ export const MIGRATION_PROVENANCE_FILL = { provider: 'unknown' };
 
 function audioForFrozenMigration(audio) {
   if (!audio || typeof audio !== 'object') return audio;
+  const withoutSummaryFields = value => {
+    if (!value || typeof value !== 'object') return value;
+    const next = { ...value };
+    for (const field of PREVIEW_AUDIO_SUMMARY_DERIVED_FIELDS) delete next[field];
+    return next;
+  };
   const next = { ...audio };
   if (next.bgm && typeof next.bgm === 'object') {
     // t / duration は音声レーン BGM の終端をプレビュー・書き出しへ渡す表示用の射影。
     // 正本の at / duration が持つ値なので、v1 へ戻すときは落とす。
     const { t: _displayOnlyT, duration: _displayOnlyDuration, ...bgm } = next.bgm;
-    next.bgm = bgm;
+    next.bgm = withoutSummaryFields(bgm);
   }
   if (Array.isArray(next.narration)) {
-    next.narration = next.narration.map(value => (value && typeof value === 'object'
-      && (!value.provenance || typeof value.provenance !== 'object')
-      ? { ...value, provenance: { ...MIGRATION_PROVENANCE_FILL } }
-      : value));
+    next.narration = next.narration.map(value => {
+      const clean = withoutSummaryFields(value);
+      return clean && typeof clean === 'object'
+        && (!clean.provenance || typeof clean.provenance !== 'object')
+        ? { ...clean, provenance: { ...MIGRATION_PROVENANCE_FILL } }
+        : clean;
+    });
   }
   next.sfx = (next.sfx ?? []).map(value => {
     const { duration: _displayOnlyDuration, ...rest } = value;
-    return rest;
+    return withoutSummaryFields(rest);
   });
+  if (Array.isArray(next.speech)) next.speech = next.speech.map(withoutSummaryFields);
   return next;
 }
 

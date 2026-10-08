@@ -25,6 +25,7 @@
 //   quarantine: 現在エントリなし（当時 export-nle 20/21・akari-launcher 317/332。両者とも pure へ移動）/ media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
 //   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
 //   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
+//   2026-10-08: akari-preview の preview-element-mixed-branch / preview-element-selection-message（実 Chrome が要る）を shell から除外（除外は計 3 ファイル）。
 //   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
 // Windows 対応（2026-09-19・Windows 11 / Node 24.20.0 実測）:
@@ -258,12 +259,15 @@ export const LANES = {
       ext('akari-vibe-dock'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
-        // caption-entry-animation-hit-region.test.mjs だけ実 Chrome（puppeteer-core）を起動するので除外
-        // （下の NOT_COVERED を参照）。残り 75 ファイル 509 件はブラウザ不要
-        id: 'apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外)',
+        // 実 Chrome を起動する 3 ファイルを除外（下の NOT_COVERED を参照）。
+        id: 'apps/shell/extensions/akari-preview (ブラウザ 3 ファイル除外)',
         cwd: 'apps/shell/extensions/akari-preview',
         files: ['test/*.test.mjs'],
-        exclude: [/caption-entry-animation-hit-region\.test\.mjs$/]
+        exclude: [
+          /caption-entry-animation-hit-region\.test\.mjs$/,
+          /preview-element-mixed-branch\.test\.mjs$/,
+          /preview-element-selection-message\.test\.mjs$/
+        ]
       }
     ]
   },
@@ -310,6 +314,16 @@ export const NOT_COVERED = [
     what: 'apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs',
     why: '実 Chrome を要する上、loadPuppeteer が .git を「ファイル」として読むため通常 checkout（.git がディレクトリ）では EISDIR で落ちる。テスト側の修正待ち',
     paths: ['apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs']
+  },
+  {
+    what: 'apps/shell/extensions/akari-preview/test/preview-element-mixed-branch.test.mjs',
+    why: '実 Chrome を要する。L0 には Chrome が無く、現状の参考 media レーンにも載っていない',
+    paths: ['apps/shell/extensions/akari-preview/test/preview-element-mixed-branch.test.mjs']
+  },
+  {
+    what: 'apps/shell/extensions/akari-preview/test/preview-element-selection-message.test.mjs',
+    why: '実 Chrome を要する。L0 には Chrome が無く、現状の参考 media レーンにも載っていない',
+    paths: ['apps/shell/extensions/akari-preview/test/preview-element-selection-message.test.mjs']
   },
   {
     what: 'packages/preview-server test:frame-engine-browser（*.l1.mjs）',
