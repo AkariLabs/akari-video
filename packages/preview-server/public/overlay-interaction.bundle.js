@@ -1019,6 +1019,23 @@
         guides.horizontal.style.width = `${((snapY.guide?.end ?? width) - (snapY.guide?.start ?? 0)) * sx}px`;
       }
     }
+    function paintedStageOverlayAt(clientX, clientY) {
+      const candidates = [...stage.children].flatMap((container, index) => {
+        if (!isSelectable(container)) return [];
+        const value = Number.parseFloat(getComputedStyle(container).zIndex);
+        return [{ container, index, zIndex: Number.isFinite(value) ? value : 0 }];
+      }).sort((a, b) => b.zIndex - a.zIndex || b.index - a.index);
+      for (const { container } of candidates) {
+        for (const root of container.children) {
+          if (root.hasAttribute("data-akari-interaction") || root.getAttribute("data-akari-hit") === "pass") continue;
+          const style = getComputedStyle(root);
+          if (style.display === "none" || Number(style.opacity) <= 0 || ["hidden", "collapse"].includes(style.visibility) || !fragmentRootCoversContainer(root, container) || !drawsOwnContent(root, style)) continue;
+          const rect = root.getBoundingClientRect();
+          if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return container;
+        }
+      }
+      return null;
+    }
     function overlayForEvent(event) {
       const eventTargetOverlay = findOverlayContainer(event.target);
       if (eventTargetOverlay && !isSelectable(eventTargetOverlay)) {
@@ -1026,6 +1043,10 @@
       }
       if (selftestOverlayOverride && eventTargetOverlay === selftestOverlayOverride) {
         return selftestOverlayOverride;
+      }
+      if (event.target === stage && !eventTargetOverlay && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+        const paintedOverlay = paintedStageOverlayAt(event.clientX, event.clientY);
+        if (paintedOverlay) return paintedOverlay;
       }
       return isSelectable(eventTargetOverlay) ? eventTargetOverlay : null;
     }

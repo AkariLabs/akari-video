@@ -1169,6 +1169,34 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     }
   }
 
+  // 08-07 裁定: 背景は選択・削除できる。旧矩形フォールバックと違い、stage 面に
+  // 落ちたクリックで、全面を覆って自ら塗るルートだけを拾う。実際のヒット先が
+  // あるときは使わず 4680d90d8 の巻き込みを防ぎ、素通し規約は変えない。
+  function paintedStageOverlayAt(clientX, clientY) {
+    const candidates = [...stage.children]
+      .flatMap((container, index) => {
+        if (!isSelectable(container)) return [];
+        const value = Number.parseFloat(getComputedStyle(container).zIndex);
+        return [{ container, index, zIndex: Number.isFinite(value) ? value : 0 }];
+      })
+      .sort((a, b) => b.zIndex - a.zIndex || b.index - a.index);
+
+    for (const { container } of candidates) {
+      for (const root of container.children) {
+        if (root.hasAttribute("data-akari-interaction") || root.getAttribute("data-akari-hit") === "pass") continue;
+        const style = getComputedStyle(root);
+        if (style.display === "none" || Number(style.opacity) <= 0
+          || ["hidden", "collapse"].includes(style.visibility)
+          || !fragmentRootCoversContainer(root, container)
+          || !drawsOwnContent(root, style)) continue;
+        const rect = root.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right
+          && clientY >= rect.top && clientY <= rect.bottom) return container;
+      }
+    }
+    return null;
+  }
+
   function overlayForEvent(event) {
     const eventTargetOverlay = findOverlayContainer(event.target);
     if (eventTargetOverlay && !isSelectable(eventTargetOverlay)) {
@@ -1179,6 +1207,11 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       eventTargetOverlay === selftestOverlayOverride
     ) {
       return selftestOverlayOverride;
+    }
+    if (event.target === stage && !eventTargetOverlay
+      && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      const paintedOverlay = paintedStageOverlayAt(event.clientX, event.clientY);
+      if (paintedOverlay) return paintedOverlay;
     }
     return isSelectable(eventTargetOverlay) ? eventTargetOverlay : null;
   }
