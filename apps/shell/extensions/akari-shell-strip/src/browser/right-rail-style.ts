@@ -8,6 +8,7 @@ export const RIGHT_RAIL_CLOSE_ICON_SVG = '<svg viewBox="0 0 24 24" width="13" he
 
 const LINE = 'var(--akari-rail-separator, #444)';
 const ACCENT = 'var(--akari-accent, #f97316)';
+const PARTNER_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNzUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTAiIGN5PSI4IiByPSIzLjUiLz48cGF0aCBkPSJNMy41IDIwYzAtMy42IDIuOS02LjUgNi41LTYuNXM2LjUgMi45IDYuNSA2LjUiLz48cGF0aCBkPSJNMTkgMTJ2Nk0xNiAxNWg2Ii8+PC9zdmc+';
 
 export const RIGHT_RAIL_CSS = `
 /* 左レールと同じアイコン下の短い名前。Theia の縦書き指定を戻す。 */
@@ -40,6 +41,23 @@ export const RIGHT_RAIL_CSS = `
     mask-size: 24px 24px;
     -webkit-mask-size: 24px 24px;
 }
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon {
+    mask-image: url("${PARTNER_ICON}");
+    -webkit-mask-image: url("${PARTNER_ICON}");
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+    mask-size: 24px 24px;
+    -webkit-mask-size: 24px 24px;
+    background-color: var(--theia-activityBar-inactiveForeground);
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon::before {
+    content: none !important;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"]:is(:hover, .lm-mod-current, .akari-rail-shown) .lm-TabBar-tabIcon {
+    background-color: var(--theia-activityBar-foreground);
+}
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel {
     display: block !important;
     position: static !important;
@@ -60,6 +78,10 @@ export const RIGHT_RAIL_CSS = `
     content: attr(data-akari-rail-name);
     font-size: 8px;
     letter-spacing: -.7px;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current {
+    box-shadow: none !important;
+    border-left: 0 !important;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current::before {
     content: none !important;
@@ -95,7 +117,7 @@ export const RIGHT_RAIL_CSS = `
     background: ${LINE};
     pointer-events: none;
 }
-/* 2 段のとき: 出ている 2 つは明るく、フォーカスの側だけに既存のアクセント棒（lm-mod-current）。 */
+/* 2 段のとき: 出ている 2 つを明るくする。 */
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.akari-rail-shown:not(.lm-mod-current) {
     background-color: var(--theia-activityBar-activeBackground, var(--akari-elevated, #1a1a1a));
     color: var(--theia-activityBar-foreground, var(--akari-ink, #e5e5e5));

@@ -129,6 +129,9 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected loggedIds = new Set<string>();
     protected leftTooltip?: LeftRailTooltip;
     protected catalogObserver?: MutationObserver;
+    protected leftRailObserver?: MutationObserver;
+    protected leftRailDecorateFrame = 0;
+    protected decoratingLeftRail = false;
     protected restoreLeftPanelForProject = false;
 
     onDidInitializeLayout(app: FrontendApplication): Promise<void> {
@@ -209,7 +212,17 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             this.reconcileSidePanelTitleBar();
             this.reconcileLeftPanelOrder();
             this.reconcileLeftPanelScope();
+            this.scheduleLeftRailDecoration();
         });
+        const contentNode = this.shell?.leftPanelHandler.tabBar?.contentNode;
+        if (contentNode && !this.leftRailObserver) {
+            this.leftRailObserver = new MutationObserver(() => {
+                if (!this.decoratingLeftRail) this.scheduleLeftRailDecoration();
+            });
+            this.leftRailObserver.observe(contentNode, {
+                childList: true, subtree: true, attributes: true, attributeFilter: ['class']
+            });
+        }
         this.scopeService.onDidChangeScope(() => {
             this.reconcileLeftPanelScope();
             this.reconcileLeftPanelOrder();
@@ -326,7 +339,22 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 tabBar.insertTab(index, title);
             }
         });
-        requestAnimationFrame(() => {
+        this.scheduleLeftRailDecoration();
+    }
+
+    protected scheduleLeftRailDecoration(): void {
+        if (this.leftRailDecorateFrame) return;
+        this.leftRailDecorateFrame = requestAnimationFrame(() => {
+            this.leftRailDecorateFrame = 0;
+            this.decorateLeftRailTabs();
+        });
+    }
+
+    protected decorateLeftRailTabs(): void {
+        const tabBar = this.shell?.leftPanelHandler.tabBar;
+        if (!tabBar) return;
+        this.decoratingLeftRail = true;
+        try {
             const disabled = railDisabledIds(this.scopeService.scope, this.exportAvailability.snapshot.exists);
             const selected = this.scopeService.scope === 'project'
                 ? railSelection(document.body.getAttribute(AKARI_CATALOG_TAB_BODY_ATTRIBUTE),
@@ -353,7 +381,10 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                     ? (id === RAIL_EXPORT_OPENER_ID ? '編集まで進むと使えます' : 'プロジェクトを開くと使えます')
                     : title.caption || title.label;
             });
-        });
+        } finally {
+            this.leftRailObserver?.takeRecords();
+            this.decoratingLeftRail = false;
+        }
     }
 
     protected leftPanelInternals(): LeftPanelInternals | undefined {

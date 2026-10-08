@@ -25,12 +25,23 @@ export const LEFT_RAIL_CSS = `
     padding: 3px 2px !important;
     background-clip: border-box !important;
 }
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab > .theia-tab-icon-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabIcon {
     font-size: 24px;
     width: 28px;
     height: 28px;
     line-height: 28px;
     text-align: center;
+}
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="akari-library-opener"] .lm-TabBar-tabIcon::before {
+    position: relative;
+    left: 1.5px;
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_PROJECT_OPENER_ID}"] .lm-TabBar-tabIcon {
     font-size: 30px;
@@ -120,6 +131,13 @@ body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia
     justify-content: flex-start;
     gap: 10px;
     padding: 4px 12px !important;
+}
+body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab > .theia-tab-icon-label {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    width: auto;
+    gap: 0;
 }
 body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabLabel {
     display: block !important;

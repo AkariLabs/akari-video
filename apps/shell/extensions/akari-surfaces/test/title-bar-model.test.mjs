@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, titleBarCenter, titleBarGeometry, windowButtons } from '../lib/browser/title-bar/title-bar-model.js';
+import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from '../lib/browser/title-bar/title-bar-model.js';
 
 test('中央は未オープン、チャンネル内、単体で並びが変わる', () => {
     assert.deepEqual(titleBarCenter({ scope: 'channel', channel: '旅' }), ['旅']);
@@ -28,6 +28,17 @@ test('進み具合は常に五点', () => {
     assert.deepEqual(stageDots([{ done: true }, { current: true }, {}, {}, {}]), ['done', 'current', 'upcoming', 'upcoming', 'upcoming']);
     assert.equal(stageDots([{ done: true, current: true }])[0], 'current');
     assert.equal(stageDots(undefined).length, 5);
+});
+
+test('帯の五点は段名を持ち、ラベルがなければ既定名を使う', () => {
+    assert.deepEqual(stageDotTitles([{ label: '準備' }]), ['準備', '素材', '編集', '確認', '書き出し']);
+});
+
+test('窓ボタンは最大化状態に合うグリフと SVG を返す', () => {
+    assert.deepEqual(windowButtonGlyphs(false).map(button => button.label), windowButtons('windows', false));
+    assert.equal(windowButtonGlyphs(false)[1].glyph, '\uE922');
+    assert.equal(windowButtonGlyphs(true)[1].glyph, '\uE923');
+    assert.match(windowButtonGlyphs(true)[1].svg, /<svg viewBox="0 0 10 10"/);
 });
 
 test('窓ボタンと Mac の全画面寸法', () => {

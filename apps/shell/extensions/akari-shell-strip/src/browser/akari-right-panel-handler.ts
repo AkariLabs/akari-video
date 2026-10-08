@@ -568,9 +568,14 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         const tabs = Array.from(this.tabBar.contentNode.children) as HTMLElement[];
         tabs.forEach((tab, index) => {
             const id = this.tabBar.titles[index]?.owner.id;
+            if (id) tab.setAttribute('data-akari-rail-id', id);
+            const title = this.tabBar.titles[index];
+            if (id === 'akari-partner-onboarding' && title && title.label !== 'パートナーを追加') {
+                title.label = 'パートナーを追加';
+            }
             const label = tab.querySelector<HTMLElement>('.lm-TabBar-tabLabel');
             if (label) {
-                const name = id === 'akari-partner-onboarding' ? '追加'
+                const name = id === 'akari-partner-onboarding' ? 'パートナー'
                     : id === 'akari-daihon-widget' ? '台本'
                     : id === 'akari-review-panel-widget' ? '注釈'
                     : id === 'akari-inspector-widget' ? 'インスペクター'
