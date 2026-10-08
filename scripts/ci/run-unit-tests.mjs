@@ -4,8 +4,8 @@
 // 使い方:
 //   node scripts/ci/run-unit-tests.mjs --lane pure         # 外部ツール不要・決定論（CI: required）
 //   node scripts/ci/run-unit-tests.mjs --lane shell        # apps/shell 本体 + 拡張（CI: L0 ジョブ末尾・required。build:ext 済みが前提）
-//   node scripts/ci/run-unit-tests.mjs --lane quarantine   # main で既に赤・修正待ち（CI: 参考 = continue-on-error）
-//   node scripts/ci/run-unit-tests.mjs --lane media        # ffmpeg / ffprobe / Chrome が要る（CI: 参考 = continue-on-error）
+//   node scripts/ci/run-unit-tests.mjs --lane quarantine   # main で既に赤・修正待ち（CI: 参考 = 緑 + 警告）
+//   node scripts/ci/run-unit-tests.mjs --lane media        # ffmpeg / ffprobe / Chrome が要る（CI: 参考 = 緑 + 警告）
 //   node scripts/ci/run-unit-tests.mjs --list              # 全レーンの中身と、CI に載せていないテストの一覧
 //   node scripts/ci/run-unit-tests.mjs --list --verbose    # 上に加えて node --test 側の対象ファイルを 1 行ずつ
 //   （root の npm scripts: test:unit / test:shell / test:media / test:quarantine / test:lanes が上の別名）
@@ -36,7 +36,7 @@
 //        npm を起動できても script が落ちる → childEnv()（PATH の末尾に node 自身のディレクトリを追記）
 
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, globSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, globSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -499,6 +499,13 @@ function main() {
   console.log(`unit lane: ${args.lane} — ${def.title}（${def.entries.length} entries, node ${process.version}）`);
   const rows = def.entries.map(entry => runEntry(entry, args.verbose));
   const failed = rows.filter(r => r.exit !== 0);
+  if (process.env.AKARI_UNIT_LANE_RESULT) {
+    writeFileSync(process.env.AKARI_UNIT_LANE_RESULT, `${JSON.stringify({
+      lane: args.lane,
+      entries: rows.map(({ id, exit, fail }) => ({ id, exit, fail })),
+      failed: failed.map(({ id }) => id)
+    })}\n`);
+  }
   const table = summaryTable(args.lane, rows);
   console.log(`\n${table}`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${table}\n`);

@@ -2,7 +2,9 @@ name: CI
 
 # レーン構成（2026-09-02 オーナー裁定「本体とテストを 1 対 1 に」）:
 #   required（赤なら main へ合流させない）: packaged-imports / skills-index / unit / L0
-#   参考（continue-on-error。結果は見えるが止めない）: unit-quarantine / unit-media
+#   参考（ジョブは緑 + 警告。結果は見えるが止めない）: unit-quarantine / unit-media
+# 参考ジョブは各ステップの失敗を許容し、最後の集計ステップが警告と Summary に結果を残す。
+# 準備に失敗してテストが走らない場合も同じ場所で分かるようにする。
 # ユニットテストのレーン定義（どのパッケージがどこに属し、何を載せていないか・その理由）の正本は
 # scripts/ci/run-unit-tests.mjs（`npm run test:lanes` で一覧）。required に載せるのは「どの環境でも
 # 同じ結果になる」テストだけ。環境依存を required にすると常時赤になって赤が情報でなくなる
@@ -97,46 +99,96 @@ jobs:
       - name: generated lib drift (edit-store / pen-visuals)
         run: git diff --exit-code --stat -- packages/edit-store/lib packages/pen-visuals/lib
 
-  # 参考: main で既に赤いパッケージ（理由はレーン定義のコメント参照）。required に入れると初日から赤で
-  # 止まるので隔離し、修正タスクで緑になったら pure へ移す。
+  # 参考: main で既に赤いパッケージを隔離し、緑のチェック + 警告で結果を見せる。
+  # required に上げるときはステップ単位の continue-on-error と集計ステップを外し、準備ステップの門を外す。
   unit-quarantine:
     name: unit-quarantine (main で既に赤・修正待ち — 参考)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
       - uses: actions/setup-node@v4
+        id: setup_node
+        continue-on-error: true
         with:
           node-version: '26.3.0'
           cache: npm
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
+        id: install
+        continue-on-error: true
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: unit tests (lane quarantine)
-        run: node scripts/ci/run-unit-tests.mjs --lane quarantine
+        id: tests
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.setup_node.outcome == 'success' && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/unit-quarantine-table.md" AKARI_UNIT_LANE_RESULT="$RUNNER_TEMP/unit-quarantine-result.json" node scripts/ci/run-unit-tests.mjs --lane quarantine
+      - name: reference summary (参考ジョブの結果を警告で見せる)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          failed=()
+          if [ "${{ steps.checkout.outcome }}" = failure ]; then failed+=(checkout); fi
+          if [ "${{ steps.setup_node.outcome }}" = failure ]; then failed+=(setup-node); fi
+          if [ "${{ steps.install.outcome }}" = failure ]; then failed+=(npm-ci); fi
+          if [ "${{ steps.tests.outcome }}" != success ] && [ "${{ steps.tests.outcome }}" != failure ] && [ "${#failed[@]}" -gt 0 ]; then
+            message="unit-quarantine (main で既に赤・修正待ち — 参考) は準備が失敗してテストが走らなかった（失敗: ${failed[*]}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.tests.outcome }}" = failure ]; then
+            result="$RUNNER_TEMP/unit-quarantine-result.json"
+            count=1
+            if [ -f "$result" ]; then count="$(node -e "const r=require(process.argv[1]);console.log(Math.max(1,r.failed.length))" "$result")"; fi
+            echo "::warning title=参考ジョブ::unit-quarantine (main で既に赤・修正待ち — 参考) で $count 件落ちた（詳細は Summary）"
+            printf 'unit-quarantine: %s 件落ちた\n' "$count" >> "$GITHUB_STEP_SUMMARY"
+            if [ -f "$result" ]; then
+              node -e "for(const e of require(process.argv[1]).entries.filter(e=>e.exit!==0)) console.log('- '+e.id+' (fail: '+(e.fail??'不明')+')')" "$result" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo '- unit tests (lane quarantine) (結果 JSON なし)' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [ "${{ steps.tests.outcome }}" = success ]; then
+            echo 'unit-quarantine: 0 件落ちた（すべて通過）' >> "$GITHUB_STEP_SUMMARY"
+          else
+            message="unit-quarantine (main で既に赤・修正待ち — 参考) のテストが走らなかった（tests outcome=${{ steps.tests.outcome }}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$RUNNER_TEMP/unit-quarantine-table.md" ]; then cat "$RUNNER_TEMP/unit-quarantine-table.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          exit 0
 
-  # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージ。緑が安定したら required 化を検討する。
+  # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージを緑のチェック + 警告で見せる。
+  # required に上げるときはステップ単位の continue-on-error と集計ステップを外し、準備ステップの門を外す。
   unit-media:
     name: unit-media (ffmpeg / Chrome が要る — 参考)
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
+        id: setup_node
+        continue-on-error: true
         with:
           node-version: '26.3.0'
           cache: npm
       - name: Install media and Electron system dependencies
+        id: system_deps
+        continue-on-error: true
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
+        id: install
+        continue-on-error: true
         run: npm ci --ignore-scripts --no-audit --no-fund
-      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      # 失敗してもテストを走らせ、結果を集計で見せる。
       - name: Install Electron from the package version
+        id: electron
         shell: bash
         continue-on-error: true
         run: |
@@ -148,8 +200,9 @@ jobs:
           unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
           printf 'electron' > node_modules/electron/path.txt
           test -x node_modules/electron/dist/electron
-      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      # 失敗してもテストを走らせ、結果を集計で見せる。
       - name: Build transcript import dependencies
+        id: transcript
         continue-on-error: true
         run: |
           npm --prefix packages/edit-store run build
@@ -160,12 +213,15 @@ jobs:
       # preview-server は Playwright chromium、overlay-runtime は puppeteer-core と
       # 専用の chrome-headless-shell を使う。CHROME_PATH は既存の他パッケージ向けに維持する。
       - name: Install Playwright chromium
+        id: playwright
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
       # ランナーは kernel.apparmor_restrict_unprivileged_userns=1 で Chrome sandbox を張れないため、Linux だけ --no-sandbox が要る。
       # headless-shell + single-process で overlay-runtime は 396/396 pass。
       # Google Chrome は EGL 初期化失敗で多数 fail したため、overlay-runtime には headless-shell を使う。
-      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      # 失敗してもテストを走らせ、結果を集計で見せる。
       - name: Install overlay Chrome headless shell
+        id: headless_shell
         shell: bash
         continue-on-error: true
         run: |
@@ -181,6 +237,7 @@ jobs:
       # OSR の色の 4 件が失敗していた。
       # apt の ffmpeg は取得・確認失敗時の予備と、PATH 上の ffmpeg を前提にする media-bin のテストのために残す。
       - name: Prepare bundled ffmpeg for media lane
+        id: bundled_ffmpeg
         continue-on-error: true
         timeout-minutes: 5
         shell: bash
@@ -223,6 +280,9 @@ jobs:
           echo "Using bundled ffmpeg dir=$vendor_dir version=$vendor_version"
           exit 0
       - name: unit tests (lane media)
+        id: tests
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.setup_node.outcome == 'success' && steps.system_deps.outcome == 'success' && steps.install.outcome == 'success' && steps.playwright.outcome == 'success' }}
+        continue-on-error: true
         run: |
           ffmpeg_path="$(command -v ffmpeg || true)"
           ffprobe_path="$(command -v ffprobe || true)"
@@ -232,11 +292,53 @@ jobs:
           ffprobe_version="${ffprobe_version%%$'\n'*}"
           printf 'MEDIA_FFMPEG ffmpeg=%s version=%s\n' "${ffmpeg_path:-missing}" "${ffmpeg_version:-missing}"
           printf 'MEDIA_FFMPEG ffprobe=%s version=%s\n' "${ffprobe_path:-missing}" "${ffprobe_version:-missing}"
-          xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
+          GITHUB_STEP_SUMMARY="$RUNNER_TEMP/unit-media-table.md" AKARI_UNIT_LANE_RESULT="$RUNNER_TEMP/unit-media-result.json" xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
         env:
           CHROME_PATH: /usr/bin/google-chrome
           ELECTRON_DISABLE_SANDBOX: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
+      - name: reference summary (参考ジョブの結果を警告で見せる)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          failed=()
+          if [ "${{ steps.checkout.outcome }}" = failure ]; then failed+=(checkout); fi
+          if [ "${{ steps.setup_node.outcome }}" = failure ]; then failed+=(setup-node); fi
+          if [ "${{ steps.system_deps.outcome }}" = failure ]; then failed+=(system-deps); fi
+          if [ "${{ steps.install.outcome }}" = failure ]; then failed+=(npm-ci); fi
+          if [ "${{ steps.playwright.outcome }}" = failure ]; then failed+=(Playwright); fi
+          tolerated=()
+          if [ "${{ steps.electron.outcome }}" = failure ]; then tolerated+=(Electron); fi
+          if [ "${{ steps.transcript.outcome }}" = failure ]; then tolerated+=(transcript-build); fi
+          if [ "${{ steps.headless_shell.outcome }}" = failure ]; then tolerated+=(headless-shell); fi
+          if [ "${{ steps.bundled_ffmpeg.outcome }}" = failure ]; then tolerated+=(bundled-ffmpeg); fi
+          if [ "${{ steps.tests.outcome }}" != success ] && [ "${{ steps.tests.outcome }}" != failure ] && [ "${#failed[@]}" -gt 0 ]; then
+            message="unit-media (ffmpeg / Chrome が要る — 参考) は準備が失敗してテストが走らなかった（失敗: ${failed[*]}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.tests.outcome }}" = failure ]; then
+            result="$RUNNER_TEMP/unit-media-result.json"
+            count=1
+            if [ -f "$result" ]; then count="$(node -e "const r=require(process.argv[1]);console.log(Math.max(1,r.failed.length))" "$result")"; fi
+            echo "::warning title=参考ジョブ::unit-media (ffmpeg / Chrome が要る — 参考) で $count 件落ちた（詳細は Summary）"
+            printf 'unit-media: %s 件落ちた\n' "$count" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${#tolerated[@]}" -gt 0 ]; then printf '準備の一部が失敗したままテストを走らせた: %s\n' "${tolerated[*]}" >> "$GITHUB_STEP_SUMMARY"; fi
+            if [ -f "$result" ]; then
+              node -e "for(const e of require(process.argv[1]).entries.filter(e=>e.exit!==0)) console.log('- '+e.id+' (fail: '+(e.fail??'不明')+')')" "$result" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo '- unit tests (lane media) (結果 JSON なし)' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [ "${{ steps.tests.outcome }}" = success ]; then
+            echo 'unit-media: 0 件落ちた（すべて通過）' >> "$GITHUB_STEP_SUMMARY"
+            if [ "${#tolerated[@]}" -gt 0 ]; then printf '準備の一部が失敗したままテストを走らせた: %s\n' "${tolerated[*]}" >> "$GITHUB_STEP_SUMMARY"; fi
+          else
+            message="unit-media (ffmpeg / Chrome が要る — 参考) のテストが走らなかった（tests outcome=${{ steps.tests.outcome }}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$RUNNER_TEMP/unit-media-table.md" ]; then cat "$RUNNER_TEMP/unit-media-table.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          exit 0
 
   l0:
     name: L0 (build:ext + lint + shell unit tests)
