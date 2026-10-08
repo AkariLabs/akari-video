@@ -38,7 +38,9 @@ export class LeftRailTooltip {
         }
         if (this.title === title && this.node.style.display === 'block') { return; }
         this.title = title;
-        this.node.textContent = title.caption || title.label;
+        this.node.textContent = tab.classList?.contains('akari-rail-disabled')
+            ? tab.getAttribute('title') || title.caption || title.label
+            : title.caption || title.label;
         this.node.style.display = 'block';
         const box = tab.getBoundingClientRect();
         this.node.style.top = `${Math.round(box.top + box.height / 2 - this.node.offsetHeight / 2)}px`;

@@ -123,7 +123,7 @@ test('設定の通常列と通知を中央に揃え、ライトのオフのつ�
 test('レールの許可リストに旧設定 widget がなく、設定 opener は残る', () => {
     const curation = source('../../../akari-shell-strip/src/browser/akari-activity-bar-curation.ts');
     assert.equal(curation.includes('akari-settings-widget'), false);
-    assert.match(curation, /id: 'akari-settings-opener'/);
+    assert.match(curation, /id: (?:'akari-settings-opener'|RAIL_SETTINGS_OPENER_ID)/);
 });
 
 test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
