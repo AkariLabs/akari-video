@@ -1,4 +1,18 @@
-import { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+import type { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+
+export function shouldDismissExpandedRail(expanded: string | null, insideRail: boolean, button: number): boolean {
+    return expanded === 'true' && !insideRail && button === 0;
+}
+
+export function railViewLabel(id: string, explorerId: string): string | undefined {
+    if (id === explorerId) return 'エクスプローラー';
+    if (id === 'search-view-container') return '検索';
+    return undefined;
+}
+
+export function shouldShowLeftRailTooltip(expanded: string | null, dragActive: boolean): boolean {
+    return expanded === null && !dragActive;
+}
 
 /** An immediate chip for the left activity bar; identity follows the title across DOM redraws. */
 export class LeftRailTooltip {
@@ -32,7 +46,8 @@ export class LeftRailTooltip {
         const tab = (event.target as Element | null)?.closest?.('.lm-TabBar-tab');
         const index = tab ? Array.from(this.tabBar.contentNode.children).indexOf(tab) : -1;
         const title = index >= 0 ? this.tabBar.titles[index] : undefined;
-        if (!tab || !title || document.body.classList.contains('akari-rail-drag-active')) {
+        if (!tab || !title || !shouldShowLeftRailTooltip(document.body.getAttribute?.('data-akari-rail-expanded') ?? null,
+            document.body.classList.contains('akari-rail-drag-active'))) {
             this.hide();
             return;
         }

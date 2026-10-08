@@ -6,7 +6,7 @@ import { CommandService } from '@theia/core/lib/common';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { computeLeftPanelOrder } from './left-panel-order';
-import { LeftRailTooltip } from './left-rail-tooltip';
+import { LeftRailTooltip, railViewLabel, shouldDismissExpandedRail } from './left-rail-tooltip';
 import { AkariScopeService } from './akari-scope-service';
 import { AkariExportAvailabilityService } from './akari-export-availability-service';
 import { installLeftRailStyle } from './left-rail-style';
@@ -86,8 +86,8 @@ const ALLOWLIST: CurationEntry[] = [
     { id: RAIL_LIBRARY_OPENER_ID, label: null },
     { id: RAIL_SKILLS_WIDGET_ID, label: null },
     { id: RAIL_EXPORT_OPENER_ID, label: null },
-    { id: EXPLORER_VIEW_CONTAINER_ID, label: '素材' },
-    { id: 'search-view-container', label: '検索' },
+    { id: EXPLORER_VIEW_CONTAINER_ID, label: null },
+    { id: 'search-view-container', label: null },
     { id: RAIL_CHANNEL_WIDGET_ID, label: null },
     { id: RAIL_DEVELOPER_OPENER_ID, label: null },
     { id: RAIL_SETTINGS_OPENER_ID, label: null },
@@ -209,9 +209,42 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             }
             void this.commands.executeCommand(command.id, ...(command.args ? [command.args] : [])).catch(() => undefined);
         }, true);
+        let clearOutsideClick: (() => void) | undefined;
         document.addEventListener('pointerdown', event => {
-            if (!document.body.hasAttribute('data-akari-rail-expanded')) return;
-            if (!tabBar.node.contains(event.target as Node)) this.setExpanded(false);
+            clearOutsideClick?.();
+            if (!shouldDismissExpandedRail(document.body.getAttribute('data-akari-rail-expanded'),
+                tabBar.node.contains(event.target as Node), event.button)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.setExpanded(false);
+            const stopFollowingEvent = (following: Event) => {
+                following.preventDefault();
+                following.stopPropagation();
+            };
+            const onPointerUp = (following: PointerEvent) => {
+                stopFollowingEvent(following);
+                document.removeEventListener('pointerup', onPointerUp, true);
+            };
+            const onMouseUp = (following: MouseEvent) => {
+                stopFollowingEvent(following);
+                document.removeEventListener('mouseup', onMouseUp, true);
+            };
+            const onClick = (following: MouseEvent) => {
+                stopFollowingEvent(following);
+                clear();
+            };
+            const clear = () => {
+                document.removeEventListener('pointerup', onPointerUp, true);
+                document.removeEventListener('mouseup', onMouseUp, true);
+                document.removeEventListener('click', onClick, true);
+                window.clearTimeout(timeout);
+                if (clearOutsideClick === clear) clearOutsideClick = undefined;
+            };
+            document.addEventListener('pointerup', onPointerUp, true);
+            document.addEventListener('mouseup', onMouseUp, true);
+            document.addEventListener('click', onClick, true);
+            const timeout = window.setTimeout(clear, 1000);
+            clearOutsideClick = clear;
         }, true);
     }
 
@@ -351,7 +384,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 console.info(`[akari-shell-strip] left activity bar widget observed (trigger=${trigger}):`, JSON.stringify({ id, label: title.label }));
             }
             if (ALLOW_IDS.has(id)) {
-                const overriddenLabel = LABEL_OVERRIDE.get(id);
+                const overriddenLabel = railViewLabel(id, EXPLORER_VIEW_CONTAINER_ID) ?? LABEL_OVERRIDE.get(id);
                 if (overriddenLabel) {
                     title.label = overriddenLabel;
                 }
