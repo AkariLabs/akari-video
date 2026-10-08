@@ -372,8 +372,7 @@ export class AkariChannelWidget extends ReactWidget {
     protected async chooseChannel(name: string): Promise<void> {
         this.closePopover();
         if (name === '__new__') {
-            await this.commands.executeCommand('akari.home.open');
-            void this.messages.info('ホームの「チャンネル」から新しいチャンネルを作れます');
+            await this.commands.executeCommand('akari.home.newChannel');
             return;
         }
         this.closeSheet();

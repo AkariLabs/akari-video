@@ -10,6 +10,7 @@ export interface ProjectListViewProps {
     standalone: ProjectListRow[];
     currentName?: string;
     onNew: (rect: DOMRect) => void;
+    onNewStandalone: () => void;
     onRefresh: () => void;
     onOpenChannel: () => void;
     onOpen: (row: ProjectListRow, rect: DOMRect) => void;
@@ -45,6 +46,7 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
         <div className='akari-os-list-actions'>
             <button type='button' className='theia-button main' onClick={event => props.onNew(event.currentTarget.getBoundingClientRect())}>＋ 新しいプロジェクトを始める</button>
             {!props.currentName && <span>名前は日時が先に入ります。あとで変えられます</span>}
+            <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>チャンネルに入れずに作る…</button>
         </div>
         <section>
             <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
@@ -62,6 +64,7 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
 export const projectListCss = `
 .akari-os-list-view{display:flex;flex-direction:column;gap:18px;max-width:1100px;margin:auto}
 .akari-os-list-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--theia-descriptionForeground);font-size:12px}
+.akari-os-link{background:none;border:0;padding:0;color:var(--theia-textLink-foreground);font-size:12px;cursor:pointer;text-decoration:underline}
 .akari-os-section-heading{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;row-gap:6px;margin-bottom:8px}
 .akari-os-section-heading h3{margin:0;font-size:14px;font-weight:800}
 .akari-os-section-heading small{color:var(--theia-descriptionForeground)}

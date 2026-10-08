@@ -48,6 +48,7 @@ export const AkariHomeCommands = {
         id: 'akari.home.newProject',
         label: '新規プロジェクト作成'
     } as Command,
+    NEW_CHANNEL: { id: 'akari.home.newChannel', label: '新しいチャンネルを作る' } as Command,
     OPEN_FIRST_RUN_SETUP: {
         id: 'akari.home.openFirstRunSetup',
         label: '初回セットアップを開く'
@@ -124,6 +125,12 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 // 出るので、メニューから始めても進行が見える場所に居る。
                 const widget = await this.revealHome();
                 await widget.startNewProject();
+            }
+        });
+        registry.registerCommand(AkariHomeCommands.NEW_CHANNEL, {
+            execute: async () => {
+                const widget = await this.revealHome();
+                await widget.openNewChannelDialog();
             }
         });
         registry.registerCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP, {

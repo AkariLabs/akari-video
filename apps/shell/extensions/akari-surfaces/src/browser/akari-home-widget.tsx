@@ -89,6 +89,7 @@ import { decideOpenFlow, openChoices, OpenChoice } from './home/home-open-decisi
 import { eventHistoryEntry, exportHistoryEntry, HomeHistoryEntry, sortHomeHistory } from './home/home-history';
 import type { OpenProjectRequest } from './akari-home-command-contribution';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
+import { AkariChannelContextService } from './channel/akari-channel-context-service';
 import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
@@ -252,6 +253,7 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(ProjectProgressService) protected readonly progress!: ProjectProgressService;
     @inject(AkariScopeService) protected readonly scope!: AkariScopeService;
+    @inject(AkariChannelContextService) protected readonly channelContext!: AkariChannelContextService;
     protected projectSort: ProjectSortOrder = readProjectSort('home');
     protected projectRefreshing = false;
     protected projectQuery = '';
@@ -377,8 +379,10 @@ export class AkariHomeWidget extends ReactWidget {
     protected currentProjectUri: URI | undefined;
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
-    protected homeDialog: 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | undefined;
+    protected homeDialog: 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
     protected chosenFolder: URI | undefined;
+    protected standaloneFolder: URI | undefined;
+    protected standaloneDestination: URI | undefined;
     protected openChoice: 'channel' | 'standalone' = 'channel';
     protected channels: string[] = [];
     protected listChannelOverride: string | undefined;
@@ -1492,6 +1496,23 @@ export class AkariHomeWidget extends ReactWidget {
             }
             const name = await this.reserveNewProjectName(rootUri, channel);
             const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
+            await this.createAndOpenProject(destination, originRect);
+        } catch (error) {
+            this.reportNewProjectError(error);
+            this.startingNewProject = false;
+            this.update();
+        }
+    };
+
+    async startNewProjectIn(destination: URI): Promise<void> {
+        if (this.startingNewProject) { return; }
+        await this.createAndOpenProject(destination);
+    }
+
+    protected async createAndOpenProject(destination: URI, originRect?: DOMRect): Promise<void> {
+        this.startingNewProject = true;
+        this.update();
+        try {
             await this.newProjectService.createProject(destination.toString());
             const intake = {
                 version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
@@ -1507,20 +1528,22 @@ export class AkariHomeWidget extends ReactWidget {
                 await this.chooseOpen('here');
             }
         } catch (error) {
-            console.error('[akari-surfaces] failed to start a new project:', error);
-            // 理由を出さない 1 行だけだと実機の失敗（雛形/scaffold の同梱漏れ・権限・
-            // 同名衝突）がすべて同じ文言に潰れて切り分けができない。`ensureCreatorRoot`
-            // 側（describeEnsureError）と同じ流儀で、原因を括弧で添える。
-            this.messages.error(
-                error instanceof Error && error.message
-                    ? `新しい動画の作成に失敗しました（${error.message}）。`
-                    : '新しい動画の作成に失敗しました。'
-            );
+            this.reportNewProjectError(error);
         } finally {
             this.startingNewProject = false;
             this.update();
         }
-    };
+    }
+
+    protected reportNewProjectError(error: unknown): void {
+        console.error('[akari-surfaces] failed to start a new project:', error);
+        // 雛形や権限など、失敗の理由を一緒に示す。
+        this.messages.error(
+            error instanceof Error && error.message
+                ? `新しい動画の作成に失敗しました（${error.message}）。`
+                : '新しい動画の作成に失敗しました。'
+        );
+    }
 
     // --- U2 状態バッジ（旧 F6 現在地 1 行を置換。task 2026-08-03-home-v5-terms） --
 
@@ -2130,6 +2153,7 @@ export class AkariHomeWidget extends ReactWidget {
             standalone={rows.filter(row => row.standalone)}
             currentName={this.scope.scope === 'project' ? rows.find(row => row.current)?.name ?? this.currentProjectUri?.path.base : undefined}
             onNew={rect => { this.newProjectOriginRect = rect; void this.startNewProject(); }} onRefresh={() => void this.refreshProjectListData()}
+            onNewStandalone={() => void this.chooseStandaloneFolder()}
             onOpenChannel={() => void this.shell.revealWidget(RAIL_CHANNEL_WIDGET_ID)}
             onOpen={(row, rect) => this.openCreatorRootProject(row.uri, rect)}
             readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />;
@@ -2350,6 +2374,27 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected closeHomeDialog = (): void => { this.homeDialog = undefined; this.update(); };
 
+    protected async chooseStandaloneFolder(): Promise<void> {
+        const picked = await this.fileDialogs.showOpenDialog({
+            title: '単体プロジェクトを作るフォルダを選ぶ',
+            canSelectFiles: false, canSelectFolders: true, canSelectMany: false
+        });
+        if (!picked) { return; }
+        const folder = Array.isArray(picked) ? picked[0] : picked;
+        if (!folder) { return; }
+        this.standaloneFolder = folder;
+        const date = new Date();
+        const datePrefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const stem = `${datePrefix}-${NEW_PROJECT_NAME_SLUG}`;
+        let name = stem;
+        for (let index = 2; await this.fileService.exists(folder.resolve(name)); index++) {
+            name = `${stem}-${index}`;
+        }
+        this.standaloneDestination = folder.resolve(name);
+        this.homeDialog = 'standalone-create';
+        this.update();
+    }
+
     protected async chooseFolder(): Promise<void> {
         const folder = await this.fileDialogs.showOpenDialog({ title: 'プロジェクトを開く', canSelectFiles: false, canSelectFolders: true });
         if (!folder) { return; }
@@ -2394,16 +2439,30 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
     }
 
-    protected openNewChannelDialog(): void {
+    async openNewChannelDialog(): Promise<void> {
         this.newChannelName = '';
         this.newChannelError = '';
+        if (!this.creatorRootUri) {
+            this.creatorRootUri = await this.resolveCreatorRootDir();
+        }
+        if (this.creatorRootUri && this.channels.length === 0) {
+            this.channels = await this.resolveManifestChannels(this.creatorRootUri);
+        }
+        if (!this.creatorRootUri) {
+            this.newChannelError = '作業場が見つかりません。';
+        }
         this.homeDialog = 'channel-create';
         this.update();
     }
 
-    /** 新規プロジェクトを機械の AKARI_HOME に作り、creator-root の既存 adopt RPC で新チャンネルへ移す。 */
+    /** チャンネルのフォルダとマニフェスト登録を作る。 */
     protected async createNewChannel(): Promise<void> {
-        if (this.creatingChannel || !this.creatorRootUri) { return; }
+        if (this.creatingChannel) { return; }
+        if (!this.creatorRootUri) {
+            this.newChannelError = '作業場が見つかりません。';
+            this.update();
+            return;
+        }
         const validation = validateChannelName(this.newChannelName, this.channels);
         if (!validation.name) {
             this.newChannelError = validation.error ?? 'チャンネル名を確認してください。';
@@ -2415,29 +2474,33 @@ export class AkariHomeWidget extends ReactWidget {
         this.creatingChannel = true;
         this.newChannelError = '';
         this.update();
-        let stagedProject: URI | undefined;
         try {
-            const machineHome = await this.resolveAkariHomeUri();
-            // AKARI_HOME が作業場内に指定されていても、一時プロジェクトは必ず外へ置く。
-            const staging = root.relative(machineHome) === undefined
-                ? machineHome.resolve('channel-staging') : root.parent.resolve('.akari-channel-staging');
             const videos = root.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
-            const stem = await this.reserveNewProjectName(root, channel);
-            let name = stem;
-            for (let index = 2; await this.fileService.exists(staging.resolve(name)) || await this.fileService.exists(videos.resolve(name)); index++) {
-                name = `${stem}-${index}`;
+            await this.fileService.createFolder(videos);
+            const manifestUri = root.resolve(CREATOR_ROOT_MANIFEST_RELATIVE_PATH);
+            let manifest: Record<string, unknown> = { schema: CREATOR_ROOT_SCHEMA };
+            try {
+                const parsed: unknown = JSON.parse((await this.fileService.readFile(manifestUri)).value.toString());
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    manifest = parsed as Record<string, unknown>;
+                }
+            } catch {
+                // 読み込めない場合はチャンネル一覧を補う。
             }
-            stagedProject = staging.resolve(name);
-            await this.newProjectService.createProject(stagedProject.toString());
-            this.pendingChannelProjectUri = new URI(await this.newProjectService.adoptProject(root.toString(), stagedProject.toString(), channel));
-            this.pendingChannel = channel;
+            const existing = Array.isArray(manifest.channels)
+                ? manifest.channels.filter((value): value is string => typeof value === 'string' && value.length > 0)
+                : this.channels;
+            manifest.channels = [...new Set([...existing, channel])];
+            await this.fileService.writeFile(manifestUri, BinaryBuffer.fromString(`${JSON.stringify(manifest, null, 2)}\n`));
             this.channels = await this.resolveManifestChannels(root);
             this.creatorRootProjects = await this.listCreatorRootProjects(root);
-            this.homeDialog = 'channel-choice';
+            await this.channelContext.refresh();
+            this.channelContext.setViewingChannel(channel);
+            this.setListChannelOverride(channel);
+            this.closeHomeDialog();
+            this.messages.info(`『${channel}』を作りました`);
         } catch (error) {
-            const reason = error instanceof Error ? error.message : '作成に失敗しました。';
-            this.newChannelError = stagedProject
-                ? `${reason} 一時プロジェクト: ${stagedProject.path.fsPath()}` : reason;
+            this.newChannelError = error instanceof Error ? error.message : '作成に失敗しました。';
         } finally {
             this.creatingChannel = false;
             this.update();
@@ -2474,7 +2537,7 @@ export class AkariHomeWidget extends ReactWidget {
         if (this.homeDialog === 'channel-create') {
             return <HomeScrim kind='channel-create' onClose={this.closeHomeDialog}>
                 <h3>新しいチャンネルを作る</h3>
-                <p>名前を決めると、新しいプロジェクトをそのチャンネルに作ります。</p>
+                <p>チャンネルのフォルダ（channels/&lt;名前&gt;/）を作ります。設計・デザイン・辞書は左の『チャンネル』から</p>
                 <label className='akari-home-channel-name-label'>チャンネル名
                     <input className='theia-input akari-home-channel-name' type='text' autoFocus
                         data-akari-channel-name='true' value={this.newChannelName}
@@ -2482,11 +2545,28 @@ export class AkariHomeWidget extends ReactWidget {
                 </label>
                 {this.newChannelError && <p className='akari-home-channel-error' role='alert' data-akari-channel-error='true'>{this.newChannelError}</p>}
                 <div className='akari-home-dialog-actions'>
-                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>キャンセル</button>
+                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>やめる</button>
                     <button type='button' className='theia-button main' disabled={this.creatingChannel}
                         data-akari-channel-create-submit='true' onClick={() => void this.createNewChannel()}>
-                        {this.creatingChannel ? '作成しています…' : '作成して始める'}
+                        {this.creatingChannel ? '作成しています…' : '作る'}
                     </button>
+                </div>
+            </HomeScrim>;
+        }
+        if (this.homeDialog === 'standalone-create' && this.standaloneDestination) {
+            return <HomeScrim kind='standalone-create' onClose={this.closeHomeDialog}>
+                <h3>チャンネルに入れずに作る</h3>
+                <p>好きなフォルダに、単体のプロジェクトとして作ります。チャンネルの設計やスタイルは効きません。あとからチャンネルに入れられます。</p>
+                <div className='akari-home-dialog-path'>{this.standaloneDestination.path.fsPath()}</div>
+                <div className='akari-home-dialog-actions'>
+                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>やめる</button>
+                    <button type='button' className='theia-button main' data-akari-standalone-create-submit='true'
+                        disabled={this.startingNewProject} onClick={() => {
+                            const destination = this.standaloneDestination;
+                            if (!destination) { return; }
+                            this.closeHomeDialog();
+                            void this.startNewProjectIn(destination);
+                        }}>作る</button>
                 </div>
             </HomeScrim>;
         }
