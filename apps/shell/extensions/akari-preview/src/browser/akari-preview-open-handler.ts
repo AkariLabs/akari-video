@@ -5445,7 +5445,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
             const overlayHtml = new Map<string, string>();
             const overlayTrackIds = new Map<string, string>();
-            const overlayElementSources = new Map<string, { elements?: Record<string, { style: Record<string, string> }>; plain: boolean }>();
+            const overlayElementSources = new Map<string, { elements?: Record<string, { style: Record<string, string> }>;
+                plain: boolean; sourcePath?: string }>();
             const seenOverlayUris = new Set<string>();
             const registerOverlayUri = (uri: URI): void => {
                 const uriKey = uri.toString();
@@ -5503,6 +5504,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (item.source.kind === 'html') {
                     const html = overlayHtml.get(item.source.html) ?? item.source.html;
                     overlayElementSources.set(item.id, { elements: item.source.elements,
+                        sourcePath: typeof item.source.html === 'string' && !item.source.html.trimStart().startsWith('<')
+                            ? item.source.html : undefined,
                         plain: isElementSelectionFileReference(item.source.html)
                             && !item.source.part && scanHtmlParts(html).length === 0 });
                 }
@@ -5596,7 +5599,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(overlayElementSources.get(String(value?.id ?? ''))?.plain
                         ? { elementSelection: true,
                             elements: overlayElementSources.get(String(value?.id ?? ''))?.elements ?? {} } : {}),
-                    sourcePath: typeof value?.html === 'string' && !value.html.trimStart().startsWith('<') ? value.html : undefined,
+                    sourcePath: overlayElementSources.get(String(value?.id ?? ''))?.sourcePath
+                        ?? (typeof value?.html === 'string' && !value.html.trimStart().startsWith('<') ? value.html : undefined),
                     html: resolvedOverlayHtml[index],
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
