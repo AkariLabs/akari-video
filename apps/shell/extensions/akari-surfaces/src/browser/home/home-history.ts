@@ -3,6 +3,11 @@ export interface HomeHistoryEntry { label: string; time: number; kind: 'event' |
 const EVENT_LABELS: Record<string, string> = {
     'project-created': 'プロジェクトを作った',
     project_created: 'プロジェクトを作った',
+    'material-transcript': '文字起こし',
+    'report-generated': '分析レポート',
+    'report-approved': 'レポートを承認',
+    'edit-completed': '編集を終えた',
+    'export-completed': '書き出し',
     'assets-imported': '素材を入れた',
     assets_imported: '素材を入れた',
     'plan-created': '企画書を作った',
@@ -21,7 +26,8 @@ export function eventHistoryEntry(value: unknown, fallbackTime = 0): HomeHistory
     if (typeof event.type !== 'string' || !event.type) return undefined;
     const rawTime = event.timestamp ?? event.at ?? event.created_at ?? event.createdAt;
     const parsedTime = typeof rawTime === 'number' ? rawTime : Date.parse(String(rawTime ?? ''));
-    return { label: EVENT_LABELS[event.type] ?? event.type, time: Number.isFinite(parsedTime) ? parsedTime : fallbackTime, kind: 'event' };
+    const by = event.by === 'partner' ? 'パートナー: ' : event.by === 'user' ? 'あなた: ' : '';
+    return { label: by + (EVENT_LABELS[event.type] ?? event.type), time: Number.isFinite(parsedTime) ? parsedTime : fallbackTime, kind: 'event' };
 }
 
 export function exportHistoryEntry(name: string, time: number): HomeHistoryEntry {

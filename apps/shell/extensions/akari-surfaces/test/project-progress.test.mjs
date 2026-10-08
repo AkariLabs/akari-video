@@ -23,6 +23,7 @@ test('編集あり・レポートなし: 企画が無くても いまここは�
     const v = p({ assetFiles: 2, editHasContent: true });
     assert.equal(currentStage(v), 'edit');
     assert.equal(stageSummary(v), '編集の途中');
+    assert.equal(computeProjectStages(v).find(s => s.key === 'edit')?.detail, '編集あり');
 });
 
 test('レポートあり・書き出しなし: いまここは書き出し・札は「確認中」', () => {

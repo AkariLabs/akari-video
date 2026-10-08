@@ -76,6 +76,8 @@ test('the right side panel handler and the drop zones are wired in the frontend 
         assert.ok(dnd.includes(`'${label}'`), label);
     }
     assert.ok(style.RIGHT_RAIL_CSS.includes('--akari-rail-middle'), 'separator is placed at the measured middle');
+    assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-name/);
+    assert.match(read('../src/browser/akari-right-panel-handler.ts'), /label\.setAttribute\('data-akari-rail-name', name\)/);
     assert.match(style.RIGHT_RAIL_CLOSE_ICON_SVG, /M6 6l12 12M18 6L6 18/);
 });
 

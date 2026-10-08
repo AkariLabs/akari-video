@@ -187,16 +187,31 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
         return this.channelCache.channel;
     }
 
+    protected async readChannelAtHome(): Promise<string | undefined> {
+        try {
+            const override = await this.environment.getValue('AKARI_HOME');
+            const home = override?.value ? URI.fromFilePath(override.value) : new URI(await this.environment.getHomeDirUri()).resolve('.akari');
+            const pointer = JSON.parse((await this.files.readFile(home.resolve('creator-root.json'))).value.toString());
+            if (typeof pointer?.lastRoot !== 'string' || !pointer.lastRoot) { return undefined; }
+            const manifest = JSON.parse((await this.files.readFile(URI.fromFilePath(pointer.lastRoot).resolve('.akari/root.json'))).value.toString());
+            if (manifest?.schema !== 'creator-root/v1' || !Array.isArray(manifest.channels)) { return undefined; }
+            const channels = manifest.channels.filter((name: unknown): name is string => typeof name === 'string' && name.length > 0);
+            const last = window.localStorage.getItem('akari.home.lastChannel');
+            return (last && channels.includes(last) ? last : channels[0]) || undefined;
+        } catch { return undefined; }
+    }
+
     protected async renderCenter(): Promise<void> {
         const center = this.center;
         if (!center) { return; }
         const version = ++this.renderVersion;
         const root = (await this.workspace.roots)[0]?.resource;
         const opened = this.workspace.opened && !!root;
-        const channel = opened ? await this.cachedWorkspaceChannel(root) : window.localStorage.getItem('akari.home.lastChannel') || undefined;
+        const channel = opened ? await this.cachedWorkspaceChannel(root) : await this.readChannelAtHome();
         if (version !== this.renderVersion) { return; }
         const project = opened ? Reflect.get(this.welcomeTitle, 'resolvedTitle') as string | null || root.path.base : undefined;
         const parts = titleBarCenter({ scope: opened ? 'project' : 'channel', channel, project, standalone: opened && !channel });
+        if (!opened && !channel) { center.replaceChildren(); return; }
         const channelButton = document.createElement('button');
         channelButton.className = 'akari-title-channel';
         channelButton.type = 'button';

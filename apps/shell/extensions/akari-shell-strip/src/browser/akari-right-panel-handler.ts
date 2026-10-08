@@ -567,7 +567,19 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         }
         const tabs = Array.from(this.tabBar.contentNode.children) as HTMLElement[];
         tabs.forEach((tab, index) => {
-            if (this.tabBar.titles[index]?.owner.id === 'akari-daihon-widget') {
+            const id = this.tabBar.titles[index]?.owner.id;
+            const label = tab.querySelector<HTMLElement>('.lm-TabBar-tabLabel');
+            if (label) {
+                const name = id === 'akari-partner-onboarding' ? '追加'
+                    : id === 'akari-daihon-widget' ? '台本'
+                    : id === 'akari-review-panel-widget' ? '注釈'
+                    : id === 'akari-inspector-widget' ? 'インスペクター'
+                    : id === 'akari-audio-meter-widget' ? '音声'
+                    : id === 'akari-partner-web' || id?.startsWith('terminal-') ? 'チャット'
+                    : this.tabBar.titles[index]?.label || '';
+                label.setAttribute('data-akari-rail-name', name);
+            }
+            if (id === 'akari-daihon-widget') {
                 tab.setAttribute('data-akari-onboarding-target', 'daihon-button');
             }
         });

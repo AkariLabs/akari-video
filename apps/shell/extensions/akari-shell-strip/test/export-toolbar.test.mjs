@@ -73,6 +73,7 @@ test('帯は本体領域だけに現れ、共有コマンドを呼ぶ', () => {
     const calls = [];
     const instance = Object.assign(new Controller(), {
         shell: { getAreaFor: widget => widget.area },
+        scopeService: { scope: 'project' },
         availability: { snapshot: { workspaceOpened: true, exists: true, selectedEditName: 'edit.json' } },
         exportSession: { snapshot: { status: { phase: 'linting', progressPercent: 25 } } },
         commands: { executeCommand: id => { calls.push(id); return Promise.resolve(); } },
@@ -83,6 +84,9 @@ test('帯は本体領域だけに現れ、共有コマンドを呼ぶ', () => {
     assert.equal(item.priority, 100);
     assert.equal(item.isVisible({ area: 'main' }), true);
     assert.equal(item.isVisible({ area: 'bottom' }), false);
+    instance.scopeService.scope = 'channel';
+    assert.equal(item.isVisible({ area: 'main' }), false);
+    instance.scopeService.scope = 'project';
     const button = item.render();
     assert.equal(button.props.className, 'theia-button');
     assert.equal(button.props['data-akari-export-toolbar'], 'true');

@@ -33,7 +33,7 @@ export const LEFT_RAIL_CSS = `
     text-align: center;
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_PROJECT_OPENER_ID}"] .lm-TabBar-tabIcon {
-    font-size: 28px;
+    font-size: 30px;
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabLabel {
     display: block !important;
@@ -72,8 +72,22 @@ export const LEFT_RAIL_CSS = `
     cursor: default;
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-separator {
-    margin-top: 12px !important;
-    border-top: 1px solid var(--akari-rail-separator, #444);
+    position: relative;
+    margin-top: 6px !important;
+    overflow: visible !important;
+}
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-separator::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: calc(50% - 15px);
+    width: 30px;
+    height: 1px;
+    background: rgba(255, 255, 255, .38);
+    pointer-events: none;
+}
+body.theia-light #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-separator::before {
+    background: rgba(35, 40, 50, .45);
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-lower-start {
     margin-top: auto !important;
@@ -88,9 +102,9 @@ body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia
     left: 0 !important;
     height: auto !important;
     z-index: 10030 !important;
-    width: 286px !important;
-    min-width: 286px !important;
-    max-width: 286px !important;
+    width: 340px !important;
+    min-width: 340px !important;
+    max-width: 340px !important;
     box-shadow: 8px 6px 20px rgba(0,0,0,.3);
     background: var(--theia-activityBar-background, #141414);
 }
@@ -101,7 +115,7 @@ body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia
     transition-duration: 340ms;
 }
 body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab {
-    width: 286px !important;
+    width: 340px !important;
     flex-direction: row;
     justify-content: flex-start;
     gap: 10px;
@@ -129,11 +143,13 @@ body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia
     min-width: 0;
     background: none;
     color: var(--akari-muted, #a3a3a3);
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
     text-align: left;
     white-space: normal;
-    flex: 1;
+    word-break: normal;
+    overflow-wrap: normal;
+    flex: 0 0 190px;
 }
 @media (prefers-reduced-motion: reduce) {
     #theia-left-content-panel .lm-TabBar.theia-app-left { transition: none !important; }

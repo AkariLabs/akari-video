@@ -129,6 +129,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected loggedIds = new Set<string>();
     protected leftTooltip?: LeftRailTooltip;
     protected catalogObserver?: MutationObserver;
+    protected restoreLeftPanelForProject = false;
 
     onDidInitializeLayout(app: FrontendApplication): Promise<void> {
         return guardInitLayout('akari-shell-strip', () => {
@@ -207,11 +208,29 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
         this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => {
             this.reconcileSidePanelTitleBar();
             this.reconcileLeftPanelOrder();
+            this.reconcileLeftPanelScope();
         });
-        this.scopeService.onDidChangeScope(() => this.reconcileLeftPanelOrder());
+        this.scopeService.onDidChangeScope(() => {
+            this.reconcileLeftPanelScope();
+            this.reconcileLeftPanelOrder();
+        });
+        this.reconcileLeftPanelScope();
         this.exportAvailability.onDidChange(() => this.reconcileLeftPanelOrder());
         this.catalogObserver = new MutationObserver(() => this.reconcileLeftPanelOrder());
         this.catalogObserver.observe(document.body, { attributes: true, attributeFilter: [AKARI_CATALOG_TAB_BODY_ATTRIBUTE] });
+    }
+
+    protected reconcileLeftPanelScope(): void {
+        const shell = this.shell;
+        if (shell && this.scopeService.scope === 'channel') {
+            if (this.leftPanelInternals()?.tabBar?.currentTitle?.owner.id === RAIL_ROLE_BUCKETS_WIDGET_ID) {
+                this.restoreLeftPanelForProject = true;
+                void shell.collapsePanel('left');
+            }
+        } else if (shell && this.restoreLeftPanelForProject) {
+            this.restoreLeftPanelForProject = false;
+            shell.expandPanel('left');
+        }
     }
 
     /**
@@ -250,6 +269,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             if (!developer.isAttached) await shell.addWidget(developer, { area: 'left', rank: 390 });
         }
         await shell.revealWidget(showId);
+        this.reconcileLeftPanelScope();
     }
 
     protected reconcileLeftPanel(trigger: string): void {

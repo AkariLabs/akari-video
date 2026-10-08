@@ -9,6 +9,10 @@ import type { FrontendApplicationConfig } from '@theia/application-package/lib/a
 export class AkariElectronMainApplication extends ElectronMainApplication {
     protected normalizedFrame = false;
 
+    protected override getDefaultOptions() {
+        return { ...super.getDefaultOptions(), backgroundColor: '#0b1222' };
+    }
+
     protected getTitleBarStyle(config: FrontendApplicationConfig): 'native' | 'custom' {
         if (isWindows && !this.normalizedFrame) {
             this.normalizedFrame = true;
@@ -26,6 +30,21 @@ export class AkariElectronMainApplication extends ElectronMainApplication {
 export class AkariWindowEventsElectronMain implements ElectronMainApplicationContribution {
     onStart(_application: ElectronMainApplication): void {
         const attach = (window: BrowserWindow): void => {
+            window.webContents.on('dom-ready', () => {
+                // bundle の起動を待たず、前回の場所とテーマで読み込み面を塗る。
+                void window.webContents.executeJavaScript(`(() => {
+                    const scope = localStorage.getItem('akari.ground.scope') === 'project' ? 'project' : 'channel';
+                    const light = localStorage.getItem('akari.ground.theme') === 'light';
+                    const color = scope === 'project' ? (light ? '#efe9e3' : '#1a0f08') : (light ? '#e3e8f1' : '#0b1222');
+                    document.documentElement.style.setProperty('--akari-loading-ground', color);
+                    const style = document.createElement('style');
+                    style.textContent = 'html,body,.theia-preload{background-color:var(--akari-loading-ground)!important}';
+                    document.head.appendChild(style);
+                    return color;
+                })();`).then(color => {
+                    if (!window.isDestroyed()) { window.setBackgroundColor(color); }
+                }).catch(() => undefined);
+            });
             const broadcast = (): void => {
                 if (window.isDestroyed()) { return; }
                 const fullScreen = window.isFullScreen();

@@ -55,7 +55,7 @@ export function computeProjectStages(p: ProjectPresence): ProjectStage[] {
     const detail: Record<ProjectStageKey, string> = {
         plan: done.plan ? '企画書あり' : 'まだ',
         assets: done.assets ? `${p.assetFiles} 件` : 'まだ',
-        edit: done.edit ? 'タイムラインあり' : 'まだ',
+        edit: done.edit ? '編集あり' : 'まだ',
         check: done.check ? 'レポートあり' : 'まだ',
         export: done.export ? `${p.exportFiles} 本` : 'まだ'
     };

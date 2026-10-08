@@ -10,6 +10,61 @@ const LINE = 'var(--akari-rail-separator, #444)';
 const ACCENT = 'var(--akari-accent, #f97316)';
 
 export const RIGHT_RAIL_CSS = `
+/* 左レールと同じアイコン下の短い名前。Theia の縦書き指定を戻す。 */
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab {
+    min-height: 52px !important;
+    height: 52px !important;
+    flex: 0 0 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 2px !important;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .theia-tab-icon-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabIcon {
+    position: static !important;
+    top: auto !important;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    font-size: 24px;
+    margin: 0;
+    background-size: 24px 24px;
+    mask-size: 24px 24px;
+    -webkit-mask-size: 24px 24px;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel {
+    display: block !important;
+    position: static !important;
+    top: auto !important;
+    margin: 0;
+    transform: scaleX(.78) !important;
+    writing-mode: horizontal-tb !important;
+    width: 62px !important;
+    height: auto !important;
+    max-width: none;
+    font-size: 0;
+    line-height: 13px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: visible;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel::after {
+    content: attr(data-akari-rail-name);
+    font-size: 8px;
+    letter-spacing: -.7px;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current::before {
+    content: none !important;
+    display: none !important;
+}
 /* ── レールの区切り線: 縦バーの縦の真ん中（--akari-rail-middle はハンドラーが実測して入れる） ── */
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right::after {
     content: "";

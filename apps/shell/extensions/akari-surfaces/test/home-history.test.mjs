@@ -16,3 +16,11 @@ test('出来事と書き出しを時刻の新しい順に混ぜる', () => {
     ]);
     assert.deepEqual(rows.map(row => row.label), ['書き出し（完成.mp4）', '分析レポートを作った', '素材を入れた']);
 });
+
+test('新しい履歴種別と担当者を日本語で表示する', () => {
+    const labels = ['project-created', 'material-transcript', 'report-generated', 'report-approved', 'edit-completed', 'export-completed']
+        .map(type => eventHistoryEntry({ type, by: 'partner' })?.label);
+    assert.deepEqual(labels, ['パートナー: プロジェクトを作った', 'パートナー: 文字起こし', 'パートナー: 分析レポート',
+        'パートナー: レポートを承認', 'パートナー: 編集を終えた', 'パートナー: 書き出し']);
+    assert.equal(eventHistoryEntry({ type: 'edit-completed', by: 'user' })?.label, 'あなた: 編集を終えた');
+});
