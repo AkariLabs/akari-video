@@ -931,7 +931,7 @@ async function main() {
       method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
       body: JSON.stringify(modified, null, 2)
     });
-    if (!putRes.ok) throw new Error(`PUT failed: HTTP ${putRes.status}`);
+    if (!putRes.ok) throw new Error(`PUT failed: HTTP ${putRes.status}; body=${(await putRes.text()).slice(0, 2000)}`);
     await page.waitForTimeout(2000);
 
     const state = await page.evaluate(() => ({
@@ -1420,13 +1420,18 @@ const srv = spawn('node', [
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 srv.stdout.on('data', d => process.stdout.write(`[srv] ${d}`));
-srv.stderr.on('data', d => process.stderr.write(`[srv] ${d}`));
+let serverStderr = '';
+srv.stderr.on('data', d => {
+  serverStderr += d.toString();
+  process.stderr.write(`[srv] ${d}`);
+});
 
 let failedCount = 1;
 try {
   await waitForServer(`http://localhost:${PORT}/api/codec-info`);
   failedCount = await main();
 } finally {
+  if (failedCount > 0) console.error(`[preview server stderr on failure]\n${serverStderr || '(empty)'}\nserver exit=${srv.exitCode} signal=${srv.signalCode}`);
   srv.kill();
   fs.rmSync(PROJECT, { recursive: true, force: true });
   console.log('\n[cleanup] server stopped');

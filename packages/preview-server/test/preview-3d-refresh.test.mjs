@@ -225,7 +225,10 @@ test('3D fragment and referenced assets notify changed paths; preview retries an
     }
     if (browser) t.after(() => browser.close());
     const page = browser ? await browser.newPage({ viewport: { width: 800, height: 600 } }) : null;
+    const pageConsole = [];
     if (page) {
+      page.on('console', message => pageConsole.push(`${message.type()}: ${message.text()}`));
+      page.on('pageerror', error => pageConsole.push(`pageerror: ${error.stack || error.message}`));
       await page.goto(`http://127.0.0.1:${port}/?frameEngine=0`);
       await page.waitForFunction(() => /3D.*読み込め/.test(document.querySelector('[data-akari-3d-preview-generated]')?.textContent ?? ''),
         null, { timeout: 10000 });
@@ -237,11 +240,20 @@ test('3D fragment and referenced assets notify changed paths; preview retries an
     await until(() => messages.some(m => m.changedPaths?.includes('assets/models/probe.glb')));
     assert.ok(messages.some(m => m.overlayIds?.includes('s3d')));
     if (page) {
-      await page.waitForFunction(() => {
-        const c = document.querySelector('[data-overlay-id="s3d"]');
-        return c && window.akari.threeRuntime.inspect(c).status === 'ready'
-          && !c.querySelector('[data-akari-3d-preview-generated]');
-      }, null, { timeout: 8000 });
+      try {
+        await page.waitForFunction(() => {
+          const c = document.querySelector('[data-overlay-id="s3d"]');
+          return c && window.akari.threeRuntime.inspect(c).status === 'ready'
+            && !c.querySelector('[data-akari-3d-preview-generated]');
+        }, null, { timeout: 8000 });
+      } catch (error) {
+        const state = await page.evaluate(() => {
+          const container = document.querySelector('[data-overlay-id="s3d"]');
+          return { container: Boolean(container), generated: container?.querySelector('[data-akari-3d-preview-generated]')?.textContent,
+            runtime: container && window.akari?.threeRuntime?.inspect(container), ready: window.akari?.threeRuntime?.premountState() };
+        }).catch(evaluateError => ({ error: evaluateError.message }));
+        throw new Error(`3D model did not become ready: ${error.message}; state=${JSON.stringify(state)}; console=${JSON.stringify(pageConsole.slice(-20))}; server=${stderr}`, { cause: error });
+      }
       const red = await centerPixel(page);
       assert.ok(red[0] > red[2], `first model should be red: ${red}`);
     }
@@ -249,11 +261,22 @@ test('3D fragment and referenced assets notify changed paths; preview retries an
     messages.length = 0;
     fs.writeFileSync(path.join(root, 'assets', 'models', 'probe.glb'), glb([0, 0, 1, 1]));
     await until(() => messages.some(m => m.changedPaths?.includes('assets/models/probe.glb')));
-    if (page) await page.waitForFunction((before) => {
-      const c = document.querySelector('[data-overlay-id="s3d"]');
-      return c && window.akari.threeRuntime.premountState().created > before
-        && window.akari.threeRuntime.inspect(c).status === 'ready';
-    }, createdBefore, { timeout: 8000 });
+    if (page) {
+      try {
+        await page.waitForFunction((before) => {
+          const c = document.querySelector('[data-overlay-id="s3d"]');
+          return c && window.akari.threeRuntime.premountState().created > before
+            && window.akari.threeRuntime.inspect(c).status === 'ready';
+        }, createdBefore, { timeout: 8000 });
+      } catch (error) {
+        const state = await page.evaluate(() => {
+          const container = document.querySelector('[data-overlay-id="s3d"]');
+          return { container: Boolean(container), runtime: container && window.akari?.threeRuntime?.inspect(container),
+            premount: window.akari?.threeRuntime?.premountState() };
+        }).catch(evaluateError => ({ error: evaluateError.message }));
+        throw new Error(`updated 3D model did not become ready: ${error.message}; state=${JSON.stringify(state)}; console=${JSON.stringify(pageConsole.slice(-20))}; server=${stderr}`, { cause: error });
+      }
+    }
     if (page) {
       const blue = await centerPixel(page);
       assert.ok(blue[2] > blue[0], `updated model should be blue: ${blue}`);

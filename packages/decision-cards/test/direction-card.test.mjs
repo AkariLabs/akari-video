@@ -249,10 +249,20 @@ async function startFixture(t) {
   );
 
   async function waitForState(predicate, message) {
-    return waitFor(async () => {
-      const state = JSON.parse(await readFile(statePath, "utf8"));
-      return predicate(state) ? state : null;
-    }, message);
+    try {
+      return await waitFor(async () => {
+        const state = JSON.parse(await readFile(statePath, "utf8"));
+        return predicate(state) ? state : null;
+      }, message);
+    } catch (error) {
+      const state = await readFile(statePath, 'utf8').catch(readError => `read failed: ${readError.message}`);
+      const selected = await cdp.evaluate(`(() => ({
+        selected: [...document.querySelectorAll('[data-card="direction"] [data-option]')]
+          .filter(element => element.classList.contains('selected') || element.getAttribute('aria-pressed') === 'true')
+          .map(element => ({ option: element.dataset.option, className: element.className, pressed: element.getAttribute('aria-pressed') }))
+      }))()`).catch(evaluateError => ({ error: evaluateError.message }));
+      throw new Error(`${message}: ${error.message}; state=${state}; page=${JSON.stringify(selected)}`, { cause: error });
+    }
   }
 
   return { cdp, waitForState };
