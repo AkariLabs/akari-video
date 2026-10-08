@@ -36,6 +36,10 @@ const B_FRAME_FIXTURES = new Set([
 ]);
 const ROTATION_FIXTURES = new Set(['rotate-90.mp4', 'rotate-180.mp4', 'rotate-270.mp4']);
 const RESULTS = resolve(GENERATED, 'results.json');
+const goldenTimeoutMs = Number(process.env.FRAME_ENGINE_GOLDEN_TIMEOUT_MS ?? 300_000);
+if (!Number.isSafeInteger(goldenTimeoutMs) || goldenTimeoutMs <= 0) {
+  throw new Error('FRAME_ENGINE_GOLDEN_TIMEOUT_MS must be a positive integer');
+}
 const LUTS = resolve(__dirname, '../../../../presets/luts');
 mkdirSync(GENERATED, { recursive: true });
 let encoder = null;
@@ -243,7 +247,7 @@ app.whenReady().then(async () => {
 setTimeout(() => {
   if (!finished) {
     if (encoder) encoder.child.kill('SIGTERM');
-    writeJson(RESULTS, { pass: false, error: 'golden harness timed out after 300 seconds' });
+    writeJson(RESULTS, { pass: false, error: `golden harness timed out after ${goldenTimeoutMs} ms` });
     stop(1);
   }
-}, 300_000);
+}, goldenTimeoutMs);

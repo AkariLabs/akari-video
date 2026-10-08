@@ -1,7 +1,7 @@
 import './decoder-instrumentation.js';
 import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess } from './b-frame.js';
 import { inspectGopTailGolden } from './gop-tail.js';
-import { measureFxPasses } from './fx-pass-timer.js';
+import { drainGpu, measureFxPasses } from './fx-pass-timer.js';
 import type { WebGL2CompositorOptions } from '../../src/compositor/webgl2.js';
 import {
   BufferedRawFrameSink,
@@ -361,7 +361,7 @@ async function inspectRotationParity(output: EvaluationPlan['output']) {
   };
 }
 
-async function inspectColorPatches(output: EvaluationPlan['output']) {
+async function inspectColorPatches(output: EvaluationPlan['output'], glRenderer: string) {
   const directSource = new ClipSessionPool('colors-direct', COLOR_PATCHES_URL);
   const copySource = new ClipSessionPool('colors-copy', COLOR_PATCHES_URL);
   const maskSource = new ClipSessionPool('colors-mask', MATTE_MASK_URL);
@@ -372,6 +372,9 @@ async function inspectColorPatches(output: EvaluationPlan['output']) {
   const directRows = [];
   const copyRows = [];
   const crossPathDiff = [];
+  const directTolerance = /SwiftShader/i.test(glRenderer)
+    ? { rgb: [2, 2, 12], reason: 'swiftshader-direct-upload-cb-coefficient' }
+    : { rgb: [2, 2, 2], reason: 'hardware' };
   const directTimestamps = new Map<string, number>();
   const copyTimestamps = new Map<string, number>();
   const recordTimestamps = (
@@ -436,7 +439,7 @@ async function inspectColorPatches(output: EvaluationPlan['output']) {
         requestedTimestampUs: timeUs, decodedTimestampUs: directTimestampUs,
         timestampWindowUs: [windowStartUs, windowEndUs], timestampInWindow: directTimestampInWindow,
         uploadPath: direct.uploadPath,
-        pass: directDelta.every(value => value <= 2) && directTimestampInWindow });
+        pass: directDelta.every((value, channel) => value <= directTolerance.rgb[channel]!) && directTimestampInWindow });
       copyRows.push({ name: patch.name, expected: patch.rgb, actual: copyMean, delta: copyDelta,
         requestedTimestampUs: timeUs, decodedTimestampUs: copyTimestampUs,
         timestampWindowUs: [windowStartUs, windowEndUs], timestampInWindow: copyTimestampInWindow,
@@ -491,7 +494,7 @@ async function inspectColorPatches(output: EvaluationPlan['output']) {
     const maskFidelity = { frameNumber: maskFrameNumber, samples, maxDelta, pass: maxDelta <= 3 };
     return {
       colorspaceConversion: directCompositor.stats.colorspaceConversion,
-      direct: { rows: directRows, pass: directRows.every(row => row.pass) },
+      direct: { rows: directRows, tolerance: directTolerance, pass: directRows.every(row => row.pass) },
       copyTo: { rows: copyRows, pass: copyRows.every(row => row.pass) },
       crossPathDiff,
       maskFidelity,
@@ -631,9 +634,17 @@ async function inspectFrameLifetime(output: EvaluationPlan['output']) {
       queueSamples.push((globalThis.__frameEngineDecoderInstances ?? [])
         .reduce((sum, decoder) => sum + decoder.decodeQueueSize, 0));
     }
-    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
-    const decodeQueueSizeFinal = (globalThis.__frameEngineDecoderInstances ?? [])
+    const queueSize = () => (globalThis.__frameEngineDecoderInstances ?? [])
       .reduce((sum, decoder) => sum + decoder.decodeQueueSize, 0);
+    const drainStart = performance.now();
+    let decodeQueueSizeFinal = queueSize();
+    // Let asynchronous software decoding drain naturally with the session alive;
+    // one tick misses ~100ms on SwiftShader, so 5s covers slower CI runners.
+    while (decodeQueueSizeFinal !== 0 && performance.now() - drainStart < 5_000) {
+      await new Promise<void>(resolve => window.setTimeout(resolve, 50));
+      decodeQueueSizeFinal = queueSize();
+    }
+    const decodeQueueDrainMs = Math.round(performance.now() - drainStart);
     const firstHalfMax = Math.max(...queueSamples.slice(0, 100));
     const secondHalfMax = Math.max(...queueSamples.slice(-100));
     const openFrames = handedOut - closed;
@@ -644,6 +655,7 @@ async function inspectFrameLifetime(output: EvaluationPlan['output']) {
       openFrames,
       decodeQueueSizeMax: Math.max(...queueSamples),
       decodeQueueSizeFinal,
+      decodeQueueDrainMs,
       firstHalfMax,
       secondHalfMax,
       pass: handedOut === closed
@@ -1417,7 +1429,8 @@ async function inspectFxCost() {
     while (gl.getError() !== gl.NO_ERROR) glErrors += 1;
   };
   const measure = async (plan: EvaluationPlan, index: number, gpu: boolean): Promise<number | null> => {
-    gl.finish();
+    // Chromium's WebGL finish() only flushes; the fence waits for completed work.
+    await drainGpu(gl);
     const query = gpu ? gl.createQuery() : null;
     if (gpu && !query) return null;
     if (gpu && timer) {
@@ -1432,7 +1445,7 @@ async function inspectFxCost() {
         if (gpu && timer) gl.endQuery(timer.TIME_ELAPSED_EXT);
       }
       if (!gpu) {
-        gl.finish();
+        await drainGpu(gl);
         return performance.now() - start;
       }
       gl.flush();
@@ -1464,15 +1477,16 @@ async function inspectFxCost() {
     }
     return { withFxSamples, withoutFxSamples };
   };
+  let hasPrimaryError = false;
   try {
     for (let index = 0; index < warmupFrames; index += 1) {
       await compose(bare, index);
       await compose(withFx, index);
     }
-    gl.finish();
+    await drainGpu(gl);
     collectGlErrors();
     let measured = timer ? await samples(true) : null;
-    const method = measured ? 'EXT_disjoint_timer_query_webgl2' : 'gl.finish wall clock';
+    const method = measured ? 'EXT_disjoint_timer_query_webgl2' : 'fence wall clock';
     const fallbackReason = measured ? null : timer ? 'GPU query unavailable, disjoint, or timed out' : 'GPU timer extension unavailable';
     // Do not mix GPU and wall-clock samples if a query becomes invalid.
     measured ??= await samples(false);
@@ -1499,14 +1513,25 @@ async function inspectFxCost() {
       method, fallbackReason, width, height, fps: FPS, effects,
       source: 'resident 1920x1080 synthetic textured ImageBitmap; decode and initial upload excluded',
       calculation: 'frames = 60 whole-compose samples per variant, alternating pair order; then 60 separate with-FX frames for passes (passFrames); median = mean of sorted samples 30 and 31; deltaMs = withFxMs - withoutFxMs',
-      timingScope: 'entire compose (including FX prep, passes, and copies); GPU nanoseconds / 1e6, or performance.now around compose with gl.finish before and after',
+      timingScope: 'entire compose (including FX prep, passes, and copies); GPU nanoseconds / 1e6, or performance.now around compose with GPU fences before and after',
       passTimingScope: 'non-overlapping GPU queries around base preparation, FX prep, each effect, snapshot copy and final base draw; passMedianSumMs and passFrameMedianMs should approximate withFxMs (separate frames, query overhead and gaps can differ)',
       ...breakdown,
       targetDeltaMs: 4, meetsTarget: deltaMs <= 4,
       ...measured, glErrors: glErrors + compositor.stats.glErrors };
+  } catch (error) {
+    hasPrimaryError = true;
+    throw error;
   } finally {
-    compositor.dispose();
-    source.destroy();
+    try {
+      await drainGpu(gl);
+    } catch (drainError) {
+      // Keep the original measurement failure if draining the queued work also fails.
+      if (!hasPrimaryError) throw drainError;
+      console.error('[golden] FX GPU drain after failure:', drainError);
+    } finally {
+      compositor.dispose();
+      source.destroy();
+    }
   }
 }
 
@@ -1518,6 +1543,18 @@ async function run(): Promise<void> {
   });
   const compositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
   const context = { compositor, metrics };
+  const gl = compositor.canvas.getContext('webgl2')!;
+  const rendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
+  const glRenderer = String(gl.getParameter(rendererInfo?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER));
+  const stage = async <T>(name: string, work: () => Promise<T>): Promise<T> => {
+    const start = performance.now();
+    console.log(`[golden] stage ${name} start 0ms`);
+    try {
+      return await work();
+    } finally {
+      console.log(`[golden] stage ${name} ${Math.round(performance.now() - start)}ms`);
+    }
+  };
   const timeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], {
     fps: FPS,
   });
@@ -1527,7 +1564,7 @@ async function run(): Promise<void> {
     height: HEIGHT,
     colorSpace: 'bt709-limited' as const,
   };
-  const rotationParity = await inspectRotationParity(output);
+  const rotationParity = await stage('rotationParity', () => inspectRotationParity(output));
   const previewCanvas = document.querySelector<HTMLCanvasElement>('#preview');
   if (!previewCanvas) throw new Error('preview canvas missing');
   const parity: Array<Record<string, unknown>> = [];
@@ -2059,45 +2096,45 @@ async function run(): Promise<void> {
     frame.close();
   }
   const encoded = await window.goldenHarness.finishEncoder();
-  const colorPatches = await inspectColorPatches(output);
-  const texturedCrossPathDiff = await inspectTexturedCrossPath(
+  const colorPatches = await stage('colorPatches', () => inspectColorPatches(output, glRenderer));
+  const texturedCrossPathDiff = await stage('texturedCrossPath', () => inspectTexturedCrossPath(
     output,
     timeline,
     layerTimeline,
-  );
-  const frameLifetime = await inspectFrameLifetime(output);
+  ));
+  const frameLifetime = await stage('frameLifetime', () => inspectFrameLifetime(output));
   const transitionGlErrorsBefore = compositor.stats.glErrors;
-  const transitionParity = await inspectTransitionParity(
+  const transitionParity = await stage('transitionParity', () => inspectTransitionParity(
     output, session, context, previewCanvas,
-  );
-  const transitionSemantics = await inspectTransitionSemantics(
+  ));
+  const transitionSemantics = await stage('transitionSemantics', () => inspectTransitionSemantics(
     output, compositor, metrics,
-  );
+  ));
   const transitionStats = {
     glErrors: compositor.stats.glErrors - transitionGlErrorsBefore,
   };
   const lookGlErrorsBefore = compositor.stats.glErrors;
-  const lookParity = await inspectLookParity(
+  const lookParity = await stage('lookParity', () => inspectLookParity(
     output, session, context, previewCanvas,
-  );
+  ));
   const lookStats = {
     glErrors: compositor.stats.glErrors - lookGlErrorsBefore,
   };
   const adjustGlErrorsBefore = compositor.stats.glErrors;
-  const adjustParity = await inspectAdjustParity(
+  const adjustParity = await stage('adjustParity', () => inspectAdjustParity(
     output, session, context, previewCanvas,
-  );
+  ));
   const adjustStats = {
     glErrors: compositor.stats.glErrors - adjustGlErrorsBefore,
   };
   const fxGlErrorsBefore = compositor.stats.glErrors;
-  const fxParity = await inspectFxParity(
+  const fxParity = await stage('fxParity', () => inspectFxParity(
     output, layerSession, context, previewCanvas,
-  );
+  ));
   const fxStats = {
     glErrors: compositor.stats.glErrors - fxGlErrorsBefore,
   };
-  const fxCost = await inspectFxCost();
+  const fxCost = await stage('fxCost', () => inspectFxCost());
   const filterLayers = await Promise.all((filterEdit.layers as any[]).map(async layer => {
     if (layer.filter?.type !== 'lut') return layer;
     return {
@@ -2124,6 +2161,7 @@ async function run(): Promise<void> {
       return (dx * (y - a[1]) - dy * (x - a[0])) / Math.max(Math.hypot(dx, dy), 1e-9);
     }));
   };
+  await stage('filterParity', async () => {
   for (const [id, timeUs] of [['invert', 1_250_000], ['saturation', 3_750_000], ['lut', 6_250_000]] as const) {
     const plan = evaluationPlanFromResolvedTimeline(filterTimeline, timeUs, sources, output);
     const barePlan = evaluationPlanFromResolvedTimeline(filterBareTimeline, timeUs, sources, output);
@@ -2149,16 +2187,17 @@ async function run(): Promise<void> {
     filterParity.push({ id, timeUs, corners, outsideDifferingPixels, firstSha256, secondSha256,
       pass: outsideDifferingPixels === 0 && firstSha256 === secondSha256 });
   }
-  const gopTail = await inspectGopTailGolden({
+  });
+  const gopTail = await stage('gopTail', () => inspectGopTailGolden({
     baseUrl: SOURCE_URL,
     layerUrl: SOURCE_B_URL,
     matteColorUrl: MATTE_COLOR_URL,
     matteMaskUrl: MATTE_MASK_URL,
     output,
-  });
-  const bFrame = await inspectBFrameAccess(SOURCE_URL, 'sampled');
-  const bFrameTail = await inspectBFrameTailAccess(SOURCE_URL);
-  const endpointTail = await inspectEndpointTailAccess(SOURCE_URL);
+  }));
+  const bFrame = await stage('bFrame', () => inspectBFrameAccess(SOURCE_URL, 'sampled'));
+  const bFrameTail = await stage('bFrameTail', () => inspectBFrameTailAccess(SOURCE_URL));
+  const endpointTail = await stage('endpointTail', () => inspectEndpointTailAccess(SOURCE_URL));
   const metricJson = metrics.toJSON();
   const semanticPlans = Object.fromEntries(
     SAMPLE_POINTS.map(([label, timeUs]) => {
@@ -2370,6 +2409,7 @@ async function run(): Promise<void> {
     },
     environment: {
       userAgent: navigator.userAgent,
+      glRenderer,
       webCodecs: typeof VideoDecoder !== 'undefined',
       webgl2: true,
       nativeFormats: [...nativeFormats],
