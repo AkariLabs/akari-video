@@ -1,0 +1,543 @@
+{
+ "mode": "before",
+ "run": "C",
+ "startedAt": "2026-10-08T04:18:00.278Z",
+ "status": "FAIL",
+ "records": [
+  {
+   "label": "(iv) 15 秒から再生 → 再生中に 20 秒付近で押す: 擬音「パッ!」",
+   "id": "demo-effects",
+   "before": {
+    "ref": "span.fx-pa-face",
+    "x": 296.6040954589844,
+    "y": 154.0738296508789,
+    "width": 94.1,
+    "height": 49.9,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "t": 19.967,
+    "active": true,
+    "hitPolicyPending": true,
+    "playing": true,
+    "local": 2.5
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 20.04,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": false,
+   "cleared": true
+  },
+  {
+   "label": "(iv) ポインタを置いたまま動かさずに、再生中に 20 秒付近で押す: 擬音「パッ!」",
+   "id": "demo-effects",
+   "before": {
+    "ref": "span.fx-pa-face",
+    "x": 296.59375,
+    "y": 153.97547912597656,
+    "width": 97,
+    "height": 51.5,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "t": 19.967,
+    "active": true,
+    "hitPolicyPending": true,
+    "playing": true,
+    "local": 2.5
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 19.981,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": false,
+   "cleared": true
+  },
+  {
+   "label": "(iv) 再生中に 20 秒付近で押す: 何も描いていない所（人物の側）",
+   "id": "demo-effects",
+   "before": {
+    "ref": "(何も描いていない所: 人物の側)",
+    "x": 119,
+    "y": 162.5,
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "t": 19.967,
+    "hitPolicyPending": true,
+    "playing": true,
+    "local": 2.5
+   },
+   "expectHtml": false,
+   "after": {
+    "t": 20.002,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": true,
+   "cleared": true
+  },
+  {
+   "label": "(iv) demo-flash（閃光）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-flash",
+   "survey": {
+    "visiblePainters": 0,
+    "withoutHit": 0
+   },
+   "before": {
+    "t": 19.867,
+    "local": 0.2
+   },
+   "chosen": "(押せる要素が見つからない)",
+   "ok": null
+  },
+  {
+   "label": "(iv) demo-title（タイトル）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-title",
+   "before": {
+    "ref": "span.demo-title__main",
+    "x": 274.67769622802734,
+    "y": 120.3657455444336,
+    "width": 84.7,
+    "height": 27,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "div.demo-title__card",
+    "topOverlay": "demo-title",
+    "text": "動画編集",
+    "t": 3.867,
+    "local": 3.634,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 3.893,
+    "overlay": "demo-title",
+    "focus": ".demo-title__card[0]",
+    "playing": false,
+    "timeline": {
+     "kind": "item",
+     "id": "demo-title",
+     "label": "demo-title",
+     "lane": "demo-stage",
+     "track": "右の演出",
+     "name": "タイトル"
+    }
+   },
+   "chosen": "html:demo-title › .demo-title__card[0]",
+   "htmlSelected": true,
+   "ok": true,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 6,
+    "withoutHit": 5
+   }
+  },
+  {
+   "label": "(iv) demo-chat（AI との対話）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-chat",
+   "before": {
+    "ref": "p.demo-chat__bubble.demo-chat__bubble--you",
+    "x": 299.11568450927734,
+    "y": 132.671875,
+    "width": 87.4,
+    "height": 16.1,
+    "inlinePointerEvents": "auto !important",
+    "computedPointerEvents": "auto",
+    "opacity": 1,
+    "paints": "text",
+    "top": "p.demo-chat__bubble.demo-chat__bubble--you",
+    "topOverlay": "demo-chat",
+    "text": "話に合わせて編集して",
+    "t": 9.767,
+    "local": 1.234,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 9.8,
+    "overlay": "demo-chat",
+    "focus": ".demo-chat__bubble[0]",
+    "playing": false,
+    "timeline": {
+     "kind": "item",
+     "id": "demo-chat",
+     "label": "demo-chat",
+     "lane": "demo-stage",
+     "track": "右の演出",
+     "name": "AI との対話"
+    }
+   },
+   "chosen": "html:demo-chat › .demo-chat__bubble[0]",
+   "htmlSelected": true,
+   "ok": true,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 5,
+    "withoutHit": 2
+   }
+  },
+  {
+   "label": "(iv) demo-done（編集完了）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-done",
+   "before": {
+    "ref": "span.demo-done__head-text",
+    "x": 268.5752868652344,
+    "y": 144.8625030517578,
+    "width": 65.7,
+    "height": 21.8,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "text": "編集は",
+    "t": 13.067,
+    "local": 1.8,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 13.082,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": false,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 2,
+    "withoutHit": 2
+   }
+  },
+  {
+   "label": "(iv) demo-diagram（図解）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-diagram",
+   "before": {
+    "ref": "span.demo-diagram__title",
+    "x": 253.45757293701172,
+    "y": 106.9937515258789,
+    "width": 46.9,
+    "height": 9.3,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "text": "この動画の中身",
+    "t": 25.067,
+    "local": 1.834,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 25.092,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": false,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 28,
+    "withoutHit": 28
+   }
+  },
+  {
+   "label": "(iv) demo-phone（スマホ）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-phone",
+   "before": {
+    "ref": "span.demo-phone__handle",
+    "x": 283.33331298828125,
+    "y": 209.7974395751953,
+    "width": 20.5,
+    "height": 2.9,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "i.demo-phone__frame",
+    "topOverlay": "demo-phone",
+    "text": "@akari_video",
+    "t": 29.967,
+    "local": 3,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 30.004,
+    "overlay": "demo-phone",
+    "focus": ".demo-phone__frame[0]",
+    "playing": false,
+    "timeline": {
+     "kind": "item",
+     "id": "demo-phone",
+     "label": "demo-phone",
+     "lane": "demo-stage",
+     "track": "右の演出",
+     "name": "スマホ"
+    }
+   },
+   "chosen": "html:demo-phone › .demo-phone__frame[0]",
+   "htmlSelected": true,
+   "ok": true,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 5,
+    "withoutHit": 3
+   }
+  },
+  {
+   "label": "(iv) demo-credit（クレジット）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-credit",
+   "before": {
+    "ref": "span",
+    "x": 333.3572235107422,
+    "y": 137.53516006469727,
+    "width": 27.8,
+    "height": 39,
+    "inlinePointerEvents": "none !important",
+    "computedPointerEvents": "none",
+    "opacity": 1,
+    "paints": "text",
+    "top": "#preview-stagediv",
+    "topOverlay": null,
+    "text": "AI",
+    "t": 36.6,
+    "local": 1,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 36.626,
+    "overlay": null,
+    "focus": null,
+    "playing": false,
+    "timeline": {
+     "kind": "cut",
+     "id": null,
+     "label": "C1",
+     "lane": "video",
+     "track": "本編",
+     "name": "サンプル動画.mp4"
+    }
+   },
+   "chosen": "cut:C1（段「本編」）",
+   "htmlSelected": false,
+   "ok": false,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 7,
+    "withoutHit": 6
+   }
+  },
+  {
+   "label": "(iv) demo-bgm-chip（BGM）: 手前から再生 → 再生中に真ん中で押す",
+   "id": "demo-bgm-chip",
+   "before": {
+    "ref": "span.demo-bgm__label",
+    "x": 247.65544891357422,
+    "y": 106.08283233642578,
+    "width": 17.4,
+    "height": 8.4,
+    "inlinePointerEvents": "auto !important",
+    "computedPointerEvents": "auto",
+    "opacity": 1,
+    "paints": "text",
+    "top": "span.demo-bgm__label",
+    "topOverlay": "demo-bgm-chip",
+    "text": "BGM",
+    "t": 31.2,
+    "local": 1.767,
+    "hitPolicyPending": true,
+    "playing": true
+   },
+   "expectHtml": true,
+   "after": {
+    "t": 31.228,
+    "overlay": "demo-bgm-chip",
+    "focus": ".demo-bgm__label[0]",
+    "playing": false,
+    "timeline": {
+     "kind": "item",
+     "id": "demo-bgm-chip",
+     "label": "demo-bgm-chip",
+     "lane": "demo-accents",
+     "track": "札",
+     "name": "BGM"
+    }
+   },
+   "chosen": "html:demo-bgm-chip › .demo-bgm__label[0]",
+   "htmlSelected": true,
+   "ok": true,
+   "cleared": true,
+   "survey": {
+    "visiblePainters": 2,
+    "withoutHit": 0
+   }
+  }
+ ],
+ "items": [
+  {
+   "id": "demo-flash",
+   "name": "閃光",
+   "track": "demo-flash",
+   "start": 19.666666666666668,
+   "duration": 0.4
+  },
+  {
+   "id": "demo-title",
+   "name": "タイトル",
+   "track": "demo-stage",
+   "start": 0.23333333333333334,
+   "duration": 7.233333333333333
+  },
+  {
+   "id": "demo-chat",
+   "name": "AI との対話",
+   "track": "demo-stage",
+   "start": 8.533333333333333,
+   "duration": 2.433333333333333
+  },
+  {
+   "id": "demo-done",
+   "name": "編集完了",
+   "track": "demo-stage",
+   "start": 11.266666666666667,
+   "duration": 3.6
+  },
+  {
+   "id": "demo-effects",
+   "name": "効果音とエフェクト",
+   "track": "demo-stage",
+   "start": 17.466666666666665,
+   "duration": 4.5
+  },
+  {
+   "id": "demo-diagram",
+   "name": "図解",
+   "track": "demo-stage",
+   "start": 23.233333333333334,
+   "duration": 3.6666666666666665
+  },
+  {
+   "id": "demo-phone",
+   "name": "スマホ",
+   "track": "demo-stage",
+   "start": 26.966666666666665,
+   "duration": 5.966666666666667
+  },
+  {
+   "id": "demo-credit",
+   "name": "クレジット",
+   "track": "demo-stage",
+   "start": 35.6,
+   "duration": 2
+  },
+  {
+   "id": "demo-bgm-chip",
+   "name": "BGM",
+   "track": "demo-accents",
+   "start": 29.433333333333334,
+   "duration": 3.5
+  }
+ ],
+ "viewport": {
+  "stage": {
+   "left": 36,
+   "top": 69.125,
+   "width": 332,
+   "height": 186.75
+  },
+  "window": {
+   "width": 404,
+   "height": 359
+  },
+  "elementSelection": true
+ },
+ "summary": {
+  "judged": 10,
+  "ok": 5,
+  "ng": [
+   "(iv) 15 秒から再生 → 再生中に 20 秒付近で押す: 擬音「パッ!」",
+   "(iv) ポインタを置いたまま動かさずに、再生中に 20 秒付近で押す: 擬音「パッ!」",
+   "(iv) demo-done（編集完了）: 手前から再生 → 再生中に真ん中で押す",
+   "(iv) demo-diagram（図解）: 手前から再生 → 再生中に真ん中で押す",
+   "(iv) demo-credit（クレジット）: 手前から再生 → 再生中に真ん中で押す"
+  ]
+ },
+ "finishedAt": "2026-10-08T04:19:04.005Z"
+}

@@ -341,6 +341,7 @@ function createOverlayRuntime(options = {}) {
 
   function unmount() {
     for (const overlay of mountedOverlays) {
+      window.akari.interaction?.forgetOverlayHitPolicyTracking?.(overlay.container);
       for (const animation of overlay.animations ?? []) releaseAnimation(animation);
       for (const runtime of overlayRuntimes(overlay)) runtime.dispose(overlay.container);
     }
@@ -490,6 +491,7 @@ function createOverlayRuntime(options = {}) {
         runtimesVersion: runtimeRegistryVersion,
         keepLayoutWhenHidden,
         hitPolicyPending: false,
+        hitPolicyEntry: false,
         // getAnimations({ subtree: true }) の 250ms キャッシュ（tick() 参照）
         animations: undefined,
         animationsAt: 0,
@@ -574,6 +576,7 @@ function createOverlayRuntime(options = {}) {
       }
       mounted.container.style.setProperty("opacity", String(statics.opacity));
       mounted.hitPolicyPending = true;
+      mounted.hitPolicyEntry = true;
       mounted.statics = statics;
       mounted.keyframes = Array.isArray(value.keyframes) ? value.keyframes : undefined;
       mounted.fps = finiteNumber(summary?.output?.fps, 30);
@@ -595,6 +598,7 @@ function createOverlayRuntime(options = {}) {
     mounted.animationsAt = 0;
     mounted.animationEndTimes = [];
     mounted.hitPolicyPending = true;
+    mounted.hitPolicyEntry = true;
     return true;
   }
 
@@ -636,7 +640,14 @@ function createOverlayRuntime(options = {}) {
         // することで、実際に存在する CSS Animation を「今可視のオーバーレイ分だけ」に
         // 抑え、この地雷を踏まない。
         overlay.container.toggleAttribute("data-akari-active", visible);
+        if (!visible && !isPlaying && overlay.animations?.length) {
+          // 停止中の連続シークが同一描画フレームで外→内へ戻っても、CSS が
+          // inactive を一度観測するようにする。これが無いとゲートの off/on が
+          // 相殺され、新しい Animation が生成されず初期 opacity 0 に残る。
+          void overlay.container.offsetWidth;
+        }
         overlay.hitPolicyPending = visible;
+        overlay.hitPolicyEntry = visible;
         // getAnimations() のキャッシュ（下記）は可視化フリップで必ず捨てる。ゲート属性の付け外しで
         // CSS animation の顔ぶれが変わるため、可視化直後の tick は引き直す。非表示化でも捨て、
         // 非可視の間 Animation 参照を持ち越さない。
@@ -650,6 +661,7 @@ function createOverlayRuntime(options = {}) {
         overlay.animationsAt = 0;
         overlay.animationEndTimes = [];
         if (!visible) {
+          window.akari.interaction?.forgetOverlayHitPolicyTracking?.(overlay.container);
           if (!overlay.keepLayoutWhenHidden) {
             overlay.container.setAttribute(RUNTIME_HIDDEN_ATTRIBUTE, "");
           }
@@ -762,15 +774,18 @@ function createOverlayRuntime(options = {}) {
         runtime.render(overlay.container, localTimeMs / 1000,
           { syncVideos: true, maxRenderSize, playing: Boolean(playing) });
       }
-      // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
-      // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の
-      // bbox が焼き付くため。キャッシュした有限アニメの終端とローカル時刻で確定を判断する。
-      // 終わった tick で確定する。以後は呼ばず、無限ループも終端無しとして数えないので、
-      // 対象を可視オーバーレイだけにする性能原則「見えている分だけ」は維持される。
+      const ready = !isPlaying
+        ? overlay.animations.map(animation => pendingReady.get(animation)).filter(Boolean) : [];
+      window.akari.interaction?.markOverlayHitPolicyStale?.(
+        overlay.container, localTimeMs, !isPlaying, overlay.hitPolicyEntry,
+        ready.length ? Promise.allSettled(ready) : null);
+      overlay.hitPolicyEntry = false;
+      // 初回の仮判定と有限アニメ終端の確定判定だけをここで適用する。
+      // 途中の姿は上の時刻印を使い、停止後またはポインタ入力時に interaction が
+      // 必要な可視コンテナだけ測り直す。終端 tick が存在しない断片も停止後に更新される。
       if (overlay.hitPolicyPending) {
         window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
-        // 当たり判定ポリシーは初回適用が WeakSet でガードされるため、ここでの再呼び出しは
-        // 実質 no-op（暫定適用）。確定姿勢に達した tick で invalidate してから測り直す。
+        // 初回以外は WeakSet のガードで no-op。再入場時は時刻印側が解除する。
         window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
         if (entryAnimationsSettled(overlay.animationEndTimes, localTimeMs)) {
           window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);

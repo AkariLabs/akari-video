@@ -332,6 +332,81 @@
     let hoverEvent = null;
     const hitPolicyOriginalPointerEvents = /* @__PURE__ */ new WeakMap();
     const hitPolicyAppliedContainers = /* @__PURE__ */ new WeakSet();
+    const hitPolicyTimes = /* @__PURE__ */ new WeakMap();
+    const staleHitPolicyContainers = /* @__PURE__ */ new Set();
+    const pausedHitPolicyContainers = /* @__PURE__ */ new Set();
+    let pausedHitPolicyTimer = null;
+    let lastPointerHitPolicyRefresh = -Infinity;
+    function hitPolicyOperationBusy() {
+      return Boolean(activeEdit || activeDrag || activeResize || activeRotate || activeLine || marqueeFrame || pointerOwner != null);
+    }
+    function schedulePausedHitPolicyRefresh(delay = 120) {
+      if (typeof setTimeout !== "function") return;
+      if (pausedHitPolicyTimer !== null) clearTimeout(pausedHitPolicyTimer);
+      pausedHitPolicyTimer = setTimeout(flushPausedHitPolicies, delay);
+    }
+    function markOverlayHitPolicyStale(container, localTimeMs, paused = false, reentered = false, animationReady = null) {
+      if (!container) return;
+      let state = hitPolicyTimes.get(container);
+      if (!state) {
+        state = { current: localTimeMs, measured: null, paused: null };
+        hitPolicyTimes.set(container, state);
+      }
+      const timeChanged = state.current !== localTimeMs;
+      const enteredPause = paused && state.paused !== true;
+      state.current = localTimeMs;
+      state.paused = paused;
+      if (reentered) {
+        state.measured = null;
+        hitPolicyAppliedContainers.delete(container);
+      }
+      if (state.measured !== localTimeMs) staleHitPolicyContainers.add(container);
+      if (paused && (reentered || timeChanged || enteredPause)) pausedHitPolicyContainers.add(container);
+      if (!paused) pausedHitPolicyContainers.delete(container);
+      if (paused && pausedHitPolicyContainers.size) {
+        schedulePausedHitPolicyRefresh();
+      }
+      if (paused && (reentered || timeChanged || enteredPause) && animationReady?.then) {
+        const expectedState = state;
+        animationReady.then(() => {
+          if (hitPolicyTimes.get(container) !== expectedState || !state.paused || state.current !== localTimeMs) return;
+          const alreadyRefreshed = !pausedHitPolicyContainers.has(container);
+          pausedHitPolicyContainers.add(container);
+          schedulePausedHitPolicyRefresh(alreadyRefreshed ? 0 : 120);
+        });
+      }
+    }
+    function flushPausedHitPolicies() {
+      pausedHitPolicyTimer = null;
+      if (pausedHitPolicyContainers.size === 0) return;
+      if (hitPolicyOperationBusy()) {
+        pausedHitPolicyTimer = setTimeout(flushPausedHitPolicies, 120);
+        return;
+      }
+      refreshStaleHitPolicies(true);
+    }
+    function refreshStaleHitPolicies(includePaused = false) {
+      if (hitPolicyOperationBusy()) return false;
+      let refreshed = false;
+      const candidates = includePaused ? pausedHitPolicyContainers : staleHitPolicyContainers;
+      for (const container of candidates) {
+        if (includePaused) pausedHitPolicyContainers.delete(container);
+        if (!container.isConnected || container.style.visibility === "hidden") {
+          staleHitPolicyContainers.delete(container);
+          continue;
+        }
+        invalidateOverlayHitPolicy(container);
+        applyOverlayHitPolicy(container);
+        refreshed = true;
+      }
+      return refreshed;
+    }
+    function forgetOverlayHitPolicyTracking(container) {
+      staleHitPolicyContainers.delete(container);
+      pausedHitPolicyContainers.delete(container);
+      hitPolicyTimes.delete(container);
+      hitPolicyAppliedContainers.delete(container);
+    }
     let writeTail = Promise.resolve();
     let writeGeneration = 0;
     let lastTransformWrite = null;
@@ -935,6 +1010,9 @@
       }
       for (const root of container.children) visit(root, null, true, true);
       hitPolicyAppliedContainers.add(container);
+      const state = hitPolicyTimes.get(container);
+      if (state) state.measured = state.current;
+      staleHitPolicyContainers.delete(container);
       updateShapeLineHitProxyWidths();
     }
     function invalidateOverlayHitPolicy(container) {
@@ -4061,6 +4139,7 @@
     }
     function onPointerDown(event) {
       if (!interactionEnabled || !canBeginPointerInteraction(pointerOwner)) return;
+      event = correctedHitPolicyEvent(event);
       if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
       if (selectedId && stage && event.target instanceof Element) {
         const bounds = stage.getBoundingClientRect();
@@ -4834,6 +4913,7 @@
     }
     function onClick(event) {
       if (!interactionEnabled || activeEdit) return;
+      event = correctedHitPolicyEvent(event);
       const hit = overlayForEvent(event);
       if (event.shiftKey && clickOrigin?.scopedHit) {
         event.stopPropagation();
@@ -5298,11 +5378,68 @@
     for (const type of ["pointerdown", "pointerup", "click", "dblclick"]) {
       window.addEventListener(type, passTransparentCanvasEvent, true);
     }
+    const correctedHitPolicyEvents = /* @__PURE__ */ new WeakMap();
+    let redirectedHitPolicyClick = null;
+    function pointerInsideStage(event) {
+      if (!stage || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return false;
+      const rect = stage.getBoundingClientRect();
+      return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    }
+    function trustedEventAtTarget(event, target) {
+      return new Proxy(event, { get(original, key) {
+        if (key === "target") return target;
+        const value = Reflect.get(original, key, original);
+        return typeof value === "function" ? value.bind(original) : value;
+      } });
+    }
+    function correctHitPolicyEvent(event, target) {
+      correctedHitPolicyEvents.set(event, target);
+      try {
+        Object.defineProperty(event, "target", { configurable: true, value: target });
+      } catch {
+      }
+    }
+    function correctedHitPolicyEvent(event) {
+      const target = correctedHitPolicyEvents.get(event);
+      return target && event.target !== target ? trustedEventAtTarget(event, target) : event;
+    }
+    function stopCorrectedHitPolicyPropagation(event) {
+      if (findOverlayContainer(correctedHitPolicyEvents.get(event))) event.stopPropagation();
+    }
+    window.addEventListener("pointermove", (event) => {
+      if (!pointerInsideStage(event) || !staleHitPolicyContainers.size || hitPolicyOperationBusy()) return;
+      const now = performance.now();
+      if (now - lastPointerHitPolicyRefresh < 125) return;
+      if (!refreshStaleHitPolicies()) return;
+      lastPointerHitPolicyRefresh = now;
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      if (target && target !== event.target) correctHitPolicyEvent(event, target);
+    }, true);
+    window.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !pointerInsideStage(event) || hitPolicyOperationBusy()) return;
+      redirectedHitPolicyClick = null;
+      if (!refreshStaleHitPolicies()) return;
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      if (!target || target === event.target) return;
+      redirectedHitPolicyClick = { x: event.clientX, y: event.clientY };
+      correctHitPolicyEvent(event, target);
+    }, true);
+    window.addEventListener("click", (event) => {
+      if (!redirectedHitPolicyClick) return;
+      const redirect = redirectedHitPolicyClick;
+      redirectedHitPolicyClick = null;
+      if (Math.hypot(event.clientX - redirect.x, event.clientY - redirect.y) > 6) return;
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      if (!target || target === event.target) return;
+      correctHitPolicyEvent(event, target);
+    }, true);
     listenerRoot.addEventListener("pointermove", updateShapeLineHitProxyWidths, true);
     listenerRoot.addEventListener("pointerdown", updateShapeLineHitProxyWidths, true);
     window.addEventListener("resize", updateShapeLineHitProxyWidths);
     listenerRoot.addEventListener("click", onClick, true);
     listenerRoot.addEventListener("pointerdown", onPointerDown, true);
+    listenerRoot.addEventListener("click", stopCorrectedHitPolicyPropagation, true);
+    listenerRoot.addEventListener("pointerdown", stopCorrectedHitPolicyPropagation, true);
     listenerRoot.addEventListener("dblclick", onDoubleClick, true);
     listenerRoot.addEventListener("blur", onBlur, true);
     listenerRoot.addEventListener("input", onEditableInput, true);
@@ -5429,6 +5566,8 @@
       // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
       applyOverlayHitPolicy,
       invalidateOverlayHitPolicy,
+      markOverlayHitPolicyStale,
+      forgetOverlayHitPolicyTracking,
       syncOverlayHitRegion,
       // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
       // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
