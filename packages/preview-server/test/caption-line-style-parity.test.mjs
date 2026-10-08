@@ -8,6 +8,7 @@ import test from 'node:test';
 
 import {
   captionTextStyleVars,
+  generateCaptionOverlays,
   generateResolvedCaptionOverlays,
   mergeCaptionTextStyles,
   renderCaptionFragment,
@@ -140,6 +141,18 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
         backgroundMode: merged?.background?.mode,
         extendedBackground: kernel.usesExtendedPerLineBackground(merged?.background),
       }), renderVars);
+      const [renderCaption] = root.captions;
+      assert.ok(renderCaption?.text_style, `${id}: preset text style was not resolved`);
+      const renderOverlays = generateCaptionOverlays([renderCaption], [{ src: 'main', in: 0, out: 30 }], {
+        output: OUTPUT, maxCharacters: Array.from(presetFile.sample_text).length + 1,
+      });
+      assert.equal(renderOverlays.length, 1, `${id}: render must produce exactly one overlay`);
+      const [renderOverlay] = renderOverlays;
+      if (Object.hasOwn(renderOverlay.vars, '--caption-rounded-stroke')) {
+        assert.match(renderOverlay.html, /-webkit-text-stroke:0 transparent;text-shadow:var\(--caption-rounded-stroke\);/u,
+          `${id}: rounded stroke CSS must accompany its variable`);
+      }
+      const renderPlaced = await measure(page, renderOverlay.html, renderOverlay.vars);
       const shellMetrics = await measure(page, legacyFragment(presetFile.sample_text, shellCss), shellCaption.textStyleVars);
       const web = await measure(page, legacyFragment(presetFile.sample_text, appCss), webVars);
       const policyMetrics = await measure(page, policyOverlay.html, policyOverlay.vars);
@@ -148,6 +161,8 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
         assert.equal(web.fontFamily, render.fontFamily, `${id}: Web UI font-family`);
         assert.equal(policyMetrics.fontFamily, render.fontFamily, `${id}: display_policy font-family`);
       }
+      // shell は静的に抜き出した CSS、Web UI は素の CSS と変数で測るため、置いた文字の丸い縁取りは未検証。
+      // Web UI に置いた文字の分岐がない件は既知で、修正するかは裁定待ち。
       assert.deepEqual(pick(shellMetrics, METRIC_KEYS), pick(render, METRIC_KEYS), `${id}: shell computed style`);
       assert.deepEqual(pick(web, METRIC_KEYS), pick(render, METRIC_KEYS), `${id}: Web UI computed style`);
       // resolved single-line CSS は契約 §B6 により padding:0 / border-radius:0 の既定を維持する
@@ -158,7 +173,7 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
         if (key === 'textShadow' && !presetFile.style.shadow && !presetFile.style.glow) continue;
         if (key === 'padding' && presetFile.style.background?.padding_px === undefined) continue;
         if (key === 'borderRadius' && presetFile.style.background?.radius_px === undefined) continue;
-        assert.equal(policyMetrics[key], render[key], `${id}: display_policy ${key}`);
+        assert.equal(policyMetrics[key], renderPlaced[key], `${id}: display_policy ${key}`);
       }
       assert.ok(policyMetrics.paintOrder.startsWith('stroke'), `${id}: display_policy computed paint-order`);
       // padding 未宣言時は §B6 の既定差で plate 高さと y が変わるため、y の直接比較は
@@ -170,8 +185,17 @@ test('12 line presets keep render, shell, Web UI, and display_policy styles in p
         assert.ok(Math.abs(metrics.plateBottomGap - OUTPUT.height * 0.07) <= 1,
           `${id}: ${surface} plate bottom anchor`);
       }
-      assert.doesNotMatch(policyMetrics.textShadow, /-\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px.*\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px/u,
-        `${id}: four-direction outline shadow must not return`);
+      // The four-direction shadow check predates fe25551e0's 32-direction rounded stroke.
+      // For rounded strokes, compare against render's placed-text path instead.
+      if (Object.hasOwn(policyOverlay.vars, '--caption-rounded-stroke')) {
+        assert.ok(Object.hasOwn(renderOverlay.vars, '--caption-rounded-stroke'),
+          `${id}: rounded stroke must also exist on render's placed-text path`);
+        assert.equal(policyMetrics.textShadow, renderPlaced.textShadow,
+          `${id}: rounded stroke must match render's placed-text path`);
+      } else {
+        assert.doesNotMatch(policyMetrics.textShadow, /-\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px.*\d+(?:\.\d+)?px -\d+(?:\.\d+)?px 0px/u,
+          `${id}: four-direction outline shadow must not return`);
+      }
     }
     t.diagnostic('presets=12 surfaces=4 assertions=48 computed-style cells');
   } finally {
