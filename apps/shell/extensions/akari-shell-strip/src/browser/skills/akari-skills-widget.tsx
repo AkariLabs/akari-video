@@ -14,8 +14,10 @@ import { SKILLS_PANEL_TEXT, groupSkillsByCategory, skillAskOutcomeMessage, skill
 import { SkillPictogram } from './skill-pictograms';
 
 export function skillDescriptionLead(description: string): string {
-    const boundary = description.search(/[。（—:]/);
-    return boundary < 0 ? description : description.slice(0, boundary);
+    // 先頭の引用符（SKILL.md の description が "…" で始まるもの）は見せない
+    const text = description.replace(/^["'“”「『]+/, '');
+    const boundary = text.search(/[。（—:]/);
+    return boundary < 0 ? text : text.slice(0, boundary);
 }
 
 const panelCss = `
@@ -31,7 +33,7 @@ const panelCss = `
 .akari-skills-panel .skill-art { flex: none; display: flex; align-items: center; justify-content: center; width: 56px; height: 40px; border-radius: 5px; background: var(--theia-editor-background); color: var(--theia-descriptionForeground); }
 .akari-skills-panel .skill-art svg { display: block; }
 .akari-skills-panel .skill-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; line-height: 1.3; text-align: left; }
-.akari-skills-panel .skill-name { display: block; min-width: 0; font-family: var(--theia-code-font-family); font-size: 13px; font-weight: 700; white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
+.akari-skills-panel .skill-name { display: block; min-width: 0; font-family: var(--theia-code-font-family); font-size: 12px; font-weight: 700; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
 .akari-skills-panel .skill-description { display: block; min-width: 0; font-size: 10px; color: var(--theia-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .akari-skills-panel .skill-more { position: absolute; right: 3px; top: 5px; width: 18px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--theia-descriptionForeground); font-size: 17px; line-height: 17px; }
 .akari-skills-panel .skill-more:hover,.akari-skills-panel .skill-more:focus-visible { background: var(--theia-list-hoverBackground); color: var(--theia-foreground); }

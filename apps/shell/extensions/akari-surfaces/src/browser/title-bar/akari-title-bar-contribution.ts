@@ -37,7 +37,7 @@ body.akari-title-mac #theia-drag-panel .akari-title-left { padding-left: var(--a
 #theia-drag-panel .akari-title-dots:hover { background: rgba(127,127,127,.14); }
 #theia-drag-panel .akari-title-dot { position: relative; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 11px; height: 11px; border: 1px solid var(--akari-line, rgba(127,127,127,.5)); border-radius: 50%; font-size: 8px; line-height: 1; }
 #theia-drag-panel .akari-title-dot + .akari-title-dot::before { content: ''; position: absolute; right: 100%; width: 10px; height: 1px; background: var(--akari-line, rgba(127,127,127,.5)); }
-#theia-drag-panel .akari-title-dot.done { color: currentColor; border-color: var(--akari-line, rgba(255,255,255,.45)); background: transparent; }
+#theia-drag-panel .akari-title-dot.done { color: var(--theia-successForeground, currentColor); border-color: var(--theia-successForeground, rgba(255,255,255,.45)); background: transparent; }
 #theia-drag-panel .akari-title-dot.current { background: var(--akari-accent, #f97316); border-color: var(--akari-accent, #f97316); }
 #theia-drag-panel .akari-title-dot.upcoming { color: transparent; border-color: var(--akari-line, rgba(127,127,127,.35)); background: transparent; }
 body.theia-light #theia-drag-panel .akari-title-dot.done { border-color: rgba(0,0,0,.45); }
