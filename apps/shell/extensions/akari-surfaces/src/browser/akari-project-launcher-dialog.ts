@@ -7,17 +7,13 @@ import URI from '@theia/core/lib/common/uri';
 import { filterProjects, filterProjectsByChannel, formatProjectUpdatedAt, listProjectChannels, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
+import { HOME_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 
 // プロジェクト・ランチャー（task 2026-08-17-home-launcher-popup・裁定 D + §3.2）。
 // 将来「事業（チャンネル）画面」へ育てる置き場（裁定 D4）だが、今回は
 // 「+ 新しい動画を始める」と過去プロジェクト一覧の 2 要素だけで作り込まない。
 
-// AkariHomeWidget を値としてここへ import すると、AkariHomeWidget 側がこのダイアログを
-// 値 import する既存の構図と合わさって循環 import になる（型のみの import で足りるため
-// `import type` にしてある）。コマンド境界だけは widget の静的 ID 文字列をミラーする
-// （akari-partner-command-contribution.ts と同じ「薄いコマンド境界」流儀 — 拡張間ではなく
-// 同一拡張内の 2 ファイル間でも、循環を避けるためにこの流儀を踏襲する）。
-const AKARI_HOME_WIDGET_ID = 'akari-home-widget';
+// AkariHomeWidget は型のみ参照し、widget ID は共有定数から読む。
 
 export interface AkariProjectLauncherDialogProps extends DialogProps {
     /** home widget の既存列挙（creatorRootProjects + standaloneProjects 統合済み）をそのまま受け取る。 */
@@ -26,7 +22,7 @@ export interface AkariProjectLauncherDialogProps extends DialogProps {
     /** F5「+ 新しい動画を始める」— home widget の既存フロー（無 root 時の ensureCreatorRoot 連結込み）をそのまま呼ぶ。 */
     onStartNewProject: () => Promise<void>;
     /** 一覧行クリック — home widget の既存「プロジェクトを開く」経路（preserveWindow セマンティクス含む）をそのまま呼ぶ。 */
-    onOpenProject: (uri: URI) => void;
+    onOpenProject: (uri: URI, originRect?: DOMRect) => void;
     /** × / Esc / 一覧選択のいずれかで閉じたときに呼ぶ（同一セッション内の自動再表示抑止用）。 */
     onDismissed: () => void;
     /**
@@ -286,7 +282,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         Object.assign(thumbnail.style, { width: '64px', height: '36px', flex: '0 0 64px', borderRadius: `${AKARI_RADIUS.chip}px` });
         project.append(thumbnail, name);
         button.append(project, channel, date, status);
-        button.addEventListener('click', () => { this.props.onOpenProject(row.uri); this.close(); });
+        button.addEventListener('click', () => { this.props.onOpenProject(row.uri, button.getBoundingClientRect()); this.close(); });
         card.appendChild(button);
         return card;
     }
@@ -422,7 +418,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
 
         if (!row.current) {
             button.addEventListener('click', () => {
-                this.props.onOpenProject(row.uri);
+                this.props.onOpenProject(row.uri, button.getBoundingClientRect());
                 this.close();
             });
         }
@@ -512,7 +508,7 @@ export class AkariProjectLauncherCommandContribution implements CommandContribut
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(AkariProjectLauncherCommands.OPEN_PROJECT_LAUNCHER, {
             execute: async () => {
-                const widget = await this.widgetManager.getOrCreateWidget<Widget & { openProjectLauncher: () => Promise<void> }>(AKARI_HOME_WIDGET_ID);
+                const widget = await this.widgetManager.getOrCreateWidget<Widget & { openProjectLauncher: () => Promise<void> }>(HOME_WIDGET_ID);
                 await widget.openProjectLauncher();
             }
         });
