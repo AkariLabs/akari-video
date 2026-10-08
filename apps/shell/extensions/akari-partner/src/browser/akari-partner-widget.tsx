@@ -7,7 +7,7 @@ import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
+import { CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -133,6 +133,9 @@ export class AkariPartnerWidget extends ReactWidget {
     @inject(StorageService)
     protected readonly storageService!: StorageService;
 
+    @inject(CommandService)
+    protected readonly commandService!: CommandService;
+
     @inject(FileService)
     protected readonly fileService!: FileService;
 
@@ -142,6 +145,7 @@ export class AkariPartnerWidget extends ReactWidget {
     protected flowState: FlowState = 'idle';
     protected installCancelledNotice = '';
     protected selected?: PartnerCatalogEntry;
+    protected lastPartnerEntryId?: string;
     protected status = '';
     protected detail = '';
     protected warning = '';
@@ -186,9 +190,7 @@ export class AkariPartnerWidget extends ReactWidget {
         this.title.iconClass = 'codicon codicon-add';
         this.title.closable = false;
         this.node.setAttribute('data-akari-onboarding-target', 'partner');
-        const refreshOnboardingChoice = (): void => this.update();
-        window.addEventListener('akari.onboarding.answer', refreshOnboardingChoice);
-        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.onboarding.answer', refreshOnboardingChoice)));
+        void this.refreshLastPartner();
         window.addEventListener('beforeunload', markPartnerShuttingDown);
         this.toDispose.push(Disposable.create(() => window.removeEventListener('beforeunload', markPartnerShuttingDown)));
 
@@ -219,6 +221,16 @@ export class AkariPartnerWidget extends ReactWidget {
         });
 
         this.update();
+    }
+
+    protected async refreshLastPartner(): Promise<void> {
+        try {
+            const last = await this.storageService.getData<{ entryId: string | null }>(PARTNER_LAST_KEY);
+            this.lastPartnerEntryId = last?.entryId ?? undefined;
+            if (!this.isDisposed) this.update();
+        } catch (error) {
+            console.warn('[akari-partner] last partner could not be read:', error);
+        }
     }
 
     // ApplicationShell#activateWidget は waitForActivation で focus を待つため、
@@ -917,7 +929,11 @@ export class AkariPartnerWidget extends ReactWidget {
     }
 
     protected async rememberPartnerStart(entry: PartnerCliCatalogEntry | PartnerWebCatalogEntry): Promise<void> {
-        try { await this.storageService.setData(PARTNER_LAST_KEY, { entryId: entry.id, at: new Date().toISOString() }); }
+        try {
+            await this.storageService.setData(PARTNER_LAST_KEY, { entryId: entry.id, at: new Date().toISOString() });
+            this.lastPartnerEntryId = entry.id;
+            this.update();
+        }
         catch (error) { console.warn('[akari-partner] last partner could not be saved:', error); }
     }
 
@@ -936,6 +952,7 @@ export class AkariPartnerWidget extends ReactWidget {
         };
         widget.disposed.connect(() => {
             void rememberPartnerClose(this.storageService, requested, undefined, this.remainingPartnerEntryId(widget))
+                .then(() => this.refreshLastPartner())
                 .catch(error => console.warn('[akari-partner] close state could not be saved:', error));
         });
     }
@@ -1297,9 +1314,9 @@ export class AkariPartnerWidget extends ReactWidget {
      */
     protected renderConnected(): React.ReactNode {
         return (
-            <div style={styles.container}>
+            <div style={styles.connectedContainer}>
                 <div style={styles.heroIcon}>✦</div>
-                <h2 style={styles.heading}>パートナー接続済み</h2>
+                <h2 style={styles.connectedHeading}>パートナー接続済み</h2>
                 <div style={styles.statusCard} role='status' aria-live='polite' data-akari-flow-state={this.flowState}>
                     <div style={styles.statusRow}>
                         <span className='codicon codicon-pass-filled' style={{ color: 'var(--theia-successBackground)' }} />
@@ -1370,7 +1387,6 @@ export class AkariPartnerWidget extends ReactWidget {
         const selectedFlow = this.selected ? this.entryFlow(this.selected) : undefined;
         return (
             <div style={styles.container}>
-                <div style={styles.heroIcon}><span className='codicon codicon-add' /></div>
                 <h2 style={styles.heading}>パートナーを追加</h2>
                 <p style={styles.lead}>CLI・作業画面・公式拡張を選んで、右パネルに追加します。</p>
 
@@ -1387,15 +1403,12 @@ export class AkariPartnerWidget extends ReactWidget {
                         }
                         return result;
                     }, []).map(group => {
-                        const lastAnswer = typeof window === 'undefined' ? undefined
-                            : (window as Window & { akariOnboardingAnswer?: string }).akariOnboardingAnswer;
-                        const chosenAgent = lastAnswer === 'claude' ? 'claude' : lastAnswer === 'chatgpt' ? 'codex' : lastAnswer === 'google' ? 'antigravity' : undefined;
                         const cliEntry = group.entries.find(entry => entry.form === 'cli' || entry.form === 'web');
                         const extensionEntry = group.entries.find(entry => entry.form === 'extension');
                         const rowEntries = [cliEntry, extensionEntry].filter(
                             (entry): entry is PartnerCatalogEntry => entry !== undefined
                         );
-                        return <div key={group.agent} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        return <div key={group.agent} style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
                             {rowEntries.map(entry => {
                                 const flow = this.entryFlow(entry);
                                 const icon = <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />;
@@ -1416,9 +1429,12 @@ export class AkariPartnerWidget extends ReactWidget {
                                     >
                                         <span style={styles.buttonLabel}>
                                             {entry.recommended ? <span style={styles.recommendedIconBacking}>{icon}</span> : icon}
-                                            {entry.name}
-                                            {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
-                                            {entry.form === 'cli' && entry.agent === chosenAgent && <span style={{ fontSize: 10, color: '#fb923c', border: '1px solid #fb923c88', borderRadius: 99, padding: '1px 5px' }}>前回選んだ</span>}
+                                            <span style={styles.buttonText}>
+                                                <span style={styles.buttonName}>{entry.name}</span>
+                                                {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
+                                                {entry.id === this.lastPartnerEntryId &&
+                                                    <span style={entry.recommended ? styles.lastBadgeOnMain : styles.lastBadge}>前回</span>}
+                                            </span>
                                         </span>
                                         <span style={styles.buttonAction}>
                                             {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
@@ -1466,31 +1482,41 @@ export class AkariPartnerWidget extends ReactWidget {
                 </div>}
 
                 <p style={styles.note}>インストール中も進捗を表示します。失敗した場合は原因をこの画面に表示します。</p>
+                <button className='theia-button quiet' style={styles.settingsLink}
+                    onClick={() => void this.commandService.executeCommand('akari.settings.open', { section: 'partner' })}>
+                    <span className='codicon codicon-gear' aria-hidden='true' />パートナーの設定
+                </button>
             </div>
         );
     }
 }
 
 const styles: Record<string, React.CSSProperties> = {
-    container: { padding: '28px 22px', maxWidth: 420, margin: '0 auto', textAlign: 'center' },
+    container: { padding: '12px 16px 20px 12px', maxWidth: 420, margin: '0 auto', textAlign: 'center' },
+    connectedContainer: { padding: '28px 22px', maxWidth: 420, margin: '0 auto', textAlign: 'center' },
     heroIcon: { fontSize: 32, color: 'var(--theia-focusBorder)', marginBottom: 8 },
-    // タブ名と重複する見出しだけを隠し、説明文・ボタンの開始位置は維持する。
-    heading: { margin: '0 0 10px', fontSize: 21, visibility: 'hidden' },
-    lead: { margin: '0 0 24px', opacity: 0.78, lineHeight: 1.55 },
+    heading: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' },
+    connectedHeading: { margin: '0 0 10px', fontSize: 21, visibility: 'hidden' },
+    lead: { margin: '0 0 12px', opacity: 0.78, lineHeight: 1.55 },
     buttonStack: { display: 'flex', flexDirection: 'column', gap: 10 },
-    primaryButton: { width: '100%', minHeight: 46, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    secondaryButton: { width: '100%', minHeight: 46, background: 'transparent', border: '1px solid var(--theia-input-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    buttonLabel: { display: 'inline-flex', alignItems: 'center', flex: '1 1 auto', flexWrap: 'wrap', gap: 7, minWidth: 0, textAlign: 'left' },
+    primaryButton: { width: '100%', height: 'auto', minHeight: 46, padding: '8px 6px', marginLeft: 0, flex: '1 1 auto', fontWeight: 600, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+    secondaryButton: { width: '100%', height: 'auto', minHeight: 46, padding: '8px 6px', marginLeft: 0, flex: '1 1 auto', background: 'transparent', border: '1px solid var(--theia-input-border)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+    buttonLabel: { display: 'flex', alignItems: 'flex-start', flex: '1 1 auto', gap: 5, minWidth: 'min(100%, 100px)', whiteSpace: 'normal', textAlign: 'left' },
+    buttonText: { display: 'flex', flex: '1 1 0', minWidth: 0, flexWrap: 'wrap', alignItems: 'center', gap: 5, whiteSpace: 'normal' },
+    buttonName: { whiteSpace: 'normal', wordBreak: 'keep-all', overflowWrap: 'anywhere' },
     // 塗りボタンでもブランド色を判別できる下地。余白を相殺しアイコンの占有寸法は維持する。
     recommendedIconBacking: { display: 'inline-flex', flex: 'none', padding: 2, margin: -2, borderRadius: 4, background: 'var(--theia-editor-background)' },
-    buttonAction: { flex: '0 1 auto', fontSize: 11, opacity: 0.82, whiteSpace: 'normal', textAlign: 'right' },
+    buttonAction: { flex: '0 0 auto', marginLeft: 'auto', fontSize: 10, opacity: 0.82, whiteSpace: 'nowrap', textAlign: 'right' },
     // ボタンの列幅を維持する器。
     buttonCell: { flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' },
     resumeHint: {
         marginTop: 14, padding: 12, borderRadius: 8, textAlign: 'left', fontSize: 12, lineHeight: 1.6,
         background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)'
     },
-    recommendedBadge: { padding: '2px 6px', borderRadius: 9, fontSize: 9, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' },
+    recommendedBadge: { height: 16, lineHeight: '16px', padding: '0 5px', borderRadius: 9, fontSize: 11, whiteSpace: 'nowrap', background: 'var(--theia-editor-background)', color: 'var(--akari-accent-light)' },
+    lastBadge: { boxSizing: 'border-box', height: 16, lineHeight: '14px', padding: '0 5px', borderRadius: 9, fontSize: 11, whiteSpace: 'nowrap', color: 'var(--akari-accent-light)', border: '1px solid var(--akari-accent-light)' },
+    lastBadgeOnMain: { boxSizing: 'border-box', height: 16, lineHeight: '14px', padding: '0 5px', borderRadius: 9, fontSize: 11, whiteSpace: 'nowrap', color: 'currentColor', border: '1px solid currentColor' },
+    settingsLink: { height: 'auto', minHeight: 0, padding: '4px 6px', marginLeft: 0, marginTop: 4, background: 'transparent', border: 0, color: 'var(--theia-textLink-foreground)', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 },
     statusCard: { marginTop: 14, padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
     statusRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
     detail: { marginTop: 9, opacity: 0.75, fontSize: 12, overflowWrap: 'anywhere' },
