@@ -22,8 +22,8 @@
 // 実測の根拠（2026-09-02・macOS arm64・Node 26.3.0・ffmpeg / ffprobe なし・Chrome あり・npm install --ignore-scripts）:
 //   pure 15 パッケージ + scripts/test + skills 全 pass（tests 1271 / pass 1265 / fail 0 / skipped 6。edit-store 356/356 を含む）/
 //   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
-//   quarantine: 現在エントリなし（当時 export-nle 20/21・akari-launcher 317/332。両者とも pure へ移動）/ media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
-//   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
+//   quarantine: 現在エントリなし（当時 export-nle 20/21・akari-launcher 317/332。両者とも pure へ移動）/ media: 当時は ffmpeg・ffprobe 不在で赤。
+//   2026-10-08 時点の CI の media レーンでは decision-cards の direction preset 保存待ちが timeout する。
 //   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
 //   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
@@ -276,20 +276,21 @@ export const LANES = {
     ]
   },
 
-  // ffmpeg / ffprobe / Chrome（Playwright chromium・puppeteer-core 用 CHROME_PATH）が要るもの。
+  // ffmpeg / ffprobe / Chrome / Electron が要るもの。preview-server は Playwright chromium、
+  // overlay-runtime は AKARI_TEST_CHROME_PATH の chrome-headless-shell を優先し、無ければ CHROME_PATH を使う。
   // Linux ランナーでも通る保証は無い（symlink 権限・GPU・フォントの差）。緑が安定したら required 化を検討する。
   media: {
     title: 'ffmpeg / ffprobe / Chrome が要る（CI: 参考）',
     entries: [
       pkg('media-bin'),
-      pkg('decision-cards'),        // Chrome を起動するテストを含む（direction inputs persist… が /tmp プロファイルの rmdir ENOTEMPTY で落ちる・CI 上は d5f2a7b6 以降 required unit を赤にしていた）
+      pkg('decision-cards'),        // Chrome を起動するテストを含む（2026-10-08 時点の CI では direction の preset 保存待ちが timeout）
       pkg('akari-tools'),
       pkg('render-cut'),
       // Playwright chromium。無ければ一部 skip・一部 fail。
       // 外部ツール不要のファイル（PREVIEW_SERVER_PURE_TESTS）は pure レーンでも走るので二重実行になるが、
       // ここは「パッケージの npm test をそのまま回す参考レーン」の役目を保つため縮めない
       pkg('preview-server'),
-      pkg('overlay-runtime'),       // puppeteer-core + CHROME_PATH
+      pkg('overlay-runtime'),       // puppeteer-core + AKARI_TEST_CHROME_PATH（無ければ CHROME_PATH）
       {
         id: 'skills/analyze-footage vision-tracks (ffmpeg・swiftc)',
         cwd: '.',
