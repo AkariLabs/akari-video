@@ -12,9 +12,9 @@ export const projectHomeCss = `
 .akari-os-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .akari-os-step{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;border-radius:9px;background:transparent;color:var(--theia-foreground);padding:5px 3px;cursor:pointer}
 .akari-os-step:hover{background:var(--theia-list-hoverBackground)}
-.akari-os-step:before{content:'';position:absolute;top:21px;left:-50%;width:100%;height:2px;background:var(--theia-widget-border)}
+.akari-os-step:before{content:'';position:absolute;top:21px;left:-50%;width:100%;height:1px;background:var(--akari-line,var(--theia-widget-border))}
 .akari-os-step:first-child:before{display:none}
-.akari-os-step.done:before,.akari-os-step.now:before{background:var(--theia-successForeground)}
+.akari-os-step.after-done:before{background:var(--theia-descriptionForeground)}
 .akari-os-step .dot{position:relative;z-index:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid var(--theia-widget-border);background:var(--theia-editorWidget-background)}
 .akari-os-step.done .dot{border-color:var(--theia-successForeground);color:var(--theia-successForeground)}
 .akari-os-step.now .dot{border-color:var(--theia-focusBorder);background:var(--theia-focusBorder);color:var(--theia-button-foreground)}

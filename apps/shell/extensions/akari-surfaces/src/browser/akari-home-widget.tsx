@@ -89,7 +89,7 @@ import { decideOpenFlow, openChoices, OpenChoice } from './home/home-open-decisi
 import { eventHistoryEntry, exportHistoryEntry, HomeHistoryEntry, sortHomeHistory } from './home/home-history';
 import type { OpenProjectRequest } from './akari-home-command-contribution';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
-import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
+import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
 import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_ICON, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, shouldLoadMoreProjects, sortProjects } from '../common/project-browser';
@@ -2123,6 +2123,7 @@ export class AkariHomeWidget extends ReactWidget {
             standalone={rows.filter(row => row.standalone)}
             currentName={this.scope.scope === 'project' ? rows.find(row => row.current)?.name ?? this.currentProjectUri?.path.base : undefined}
             onNew={() => void this.startNewProject()} onRefresh={() => void this.refreshProjectListData()}
+            onOpenChannel={() => void this.shell.revealWidget(RAIL_CHANNEL_WIDGET_ID)}
             onOpen={(row, rect) => this.openCreatorRootProject(row.uri, rect)}
             readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />;
     }
@@ -2188,8 +2189,8 @@ export class AkariHomeWidget extends ReactWidget {
                     </div>}
                 </div>
             </div>
-            <div className='akari-os-steps' aria-label='進み具合'>{(this.progress.stages ?? computeProjectStages(presence)).map(stage => <button type='button' data-akari-project-stage={stage.key} key={stage.key}
-                className={`akari-os-step${stage.done ? ' done' : ''}${stage.current ? ' now' : ''}`}
+            <div className='akari-os-steps' aria-label='進み具合'>{(this.progress.stages ?? computeProjectStages(presence)).map((stage, index, stages) => <button type='button' data-akari-project-stage={stage.key} key={stage.key}
+                className={`akari-os-step${stage.done ? ' done' : ''}${stage.current ? ' now' : ''}${index > 0 && stages[index - 1].done ? ' after-done' : ''}`}
                 onClick={() => void this.openProgressStage(stage.key)}><span className='dot'>{stage.done ? '✓' : '○'}</span><b>{stage.label}</b>
                 <small>{stage.current ? 'いまここ' : stage.detail}</small></button>)}</div>
             <section className='akari-os-status'><div><span className='label'>いまの状態</span><h4>{status[0]}</h4><p>{status[1]}</p></div>
