@@ -1,5 +1,8 @@
 name: Engine v2 required checks
 
+# 参考ジョブは各ステップの失敗を許容し、ジョブを緑 + 警告で見せる。
+# 最後の集計ステップが準備失敗・テスト失敗を警告と Summary の先頭行へ書く。
+
 on:
   push:
     branches: [main]
@@ -110,28 +113,37 @@ jobs:
           xvfb-run -a npm --prefix packages/frame-engine run test:seek
 
   frame-engine-golden-soft:
-    # 参考ジョブ（2026-08-28 司令塔）: ソフト描画（SwiftShader）では colorPatches の許容差が未定義で Δ1〜12 が出るため、
-    # 許容差の別票が入るまで continue-on-error。他の点群（parity / layer / matte / transition / look / gopTail / bFrame）はソフトでも 0 fail。
+    # 参考: SwiftShader の colorPatches 等を緑のチェック + 警告で見せる。
+    # required に上げるときはステップ単位の continue-on-error と集計ステップを外し、準備ステップの門を外す。
     name: frame-engine-golden-soft (reference)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
       - uses: actions/setup-node@v4
+        id: setup_node
+        continue-on-error: true
         with:
           node-version: '26.3.0'
           cache: npm
       - name: Install Linux runtime dependencies
+        id: system_deps
+        continue-on-error: true
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install frame-engine dependencies and Electron
+        id: install
+        continue-on-error: true
         run: >-
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
       - name: Install Electron in an isolated directory (avoids monorepo native builds and npm 11 allow-scripts)
+        id: electron
+        continue-on-error: true
         shell: bash
         run: |
           set -e
@@ -151,6 +163,8 @@ jobs:
           test -f node_modules/electron/dist/version
           echo "electron dist $(cat node_modules/electron/dist/version)"
       - name: Link Electron into the repository
+        id: link_electron
+        continue-on-error: true
         shell: bash
         run: |
           set -e
@@ -159,6 +173,8 @@ jobs:
           node -e "console.log('electron =', require('electron'))"
           test -x "$(node -e "process.stdout.write(require('electron'))")"
       - name: Force Electron golden runs through SwiftShader
+        id: swiftshader
+        continue-on-error: true
         shell: bash
         run: |
           electron_cli="$(pwd)/node_modules/electron/cli.js"
@@ -167,12 +183,85 @@ jobs:
             "exec node \"${electron_cli}\" --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader \"\$@\"" \
             > node_modules/.bin/electron
           chmod +x node_modules/.bin/electron
+      - name: Build frame-engine for golden
+        id: build
+        continue-on-error: true
+        run: npm --prefix packages/frame-engine run build
       - name: Run golden under SwiftShader (reference only)
+        id: golden
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.setup_node.outcome == 'success' && steps.system_deps.outcome == 'success' && steps.install.outcome == 'success' && steps.electron.outcome == 'success' && steps.link_electron.outcome == 'success' && steps.swiftshader.outcome == 'success' && steps.build.outcome == 'success' }}
+        continue-on-error: true
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
-          npm --prefix packages/frame-engine run build
-          xvfb-run -a npm --prefix packages/frame-engine run test:golden
+          set -o pipefail
+          xvfb-run -a npm --prefix packages/frame-engine run test:golden 2>&1 | tee "$RUNNER_TEMP/frame-engine-golden-soft.log"
+      - name: reference summary (参考ジョブの結果を警告で見せる)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          failed=()
+          if [ "${{ steps.checkout.outcome }}" = failure ]; then failed+=(checkout); fi
+          if [ "${{ steps.setup_node.outcome }}" = failure ]; then failed+=(setup-node); fi
+          if [ "${{ steps.system_deps.outcome }}" = failure ]; then failed+=(system-deps); fi
+          if [ "${{ steps.install.outcome }}" = failure ]; then failed+=(npm-install); fi
+          if [ "${{ steps.electron.outcome }}" = failure ]; then failed+=(Electron); fi
+          if [ "${{ steps.link_electron.outcome }}" = failure ]; then failed+=(link-Electron); fi
+          if [ "${{ steps.swiftshader.outcome }}" = failure ]; then failed+=(SwiftShader); fi
+          if [ "${{ steps.build.outcome }}" = failure ]; then failed+=(build); fi
+          if [ "${{ steps.golden.outcome }}" != success ] && [ "${{ steps.golden.outcome }}" != failure ] && [ "${#failed[@]}" -gt 0 ]; then
+            message="frame-engine-golden-soft (reference) は準備が失敗してテストが走らなかった（失敗: ${failed[*]}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.golden.outcome }}" = failure ]; then
+            results=packages/frame-engine/test/golden/.generated/results.json
+            points=()
+            if [ -f "$results" ]; then
+              while IFS= read -r point; do points+=("$point"); done < <(node --input-type=module - "$results" <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          function failedLeaves(value, path, leaves) {
+            if (!value || typeof value !== 'object') return false;
+            let childFailed = false;
+            for (const [key, child] of Object.entries(value)) {
+              if (key === 'pass') continue;
+              if (failedLeaves(child, Array.isArray(value) ? `${path}[${key}]` : `${path}.${key}`, leaves)) childFailed = true;
+            }
+            if (value.pass === false && !childFailed) leaves.push(path);
+            return value.pass === false || childFailed;
+          }
+          for (const [group, value] of Object.entries(result)) {
+            if (group === 'pass' || group === 'error') continue;
+            const leaves = [];
+            if (!failedLeaves(value, group, leaves)) continue;
+            const details = leaves.filter(path => path !== group).slice(0, 3)
+              .map(path => path.slice(group.length).replace(/^\./u, ''));
+            console.log(details.length ? `${group} (${details.join(', ')})` : group);
+          }
+          NODE
+              )
+            fi
+            count="${#points[@]}"
+            if [ "$count" -eq 0 ]; then count=1; fi
+            echo "::warning title=参考ジョブ::frame-engine-golden-soft (reference) で $count 件落ちた（詳細は Summary）"
+            printf 'frame-engine-golden-soft: %s 件落ちた\n' "$count" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${#points[@]}" -gt 0 ]; then
+              for point in "${points[@]}"; do printf -- '- %s\n' "$point" >> "$GITHUB_STEP_SUMMARY"; done
+            else
+              echo '- 点群名を取得できなかった。ログ末尾:' >> "$GITHUB_STEP_SUMMARY"
+              echo '```text' >> "$GITHUB_STEP_SUMMARY"
+              if [ -f "$RUNNER_TEMP/frame-engine-golden-soft.log" ]; then tail -n 12 "$RUNNER_TEMP/frame-engine-golden-soft.log" >> "$GITHUB_STEP_SUMMARY"; else echo 'ログなし' >> "$GITHUB_STEP_SUMMARY"; fi
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [ "${{ steps.golden.outcome }}" = success ]; then
+            echo 'frame-engine-golden-soft: 0 件落ちた（すべて通過）' >> "$GITHUB_STEP_SUMMARY"
+          else
+            message="frame-engine-golden-soft (reference) のテストが走らなかった（tests outcome=${{ steps.golden.outcome }}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
 
   osr-export-soft:
     name: osr-export-soft
@@ -520,10 +609,11 @@ jobs:
           node -e "const r=require('$RUNNER_TEMP/gpu-run-trap/run.json'); if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean)) process.exit(1)"
 
   gpu-export-soft-windows:
+    # 参考: Windows のソフト描画検証を緑のチェック + 警告で見せる。
+    # required に上げるときはステップ単位の continue-on-error と集計ステップを外し、準備ステップの門を外す。
     name: gpu-export-soft-windows (reference)
     runs-on: windows-latest
     timeout-minutes: 45
-    continue-on-error: true
     defaults:
       run:
         shell: bash
@@ -531,35 +621,47 @@ jobs:
       # Windows ランナーの git は autocrlf=true が既定で、checkout 時に LF→CRLF 変換される。
       # ページ HTML に埋め込むソースのバイト列が変わり、基準 SHA-256 の検査が落ちるため無効化する。
       - name: Disable git autocrlf before checkout
+        id: git_config
+        continue-on-error: true
         run: |
           git config --global core.autocrlf false
 
       - uses: actions/checkout@v4
+        id: checkout
+        continue-on-error: true
       - uses: actions/setup-node@v4
+        id: setup_node
+        continue-on-error: true
         with:
           node-version: '26.3.0'
           cache: npm
       - name: Resolve ffmpeg on the Windows runner
+        id: ffmpeg
+        continue-on-error: true
         run: |
           set -e
           if command -v ffmpeg >/dev/null 2>&1; then
-            echo "gpu-export-soft-windows ffmpeg: runner-provided ($(ffmpeg -version | head -n 1))" >> "$GITHUB_STEP_SUMMARY"
+            echo "gpu-export-soft-windows ffmpeg: runner-provided ($(ffmpeg -version | head -n 1))" >> "$RUNNER_TEMP/gpu-export-soft-windows-details.md"
           else
             choco install ffmpeg -y
             export PATH="$PATH:/c/ProgramData/chocolatey/bin"
             echo 'C:\ProgramData\chocolatey\bin' >> "$GITHUB_PATH"
             hash -r
             command -v ffmpeg >/dev/null
-            echo "gpu-export-soft-windows ffmpeg: installed with Chocolatey ($(ffmpeg -version | head -n 1))" >> "$GITHUB_STEP_SUMMARY"
+            echo "gpu-export-soft-windows ffmpeg: installed with Chocolatey ($(ffmpeg -version | head -n 1))" >> "$RUNNER_TEMP/gpu-export-soft-windows-details.md"
           fi
           command -v ffprobe >/dev/null
       - name: Install GPU export dependencies without lifecycle scripts
+        id: install
+        continue-on-error: true
         run: >-
           npm install --ignore-scripts
           --workspace @akari-video/gpu-export --workspace @akari-video/osr-export
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save
       - name: Install stock Windows Electron in an isolated directory
+        id: electron
+        continue-on-error: true
         run: |
           set -e
           pkg="$RUNNER_TEMP/electron-pkg"
@@ -580,6 +682,8 @@ jobs:
           test -f node_modules/electron/dist/electron.exe
           test -f node_modules/electron/dist/version
       - name: Copy Electron into the repository
+        id: copy_electron
+        continue-on-error: true
         run: |
           set -e
           rm -rf node_modules/electron
@@ -587,12 +691,21 @@ jobs:
           test -f node_modules/electron/dist/electron.exe
           node -e "const fs=require('fs');const p=require('electron');if(!fs.existsSync(p))process.exit(1);console.log('electron =',p)"
       - name: Run required GPU export checks
+        id: required_checks
+        if: ${{ !cancelled() && steps.git_config.outcome == 'success' && steps.checkout.outcome == 'success' && steps.setup_node.outcome == 'success' && steps.ffmpeg.outcome == 'success' && steps.install.outcome == 'success' && steps.electron.outcome == 'success' && steps.copy_electron.outcome == 'success' }}
+        continue-on-error: true
         run: npm --prefix packages/gpu-export run ci:required
       - name: Build deterministic 360-frame audio fixture
+        id: fixture
+        if: ${{ !cancelled() && steps.required_checks.outcome == 'success' }}
+        continue-on-error: true
         run: |
           # The Windows reference lane keeps the base fixture; Linux separately covers DOM and captions.
           npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/gpu-fixture" --verify
       - name: Run software frame verification twice
+        id: software
+        if: ${{ !cancelled() && steps.fixture.outcome == 'success' }}
+        continue-on-error: true
         env:
           ELECTRON_DISABLE_SANDBOX: "1"
         run: |
@@ -603,6 +716,9 @@ jobs:
               --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --verify-frames
           done
       - name: Require 360 matching pre-encode frame hashes
+        id: hashes
+        if: ${{ !cancelled() && steps.software.outcome == 'success' }}
+        continue-on-error: true
         run: |
           node --input-type=module - "$RUNNER_TEMP/gpu-run-a/run.json" "$RUNNER_TEMP/gpu-run-b/run.json" <<'NODE'
           import assert from "node:assert/strict";
@@ -620,12 +736,15 @@ jobs:
           process.stdout.write(`pre-encode SHA-256 matched for ${left.frameHashes.length}/${right.frameHashes.length} frames\n`);
           NODE
       - name: Record unsupported encoder or verify encoded output
+        id: encoder
+        if: ${{ !cancelled() && steps.hashes.outcome == 'success' }}
+        continue-on-error: true
         run: |
           status="$(node -p "require(process.argv[1]).status" "$RUNNER_TEMP/gpu-run-a/run.json")"
           echo "gpu-export Windows run status=$status"
           if [ "$status" = "unsupported" ]; then
             echo "GPU_H264_ENCODER=no" >> "$GITHUB_ENV"
-            echo "gpu-export-soft-windows H.264 encoder: unsupported; pre-encode frame SHA 360/360 passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "gpu-export-soft-windows H.264 encoder: unsupported; pre-encode frame SHA 360/360 passed" >> "$RUNNER_TEMP/gpu-export-soft-windows-details.md"
             echo "::warning::Stock Windows Electron has no software H.264 encoder; pre-encode frame SHA remains required and passed."
           else
             echo "GPU_H264_ENCODER=yes" >> "$GITHUB_ENV"
@@ -633,14 +752,16 @@ jobs:
             first_sha="$(node -e "const fs=require('fs'),c=require('crypto');const h=c.createHash('sha256');fs.createReadStream(process.argv[1]).on('data',v=>h.update(v)).on('end',()=>process.stdout.write(h.digest('hex')))" "$RUNNER_TEMP/gpu-run-a/composite.mp4")"
             second_sha="$(node -e "const fs=require('fs'),c=require('crypto');const h=c.createHash('sha256');fs.createReadStream(process.argv[1]).on('data',v=>h.update(v)).on('end',()=>process.stdout.write(h.digest('hex')))" "$RUNNER_TEMP/gpu-run-b/composite.mp4")"
             if [ "$first_sha" = "$second_sha" ]; then
-              echo "gpu-export-soft-windows MP4 SHA-256 matched: $first_sha" >> "$GITHUB_STEP_SUMMARY"
+              echo "gpu-export-soft-windows MP4 SHA-256 matched: $first_sha" >> "$RUNNER_TEMP/gpu-export-soft-windows-details.md"
             else
               echo "::warning::Software H.264 MP4 SHA differs; frame SHA is the required determinism gate."
-              echo "gpu-export-soft-windows MP4 SHA-256 differed (diagnostic only)" >> "$GITHUB_STEP_SUMMARY"
+              echo "gpu-export-soft-windows MP4 SHA-256 differed (diagnostic only)" >> "$RUNNER_TEMP/gpu-export-soft-windows-details.md"
             fi
           fi
       - name: Run readback trap when the encoder is available
-        if: env.GPU_H264_ENCODER == 'yes'
+        id: trap
+        if: ${{ !cancelled() && steps.encoder.outcome == 'success' && env.GPU_H264_ENCODER == 'yes' }}
+        continue-on-error: true
         env:
           ELECTRON_DISABLE_SANDBOX: "1"
         run: |
@@ -649,3 +770,54 @@ jobs:
             "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-trap/composite.mp4" \
             --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --trap-readback
           node -e "const r=require(process.argv[1]);if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean))process.exit(1)" "$RUNNER_TEMP/gpu-run-trap/run.json"
+      - name: reference summary (参考ジョブの結果を警告で見せる)
+        if: always()
+        continue-on-error: true
+        run: |
+          failed=()
+          if [ "${{ steps.git_config.outcome }}" = failure ]; then failed+=(git-autocrlf); fi
+          if [ "${{ steps.checkout.outcome }}" = failure ]; then failed+=(checkout); fi
+          if [ "${{ steps.setup_node.outcome }}" = failure ]; then failed+=(setup-node); fi
+          if [ "${{ steps.ffmpeg.outcome }}" = failure ]; then failed+=(ffmpeg); fi
+          if [ "${{ steps.install.outcome }}" = failure ]; then failed+=(npm-install); fi
+          if [ "${{ steps.electron.outcome }}" = failure ]; then failed+=(Electron); fi
+          if [ "${{ steps.copy_electron.outcome }}" = failure ]; then failed+=(copy-Electron); fi
+          if [ "${{ steps.required_checks.outcome }}" != success ] && [ "${{ steps.required_checks.outcome }}" != failure ] && [ "${#failed[@]}" -gt 0 ]; then
+            message="gpu-export-soft-windows (reference) は準備が失敗してテストが走らなかった（失敗: ${failed[*]}）"
+            echo "::warning title=参考ジョブ::$message"
+            printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          else
+            tests=()
+            if [ "${{ steps.required_checks.outcome }}" = failure ]; then tests+=('Run required GPU export checks'); fi
+            if [ "${{ steps.fixture.outcome }}" = failure ]; then tests+=('Build deterministic 360-frame audio fixture'); fi
+            if [ "${{ steps.software.outcome }}" = failure ]; then tests+=('Run software frame verification twice'); fi
+            if [ "${{ steps.hashes.outcome }}" = failure ]; then tests+=('Require 360 matching pre-encode frame hashes'); fi
+            if [ "${{ steps.encoder.outcome }}" = failure ]; then tests+=('Record unsupported encoder or verify encoded output'); fi
+            if [ "${{ steps.trap.outcome }}" = failure ]; then tests+=('Run readback trap when the encoder is available'); fi
+            count="${#tests[@]}"
+            all_pass=true
+            for step_outcome in "${{ steps.required_checks.outcome }}" "${{ steps.fixture.outcome }}" "${{ steps.software.outcome }}" "${{ steps.hashes.outcome }}" "${{ steps.encoder.outcome }}"; do
+              if [ "$step_outcome" != success ]; then all_pass=false; fi
+            done
+            if [ "${{ steps.trap.outcome }}" != success ]; then
+              if [ "${{ steps.trap.outcome }}" != skipped ] || [ "${GPU_H264_ENCODER:-}" != no ]; then all_pass=false; fi
+            fi
+            if [ "$count" -gt 0 ]; then
+              echo "::warning title=参考ジョブ::gpu-export-soft-windows (reference) で $count 件落ちた（詳細は Summary）"
+              printf 'gpu-export-soft-windows: %s 件落ちた\n' "$count" >> "$GITHUB_STEP_SUMMARY"
+              for test_name in "${tests[@]}"; do printf -- '- %s\n' "$test_name" >> "$GITHUB_STEP_SUMMARY"; done
+            elif [ "$all_pass" = true ]; then
+              echo 'gpu-export-soft-windows: 0 件落ちた（すべて通過）' >> "$GITHUB_STEP_SUMMARY"
+            else
+              tests_outcome="${{ steps.required_checks.outcome }}"
+              for step_outcome in "${{ steps.fixture.outcome }}" "${{ steps.software.outcome }}" "${{ steps.hashes.outcome }}" "${{ steps.encoder.outcome }}"; do
+                if [ "$tests_outcome" = success ]; then tests_outcome="$step_outcome"; fi
+              done
+              if [ "$tests_outcome" = success ]; then tests_outcome="${{ steps.trap.outcome }}"; fi
+              message="gpu-export-soft-windows (reference) のテストが走らなかった（tests outcome=${tests_outcome}）"
+              echo "::warning title=参考ジョブ::$message"
+              printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          if [ -f "$RUNNER_TEMP/gpu-export-soft-windows-details.md" ]; then cat "$RUNNER_TEMP/gpu-export-soft-windows-details.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          exit 0
