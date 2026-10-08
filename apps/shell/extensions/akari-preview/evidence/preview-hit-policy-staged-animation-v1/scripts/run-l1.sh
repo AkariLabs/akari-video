@@ -18,7 +18,8 @@ mkdir -p "$OUT_DIR"
 # tier 2 の裏取り: npm の electron（path.txt あり）で、libffmpeg が H.264 を持つ stock 版であること。
 LIBFFMPEG="$REPO_DIR/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib"
 {
-  echo "electron_bin=$ELECTRON_BIN"
+  # 記録は公開リポに入るので、機械のパスを残さず <WORKTREE> からの相対で書く。
+  echo "electron_bin=${ELECTRON_BIN/#$REPO_DIR/<WORKTREE>}"
   echo "path_txt=$(cat "$REPO_DIR/node_modules/electron/path.txt" 2>/dev/null || echo MISSING)"
   echo "libffmpeg_h264=$(strings "$LIBFFMPEG" 2>/dev/null | grep -c 'H264 Decoder')"
   echo "head=$(git -C "$REPO_DIR" rev-parse HEAD)"
