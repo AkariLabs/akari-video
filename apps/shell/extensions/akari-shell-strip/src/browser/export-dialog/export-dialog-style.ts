@@ -1,6 +1,11 @@
 const STYLE_ID = 'akari-export-dialog-style';
 
 export const EXPORT_DIALOG_CSS = `
+.lm-Widget.dialogOverlay.akari-export-dialog-host {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, .45) !important;
+}
 .akari-export-dialog-host {
   --aed-bg-deep:#050505; --aed-bg:var(--akari-bg,#0a0a0a); --aed-card:var(--akari-card,#141414);
   --aed-elevated:var(--akari-elevated,#1a1a1a); --aed-ink:var(--akari-ink,#e5e5e5);

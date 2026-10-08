@@ -36,6 +36,23 @@ export function stageDots(stages: readonly Pick<ProjectStage, 'done' | 'current'
     });
 }
 
+export function stageDotTitles(stages: readonly Pick<ProjectStage, 'label'>[] | undefined): string[] {
+    const fallback = ['企画', '素材', '編集', '確認', '書き出し'];
+    return fallback.map((label, index) => stages?.[index]?.label || label);
+}
+
+export function windowButtonGlyphs(maximized: boolean): { label: string; glyph: string; svg: string }[] {
+    const svg = (shape: string): string =>
+        `<svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">${shape}</svg>`;
+    return [
+        { label: '最小化', glyph: '\uE921', svg: svg('<path d="M0 5h10"/>') },
+        maximized
+            ? { label: '元に戻す', glyph: '\uE923', svg: svg('<path d="M2.5 2.5h6v6h-6zM.5 6V.5H6"/>') }
+            : { label: '最大化', glyph: '\uE922', svg: svg('<rect x=".5" y=".5" width="9" height="9"/>') },
+        { label: '閉じる', glyph: '\uE8BB', svg: svg('<path d="M.5.5l9 9m0-9l-9 9"/>') }
+    ];
+}
+
 export function windowButtons(os: 'mac' | 'windows' | 'other', maximized: boolean): string[] {
     return os === 'windows' ? ['最小化', maximized ? '元に戻す' : '最大化', '閉じる'] : [];
 }

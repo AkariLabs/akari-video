@@ -16,6 +16,11 @@ import { resolveDeliveryTarget } from '../common/delivery-target';
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
 const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「パートナーを追加」パネルから接続してください';
 
+export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
+    return currentWidth === undefined || currentWidth > windowWidth * 0.4
+        ? Math.min(400, Math.round(windowWidth * 0.36)) : undefined;
+}
+
 /**
  * ホーム v2（task.md 2026-07-21-home-flow）向けの薄いコマンド境界。
  *
@@ -96,6 +101,15 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         });
         registry.registerCommand(AkariPartnerCommands.OPEN, {
             execute: async () => {
+                const handler = (this.shell as unknown as { rightPanelHandler?: { container: { node: HTMLElement } } }).rightPanelHandler;
+                if (handler) {
+                    const expanded = this.shell.isExpanded('right');
+                    const current = expanded ? handler.container.node.getBoundingClientRect().width : undefined;
+                    const size = partnerPanelWidth(window.innerWidth, current);
+                    if (size !== undefined) {
+                        this.shell.resize(size, 'right');
+                    }
+                }
                 const terminal = this.liveTerminal();
                 if (terminal) {
                     await this.shell.revealWidget(terminal.id);

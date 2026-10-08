@@ -12,7 +12,7 @@ import { WindowTitleService } from '@theia/core/lib/browser/window/window-title-
 import { AkariAnnotationsClientImpl } from 'akari-annotations/lib/browser/akari-annotations-client';
 import { AkariWelcomeWindowTitleContribution } from '../akari-welcome-window-title-contribution';
 import { ProjectProgressService } from '../home/project-progress';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, titleBarCenter, titleBarGeometry, windowButtons } from './title-bar-model';
+import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from './title-bar-model';
 
 // この拡張には既存の限定的な electronTheiaCore 宣言があるため、Theia の
 // Window 宣言を重ねず実行時のクラスを使う。継承メソッドは Theia の .d.ts と同じ可視性。
@@ -33,9 +33,11 @@ body.akari-title-mac #theia-drag-panel .akari-title-left { padding-left: var(--a
 #theia-drag-panel .akari-title-channel:hover { background: rgba(127,127,127,.14); border-radius: 5px; }
 #theia-drag-panel .akari-title-project { overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-weight: 600; }
 #theia-drag-panel .akari-title-separator { opacity: .5; }
-#theia-drag-panel .akari-title-dots { display: flex; gap: 4px; margin-left: 6px; }
-#theia-drag-panel .akari-title-dot { width: 5px; height: 5px; border: 1px solid var(--akari-line, currentColor); border-radius: 50%; }
-#theia-drag-panel .akari-title-dot.done { background: #4ade80; border-color: #4ade80; opacity: 1; }
+#theia-drag-panel .akari-title-dots { display: flex; align-items: center; gap: 10px; margin-left: 6px; padding: 4px 5px; border: 0; border-radius: 5px; background: transparent; color: inherit; cursor: pointer; }
+#theia-drag-panel .akari-title-dots:hover { background: rgba(127,127,127,.14); }
+#theia-drag-panel .akari-title-dot { position: relative; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 11px; height: 11px; border: 1px solid var(--akari-line, rgba(127,127,127,.5)); border-radius: 50%; font-size: 8px; line-height: 1; }
+#theia-drag-panel .akari-title-dot + .akari-title-dot::before { content: ''; position: absolute; right: 100%; width: 10px; height: 1px; background: var(--akari-line, rgba(127,127,127,.5)); }
+#theia-drag-panel .akari-title-dot.done { color: #4ade80; border-color: #4ade80; }
 #theia-drag-panel .akari-title-dot.current { background: var(--akari-accent, #f97316); border-color: var(--akari-accent, #f97316); }
 #theia-drag-panel .akari-title-chip { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; opacity: .85; }
 #theia-drag-panel .akari-title-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
@@ -45,8 +47,9 @@ body.akari-title-mac #theia-drag-panel .akari-title-left { padding-left: var(--a
 @keyframes akari-title-pulse { 50% { opacity: .35; } }
 #theia-drag-panel .akari-title-controls { justify-self: end; height: 100%; display: flex; }
 #theia-drag-panel .akari-title-controls button { width: 46px; height: 100%; background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; }
-#theia-drag-panel .akari-title-controls button:hover { background: rgba(127,127,127,.22); }
-#theia-drag-panel .akari-title-controls button:last-child:hover { background: #e81123; color: white; }
+#theia-drag-panel .akari-title-controls button:hover { background: rgba(127,127,127,.15); }
+#theia-drag-panel .akari-title-controls button:last-child:hover { background: #c42b1c; color: white; }
+#theia-drag-panel .akari-title-glyph { display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 10px; font: 10px "Segoe Fluent Icons", "Segoe MDL2 Assets"; }
 body.maximized #theia-top-panel { border-radius: 0; }
 `;
 
@@ -227,12 +230,19 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             const projectName = document.createElement('span');
             projectName.className = 'akari-title-project';
             projectName.textContent = parts[1];
-            const dots = document.createElement('span');
+            const dots = document.createElement('button');
             dots.className = 'akari-title-dots';
+            dots.type = 'button';
+            dots.setAttribute('aria-label', '進み具合を開く');
+            dots.addEventListener('click', () => {
+                if (this.commands.getCommand('akari.home.open')) { void this.commands.executeCommand('akari.home.open'); }
+            });
+            const dotTitles = stageDotTitles(this.progress.stages);
             stageDots(this.progress.stages).forEach((state, index) => {
                 const dot = document.createElement('span');
                 dot.className = `akari-title-dot ${state}`;
-                dot.title = this.progress.stages?.[index]?.label || '';
+                dot.title = dotTitles[index];
+                if (state === 'done') dot.textContent = '✓';
                 dots.appendChild(dot);
             });
             const busy = this.contextKeys.match('akari.partner.busy');
@@ -247,6 +257,8 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
     protected renderControls(): void {
         if (!this.controls) { return; }
         const buttons = windowButtons(isOSX ? 'mac' : isWindows ? 'windows' : 'other', this.maximized);
+        const glyphs = windowButtonGlyphs(this.maximized);
+        const hasSegoeIcons = document.fonts.check('10px "Segoe Fluent Icons"') || document.fonts.check('10px "Segoe MDL2 Assets"');
         const handlers = [
             () => this.core.minimize(),
             () => this.maximized ? this.core.unMaximize() : this.core.maximize(),
@@ -257,7 +269,12 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             button.type = 'button';
             button.title = label;
             button.setAttribute('aria-label', label);
-            button.textContent = ['─', this.maximized ? '▢' : '□', '×'][index];
+            const glyph = document.createElement('span');
+            glyph.className = 'akari-title-glyph';
+            glyph.setAttribute('aria-hidden', 'true');
+            if (hasSegoeIcons) glyph.textContent = glyphs[index].glyph;
+            else glyph.innerHTML = glyphs[index].svg;
+            button.appendChild(glyph);
             button.addEventListener('click', handlers[index]);
             return button;
         }));
