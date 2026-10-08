@@ -16,7 +16,12 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.doesNotMatch(widget, /準備中|akari-channel-muted/);
     assert.match(widget, /akari-channel-area akari-channel-about/);
     assert.match(widget, /akari-channel-area akari-channel-projects/);
-    assert.match(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
+    assert.doesNotMatch(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
+    assert.match(widget, /<ChannelSkillsSheet\b/);
+    assert.match(widget, /this\.channelSkills\.length\} 個/);
+    assert.match(widget, /<ChannelDesignWizard\b/);
+    assert.match(widget, /<DesignMdForm\b/);
+    assert.match(widget, /channel\.md を書きました/);
     assert.match(widget, /resolveProjectCardThumbnails\(key\)/);
     // 一覧を開くときは見ているチャンネルを渡す（別のチャンネルの一覧を開ける）。チャンネルを選ぶと project モードでは一覧を開く
     assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*const channel = this\.context\.viewingChannel;\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList, \.\.\.\(channel \? \[\{ channel \}\] : \[\]\)\);\s*\}/);
