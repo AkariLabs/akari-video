@@ -20,6 +20,8 @@ import { DesignMdValues, defaultDesignValues, parseDesignMd } from './design-md-
 import { DesignMdForm } from './channel-design-md-form';
 import { ChannelSkillDraft, PRESET_CHANNEL_SKILLS, buildSkillMd, copiedSkillMd, parseSkillMd, validateSkillSlug } from './channel-skills-model';
 import { ChannelSkillRow, ChannelSkillsSheet } from './channel-skills-sheet';
+import { ChannelMemoryFiles } from './channel-memory-files';
+import { ChannelMemorySheets, ChannelMemorySheetKind, readChannelMemoryCounts } from './channel-memory-sheets';
 
 export const CHANNEL_WIDGET_ID = RAIL_CHANNEL_WIDGET_ID;
 export const CHANNEL_WIDGET_LABEL = 'チャンネル';
@@ -76,6 +78,9 @@ export class AkariChannelWidget extends ReactWidget {
     protected channelSkills: ChannelSkillRow[] = [];
     protected akariSkills: { name: string; description: string }[] = [];
     protected docRefreshVersion = 0;
+    protected memoryFiles?: ChannelMemoryFiles;
+    protected memorySheet?: ChannelMemorySheetKind;
+    protected memoryCounts = { people: 0, notes: 0, packs: 0 };
     protected popoverOpen = false;
     protected sheet?: { kind: 'design-wizard'; answers?: ChannelAnswers; appliedType?: string; rest?: string }
         | { kind: 'design-view'; fileName: string; text: string }
@@ -100,6 +105,7 @@ export class AkariChannelWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        this.memoryFiles = new ChannelMemoryFiles(this.files);
         this.id = AkariChannelWidget.ID;
         this.title.label = CHANNEL_WIDGET_LABEL;
         this.updateCaption();
@@ -210,8 +216,15 @@ export class AkariChannelWidget extends ReactWidget {
             return name ? [[kind, name] as const] : [];
         }));
         this.channelSkills = skills.sort((left, right) => left.slug.localeCompare(right.slug));
+        const counts = root && channel && this.memoryFiles
+            ? await readChannelMemoryCounts(this.memoryFiles, this.memoryFiles.channelDir(root, channel))
+            : { people: 0, notes: 0, packs: 0 };
+        if (version !== this.docRefreshVersion) return;
+        this.memoryCounts = counts;
         this.update();
     }
+
+    protected openMemorySheet(kind?: ChannelMemorySheetKind): void { this.memorySheet = kind; this.update(); }
 
     protected async openChannelDoc(kind: ChannelDocKind): Promise<void> {
         const root = this.context.rootUri;
@@ -399,13 +412,14 @@ export class AkariChannelWidget extends ReactWidget {
                 <button type='button' className='akari-channel-row' aria-current={this.scope.scope === 'channel' ? 'page' : undefined}
                     onClick={() => void this.openProjectList()}>プロジェクト一覧</button>
                 {CHANNEL_DOC_KINDS.map(kind => <div className='akari-channel-doc-row' key={kind}>
-                    <button type='button' className='akari-channel-row' onClick={() => void (kind === 'channel' ? this.openDesignSheet()
-                        : kind === 'design' ? this.openDesignMdSheet() : this.openChannelDoc(kind))}>
+                    <button type='button' className='akari-channel-row' onClick={() => kind === 'people' || kind === 'notes' ? this.openMemorySheet(kind)
+                        : void (kind === 'channel' ? this.openDesignSheet() : this.openDesignMdSheet())}>
                         {{ channel: 'チャンネル設計', design: 'デザイン', people: '人とモノ', notes: '辞書とメモ' }[kind]}
                     </button>
-                    {this.channelDocFiles.has(kind) ? <small>あり</small>
-                        : <button type='button' className='akari-channel-create' onClick={() => void (kind === 'channel' ? this.openDesignSheet()
-                            : kind === 'design' ? this.openDesignMdSheet() : this.openChannelDoc(kind))}>作る</button>}
+                    {kind === 'people' || kind === 'notes'
+                        ? <small>{kind === 'people' ? `${this.memoryCounts.people} 件${this.memoryCounts.packs > 0 ? ` · ☆${this.memoryCounts.packs}` : ''}` : `${this.memoryCounts.notes} 件`}</small>
+                        : this.channelDocFiles.has(kind) ? <small>あり</small>
+                        : <button type='button' className='akari-channel-create' onClick={() => void (kind === 'channel' ? this.openDesignSheet() : this.openDesignMdSheet())}>作る</button>}
                 </div>)}
                 <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' onClick={() => void this.openSkillsSheet()}>スキル</button>
                     <small>{this.channelSkills.length} 個</small></div>
@@ -443,6 +457,10 @@ export class AkariChannelWidget extends ReactWidget {
                 onAddPreset={draft => void this.addChannelSkill(draft)} onCreate={draft => void this.addChannelSkill(draft)}
                 onCopyAkari={name => void this.copyAkariSkill(name)} onOpen={slug => void this.openChannelSkill(slug)}
                 onRemove={slug => void this.removeChannelSkill(slug)} onClose={this.closeSheet} />}
+            <ChannelMemorySheets open={this.memorySheet} channel={channel} root={this.context.rootUri} files={this.memoryFiles!}
+                onClose={() => this.openMemorySheet(undefined)} onOpen={kind => this.openMemorySheet(kind)}
+                onTypePrompt={text => void this.commands.executeCommand('akari.partner.typePrompt', text)}
+                onChanged={() => void this.refreshChannelDocs()} />
         </div>;
     }
 }
