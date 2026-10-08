@@ -130,18 +130,35 @@ jobs:
         with:
           node-version: '26.3.0'
           cache: npm
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install media and Electron system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Install Electron from the package version
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -e
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
+          test -x node_modules/electron/dist/electron
       # preview-server は @playwright/test（root devDependency）の chromium を、overlay-runtime は
       # puppeteer-core + CHROME_PATH（ubuntu-latest 同梱の Google Chrome）を使う
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
       - name: unit tests (lane media)
-        run: node scripts/ci/run-unit-tests.mjs --lane media
+        run: xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
         env:
           CHROME_PATH: /usr/bin/google-chrome
+          ELECTRON_DISABLE_SANDBOX: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
 
   l0:
     name: L0 (build:ext + lint + shell unit tests)
