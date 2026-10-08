@@ -13,20 +13,20 @@ $worktree = '<WORKTREE>'
 $scratch = '<TMP>'
 $sourceHome = '<HOME>'
 $port = 9490
-New-Item -ItemType Directory -Force "$scratch/home/.theia/deployedPlugins", "$scratch/temp", "$scratch/akari" | Out-Null
+New-Item -ItemType Directory -Force "$scratch/user-home/.theia/deployedPlugins", "$scratch/temp", "$scratch/akari" | Out-Null
 
 # 必要な Codex 拡張の版だけを元の deployedPlugins から隔離先へ複製する。
-Copy-Item -Recurse -LiteralPath "$sourceHome/.theia/deployedPlugins/openai.chatgpt-<version>" -Destination "$scratch/home/.theia/deployedPlugins/"
+Copy-Item -Recurse -LiteralPath "$sourceHome/.theia/deployedPlugins/openai.chatgpt-<version>" -Destination "$scratch/user-home/.theia/deployedPlugins/"
 # パートナーの接続設定や他のホーム設定は複製しない。
 [System.IO.File]::WriteAllText("$scratch/akari/update-preferences.json", '{"channel":"stable","autoCheck":false}', (New-Object System.Text.UTF8Encoding($false)))
 
-$env:HOME = "$scratch/home"
-$env:USERPROFILE = "$scratch/home"
+$env:HOME = "$scratch/user-home"
+$env:USERPROFILE = "$scratch/user-home"
 $env:TEMP = "$scratch/temp"
 $env:TMP = "$scratch/temp"
 $env:AKARI_HOME = "$scratch/akari"
-$env:CODEX_HOME = "$scratch/home/.codex"
-$env:THEIA_CONFIG_DIR = "$scratch/home/.theia"
+$env:CODEX_HOME = "$scratch/user-home/.codex"
+$env:THEIA_CONFIG_DIR = "$scratch/user-home/.theia"
 ```
 
 まず別の端末で observer を待機させ、その後に上の環境を設定した端末で `apps/shell` から Electron を起動します。`--remote-debugging-port` は他の起動中アプリと重複しない番号にしてください。
