@@ -18,7 +18,7 @@ test('左パネルのラベルと説明', () => {
     assert.match(widgetSource, /title\.label = 'スキル'/);
     assert.match(widgetSource, /title\.caption = 'パートナーに頼める決まった仕事（\/呼び名）'/);
     assert.equal(SKILLS_PANEL_TEXT.heading, 'スキル');
-    assert.equal(SKILLS_PANEL_TEXT.subtitle, 'パートナーに頼める決まった仕事');
+    assert.equal(SKILLS_PANEL_TEXT.subtitle, 'パートナーに頼める決まった仕事。/呼び名 でも呼べます');
 });
 
 test('パートナーへの依頼結果に応じた案内', () => {
