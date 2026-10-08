@@ -296,10 +296,9 @@ export const LANES = {
       pkg('preview-server'),
       pkg('overlay-runtime'),       // puppeteer-core + AKARI_TEST_CHROME_PATH（無ければ CHROME_PATH）
       {
-        // unit-media の build ステップで lib を作る。caption-entry は自前の puppeteer が
-        // CHROME_PATH を優先して --single-process --no-zygote で起動する。
-        // Linux で落ちた場合は puppeteer が添えるブラウザ起動 stderr を確認する。
-        // apps 側で Linux のみ --no-sandbox を足すか共有 fixture に寄せる必要がある。
+        // unit-media の build ステップで lib を作る。caption-entry の自前起動は
+        // AKARI_TEST_CHROME_PATH を優先し、Linux のみ --no-sandbox を足す。
+        // 共有 fixture とは起動引数が違うため、元の 3 引数を維持する。
         id: 'apps/shell/extensions/akari-preview (実 Chrome が要る 3 ファイル)',
         cwd: 'apps/shell/extensions/akari-preview',
         files: ['test/caption-entry-animation-hit-region.test.mjs', 'test/preview-element-mixed-branch.test.mjs', 'test/preview-element-selection-message.test.mjs']
