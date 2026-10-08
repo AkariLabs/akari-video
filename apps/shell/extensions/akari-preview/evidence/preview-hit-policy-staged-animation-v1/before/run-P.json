@@ -1,0 +1,184 @@
+{
+ "mode": "before",
+ "run": "P",
+ "startedAt": "2026-10-08T04:19:10.262Z",
+ "status": "MEASURED",
+ "records": [
+  {
+   "label": "ポインタを動かさない（重さ）",
+   "moving": false,
+   "counting": false,
+   "playedSeconds": 6.07,
+   "pointerMoves": 0,
+   "rafIntervalMs": {
+    "n": 267,
+    "median": 16.7,
+    "p95": 17.6,
+    "max": 34.2
+   },
+   "fps": 59.8,
+   "tickCostMs": {
+    "n": 271,
+    "median": 0.1,
+    "p95": 0.4,
+    "max": 16.1
+   }
+  },
+  {
+   "label": "ポインタを動かし続ける（重さ）",
+   "moving": true,
+   "counting": false,
+   "playedSeconds": 6.07,
+   "pointerMoves": 183,
+   "rafIntervalMs": {
+    "n": 269,
+    "median": 16.7,
+    "p95": 17.7,
+    "max": 17.7
+   },
+   "fps": 60,
+   "tickCostMs": {
+    "n": 273,
+    "median": 0.1,
+    "p95": 0.3,
+    "max": 3.9
+   }
+  },
+  {
+   "label": "ポインタを動かさない（測り直しの回数）",
+   "moving": false,
+   "counting": true,
+   "playedSeconds": 6.08,
+   "pointerMoves": 0,
+   "rafIntervalMs": {
+    "n": 269,
+    "median": 16.7,
+    "p95": 17.7,
+    "max": 17.7
+   },
+   "fps": 60,
+   "tickCostMs": {
+    "n": 273,
+    "median": 0.1,
+    "p95": 0.3,
+    "max": 3.8
+   },
+   "measures": {
+    "demo-effects 全部": 0,
+    "アイテムが見えている間": 0,
+    "1 秒あたりの最大": 0,
+    "times": []
+   }
+  },
+  {
+   "label": "ポインタを動かし続ける（測り直しの回数）",
+   "moving": true,
+   "counting": true,
+   "playedSeconds": 6.07,
+   "pointerMoves": 182,
+   "rafIntervalMs": {
+    "n": 268,
+    "median": 16.7,
+    "p95": 17.6,
+    "max": 17.7
+   },
+   "fps": 60,
+   "tickCostMs": {
+    "n": 272,
+    "median": 0.1,
+    "p95": 0.4,
+    "max": 6
+   },
+   "measures": {
+    "demo-effects 全部": 0,
+    "アイテムが見えている間": 0,
+    "1 秒あたりの最大": 0,
+    "times": []
+   }
+  }
+ ],
+ "items": [
+  {
+   "id": "demo-flash",
+   "name": "閃光",
+   "track": "demo-flash",
+   "start": 19.666666666666668,
+   "duration": 0.4
+  },
+  {
+   "id": "demo-title",
+   "name": "タイトル",
+   "track": "demo-stage",
+   "start": 0.23333333333333334,
+   "duration": 7.233333333333333
+  },
+  {
+   "id": "demo-chat",
+   "name": "AI との対話",
+   "track": "demo-stage",
+   "start": 8.533333333333333,
+   "duration": 2.433333333333333
+  },
+  {
+   "id": "demo-done",
+   "name": "編集完了",
+   "track": "demo-stage",
+   "start": 11.266666666666667,
+   "duration": 3.6
+  },
+  {
+   "id": "demo-effects",
+   "name": "効果音とエフェクト",
+   "track": "demo-stage",
+   "start": 17.466666666666665,
+   "duration": 4.5
+  },
+  {
+   "id": "demo-diagram",
+   "name": "図解",
+   "track": "demo-stage",
+   "start": 23.233333333333334,
+   "duration": 3.6666666666666665
+  },
+  {
+   "id": "demo-phone",
+   "name": "スマホ",
+   "track": "demo-stage",
+   "start": 26.966666666666665,
+   "duration": 5.966666666666667
+  },
+  {
+   "id": "demo-credit",
+   "name": "クレジット",
+   "track": "demo-stage",
+   "start": 35.6,
+   "duration": 2
+  },
+  {
+   "id": "demo-bgm-chip",
+   "name": "BGM",
+   "track": "demo-accents",
+   "start": 29.433333333333334,
+   "duration": 3.5
+  }
+ ],
+ "viewport": {
+  "stage": {
+   "left": 36,
+   "top": 69.125,
+   "width": 332,
+   "height": 186.75
+  },
+  "window": {
+   "width": 404,
+   "height": 359
+  },
+  "elementSelection": true
+ },
+ "summary": {
+  "judged": 0,
+  "ok": 0,
+  "ng": []
+ },
+ "finishedAt": "2026-10-08T04:19:44.806Z"
+}
