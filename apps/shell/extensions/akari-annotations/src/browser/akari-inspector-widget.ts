@@ -453,7 +453,7 @@ export class AkariInspectorWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
-        this.title.label = '編集パネル';
+        this.title.label = 'インスペクター';
         this.title.caption = 'タイムラインで選択した項目の詳細（安全なフィールドは編集可能）';
         this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
@@ -5948,7 +5948,7 @@ if (typeof window !== 'undefined') window.addEventListener(AKARI_MATERIAL_SELECT
         let widget: AkariInspectorWidget | undefined;
         try {
             widget = await container.get(CommandRegistry).executeCommand<AkariInspectorWidget | undefined>(
-                'akari.inspector.open', { tabId: 'generation' }
+                'akari.inspector.open', { tabId: 'generation', attachOnly: true }
             );
         } catch { /* A project without a timeline uses the material-only path below. */ }
         if (sequence !== latestMaterialEvent) return;
@@ -5956,7 +5956,6 @@ if (typeof window !== 'undefined') window.addEventListener(AKARI_MATERIAL_SELECT
             widget = await container.get(WidgetManager).getOrCreateWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID);
             const shell = container.get(ApplicationShell);
             if (!widget.isAttached) shell.addWidget(widget, { area: 'right' });
-            await shell.revealWidget(widget.id);
         }
         if (sequence === latestMaterialEvent) widget.selectMaterial(selection);
     })().catch(error => console.error('素材の編集パネルを開けませんでした。', error));

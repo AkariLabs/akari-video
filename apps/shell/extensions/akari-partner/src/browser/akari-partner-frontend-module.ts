@@ -14,6 +14,7 @@ import { AkariPartnerCommandContribution } from './akari-partner-command-contrib
 import { PartnerSessionService } from './partner-session-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { PartnerTurnNotifier } from './partner-turn-notifier';
+import { PartnerActivityService } from './partner-activity-service';
 
 export default new ContainerModule(bind => {
     bind(PartnerExtensionUpdater).toSelf().inSingletonScope();
@@ -26,6 +27,8 @@ export default new ContainerModule(bind => {
 
     bind(PartnerTurnNotifier).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(PartnerTurnNotifier);
+    bind(PartnerActivityService).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(PartnerActivityService);
 
     bind(AkariPartnerWidget).toSelf().inSingletonScope();
     bind(WidgetFactory).toDynamicValue(ctx => ({

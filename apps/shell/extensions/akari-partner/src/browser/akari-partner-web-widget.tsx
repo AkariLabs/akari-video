@@ -28,7 +28,8 @@ export class PartnerWebWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = PartnerWebWidget.ID;
-        this.title.label = PARTNER_AGENT_LABELS.deepseek;
+        this.title.label = 'チャット（DeepSeek）';
+        this.title.caption = PARTNER_AGENT_LABELS.deepseek;
         this.title.iconClass = PARTNER_CLI_ICON_CLASSES.deepseek;
         this.title.closable = true;
         this.node.style.height = '100%';
@@ -50,7 +51,8 @@ export class PartnerWebWidget extends ReactWidget {
     get launchCwd(): string | undefined { return this.launch?.cwd; }
 
     async open(agent: PartnerAgentId, launch: PartnerWebLaunch, ownerId: string): Promise<void> {
-        this.title.label = PARTNER_AGENT_LABELS[agent];
+        this.title.label = agent === 'deepseek' ? 'チャット（DeepSeek）' : `チャット（${PARTNER_AGENT_LABELS[agent]}）`;
+        this.title.caption = PARTNER_AGENT_LABELS[agent];
         this.title.iconClass = PARTNER_CLI_ICON_CLASSES[agent];
         this.launch = launch;
         this.ownerId = ownerId;

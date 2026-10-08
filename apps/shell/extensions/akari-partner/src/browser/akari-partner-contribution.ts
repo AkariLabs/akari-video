@@ -49,7 +49,6 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
         if (!onboarding.isAttached) {
             await app.shell.addWidget(onboarding, { area: 'right', rank: 100 });
         }
-        app.shell.activateWidget(onboarding.id);
 
         const rawOpenVsx = await this.widgetManager.getOrCreateWidget(VSXExtensionsViewContainer.ID);
         rawOpenVsx?.dispose();
