@@ -240,10 +240,11 @@ async function startFixture(t) {
   cdp = new CdpClient(target.webSocketDebuggerUrl);
   await cdp.connect();
   await cdp.command("Runtime.enable");
+  // aria-disabled="false" follows binding every card's click handler, including later clicks.
   await waitFor(
     () =>
       cdp.evaluate(
-        '!document.querySelector(\'[data-card="direction"] [data-option]\')?.disabled',
+        'document.querySelector(\'[data-card="direction"] [data-option="shorts-high-energy"]\')?.getAttribute("aria-disabled") === "false"',
       ),
     "Direction card did not become interactive",
   );
