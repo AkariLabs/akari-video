@@ -3,7 +3,9 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandContribution } from '@theia/core/lib/common';
 import { ColorContribution } from '@theia/core/lib/browser/color-application-contribution';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { PluginViewRegistry } from '@theia/plugin-ext/lib/main/browser/view/plugin-view-registry';
 import { AkariWebviewWidget } from './akari-webview-widget';
+import { AkariPluginViewRegistry } from './akari-plugin-view-registry';
 import { AkariColorContribution } from './akari-color-contribution';
 import { AkariButtonStyleContribution } from './akari-button-style-contribution';
 import { AkariCssVariableForceContribution } from './akari-css-variable-force-contribution';
@@ -26,6 +28,7 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     rebind(NotificationsContribution).to(AkariNotificationsContribution).inSingletonScope();
     bind(AkariNotificationStyleContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariNotificationStyleContribution);
+    rebind(PluginViewRegistry).to(AkariPluginViewRegistry).inSingletonScope();
 
     bind(AkariColorContribution).toSelf().inSingletonScope();
     bind(ColorContribution).toService(AkariColorContribution);

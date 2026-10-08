@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@theia/core": "1.73.1",
-    "@theia/messages": "1.73.1"
+    "@theia/messages": "1.73.1",
+    "@theia/plugin-ext": "1.73.1"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
