@@ -28,7 +28,8 @@ test('右の主要ラベルは短い日本語になる', () => {
 test('パートナーのレール名と線画アイコンを表示する', () => {
     const handler = read('../src/browser/akari-right-panel-handler.ts');
     assert.match(handler, /id === 'akari-partner-onboarding' \? 'パートナー'/);
-    assert.match(handler, /title\.label = 'パートナーを追加'/);
+    assert.match(handler, /title\.label = 'パートナー'/);
+    assert.match(handler, /railNameForPartner\(id, title\?\.label \|\| '', title\?\.caption\)/);
     assert.match(handler, /tab\.setAttribute\('data-akari-rail-id', id\)/);
     assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-id="akari-partner-onboarding"[^\n]*\.lm-TabBar-tabIcon \{/);
     assert.match(style.RIGHT_RAIL_CSS, /mask-image: url\("data:image\/svg\+xml;base64,/);

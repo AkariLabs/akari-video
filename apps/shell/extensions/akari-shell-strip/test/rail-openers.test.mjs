@@ -47,8 +47,18 @@ test('左レールは選択中の左端アクセント棒を消す', () => {
     const css = readFileSync(new URL('../src/browser/left-rail-style.ts', import.meta.url), 'utf8');
     assert.match(css, /lm-mod-current::before[\s\S]*?display: none !important/);
     assert.doesNotMatch(css, /box-shadow:\s*inset\s+2px/);
-    assert.match(css, /data-akari-rail-expanded="true"\] #theia-left-content-panel \{[^}]*z-index: 2 !important/);
+    assert.match(css, /data-akari-rail-expanded\] #theia-left-content-panel \{[^}]*z-index: 2 !important/);
     assert.match(css, /\.theia-sidebar-menu:not\(\.theia-additional-views-menu\) \{[^}]*display: none !important/);
+});
+
+test('メニューは名前だけの 200px の列として左右に動く', () => {
+    const opener = readFileSync(new URL('../src/browser/akari-rail-openers.ts', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../src/browser/left-rail-style.ts', import.meta.url), 'utf8');
+    assert.match(opener, /this\.configure\(AkariRailExpandOpener\.ID, 'メニュー', 'メニュー', 'codicon-menu'\)/);
+    assert.match(css, /translateX\(-100%\)/);
+    assert.match(css, /prefers-reduced-motion/);
+    assert.match(css, /width: 200px !important/);
+    assert.doesNotMatch(css, /data-akari-rail-desc|340px/);
 });
 
 test('スキル frontmatter は閉じたヘッダーだけ読む', () => {

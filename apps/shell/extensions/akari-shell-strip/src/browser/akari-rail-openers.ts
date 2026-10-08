@@ -38,7 +38,7 @@ abstract class AkariRailOpener extends BaseWidget {
 @injectable()
 export class AkariRailExpandOpener extends AkariRailOpener {
     static readonly ID = RAIL_EXPAND_ID;
-    @postConstruct() protected init(): void { this.configure(AkariRailExpandOpener.ID, 'それぞれ、何があるか', 'それぞれ、何があるか', 'codicon-menu'); }
+    @postConstruct() protected init(): void { this.configure(AkariRailExpandOpener.ID, 'メニュー', 'メニュー', 'codicon-menu'); }
 }
 @injectable()
 export class AkariRailProjectOpener extends AkariRailOpener {

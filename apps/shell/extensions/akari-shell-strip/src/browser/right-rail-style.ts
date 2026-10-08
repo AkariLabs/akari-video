@@ -20,7 +20,8 @@ export const RIGHT_RAIL_CSS = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 3px 2px !important;
+    padding: 3px 0 !important;
+    overflow: visible;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .theia-tab-icon-label {
     display: flex;
@@ -28,18 +29,21 @@ export const RIGHT_RAIL_CSS = `
     align-items: center;
     justify-content: center;
     height: 100%;
+    width: 100%;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabIcon {
     position: static !important;
     top: auto !important;
+    transform: none !important;
     width: 28px;
     height: 28px;
     line-height: 28px;
-    font-size: 24px;
-    margin: 0;
-    background-size: 24px 24px;
-    mask-size: 24px 24px;
-    -webkit-mask-size: 24px 24px;
+    font-size: 26px;
+    text-align: center;
+    margin: 0 !important;
+    background-size: 26px 26px;
+    mask-size: 26px 26px;
+    -webkit-mask-size: 26px 26px;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon {
     mask-image: url("${PARTNER_ICON}");
@@ -48,8 +52,8 @@ export const RIGHT_RAIL_CSS = `
     -webkit-mask-repeat: no-repeat;
     mask-position: center;
     -webkit-mask-position: center;
-    mask-size: 24px 24px;
-    -webkit-mask-size: 24px 24px;
+    mask-size: 26px 26px;
+    -webkit-mask-size: 26px 26px;
     background-color: var(--theia-activityBar-inactiveForeground);
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon::before {
@@ -62,22 +66,23 @@ export const RIGHT_RAIL_CSS = `
     display: block !important;
     position: static !important;
     top: auto !important;
-    margin: 0;
-    transform: scaleX(.78) !important;
+    margin: 0 !important;
+    transform: none !important;
     writing-mode: horizontal-tb !important;
-    width: 62px !important;
+    width: auto !important;
     height: auto !important;
     max-width: none;
     font-size: 0;
     line-height: 13px;
     text-align: center;
+    letter-spacing: -.4px;
     white-space: nowrap;
     overflow: visible;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel::after {
     content: attr(data-akari-rail-name);
     font-size: 8px;
-    letter-spacing: -.7px;
+    letter-spacing: -.4px;
 }
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current {
     box-shadow: none !important;
