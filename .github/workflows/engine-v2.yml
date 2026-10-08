@@ -528,6 +528,12 @@ jobs:
       run:
         shell: bash
     steps:
+      # Windows ランナーの git は autocrlf=true が既定で、checkout 時に LF→CRLF 変換される。
+      # ページ HTML に埋め込むソースのバイト列が変わり、基準 SHA-256 の検査が落ちるため無効化する。
+      - name: Disable git autocrlf before checkout
+        run: |
+          git config --global core.autocrlf false
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
