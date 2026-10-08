@@ -475,6 +475,11 @@ export interface PreviewModel {
     };
 }
 
+export interface PreviewSystemVolumeMessage {
+    type: 'akari-preview-system-volume';
+    state: 'zero' | 'muted' | 'ok';
+}
+
 export interface PreviewSetZoomMessage {
     type: 'akari-preview-set-zoom';
     scale?: number; fit?: boolean;
