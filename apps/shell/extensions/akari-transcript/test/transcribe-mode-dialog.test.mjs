@@ -167,6 +167,47 @@ test('popup opens on materials with a selected source and clamps existing three 
     assert.equal(dialog.backend, 'auto');
 });
 
+test('step tabs and finish choices keep token styles while footer buttons use Theia sizing', async () => {
+    const { dialog } = await harness({ initialPath: 'assets/mic.wav', previous: true });
+    assert.equal(dialog.steps.children.length, 4);
+    for (const [index, tab] of dialog.steps.children.entries()) {
+        assert.equal(tab.className ?? '', '');
+        assert.equal(tab.style.height, 'auto');
+        assert.equal(tab.style.marginLeft, '0');
+        assert.equal(tab.style.padding, '13px 5px');
+        assert.equal(tab.style.background, 'var(--akari-card)');
+        assert.equal(tab.style.color, index === 0 ? 'var(--akari-ink)' : 'var(--akari-muted)');
+        assert.equal(tab.style.borderBottom, index === 0
+            ? '2px solid var(--akari-accent)' : '2px solid transparent');
+    }
+    assert.equal(dialog.steps.children[1].style.opacity, '.48');
+    const firstPrimary = dialog.foot.querySelector('[data-primary]');
+    assert.equal(firstPrimary.className, 'theia-button');
+    assert.equal('padding' in firstPrimary.style, false);
+    assert.equal('borderRadius' in firstPrimary.style, false);
+    firstPrimary.click();
+    const back = dialog.foot.children.find(node => node.tagName === 'button' && node.textContent === '戻る');
+    assert.equal(back.className, 'theia-button secondary');
+    assert.equal('padding' in back.style, false);
+    assert.equal('borderRadius' in back.style, false);
+    dialog.foot.querySelector('[data-primary]').click(); await tick(); await tick();
+    const descendants = node => [node, ...node.children.filter(child => child instanceof Element).flatMap(descendants)];
+    const choices = descendants(dialog.body).filter(node => node.tagName === 'button'
+        && ['1 行', '2 行', '余韻あり', '発話ぴったり'].includes(node.textContent));
+    assert.equal(choices.length, 4);
+    for (const choice of choices) {
+        assert.equal(choice.className ?? '', '');
+        assert.equal(choice.style.border, '1px solid var(--akari-line)');
+        assert.equal(choice.style.background, 'var(--akari-card)');
+        assert.equal(choice.style.color, 'var(--akari-ink)');
+        assert.equal(choice.style.padding, '9px 14px');
+        assert.equal(choice.style.borderRadius, '7px');
+        assert.equal(choice.style.borderColor, choice.attributes?.['aria-pressed'] === 'true'
+            ? 'var(--akari-accent)' : undefined);
+    }
+    assert.equal(choices.filter(choice => choice.attributes?.['aria-pressed'] === 'true').length, 2);
+});
+
 test('同期選択は未設定なら「なし」で、次へで変更した素材だけ保存する', async () => {
     const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
         sources: [{ id: 'camera', path: 'assets/camera.mp4' },
@@ -440,9 +481,9 @@ test('仕上げのカラオケ切替は見本の色と保存する word_style �
     const toggle = descendants(dialog.body).find(node => node.tagName === 'input' && node.type === 'checkbox');
     assert.ok(toggle);
     const example = dialog.body.querySelector('[data-akari-caption-example]');
-    assert.equal(descendants(example).some(node => node.style.color === '#f0832b'), false);
+    assert.equal(descendants(example).some(node => node.style.color === 'var(--akari-accent)'), false);
     toggle.checked = true; toggle.onchange();
-    assert.equal(descendants(example).some(node => node.style.color === '#f0832b'), true);
+    assert.equal(descendants(example).some(node => node.style.color === 'var(--akari-accent)'), true);
     await dialog.apply();
     assert.equal(policies[0].displayPolicy.word_style, 'karaoke');
 });
