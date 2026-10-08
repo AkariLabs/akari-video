@@ -336,7 +336,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         }
         try {
             await this.projectService.createProject(destination.toString());
-            await this.workspace.open(destination);
+            await this.commands.executeCommand('akari.home.openProject', { uri: destination.toString() });
         } catch (error) {
             this.messages.error(`プロジェクトを作成できませんでした: ${this.errorMessage(error)}`);
         }
