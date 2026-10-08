@@ -14,3 +14,11 @@
 - 成功・完了の表示には `--akari-success` を使う。
 - 注意・警告の表示には `--akari-warning` を使う。
 - エラー・危険な操作の表示には `--akari-danger` を使う。
+
+# Webview ビューの遅延 resolve
+
+Theia 1.73.1 は `PluginViewWidget` を作る途中で webview ビューの resolver を呼びます。右パネルなどでビューが隠れていると、子の `WebviewWidget` に iframe がまだなく、拡張が設定する HTML が届きません。Codex 拡張は HTML 設定後に 30 秒の `ready` 待ちタイマーを開始するため、そのままではエラー通知になります。
+
+`AkariPluginViewRegistry` は webview の resolver 呼び出しを親ビューが実際に見えるまで保留します。Lumino の表示メッセージでタブ、パネル、折りたたみ、移動のいずれも扱い、同じ webview につき一度だけ呼びます。最初から見えるビューと tree ビューの処理は Theia の経路を使います。復元済みの子 webview は live な resolver のラッパーを作り直し、保存された状態を引き継ぎます。
+
+Theia を更新するときは `PluginViewRegistry` の `prepareView`、`createWebviewWidget`、`createNewWebviewView`、`resolveWebviewView`、`registerWebviewView` と、Lumino の `after-show` / `after-attach` 時点の `isVisible`、`WebviewWidget` の iframe 作成時点を見直してください。実機確認の手順は [evidence/codex-view-lazy-resolve/README.md](evidence/codex-view-lazy-resolve/README.md) にあります。
