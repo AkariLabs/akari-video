@@ -10,6 +10,7 @@ export interface ProjectListViewProps {
     currentName?: string;
     onNew: () => void;
     onRefresh: () => void;
+    onOpenChannel: () => void;
     onOpen: (row: ProjectListRow, rect: DOMRect) => void;
     readPresence: (uri: URI) => Promise<ProjectPresence>;
     loadThumbnails: (uri: URI) => Promise<string[]>;
@@ -45,7 +46,8 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
             {!props.currentName && <span>名前は日時が先に入ります。あとで変えられます</span>}
         </div>
         <section>
-            <div className='akari-os-section-heading'><h3>{props.channel} のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
+            <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
+                <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>チャンネルを開く</button>
                 <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>更新</button></div>
             {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>
                 : <p className='akari-os-note'>まだプロジェクトがありません。</p>}
@@ -59,10 +61,11 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
 export const projectListCss = `
 .akari-os-list-view{display:flex;flex-direction:column;gap:18px;max-width:1100px;margin:auto}
 .akari-os-list-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--theia-descriptionForeground);font-size:12px}
-.akari-os-section-heading{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.akari-os-section-heading{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;row-gap:6px;margin-bottom:8px}
 .akari-os-section-heading h3{margin:0;font-size:14px;font-weight:800}
 .akari-os-section-heading small{color:var(--theia-descriptionForeground)}
-.akari-os-section-heading button{margin-left:auto}
+.akari-os-section-heading button{white-space:nowrap}
+.akari-os-section-heading button:first-of-type{margin-left:auto}
 .akari-os-note{font-size:12px;color:var(--theia-descriptionForeground);margin:0}
 .akari-os-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
 .akari-os-card{display:flex;flex-direction:column;min-width:0;padding:0;text-align:left;border:0;border-radius:10px;overflow:hidden;background:var(--theia-editorWidget-background);color:var(--theia-foreground);cursor:pointer}

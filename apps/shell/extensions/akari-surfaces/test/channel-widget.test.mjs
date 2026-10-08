@@ -13,4 +13,11 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /akari-channel-popover/);
     assert.doesNotMatch(widget, /<select\b/);
     assert.match(widget, /stageSummary\(/);
+    assert.doesNotMatch(widget, /準備中|akari-channel-muted/);
+    assert.match(widget, /akari-channel-area akari-channel-about/);
+    assert.match(widget, /akari-channel-area akari-channel-projects/);
+    assert.match(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
+    assert.match(widget, /resolveProjectCardThumbnails\(key\)/);
+    assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList\);\s*\}/);
+    assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{\s*this\.closePopover\(\);\s*if \(name === '__new__'\) \{\s*await this\.commands\.executeCommand\('akari\.home\.open'\);\s*this\.messages\.info\('ホームの「チャンネル」から新しいチャンネルを作れます'\);\s*return;\s*\}\s*this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
 });

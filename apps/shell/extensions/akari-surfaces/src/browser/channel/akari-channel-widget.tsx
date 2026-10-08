@@ -1,14 +1,16 @@
 import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { OpenerService, open } from '@theia/core/lib/browser';
+import { ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { AKARI_COMMANDS, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
+import { AKARI_COMMANDS, RAIL_CHANNEL_WIDGET_ID, RAIL_SKILLS_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { ProjectProgressService, stageSummary } from '../home/project-progress';
 import { AkariChannelContextService, ChannelProject } from './akari-channel-context-service';
+import { CHANNEL_DOC_KINDS, ChannelDocKind, channelDocFileName, channelDocTemplate, resolveChannelDocFileName } from './channel-docs';
 
 export const CHANNEL_WIDGET_ID = RAIL_CHANNEL_WIDGET_ID;
 export const CHANNEL_WIDGET_LABEL = 'チャンネル';
@@ -18,19 +20,31 @@ const CSS = `
 ${RAIL_TAB} .lm-TabBar-tabIcon { display:none !important; }
 ${RAIL_TAB}[data-akari-channel-initial]::after { content:attr(data-akari-channel-initial); position:absolute; top:5px; left:50%; transform:translateX(-50%); width:25px; height:25px; border-radius:7px; display:grid; place-items:center; background:var(--akari-elevated,#454750); color:var(--theia-foreground,#fff); font-size:15px; font-weight:700; }
 ${RAIL_TAB} .lm-TabBar-tabLabel { margin-top:25px; }
-.akari-channel-panel { position:relative; box-sizing:border-box; height:100%; overflow-x:hidden; overflow-y:auto; padding:16px 14px; color:var(--theia-foreground); }
+.akari-channel-panel { position:relative; display:flex; flex-direction:column; box-sizing:border-box; height:100%; padding:16px 14px; color:var(--theia-foreground); }
 .akari-channel-heading { position:relative; display:block; width:100%; margin-bottom:14px; }
 .akari-channel-heading-button { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; background:transparent; color:inherit; font-weight:700; font-size:16px; text-align:left; cursor:pointer; }
 .akari-channel-popover { position:absolute; top:100%; left:0; right:0; z-index:10; box-sizing:border-box; min-width:0; width:auto; padding:7px; border:1px solid var(--theia-widget-border); border-radius:9px; background:var(--theia-editorWidget-background,var(--theia-editor-background)); box-shadow:0 15px 40px rgba(0,0,0,.3); }
 .akari-channel-popover hr { border:0; border-top:1px solid var(--theia-widget-border); margin:6px 0; }
 .akari-channel-popover .akari-channel-check { width:14px; text-align:right; }
 .akari-channel-popover .akari-channel-row > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.akari-channel-section { margin:18px 0 8px; font-size:11px; opacity:.65; font-weight:700; }
+.akari-channel-area { min-height:0; overflow-y:auto; }
+.akari-channel-about { flex:1 1 auto; }
+.akari-channel-projects { flex:0 0 auto; margin-top:auto; max-height:40%; }
+.akari-channel-section { margin:0 0 12px; padding-top:12px; border-top:1px solid var(--akari-line,var(--theia-widget-border)); font-size:11px; opacity:.65; font-weight:700; }
 .akari-channel-row { display:flex; width:100%; align-items:center; gap:8px; box-sizing:border-box; border:0; border-radius:7px; padding:8px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 .akari-channel-row:hover { background:var(--theia-list-hoverBackground,rgba(127,127,127,.12)); }
 .akari-channel-row[aria-current="page"] { background:var(--theia-list-activeSelectionBackground,rgba(127,127,127,.16)); }
 .akari-channel-row small { margin-left:auto; opacity:.6; white-space:nowrap; }
-.akari-channel-row.akari-channel-muted { opacity:.56; }
+.akari-channel-doc-row { display:flex; align-items:center; gap:4px; }
+.akari-channel-doc-row > .akari-channel-row { min-width:0; flex:1; }
+.akari-channel-doc-row > small { margin-right:8px; opacity:.6; }
+.akari-channel-create { flex:0 0 auto; border:0; border-radius:5px; padding:4px 7px; background:var(--theia-button-secondaryBackground); color:var(--theia-button-secondaryForeground); cursor:pointer; }
+.akari-channel-project-card { display:flex; align-items:center; gap:8px; }
+.akari-channel-project-thumb { display:block; flex:0 0 56px; box-sizing:border-box; width:56px; height:32px; overflow:hidden; border:1px solid var(--akari-line,var(--theia-widget-border)); border-radius:3px; background:var(--theia-editor-background); }
+.akari-channel-project-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
+.akari-channel-project-body { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.akari-channel-project-body > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-channel-project-body small { margin-left:0; }
 `;
 
 @injectable()
@@ -42,8 +56,13 @@ export class AkariChannelWidget extends ReactWidget {
     @inject(MessageService) protected readonly messages!: MessageService;
     @inject(OpenerService) protected readonly openerService!: OpenerService;
     @inject(FileService) protected readonly files!: FileService;
+    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
+    @inject(AkariProjectService) protected readonly storeService!: AkariProjectService;
     @inject(ProjectProgressService) protected readonly progress!: ProjectProgressService;
     protected projectStages = new Map<string, string>();
+    protected projectThumbnails = new Map<string, string[]>();
+    protected channelDocFiles = new Map<ChannelDocKind, string>();
+    protected docRefreshVersion = 0;
     protected popoverOpen = false;
 
     protected readonly onOutsidePointerDown = (event: PointerEvent): void => {
@@ -69,7 +88,7 @@ export class AkariChannelWidget extends ReactWidget {
         this.updateCaption();
         this.title.closable = false;
         this.addClass('akari-channel-widget');
-        this.toDispose.push(this.context.onDidChange(() => { this.updateCaption(); this.update(); this.updateRailTab(); void this.refreshStages(); }));
+        this.toDispose.push(this.context.onDidChange(() => { this.updateCaption(); this.update(); this.updateRailTab(); void this.refreshStages(); void this.refreshChannelDocs(); }));
         this.update();
         this.updateRailTab();
     }
@@ -81,6 +100,7 @@ export class AkariChannelWidget extends ReactWidget {
         setTimeout(() => this.updateRailTab(), 100);
         setTimeout(() => this.updateRailTab(), 500);
         void this.context.refresh();
+        void this.refreshChannelDocs();
     }
 
     protected installStyle(): void {
@@ -131,16 +151,54 @@ export class AkariChannelWidget extends ReactWidget {
             catch { return [project.uri.toString(), ''] as const; }
         }));
         this.projectStages = new Map(stages);
+        const thumbnails = new Map<string, string[]>();
+        for (const project of projects) {
+            const key = project.uri.toString();
+            try {
+                const outcome = await this.storeService.resolveProjectCardThumbnails(key);
+                thumbnails.set(key, outcome.available && outcome.frames?.length
+                    ? outcome.frames.map(frame => project.uri.resolve(frame).toString()) : []);
+            } catch { thumbnails.set(key, []); }
+        }
+        this.projectThumbnails = thumbnails;
         this.update();
     }
 
-    protected async openDesign(): Promise<void> {
+    protected async refreshChannelDocs(): Promise<void> {
+        const version = ++this.docRefreshVersion;
+        const root = this.context.rootUri;
+        const channel = this.context.viewingChannel;
+        const existing = new Set<string>();
+        if (root && channel) {
+            const dir = root.resolve('channels').resolve(channel);
+            for (const kind of CHANNEL_DOC_KINDS) {
+                const name = channelDocFileName(kind);
+                try { if (await this.files.exists(dir.resolve(name))) existing.add(name); } catch { /* 表示は作成可能な状態にする。 */ }
+            }
+        }
+        if (version !== this.docRefreshVersion) return;
+        this.channelDocFiles = new Map(CHANNEL_DOC_KINDS.flatMap(kind => {
+            const name = resolveChannelDocFileName(kind, candidate => existing.has(candidate));
+            return name ? [[kind, name] as const] : [];
+        }));
+        this.update();
+    }
+
+    protected async openChannelDoc(kind: ChannelDocKind): Promise<void> {
         const root = this.context.rootUri;
         const channel = this.context.viewingChannel;
         if (!root || !channel) return;
-        const uri = root.resolve('channels').resolve(channel).resolve('design.md');
-        if (await this.files.exists(uri)) await open(this.openerService, uri);
-        else this.messages.info('まだありません。パートナーに /channel-design で頼めます');
+        const dir = root.resolve('channels').resolve(channel);
+        let name = channelDocFileName(kind);
+        if (kind === 'channel' && !await this.files.exists(dir.resolve(name)) && await this.files.exists(dir.resolve('design.md'))) {
+            name = 'design.md';
+        }
+        const uri = dir.resolve(name);
+        try {
+            if (!await this.files.exists(uri)) await this.files.create(uri, channelDocTemplate(kind, channel));
+            await open(this.openerService, uri);
+            void this.refreshChannelDocs();
+        } catch { this.messages.error('文書を開けませんでした'); }
     }
 
     protected async openProjectList(): Promise<void> {
@@ -184,19 +242,30 @@ export class AkariChannelWidget extends ReactWidget {
                         onClick={() => void this.chooseChannel('__new__')}>新しいチャンネル…</button>
                 </div>}
             </div>
-            <button type='button' className='akari-channel-row' aria-current={this.scope.scope === 'channel' ? 'page' : undefined}
-                onClick={() => void this.openProjectList()}>プロジェクト一覧</button>
-            <div className='akari-channel-section'>チャンネルについて</div>
-            <button type='button' className='akari-channel-row' onClick={() => void this.openDesign()}>チャンネル設計</button>
-            {['デザイン', '人とモノ', '辞書とメモ', 'スキル'].map(label =>
-                <div className='akari-channel-row akari-channel-muted' key={label}><span>{label}</span><small>準備中</small></div>)}
-            <div className='akari-channel-section'>プロジェクト</div>
-            {projects.map(project => <button key={project.uri.toString()} type='button' className='akari-channel-row'
+            <div className='akari-channel-area akari-channel-about'>
+                <div className='akari-channel-section'>このチャンネル</div>
+                <button type='button' className='akari-channel-row' aria-current={this.scope.scope === 'channel' ? 'page' : undefined}
+                    onClick={() => void this.openProjectList()}>プロジェクト一覧</button>
+                {CHANNEL_DOC_KINDS.map(kind => <div className='akari-channel-doc-row' key={kind}>
+                    <button type='button' className='akari-channel-row' onClick={() => void this.openChannelDoc(kind)}>
+                        {{ channel: 'チャンネル設計', design: 'デザイン', people: '人とモノ', notes: '辞書とメモ' }[kind]}
+                    </button>
+                    {this.channelDocFiles.has(kind) ? <small>あり</small>
+                        : <button type='button' className='akari-channel-create' onClick={() => void this.openChannelDoc(kind)}>作る</button>}
+                </div>)}
+                <button type='button' className='akari-channel-row' onClick={() => void this.shell.revealWidget(RAIL_SKILLS_WIDGET_ID)}>スキル</button>
+            </div>
+            <div className='akari-channel-area akari-channel-projects'>
+                <div className='akari-channel-section'>プロジェクト</div>
+                {projects.map(project => <button key={project.uri.toString()} type='button' className='akari-channel-row akari-channel-project-card'
                 aria-current={this.context.currentProjectUri?.toString() === project.uri.toString() ? 'page' : undefined}
                 onClick={event => void this.openProject(project, event.currentTarget)}>
-                <span>{project.title || project.name}</span>
-                <small>{this.context.currentProjectUri?.toString() === project.uri.toString() ? '開いています' : this.projectStages.get(project.uri.toString()) ?? ''}</small>
-            </button>)}
+                    <span className='akari-channel-project-thumb'>{this.projectThumbnails.get(project.uri.toString())?.[0]
+                        ? <img src={this.projectThumbnails.get(project.uri.toString())?.[0]} alt='' /> : <span />}</span>
+                    <span className='akari-channel-project-body'><span>{project.title || project.name}</span>
+                        <small>{this.context.currentProjectUri?.toString() === project.uri.toString() ? '開いています' : this.projectStages.get(project.uri.toString()) ?? ''}</small></span>
+                </button>)}
+            </div>
         </div>;
     }
 }
