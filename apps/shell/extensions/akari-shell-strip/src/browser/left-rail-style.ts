@@ -33,7 +33,7 @@ export const LEFT_RAIL_CSS = `
     width: 100%;
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabIcon {
-    font-size: 24px;
+    font-size: 26px;
     width: 28px;
     height: 28px;
     line-height: 28px;
@@ -103,74 +103,91 @@ body.theia-light #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-lower-start {
     margin-top: auto !important;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel {
+body[data-akari-rail-expanded] #theia-left-content-panel {
     z-index: 2 !important;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left {
+body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left {
     position: absolute !important;
     top: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
     height: auto !important;
     z-index: 10030 !important;
-    width: 340px !important;
-    min-width: 340px !important;
-    max-width: 340px !important;
+    width: 200px !important;
+    min-width: 200px !important;
+    max-width: 200px !important;
     box-shadow: 8px 6px 20px rgba(0,0,0,.3);
     background: var(--theia-activityBar-background, #141414);
 }
-#theia-left-content-panel .lm-TabBar.theia-app-left {
-    transition: width 240ms ease;
+@keyframes akari-rail-slide-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
 }
 body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left {
-    transition-duration: 340ms;
+    animation: akari-rail-slide-in 260ms cubic-bezier(.2,.8,.2,1) both;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab {
-    width: 340px !important;
+@keyframes akari-rail-slide-out {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+}
+body[data-akari-rail-expanded="closing"] #theia-left-content-panel .lm-TabBar.theia-app-left {
+    animation: akari-rail-slide-out 260ms cubic-bezier(.2,.8,.2,1) forwards;
+}
+body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab {
+    width: 200px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px;
     flex-direction: row;
     justify-content: flex-start;
     gap: 10px;
-    padding: 4px 12px !important;
+    padding: 0 12px !important;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab > .theia-tab-icon-label {
-    flex-direction: column;
-    align-items: flex-start;
+body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab > .theia-tab-icon-label {
+    flex-direction: row;
+    align-items: center;
     justify-content: center;
     width: auto;
-    gap: 0;
+    gap: 10px;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabLabel {
+body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tabLabel {
     display: block !important;
     font-size: 13px;
     max-width: none;
-    min-width: 74px;
     text-align: left;
+    white-space: nowrap;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::before {
-    content: "×" !important;
-    font-family: sans-serif !important;
+body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabLabel {
+    display: block !important;
+}
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon {
+    position: relative;
+}
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::before,
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::after {
+    transition: opacity 200ms ease;
+}
+#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::after {
+    content: "×";
+    position: absolute;
+    inset: 0;
+    font-family: sans-serif;
     font-size: 25px;
     font-weight: 300;
+    line-height: 28px;
+    text-align: center;
+    opacity: 0;
 }
-body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab::after {
-    content: attr(data-akari-rail-desc);
-    position: static;
-    display: block;
-    width: auto;
-    height: auto;
-    min-width: 0;
-    background: none;
-    color: var(--akari-muted, #a3a3a3);
-    font-size: 11px;
-    line-height: 1.2;
-    text-align: left;
-    white-space: normal;
-    word-break: normal;
-    overflow-wrap: normal;
-    flex: 0 0 190px;
+body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::before {
+    opacity: 0;
+}
+body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::after {
+    opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-    #theia-left-content-panel .lm-TabBar.theia-app-left { transition: none !important; }
+    body[data-akari-rail-expanded] #theia-left-content-panel .lm-TabBar.theia-app-left { animation: none !important; }
+    #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::before,
+    #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_EXPAND_ID}"] .lm-TabBar-tabIcon::after { transition: none !important; }
 }
 `;
 

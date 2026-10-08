@@ -133,6 +133,8 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected leftRailDecorateFrame = 0;
     protected decoratingLeftRail = false;
     protected restoreLeftPanelForProject = false;
+    protected railCloseTimer?: number;
+    protected railCloseAnimationEnd?: (event: AnimationEvent) => void;
 
     onDidInitializeLayout(app: FrontendApplication): Promise<void> {
         return guardInitLayout('akari-shell-strip', () => {
@@ -185,6 +187,15 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             const index = tab ? Array.from(tabBar.contentNode.children).indexOf(tab) : -1;
             const id = index >= 0 ? tabBar.titles[index]?.owner.id : undefined;
             if (!id) return;
+            if (document.body.getAttribute('data-akari-rail-expanded') === 'closing') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (id === RAIL_EXPAND_ID) this.setExpanded(true);
+                return;
+            }
+            if (id !== RAIL_EXPAND_ID && document.body.getAttribute('data-akari-rail-expanded') === 'true') {
+                this.setExpanded(false);
+            }
             const command = railOpenerCommand(id);
             const disabled = railDisabledIds(this.scopeService.scope, this.exportAvailability.snapshot.exists).has(id);
             if (!command && id !== RAIL_SKILLS_WIDGET_ID) return;
@@ -192,8 +203,11 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             event.preventDefault();
             event.stopPropagation();
             if (disabled || !command) return;
+            if (id === RAIL_EXPAND_ID) {
+                this.setExpanded(document.body.getAttribute('data-akari-rail-expanded') !== 'true');
+                return;
+            }
             void this.commands.executeCommand(command.id, ...(command.args ? [command.args] : [])).catch(() => undefined);
-            if (id !== RAIL_EXPAND_ID && document.body.hasAttribute('data-akari-rail-expanded')) this.setExpanded(false);
         }, true);
         document.addEventListener('pointerdown', event => {
             if (!document.body.hasAttribute('data-akari-rail-expanded')) return;
@@ -202,8 +216,35 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     }
 
     protected setExpanded(expanded: boolean): void {
-        if (expanded) document.body.setAttribute('data-akari-rail-expanded', 'true');
-        else document.body.removeAttribute('data-akari-rail-expanded');
+        const body = document.body;
+        if (!expanded && body.getAttribute('data-akari-rail-expanded') !== 'true') return;
+        const tabBarNode = this.shell?.leftPanelHandler.tabBar?.node;
+        if (this.railCloseTimer !== undefined) window.clearTimeout(this.railCloseTimer);
+        if (tabBarNode && this.railCloseAnimationEnd) tabBarNode.removeEventListener('animationend', this.railCloseAnimationEnd);
+        this.railCloseTimer = undefined;
+        this.railCloseAnimationEnd = undefined;
+        if (expanded) {
+            body.setAttribute('data-akari-rail-expanded', 'true');
+            return;
+        }
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !tabBarNode) {
+            body.removeAttribute('data-akari-rail-expanded');
+            return;
+        }
+        body.setAttribute('data-akari-rail-expanded', 'closing');
+        const finish = () => {
+            if (body.getAttribute('data-akari-rail-expanded') === 'closing') body.removeAttribute('data-akari-rail-expanded');
+            if (this.railCloseTimer !== undefined) window.clearTimeout(this.railCloseTimer);
+            tabBarNode.removeEventListener('animationend', onAnimationEnd);
+            this.railCloseTimer = undefined;
+            this.railCloseAnimationEnd = undefined;
+        };
+        const onAnimationEnd = (event: AnimationEvent) => {
+            if (event.target === tabBarNode && event.animationName === 'akari-rail-slide-out') finish();
+        };
+        this.railCloseAnimationEnd = onAnimationEnd;
+        tabBarNode.addEventListener('animationend', onAnimationEnd);
+        this.railCloseTimer = window.setTimeout(finish, 320);
     }
 
     protected installLeftRailObservers(): void {
@@ -369,7 +410,6 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 const id = title?.owner.id;
                 if (!id) return;
                 element.setAttribute('data-akari-rail-id', id);
-                element.setAttribute('data-akari-rail-desc', title.caption || title.label);
                 element.classList.toggle('akari-rail-disabled', disabled.has(id));
                 element.classList.toggle('akari-rail-selected', selected === id);
                 element.classList.toggle('akari-rail-separator', id === RAIL_EXPORT_OPENER_ID || id === lowerStart);

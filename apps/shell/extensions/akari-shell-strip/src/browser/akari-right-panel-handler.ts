@@ -18,6 +18,7 @@ import { RightRailTooltip } from './right-rail-tooltip';
 import { trackDragGesture } from './right-rail-drag-gesture';
 import { RightPanelDockSlot } from './right-panel-dock-slot';
 import { RIGHT_RAIL_LAST_TAB_KEY, rightRailLogicalTab } from './right-rail-last-tab';
+import { railNameForPartner } from '../common/partner-rail-name';
 
 type RailLayoutData = SidePanel.LayoutData & { akariRail?: unknown };
 type PanelMover = (widget: Widget, area: 'main' | 'bottom' | 'right') => Promise<void>;
@@ -570,8 +571,8 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             const id = this.tabBar.titles[index]?.owner.id;
             if (id) tab.setAttribute('data-akari-rail-id', id);
             const title = this.tabBar.titles[index];
-            if (id === 'akari-partner-onboarding' && title && title.label !== 'パートナーを追加') {
-                title.label = 'パートナーを追加';
+            if (id === 'akari-partner-onboarding' && title && title.label !== 'パートナー') {
+                title.label = 'パートナー';
             }
             const label = tab.querySelector<HTMLElement>('.lm-TabBar-tabLabel');
             if (label) {
@@ -580,7 +581,8 @@ export class AkariRightPanelHandler extends SidePanelHandler {
                     : id === 'akari-review-panel-widget' ? '注釈'
                     : id === 'akari-inspector-widget' ? 'インスペクター'
                     : id === 'akari-audio-meter-widget' ? '音声'
-                    : id === 'akari-partner-web' || id?.startsWith('terminal-') ? 'チャット'
+                    : id && (id.startsWith('terminal-') || id === 'akari-partner-web')
+                        ? railNameForPartner(id, title?.label || '', title?.caption)
                     : this.tabBar.titles[index]?.label || '';
                 label.setAttribute('data-akari-rail-name', name);
             }
