@@ -16,10 +16,10 @@ const canListen = await new Promise(resolve => {
   server.listen(0, '127.0.0.1', () => server.close(() => resolve(true)));
 });
 const network = { skip: !canListen && 'sandbox cannot bind a localhost fixture server' };
-const waitFor = async predicate => {
+const waitFor = async (predicate, timeoutMessage = () => 'fixture event timed out') => {
   const deadline = Date.now() + 5000;
   while (!await predicate()) {
-    assert.ok(Date.now() < deadline, 'fixture event timed out');
+    if (Date.now() >= deadline) assert.fail(await timeoutMessage());
     await new Promise(resolve => setTimeout(resolve, 10));
   }
 };
@@ -77,7 +77,9 @@ test('first-line port connects with authenticated manifest HMAC', network, async
   f.cleanup.push(() => manager.onStop());
   const a = owner();
   assert.equal(await manager.start(a), true);
-  const rows = await f.rows();
+  let rows;
+  await waitFor(async () => (rows = await f.rows()).some(row => row.type === 'events'),
+    () => `fixture events timed out; rows: ${rows.map(row => row.type).join(', ')}`);
   assert.equal(a.states.at(-1).panel.port, rows.find(row => row.type === 'listening').port);
   assert.ok(rows.some(row => row.type === 'manifest' && row.authenticated));
   assert.ok(rows.some(row => row.type === 'events'));
