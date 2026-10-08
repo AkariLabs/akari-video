@@ -14,7 +14,7 @@ apps/shell/extensions/akari-preview/evidence/fragment-text-write-svg-selfclose-v
 apps/shell/extensions/akari-preview/evidence/fragment-text-write-svg-selfclose-v1/scripts/run-webui.sh after
 ```
 
-`AKARI_FTW_OUT_DIR` は結果の出力先、`AKARI_CDP_PORT` は Electron の CDP ポート、`AKARI_WEBUI_PORT` は Web UI のポート、`AKARI_FTW_ONLY` は対象断片の絞り込みに使う。`ELECTRON_BIN` と `AKARI_SHELL_DIR` で実行バイナリとシェルの場所を指定できる。既定の出力先はシステムの一時ディレクトリ内。この証跡には JSON の記録だけを置く。
+`AKARI_FTW_OUT_DIR` は結果の出力先、`AKARI_CDP_PORT` は Electron の CDP ポート、`AKARI_WEBUI_PORT` は Web UI のポート、`AKARI_FTW_ONLY` は対象断片の絞り込みに使う。`ELECTRON_BIN` と `AKARI_SHELL_DIR` で実行バイナリとシェルの場所を指定できる。既定の出力先は `/tmp/ftw-l1`。記録の JSON はリポに置かない。スクリプトを実行すると出力先に書かれる。
 
 フィクスチャは製品のオンボーディングの `writeExample`（段階 8）が作る同梱サンプルのプロジェクト。準備時に断片が同梱ファイルとバイト一致することを検査する。webview の `engine.overlayWrite` を包み、実際に送られた HTML を記録する。`tag-ruler.mjs` は製品コードと独立に元と送信後のタグの並びを数える。after では編集した行が 1 行で、変わった各行には足した 1 文字だけが入ったことを検査する。ミラー層 `data-mirror="text"` を持つ断片では、その行にも同じ文字が入る。demo-effects は編集した行 1 行とミラー層 2 行の計 3 行が変わる。最後に、確定の直前に SVG 内へ `<circle>` を 1 つ足す本当の構造変化を試し、拒否メッセージに最初の違いが出て断片が書き換わらないことも見る。
 
@@ -32,7 +32,7 @@ apps/shell/extensions/akari-preview/evidence/fragment-text-write-svg-selfclose-v
 | demo-phone | 拒否 | 21 番目・`</svg>` / `</path>` |
 | demo-title | 拒否 | 25 番目・`<path>` / `</rect>` |
 
-before の `elements` 変種でも demo-bgm-chip と demo-title は拒否された。Web UI の demo-title は `PUT /api/overlay-html` が 422 を返した。詳細は `results/` の 3 つの JSON にある。
+before の `elements` 変種でも demo-bgm-chip と demo-title は拒否された。Web UI の demo-title は `PUT /api/overlay-html` が 422 を返した。詳細は、スクリプトを実行すると出力先に書かれる 3 つの JSON（`run-log-before-plain.json`・`run-log-before-elements.json`・`run-log-webui-before.json`）にある。
 
 before の記録は、ミラー層の判定と構造変化の手順を加える前のスクリプトで取った。before は記録だけなので測り方は同じ。`shell_dir` と `electron` はリポジトリからの相対パスに直してある。
 
@@ -40,7 +40,7 @@ demo-diagram は最初に試した小さい文字（`demo-diagram__title`、画�
 
 ## after（実測）
 
-記録は `results/run-log-after-plain.json`・`results/run-log-after-elements.json`・`results/run-log-webui-after.json`。各ファイルの全体 `status` はいずれも **PASS**。
+記録は、スクリプトを実行すると出力先に書かれる `run-log-after-plain.json`・`run-log-after-elements.json`・`run-log-webui-after.json`。各ファイルの全体 `status` はいずれも **PASS**。
 
 ### シェル plain（9 本）
 
