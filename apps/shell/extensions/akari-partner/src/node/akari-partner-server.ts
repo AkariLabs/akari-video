@@ -42,9 +42,10 @@ export function stopPartnerCliHelpProcess(pid: number, platform: NodeJS.Platform
     runKill: typeof execFile = execFile, killGroup: typeof process.kill = process.kill): void {
     if (platform === 'win32') {
         try {
-            runKill('taskkill', ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, error => {
-                if (error) child.kill('SIGKILL');
-            });
+            runKill(path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+                ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, error => {
+                    if (error) child.kill('SIGKILL');
+                });
         } catch { child.kill('SIGKILL'); }
         return;
     }
@@ -92,10 +93,12 @@ export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Pla
                 finish(code === 0 && signal === null && help ? { kind: 'ok', help } : { kind: 'failed' });
             });
             if (!done) timer = setTimeout(() => {
-                try {
-                    if (child?.pid) stop(child.pid, platform, child);
-                    else child?.kill('SIGKILL');
-                } catch { child?.kill('SIGKILL'); }
+                if (child?.exitCode === null && child.signalCode === null) {
+                    try {
+                        if (child.pid) stop(child.pid, platform, child);
+                        else child.kill('SIGKILL');
+                    } catch { child.kill('SIGKILL'); }
+                }
                 finish({ kind: 'timeout' });
             }, timeoutMs);
         } catch { finish({ kind: 'failed' }); }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, utimes, mkdir, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { PARTNER_CATALOG } from '../lib/browser/partner-catalog.js';
@@ -82,6 +82,26 @@ test('不正な RPC 設定値は auto に戻す', async t => {
     const launch = await new Server().prepareLaunch('claude', executable, 'invalid');
     assert.deepEqual(launch.args, ['--permission-mode', 'auto']);
     assert.equal(launch.appliedPermissionMode, 'auto');
+});
+
+test('prepareLaunch は値付きフラグを help の選択肢で確認する', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-permission-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const executable = join(root, 'claude.exe');
+    await writeFile(executable, 'fake executable');
+    class Server extends AkariPartnerServerImpl {
+        constructor(help) { super(); this.help = help; }
+        async probeCliHelp() { return { kind: 'ok', help: this.help }; }
+        resolveCliPathEnv() { return {}; }
+        resolveMediaBinEnv() { return {}; }
+    }
+    const oldHelp = await new Server('--permission-mode <MODE>').prepareLaunch('claude', executable, 'auto');
+    assert.deepEqual(oldHelp.args, []);
+    assert.equal(oldHelp.appliedPermissionMode, 'default');
+    const accepted = await new Server('--permission-mode <MODE>\n  (choices: "ask", "auto")')
+        .prepareLaunch('claude', executable, 'auto');
+    assert.deepEqual(accepted.args, ['--permission-mode', 'auto']);
+    assert.equal(accepted.appliedPermissionMode, 'auto');
 });
 
 test('時間切れ・失敗は覚えず次回再確認し、正常な --help は更新時刻まで覚える', async t => {
@@ -195,6 +215,8 @@ test('help probe は非同期で、時間切れに子孫プロセスを止める
         { kind: 'failed' });
     const child = new EventEmitter();
     child.pid = 4567;
+    child.exitCode = null;
+    child.signalCode = null;
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
     child.kill = () => { throw new Error('parent-only kill'); };
@@ -203,6 +225,16 @@ test('help probe は非同期で、時間切れに子孫プロセスを止める
         (pid, platform, found) => { stopped = [pid, platform, found]; }, 5);
     assert.deepEqual(timeout, { kind: 'timeout' });
     assert.deepEqual(stopped, [4567, 'win32', child]);
+    child.exitCode = 0;
+    stopped = undefined;
+    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, () => child,
+        () => { stopped = true; }, 5), { kind: 'timeout' });
+    assert.equal(stopped, undefined, '終了済みの PID には taskkill を出さない');
+    child.exitCode = null;
+    child.signalCode = 'SIGTERM';
+    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, () => child,
+        () => { stopped = true; }, 5), { kind: 'timeout' });
+    assert.equal(stopped, undefined, 'シグナルで終了済みの PID も止め直さない');
 });
 
 test('Windows は taskkill /T、POSIX は process group を止める', () => {
@@ -213,7 +245,8 @@ test('Windows は taskkill /T、POSIX は process group を止める', () => {
         callback(null);
     });
     assert.deepEqual(call.argv, ['/T', '/F', '/PID', '4567']);
-    assert.equal(call.command, 'taskkill');
+    assert.equal(call.command, win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'));
+    assert.match(call.command, /^[A-Za-z]:\\/);
     assert.equal(call.options.windowsHide, true);
     stopPartnerCliHelpProcess(4567, 'linux', child, undefined, (pid, signal) => { call = { pid, signal }; });
     assert.deepEqual(call, { pid: -4567, signal: 'SIGKILL' });
@@ -268,8 +301,9 @@ test('Windows .cmd/.bat は権限引数を cmd.exe 経由で渡し、メタ文�
         assert.deepEqual(fake.calls[0].argv, ['/d', '/s', '/c', `""${shim}" "--help""`]);
         assert.equal(fake.calls[0].options.windowsVerbatimArguments, true);
     }
-    assert.deepEqual(await probePartnerCliHelp('C:\\unsafe&name.cmd', 'win32', {}, () => { throw new Error('must not run'); }),
-        { kind: 'failed' });
-    assert.deepEqual(await probePartnerCliHelp('C:\\unsafe%name.cmd', 'win32', {}, () => { throw new Error('must not run'); }),
-        { kind: 'failed' });
+    for (const name of ['C:\\unsafe&name.cmd', 'C:\\unsafe%name.cmd']) {
+        const fake = fakeSpawn('--help');
+        assert.deepEqual(await probePartnerCliHelp(name, 'win32', {}, fake.run), { kind: 'failed' });
+        assert.equal(fake.calls.length, 0, `${name} を起動しない`);
+    }
 });

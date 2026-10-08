@@ -79,6 +79,7 @@ DeepSeek の Settings で配色を明示的に選んだ場合はそちらを優�
 ツールではサンドボックスも解除します。自動では Claude Code と Grok の `auto`、
 Codex と Cursor の自動審査、Devin の `smart` を使います。起動時の自動モードが無い
 Copilot・Antigravity・Command Code・Pi は、自動でもすべて許可の引数で起動します。
+Pi には承認の仕組みが無いため、どのモードでもタブには「すべて許可で起動」と表示されます。
 opencode は自動ではツールの既定動作を使います。DeepSeek Harness は自動と毎回確認で
 Workspace Write、すべて許可で Full access です。CLI の `--help` に指定フラグ、または
 モードの指定値が無い場合はそのフラグを付けず、ツールの既定動作で起動します。
