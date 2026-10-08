@@ -60,8 +60,8 @@ test('DeepSeek の新規起動だけ権限 env を渡し、再利用時は元の
     const auto = await server.startWebPartner('deepseek', uri, executable, 'window-a', 'invalid');
     const reused = await server.startWebPartner('deepseek', uri, executable, 'window-b', 'bypass');
     assert.deepEqual(server.launches, [undefined]);
-    assert.equal(auto.appliedPermissionMode, 'auto');
-    assert.equal(reused.appliedPermissionMode, 'auto');
+    assert.equal(auto.appliedPermissionMode, 'default');
+    assert.equal(reused.appliedPermissionMode, 'default');
     await server.stopWebPartner(auto.pid, 'window-a');
     await server.stopWebPartner(auto.pid, 'window-b');
     const bypass = await server.startWebPartner('deepseek', uri, executable, 'window-c', 'bypass');

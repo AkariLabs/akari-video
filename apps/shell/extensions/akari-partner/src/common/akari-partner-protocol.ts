@@ -1,7 +1,7 @@
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
 export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
-import type { PartnerPermissionMode } from './partner-permissions';
+import type { PartnerAppliedPermissionMode, PartnerPermissionMode } from './partner-permissions';
 
 export interface PartnerInstallDisclosure {
     name: string;
@@ -36,7 +36,7 @@ export interface PartnerWebLaunch {
     provider: 'deepseek-official' | 'opencode-go';
     providerNote: string;
     guidance?: string;
-    appliedPermissionMode?: PartnerPermissionMode;
+    appliedPermissionMode?: PartnerAppliedPermissionMode;
 }
 
 export interface BinaryVerificationRequest {
@@ -59,7 +59,8 @@ export interface PartnerLaunchPlan {
     executablePath?: string;
     args: string[];
     log: string[];
-    appliedPermissionMode?: PartnerPermissionMode;
+    appliedPermissionMode?: PartnerAppliedPermissionMode;
+    permissionFallbackReason?: '時間切れ' | '確認失敗' | 'フラグ無し';
     /**
      * Extra environment variables to merge into the partner PTY's environment
      * (task/2026-07-31-shell-ffmpeg-bundle). Currently AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN,

@@ -1,6 +1,7 @@
 import type { PartnerAgentId } from './akari-partner-protocol';
 
 export type PartnerPermissionMode = 'auto' | 'ask' | 'bypass';
+export type PartnerAppliedPermissionMode = PartnerPermissionMode | 'default';
 
 export function normalizePartnerPermissionMode(value: unknown): PartnerPermissionMode {
     return value === 'ask' || value === 'bypass' ? value : 'auto';
@@ -21,15 +22,19 @@ const BYPASS_ARGS: Partial<Record<PartnerAgentId, string[]>> = {
 
 export function partnerPermissionArgs(agent: PartnerAgentId, mode: PartnerPermissionMode): string[] {
     if (mode === 'ask') return [];
-    return [...((mode === 'bypass' ? BYPASS_ARGS[agent] : AUTO_ARGS[agent]) ?? [])];
+    const table = mode === 'bypass' ? BYPASS_ARGS : AUTO_ARGS;
+    return (Object as ObjectConstructor & { hasOwn(value: object, key: PropertyKey): boolean }).hasOwn(table, agent)
+        ? [...table[agent]!] : [];
 }
 
 export function partnerPermissionEnv(agent: PartnerAgentId, mode: PartnerPermissionMode): Record<string, string> {
     return agent === 'deepseek' && mode === 'bypass' ? { DSH_PERMISSION_MODE: 'danger-full-access' } : {};
 }
 
-export function appliedPartnerPermissionMode(agent: PartnerAgentId, mode: PartnerPermissionMode, args: readonly string[]): PartnerPermissionMode {
-    if (mode === 'ask' || (partnerPermissionArgs(agent, mode).length > 0 && args.length === 0)) return 'ask';
-    if (mode === 'bypass' || (mode === 'auto' && ['copilot', 'antigravity', 'commandcode', 'pi'].includes(agent))) return 'bypass';
+export function appliedPartnerPermissionMode(agent: PartnerAgentId, mode: PartnerPermissionMode,
+    args: readonly string[], env: Record<string, string> = partnerPermissionEnv(agent, mode)): PartnerAppliedPermissionMode {
+    if (agent === 'pi') return 'bypass';
+    if (args.length === 0 && Object.keys(env).length === 0) return 'default';
+    if (mode === 'bypass' || (mode === 'auto' && ['copilot', 'antigravity', 'commandcode'].includes(agent))) return 'bypass';
     return 'auto';
 }

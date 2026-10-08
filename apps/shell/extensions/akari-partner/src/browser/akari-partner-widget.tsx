@@ -39,7 +39,8 @@ import { shouldDisposeWebWidget } from '../common/partner-web-cleanup';
 import { decideAutoStart } from '../common/partner-autostart';
 import { PARTNER_LAST_KEY, markPartnerShuttingDown, rememberPartnerClose } from '../common/partner-last-session';
 import type { PartnerAgentId } from '../common/akari-partner-protocol';
-import { normalizePartnerPermissionMode, PartnerPermissionMode } from '../common/partner-permissions';
+import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPermissionEnv,
+    PartnerAppliedPermissionMode, PartnerPermissionMode } from '../common/partner-permissions';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -62,8 +63,9 @@ const DEVELOPER_MODE_PREFERENCE = 'akari.developerMode';
 const PARTNER_REOPEN_PREFERENCE = 'akari.partner.reopenLast';
 const PARTNER_PERMISSION_PREFERENCE = 'akari.partner.permissionMode';
 
-function permissionModeLabel(mode: PartnerPermissionMode): string {
-    return mode === 'bypass' ? 'すべて許可で起動' : mode === 'ask' ? '毎回確認' : '自動モードで起動';
+function permissionModeLabel(mode: PartnerAppliedPermissionMode): string {
+    return mode === 'bypass' ? 'すべて許可で起動' : mode === 'ask' ? '毎回確認' :
+        mode === 'default' ? 'ツールの既定で起動' : '自動モードで起動';
 }
 
 // 最大保持メッセージ数（無制限成長を避けるための素朴なキャップ、v0）。
@@ -485,6 +487,10 @@ export class AkariPartnerWidget extends ReactWidget {
         await this.beginExtension(entry);
     }
 
+    protected partnerPermissionMode(): PartnerPermissionMode {
+        return normalizePartnerPermissionMode(this.preferences.inspect(PARTNER_PERMISSION_PREFERENCE)?.globalValue);
+    }
+
     protected async beginWeb(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult, automatic = false): Promise<void> {
         if (this.webStarting) { await this.webStarting; return; }
         let finish!: () => void;
@@ -533,8 +539,8 @@ export class AkariPartnerWidget extends ReactWidget {
             this.executablePath = bootstrap.executablePath;
             this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
-            const permissionMode = normalizePartnerPermissionMode(this.preferences.get(PARTNER_PERMISSION_PREFERENCE));
-            this.setProgress(entry, '作業画面を起動しています…', `${entry.name} · ${permissionModeLabel(permissionMode)}`);
+            const permissionMode = this.partnerPermissionMode();
+            this.setProgress(entry, '作業画面を起動しています…', `${entry.name} · ${permissionModeLabel(appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`);
             const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId, permissionMode);
             let widget: PartnerWebWidget | undefined;
             try {
@@ -545,7 +551,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
                 await this.showPartnerWidget(widget.id, automatic);
                 const opening = widget.open(entry.agent, launch, ownerId);
-                this.setComplete(entry, `DeepSeek Harness を開始しました · ${permissionModeLabel(launch.appliedPermissionMode ?? permissionMode)}`, launch.providerNote);
+                this.setComplete(entry, `DeepSeek Harness を開始しました · ${permissionModeLabel(launch.appliedPermissionMode ?? appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`, launch.providerNote);
                 await this.rememberPartnerStart(entry);
                 void opening.catch(error => {
                     if (this.webWidget === widget) this.webWidget = undefined;
@@ -609,10 +615,11 @@ export class AkariPartnerWidget extends ReactWidget {
                 }
             }
             await this.ensureCliProvisioned(entry);
-            const permissionMode = normalizePartnerPermissionMode(this.preferences.get(PARTNER_PERMISSION_PREFERENCE));
+            const permissionMode = this.partnerPermissionMode();
             const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath, permissionMode);
-            const appliedMode = launch.appliedPermissionMode ?? permissionMode;
-            this.setProgress(entry, 'パートナー PTY を起動しています…', `${permissionModeLabel(appliedMode)} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
+            const appliedMode = launch.appliedPermissionMode ?? appliedPartnerPermissionMode(
+                entry.agent, permissionMode, launch.args, partnerPermissionEnv(entry.agent, permissionMode));
+            this.setProgress(entry, 'パートナー PTY を起動しています…', `${permissionModeLabel(appliedMode)}${launch.permissionFallbackReason ? `（${launch.permissionFallbackReason}）` : ''} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
                 title: `${entry.name}（${permissionModeLabel(appliedMode)}）`,
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
@@ -1002,7 +1009,7 @@ export class AkariPartnerWidget extends ReactWidget {
         waitForRestore = false
     ): Promise<TerminalWidget | undefined> {
         const labels = new Set([entry.name, ...LEGACY_CLI_LABELS[entry.agent],
-            ...(['auto', 'ask', 'bypass'] as const).map(mode => `${entry.name}（${permissionModeLabel(mode)}）`)]);
+            ...(['auto', 'ask', 'bypass', 'default'] as const).map(mode => `${entry.name}（${permissionModeLabel(mode)}）`)]);
         const candidates = this.terminalService.all.filter(terminal =>
             terminal.kind === PartnerTerminal.KIND && labels.has(terminal.title.label)
         );
@@ -1063,7 +1070,7 @@ export class AkariPartnerWidget extends ReactWidget {
             candidate.form === 'cli' &&
             terminal.kind === PartnerTerminal.KIND &&
             ([candidate.name, ...LEGACY_CLI_LABELS[candidate.agent]].includes(terminal.title.label) ||
-                (['auto', 'ask', 'bypass'] as const).some(mode => terminal.title.label === `${candidate.name}（${permissionModeLabel(mode)}）`))
+                (['auto', 'ask', 'bypass', 'default'] as const).some(mode => terminal.title.label === `${candidate.name}（${permissionModeLabel(mode)}）`))
         ) as PartnerCliCatalogEntry | undefined;
         if (!resolvedEntry) {
             return;

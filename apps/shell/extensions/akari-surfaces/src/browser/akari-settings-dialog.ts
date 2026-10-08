@@ -61,6 +61,7 @@ import {
 } from '../common/settings-sections';
 import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
+import { normalizePartnerPermissionMode } from 'akari-partner/lib/common/partner-permissions';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
@@ -663,7 +664,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 { value: 'auto', label: '自動（おすすめ）' },
                 { value: 'ask', label: '毎回確認（各ツールの既定）' },
                 { value: 'bypass', label: 'すべて許可' }
-            ], value: this.preferences.get(AKARI_PARTNER_PERMISSION_MODE, 'auto'),
+            ], value: normalizePartnerPermissionMode(this.preferences.inspect(AKARI_PARTNER_PERMISSION_MODE)?.globalValue),
             onChange: value => this.savePreference(AKARI_PARTNER_PERMISSION_MODE, value) }))));
     }
 
@@ -2247,7 +2248,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             [STATUS_BAR_KEYS.intervalSec]: { type: 'number', enum: [1, 3, 10], default: 3 },
             [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
             [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
-            [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto' },
+            [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto', scope: PreferenceScope.User },
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },
             [AKARI_EXPORT_FILENAME_PATTERN]: { type: 'string', enum: ['project-date-time', 'project-name'], default: 'project-date-time' },

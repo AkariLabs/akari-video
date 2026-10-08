@@ -119,6 +119,7 @@ function makeDialog(values = {}, extra = {}) {
         transcribe: new FakeNode('section'), sections: new Map(), isDisposed: false,
         preferences: {
             get(key, fallback) { return key in values ? values[key] : fallback; },
+            inspect(key) { return { globalValue: key in values ? values[key] : undefined }; },
             async set(key, value, scope) { values[key] = value; writes.push([key, value, scope]); }
         }
     }, extra);
@@ -430,7 +431,26 @@ test('パートナー権限はふるまいカードに 3 択で表示し、既�
         [AKARI_PARTNER_PERMISSION_MODE, 'ask'], [AKARI_PARTNER_PERMISSION_MODE, 'bypass']
     ]);
     const sourceText = source('../browser/akari-settings-dialog.ts');
-    assert.match(sourceText, /\[AKARI_PARTNER_PERMISSION_MODE\]: \{ type: 'string', enum: \['auto', 'ask', 'bypass'\], default: 'auto' \}/);
+    assert.match(sourceText, /\[AKARI_PARTNER_PERMISSION_MODE\]: \{ type: 'string', enum: \['auto', 'ask', 'bypass'\], default: 'auto', scope: PreferenceScope.User \}/);
+});
+
+test('パートナー権限の表示はプロジェクト設定を無視して User 値を使う', () => {
+    const key = 'akari.partner.permissionMode';
+    for (const [globalValue, expected] of [[undefined, 'auto'], ['ask', 'ask']]) {
+        const page = new FakeNode('section');
+        const { dialog } = makeDialog({}, {
+            sections: new Map([['partner', page]]),
+            preferences: {
+                get(name) { return name === key ? 'bypass' : undefined; },
+                inspect(name) { return name === key ? { globalValue, workspaceValue: 'bypass', workspaceFolderValue: 'bypass' } : undefined; },
+                set: async () => assert.fail('read-only render')
+            }
+        });
+        dialog.renderSection('partner');
+        const menu = find(page, node => node.getAttribute('data-akari-dropdown') === 'パートナーの権限');
+        const selected = all(menu).find(node => node.getAttribute('aria-selected') === 'true');
+        assert.equal(selected.getAttribute('data-value'), expected);
+    }
 });
 
 test('カタログのフォルダは手入力と選択でユーザー設定に保存し、キャンセルでは変更しない', async () => {

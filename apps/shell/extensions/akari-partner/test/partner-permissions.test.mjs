@@ -3,10 +3,28 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, utimes, mkdir, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { PARTNER_CATALOG } from '../lib/browser/partner-catalog.js';
 import { partnerPermissionArgs, partnerPermissionEnv, normalizePartnerPermissionMode,
     appliedPartnerPermissionMode } from '../lib/common/partner-permissions.js';
-import { AkariPartnerServerImpl, probePartnerCliHelp, resolvePartnerProcessLaunch } from '../lib/node/akari-partner-server.js';
+import { AkariPartnerServerImpl, partnerHelpSupportsArgs, probePartnerCliHelp, resolvePartnerProcessLaunch,
+    stopPartnerCliHelpProcess } from '../lib/node/akari-partner-server.js';
+
+function fakeSpawn(output = '', code = 0, delay = 0) {
+    const calls = [];
+    const run = (command, argv, options) => {
+        calls.push({ command, argv, options });
+        const child = new EventEmitter();
+        child.pid = 1234;
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+        child.kill = () => true;
+        setTimeout(() => { child.stdout.write(output); child.emit('close', code, null); }, delay);
+        return child;
+    };
+    return { run, calls };
+}
 
 const args = {
     claude: [['--permission-mode', 'auto'], ['--dangerously-skip-permissions']],
@@ -34,7 +52,18 @@ test('カタログの全 agent × 3 モードが対応表と一致する', () =>
             agent === 'deepseek' ? { DSH_PERMISSION_MODE: 'danger-full-access' } : {}, `${agent} bypass env`);
     }
     assert.equal(appliedPartnerPermissionMode('copilot', 'auto', ['--allow-all']), 'bypass');
-    assert.equal(appliedPartnerPermissionMode('claude', 'auto', []), 'ask');
+    assert.equal(appliedPartnerPermissionMode('claude', 'auto', []), 'default');
+    assert.equal(appliedPartnerPermissionMode('opencode', 'auto', []), 'default');
+    assert.equal(appliedPartnerPermissionMode('deepseek', 'ask', []), 'default');
+    for (const agent of ['copilot', 'antigravity', 'commandcode', 'pi']) {
+        assert.equal(appliedPartnerPermissionMode(agent, 'auto', partnerPermissionArgs(agent, 'auto')), 'bypass', agent);
+    }
+    for (const mode of ['auto', 'ask', 'bypass']) {
+        assert.equal(appliedPartnerPermissionMode('pi', mode, []), 'bypass');
+    }
+    for (const key of ['__proto__', 'constructor', 'toString']) {
+        assert.deepEqual(partnerPermissionArgs(key, 'auto'), []);
+    }
 });
 
 test('不正な RPC 設定値は auto に戻す', async t => {
@@ -46,7 +75,7 @@ test('不正な RPC 設定値は auto に戻す', async t => {
     const executable = join(root, 'claude.exe');
     await writeFile(executable, 'fake executable');
     class Server extends AkariPartnerServerImpl {
-        async probeCliHelp() { return { kind: 'ok', help: '--permission-mode <MODE>' }; }
+        async probeCliHelp() { return { kind: 'ok', help: '--permission-mode <MODE>\n  (choices: "auto", "bypass")' }; }
         resolveCliPathEnv() { return {}; }
         resolveMediaBinEnv() { return {}; }
     }
@@ -62,24 +91,28 @@ test('時間切れ・失敗は覚えず次回再確認し、正常な --help は
     await writeFile(executable, 'fake executable');
     class Server extends AkariPartnerServerImpl {
         probes = 0;
+        pathValue = '';
         results = [
             { kind: 'timeout' }, { kind: 'failed' },
             { kind: 'ok', help: '--help only' }, { kind: 'ok', help: '--approve-for-me' }
         ];
         async probeCliHelp() { this.probes++; return this.results.shift(); }
-        resolveCliPathEnv() { return {}; }
+        resolveCliPathEnv() { return this.pathValue ? { PATH: this.pathValue } : {}; }
         resolveMediaBinEnv() { return {}; }
     }
     const server = new Server();
     const timeout = await server.prepareLaunch('codex', executable, 'auto');
     assert.deepEqual(timeout.args, []);
-    assert.equal(timeout.appliedPermissionMode, 'ask');
+    assert.equal(timeout.appliedPermissionMode, 'default');
+    assert.equal(timeout.permissionFallbackReason, '時間切れ');
     assert.match(timeout.log[0], /確認が時間切れ/);
     const failed = await server.prepareLaunch('codex', executable, 'auto');
     assert.deepEqual(failed.args, []);
+    assert.equal(failed.permissionFallbackReason, '確認失敗');
     assert.match(failed.log[0], /確認に失敗/);
     const missing = await server.prepareLaunch('codex', executable, 'auto');
     assert.deepEqual(missing.args, []);
+    assert.equal(missing.permissionFallbackReason, 'フラグ無し');
     assert.match(missing.log[0], /フラグが無い/);
     await server.prepareLaunch('codex', executable, 'auto');
     assert.equal(server.probes, 3, '正常に出た help だけ同じパスと更新時刻でキャッシュする');
@@ -89,6 +122,10 @@ test('時間切れ・失敗は覚えず次回再確認し、正常な --help は
     assert.equal(server.probes, 4);
     await server.prepareLaunch('codex', executable, 'auto');
     assert.equal(server.probes, 4);
+    server.pathValue = 'changed-path';
+    server.results.push({ kind: 'ok', help: '--approve-for-me' });
+    await server.prepareLaunch('codex', executable, 'auto');
+    assert.equal(server.probes, 5, 'PTY PATH が変わった場合は help を再確認する');
 });
 
 test('非同期の --help 確認中に他の backend 処理が進む', async t => {
@@ -114,29 +151,90 @@ test('非同期の --help 確認中に他の backend 処理が進む', async t =
     assert.deepEqual((await pending).args, ['--approve-for-me']);
 });
 
-test('execFile の 15 秒打ち切り・異常終了・空出力を区別する', async () => {
+test('help probe は専用 Node を含む PTY と同じ PATH を受け取る', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-permission-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const oldHome = process.env.AKARI_HOME;
+    process.env.AKARI_HOME = root;
+    t.after(() => { if (oldHome === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = oldHome; });
+    const nodeRoot = join(root, 'runtime', 'node', 'v24.21.0');
+    const bin = process.platform === 'win32' ? nodeRoot : join(nodeRoot, 'bin');
+    await mkdir(bin, { recursive: true });
+    await Promise.all([
+        writeFile(join(nodeRoot, 'command-code-installed'), ''),
+        writeFile(join(bin, process.platform === 'win32' ? 'node.exe' : 'node'), ''),
+        writeFile(join(bin, process.platform === 'win32' ? 'npm.cmd' : 'npm'), '')
+    ]);
+    const executable = join(root, 'command-code.exe');
+    await writeFile(executable, 'fake executable');
+    let probeEnv;
+    class Server extends AkariPartnerServerImpl {
+        resolveCliPathEnv() { return { PATH: process.platform === 'win32' ? 'C:\\base' : '/base' }; }
+        resolveMediaBinEnv() { return {}; }
+        async probeCliHelp(_path, env) { probeEnv = env; return { kind: 'ok', help: '--yolo' }; }
+    }
+    const launch = await new Server().prepareLaunch('commandcode', executable, 'auto');
+    assert.deepEqual(launch.args, ['--yolo']);
+    assert.equal(probeEnv.PATH, launch.env.PATH);
+    assert.ok(probeEnv.PATH.startsWith(bin), probeEnv.PATH);
+});
+
+test('help probe は非同期で、時間切れに子孫プロセスを止める', async () => {
     const executable = 'C:\\fake\\codex.exe';
-    const calls = [];
-    const run = (error, stdout = '') => (command, argv, options, callback) => {
-        calls.push({ command, argv, options });
-        setTimeout(() => callback(error, stdout, ''), 10);
-    };
+    const fake = fakeSpawn('--approve-for-me', 0, 10);
     let progressed = false;
-    const pending = probePartnerCliHelp(executable, 'win32', {}, run(null, '--approve-for-me'));
+    const pending = probePartnerCliHelp(executable, 'win32', {}, fake.run);
     setImmediate(() => { progressed = true; });
     assert.deepEqual(await pending, { kind: 'ok', help: '--approve-for-me' });
     assert.equal(progressed, true);
-    assert.equal(calls[0].options.timeout, 15_000);
-    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, run(Object.assign(new Error('timeout'), { killed: true }), '--approve-for-me')),
-        { kind: 'timeout' });
-    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, run(Object.assign(new Error('exit 1'), { code: 1 }), '--approve-for-me')),
+    assert.equal(fake.calls[0].options.windowsHide, true);
+    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, fakeSpawn('--approve-for-me', 1).run),
         { kind: 'failed' });
-    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, run(Object.assign(new Error('output too large'),
-        { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', killed: true }))), { kind: 'failed' });
-    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, run(null, '')),
-        { kind: 'failed' });
+    assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, fakeSpawn('').run), { kind: 'failed' });
     assert.deepEqual(await probePartnerCliHelp(executable, 'win32', {}, () => { throw new Error('spawn failed'); }),
         { kind: 'failed' });
+    const child = new EventEmitter();
+    child.pid = 4567;
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => { throw new Error('parent-only kill'); };
+    let stopped;
+    const timeout = await probePartnerCliHelp(executable, 'win32', {}, () => child,
+        (pid, platform, found) => { stopped = [pid, platform, found]; }, 5);
+    assert.deepEqual(timeout, { kind: 'timeout' });
+    assert.deepEqual(stopped, [4567, 'win32', child]);
+});
+
+test('Windows は taskkill /T、POSIX は process group を止める', () => {
+    const child = { kill: () => assert.fail('fallback should not run') };
+    let call;
+    stopPartnerCliHelpProcess(4567, 'win32', child, (command, argv, options, callback) => {
+        call = { command, argv, options };
+        callback(null);
+    });
+    assert.deepEqual(call.argv, ['/T', '/F', '/PID', '4567']);
+    assert.equal(call.command, 'taskkill');
+    assert.equal(call.options.windowsHide, true);
+    stopPartnerCliHelpProcess(4567, 'linux', child, undefined, (pid, signal) => { call = { pid, signal }; });
+    assert.deepEqual(call, { pid: -4567, signal: 'SIGKILL' });
+});
+
+test('値付きフラグは help の選択肢にも値があるときだけ採用する', () => {
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>', ['--permission-mode', 'auto']), false);
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>\n  (choices: "acceptEdits", "auto", "bypass")',
+        ['--permission-mode', 'auto']), true);
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>\n  [possible values: default, smart, bypass]',
+        ['--permission-mode', 'smart']), true);
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>\n  (choices: "automatic")',
+        ['--permission-mode', 'auto']), false);
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>\n  (choices: "auto")',
+        ['--permission-mode', 'smart']), false);
+    assert.equal(partnerHelpSupportsArgs('--permission-mode <MODE>\n  (choices: "ask")\n  auto is documented elsewhere',
+        ['--permission-mode', 'auto']), false);
+    assert.equal(partnerHelpSupportsArgs('--allow-dangerously-skip-permissions',
+        ['--dangerously-skip-permissions']), false);
+    assert.equal(partnerHelpSupportsArgs('--allow-all-but-sandbox', ['--allow-all']), false);
+    assert.equal(partnerHelpSupportsArgs('  --allow-all, --help', ['--allow-all']), true);
 });
 
 test('偽の実行ファイルの --help 応答でフラグを確認する', async t => {
@@ -151,15 +249,11 @@ test('偽の実行ファイルの --help 応答でフラグを確認する', asy
         await writeFile(executable, '#!/bin/sh\nif [ "$1" = "--help" ]; then echo --approve-for-me; fi\n');
         await chmod(executable, 0o755);
     }
-    const calls = [];
-    const help = await probePartnerCliHelp(executable, process.platform, process.env, (command, argv, options, callback) => {
-        calls.push({ command, argv, options });
-        setImmediate(() => callback(null, '--approve-for-me\n', ''));
-    });
+    const fake = fakeSpawn('--approve-for-me\n');
+    const help = await probePartnerCliHelp(executable, process.platform, process.env, fake.run);
     assert.deepEqual(help, { kind: 'ok', help: '--approve-for-me' });
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].options.timeout, 15_000);
-    assert.ok([calls[0].command, ...calls[0].argv].join(' ').includes(executable));
+    assert.equal(fake.calls.length, 1);
+    assert.ok([fake.calls[0].command, ...fake.calls[0].argv].join(' ').includes(executable));
 });
 
 test('Windows .cmd/.bat は権限引数を cmd.exe 経由で渡し、メタ文字を help に渡さない', async () => {
@@ -169,13 +263,13 @@ test('Windows .cmd/.bat は権限引数を cmd.exe 経由で渡し、メタ文�
             ['--permission-mode', 'auto']), {
             executablePath: 'cmd.exe', args: ['/d', '/s', '/c', shim, '--permission-mode', 'auto']
         });
-        const calls = [];
-        await probePartnerCliHelp(shim, 'win32', { ComSpec: 'cmd.exe' }, (command, argv, options, callback) => {
-            calls.push({ command, argv, options }); setImmediate(() => callback(null, '--permission-mode', ''));
-        });
-        assert.deepEqual(calls[0].argv, ['/d', '/s', '/c', `""${shim}" "--help""`]);
-        assert.equal(calls[0].options.windowsVerbatimArguments, true);
+        const fake = fakeSpawn('--permission-mode');
+        await probePartnerCliHelp(shim, 'win32', { ComSpec: 'cmd.exe' }, fake.run);
+        assert.deepEqual(fake.calls[0].argv, ['/d', '/s', '/c', `""${shim}" "--help""`]);
+        assert.equal(fake.calls[0].options.windowsVerbatimArguments, true);
     }
     assert.deepEqual(await probePartnerCliHelp('C:\\unsafe&name.cmd', 'win32', {}, () => { throw new Error('must not run'); }),
+        { kind: 'failed' });
+    assert.deepEqual(await probePartnerCliHelp('C:\\unsafe%name.cmd', 'win32', {}, () => { throw new Error('must not run'); }),
         { kind: 'failed' });
 });
