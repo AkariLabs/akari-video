@@ -1,0 +1,5 @@
+electron_bin=/Users/ryoma/_edit/30_products/akari-video-wt/preview-hit-policy-staged-animation/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+path_txt=Electron.app/Contents/MacOS/Electron
+libffmpeg_h264=1
+head=7e676c660428f77e778d34cb454f95344bdf87d5
+overlay_runtime_dirty=2
