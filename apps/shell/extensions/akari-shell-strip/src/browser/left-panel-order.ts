@@ -7,3 +7,14 @@ export function computeLeftPanelOrder(currentIds: readonly string[], fixedOrder:
         ...currentIds.filter(id => !fixedSet.has(id))
     ];
 }
+
+/** Return the previously visible left tab, or keep the panel closed. */
+export function resolveLeftPanelRestore(
+    currentIds: readonly string[], lastSelectedId: string | undefined, wasCollapsed: boolean
+): string | null {
+    if (wasCollapsed) {
+        return null;
+    }
+    const candidates = currentIds.filter(id => id !== 'akari-home-opener');
+    return (lastSelectedId && candidates.includes(lastSelectedId) ? lastSelectedId : candidates[0]) ?? null;
+}

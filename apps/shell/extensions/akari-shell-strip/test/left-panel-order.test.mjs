@@ -5,9 +5,9 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
-const { computeLeftPanelOrder } = require('../lib/browser/left-panel-order.js');
+const { computeLeftPanelOrder, resolveLeftPanelRestore } = require('../lib/browser/left-panel-order.js');
 const FIXED_ORDER = [
-    'explorer-view-container', 'akari-role-buckets-widget', 'search-view-container',
+    'akari-home-opener', 'explorer-view-container', 'akari-role-buckets-widget', 'search-view-container',
     'akari-settings-opener', 'akari-menu-widget'
 ];
 
@@ -27,7 +27,7 @@ test('LEFT_PANEL_FIXED_ORDER matches the actual ALLOWLIST ID sequence', () => {
         const MENU_WIDGET_ID = ${initializer('MENU_WIDGET_ID')};
         const ALLOWLIST = ${initializer('ALLOWLIST')};
         return { fixed: ${initializer('LEFT_PANEL_FIXED_ORDER')}, allowed: ALLOWLIST.map(entry => entry.id) };
-    `)(FIXED_ORDER[0]);
+    `)(FIXED_ORDER[1]);
     assert.deepEqual(fixed, allowed);
     assert.deepEqual(fixed, FIXED_ORDER);
 });
@@ -38,7 +38,7 @@ test('restored tabs with settings first return to the fixed order without mutati
         'akari-role-buckets-widget'
     ]);
     const ordered = computeLeftPanelOrder(current, FIXED_ORDER);
-    assert.deepEqual(ordered, FIXED_ORDER.slice(1));
+    assert.deepEqual(ordered, FIXED_ORDER.filter(id => current.includes(id)));
     assert.deepEqual(computeLeftPanelOrder(ordered, FIXED_ORDER), ordered);
 });
 
@@ -63,4 +63,12 @@ test('empty current order yields no tabs', () => {
 
 test('empty fixed order preserves all existing tabs', () => {
     assert.deepEqual(computeLeftPanelOrder(['extra-2', 'extra-1'], []), ['extra-2', 'extra-1']);
+});
+
+test('home opener restores the selected tab or the collapsed state', () => {
+    const ids = ['akari-home-opener', 'akari-role-buckets-widget', 'search-view-container'];
+    assert.equal(resolveLeftPanelRestore(ids, 'search-view-container', false), 'search-view-container');
+    assert.equal(resolveLeftPanelRestore(ids, 'search-view-container', true), null);
+    assert.equal(resolveLeftPanelRestore(ids, 'missing', false), 'akari-role-buckets-widget');
+    assert.equal(resolveLeftPanelRestore(['akari-home-opener'], undefined, false), null);
 });
