@@ -2,7 +2,7 @@ import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { computeLeftPanelOrder } from './left-panel-order';
@@ -120,6 +120,8 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected readonly developerMode!: AkariDeveloperModeService;
     @inject(CommandService)
     protected readonly commands!: CommandService;
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
     @inject(AkariScopeService)
     protected readonly scopeService!: AkariScopeService;
     @inject(AkariExportAvailabilityService)
@@ -202,7 +204,16 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             if (!command && !disabled) return;
             event.preventDefault();
             event.stopPropagation();
-            if (disabled || !command) return;
+            if (disabled) {
+                const message = this.scopeService.scope === 'channel'
+                    ? id === RAIL_SKILLS_WIDGET_ID
+                        ? 'プロジェクトを開くと、スキルをパートナーに頼めます'
+                        : 'プロジェクトを開くと使えます'
+                    : '編集まで進むと使えます';
+                void this.messages.info(message);
+                return;
+            }
+            if (!command) return;
             if (id === RAIL_EXPAND_ID) {
                 this.setExpanded(document.body.getAttribute('data-akari-rail-expanded') !== 'true');
                 return;

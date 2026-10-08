@@ -12,6 +12,7 @@ import { AKARI_COMMANDS, RAIL_SKILLS_WIDGET_ID } from '../../common/rail-ids';
 import { AkariSkillCatalogService } from '../akari-skill-catalog-service';
 import { SKILLS_PANEL_TEXT, groupSkillsByCategory, skillAskOutcomeMessage, skillPromptText } from './skills-panel-model';
 import { SkillPictogram } from './skill-pictograms';
+import { readProjectTitle } from './project-title';
 
 export function skillDescriptionLead(description: string): string {
     // 先頭の引用符（SKILL.md の description が "…" で始まるもの）は見せない
@@ -27,15 +28,16 @@ const panelCss = `
 .akari-skills-panel .skill-group { margin: 0 0 10px; }
 .akari-skills-panel .skill-group h3 { margin: 0 0 5px; padding: 6px 0 2px; border-top: 1px solid var(--theia-panel-border); color: var(--theia-descriptionForeground); font-size: 11px; }
 .akari-skills-panel .skill-list { display: flex; flex-direction: column; gap: 5px; list-style: none; padding: 0; margin: 0; }
-.akari-skills-panel .skill-card { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 5px; width: 100%; min-height: 64px; padding: 5px 21px 5px 5px; border: 0; border-radius: 8px; background: var(--theia-editorWidget-background); color: var(--theia-foreground); cursor: pointer; }
+.akari-skills-panel .skill-card { box-sizing: border-box; display: flex; align-items: center; gap: 5px; width: 100%; min-height: 64px; padding: 5px; border: 0; border-radius: 8px; background: var(--theia-editorWidget-background); color: var(--theia-foreground); cursor: pointer; }
 .akari-skills-panel .skill-card:hover,.akari-skills-panel .skill-card:focus-visible { background: var(--theia-list-hoverBackground); }
 .akari-skills-panel .skill-card:focus-visible { outline: 2px solid var(--theia-focusBorder); outline-offset: 1px; }
 .akari-skills-panel .skill-art { flex: none; display: flex; align-items: center; justify-content: center; width: 64px; height: 44px; border-radius: 5px; background: var(--theia-editor-background); color: var(--theia-descriptionForeground); }
 .akari-skills-panel .skill-art svg { display: block; }
 .akari-skills-panel .skill-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; line-height: 1.3; text-align: left; }
-.akari-skills-panel .skill-name { display: block; min-width: 0; font-family: var(--theia-code-font-family); font-size: 12px; font-weight: 700; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+.akari-skills-panel .skill-name-row { display: flex; align-items: center; min-width: 0; width: 100%; }
+.akari-skills-panel .skill-name { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--theia-code-font-family); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .akari-skills-panel .skill-description { display: block; min-width: 0; font-size: 10px; color: var(--theia-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.akari-skills-panel .skill-more { position: absolute; right: 3px; top: 5px; width: 18px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--theia-descriptionForeground); font-size: 17px; line-height: 17px; }
+.akari-skills-panel .skill-more { flex: none; width: 18px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--theia-descriptionForeground); font-size: 17px; line-height: 17px; }
 .akari-skills-panel .skill-more:hover,.akari-skills-panel .skill-more:focus-visible { background: var(--theia-list-hoverBackground); color: var(--theia-foreground); }
 .akari-skills-panel button { cursor: pointer; }
 .akari-skills-panel .add-section { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--theia-panel-border); }
@@ -115,14 +117,14 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
                     }}>
                     <span className='skill-art'><SkillPictogram name={skill.name} category={group.category} /></span>
                     <span className='skill-copy'>
-                        <strong className='skill-name'>/{skill.name}</strong>
+                        <span className='skill-name-row'><strong className='skill-name' title={`/${skill.name}`}>/{skill.name}</strong>
+                            <button type='button' className='skill-more' aria-label={`${skill.name} のメニュー`} aria-haspopup='menu'
+                                aria-expanded={menu?.skill.name === skill.name} onClick={event => {
+                                    event.stopPropagation(); hideTip(); menuButtonRef.current = event.currentTarget;
+                                    setMenu(menu?.skill.name === skill.name ? undefined : { skill, rect: event.currentTarget.getBoundingClientRect() });
+                                }}>⋯</button></span>
                         <span className='skill-description'>{skillDescriptionLead(skill.description)}</span>
                     </span>
-                    <button type='button' className='skill-more' aria-label={`${skill.name} のメニュー`} aria-haspopup='menu'
-                        aria-expanded={menu?.skill.name === skill.name} onClick={event => {
-                            event.stopPropagation(); hideTip(); menuButtonRef.current = event.currentTarget;
-                            setMenu(menu?.skill.name === skill.name ? undefined : { skill, rect: event.currentTarget.getBoundingClientRect() });
-                        }}>⋯</button>
                 </div>
             </li>)}</ul>
         </section>)}
@@ -171,8 +173,10 @@ export class AkariSkillsWidget extends ReactWidget {
         this.toDispose.push(this.workspace.onWorkspaceChanged(() => void this.watchRoot()));
         this.toDispose.push(this.files.onDidFilesChange(event => {
             const skillsUri = this.skillsUri;
-            if (skillsUri && event.changes.some(change =>
-                skillsUri.isEqualOrParent(change.resource) || change.resource.isEqualOrParent(skillsUri))) {
+            const intakeUri = this.workspace.tryGetRoots()[0]?.resource.resolve('.akari/intake.json');
+            if (event.changes.some(change =>
+                (skillsUri && (skillsUri.isEqualOrParent(change.resource) || change.resource.isEqualOrParent(skillsUri)))
+                || intakeUri?.isEqual(change.resource))) {
                 void this.reload();
             }
         }));
@@ -195,15 +199,20 @@ export class AkariSkillsWidget extends ReactWidget {
             if (version === this.watchVersion && !this.isDisposed) this.watcher.push(watcher);
             else watcher.dispose();
         } catch { /* スキルのフォルダがまだない場合も一覧は表示する。 */ }
+        try {
+            this.watcher.push(this.files.watch(root.resolve('.akari'), { recursive: false, excludes: [] }));
+        } catch { /* intake がまだない場合はフォルダ名を使う。 */ }
     }
 
     protected async reload(): Promise<void> {
         const version = ++this.loadVersion;
         const root = (await this.workspace.roots)[0]?.resource;
-        const skills = await this.catalog.loadSkills(root);
+        const [skills, projectName] = await Promise.all([
+            this.catalog.loadSkills(root), root ? readProjectTitle(this.files, root) : Promise.resolve(undefined)
+        ]);
         if (version !== this.loadVersion || this.isDisposed) return;
         this.skills = skills;
-        this.projectName = root?.path.base;
+        this.projectName = projectName;
         this.update();
     }
 

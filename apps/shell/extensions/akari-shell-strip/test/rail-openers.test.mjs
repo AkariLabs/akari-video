@@ -89,6 +89,18 @@ test('展開中と閉じる途中は即時ツールチップを出さない', ()
     assert.equal(shouldShowLeftRailTooltip('true', false), false);
     assert.equal(shouldShowLeftRailTooltip('closing', false), false);
     assert.equal(shouldShowLeftRailTooltip(null, true), false);
+    assert.equal(shouldShowLeftRailTooltip(null, false, 1300, 1200), false);
+    assert.equal(shouldShowLeftRailTooltip(null, false, 1300, 1300), true);
+    const source = readFileSync(new URL('../src/browser/left-rail-tooltip.ts', import.meta.url), 'utf8');
+    assert.match(source, /wasClosing && !closing\) this\.suppressUntil = Date\.now\(\) \+ 300/);
+});
+
+test('未オープンの無効なレールを押すと案内を一度出す', () => {
+    const source = readFileSync(new URL('../src/browser/akari-activity-bar-curation.ts', import.meta.url), 'utf8');
+    assert.match(source, /if \(disabled\) \{[\s\S]*?this\.messages\.info\(message\);[\s\S]*?return;/);
+    assert.match(source, /id === RAIL_SKILLS_WIDGET_ID[\s\S]*?'プロジェクトを開くと、スキルをパートナーに頼めます'/);
+    assert.match(source, /: 'プロジェクトを開くと使えます'/);
+    assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\);\s*if \(disabled\)/);
 });
 
 test('スキル frontmatter は閉じたヘッダーだけ読む', () => {

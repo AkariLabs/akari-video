@@ -86,6 +86,9 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         this.installRailPointer();
         this.installToolbarDrag();
         this.installPaneFocusTracking();
+        new MutationObserver(() => this.decorateModeName())
+            .observe(this.bottomMenu.node, { childList: true, subtree: true });
+        this.decorateModeName();
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(() => this.scheduleSeparator()).observe(this.tabBar.node);
         }
@@ -558,6 +561,19 @@ export class AkariRightPanelHandler extends SidePanelHandler {
                 this.layoutSeparator();
             });
         });
+    }
+
+    protected decorateModeName(): void {
+        const modeMenu = this.bottomMenu.node.querySelector<HTMLElement>('.akari-mode-switch-icon')
+            ?.closest<HTMLElement>('.theia-sidebar-menu-item');
+        if (modeMenu && !modeMenu.querySelector('.akari-mode-rail-name')) {
+            const name = document.createElement('span');
+            name.className = 'akari-mode-rail-name';
+            name.setAttribute('data-akari-rail-name', 'モード');
+            name.textContent = 'モード';
+            name.style.cssText = 'display:block;text-align:center;font-size:8px;line-height:12px;white-space:nowrap';
+            modeMenu.appendChild(name);
+        }
     }
 
     protected layoutSeparator(): void {
