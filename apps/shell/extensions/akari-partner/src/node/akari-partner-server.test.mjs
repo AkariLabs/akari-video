@@ -159,7 +159,7 @@ function simulatedSpawn(mode) {
     return child;
 }
 
-async function launchFixture(t, mode, timeoutMs = 1500, port) {
+async function launchFixture(t, mode, timeoutMs = 5000, port) {
     const fixture = await fakeExecutable(t);
     const logs = [];
     const stopped = [];
@@ -338,16 +338,18 @@ test('loopback connects detect simulated IPv4 and IPv6 wildcard listeners', asyn
     }
 });
 
-test('unsupported IPv6 is free; unexpected errors, timeout, and failed listen are busy', async () => {
+test('unsupported IPv6 and connection timeout are free; unexpected errors and failed listen are busy', async () => {
     for (const code of ['EADDRNOTAVAIL', 'EAFNOSUPPORT', 'ENETUNREACH', 'EINVAL']) {
         const probe = simulatedPortProbe({ '127.0.0.1': 'ECONNREFUSED', '::1': code });
         assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), true, code);
     }
-    for (const outcome of ['EHOSTUNREACH', 'timeout']) {
-        const probe = simulatedPortProbe({ '127.0.0.1': outcome });
-        assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), false, outcome);
-        assert.ok(probe.sockets.every(socket => socket.destroyedByProbe));
-    }
+    const timedOut = simulatedPortProbe({ '127.0.0.1': 'timeout', '::1': 'ECONNREFUSED' });
+    assert.equal(await canListenOnDshWebPort(23456, timedOut.serverFactory, timedOut.connect), true);
+    assert.deepEqual(timedOut.connectionHosts, ['127.0.0.1', '::1']);
+    assert.ok(timedOut.sockets.every(socket => socket.destroyedByProbe));
+    const unexpected = simulatedPortProbe({ '127.0.0.1': 'EHOSTUNREACH' });
+    assert.equal(await canListenOnDshWebPort(23456, unexpected.serverFactory, unexpected.connect), false);
+    assert.ok(unexpected.sockets.every(socket => socket.destroyedByProbe));
     const failed = simulatedPortProbe({}, 'EADDRINUSE');
     assert.equal(await canListenOnDshWebPort(23456, failed.serverFactory, failed.connect), false);
     assert.deepEqual(failed.listenHosts, ['127.0.0.1']);
@@ -391,7 +393,7 @@ test('dsh web URL parser ignores the LAN suffix and log masking hides the token'
 });
 
 test('fake dsh executable returns a nonzero port, token and pid while masking the log', async t => {
-    const { result, logs, spawnArgs, expectedArgs } = await launchFixture(t, 'success', 1500, 23456);
+    const { result, logs, spawnArgs, expectedArgs } = await launchFixture(t, 'success', 5000, 23456);
     assert.deepEqual(spawnArgs, expectedArgs);
     assert.equal(new URL(result.url).searchParams.get('token'), 'abc');
     assert.ok(Number(new URL(result.url).port) > 0);

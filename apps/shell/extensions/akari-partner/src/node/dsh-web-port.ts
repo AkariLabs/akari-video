@@ -43,7 +43,7 @@ function loopbackConnectionIsFree(port: number, host: string, connect: typeof cr
         socket.once('error', (error: NodeJS.ErrnoException) => {
             finish(['ECONNREFUSED', 'EADDRNOTAVAIL', 'EAFNOSUPPORT', 'ENETUNREACH', 'EINVAL'].includes(error.code ?? ''));
         });
-        socket.setTimeout(300, () => finish(false));
+        socket.setTimeout(300, () => finish(true));
     });
 }
 
