@@ -3,7 +3,7 @@ const ELEMENT_STYLE_KEYS = new Set(['translate', 'rotate', 'width', 'height', 'b
     'min-width', 'min-height', 'max-width', 'max-height', 'flex', 'display']);
 const NUMBER_PX = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)px$/u;
 const NUMBER_DEG = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)deg$/u;
-const TRANSLATE = /^\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?px\s+[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?px\s*$/iu;
+const TRANSLATE = /^\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)px\s+[+-]?(?:\d+(?:\.\d+)?|\.\d+)px\s*$/u;
 
 export function assertPreviewElementStyleAllowed(element: unknown): void {
     const style = (element as { style?: unknown } | null)?.style;
