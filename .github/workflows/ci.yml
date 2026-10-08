@@ -176,42 +176,67 @@ jobs:
           test -x "$shell_bin"
           echo "Installed chrome-headless-shell version=$shell_version path=$shell_bin"
           echo "AKARI_TEST_CHROME_PATH=$shell_bin" >> "$GITHUB_ENV"
-      - name: unit tests (lane media)
-        run: xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
-        env:
-          CHROME_PATH: /usr/bin/google-chrome
-          ELECTRON_DISABLE_SANDBOX: '1'
-          LIBGL_ALWAYS_SOFTWARE: '1'
-      # Vendor binaries are fetched only after the main lane, so its result keeps the apt ffmpeg.
-      # media-bin resolves PATH before vendor; this step puts vendor first only for the focused re-run.
-      - name: Re-run render-cut media tests with the bundled ffmpeg
-        if: always()
+      # 製品が配布するものと同じ同梱 ffmpeg で測る。
+      # apt 6.1 は RGB→YUV を BT.601 の係数で変換し、BT.709 のタグだけを付けていたため、
+      # OSR の色の 4 件が失敗していた。
+      # apt の ffmpeg は取得・確認失敗時の予備と、PATH 上の ffmpeg を前提にする media-bin のテストのために残す。
+      - name: Prepare bundled ffmpeg for media lane
         continue-on-error: true
-        timeout-minutes: 12
+        timeout-minutes: 5
         shell: bash
-        env:
-          CHROME_PATH: /usr/bin/google-chrome
-          ELECTRON_DISABLE_SANDBOX: '1'
-          LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
           set +e
-          node packages/media-bin/scripts/fetch-binaries.mjs
-          fetch_code=$?
-          if [ "$fetch_code" -ne 0 ]; then
-            echo "MEDIA_VARIANT name=vendor-ffmpeg fetch-failed exit=$fetch_code"
+          timeout -k 5s 4m node packages/media-bin/scripts/fetch-binaries.mjs
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg fetch failed (exit=$code); using apt ffmpeg"
             exit 0
           fi
           vendor_binary="$(node --input-type=module -e "import { vendorBinaryPath } from './packages/media-bin/src/binary-manifest.mjs'; process.stdout.write(vendorBinaryPath('ffmpeg'))")"
-          vendor_dir="$(dirname "$vendor_binary")"
-          echo "MEDIA_VARIANT ffmpeg apt: $(ffmpeg -version | head -1)"
-          echo "MEDIA_VARIANT ffmpeg vendor: $("$vendor_binary" -version | head -1)"
-          cd packages/render-cut
-          PATH="$vendor_dir:$PATH" timeout -k 5s 10m xvfb-run -a node --test test/render-media-references.test.mjs test/audio-bgm-fade.test.mjs test/audio-sfx-fade.test.mjs test/audio-sfx-in-out.test.mjs > "$RUNNER_TEMP/media-variant-vendor.log" 2>&1
           code=$?
-          echo "MEDIA_VARIANT name=vendor-ffmpeg exit=$code"
-          grep -E '^ℹ (tests|pass|fail|skipped) ' "$RUNNER_TEMP/media-variant-vendor.log" || true
-          grep '^✖ ' "$RUNNER_TEMP/media-variant-vendor.log" | sort -u | head -40 || true
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg path lookup failed (exit=$code); using apt ffmpeg"
+            exit 0
+          fi
+          vendor_dir="$(dirname "$vendor_binary")"
+          for binary in ffmpeg ffprobe; do
+            if [ ! -x "$vendor_dir/$binary" ]; then
+              echo "::warning::Bundled $binary is not executable (exit=1); using apt ffmpeg"
+              exit 0
+            fi
+            version="$("$vendor_dir/$binary" -version)"
+            code=$?
+            if [ "$code" -ne 0 ]; then
+              echo "::warning::Bundled $binary version check failed (exit=$code); using apt ffmpeg"
+              exit 0
+            fi
+            if [ "$binary" = ffmpeg ]; then
+              vendor_version="${version%%$'\n'*}"
+            fi
+          done
+          printf '%s\n' "$vendor_dir" >> "$GITHUB_PATH"
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::warning::Bundled ffmpeg PATH update failed (exit=$code); using apt ffmpeg"
+            exit 0
+          fi
+          echo "Using bundled ffmpeg dir=$vendor_dir version=$vendor_version"
           exit 0
+      - name: unit tests (lane media)
+        run: |
+          ffmpeg_path="$(command -v ffmpeg || true)"
+          ffprobe_path="$(command -v ffprobe || true)"
+          ffmpeg_version="$(ffmpeg -version 2>/dev/null)" || ffmpeg_version=missing
+          ffprobe_version="$(ffprobe -version 2>/dev/null)" || ffprobe_version=missing
+          ffmpeg_version="${ffmpeg_version%%$'\n'*}"
+          ffprobe_version="${ffprobe_version%%$'\n'*}"
+          printf 'MEDIA_FFMPEG ffmpeg=%s version=%s\n' "${ffmpeg_path:-missing}" "${ffmpeg_version:-missing}"
+          printf 'MEDIA_FFMPEG ffprobe=%s version=%s\n' "${ffprobe_path:-missing}" "${ffprobe_version:-missing}"
+          xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+          ELECTRON_DISABLE_SANDBOX: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
 
   l0:
     name: L0 (build:ext + lint + shell unit tests)
