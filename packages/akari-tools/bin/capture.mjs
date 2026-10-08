@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, statSync } from "node:fs";
 import { dirname, isAbsolute, parse, resolve } from "node:path";
 
+import { hasProjectAkariDirectory } from "../../asset-resolver/src/project-root.mjs";
 import { isMainModule } from "../src/common/main-module.mjs";
 import { CAPTURE_USAGE } from "../src/capture/arguments.mjs";
 import { runCapture } from "../src/capture/run.mjs";
@@ -41,8 +41,7 @@ export function normalizeCaptureArgs(argv, cwd = process.cwd()) {
 
 function nearestProjectRoot(start) {
   for (let current = resolve(start); ; current = dirname(current)) {
-    const marker = resolve(current, '.akari');
-    if (existsSync(marker) && statSync(marker).isDirectory()) return current;
+    if (hasProjectAkariDirectory(current)) return current;
     if (current === parse(current).root) return null;
   }
 }

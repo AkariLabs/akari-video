@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 
 import path from "node:path";
-import { realpathSync, statSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { resolveFfmpeg } from "../src/index.mjs";
 import { measureAudioLevels } from "../src/audio-measure.mjs";
+import { hasProjectAkariDirectory } from "../../asset-resolver/src/project-root.mjs";
 
 function defaultCacheDir(filePath) {
   const materialDirectory = path.dirname(path.resolve(filePath));
   let directory = materialDirectory;
   while (true) {
-    try {
-      if (statSync(path.join(directory, ".akari")).isDirectory()) {
-        return path.join(directory, ".akari", "cache", "audio-measure");
-      }
-    } catch {
-      // Keep walking until the filesystem root; a missing .akari is expected.
+    if (hasProjectAkariDirectory(directory)) {
+      return path.join(directory, ".akari", "cache", "audio-measure");
     }
     const parent = path.dirname(directory);
     if (parent === directory) break;

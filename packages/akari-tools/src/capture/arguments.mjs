@@ -1,7 +1,7 @@
-import { existsSync } from "node:fs";
 import { dirname, parse, resolve } from "node:path";
 
 import { CONTACT_SHEET_MAX_FRAMES } from "../../../render-cut/src/contact-sheet.mjs";
+import { hasProjectAkariDirectory } from "../../../asset-resolver/src/project-root.mjs";
 
 export const CAPTURE_USAGE = `Usage: akari capture [-p <project>] (-t <time...> | --auto)
   [--engine auto|gpu|osr] [--separate] [--full]
@@ -93,7 +93,7 @@ function findProjectRoot(cwd) {
   let current = resolve(cwd);
   const root = parse(current).root;
   while (true) {
-    if (existsSync(resolve(current, ".akari"))) return current;
+    if (hasProjectAkariDirectory(current)) return current;
     if (current === root) return null;
     current = dirname(current);
   }

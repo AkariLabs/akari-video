@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -28,6 +28,7 @@ import { collectInternalAudioTrackRefs, computeCutTrackSegments, validateCutTrac
 import { validateOverlayBackgroundRole, validateOverlays } from "./lint/overlays.mjs";
 import { validateAudioMaster, validateEditStructure, validateEditV2, validateOutputEncoding, validateV2ItemAnchors, validateV2ObjectTreeFiles } from "./lint/edit-v2.mjs";
 import { collectAudioOnlySourceIds, projectAudioForLint, validateCaptionTrackDeclaration, validateGeometryFitCompat, validateTransitionAdjacency, validateTransitionLayerEvacuations } from "./lint/v2-projection.mjs";
+import { hasProjectAkariDirectory } from "../../asset-resolver/src/project-root.mjs";
 export { ExecutionError } from "./lint/shared.mjs";
 export { findCropScaleProxyRatioFindings } from "./lint/media-checks.mjs";
 export { INTAKE_ROOT_FIELDS } from "./lint/intake.mjs";
@@ -43,7 +44,7 @@ const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--caption-silence-warn-percent N]
        [--declarations PATH] [--ffprobe PATH]
 
-Relative paths in edit.json resolve from the nearest ancestor containing .akari/ (or the edit file directory).
+Relative paths in edit.json resolve from the nearest project .akari/ ancestor (excluding AKARI_HOME), or the edit file directory.
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
 export function loadTextstylePresetIds(repoRoot) {
@@ -586,7 +587,7 @@ async function resolveInput(input, options = {}) {
   }
   let projectRoot = dirname(editPath);
   for (let current = projectRoot; ; current = dirname(current)) {
-    if (existsSync(join(current, ".akari")) && statSync(join(current, ".akari")).isDirectory()) {
+    if (hasProjectAkariDirectory(current, options.env ?? process.env)) {
       projectRoot = current;
       break;
     }

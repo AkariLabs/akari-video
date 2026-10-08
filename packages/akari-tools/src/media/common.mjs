@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../../media-bin/src/index.mjs";
 import { resolveProjectAssetPathSync } from "../../../asset-resolver/src/shell-reference-sync.mjs";
+import { hasProjectAkariDirectory } from "../../../asset-resolver/src/project-root.mjs";
 
 export const MEDIA_VERSION = "0.1.0";
 
@@ -38,7 +39,7 @@ export function findProjectRoot(startPath) {
     // 存在しない target は呼び出し側で診断する。cwd 由来の探索は続ける。
   }
   while (true) {
-    if (existsSync(path.join(current, ".akari"))) return current;
+    if (hasProjectAkariDirectory(current)) return current;
     const parent = path.dirname(current);
     if (parent === current) return null;
     current = parent;

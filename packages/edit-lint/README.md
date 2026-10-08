@@ -2,6 +2,7 @@
 
 `edit-lint` validates an AKARI Video `edit.json` project and writes the canonical result to
 `.akari/lint.json` plus a human-readable report under `.akari/reports/`.
+The nearest ancestor with a project `.akari/` is used; the application-wide `AKARI_HOME` is excluded.
 
 ```sh
 node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json> [--json]

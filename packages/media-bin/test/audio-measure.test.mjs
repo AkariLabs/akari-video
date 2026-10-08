@@ -121,3 +121,29 @@ test("CLI の既定 cacheDir は素材親から見つけた projectRoot の .aka
   assert.equal(fs.existsSync(path.join(directory, ".akari", "cache", "audio-measure", `${measured.source.sha1_key}.json`)), true);
   assert.equal(fs.existsSync(path.join(assets, ".akari")), false);
 });
+
+test("CLI cache skips AKARI_HOME and uses the material directory", (t) => {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR, "audio-home-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const home = path.join(root, "home");
+  const materialDirectory = path.join(home, "material");
+  fs.mkdirSync(path.join(home, ".akari"), { recursive: true });
+  fs.mkdirSync(materialDirectory);
+  const filePath = createTone(materialDirectory, 1.1, t);
+  if (!filePath) return;
+  const previous = process.env.AKARI_HOME;
+  process.env.AKARI_HOME = path.join(home, ".akari");
+  try {
+    const output = [];
+    const errors = [];
+    assert.equal(runAudioMeasureCli([filePath], {
+      stdout: line => output.push(line), stderr: line => errors.push(line),
+    }), 0, errors.join("\n"));
+    const key = JSON.parse(output[0]).source.sha1_key;
+    assert.equal(fs.existsSync(path.join(materialDirectory, ".akari", "cache", "audio-measure", `${key}.json`)), true);
+    assert.equal(fs.existsSync(path.join(home, ".akari", "cache")), false);
+  } finally {
+    if (previous === undefined) delete process.env.AKARI_HOME;
+    else process.env.AKARI_HOME = previous;
+  }
+});
