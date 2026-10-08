@@ -6,31 +6,21 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('home command is registered and the opener has a dedicated activity bar entry', () => {
+test('home command remains available without a home rail tab', () => {
     const command = read('../../akari-surfaces/src/browser/akari-home-command-contribution.ts');
     assert.match(command, /OPEN:\s*\{\s*id:\s*'akari\.home\.open',\s*label:\s*'ホームを開く'/);
     assert.match(command, /registerCommand\(AkariHomeCommands\.OPEN,\s*\{\s*execute:\s*async \(\) => \{ await this\.revealHome\(\); \}/);
-    const opener = read('../src/browser/akari-home-opener-contribution.ts');
-    assert.match(opener, /static readonly ID = 'akari-home-opener'/);
-    assert.match(opener, /this\.title\.iconClass = 'codicon codicon-home'/);
-    assert.match(opener, /this\.title\.caption = 'ホーム'/);
-    assert.match(opener, /this\.title\.closable = false/);
-    assert.match(opener, /area: 'left', rank: 50/);
     const module = read('../src/browser/akari-shell-strip-frontend-module.ts');
-    assert.match(module, /bind\(FrontendApplicationContribution\)\.toService\(AkariHomeOpenerContribution\)/);
+    assert.doesNotMatch(module, /AkariHomeOpenerContribution/);
 });
 
-test('home pointerdown is captured before Lumino selection; fallback restores the prior state', () => {
+test('擬似タブの pointerdown は Lumino の選択より先に処理する', () => {
     const curation = read('../src/browser/akari-activity-bar-curation.ts');
-    const opener = read('../src/browser/akari-home-opener-contribution.ts');
     assert.match(curation, /tabBar\.contentNode\.addEventListener\('pointerdown',[\s\S]*?\}, true\)/);
     assert.match(curation, /event\.button !== 0/);
-    assert.match(curation, /tabBar\.titles\[index\]\?\.owner\.id !== 'akari-home-opener'/);
+    assert.match(curation, /railOpenerCommand\(id\)/);
     assert.match(curation, /event\.preventDefault\(\);\s*event\.stopPropagation\(\)/);
-    assert.match(curation, /executeCommand\('akari\.home\.open'\)/);
-    assert.match(opener, /resolveLeftPanelRestore\(/);
-    assert.match(opener, /tabBar\.currentTitle = id \?/);
-    assert.doesNotMatch(opener, /collapsePanel\(/);
+    assert.match(curation, /akari-rail-disabled/);
 });
 
 test('left rail suppresses Theia hover and uses the material caption', () => {
