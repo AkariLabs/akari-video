@@ -39,6 +39,8 @@ export const ANNOTATIONS_WIDGET_CSS = `
         --akari-tl-waveform-stroke: rgba(255,255,255,.95);
         --akari-tl-generating: rgba(22, 25, 30, .96);
         --akari-tl-generating-text: #f2f5f7;
+        --akari-tl-generating-overhang-border: rgba(210, 220, 225, .55);
+        --akari-tl-generating-overhang-text: rgba(235, 240, 242, .75);
         --akari-tl-fetch-overlay: rgba(0,0,0,.45);
         --akari-tl-fetch-text: #fff;
         --akari-tl-chip-face: rgba(0, 0, 0, .72);
@@ -51,6 +53,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         --akari-tl-frame-audio-text: #d8ffe9;
         --akari-tl-new-track-label-face: rgba(20, 20, 20, .85);
         --akari-tl-new-track-label-text: #fff;
+        --akari-tl-new-track-border: rgba(203, 200, 255, .8);
         --akari-tl-planned-badge: #badbff;
         --akari-tl-generating-badge: #d4ebff;
         --akari-tl-generating-spinner: rgba(212,235,255,.4);
@@ -59,11 +62,11 @@ export const ANNOTATIONS_WIDGET_CSS = `
     body.theia-light [data-akari-visual-thumbnail-hover="true"] {
         --akari-tl-lane: var(--akari-card, #f4f4f5);
         --akari-tl-ruler: var(--akari-elevated, #fafafa);
-        --akari-tl-border: var(--akari-line, #d4d4d8);
+        --akari-tl-border: rgba(0, 0, 0, .22);
         --akari-tl-tick: var(--akari-muted, #52525b);
         --akari-tl-playhead: var(--akari-ink, #18181b);
         --akari-tl-clip: var(--akari-elevated, #fafafa);
-        --akari-tl-clip-border: var(--akari-line, #d4d4d8);
+        --akari-tl-clip-border: rgba(0, 0, 0, .22);
         --akari-tl-clip-edge: rgba(24, 24, 27, .55);
         --akari-tl-clip-edge-dark: var(--akari-line, #d4d4d8);
         --akari-tl-clip-text: var(--akari-ink, #18181b);
@@ -90,6 +93,8 @@ export const ANNOTATIONS_WIDGET_CSS = `
         --akari-tl-waveform-stroke: rgba(24,24,27,.95);
         --akari-tl-generating: rgba(250, 250, 250, .96);
         --akari-tl-generating-text: var(--akari-ink, #18181b);
+        --akari-tl-generating-overhang-border: rgba(23, 23, 23, .45);
+        --akari-tl-generating-overhang-text: rgba(23, 23, 23, .75);
         --akari-tl-fetch-overlay: rgba(255,255,255,.72);
         --akari-tl-fetch-text: var(--akari-ink, #18181b);
         --akari-tl-chip-face: rgba(255, 255, 255, .84);
@@ -102,6 +107,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         --akari-tl-frame-audio-text: #065f46;
         --akari-tl-new-track-label-face: rgba(255, 255, 255, .88);
         --akari-tl-new-track-label-text: var(--akari-ink, #18181b);
+        --akari-tl-new-track-border: rgba(124, 58, 237, .6);
         --akari-tl-planned-badge: #1d4ed8;
         --akari-tl-generating-badge: #1e40af;
         --akari-tl-generating-spinner: rgba(30,64,175,.4);
@@ -710,7 +716,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-frame-new-track {
         position: absolute; box-sizing: border-box; pointer-events: none; z-index: 49;
-        border: 1px dashed rgba(203, 200, 255, .8); background: rgba(151, 104, 235, .14);
+        border: 1px dashed var(--akari-tl-new-track-border); background: rgba(151, 104, 235, .14);
     }
     .akari-annotations-frame-new-track.akari-annotations-frame-new-track-audio {
         border-color: #6bd6a0; background: rgba(66, 177, 120, .14);

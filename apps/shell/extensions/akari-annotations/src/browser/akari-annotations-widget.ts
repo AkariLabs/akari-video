@@ -580,6 +580,13 @@ const LAYOUT_PERCENT_MIN = -60;
 const LAYOUT_PERCENT_MAX = 160;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = 'var(--akari-tl-playhead)';
+interface TimelineWaveformColors {
+    readonly base: string;
+    readonly red: string;
+    readonly yellow: string;
+    readonly fill: string;
+    readonly stroke: string;
+}
 const MICRO_CLIP_WIDTH_PX = 28;
 /** 細いチップでもポインタで掴める実効当たり幅の目標下限（px）。 */
 const MIN_CLIP_HIT_WIDTH_PX = 24;
@@ -1467,6 +1474,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly waveformT2Coverages = new Map<string, AudioWaveformT2Coverage>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
     protected audioWaveformPaletteKey = '';
+    protected waveformThemeColors: TimelineWaveformColors | undefined;
     protected readonly audioWaveformPeakIds = new WeakMap<readonly number[], number>();
     protected nextAudioWaveformPeakId = 1;
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
@@ -1568,10 +1576,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // Observe both so existing canvas pixels are repainted without reopening the timeline.
         let timelineThemeSignature = '';
         const timelineThemeObserver = new MutationObserver(() => {
-            const baseColor = getComputedStyle(this.node).getPropertyValue('--akari-tl-waveform');
-            const signature = `${document.body.classList.contains('theia-light')}:${baseColor}`;
+            if (!this.node.isConnected) return;
+            const colors = this.readWaveformThemeColors();
+            const signature = JSON.stringify([
+                document.body.classList.contains('theia-light'),
+                colors.base, colors.red, colors.yellow, colors.fill, colors.stroke
+            ]);
             if (signature === timelineThemeSignature) return;
             timelineThemeSignature = signature;
+            this.waveformThemeColors = colors;
+            this.audioWaveformMasterCache.clear();
+            this.audioWaveformPaletteKey = '';
             this.scheduleStripRender();
         });
         timelineThemeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -9969,8 +9984,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute', left: `${this.layoutPercent(segment.tlEnd)}%`,
             top: element.style.top, height: element.style.height,
             width: `${widthPx}px`,
-            border: '1px dashed rgba(210, 220, 225, .55)', borderRadius: '4px', boxSizing: 'border-box',
-            background: 'transparent', color: 'rgba(235, 240, 242, .75)',
+            border: '1px dashed var(--akari-tl-generating-overhang-border)', borderRadius: '4px', boxSizing: 'border-box',
+            background: 'transparent', color: 'var(--akari-tl-generating-overhang-text)',
             fontSize: '10px', lineHeight: '14px', padding: labelLayout === 'plain' ? '28px 4px 2px' : '0', whiteSpace: 'nowrap',
             overflow: 'hidden', pointerEvents: 'none', zIndex: '3'
         });
@@ -16414,6 +16429,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
     }
 
+    protected readWaveformThemeColors(): TimelineWaveformColors {
+        const waveformStyle = getComputedStyle(this.node);
+        return {
+            base: waveformStyle.getPropertyValue('--akari-tl-waveform').trim() || '#fff',
+            red: waveformStyle.getPropertyValue('--akari-tl-waveform-red').trim() || '#ef4444',
+            yellow: waveformStyle.getPropertyValue('--akari-tl-waveform-yellow').trim() || '#facc15',
+            fill: waveformStyle.getPropertyValue('--akari-tl-waveform-fill').trim() || 'rgba(255,255,255,.7)',
+            stroke: waveformStyle.getPropertyValue('--akari-tl-waveform-stroke').trim() || 'rgba(255,255,255,.95)'
+        };
+    }
+
+    protected currentWaveformThemeColors(): TimelineWaveformColors {
+        if (this.waveformThemeColors) return this.waveformThemeColors;
+        // A detached node has no reliable theme values. Resolve again on its first attached paint.
+        const colors = this.readWaveformThemeColors();
+        if (this.node.isConnected) this.waveformThemeColors = colors;
+        return colors;
+    }
+
     protected updateAudioWaveformCanvas(
         element: HTMLDivElement,
         fullPeaks: readonly number[],
@@ -16426,10 +16460,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const deviceHeightPx = Math.round(band.heightPx * dpr);
-        const waveformStyle = getComputedStyle(this.node);
-        const baseColor = waveformStyle.getPropertyValue('--akari-tl-waveform').trim() || '#fff';
-        const redColor = waveformStyle.getPropertyValue('--akari-tl-waveform-red').trim() || '#ef4444';
-        const yellowColor = waveformStyle.getPropertyValue('--akari-tl-waveform-yellow').trim() || '#facc15';
+        const { base: baseColor, red: redColor, yellow: yellowColor } = this.currentWaveformThemeColors();
         const paletteKey = `${baseColor}:${redColor}:${yellowColor}`;
         if (this.audioWaveformPaletteKey !== paletteKey) {
             this.audioWaveformMasterCache.clear();
@@ -16673,9 +16704,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const band = waveformBandLayout(clipHeightPx, CLIP_HEADER_HEIGHT);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const bucketCount = peaks.length;
-        const waveformStyle = getComputedStyle(this.node);
-        const fillColor = waveformStyle.getPropertyValue('--akari-tl-waveform-fill').trim() || 'rgba(255,255,255,.7)';
-        const strokeColor = waveformStyle.getPropertyValue('--akari-tl-waveform-stroke').trim() || 'rgba(255,255,255,.95)';
+        const { fill: fillColor, stroke: strokeColor } = this.currentWaveformThemeColors();
         const paintKey = JSON.stringify([
             this.audioWaveformPeakIdentity(peaks), bucketCount, visibleWidthPx,
             geometry.clipLocalOffsetPx, geometry.fullClipWidthPx, band.heightPx, band.topPx, dpr,
