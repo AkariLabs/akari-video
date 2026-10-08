@@ -62,6 +62,8 @@ through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
 in the right panel without opening a browser. Its workspace is the
 currently open project folder. The shell automatically detects an
 OpenCode Go login or a DeepSeek API key and chooses the connection.
+The DeepSeek work screen follows the app's Dark, Light, or System appearance setting when it starts.
+Its font size resets to the DeepSeek default on each new launch; an already running screen keeps its launch appearance until restarted.
 The catalog is data-driven
 (`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
 not a promise. Whichever partner you connect, everything converges on the same file

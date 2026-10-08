@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { decideAutoStart } from '../lib/common/partner-autostart.js';
 import { rememberPartnerClose } from '../lib/common/partner-last-session.js';
+import { resolvePartnerWebTheme } from '../lib/common/partner-web-theme.js';
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-partner-widget.tsx', import.meta.url), 'utf8'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -27,6 +28,65 @@ function autoStartMethod(catalog) {
         PARTNER_CATALOG: catalog, PartnerWebWidget: { ID: 'web' }
     });
 }
+
+test('web launch follows the displayed theme after preferences are ready', async () => {
+    const beginWebOnce = method('beginWebOnce', {
+        APPEARANCE_THEME_PREFERENCE: 'akari.appearance.themeMode',
+        resolvePartnerWebTheme,
+        PartnerWebWidget: { ID: 'web' },
+        window: { electronAkariPartner: { web: { ownerId: async () => 'window-a' } } }
+    });
+    const entry = { id: 'deepseek-web', agent: 'deepseek', name: 'DeepSeek Harness' };
+    for (const [configured, activeTheme, expected, themeThrows] of [
+        ['dark', 'dark', 'dark'], ['light', 'dark', 'dark'], ['dark', 'light', 'light'],
+        ['system', 'light', 'system'], ['light', 'hc', 'dark'], ['invalid', 'light', 'light'],
+        [undefined, 'dark', 'dark'], ['light', undefined, 'dark', true]
+    ]) {
+        const ready = deferred();
+        const reads = [];
+        const launches = [];
+        let themeReads = 0;
+        const webWidget = { id: 'web', isAttached: true, open: async () => {} };
+        const widget = {
+            shell: { activateWidget: () => {} },
+            workspaceService: { roots: [{ resource: { toString: () => 'file:///project' } }] },
+            themeService: { getCurrentTheme: () => {
+                themeReads++;
+                if (themeThrows) throw new Error('theme unavailable');
+                return { type: activeTheme };
+            } },
+            preferences: { ready: ready.promise, get: (key, fallback) => {
+                reads.push([key, fallback]);
+                return configured ?? fallback;
+            } },
+            partnerServer: {
+                startWebPartner: async (...args) => {
+                    launches.push(args);
+                    return { pid: 41000, providerNote: 'fixture' };
+                },
+                recordConnection: async () => {}
+            },
+            ensureCliProvisioned: async () => {},
+            setProgress: () => {},
+            widgetManager: { getOrCreateWidget: async () => webWidget },
+            observeWebClose: () => {},
+            showPartnerWidget: async () => {},
+            setComplete: () => {},
+            rememberPartnerStart: async () => {},
+            markCloudConnectionOk: async () => {},
+            setFailure: error => assert.fail(`unexpected failure: ${error}`)
+        };
+        const pending = beginWebOnce.call(widget, entry, { executablePath: 'dsh' });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.deepEqual(reads, []);
+        assert.deepEqual(launches, []);
+        ready.resolve();
+        await pending;
+        assert.deepEqual(reads, [['akari.appearance.themeMode', 'dark']]);
+        assert.equal(themeReads, configured === 'system' ? 0 : 1);
+        assert.deepEqual(launches, [['deepseek', 'file:///project', 'dsh', 'window-a', expected]]);
+    }
+});
 
 test('working auto-start blocks the same manual begin and later reuses one CLI terminal', async () => {
     const entry = { id: 'cli', agent: 'sample', form: 'cli', name: 'Sample' };

@@ -139,7 +139,7 @@ export interface AkariPartnerServer {
     ensureCli(): Promise<EnsureCliResult>;
     prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
     startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string,
-        ownerId: string): Promise<PartnerWebLaunch>;
+        ownerId: string, theme?: 'dark' | 'light' | 'system'): Promise<PartnerWebLaunch>;
     stopWebPartner(pid: number, ownerId: string): Promise<void>;
     reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void>;
     isWebPartnerRunning(pid: number): Promise<boolean>;

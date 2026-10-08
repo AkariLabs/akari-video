@@ -2,6 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
+import { ThemeService } from '@theia/core/lib/browser/theming';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
@@ -37,6 +38,7 @@ import { AkariPartnerInstallDialog } from './akari-partner-install-dialog';
 import { PartnerWebWidget } from './akari-partner-web-widget';
 import { shouldDisposeWebWidget } from '../common/partner-web-cleanup';
 import { decideAutoStart } from '../common/partner-autostart';
+import { resolvePartnerWebTheme } from '../common/partner-web-theme';
 import { PARTNER_LAST_KEY, markPartnerShuttingDown, rememberPartnerClose } from '../common/partner-last-session';
 import type { PartnerAgentId } from '../common/akari-partner-protocol';
 
@@ -59,6 +61,7 @@ interface ChatMessage {
 // ここでは（同ファイルの流儀に倣い）読むだけで拡張間の依存を増やさない。
 const DEVELOPER_MODE_PREFERENCE = 'akari.developerMode';
 const PARTNER_REOPEN_PREFERENCE = 'akari.partner.reopenLast';
+const APPEARANCE_THEME_PREFERENCE = 'akari.appearance.themeMode';
 
 // 最大保持メッセージ数（無制限成長を避けるための素朴なキャップ、v0）。
 const MAX_MESSAGES = 200;
@@ -129,6 +132,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
     @inject(PreferenceService)
     protected readonly preferences!: PreferenceService;
+
+    @inject(ThemeService)
+    protected readonly themeService!: ThemeService;
 
     @inject(StorageService)
     protected readonly storageService!: StorageService;
@@ -516,7 +522,15 @@ export class AkariPartnerWidget extends ReactWidget {
             this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
             this.setProgress(entry, '作業画面を起動しています…', entry.name);
-            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId);
+            await this.preferences.ready;
+            const preference = this.preferences.get<string>(APPEARANCE_THEME_PREFERENCE, 'dark');
+            let currentThemeType: string | undefined;
+            if (preference !== 'system') {
+                try { currentThemeType = this.themeService.getCurrentTheme().type; }
+                catch { /* The active theme is unavailable; use dark. */ }
+            }
+            const theme = resolvePartnerWebTheme(preference, currentThemeType);
+            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId, theme);
             let widget: PartnerWebWidget | undefined;
             try {
                 widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);

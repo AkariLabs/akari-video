@@ -44,6 +44,7 @@ export function buildDshPatchYaml(input: {
     provider: DeepSeekProvider;
     appVersion: string;
     sessionId: string;
+    theme?: 'dark' | 'light' | 'system';
 }): string {
     if (!path.isAbsolute(input.pluginPath) && !path.win32.isAbsolute(input.pluginPath)) throw new Error('Plugin path must be absolute');
     if (!/^akari-[0-9a-f]{16}$/.test(input.sessionId)) throw new Error('Invalid dsh session id');
@@ -55,7 +56,9 @@ export function buildDshPatchYaml(input: {
 - id: agent-default-model
   config: { provider: ${input.provider}, model: deepseek-v4-pro }
 `;
-    if (input.provider !== 'opencode-go') return base;
+    const themePatch = input.theme === 'dark' || input.theme === 'light' || input.theme === 'system'
+        ? `- id: ui-theme\n  config: { preference: ${input.theme} }\n` : '';
+    if (input.provider !== 'opencode-go') return base + themePatch;
     return base + `- id: llm-pi-ai
   config:
     providers:
@@ -67,5 +70,5 @@ export function buildDshPatchYaml(input: {
         headers: { User-Agent: ${JSON.stringify('akari-video/' + input.appVersion)}, x-opencode-session: ${input.sessionId} }
         compat: { thinkingFormat: deepseek }
         models: [{ id: deepseek-v4-pro, name: DeepSeek V4 Pro (OpenCode Go), contextWindow: 131072 }]
-`;
+` + themePatch;
 }
