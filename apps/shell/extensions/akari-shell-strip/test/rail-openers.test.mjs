@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const ids = require('../lib/common/rail-ids.js');
 const { railOpenerCommand, railDisabledIds, railSelection } = require('../lib/common/rail-model.js');
 const { parseFrontmatter } = require('../lib/common/skill-catalog.js');
+const { shouldDismissExpandedRail, railViewLabel, shouldShowLeftRailTooltip } =
+    require('../lib/browser/left-rail-tooltip.js');
 
 test('擬似タブの ID は共有定数から読む', () => {
     const source = readFileSync(new URL('../src/browser/akari-rail-openers.ts', import.meta.url), 'utf8');
@@ -59,6 +61,34 @@ test('メニューは名前だけの 200px の列として左右に動く', () =
     assert.match(css, /prefers-reduced-motion/);
     assert.match(css, /width: 200px !important/);
     assert.doesNotMatch(css, /data-akari-rail-desc|340px/);
+});
+
+test('展開した列の外側は左クリックだけを閉じる操作として扱う', () => {
+    assert.equal(shouldDismissExpandedRail('true', false, 0), true);
+    assert.equal(shouldDismissExpandedRail('true', true, 0), false);
+    assert.equal(shouldDismissExpandedRail(null, false, 0), false);
+    assert.equal(shouldDismissExpandedRail('closing', false, 0), false);
+    assert.equal(shouldDismissExpandedRail('true', false, 2), false);
+    const source = readFileSync(new URL('../src/browser/akari-activity-bar-curation.ts', import.meta.url), 'utf8');
+    assert.match(source, /document\.addEventListener\('pointerdown',[\s\S]*?shouldDismissExpandedRail[\s\S]*?event\.preventDefault\(\);\s*event\.stopPropagation\(\);[\s\S]*?\}, true\);/);
+    assert.match(source, /document\.addEventListener\('mouseup', onMouseUp, true\)/);
+    assert.match(source, /document\.addEventListener\('click', onClick, true\)/);
+});
+
+test('開発者モードのビュー名はエクスプローラーと検索', () => {
+    assert.equal(railViewLabel('explorer-view-container', 'explorer-view-container'), 'エクスプローラー');
+    assert.equal(railViewLabel('search-view-container', 'explorer-view-container'), '検索');
+    assert.equal(railViewLabel('other-view', 'explorer-view-container'), undefined);
+    const source = readFileSync(new URL('../src/browser/akari-activity-bar-curation.ts', import.meta.url), 'utf8');
+    assert.match(source, /const overriddenLabel = railViewLabel\(id, EXPLORER_VIEW_CONTAINER_ID\)/);
+    assert.match(source, /title\.label = overriddenLabel/);
+});
+
+test('展開中と閉じる途中は即時ツールチップを出さない', () => {
+    assert.equal(shouldShowLeftRailTooltip(null, false), true);
+    assert.equal(shouldShowLeftRailTooltip('true', false), false);
+    assert.equal(shouldShowLeftRailTooltip('closing', false), false);
+    assert.equal(shouldShowLeftRailTooltip(null, true), false);
 });
 
 test('スキル frontmatter は閉じたヘッダーだけ読む', () => {
