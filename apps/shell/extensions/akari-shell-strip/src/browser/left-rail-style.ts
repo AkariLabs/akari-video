@@ -3,6 +3,9 @@ import { RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID } from '../common/rail-ids';
 export const LEFT_RAIL_CSS = `
 #theia-left-content-panel { overflow: visible !important; }
 #theia-left-content-panel .theia-app-sidebar-container { position: relative; }
+#theia-left-content-panel .theia-app-sidebar-container > .theia-sidebar-menu:not(.theia-additional-views-menu) {
+    display: none !important;
+}
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-content-container > .lm-TabBar-content {
     display: flex;
     flex-direction: column;
@@ -74,6 +77,9 @@ export const LEFT_RAIL_CSS = `
 }
 #theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab.akari-rail-lower-start {
     margin-top: auto !important;
+}
+body[data-akari-rail-expanded="true"] #theia-left-content-panel {
+    z-index: 2 !important;
 }
 body[data-akari-rail-expanded="true"] #theia-left-content-panel .lm-TabBar.theia-app-left {
     position: absolute !important;

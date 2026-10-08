@@ -47,6 +47,8 @@ test('左レールは選択中の左端アクセント棒を消す', () => {
     const css = readFileSync(new URL('../src/browser/left-rail-style.ts', import.meta.url), 'utf8');
     assert.match(css, /lm-mod-current::before[\s\S]*?display: none !important/);
     assert.doesNotMatch(css, /box-shadow:\s*inset\s+2px/);
+    assert.match(css, /data-akari-rail-expanded="true"\] #theia-left-content-panel \{[^}]*z-index: 2 !important/);
+    assert.match(css, /\.theia-sidebar-menu:not\(\.theia-additional-views-menu\) \{[^}]*display: none !important/);
 });
 
 test('スキル frontmatter は閉じたヘッダーだけ読む', () => {
