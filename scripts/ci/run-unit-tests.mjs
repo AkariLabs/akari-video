@@ -25,7 +25,7 @@
 //   quarantine: 現在エントリなし（当時 export-nle 20/21・akari-launcher 317/332。両者とも pure へ移動）/ media: 当時は ffmpeg・ffprobe 不在で赤。
 //   2026-10-08 時点の CI の media レーンでは decision-cards の direction preset 保存待ちが timeout する。
 //   2026-10-04: release 4 本・presets 2 本を ffmpeg 無しで全緑と実測し pure へ追加。
-//   2026-10-08: akari-preview の preview-element-mixed-branch / preview-element-selection-message（実 Chrome が要る）を shell から除外（除外は計 3 ファイル）。
+//   2026-10-08: akari-preview の実 Chrome が要る 3 ファイルを shell から除外し、media で実行する。
 //   Playwright 形式の server.spec.mjs は実行主体が無いため NOT_COVERED に明記する。
 //
 // Windows 対応（2026-09-19・Windows 11 / Node 24.20.0 実測）:
@@ -259,7 +259,7 @@ export const LANES = {
       ext('akari-vibe-dock'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
-        // 実 Chrome を起動する 3 ファイルを除外（下の NOT_COVERED を参照）。
+        // 実 Chrome を起動する 3 ファイルを除外（media レーンで実行）。
         id: 'apps/shell/extensions/akari-preview (ブラウザ 3 ファイル除外)',
         cwd: 'apps/shell/extensions/akari-preview',
         files: ['test/*.test.mjs'],
@@ -296,6 +296,15 @@ export const LANES = {
       pkg('preview-server'),
       pkg('overlay-runtime'),       // puppeteer-core + AKARI_TEST_CHROME_PATH（無ければ CHROME_PATH）
       {
+        // unit-media の build ステップで lib を作る。caption-entry は自前の puppeteer が
+        // CHROME_PATH を優先して --single-process --no-zygote で起動する。
+        // Linux で落ちた場合は puppeteer が添えるブラウザ起動 stderr を確認する。
+        // apps 側で Linux のみ --no-sandbox を足すか共有 fixture に寄せる必要がある。
+        id: 'apps/shell/extensions/akari-preview (実 Chrome が要る 3 ファイル)',
+        cwd: 'apps/shell/extensions/akari-preview',
+        files: ['test/caption-entry-animation-hit-region.test.mjs', 'test/preview-element-mixed-branch.test.mjs', 'test/preview-element-selection-message.test.mjs']
+      },
+      {
         id: 'skills/analyze-footage vision-tracks (ffmpeg・swiftc)',
         cwd: '.',
         files: ['skills/analyze-footage/test/vision-tracks-*.test.mjs']
@@ -310,21 +319,6 @@ export const NOT_COVERED = [
     what: 'packages/frame-engine / osr-export / gpu-export',
     why: 'engine-v2.yml が Electron 実機付きで走らせている（required 3 レーン + 参考 2 レーン）',
     paths: ['packages/frame-engine/test/**', 'packages/osr-export/test/**', 'packages/gpu-export/test/**']
-  },
-  {
-    what: 'apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs',
-    why: '実 Chrome を要する上、loadPuppeteer が .git を「ファイル」として読むため通常 checkout（.git がディレクトリ）では EISDIR で落ちる。テスト側の修正待ち',
-    paths: ['apps/shell/extensions/akari-preview/test/caption-entry-animation-hit-region.test.mjs']
-  },
-  {
-    what: 'apps/shell/extensions/akari-preview/test/preview-element-mixed-branch.test.mjs',
-    why: '実 Chrome を要する。L0 には Chrome が無く、現状の参考 media レーンにも載っていない',
-    paths: ['apps/shell/extensions/akari-preview/test/preview-element-mixed-branch.test.mjs']
-  },
-  {
-    what: 'apps/shell/extensions/akari-preview/test/preview-element-selection-message.test.mjs',
-    why: '実 Chrome を要する。L0 には Chrome が無く、現状の参考 media レーンにも載っていない',
-    paths: ['apps/shell/extensions/akari-preview/test/preview-element-selection-message.test.mjs']
   },
   {
     what: 'packages/preview-server test:frame-engine-browser（*.l1.mjs）',
