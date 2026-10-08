@@ -199,6 +199,8 @@ test("sfx.out exceeding the material's real duration clamps to the material's en
   }
 });
 
+// Since dad189146, verify.audio-level may FAIL on a skipped sfx still counted as declared audio;
+// the product behavior awaits a separate decision.
 test("sfx.in at/beyond the material's real duration is silently skipped with a warning", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const materialDuration = 3;
@@ -209,7 +211,10 @@ test("sfx.in at/beyond the material's real duration is silently skipped with a w
   });
   try {
     const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
+    const renderState = await readFile(join(project, ".akari", "render.json"), "utf8")
+      .then(text => JSON.parse(text)).catch(error => error.code === "ENOENT" ? null : Promise.reject(error));
+    assert.equal(executed.status, 0,
+      `${executed.stderr}\nstdout=${executed.stdout}\nverify.findings=${JSON.stringify(renderState?.verify?.findings ?? null)}`);
     assert.match(executed.stderr, /render-cut warning:.*audio\.sfx\[0\]: in 3s is at or beyond the material duration \(3s\); skipped \(silent\)/);
 
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
