@@ -452,7 +452,7 @@ export class AkariPartnerWidget extends ReactWidget {
             if (outcome.kind === 'updated') {
                 this.setComplete(entry, `${entry.name} を ${outcome.installedVersion} → ${outcome.latestVersion} に更新しました`, '再読み込みで反映されます');
                 const choice = await this.messageService.info(
-                    formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!), '今すぐ再読み込み', '後で');
+                    formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!), { timeout: 0 }, '今すぐ再読み込み', '後で');
                 if (choice === '今すぐ再読み込み') {
                     this.windowService.reload();
                     return;

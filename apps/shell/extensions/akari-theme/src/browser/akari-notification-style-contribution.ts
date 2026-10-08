@@ -54,6 +54,7 @@ const CSS = `
 .theia-notifications-overlay .theia-notification-center .akari-notification-time { display:block; padding-top:5px; color:var(--akari-faint); font:10.5px/1.5 ui-monospace,monospace; }
 .theia-notifications-overlay .theia-notification-center .akari-notification-close { width:18px; height:18px; margin-top:1px; font-size:14px; }
 .theia-notifications-overlay .akari-notification-empty { padding:26px 12px; text-align:center; color:var(--akari-faint); font-size:12.5px; }
+.theia-notifications-overlay .theia-notification-center .theia-notification-list:has(.akari-update-history) .akari-notification-empty { display:none; }
 .theia-notifications-overlay .theia-notification-center .akari-update-history { border:0; border-radius:10px; }
 #status-bar-theia-notification-center { position:relative; box-sizing:border-box; min-width:32px; width:32px; height:24px; margin:0 2px; padding:0; display:grid; place-items:center; overflow:visible; }
 #status-bar-theia-notification-center .codicon { font-size:15px; }

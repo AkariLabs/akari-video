@@ -8952,7 +8952,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const summary = proposal.changes.map(change => `${change.path}: ${change.note}`).join('\n');
         const choice = await this.messages.info(
             `${proposal.filePath} は edit.json version ${proposal.version} です。\n${summary}`,
-            '変換する', '読み取り専用で開く'
+            { timeout: 0 }, '変換する', '読み取り専用で開く'
         );
         if (choice === '変換する') {
             await this.annotationsService.applyEditMigration(proposal);

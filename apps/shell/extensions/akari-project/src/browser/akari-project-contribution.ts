@@ -368,6 +368,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         // messages.info はシェル描画前に await してはならない（起動デッドロック F35）
         const choice = await this.messages.info(
             PROJECT_CONSENT_MESSAGE,
+            { timeout: 0 },
             PROJECT_CONSENT_ACTION_USE,
             PROJECT_CONSENT_ACTION_OPEN_ONLY
         );

@@ -56,15 +56,17 @@ function NotificationRow({ notification, manager, contextMenuRenderer, toast }: 
     const fade = (action?: string): void => {
         if (exiting.current) return;
         exiting.current = true;
+        const generation = manager.life.generation(messageId);
+        if (generation === undefined) return;
         manager.holdToast(messageId, 'exit', true);
         const element = row.current;
-        if (!element) { manager.finishDismiss(messageId, action); return; }
+        if (!element) { manager.finishDismiss(messageId, generation, action); return; }
         element.dataset.exit = 'dismissing';
         fixExitingRow(element);
         const animation = element.animate([
             { opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.96)' }
         ], { duration: 160, easing: 'ease-out', fill: 'forwards' });
-        animation.onfinish = () => manager.finishDismiss(messageId, action);
+        animation.onfinish = () => manager.finishDismiss(messageId, generation, action);
     };
 
     React.useEffect(() => {
@@ -72,8 +74,10 @@ function NotificationRow({ notification, manager, contextMenuRenderer, toast }: 
         const subscription = manager.onAbsorb(id => {
             if (id !== messageId || exiting.current) return;
             exiting.current = true;
+            const generation = manager.life.generation(id);
+            if (generation === undefined) return;
             const element = row.current;
-            if (!element) { manager.finishAbsorb(id); return; }
+            if (!element) { manager.finishAbsorb(id, generation); return; }
             element.dataset.exit = 'absorbing';
             const bell = document.getElementById('status-bar-theia-notification-center');
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -92,7 +96,7 @@ function NotificationRow({ notification, manager, contextMenuRenderer, toast }: 
             ], { duration, easing: 'cubic-bezier(.5,0,.75,.2)', fill: 'forwards' }) : element.animate([
                 { opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.96)' }
             ], { duration: Math.min(duration, 160), easing: 'ease-out', fill: 'forwards' });
-            animation.onfinish = () => manager.finishAbsorb(id);
+            animation.onfinish = () => manager.finishAbsorb(id, generation);
         });
         return () => subscription.dispose();
     }, [manager, messageId, toast]);

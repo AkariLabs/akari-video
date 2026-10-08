@@ -1,17 +1,26 @@
 import { injectable } from '@theia/core/shared/inversify';
+import { MenuModelRegistry } from '@theia/core';
 import { FrontendApplication, StatusBarAlignment } from '@theia/core/lib/browser';
 import { NotificationsContribution } from '@theia/messages/lib/browser/notifications-contribution';
-import { NotificationsCommands } from '@theia/messages/lib/browser/notifications-commands';
+import { NOTIFICATION_CONTEXT_MENU, NotificationsCommands } from '@theia/messages/lib/browser/notifications-commands';
 import { AkariNotificationManager } from './akari-notification-manager';
 
 @injectable()
 export class AkariNotificationsContribution extends NotificationsContribution {
     private lastUnread = 0;
     private lastError = false;
+    private lastRingableUnread = 0;
     private pendingRing = false;
 
     protected override createStatusBarItem(): void {
         this.updateStatusBarItem();
+    }
+
+    override registerMenus(menus: MenuModelRegistry): void {
+        menus.registerMenuAction([...NOTIFICATION_CONTEXT_MENU, '_copy'], {
+            commandId: NotificationsCommands.COPY_MESSAGE.id,
+            label: 'メッセージをコピー'
+        });
     }
 
     override onStart(app: FrontendApplication): void {
@@ -20,11 +29,13 @@ export class AkariNotificationsContribution extends NotificationsContribution {
         manager.onLifeUpdated(() => {
             const count = manager.life.unreadCount;
             const error = manager.life.hasUnreadError;
-            if (count === this.lastUnread && error === this.lastError) return;
-            const increased = count > this.lastUnread;
+            const ringable = manager.life.ringableUnreadCount;
+            if (count === this.lastUnread && error === this.lastError && ringable === this.lastRingableUnread) return;
+            const increased = ringable > this.lastRingableUnread;
             this.lastUnread = count;
             this.lastError = error;
-            this.pendingRing = increased;
+            this.lastRingableUnread = ringable;
+            this.pendingRing ||= increased;
             this.updateStatusBarItem();
         });
     }

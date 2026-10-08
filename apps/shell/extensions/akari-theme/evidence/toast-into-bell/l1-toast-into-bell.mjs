@@ -6,6 +6,10 @@
 //   node l1-toast-into-bell.mjs --port <PORT> --out <出力先> [--akari-home <隔離した AKARI_HOME>] [--case 1,2,3,…] [--repo <WORKTREE>]
 //
 // --akari-home は場面 1（「更新しました」）で shell-last-version.json を古い版に書き換えるために使う。
+// 追加の場面（r3-*）: r3-center（一覧を開いて閉じる）・r3-five（5 件連続）・r3-silent・r3-refade（× のフェード中の再表示）・
+//   r3-history-empty（履歴の行と空表示）・r3-dot（右下の小さな色付き要素の列挙）。
+//   r3-consent は AKARI プロジェクトではない空のフォルダを開いた起動で --consent-dir <そのフォルダ> を付けて、
+//   r3-migrate は version 1 の edit.json を置いたプロジェクトを開いた起動で --legacy-dir <そのフォルダ> を付けて、それぞれ単独で回す。
 // 製品コードにテスト専用の入口は無い。Theia の container から MessageService などを duck typing で引く。
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -446,15 +450,18 @@ async function case7() {
     await sleep(500);
     results.case7.toastStyle = await page.evaluate(() => { const el = window.__tibToastRows()[0]; const c = getComputedStyle(el); const b = getComputedStyle(el.querySelector('.akari-notification-button')); const icon = getComputedStyle(el.querySelector('.theia-notification-icon')); return { radius: c.borderRadius, border: c.border, background: c.backgroundColor, backdrop: c.backdropFilter, shadow: c.boxShadow, width: Math.round(el.getBoundingClientRect().width), button: { radius: b.borderRadius, background: b.backgroundColor, color: b.color, classes: el.querySelector('.akari-notification-button').className }, icon: { radius: icon.borderRadius, w: icon.width, color: icon.color }, enterAnimation: el.getAnimations().map(a => a.animationName || a.id) }; });
     await clearAll();
-    // 動きを減らす設定: 吸い込みの代わりに 160ms のフェード。未読の加算は同じ
+    // 動きを減らす設定: 吸い込みの代わりに 160ms のフェード。未読の加算は同じ。
+    // 前の吸い込みで付いた akari-bell-ring が残っていると「揺れない」の証拠にならないので、測る前に外す
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    const ringCleared = await page.evaluate(() => { const b = document.getElementById('status-bar-theia-notification-center'); const had = b.classList.contains('akari-bell-ring'); b.classList.remove('akari-bell-ring'); return { had, now: b.classList.contains('akari-bell-ring') }; });
     const before = await state();
     const at = await notify('c7r', 'info', '動きを減らす設定の計測');
     await waitToast('動きを減らす');
     const reduced = await lifecycle('動きを減らす', 8000, at - 5);
     const afterReduced = await state();
+    const ringAfter = await page.evaluate(() => { const b = document.getElementById('status-bar-theia-notification-center'); const icon = b.querySelector('.codicon'); return { ringClass: b.classList.contains('akari-bell-ring'), iconAnimations: icon ? icon.getAnimations().length : null, iconAnimationName: icon ? getComputedStyle(icon).animationName : null }; });
     await page.emulateMedia({ reducedMotion: null });
-    results.case7.reducedMotion = { life: { ...reduced, addT: undefined }, badgeBefore: before.badge, badgeAfter: afterReduced.badge };
+    results.case7.reducedMotion = { ringClearedBefore: ringCleared, life: { ...reduced, addT: undefined }, badgeBefore: before.badge, badgeAfter: afterReduced.badge, ringAfter };
     // ベルの要素が見つからないとき: 同じく 160ms のフェード
     await clearAll();
     await page.evaluate(() => { document.getElementById('status-bar-theia-notification-center').id = 'tib-bell-away'; });
@@ -627,8 +634,237 @@ async function case9() {
     await setTheme('dark');
 }
 
+// ---- 差し戻し r1 の追加場面（r3-*） -------------------------------------------------------------
+
+const unreadModel = () => page.evaluate(() => { const l = window.__tib.nm.life; return { unread: l.unreadCount, ringable: l.ringableUnreadCount, error: l.hasUnreadError, counting: l.hasCounting }; });
+const clearRing = () => page.evaluate(() => document.getElementById('status-bar-theia-notification-center').classList.remove('akari-bell-ring'));
+const ringEventsSince = async t => (await events()).filter(e => e.type === 'bell' && e.t >= t && e.ring).map(e => ({ atMs: round(e.t - t), badge: e.badge }));
+const pageNow = () => page.evaluate('performance.now()');
+// PreferenceService は container のキー（Symbol の説明）で引く。duck typing だと RPC の proxy を掴むことがある
+const setPreference = (name, value) => page.evaluate(async ({ name, value }) => {
+    const c = window.theia.container;
+    const key = [...c._bindingDictionary._map.keys()].find(k => typeof k === 'symbol' && k.description === 'PreferenceService');
+    const ps = c.get(key);
+    await ps.set(name, value, 1);
+    await new Promise(r => setTimeout(r, 500));
+    return ps.get(name);
+}, { name, value });
+const idOfText = part => page.evaluate(p => { for (const [id, n] of window.__tib.nm.notifications) { if (String(n.message).includes(p)) { return id; } } return null; }, part);
+
+// L1-2: 札が出ている → 一覧を開く → 閉じる → 時間を過ぎる。未読が増えず、ベルも揺れない
+async function caseR3Center() {
+    await clearAll();
+    await clearRing();
+    const text = '一覧を開いて閉じる計測';
+    await notify('r3c', 'info', text, ['ボタン']);
+    await waitToast(text);
+    await sleep(1200);
+    const id = await idOfText(text);
+    const remainingBeforeOpen = await page.evaluate(i => window.__tib.nm.life.remaining(i), id);
+    const s1 = await shot('l1r3-2-toast-before-open.png', await cornerClip());
+    const t0 = await pageNow();
+    await bellClick();
+    await sleep(500);
+    const opened = await state();
+    const openedModel = { phase: await page.evaluate(i => window.__tib.nm.life.phase(i), id), ...(await unreadModel()) };
+    const s2 = await shot('l1r3-2-center-open.png', await cornerClip());
+    await sleep(800);
+    await bellClick();
+    await sleep(9000);
+    const after = await state();
+    const s3 = await shot('l1r3-2-after-9s.png', await cornerClip());
+    results.r3Center = {
+        remainingBeforeOpenMs: round(remainingBeforeOpen), centerOpened: opened.centerOpen, toastsWhileOpen: opened.toastsModel.length,
+        inCenterWhileOpen: opened.center.some(r => r.text.includes(text)), whileOpen: openedModel,
+        after9s: { centerOpen: after.centerOpen, toastRows: after.toasts.length, toastsModel: after.toastsModel.length, listed: after.notificationsModel.includes(id), badge: after.badge, ...(await unreadModel()), phase: await page.evaluate(i => window.__tib.nm.life.phase(i), id) },
+        ringEventsSinceOpen: await ringEventsSince(t0), result: await resultOf('r3c'), screenshots: [s1, s2, s3]
+    };
+    await clearAll();
+}
+
+// L1-3a: 5 件連続。右下に出ている末尾 3 件だけ時間が減り、古い 2 件は右下に出てから数え始める
+async function caseR3Five() {
+    await clearAll();
+    await clearRing();
+    const texts = [1, 2, 3, 4, 5].map(i => `5 件連続の ${i} 件目`);
+    await page.evaluate(texts => { const t = window.__tib; texts.forEach((x, i) => { t.results['r3f' + i] = { state: 'pending' }; t.ms.info(x, 'ボタン').then(v => { t.results['r3f' + i] = { state: 'resolved', value: v === undefined ? null : v }; }); }); }, texts);
+    const t0 = await pageNow();
+    // 250ms ごとに残り時間と右下の並びを取る
+    await page.evaluate(texts => {
+        const t = window.__tib; const ids = texts.map(x => { for (const [id, n] of t.nm.notifications) { if (String(n.message).includes(x)) { return id; } } return null; });
+        t.fiveSampler = { rows: [], ids };
+        t.fiveTimer = setInterval(() => {
+            const shown = Array.from(window.__tibToastRows()).map(el => ids.indexOf(el.dataset.messageId) + 1);
+            t.fiveSampler.rows.push({ t: performance.now(), remaining: ids.map(id => { const r = t.nm.life.remaining(id); return r === undefined ? null : Math.round(r); }), phase: ids.map(id => t.nm.life.phase(id) ?? null), shown });
+        }, 250);
+    }, texts);
+    await sleep(1500);
+    const s1 = await shot('l1r3-3-five-first.png', await cornerClip(460, 420));
+    await sleep(15000);
+    await page.evaluate(() => clearInterval(window.__tib.fiveTimer));
+    const sampler = await page.evaluate(() => window.__tib.fiveSampler);
+    const ev = await events();
+    const per = sampler.ids.map((id, i) => {
+        const adds = ev.filter(e => e.type === 'row-add' && e.id === id && e.t >= t0 - 50);
+        const lastAdd = adds[adds.length - 1];
+        const exit = lastAdd ? ev.find(e => e.type === 'row-exit' && e.id === id && e.t >= lastAdd.t && e.exit !== 'none') : undefined;
+        const firstShownSample = sampler.rows.find(r => r.shown.includes(i + 1));
+        return { n: i + 1, addCount: adds.length, shownAtMs: lastAdd ? round(lastAdd.t - t0) : null, absorbStartAfterShownMs: exit && lastAdd ? round(exit.t - lastAdd.t) : null, exit: exit ? exit.exit : null, firstSampleShown: firstShownSample ? round(firstShownSample.t - t0) : null };
+    });
+    const at = ms => { const r = sampler.rows.find(x => x.t - t0 >= ms); return r ? { atMs: round(r.t - t0), remaining: r.remaining, phase: r.phase, shown: r.shown } : null; };
+    results.r3Five = { per, samples: { at1000: at(1000), at4000: at(4000), at5500: at(5500), at7000: at(7000), at10000: at(10000) }, allSamples: sampler.rows.map(r => ({ atMs: round(r.t - t0), remaining: r.remaining, shown: r.shown })), finalUnread: await unreadModel(), screenshot: s1 };
+    await clearAll();
+}
+
+// L1-3b: silent を有効にして 1 件出す → 右下に出ず一覧に入る。未読は増えるがベルは揺れない
+async function caseR3Silent() {
+    await clearAll();
+    const on = await setPreference('workbench.silentNotifications', true);
+    await clearRing();
+    const t0 = await pageNow();
+    const text = 'silent のときの計測（error）';
+    await notify('r3s', 'error', text);
+    await sleep(1500);
+    const st = await state();
+    const id = await idOfText(text);
+    const model = { phase: await page.evaluate(i => window.__tib.nm.life.phase(i), id), ...(await unreadModel()) };
+    const s1 = await shot('l1r3-3-silent-bell.png', await cornerClip());
+    await openCenter();
+    const opened = await state();
+    const s2 = await shot('l1r3-3-silent-center.png', await cornerClip());
+    await closeCenter();
+    const off = await setPreference('workbench.silentNotifications', false);
+    results.r3Silent = {
+        preferenceOn: on, preferenceOff: off, toastRows: st.toasts.length, toastsModel: st.toastsModel.length, visibility: st.visibility,
+        listed: st.notificationsModel.includes(id), badge: st.badge, bellError: st.bellError, model, ringEvents: await ringEventsSince(t0),
+        inCenter: opened.center.some(r => r.text.includes('silent のとき')), result: await resultOf('r3s'), screenshots: [s1, s2]
+    };
+    await clearAll();
+}
+
+// 差し戻し 4: × のフェード中に同じ内容が再表示されても、新しい通知は消えない
+async function caseR3Refade() {
+    await clearAll();
+    const text = '再表示の計測';
+    await notify('r3r1', 'info', text, ['ボタン']);
+    await waitToast(text);
+    await sleep(600);
+    await page.evaluate(text => {
+        const t = window.__tib;
+        const el = Array.from(window.__tibToastRows()).find(e => (e.textContent || '').includes(text));
+        el.querySelector('.akari-notification-close').click();
+        setTimeout(() => { const at = performance.now(); t.results.r3r2 = { state: 'pending' }; t.ms.info(text, 'ボタン').then(v => { t.results.r3r2 = { state: 'resolved', value: v === undefined ? null : v, afterMs: Math.round(performance.now() - at) }; }); }, 60);
+    }, text);
+    await sleep(900);
+    const st = await state();
+    const id = await idOfText(text);
+    results.r3Refade = { firstResult: await resultOf('r3r1'), secondResult: await resultOf('r3r2'), listed: !!id && st.notificationsModel.includes(id), toastShown: st.toasts.some(r => r.text.includes(text) && r.exit === 'none'), screenshot: await shot('l1r3-4-refade.png', await cornerClip()) };
+    await clearAll();
+}
+
+// 差し戻し 6: 一覧に更新トーストの履歴の行があるときは「新しい通知はありません」を出さない
+async function caseR3HistoryEmpty() {
+    await clearAll();
+    await openCenter();
+    const emptyOnly = await page.evaluate(() => { const e = document.querySelector('.theia-notification-center .akari-notification-empty'); return e ? { text: e.textContent, display: getComputedStyle(e).display } : null; });
+    await closeCenter();
+    await page.evaluate(() => window.__tib.commands.executeCommand('akari.update.testFound'));
+    await sleep(900);
+    await page.evaluate(() => { const t = document.querySelector('.akari-update-toast'); Array.from(t.querySelectorAll('.akari-update-button')).find(b => b.textContent === '後で').click(); });
+    await sleep(400);
+    await openCenter();
+    await sleep(300);
+    const withHistory = await page.evaluate(() => { const e = document.querySelector('.theia-notification-center .akari-notification-empty'); const h = document.querySelector('.theia-notification-center .theia-notification-list .akari-update-history'); return { history: h ? h.textContent : null, emptyPresent: !!e, emptyDisplay: e ? getComputedStyle(e).display : null, emptyHeight: e ? e.getBoundingClientRect().height : null }; });
+    const s1 = await shot('l1r3-6-history-no-empty.png', await cornerClip(460, 300, 2));
+    await page.evaluate(() => document.querySelector('.theia-notification-center .akari-update-history')?.click());
+    await sleep(500);
+    await page.evaluate(() => document.querySelector('.akari-update-toast .akari-update-close')?.click());
+    await sleep(300);
+    await page.evaluate(() => window.__tib.updateToast && window.__tib.updateToast.setState(undefined));
+    await sleep(200);
+    results.r3HistoryEmpty = { emptyOnly, withHistory, screenshot: s1 };
+    await clearAll();
+}
+
+// 差し戻し 8: 右下のオレンジの点の正体（見比べの 3 枚重ねと同じ場面で、右端・ステータスバーの上にある小さな色付きの要素を列挙）
+async function caseR3Dot() {
+    await clearAll();
+    await notify('r3d1', 'info', 'Claude Code 拡張の新しい版があります', ['今すぐ更新', '後で'], { timeout: 0 });
+    await notify('r3d2', 'info', '字幕をコピーしました', [], { timeout: 0 });
+    await notify('r3d3', 'info', 'AKARI Video を v1.2.0-beta.5 に更新しました', ['変更点を見る'], { timeout: 0 });
+    await waitToast('に更新しました');
+    await sleep(800);
+    const found = await page.evaluate(() => {
+        const W = innerWidth; const H = innerHeight; const out = [];
+        const chain = el => { const parts = []; for (let e = el; e && parts.length < 6; e = e.parentElement) { parts.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.classList.length ? '.' + Array.from(e.classList).slice(0, 3).join('.') : '')); } return parts.join(' < '); };
+        for (const el of document.querySelectorAll('body *')) {
+            const r = el.getBoundingClientRect();
+            if (!r.width || !r.height || r.width > 14 || r.height > 14) { continue; }
+            if (r.right < W - 40 || r.top < H - 90 || r.bottom > H) { continue; }
+            const cs = getComputedStyle(el);
+            if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) { continue; }
+            const bg = cs.backgroundColor;
+            if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') { continue; }
+            out.push({ chain: chain(el), rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }, background: bg, radius: cs.borderRadius, title: el.getAttribute('title') || el.parentElement?.getAttribute('title') || null, aria: el.getAttribute('aria-label') || null });
+        }
+        const bell = document.getElementById('status-bar-theia-notification-center').getBoundingClientRect();
+        const statusBar = document.getElementById('theia-statusBar')?.getBoundingClientRect();
+        return { viewport: { w: W, h: H }, candidates: out, bell: { x: Math.round(bell.x), y: Math.round(bell.y), w: Math.round(bell.width), h: Math.round(bell.height) }, statusBarTop: statusBar ? Math.round(statusBar.top) : null };
+    });
+    const s1 = await shot('l1r3-8-dot-scene.png', await cornerClip(460, 330, 2));
+    const first = found.candidates[0];
+    const s2 = first ? await shot('l1r3-8-dot-zoom.png', { x: Math.max(0, first.rect.x - 60), y: Math.max(0, first.rect.y - 50), width: Math.min(100, found.viewport.w - Math.max(0, first.rect.x - 60)), height: 80, scale: 4 }) : null;
+    results.r3Dot = { ...found, screenshots: [s1, s2] };
+    await clearAll();
+}
+
+// L1-1（プロジェクトの同意）: AKARI プロジェクトではない空のフォルダを開いた起動で測る（--consent-dir にそのフォルダ）
+async function caseR3Consent() {
+    const dir = arg('consent-dir');
+    const text = 'AKARI Video プロジェクトとして使いますか';
+    const before = dir ? fs.readdirSync(dir) : null;
+    const row = await waitToast(text, 120000);
+    const shownAt = await pageNow();
+    const id = row.id;
+    const s0 = await shot('l1r3-1-consent-shown.png', await cornerClip());
+    while ((await pageNow()) < shownAt + 20000) { await sleep(250); }
+    const st = await state();
+    const t = st.toasts.find(r => r.text.includes(text));
+    const s1 = await shot('l1r3-1-consent-20s.png', await cornerClip());
+    const model = await page.evaluate(i => ({ phase: window.__tib.nm.life.phase(i), remaining: window.__tib.nm.life.remaining(i), fraction: window.__tib.nm.life.fraction(i) }), id);
+    const ringEl = await page.evaluate(i => !!document.querySelector(`.theia-notification-toasts .akari-notification-row[data-message-id="${i}"] .akari-notification-ring`), id);
+    await page.evaluate(text => { const el = Array.from(window.__tibToastRows()).find(e => (e.textContent || '').includes(text)); Array.from(el.querySelectorAll('.akari-notification-button')).find(b => b.textContent === '使う').click(); }, text);
+    await sleep(4000);
+    const after = dir ? fs.readdirSync(dir) : null;
+    const st2 = await state();
+    results.r3Consent = { shownAfter20s: !!t, exit: t ? t.exit : null, ringValue: t ? t.ring : null, ringElement: ringEl, buttons: t ? t.buttons : null, model, entriesBefore: before, entriesAfterUse: after, toastGoneAfterClick: !st2.toasts.some(r => r.text.includes(text)), screenshots: [s0, s1, await shot('l1r3-1-consent-after-use.png', await cornerClip())] };
+}
+
+// L1-1（edit.json の変換）: version 1 の edit.json を置いたプロジェクトを開いた起動で測る（--legacy-dir にそのフォルダ）
+async function caseR3Migrate() {
+    const dir = arg('legacy-dir');
+    const text = 'edit.json version';
+    const row = await waitToast(text, 120000);
+    const shownAt = await pageNow();
+    const id = row.id;
+    const s0 = await shot('l1r3-1-migrate-shown.png', await cornerClip(460, 420));
+    while ((await pageNow()) < shownAt + 20000) { await sleep(250); }
+    const st = await state();
+    const t = st.toasts.find(r => r.text.includes(text));
+    const s1 = await shot('l1r3-1-migrate-20s.png', await cornerClip(460, 420));
+    const model = await page.evaluate(i => ({ phase: window.__tib.nm.life.phase(i), remaining: window.__tib.nm.life.remaining(i), fraction: window.__tib.nm.life.fraction(i) }), id);
+    const ringEl = await page.evaluate(i => !!document.querySelector(`.theia-notification-toasts .akari-notification-row[data-message-id="${i}"] .akari-notification-ring`), id);
+    const versionBefore = dir ? JSON.parse(fs.readFileSync(path.join(dir, 'edit.json'), 'utf8')).version : null;
+    await page.evaluate(text => { const el = Array.from(window.__tibToastRows()).find(e => (e.textContent || '').includes(text)); Array.from(el.querySelectorAll('.akari-notification-button')).find(b => b.textContent === '変換する').click(); }, text);
+    await sleep(4000);
+    const versionAfter = dir ? JSON.parse(fs.readFileSync(path.join(dir, 'edit.json'), 'utf8')).version : null;
+    const st2 = await state();
+    results.r3Migrate = { shownAfter20s: !!t, exit: t ? t.exit : null, ringValue: t ? t.ring : null, ringElement: ringEl, buttons: t ? t.buttons : null, model, versionBefore, versionAfter, followUp: st2.toasts.map(r => r.text).filter(x => x.includes('version 2')), screenshots: [s0, s1, await shot('l1r3-1-migrate-after.png', await cornerClip(460, 420))] };
+}
+
 // ---- 実行 -------------------------------------------------------------------------------------
-const order = [['1', case1], ['2', case2], ['3', case3], ['4', case4], ['5', case5], ['6', case6], ['7', case7], ['8a', case8a], ['8c', case8c], ['8d', case8d], ['8e', case8e], ['8e-after', case8eAfterRestore], ['8b', case8b], ['9', case9]];
+const order = [['r3-consent', caseR3Consent], ['r3-migrate', caseR3Migrate], ['1', case1], ['2', case2], ['3', case3], ['4', case4], ['5', case5], ['6', case6], ['7', case7], ['8a', case8a], ['8c', case8c], ['8d', case8d], ['8e', case8e], ['8e-after', case8eAfterRestore], ['8b', case8b], ['9', case9],
+    ['r3-center', caseR3Center], ['r3-five', caseR3Five], ['r3-silent', caseR3Silent], ['r3-refade', caseR3Refade], ['r3-history-empty', caseR3HistoryEmpty], ['r3-dot', caseR3Dot]];
 await attach();
 try {
     const found = await waitReady();

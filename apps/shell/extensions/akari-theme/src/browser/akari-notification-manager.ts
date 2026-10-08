@@ -1,11 +1,12 @@
-import { injectable } from '@theia/core/shared/inversify';
-import { Emitter } from '@theia/core';
+import { inject, injectable } from '@theia/core/shared/inversify';
+import { CorePreferences, Emitter } from '@theia/core';
 import { Message as PlainMessage, ProgressMessage, CancellationToken } from '@theia/core/lib/common';
 import { Notification, NotificationManager } from '@theia/messages/lib/browser/notifications-manager';
 import { NotificationLife, notificationLifeMs } from '../common/notification-life';
 
 @injectable()
 export class AkariNotificationManager extends NotificationManager {
+    @inject(CorePreferences) protected readonly corePreferences: CorePreferences;
     readonly life = new NotificationLife({
         hideToast: id => this.hideToast(id),
         accept: (id, action) => this.accept(id, action)
@@ -27,13 +28,27 @@ export class AkariNotificationManager extends NotificationManager {
 
     protected override init(): void {
         super.init();
+        this.corePreferences.onPreferenceChanged(change => {
+            if (change.preferenceName !== 'workbench.silentNotifications') return;
+            if (this.corePreferences['workbench.silentNotifications']) {
+                for (const id of [...this.toasts.keys()]) this.life.storeUnread(id);
+            }
+            this.updateClock();
+            this.lifeUpdatedEmitter.fire();
+        });
         document.addEventListener('visibilitychange', () => {
             this.life.resetFrame();
             this.updateClock();
         });
     }
 
+    private visibleToastIds(): Set<string> {
+        return this.toastsVisible && !this.corePreferences['workbench.silentNotifications']
+            ? new Set([...this.toasts.keys()].slice(-3)) : new Set();
+    }
+
     private updateClock(): void {
+        this.life.setVisible(this.visibleToastIds());
         if (!this.life.hasCounting || document.visibilityState === 'hidden') {
             if (this.frameRequest !== undefined) cancelAnimationFrame(this.frameRequest);
             this.frameRequest = undefined;
@@ -43,13 +58,16 @@ export class AkariNotificationManager extends NotificationManager {
 
     private advance(now: number): void {
         this.frameRequest = undefined;
+        const visible = this.visibleToastIds();
+        this.life.setVisible(visible);
         const expired = this.life.frame(now, document.visibilityState === 'hidden');
         this.lifeUpdatedEmitter.fire();
-        const visible = new Set([...this.toasts.keys()].slice(-3));
         for (const id of expired) {
+            const generation = this.life.generation(id);
+            if (generation === undefined) continue;
             if (this.toastsVisible && visible.has(id)) {
                 this.absorbEmitter.fire(id);
-            } else this.finishAbsorb(id);
+            } else this.finishAbsorb(id, generation);
         }
         this.updateClock();
     }
@@ -60,7 +78,11 @@ export class AkariNotificationManager extends NotificationManager {
         this.updateClock();
         this.dates.set(id, Date.now());
         this.versions.set(id, this.version(id) + 1);
-        return super.showMessage(message);
+        const result = super.showMessage(message);
+        if (this.corePreferences['workbench.silentNotifications'] && this.toasts.has(id)) this.life.storeUnread(id);
+        this.updateClock();
+        this.lifeUpdatedEmitter.fire();
+        return result;
     }
 
     protected override getTimeout(message: PlainMessage): number {
@@ -78,6 +100,9 @@ export class AkariNotificationManager extends NotificationManager {
     override showProgress(messageId: string, message: ProgressMessage, token: CancellationToken): Promise<string | undefined> {
         const result = super.showProgress(messageId, message, token);
         if (!this.life.phase(messageId)) this.life.add(messageId, 'progress', 0);
+        if (this.corePreferences['workbench.silentNotifications'] && this.toasts.has(messageId)) this.life.storeUnread(messageId);
+        this.updateClock();
+        this.lifeUpdatedEmitter.fire();
         return result;
     }
 
@@ -87,13 +112,14 @@ export class AkariNotificationManager extends NotificationManager {
         this.lifeUpdatedEmitter.fire();
     }
 
-    finishAbsorb(id: string): void {
-        if (this.life.phase(id) !== 'absorbing') return;
-        this.life.finishAbsorb(id, this.centerVisible);
+    finishAbsorb(id: string, generation: number): void {
+        if (this.life.phase(id) !== 'absorbing' || this.life.generation(id) !== generation) return;
+        this.life.finishAbsorb(id, generation, this.centerVisible);
+        this.updateClock();
         this.lifeUpdatedEmitter.fire();
     }
 
-    finishDismiss(id: string, action?: string): void { this.life.finishDismiss(id, action); }
+    finishDismiss(id: string, generation: number, action?: string): void { this.life.finishDismiss(id, generation, action); }
     acceptFromCenter(id: string, action: string): void { this.life.acceptFromCenter(id, action); }
 
     override hide(): void {
@@ -113,13 +139,19 @@ export class AkariNotificationManager extends NotificationManager {
 
     override showCenter(): void {
         this.life.openCenter();
+        this.life.moveToCenter([...this.toasts.keys()]);
         super.showCenter();
+        this.updateClock();
         this.lifeUpdatedEmitter.fire();
     }
 
     override toggleCenter(): void {
-        if (!this.centerVisible) this.life.openCenter();
+        if (!this.centerVisible) {
+            this.life.openCenter();
+            this.life.moveToCenter([...this.toasts.keys()]);
+        }
         super.toggleCenter();
+        this.updateClock();
         this.lifeUpdatedEmitter.fire();
     }
 }
