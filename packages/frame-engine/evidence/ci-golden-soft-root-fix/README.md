@@ -7,6 +7,7 @@
 | `WebGL2 PBO fence wait failed` | Chromium の WebGL `finish()` は GPU の完了を待たず、1080p の FX 計測で積まれた処理が次の 320×180 描画の fence を塞ぐ。 | 計測前後と compositor 破棄前に `fenceSync` → `flush` → `clientWaitSync` で完了を待つ。待機中はイベントループに制御を返す。 | fence の成功・`WAIT_FAILED`・期限超過を単体テストで確認し、次段の fence 待ちを CI で観測する。 |
 | `colorPatches.direct` の B だけ最大 12 の差 | SwiftShader の `VideoFrame` → `texImage2D` ソフト変換に、BT.709 と異なる Cb 係数が使われる。 | 描画器名に `SwiftShader` があるときだけ direct の許容差を R≤2、G≤2、B≤12 とする。 | 全 9 パッチを確認し、実 GPU の許容差が `[2,2,2]` のままか `run.mjs` で検査する。 |
 | filter 比較が `--engine legacy` で exit 2 | legacy 合成出口が撤去済み。 | 同じ edit を OSR で書き出す。SwiftShader 時は OSR もソフト描画にそろえる。 | invert・saturation・lut の 3 行で既存の閾値を保持して比較する。 |
+| CI だけ filter の export / floor MAD が 5〜11 | Ubuntu の FFmpeg 6.1.1 は書き出し mp4 の BT.709 タグを RGB 変換時に使わず、BT.601 行列でデコードする。 | 書き出し側のデコードで BT.709 limited を明示する。 | bare の frame 37 と PNG の比較は BT.709 で MAD 1.500、BT.601 で 8.645。 |
 | `frameLifetime` の終了時キューが 28〜29 | SwiftShader の非同期ソフトデコードは `setTimeout(0)` 1 回では掃けず、終了時の判定と競争する。 | セッションを生かしたまま 50 ms 間隔・最大 5 秒待つ。1,000 フレームの close 件数とキュー増加、自然に 0 になる条件は従来どおり検査する。 | 手元の計測では破棄せず約 100 ms で 29→0。`decodeQueueDrainMs` を結果に記録する。 |
 
 ## 色の許容差の根拠
@@ -31,7 +32,7 @@ copyTo 経路は全行 Δ≤2 なので厳密なまま。maskFidelity と crossP
 
 ## 時間予算
 
-1080p FX 計測で積まれた処理の CI 推定待ち時間は約 45 秒。GPU drain の期限はその 2 倍以上の 120 秒とする。SwiftShader は実 GPU より数倍遅く、CI の Electron 段は従来、失敗地点まで約 225 秒かかっていた。golden-soft だけ Electron の期限を 300 秒から 600 秒へ、親プロセスをその 30 秒後へ延ばす。段ごとの開始と所要時間をログに出し、予算の消費を確認できるようにする。
+CI 実測で Electron 段の合計は約 195 秒。主な内訳は transitionParity 約 92 秒、fxCost 約 55 秒、lookParity 約 23 秒。FX の積み残しを段内で待つ時間も fxCost に含まれる。既定の 300 秒は実測の約 1.5 倍の余裕しかないため、golden-soft だけ Electron の期限を実測の約 3 倍の 600 秒へ、親プロセスをその 30 秒後へ延ばす。GPU drain 単体の期限 120 秒は fxCost 段の実測 55 秒を上回る。段ごとの開始と所要時間をログに出し、予算の消費を確認できるようにする。
 
 ## CI 実測
 

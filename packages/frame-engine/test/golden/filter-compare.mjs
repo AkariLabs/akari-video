@@ -70,8 +70,9 @@ function rawPng(file) {
   return decodeRgba(['-i', file]);
 }
 function exportFrame(file, frameNumber) {
+  // Fixture and export are BT.709 limited; FFmpeg's default YUV-to-RGB matrix varies by version.
   return decodeRgba([
-    '-i', file, '-vf', `select=eq(n\\,${frameNumber})`, '-vsync', '0',
+    '-i', file, '-vf', `select=eq(n\\,${frameNumber}),scale=in_color_matrix=bt709:in_range=tv,format=rgba`, '-vsync', '0',
   ]);
 }
 function escapeFilterPath(path) {
