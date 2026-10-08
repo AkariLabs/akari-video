@@ -176,7 +176,28 @@ const CREATOR_ROOT_DEFAULT_CHANNEL = 'my-channel';
 const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
 
 // --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） ---
-const NEW_PROJECT_NAME_SLUG = 'new-video';
+function newProjectNameStem(date = new Date()): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}-${hour}${minute}`;
+}
+
+function newProjectDisplayTitle(date = new Date()): string {
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `新しい動画 ${date.getMonth() + 1}/${date.getDate()} ${hour}:${minute}`;
+}
+
+function newProjectDisplayTitleFor(name: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(?:-\d+)?$/.exec(name);
+    if (match) {
+        const [, year, month, day, hour, minute] = match;
+        return newProjectDisplayTitle(new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+    }
+    return newProjectDisplayTitle();
+}
 
 // --- U3 プロジェクト一覧の「単体」行（task 2026-08-03-home-v5-terms） ---
 interface CreatorRootProjectEntry extends ProjectDetails {
@@ -454,7 +475,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected init(): void {
         this.id = AkariHomeWidget.ID;
         this.title.label = 'ホーム';
-        this.title.caption = 'AKARI プロジェクトホーム';
+        this.title.caption = 'ホーム';
         this.title.iconClass = 'codicon codicon-home';
         this.title.closable = false;
         this.title.label = this.scope.scope === 'channel' ? 'プロジェクト一覧' : 'ホーム';
@@ -1438,13 +1459,12 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * `<root>/channels/<channel>/videos/` 配下で空いているプロジェクト名を探す
-     * （日付プレフィックスは過去プロジェクト一覧の並び順（sortCreatorRootProjects）と
+     * （日時プレフィックスは過去プロジェクト一覧の並び順（sortCreatorRootProjects）と
      * 揃える）。同名衝突時は `-2` `-3` ... を試す（`availableTarget` と同じ流儀）。
      */
     protected async reserveNewProjectName(rootUri: URI, channel: string): Promise<string> {
         const videosUri = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
-        const datePrefix = new Date().toISOString().slice(0, 10);
-        const stem = `${datePrefix}-${NEW_PROJECT_NAME_SLUG}`;
+        const stem = newProjectNameStem();
         let candidate = stem;
         for (let index = 2; await this.fileService.exists(videosUri.resolve(candidate)); index++) {
             candidate = `${stem}-${index}`;
@@ -1516,7 +1536,7 @@ export class AkariHomeWidget extends ReactWidget {
             await this.newProjectService.createProject(destination.toString());
             const intake = {
                 version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
-                autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: null
+                autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: newProjectDisplayTitleFor(destination.path.base)
             };
             await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
                 BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
@@ -2278,10 +2298,16 @@ export class AkariHomeWidget extends ReactWidget {
         const others = channel ? rows.filter(row => row.channel === channel && !row.current) : [];
         const presence = this.progress.presence ?? EMPTY_PRESENCE;
         const summary = stageSummary(presence);
-        const status = summary === '素材まで' ? ['企画と素材がそろっています', `素材 ${presence.assetFiles} 件。次は並べる段です。`, '編集に入る']
-                : summary === '編集の途中' ? ['編集の途中', '続きから開けます。', '続きを編集する']
-                    : summary === '確認中' ? ['確認中', '直したら書き出せます。', '書き出す']
-                        : ['書き出しました', '上の絵を押すと再生します。', ''];
+        const status: { title: string; body: string; primary?: { label: string; run: () => void }; secondary: { label: string; run: () => void } } =
+            summary === '素材まで' && presence.assetFiles === 0
+                ? { title: '企画ができました', body: '次は素材を入れます。動画・写真・音声をこのプロジェクトに入れてください。',
+                    primary: { label: '素材を入れる', run: () => void this.openProgressStage('assets') },
+                    secondary: { label: 'パートナーに頼む', run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } }
+                : { title: summary === '素材まで' ? '企画と素材がそろっています' : summary === '編集の途中' ? '編集の途中' : summary === '確認中' ? '確認中' : '書き出しました',
+                    body: summary === '素材まで' ? `素材 ${presence.assetFiles} 件。次は並べる段です。` : summary === '編集の途中' ? '続きから開けます。' : summary === '確認中' ? '直したら書き出せます。' : '上の絵を押すと再生します。',
+                    primary: summary === '書き出し済み' ? undefined : { label: summary === '素材まで' ? '編集に入る' : summary === '編集の途中' ? '続きを編集する' : '書き出す',
+                        run: () => void this.openProgressStage(summary === '確認中' ? 'export' : 'edit') },
+                    secondary: { label: 'AI エージェントを開く', run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } };
         return <div className='akari-os-project-home'>
             <div className='akari-os-phead'>
                 {this.latestExport ? <div className='akari-os-poster'><video src={this.latestExport.toString()} controls preload='metadata' /></div>
@@ -2328,12 +2354,9 @@ export class AkariHomeWidget extends ReactWidget {
                     <button type='button' className='akari-os-start-card' data-akari-start='templates' onClick={() => void this.openTemplateSheet()}><b>テンプレから</b><span>このチャンネルのテンプレ。枠・字幕・企画書のひな形が入ります。</span></button>
                     <button type='button' className='akari-os-start-card' data-akari-start='materials' onClick={() => void this.startFromMaterials()}><b>素材から</b><span>動画・写真・音声を入れると、パートナーが中身を見て企画を下書きします。</span></button>
                     <button type='button' className='akari-os-start-card' data-akari-start='talk' onClick={() => void this.startByTalking()}><b>話して</b><span>作りたい動画をパートナーに話すと、企画書から一緒に作ります。</span></button>
-                </div></section> : <section className='akari-os-status'><div><span className='label'>いまの状態</span><h4>{status[0]}</h4><p>{status[1]}</p></div>
-                <div className='actions'>{status[2] && <button type='button' className='theia-button main' onClick={() => {
-                    if (summary === '確認中') void this.openProgressStage('export');
-                    else void this.openProgressStage('edit');
-                }}>{status[2]}</button>}
-                    <button type='button' className='theia-button secondary' onClick={() => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen)}>AI エージェントを開く</button></div>
+                </div></section> : <section className='akari-os-status'><div><span className='label'>いまの状態</span><h4>{status.title}</h4><p>{status.body}</p></div>
+                <div className='actions'>{status.primary && <button type='button' className='theia-button main' onClick={status.primary.run}>{status.primary.label}</button>}
+                    <button type='button' className='theia-button secondary' onClick={status.secondary.run}>{status.secondary.label}</button></div>
             </section>}
             {channel && <section><div className='akari-os-other-heading'><h3>{channel} のほかのプロジェクト</h3><small>{others.length} 本</small>
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>プロジェクト一覧へ</button></div>
@@ -2383,9 +2406,7 @@ export class AkariHomeWidget extends ReactWidget {
         const folder = Array.isArray(picked) ? picked[0] : picked;
         if (!folder) { return; }
         this.standaloneFolder = folder;
-        const date = new Date();
-        const datePrefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const stem = `${datePrefix}-${NEW_PROJECT_NAME_SLUG}`;
+        const stem = newProjectNameStem();
         let name = stem;
         for (let index = 2; await this.fileService.exists(folder.resolve(name)); index++) {
             name = `${stem}-${index}`;
@@ -2748,6 +2769,7 @@ export class AkariHomeWidget extends ReactWidget {
         // 再送信でも同じ挙動 — 戻り先は常に dashboard の 1 種類）。
         this.intakeFormOpen = false;
         await this.refreshHomeFlow();
+        this.messages.info('進め方をパートナーに送りました');
     }
 
     protected buildIntakeSummaryText(tasks: IntakeTaskId[], target: { duration_s: number | null; keep_length: boolean; taste: string | null }): string {
@@ -3477,17 +3499,10 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
-    /**
-     * 進め方フォーム（intake サーフェス）。ステージではなく dashboard 内の展開
-     * セクションで、畳む導線は「ホームに戻る」の 1 種類だけ（裁定 R5）。
-     * 企画の「詳しく」と `akari.home.openIntakeForm` コマンドから開く。
-     */
+    /** 企画の「詳しく」とコマンドから開く進め方フォーム。 */
     protected renderIntakeForm(): React.ReactNode {
         return (
-            <div style={homeFlowStyles.intakeSection}>
-                <button type='button' className='theia-button quiet' style={homeFlowStyles.backLink} onClick={this.closeIntakeForm}>
-                    <span className='codicon codicon-arrow-left' aria-hidden='true' /> ホームに戻る
-                </button>
+            <HomeScrim kind='intake' onClose={this.closeIntakeForm}>
                 {this.intakeStatus === 'submitted' && (
                     <p style={homeFlowStyles.reviewNotice}>
                         以前送信した内容を表示しています。内容を直して送信すると上書きされます。
@@ -3552,22 +3567,17 @@ export class AkariHomeWidget extends ReactWidget {
                             ))}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <button
-                            type='button'
-                            className='theia-button main'
-                            style={homeFlowStyles.cta}
-                            disabled={this.intakeSubmitting}
-                            onClick={() => void this.submitIntake()}
-                        >
-                            {this.intakeSubmitting ? '送信しています…' : 'この内容でパートナーに依頼する'}
-                        </button>
-                        <p style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.7 }}>
-                            保存先: .akari/intake.json（schema 検証つき）<br />チャットにも同じ内容が流れます
-                        </p>
-                    </div>
                 </div>
-            </div>
+                <p style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.7 }}>
+                    保存先: .akari/intake.json（schema 検証つき）<br />チャットにも同じ内容が流れます
+                </p>
+                <div className='akari-home-dialog-actions'>
+                    <button type='button' className='theia-button secondary' onClick={this.closeIntakeForm}>閉じる</button>
+                    <button type='button' className='theia-button main' disabled={this.intakeSubmitting} onClick={() => void this.submitIntake()}>
+                        {this.intakeSubmitting ? '送信しています…' : 'この内容でパートナーに依頼する'}
+                    </button>
+                </div>
+            </HomeScrim>
         );
     }
 }
@@ -3689,21 +3699,11 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         color: 'var(--theia-descriptionForeground)', background: AKARI_SURFACE.elevated
     },
 
-    // dashboard 内に展開する進め方フォーム（ステージではない）。
-    intakeSection: {
-        marginBottom: 22, padding: '16px 18px', borderRadius: AKARI_RADIUS.panel,
-        border: AKARI_BORDER.accent, background: AKARI_SURFACE.raised
-    },
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     checks: { display: 'flex', flexDirection: 'column', gap: 8 },
     pills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
 
-    // 展開フォームを畳む唯一の導線「← ホームに戻る」。
-    backLink: {
-        display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: 0,
-        fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
-    },
     reviewNotice: {
         marginBottom: 16, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel, fontSize: 12.5,
         border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,

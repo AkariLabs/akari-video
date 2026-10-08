@@ -28,7 +28,7 @@ test('チャンネルはフォルダとマニフェストだけで作る', () =>
     assert.match(create, /setViewingChannel\(channel\)/);
     assert.doesNotMatch(create, /adoptProject\(/);
     assert.match(home, /startNewProjectIn\(destination: URI\)/);
-    assert.match(home, /new-video/);
+    assert.doesNotMatch(home, /new-video/);
 });
 
 test('一覧に単体プロジェクトの入口がある', () => {
