@@ -58,7 +58,7 @@ async function until(predicate, timeout = 8000) {
   assert.fail('timed out waiting for preview reload');
 }
 
-async function observeReadyAfterDeadline(page, deadlineAt) {
+async function observeReadyAfterDeadline(page, deadlineAt, createdBefore = null) {
   const changes = [];
   const stopAt = Date.now() + 15000;
   let previous;
@@ -66,15 +66,19 @@ async function observeReadyAfterDeadline(page, deadlineAt) {
   while (Date.now() <= stopAt) {
     const values = await page.evaluate(() => {
       const c = document.querySelector('[data-overlay-id="s3d"]');
-      return { ready: Boolean(c && window.akari.threeRuntime.inspect(c).status === 'ready'),
-        generatedAbsent: Boolean(c && !c.querySelector('[data-akari-3d-preview-generated]')) };
+      const premount = window.akari.threeRuntime.premountState();
+      const status = c ? window.akari.threeRuntime.inspect(c).status : null;
+      return { ready: status === 'ready', generatedAbsent: Boolean(c && !c.querySelector('[data-akari-3d-preview-generated]')),
+        created: premount.created, disposed: premount.disposed, status };
     }).catch(error => ({ error: error.message }));
     const afterMs = Date.now() - deadlineAt;
     if (!previous || Object.keys(values).some(key => values[key] !== previous[key])) {
       changes.push({ afterMs, ...values });
     }
     previous = values;
-    satisfied = values.ready === true && values.generatedAbsent === true;
+    satisfied = createdBefore === null
+      ? values.ready === true && values.generatedAbsent === true
+      : values.created > createdBefore && values.status === 'ready';
     if (satisfied || values.error) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -166,7 +170,7 @@ test('watch targets contain the fragment and declared 3D assets only', async () 
 });
 
 test('3D fragment and referenced assets notify changed paths; preview retries and shows errors only when enabled',
-  { timeout: 60000 }, async t => {
+  { timeout: 90000 }, async t => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-preview-3d-refresh-'));
     fs.mkdirSync(path.join(root, 'overlays'));
     fs.mkdirSync(path.join(root, 'assets', 'models'), { recursive: true });
@@ -265,15 +269,16 @@ test('3D fragment and referenced assets notify changed paths; preview retries an
     if (page) {
       const waitStarted = Date.now();
       try {
+        // CI の失敗時スナップショットは待機条件を満たした状態だった。
+        // モデル追加後はランタイムの作り直しで ready になるため、SwiftShader の判定遅延を許容する。
         await page.waitForFunction(() => {
           const c = document.querySelector('[data-overlay-id="s3d"]');
           return c && window.akari.threeRuntime.inspect(c).status === 'ready'
             && !c.querySelector('[data-akari-3d-preview-generated]');
-        }, null, { timeout: 8000 });
+        }, null, { timeout: 20000 });
       } catch (error) {
-        // CI's failure snapshot already met both conditions. Watch after the deadline to tell
-        // late readiness from a missed poll without changing the original wait or its timeout.
-        const afterDeadline = await observeReadyAfterDeadline(page, waitStarted + 8000);
+        // Record whether readiness arrives after the wait has expired.
+        const afterDeadline = await observeReadyAfterDeadline(page, waitStarted + 20000);
         const state = await page.evaluate(() => {
           const container = document.querySelector('[data-overlay-id="s3d"]');
           return { container: Boolean(container), generated: container?.querySelector('[data-akari-3d-preview-generated]')?.textContent,
@@ -289,19 +294,23 @@ test('3D fragment and referenced assets notify changed paths; preview retries an
     fs.writeFileSync(path.join(root, 'assets', 'models', 'probe.glb'), glb([0, 0, 1, 1]));
     await until(() => messages.some(m => m.changedPaths?.includes('assets/models/probe.glb')));
     if (page) {
+      const waitStarted = Date.now();
       try {
+        // CI の失敗時スナップショットは手元で待機条件を満たした終状態と同じだった。
+        // モデル変更はランタイムを破棄して作り直すため、SwiftShader の判定遅延を許容する。
         await page.waitForFunction((before) => {
           const c = document.querySelector('[data-overlay-id="s3d"]');
           return c && window.akari.threeRuntime.premountState().created > before
             && window.akari.threeRuntime.inspect(c).status === 'ready';
-        }, createdBefore, { timeout: 8000 });
+        }, createdBefore, { timeout: 20000 });
       } catch (error) {
+        const afterDeadline = await observeReadyAfterDeadline(page, waitStarted + 20000, createdBefore);
         const state = await page.evaluate(() => {
           const container = document.querySelector('[data-overlay-id="s3d"]');
           return { container: Boolean(container), runtime: container && window.akari?.threeRuntime?.inspect(container),
             premount: window.akari?.threeRuntime?.premountState() };
         }).catch(evaluateError => ({ error: evaluateError.message }));
-        throw new Error(`updated 3D model did not become ready: ${error.message}; state=${JSON.stringify(state)}; console=${JSON.stringify(pageConsole.slice(-20))}; server=${stderr}`, { cause: error });
+        throw new Error(`updated 3D model did not become ready: ${error.message}; createdBefore=${createdBefore}; after_deadline=${JSON.stringify(afterDeadline)}; state=${JSON.stringify(state)}; console=${JSON.stringify(pageConsole.slice(-20))}; server=${stderr}`, { cause: error });
       }
     }
     if (page) {
