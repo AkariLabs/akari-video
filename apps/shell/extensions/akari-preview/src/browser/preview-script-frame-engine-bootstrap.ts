@@ -116,7 +116,7 @@ export function frameEngineBootstrapScript(): string {
             root.id = 'frame-engine-preview';
             root.dataset.frameEngineReady = 'false';
             Object.assign(root.style, {
-                position: 'absolute', inset: '0', background: '#000', pointerEvents: 'none'
+                position: 'absolute', inset: '0', background: 'transparent', pointerEvents: 'none'
             });
 
             const canvas = document.createElement('canvas');

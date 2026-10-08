@@ -14,7 +14,7 @@
     opacity: 1 !important;
 }
 .akari-generation-planned-audio .akari-generation-badge {
-    color: #badbff;
+    color: var(--akari-tl-planned-badge);
 }
 
 .akari-generation-stale {
@@ -87,15 +87,15 @@
 .akari-generation-stale .akari-generation-badge {
     color: var(--theia-editorWarning-foreground, #f5c842);
 }
-.akari-generation-generating .akari-generation-badge { color: #d4ebff; }
+.akari-generation-generating .akari-generation-badge { color: var(--akari-tl-generating-badge); }
 .akari-generation-generating .akari-generation-badge::before {
     content: '';
     display: inline-block;
     width: 8px;
     height: 8px;
     margin-right: 4px;
-    border: 1.5px solid rgba(212,235,255,.4);
-    border-top-color: #d4ebff;
+    border: 1.5px solid var(--akari-tl-generating-spinner);
+    border-top-color: var(--akari-tl-generating-badge);
     border-radius: 50%;
     animation: akari-generation-spin 1.2s linear infinite;
 }
@@ -288,8 +288,8 @@
     padding: 0 2px;
     font-size: 8px;
     line-height: 10px;
-    color: #fff;
-    background: rgba(0, 0, 0, .72);
+    color: var(--akari-tl-chip-text);
+    background: var(--akari-tl-chip-face);
 }
 .akari-generation-planned-video [data-akari-generation-frame="last"] .akari-generation-frame-label {
     left: auto;

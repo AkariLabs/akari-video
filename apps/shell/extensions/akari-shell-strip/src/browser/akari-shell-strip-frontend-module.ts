@@ -10,6 +10,7 @@ import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsContribution, AkariSettingsOpener } from './akari-settings-contribution';
+import { AkariHomeOpener, AkariHomeOpenerContribution } from './akari-home-opener-contribution';
 import { AkariMenuWidget } from './akari-menu-widget';
 import { AkariMenuContribution } from './akari-menu-contribution';
 import { AkariMenuFocusCommandContribution } from './akari-menu-command-contribution';
@@ -83,6 +84,14 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // S15: activity bar curation（起動時一括 + onDidAddWidget 常時フィルタ）
     bind(AkariActivityBarCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariActivityBarCuration);
+
+    bind(AkariHomeOpener).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: AkariHomeOpener.ID,
+        createWidget: () => ctx.container.get(AkariHomeOpener)
+    })).inSingletonScope();
+    bind(AkariHomeOpenerContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariHomeOpenerContribution);
 
     // 4番目のアイコン（設定）から surfaces のダイアログを開く。
     bind(AkariSettingsOpener).toSelf();

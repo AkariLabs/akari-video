@@ -791,7 +791,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         } });
         this.id = AkariRoleBucketsWidget.ID;
         this.title.label = '素材';
-        this.title.caption = 'ドメインオブジェクトのカード棚';
+        this.title.caption = '素材（プロジェクト / ライブラリ）';
         this.title.iconClass = 'codicon codicon-files';
         this.title.closable = false;
         // 俯瞰の取り込みドロップゾーンと同じ流儀: このパネルへのドロップは
