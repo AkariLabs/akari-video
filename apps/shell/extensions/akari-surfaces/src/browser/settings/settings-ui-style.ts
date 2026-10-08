@@ -37,10 +37,12 @@ ${S} button.akari-set-nav-item[aria-current="true"] .akari-set-icon { color: var
 ${S} button.akari-set-nav-item:focus-visible { outline: 1px solid var(--akari-accent-light); outline-offset: -1px; }
 
 ${S} .akari-set-page { flex: 1; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 24px 28px 32px; color: var(--akari-ink); }
-${S} .akari-set-page:not([data-akari-settings-section="ai-models"]) { width: 100%; max-width: 770px; }
+${S} .akari-set-page:not([data-akari-settings-section="ai-models"]) { width: 100%; max-width: 770px; margin-inline: auto; }
 ${S} .akari-set-page h2 { font-size: 17px; margin: 0 0 4px; color: var(--akari-ink); }
 ${S} .akari-set-lead { color: var(--akari-muted); margin: 0 0 20px; font-size: 13px; line-height: 1.55; }
-${S} .akari-set-notice { color: var(--theia-errorForeground); flex-shrink: 0; margin: 12px 28px 0; font-size: 12px; }
+${S} .akari-set-notice { color: var(--theia-errorForeground); flex-shrink: 0; font-size: 12px; }
+${S} main > .akari-set-notice { box-sizing: border-box; width: 100%; max-width: 770px; margin: 12px auto 0; padding-inline: 28px; }
+${S} main:has(> .akari-set-page[data-akari-settings-section="ai-models"]:not([hidden])) > .akari-set-notice { max-width: none; }
 ${S} .akari-set-notice:empty { display: none; }
 
 ${S} .akari-set-group { background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 12px; margin: 0 0 14px; min-width: 0; }
@@ -79,6 +81,7 @@ ${S} button.akari-set-seg-item:focus-visible { outline: 1px solid var(--akari-ac
 
 ${S} button.akari-set-switch { all: unset; box-sizing: border-box; cursor: pointer; width: 34px; height: 20px; flex: 0 0 34px; border-radius: 999px; position: relative; background: color-mix(in srgb, var(--akari-faint) 55%, var(--akari-bg)); transition: background .28s cubic-bezier(.32,.72,0,1); }
 ${S} .akari-set-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--akari-ink); transition: transform .28s cubic-bezier(.32,.72,0,1); }
+body.theia-light ${S} button.akari-set-switch[aria-checked="false"] .akari-set-switch-knob { background: #fff; }
 ${S} button.akari-set-switch[aria-checked="true"] { background: var(--akari-accent); }
 ${S} button.akari-set-switch[aria-checked="true"] .akari-set-switch-knob { transform: translateX(14px); background: var(--akari-bg); }
 ${S} button.akari-set-switch:disabled { opacity: .45; cursor: default; }
