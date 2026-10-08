@@ -43,6 +43,7 @@ window.akari.threeRuntime = (() => {
     "lights",
     "animationClip",
     "materialOverrides",
+    "finishes",
     "shadows",
     "texts",
     "physics",
@@ -136,6 +137,56 @@ window.akari.threeRuntime = (() => {
   const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
   const CSS_VAR_REFERENCE_PATTERN = /^var\(\s*(--[\w-]+)\s*\)$/;
   const CSS_CUSTOM_PROPERTY_PATTERN = /^--[A-Za-z_][A-Za-z0-9_-]*$/;
+  const FINISH_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+  const FINISH_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+  const FINISH_PROPERTIES = new Set([
+    "color", "metalness", "roughness", "clearcoat", "clearcoatRoughness", "emissive",
+  ]);
+
+  function validateFinishes(finishes) {
+    const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (!isObject(finishes) || Object.keys(finishes).some((key) => !["var", "default", "options"].includes(key))) {
+      throw new TypeError("finishes は var / default / options を指定する object である必要があります");
+    }
+    if (finishes.var !== undefined
+      && (typeof finishes.var !== "string" || !CSS_CUSTOM_PROPERTY_PATTERN.test(finishes.var))) {
+      throw new TypeError("finishes.var は -- で始まる CSS カスタムプロパティ名である必要があります");
+    }
+    if (typeof finishes.default !== "string" || !FINISH_NAME_PATTERN.test(finishes.default)) {
+      throw new TypeError("finishes.default は有効な選択名である必要があります");
+    }
+    if (!isObject(finishes.options) || Object.keys(finishes.options).length === 0) {
+      throw new TypeError("finishes.options は非空の object である必要があります");
+    }
+    for (const [name, materials] of Object.entries(finishes.options)) {
+      if (!FINISH_NAME_PATTERN.test(name)) {
+        throw new TypeError(`finishes.options の選択名が不正です: ${name}`);
+      }
+      if (!isObject(materials)) {
+        throw new TypeError(`finishes.options.${name} は材質名をキーとする object である必要があります`);
+      }
+      for (const [materialName, values] of Object.entries(materials)) {
+        if (!materialName.trim() || !isObject(values)) {
+          throw new TypeError(`finishes.options.${name} の材質指定が不正です: ${materialName}`);
+        }
+        for (const [key, value] of Object.entries(values)) {
+          if (!FINISH_PROPERTIES.has(key)) {
+            throw new TypeError(`finishes.options.${name}.${materialName} の未対応キーです: ${key}`);
+          }
+          if (key === "color" || key === "emissive") {
+            if (typeof value !== "string" || !FINISH_COLOR_PATTERN.test(value)) {
+              throw new TypeError(`finishes.options.${name}.${materialName}.${key} は 6 桁 hex 色である必要があります`);
+            }
+          } else if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+            throw new TypeError(`finishes.options.${name}.${materialName}.${key} は 0〜1 の有限数である必要があります`);
+          }
+        }
+      }
+    }
+    if (!Object.hasOwn(finishes.options, finishes.default)) {
+      throw new TypeError("finishes.default は finishes.options 内の選択名である必要があります");
+    }
+  }
 
   function finiteNumber(value, fallback) {
     const number = Number(value);
@@ -570,6 +621,7 @@ window.akari.threeRuntime = (() => {
         throw new TypeError(`data-akari-3d-scene の未対応キーです: ${key}`);
       }
     }
+    if (descriptor.finishes !== undefined) validateFinishes(descriptor.finishes);
     // texts[] があれば model は任意化される（両方あれば併存。§3.1）
     const hasTexts = descriptor.texts !== undefined;
     if (hasTexts) {
@@ -944,6 +996,102 @@ window.akari.threeRuntime = (() => {
         video: Boolean(texture.isVideoTexture),
       };
     }));
+  }
+
+  function initializeFinishes(instance, root) {
+    if (!instance.finish) return;
+    const materialsByName = new Map();
+    root.traverse((object) => {
+      const materials = Array.isArray(object.material) ? object.material : object.material ? [object.material] : [];
+      for (const material of materials) {
+        if (!materialsByName.has(material.name)) materialsByName.set(material.name, new Set());
+        materialsByName.get(material.name).add(material);
+      }
+    });
+    // materialOverrides 適用後の値を素の値として記録し、finishes は指定キーだけ上書きする。
+    // emissiveMap / emissiveIntensity は記録対象にも上書き対象にも含めず保持する。
+    for (const materials of materialsByName.values()) {
+      for (const material of materials) {
+        instance.finish.base.set(material, {
+          color: material.color?.clone(),
+          metalness: material.metalness,
+          roughness: material.roughness,
+          clearcoat: material.clearcoat,
+          clearcoatRoughness: material.clearcoatRoughness,
+          emissive: material.emissive?.clone(),
+        });
+      }
+    }
+    instance.finish.materialsByName = materialsByName;
+    applyFinish(instance);
+  }
+
+  function applyFinish(instance) {
+    const state = instance.finish;
+    if (!state || !state.materialsByName) return;
+    const { descriptor } = state;
+    const raw = getComputedStyle(instance.canvas).getPropertyValue(descriptor.var ?? "--akari-3d-finish").trim();
+    const requested = raw.replace(/^(['"])(.*)\1$/, "$2");
+    const selected = requested === "" ? descriptor.default
+      : Object.hasOwn(descriptor.options, requested) ? requested : descriptor.default;
+    if (requested !== "" && !Object.hasOwn(descriptor.options, requested)
+      && !state.warnedValues.has(requested)) {
+      state.warnedValues.add(requested);
+      console.warn(`[akari-three] finishes の未知の選択値です: ${requested}。${descriptor.default} を使います`);
+    }
+    if (state.selected === selected) return;
+
+    const oldCoats = new Map();
+    for (const [material, base] of state.base) {
+      oldCoats.set(material, material.clearcoat);
+      if (base.color && material.color) material.color.copy(base.color);
+      if (base.emissive && material.emissive) material.emissive.copy(base.emissive);
+      for (const key of ["metalness", "roughness", "clearcoat", "clearcoatRoughness"]) {
+        if (base[key] !== undefined && key in material) material[key] = base[key];
+      }
+    }
+    const applied = [];
+    for (const [name, values] of Object.entries(descriptor.options[selected])) {
+      const materials = state.materialsByName.get(name);
+      if (!materials?.size) {
+        const warningKey = JSON.stringify([selected, name]);
+        if (!state.warnedMaterials.has(warningKey)) {
+          state.warnedMaterials.add(warningKey);
+          console.warn(`[akari-three] finishes の対象が見つかりません: ${name}（選択: ${selected}）`);
+        }
+        applied.push({ material: name, applied: false });
+        continue;
+      }
+      for (const material of materials) {
+        for (const [key, value] of Object.entries(values)) {
+          if (!(key in material) || ((key === "color" || key === "emissive") && !material[key]?.set)) {
+            const warningKey = `${material.uuid}:${key}`;
+            if (!state.warnedProperties.has(warningKey)) {
+              state.warnedProperties.add(warningKey);
+              console.warn(`[akari-three] finishes の ${name}.${key} はこの材質に適用できません`);
+            }
+            continue;
+          }
+          if (key === "color" || key === "emissive") material[key].set(value);
+          else material[key] = value;
+        }
+        applied.push({
+          material: name, applied: true,
+          color: material.color ? `#${material.color.getHexString()}` : null,
+          metalness: material.metalness ?? null,
+          roughness: material.roughness ?? null,
+          clearcoat: material.clearcoat ?? null,
+          clearcoatRoughness: material.clearcoatRoughness ?? null,
+          emissive: material.emissive ? `#${material.emissive.getHexString()}` : null,
+        });
+      }
+    }
+    // clearcoat の有無だけがシェーダ定義を変えうる。色・係数の通常変更では再コンパイルしない。
+    for (const [material, oldCoat] of oldCoats) {
+      if ((oldCoat > 0) !== (material.clearcoat > 0)) material.needsUpdate = true;
+    }
+    state.selected = selected;
+    state.applied = applied;
   }
 
   function createCamera(THREE, descriptor) {
@@ -2017,6 +2165,7 @@ window.akari.threeRuntime = (() => {
     if (!instance.active || !instance.contentReady) return;
     rendererSize(instance, instance.maxRenderSize);
     applyProjectionKnobs(instance);
+    applyFinish(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
     if (instance.textAnimEntries.length > 0) updateTextVisibility(instance, localSeconds);
     if (instance.textAnimEntries.length > 0) updateTextAnimations(instance, localSeconds);
@@ -2379,6 +2528,16 @@ window.akari.threeRuntime = (() => {
       physicsPresimMs: null,
       // materialOverrides の解決結果（inspect() から検証・証跡に使う）。
       materialOverrideReport: [],
+      finish: descriptor.finishes ? {
+        descriptor: descriptor.finishes,
+        selected: null,
+        applied: [],
+        base: new Map(),
+        materialsByName: null,
+        warnedValues: new Set(),
+        warnedMaterials: new Set(),
+        warnedProperties: new Set(),
+      } : null,
       // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
       // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
       contentReady: false,
@@ -2410,6 +2569,9 @@ window.akari.threeRuntime = (() => {
       }
       instance.model = gltf.scene;
       await applyMaterialOverrides(THREE, instance, gltf.scene, descriptor.materialOverrides);
+      // materialOverrides を先に適用し、その結果を素の値として finishes が指定キーだけ上書きする。
+      // emissiveMap / emissiveIntensity は materialOverrides、emissive 色は finishes の担当。
+      initializeFinishes(instance, gltf.scene);
       if (descriptor.environment?.map) {
         await applyEnvironmentMap(THREE, instance, descriptor.environment.map);
       }
@@ -2623,6 +2785,8 @@ window.akari.threeRuntime = (() => {
             if (rows.has(material.uuid)) continue;
             rows.set(material.uuid, {
               name: material.name, type: material.type, metalness: material.metalness,
+              color: material.color ? `#${material.color.getHexString()}` : null,
+              emissive: material.emissive ? `#${material.emissive.getHexString()}` : null,
               roughness: material.roughness, specularIntensity: material.specularIntensity,
               clearcoat: material.clearcoat, clearcoatRoughness: material.clearcoatRoughness,
               emissiveIntensity: material.emissiveIntensity,
@@ -2633,6 +2797,12 @@ window.akari.threeRuntime = (() => {
       })(),
       // materialOverrides の CSS 変数解決・適用結果（検証・証跡用）。
       materialOverrides: instance.materialOverrideReport.map((entry) => ({ ...entry })),
+      finish: instance.finish ? {
+        var: instance.finish.descriptor.var ?? "--akari-3d-finish",
+        selected: instance.finish.selected,
+        default: instance.finish.descriptor.default,
+        applied: instance.finish.applied.map((entry) => ({ ...entry })),
+      } : null,
       // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）
       textNodes: instance.textNodes.length,
       textBlocks: instance.textAnimEntries.length,
