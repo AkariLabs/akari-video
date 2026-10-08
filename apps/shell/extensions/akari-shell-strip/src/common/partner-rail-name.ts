@@ -4,7 +4,9 @@ export function railNameForPartner(id: string, label: string, caption?: string):
 
     const fromLabel = label.match(/^チャット\s*·\s*(.+)$/)?.[1]
         ?? label.match(/^チャット（(.+)）$/)?.[1];
-    const fromCaption = caption && /(?: CLI| 拡張| Harness)$/.test(caption) ? caption : undefined;
+    // 端末の caption は「Claude Code CLI（自動モードで起動）」のように末尾に（…）が付く
+    const bareCaption = caption?.replace(/[（(][^（）()]*[）)]\s*$/, '').trim();
+    const fromCaption = bareCaption && /(?: CLI| 拡張| Harness)$/.test(bareCaption) ? bareCaption : undefined;
     const name = (fromLabel || fromCaption || '').trim()
         .replace(/(?: CLI| 拡張| Harness)$/, '');
     return name === 'Claude Code' ? 'Claude' : name || 'チャット';
