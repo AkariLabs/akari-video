@@ -200,6 +200,8 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         root.setProperty('--akari-vibe-acting', palette.vibeActing);
         root.setProperty('--akari-card', palette.card);
         root.setProperty('--akari-elevated', palette.elevated);
+        root.setProperty('--akari-toast-surface', palette.toastSurface);
+        root.setProperty('--akari-toast-shadow', palette.toastShadow);
         root.setProperty('--akari-panel-project', palette.panelProject);
         root.setProperty('--akari-panel-project-item', palette.panelProjectItem);
         root.setProperty('--akari-panel-project-elevated', palette.panelProjectElevated);
