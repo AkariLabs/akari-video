@@ -60,7 +60,8 @@ export class ProjectProgressService implements FrontendApplicationContribution {
             this.countTopLevel(root.resolve('assets'), name => MEDIA_EXT.test(name)),
             this.readEditHasContent(root.resolve('edit.json')),
             this.files.exists(root.resolve('analysis-report.html')).then(exists => exists ? 1 : 0, () => 0),
-            this.countTopLevel(root.resolve('.akari/reports'), name => /\.html?$/i.test(name)),
+            // scaffold が作成時に置く作成レポート・空の lint レポートは「確認」に数えない（作ったばかりで ✓ にならないように）
+            this.countTopLevel(root.resolve('.akari/reports'), name => /\.html?$/i.test(name) && !/^(create-project-report|edit-lint-report)/i.test(name)),
             this.countTopLevel(root.resolve('exports'), name => VIDEO_EXT.test(name))
         ]);
         return { planningDocs, assetFiles, editHasContent, reportFiles: rootReport + managedReports, exportFiles };
