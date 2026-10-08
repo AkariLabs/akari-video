@@ -72,7 +72,7 @@ function gpuPhaseCode() {
   window.gpuPhase = captionRichPhaseHtml;`;
 }
 
-async function gpuPhaseScreenshot(browser, rich, style) {
+async function gpuPhaseScreenshot(browser, rich, style, inspect = false) {
   const page = await browser.newPage({ viewport: output, deviceScaleFactor: 1 });
   try {
     await page.setContent('<!doctype html><meta charset="utf-8">');
@@ -81,13 +81,13 @@ async function gpuPhaseScreenshot(browser, rich, style) {
       await document.fonts.ready;
       return window.gpuPhase({ richTextStyle: style, vars: rich.vars }, output, rich.html, '');
     }, { rich, style, output });
-    return screenshot(browser, documentFor(html, rich.vars));
+    return screenshot(browser, documentFor(html, rich.vars), undefined, undefined, inspect);
   } finally {
     await page.close();
   }
 }
 
-async function screenshot(browser, html, code, style) {
+async function screenshot(browser, html, code, style, inspect = false) {
   const page = await browser.newPage({ viewport: output, deviceScaleFactor: 1 });
   try {
     await page.setContent(html, { waitUntil: 'load' });
@@ -96,16 +96,24 @@ async function screenshot(browser, html, code, style) {
       await page.evaluate(style => window.applyFixtureRich(document.getElementById('stage'), { textStyle: style }), style);
     }
     await page.evaluate(() => document.fonts.ready);
-    return await page.screenshot({ animations: 'disabled' });
+    const png = await page.screenshot({ animations: 'disabled' });
+    if (!inspect) return png;
+    const tokens = await page.evaluate(() => [...document.querySelectorAll('.akari-caption__tok')]
+      .map(element => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { text: element.textContent, className: element.className,
+          rect: { x, y, width, height } };
+      }));
+    return { png, tokens };
   } finally {
     await page.close();
   }
 }
 
-async function pixelDifference(browser, first, second) {
+async function pixelDifference(browser, first, second, details = false) {
   const page = await browser.newPage();
   try {
-    return await page.evaluate(async ([a, b]) => {
+    return await page.evaluate(async ([a, b, details]) => {
       async function pixels(base64) {
         const image = new Image();
         image.src = `data:image/png;base64,${base64}`;
@@ -115,20 +123,70 @@ async function pixelDifference(browser, first, second) {
         canvas.height = image.height;
         const context = canvas.getContext('2d');
         context.drawImage(image, 0, 0);
-        return context.getImageData(0, 0, image.width, image.height).data;
+        return { width: image.width, height: image.height,
+          data: context.getImageData(0, 0, image.width, image.height).data };
       }
       const left = await pixels(a);
       const right = await pixels(b);
-      if (left.length !== right.length) throw new Error('image dimensions differ');
+      if (left.width !== right.width || left.height !== right.height) throw new Error('image dimensions differ');
       let different = 0;
-      for (let i = 0; i < left.length; i += 4) {
-        if (left[i] !== right[i] || left[i + 1] !== right[i + 1]
-          || left[i + 2] !== right[i + 2] || left[i + 3] !== right[i + 3]) different++;
+      let minX = left.width, minY = left.height, maxX = -1, maxY = -1, maxChannelDelta = 0;
+      for (let i = 0; i < left.data.length; i += 4) {
+        let changed = false;
+        for (let channel = 0; channel < 4; channel++) {
+          const delta = Math.abs(left.data[i + channel] - right.data[i + channel]);
+          if (delta > 0) changed = true;
+          if (delta > maxChannelDelta) maxChannelDelta = delta;
+        }
+        if (changed) {
+          different++;
+          const pixel = i / 4;
+          const x = pixel % left.width;
+          const y = Math.floor(pixel / left.width);
+          minX = Math.min(minX, x); minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+        }
       }
-      return different;
-    }, [first.toString('base64'), second.toString('base64')]);
+      return details ? { count: different,
+        bbox: different ? { minX, minY, maxX, maxY } : null, maxChannelDelta } : different;
+    }, [first.toString('base64'), second.toString('base64'), details]);
   } finally {
     await page.close();
+  }
+}
+
+async function capturePath(browser, path, rich, base, style, shellCode, previewCode) {
+  if (path === 'gpu') return gpuPhaseScreenshot(browser, rich, style, true);
+  const html = path === 'render' ? rich.html
+    : path === 'osr' ? scopeCaptionStylesInSheet(rich.html) : base.html;
+  const code = path === 'shell' ? shellCode : path === 'preview' ? previewCode : undefined;
+  return screenshot(browser, documentFor(html, rich.vars), code, style, true);
+}
+
+async function diagnoseMismatch(browser, images, path, rich, base, style, shellCode, previewCode) {
+  try {
+    const firstDifference = await pixelDifference(browser, images.render, images[path], true);
+    const retries = [];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const render = await capturePath(browser, 'render', rich, base, style, shellCode, previewCode);
+      const other = await capturePath(browser, path, rich, base, style, shellCode, previewCode);
+      retries.push({
+        attempt,
+        renderSelfDifference: await pixelDifference(browser, images.render, render.png),
+        pathSelfDifference: await pixelDifference(browser, images[path], other.png),
+        renderVsPath: await pixelDifference(browser, render.png, other.png),
+        renderTokens: render.tokens,
+        pathTokens: other.tokens,
+      });
+    }
+    const overlaps = tokens => tokens.filter(({ rect }) => firstDifference.bbox &&
+      rect.x <= firstDifference.bbox.maxX && rect.x + rect.width >= firstDifference.bbox.minX &&
+      rect.y <= firstDifference.bbox.maxY && rect.y + rect.height >= firstDifference.bbox.minY);
+    return { firstDifference, retries: retries.map(({ renderTokens, pathTokens, ...counts }) => counts),
+      renderTokens: retries[0].renderTokens, pathTokens: retries[0].pathTokens,
+      renderOverlaps: overlaps(retries[0].renderTokens), pathOverlaps: overlaps(retries[0].pathTokens) };
+  } catch (error) {
+    return { diagnosticError: String(error) };
   }
 }
 
@@ -155,6 +213,7 @@ test('eight v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1
   const shellCode = shellLayerCode();
   const previewCode = previewLayerCode();
   const evidence = {};
+  const diagnostics = {};
   try {
     for (const filename of readdirSync(fixtures).filter(name => name.endsWith('.json'))) {
       const sample = JSON.parse(readFileSync(join(fixtures, filename), 'utf8'));
@@ -177,6 +236,11 @@ test('eight v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1
       for (const path of ['shell', 'preview', 'osr', 'gpu']) {
         const pixels = await pixelDifference(browser, images.render, images[path]);
         evidence[sample.id][path] = pixels;
+        if (pixels !== 0) {
+          diagnostics[sample.id] ??= {};
+          diagnostics[sample.id][path] = await diagnoseMismatch(browser, images, path,
+            rich, base, sample.style, shellCode, previewCode);
+        }
       }
     }
     const anger = JSON.parse(readFileSync(join(fixtures, 'telop-anger-shadow.json'), 'utf8'));
@@ -203,11 +267,17 @@ test('eight v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1
     for (const path of ['shell', 'preview', 'osr', 'gpu']) {
       const pixels = await pixelDifference(browser, mixedImages.render, mixedImages[path]);
       evidence['karaoke-run-emphasis'][path] = pixels;
+      if (pixels !== 0) {
+        diagnostics['karaoke-run-emphasis'] ??= {};
+        diagnostics['karaoke-run-emphasis'][path] = await diagnoseMismatch(browser, mixedImages, path,
+          richMixed, baseMixed, mixedStyle, shellCode, previewCode);
+      }
     }
     writeFileSync(join(fixtures, 'pixel-difference.json'), `${JSON.stringify({ output, evidence }, null, 2)}\n`);
     for (const [id, paths] of Object.entries(evidence)) {
       for (const [path, pixels] of Object.entries(paths)) {
-        assert.equal(pixels, 0, `${id}: ${path} differs from render-cut`);
+        assert.equal(pixels, 0, `${id}: ${path} differs from render-cut`
+          + (diagnostics[id]?.[path] ? `\nDIAGNOSTIC ${JSON.stringify(diagnostics[id][path])}` : ''));
       }
     }
   } finally { await browser.close(); }
