@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn as spawnProcess, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { createHash } from 'node:crypto';
 import { DshWebEarlyExitError, launchDshWeb, parseDshWebUrlLine, buildDshWebArgs } from '../../lib/node/dsh-web-launcher.js';
 import { DSH_WEB_PORT_MIN, DSH_WEB_PORT_MAX, normalizeWebCwdKey, dshWebPortCandidates,
-    selectDshWebPort } from '../../lib/node/dsh-web-port.js';
+    canListenOnDshWebPort, selectDshWebPort } from '../../lib/node/dsh-web-port.js';
 import { maskToken, maskDshOutput } from '../../lib/common/dsh-output-mask.js';
 import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
 
@@ -210,6 +211,7 @@ test('dsh web arguments keep the patch immediately after the profile', () => {
         windowsVerbatimArguments: true });
     assert.deepEqual(buildDshWebArgs('dsh', patchPath, 'linux', {}).args,
         ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0']);
+    assert.equal(buildDshWebArgs('dsh', patchPath, 'linux', {}, DSH_WEB_PORT_MAX).args.at(-1), '44999');
     for (const port of [0, 19999, 45000, 65536, 20000.5, NaN, Infinity, '20042']) {
         assert.throws(() => buildDshWebArgs('dsh', patchPath, 'linux', {}, port), /Invalid dsh web port/);
     }
@@ -232,6 +234,16 @@ test('four distinct in-range ports are produced for 2000 project keys', () => {
         assert.equal(new Set(candidates).size, 4);
         assert.ok(candidates.every(port => port >= DSH_WEB_PORT_MIN && port <= DSH_WEB_PORT_MAX));
     }
+});
+
+test('a fixed raw hash collision advances to a distinct candidate', () => {
+    const hash = createHash('sha256').update('k3120').digest();
+    const count = DSH_WEB_PORT_MAX - DSH_WEB_PORT_MIN + 1;
+    const raw = Array.from({ length: 4 }, (_, index) => DSH_WEB_PORT_MIN + hash.readUInt32BE(index * 4) % count);
+    assert.equal(raw[0], raw[1]);
+    const candidates = dshWebPortCandidates('k3120');
+    assert.deepEqual(candidates, [raw[0], raw[0] + 1, raw[2], raw[3]]);
+    assert.equal(new Set(candidates).size, 4);
 });
 
 test('busy candidates advance in hash order and exhaustion uses automatic port', async () => {
@@ -272,31 +284,75 @@ test('a port occupied on loopback is skipped by the real listen probe', async t 
     }
 });
 
-for (const host of ['0.0.0.0', '::']) {
-    test(`a port occupied on ${host} is skipped`, async t => {
-        const key = normalizeWebCwdKey(`C:/Work/OccupiedPort-${host}`, 'win32');
-        const [first] = dshWebPortCandidates(key);
-        const blocker = createServer();
-        try {
-            await new Promise((resolve, reject) => {
-                blocker.once('error', reject);
-                blocker.listen({ port: first, host, ipv6Only: host === '::' }, resolve);
-            });
-        } catch (error) {
-            if (['EADDRINUSE', 'EACCES', 'EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes(error.code)) {
-                t.skip(`fixture cannot reserve ${host}:${first}`);
-                return;
-            }
-            throw error;
-        }
-        try {
-            const choice = await selectDshWebPort(key);
-            assert.equal(choice.skipped[0], first);
-        } finally {
-            await new Promise(resolve => blocker.close(resolve));
-        }
-    });
+function simulatedPortProbe(outcomes, listenError) {
+    const listenHosts = [];
+    const connectionHosts = [];
+    const sockets = [];
+    const serverFactory = () => {
+        const server = new EventEmitter();
+        server.listen = (_port, host, callback) => {
+            listenHosts.push(host);
+            setImmediate(() => listenError ? server.emit('error', Object.assign(new Error(listenError), { code: listenError })) : callback());
+            return server;
+        };
+        server.close = callback => setImmediate(callback);
+        return server;
+    };
+    const connect = ({ host }) => {
+        connectionHosts.push(host);
+        const socket = new EventEmitter();
+        socket.destroyedByProbe = false;
+        socket.destroy = () => { socket.destroyedByProbe = true; };
+        socket.setTimeout = (ms, callback) => { socket.timeoutMs = ms; socket.timeoutCallback = callback; };
+        sockets.push(socket);
+        setImmediate(() => {
+            const outcome = outcomes[host];
+            if (outcome === 'connected') socket.emit('connect');
+            else if (outcome === 'timeout') socket.timeoutCallback();
+            else socket.emit('error', Object.assign(new Error(outcome), { code: outcome }));
+        });
+        return socket;
+    };
+    return { serverFactory, connect, listenHosts, connectionHosts, sockets };
 }
+
+test('port probe listens only on 127.0.0.1 and connects only to loopback', async () => {
+    const probe = simulatedPortProbe({ '127.0.0.1': 'ECONNREFUSED', '::1': 'ECONNREFUSED' });
+    assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), true);
+    assert.deepEqual(probe.listenHosts, ['127.0.0.1']);
+    assert.deepEqual(probe.connectionHosts, ['127.0.0.1', '::1']);
+    assert.ok(probe.sockets.every(socket => socket.destroyedByProbe));
+    assert.ok(probe.sockets.every(socket => socket.timeoutMs === 300));
+});
+
+test('loopback connects detect simulated IPv4 and IPv6 wildcard listeners', async () => {
+    for (const [outcomes, expectedHosts] of [
+        [{ '127.0.0.1': 'connected' }, ['127.0.0.1']],
+        [{ '127.0.0.1': 'ECONNREFUSED', '::1': 'connected' }, ['127.0.0.1', '::1']]
+    ]) {
+        const probe = simulatedPortProbe(outcomes);
+        assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), false);
+        assert.deepEqual(probe.listenHosts, ['127.0.0.1']);
+        assert.deepEqual(probe.connectionHosts, expectedHosts);
+        assert.ok(probe.sockets.every(socket => socket.destroyedByProbe));
+    }
+});
+
+test('unsupported IPv6 is free; unexpected errors, timeout, and failed listen are busy', async () => {
+    for (const code of ['EADDRNOTAVAIL', 'EAFNOSUPPORT', 'ENETUNREACH', 'EINVAL']) {
+        const probe = simulatedPortProbe({ '127.0.0.1': 'ECONNREFUSED', '::1': code });
+        assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), true, code);
+    }
+    for (const outcome of ['EHOSTUNREACH', 'timeout']) {
+        const probe = simulatedPortProbe({ '127.0.0.1': outcome });
+        assert.equal(await canListenOnDshWebPort(23456, probe.serverFactory, probe.connect), false, outcome);
+        assert.ok(probe.sockets.every(socket => socket.destroyedByProbe));
+    }
+    const failed = simulatedPortProbe({}, 'EADDRINUSE');
+    assert.equal(await canListenOnDshWebPort(23456, failed.serverFactory, failed.connect), false);
+    assert.deepEqual(failed.listenHosts, ['127.0.0.1']);
+    assert.deepEqual(failed.connectionHosts, []);
+});
 
 test('Windows cmd quoting keeps spaced paths in one argument and rejects metacharacters', () => {
     const shim = join(tmpdir(), 'user with spaces', 'dsh.cmd');

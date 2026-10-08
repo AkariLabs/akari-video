@@ -180,7 +180,7 @@ test('server masks credentials and token in web logs and errors', async t => {
     }
 });
 
-test('early exit with a selected port retries exactly once without --port', async t => {
+test('early exit with a selected port retries exactly once with --port 0', async t => {
     const { root, first, executable } = await fixture(t);
     const previousHome = process.env.AKARI_HOME;
     process.env.AKARI_HOME = join(root, 'home');
@@ -210,7 +210,7 @@ test('early exit with a selected port retries exactly once without --port', asyn
     }
 });
 
-test('startup timeout does not retry without --port', async t => {
+test('startup timeout does not retry with --port 0', async t => {
     const { root, first, executable } = await fixture(t);
     const previousHome = process.env.AKARI_HOME;
     process.env.AKARI_HOME = join(root, 'home');

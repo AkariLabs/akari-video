@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { createServer } from 'net';
+import { createConnection, createServer } from 'net';
 
 export const DSH_WEB_PORT_MIN = 20000;
 export const DSH_WEB_PORT_MAX = 44999;
@@ -21,21 +21,39 @@ export function dshWebPortCandidates(cwdKey: string): number[] {
     return ports;
 }
 
-function canListenOnHost(port: number, host: string): Promise<boolean> {
+function canListenOnLoopback(port: number, serverFactory: typeof createServer): Promise<boolean> {
     return new Promise(resolve => {
-        const server = createServer();
-        server.once('error', (error: NodeJS.ErrnoException) => {
-            if (host === '::' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'ENOTSUP', 'EINVAL'].includes(error.code ?? '')) {
-                resolve(true);
-            } else resolve(false);
-        });
-        server.listen({ port, host, ipv6Only: host === '::' }, () => server.close(() => resolve(true)));
+        const server = serverFactory();
+        server.once('error', () => resolve(false));
+        server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
     });
 }
 
-export async function canListenOnDshWebPort(port: number): Promise<boolean> {
-    for (const host of ['127.0.0.1', '0.0.0.0', '::']) {
-        if (!(await canListenOnHost(port, host))) return false;
+function loopbackConnectionIsFree(port: number, host: string, connect: typeof createConnection): Promise<boolean> {
+    return new Promise(resolve => {
+        const socket = connect({ port, host });
+        let settled = false;
+        const finish = (free: boolean): void => {
+            if (settled) return;
+            settled = true;
+            socket.destroy();
+            resolve(free);
+        };
+        socket.once('connect', () => finish(false));
+        socket.once('error', (error: NodeJS.ErrnoException) => {
+            finish(['ECONNREFUSED', 'EADDRNOTAVAIL', 'EAFNOSUPPORT', 'ENETUNREACH', 'EINVAL'].includes(error.code ?? ''));
+        });
+        socket.setTimeout(300, () => finish(false));
+    });
+}
+
+export async function canListenOnDshWebPort(
+    port: number, serverFactory: typeof createServer = createServer,
+    connect: typeof createConnection = createConnection
+): Promise<boolean> {
+    if (!(await canListenOnLoopback(port, serverFactory))) return false;
+    for (const host of ['127.0.0.1', '::1']) {
+        if (!(await loopbackConnectionIsFree(port, host, connect))) return false;
     }
     return true;
 }
