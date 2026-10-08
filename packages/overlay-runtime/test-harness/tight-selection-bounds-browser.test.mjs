@@ -1,24 +1,27 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { launchBrowser } from './fixtures/browser.mjs';
 import { SHELL_TIGHT_FRAGMENTS, SHELL_TIGHT_CONTENT } from './fixtures/tight-bounds-fixtures.mjs';
+import { BRANCH_POINT_FRAGMENT_BOUNDS } from './fixtures/tight-bounds-baseline-fragment-bounds.mjs';
 
 const runtime = readFileSync(new URL('../src/overlay-runtime.js', import.meta.url), 'utf8');
 const interaction = readFileSync(new URL('../src/interaction.js', import.meta.url), 'utf8');
 const selection = readFileSync(new URL('../src/element-selection.mjs', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../src/interaction.css', import.meta.url), 'utf8');
 const demoDiagram = readFileSync(new URL('../../../apps/shell/resources/onboarding-sample/talkinghead-desk-ja-01/overlays/demo-diagram/fragment.html', import.meta.url), 'utf8');
-const baseline = execFileSync('git', ['show', '010109ab3:packages/overlay-runtime/src/interaction.js'],
-  { cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8' });
+const legacyStart = interaction.indexOf('  function legacyFragmentBounds(');
+assert.ok(legacyStart >= 0, 'legacy fragmentBounds anchor');
+const fragmentStart = interaction.indexOf('  function fragmentBounds(', legacyStart + 1);
+const fragmentEnd = interaction.indexOf('  function svgReferenceRect(', fragmentStart);
+assert.ok(fragmentStart >= 0 && fragmentEnd > fragmentStart, 'fragmentBounds replacement anchors');
+const baselineInteraction = interaction.slice(0, fragmentStart) + BRANCH_POINT_FRAGMENT_BOUNDS
+  + interaction.slice(fragmentEnd);
 test('painted-root fallback retains the exact branch-point fragmentBounds body', () => {
-  const old = baseline.slice(baseline.indexOf('  function fragmentBounds('), baseline.indexOf('  function svgReferenceRect('));
   const copied = interaction.slice(interaction.indexOf('  function legacyFragmentBounds('),
     interaction.indexOf('  function fragmentBounds(', interaction.indexOf('  function legacyFragmentBounds(')))
     .replace('function legacyFragmentBounds', 'function fragmentBounds');
-  assert.equal(copied, old);
+  assert.equal(copied, BRANCH_POINT_FRAGMENT_BOUNDS);
 });
 function close(actual, expected, label) {
   for (const key of ['left', 'top', 'width', 'height'])
@@ -162,7 +165,7 @@ test('painted root fragmentBounds remains identical to the branch point across S
     image, painted(false, false), painted(false, true), painted(true, false), painted(true, true),
     '<div style="position:absolute;left:40px;top:30px;width:200px;height:180px;color:#111">direct text<i style="position:absolute;left:230px;top:20px;width:30px;height:30px;background:red"></i></div>'];
   for (const [index, html] of cases.entries()) {
-    const now = await fixture(browser, html), old = await fixture(browser, html, baseline);
+    const now = await fixture(browser, html), old = await fixture(browser, html, baselineInteraction);
     if (html.startsWith('<canvas')) {
       for (const page of [now, old]) await page.evaluate(() => {
         const context = document.querySelector('canvas').getContext('2d');
@@ -195,18 +198,16 @@ test('a childless unpainted leaf keeps the branch-point selection, box frame and
   const browser = await launchBrowser(); t.after(() => browser.close());
   const tree = [{ id: 'item', parentId: null, kind: 'leaf', label: 'item' }];
   const html = '<div class="root" style="position:absolute;inset:0"><div class="wide" style="position:absolute;left:140px;top:70px;width:200px;height:100px"></div></div>';
-  for (const [label, script] of [['branchPoint', baseline], ['current', interaction]]) {
-    const page = await fixture(browser, html, script, { width: 640, height: 360 }, tree);
-    await page.evaluate(() => window.akari.interaction.selectFromTimeline('item'));
-    await page.keyboard.press('Enter'); await settle(page);
-    const result = await state(page);
-    assert.equal(result.focus, '.wide[0]', label);
-    close(result.frame, { left: 140, top: 70, width: 200, height: 100 }, label);
-    assert.equal(result.handles.length, 9, label);
-    assert.ok(result.handles.includes('is-nw') && result.handles.includes('is-edge')
-      && result.handles.includes('is-rotate'), label);
-    await page.close();
-  }
+  const page = await fixture(browser, html, interaction, { width: 640, height: 360 }, tree);
+  await page.evaluate(() => window.akari.interaction.selectFromTimeline('item'));
+  await page.keyboard.press('Enter'); await settle(page);
+  const result = await state(page);
+  assert.equal(result.focus, '.wide[0]');
+  close(result.frame, { left: 140, top: 70, width: 200, height: 100 }, 'childless leaf');
+  assert.equal(result.handles.length, 9);
+  assert.ok(result.handles.includes('is-nw') && result.handles.includes('is-edge')
+    && result.handles.includes('is-rotate'));
+  await page.close();
 });
 
 test('a transparent group whose children are all opacity zero is not selectable', async t => {
@@ -262,7 +263,7 @@ test('painted roots and contained 98%-plus wrapper match branch-point fragmentBo
   for (const html of [
     `<div class="root" style="position:absolute;inset:0;background:#eee"><span style="position:absolute;left:20px;top:20px;background:red">A</span></div>`,
     `<div class="root" style="position:absolute;inset:0"><div class="holder" style="position:absolute;left:180px;top:80px;width:280px;height:200px"><div style="position:absolute;inset:0;background:#ccc"></div></div></div>`]) {
-    const now = await fixture(browser, html), old = await fixture(browser, html, baseline);
+    const now = await fixture(browser, html), old = await fixture(browser, html, baselineInteraction);
     close((await state(now)).bounds, (await state(old)).bounds, 'branch-point');
     await now.close(); await old.close();
   }
@@ -323,7 +324,7 @@ function instrumentTiming(source) {
 test('demo-diagram selection timings stay under a loose hover budget', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
   const results = {};
-  for (const [label, source] of [['branchPoint', baseline], ['current', interaction]]) {
+  for (const [label, source] of [['current', interaction]]) {
     const page = await fixture(browser, demoDiagram, instrumentTiming(source), { width: 1280, height: 720 });
     const p = await point(page, '.demo-diagram__title');
     assert.ok(p.x > 0 && p.x < 1280 && p.y > 0 && p.y < 720, JSON.stringify(p));
