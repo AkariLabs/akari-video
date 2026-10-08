@@ -34,6 +34,11 @@ test('帯の五点は段名を持ち、ラベルがなければ既定名を使�
     assert.deepEqual(stageDotTitles([{ label: '準備' }]), ['準備', '素材', '編集', '確認', '書き出し']);
 });
 
+test('帯の CSS に緑の完了色を使わない', () => {
+    const source = readFileSync(new URL('../src/browser/title-bar/akari-title-bar-contribution.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /4ade80/i);
+});
+
 test('窓ボタンは最大化状態に合うグリフと SVG を返す', () => {
     assert.deepEqual(windowButtonGlyphs(false).map(button => button.label), windowButtons('windows', false));
     assert.equal(windowButtonGlyphs(false)[1].glyph, '\uE922');

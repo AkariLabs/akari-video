@@ -13,23 +13,26 @@ import { AkariSkillCatalogService } from '../akari-skill-catalog-service';
 import { SKILLS_PANEL_TEXT, groupSkillsByCategory, skillAskOutcomeMessage, skillPromptText } from './skills-panel-model';
 import { SkillPictogram } from './skill-pictograms';
 
+export function skillDescriptionLead(description: string): string {
+    const boundary = description.search(/[。（—:]/);
+    return boundary < 0 ? description : description.slice(0, boundary);
+}
+
 const panelCss = `
 .akari-skills-panel { box-sizing: border-box; height: 100%; overflow: auto; padding: 12px; color: var(--theia-foreground); font-size: var(--theia-ui-font-size1); }
 .akari-skills-panel h2 { margin: 0 0 3px; font-size: 1.2em; font-weight: 600; }
-.akari-skills-panel .subtitle { margin: 0 0 13px; color: var(--theia-descriptionForeground); font-size: 11px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.akari-skills-panel .subtitle { margin: 0 0 13px; color: var(--theia-descriptionForeground); font-size: 11px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; }
 .akari-skills-panel .skill-group { margin: 0 0 10px; }
 .akari-skills-panel .skill-group h3 { margin: 0 0 5px; padding: 6px 0 2px; border-top: 1px solid var(--theia-panel-border); color: var(--theia-descriptionForeground); font-size: 11px; }
 .akari-skills-panel .skill-list { display: flex; flex-direction: column; gap: 5px; list-style: none; padding: 0; margin: 0; }
-.akari-skills-panel .skill-card { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 5px; width: 100%; height: 70px; padding: 5px 21px 5px 5px; border: 0; border-radius: 8px; background: var(--theia-editorWidget-background); color: var(--theia-foreground); cursor: pointer; }
+.akari-skills-panel .skill-card { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 5px; width: 100%; min-height: 64px; padding: 5px 21px 5px 5px; border: 0; border-radius: 8px; background: var(--theia-editorWidget-background); color: var(--theia-foreground); cursor: pointer; }
 .akari-skills-panel .skill-card:hover,.akari-skills-panel .skill-card:focus-visible { background: var(--theia-list-hoverBackground); }
 .akari-skills-panel .skill-card:focus-visible { outline: 2px solid var(--theia-focusBorder); outline-offset: 1px; }
 .akari-skills-panel .skill-art { flex: none; display: flex; align-items: center; justify-content: center; width: 56px; height: 40px; border-radius: 5px; background: var(--theia-editor-background); color: var(--theia-descriptionForeground); }
 .akari-skills-panel .skill-art svg { display: block; }
 .akari-skills-panel .skill-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; line-height: 1.3; text-align: left; }
-.akari-skills-panel .skill-name,.akari-skills-panel .skill-alias,.akari-skills-panel .skill-description { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.akari-skills-panel .skill-name { font-size: 11px; font-weight: 700; }
-.akari-skills-panel .skill-alias { font-family: var(--theia-code-font-family); font-size: 10px; color: var(--theia-descriptionForeground); }
-.akari-skills-panel .skill-description { font-size: 10px; color: var(--theia-descriptionForeground); }
+.akari-skills-panel .skill-name { display: block; min-width: 0; font-family: var(--theia-code-font-family); font-size: 13px; font-weight: 700; white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
+.akari-skills-panel .skill-description { display: block; min-width: 0; font-size: 10px; color: var(--theia-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .akari-skills-panel .skill-more { position: absolute; right: 3px; top: 5px; width: 18px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--theia-descriptionForeground); font-size: 17px; line-height: 17px; }
 .akari-skills-panel .skill-more:hover,.akari-skills-panel .skill-more:focus-visible { background: var(--theia-list-hoverBackground); color: var(--theia-foreground); }
 .akari-skills-panel button { cursor: pointer; }
@@ -46,6 +49,7 @@ const panelCss = `
 `;
 
 interface PopupState { skill: SkillEntry; rect: DOMRect }
+interface TipState extends PopupState { panelRight: number }
 
 function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
     skills: SkillEntry[];
@@ -54,7 +58,7 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
     onCopy: (name: string) => void;
     onOpen: (name: string) => void;
 }): React.ReactElement {
-    const [tip, setTip] = React.useState<PopupState>();
+    const [tip, setTip] = React.useState<TipState>();
     const [menu, setMenu] = React.useState<PopupState>();
     const [tipTop, setTipTop] = React.useState(0);
     const timer = React.useRef<ReturnType<typeof setTimeout>>();
@@ -63,6 +67,11 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
     const menuButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
     const hideTip = (): void => { clearTimeout(timer.current); setTip(undefined); };
+    const tipState = (skill: SkillEntry, target: HTMLElement): TipState => {
+        const rect = target.getBoundingClientRect();
+        const panel = target.closest('.lm-DockPanel, .theia-side-panel') || document.getElementById('theia-left-side-panel');
+        return { skill, rect, panelRight: panel?.getBoundingClientRect().right ?? rect.right };
+    };
     React.useLayoutEffect(() => {
         if (tip && tipRef.current) {
             setTipTop(Math.max(8, Math.min(tip.rect.top, window.innerHeight - tipRef.current.offsetHeight - 8)));
@@ -89,12 +98,12 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
             <ul className='skill-list'>{group.skills.map(skill => <li key={skill.name}>
                 <div className='skill-card' role='button' tabIndex={0} aria-label={`${skill.name} をパートナーに頼む`}
                     onMouseEnter={event => {
-                        const rect = event.currentTarget.getBoundingClientRect();
+                        const nextTip = tipState(skill, event.currentTarget);
                         clearTimeout(timer.current);
-                        timer.current = setTimeout(() => { if (!menu) setTip({ skill, rect }); }, 350);
+                        timer.current = setTimeout(() => { if (!menu) setTip(nextTip); }, 350);
                     }}
                     onMouseLeave={hideTip}
-                    onFocus={event => { if (event.target === event.currentTarget && !menu) setTip({ skill, rect: event.currentTarget.getBoundingClientRect() }); }}
+                    onFocus={event => { if (event.target === event.currentTarget && !menu) setTip(tipState(skill, event.currentTarget)); }}
                     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) hideTip(); }}
                     onClick={() => onAsk(skill.name)}
                     onKeyDown={event => {
@@ -104,9 +113,8 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
                     }}>
                     <span className='skill-art'><SkillPictogram category={group.category} /></span>
                     <span className='skill-copy'>
-                        <strong className='skill-name'>{skill.name}</strong>
-                        <code className='skill-alias'>/{skill.name}</code>
-                        <span className='skill-description'>{skill.description}</span>
+                        <strong className='skill-name'>/{skill.name}</strong>
+                        <span className='skill-description'>{skillDescriptionLead(skill.description)}</span>
                     </span>
                     <button type='button' className='skill-more' aria-label={`${skill.name} のメニュー`} aria-haspopup='menu'
                         aria-expanded={menu?.skill.name === skill.name} onClick={event => {
@@ -117,7 +125,7 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
             </li>)}</ul>
         </section>)}
         {tip && ReactDOM.createPortal(<div ref={tipRef} className='akari-skill-tip' role='tooltip'
-            style={{ left: Math.min(tip.rect.right + 8, Math.max(8, window.innerWidth - 288)), top: tipTop || tip.rect.top }}>
+            style={{ left: Math.max(8, Math.min(tip.panelRight + 8, window.innerWidth - 288)), top: tipTop || tip.rect.top }}>
             <strong>{tip.skill.name}</strong><code>/{tip.skill.name}</code>
             <p>{tip.skill.description}</p>
             {projectName && <p className='project'>いま開いている『{projectName}』に使います</p>}

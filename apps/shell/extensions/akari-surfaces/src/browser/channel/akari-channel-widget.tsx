@@ -19,6 +19,7 @@ const RAIL_TAB = `#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar
 const CSS = `
 ${RAIL_TAB} .lm-TabBar-tabIcon { display:none !important; }
 ${RAIL_TAB}[data-akari-channel-initial]::after { content:attr(data-akari-channel-initial); position:absolute; top:5px; left:50%; transform:translateX(-50%); width:25px; height:25px; border-radius:7px; display:grid; place-items:center; background:var(--akari-elevated,#454750); color:var(--theia-foreground,#fff); font-size:15px; font-weight:700; }
+body[data-akari-rail-expanded="true"] ${RAIL_TAB}[data-akari-channel-initial]::after { left:calc(12px + 14px); }
 ${RAIL_TAB} .lm-TabBar-tabLabel { margin-top:25px; }
 .akari-channel-panel { position:relative; display:flex; flex-direction:column; box-sizing:border-box; height:100%; padding:16px 14px; color:var(--theia-foreground); }
 .akari-channel-heading { position:relative; display:block; width:100%; margin-bottom:14px; }
