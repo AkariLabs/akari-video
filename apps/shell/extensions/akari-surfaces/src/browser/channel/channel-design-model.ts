@@ -31,9 +31,15 @@ export const CHANNEL_TYPES: readonly ChannelType[] = [
 
 export function rankTypes(answers: ChannelAnswers): RankedType[] {
     const chosen = new Set(QUESTION_KEYS.flatMap(key => answers[key] ?? []));
-    return CHANNEL_TYPES.map((type, index) => ({ ...type, matched: type.tags.filter(tag => chosen.has(tag)), index }))
+    const genres = new Set(CHANNEL_QUESTIONS.find(question => question.key === 'genre')!.options);
+    const lengths = new Set(CHANNEL_QUESTIONS.find(question => question.key === 'len')!.options);
+    return CHANNEL_TYPES.map((type, index) => {
+        const matched = type.tags.filter(tag => chosen.has(tag));
+        const score = matched.reduce((total, tag) => total + (genres.has(tag) ? 3 : lengths.has(tag) ? 2 : 1), 0);
+        return { ...type, matched, score, index };
+    })
         .filter(type => type.matched.length > 0)
-        .sort((a, b) => b.matched.length - a.matched.length || (a.tier === 'free' ? -1 : 1) - (b.tier === 'free' ? -1 : 1) || a.index - b.index)
+        .sort((a, b) => b.score - a.score || (a.tier === 'free' ? -1 : 1) - (b.tier === 'free' ? -1 : 1) || a.index - b.index)
         .slice(0, 3).map(({ name, tier, matched }) => ({ name, tier, matched }));
 }
 

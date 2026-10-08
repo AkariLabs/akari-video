@@ -1,5 +1,13 @@
 export const CHANNEL_SHEET_STYLE_ID = 'akari-channel-sheet-style';
 export const channelSheetCss = `
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet input:not([type=checkbox]):not([type=radio]):not([type=file]),
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet textarea,
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet select { background:var(--theia-input-background); color:var(--theia-input-foreground); border:1px solid var(--theia-input-border,var(--theia-widget-border)); border-radius:5px; padding:6px 8px; font:inherit; outline-offset:-1px; }
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet textarea:focus,
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet select:focus { border-color:var(--theia-focusBorder); }
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet input::placeholder,
+.akari-home-sheet-scrim[data-akari-home-dialog^=channel-] .akari-home-sheet textarea::placeholder { color:var(--theia-input-placeholderForeground,var(--theia-descriptionForeground)); }
 .akari-home-sheet-scrim[data-akari-home-dialog=channel-design-wizard] .akari-home-sheet { width:min(760px,95vw); }
 .akari-channel-wizard-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; }
 .akari-channel-wizard-column { min-width:0; }

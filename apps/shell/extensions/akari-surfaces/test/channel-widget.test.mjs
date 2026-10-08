@@ -29,3 +29,20 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*const channel = this\.context\.viewingChannel;\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList, \.\.\.\(channel \? \[\{ channel \}\] : \[\]\)\);\s*\}/);
     assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{[\s\S]*?this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
 });
+
+test('チャンネルの札とシートの表示を整える', () => {
+    const widget = readFileSync(new URL('../src/browser/channel/akari-channel-widget.tsx', import.meta.url), 'utf8');
+    const people = readFileSync(new URL('../src/browser/channel/channel-people-sheet.tsx', import.meta.url), 'utf8');
+    const notes = readFileSync(new URL('../src/browser/channel/channel-notes-sheet.tsx', import.meta.url), 'utf8');
+    const sheetStyle = readFileSync(new URL('../src/browser/channel/channel-sheet-style.ts', import.meta.url), 'utf8');
+    assert.match(widget, /-webkit-line-clamp:\s*2/);
+    assert.doesNotMatch(widget, /\$\{RAIL_TAB\}\[data-akari-channel-initial\]::after/);
+    assert.match(widget, /\.lm-TabBar-tabIcon::before/);
+    assert.match(widget, /\.lm-TabBar-tabIcon \{[^}]*width:28px !important; height:28px !important;/);
+    assert.match(widget, /\.lm-TabBar-tabIcon::before \{[^}]*width:25px; height:25px;/);
+    assert.ok(people.indexOf('data-akari-people-add') < people.indexOf('data-akari-people-packs'));
+    assert.match(notes, /パートナーに集めてもらう/);
+    assert.match(notes, /用意されたものから足す ☆/);
+    assert.doesNotMatch(notes, /ヘルパーに集めてもらう/);
+    assert.match(sheetStyle, /--theia-input-background/);
+});

@@ -151,6 +151,7 @@ export function mergeAliasesIntoWordBook(book: WordBookFile, name: string, alias
     const key = comparisonKey(surface);
     const cleanAliases = [...new Map(aliases.map(alias => alias.normalize('NFC').trim()).filter(alias => alias && comparisonKey(alias) !== key)
         .map(alias => [comparisonKey(alias), alias] as const)).values()];
+    if (!cleanAliases.length) return book;
     const index = book.entries.findIndex(entry => comparisonKey(entry.surface) === key);
     if (index < 0) return { ...book, entries: [...book.entries, { surface, variants: cleanAliases, kind: 'term', source, added_at: new Date().toISOString() }] };
     const entries = [...book.entries];

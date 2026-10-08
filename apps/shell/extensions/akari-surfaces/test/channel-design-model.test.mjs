@@ -11,12 +11,13 @@ test('6 問の構成と 12 の型', () => {
     assert.equal(CHANNEL_TYPES.length, 12);
 });
 
-test('一致数を優先し、同数なら free、定義順に並ぶ', () => {
+test('ジャンルと長さを重く見て、同点なら free、定義順に並ぶ', () => {
     const ranked = rankTypes({ genre: ['料理'], plat: ['Instagram リール'], len: ['縦ショート 60 秒まで'] });
     assert.equal(ranked[0].name, '料理ショート 15 秒');
     assert.equal(ranked[1].name, '縦ショート 60 秒');
     assert.equal(ranked.length, 3);
     assert.equal(rankTypes({ tone: ['明るい'] })[0].tier, 'free');
+    assert.equal(rankTypes({ genre: ['料理'], who: ['同じ趣味の人'] })[0].name, '料理ショート 15 秒');
 });
 
 test('未回答の見出しを省き、型と未知の見出しを往復できる', () => {

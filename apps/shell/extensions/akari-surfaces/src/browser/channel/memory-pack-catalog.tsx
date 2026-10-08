@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
+import { channelSheetCss } from './channel-sheet-style';
 import { ChannelMemoryFiles } from './channel-memory-files';
 import { defaultScene, initialOf, PeopleFile, WordBookFile } from './channel-people-model';
 import { countPacks, emptyPacksFile, importPack, isImported, packWordExamples, PacksFile,
@@ -118,6 +119,7 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
     };
 
     return <HomeScrim kind='channel-packs' onClose={props.onClose}>
+        <style>{channelSheetCss}</style>
         <h3>記憶パック</h3>
         <p>分野ごとの、人物・会社・製品のまとまりです。中身はだれでも見られます。取り込むと『人とモノ』と辞書にパックとして入り、あとからパックごと外せます。</p>
         {message && <p role='status'>{message}</p>}

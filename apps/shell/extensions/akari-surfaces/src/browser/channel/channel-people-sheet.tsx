@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
+import { channelSheetCss } from './channel-sheet-style';
 import { ChannelMemoryFiles } from './channel-memory-files';
 import { addPerson, AVATAR_CAPS, defaultScene, filterPeople, initialOf, mergeAliasesIntoWordBook,
     peopleCounts, PeopleFile, PersonKind, PERSON_KIND_LABELS, removePeople, splitAliases, summarizeNames } from './channel-people-model';
@@ -32,7 +33,7 @@ const CSS = `
 .akari-people-confirm>div{display:flex;gap:8px}
 .akari-people-form{display:grid;grid-template-columns:1fr 1fr;gap:11px 14px}
 .akari-people-form label{display:grid;gap:5px;font-size:12px}
-.akari-people-form input:not([type=checkbox]),.akari-people-form select,.akari-people-form textarea{box-sizing:border-box;width:100%;background:var(--theia-input-background);color:var(--theia-input-foreground);border:1px solid var(--theia-input-border,var(--theia-widget-border));border-radius:5px;padding:7px;font:inherit}
+.akari-people-form input:not([type=checkbox]),.akari-people-form select,.akari-people-form textarea{box-sizing:border-box;width:100%}
 .akari-people-form textarea{min-height:65px;resize:vertical}
 .akari-people-wide{grid-column:1/-1}
 .akari-people-caps{display:flex;flex-wrap:wrap;gap:12px}
@@ -130,13 +131,14 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
     };
 
     return <HomeScrim kind='channel-people' onClose={props.onClose}>
+        <style>{channelSheetCss}</style>
         <h3>{adding ? '人とモノを足す' : '人とモノ'}</h3>
         {!adding ? <>
             <p>動画に出てくる人・キャラクター・会社や製品です。名前と写真（ロゴ）を登録しておくと、文字起こしの直し・テロップの名前・画像を入れる場面で使われます。</p>
             <div className='akari-people-actions'>
-                <button type='button' onClick={props.onOpenPacks}>記憶パックを探す</button>
-                <button type='button' onClick={() => { setAdding(true); setError(''); }}>足す…</button>
-                <button type='button' onClick={() => props.onTypePrompt('このチャンネルの動画に出てくる人と会社を見つけて、人とモノの候補にして')}>動画から見つけてもらう</button>
+                <button type='button' data-akari-people-add onClick={() => { setAdding(true); setError(''); }}>足す…</button>
+                <button type='button' data-akari-people-packs onClick={props.onOpenPacks}>記憶パックを探す</button>
+                <button type='button' data-akari-people-find onClick={() => props.onTypePrompt('このチャンネルの動画に出てくる人と会社を見つけて、人とモノの候補にして')}>動画から見つけてもらう</button>
             </div>
             <div className='akari-people-layout'>
                 <aside className='akari-people-filters'>

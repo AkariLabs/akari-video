@@ -1,6 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
+import { channelSheetCss } from './channel-sheet-style';
 import { ChannelMemoryFiles } from './channel-memory-files';
 import { WordBookEntry, WordBookFile } from './channel-people-model';
 import { addInfo, addRule, addWordEntry, applyPreparedInfos, applyPreparedRules, applyPreparedWords,
@@ -20,6 +21,7 @@ const CSS = `
 .akari-notes-menu{display:grid;gap:3px;width:max-content;max-width:100%;padding:8px;border:1px solid var(--theia-widget-border);border-radius:7px;background:var(--theia-editor-background)}
 .akari-notes-menu button{text-align:left}.akari-notes-menu hr{width:100%;border:0;border-top:1px solid var(--theia-widget-border)}
 .akari-notes-tabs button[aria-selected=true],.akari-notes-filters button[aria-pressed=true]{background:var(--theia-list-activeSelectionBackground)}
+.akari-notes-tabs small{font-size:11px;opacity:.65;margin-left:5px}
 .akari-notes-layout{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr);gap:18px}
 .akari-notes-filters{display:flex;flex-direction:column;gap:3px;border-right:1px solid var(--theia-widget-border);padding-right:13px}
 .akari-notes-filters h4{margin:10px 0 5px;font-size:12px;color:var(--theia-descriptionForeground)}
@@ -32,9 +34,10 @@ const CSS = `
 .akari-notes-table td:last-child,.akari-notes-table th:last-child{width:32px}
 .akari-notes-table tr[data-editable=true]{cursor:pointer}
 .akari-notes-table tr[data-editable=true]:hover{background:var(--theia-list-hoverBackground)}
+.akari-notes-muted{opacity:.55}
 .akari-notes-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
 .akari-notes-form label,.akari-notes-edit label{display:grid;gap:4px;font-size:12px}
-.akari-notes-form input,.akari-notes-form select,.akari-notes-form textarea,.akari-notes-edit input,.akari-notes-edit select,.akari-notes-edit textarea{box-sizing:border-box;width:100%;background:var(--theia-input-background);color:var(--theia-input-foreground);border:1px solid var(--theia-input-border,var(--theia-widget-border));border-radius:5px;padding:7px;font:inherit}
+.akari-notes-form input,.akari-notes-form select,.akari-notes-form textarea,.akari-notes-edit input,.akari-notes-edit select,.akari-notes-edit textarea{box-sizing:border-box;width:100%}
 .akari-notes-form textarea,.akari-notes-edit textarea{min-height:60px;resize:vertical}
 .akari-notes-wide{grid-column:1/-1}
 .akari-notes-edit{display:grid;gap:7px}
@@ -155,11 +158,12 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
         <label className='akari-notes-wide'>決まり<textarea value={ruleText} onChange={event => setRuleText(event.target.value)} placeholder='1 行は 14 字まで。超えたら 2 行に' /></label></>;
 
     return <HomeScrim kind='channel-notes' onClose={props.onClose}>
+        <style>{channelSheetCss}</style>
         <h3>辞書とメモ</h3>
         <p>このチャンネルで、文字起こしと音声入力、AI が使う前提情報です。</p>
         <div className='akari-notes-actions'>
-            <button type='button' aria-expanded={menu} onClick={() => setMenu(!menu)}>☆ 用意されたものから足す ▾</button>
-            <button type='button' onClick={() => props.onTypePrompt('このチャンネルの動画の台本と会話から、言い換え・よく使う情報・決まりごとの候補を集めて')}>ヘルパーに集めてもらう</button>
+            <button type='button' aria-expanded={menu} onClick={() => setMenu(!menu)}>用意されたものから足す ☆ ▾</button>
+            <button type='button' onClick={() => props.onTypePrompt('このチャンネルの動画の台本と会話から、言い換え・よく使う情報・決まりごとの候補を集めて')}>パートナーに集めてもらう</button>
         </div>
         {menu && <div className='akari-notes-menu'>{packs.map(pack => <button type='button' key={pack.name} disabled={busy}
             onClick={() => void apply(pack)}>{pack.name}（{pack.entries.length} 件）</button>)}<hr />
@@ -167,7 +171,7 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
         {message && <p role='status'>{message}</p>}
         <div className='akari-notes-tabs' role='tablist' aria-label='辞書とメモ'>
             {tabItems.map(item => <button type='button' role='tab' key={item.id} aria-selected={tab === item.id}
-                onClick={() => { setTab(item.id); setMenu(false); reset(); }}>{item.label} {item.count} 件</button>)}
+                onClick={() => { setTab(item.id); setMenu(false); reset(); }}>{item.label}<small>{item.count}</small></button>)}
         </div>
         <div className='akari-notes-layout'>
             <aside className='akari-notes-filters'>
@@ -184,7 +188,7 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
                                 {editing === `w:${index}` ? <td colSpan={4}><div className='akari-notes-edit' onClick={event => event.stopPropagation()}>{wordFields}<div>
                                     <button type='button' disabled={busy || !surface.trim()} onClick={event => { event.stopPropagation(); void saveWord(index); }}>保存</button>
                                     <button type='button' onClick={event => { event.stopPropagation(); reset(); }}>やめる</button></div></div></td>
-                                    : <><td>{label.heard}</td><td>{label.fixed}</td><td>{label.memo}</td><td>{label.source}</td></>}
+                                    : <><td>{label.heard || <span className='akari-notes-muted'>聞こえ方なし</span>}</td><td>{label.fixed}</td><td>{label.memo}</td><td>{label.source}</td></>}
                                 <td><button type='button' disabled={busy} aria-label={`${entry.surface}を消す`} onClick={event => {
                                     event.stopPropagation(); void saveBook(removeWordEntry(book, index)); }}>×</button></td></tr>; })}
                     </tbody></table>

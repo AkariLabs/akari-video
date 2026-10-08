@@ -34,10 +34,8 @@ export const CHANNEL_WIDGET_LABEL = 'チャンネル';
 const STYLE_ID = 'akari-channel-style';
 const RAIL_TAB = `#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_CHANNEL_WIDGET_ID}"]`;
 const CSS = `
-${RAIL_TAB} .lm-TabBar-tabIcon { display:none !important; }
-${RAIL_TAB}[data-akari-channel-initial]::after { content:attr(data-akari-channel-initial); position:absolute; top:5px; left:50%; transform:translateX(-50%); width:25px; height:25px; border-radius:7px; display:grid; place-items:center; background:var(--akari-elevated,#454750); color:var(--theia-foreground,#fff); font-size:15px; font-weight:700; }
-body[data-akari-rail-expanded="true"] ${RAIL_TAB}[data-akari-channel-initial]::after { left:calc(12px + 14px); }
-${RAIL_TAB} .lm-TabBar-tabLabel { margin-top:25px; }
+${RAIL_TAB} .lm-TabBar-tabIcon { display:grid !important; place-items:center; box-sizing:border-box; width:28px !important; height:28px !important; line-height:1 !important; color:var(--theia-foreground,#ccc); font-family:var(--theia-ui-font-family,sans-serif) !important; font-size:13px !important; font-weight:700; }
+${RAIL_TAB} .lm-TabBar-tabIcon::before { content:attr(data-akari-channel-initial); display:grid; place-items:center; box-sizing:border-box; width:25px; height:25px; border:1px solid var(--theia-foreground,#ccc); border-radius:7px; background:transparent; opacity:.9; font-family:inherit; }
 .akari-channel-panel { position:relative; display:flex; flex-direction:column; box-sizing:border-box; height:100%; padding:16px 14px; color:var(--theia-foreground); }
 .akari-channel-heading { position:relative; display:block; width:100%; margin-bottom:14px; }
 .akari-channel-heading-button { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; background:transparent; color:inherit; font-weight:700; font-size:16px; text-align:left; cursor:pointer; }
@@ -57,11 +55,11 @@ ${RAIL_TAB} .lm-TabBar-tabLabel { margin-top:25px; }
 .akari-channel-doc-row > .akari-channel-row { min-width:0; flex:1; }
 .akari-channel-doc-row > small { margin-right:8px; opacity:.6; }
 .akari-channel-create { flex:0 0 auto; border:0; border-radius:5px; padding:4px 7px; background:var(--theia-button-secondaryBackground); color:var(--theia-button-secondaryForeground); cursor:pointer; }
-.akari-channel-project-card { display:flex; align-items:center; gap:8px; }
+.akari-channel-project-card { display:flex; align-items:flex-start; gap:8px; }
 .akari-channel-project-thumb { display:block; flex:0 0 56px; box-sizing:border-box; width:56px; height:32px; overflow:hidden; border:1px solid var(--akari-line,var(--theia-widget-border)); border-radius:3px; background:var(--theia-editor-background); }
 .akari-channel-project-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
 .akari-channel-project-body { display:flex; flex-direction:column; min-width:0; gap:3px; }
-.akari-channel-project-body > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-channel-project-body > span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; white-space:normal; word-break:break-all; line-height:1.3; }
 .akari-channel-project-body small { margin-left:0; }
 .akari-channel-row-hint { display:block; opacity:.6; font-size:11px; padding:0 8px 6px; }
 .akari-channel-helper-menu { padding:0 0 4px 10px; }
@@ -177,7 +175,9 @@ export class AkariChannelWidget extends ReactWidget {
         if (typeof document === 'undefined') return;
         const tab = document.querySelector<HTMLElement>(RAIL_TAB);
         if (!tab) return;
-        tab.setAttribute('data-akari-channel-initial', (this.context.viewingChannel || 'チ').charAt(0));
+        const initial = (this.context.viewingChannel || 'チ').charAt(0);
+        tab.setAttribute('data-akari-channel-initial', initial);
+        tab.querySelector('.lm-TabBar-tabIcon')?.setAttribute('data-akari-channel-initial', initial);
     }
 
     protected async refreshStages(): Promise<void> {

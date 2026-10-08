@@ -61,6 +61,12 @@ test('単語帳へ新しい名前と別名を足す', () => {
     assert.ok(book.entries[0].added_at);
 });
 
+test('別名が空、または名前と同じなら単語帳を変えない', () => {
+    const book = normalizeWordBook({ version: 0, entries: [{ surface: '中島さん', kind: 'term', variants: ['なかじま'] }] });
+    assert.deepEqual(mergeAliasesIntoWordBook(book, '田中さん', [], 'people'), book);
+    assert.deepEqual(mergeAliasesIntoWordBook(book, '中島さん', ['中島さん'], 'people'), book);
+});
+
 test('既存行には別名だけを足し、未知フィールドと全角半角の一致を守る', () => {
     const original = normalizeWordBook({ version: 0, custom: '保持', entries: [{ surface: 'Ａ ＢＣ', kind: 'notation', variants: ['別名'], hits: 4, extra: '残す' }] });
     const result = mergeAliasesIntoWordBook(original, 'a bc', ['別名', '新しい別名', 'ＡＢＣ'], 'people');
