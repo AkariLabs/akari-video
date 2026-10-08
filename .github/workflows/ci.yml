@@ -149,6 +149,15 @@ jobs:
           unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
           printf 'electron' > node_modules/electron/path.txt
           test -x node_modules/electron/dist/electron
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Build transcript import dependencies
+        continue-on-error: true
+        run: |
+          npm --prefix packages/edit-store run build
+          npm --prefix apps/shell/extensions/akari-preview run build
+          npm --prefix apps/shell/extensions/akari-project run build
+          npm --prefix apps/shell/extensions/akari-annotations run build
+          npm --prefix apps/shell/extensions/akari-transcript run build
       # preview-server は @playwright/test（root devDependency）の chromium を、overlay-runtime は
       # puppeteer-core + CHROME_PATH（ubuntu-latest 同梱の Google Chrome）を使う
       - name: Install Playwright chromium
