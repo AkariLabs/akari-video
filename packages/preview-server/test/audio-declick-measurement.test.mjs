@@ -169,6 +169,9 @@ test('実 preview: seeked までミュートを維持して 5s→15s 境界の�
       const to = Math.min(length, boundary + radius);
       const steadyFrom = Math.max(1, from - Math.round(sampleRate * 0.5));
       const steadyTo = Math.max(steadyFrom + 1, from - Math.round(sampleRate * 0.05));
+      const expectedSamples = Math.round((capture.blocks.at(-1).at - firstAt) * sampleRate + 256);
+      const capturedSamples = length;
+      const droppedSamples = expectedSamples - capturedSamples;
 
       function maxDelta(samples, start, end) {
         let max = 0;
@@ -199,6 +202,10 @@ test('実 preview: seeked までミュートを維持して 5s→15s 境界の�
         rawBoundaryMaxDelta: maxDelta(raw, from, to),
         processedBoundaryMaxDelta: maxDelta(processed, from, to),
         rawSteadyMaxDelta: maxDelta(raw, steadyFrom, steadyTo),
+        expectedSamples,
+        capturedSamples,
+        droppedSamples,
+        theoreticalSteadyMaxDelta: 0.45 * 2 * Math.PI * 440 / sampleRate,
         processedSteadyMaxDelta: maxDelta(processed, steadyFrom, steadyTo),
         steadyRms,
         longestLowRmsMs: longestLowRun,
@@ -208,6 +215,18 @@ test('実 preview: seeked までミュートを維持して 5s→15s 境界の�
       };
     });
 
+    // ScriptProcessor playbackTime is quantized, so adjacent 256-sample block times
+    // cannot identify loss. Count missing samples across the full capture instead:
+    // 3 blocks exceed the observed quantization span of at most 2 blocks. A 0.45-
+    // amplitude 440 Hz sine changes by at most 0.45*2π*440/fs per sample; allow 3x
+    // in the steady region. CI saw 0.338, and Windows/Edge also lost blocks with
+    // processed and raw measurements identical, so attenuation cannot be measured.
+    if (measurement.droppedSamples >= 3 * 256
+        || measurement.rawSteadyMaxDelta > 3 * measurement.theoreticalSteadyMaxDelta) {
+      console.log('AUDIO_DECLICK_MEASUREMENT', JSON.stringify(measurement));
+      t.skip(`capture was not contiguous / steady region not measurable: ${JSON.stringify(measurement)}`);
+      return;
+    }
     assert.ok(measurement.rawBoundaryMaxDelta > measurement.rawSteadyMaxDelta * 2,
       `fixture splice was not measurable: ${JSON.stringify(measurement)}`);
     assert.ok(measurement.processedBoundaryMaxDelta < measurement.rawBoundaryMaxDelta * 0.25,

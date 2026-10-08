@@ -37,6 +37,9 @@ function ffmpeg(args) {
 // as audio-bgm-fade.test.mjs's measureMeanVolume, empirically re-confirmed for this file's own
 // frequency-marker fixtures during authoring (bandpass-filtered volumedetect at successive windows
 // cleanly separated marker tones with no bleed once windows are >=0.2s wide).
+// With video present, ffmpeg 6.1 can feed audio past -t into volumedetect: the same file measures
+// correctly on 9.0/8.1.2 but gets an extended window on 6.1.1. -vn plus atrim limits every
+// version to [start, start+duration); the product's measureAudioLevel also uses -vn.
 function measureBandVolume(filePath, start, duration, centerFrequency, halfWidth) {
   const result = spawnSync(
     "ffmpeg",
@@ -47,10 +50,11 @@ function measureBandVolume(filePath, start, duration, centerFrequency, halfWidth
       String(start),
       "-i",
       filePath,
+      "-vn",
       "-t",
       String(duration),
       "-af",
-      `bandpass=f=${centerFrequency}:width_type=h:w=${halfWidth},volumedetect`,
+      `atrim=duration=${duration},bandpass=f=${centerFrequency}:width_type=h:w=${halfWidth},volumedetect`,
       "-f",
       "null",
       "-",
@@ -195,6 +199,8 @@ test("sfx.out exceeding the material's real duration clamps to the material's en
   }
 });
 
+// A skipped sfx is not counted as audible audio; with no other audio, rendering takes
+// the same copy path as an audio-free project.
 test("sfx.in at/beyond the material's real duration is silently skipped with a warning", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const materialDuration = 3;
@@ -205,12 +211,17 @@ test("sfx.in at/beyond the material's real duration is silently skipped with a w
   });
   try {
     const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
+    const renderState = await readFile(join(project, ".akari", "render.json"), "utf8")
+      .then(text => JSON.parse(text)).catch(error => error.code === "ENOENT" ? null : Promise.reject(error));
+    assert.equal(executed.status, 0,
+      `${executed.stderr}\nstdout=${executed.stdout}\nverify.findings=${JSON.stringify(renderState?.verify?.findings ?? null)}`);
     assert.match(executed.stderr, /render-cut warning:.*audio\.sfx\[0\]: in 3s is at or beyond the material duration \(3s\); skipped \(silent\)/);
 
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.ok(!state.plan.commands.audio_mix.args.includes(join(project, "audio", "sfx.wav")), "expected the skipped sfx's file to never be passed to ffmpeg as an input");
+    assert.equal(state.plan.commands.audio_mix.operation, "copy");
+    const mixArgs = state.plan.commands.audio_mix?.args ?? [];
+    assert.ok(!mixArgs.includes(join(project, "audio", "sfx.wav")), "expected the skipped sfx's file to never be passed to ffmpeg as an input");
 
     const outputPath = join(project, state.artifacts[0].path);
     const overall = measureBandVolume(outputPath, 0, 6, 500, 300);

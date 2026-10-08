@@ -13,11 +13,12 @@ const input = (html, projectRoot = '/tmp/project') => ({ overlays: [{ id: 'o1', 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
 
 test('glass-free 2D and 3D sheets match pre-glass baseline bytes', () => {
-  // Captured from 885fc54d rasterize.mjs with these exact inputs.
   for (const [html, expected] of [
-    ['<div>Hello</div>', '5881a5a26ed94c76d18e6c45a0babaf07bd622591f5ba56ffdaa0588fa701e56'],
-    // #111 で 3D シートの窓式マウント・video 選別を入れたため更新。
-    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '47d0c2c9cb824baca8647be4d651124952e3a6db05ee5b620a2e1cbf79277ec4'],
+    // 885fc54d の入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
+    ['<div>Hello</div>', '4621809f07fcb9206030c8485239bb089d7791936d0bc050a55a4dbe3ce08461'],
+    // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
+    // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
+    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '682e968cb3e52b0f7174c31619e5c3ee225eb433a95f95ea4965f70d66022f4a'],
   ]) assert.equal(sha(renderOverlaySheet(input(html))), expected);
 });
 

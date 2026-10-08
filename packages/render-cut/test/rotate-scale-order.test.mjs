@@ -14,7 +14,7 @@ test('axis overlay sheet rotates after scaling the element axes', () => {
 test('legacy output keeps the original CSS bytes', () => {
   const legacy = css(sheet({ scale: 1.25, rotate: 30 }));
   assert.match(legacy, /translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale, 1\)\) rotate\(var\(--rotate, 0deg\)\)/u);
-  // SHA-256 measured from origin/main 2589c836 for this exact input.
+  // origin/main 2589c836 で採った入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
   assert.equal(createHash('sha256').update(sheet({ scale: 1.25, rotate: 30 })).digest('hex'),
-    'c55d539aab8c2ebfd1a1137e271a905a6dc1f91d5b773706e464d610b33862b0');
+    '9a47270dcf7a4929ad02cec5eddecd5eec429e50c134f652625119fee6677882');
 });

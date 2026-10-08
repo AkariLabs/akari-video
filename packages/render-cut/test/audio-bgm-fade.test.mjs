@@ -42,10 +42,13 @@ function ffmpeg(args) {
 // [s, s+d) ever reach volumedetect. Confirmed against a known afade=d=3 fixture: output-side placement
 // showed mean_volume still rising at t=7.9s of an 8s file; input-side placement correctly reports the
 // steady post-fade level from t=3.35s onward.
+// With video present, ffmpeg 6.1 can feed audio past -t into volumedetect: the same file measures
+// correctly on 9.0/8.1.2 but gets an extended window on 6.1.1. -vn plus atrim limits every
+// version to [start, start+duration); the product's measureAudioLevel also uses -vn.
 function measureMeanVolume(filePath, start, duration) {
   const result = spawnSync(
     "ffmpeg",
-    ["-hide_banner", "-nostats", "-ss", String(start), "-i", filePath, "-t", String(duration), "-af", "volumedetect", "-f", "null", "-"],
+    ["-hide_banner", "-nostats", "-ss", String(start), "-i", filePath, "-vn", "-t", String(duration), "-af", `atrim=duration=${duration},volumedetect`, "-f", "null", "-"],
     { encoding: "utf8" },
   );
   const match = result.stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);

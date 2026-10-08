@@ -25,9 +25,11 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
   assert.ok(alternateSheet.includes(`window.akari.vgpuRuntime.render(vgpuContainer, localSeconds, { fps: ${alternateFps} });`));
   assert.match(gpu, /pendingVgpuDraws\.push\(\[vgpuContainer, seconds - start\]\)/);
   for (const [html, hash] of [
-    ['<div>static</div>', '6e92534736bb9ee1e12961d8c9b1fc225acc94724f9a09a31677ede6b25afced'],
-    // #111 で 3D シートの窓式マウント・video 選別を入れたため更新。
-    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', 'dffb2414bda56900f2b41bd85d87a160a4a8fbbc1d5167fa8e0ea52dc39b0fe3'],
+    // a3ba7cc17 で採った静的入力。2843f6227 で疑似要素アニメを WAAPI クローンへ引き継ぐ共通スクリプトが変わった。
+    ['<div>static</div>', 'b884eade37b54b7a9ff541e19056493246bb6a6abb2f97b18c16ffe59ec1237a'],
+    // #111 の c75acd725 で採った値。00e32ae9c（ab3ee4330 で合流）のプレビュー再読込と
+    // 0d8bf36f1 の描画先 canvas 選択が埋め込み three-runtime.js を変えた。
+    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '134023bc9c2b8a698f7e6e6d3379a3304d756c292e6c3d31104a0025b4f39b5f'],
   ]) {
     const actual = sheet(html);
     assert.doesNotMatch(actual, /vgpuRuntime|AkariVgpu|pendingVgpu/);

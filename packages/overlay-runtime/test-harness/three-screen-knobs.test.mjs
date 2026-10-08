@@ -52,6 +52,7 @@ function findChrome() {
     }
   }
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cached,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -173,6 +174,7 @@ test("three-runtime resolves material override screen knobs without changing lit
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
     args: [
       "--no-sandbox",
       "--no-zygote",
