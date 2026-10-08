@@ -8,7 +8,8 @@ import { join } from 'node:path';
 import { spawn as spawnProcess, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { DshWebEarlyExitError, launchDshWeb, parseDshWebUrlLine, buildDshWebArgs } from '../../lib/node/dsh-web-launcher.js';
-import { normalizeWebCwdKey, dshWebPortCandidates, selectDshWebPort } from '../../lib/node/dsh-web-port.js';
+import { DSH_WEB_PORT_MIN, DSH_WEB_PORT_MAX, normalizeWebCwdKey, dshWebPortCandidates,
+    selectDshWebPort } from '../../lib/node/dsh-web-port.js';
 import { maskToken, maskDshOutput } from '../../lib/common/dsh-output-mask.js';
 import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
 
@@ -157,12 +158,13 @@ function simulatedSpawn(mode) {
     return child;
 }
 
-async function launchFixture(t, mode, timeoutMs = 1500) {
+async function launchFixture(t, mode, timeoutMs = 1500, port) {
     const fixture = await fakeExecutable(t);
     const logs = [];
     const stopped = [];
     let realChild;
     let simulated = false;
+    let spawnArgs;
     const env = {
         ...process.env, AKARI_TEST_NODE: process.execPath,
         AKARI_TEST_SCRIPT: fixture.scriptPath, AKARI_TEST_DSH_MODE: mode
@@ -175,19 +177,24 @@ async function launchFixture(t, mode, timeoutMs = 1500) {
     const input = {
         executablePath: fixture.executablePath, cwd: fixture.root, env,
         patchPath: join(fixture.root, 'akari.patch.yml'), platform: process.platform,
-        timeoutMs, log: line => logs.push(line), stop,
+        timeoutMs, port, log: line => logs.push(line), stop,
         spawn: (command, args, options) => {
+            spawnArgs = args;
             realChild = fixture.trackChild(spawnProcess(command, args, options));
             return realChild;
         }
     };
     try {
-        return { result: await launchDshWeb(input), logs, stopped };
+        const result = await launchDshWeb(input);
+        return { result, logs, stopped, spawnArgs,
+            expectedArgs: buildDshWebArgs(fixture.executablePath, input.patchPath, process.platform, env, port).args };
     } catch (error) {
         if (!/EPERM/.test(String(error)) || realChild?.pid) throw error;
         simulated = true;
-        const fallback = { ...input, spawn: () => simulatedSpawn(mode) };
-        return { result: await launchDshWeb(fallback), logs, stopped };
+        const fallback = { ...input, spawn: (_command, args) => { spawnArgs = args; return simulatedSpawn(mode); } };
+        const result = await launchDshWeb(fallback);
+        return { result, logs, stopped, spawnArgs,
+            expectedArgs: buildDshWebArgs(fixture.executablePath, input.patchPath, process.platform, env, port).args };
     }
 }
 
@@ -202,7 +209,7 @@ test('dsh web arguments keep the patch immediately after the profile', () => {
         args: ['/d', '/s', '/c', '"' + [shim, ...expected].map(arg => `"${arg}"`).join(' ') + '"'],
         windowsVerbatimArguments: true });
     assert.deepEqual(buildDshWebArgs('dsh', patchPath, 'linux', {}).args,
-        ['--profile', 'web', '--patch', patchPath, '--no-open']);
+        ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0']);
     for (const port of [0, 19999, 45000, 65536, 20000.5, NaN, Infinity, '20042']) {
         assert.throws(() => buildDshWebArgs('dsh', patchPath, 'linux', {}, port), /Invalid dsh web port/);
     }
@@ -215,8 +222,16 @@ test('project port candidates are stable, distinct, in range, and use the normal
     assert.deepEqual(candidates, dshWebPortCandidates(first));
     assert.equal(candidates.length, 4);
     assert.equal(new Set(candidates).size, 4);
-    assert.ok(candidates.every(port => Number.isInteger(port) && port >= 20000 && port <= 44999));
+    assert.ok(candidates.every(port => Number.isInteger(port) && port >= DSH_WEB_PORT_MIN && port <= DSH_WEB_PORT_MAX));
     assert.notEqual(candidates[0], dshWebPortCandidates(normalizeWebCwdKey('C:/Work/Other', 'win32'))[0]);
+});
+
+test('four distinct in-range ports are produced for 2000 project keys', () => {
+    for (let index = 0; index < 2000; index++) {
+        const candidates = dshWebPortCandidates(`C:/work/project-${index}`);
+        assert.equal(new Set(candidates).size, 4);
+        assert.ok(candidates.every(port => port >= DSH_WEB_PORT_MIN && port <= DSH_WEB_PORT_MAX));
+    }
 });
 
 test('busy candidates advance in hash order and exhaustion uses automatic port', async () => {
@@ -257,6 +272,32 @@ test('a port occupied on loopback is skipped by the real listen probe', async t 
     }
 });
 
+for (const host of ['0.0.0.0', '::']) {
+    test(`a port occupied on ${host} is skipped`, async t => {
+        const key = normalizeWebCwdKey(`C:/Work/OccupiedPort-${host}`, 'win32');
+        const [first] = dshWebPortCandidates(key);
+        const blocker = createServer();
+        try {
+            await new Promise((resolve, reject) => {
+                blocker.once('error', reject);
+                blocker.listen({ port: first, host, ipv6Only: host === '::' }, resolve);
+            });
+        } catch (error) {
+            if (['EADDRINUSE', 'EACCES', 'EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes(error.code)) {
+                t.skip(`fixture cannot reserve ${host}:${first}`);
+                return;
+            }
+            throw error;
+        }
+        try {
+            const choice = await selectDshWebPort(key);
+            assert.equal(choice.skipped[0], first);
+        } finally {
+            await new Promise(resolve => blocker.close(resolve));
+        }
+    });
+}
+
 test('Windows cmd quoting keeps spaced paths in one argument and rejects metacharacters', () => {
     const shim = join(tmpdir(), 'user with spaces', 'dsh.cmd');
     const patch = join(tmpdir(), 'user with spaces', 'akari.patch.yml');
@@ -277,7 +318,7 @@ test('Windows cmd quoting keeps spaced paths in one argument and rejects metacha
             return true;
         });
         assert.deepEqual(buildDshWebArgs(unsafeShim, patch, 'linux', {}).args,
-            ['--profile', 'web', '--patch', patch, '--no-open']);
+            ['--profile', 'web', '--patch', patch, '--no-open', '--port', '0']);
         assert.equal(buildDshWebArgs(shim + character, patch, 'win32', {}).command, shim + character);
     }
     const native = buildDshWebArgs('C:\\tools\\dsh.exe', patch + '&', 'win32', {});
@@ -294,12 +335,19 @@ test('dsh web URL parser ignores the LAN suffix and log masking hides the token'
 });
 
 test('fake dsh executable returns a nonzero port, token and pid while masking the log', async t => {
-    const { result, logs } = await launchFixture(t, 'success');
+    const { result, logs, spawnArgs, expectedArgs } = await launchFixture(t, 'success', 1500, 23456);
+    assert.deepEqual(spawnArgs, expectedArgs);
     assert.equal(new URL(result.url).searchParams.get('token'), 'abc');
     assert.ok(Number(new URL(result.url).port) > 0);
     assert.ok(result.pid > 0);
     assert.ok(logs.some(line => line.includes('token=***')));
     assert.ok(logs.every(line => !line.includes('token=abc')));
+});
+
+test('launchDshWeb passes --port 0 to spawn when no port is specified', async t => {
+    const { spawnArgs, expectedArgs } = await launchFixture(t, 'success');
+    assert.deepEqual(spawnArgs, expectedArgs);
+    assert.ok(spawnArgs.join(' ').includes('0'));
 });
 
 test('silent fake dsh executable times out and stops its pid', async t => {
@@ -325,15 +373,40 @@ test('silent fake dsh executable times out and stops its pid', async t => {
             return child;
         }
     };
+    const assertTimeout = error => {
+        assert.ok(!(error instanceof DshWebEarlyExitError));
+        assert.match(error.message, /dsh web startup timed out/);
+        return true;
+    };
     try {
-        await assert.rejects(launchDshWeb(input), /dsh web startup timed out/);
+        await assert.rejects(launchDshWeb(input), assertTimeout);
     } catch (error) {
         if (!/EPERM/.test(String(error)) || child?.pid) throw error;
         simulated = true;
-        await assert.rejects(launchDshWeb({ ...input, spawn: () => simulatedSpawn('timeout') }), /dsh web startup timed out/);
+        await assert.rejects(launchDshWeb({ ...input, spawn: () => simulatedSpawn('timeout') }), assertTimeout);
     }
     assert.equal(stopped.length, 1);
     assert.ok(stopped[0] > 0);
+});
+
+test('spawn error is not an early process exit', async () => {
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const input = {
+        executablePath: 'dsh', cwd: process.cwd(), env: process.env,
+        patchPath: join(tmpdir(), 'akari.patch.yml'), platform: process.platform,
+        timeoutMs: 1000, log: () => undefined, stop: () => undefined,
+        spawn: () => {
+            setImmediate(() => child.emit('error', new Error('fixture spawn error')));
+            return child;
+        }
+    };
+    await assert.rejects(launchDshWeb(input), error => {
+        assert.ok(!(error instanceof DshWebEarlyExitError));
+        assert.match(error.message, /fixture spawn error/);
+        return true;
+    });
 });
 
 test('fake dsh executable reports stderr on nonzero exit', async t => {

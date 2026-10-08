@@ -1,6 +1,7 @@
 import { spawn as nodeSpawn, ChildProcessWithoutNullStreams, SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import { maskToken } from '../common/dsh-output-mask';
+import { DSH_WEB_PORT_MIN, DSH_WEB_PORT_MAX } from './dsh-web-port';
 
 export function parseDshWebUrlLine(line: string): string | undefined {
     return /^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)/.exec(line)?.[1];
@@ -19,11 +20,10 @@ export function buildDshWebArgs(
     executablePath: string, patchPath: string, platform: NodeJS.Platform = process.platform,
     env: NodeJS.ProcessEnv = process.env, port?: number
 ): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
-    if (port !== undefined && (!Number.isInteger(port) || port < 20000 || port > 44999)) {
+    if (port !== undefined && (!Number.isInteger(port) || port < DSH_WEB_PORT_MIN || port > DSH_WEB_PORT_MAX)) {
         throw new Error('Invalid dsh web port');
     }
-    const args = ['--profile', 'web', '--patch', patchPath, '--no-open'];
-    if (port !== undefined) args.push('--port', String(port));
+    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', String(port ?? 0)];
     if (platform === 'win32' && /\.(cmd|bat)$/i.test(executablePath)) {
         const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), 'cmd.exe のパス');
         safeCommandArgument(executablePath, '実行ファイルのパス');
@@ -86,7 +86,7 @@ export async function launchDshWeb(input: {
         const timer = setTimeout(() => finish(new Error('dsh web startup timed out')), input.timeoutMs);
         child.stdout.on('data', chunk => consume(chunk, 'stdout'));
         child.stderr.on('data', chunk => consume(chunk, 'stderr'));
-        child.on('error', error => finish(new DshWebEarlyExitError(error.message)));
+        child.on('error', error => finish(error));
         child.on('close', code => {
             if (child.pid) input.onExit?.(child.pid);
             if (stdout) consume('\n', 'stdout');

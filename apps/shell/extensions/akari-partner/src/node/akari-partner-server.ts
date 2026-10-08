@@ -188,7 +188,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             appendFileSync(logPath, safe + '\n');
         };
         const selection = await selectDshWebPort(cwdKey);
-        log(`dsh web port: ${selection.port ?? 'automatic'}; skipped: ${selection.skipped.join(', ') || 'none'}`);
+        log(`dsh web port: ${selection.port === undefined ? '0 (OS が選ぶ)' : selection.port}; skipped: ${selection.skipped.join(', ') || 'none'}`);
         const input: Parameters<typeof launchDshWeb>[0] = {
             executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 120_000,
             log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webProcesses.delete(pid)
@@ -199,8 +199,12 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
                 result = await this.launchWebProcess({ ...input, port: selection.port });
             } catch (error) {
                 if (selection.port === undefined || !(error instanceof DshWebEarlyExitError)) throw error;
-                log(`dsh web port: ${selection.port} failed before URL; retrying once with automatic port`);
-                result = await this.launchWebProcess(input);
+                log(`dsh web port: 0 (OS が選ぶ); retrying once after ${selection.port} failed before URL`);
+                try {
+                    result = await this.launchWebProcess(input);
+                } catch (retryError) {
+                    throw new Error(`dsh web first attempt failed: ${this.errorMessage(error)}\n--port 0 retry failed: ${this.errorMessage(retryError)}`);
+                }
             }
         } catch (error) {
             const message = maskDshOutput(this.errorMessage(error),

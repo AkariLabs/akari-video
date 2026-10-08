@@ -198,12 +198,12 @@ test('early exit with a selected port retries exactly once without --port', asyn
         const server = new RetryWebServer();
         const launch = await server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a');
         assert.equal(launch.pid, 41007);
-        const expected = server.ports[0];
-        assert.ok(dshWebPortCandidates(normalizeWebCwdKey(first)).includes(expected));
+        const expected = dshWebPortCandidates(normalizeWebCwdKey(first))[0];
+        assert.equal(server.ports[0], expected);
         assert.deepEqual(server.ports, [expected, undefined]);
         const log = await readFile(join(root, 'home', 'partners', 'deepseek', 'web.log'), 'utf8');
         assert.match(log, new RegExp(`dsh web port: ${expected}; skipped:`));
-        assert.match(log, /retrying once with automatic port/);
+        assert.match(log, /dsh web port: 0 \(OS が選ぶ\); retrying once/);
     } finally {
         if (previousHome === undefined) delete process.env.AKARI_HOME;
         else process.env.AKARI_HOME = previousHome;
@@ -242,13 +242,22 @@ test('a failed automatic-port retry is the final attempt', async t => {
         async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
         async launchWebProcess(input) {
             this.ports.push(input.port);
-            throw new DshWebEarlyExitError('fixture early exit');
+            if (this.ports.length === 1) {
+                throw new DshWebEarlyExitError('dsh web exited with code 7\nfirst stderr token=fixture-token');
+            }
+            throw new DshWebEarlyExitError('dsh web exited with code 9\nretry stderr');
         }
     }
     try {
         const server = new TwiceFailingWebServer();
         await assert.rejects(server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a'),
-            /fixture early exit/);
+            error => {
+                assert.match(error.message, /code 7/);
+                assert.match(error.message, /first stderr token=\*\*\*/);
+                assert.match(error.message, /code 9/);
+                assert.doesNotMatch(error.message, /fixture-token/);
+                return true;
+            });
         assert.equal(server.ports.length, 2);
         assert.equal(server.ports[1], undefined);
     } finally {
