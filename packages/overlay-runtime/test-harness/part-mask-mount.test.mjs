@@ -43,6 +43,7 @@ test("mounted clone masks expose only their target part and retain projected geo
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
     args: ["--no-sandbox", "--single-process", "--no-zygote", "--disable-gpu"],
   });
   t.after(() => browser.close());
@@ -126,7 +127,7 @@ function buildPage(runtime, interaction) {
 
 function findChrome() {
   const root = join(homedir(), ".cache/puppeteer/chrome-headless-shell");
-  const candidates = [process.env.CHROME_PATH];
+  const candidates = [process.env.AKARI_TEST_CHROME_PATH, process.env.CHROME_PATH];
   if (existsSync(root)) {
     const directories = path => readdirSync(path, { withFileTypes: true })
       .filter(entry => entry.isDirectory()).map(entry => entry.name);

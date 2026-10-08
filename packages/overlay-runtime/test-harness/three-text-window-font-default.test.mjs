@@ -18,7 +18,7 @@ let unconfiguredPage;
 
 function findChrome() {
   const cacheRoot = join(homedir(), ".cache/puppeteer/chrome-headless-shell");
-  const candidates = [];
+  const candidates = [process.env.AKARI_TEST_CHROME_PATH].filter(Boolean);
   if (existsSync(cacheRoot)) {
     for (const build of readFileDirectories(cacheRoot).sort().reverse()) {
       for (const platform of readFileDirectories(join(cacheRoot, build))) {
@@ -148,6 +148,7 @@ before(async () => {
     executablePath: findChrome(),
     headless: "shell",
     pipe: true,
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
     args: [
       "--no-sandbox",
       "--no-zygote",

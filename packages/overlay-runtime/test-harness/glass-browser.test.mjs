@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { launchBrowser } from './fixtures/browser.mjs';
 import {browserManifest,runtimes} from '../runtimes.mjs';
 import { renderOverlaySheet } from '../../render-cut/src/rasterize.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +43,7 @@ function findChrome() {
     }
   }
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cached,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -55,8 +57,7 @@ function findChrome() {
 // Optional private-pack run: AKARI_GLASS_PACK=/absolute/path/to/glass-buttons.
 // Public CI uses an independently authored fixture and never copies private assets.
 test('glass PNG repeatability, reverse seek and portrait cover mapping', { timeout: 90000 }, async (t) => {
-  const browser = await loadPuppeteer().launch({ executablePath: findChrome(), headless: "shell", pipe: true,
-    args: ['--single-process', '--no-zygote', '--disable-gpu', '--use-angle=swiftshader', '--allow-file-access-from-files'] });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const root = mkdtempSync(join(tmpdir(), 'akari-glass-browser-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -145,7 +146,8 @@ async function openPreview(page) {
 
 test('preview app loader resolves variant backdrop and seeks/disposes real glass', { timeout: 60000 }, async (t) => {
   const browser = await loadPuppeteer().launch({ executablePath: findChrome(), headless: 'shell', pipe: true,
-    args: ['--single-process', '--no-zygote', '--disable-gpu', '--use-angle=swiftshader'] });
+    dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
+    args: [ ...(process.platform === 'linux' ? ['--no-sandbox'] : []),'--single-process', '--no-zygote', '--disable-gpu', '--use-angle=swiftshader'] });
   t.after(() => browser.close());
   const page = await browser.newPage();
   await page.setViewport({ width:1920, height:1080, deviceScaleFactor:1 });

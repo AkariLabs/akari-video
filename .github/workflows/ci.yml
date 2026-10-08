@@ -158,14 +158,27 @@ jobs:
           npm --prefix apps/shell/extensions/akari-project run build
           npm --prefix apps/shell/extensions/akari-annotations run build
           npm --prefix apps/shell/extensions/akari-transcript run build
-      # preview-server は @playwright/test（root devDependency）の chromium を、overlay-runtime は
-      # puppeteer-core + CHROME_PATH（ubuntu-latest 同梱の Google Chrome）を使う
+      # preview-server は Playwright chromium、overlay-runtime は puppeteer-core と
+      # 専用の chrome-headless-shell を使う。CHROME_PATH は既存の他パッケージ向けに維持する。
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
+      # 参考ジョブで結果を全部見るため。required 化するときに外す。
+      - name: Install overlay Chrome headless shell
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -e
+          shell_version="$(node -p "require('puppeteer-core').PUPPETEER_REVISIONS['chrome-headless-shell']")"
+          shell_bin="$(node node_modules/puppeteer-core/node_modules/@puppeteer/browsers/lib/main-cli.js \
+            install "chrome-headless-shell@$shell_version" --path "$HOME/.cache/puppeteer" --format '{{path}}')"
+          test -x "$shell_bin"
+          echo "Installed chrome-headless-shell version=$shell_version path=$shell_bin"
+          echo "AKARI_TEST_CHROME_PATH=$shell_bin" >> "$GITHUB_ENV"
       - name: unit tests (lane media)
         run: xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
         env:
           CHROME_PATH: /usr/bin/google-chrome
+          AKARI_TEST_BROWSER_DUMPIO: '1'
           ELECTRON_DISABLE_SANDBOX: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
 

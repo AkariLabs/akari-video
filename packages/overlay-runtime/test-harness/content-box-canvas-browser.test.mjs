@@ -55,6 +55,7 @@ function cachedChromeCandidates() {
 
 function findChrome() {
   const candidates = [
+    process.env.AKARI_TEST_CHROME_PATH,
     process.env.CHROME_PATH,
     ...cachedChromeCandidates(),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -86,8 +87,8 @@ test("content-box fixtures shrink and transparent clicks select underlying video
     window.hits=[];
     document.addEventListener('pointerdown',event=>hits.push(event.target.id==='under-video'?'video':event.target.closest('[data-overlay-id]')?.dataset.overlayId ?? 'other'),true);
   </script>${script('vendor/three-bundle.js')}${script('vendor/vendor-3d-text-bundle.js')}${script('three-runtime.js')}${script('overlay-runtime.js')}${script('interaction.js')}`);
-  const browser = await loadPuppeteer().launch({ executablePath: findChrome(), headless:'shell', pipe:true,
-    args:['--single-process','--no-zygote','--allow-file-access-from-files','--disable-gpu','--enable-unsafe-swiftshader','--use-angle=swiftshader'] });
+  const browser = await loadPuppeteer().launch({ executablePath: findChrome(), headless:'shell', pipe:true, dumpio: process.env.AKARI_TEST_BROWSER_DUMPIO === '1',
+    args:[...(process.platform === 'linux' ? ['--no-sandbox'] : []),'--single-process','--no-zygote','--allow-file-access-from-files','--disable-gpu','--enable-unsafe-swiftshader','--use-angle=swiftshader'] });
   t.after(() => browser.close());
   const page = await browser.newPage();
   const errors=[];
