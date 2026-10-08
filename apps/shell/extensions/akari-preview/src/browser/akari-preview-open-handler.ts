@@ -7620,7 +7620,7 @@ ${materialRangeEnabled ? materialRangeWebviewStyle() : ''}
   --akari-badge-fg: #f1f1f1;
 }
 * { box-sizing: border-box; }
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
+html, html body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: var(--akari-preview-pasteboard); color: #eee; }
 body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-light {
   color-scheme: light;
@@ -7662,7 +7662,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
 #preview-chrome-layer { position: fixed; z-index: 2147483647; transform-origin: 0 0; overflow: visible; pointer-events: none; }
 #preview-chrome-layer > * { pointer-events: none; }
-#preview-stage { --akari-preview-gutter: 16px; --akari-preview-gutter-top: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-stage { --akari-preview-gutter: 16px; --akari-preview-gutter-top: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000 content-box; padding: 1px; transform: translate(-50%, -50%); }
 #preview-stage.akari-clearance-active { top: calc(var(--akari-preview-gutter-top) + (100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) / 2); width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) * ${width} / ${height}))); }
 ${kind === 'output' ? '#preview-stage { --akari-preview-gutter-top: 40px; top: calc(var(--akari-preview-gutter-top) + (100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) / 2); width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) * ' + width + ' / ' + height + '))); }' : ''}
 html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))) !important; transition: none; }
