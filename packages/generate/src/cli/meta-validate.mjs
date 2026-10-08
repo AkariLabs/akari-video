@@ -1,6 +1,7 @@
-const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history", "next", "placeholder", "candidate_of", "route"];
+const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history", "next", "placeholder", "candidate_of", "route", "frame"];
 const STATUS_VALUES = ["planned", "generating", "done", "failed"];
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const FRAME_SHA256_PATTERN = /^[a-fA-F0-9]{64}$/;
 const AS_OF_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T/;
 
@@ -31,6 +32,7 @@ export function validateGenerationMeta(meta) {
   if (hasOwn(meta, "placeholder")) validatePlaceholder(meta.placeholder, "/placeholder", fail);
   if (hasOwn(meta, "candidate_of")) validateNonEmptyString(meta.candidate_of, "/candidate_of", fail);
   if (hasOwn(meta, "route")) validateNonEmptyString(meta.route, "/route", fail);
+  if (hasOwn(meta, "frame")) validateFrame(meta.frame, "/frame", fail);
 
   if (meta.status === "generating" && meta.kind === "video" && isObject(meta.job) && !hasOwn(meta.job, "request_id")) {
     fail("/job に必須キー request_id がありません");
@@ -40,6 +42,72 @@ export function validateGenerationMeta(meta) {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+function validateFrame(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  rejectUnknown(value, ["version", "content", "rendered"], path, fail);
+  requireKeys(value, ["version", "content"], path, fail);
+  if (hasOwn(value, "version") && value.version !== 0) fail(`${path}/version は 0 である必要があります`);
+  if (hasOwn(value, "content")) validateFrameContent(value.content, `${path}/content`, fail);
+  if (hasOwn(value, "rendered")) validateFrameRendered(value.rendered, `${path}/rendered`, fail);
+}
+
+function validateFrameContent(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  rejectUnknown(value, ["kind", "scene", "excerpt", "keep"], path, fail);
+  requireKeys(value, ["kind"], path, fail);
+  if (hasOwn(value, "kind")) validateEnum(value.kind, ["text", "scribble", "scene3d"], `${path}/kind`, fail);
+  if (["scribble", "scene3d"].includes(value.kind) && !hasOwn(value, "scene")) {
+    fail(`${path} に必須キー scene がありません`);
+  }
+  if (hasOwn(value, "scene")) {
+    const scenePath = `${path}/scene`;
+    if (validateObject(value.scene, scenePath, fail)) {
+      rejectUnknown(value.scene, ["path", "id"], scenePath, fail);
+      requireKeys(value.scene, ["path", "id"], scenePath, fail);
+      for (const key of ["path", "id"]) {
+        if (hasOwn(value.scene, key)) validateFrameString(value.scene[key], `${scenePath}/${key}`, fail);
+      }
+    }
+  }
+  if (hasOwn(value, "excerpt")) validateNullableString(value.excerpt, `${path}/excerpt`, fail);
+  if (hasOwn(value, "keep") && typeof value.keep !== "boolean") fail(`${path}/keep は boolean である必要があります`);
+}
+
+function validateFrameRendered(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  rejectUnknown(value, ["scene_sha256", "at", "renderer", "outputs"], path, fail);
+  requireKeys(value, ["scene_sha256", "at", "renderer", "outputs"], path, fail);
+  if (hasOwn(value, "scene_sha256")) validateFrameSha256(value.scene_sha256, `${path}/scene_sha256`, fail);
+  if (hasOwn(value, "at")) validateDateTime(value.at, `${path}/at`, fail);
+  if (hasOwn(value, "renderer")) validateFrameString(value.renderer, `${path}/renderer`, fail);
+  if (hasOwn(value, "outputs")) {
+    if (!Array.isArray(value.outputs)) fail(`${path}/outputs は array である必要があります`);
+    else value.outputs.forEach((entry, index) => validateFrameOutput(entry, `${path}/outputs/${index}`, fail));
+  }
+}
+
+function validateFrameOutput(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  rejectUnknown(value, ["role", "path", "sha256", "duration_s", "fps"], path, fail);
+  requireKeys(value, ["role", "path", "sha256"], path, fail);
+  if (hasOwn(value, "role")) validateEnum(value.role, ["still", "still_annotated", "first", "last", "reference_video"], `${path}/role`, fail);
+  if (hasOwn(value, "path")) validateFrameString(value.path, `${path}/path`, fail);
+  if (hasOwn(value, "sha256")) validateFrameSha256(value.sha256, `${path}/sha256`, fail);
+  for (const key of ["duration_s", "fps"]) {
+    if (hasOwn(value, key)) validateNumber(value[key], `${path}/${key}`, fail, { exclusiveMinimum: 0 });
+  }
+}
+
+function validateFrameString(value, path, fail) {
+  if (typeof value !== "string" || value.length < 1) fail(`${path} は空でない string である必要があります`);
+}
+
+function validateFrameSha256(value, path, fail) {
+  if (typeof value !== "string" || !FRAME_SHA256_PATTERN.test(value)) {
+    fail(`${path} の文字列形式が契約と一致しません`);
+  }
 }
 
 function validateModel(value, path, fail) {
