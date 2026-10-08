@@ -94,6 +94,8 @@ async function launchChromeOrSkip(t) {
       ...(SYSTEM_CHROME && fs.existsSync(SYSTEM_CHROME) ? { executablePath: SYSTEM_CHROME } : {}),
     });
   } catch (error) {
+    // CI ではブラウザ起動不能を skip に隠さず失敗として見せる。
+    if (process.env.CI) throw error;
     t.skip(`headless Chrome is unavailable in this sandbox: ${error.message.split('\n')[0]}`);
     return null;
   }
@@ -150,7 +152,8 @@ async function previewResponse(urlPath) {
 async function openPreview(page) {
   await page.goto('http://localhost/?mode=output&frameEngine=0');
   await page.waitForFunction(()=>Boolean(window.akari?.runtime && window.akari?.state));
-  await page.evaluate(()=>window.__akariCaptionFontReady);
+  // app.js は runtime/state 公開後に __akariCaptionFontReady を await する。
+  // この検証は別の 3D フォント応答と ready を直接待つので、字幕フォントの完了には依存しない。
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 }
 
@@ -169,7 +172,17 @@ test('preview-server fixes the default 3D font route and configures the runtime'
   await openPreview(page);
   const fontResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/__akari/fonts/zen-kaku-gothic-new-black.ttf');
   await page.evaluate(()=>window.akari.runtime.mount({overlays:[{id:'text-scene',start:0,duration:5,html:'<div style="position:absolute;inset:0"><canvas style="width:100%;height:100%"></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"既定","mode":"flat"}]}</script></div>'}]}));
-  await page.waitForFunction(()=>{window.akari.runtime.tick(1.5);return window.akari.threeRuntime?.inspect(document.querySelector('[data-overlay-id="text-scene"]')).status==='ready';});
+  // tick は描画開始の操作。rAF ポーリングのたびに呼ぶと、フォント sync の完了待ち中も
+  // WebGL 描画を繰り返すため、起動操作と ready 判定を分ける。
+  await page.waitForFunction(()=>Boolean(window.akari?.threeRuntime?.inspect
+    && document.querySelector('[data-overlay-id="text-scene"]')));
+  await page.evaluate(()=>window.akari.runtime.tick(1.5));
+  const sceneStatus=await page.waitForFunction(()=>{
+    const container=document.querySelector('[data-overlay-id="text-scene"]');
+    const status=container && window.akari?.threeRuntime?.inspect(container).status;
+    return status==='ready'||status==='error'?status:false;
+  },{polling:100});
+  assert.equal(await sceneStatus.jsonValue(),'ready');
   assert.equal(await page.evaluate(()=>window.akari.threeRuntime.configure({}).defaultFontUrl),'/__akari/fonts/zen-kaku-gothic-new-black.ttf');
   const response=await fontResponse;
   assert.equal(response.status(),200);

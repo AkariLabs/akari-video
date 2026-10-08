@@ -1273,7 +1273,10 @@ async function main() {
 
     // Delete: 選択中の背景を消す（消したら黒でよい = 2026-08-07 裁定。lint 警告も出ない）
     await bp.keyboard.press('Delete');
-    await bp.waitForTimeout(800);
+    // PUT 成功後のファイル通知から soft reload へ進むため、固定待ちでは DOM 更新より先に読める。
+    await bp.waitForFunction(() =>
+      !document.querySelector('[data-overlay-id="bg-test"]')
+      && !(window.akari?.state?.summary?.overlays ?? []).some(o => o.id === 'bg-test'));
     const afterDelete = await bp.evaluate(() => !!document.querySelector('[data-overlay-id="bg-test"]'));
     const summaryAfterDelete = await fetch(`${BASE}/api/summary`).then(r => r.json());
     (!afterDelete && !(summaryAfterDelete.overlays || []).some(o => o.id === 'bg-test'))
