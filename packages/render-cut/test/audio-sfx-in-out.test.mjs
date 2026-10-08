@@ -199,8 +199,8 @@ test("sfx.out exceeding the material's real duration clamps to the material's en
   }
 });
 
-// Since dad189146, verify.audio-level may FAIL on a skipped sfx still counted as declared audio;
-// the product behavior awaits a separate decision.
+// A skipped sfx is not counted as audible audio; with no other audio, rendering takes
+// the same copy path as an audio-free project.
 test("sfx.in at/beyond the material's real duration is silently skipped with a warning", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const materialDuration = 3;
@@ -219,7 +219,9 @@ test("sfx.in at/beyond the material's real duration is silently skipped with a w
 
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.ok(!state.plan.commands.audio_mix.args.includes(join(project, "audio", "sfx.wav")), "expected the skipped sfx's file to never be passed to ffmpeg as an input");
+    assert.equal(state.plan.commands.audio_mix.operation, "copy");
+    const mixArgs = state.plan.commands.audio_mix?.args ?? [];
+    assert.ok(!mixArgs.includes(join(project, "audio", "sfx.wav")), "expected the skipped sfx's file to never be passed to ffmpeg as an input");
 
     const outputPath = join(project, state.artifacts[0].path);
     const overall = measureBandVolume(outputPath, 0, 6, 500, 300);
