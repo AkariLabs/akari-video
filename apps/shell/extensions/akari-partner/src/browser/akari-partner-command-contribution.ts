@@ -1,7 +1,14 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
+import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
+import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { AkariPartnerWidget } from './akari-partner-widget';
+import { PartnerTerminal } from './partner-session-service';
+import { PartnerWebWidget } from './akari-partner-web-widget';
+import { TerminalPartnerChannel } from './partner-channel';
+import { PartnerActivityService } from './partner-activity-service';
+import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
 
@@ -51,7 +58,9 @@ export const AkariPartnerCommands = {
         id: 'akari.partner.injectPrompt',
         label: '文脈パケットをパートナーへ送る'
     } as Command,
-    DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command
+    DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
+    IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
+    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: 'パートナーの入力欄に書く' } as Command
 };
 
 @injectable()
@@ -66,6 +75,20 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(TerminalService)
+    protected readonly terminals!: TerminalService;
+
+    @inject(ClipboardService)
+    protected readonly clipboard!: ClipboardService;
+
+    @inject(PartnerActivityService)
+    protected readonly activity!: PartnerActivityService;
+
+    protected liveTerminal() {
+        return this.terminals.all.find(terminal => terminal.kind === PartnerTerminal.KIND &&
+            !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0);
+    }
+
     registerCommands(registry: CommandRegistry): void {
         window.addEventListener('akari.onboarding.revealPartner', () => {
             void registry.executeCommand(AkariPartnerCommands.OPEN.id).catch(error =>
@@ -73,11 +96,46 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         });
         registry.registerCommand(AkariPartnerCommands.OPEN, {
             execute: async () => {
+                const terminal = this.liveTerminal();
+                if (terminal) {
+                    await this.shell.revealWidget(terminal.id);
+                    return;
+                }
+                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+                if (web?.isRunning()) {
+                    await this.shell.revealWidget(web.id);
+                    return;
+                }
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
                 if (!widget.isAttached) {
                     await this.shell.addWidget(widget, { area: 'right', rank: 100 });
                 }
                 await this.shell.activateWidget(widget.id);
+            }
+        });
+        registry.registerCommand(AkariPartnerCommands.IS_BUSY, {
+            execute: () => this.activity.anyBusy
+        });
+        registry.registerCommand(AkariPartnerCommands.TYPE_PROMPT, {
+            execute: async (text: unknown): Promise<'typed' | 'no-partner' | 'unsupported'> => {
+                if (typeof text !== 'string') return 'unsupported';
+                const terminal = this.liveTerminal();
+                if (terminal) {
+                    const channel = new TerminalPartnerChannel(terminal);
+                    try { channel.type(typedPromptText(text)); }
+                    finally { channel.dispose(); }
+                    await this.shell.activateWidget(terminal.id);
+                    return 'typed';
+                }
+                const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
+                const extensionViewIds = PARTNER_CATALOG.filter(entry => entry.form === 'extension')
+                    .flatMap(entry => entry.form === 'extension' ? entry.viewContainerIds : []);
+                if (web?.isRunning() || this.shell.widgets.some(widget => widget.isAttached &&
+                    extensionViewIds.some(id => widget.id === `plugin-view-container:${id}`))) {
+                    await this.clipboard.writeText(text);
+                    return 'unsupported';
+                }
+                return 'no-partner';
             }
         });
         registry.registerCommand(AkariPartnerCommands.BEGIN_ONBOARDING, {

@@ -19,6 +19,12 @@ const WIDGETS = {
     audioMeter: '../../akari-preview/src/browser/akari-audio-meter-widget.ts'
 };
 
+test('右の主要ラベルは短い日本語になる', () => {
+    assert.match(read(WIDGETS.inspector), /this\.title\.label = 'インスペクター'/);
+    assert.match(read('../../akari-partner/src/browser/akari-partner-widget.tsx'), /'チャット'/);
+    assert.match(read('../../akari-partner/src/browser/akari-partner-web-widget.tsx'), /'チャット（DeepSeek）'/);
+});
+
 test('the four right-rail widgets use the line-art icon classes (no codicon)', () => {
     for (const [key, path] of Object.entries(WIDGETS)) {
         const lines = read(path).split('\n').filter(line => line.includes('this.title.iconClass'));

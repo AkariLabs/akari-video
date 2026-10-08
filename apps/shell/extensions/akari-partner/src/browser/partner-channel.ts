@@ -33,6 +33,8 @@ export interface PartnerChannel extends Disposable {
     readonly onReply: Event<string>;
     /** ユーザー発話をパートナーへ注入する。 */
     send(text: string): void;
+    /** 入力欄へ文字だけを置く。送信はしない。 */
+    type(text: string): void;
 }
 
 /**
@@ -61,6 +63,10 @@ export class TerminalPartnerChannel implements PartnerChannel {
             return;
         }
         this.terminal.sendText(`${trimmed}\r`);
+    }
+
+    type(text: string): void {
+        if (!this.terminal.isDisposed) this.terminal.sendText(text);
     }
 
     protected onChunk(chunk: string): void {

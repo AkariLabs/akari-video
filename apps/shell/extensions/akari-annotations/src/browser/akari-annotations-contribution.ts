@@ -848,7 +848,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 if (change.type === FileChangeType.ADDED
                     && change.resource.path.base === 'review.json'
                     && shouldOpenReviewPanelFor(change.resource.path.toString(), [...rootPaths]).reason === 'ok') {
-                    scheduleReviewOpen(() => void this.openReviewPanel());
+                    scheduleReviewOpen(() => void this.openReviewPanel(true));
                 }
             }
         }));
@@ -1278,13 +1278,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * 注釈パネルを右サイドへ開く。データの読み込み主体はタイムライン側なので、
      * 先にタイムラインを構成して ReviewModel を満たしてからパネルを出す。
      */
-    async openReviewPanel(): Promise<AkariReviewPanelWidget | undefined> {
-        const timeline = await this.openCurrentTimeline();
+    async openReviewPanel(attachOnly = false): Promise<AkariReviewPanelWidget | undefined> {
+        const timeline = attachOnly ? await this.attach() : await this.openCurrentTimeline();
         if (!timeline) {
             return undefined;
         }
         const widget = await this.ensureReviewPanelTab();
-        await this.shell.activateWidget(widget.id);
+        if (!attachOnly) await this.shell.activateWidget(widget.id);
         return widget;
     }
 

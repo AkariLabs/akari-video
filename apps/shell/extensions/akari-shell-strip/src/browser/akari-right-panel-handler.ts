@@ -17,6 +17,7 @@ import { installRightRailIconStyle } from './right-rail-icons';
 import { RightRailTooltip } from './right-rail-tooltip';
 import { trackDragGesture } from './right-rail-drag-gesture';
 import { RightPanelDockSlot } from './right-panel-dock-slot';
+import { RIGHT_RAIL_LAST_TAB_KEY, rightRailLogicalTab } from './right-rail-last-tab';
 
 type RailLayoutData = SidePanel.LayoutData & { akariRail?: unknown };
 type PanelMover = (widget: Widget, area: 'main' | 'bottom' | 'right') => Promise<void>;
@@ -55,6 +56,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
     protected separatorFrame = 0;
     protected readonly paneTabBars = new Set<TabBar<Widget>>();
     protected readonly decoratedPaneTabBars = new WeakSet<TabBar<Widget>>();
+    protected pointerTab: Title<Widget> | undefined;
 
     protected readonly onDidStartPanelDragEmitter = new Emitter<Widget>();
     /** レール・右パネルの見出しからパネルを持ち上げたとき（置き場所の表示は AkariRightRailDnd が出す）。 */
@@ -72,6 +74,14 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         this.tabBar.tabsMovable = false;
         this.suppressDelayedHover();
         this.tooltip = new RightRailTooltip(this.tabBar);
+        this.tabBar.currentChanged.connect((_, { currentTitle }) => {
+            if (currentTitle && currentTitle === this.pointerTab) {
+                const logical = rightRailLogicalTab(currentTitle.owner.id);
+                if (logical) {
+                    try { window.localStorage.setItem(RIGHT_RAIL_LAST_TAB_KEY, logical); } catch { /* storage unavailable */ }
+                }
+            }
+        });
         this.installRailPointer();
         this.installToolbarDrag();
         this.installPaneFocusTracking();
@@ -416,7 +426,9 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             onClick: (x, y) => {
                 const title = tabAt(x, y);
                 if (title) {
-                    this.clickRail(title);
+                    this.pointerTab = title;
+                    try { this.clickRail(title); }
+                    finally { this.pointerTab = undefined; }
                 }
             },
             onStart: (x, y, pressX, pressY) => {

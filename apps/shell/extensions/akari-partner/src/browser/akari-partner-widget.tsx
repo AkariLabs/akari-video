@@ -62,6 +62,21 @@ interface ChatMessage {
 const DEVELOPER_MODE_PREFERENCE = 'akari.developerMode';
 const PARTNER_REOPEN_PREFERENCE = 'akari.partner.reopenLast';
 const PARTNER_PERMISSION_PREFERENCE = 'akari.partner.permissionMode';
+const PARTNER_ENTRY_ATTRIBUTE = 'akari.partner.entryId';
+
+function terminalEntryId(terminal: TerminalWidget): string | undefined {
+    const options = terminal as TerminalWidget & { options?: { attributes?: Record<string, string | null> } };
+    return options.options?.attributes?.['akari.partner.entryId'] ?? undefined;
+}
+
+function terminalAgent(terminal: TerminalWidget): string | undefined {
+    const options = terminal as TerminalWidget & { options?: { attributes?: Record<string, string | null> } };
+    return options.options?.attributes?.['akari.partner'] ?? undefined;
+}
+
+function partnerTerminalLabel(name: string, count: number): string {
+    return count > 1 ? `チャット · ${name}` : 'チャット';
+}
 
 function permissionModeLabel(mode: PartnerAppliedPermissionMode): string {
     return mode === 'bypass' ? 'すべて許可で起動' : mode === 'ask' ? '毎回確認' :
@@ -80,22 +95,6 @@ const COMPLETE_AUTO_DISMISS_MS = 6000;
 // SSOT（connections.json / アプリ単位マーカー）はファイルなので、watch ではなく
 // 短間隔ポーリングで足りる（ダイアログが開いている間だけ回す・v0）。
 const CONNECT_DIALOG_POLL_MS = 800;
-
-// 4 分割前に永続化された PTY タブだけを新しい一意ラベルへ移行する。
-// kind も同時に照合するため、同名の一般ターミナルや拡張ビューには触れない。
-const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
-    claude: ['Claude Code'],
-    codex: ['Codex'],
-    opencode: [],
-    commandcode: [],
-    pi: [],
-    deepseek: [],
-    devin: [],
-    copilot: [],
-    cursor: [],
-    antigravity: [],
-    grok: []
-};
 
 @injectable()
 export class AkariPartnerWidget extends ReactWidget {
@@ -241,7 +240,7 @@ export class AkariPartnerWidget extends ReactWidget {
         }
     }
 
-    // ApplicationShell#activateWidget は waitForActivation で focus を待つため、
+    // シェルのタブ前面化は waitForActivation で focus を待つため、
     // activationTimeout=2000ms 後の警告を防ぐ。配下にある既存の focus は維持する。
     protected override onActivateRequest(msg: Message): void {
         super.onActivateRequest(msg);
@@ -253,7 +252,7 @@ export class AkariPartnerWidget extends ReactWidget {
             return;
         }
 
-        // onStart 起点の activateWidget は attachShell より前なので、detached な node の focus() は効かない。
+        // 旧レイアウトの起動時前面化は attachShell より前なので、detached な node の focus() は効かない。
         // attach 後まで 16ms × 最大 60 回だけ再試行し、activationTimeout=2000ms より短く待つ。
         let attempts = 0;
         const retryFocus = (): void => {
@@ -621,7 +620,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 entry.agent, permissionMode, launch.args, partnerPermissionEnv(entry.agent, permissionMode));
             this.setProgress(entry, 'パートナー PTY を起動しています…', `${permissionModeLabel(appliedMode)}${launch.permissionFallbackReason ? `（${launch.permissionFallbackReason}）` : ''} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
-                title: `${entry.name}（${permissionModeLabel(appliedMode)}）`,
+                title: partnerTerminalLabel(entry.name, this.liveTerminals.size + 1),
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
                 shellPath: launch.executablePath ?? bootstrap.executablePath,
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
@@ -634,11 +633,13 @@ export class AkariPartnerWidget extends ReactWidget {
                 kind: PartnerTerminal.KIND,
                 attributes: {
                     'akari.partner': entry.agent,
+                    [PARTNER_ENTRY_ATTRIBUTE]: entry.id,
                     'akari.executable': bootstrap.executablePath
                 },
                 destroyTermOnClose: false,
                 useServerTitle: false
             });
+            terminal.title.caption = `${entry.name}（${permissionModeLabel(appliedMode)}）`;
             await terminal.start();
             await this.shell.addWidget(terminal, { area: 'right', rank: 50 });
             await this.attachTerminal(terminal, entry, automatic);
@@ -893,7 +894,7 @@ export class AkariPartnerWidget extends ReactWidget {
         const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
         if (web?.isRunning()) {
             this.webWidget = web;
-            this.webEntryId = PARTNER_CATALOG.find(candidate => candidate.form === 'web' && candidate.name === web.title.label)?.id;
+            this.webEntryId = PARTNER_CATALOG.find(candidate => candidate.form === 'web' && candidate.name === web.title.caption)?.id;
             this.observeWebClose(web);
         }
         const decision = decideAutoStart({
@@ -956,8 +957,9 @@ export class AkariPartnerWidget extends ReactWidget {
     }
 
     protected async showPartnerWidget(id: string, automatic = false): Promise<void> {
-        if (automatic) await this.shell.revealWidget(id);
-        else await this.shell.activateWidget(id);
+        if (automatic) {
+            if (!this.shell.rightPanelHandler.tabBar.currentTitle) await this.shell.revealWidget(id);
+        } else await this.shell.activateWidget(id);
     }
 
     protected observeUserClose(widget: TerminalWidget | PartnerWebWidget): void {
@@ -1008,18 +1010,17 @@ export class AkariPartnerWidget extends ReactWidget {
         entry: PartnerCliCatalogEntry,
         waitForRestore = false
     ): Promise<TerminalWidget | undefined> {
-        const labels = new Set([entry.name, ...LEGACY_CLI_LABELS[entry.agent],
-            ...(['auto', 'ask', 'bypass', 'default'] as const).map(mode => `${entry.name}（${permissionModeLabel(mode)}）`)]);
         const candidates = this.terminalService.all.filter(terminal =>
-            terminal.kind === PartnerTerminal.KIND && labels.has(terminal.title.label)
+            terminal.kind === PartnerTerminal.KIND &&
+            (terminalEntryId(terminal) === entry.id ||
+                (!terminalEntryId(terminal) && terminalAgent(terminal) === entry.agent))
         );
         const alive: TerminalWidget[] = [];
         for (const terminal of candidates) {
             if (await this.isTerminalAlive(terminal, waitForRestore)) {
-                if (LEGACY_CLI_LABELS[entry.agent].includes(terminal.title.label)) {
-                    terminal.title.label = entry.name;
-                    terminal.title.caption = entry.name;
-                }
+                terminal.title.label = partnerTerminalLabel(entry.name, this.terminalService.all.filter(candidate =>
+                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed && !candidate.exitStatus).length);
+                if (!terminal.title.caption) terminal.title.caption = entry.name;
                 alive.push(terminal);
             } else if (!terminal.isDisposed) {
                 terminal.dispose();
@@ -1067,10 +1068,9 @@ export class AkariPartnerWidget extends ReactWidget {
             return;
         }
         const resolvedEntry = entry ?? PARTNER_CATALOG.find(candidate =>
-            candidate.form === 'cli' &&
-            terminal.kind === PartnerTerminal.KIND &&
-            ([candidate.name, ...LEGACY_CLI_LABELS[candidate.agent]].includes(terminal.title.label) ||
-                (['auto', 'ask', 'bypass', 'default'] as const).some(mode => terminal.title.label === `${candidate.name}（${permissionModeLabel(mode)}）`))
+            candidate.form === 'cli' && terminal.kind === PartnerTerminal.KIND &&
+            (terminalEntryId(terminal) === candidate.id ||
+                (!terminalEntryId(terminal) && terminalAgent(terminal) === candidate.agent))
         ) as PartnerCliCatalogEntry | undefined;
         if (!resolvedEntry) {
             return;
@@ -1080,6 +1080,7 @@ export class AkariPartnerWidget extends ReactWidget {
         const clear = () => {
             if (this.liveTerminals.get(resolvedEntry.id) === terminal) {
                 this.liveTerminals.delete(resolvedEntry.id);
+                this.refreshTerminalLabels();
             }
             if (this.terminal === terminal) {
                 this.channel?.dispose();
@@ -1107,6 +1108,7 @@ export class AkariPartnerWidget extends ReactWidget {
     protected syncTerminalState(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, restored: boolean): void {
         this.sessionService.useTerminal(terminal);
         this.liveTerminals.set(entry.id, terminal);
+        this.refreshTerminalLabels();
         this.observeTerminalLifecycle(terminal, entry);
 
         if (this.channel) {
@@ -1123,6 +1125,15 @@ export class AkariPartnerWidget extends ReactWidget {
                 ? '既存の PTY セッションへ再接続しました。'
                 : 'PTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。'
         );
+    }
+
+    protected refreshTerminalLabels(): void {
+        const active = [...this.liveTerminals].filter(([, terminal]) =>
+            !terminal.isDisposed && !terminal.exitStatus);
+        for (const [id, terminal] of active) {
+            const entry = PARTNER_CATALOG.find(candidate => candidate.id === id);
+            terminal.title.label = partnerTerminalLabel(entry?.name ?? 'パートナー', active.length);
+        }
     }
     /**
      * PTY 起動済みの terminal をパートナー接続へ組み込む（task.md 2026-07-21
@@ -1144,10 +1155,10 @@ export class AkariPartnerWidget extends ReactWidget {
         // term.onWriteParsed の購読は open() の中で一度だけ登録される）。
         // 単一ドキュメントモードの dock パネルでは「追加されただけ」ではまだ
         // 可視ではない（別タブがアクティブなため）。手動では activate、自動起動
-        // では focus を奪わない reveal で可視にして xterm を開かせる。
+        // では右パネルに current が無いときだけ reveal して xterm を開かせる。
         await this.ensureTerminalOpened(terminal, automatic);
         // task/2026-07-25-partner-raw-terminal-default: 生ターミナルを既定表示
-        // にするため、接続後は常時表示する。自動起動時は reveal に留める。
+        // にするため、接続後は常時配置する。自動起動時の reveal は current が無いときだけ。
         this.applyDeveloperModeVisibility(automatic);
 
         // ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートは
@@ -1259,7 +1270,7 @@ export class AkariPartnerWidget extends ReactWidget {
 
     /**
      * task/2026-07-25-partner-raw-terminal-default: 接続後のターミナルは
-     * devMode に関わらず right パネルへ常時表示する（自動起動時は reveal）
+     * devMode に関わらず right パネルへ常時配置する（自動起動時は current が無いときだけ reveal）
      * （旧実装の devMode off → parent=null 退避分岐は廃止）。
      */
     protected applyDeveloperModeVisibility(automatic = false): void {

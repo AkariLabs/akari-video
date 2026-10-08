@@ -51,10 +51,11 @@ test('権限モードの読取は User 値だけを採用する', () => {
 
 test('ワークスペースの bypass 指定があっても CLI は User 既定の auto で起動する', async () => {
     const entry = { id: 'codex-cli', agent: 'codex', form: 'cli', name: 'Codex CLI' };
-    const terminal = { start: async () => {} };
+    const terminal = { title: {}, start: async () => {} };
     let requestedMode;
     const widget = {
         shell: { addWidget: async () => {} }, workspaceService: { roots: [] },
+        liveTerminals: new Map(),
         preferences: { inspect: () => ({ globalValue: undefined, workspaceValue: 'bypass', workspaceFolderValue: 'bypass' }) },
         partnerServer: { async prepareLaunch(_agent, _path, mode) {
             requestedMode = mode;
@@ -70,6 +71,7 @@ test('ワークスペースの bypass 指定があっても CLI は User 既定�
     const beginCli = method('beginCli', {
         appliedPartnerPermissionMode: () => 'auto', partnerPermissionEnv: () => ({}),
         permissionModeLabel: topLevelFunction('permissionModeLabel'),
+        partnerTerminalLabel: topLevelFunction('partnerTerminalLabel'), PARTNER_ENTRY_ATTRIBUTE: 'akari.partner.entryId',
         PARTNER_CLI_ICON_CLASSES: { codex: 'codex-icon' }, PartnerTerminal: { KIND: 'partner' },
         AkariPartnerInstallDialog: class {}
     });
@@ -77,21 +79,22 @@ test('ワークスペースの bypass 指定があっても CLI は User 既定�
     assert.equal(requestedMode, 'auto');
 });
 
-test('ツールの既定で起動したタブ名は復元時にも再利用される', async () => {
+test('端末データで再発見し、復元時は短いタブ名にする', async () => {
     const entry = { id: 'cli', agent: 'claude', form: 'cli', name: 'Claude Code CLI' };
-    const terminal = { kind: 'partner', title: { label: 'Claude Code CLI（ツールの既定で起動）' }, isDisposed: false };
+    const terminal = { kind: 'partner', options: { attributes: { 'akari.partner.entryId': 'cli' } },
+        title: { label: 'Claude Code CLI（ツールの既定で起動）' }, isDisposed: false };
     const widget = {
         terminalService: { all: [terminal] }, liveTerminals: new Map(),
         isTerminalAlive: async (_terminal, waitForRestore) => { assert.equal(waitForRestore, true); return true; },
         observeTerminalLifecycle(found, foundEntry) { assert.equal(found, terminal); assert.equal(foundEntry, entry); }
     };
     const findExisting = method('findExistingCliTerminal', {
-        LEGACY_CLI_LABELS: { claude: [] }, PartnerTerminal: { KIND: 'partner' },
-        permissionModeLabel: topLevelFunction('permissionModeLabel')
+        PartnerTerminal: { KIND: 'partner' }, terminalEntryId: topLevelFunction('terminalEntryId'),
+        terminalAgent: topLevelFunction('terminalAgent'), partnerTerminalLabel: topLevelFunction('partnerTerminalLabel')
     });
     assert.equal(await findExisting.call(widget, entry, true), terminal);
     assert.equal(widget.liveTerminals.get(entry.id), terminal);
-    assert.equal(terminal.title.label, 'Claude Code CLI（ツールの既定で起動）');
+    assert.equal(terminal.title.label, 'チャット');
 });
 
 test('working auto-start blocks the same manual begin and later reuses one CLI terminal', async () => {
@@ -324,13 +327,16 @@ test('a running web partner remains in project history when a CLI tab closes', (
     assert.equal(method('remainingPartnerEntryId', {}).call(owner, closed), 'deepseek/dsh-web');
 });
 
-test('automatic reveal leaves activation to the manual path', async () => {
+test('automatic reveal runs only when the right panel has no current tab', async () => {
     const calls = [];
     const show = method('showPartnerWidget', {});
     const widget = { shell: {
+        rightPanelHandler: { tabBar: { currentTitle: undefined } },
         revealWidget: async id => { calls.push(['reveal', id]); },
         activateWidget: async id => { calls.push(['activate', id]); }
     } };
+    await show.call(widget, 'partner', true);
+    widget.shell.rightPanelHandler.tabBar.currentTitle = { owner: { id: 'other' } };
     await show.call(widget, 'partner', true);
     await show.call(widget, 'partner');
     assert.deepEqual(calls, [['reveal', 'partner'], ['activate', 'partner']]);

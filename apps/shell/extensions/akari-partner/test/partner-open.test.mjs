@@ -11,51 +11,38 @@ const registration = register.body.statements.find(node => ts.isExpressionStatem
     ts.isCallExpression(node.expression) && node.expression.expression.getText(source) === 'registry.registerCommand' &&
     node.expression.arguments[0]?.getText(source) === 'AkariPartnerCommands.OPEN');
 
-test('パートナーを開くだけのコマンドを登録する', () => {
-    assert.match(text, /OPEN\s*:\s*\{\s*id:\s*'akari\.partner\.open',\s*label:\s*'パートナーを開く'/);
-    assert.ok(registration, 'registerCommands registers AkariPartnerCommands.OPEN');
+test('パートナーを開くコマンドを登録する', () => {
+    assert.match(text, /OPEN\s*:\s*\{\s*id:\s*'akari\.partner\.open'/);
+    assert.ok(registration);
 });
 
-function openHandler() {
-    assert.ok(registration);
+function openHandler(context) {
     const handler = registration.expression.arguments[1];
     const execute = handler.properties.find(node => ts.isPropertyAssignment(node) && node.name.getText(source) === 'execute');
-    assert.ok(execute && ts.isArrowFunction(execute.initializer));
-    return execute.initializer;
-}
-
-test('開く処理は接続・オンボーディング・PTY を開始しない', () => {
-    const execute = openHandler();
-    assert.doesNotMatch(execute.getText(source), /beginRecommended|beginCli|connect|Dialog|terminal|pty/i);
-    const calls = [];
-    const visit = node => {
-        if (ts.isCallExpression(node)) { calls.push(node.expression.getText(source)); }
-        ts.forEachChild(node, visit);
-    };
-    visit(execute);
-    assert.deepEqual(calls, [
-        'this.widgetManager.getOrCreateWidget', 'this.shell.addWidget', 'this.shell.activateWidget'
-    ]);
-});
-
-test('未配置なら右ドックへ追加し、配置済みなら前面にするだけ', async () => {
-    const code = ts.transpileModule(`const execute = ${openHandler().getText(source)};`, {
+    const code = ts.transpileModule(`const execute = ${execute.initializer.getText(source)};`, {
         compilerOptions: { target: ts.ScriptTarget.ES2022 }
     }).outputText;
-    for (const isAttached of [false, true]) {
-        const widget = { id: 'akari-partner-onboarding', isAttached };
+    return new Function('AkariPartnerWidget', 'PartnerWebWidget', `${code}\nreturn execute;`)
+        .call(context, { ID: 'akari-partner-onboarding' }, { ID: 'akari-partner-web' });
+}
+
+test('生きた端末、Web、onboarding の順に表示する', async () => {
+    for (const target of ['terminal', 'web', 'onboarding']) {
         const calls = [];
         const context = {
-            widgetManager: { async getOrCreateWidget(id) { assert.equal(id, widget.id); return widget; } },
+            liveTerminal: () => target === 'terminal' ? { id: 'terminal-1' } : undefined,
+            widgetManager: {
+                getWidget: async () => target === 'web' ? { id: 'akari-partner-web', isRunning: () => true } : undefined,
+                getOrCreateWidget: async () => ({ id: 'akari-partner-onboarding', isAttached: true })
+            },
             shell: {
-                async addWidget(value, options) { assert.equal(value, widget); calls.push(['add', options]); },
-                async activateWidget(id) { calls.push(['activate', id]); }
+                revealWidget: async id => calls.push(['reveal', id]),
+                activateWidget: async id => calls.push(['activate', id])
             }
         };
-        // DOM や Theia を起動せず、登録された execute の本体を実行する。
-        const execute = new Function('AkariPartnerWidget', `${code}\nreturn execute;`).call(context, { ID: widget.id });
-        await execute();
-        assert.deepEqual(calls, isAttached ? [['activate', widget.id]]
-            : [['add', { area: 'right', rank: 100 }], ['activate', widget.id]]);
+        await openHandler(context)();
+        assert.deepEqual(calls, [target === 'onboarding'
+            ? ['activate', 'akari-partner-onboarding']
+            : ['reveal', target === 'web' ? 'akari-partner-web' : 'terminal-1']]);
     }
 });
