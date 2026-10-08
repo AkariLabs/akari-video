@@ -24,6 +24,7 @@ test('全節の設定キーは節へ往復し、複数の節に重複しない',
     const keys = new Set();
     assert.deepEqual(Object.keys(SECTION_PREFERENCE_KEYS), SETTINGS_SECTIONS.map(section => section.id));
     assert.deepEqual(SECTION_PREFERENCE_KEYS.quality, ['akari.qualityTier', 'akari.timeline.visualThumbnails', 'akari.timeline.trackRippleDisplay']);
+    assert.deepEqual(SECTION_PREFERENCE_KEYS.partner, ['akari.partner.reopenLast', 'akari.partner.permissionMode']);
     for (const { id } of SETTINGS_SECTIONS) {
         for (const key of SECTION_PREFERENCE_KEYS[id]) {
             assert.equal(sectionForPreferenceKey(key), id);

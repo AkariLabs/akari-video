@@ -1,5 +1,5 @@
 import { injectable } from '@theia/core/shared/inversify';
-import { spawnSync } from 'child_process';
+import { ChildProcess, execFile, spawn, spawnSync } from 'child_process';
 import { readFileSync, appendFileSync } from 'fs';
 import { homedir } from 'os';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
@@ -29,10 +29,117 @@ import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from '
 import { DshWebEarlyExitError, launchDshWeb } from './dsh-web-launcher';
 import { normalizeWebCwdKey, selectDshWebPort } from './dsh-web-port';
 import { maskDshOutput } from '../common/dsh-output-mask';
+import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPermissionArgs, partnerPermissionEnv,
+    PartnerPermissionMode } from '../common/partner-permissions';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
+
+export type PartnerCliHelpProbe = { kind: 'ok'; help: string } | { kind: 'timeout' | 'failed' };
+
+export function stopPartnerCliHelpProcess(pid: number, platform: NodeJS.Platform, child: ChildProcess,
+    runKill: typeof execFile = execFile, killGroup: typeof process.kill = process.kill): void {
+    if (platform === 'win32') {
+        try {
+            runKill(path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+                ['/T', '/F', '/PID', String(pid)], { windowsHide: true }, error => {
+                    if (error) child.kill('SIGKILL');
+                });
+        } catch { child.kill('SIGKILL'); }
+        return;
+    }
+    try { killGroup(-pid, 'SIGKILL'); }
+    catch { child.kill('SIGKILL'); }
+}
+
+export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Platform = process.platform,
+    env: NodeJS.ProcessEnv = process.env, run: typeof spawn = spawn,
+    stop: typeof stopPartnerCliHelpProcess = stopPartnerCliHelpProcess, timeoutMs = 15_000): Promise<PartnerCliHelpProbe> {
+    const isBatch = platform === 'win32' && /\.(?:cmd|bat)$/i.test(executablePath);
+    if (isBatch && /[&^%!"\r\n]/.test(executablePath)) return Promise.resolve({ kind: 'failed' });
+    const command = isBatch ? env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe') : executablePath;
+    const args = isBatch ? ['/d', '/s', '/c', `""${executablePath}" "--help""`] : ['--help'];
+    return new Promise(resolve => {
+        let done = false;
+        let timer: NodeJS.Timeout | undefined;
+        let child: ChildProcess | undefined;
+        let output = '';
+        const finish = (result: PartnerCliHelpProbe): void => {
+            if (done) return;
+            done = true;
+            if (timer) clearTimeout(timer);
+            resolve(result);
+        };
+        try {
+            child = run(command, args, { env, detached: platform !== 'win32', windowsHide: true,
+                windowsVerbatimArguments: isBatch });
+            const append = (chunk: Buffer | string): void => {
+                if (done) return;
+                output += chunk.toString();
+                if (Buffer.byteLength(output) > 1024 * 1024) {
+                    try {
+                        if (child?.pid) stop(child.pid, platform, child);
+                        else child?.kill('SIGKILL');
+                    } catch { child?.kill('SIGKILL'); }
+                    finish({ kind: 'failed' });
+                }
+            };
+            child.stdout?.on('data', append);
+            child.stderr?.on('data', append);
+            child.once('error', () => finish({ kind: 'failed' }));
+            child.once('close', (code, signal) => {
+                const help = output.trim();
+                finish(code === 0 && signal === null && help ? { kind: 'ok', help } : { kind: 'failed' });
+            });
+            if (!done) timer = setTimeout(() => {
+                if (child?.exitCode === null && child.signalCode === null) {
+                    try {
+                        if (child.pid) stop(child.pid, platform, child);
+                        else child.kill('SIGKILL');
+                    } catch { child.kill('SIGKILL'); }
+                }
+                finish({ kind: 'timeout' });
+            }, timeoutMs);
+        } catch { finish({ kind: 'failed' }); }
+    });
+}
+
+function hasDelimitedWord(text: string, word: string, isWordCharacter: (character: string) => boolean): boolean {
+    let index = text.indexOf(word);
+    while (index !== -1) {
+        const before = text[index - 1];
+        const after = text[index + word.length];
+        if ((!before || !isWordCharacter(before)) && (!after || !isWordCharacter(after))) return true;
+        index = text.indexOf(word, index + 1);
+    }
+    return false;
+}
+
+export function partnerHelpSupportsArgs(help: string, args: readonly string[]): boolean {
+    const [flag, value] = args;
+    if (!flag || args.length > 2) return false;
+    const lines = help.split(/\r?\n/);
+    const flagInLine = (line: string): boolean => hasDelimitedWord(line, flag, character => /[a-zA-Z0-9_-]/.test(character));
+    for (let index = 0; index < lines.length; index++) {
+        if (!flagInLine(lines[index])) continue;
+        if (!value) return true;
+        const detail = [lines[index]];
+        for (let next = index + 1; next < Math.min(lines.length, index + 6); next++) {
+            if (/^\s*(?:--[a-zA-Z]|-[a-zA-Z],\s*--)/.test(lines[next])) break;
+            detail.push(lines[next]);
+        }
+        const description = detail.join('\n');
+        const choices = /\b(?:choices|possible values)\s*:/i.exec(description);
+        if (choices) {
+            const listed = description.slice(choices.index + choices[0].length);
+            const close = listed.search(/[)\]]/);
+            const values = close >= 0 ? listed.slice(0, close) : listed.split('\n', 1)[0];
+            if (hasDelimitedWord(values, value, character => /[a-zA-Z0-9_-]/.test(character))) return true;
+        }
+    }
+    return false;
+}
 
 interface WebProcessRecord { cwdKey: string; owners: Set<string>; launch: PartnerWebLaunch; }
 interface PendingWebLaunch { owners: Set<string>; promise: Promise<PartnerWebLaunch>; }
@@ -41,10 +148,11 @@ export function resolvePartnerProcessLaunch(
     agent: PartnerAgentId,
     resolvedExecutablePath: string | undefined,
     platform: NodeJS.Platform = process.platform,
-    env: NodeJS.ProcessEnv = process.env
+    env: NodeJS.ProcessEnv = process.env,
+    permissionArgs: readonly string[] = []
 ): Pick<PartnerLaunchPlan, 'executablePath' | 'args'> {
     // tui プロファイルが将来同梱されたら、DeepSeek の起動引数を ['tui'] に差し替える。
-    const args: string[] = [];
+    const args = [...permissionArgs];
     // node-pty は Windows の .cmd/.bat を CreateProcess で直接起動できない。
     // エージェントを問わず .cmd/.bat shim は cmd.exe を器にして実行する。
     if (platform === 'win32' && resolvedExecutablePath
@@ -61,6 +169,7 @@ export function resolvePartnerProcessLaunch(
 export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplicationContribution {
     private readonly webProcesses = new Map<number, WebProcessRecord>();
     private readonly pendingWebLaunches = new Map<string, PendingWebLaunch>();
+    private readonly cliHelpCache = new Map<string, { mtimeMs: number; pathValue: string | undefined; help: string }>();
 
     constructor() {
         process.once('exit', () => this.stopAllWebPartners());
@@ -122,7 +231,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
     }
 
     async startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined,
-        executablePath: string, ownerId: string): Promise<PartnerWebLaunch> {
+        executablePath: string, ownerId: string, permissionMode?: PartnerPermissionMode): Promise<PartnerWebLaunch> {
         if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
         if (!ownerId?.trim()) throw new Error('Web partner owner is required');
         if (!workspaceRootUri) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
@@ -150,7 +259,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const inProgress = this.pendingWebLaunches.get(cwdKey);
         if (inProgress) { inProgress.owners.add(ownerId); return { ...await inProgress.promise, cwd }; }
         const owners = new Set([ownerId]);
-        const promise = this.launchNewWebPartner(agent, cwd, executablePath, cwdKey).then(launch => {
+        const promise = this.launchNewWebPartner(agent, cwd, executablePath, cwdKey, normalizePartnerPermissionMode(permissionMode)).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
                 throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
@@ -165,7 +274,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
     }
 
     protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string,
-        cwdKey: string): Promise<PartnerWebLaunch> {
+        cwdKey: string, permissionMode: PartnerPermissionMode): Promise<PartnerWebLaunch> {
         const partnersDir = path.join(resolveAkariHomeDir(), 'partners', 'deepseek');
         await fs.mkdir(partnersDir, { recursive: true });
         const pluginPath = path.join(partnersDir, 'akari-cwd-workspace.mjs');
@@ -179,8 +288,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             pluginPath, provider: connection.provider, appVersion, sessionId: buildDshSessionId(cwd)
         }), { mode: 0o600 });
         await fs.chmod(patchPath, 0o600).catch(() => undefined);
-        const launch = await this.prepareLaunch(agent, executablePath);
-        const env = { ...process.env, ...launch.env, ...connection.secret, AKARI_PARTNER_PARENT_PID: String(process.pid) };
+        const launch = await this.prepareLaunch(agent, executablePath, permissionMode);
+        const env: NodeJS.ProcessEnv = { ...process.env, ...launch.env, ...connection.secret,
+            ...partnerPermissionEnv(agent, permissionMode), AKARI_PARTNER_PARENT_PID: String(process.pid) };
+        if (permissionMode !== 'bypass') delete env.DSH_PERMISSION_MODE;
         if (connection.provider !== 'opencode-go') delete env.OPENCODE_GO_API_KEY;
         const logPath = path.join(partnersDir, 'web.log');
         const log = (line: string): void => {
@@ -212,7 +323,9 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             throw new Error(message);
         }
         if (!this.webProcessAlive(result.pid)) throw new Error('dsh web exited after startup');
-        return { ...result, cwd, provider: connection.provider, providerNote: connection.note, guidance: connection.guidance };
+        return { ...result, cwd, provider: connection.provider, providerNote: connection.note,
+            guidance: connection.guidance,
+            appliedPermissionMode: appliedPartnerPermissionMode(agent, permissionMode, [], partnerPermissionEnv(agent, permissionMode)) };
     }
 
     protected launchWebProcess(input: Parameters<typeof launchDshWeb>[0]): ReturnType<typeof launchDshWeb> {
@@ -297,8 +410,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         return spawnBootstrapProcess(runtimePath, source, agent, env);
     }
 
-    async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan> {
-        const processLaunch = resolvePartnerProcessLaunch(agent, resolvedExecutablePath);
+    async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string, permissionMode?: PartnerPermissionMode): Promise<PartnerLaunchPlan> {
+        const mode = normalizePartnerPermissionMode(permissionMode);
+        const requestedArgs = partnerPermissionArgs(agent, mode);
+        const log: string[] = [];
         const cliPathEnv = this.resolveCliPathEnv();
         const privateNodePathEnv = agent === 'commandcode' || agent === 'pi' || agent === 'deepseek' ? buildPrivateNodePathEnv({
             agent,
@@ -306,16 +421,45 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             platform: process.platform,
             existingPath: cliPathEnv.PATH ?? process.env.PATH
         }) : {};
+        const launchEnv = { ...this.resolveMediaBinEnv(), ...cliPathEnv, ...privateNodePathEnv };
+        let permissionArgs = requestedArgs;
+        let permissionFallbackReason: PartnerLaunchPlan['permissionFallbackReason'];
+        if (requestedArgs.length > 0) {
+            const flag = requestedArgs[0];
+            const probe = resolvedExecutablePath ? await this.cliHelp(resolvedExecutablePath, { ...process.env, ...launchEnv }) : { kind: 'failed' } as const;
+            if (probe.kind !== 'ok' || !partnerHelpSupportsArgs(probe.help, requestedArgs)) {
+                permissionArgs = [];
+                const reason = probe.kind === 'timeout' ? '--help の確認が時間切れのため' :
+                    probe.kind === 'failed' ? '--help の確認に失敗したため' : '--help にフラグが無いため';
+                permissionFallbackReason = probe.kind === 'timeout' ? '時間切れ' : probe.kind === 'failed' ? '確認失敗' : 'フラグ無し';
+                const line = `${agent}: ${flag} は ${reason}、権限フラグを付けずに起動します`;
+                console.warn(`[akari-partner] ${line}`);
+                log.push(line);
+            }
+        }
+        const processLaunch = resolvePartnerProcessLaunch(agent, resolvedExecutablePath, process.platform, process.env, permissionArgs);
         return {
             agent,
             ...processLaunch,
-            log: [],
-            env: {
-                ...this.resolveMediaBinEnv(),
-                ...cliPathEnv,
-                ...privateNodePathEnv
-            }
+            log,
+            permissionFallbackReason,
+            appliedPermissionMode: appliedPartnerPermissionMode(agent, mode, permissionArgs),
+            env: launchEnv
         };
+    }
+
+    protected async cliHelp(executablePath: string, env: NodeJS.ProcessEnv): Promise<PartnerCliHelpProbe> {
+        const stat = await fs.stat(executablePath).catch(() => undefined);
+        if (!stat) return { kind: 'failed' };
+        const cached = this.cliHelpCache.get(executablePath);
+        if (cached?.mtimeMs === stat.mtimeMs && cached.pathValue === env.PATH) return { kind: 'ok', help: cached.help };
+        const probe = await this.probeCliHelp(executablePath, env);
+        if (probe.kind === 'ok') this.cliHelpCache.set(executablePath, { mtimeMs: stat.mtimeMs, pathValue: env.PATH, help: probe.help });
+        return probe;
+    }
+
+    protected probeCliHelp(executablePath: string, env: NodeJS.ProcessEnv): Promise<PartnerCliHelpProbe> {
+        return probePartnerCliHelp(executablePath, process.platform, env);
     }
 
     /**

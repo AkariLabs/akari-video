@@ -39,6 +39,8 @@ import { shouldDisposeWebWidget } from '../common/partner-web-cleanup';
 import { decideAutoStart } from '../common/partner-autostart';
 import { PARTNER_LAST_KEY, markPartnerShuttingDown, rememberPartnerClose } from '../common/partner-last-session';
 import type { PartnerAgentId } from '../common/akari-partner-protocol';
+import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPermissionEnv,
+    PartnerAppliedPermissionMode, PartnerPermissionMode } from '../common/partner-permissions';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -59,6 +61,12 @@ interface ChatMessage {
 // ここでは（同ファイルの流儀に倣い）読むだけで拡張間の依存を増やさない。
 const DEVELOPER_MODE_PREFERENCE = 'akari.developerMode';
 const PARTNER_REOPEN_PREFERENCE = 'akari.partner.reopenLast';
+const PARTNER_PERMISSION_PREFERENCE = 'akari.partner.permissionMode';
+
+function permissionModeLabel(mode: PartnerAppliedPermissionMode): string {
+    return mode === 'bypass' ? 'すべて許可で起動' : mode === 'ask' ? '毎回確認' :
+        mode === 'default' ? 'ツールの既定で起動' : '自動モードで起動';
+}
 
 // 最大保持メッセージ数（無制限成長を避けるための素朴なキャップ、v0）。
 const MAX_MESSAGES = 200;
@@ -479,6 +487,10 @@ export class AkariPartnerWidget extends ReactWidget {
         await this.beginExtension(entry);
     }
 
+    protected partnerPermissionMode(): PartnerPermissionMode {
+        return normalizePartnerPermissionMode(this.preferences.inspect(PARTNER_PERMISSION_PREFERENCE)?.globalValue);
+    }
+
     protected async beginWeb(entry: PartnerWebCatalogEntry, prepared?: BootstrapResult, automatic = false): Promise<void> {
         if (this.webStarting) { await this.webStarting; return; }
         let finish!: () => void;
@@ -527,8 +539,9 @@ export class AkariPartnerWidget extends ReactWidget {
             this.executablePath = bootstrap.executablePath;
             this.setProgress(entry, 'CLI を準備しています…', bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
-            this.setProgress(entry, '作業画面を起動しています…', entry.name);
-            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId);
+            const permissionMode = this.partnerPermissionMode();
+            this.setProgress(entry, '作業画面を起動しています…', `${entry.name} · ${permissionModeLabel(appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`);
+            const launch = await this.partnerServer.startWebPartner(entry.agent, cwd, bootstrap.executablePath, ownerId, permissionMode);
             let widget: PartnerWebWidget | undefined;
             try {
                 widget = await this.widgetManager.getOrCreateWidget<PartnerWebWidget>(PartnerWebWidget.ID);
@@ -538,7 +551,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 50 });
                 await this.showPartnerWidget(widget.id, automatic);
                 const opening = widget.open(entry.agent, launch, ownerId);
-                this.setComplete(entry, 'DeepSeek Harness を開始しました', launch.providerNote);
+                this.setComplete(entry, `DeepSeek Harness を開始しました · ${permissionModeLabel(launch.appliedPermissionMode ?? appliedPartnerPermissionMode(entry.agent, permissionMode, [], partnerPermissionEnv(entry.agent, permissionMode)))}`, launch.providerNote);
                 await this.rememberPartnerStart(entry);
                 void opening.catch(error => {
                     if (this.webWidget === widget) this.webWidget = undefined;
@@ -602,10 +615,13 @@ export class AkariPartnerWidget extends ReactWidget {
                 }
             }
             await this.ensureCliProvisioned(entry);
-            const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath);
-            this.setProgress(entry, 'パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
+            const permissionMode = this.partnerPermissionMode();
+            const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath, permissionMode);
+            const appliedMode = launch.appliedPermissionMode ?? appliedPartnerPermissionMode(
+                entry.agent, permissionMode, launch.args, partnerPermissionEnv(entry.agent, permissionMode));
+            this.setProgress(entry, 'パートナー PTY を起動しています…', `${permissionModeLabel(appliedMode)}${launch.permissionFallbackReason ? `（${launch.permissionFallbackReason}）` : ''} · ${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
-                title: entry.name,
+                title: `${entry.name}（${permissionModeLabel(appliedMode)}）`,
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
                 shellPath: launch.executablePath ?? bootstrap.executablePath,
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
@@ -626,6 +642,8 @@ export class AkariPartnerWidget extends ReactWidget {
             await terminal.start();
             await this.shell.addWidget(terminal, { area: 'right', rank: 50 });
             await this.attachTerminal(terminal, entry, automatic);
+            this.setComplete(entry, `${entry.name} を開始しました · ${permissionModeLabel(appliedMode)}`,
+                'PTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。');
             await this.rememberPartnerStart(entry);
         } catch (error) {
             this.setFailure(entry, `${entry.name} のセットアップに失敗しました`, this.errorMessage(error));
@@ -990,14 +1008,15 @@ export class AkariPartnerWidget extends ReactWidget {
         entry: PartnerCliCatalogEntry,
         waitForRestore = false
     ): Promise<TerminalWidget | undefined> {
-        const labels = new Set([entry.name, ...LEGACY_CLI_LABELS[entry.agent]]);
+        const labels = new Set([entry.name, ...LEGACY_CLI_LABELS[entry.agent],
+            ...(['auto', 'ask', 'bypass', 'default'] as const).map(mode => `${entry.name}（${permissionModeLabel(mode)}）`)]);
         const candidates = this.terminalService.all.filter(terminal =>
             terminal.kind === PartnerTerminal.KIND && labels.has(terminal.title.label)
         );
         const alive: TerminalWidget[] = [];
         for (const terminal of candidates) {
             if (await this.isTerminalAlive(terminal, waitForRestore)) {
-                if (terminal.title.label !== entry.name) {
+                if (LEGACY_CLI_LABELS[entry.agent].includes(terminal.title.label)) {
                     terminal.title.label = entry.name;
                     terminal.title.caption = entry.name;
                 }
@@ -1050,7 +1069,8 @@ export class AkariPartnerWidget extends ReactWidget {
         const resolvedEntry = entry ?? PARTNER_CATALOG.find(candidate =>
             candidate.form === 'cli' &&
             terminal.kind === PartnerTerminal.KIND &&
-            [candidate.name, ...LEGACY_CLI_LABELS[candidate.agent]].includes(terminal.title.label)
+            ([candidate.name, ...LEGACY_CLI_LABELS[candidate.agent]].includes(terminal.title.label) ||
+                (['auto', 'ask', 'bypass', 'default'] as const).some(mode => terminal.title.label === `${candidate.name}（${permissionModeLabel(mode)}）`))
         ) as PartnerCliCatalogEntry | undefined;
         if (!resolvedEntry) {
             return;
