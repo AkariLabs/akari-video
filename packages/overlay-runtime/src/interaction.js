@@ -340,6 +340,96 @@ function elementBoxCompanions(style, parentStyle, width, height) {
   // テキスト編集で断片 HTML を保存するときに作者の元指定へ戻せるよう、初回値だけ保持する。
   const hitPolicyOriginalPointerEvents = new WeakMap();
   const hitPolicyAppliedContainers = new WeakSet();
+  const hitPolicyTimes = new WeakMap();
+  const staleHitPolicyContainers = new Set();
+  const pausedHitPolicyContainers = new Set();
+  let pausedHitPolicyTimer = null;
+  let lastPointerHitPolicyRefresh = -Infinity;
+
+  function hitPolicyOperationBusy() {
+    return Boolean(activeEdit || activeDrag || activeResize || activeRotate || activeLine
+      || marqueeFrame || pointerOwner != null);
+  }
+
+  function schedulePausedHitPolicyRefresh(delay = 120) {
+    if (typeof setTimeout !== 'function') return;
+    if (pausedHitPolicyTimer !== null) clearTimeout(pausedHitPolicyTimer);
+    pausedHitPolicyTimer = setTimeout(flushPausedHitPolicies, delay);
+  }
+
+  // runtime は可視コンテナの時刻だけを記録する。CSS の読み取りはここでは行わない。
+  function markOverlayHitPolicyStale(container, localTimeMs, paused = false, reentered = false,
+    animationReady = null) {
+    if (!container) return;
+    let state = hitPolicyTimes.get(container);
+    if (!state) {
+      state = { current: localTimeMs, measured: null, paused: null };
+      hitPolicyTimes.set(container, state);
+    }
+    const timeChanged = state.current !== localTimeMs;
+    const enteredPause = paused && state.paused !== true;
+    state.current = localTimeMs;
+    state.paused = paused;
+    if (reentered) {
+      state.measured = null;
+      hitPolicyAppliedContainers.delete(container);
+    }
+    if (state.measured !== localTimeMs) staleHitPolicyContainers.add(container);
+    // pause()/currentTime の pending 補正はこの tick の測定より後に解決し得る。
+    // 暫定 apply が stale を消しても、停止後の一回は別の印で必ず残す。
+    if (paused && (reentered || timeChanged || enteredPause)) pausedHitPolicyContainers.add(container);
+    if (!paused) pausedHitPolicyContainers.delete(container);
+    if (paused && pausedHitPolicyContainers.size) {
+      // スクラブ中は連続 tick をまとめ、停止後にポインタ無しで確定する。
+      schedulePausedHitPolicyRefresh();
+    }
+    if (paused && (reentered || timeChanged || enteredPause) && animationReady?.then) {
+      const expectedState = state;
+      animationReady.then(() => {
+        if (hitPolicyTimes.get(container) !== expectedState || !state.paused
+          || state.current !== localTimeMs) return;
+        // ready 後の currentTime 補正が 120ms の測定より遅れた場合も追い付く。
+        const alreadyRefreshed = !pausedHitPolicyContainers.has(container);
+        pausedHitPolicyContainers.add(container);
+        schedulePausedHitPolicyRefresh(alreadyRefreshed ? 0 : 120);
+      });
+    }
+  }
+
+  function flushPausedHitPolicies() {
+    pausedHitPolicyTimer = null;
+    if (pausedHitPolicyContainers.size === 0) return;
+    if (hitPolicyOperationBusy()) {
+      // 編集・ジェスチャーが終わるまで印を保持する。
+      pausedHitPolicyTimer = setTimeout(flushPausedHitPolicies, 120);
+      return;
+    }
+    refreshStaleHitPolicies(true);
+  }
+
+  function refreshStaleHitPolicies(includePaused = false) {
+    if (hitPolicyOperationBusy()) return false;
+    let refreshed = false;
+    const candidates = includePaused ? pausedHitPolicyContainers : staleHitPolicyContainers;
+    for (const container of candidates) {
+      if (includePaused) pausedHitPolicyContainers.delete(container);
+      if (!container.isConnected || container.style.visibility === 'hidden') {
+        staleHitPolicyContainers.delete(container);
+        continue;
+      }
+      invalidateOverlayHitPolicy(container);
+      applyOverlayHitPolicy(container);
+      refreshed = true;
+    }
+    return refreshed;
+  }
+
+  function forgetOverlayHitPolicyTracking(container) {
+    staleHitPolicyContainers.delete(container);
+    pausedHitPolicyContainers.delete(container);
+    hitPolicyTimes.delete(container);
+    hitPolicyAppliedContainers.delete(container);
+  }
 
   // overlay_write は操作順を保存する。selftest は今回の書き込みをこの記録から待つ。
   let writeTail = Promise.resolve();
@@ -982,7 +1072,8 @@ function elementBoxCompanions(style, parentStyle, width, height) {
 
   // 全画面の外側コンテナと断片ルートは素通しにし、実際に背景・枠・影・文字・置換要素を
   // 描く可視の子孫だけを拾う。data-akari-hit は最寄りの指定を配下へ継承し、機械判定より
-  // 優先する。字幕が 1,000 件級でも全件を走査しないよう、runtime の可視化時に一度だけ呼ぶ。
+  // 優先する。字幕が 1,000 件級でも全件を走査しないよう、runtime は可視コンテナの
+  // 初回・停止後・ポインタ入力時だけ適用し、再生 tick では時刻の印だけを付ける。
   function fragmentRootCoversContainer(element, container) {
     const rootRect = element.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
@@ -1056,6 +1147,9 @@ function elementBoxCompanions(style, parentStyle, width, height) {
 
     for (const root of container.children) visit(root, null, true, true);
     hitPolicyAppliedContainers.add(container);
+    const state = hitPolicyTimes.get(container);
+    if (state) state.measured = state.current;
+    staleHitPolicyContainers.delete(container);
     updateShapeLineHitProxyWidths();
   }
 
@@ -3983,6 +4077,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
 
   function onPointerDown(event) {
     if (!interactionEnabled || !canBeginPointerInteraction(pointerOwner)) return;
+    event = correctedHitPolicyEvent(event);
     if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
     if (selectedId && stage && event.target instanceof Element) {
       const bounds = stage.getBoundingClientRect();
@@ -4833,6 +4928,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
 
   function onClick(event) {
     if (!interactionEnabled || activeEdit) return;
+    event = correctedHitPolicyEvent(event);
     const hit = overlayForEvent(event);
     // pointerdown already toggled. Do not toggle twice or update the cycle clock.
     if (event.shiftKey && clickOrigin?.scopedHit) {
@@ -5329,11 +5425,73 @@ function elementBoxCompanions(style, parentStyle, width, height) {
   for (const type of ["pointerdown", "pointerup", "click", "dblclick"]) {
     window.addEventListener(type, passTransparentCanvasEvent, true);
   }
+  const correctedHitPolicyEvents = new WeakMap();
+  let redirectedHitPolicyClick = null;
+  function pointerInsideStage(event) {
+    if (!stage || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return false;
+    const rect = stage.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right
+      && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
+  function trustedEventAtTarget(event, target) {
+    // 合成 Event は isTrusted=false になり E2 の焦点を失う。元の信頼済み
+    // イベントを保ったまま、選択処理に見せる target だけ現在の hit-test にする。
+    return new Proxy(event, { get(original, key) {
+      if (key === 'target') return target;
+      const value = Reflect.get(original, key, original);
+      return typeof value === 'function' ? value.bind(original) : value;
+    } });
+  }
+  function correctHitPolicyEvent(event, target) {
+    correctedHitPolicyEvents.set(event, target);
+    // Window capture の後続ホストにも素の HTML hit と同じ target を見せる。
+    // Event 自体は元の信頼済みイベントなので、再生停止や混在選択は一度だけ走る。
+    try { Object.defineProperty(event, 'target', { configurable: true, value: target }); }
+    catch { /* document 側は WeakMap の target へフォールバックする。 */ }
+  }
+  function correctedHitPolicyEvent(event) {
+    const target = correctedHitPolicyEvents.get(event);
+    return target && event.target !== target ? trustedEventAtTarget(event, target) : event;
+  }
+  function stopCorrectedHitPolicyPropagation(event) {
+    // window のホスト捕捉は通し、古い preview-stage への下流だけ止める。
+    if (findOverlayContainer(correctedHitPolicyEvents.get(event))) event.stopPropagation();
+  }
+  window.addEventListener('pointermove', event => {
+    if (!pointerInsideStage(event) || !staleHitPolicyContainers.size
+      || hitPolicyOperationBusy()) return;
+    const now = performance.now();
+    if (now - lastPointerHitPolicyRefresh < 125) return;
+    if (!refreshStaleHitPolicies()) return;
+    lastPointerHitPolicyRefresh = now;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    if (target && target !== event.target) correctHitPolicyEvent(event, target);
+  }, true);
+  window.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !pointerInsideStage(event) || hitPolicyOperationBusy()) return;
+    redirectedHitPolicyClick = null;
+    if (!refreshStaleHitPolicies()) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    if (!target || target === event.target) return;
+    redirectedHitPolicyClick = { x: event.clientX, y: event.clientY };
+    correctHitPolicyEvent(event, target);
+  }, true);
+  window.addEventListener('click', event => {
+    if (!redirectedHitPolicyClick) return;
+    const redirect = redirectedHitPolicyClick;
+    redirectedHitPolicyClick = null;
+    if (Math.hypot(event.clientX - redirect.x, event.clientY - redirect.y) > 6) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    if (!target || target === event.target) return;
+    correctHitPolicyEvent(event, target);
+  }, true);
   listenerRoot.addEventListener('pointermove', updateShapeLineHitProxyWidths, true);
   listenerRoot.addEventListener('pointerdown', updateShapeLineHitProxyWidths, true);
   window.addEventListener('resize', updateShapeLineHitProxyWidths);
   listenerRoot.addEventListener("click", onClick, true);
   listenerRoot.addEventListener("pointerdown", onPointerDown, true);
+  listenerRoot.addEventListener("click", stopCorrectedHitPolicyPropagation, true);
+  listenerRoot.addEventListener("pointerdown", stopCorrectedHitPolicyPropagation, true);
   listenerRoot.addEventListener("dblclick", onDoubleClick, true);
   listenerRoot.addEventListener("blur", onBlur, true);
   listenerRoot.addEventListener("input", onEditableInput, true);
@@ -5444,6 +5602,8 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
     applyOverlayHitPolicy,
     invalidateOverlayHitPolicy,
+    markOverlayHitPolicyStale,
+    forgetOverlayHitPolicyTracking,
     syncOverlayHitRegion,
     // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
     // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
