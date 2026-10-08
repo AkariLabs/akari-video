@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 import {
@@ -19,6 +21,10 @@ test('macOS output parser accepts normal and muted settings, rejects unavailable
     assert.deepEqual(parseMacOutputVolume('output volume:40, input volume:75, output muted:true'),
         { volume: 40, muted: true });
     assert.equal(parseMacOutputVolume('output volume:missing value, output muted:false'), undefined);
+    assert.deepEqual(parseMacOutputVolume('output volume:missing value, output muted:true'),
+        { volume: 100, muted: true });
+    assert.deepEqual(parseMacOutputVolume('output volume:50, output muted:missing value'),
+        { volume: 50, muted: false });
     assert.equal(parseMacOutputVolume('broken'), undefined);
 });
 
@@ -29,11 +35,54 @@ test('Windows output parser accepts normal and muted JSON, rejects malformed JSO
     assert.equal(parseWindowsOutputVolume('{"volume":101,"muted":false}'), undefined);
     assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /GetMasterVolumeLevelScalar/);
     assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /GetMute/);
+    assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /Add-Type -Path \$dll/);
+    assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /-OutputAssembly \$tmp/);
+    assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /ReadAllBytes\(\$tmp\)/);
+    assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /Move-Item -LiteralPath \$tmp -Destination \$dll -Force/);
     assert.ok(WINDOWS_OUTPUT_VOLUME_SCRIPT.includes(String.raw`"{\"volume\":"`));
     assert.ok(WINDOWS_OUTPUT_VOLUME_SCRIPT.includes(String.raw`",\"muted\":"`));
     assert.match(WINDOWS_OUTPUT_VOLUME_SCRIPT, /\n\n$/);
     assert.ok([...WINDOWS_OUTPUT_VOLUME_SCRIPT].every(char => char.charCodeAt(0) < 128));
 });
+
+test('Windows reader compiles, reuses, and repairs its DLL',
+    { skip: process.platform !== 'win32', timeout: 60000 }, async () => {
+        const directory = mkdtempSync(join(tmpdir(), 'akari-volume-test-'));
+        const cacheDirectory = join(directory, 'akari-video');
+        const dependencies = { tmpdir: () => directory };
+        const assertVolume = value => {
+            assert.notEqual(value, undefined);
+            assert.equal(typeof value.volume, 'number');
+            assert.ok(value.volume >= 0 && value.volume <= 100);
+            assert.equal(typeof value.muted, 'boolean');
+        };
+        const assertCache = () => {
+            const names = readdirSync(cacheDirectory);
+            const dlls = names.filter(name => name.endsWith('.dll'));
+            assert.equal(dlls.length, 1);
+            assert.equal(names.filter(name => name.endsWith('.tmp')).length, 0);
+            return join(cacheDirectory, dlls[0]);
+        };
+        try {
+            assertVolume(await createSystemOutputVolumeReader('win32', undefined, undefined, dependencies)());
+            const dll = assertCache();
+
+            assertVolume(await createSystemOutputVolumeReader('win32', undefined, undefined, dependencies)());
+            assert.equal(assertCache(), dll);
+
+            writeFileSync(dll, 'garbage');
+            const repairDependencies = {
+                ...dependencies,
+                fs: { existsSync: () => false, mkdirSync }
+            };
+            assertVolume(await createSystemOutputVolumeReader('win32', undefined, undefined, repairDependencies)());
+            assert.equal(assertCache(), dll);
+            assert.ok(statSync(dll).size > 100);
+            assert.notEqual(readFileSync(dll, 'utf8'), 'garbage');
+        } finally {
+            try { rmSync(directory, { recursive: true, force: true }); } catch { }
+        }
+    });
 
 test('reader handles process failure, timeout, unsupported OS, shared work and short cache', async () => {
     let calls = 0;
@@ -42,6 +91,12 @@ test('reader handles process failure, timeout, unsupported OS, shared work and s
     let options;
     let stdin;
     let stdinErrorHandler;
+    let dllExists = false;
+    const fs = {
+        mkdirSync: (directory, options) => { assert.equal(directory, join('test-temp', 'akari-video')); assert.equal(options.recursive, true); },
+        existsSync: () => dllExists
+    };
+    const dependencies = { fs, tmpdir: () => 'test-temp', env: { SystemRoot: 'C:\\Windows' } };
     const execute = (file, argv, opts, callback) => {
         calls += 1;
         command = file;
@@ -54,23 +109,28 @@ test('reader handles process failure, timeout, unsupported OS, shared work and s
         } };
     };
     let now = 1000;
-    const read = createSystemOutputVolumeReader('win32', execute, () => now);
+    const read = createSystemOutputVolumeReader('win32', execute, () => now, dependencies);
     const [a, b] = await Promise.all([read(), read()]);
     assert.deepEqual(a, { volume: 0, muted: false });
     assert.deepEqual(b, a);
     assert.equal(calls, 1);
-    assert.equal(command, 'powershell.exe');
-    assert.deepEqual(args, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-']);
-    assert.equal(options.timeout, 4000);
+    assert.equal(command, join('C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'));
+    assert.deepEqual(args, ['-NoProfile', '-NonInteractive', '-Command', '-']);
+    assert.equal(options.timeout, 10000);
+    assert.match(options.env.AKARI_SYSTEM_VOLUME_DLL, /^test-temp[/\\]akari-video[/\\]system-volume-[0-9a-f]{12}\.dll$/);
+    assert.equal(stdin.includes(options.env.AKARI_SYSTEM_VOLUME_DLL), false);
     assert.equal(stdin, WINDOWS_OUTPUT_VOLUME_SCRIPT);
     assert.doesNotThrow(() => stdinErrorHandler(new Error('EPIPE')));
     now += 1499;
     await read();
     assert.equal(calls, 1);
     now += 1;
+    dllExists = true;
     await read();
     assert.equal(calls, 2);
-    const failure = createSystemOutputVolumeReader('darwin', (_file, _args, _opts, callback) => {
+    assert.equal(options.timeout, 4000);
+    const failure = createSystemOutputVolumeReader('darwin', (file, _args, _opts, callback) => {
+        assert.equal(file, '/usr/bin/osascript');
         queueMicrotask(() => callback(new Error('failed'), '', ''));
         return {};
     });
@@ -78,8 +138,12 @@ test('reader handles process failure, timeout, unsupported OS, shared work and s
     const timeout = createSystemOutputVolumeReader('win32', (_file, _args, _opts, callback) => {
         queueMicrotask(() => callback(Object.assign(new Error('timeout'), { killed: true }), '', ''));
         return { stdin: { on: event => { assert.equal(event, 'error'); }, end() {} } };
-    });
+    }, Date.now, dependencies);
     assert.equal(await timeout(), undefined);
+    const unavailableCache = createSystemOutputVolumeReader('win32', () => { throw new Error('called'); },
+        Date.now, { fs: { existsSync: () => false, mkdirSync: () => { throw new Error('unwritable'); } },
+            tmpdir: () => 'test-temp' });
+    assert.equal(await unavailableCache(), undefined);
     assert.equal(await createSystemOutputVolumeReader('linux', () => { throw new Error('called'); })(), undefined);
 });
 
@@ -131,11 +195,12 @@ function createHostHarness(volumes) {
     const tick = async () => {
         const [id, timer] = timers.entries().next().value;
         timers.delete(id);
-        assert.equal(timer.delay, 2000);
+        assert.equal(timer.delay, 3000);
         timer.callback();
         await flush();
     };
-    return { sent, notes, timers, widget, host, meter, playback, tick, get calls() { return calls; } };
+    const dismiss = () => receive({ type: 'akari-preview-system-volume-dismissed' });
+    return { sent, notes, timers, widget, host, meter, playback, dismiss, tick, get calls() { return calls; } };
 }
 
 async function flush() {
@@ -208,6 +273,41 @@ test('host reads again after a playback tick reports stop then start', async () 
     assert.equal(h.sent.at(-1).state, 'zero');
 });
 
+test('dismissal survives page changes and stops polling until an ok playback check', async () => {
+    const h = createHostHarness([
+        { volume: 0, muted: false }, { volume: 0, muted: false },
+        { volume: 0, muted: false }, { volume: 30, muted: false }, { volume: 0, muted: false }
+    ]);
+    h.playback(true);
+    await flush();
+    assert.equal(h.sent[0].state, 'zero');
+    assert.equal(h.timers.size, 1);
+    h.dismiss();
+    assert.equal(h.timers.size, 0);
+    h.playback(false);
+    h.playback(true);
+    await flush();
+    assert.equal(h.calls, 2);
+    assert.equal(h.sent.length, 1);
+    assert.equal(h.timers.size, 0);
+    h.widget.akariPreviewPlaybackPageId = 'next-page';
+    h.playback(true, 'next-page');
+    await flush();
+    assert.equal(h.calls, 3);
+    assert.equal(h.sent.length, 1);
+    assert.equal(h.timers.size, 0);
+    h.playback(false, 'next-page');
+    h.playback(true, 'next-page');
+    await flush();
+    assert.equal(h.sent.at(-1).state, 'ok');
+    assert.equal(h.timers.size, 0);
+    h.playback(false, 'next-page');
+    h.playback(true, 'next-page');
+    await flush();
+    assert.equal(h.sent.at(-1).state, 'zero');
+    assert.equal(h.timers.size, 1);
+});
+
 test('host stops warning checks on pause and never reads while preview is muted', async () => {
     const h = createHostHarness([{ volume: 20, muted: true }]);
     h.widget.akariPreviewMuted = true;
@@ -260,22 +360,30 @@ test('webview warning shows, dismisses until ok, and keeps the full title', () =
     const end = adapterSource.indexOf("            if (initial.kind === 'raw')", start);
     assert.ok(start > 0 && end > start);
     const elements = new Map();
+    const posted = [];
     for (const id of ['system-volume-notice', 'system-volume-notice-text', 'system-volume-notice-dismiss']) {
         elements.set(id, { hidden: true, addEventListener(_type, handler) { this.click = handler; } });
     }
+    const notice = elements.get('system-volume-notice');
+    const text = elements.get('system-volume-notice-text');
+    Object.defineProperty(text, 'textContent', {
+        get() { return this.value; },
+        set(value) { assert.equal(notice.hidden, false); this.value = value; }
+    });
     let onMessage;
     vm.runInNewContext(adapterSource.slice(start, end), {
         document: { getElementById: id => elements.get(id) },
-        window: { addEventListener: (_type, handler) => { onMessage = handler; } }
+        window: { addEventListener: (_type, handler) => { onMessage = handler; } },
+        vscode: { postMessage: value => posted.push(value) }
     });
-    const notice = elements.get('system-volume-notice');
-    const text = elements.get('system-volume-notice-text');
     onMessage({ data: { type: 'akari-preview-system-volume', state: 'zero' } });
     assert.equal(notice.hidden, false);
     assert.equal(text.textContent, 'パソコンの音量が 0 です');
     assert.equal(text.title, text.textContent);
     elements.get('system-volume-notice-dismiss').click();
     assert.equal(notice.hidden, true);
+    assert.equal(posted.length, 1);
+    assert.equal(posted[0].type, 'akari-preview-system-volume-dismissed');
     onMessage({ data: { type: 'akari-preview-system-volume', state: 'muted' } });
     assert.equal(notice.hidden, true);
     onMessage({ data: { type: 'akari-preview-system-volume', state: 'ok' } });
@@ -283,6 +391,23 @@ test('webview warning shows, dismisses until ok, and keeps the full title', () =
     onMessage({ data: { type: 'akari-preview-system-volume', state: 'muted' } });
     assert.equal(notice.hidden, false);
     assert.equal(text.textContent, 'パソコンの音がミュートになっています');
+});
+
+test('warning text meets contrast ratio in light and dark themes', () => {
+    const colors = [...hostSource.matchAll(/(?:body\.vscode-light )?\.system-volume-notice \{[^}]*color: (#[0-9a-f]{6})/g)]
+        .map(match => match[1]);
+    assert.equal(colors.length, 2);
+    const luminance = hex => {
+        const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
+            .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+        return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const contrast = (a, b) => {
+        const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+        return (lighter + 0.05) / (darker + 0.05);
+    };
+    assert.ok(contrast(colors[0], '#121212') >= 4.5);
+    assert.ok(contrast(colors[1], '#f2f2f2') >= 4.5);
 });
 test('warning row stays separate from seek, controls and audio status at narrow widths', async t => {
     let browser;

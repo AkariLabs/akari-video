@@ -1,4 +1,8 @@
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
+import { existsSync, mkdirSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 export interface SystemOutputVolume {
     volume: number;
@@ -7,8 +11,9 @@ export interface SystemOutputVolume {
 
 export function parseMacOutputVolume(stdout: string): SystemOutputVolume | undefined {
     const volume = /(?:^|,)\s*output volume:\s*(\d+|missing value)(?=\s*,|\s*$)/.exec(stdout);
-    const muted = /(?:^|,)\s*output muted:\s*(true|false)(?=\s*,|\s*$)/.exec(stdout);
-    if (!volume || !muted || volume[1] === 'missing value') return undefined;
+    const muted = /(?:^|,)\s*output muted:\s*(true|false|missing value)(?=\s*,|\s*$)/.exec(stdout);
+    if (!volume || !muted) return undefined;
+    if (volume[1] === 'missing value') return muted[1] === 'true' ? { volume: 100, muted: true } : undefined;
     const value = Number(volume[1]);
     if (!Number.isInteger(value) || value < 0 || value > 100) return undefined;
     return { volume: value, muted: muted[1] === 'true' };
@@ -27,8 +32,7 @@ export function parseWindowsOutputVolume(stdout: string): SystemOutputVolume | u
     }
 }
 
-export const WINDOWS_OUTPUT_VOLUME_SCRIPT = [
-    "Add-Type -TypeDefinition @'",
+const WINDOWS_OUTPUT_VOLUME_SOURCE = [
     'using System;',
     'using System.Runtime.InteropServices;',
     'public enum EDataFlow { Render, Capture, All }',
@@ -82,15 +86,46 @@ export const WINDOWS_OUTPUT_VOLUME_SCRIPT = [
     '  return "{\\"volume\\":" + (scalar * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)',
     '      + ",\\"muted\\":" + (muted ? "true" : "false") + "}";',
     ' }',
-    '}',
+    '}'
+].join('\n');
+
+export const WINDOWS_OUTPUT_VOLUME_SCRIPT = [
+    '$dll = $env:AKARI_SYSTEM_VOLUME_DLL',
+    "if (-not ('OutputVolumeReader' -as [type])) {",
+    ' $loaded = $false',
+    ' if (Test-Path -LiteralPath $dll) {',
+    '  try { Add-Type -Path $dll -ErrorAction Stop; $loaded = $true } catch { }',
+    ' }',
+    '',
+    ' if (-not $loaded) {',
+    '  $tmp = $dll + "." + $PID + ".tmp"',
+    '  try {',
+    "   $src = @'",
+    WINDOWS_OUTPUT_VOLUME_SOURCE,
     "'@",
+    '   Add-Type -TypeDefinition $src -OutputAssembly $tmp -ErrorAction Stop',
+    '   [void][System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($tmp))',
+    '   try { Move-Item -LiteralPath $tmp -Destination $dll -Force -ErrorAction Stop } catch { }',
+    '  } finally {',
+    '   if (Test-Path -LiteralPath $tmp) { try { Remove-Item -LiteralPath $tmp -ErrorAction Stop } catch { } }',
+    '  }',
+    ' }',
+    '}',
+    '',
     '[Console]::Out.WriteLine([OutputVolumeReader]::Read())'
 ].join('\n') + '\n\n';
+
+interface SystemVolumeReaderDependencies {
+    fs?: { existsSync: typeof existsSync; mkdirSync: typeof mkdirSync };
+    tmpdir?: typeof tmpdir;
+    env?: NodeJS.ProcessEnv;
+}
 
 export function createSystemOutputVolumeReader(
     platform: NodeJS.Platform = process.platform,
     execute: typeof execFile = execFile,
-    now: () => number = Date.now
+    now: () => number = Date.now,
+    dependencies: SystemVolumeReaderDependencies = {}
 ): () => Promise<SystemOutputVolume | undefined> {
     let inFlight: Promise<SystemOutputVolume | undefined> | undefined;
     let cached: { value: SystemOutputVolume | undefined; at: number } | undefined;
@@ -101,10 +136,23 @@ export function createSystemOutputVolumeReader(
         inFlight = new Promise<SystemOutputVolume | undefined>(resolve => {
             const isWindows = platform === 'win32';
             try {
-                const child = execute(isWindows ? 'powershell.exe' : 'osascript',
-                    isWindows ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-']
+                const filesystem = dependencies.fs ?? { existsSync, mkdirSync };
+                let dllPath: string | undefined;
+                if (isWindows) {
+                    const directory = join((dependencies.tmpdir ?? tmpdir)(), 'akari-video');
+                    filesystem.mkdirSync(directory, { recursive: true });
+                    const hash = createHash('sha256').update(WINDOWS_OUTPUT_VOLUME_SOURCE).digest('hex').slice(0, 12);
+                    dllPath = join(directory, 'system-volume-' + hash + '.dll');
+                }
+                const environment = dependencies.env ?? process.env;
+                const child = execute(isWindows
+                    ? join(environment.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+                    : '/usr/bin/osascript',
+                    isWindows ? ['-NoProfile', '-NonInteractive', '-Command', '-']
                         : ['-e', 'get volume settings'],
-                    { encoding: 'utf8', timeout: 4000, maxBuffer: 16 * 1024, windowsHide: true },
+                    { encoding: 'utf8', timeout: isWindows && dllPath && !filesystem.existsSync(dllPath) ? 10000 : 4000,
+                        maxBuffer: 16 * 1024, windowsHide: true,
+                        ...(isWindows ? { env: { ...environment, AKARI_SYSTEM_VOLUME_DLL: dllPath } } : {}) },
                     (error, stdout) => {
                         resolve(error ? undefined : isWindows
                             ? parseWindowsOutputVolume(stdout) : parseMacOutputVolume(stdout));

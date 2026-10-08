@@ -52,13 +52,14 @@ export function hostAdapterScript(): string {
                 const message = state === 'zero'
                     ? 'パソコンの音量が 0 です'
                     : 'パソコンの音がミュートになっています';
+                systemVolumeNotice.hidden = false;
                 systemVolumeNoticeText.textContent = message;
                 systemVolumeNoticeText.title = message;
-                systemVolumeNotice.hidden = false;
             };
             systemVolumeDismiss.addEventListener('click', () => {
                 systemVolumeDismissed = true;
                 systemVolumeNotice.hidden = true;
+                vscode.postMessage({ type: 'akari-preview-system-volume-dismissed' });
             });
             window.addEventListener('message', event => {
                 if (event.data?.type === 'akari-preview-system-volume') {

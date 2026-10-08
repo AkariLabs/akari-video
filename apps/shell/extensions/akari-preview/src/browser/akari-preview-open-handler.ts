@@ -444,6 +444,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly previewGestureGuards = new WeakMap<PreviewWidgetMarker, PreviewGestureGuard>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
+    protected readonly warmedSystemVolumeWidgets = new WeakSet<PreviewWidgetMarker>();
     protected readonly videoCandidatePreviews = new Map<string, {
         widget: PreviewWidgetMarker; itemId: string; videoStreamId?: string; audioStreamId?: string;
         audioTimer?: ReturnType<typeof setTimeout>;
@@ -2711,6 +2712,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const seekKey = identityUri.normalizePath().toString();
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
         previews.set(seekKey, widget);
+        if (kind === 'output' && !this.warmedSystemVolumeWidgets.has(widget)) {
+            this.warmedSystemVolumeWidgets.add(widget);
+            void this.previewService.readSystemOutputVolume().catch(() => undefined);
+        }
         if (kind === 'raw' && !widget.akariMaterialRangeHost) {
             try {
                 const context = materialPreviewContext(identityUri, await this.currentWorkspaceRoots());
@@ -2924,6 +2929,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         let systemVolumePlaying = false;
         let systemVolumeState: 'zero' | 'muted' | 'ok' | undefined;
+        let systemVolumeDismissed = false;
         let lastSystemVolumeDiagnostic: 'zero' | 'muted' | 'ok' | undefined;
         let systemVolumeTimer: ReturnType<typeof setTimeout> | undefined;
         let systemVolumeGeneration = 0;
@@ -2964,10 +2970,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 || !systemVolumePlaying || previewAudioIsMuted()) return;
             if (volume) {
                 const state = volume.muted ? 'muted' : volume.volume === 0 ? 'zero' : 'ok';
+                if (state === 'ok') systemVolumeDismissed = false;
                 if (state !== systemVolumeState) {
                     const previous = systemVolumeState;
                     systemVolumeState = state;
-                    widget.sendMessage({ type: 'akari-preview-system-volume', state });
+                    if (!systemVolumeDismissed) widget.sendMessage({ type: 'akari-preview-system-volume', state });
                     if ((state !== 'ok' || (previous && previous !== 'ok'))
                         && state !== lastSystemVolumeDiagnostic) {
                         this.previewDiagnostics?.note('OS の出力音量: ' + state);
@@ -2977,10 +2984,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.sendMessage({ type: 'akari-preview-system-volume', state });
                 }
             }
-            if (systemVolumeState !== 'ok' && systemVolumeState !== undefined
+            if (!systemVolumeDismissed && systemVolumeState !== 'ok' && systemVolumeState !== undefined
                 && systemVolumePlaying && generation === systemVolumeGeneration) {
                 clearSystemVolumeTimer();
-                systemVolumeTimer = setTimeout(() => { void checkSystemVolume(generation); }, 2000);
+                systemVolumeTimer = setTimeout(() => { void checkSystemVolume(generation); }, 3000);
             }
         };
         widget.disposed.connect(() => { if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus; });
@@ -3283,6 +3290,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 lastAudioMeterFrame = message;
                 this.forwardAudioMeterFrame(widget, message);
             }
+            if (message?.type === 'akari-preview-system-volume-dismissed' && kind === 'output') {
+                systemVolumeDismissed = true;
+                clearSystemVolumeTimer();
+            }
             if (message && message.type === 'akari-preview-audio-priority') {
                 void this.handlePreviewAudioPriority(widget, message.time);
             }
@@ -3341,7 +3352,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         clearSystemVolumeTimer();
                         systemVolumePlaying = false;
                         systemVolumeState = undefined;
-                        lastAudioMeterFrame = undefined;
                     }
                     const wasPlaying = systemVolumePlaying;
                     systemVolumePlaying = message.playing;
@@ -8030,6 +8040,7 @@ html.akari-gen-capturing [data-akari-caption-edit-hint] { display: none !importa
 .system-volume-row { display: flex; min-width: 0; padding: 0 10px 5px; }
 .system-volume-row[hidden] { display: none; }
 .system-volume-notice { display: flex; align-items: center; min-width: 0; width: 100%; max-width: 100%; gap: 6px; box-sizing: border-box; color: #ffe3a3; font-size: 12px; }
+body.vscode-light .system-volume-notice { color: #754500; }
 .system-volume-notice-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .system-volume-notice button { margin-left: auto; flex: none; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 3px; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
