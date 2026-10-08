@@ -18,6 +18,7 @@ import { AkariNotificationManager } from './akari-notification-manager';
 import { AkariNotificationsRenderer } from './akari-notifications-renderer';
 import { AkariNotificationsContribution } from './akari-notifications-contribution';
 import { AkariNotificationStyleContribution } from './akari-notification-style-contribution';
+import { AkariScopeGroundContribution } from './akari-scope-ground';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     // src-gen/frontend/index.js は plugin-ext の後に akari-theme を読み込む。
@@ -38,6 +39,7 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
 
     bind(AkariCssVariableForceContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariCssVariableForceContribution);
+    bind(AkariScopeGroundContribution).toSelf().inSingletonScope(); bind(FrontendApplicationContribution).toService(AkariScopeGroundContribution);
 
     bind(AkariShellCardLayoutContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariShellCardLayoutContribution);

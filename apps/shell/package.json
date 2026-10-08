@@ -66,6 +66,8 @@
         },
         "electron": {
           "windowOptions": {
+            "titleBarStyle": "hiddenInset",
+            "trafficLightPosition": { "x": 12, "y": 12 },
             "webPreferences": {
               "contextIsolation": true,
               "sandbox": false,
