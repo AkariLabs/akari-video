@@ -15,9 +15,11 @@ function harness() {
     const timers = new Map();
     const created = [];
     let currentThemeType = 'dark';
-    let preference = 'dark';
     let themeChanged;
-    let preferenceChanged;
+    let listenerDisposals = 0;
+    let ipcFailure;
+    let themeReadFailure = false;
+    let registrationFailure;
     let nextTimer = 0;
     const host = {
         children: [],
@@ -47,7 +49,6 @@ function harness() {
         '@theia/core/shared/inversify': { inject: noopDecorator, injectable: noopDecorator, postConstruct: noopDecorator },
         '@theia/core/lib/browser/widgets/react-widget': { ReactWidget: ReactWidgetStub },
         '@theia/core/lib/browser/theming': { ThemeService: Symbol('theme') },
-        '@theia/core/lib/common': { PreferenceService: Symbol('preferences') },
         '../common/akari-partner-protocol': { AkariPartnerServer: Symbol('server') },
         '../common/partner-web-theme': { resolvePartnerWebTheme },
         './partner-catalog': { PARTNER_AGENT_LABELS: { deepseek: 'DeepSeek Harness' },
@@ -86,26 +87,26 @@ function harness() {
             return id;
         },
         clearTimeout: id => timers.delete(id),
-        window: { electronAkariPartner: { web: { async setTheme(ownerId, theme) {
+        window: { electronAkariPartner: { web: { setTheme(ownerId, theme) {
             events.push(['theme', ownerId, theme]);
+            if (ipcFailure === 'throw') throw new Error('IPC failed');
+            if (ipcFailure === 'reject') return Promise.reject(new Error('IPC failed'));
+            return Promise.resolve();
         } } } },
         console
     });
     const widget = new exports.PartnerWebWidget();
     widget.server = { stopWebPartner: async (pid, ownerId) => { events.push(['stop', pid, ownerId]); } };
-    widget.preferences = {
-        ready: Promise.resolve(),
-        get: () => preference,
-        onPreferenceChanged(callback) {
-            preferenceChanged = callback;
-            return { dispose() { preferenceChanged = undefined; } };
-        }
-    };
     widget.themeService = {
-        getCurrentTheme: () => ({ type: currentThemeType }),
+        getCurrentTheme: () => {
+            if (themeReadFailure) throw new Error('theme unavailable');
+            return { type: currentThemeType };
+        },
         onDidColorThemeChange(callback) {
+            if (registrationFailure === 'throw') throw new Error('listener unavailable');
+            if (registrationFailure === 'reject') return Promise.reject(new Error('listener unavailable'));
             themeChanged = callback;
-            return { dispose() { themeChanged = undefined; } };
+            return { dispose() { listenerDisposals++; themeChanged = undefined; } };
         }
     };
     widget.init();
@@ -114,8 +115,10 @@ function harness() {
     return {
         widget, host, created, events,
         changeTheme(type) { currentThemeType = type; themeChanged?.(); },
-        changePreference(value) { preference = value; preferenceChanged?.({ preferenceName: 'akari.appearance.themeMode' }); },
-        changeOtherPreference() { preferenceChanged?.({ preferenceName: 'other' }); },
+        failIpc(mode) { ipcFailure = mode; },
+        failThemeRead() { themeReadFailure = true; },
+        failRegistration(mode) { registrationFailure = mode; },
+        listenerDisposals: () => listenerDisposals,
         fireAfter: delay => {
             const [id, timer] = [...timers].find(([, value]) => value.delay === delay);
             timers.delete(id);
@@ -147,8 +150,10 @@ test('launch creates a configured webview before attach and load event completes
     assert.match(webview.attributes.webpreferences, /backgroundThrottling=no/);
     assert.equal(webview.attributes.allowpopups, undefined);
     assert.deepEqual(Object.assign({}, webview.style), { width: '100%', height: '100%', display: 'flex' });
-    assert.ok(fixture.events.findIndex(event => Array.isArray(event) && event[0] === 'theme') <
-        fixture.events.indexOf('create-webview'));
+    const themeIndex = fixture.events.findIndex(event => Array.isArray(event) && event[0] === 'theme');
+    assert.ok(themeIndex >= 0);
+    assert.deepEqual(Array.from(fixture.events[themeIndex]), ['theme', 'window-a', 'dark']);
+    assert.ok(themeIndex < fixture.events.indexOf('create-webview'));
     assert.ok(fixture.events.findIndex(event => event[0] === 'append') >
         fixture.events.findIndex(event => event[0] === 'attribute' && event[1] === 'webpreferences'));
     webview.emit('did-finish-load');
@@ -160,7 +165,7 @@ test('launch creates a configured webview before attach and load event completes
     assert.deepEqual(Array.from(fixture.events.find(event => event[0] === 'stop')), ['stop', launch.pid, 'window-a']);
 });
 
-test('theme and appearance changes update the guest until widget disposal', async () => {
+test('theme changes update the guest until widget disposal', async () => {
     const fixture = harness();
     const opening = fixture.widget.open('deepseek', launch, 'window-a');
     await settle();
@@ -175,18 +180,34 @@ test('theme and appearance changes update the guest until widget disposal', asyn
     fixture.changeTheme('hcLight');
     await settle();
     assert.deepEqual(sentThemes(), ['dark', 'light', 'light']);
-    fixture.changePreference('system');
+    fixture.changeTheme('dark');
     await settle();
-    assert.deepEqual(sentThemes(), ['dark', 'light', 'light', 'system']);
-    fixture.changeOtherPreference();
-    await settle();
+    assert.deepEqual(sentThemes(), ['dark', 'light', 'light', 'dark']);
     assert.equal(sentThemes().length, 4);
     fixture.widget.dispose();
-    fixture.changeTheme('dark');
-    fixture.changePreference('dark');
+    assert.equal(fixture.listenerDisposals(), 1);
+    fixture.changeTheme('light');
     await settle();
     assert.equal(sentThemes().length, 4);
 });
+
+for (const failure of ['IPC throw', 'IPC reject', 'theme read', 'listener throw', 'listener reject']) {
+    test(`theme ${failure} does not block webview opening`, async () => {
+        const fixture = harness();
+        if (failure === 'IPC throw') fixture.failIpc('throw');
+        if (failure === 'IPC reject') fixture.failIpc('reject');
+        if (failure === 'theme read') fixture.failThemeRead();
+        if (failure === 'listener throw') fixture.failRegistration('throw');
+        if (failure === 'listener reject') fixture.failRegistration('reject');
+        const opening = fixture.widget.open('deepseek', launch, 'window-a');
+        await settle();
+        assert.equal(fixture.created.length, 1);
+        fixture.created[0].emit('did-finish-load');
+        await opening;
+        assert.equal(fixture.widget.loaded, true);
+        fixture.widget.dispose();
+    });
+}
 
 test('20-second guidance keeps loading and retry replaces the webview without stopping dsh', async () => {
     const fixture = harness();

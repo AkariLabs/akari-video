@@ -1,6 +1,6 @@
 export const CHANNEL_PARTNER_WEB = 'AkariPartnerWeb';
 
-export type PartnerWebTheme = 'dark' | 'light' | 'system';
+export type PartnerWebTheme = 'dark' | 'light';
 
 export interface ElectronAkariPartnerApi {
     web: {

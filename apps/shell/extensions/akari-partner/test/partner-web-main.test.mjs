@@ -13,39 +13,29 @@ function contents(type = 'window') {
     let attached = false;
     let attachCalls = 0;
     const commands = [];
-    return {
-        commands,
-        getType: () => type,
-        on(name, callback) {
-            const callbacks = listeners.get(name) ?? [];
-            callbacks.push(callback);
-            listeners.set(name, callbacks);
-        },
-        removeAllListeners(name) { listeners.delete(name); },
-        removeListener(name, callback) {
-            listeners.set(name, (listeners.get(name) ?? []).filter(listener => listener !== callback));
-        },
-        once(name, callback) {
-            const once = (...args) => { this.removeListener(name, once); callback(...args); };
-            this.on(name, once);
-        },
-        emit(name, ...args) { for (const callback of listeners.get(name) ?? []) callback(...args); },
-        listenerCount: name => (listeners.get(name) ?? []).length,
-        isDestroyed: () => destroyed,
-        destroy() { destroyed = true; this.emit('destroyed'); },
-        debugger: {
+    const on = (name, callback) => {
+        const callbacks = listeners.get(name) ?? [];
+        callbacks.push(callback);
+        listeners.set(name, callbacks);
+    };
+    const removeListener = (name, callback) => {
+        listeners.set(name, (listeners.get(name) ?? []).filter(listener => listener !== callback));
+    };
+    const emit = (name, ...args) => {
+        for (const callback of listeners.get(name) ?? []) callback(...args);
+    };
+    const debuggerClient = {
             get attachCalls() { return attachCalls; },
             on(name, callback) {
-                const callbacks = listeners.get('debugger:' + name) ?? [];
-                callbacks.push(callback);
-                listeners.set('debugger:' + name, callbacks);
+                on('debugger:' + name, callback);
             },
             removeListener(name, callback) {
-                listeners.set('debugger:' + name,
-                    (listeners.get('debugger:' + name) ?? []).filter(listener => listener !== callback));
+                if (destroyed) throw new Error('Object has been destroyed');
+                removeListener('debugger:' + name, callback);
             },
             emit(name, ...args) {
-                for (const callback of listeners.get('debugger:' + name) ?? []) callback(...args);
+                if (name === 'detach') attached = false;
+                emit('debugger:' + name, ...args);
             },
             isAttached: () => attached,
             attach() { if (this.attachError) throw this.attachError; attachCalls++; attached = true; },
@@ -53,8 +43,29 @@ function contents(type = 'window') {
                 if (this.commandError) throw this.commandError;
                 commands.push({ name, params });
             }
-        }
     };
+    const target = {
+        commands,
+        debugger: debuggerClient,
+        getType: () => type,
+        on,
+        removeAllListeners(name) { listeners.delete(name); },
+        removeListener,
+        once(name, callback) {
+            const once = (...args) => { removeListener(name, once); callback(...args); };
+            on(name, once);
+        },
+        emit,
+        listenerCount: name => (listeners.get(name) ?? []).length,
+        isDestroyed: () => destroyed,
+        destroy() { destroyed = true; emit('destroyed'); }
+    };
+    return new Proxy(target, {
+        get(object, property, receiver) {
+            if (destroyed) throw new Error('Object has been destroyed');
+            return Reflect.get(object, property, receiver);
+        }
+    });
 }
 
 function harness(existing) {
@@ -105,7 +116,7 @@ function harness(existing) {
         URL,
         console: { warn: message => warnings.push(message) }
     });
-    return { app, webSession, dialogs, warnings, main: new exports.PartnerWebMain(),
+    return { app, webSession, dialogs, warnings, windowFor, main: new exports.PartnerWebMain(),
         invoke: (sender, operation, ...args) => {
             const handler = ipcHandlers.get('AkariPartnerWeb');
             return handler({ sender, senderFrame: sender.mainFrame }, operation, ...args);
@@ -132,41 +143,82 @@ test('owner theme reaches guarded guests at attach and updates without a reload'
     const guest = contents('webview');
     attachGuardedGuest(host, guest);
     await settle();
-    assert.equal(guest.debugger.isAttached(), true);
-    assert.deepEqual(JSON.parse(JSON.stringify(guest.commands)), [{ name: 'Emulation.setEmulatedMedia',
+    const debuggerClient = guest.debugger;
+    const commands = guest.commands;
+    assert.equal(debuggerClient.isAttached(), true);
+    assert.deepEqual(JSON.parse(JSON.stringify(commands)), [{ name: 'Emulation.setEmulatedMedia',
         params: { features: [{ name: 'prefers-color-scheme', value: 'dark' }] } }]);
     await fixture.invoke(host, 'setTheme', '1', 'light');
     await settle();
-    assert.equal(guest.commands.at(-1).params.features[0].value, 'light');
-    await fixture.invoke(host, 'setTheme', '1', 'system');
-    await settle();
-    assert.equal(guest.commands.at(-1).params.features[0].value, '');
-    assert.equal(guest.commands.length, 3);
-    assert.equal(guest.debugger.attachCalls, 1);
-    guest.destroy();
+    assert.equal(commands.at(-1).params.features[0].value, 'light');
+    assert.equal(commands.length, 2);
+    assert.equal(debuggerClient.attachCalls, 1);
+    let laterDestroyedListenerCalled = false;
+    guest.once('destroyed', () => {
+        laterDestroyedListenerCalled = true;
+        assert.throws(() => guest.debugger, /Object has been destroyed/);
+        assert.throws(() => guest.getType, /Object has been destroyed/);
+    });
+    assert.doesNotThrow(() => guest.destroy());
+    assert.equal(laterDestroyedListenerCalled, true);
+    assert.throws(() => debuggerClient.removeListener('detach', () => {}), /Object has been destroyed/);
     await fixture.invoke(host, 'setTheme', '1', 'dark');
     await settle();
-    assert.equal(guest.commands.length, 3);
-    assert.equal(guest.listenerCount('debugger:detach'), 0);
+    assert.equal(commands.length, 2);
+    debuggerClient.emit('detach', {}, 'later');
+    assert.equal(fixture.warnings.length, 0);
 });
 
-test('theme IPC ignores mismatched owners and values outside the three choices', async () => {
-    const host = contents();
-    host.mainFrame = {};
-    const fixture = harness([host]);
+for (const invalid of ['invalid', null, { unexpected: true }, 'system']) {
+    test(`theme IPC ignores invalid value ${String(invalid)} without replacing the active theme`, async () => {
+        const host = contents();
+        host.mainFrame = {};
+        const fixture = harness([host]);
+        fixture.main.onStart({});
+        await fixture.invoke(host, 'setTheme', '1', 'dark');
+        const guest = contents('webview');
+        attachGuardedGuest(host, guest);
+        await settle();
+        assert.equal(guest.commands.length, 1);
+        await fixture.invoke(host, 'setTheme', '1', invalid);
+        await settle();
+        assert.equal(guest.commands.length, 1);
+        assert.equal(guest.commands[0].params.features[0].value, 'dark');
+    });
+}
+
+test('two windows keep separate themes, reject foreign owner IDs, and clear closed owners', async () => {
+    const first = contents();
+    const second = contents();
+    first.windowId = 1;
+    second.windowId = 2;
+    first.mainFrame = {};
+    second.mainFrame = {};
+    const fixture = harness([first, second]);
     fixture.main.onStart({});
-    for (const [ownerId, theme] of [['other', 'dark'], ['1', 'invalid'], ['1', null]]) {
-        await fixture.invoke(host, 'setTheme', ownerId, theme);
-    }
-    const guest = contents('webview');
-    attachGuardedGuest(host, guest);
+    await fixture.invoke(first, 'setTheme', '1', 'dark');
+    await fixture.invoke(second, 'setTheme', '2', 'light');
+    const firstGuest = contents('webview');
+    const secondGuest = contents('webview');
+    attachGuardedGuest(first, firstGuest);
+    attachGuardedGuest(second, secondGuest);
     await settle();
-    assert.equal(guest.debugger.isAttached(), false);
-    assert.equal(guest.commands.length, 0);
-    await fixture.invoke(host, 'setTheme', '1', 'system');
+    assert.deepEqual([firstGuest.commands.at(-1).params.features[0].value,
+        secondGuest.commands.at(-1).params.features[0].value], ['dark', 'light']);
+    await fixture.invoke(first, 'setTheme', '2', 'dark');
     await settle();
-    assert.equal(guest.debugger.isAttached(), false);
-    assert.equal(guest.commands.length, 0);
+    assert.equal(secondGuest.commands.length, 1);
+    assert.equal(secondGuest.commands[0].params.features[0].value, 'light');
+    await fixture.invoke(first, 'setTheme', '1', 'light');
+    await settle();
+    assert.equal(firstGuest.commands.at(-1).params.features[0].value, 'light');
+    assert.equal(secondGuest.commands.length, 1);
+    fixture.windowFor(first).emit('closed');
+    const afterClose = contents('webview');
+    attachGuardedGuest(first, afterClose);
+    await settle();
+    assert.equal(afterClose.commands.length, 0);
+    assert.equal(secondGuest.commands.at(-1).params.features[0].value, 'light');
 });
 
 test('debugger failures and detach do not interrupt a guarded work screen', async () => {
@@ -185,13 +237,22 @@ test('debugger failures and detach do not interrupt a guarded work screen', asyn
     guest.debugger.commandError = new Error('command failed');
     await fixture.invoke(host, 'setTheme', '1', 'light');
     await settle();
-    guest.debugger.emit('detach', {}, 'devtools opened');
+    const debuggerClient = guest.debugger;
+    debuggerClient.emit('detach', {}, 'target closed');
+    assert.equal(fixture.warnings.length, 2);
+    assert.equal(debuggerClient.attachCalls, 1);
+    debuggerClient.emit('detach', {}, 'devtools opened');
     assert.equal(fixture.warnings.length, 3);
     assert.match(fixture.warnings[0], /attach failed/);
     assert.match(fixture.warnings[1], /command failed/);
     assert.match(fixture.warnings[2], /debugger detached/);
+    assert.equal(debuggerClient.attachCalls, 1);
+    debuggerClient.commandError = undefined;
+    await fixture.invoke(host, 'setTheme', '1', 'dark');
+    await settle();
+    assert.equal(debuggerClient.attachCalls, 2);
     guest.destroy();
-    guest.debugger.emit('detach', {}, 'later');
+    debuggerClient.emit('detach', {}, 'later');
     assert.equal(fixture.warnings.length, 3);
 });
 

@@ -1,4 +1,3 @@
-export function resolvePartnerWebTheme(preference: unknown, currentThemeType: unknown): 'dark' | 'light' | 'system' {
-    if (preference === 'system') return 'system';
+export function resolvePartnerWebTheme(currentThemeType: unknown): 'dark' | 'light' {
     return currentThemeType === 'light' || currentThemeType === 'hcLight' ? 'light' : 'dark';
 }

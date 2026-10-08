@@ -31,13 +31,11 @@ function applyGuestTheme(record: GuardedGuest): void {
         if (!theme) return;
         try {
             const debuggerClient = record.contents.debugger;
-            if (theme === 'system') {
-                if (!debuggerClient.isAttached()) return;
-            } else if (!debuggerClient.isAttached()) {
+            if (!debuggerClient.isAttached()) {
                 debuggerClient.attach();
             }
             await debuggerClient.sendCommand('Emulation.setEmulatedMedia', {
-                features: [{ name: 'prefers-color-scheme', value: theme === 'system' ? '' : theme }]
+                features: [{ name: 'prefers-color-scheme', value: theme }]
             });
         } catch (error) { logThemeFailure(error); }
     });
@@ -62,13 +60,18 @@ function rememberGuardedGuest(host: WebContents, guest: WebContents): void {
     const records = ownerGuests.get(ownerId) ?? new Set<GuardedGuest>();
     records.add(record);
     ownerGuests.set(ownerId, records);
-    const onDetach = (_event: unknown, reason: string): void => logThemeFailure('debugger detached: ' + reason);
-    guest.debugger.on('detach', onDetach);
+    const guestDebugger = guest.debugger;
+    const onDetach = (_event: unknown, reason: string): void => {
+        if (!record.disposed && reason !== 'target closed') logThemeFailure('debugger detached: ' + reason);
+    };
+    guestDebugger.on('detach', onDetach);
     guest.once('destroyed', () => {
-        record.disposed = true;
-        records.delete(record);
-        if (records.size === 0) ownerGuests.delete(ownerId);
-        guest.debugger.removeListener('detach', onDetach);
+        try {
+            record.disposed = true;
+            records.delete(record);
+            if (records.size === 0) ownerGuests.delete(ownerId);
+            guestDebugger.removeListener('detach', onDetach);
+        } catch { /* A destroyed guest must not interrupt other destroyed listeners. */ }
     });
     applyGuestTheme(record);
 }
@@ -112,7 +115,7 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
             if (operation === 'ownerId') return String(window.id);
             if (operation === 'setTheme') {
                 if (ownerId !== String(window.id)) return;
-                if (theme !== 'dark' && theme !== 'light' && theme !== 'system') return;
+                if (theme !== 'dark' && theme !== 'light') return;
                 observeOwnerWindow(window);
                 ownerThemes.set(ownerId, theme);
                 for (const guest of ownerGuests.get(ownerId) ?? []) applyGuestTheme(guest);

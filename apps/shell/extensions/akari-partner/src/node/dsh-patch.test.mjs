@@ -68,7 +68,7 @@ test('patch uses an absolute plugin path and replaces the default model', () => 
 });
 
 test('generated patches leave the DeepSeek UI theme to its own settings', () => {
-    const input = { pluginPath, appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir) };
+    const input = { pluginPath, appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir), theme: 'dark' };
     for (const provider of ['deepseek-official', 'opencode-go']) {
         assert.doesNotMatch(buildDshPatchYaml({ ...input, provider }), /- id: ui-theme/);
     }
