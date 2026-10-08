@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AkariPartnerServerImpl } from '../../lib/node/akari-partner-server.js';
+import { DshWebEarlyExitError } from '../../lib/node/dsh-web-launcher.js';
+import { dshWebPortCandidates, normalizeWebCwdKey } from '../../lib/node/dsh-web-port.js';
 
 async function fixture(t) {
     const root = await mkdtemp(join(tmpdir(), 'akari-partner-web-'));
@@ -175,5 +177,82 @@ test('server masks credentials and token in web logs and errors', async t => {
         else process.env.AKARI_HOME = previousHome;
         if (previousKey === undefined) delete process.env.DEEPSEEK_API_KEY;
         else process.env.DEEPSEEK_API_KEY = previousKey;
+    }
+});
+
+test('early exit with a selected port retries exactly once without --port', async t => {
+    const { root, first, executable } = await fixture(t);
+    const previousHome = process.env.AKARI_HOME;
+    process.env.AKARI_HOME = join(root, 'home');
+    class RetryWebServer extends AkariPartnerServerImpl {
+        ports = [];
+        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
+        async launchWebProcess(input) {
+            this.ports.push(input.port);
+            if (this.ports.length === 1) throw new DshWebEarlyExitError('fixture early exit');
+            return { url: 'http://127.0.0.1:41000/?token=fixture', pid: 41007 };
+        }
+        webProcessAlive() { return true; }
+    }
+    try {
+        const server = new RetryWebServer();
+        const launch = await server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a');
+        assert.equal(launch.pid, 41007);
+        const expected = server.ports[0];
+        assert.ok(dshWebPortCandidates(normalizeWebCwdKey(first)).includes(expected));
+        assert.deepEqual(server.ports, [expected, undefined]);
+        const log = await readFile(join(root, 'home', 'partners', 'deepseek', 'web.log'), 'utf8');
+        assert.match(log, new RegExp(`dsh web port: ${expected}; skipped:`));
+        assert.match(log, /retrying once with automatic port/);
+    } finally {
+        if (previousHome === undefined) delete process.env.AKARI_HOME;
+        else process.env.AKARI_HOME = previousHome;
+    }
+});
+
+test('startup timeout does not retry without --port', async t => {
+    const { root, first, executable } = await fixture(t);
+    const previousHome = process.env.AKARI_HOME;
+    process.env.AKARI_HOME = join(root, 'home');
+    class TimeoutWebServer extends AkariPartnerServerImpl {
+        ports = [];
+        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
+        async launchWebProcess(input) {
+            this.ports.push(input.port);
+            throw new Error('dsh web startup timed out');
+        }
+    }
+    try {
+        const server = new TimeoutWebServer();
+        await assert.rejects(server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a'),
+            /startup timed out/);
+        assert.equal(server.ports.length, 1);
+    } finally {
+        if (previousHome === undefined) delete process.env.AKARI_HOME;
+        else process.env.AKARI_HOME = previousHome;
+    }
+});
+
+test('a failed automatic-port retry is the final attempt', async t => {
+    const { root, first, executable } = await fixture(t);
+    const previousHome = process.env.AKARI_HOME;
+    process.env.AKARI_HOME = join(root, 'home');
+    class TwiceFailingWebServer extends AkariPartnerServerImpl {
+        ports = [];
+        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
+        async launchWebProcess(input) {
+            this.ports.push(input.port);
+            throw new DshWebEarlyExitError('fixture early exit');
+        }
+    }
+    try {
+        const server = new TwiceFailingWebServer();
+        await assert.rejects(server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a'),
+            /fixture early exit/);
+        assert.equal(server.ports.length, 2);
+        assert.equal(server.ports[1], undefined);
+    } finally {
+        if (previousHome === undefined) delete process.env.AKARI_HOME;
+        else process.env.AKARI_HOME = previousHome;
     }
 });

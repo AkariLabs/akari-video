@@ -26,7 +26,8 @@ import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
-import { launchDshWeb } from './dsh-web-launcher';
+import { DshWebEarlyExitError, launchDshWeb } from './dsh-web-launcher';
+import { normalizeWebCwdKey, selectDshWebPort } from './dsh-web-port';
 import { maskDshOutput } from '../common/dsh-output-mask';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
@@ -103,7 +104,9 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         catch (error) { return (error as NodeJS.ErrnoException).code === 'EPERM'; }
     }
 
-    protected resolveWebCwdKey(cwd: string): Promise<string> { return fs.realpath(cwd); }
+    protected async resolveWebCwdKey(cwd: string): Promise<string> {
+        return normalizeWebCwdKey(await fs.realpath(cwd));
+    }
 
     async reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void> {
         const roots = new Set<string>();
@@ -147,7 +150,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const inProgress = this.pendingWebLaunches.get(cwdKey);
         if (inProgress) { inProgress.owners.add(ownerId); return { ...await inProgress.promise, cwd }; }
         const owners = new Set([ownerId]);
-        const promise = this.launchNewWebPartner(agent, cwd, executablePath).then(launch => {
+        const promise = this.launchNewWebPartner(agent, cwd, executablePath, cwdKey).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
                 throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
@@ -161,7 +164,8 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         finally { if (this.pendingWebLaunches.get(cwdKey) === pending) this.pendingWebLaunches.delete(cwdKey); }
     }
 
-    protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string): Promise<PartnerWebLaunch> {
+    protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string,
+        cwdKey: string): Promise<PartnerWebLaunch> {
         const partnersDir = path.join(resolveAkariHomeDir(), 'partners', 'deepseek');
         await fs.mkdir(partnersDir, { recursive: true });
         const pluginPath = path.join(partnersDir, 'akari-cwd-workspace.mjs');
@@ -183,12 +187,21 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             const safe = maskDshOutput(line, [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]);
             appendFileSync(logPath, safe + '\n');
         };
+        const selection = await selectDshWebPort(cwdKey);
+        log(`dsh web port: ${selection.port ?? 'automatic'}; skipped: ${selection.skipped.join(', ') || 'none'}`);
+        const input: Parameters<typeof launchDshWeb>[0] = {
+            executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 120_000,
+            log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webProcesses.delete(pid)
+        };
         let result: { url: string; pid: number };
         try {
-            result = await this.launchWebProcess({
-                executablePath, cwd, env, patchPath, platform: process.platform, timeoutMs: 120_000,
-                log, stop: pid => this.killWebProcess(pid), onExit: pid => this.webProcesses.delete(pid)
-            });
+            try {
+                result = await this.launchWebProcess({ ...input, port: selection.port });
+            } catch (error) {
+                if (selection.port === undefined || !(error instanceof DshWebEarlyExitError)) throw error;
+                log(`dsh web port: ${selection.port} failed before URL; retrying once with automatic port`);
+                result = await this.launchWebProcess(input);
+            }
         } catch (error) {
             const message = maskDshOutput(this.errorMessage(error),
                 [process.env.DEEPSEEK_API_KEY, connection.secret?.OPENCODE_GO_API_KEY]);

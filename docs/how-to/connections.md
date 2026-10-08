@@ -62,6 +62,8 @@ through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
 in the right panel without opening a browser. Its workspace is the
 currently open project folder. The shell automatically detects an
 OpenCode Go login or a DeepSeek API key and chooses the connection.
+When you reopen a project, DeepSeek returns to the conversation last open in that project.
+For conversations created before this update, you may need to select the project folder once.
 The DeepSeek work screen follows the app's Dark, Light, or System
 appearance and updates when that appearance changes.
 A theme explicitly chosen in DeepSeek Settings takes priority; AKARI
