@@ -3,7 +3,8 @@ import { CHANNEL_PARTNER_WEB, ElectronAkariPartnerApi } from '../electron-common
 
 const api: ElectronAkariPartnerApi = {
     web: {
-        ownerId: () => ipcRenderer.invoke(CHANNEL_PARTNER_WEB, 'ownerId')
+        ownerId: () => ipcRenderer.invoke(CHANNEL_PARTNER_WEB, 'ownerId'),
+        setTheme: (ownerId, theme) => ipcRenderer.invoke(CHANNEL_PARTNER_WEB, 'setTheme', ownerId, theme)
     }
 };
 export function preload(): void {
