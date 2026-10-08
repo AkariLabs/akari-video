@@ -1,5 +1,0 @@
-electron_bin=/private/tmp/ptsb-base/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
-path_txt=Electron.app/Contents/MacOS/Electron
-libffmpeg_h264=1
-head=010109ab3
-overlay_runtime_dirty=0

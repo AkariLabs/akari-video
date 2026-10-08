@@ -44,6 +44,8 @@ run S（同梱のサンプル 9 本）:
 
 ## 記録
 
+実行の記録（`before/` `after/` の `environment.txt` / `run-F.json` / `run-S.json`）はリポに置かない（evidence/ に足してよいのは再現スクリプトと README だけ）。`scripts/run-l1.sh` で作り直せる。結果の要約は次のとおり。
+
 - `before/` = 分岐点 `010109ab3`（作業ツリーを codex の編集前に APFS で複製したもの。git のメタデータは外したので `overlay_runtime_dirty` は git では測れていない。
   `packages/overlay-runtime/src` が `010109ab3` とバイト一致であることは別に確認済み）。判定はせず記録だけ（`status: RECORDED`）
 - `after/` = 本票の最終コード。**run F PASS 18 / 18・run S PASS 10 / 10**
