@@ -29,6 +29,7 @@ const USER_INPUT_EVENT = 'akari.contextBar.userInput';
 
 export const PREVIEW_CONTEXT_BOX_MESSAGE = 'akari-preview-context-box';
 export const PREVIEW_CONTEXT_LOCK_MESSAGE = 'akari-preview-context-lock';
+export const PREVIEW_TELOP_INNER_SELECTION_MESSAGE = 'akari-preview-telop-inner-selection';
 
 interface Rect { left: number; top: number; width: number; height: number }
 
@@ -37,6 +38,9 @@ export interface PreviewContextBoxReport {
     busy: boolean;
     pointerHeld?: boolean;
     stage: Rect | null;
+    telopId?: string | null;
+    telop?: boolean;
+    telopInner?: boolean;
 }
 
 export interface PreviewContextBarHost {
@@ -62,6 +66,7 @@ const ICON: Record<string, string> = {
     style: svg(`<rect x="3" y="2.5" width="12" height="5" rx="1.2" ${stroke}/><path d="M15 5h2v5h-7v3" ${stroke}/><rect x="8.5" y="13" width="3" height="5" rx="1" ${stroke}/>`),
     note: svg(`<path d="M3 4h14v9H8l-4 3v-3H3z" ${stroke}/>`),
     lock: svg(`<rect x="4" y="9" width="12" height="8" rx="1.5" ${stroke}/><path d="M7 9V6.5a3 3 0 0 1 6 0V9" ${stroke}/>`),
+    telopInner: svg(`<rect x="2.5" y="2.5" width="15" height="15" rx="1.5" ${stroke}/><rect x="6" y="6" width="8" height="8" rx="1" ${stroke}/>`),
     unlock: svg(`<rect x="4" y="9" width="12" height="8" rx="1.5" ${stroke}/><path d="M7 9V6.5a3 3 0 0 1 5.8-1" ${stroke}/>`),
     dup: svg(`<rect x="7" y="7" width="10" height="10" rx="1.5" ${stroke}/><path d="M13 4.5V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h.5" ${stroke}/>`),
     paste: svg(`<rect x="4" y="4" width="12" height="14" rx="1.5" ${stroke}/><rect x="7" y="2.5" width="6" height="3" rx="1" ${stroke}/>`),
@@ -282,9 +287,16 @@ export class PreviewContextBar implements Disposable {
         const busy = message.busy === true;
         const wasBusy = this.report.busy;
         const wasHeld = this.report.pointerHeld === true;
+        const wasTelop = this.report.telop;
+        const wasTelopId = this.report.telopId;
+        const wasTelopInner = this.report.telopInner;
         this.report = { box: rect(message.box), busy, pointerHeld: message.pointerHeld === true,
-            stage: rect(message.stage) };
+            stage: rect(message.stage), telopId: typeof message.telopId === 'string' ? message.telopId : null,
+            telop: message.telop === true, telopInner: message.telopInner === true };
         if (busy !== wasBusy) this.root.toggleAttribute('data-busy', busy);
+        if (wasTelop !== this.report.telop || wasTelopId !== this.report.telopId
+            || wasTelopInner !== this.report.telopInner) this.renderMenu(!!this.state?.selectedId && this.state.multi === 0
+                && !this.openWindow && this.state.kind !== 'caption');
         this.position();
         if (wasHeld && !this.report.pointerHeld && busy) this.scheduleBusyRelease();
     }
@@ -519,7 +531,9 @@ export class PreviewContextBar implements Disposable {
         const state = this.state;
         this.menu.hidden = !selected;
         if (!selected || !state) return;
-        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen]);
+        const telop = this.report.telop === true && this.report.telopId === state.selectedId;
+        const telopInner = telop && this.report.telopInner === true;
+        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen, telop, telopInner]);
         if (signature === this.menuSignature) return;
         this.menuSignature = signature;
         const button = (key: string, label: string, icon: string, extra = ''): string =>
@@ -528,6 +542,8 @@ export class PreviewContextBar implements Disposable {
             button('annotate', '注釈を付ける（この要素に紐づくメモ）', 'note'),
             button('lock', state.locked ? 'ロックを外す' : 'ロック（動かない・変形しない・消えない）', state.locked ? 'lock' : 'unlock',
                 `aria-pressed="${state.locked}"`),
+            ...(telop ? [button('telopInner', telopInner ? '外側を選ぶ' : '中の部品を選ぶ', 'telopInner',
+                `aria-pressed="${telopInner}"`)] : []),
             button('duplicate', `複製（${shortcutLabel('D', { mac: this.mac })}）`, 'dup'),
             button('delete', state.locked ? 'ロック中は削除できません' : '削除', 'trash', state.locked ? 'disabled aria-disabled="true"' : ''),
             button('more', 'その他', 'more', `aria-haspopup="menu" aria-expanded="${this.moreOpen}"`)
@@ -862,6 +878,16 @@ export class PreviewContextBar implements Disposable {
         const button = (event.target as Element).closest<HTMLButtonElement>('[data-akari-menu-item]');
         if (!button || button.disabled) return;
         const key = button.dataset.akariMenuItem!;
+        if (key === 'telopInner') {
+            if (this.state?.selectedId && this.report.telop && this.report.telopId === this.state.selectedId) {
+                const inner = !this.report.telopInner;
+                this.host.sendMessage({ type: PREVIEW_TELOP_INNER_SELECTION_MESSAGE,
+                    overlayId: this.state.selectedId, inner });
+                this.report.telopInner = inner;
+                this.renderMenu(true);
+            }
+            return;
+        }
         if (key === 'more') {
             this.moreOpen = !this.moreOpen;
             this.barOverflowOpen = false;
