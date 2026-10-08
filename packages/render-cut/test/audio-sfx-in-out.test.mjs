@@ -37,6 +37,9 @@ function ffmpeg(args) {
 // as audio-bgm-fade.test.mjs's measureMeanVolume, empirically re-confirmed for this file's own
 // frequency-marker fixtures during authoring (bandpass-filtered volumedetect at successive windows
 // cleanly separated marker tones with no bleed once windows are >=0.2s wide).
+// With video present, ffmpeg 6.1 can feed audio past -t into volumedetect: the same file measures
+// correctly on 9.0/8.1.2 but gets an extended window on 6.1.1. -vn plus atrim limits every
+// version to [start, start+duration); the product's measureAudioLevel also uses -vn.
 function measureBandVolume(filePath, start, duration, centerFrequency, halfWidth) {
   const result = spawnSync(
     "ffmpeg",
@@ -47,10 +50,11 @@ function measureBandVolume(filePath, start, duration, centerFrequency, halfWidth
       String(start),
       "-i",
       filePath,
+      "-vn",
       "-t",
       String(duration),
       "-af",
-      `bandpass=f=${centerFrequency}:width_type=h:w=${halfWidth},volumedetect`,
+      `atrim=duration=${duration},bandpass=f=${centerFrequency}:width_type=h:w=${halfWidth},volumedetect`,
       "-f",
       "null",
       "-",
