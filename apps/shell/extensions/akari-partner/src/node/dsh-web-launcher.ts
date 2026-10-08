@@ -1,10 +1,13 @@
 import { spawn as nodeSpawn, ChildProcessWithoutNullStreams, SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import { maskToken } from '../common/dsh-output-mask';
+import { DSH_WEB_PORT_MIN, DSH_WEB_PORT_MAX } from './dsh-web-port';
 
 export function parseDshWebUrlLine(line: string): string | undefined {
     return /^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)/.exec(line)?.[1];
 }
+
+export class DshWebEarlyExitError extends Error {}
 
 function safeCommandArgument(value: string, label: string): string {
     if (/[&^%!"\r\n]/.test(value)) {
@@ -15,9 +18,12 @@ function safeCommandArgument(value: string, label: string): string {
 
 export function buildDshWebArgs(
     executablePath: string, patchPath: string, platform: NodeJS.Platform = process.platform,
-    env: NodeJS.ProcessEnv = process.env
+    env: NodeJS.ProcessEnv = process.env, port?: number
 ): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
-    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', '0'];
+    if (port !== undefined && (!Number.isInteger(port) || port < DSH_WEB_PORT_MIN || port > DSH_WEB_PORT_MAX)) {
+        throw new Error('Invalid dsh web port');
+    }
+    const args = ['--profile', 'web', '--patch', patchPath, '--no-open', '--port', String(port ?? 0)];
     if (platform === 'win32' && /\.(cmd|bat)$/i.test(executablePath)) {
         const command = safeCommandArgument(env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), 'cmd.exe のパス');
         safeCommandArgument(executablePath, '実行ファイルのパス');
@@ -35,12 +41,13 @@ export async function launchDshWeb(input: {
     patchPath: string;
     platform: NodeJS.Platform;
     timeoutMs: number;
+    port?: number;
     spawn?: typeof nodeSpawn;
     log: (line: string) => void;
     stop: (pid: number) => void;
     onExit?: (pid: number) => void;
 }): Promise<{ url: string; pid: number }> {
-    const { command, args, windowsVerbatimArguments } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env);
+    const { command, args, windowsVerbatimArguments } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env, input.port);
     const options: SpawnOptionsWithoutStdio = {
         cwd: input.cwd, env: input.env, windowsHide: true, detached: input.platform !== 'win32',
         windowsVerbatimArguments
@@ -57,7 +64,8 @@ export async function launchDshWeb(input: {
             clearTimeout(timer);
             if (error) {
                 if (child.pid) input.stop(child.pid);
-                reject(new Error(`${error.message}\n${tail.slice(-20).join('\n')}`));
+                const message = `${error.message}\n${tail.slice(-20).join('\n')}`;
+                reject(error instanceof DshWebEarlyExitError ? new DshWebEarlyExitError(message) : new Error(message));
             } else if (url && child.pid) resolve({ url, pid: child.pid });
         };
         const consume = (chunk: Buffer | string, kind: 'stdout' | 'stderr'): void => {
@@ -83,7 +91,7 @@ export async function launchDshWeb(input: {
             if (child.pid) input.onExit?.(child.pid);
             if (stdout) consume('\n', 'stdout');
             if (stderr) consume('\n', 'stderr');
-            finish(new Error(`dsh web exited with code ${code}`));
+            finish(new DshWebEarlyExitError(`dsh web exited with code ${code}`));
         });
     });
 }
