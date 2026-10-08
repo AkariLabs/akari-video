@@ -36,7 +36,8 @@ export const projectHomeCss = `
 .akari-os-status .actions{display:flex;gap:8px;flex-wrap:wrap}
 .akari-os-other-heading{display:flex;gap:10px;align-items:baseline;margin-bottom:8px;min-width:0;white-space:nowrap}.akari-os-other-heading h3{margin:0;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.akari-os-other-heading small{color:var(--theia-descriptionForeground);flex:0 0 auto}
 .akari-os-other-heading button{margin-left:auto;border:0;background:none;color:var(--theia-textLink-foreground);cursor:pointer;flex:0 0 auto;white-space:nowrap}
-.akari-os-other-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.akari-os-other-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.akari-os-other-grid>*{min-width:0}
 .akari-os-popover{position:absolute;right:0;top:32px;z-index:10;background:var(--theia-editorWidget-background);border:1px solid var(--theia-widget-border);border-radius:10px;box-shadow:0 15px 40px rgba(0,0,0,.3);padding:8px;min-width:245px;max-width:340px}
 .akari-os-popover button{display:block;width:100%;text-align:left;padding:7px 9px;border:0;background:none;color:var(--theia-foreground);border-radius:6px;cursor:pointer}
 .akari-os-popover button:hover{background:var(--theia-list-hoverBackground)}
