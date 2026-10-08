@@ -38,6 +38,33 @@ export function hostAdapterScript(): string {
             audioMeterOpen.addEventListener('click', () => {
                 vscode.postMessage({ type: 'akari-preview-open-audio-meter' });
             });
+            const systemVolumeNotice = document.getElementById('system-volume-notice');
+            const systemVolumeNoticeText = document.getElementById('system-volume-notice-text');
+            const systemVolumeDismiss = document.getElementById('system-volume-notice-dismiss');
+            let systemVolumeDismissed = false;
+            const showSystemVolumeNotice = state => {
+                if (state === 'ok') {
+                    systemVolumeDismissed = false;
+                    systemVolumeNotice.hidden = true;
+                    return;
+                }
+                if (systemVolumeDismissed || (state !== 'zero' && state !== 'muted')) return;
+                const message = state === 'zero'
+                    ? 'パソコンの音量が 0 です'
+                    : 'パソコンの音がミュートになっています';
+                systemVolumeNoticeText.textContent = message;
+                systemVolumeNoticeText.title = message;
+                systemVolumeNotice.hidden = false;
+            };
+            systemVolumeDismiss.addEventListener('click', () => {
+                systemVolumeDismissed = true;
+                systemVolumeNotice.hidden = true;
+            });
+            window.addEventListener('message', event => {
+                if (event.data?.type === 'akari-preview-system-volume') {
+                    showSystemVolumeNotice(event.data.state);
+                }
+            });
             if (initial.kind === 'raw') window.akari = Object.assign(window.akari || {}, {
                 materialPostMessage: message => vscode.postMessage(message)
             });

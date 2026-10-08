@@ -12,6 +12,7 @@ import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { rewritePreviewFragmentAssets } from './fragment-assets';
+import { readSystemOutputVolume } from './system-output-volume';
 import { FragmentAssetPreviewRequest, FragmentAssetPreviewResult } from '../common/akari-preview-protocol';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
@@ -426,6 +427,10 @@ interface OverlayRuntimeSources {
 
 @injectable()
 export class AkariPreviewServiceImpl implements AkariPreviewService {
+    readSystemOutputVolume(): Promise<{ volume: number; muted: boolean } | undefined> {
+        return readSystemOutputVolume();
+    }
+
     @inject(WorkspaceServer)
     protected readonly workspaceServer: WorkspaceServer;
 

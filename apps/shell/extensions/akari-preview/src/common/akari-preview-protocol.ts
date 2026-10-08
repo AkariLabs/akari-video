@@ -436,6 +436,7 @@ export interface ReadGenerationSidecarsResult {
 }
 
 export interface AkariPreviewService {
+    readSystemOutputVolume(): Promise<{ volume: number; muted: boolean } | undefined>;
     resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string; workspaceRoots?: string[] }): Promise<string | undefined>;
     savePreviewFrame(request: import('./preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }>;
     prepareAssetVisualThumbnail(request: { assetUri: string; time?: number; workspaceRoots?: string[] }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
