@@ -7646,11 +7646,18 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
 ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }' : ''}
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
-[data-akari-ui="preview-scope-breadcrumb"] { position: absolute; left: 10px; top: 10px; z-index: 100;
-  display: flex; gap: 5px; align-items: center; padding: 4px 8px; border-radius: 4px;
-  background: var(--theia-editor-background); color: var(--theia-editor-foreground); font-size: 11px; }
+[data-akari-ui="preview-scope-breadcrumb"] { position: absolute; left: 8px; bottom: 6px; top: auto; z-index: 4;
+  display: flex; flex-wrap: nowrap; align-items: center; max-width: calc(100% - 16px); height: 14px;
+  overflow: hidden; white-space: nowrap; padding: 0; background: transparent; pointer-events: none;
+  color: rgba(255,255,255,.8); text-shadow: 0 1px 2px rgba(0,0,0,.95); font-size: 10px; line-height: 1.4; }
 [data-akari-ui="preview-scope-breadcrumb"][hidden] { display: none; }
-[data-akari-ui="preview-scope-breadcrumb"] button { color: inherit; background: transparent; border: 0; cursor: pointer; }
+[data-akari-ui="preview-scope-breadcrumb"] button { flex: 0 0 auto; min-width: 0; margin: 0; padding: 0 2px; border: 0;
+  color: inherit; background: transparent; font: inherit; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; cursor: pointer; pointer-events: auto; }
+[data-akari-ui="preview-scope-breadcrumb"] button:last-child { color: #fff; font-weight: bold; }
+[data-akari-ui="preview-scope-breadcrumb"] button:hover,
+[data-akari-ui="preview-scope-breadcrumb"] button:focus-visible { color: #fff; text-decoration: underline; }
+[data-akari-ui="preview-scope-breadcrumb"] .akari-breadcrumb-separator { white-space: pre; letter-spacing: -1px; }
 .akari-interaction-selection-frame[data-akari-selection-kind="multi"] .akari-interaction-handle { display: none; }
 [data-akari-ui="preview-hover-frame"] { position: fixed; pointer-events: none; box-sizing: border-box;
   border: 1px solid var(--akari-accent); opacity: .45; z-index: 90; }
