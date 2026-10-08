@@ -96,25 +96,157 @@
       const index = candidates.indexOf(element);
       return index < 0 ? null : `${id ? "#" : "."}${id || token}[${index}]`;
     }
-    function selectableElement(root, element, outputRect) {
-      if (!root || !element || element === root || !root.contains(element) || isRuntimeElement(element) || element.closest("svg") !== (element.tagName.toLowerCase() === "svg" ? element : null) || !elementAddress(root, element)) return false;
+    function drawsSelectionContent(element, style = getComputedStyle(element)) {
+      const tag = element.tagName.toUpperCase();
+      if (["BASE", "HEAD", "LINK", "META", "NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE", "TITLE"].includes(tag)) return false;
+      if (["AUDIO", "CANVAS", "EMBED", "IFRAME", "IMG", "OBJECT", "SVG", "VIDEO"].includes(tag)) return true;
+      if (element.namespaceURI === "http://www.w3.org/2000/svg" && ["path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "use", "text", "image"].includes(tag.toLowerCase())) return true;
+      if ([...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())) return true;
+      const transparent = (value) => {
+        const color = String(value ?? "").trim().toLowerCase();
+        if (!color || color === "transparent") return true;
+        const legacy = color.match(/^(?:rgba|hsla)\([^)]*,\s*([\d.]+)\)$/);
+        if (legacy) return Number(legacy[1]) <= 0;
+        const modern = color.match(/\/\s*([\d.]+)%?\s*\)$/);
+        return Boolean(modern && Number(modern[1]) <= 0);
+      };
+      const shadow = String(style.boxShadow ?? "").trim().toLowerCase();
+      const shadowColors = shadow.match(/(?:rgba?|hsla?|color)\([^)]*\)|transparent/g) ?? [];
+      if (!transparent(style.backgroundColor) || style.backgroundImage && style.backgroundImage !== "none" || shadow && shadow !== "none" && (shadowColors.length === 0 || shadowColors.some((color) => !transparent(color)))) return true;
+      for (const side of ["Top", "Right", "Bottom", "Left"]) {
+        if (parseFloat(style[`border${side}Width`]) > 0 && !["none", "hidden"].includes(style[`border${side}Style`]) && !transparent(style[`border${side}Color`])) return true;
+      }
+      return parseFloat(style.outlineWidth) > 0 && !["none", "hidden"].includes(style.outlineStyle) && !transparent(style.outlineColor);
+    }
+    function selectionVisibleRect(rect, element, container) {
+      if (!rect || !(rect.width > 0 && rect.height > 0)) return null;
+      let { left, top, right, bottom } = rect;
+      for (let node = element; node && node !== container; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        const paint = /\b(?:paint|content|strict)\b/.test(style.contain ?? "");
+        const clipX = paint || node.tagName.toLowerCase() === "svg" || (style.overflowX || style.overflow) !== "visible";
+        const clipY = paint || node.tagName.toLowerCase() === "svg" || (style.overflowY || style.overflow) !== "visible";
+        if (clipX || clipY) {
+          const clip = node.getBoundingClientRect();
+          if (clipX) {
+            left = Math.max(left, clip.left);
+            right = Math.min(right, clip.right);
+          }
+          if (clipY) {
+            top = Math.max(top, clip.top);
+            bottom = Math.min(bottom, clip.bottom);
+          }
+        }
+        if (right <= left || bottom <= top) return null;
+      }
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }
+    function selectionContentBounds(element, options = {}) {
+      if (!element) return null;
+      let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+      for (const node of [element, ...element.querySelectorAll("*")]) {
+        if (node.closest("[data-akari-interaction]") || node.closest("defs, symbol, pattern, clipPath, mask, marker")) continue;
+        let visible = true;
+        for (let ancestor = node; ancestor && ancestor !== options.container; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor);
+          if (style.display === "none" || ["hidden", "collapse"].includes(style.visibility) || Number(style.opacity) === 0) {
+            visible = false;
+            break;
+          }
+        }
+        if (!visible || !drawsSelectionContent(node)) continue;
+        if (node.tagName.toLowerCase() === "svg" && node.querySelector("path, rect, circle, ellipse, line, polyline, polygon, use, text, image") && getComputedStyle(node).backgroundColor === "rgba(0, 0, 0, 0)") continue;
+        const raw = options.rawRect?.(node) ?? node.getBoundingClientRect();
+        const rect = options.visibleRect ? options.visibleRect(raw, node) : selectionVisibleRect(raw, node, options.container);
+        if (!rect || !(rect.width > 0 && rect.height > 0)) continue;
+        left = Math.min(left, rect.left);
+        top = Math.min(top, rect.top);
+        right = Math.max(right, rect.right);
+        bottom = Math.max(bottom, rect.bottom);
+      }
+      return Number.isFinite(left) ? { left, top, right, bottom, width: right - left, height: bottom - top } : null;
+    }
+    function selectableContentBranches(root, element, outputRect) {
+      let count = 0;
+      const visit = (node) => {
+        if (count > 1) return;
+        const style = getComputedStyle(node);
+        if (style.display === "none" || ["hidden", "collapse"].includes(style.visibility) || Number(style.opacity) === 0 || isRuntimeElement(node)) return;
+        const rect = node.getBoundingClientRect();
+        if (node !== element && elementAddress(root, node) && rect.width > 1 && rect.height > 1 && drawsSelectionContent(node) && (!outputRect || rect.width < outputRect.width * 0.95 || rect.height < outputRect.height * 0.95)) {
+          count++;
+          return;
+        }
+        for (const child of node.children) visit(child);
+      };
+      for (const child of element.children) visit(child);
+      return count;
+    }
+    function isSelectionContainer(element) {
+      return Boolean(element?.children?.length) && !drawsSelectionContent(element);
+    }
+    function selectionBoundsFor(element, options) {
+      const memo = options.boundsMemo ??= /* @__PURE__ */ new Map();
+      if (!memo.has(element)) memo.set(
+        element,
+        options.boundsFor ? options.boundsFor(element) : selectionContentBounds(element)
+      );
+      return memo.get(element);
+    }
+    function hasUncoveredPaintedContent(root, element, outputRect, options) {
+      const visit = (node) => {
+        if (node.closest("[data-akari-interaction], defs, symbol, pattern, clipPath, mask, marker")) return false;
+        if (selectableElement(root, node, outputRect, options)) return false;
+        const rect = node.getBoundingClientRect();
+        if (rect.width > 0 && Number(getComputedStyle(node).opacity) !== 0 && drawsSelectionContent(node)) return true;
+        return [...node.children].some(visit);
+      };
+      return [...element.children].some(visit);
+    }
+    function selectableContainer(root, element, outputRect, bounds, options = {}) {
+      if (!isSelectionContainer(element)) return true;
+      if (!bounds) return false;
+      if (hasUncoveredPaintedContent(root, element, outputRect, options)) return true;
+      if (selectableContentBranches(root, element, outputRect) <= 1) return false;
+      const box = element.getBoundingClientRect();
+      return !(outputRect && (box.width >= outputRect.width * 0.5 || box.height >= outputRect.height * 0.5) && (box.width >= bounds.width * 1.5 || box.height >= bounds.height * 1.5));
+    }
+    function selectableElement(root, element, outputRect, options = {}) {
+      const memo = options.selectableMemo ??= /* @__PURE__ */ new Map();
+      if (memo.has(element)) return memo.get(element);
+      if (!root || !element || element === root || !root.contains(element) || isRuntimeElement(element) || element.closest("svg") !== (element.tagName.toLowerCase() === "svg" ? element : null) || !elementAddress(root, element)) {
+        memo.set(element, false);
+        return false;
+      }
       const rect = element.getBoundingClientRect();
-      if (!(rect.width > 1 && rect.height > 1)) return false;
+      if (!(rect.width > 1 && rect.height > 1)) {
+        memo.set(element, false);
+        return false;
+      }
       for (let ancestor = element; ancestor && root.contains(ancestor); ancestor = ancestor.parentElement) {
         const style = getComputedStyle(ancestor);
-        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
+          memo.set(element, false);
+          return false;
+        }
       }
+      const bounds = selectionBoundsFor(element, options);
+      const coverage = bounds ?? rect;
       const replaced = ["img", "video", "canvas", "svg"].includes(element.tagName.toLowerCase());
-      return replaced || !outputRect || rect.width < outputRect.width * 0.95 || rect.height < outputRect.height * 0.95;
+      const eligible = (replaced || !outputRect || coverage.width < outputRect.width * 0.95 || coverage.height < outputRect.height * 0.95) && selectableContainer(root, element, outputRect, bounds, options);
+      memo.set(element, eligible);
+      return eligible;
     }
-    function nearestSelectableElement(root, hit, outputRect) {
+    function nearestSelectableElement(root, hit, outputRect, options = {}) {
+      options = { ...options, selectableMemo: /* @__PURE__ */ new Map(), boundsMemo: /* @__PURE__ */ new Map() };
       for (let element = hit; element && element !== root; element = element.parentElement) {
-        if (selectableElement(root, element, outputRect)) return element;
+        if (selectableElement(root, element, outputRect, options)) return element;
       }
       return null;
     }
-    function firstSelectableElement(root, outputRect) {
-      return [root, ...root.querySelectorAll("*")].find((element) => selectableElement(root, element, outputRect)) ?? null;
+    function firstSelectableElement(root, outputRect, options = {}) {
+      options = { ...options, selectableMemo: /* @__PURE__ */ new Map(), boundsMemo: /* @__PURE__ */ new Map() };
+      return [root, ...root.querySelectorAll("*")].find((element) => selectableElement(root, element, outputRect, options)) ?? null;
     }
     function elementByAddress(root, ref) {
       if (!root || typeof ref !== "string") return null;
@@ -531,6 +663,16 @@
       }
       return null;
     }
+    function contentBounds(element, container) {
+      return selectionContentBounds(element, {
+        container,
+        visibleRect: (rect, node) => visibleFragmentRect(rect, node, container),
+        rawRect: (node) => node.tagName.toUpperCase() === "CANVAS" ? canvasHasDecoration(node) ? node.getBoundingClientRect() : window.akari.threeRuntime?.contentBounds?.(node) ?? measureCanvasBounds(node) ?? node.getBoundingClientRect() : node.getBoundingClientRect()
+      });
+    }
+    function selectionOptions(root) {
+      return { boundsFor: (element) => contentBounds(element, root?.parentElement) };
+    }
     const FULL_CONTAINER_COVERAGE_RATIO = 0.98;
     function looksLikeFullContainerWrapper(rect, containerRect) {
       if (!containerRect || !(containerRect.width > 0) || !(containerRect.height > 0)) {
@@ -538,7 +680,7 @@
       }
       return rect.width >= containerRect.width * FULL_CONTAINER_COVERAGE_RATIO && rect.height >= containerRect.height * FULL_CONTAINER_COVERAGE_RATIO;
     }
-    function fragmentBounds(container) {
+    function legacyFragmentBounds(container) {
       const root = fragmentRoot(container);
       if (!root) return null;
       const rootRect = visibleFragmentRect(root.getBoundingClientRect(), root, container);
@@ -591,6 +733,12 @@
         return null;
       }
       return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }
+    function fragmentBounds(container) {
+      const root = fragmentRoot(container);
+      if (!root) return null;
+      if (drawsOwnContent(root, getComputedStyle(root))) return legacyFragmentBounds(container);
+      return contentBounds(root, container) ?? legacyFragmentBounds(container);
     }
     function svgReferenceRect(element, value) {
       const id = String(value ?? "").match(/url\(["']?(?:[^#)]*#)([^)"']+)["']?\)/)?.[1];
@@ -1307,7 +1455,7 @@
       const transform = readTransform(selectedOverlay);
       const lineRect = lineFrameGeometry(selectedOverlay);
       const focused = focusedElement();
-      const focusedGeometry = focused ? elementScreenGeometry(focused) : null;
+      const focusedGeometry = focused ? focusedSelectionGeometry(focused) : null;
       const focusedWidth = focusedGeometry && focusedGeometry.width * Math.hypot(focusedGeometry.axes.x.x, focusedGeometry.axes.x.y);
       const focusedHeight = focusedGeometry && focusedGeometry.height * Math.hypot(focusedGeometry.axes.y.x, focusedGeometry.axes.y.y);
       const focusedAngle = focusedGeometry && Math.atan2(focusedGeometry.axes.x.y, focusedGeometry.axes.x.x) * 180 / Math.PI;
@@ -1346,7 +1494,7 @@
           }
           const layout = elementHandleLayout(focusedWidth, focusedHeight);
           const name = [...handle.classList].find((token) => /^is-(?:n|e|s|w|nw|ne|se|sw|rotate|move)$/.test(token))?.slice(3);
-          handle.style.display = name === "move" || ["n", "s"].includes(name) && layout.hideHorizontalEdges || ["e", "w"].includes(name) && layout.hideVerticalEdges ? "none" : "";
+          handle.style.display = name === "move" || isSelectionContainer(focused) && name !== "rotate" || ["n", "s"].includes(name) && layout.hideHorizontalEdges || ["e", "w"].includes(name) && layout.hideVerticalEdges ? "none" : "";
           if (name === "rotate") {
             Object.assign(handle.style, {
               top: `${layout.rotateTop}px`,
@@ -1357,6 +1505,11 @@
           } else if (name && name.length === 2) {
             const x = name.includes("w") ? -layout.cornerOffsetX : layout.cornerOffsetX;
             const y = name.includes("n") ? -layout.cornerOffsetY : layout.cornerOffsetY;
+            if (x || y) handle.style.translate = `${x}px ${y}px`;
+            else handle.style.removeProperty("translate");
+          } else if (["n", "s", "e", "w"].includes(name)) {
+            const x = name === "w" ? -layout.cornerOffsetX : name === "e" ? layout.cornerOffsetX : 0;
+            const y = name === "n" ? -layout.cornerOffsetY : name === "s" ? layout.cornerOffsetY : 0;
             if (x || y) handle.style.translate = `${x}px ${y}px`;
             else handle.style.removeProperty("translate");
           }
@@ -1508,7 +1661,8 @@
     }
     function focusedElement() {
       if (!selectedElementFocus() || !selectedOverlay) return null;
-      return elementByAddress(fragmentRoot(selectedOverlay), elementFocus.ref);
+      const root = fragmentRoot(selectedOverlay);
+      return elementByAddress(root, elementFocus.ref);
     }
     function selectedElementFocus() {
       return elementFocus?.overlayId === selectedId && (!selectedOverlay || selectedOverlay.dataset.overlayId === selectedId) ? elementFocus : null;
@@ -1516,10 +1670,26 @@
     function reconcileElementFocus() {
       if (!selectedElementFocus()) return;
       const root = fragmentRoot(selectedOverlay);
-      if (root && !elementByAddress(root, elementFocus.ref)) focusElement(null);
+      if (!root) return;
+      const ref = elementFocus.ref;
+      const element = elementByAddress(root, ref);
+      if (!element) {
+        focusElement(null);
+        return;
+      }
+      if (selectedOverlay?.isConnected && !selectableElement(root, element, stage?.getBoundingClientRect(), selectionOptions(root))) {
+        requestAnimationFrame(() => {
+          if (elementFocus?.ref === ref && selectedOverlay?.isConnected) {
+            const currentRoot = fragmentRoot(selectedOverlay);
+            const current = elementByAddress(currentRoot, ref);
+            if (!current || !selectableElement(currentRoot, current, stage?.getBoundingClientRect(), selectionOptions(currentRoot))) focusElement(null);
+          }
+        });
+      }
     }
     function focusElement(element, { notify = true } = {}) {
       const root = fragmentRoot(selectedOverlay);
+      if (element && !selectableElement(root, element, stage?.getBoundingClientRect(), selectionOptions(root))) element = null;
       const ref = element && elementAddress(root, element);
       const next = ref ? {
         overlayId: selectedId,
@@ -1541,7 +1711,7 @@
       }
       const root = fragmentRoot(container);
       const hit = event.target instanceof Element && root?.contains(event.target) ? event.target : document.elementsFromPoint(event.clientX, event.clientY).find((element) => root?.contains(element)) ?? null;
-      focusElement(nearestSelectableElement(root, hit, stage?.getBoundingClientRect()));
+      focusElement(nearestSelectableElement(root, hit, stage?.getBoundingClientRect(), selectionOptions(root)));
     }
     function focusElementAtPoint(overlayId, clientX, clientY, attempt = 0) {
       if (window.akari.capabilities?.elementSelection !== true || !Number.isFinite(clientX) || !Number.isFinite(clientY) || typeof overlayId !== "string") return false;
@@ -1559,7 +1729,7 @@
         return false;
       }
       const hit = document.elementsFromPoint(clientX, clientY).find((element) => root.contains(element)) ?? null;
-      focusElement(nearestSelectableElement(root, hit, stage?.getBoundingClientRect()));
+      focusElement(nearestSelectableElement(root, hit, stage?.getBoundingClientRect(), selectionOptions(root)));
       return true;
     }
     function selectionTree() {
@@ -1646,7 +1816,7 @@
       }
       const element = target.element?.isConnected ? target.element : elementByAddress(fragmentRoot(containerById(target.overlayId)), target.ref);
       if (!element?.isConnected) return null;
-      const geometry = elementScreenGeometry(element);
+      const geometry = focusedSelectionGeometry(element);
       const width = geometry.width * Math.hypot(geometry.axes.x.x, geometry.axes.x.y);
       const height = geometry.height * Math.hypot(geometry.axes.y.x, geometry.axes.y.y);
       return { rect: {
@@ -1683,7 +1853,7 @@
         const root = fragmentRoot(selectedOverlay);
         const path = [];
         for (let node = focusedElement(); node && node !== root; node = node.parentElement) {
-          if (selectableElement(root, node, stage?.getBoundingClientRect())) path.unshift(node);
+          if (selectableElement(root, node, stage?.getBoundingClientRect(), selectionOptions(root))) path.unshift(node);
         }
         for (const node of path) append(
           elementLabel(root, node),
@@ -2264,6 +2434,64 @@
       elementGeometryCache = { element, signature, geometry };
       return geometry;
     }
+    function focusedSelectionGeometry(element) {
+      const geometry = elementScreenGeometry(element);
+      if (!isSelectionContainer(element)) return geometry;
+      const container = selectedOverlay ?? element.parentElement;
+      const bounds = contentBounds(element, container);
+      if (!bounds) return geometry;
+      const scaleX = Math.hypot(geometry.axes.x.x, geometry.axes.x.y);
+      const scaleY = Math.hypot(geometry.axes.y.x, geometry.axes.y.y);
+      if (!(scaleX > 0 && scaleY > 0)) return geometry;
+      const ux = { x: geometry.axes.x.x / scaleX, y: geometry.axes.x.y / scaleX };
+      const uy = { x: geometry.axes.y.x / scaleY, y: geometry.axes.y.y / scaleY };
+      const angle = Math.abs(Math.atan2(ux.y, ux.x));
+      if (angle < 1e-3) return {
+        ...geometry,
+        center: { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 },
+        width: bounds.width / scaleX,
+        height: bounds.height / scaleY
+      };
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const node of element.querySelectorAll("*")) {
+        if (!drawsSelectionContent(node) || !isPaintedElement(node, container)) continue;
+        const rect = visibleFragmentRect(node.getBoundingClientRect(), node, container);
+        if (!rect) continue;
+        const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        const dx = center.x - geometry.center.x, dy = center.y - geometry.center.y;
+        const x = dx * ux.x + dy * ux.y, y = dx * uy.x + dy * uy.y;
+        const halfX = (node.offsetWidth || rect.width / scaleX) * scaleX / 2;
+        const halfY = (node.offsetHeight || rect.height / scaleY) * scaleY / 2;
+        minX = Math.min(minX, x - halfX);
+        maxX = Math.max(maxX, x + halfX);
+        minY = Math.min(minY, y - halfY);
+        maxY = Math.max(maxY, y + halfY);
+      }
+      if (!Number.isFinite(minX)) return geometry;
+      const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
+      return {
+        ...geometry,
+        center: {
+          x: geometry.center.x + midX * ux.x + midY * uy.x,
+          y: geometry.center.y + midX * ux.y + midY * uy.y
+        },
+        width: (maxX - minX) / scaleX,
+        height: (maxY - minY) / scaleY
+      };
+    }
+    function focusedSelectionRect(element) {
+      const geometry = focusedSelectionGeometry(element);
+      const width = geometry.width * Math.hypot(geometry.axes.x.x, geometry.axes.x.y);
+      const height = geometry.height * Math.hypot(geometry.axes.y.x, geometry.axes.y.y);
+      return {
+        left: geometry.center.x - width / 2,
+        top: geometry.center.y - height / 2,
+        right: geometry.center.x + width / 2,
+        bottom: geometry.center.y + height / 2,
+        width,
+        height
+      };
+    }
     function moveElementPointTo(gesture, horizontal, vertical, target) {
       const geometry = elementScreenGeometry(gesture.element);
       const point = elementPoint(geometry, horizontal, vertical);
@@ -2742,8 +2970,8 @@
         if (elementHit && !event2.shiftKey && (!scoped || scoped.selectId === container.dataset.overlayId)) {
           const root = fragmentRoot(container);
           const hit = event2.target instanceof Element && root?.contains(event2.target) ? event2.target : null;
-          const element = nearestSelectableElement(root, hit, stage?.getBoundingClientRect());
-          const rect2 = element?.getBoundingClientRect() ?? fragmentBounds(container);
+          const element = nearestSelectableElement(root, hit, stage?.getBoundingClientRect(), selectionOptions(root));
+          const rect2 = element ? focusedSelectionRect(element) : fragmentBounds(container);
           if (!rect2 || selectedOverlay === container && selectedElementFocus()?.ref === elementAddress(root, element)) {
             hideHover();
             return;
@@ -4224,7 +4452,7 @@
         if (activeEdit) void commitEdit();
         if (window.akari.capabilities?.elementSelection === true && event.isTrusted && !event.shiftKey) {
           const root = fragmentRoot(hit);
-          const target = event.target instanceof Element && root?.contains(event.target) ? nearestSelectableElement(root, event.target, stage?.getBoundingClientRect()) : null;
+          const target = event.target instanceof Element && root?.contains(event.target) ? nearestSelectableElement(root, event.target, stage?.getBoundingClientRect(), selectionOptions(root)) : null;
           clickOrigin.hitId = hit.dataset.overlayId;
           clickOrigin.elementRef = target ? elementAddress(root, target) : null;
         }
@@ -4242,7 +4470,10 @@
         }
         if (!selectedOverlay || (window.akari.capabilities?.elementSelection === true ? selectedId !== hit.dataset.overlayId : selectedOverlay !== hit)) return;
         if (!event.shiftKey) {
-          if (clickOrigin?.hitId === selectedId) {
+          const focused = focusedElement();
+          if (focused && isSelectionContainer(focused) && focused.contains(event.target)) {
+            clickOrigin.preservedContainer = true;
+          } else if (clickOrigin?.hitId === selectedId) {
             focusElement(elementByAddress(fragmentRoot(selectedOverlay), clickOrigin.elementRef));
           } else focusElementAt(selectedOverlay, event);
         } else if (selectedElementFocus()) focusElement(null);
@@ -4275,8 +4506,12 @@
         return;
       }
       selectOverlay(container);
-      if (!event.shiftKey) focusElementAt(container, event);
-      else if (selectedElementFocus()) focusElement(null);
+      if (!event.shiftKey) {
+        const focused = focusedElement();
+        if (focused && isSelectionContainer(focused) && focused.contains(event.target)) {
+          clickOrigin.preservedContainer = true;
+        } else focusElementAt(container, event);
+      } else if (selectedElementFocus()) focusElement(null);
       if (window.akari.capabilities?.elementSelection === true && clickOrigin) {
         clickOrigin.hitId = selectedId;
         clickOrigin.elementRef = selectedElementFocus()?.ref ?? null;
@@ -4959,7 +5194,8 @@
       else if (selectionTree().length) selectScopedHit(hit, event);
       else selectOverlay(hit);
       if (window.akari.capabilities?.elementSelection === true && event.isTrusted && !event.shiftKey && selectedOverlay) {
-        if (!nextId && clickOrigin?.hitId === selectedId) {
+        if (clickOrigin?.preservedContainer) focusElementAt(selectedOverlay, event);
+        else if (!nextId && clickOrigin?.hitId === selectedId) {
           focusElement(elementByAddress(fragmentRoot(selectedOverlay), clickOrigin.elementRef));
         } else focusElementAt(selectedOverlay, event);
       }
@@ -5039,7 +5275,8 @@
           const parent = nearestSelectableElement(
             root,
             focusedElement()?.parentElement,
-            stage?.getBoundingClientRect()
+            stage?.getBoundingClientRect(),
+            selectionOptions(root)
           );
           focusElement(parent);
           stop();
@@ -5052,7 +5289,8 @@
         }
       }
       if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && canFocusElement(selectedOverlay)) {
-        const first = firstSelectableElement(fragmentRoot(selectedOverlay), stage?.getBoundingClientRect());
+        const root = fragmentRoot(selectedOverlay);
+        const first = firstSelectableElement(root, stage?.getBoundingClientRect(), selectionOptions(root));
         if (first) {
           focusElement(first);
           event.preventDefault();
