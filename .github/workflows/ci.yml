@@ -156,6 +156,9 @@ jobs:
             printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f "$RUNNER_TEMP/unit-quarantine-table.md" ]; then cat "$RUNNER_TEMP/unit-quarantine-table.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          echo '::group::reference summary (Summary と同じ内容)'
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat "$GITHUB_STEP_SUMMARY"; fi
+          echo '::endgroup::'
           exit 0
 
   # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージを緑のチェック + 警告で見せる。
@@ -338,6 +341,9 @@ jobs:
             printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f "$RUNNER_TEMP/unit-media-table.md" ]; then cat "$RUNNER_TEMP/unit-media-table.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          echo '::group::reference summary (Summary と同じ内容)'
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat "$GITHUB_STEP_SUMMARY"; fi
+          echo '::endgroup::'
           exit 0
 
   l0:

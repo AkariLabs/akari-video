@@ -261,6 +261,9 @@ jobs:
             echo "::warning title=参考ジョブ::$message"
             printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo '::group::reference summary (Summary と同じ内容)'
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat "$GITHUB_STEP_SUMMARY"; fi
+          echo '::endgroup::'
           exit 0
 
   osr-export-soft:
@@ -820,4 +823,7 @@ jobs:
             fi
           fi
           if [ -f "$RUNNER_TEMP/gpu-export-soft-windows-details.md" ]; then cat "$RUNNER_TEMP/gpu-export-soft-windows-details.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          echo '::group::reference summary (Summary と同じ内容)'
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat "$GITHUB_STEP_SUMMARY"; fi
+          echo '::endgroup::'
           exit 0
