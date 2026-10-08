@@ -154,7 +154,10 @@ function audioLoudnessFadeDb(envelope: AudioLoudnessEnvelope, atSeconds: number)
  * ducking は他レーンの発話区間に依存する動的値で、この素材単体のマスターへ固定できないため除外する。
  */
 export function audioLoudnessBucketColors(
-    peaks: readonly number[], envelope: AudioLoudnessEnvelope
+    peaks: readonly number[], envelope: AudioLoudnessEnvelope,
+    baseColor: string = AUDIO_LOUDNESS_BASE,
+    redColor: string = AUDIO_LOUDNESS_RED,
+    yellowColor: string = AUDIO_LOUDNESS_YELLOW
 ): string[] {
     const duration = Math.max(0, finiteNumberOr(envelope.durationSeconds, 0));
     const bucketStart = finiteNumberOr(envelope.bucketStartSeconds, 0);
@@ -168,9 +171,9 @@ export function audioLoudnessBucketColors(
         const effectiveDb = peakDb + gainDb
             + audioLoudnessKeyframeDb(envelope, atSeconds)
             + audioLoudnessFadeDb(envelope, atSeconds);
-        if (effectiveDb >= -3 - 1e-9) return AUDIO_LOUDNESS_RED;
-        if (effectiveDb >= -9 - 1e-9) return AUDIO_LOUDNESS_YELLOW;
-        return AUDIO_LOUDNESS_BASE;
+        if (effectiveDb >= -3 - 1e-9) return redColor;
+        if (effectiveDb >= -9 - 1e-9) return yellowColor;
+        return baseColor;
     });
 }
 

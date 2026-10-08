@@ -10,6 +10,6 @@ test('hollow hexagon has a 2px uncropped outline and line begins below its 16px 
   assert.match(playhead, /width: '1px'/u);
   assert.match(playhead, /background: `linear-gradient\(to bottom, transparent 16px, \$\{PLAYHEAD_COLOR\} 16px\)`/u);
   assert.match(playhead, /<svg width="14" height="16" viewBox="0 0 14 16"/u);
-  assert.match(playhead, /<path d="M1 1H13V9\.5L7 15L1 9\.5Z" fill="none" stroke="\$\{PLAYHEAD_COLOR\}" stroke-width="2"/u);
+  assert.match(playhead, /<path d="M1 1H13V9\.5L7 15L1 9\.5Z" fill="none" style="stroke: \$\{PLAYHEAD_COLOR\}" stroke-width="2"/u);
   assert.match(playhead, /top: '0', left: '50%', width: '14px', height: '16px'/u);
 });
