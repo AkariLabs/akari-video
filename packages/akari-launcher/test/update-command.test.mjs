@@ -24,6 +24,7 @@ const VALID_FEED = {
 const OFFLINE_FETCH = async () => {
   throw new Error('offline fixture');
 };
+const STABLE_CLI_VERSION = '1.1.1';
 
 async function withScratchHome(callback) {
   const root = await mkdtemp(join(tmpdir(), 'akari-update-command-test-'));
@@ -99,20 +100,22 @@ test('akari update: ネットワーク不通時は既存キャッシュへフォ
 test('install-ref の未記録と破損を区別し、破損時は --force の修復案内と実行経路を出す', async () => {
   await withScratchHome(async (env) => {
     const missing = collectLogs();
-    await runUpdateCommand([], { log: missing.log, env, fetchImpl: OFFLINE_FETCH });
+    await runUpdateCommand([], { log: missing.log, env, cliVersion: STABLE_CLI_VERSION, fetchImpl: OFFLINE_FETCH });
     assert.ok(missing.lines.some((line) => line.includes('install.sh 経路の本体は未導入')));
     assert.ok(!missing.lines.some((line) => line.includes('壊れています')));
 
     await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
     await writeFile(resolveInstallRefPath(env), 'nightly\n', 'utf8');
+    // stable 設定ではキャッシュ内の beta フィードを捨てる仕様。
+    // リポ自身が beta 版でも修復経路を検査できるよう、安定版を明示して揃える。
     const feed = {
       schema: 1,
-      product: readOwnVersion(),
+      product: STABLE_CLI_VERSION,
       components: { app: { url: 'https://example.invalid/app.tgz', sha256: 'a'.repeat(64) } }
     };
     await writeCacheFixture(env, { schema: 1, feed, dismissed: {} });
     const broken = collectLogs();
-    await runUpdateCommand([], { log: broken.log, env, fetchImpl: OFFLINE_FETCH });
+    await runUpdateCommand([], { log: broken.log, env, cliVersion: STABLE_CLI_VERSION, fetchImpl: OFFLINE_FETCH });
     assert.ok(broken.lines.some((line) => line.includes('本体版を判定できません')));
     assert.ok(broken.lines.some((line) => line.includes('.akari-install-ref') && line.includes('壊れています')));
     assert.ok(broken.lines.some((line) => line.includes('akari update --force')));
@@ -122,12 +125,14 @@ test('install-ref の未記録と破損を区別し、破損時は --force の�
     let applied = false;
     const repaired = await runUpdateCommand(['--force'], {
       env,
+      cliVersion: STABLE_CLI_VERSION,
       log: () => {},
       fetchImpl: OFFLINE_FETCH,
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: ({ feed: appliedFeed }) => {
         applied = true;
         assert.deepEqual(appliedFeed, feed);
+        assert.equal(appliedFeed.product, STABLE_CLI_VERSION);
         return { exitCode: 0, applied: true };
       }
     });

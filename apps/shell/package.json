@@ -155,7 +155,8 @@
       },
       {
         "from": "../../catalog",
-        "to": "catalog"
+        "to": "catalog",
+        "filter": ["**/*", "!audio/akari-sounds-*", "!audio/akari-sounds-*/**", "!audio/INDEX.md"]
       },
       {
         "from": "../../packages/edit-lint",

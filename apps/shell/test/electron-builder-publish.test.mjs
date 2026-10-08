@@ -15,6 +15,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ARTIFACT_FILES } from '../../../scripts/release/gen-latest-json.mjs';
+import { planFeedFiles } from '../../../scripts/release/feed-plan.mjs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -123,13 +124,34 @@ test('release.yml は electron-updater メタデータ（latest-mac.yml / latest
   assert.match(releaseYml, /latest\.yml が見つかりません/);
 });
 
-test('feed-only は公開済み manifest を固定 feed へ変換してから latest.json を差し替える', async () => {
+// ファイル間の upload 順序はここでは固定しない。
+// workflow は列挙したファイルを 1 回の upload にまとめて渡す。
+test('feed-only は公開済み成果物から固定 feed 用 manifest を作り、計画したファイルを差し替える', async () => {
   const releaseYml = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
   const feedOnly = releaseYml.slice(releaseYml.indexOf('\n  feed-only:'));
-  assert.match(feedOnly, /rewrite-app-update-feed\.mjs/);
-  assert.match(feedOnly, /release-artifacts\/stable\.yml/);
-  assert.match(feedOnly, /release-artifacts\/stable-mac\.yml/);
-  assert.ok(feedOnly.indexOf('gh release upload updates "${manifests[@]}" --clobber') < feedOnly.indexOf('gh release upload updates release-artifacts/latest.json --clobber'));
+  const prepare = await readFile(path.join(repoRoot, 'scripts/release/prepare-feed-upload.mjs'), 'utf8');
+  assert.match(feedOnly, /TAG="\$\{\{ needs\.resolve-tag\.outputs\.tag \}\}"[\s\S]*?gh release download "\$TAG" --dir release-artifacts/);
+  assert.match(feedOnly, /node scripts\/release\/gen-latest-json\.mjs[\s\S]*?--out release-artifacts\/latest\.json/);
+  assert.match(feedOnly, /node scripts\/release\/prepare-feed-upload\.mjs[^\n]*> feed-upload\/files\.txt/);
+  assert.match(prepare, /planFeedFiles\(tag, existing\)/);
+  assert.match(prepare, /rewriteAppUpdateFeed\(await readFile\(join\(inputDir, 'latest\.yml'\), 'utf8'\), tag\)/);
+  assert.match(prepare, /rewriteAppUpdateFeed\(await readFile\(join\(inputDir, 'latest-mac\.yml'\), 'utf8'\), tag\)/);
+  assert.match(prepare, /for \(const name of plan\.files\)/);
+  assert.deepEqual(planFeedFiles('v1.2.0', null).files.sort(), [
+    'latest.json', 'latest.yml', 'latest-mac.yml', 'stable.yml', 'stable-mac.yml',
+    'prerelease.json', 'prerelease.yml', 'prerelease-mac.yml'
+  ].sort());
+  assert.deepEqual(planFeedFiles('v1.2.0-beta.1', null).files.sort(),
+    ['prerelease.json', 'prerelease.yml', 'prerelease-mac.yml'].sort());
+  assert.match(feedOnly, /mapfile -t manifests < feed-upload\/files\.txt[\s\S]*?gh release upload updates "\$\{manifests\[@\]\}" --clobber/);
+  assert.deepEqual(feedOnly.match(/gh release upload updates[^\n]*/g),
+    ['gh release upload updates "${manifests[@]}" --clobber']);
+  const download = feedOnly.indexOf('gh release download "$TAG" --dir release-artifacts');
+  const regenerate = feedOnly.indexOf('node scripts/release/gen-latest-json.mjs');
+  const prepareCall = feedOnly.indexOf('node scripts/release/prepare-feed-upload.mjs');
+  const upload = feedOnly.indexOf('gh release upload updates "${manifests[@]}" --clobber');
+  assert.ok(download >= 0 && download < regenerate && regenerate < prepareCall && prepareCall < upload,
+    '公開済み成果物を取得し、latest.json と固定 feed 用 manifest を生成してから upload する');
 });
 
 test('generic provider の差分 DL は本体 Release の新旧 blockmap URL を導く', () => {

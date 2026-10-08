@@ -9,10 +9,21 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { runStoreCommand } from '../src/store-command.mjs';
+import { checkRequires } from '../src/kits.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const FIXTURE = path.join(REPO_ROOT, 'packages', 'schemas', 'examples', 'kit-manifest-v1-valid');
 const FIXTURE_WITH_ASSET = path.join(REPO_ROOT, 'packages', 'schemas', 'examples', 'kit-manifest-v1-with-asset');
+
+test('キットの版条件は beta の順序・build metadata・上限を判定する', () => {
+  const requires = cli => ({ requires: { cli } });
+  assert.equal(checkRequires(requires('>=0.1.0'), { cliVersion: '1.2.0-beta.5' }).ok, true);
+  assert.equal(checkRequires(requires('>=1.2.0'), { cliVersion: '1.2.0-beta.5' }).ok, false);
+  assert.equal(checkRequires(requires('>=1.2.0'), { cliVersion: '1.2.0+build.7' }).ok, true);
+  assert.equal(checkRequires(requires('^1.2.0'), { cliVersion: '2.0.0-beta.1' }).ok, false);
+  assert.equal(checkRequires(requires('~1.2.0'), { cliVersion: '1.3.0-beta.1' }).ok, false);
+  assert.equal(checkRequires(requires('>=0.1.0'), { cliVersion: 'bad-version' }).ok, false);
+});
 
 function context() {
   const home = mkdtempSync(path.join(tmpdir(), 'akari-store-kits-test-'));
@@ -30,7 +41,8 @@ function fixtureZip(ctx, {
   manifest = true,
   withAsset = false,
   id = 'sample-kit',
-  skillName = 'sample-kit-skill'
+  skillName = 'sample-kit-skill',
+  requiresCli
 } = {}) {
   const source = path.join(ctx.home, `zip-source-${id}`);
   mkdirSync(source, { recursive: true });
@@ -47,7 +59,7 @@ function fixtureZip(ctx, {
   if (manifest && !invalid) {
     const manifestPath = path.join(source, 'manifest.json');
     const value = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    value.requires.cli = compatible ? '>=0.1.0' : '>=999.0.0';
+    value.requires.cli = requiresCli ?? (compatible ? '>=0.1.0' : '>=999.0.0');
     value.id = id;
     value.skills[0].name = skillName;
     writeFileSync(manifestPath, `${JSON.stringify(value, null, 2)}\n`);
@@ -60,6 +72,41 @@ function fixtureZip(ctx, {
   assert.equal(zipped.status, 0, zipped.stderr);
   return zipPath;
 }
+
+test('プレリリース CLI は古い下限のキットを導入できる', async () => {
+  const ctx = context();
+  try {
+    const zip = fixtureZip(ctx, { requiresCli: '>=0.1.0' });
+    const result = await runStoreCommand(['install', 'sample-kit', '--from', zip], {
+      ...ctx.options, cliVersion: '1.2.0-beta.1'
+    });
+    assert.equal(result.exitCode, 0);
+  } finally { ctx.cleanup(); }
+});
+
+test('プレリリース CLI は同じ核の正式版を下限とするキットを拒否する', async () => {
+  const ctx = context();
+  try {
+    const zip = fixtureZip(ctx, { requiresCli: '>=1.2.0' });
+    const result = await runStoreCommand(['install', 'sample-kit', '--from', zip], {
+      ...ctx.options, cliVersion: '1.2.0-beta.1'
+    });
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some(line => line.includes('CLI >=1.2.0')));
+  } finally { ctx.cleanup(); }
+});
+
+test('解釈できない CLI 版はキット導入を拒否する', async () => {
+  const ctx = context();
+  try {
+    const zip = fixtureZip(ctx, { requiresCli: '>=0.1.0' });
+    const result = await runStoreCommand(['install', 'sample-kit', '--from', zip], {
+      ...ctx.options, cliVersion: 'invalid-version'
+    });
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some(line => line.includes('CLI >=0.1.0')));
+  } finally { ctx.cleanup(); }
+});
 
 function zipTree(ctx, name, writeTree) {
   const source = path.join(ctx.home, `zip-source-${name}`);
