@@ -10,14 +10,15 @@ export function railViewLabel(id: string, explorerId: string): string | undefine
     return undefined;
 }
 
-export function shouldShowLeftRailTooltip(expanded: string | null, dragActive: boolean): boolean {
-    return expanded === null && !dragActive;
+export function shouldShowLeftRailTooltip(expanded: string | null, dragActive: boolean, suppressUntil = 0, now = Date.now()): boolean {
+    return expanded === null && !dragActive && now >= suppressUntil;
 }
 
 /** An immediate chip for the left activity bar; identity follows the title across DOM redraws. */
 export class LeftRailTooltip {
     readonly node: HTMLDivElement;
     protected title: Title<Widget> | undefined;
+    protected suppressUntil = 0;
 
     constructor(protected readonly tabBar: TabBar<Widget>) {
         if (!document.getElementById('akari-left-rail-tip-style')) {
@@ -35,6 +36,15 @@ export class LeftRailTooltip {
             document.body.appendChild(this.node);
         }
         const content = tabBar.contentNode;
+        let wasClosing = document.body.getAttribute?.('data-akari-rail-expanded') === 'closing';
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(() => {
+                const closing = document.body.getAttribute?.('data-akari-rail-expanded') === 'closing';
+                if (wasClosing && !closing) this.suppressUntil = Date.now() + 300;
+                wasClosing = closing;
+                if (closing) this.hide();
+            }).observe(document.body, { attributes: true, attributeFilter: ['data-akari-rail-expanded'] });
+        }
         content.addEventListener('mouseover', event => this.onOver(event));
         content.addEventListener('mouseleave', () => this.hide());
         content.addEventListener('focusout', () => this.hide());
@@ -47,7 +57,7 @@ export class LeftRailTooltip {
         const index = tab ? Array.from(this.tabBar.contentNode.children).indexOf(tab) : -1;
         const title = index >= 0 ? this.tabBar.titles[index] : undefined;
         if (!tab || !title || !shouldShowLeftRailTooltip(document.body.getAttribute?.('data-akari-rail-expanded') ?? null,
-            document.body.classList.contains('akari-rail-drag-active'))) {
+            document.body.classList.contains('akari-rail-drag-active'), this.suppressUntil)) {
             this.hide();
             return;
         }

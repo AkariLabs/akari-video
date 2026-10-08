@@ -9,6 +9,7 @@ const ts = require('typescript');
 const { RAIL_SKILLS_WIDGET_ID } = require('../lib/common/rail-ids.js');
 const { SKILLS_PANEL_TEXT, skillAskOutcomeMessage, skillPromptText, skillsPanelNote } =
     require('../lib/browser/skills/skills-panel-model.js');
+const { readProjectTitle } = require('../lib/browser/skills/project-title.js');
 const widgetSource = readFileSync(new URL('../src/browser/skills/akari-skills-widget.tsx', import.meta.url), 'utf8');
 
 function descriptionLeadFromWidget() {
@@ -34,13 +35,26 @@ test('左パネルのラベルと説明', () => {
 });
 
 test('カードは呼び名と説明の先頭を二行で表示する', () => {
-    assert.match(widgetSource, /className='skill-name'>\/{skill\.name}/);
+    assert.match(widgetSource, /className='skill-name' title=\{`\/\$\{skill\.name\}`\}>\/{skill\.name}/);
+    assert.match(widgetSource, /\.skill-name\s*\{[^}]*overflow: hidden; text-overflow: ellipsis;[^}]*white-space: nowrap;/);
+    assert.match(widgetSource, /\.skill-name-row\s*\{[^}]*display: flex;/);
+    assert.doesNotMatch(widgetSource, /\.skill-more\s*\{[^}]*position: absolute;/);
     assert.match(widgetSource, /className='skill-description'>{skillDescriptionLead\(skill\.description\)}/);
     assert.doesNotMatch(widgetSource, /className='skill-alias'/);
     assert.match(widgetSource, /min-height: 64px/);
     assert.match(widgetSource, /\.skill-art\s*\{[^}]*width: 64px; height: 44px;/);
     assert.match(widgetSource, /<SkillPictogram name=\{skill\.name\} category=\{group\.category\}/);
     assert.match(widgetSource, /-webkit-line-clamp: 2/);
+});
+
+test('吹き出しのプロジェクト名は intake の title を優先する', async () => {
+    const root = { path: { base: '旧フォルダ名' }, resolve: name => name };
+    const files = value => ({ readFile: async () => ({ value: { toString: () => value } }) });
+    assert.equal(await readProjectTitle(files('{"title":"新しい作品名"}'), root), '新しい作品名');
+    assert.equal(await readProjectTitle(files('{"title":"  "}'), root), '旧フォルダ名');
+    assert.equal(await readProjectTitle(files('{"title":42}'), root), '旧フォルダ名');
+    assert.equal(await readProjectTitle({ readFile: async () => { throw Error('missing'); } }, root), '旧フォルダ名');
+    assert.match(widgetSource, /intakeUri\?\.isEqual\(change\.resource\)/);
 });
 
 test('説明の先頭は最初の区切りで切り出す', () => {

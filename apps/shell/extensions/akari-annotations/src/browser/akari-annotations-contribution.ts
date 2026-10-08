@@ -1198,6 +1198,23 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         for (const widget of this.timelineWidgets) {
             if (widget.isAttached && !widget.isDisposed) { return; }
         }
+        try {
+            const location = (await this.locateAll()).find(candidate => candidate.editUri);
+            if (location?.editUri) {
+                const edit = JSON.parse(await this.readText(location.editUri)) as { tracks?: unknown };
+                if (Array.isArray(edit.tracks) && edit.tracks.length === 0) {
+                    const hasMedia = async (directory: URI): Promise<boolean> => {
+                        const stat: FileStat = await this.fileService.resolve(directory);
+                        if (stat.isFile) return /\.(mp4|mov|m4v|webm|mkv|avi|mp3|wav|m4a|flac|aac|ogg|png|jpe?g|webp|gif|bmp)$/i.test(stat.resource.path.base);
+                        for (const child of stat.children ?? []) {
+                            if (await hasMedia(child.resource)) return true;
+                        }
+                        return false;
+                    };
+                    if (!await hasMedia(location.root.resolve('assets'))) return;
+                }
+            }
+        } catch { /* 読み取れない編集内容は従来どおり表示する。 */ }
         await this.attachPassively();
     }
 
