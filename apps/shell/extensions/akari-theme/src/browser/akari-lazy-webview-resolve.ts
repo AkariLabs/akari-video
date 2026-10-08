@@ -1,32 +1,32 @@
-/** A one-shot visibility gate for a single webview widget. */
+/** A one-shot readiness gate for a single webview widget. */
 export class AkariLazyWebviewResolve {
     private started = false;
     private disposed = false;
     private promise: Promise<void> | undefined;
     private run: (() => Promise<void>) | undefined;
-    private isVisible: (() => boolean) | undefined;
+    private canResolve: (() => boolean) | undefined;
     private finish: (() => void) | undefined;
 
-    request(isVisible: () => boolean, run: () => Promise<void>): Promise<void> {
+    request(canResolve: () => boolean, run: () => Promise<void>): Promise<void> {
         if (this.disposed) {
             return Promise.resolve();
         }
         if (!this.promise) {
-            this.isVisible = isVisible;
+            this.canResolve = canResolve;
             this.run = run;
             this.promise = new Promise<void>((resolve, reject) => {
                 this.finish = resolve;
                 this.reject = reject;
             });
-            this.onVisible();
+            this.tryResolve();
         }
         return this.promise;
     }
 
     private reject: ((reason: unknown) => void) | undefined;
 
-    onVisible(): void {
-        if (this.started || this.disposed || !this.run || !this.isVisible?.()) {
+    tryResolve(): void {
+        if (this.started || this.disposed || !this.run || !this.canResolve?.()) {
             return;
         }
         this.started = true;
@@ -43,7 +43,7 @@ export class AkariLazyWebviewResolve {
     dispose(): void {
         this.disposed = true;
         this.run = undefined;
-        this.isVisible = undefined;
+        this.canResolve = undefined;
         if (!this.started) {
             this.finish?.();
         }
