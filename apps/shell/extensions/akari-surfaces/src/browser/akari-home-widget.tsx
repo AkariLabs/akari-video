@@ -1362,6 +1362,8 @@ export class AkariHomeWidget extends ReactWidget {
                 row ? stageSummary(await this.progress.readPresence(uri)) : undefined, this.projectCardFrames.get(request.uri)?.[0]);
         }
         if (channel) localStorage.setItem(AKARI_LAST_CHANNEL_STORAGE_KEY, channel);
+        // 再読み込み中の地の色を「開く先」（プロジェクトの中）にする（akari-theme の scope-ground が読む）。
+        if (!newWindow) { try { localStorage.setItem('akari.ground.scope', 'project'); } catch { /* 保存不可なら直前の色のまま */ } }
         if (!newWindow && request.reason?.startsWith('start-kind:')) {
             sessionStorage.setItem('akari.home.start-kind', request.reason.slice('start-kind:'.length));
         }
