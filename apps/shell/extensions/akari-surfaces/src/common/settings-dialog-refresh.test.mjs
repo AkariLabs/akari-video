@@ -50,6 +50,7 @@ class FakeNode {
         const tags = selector.split(',').map(item => item.trim());
         return all(this).slice(1).filter(node => tags.some(tag => tag.startsWith('.') ? node.className.split(/\s+/).includes(tag.slice(1)) : node.tag === tag));
     }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
 }
 const fakeDocument = {
     activeElement: null, listeners: {},
@@ -403,6 +404,33 @@ test('外観: テーマはプレビュー付きのカードで選び、ダーク
     other.dialog.renderSection('developer');
     assert.equal(all(developer).filter(node => node.getAttribute('role') === 'switch').length, 2);
     assert.equal(all(developer).some(node => node.attributes['data-akari-choice-cards']), false);
+});
+
+test('パートナー権限はふるまいカードに 3 択で表示し、既定 auto と保存を扱う', async () => {
+    const { SECTION_PREFERENCE_KEYS, AKARI_PARTNER_PERMISSION_MODE } = require('../../lib/common/settings-sections.js');
+    assert.deepEqual(SECTION_PREFERENCE_KEYS.partner, ['akari.partner.reopenLast', 'akari.partner.permissionMode']);
+    const page = new FakeNode('section');
+    const { dialog, writes } = makeDialog({}, { sections: new Map([['partner', page]]) });
+    dialog.renderSection('partner');
+    const behavior = find(page, node => node.getAttribute('data-akari-settings-group') === 'ふるまい');
+    assert.ok(behavior);
+    assert.deepEqual(all(behavior).filter(node => node.className === 'akari-set-row-label').map(node => node.textContent),
+        ['起動したら前回のパートナーを開く', 'パートナーの権限']);
+    assert.match(behavior.textContent, /Copilot・Antigravity・Command Code/);
+    const menu = find(behavior, node => node.getAttribute('data-akari-dropdown') === 'パートナーの権限');
+    const choices = all(menu).filter(node => node.getAttribute('role') === 'option');
+    assert.deepEqual(choices.map(node => [node.getAttribute('data-value'), node.textContent]), [
+        ['auto', '自動（おすすめ）'], ['ask', '毎回確認（各ツールの既定）'], ['bypass', 'すべて許可']
+    ]);
+    assert.equal(choices[0].getAttribute('aria-selected'), 'true');
+    choices[1].click();
+    choices[2].click();
+    await dialog.preferenceWrites;
+    assert.deepEqual(writes.map(([key, value]) => [key, value]), [
+        [AKARI_PARTNER_PERMISSION_MODE, 'ask'], [AKARI_PARTNER_PERMISSION_MODE, 'bypass']
+    ]);
+    const sourceText = source('../browser/akari-settings-dialog.ts');
+    assert.match(sourceText, /\[AKARI_PARTNER_PERMISSION_MODE\]: \{ type: 'string', enum: \['auto', 'ask', 'bypass'\], default: 'auto' \}/);
 });
 
 test('カタログのフォルダは手入力と選択でユーザー設定に保存し、キャンセルでは変更しない', async () => {

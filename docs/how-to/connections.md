@@ -74,6 +74,21 @@ The catalog is data-driven
 not a promise. Whichever partner you connect, everything converges on the same file
 contracts under `.akari/`.
 
+### Partner permissions
+
+Settings → Partner → Partner permissions defaults to **Auto (recommended)**.
+**Ask every time** uses each tool's default permission behavior. **Allow all** bypasses
+approval prompts and, where supported, the sandbox. Auto uses Claude Code and
+Grok's `auto` mode, Codex and Cursor's auto review, and Devin's `smart` mode.
+Copilot, Antigravity, Command Code, and Pi have no launch-time auto mode, so
+Auto starts them with their allow-all option. opencode keeps its own default
+behavior in Auto. DeepSeek Harness uses Workspace Write in Auto and Ask, and
+Full access in Allow all. If a CLI's `--help` does not list the requested flag,
+AKARI starts it without that flag. A running DeepSeek Harness process retains
+its original mode when its work screen is reused. Claude Code and Codex editor
+extensions use their own extension settings; this setting applies to CLI and
+DeepSeek web partners.
+
 ## Cost approval policy
 
 Independent of the delegation level (`autonomy` in `intake.json`), the

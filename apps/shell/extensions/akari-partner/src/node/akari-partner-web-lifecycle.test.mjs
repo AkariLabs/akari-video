@@ -35,6 +35,40 @@ class StubWebServer extends AkariPartnerServerImpl {
     killWebProcess(pid) { this.killed.push(pid); this.alive.delete(pid); }
 }
 
+test('DeepSeek の新規起動だけ権限 env を渡し、再利用時は元のモードを保つ', async t => {
+    const { root, first, executable } = await fixture(t);
+    const previousHome = process.env.AKARI_HOME;
+    const previousMode = process.env.DSH_PERMISSION_MODE;
+    process.env.AKARI_HOME = join(root, 'home');
+    process.env.DSH_PERMISSION_MODE = 'danger-full-access';
+    t.after(() => {
+        if (previousHome === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = previousHome;
+        if (previousMode === undefined) delete process.env.DSH_PERMISSION_MODE; else process.env.DSH_PERMISSION_MODE = previousMode;
+    });
+    class Server extends AkariPartnerServerImpl {
+        launches = [];
+        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
+        async launchWebProcess(input) {
+            this.launches.push(input.env.DSH_PERMISSION_MODE);
+            return { url: 'http://127.0.0.1:41000/?token=fixture', pid: 41100 + this.launches.length };
+        }
+        webProcessAlive() { return true; }
+        killWebProcess() {}
+    }
+    const server = new Server();
+    const uri = pathToFileURL(first).href;
+    const auto = await server.startWebPartner('deepseek', uri, executable, 'window-a', 'invalid');
+    const reused = await server.startWebPartner('deepseek', uri, executable, 'window-b', 'bypass');
+    assert.deepEqual(server.launches, [undefined]);
+    assert.equal(auto.appliedPermissionMode, 'auto');
+    assert.equal(reused.appliedPermissionMode, 'auto');
+    await server.stopWebPartner(auto.pid, 'window-a');
+    await server.stopWebPartner(auto.pid, 'window-b');
+    const bypass = await server.startWebPartner('deepseek', uri, executable, 'window-c', 'bypass');
+    assert.deepEqual(server.launches, [undefined, 'danger-full-access']);
+    assert.equal(bypass.appliedPermissionMode, 'bypass');
+});
+
 test('unregistered pid cannot be stopped and a live cwd is reused', async t => {
     const { first, executable } = await fixture(t);
     const server = new StubWebServer();

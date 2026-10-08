@@ -1,6 +1,7 @@
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
 export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+import type { PartnerPermissionMode } from './partner-permissions';
 
 export interface PartnerInstallDisclosure {
     name: string;
@@ -35,6 +36,7 @@ export interface PartnerWebLaunch {
     provider: 'deepseek-official' | 'opencode-go';
     providerNote: string;
     guidance?: string;
+    appliedPermissionMode?: PartnerPermissionMode;
 }
 
 export interface BinaryVerificationRequest {
@@ -57,6 +59,7 @@ export interface PartnerLaunchPlan {
     executablePath?: string;
     args: string[];
     log: string[];
+    appliedPermissionMode?: PartnerPermissionMode;
     /**
      * Extra environment variables to merge into the partner PTY's environment
      * (task/2026-07-31-shell-ffmpeg-bundle). Currently AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN,
@@ -137,9 +140,9 @@ export interface AkariPartnerServer {
      * のみ PATH へ前置する（このメソッドとは別に、そこで再度冪等にシムの有無を見る）。
      */
     ensureCli(): Promise<EnsureCliResult>;
-    prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
+    prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string, permissionMode?: PartnerPermissionMode): Promise<PartnerLaunchPlan>;
     startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string,
-        ownerId: string): Promise<PartnerWebLaunch>;
+        ownerId: string, permissionMode?: PartnerPermissionMode): Promise<PartnerWebLaunch>;
     stopWebPartner(pid: number, ownerId: string): Promise<void>;
     reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void>;
     isWebPartnerRunning(pid: number): Promise<boolean>;

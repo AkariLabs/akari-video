@@ -71,6 +71,18 @@ DeepSeek の Settings で配色を明示的に選んだ場合はそちらを優�
 （`partner-catalog.json`）でリリースごとに増えるため、この一覧はスナップショットです。
 どのパートナーから接続しても、最終的に同じ `.akari/` 配下のファイル契約に収束します。
 
+### パートナーの権限
+
+「設定 > パートナー > パートナーの権限」の既定は**自動（おすすめ）**です。
+**毎回確認**は各ツールの既定の権限動作、**すべて許可**は確認を省き、対応する
+ツールではサンドボックスも解除します。自動では Claude Code と Grok の `auto`、
+Codex と Cursor の自動審査、Devin の `smart` を使います。起動時の自動モードが無い
+Copilot・Antigravity・Command Code・Pi は、自動でもすべて許可の引数で起動します。
+opencode は自動ではツールの既定動作を使います。DeepSeek Harness は自動と毎回確認で
+Workspace Write、すべて許可で Full access です。CLI の `--help` に指定フラグが無い
+場合はそのフラグを付けずに起動します。起動中の DeepSeek Harness の画面を再利用するときは、
+先に起動したモードを維持します。Claude Code・Codex のエディタ拡張形は各拡張の設定に従います。
+
 ## コスト承認ポリシー
 
 おまかせ度（intake.json の `autonomy`）とは独立に、**課金と外部送信**については

@@ -59,7 +59,7 @@ import {
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
     normalizeExportEncoder, normalizeExportCodec, normalizeExportFps, isValidIrodoriUrl
 } from '../common/settings-sections';
-import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
+import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
@@ -657,7 +657,14 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 await this.shell.activateWidget(widget.id);
             }, { small: true }))),
         groupCard('ふるまい', this.preferenceSwitch(AKARI_PARTNER_REOPEN, '起動したら前回のパートナーを開く', true,
-            'プロジェクトを開くと前回のパートナーを開きます。タブを閉じたプロジェクトでは次回は開きません')));
+            'プロジェクトを開くと前回のパートナーを開きます。タブを閉じたプロジェクトでは次回は開きません'),
+        settingRow('パートナーの権限', '自動モードが無いツール（Copilot・Antigravity・Command Code など）は、自動でもすべて許可で起動します',
+            dropdown({ label: 'パートナーの権限', options: [
+                { value: 'auto', label: '自動（おすすめ）' },
+                { value: 'ask', label: '毎回確認（各ツールの既定）' },
+                { value: 'bypass', label: 'すべて許可' }
+            ], value: this.preferences.get(AKARI_PARTNER_PERMISSION_MODE, 'auto'),
+            onChange: value => this.savePreference(AKARI_PARTNER_PERMISSION_MODE, value) }))));
     }
 
     protected partnerRow(id: keyof typeof PARTNER_CLI_ICON_CLASSES, name: string, state: string, sub: string,
@@ -2240,6 +2247,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             [STATUS_BAR_KEYS.intervalSec]: { type: 'number', enum: [1, 3, 10], default: 3 },
             [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
             [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
+            [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto' },
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },
             [AKARI_EXPORT_FILENAME_PATTERN]: { type: 'string', enum: ['project-date-time', 'project-name'], default: 'project-date-time' },
