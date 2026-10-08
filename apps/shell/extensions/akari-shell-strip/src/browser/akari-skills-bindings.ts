@@ -1,10 +1,15 @@
+import { FrontendApplicationContribution, WidgetFactory } from '@theia/core/lib/browser';
 import { interfaces } from '@theia/core/shared/inversify';
+import { RAIL_SKILLS_WIDGET_ID } from '../common/rail-ids';
+import { AkariSkillsContribution } from './skills/akari-skills-contribution';
+import { AkariSkillsWidget } from './skills/akari-skills-widget';
 
-/**
- * 1 枚の画面 v0 — スキルの左パネル（契約 §3 レーン S）の束ね口。
- * 司令塔が frontend module に呼び出し行だけ先に配線した空殻。レーン S が
- * `skills/` 配下の widget と `common/skill-catalog.ts` の binding をここに足す。
- */
-export function bindSkillsPanel(_bind: interfaces.Bind): void {
-    // レーン S が埋める。
+export function bindSkillsPanel(bind: interfaces.Bind): void {
+    bind(AkariSkillsWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: RAIL_SKILLS_WIDGET_ID,
+        createWidget: () => ctx.container.get(AkariSkillsWidget)
+    })).inSingletonScope();
+    bind(AkariSkillsContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariSkillsContribution);
 }
