@@ -2,9 +2,11 @@ import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
+import { CommandService } from '@theia/core/lib/common';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { computeLeftPanelOrder } from './left-panel-order';
+import { LeftRailTooltip } from './left-rail-tooltip';
 
 /**
  * AKARI Video shell — S15 動的 activity bar curation。
@@ -71,11 +73,12 @@ interface LeftPanelInternals {
     };
 }
 
-// 既定 5 アイコン = 素材 / 検索 / パートナー・拡張 / 設定 / メニュー（task.md スコープ2 + 本ラウンド追加分）。
+// ホームを固定先頭に置き、素材のモード切り替え後も順序を保つ。
 // 「素材」は下記 MODE_SENSITIVE_PAIR の 2 id のどちらか一方だけが常時表示される。
 // akari-settings-opener は AkariSettingsContribution.onStart、
 // akari-menu-widget は AkariMenuContribution.onStart で追加される自前 widget。
 const ALLOWLIST: CurationEntry[] = [
+    { id: 'akari-home-opener', label: null },
     { id: EXPLORER_VIEW_CONTAINER_ID, label: '素材' },
     { id: ROLE_BUCKETS_WIDGET_ID, label: null },
     { id: 'search-view-container', label: '検索' },
@@ -85,6 +88,7 @@ const ALLOWLIST: CurationEntry[] = [
 
 /** 保存レイアウトの順序や後からの追加にかかわらず、ALLOWLIST の順に揃える。 */
 const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
+    'akari-home-opener',
     EXPLORER_VIEW_CONTAINER_ID,
     ROLE_BUCKETS_WIDGET_ID,
     'search-view-container',
@@ -106,13 +110,19 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected readonly widgetManager!: WidgetManager;
     @inject(AkariDeveloperModeService)
     protected readonly developerMode!: AkariDeveloperModeService;
+    @inject(CommandService)
+    protected readonly commands!: CommandService;
 
     protected shell?: ApplicationShell;
     protected loggedIds = new Set<string>();
+    protected leftTooltip?: LeftRailTooltip;
 
     onDidInitializeLayout(app: FrontendApplication): Promise<void> {
         return guardInitLayout('akari-shell-strip', () => {
             this.shell = app.shell;
+            if (this.shell.leftPanelHandler.tabBar) {
+                this.installLeftRailInteractions();
+            }
             // 起動時一括フィルタ（PoC 由来、pass 1）。
             this.reconcileLeftPanel('onDidInitializeLayout');
             void this.ensureModeAppropriateAssetView('onDidInitializeLayout');
@@ -143,6 +153,25 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 void this.ensureModeAppropriateAssetView('developerModeChanged');
             });
         });
+    }
+
+    protected installLeftRailInteractions(): void {
+        const tabBar = this.shell?.leftPanelHandler.tabBar;
+        if (!tabBar) { return; }
+        const renderer = tabBar.renderer as typeof tabBar.renderer & { handleMouseEnterEvent?: (event: MouseEvent) => void };
+        renderer.handleMouseEnterEvent = () => undefined;
+        if (!this.leftTooltip) { this.leftTooltip = new LeftRailTooltip(tabBar); }
+        // Lumino handles pointerdown on the tab bar node. Capture on its content
+        // prevents the home tab from ever becoming current, including when closed.
+        tabBar.contentNode.addEventListener('pointerdown', event => {
+            if (event.button !== 0) { return; }
+            const tab = (event.target as Element | null)?.closest?.('.lm-TabBar-tab');
+            const index = tab ? Array.from(tabBar.contentNode.children).indexOf(tab) : -1;
+            if (index < 0 || tabBar.titles[index]?.owner.id !== 'akari-home-opener') { return; }
+            event.preventDefault();
+            event.stopPropagation();
+            void this.commands.executeCommand('akari.home.open').catch(() => undefined);
+        }, true);
     }
 
     /**
