@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile, chmod } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { resolveFfmpeg, resolveFfprobe } from "../src/index.mjs";
@@ -37,9 +37,10 @@ function baseEnv(overrides = {}) {
   };
 }
 
-// PATH からシステムの ffmpeg/ffprobe を外し、vendor/ 同梱バイナリへの
-// フォールバックだけが効く状態を作る（task.md 記載の `env PATH=/usr/bin:/bin` と同じ狙い）。
-const STRIPPED_PATH_ENV = baseEnv({ PATH: "/usr/bin:/bin" });
+// PATH からシステムの ffmpeg/ffprobe を OS に依らず外す。
+const emptyPathDirectory = fs.mkdtempSync(path.join(tmpdir(), 'akari-media-bin-empty-path-'));
+after(() => fs.rmSync(emptyPathDirectory, { recursive: true, force: true }));
+const STRIPPED_PATH_ENV = baseEnv({ PATH: emptyPathDirectory });
 
 test("packagedBinaryPath: packageRoot の ../../media-bin を候補にし、win32 は .exe を付ける", () => {
   const packageRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -192,7 +193,8 @@ test("resolveFfmpeg: PATH に ffmpeg があればコマンド名を返す", () =
   assert.equal(resolved, "ffmpeg");
 });
 
-test("resolveFfmpeg: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", () => {
+test("resolveFfmpeg: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", t => {
+  if (!fs.existsSync(vendorBinaryPath('ffmpeg'))) return t.skip('vendor ffmpeg is not installed when postinstall is skipped');
   const resolved = resolveFfmpeg({ env: STRIPPED_PATH_ENV });
   assert.notEqual(resolved, "ffmpeg");
   assert.ok(path.isAbsolute(resolved), `絶対パスのはず: ${resolved}`);
@@ -202,7 +204,8 @@ test("resolveFfmpeg: PATH から外すと vendor 同梱バイナリへフォー�
   assert.match(result.stdout, /ffmpeg version/);
 });
 
-test("resolveFfprobe: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", () => {
+test("resolveFfprobe: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", t => {
+  if (!fs.existsSync(vendorBinaryPath('ffprobe'))) return t.skip('vendor ffprobe is not installed when postinstall is skipped');
   const resolved = resolveFfprobe({ env: STRIPPED_PATH_ENV });
   assert.notEqual(resolved, "ffprobe");
   assert.ok(path.isAbsolute(resolved), `絶対パスのはず: ${resolved}`);
