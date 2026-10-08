@@ -18,6 +18,7 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /akari-channel-area akari-channel-projects/);
     assert.match(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
     assert.match(widget, /resolveProjectCardThumbnails\(key\)/);
-    assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList\);\s*\}/);
-    assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{\s*this\.closePopover\(\);\s*if \(name === '__new__'\) \{\s*await this\.commands\.executeCommand\('akari\.home\.open'\);\s*this\.messages\.info\('ホームの「チャンネル」から新しいチャンネルを作れます'\);\s*return;\s*\}\s*this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
+    // 一覧を開くときは見ているチャンネルを渡す（別のチャンネルの一覧を開ける）。チャンネルを選ぶと project モードでは一覧を開く
+    assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*const channel = this\.context\.viewingChannel;\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList, \.\.\.\(channel \? \[\{ channel \}\] : \[\]\)\);\s*\}/);
+    assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{[\s\S]*?this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
 });
