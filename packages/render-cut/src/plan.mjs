@@ -292,10 +292,29 @@ export function buildAudioMixCommand({
     return `${clipFilters.join(",")},`;
   };
 
-  if (audio.bgms.length === 0 && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master && codec !== "prores422") {
+  const sfxEntries = audio.sfx.map((sfx, index) => {
+    const sourcePath = resolve(projectRoot, sfx.path);
+    const needsEnvelopeDuration = Array.isArray(sfx.keyframes) || sfx.ducking === true;
+    const clipSpeed = isFiniteNumber(sfx.speed) && sfx.speed > 0 ? sfx.speed : 1;
+    const trim = resolveSfxTrim(
+      sfx, ffprobeCommand, sourcePath, index, needsEnvelopeDuration, clipSpeed,
+      edit.output?.fps, audioProbeCache,
+    );
+    return { index, sfx, sourcePath, trim };
+  });
+  const audibleSfx = sfxEntries.filter(({ trim }) => !trim.skip);
+  let nextSfxWarningIndex = 0;
+  const appendSfxWarningsThrough = index => {
+    while (nextSfxWarningIndex <= index) {
+      warnings.push(...sfxEntries[nextSfxWarningIndex++].trim.warnings);
+    }
+  };
+
+  if (audio.bgms.length === 0 && audibleSfx.length === 0 && !hasNarration && !hasSpeech && !master && codec !== "prores422") {
+    appendSfxWarningsThrough(sfxEntries.length - 1);
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
-      hasAudibleAudio: audio.bgms.length > 0 || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
+      hasAudibleAudio: audio.bgms.length > 0 || audibleSfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
       envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
     };
   }
@@ -309,7 +328,8 @@ export function buildAudioMixCommand({
     "-i",
     inputPath,
   ];
-  if (audio.bgms.length === 0 && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master) {
+  if (audio.bgms.length === 0 && audibleSfx.length === 0 && !hasNarration && !hasSpeech && !master) {
+    appendSfxWarningsThrough(sfxEntries.length - 1);
     args.push(
       "-map", "0:v:0", "-map", "0:a:0", "-t", formatNumber(duration),
       "-c:v", "copy", ...audioArgsForCodec(codec), outputPath,
@@ -450,22 +470,8 @@ export function buildAudioMixCommand({
     }
     labels.push(bgmLabel);
   }
-  for (const [index, sfx] of audio.sfx.entries()) {
-    const sfxSourcePath = resolve(projectRoot, sfx.path);
-    const needsEnvelopeDuration = Array.isArray(sfx.keyframes) || sfx.ducking === true;
-    const clipSpeed = isFiniteNumber(sfx.speed) && sfx.speed > 0 ? sfx.speed : 1;
-    const trim = resolveSfxTrim(
-      sfx,
-      ffprobeCommand,
-      sfxSourcePath,
-      index,
-      needsEnvelopeDuration,
-      clipSpeed,
-      edit.output?.fps,
-      audioProbeCache,
-    );
-    warnings.push(...trim.warnings);
-    if (trim.skip) continue;
+  for (const { index, sfx, sourcePath: sfxSourcePath, trim } of audibleSfx) {
+    appendSfxWarningsThrough(index);
     // asplit pushes every decoded frame to every branch, including effects delayed far into
     // the timeline. Limit sharing to probed short SFX so a long source cannot queue hundreds
     // of MB of PCM behind those delays; narration, speech and BGM retain independent inputs.
@@ -518,6 +524,7 @@ export function buildAudioMixCommand({
     }
     labels.push(`[sfx${index}]`);
   }
+  appendSfxWarningsThrough(sfxEntries.length - 1);
   if (narrationLabel) labels.push(narrationLabel);
   if (speechLabel) labels.push(speechLabel);
 
@@ -568,7 +575,7 @@ export function buildAudioMixCommand({
   );
   return {
     operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
-    hasAudibleAudio: audio.bgms.length > 0 || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
+    hasAudibleAudio: audio.bgms.length > 0 || audibleSfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
     envelopes,
     envelope: envelopeProvenance(),
     clip_fx: clipFxProvenance(),
