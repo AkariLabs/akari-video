@@ -115,8 +115,7 @@ jobs:
       - name: unit tests (lane quarantine)
         run: node scripts/ci/run-unit-tests.mjs --lane quarantine
 
-  # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージ。Linux のブラウザ・GPU・フォント差は
-  # 診断ログとともに観測する。緑が安定したら required 化を検討する。
+  # 参考: ffmpeg / ffprobe / Chrome / Electron が要るパッケージ。緑が安定したら required 化を検討する。
   unit-media:
     name: unit-media (ffmpeg / Chrome が要る — 参考)
     runs-on: ubuntu-latest
@@ -162,6 +161,9 @@ jobs:
       # 専用の chrome-headless-shell を使う。CHROME_PATH は既存の他パッケージ向けに維持する。
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
+      # ランナーは kernel.apparmor_restrict_unprivileged_userns=1 で Chrome sandbox を張れないため、Linux だけ --no-sandbox が要る。
+      # headless-shell + single-process で overlay-runtime は 396/396 pass。
+      # Google Chrome は EGL 初期化失敗で多数 fail したため、overlay-runtime には headless-shell を使う。
       # 参考ジョブで結果を全部見るため。required 化するときに外す。
       - name: Install overlay Chrome headless shell
         shell: bash
@@ -174,83 +176,42 @@ jobs:
           test -x "$shell_bin"
           echo "Installed chrome-headless-shell version=$shell_version path=$shell_bin"
           echo "AKARI_TEST_CHROME_PATH=$shell_bin" >> "$GITHUB_ENV"
-      # 診断が固まってもレーン本体と結果を失わないよう、時間制限を設ける。
-      - name: Diagnose media Chrome launches
-        shell: bash
-        continue-on-error: true
-        timeout-minutes: 3
-        env:
-          CHROME_PATH: /usr/bin/google-chrome
-        run: |
-          set +e
-          uname -r
-          sysctl kernel.apparmor_restrict_unprivileged_userns || true
-          chrome="$CHROME_PATH"
-          shell_bin="${AKARI_TEST_CHROME_PATH:-}"
-          for browser in chrome headless-shell; do
-            if [ "$browser" = chrome ]; then binary="$chrome"; else binary="$shell_bin"; fi
-            if [ -z "$binary" ]; then
-              echo "CHROME_DIAG browser=$browser not installed"
-              continue
-            fi
-            echo "CHROME_DIAG browser=$browser path=$binary"
-            "$binary" --version 2>&1 || true
-            # 4 秒前後まで生きた（exit 0 または 124）なら起動成功、すぐ終われば起動直後に死亡。
-            # 死亡理由は続く stderr で確認する。
-            for mode in single-process+no-zygote single-process+no-zygote+no-sandbox multi-process multi-process+no-sandbox; do
-              case "$mode" in
-                single-process+no-zygote) args=(--single-process --no-zygote) ;;
-                single-process+no-zygote+no-sandbox) args=(--single-process --no-zygote --no-sandbox) ;;
-                multi-process) args=() ;;
-                multi-process+no-sandbox) args=(--no-sandbox) ;;
-              esac
-              err="$(mktemp "$RUNNER_TEMP/chrome-diag.XXXXXX")"
-              start=$SECONDS
-              timeout -k 1s 6s "$binary" --headless --disable-gpu --use-angle=swiftshader \
-                --allow-file-access-from-files "${args[@]}" --remote-debugging-pipe about:blank \
-                3< <(sleep 4) 4>/dev/null >/dev/null 2>"$err"
-              code=$?
-              elapsed=$((SECONDS - start))
-              echo "CHROME_DIAG browser=$browser mode=$mode exit=$code elapsed=${elapsed}s args=${args[*]}"
-              sed -n '1,40p' "$err"
-              rm -f "$err"
-            done
-          done
       - name: unit tests (lane media)
         run: xvfb-run -a node scripts/ci/run-unit-tests.mjs --lane media
         env:
           CHROME_PATH: /usr/bin/google-chrome
-          AKARI_TEST_BROWSER_DUMPIO: '1'
           ELECTRON_DISABLE_SANDBOX: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
-      # 診断が固まってもレーン本体と結果を失わないよう、時間制限を設ける。
-      - name: Diagnose overlay-runtime browser variants
+      # Vendor binaries are fetched only after the main lane, so its result keeps the apt ffmpeg.
+      # media-bin resolves PATH before vendor; this step puts vendor first only for the focused re-run.
+      - name: Re-run render-cut media tests with the bundled ffmpeg
         if: always()
         continue-on-error: true
-        timeout-minutes: 18
+        timeout-minutes: 12
         shell: bash
         env:
           CHROME_PATH: /usr/bin/google-chrome
-          AKARI_TEST_BROWSER_DUMPIO: '1'
           ELECTRON_DISABLE_SANDBOX: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
           set +e
-          for name in shell-multi chrome-single chrome-multi; do
-            case "$name" in
-              shell-multi) browser_path="${AKARI_TEST_CHROME_PATH:-}"; multi_process=1 ;;
-              chrome-single) browser_path=; multi_process=0 ;;
-              chrome-multi) browser_path=; multi_process=1 ;;
-            esac
-            log="$RUNNER_TEMP/overlay-variant-$name.log"
-            AKARI_TEST_CHROME_PATH="$browser_path" AKARI_TEST_BROWSER_MULTI_PROCESS="$multi_process" \
-              timeout -k 5s 5m xvfb-run -a node --test packages/overlay-runtime/test-harness/*.test.mjs >"$log" 2>&1
-            code=$?
-            echo "OVERLAY_VARIANT name=$name exit=$code"
-            grep -E '^ℹ (tests|pass|fail|skipped) ' "$log" | tail -4 || true
-            grep '^✖ ' "$log" | sort -u | head -80 || true
-            grep -E 'ERROR:|FATAL:|Target closed|Connection closed' "$log" | sort | uniq -c | sort -nr | head -20 || true
-          done
+          node packages/media-bin/scripts/fetch-binaries.mjs
+          fetch_code=$?
+          if [ "$fetch_code" -ne 0 ]; then
+            echo "MEDIA_VARIANT name=vendor-ffmpeg fetch-failed exit=$fetch_code"
+            exit 0
+          fi
+          vendor_binary="$(node --input-type=module -e "import { vendorBinaryPath } from './packages/media-bin/src/binary-manifest.mjs'; process.stdout.write(vendorBinaryPath('ffmpeg'))")"
+          vendor_dir="$(dirname "$vendor_binary")"
+          echo "MEDIA_VARIANT ffmpeg apt: $(ffmpeg -version | head -1)"
+          echo "MEDIA_VARIANT ffmpeg vendor: $("$vendor_binary" -version | head -1)"
+          cd packages/render-cut
+          PATH="$vendor_dir:$PATH" timeout -k 5s 10m xvfb-run -a node --test test/render-media-references.test.mjs test/audio-bgm-fade.test.mjs test/audio-sfx-fade.test.mjs test/audio-sfx-in-out.test.mjs > "$RUNNER_TEMP/media-variant-vendor.log" 2>&1
+          code=$?
+          echo "MEDIA_VARIANT name=vendor-ffmpeg exit=$code"
+          grep -E '^ℹ (tests|pass|fail|skipped) ' "$RUNNER_TEMP/media-variant-vendor.log" || true
+          grep '^✖ ' "$RUNNER_TEMP/media-variant-vendor.log" | sort -u | head -40 || true
+          exit 0
 
   l0:
     name: L0 (build:ext + lint + shell unit tests)
