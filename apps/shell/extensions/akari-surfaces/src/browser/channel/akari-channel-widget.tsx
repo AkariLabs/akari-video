@@ -15,7 +15,13 @@ import { ProjectProgressService, stageSummary } from '../home/project-progress';
 import { AkariChannelContextService, ChannelProject } from './akari-channel-context-service';
 import { CHANNEL_DOC_KINDS, ChannelDocKind, channelDocFileName, channelDocTemplate, resolveChannelDocFileName } from './channel-docs';
 import { ChannelAnswers, channelDesignPartnerPrompt, parseChannelMarkdown } from './channel-design-model';
-import { ChannelDesignView, ChannelDesignWizard } from './channel-design-wizard';
+import { ChannelDesignStart, ChannelDesignView, ChannelDesignWizard } from './channel-design-wizard';
+import { ChannelTypesCatalog } from './channel-types-catalog';
+import { ChannelTypeApplySheet, ChannelTypeBanner } from './channel-types-apply-sheet';
+import { ApplyChoices, ApplyInputs, appliedTypeName, parseTypeUndo, planTypeApply } from './channel-types-apply';
+import { ChannelTypeEntry, buildMyTypeJson, findChannelTypeByName } from './channel-types-model';
+import { HELPER_KINDS, HELPER_KIND_LABELS, HELPER_NO_PARTNER_TEXT, HELPER_ROW_DESCRIPTION,
+    HelperConsentSheet, HelperKind, buildHelperConsent, helperPrompt, parseHelperConsent } from './channel-helper';
 import { DesignMdValues, defaultDesignValues, parseDesignMd } from './design-md-model';
 import { DesignMdForm } from './channel-design-md-form';
 import { ChannelSkillDraft, PRESET_CHANNEL_SKILLS, buildSkillMd, copiedSkillMd, parseSkillMd, validateSkillSlug } from './channel-skills-model';
@@ -57,6 +63,8 @@ ${RAIL_TAB} .lm-TabBar-tabLabel { margin-top:25px; }
 .akari-channel-project-body { display:flex; flex-direction:column; min-width:0; gap:3px; }
 .akari-channel-project-body > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .akari-channel-project-body small { margin-left:0; }
+.akari-channel-row-hint { display:block; opacity:.6; font-size:11px; padding:0 8px 6px; }
+.akari-channel-helper-menu { padding:0 0 4px 10px; }
 `;
 
 @injectable()
@@ -82,8 +90,13 @@ export class AkariChannelWidget extends ReactWidget {
     protected memorySheet?: ChannelMemorySheetKind;
     protected memoryCounts = { people: 0, notes: 0, packs: 0 };
     protected popoverOpen = false;
+    protected helperMenuOpen = false;
     protected sheet?: { kind: 'design-wizard'; answers?: ChannelAnswers; appliedType?: string; rest?: string }
-        | { kind: 'design-view'; fileName: string; text: string }
+        | { kind: 'design-start' }
+        | { kind: 'types-catalog'; initialTypeId?: string; returnTo?: 'wizard' | 'view' }
+        | { kind: 'types-apply'; type: ChannelTypeEntry; inputs: ApplyInputs; returnTo?: 'wizard' | 'view' }
+        | { kind: 'helper-consent'; next: HelperKind }
+        | { kind: 'design-view'; fileName: string; text: string; appliedType?: string; canUndo: boolean }
         | { kind: 'design-form'; values: DesignMdValues }
         | { kind: 'skills' };
 
@@ -263,8 +276,12 @@ export class AkariChannelWidget extends ReactWidget {
             if (fileName) {
                 const file = this.channelFile(fileName);
                 if (!file) return;
-                this.sheet = { kind: 'design-view', fileName, text: (await this.files.readFile(file)).value.toString() };
-            } else this.sheet = { kind: 'design-wizard' };
+                const text = (await this.files.readFile(file)).value.toString();
+                this.sheet = { kind: 'design-view', fileName, text,
+                    appliedType: fileName === 'channel.md' ? appliedTypeName(text) : undefined,
+                    canUndo: fileName === 'channel.md' && !!this.channelFile('.akari/type-undo.json')
+                        && await this.files.exists(this.channelFile('.akari/type-undo.json')!) };
+            } else this.sheet = { kind: 'design-start' };
             this.update();
         } catch { void this.messages.error('チャンネル設計を読めませんでした'); }
     }
@@ -344,6 +361,25 @@ export class AkariChannelWidget extends ReactWidget {
         } catch { void this.messages.error(`${name} を書けませんでした`); }
     }
 
+    protected async saveMyType(): Promise<void> {
+        const channelName = this.context.viewingChannel;
+        const root = this.channelFile('.akari');
+        if (!root || !channelName) return;
+        try {
+            const read = async (name: string): Promise<string | undefined> => {
+                const uri = this.channelFile(name);
+                return uri && await this.files.exists(uri) ? (await this.files.readFile(uri)).value.toString() : undefined;
+            };
+            const text = buildMyTypeJson({ channelName, channelMd: await read('channel.md'), designMd: await read('design.md'),
+                skillSlugs: this.channelSkills.map(skill => skill.slug), now: new Date().toISOString() });
+            if (!await this.files.exists(root)) await this.files.createFolder(root);
+            const uri = root.resolve('my-type.json');
+            if (await this.files.exists(uri)) await this.files.writeFile(uri, BinaryBuffer.fromString(text));
+            else await this.files.create(uri, text);
+            void this.messages.info('自分の型として残しました。人に公開するかはあとで選べます');
+        } catch { void this.messages.error('自分の型を残せませんでした'); }
+    }
+
     protected async openSheetFile(name: string, text?: string): Promise<void> {
         const uri = this.channelFile(name);
         if (!uri) return;
@@ -362,6 +398,104 @@ export class AkariChannelWidget extends ReactWidget {
         await this.commands.executeCommand(AKARI_COMMANDS.partnerOpen).catch(() => undefined);
         const result = await this.commands.executeCommand(AKARI_COMMANDS.partnerTypePrompt, prompt).catch(() => 'unsupported');
         if (result === 'no-partner') void this.messages.info('右の「パートナー」からパートナーを開くと、一緒に設計できます');
+    }
+
+    protected async readChannelText(path: string): Promise<string | undefined> {
+        const uri = this.channelFile(path);
+        return uri && await this.files.exists(uri) ? (await this.files.readFile(uri)).value.toString() : undefined;
+    }
+
+    protected async writeChannelText(path: string, value: string): Promise<void> {
+        const uri = this.channelFile(path);
+        if (!uri) throw new Error('チャンネルがありません');
+        const parts = path.split('/');
+        for (let index = 1; index < parts.length; index++) {
+            const folder = this.channelFile(parts.slice(0, index).join('/'));
+            if (folder && !await this.files.exists(folder)) await this.files.createFolder(folder);
+        }
+        if (await this.files.exists(uri)) await this.files.writeFile(uri, BinaryBuffer.fromString(value));
+        else await this.files.create(uri, value);
+    }
+
+    protected async openTypeApply(type: ChannelTypeEntry): Promise<void> {
+        const returnTo = this.sheet?.kind === 'types-catalog' ? this.sheet.returnTo : undefined;
+        try {
+            const [channelMd, designMd, wordBookText, notesText] = await Promise.all([
+                this.readChannelText('channel.md'), this.readChannelText('design.md'),
+                this.readChannelText('.akari/memory/word-book.json'), this.readChannelText('.akari/memory/notes.json')
+            ]);
+            const existingSkillTexts: Record<string, string> = {};
+            for (const skill of this.channelSkills) {
+                const value = await this.readChannelText(`skills/${skill.slug}/SKILL.md`);
+                if (value !== undefined) existingSkillTexts[skill.slug] = value;
+            }
+            this.sheet = { kind: 'types-apply', type, returnTo, inputs: { channelMd, designMd, wordBookText, notesText,
+                existingSkillSlugs: this.channelSkills.map(skill => skill.slug), existingSkillTexts } };
+            this.update();
+        } catch { void this.messages.error('型の重なりを読めませんでした'); }
+    }
+
+    protected async applyType(type: ChannelTypeEntry, inputs: ApplyInputs, choices: ApplyChoices): Promise<void> {
+        const channelName = this.context.viewingChannel;
+        if (!channelName) return;
+        try {
+            const { writes, undo } = planTypeApply(type, inputs, choices, channelName, new Date().toISOString());
+            for (const [path, value] of Object.entries(writes)) await this.writeChannelText(path, value);
+            await this.writeChannelText('.akari/type-undo.json', JSON.stringify(undo, null, 2));
+            void this.messages.info(`「${type.name}」を当てました。テンプレ・字幕スタイル・スキルの下書きが入ります`);
+            await this.refreshChannelDocs();
+            await this.openDesignSheet();
+        } catch { void this.messages.error('型を当てられませんでした'); }
+    }
+
+    protected async undoType(): Promise<void> {
+        try {
+            const undo = parseTypeUndo(await this.readChannelText('.akari/type-undo.json'));
+            if (!undo) throw new Error('戻す記録がありません');
+            for (const [path, value] of Object.entries(undo.files)) {
+                const uri = this.channelFile(path);
+                if (!uri) throw new Error('チャンネルがありません');
+                if (value !== null) await this.writeChannelText(path, value);
+                else if (path.startsWith('skills/')) {
+                    const dir = this.channelFile(path.split('/').slice(0, 2).join('/'));
+                    if (dir && await this.files.exists(dir)) await this.files.delete(dir, { recursive: true });
+                } else if (await this.files.exists(uri)) await this.files.delete(uri);
+            }
+            const undoFile = this.channelFile('.akari/type-undo.json');
+            if (undoFile && await this.files.exists(undoFile)) await this.files.delete(undoFile);
+            void this.messages.info('1 つ前に戻しました');
+            await this.refreshChannelDocs();
+            await this.openDesignSheet();
+        } catch { void this.messages.error('1 つ前に戻せませんでした'); }
+    }
+
+    protected async runHelper(kind: HelperKind): Promise<void> {
+        if (!this.context.viewingChannel) return;
+        this.helperMenuOpen = false;
+        try {
+            if (!parseHelperConsent(await this.readChannelText('.akari/helper.json'))) {
+                this.sheet = { kind: 'helper-consent', next: kind };
+                this.update();
+                return;
+            }
+            await this.askHelper(kind);
+        } catch { void this.messages.error('ヘルパーを開けませんでした'); }
+    }
+
+    protected async allowHelper(kind: HelperKind): Promise<void> {
+        try {
+            await this.writeChannelText('.akari/helper.json', buildHelperConsent(new Date().toISOString()));
+            await this.askHelper(kind);
+        } catch { void this.messages.error('ヘルパーの確認を保存できませんでした'); }
+    }
+
+    protected async askHelper(kind: HelperKind): Promise<void> {
+        const channelName = this.context.viewingChannel;
+        if (!channelName) return;
+        this.closeSheet();
+        await this.commands.executeCommand(AKARI_COMMANDS.partnerOpen).catch(() => undefined);
+        const result = await this.commands.executeCommand(AKARI_COMMANDS.partnerTypePrompt, helperPrompt(kind, channelName)).catch(() => 'unsupported');
+        if (result === 'no-partner') void this.messages.info(HELPER_NO_PARTNER_TEXT);
     }
 
     protected async openProjectList(): Promise<void> {
@@ -422,6 +556,14 @@ export class AkariChannelWidget extends ReactWidget {
                 </div>)}
                 <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' onClick={() => void this.openSkillsSheet()}>スキル</button>
                     <small>{this.channelSkills.length} 個</small></div>
+                <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' data-akari-helper-row
+                    onClick={() => void this.runHelper('default')}>ヘルパー</button>
+                    <button type='button' className='akari-channel-create' data-akari-helper-menu aria-expanded={this.helperMenuOpen}
+                        onClick={() => { this.helperMenuOpen = !this.helperMenuOpen; this.update(); }}>▾</button></div>
+                <small className='akari-channel-row-hint'>{HELPER_ROW_DESCRIPTION}</small>
+                {this.helperMenuOpen && <div className='akari-channel-helper-menu'>{HELPER_KINDS.map(kind =>
+                    <button key={kind} type='button' className='akari-channel-row' data-akari-helper-kind={kind}
+                        onClick={() => void this.runHelper(kind)}>{HELPER_KIND_LABELS[kind]}</button>)}</div>}
             </div>
             <div className='akari-channel-area akari-channel-projects'>
                 <div className='akari-channel-section'>プロジェクト</div>
@@ -434,12 +576,38 @@ export class AkariChannelWidget extends ReactWidget {
                         <small>{this.context.currentProjectUri?.toString() === project.uri.toString() ? '開いています' : this.projectStages.get(project.uri.toString()) ?? ''}</small></span>
                 </button>)}
             </div>
+            {this.sheet?.kind === 'design-start' && <ChannelDesignStart
+                onFromType={() => { this.sheet = { kind: 'types-catalog' }; this.update(); }}
+                onFromQuestions={() => { this.sheet = { kind: 'design-wizard' }; this.update(); }} onClose={this.closeSheet} />}
+            {this.sheet?.kind === 'types-catalog' && <ChannelTypesCatalog channelName={channel || ''}
+                initialTypeId={this.sheet.initialTypeId}
+                onApply={type => void this.openTypeApply(type)}
+                onSaveMyType={() => void this.saveMyType()} onClose={this.closeSheet} />}
+            {this.sheet?.kind === 'types-apply' && <ChannelTypeApplySheet type={this.sheet.type} channelName={channel || ''}
+                inputs={this.sheet.inputs} onApply={choices => {
+                    if (this.sheet?.kind === 'types-apply') void this.applyType(this.sheet.type, this.sheet.inputs, choices);
+                }} onBack={() => {
+                    if (this.sheet?.kind !== 'types-apply') return;
+                    this.sheet = { kind: 'types-catalog', initialTypeId: this.sheet.type.id, returnTo: this.sheet.returnTo };
+                    this.update();
+                }} onClose={this.closeSheet} />}
+            {this.sheet?.kind === 'helper-consent' && <HelperConsentSheet channelName={channel || ''}
+                onAllow={() => { if (this.sheet?.kind === 'helper-consent') void this.allowHelper(this.sheet.next); }}
+                onCancel={this.closeSheet} />}
             {this.sheet?.kind === 'design-wizard' && <ChannelDesignWizard channelName={channel || ''}
                 initialAnswers={this.sheet.answers} initialAppliedType={this.sheet.appliedType} rest={this.sheet.rest} hasProKey={false}
                 onCreate={markdown => void this.saveSheetFile('channel.md', markdown)}
                 onPartner={answers => void this.askPartner(channelDesignPartnerPrompt(answers))}
-                onNotice={text => { void this.messages.info(text); }} onClose={this.closeSheet} />}
+                onNotice={text => { void this.messages.info(text); }}
+                onCatalog={() => { this.sheet = { kind: 'types-catalog', returnTo: 'wizard' }; this.update(); }}
+                onClose={this.closeSheet} />}
             {this.sheet?.kind === 'design-view' && <ChannelDesignView fileName={this.sheet.fileName} text={this.sheet.text}
+                banner={this.sheet.appliedType && <ChannelTypeBanner typeName={this.sheet.appliedType} canUndo={this.sheet.canUndo}
+                    onCatalog={() => {
+                        const typeId = this.sheet?.kind === 'design-view' ? findChannelTypeByName(this.sheet.appliedType ?? '')?.id : undefined;
+                        this.sheet = { kind: 'types-catalog', initialTypeId: typeId, returnTo: 'view' };
+                        this.update();
+                    }} onUndo={() => void this.undoType()} />}
                 onRedesign={() => {
                     const parsed = this.sheet?.kind === 'design-view' && this.sheet.fileName === 'channel.md'
                         ? parseChannelMarkdown(this.sheet.text) : undefined;
@@ -448,10 +616,17 @@ export class AkariChannelWidget extends ReactWidget {
                 }}
                 onOpenFile={() => { if (this.sheet?.kind === 'design-view') void this.openSheetFile(this.sheet.fileName); }}
                 onPartner={() => void this.askPartner('/channel-design channel.md を読んで、ほかとの違い・見る人の困りごと・続けられる量を一緒に深掘りしてください')}
+                onHelper={() => void this.runHelper('default')}
+                onCatalog={() => {
+                    const typeId = this.sheet?.kind === 'design-view' ? findChannelTypeByName(parseChannelMarkdown(this.sheet.text).appliedType ?? '')?.id : undefined;
+                    this.sheet = { kind: 'types-catalog', initialTypeId: typeId, returnTo: 'view' };
+                    this.update();
+                }}
                 onClose={this.closeSheet} />}
             {this.sheet?.kind === 'design-form' && <DesignMdForm channelName={channel || ''} initial={this.sheet.values}
                 onSave={text => void this.saveSheetFile('design.md', text)}
-                onOpenFile={text => void this.openSheetFile('design.md', text)} onClose={this.closeSheet} />}
+                onOpenFile={text => void this.openSheetFile('design.md', text)} onHelper={() => void this.runHelper('design')}
+                onClose={this.closeSheet} />}
             {this.sheet?.kind === 'skills' && <ChannelSkillsSheet skills={this.channelSkills} presets={PRESET_CHANNEL_SKILLS} akariSkills={this.akariSkills}
                 onAddPreset={draft => void this.addChannelSkill(draft)} onCreate={draft => void this.addChannelSkill(draft)}
                 onCopyAkari={name => void this.copyAkariSkill(name)} onOpen={slug => void this.openChannelSkill(slug)}
