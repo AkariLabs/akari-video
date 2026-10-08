@@ -30,7 +30,7 @@ const panelCss = `
 .akari-skills-panel .skill-card { position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 5px; width: 100%; min-height: 64px; padding: 5px 21px 5px 5px; border: 0; border-radius: 8px; background: var(--theia-editorWidget-background); color: var(--theia-foreground); cursor: pointer; }
 .akari-skills-panel .skill-card:hover,.akari-skills-panel .skill-card:focus-visible { background: var(--theia-list-hoverBackground); }
 .akari-skills-panel .skill-card:focus-visible { outline: 2px solid var(--theia-focusBorder); outline-offset: 1px; }
-.akari-skills-panel .skill-art { flex: none; display: flex; align-items: center; justify-content: center; width: 56px; height: 40px; border-radius: 5px; background: var(--theia-editor-background); color: var(--theia-descriptionForeground); }
+.akari-skills-panel .skill-art { flex: none; display: flex; align-items: center; justify-content: center; width: 64px; height: 44px; border-radius: 5px; background: var(--theia-editor-background); color: var(--theia-descriptionForeground); }
 .akari-skills-panel .skill-art svg { display: block; }
 .akari-skills-panel .skill-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; line-height: 1.3; text-align: left; }
 .akari-skills-panel .skill-name { display: block; min-width: 0; font-family: var(--theia-code-font-family); font-size: 12px; font-weight: 700; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
@@ -113,7 +113,7 @@ function SkillsCards({ skills, projectName, onAsk, onCopy, onOpen }: {
                             event.preventDefault(); onAsk(skill.name);
                         }
                     }}>
-                    <span className='skill-art'><SkillPictogram category={group.category} /></span>
+                    <span className='skill-art'><SkillPictogram name={skill.name} category={group.category} /></span>
                     <span className='skill-copy'>
                         <strong className='skill-name'>/{skill.name}</strong>
                         <span className='skill-description'>{skillDescriptionLead(skill.description)}</span>

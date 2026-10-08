@@ -9,8 +9,8 @@ const { skillCategory, skillCategoryLabel, groupSkillsByCategory } =
 const expected = {
     'address-review': 'review',
     akari: 'other',
-    'analyze-footage': 'other',
-    'analyze-project': 'other',
+    'analyze-footage': 'analysis',
+    'analyze-project': 'analysis',
     'bake-3d': 'other',
     'beat-sync-edit': 'edit',
     'compile-review-session': 'review',
@@ -18,7 +18,7 @@ const expected = {
     'critique-cut': 'edit',
     'declare-audio': 'material',
     'design-world': 'other',
-    'edit-lint': 'edit',
+    'edit-lint': 'review',
     'edit-plan': 'plan',
     'export-nle': 'export',
     'generate-media': 'material',
@@ -42,14 +42,18 @@ test('26 件のスキル名を名前の語と優先順で分類する', () => {
     }
     assert.equal(skillCategory('planning', ''), 'other');
     assert.equal(skillCategory('review-plan', ''), 'plan');
+    assert.equal(skillCategory('transcribe', ''), 'analysis');
+    assert.equal(skillCategory('transcription', ''), 'analysis');
+    assert.equal(skillCategory('inspect-media', ''), 'analysis');
 });
 
 test('小見出しは定めた順序で空の種を省く', () => {
     const groups = groupSkillsByCategory([
         { name: 'setup-remote', description: '' },
         { name: 'edit-plan', description: '' },
+        { name: 'analyze-footage', description: '' },
         { name: 'generate-media', description: '' }
     ]);
-    assert.deepEqual(groups.map(group => group.label), ['企画', '素材', 'セットアップ']);
+    assert.deepEqual(groups.map(group => group.label), ['企画', '分析', '素材', 'セットアップ']);
     assert.equal(skillCategoryLabel('review'), '確認');
 });

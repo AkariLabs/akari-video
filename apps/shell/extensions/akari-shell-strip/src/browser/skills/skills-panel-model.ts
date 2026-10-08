@@ -7,13 +7,14 @@ export const SKILLS_PANEL_TEXT = {
     addHint: 'スキルの追加はこの版ではパートナーに頼んでください（例: /create-skill）'
 } as const;
 
-export type SkillCategory = 'plan' | 'material' | 'edit' | 'review' | 'export' | 'setup' | 'other';
+export type SkillCategory = 'plan' | 'analysis' | 'material' | 'edit' | 'review' | 'export' | 'setup' | 'other';
 
 export const SKILL_CATEGORY_ORDER: readonly SkillCategory[] =
-    ['plan', 'material', 'edit', 'review', 'export', 'setup', 'other'];
+    ['plan', 'analysis', 'material', 'edit', 'review', 'export', 'setup', 'other'];
 
 const CATEGORY_WORDS: ReadonlyArray<readonly [SkillCategory, readonly string[]]> = [
     ['plan', ['research', 'plan', 'ideate']],
+    ['analysis', ['analyze', 'analysis', 'interpret', 'transcri', 'inspect', 'diagnos']],
     ['material', ['import', 'material', 'harvest', 'narration', 'media', 'library', 'audio']],
     ['edit', ['edit', 'cut', 'caption', 'telop', 'mix']],
     ['review', ['review', 'lint', 'report', 'check', 'address']],
@@ -22,14 +23,17 @@ const CATEGORY_WORDS: ReadonlyArray<readonly [SkillCategory, readonly string[]]>
 ];
 
 const CATEGORY_LABELS: Record<SkillCategory, string> = {
-    plan: '企画', material: '素材', edit: '編集', review: '確認',
+    plan: '企画', analysis: '分析', material: '素材', edit: '編集', review: '確認',
     export: '書き出し', setup: 'セットアップ', other: 'その他'
 };
 
 export function skillCategory(name: string, _description: string): SkillCategory {
     const words = new Set(name.toLowerCase().split('-'));
+    if (words.has('lint')) return 'review';
     for (const [category, candidates] of CATEGORY_WORDS) {
-        if (candidates.some(word => words.has(word))) return category;
+        if (candidates.some(word => category === 'analysis'
+            ? [...words].some(nameWord => nameWord.startsWith(word))
+            : words.has(word))) return category;
     }
     return 'other';
 }

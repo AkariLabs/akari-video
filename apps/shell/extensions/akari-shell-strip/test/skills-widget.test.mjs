@@ -38,6 +38,8 @@ test('カードは呼び名と説明の先頭を二行で表示する', () => {
     assert.match(widgetSource, /className='skill-description'>{skillDescriptionLead\(skill\.description\)}/);
     assert.doesNotMatch(widgetSource, /className='skill-alias'/);
     assert.match(widgetSource, /min-height: 64px/);
+    assert.match(widgetSource, /\.skill-art\s*\{[^}]*width: 64px; height: 44px;/);
+    assert.match(widgetSource, /<SkillPictogram name=\{skill\.name\} category=\{group\.category\}/);
     assert.match(widgetSource, /-webkit-line-clamp: 2/);
 });
 
