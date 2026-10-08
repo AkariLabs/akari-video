@@ -4,16 +4,118 @@ import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SE
     TRANSITION_DROP_TARGET_SIZE_PX } from '../timeline/timeline-metrics';
 
 export const ANNOTATIONS_WIDGET_CSS = `
+    .akari-annotations-widget,
+    [data-akari-visual-thumbnail-hover="true"] {
+        --akari-tl-lane: #1a1d22;
+        --akari-tl-ruler: #1e1e21;
+        --akari-tl-border: #2a2d33;
+        --akari-tl-tick: #3f3f46;
+        --akari-tl-playhead: #fff;
+        --akari-tl-clip: #27272a;
+        --akari-tl-clip-border: #3f3f46;
+        --akari-tl-clip-edge: rgba(250, 250, 250, .55);
+        --akari-tl-clip-edge-dark: #09090b;
+        --akari-tl-clip-text: #e5e5e5;
+        --akari-tl-header-text: #e5e5e5;
+        --akari-tl-selected-edge: #ffffff;
+        --akari-tl-clip-face: #303640;
+        --akari-tl-clip-face-border: #79828f;
+        --akari-tl-checker-border: #87909d;
+        --akari-tl-checker-a: #5b6470;
+        --akari-tl-checker-b: #4a525d;
+        --akari-tl-caption-text: #fff;
+        --akari-tl-caption-shadow: #000;
+        --akari-tl-tree-tick: rgba(255, 255, 255, .78);
+        --akari-tl-lock-stripe: rgba(255,255,255,.08);
+        --akari-tl-selection-shadow: rgba(255, 255, 255, .65);
+        --akari-tl-trim-border: #fff;
+        --akari-tl-trim-fill: rgba(255, 255, 255, .45);
+        --akari-tl-trim-shadow: rgba(255, 255, 255, .8);
+        --akari-tl-transition-neutral: rgba(255,255,255,.4);
+        --akari-tl-waveform: #fff;
+        --akari-tl-waveform-red: #ef4444;
+        --akari-tl-waveform-yellow: #facc15;
+        --akari-tl-waveform-fill: rgba(255,255,255,.7);
+        --akari-tl-waveform-stroke: rgba(255,255,255,.95);
+        --akari-tl-generating: rgba(22, 25, 30, .96);
+        --akari-tl-generating-text: #f2f5f7;
+        --akari-tl-fetch-overlay: rgba(0,0,0,.45);
+        --akari-tl-fetch-text: #fff;
+        --akari-tl-chip-face: rgba(0, 0, 0, .72);
+        --akari-tl-chip-text: #fff;
+        --akari-tl-visual-label-face: #111c;
+        --akari-tl-hover-face: #171d25;
+        --akari-tl-hover-border: #657080;
+        --akari-tl-hover-text: #fff;
+        --akari-tl-frame-text: #eee5ff;
+        --akari-tl-frame-audio-text: #d8ffe9;
+        --akari-tl-new-track-label-face: rgba(20, 20, 20, .85);
+        --akari-tl-new-track-label-text: #fff;
+        --akari-tl-planned-badge: #badbff;
+        --akari-tl-generating-badge: #d4ebff;
+        --akari-tl-generating-spinner: rgba(212,235,255,.4);
+    }
+    body.theia-light .akari-annotations-widget,
+    body.theia-light [data-akari-visual-thumbnail-hover="true"] {
+        --akari-tl-lane: var(--akari-card, #f4f4f5);
+        --akari-tl-ruler: var(--akari-elevated, #fafafa);
+        --akari-tl-border: var(--akari-line, #d4d4d8);
+        --akari-tl-tick: var(--akari-muted, #52525b);
+        --akari-tl-playhead: var(--akari-ink, #18181b);
+        --akari-tl-clip: var(--akari-elevated, #fafafa);
+        --akari-tl-clip-border: var(--akari-line, #d4d4d8);
+        --akari-tl-clip-edge: rgba(24, 24, 27, .55);
+        --akari-tl-clip-edge-dark: var(--akari-line, #d4d4d8);
+        --akari-tl-clip-text: var(--akari-ink, #18181b);
+        --akari-tl-header-text: #e5e5e5;
+        --akari-tl-selected-edge: var(--akari-ink, #18181b);
+        --akari-tl-clip-face: var(--akari-elevated, #fafafa);
+        --akari-tl-clip-face-border: var(--akari-line, #d4d4d8);
+        --akari-tl-checker-border: var(--akari-line, #d4d4d8);
+        --akari-tl-checker-a: #f4f4f5;
+        --akari-tl-checker-b: #e4e4e7;
+        --akari-tl-caption-text: var(--akari-ink, #18181b);
+        --akari-tl-caption-shadow: #fff;
+        --akari-tl-tree-tick: rgba(24, 24, 27, .78);
+        --akari-tl-lock-stripe: rgba(24,24,27,.08);
+        --akari-tl-selection-shadow: rgba(24, 24, 27, .65);
+        --akari-tl-trim-border: var(--akari-ink, #18181b);
+        --akari-tl-trim-fill: rgba(24, 24, 27, .45);
+        --akari-tl-trim-shadow: rgba(24, 24, 27, .8);
+        --akari-tl-transition-neutral: rgba(24,24,27,.55);
+        --akari-tl-waveform: var(--akari-ink, #18181b);
+        --akari-tl-waveform-red: #b91c1c;
+        --akari-tl-waveform-yellow: #a16207;
+        --akari-tl-waveform-fill: rgba(24,24,27,.7);
+        --akari-tl-waveform-stroke: rgba(24,24,27,.95);
+        --akari-tl-generating: rgba(250, 250, 250, .96);
+        --akari-tl-generating-text: var(--akari-ink, #18181b);
+        --akari-tl-fetch-overlay: rgba(255,255,255,.72);
+        --akari-tl-fetch-text: var(--akari-ink, #18181b);
+        --akari-tl-chip-face: rgba(255, 255, 255, .84);
+        --akari-tl-chip-text: var(--akari-ink, #18181b);
+        --akari-tl-visual-label-face: rgba(255, 255, 255, .84);
+        --akari-tl-hover-face: var(--akari-elevated, #fafafa);
+        --akari-tl-hover-border: var(--akari-line, #d4d4d8);
+        --akari-tl-hover-text: var(--akari-ink, #18181b);
+        --akari-tl-frame-text: #4c1d95;
+        --akari-tl-frame-audio-text: #065f46;
+        --akari-tl-new-track-label-face: rgba(255, 255, 255, .88);
+        --akari-tl-new-track-label-text: var(--akari-ink, #18181b);
+        --akari-tl-planned-badge: #1d4ed8;
+        --akari-tl-generating-badge: #1e40af;
+        --akari-tl-generating-spinner: rgba(30,64,175,.4);
+    }
     .akari-annotations-widget .akari-annotations-strip-clip {
-        background: #27272a;
-        border-top: 1px solid #3f3f46;
-        border-bottom: 1px solid #3f3f46;
-        border-left: 1px solid rgba(250, 250, 250, .55);
-        border-right: 2px solid #09090b;
+        background: var(--akari-tl-clip);
+        border-top: 1px solid var(--akari-tl-clip-border);
+        border-bottom: 1px solid var(--akari-tl-clip-border);
+        border-left: 1px solid var(--akari-tl-clip-edge);
+        border-right: 2px solid var(--akari-tl-clip-edge-dark);
         border-radius: 5px;
         box-shadow: none;
         box-sizing: border-box;
-        color: #e5e5e5;
+        color: var(--akari-tl-clip-text);
     }
     .akari-annotations-widget .akari-annotations-strip-clip-header {
         border-radius: 4px 4px 0 0;
@@ -32,7 +134,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         font-family: ui-monospace, SFMono-Regular, monospace;
         font-size: 11px;
         line-height: 12px;
-        color: #e5e5e5;
+        color: var(--akari-tl-header-text);
         pointer-events: none;
         overflow: hidden;
         white-space: nowrap;
@@ -53,8 +155,8 @@ export const ANNOTATIONS_WIDGET_CSS = `
         max-width: calc(100% - 6px);
         padding: 1px 4px;
         border-radius: 3px;
-        background: rgba(0, 0, 0, .72);
-        color: #fff;
+        background: var(--akari-tl-chip-face);
+        color: var(--akari-tl-chip-text);
         font: 10px/14px ui-monospace, SFMono-Regular, monospace;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -90,7 +192,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         width: 2px;
         height: 5px;
         border-radius: 1px;
-        background: rgba(255, 255, 255, .78);
+        background: var(--akari-tl-tree-tick);
         pointer-events: none;
     }
     .akari-annotations-widget .akari-annotations-strip-overlay {
@@ -99,8 +201,8 @@ export const ANNOTATIONS_WIDGET_CSS = `
         border-radius: 5px;
     }
     .akari-annotations-widget .akari-annotations-strip-overlay[data-akari-clip-face] {
-        background: #303640;
-        border: 1px solid #79828f;
+        background: var(--akari-tl-clip-face);
+        border: 1px solid var(--akari-tl-clip-face-border);
         box-sizing: border-box;
         opacity: 1;
     }
@@ -279,7 +381,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         inset: 0;
         pointer-events: none;
         z-index: 9;
-        background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.08) 6px 8px);
+        background: repeating-linear-gradient(135deg, transparent 0 6px, var(--akari-tl-lock-stripe) 6px 8px);
     }
     .akari-annotations-widget .akari-track-header-drop-target {
         outline: 2px solid var(--theia-focusBorder);
@@ -387,7 +489,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         white-space: nowrap;
         font-size: 13px;
         line-height: 1;
-        color: #fff;
+        color: var(--akari-tl-caption-text);
         pointer-events: none;
         padding-left: 3px;
         text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
@@ -433,7 +535,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         padding: 0 3px;
         font: 9px/${REVIEW_SESSION_LANE_HEIGHT_PX - 5}px ui-monospace, SFMono-Regular, monospace;
         white-space: nowrap;
-        text-shadow: 0 1px 2px #000;
+        text-shadow: 0 1px 2px var(--akari-tl-caption-shadow);
         pointer-events: none;
     }
     .akari-annotations-widget .akari-review-session-range.is-point {
@@ -462,7 +564,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         font-size: 11px;
         line-height: 12px;
         pointer-events: none;
-        text-shadow: 0 1px 2px #000;
+        text-shadow: 0 1px 2px var(--akari-tl-caption-shadow);
     }
     /* Size containment lets the badge follow clip width and height as the timeline zooms. */
     .akari-annotations-widget :has(> .akari-clip-kind-badge) {
@@ -513,9 +615,9 @@ export const ANNOTATIONS_WIDGET_CSS = `
         width: var(--akari-clip-face-width);
         height: calc(100% - 4px);
         box-sizing: border-box;
-        border: 1px solid #87909d;
+        border: 1px solid var(--akari-tl-checker-border);
         border-radius: 3px;
-        background: repeating-conic-gradient(#5b6470 0% 25%, #4a525d 0% 50%) 0/8px 8px;
+        background: repeating-conic-gradient(var(--akari-tl-checker-a) 0% 25%, var(--akari-tl-checker-b) 0% 50%) 0/8px 8px;
         object-fit: contain;
         pointer-events: none;
         z-index: 2;
@@ -553,14 +655,14 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-widget .akari-annotations-selected {
         outline: 2px solid var(--theia-focusBorder, #fff);
         outline-offset: 1px;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, .65);
+        box-shadow: 0 0 0 1px var(--akari-tl-selection-shadow);
         z-index: 2;
     }
     .akari-annotations-widget .akari-annotations-strip-clip.akari-annotations-selected {
         outline: 2px solid #f97316;
         outline-offset: -2px;
-        border-left: 2px solid #ffffff;
-        border-right: 2px solid #ffffff;
+        border-left: 2px solid var(--akari-tl-selected-edge);
+        border-right: 2px solid var(--akari-tl-selected-edge);
         box-shadow: none;
     }
     .akari-annotations-widget .akari-annotations-strip-hit-target::before {
@@ -576,11 +678,11 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-frame-draw {
         position: absolute; box-sizing: border-box; pointer-events: none; z-index: 50;
         border: 2px dashed #b69aff; background: rgba(151, 104, 235, .18);
-        color: #eee5ff; display: flex; align-items: center; justify-content: center;
+        color: var(--akari-tl-frame-text); display: flex; align-items: center; justify-content: center;
         font-size: 12px; white-space: nowrap;
     }
     .akari-annotations-frame-draw.akari-annotations-frame-draw-audio {
-        border-color: #6bd6a0; background: rgba(66, 177, 120, .18); color: #d8ffe9;
+        border-color: #6bd6a0; background: rgba(66, 177, 120, .18); color: var(--akari-tl-frame-audio-text);
     }
     .akari-annotations-frame-playhead-line-hit {
         display: none; position: absolute; top: ${RULER_BAND_HEIGHT_PX}px; bottom: 0;
@@ -589,17 +691,17 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-tool-frame .akari-annotations-frame-playhead-line-hit { display: block; }
     .akari-annotations-line-grab-hover,
     .akari-annotations-line-grab-hover * { cursor: ew-resize !important; }
-    [data-grabbing="true"] svg path { fill: #fff; }
+    [data-grabbing="true"] svg path { fill: var(--akari-tl-playhead); }
     .akari-annotations-frame-pending {
         position: absolute; z-index: 8; box-sizing: border-box; pointer-events: none;
         display: flex; align-items: center; padding: 0 6px; overflow: hidden;
         border: 1px dashed #b69aff; border-radius: 3px;
-        background: rgba(151, 104, 235, .22); color: #eee5ff;
+        background: rgba(151, 104, 235, .22); color: var(--akari-tl-frame-text);
         font-size: 11px; white-space: nowrap; opacity: .85;
         animation: akari-frame-pending-pulse 1.2s ease-in-out infinite alternate;
     }
     .akari-annotations-frame-pending-audio {
-        border-color: #6bd6a0; background: rgba(66, 177, 120, .22); color: #d8ffe9;
+        border-color: #6bd6a0; background: rgba(66, 177, 120, .22); color: var(--akari-tl-frame-audio-text);
     }
     .akari-annotations-widget:not(.akari-annotations-tool-frame) .akari-annotations-frame-pending { display: none; }
     @keyframes akari-frame-pending-pulse { to { opacity: .55; } }
@@ -615,7 +717,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-annotations-frame-new-track-label {
         position: absolute; top: 2px; left: 6px; padding: 2px 5px;
-        color: #fff; background: rgba(20, 20, 20, .85); border-radius: 3px;
+        color: var(--akari-tl-new-track-label-text); background: var(--akari-tl-new-track-label-face); border-radius: 3px;
         font-size: 11px; white-space: nowrap;
     }
     .akari-annotations-widget:not(.akari-annotations-tool-razor) [data-trim-edge]:not([data-akari-locked="true"])::after {
@@ -625,10 +727,10 @@ export const ANNOTATIONS_WIDGET_CSS = `
         bottom: 1px;
         width: min(${EDGE_ZONE_PX}px, 50%);
         box-sizing: border-box;
-        border: 1px solid #fff;
+        border: 1px solid var(--akari-tl-trim-border);
         border-radius: 4px;
-        background: rgba(255, 255, 255, .45);
-        box-shadow: 0 0 5px rgba(255, 255, 255, .8);
+        background: var(--akari-tl-trim-fill);
+        box-shadow: 0 0 5px var(--akari-tl-trim-shadow);
         pointer-events: none;
         z-index: 7;
     }
@@ -652,12 +754,24 @@ export const ANNOTATIONS_WIDGET_CSS = `
         padding: 0 8px;
         margin: 0;
     }
-    .akari-annotations-widget .akari-annotations-icon-button[aria-pressed="true"] {
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
-    }
-    .akari-annotations-widget .theia-button.secondary.akari-annotations-icon-button[aria-label="マグネット"][aria-pressed="true"] {
+    .akari-annotations-widget .theia-button.secondary.akari-annotations-icon-button[aria-pressed="true"] {
         box-shadow: inset 0 0 0 2px var(--akari-accent-light);
+    }
+    .akari-annotations-widget .theia-button.akari-annotations-icon-button:focus:not(:focus-visible),
+    .akari-annotations-widget .theia-button.akari-annotations-text-button:focus:not(:focus-visible) {
+        outline: none !important;
+    }
+    .akari-annotations-widget .theia-button.akari-annotations-icon-button:focus-visible,
+    .akari-annotations-widget .theia-button.akari-annotations-text-button:focus-visible {
+        outline: 1px solid var(--akari-accent-light) !important;
+        outline-offset: -3px !important;
+    }
+    .akari-annotations-widget .theia-button.main.akari-annotations-text-button:focus-visible {
+        outline-color: var(--akari-bg) !important;
+    }
+    .akari-annotations-widget .theia-button.secondary.akari-annotations-icon-button[aria-pressed="true"]:focus-visible {
+        outline: none !important;
+        box-shadow: inset 0 0 0 3px var(--akari-accent-light);
     }
     .akari-annotations-widget .akari-timeline-focus-breadcrumbs {
         display: flex;

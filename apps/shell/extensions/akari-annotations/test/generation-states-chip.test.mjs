@@ -125,7 +125,7 @@ test('生成尺の点線は表示だけで、次の item に重なる幅と実�
   assert.ok(dashed);
   assert.equal(element.children.includes(dashed), false, '点線は cut の子でなく表示レイヤーに置く');
   assert.equal(dashed.textContent, '5 秒で作ります');
-  assert.equal(dashed.children[0]?.style.background, 'rgba(22, 25, 30, .96)');
+  assert.equal(dashed.children[0]?.style.background, 'var(--akari-tl-generating)');
   assert.equal(dashed.title, '5 秒で作ります');
   assert.ok(Number.parseFloat(dashed.style.width) > 90, '次の item 94.6px の範囲へ重なる');
   assert.equal(dashed.style.pointerEvents, 'none');

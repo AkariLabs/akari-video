@@ -33,8 +33,10 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
     closePath() { this.closed = true; }
   }
   const window = { devicePixelRatio: 2 };
+  const theme = { fill: 'rgba(255,255,255,.7)', stroke: 'rgba(255,255,255,.95)' };
+  const getComputedStyle = () => ({ getPropertyValue: name => name.endsWith('-fill') ? theme.fill : theme.stroke });
   const widget = runInNewContext(`({${widgetMethod("updateWaveformCanvas", "segmentLabel")}})`, {
-    window, Path2D: Path, timeline_metrics_1: { CLIP_HEADER_HEIGHT },
+    window, getComputedStyle, Path2D: Path, timeline_metrics_1: { CLIP_HEADER_HEIGHT },
     waveform_band_1: { waveformBandLayout }, filmstrip_geometry_1: geometry,
   });
   const identities = new WeakMap();
@@ -44,6 +46,7 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
     return identities.get(peaks);
   };
   const canvas = { style: {}, dataset: {}, getContext: () => context };
+  widget.node = {};
   let peaks = [0.1, 1, 0.2, 0.3];
   const placement = { clipLocalOffsetPx: 0, fullClipWidthPx: 2 };
   const paint = (width = 2, height = 48) => widget.updateWaveformCanvas(canvas, peaks, width, placement, height);
@@ -100,9 +103,14 @@ test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS�
   const context = Object.fromEntries(["setTransform", "scale", "drawImage"].map(name =>
     [name, (...args) => calls.push([name, ...args])]));
   const canvas = { style: {}, dataset: {}, getContext: () => context };
+  const baseColor = '#fff';
+  const getComputedStyle = () => ({ getPropertyValue: name => name.endsWith('-red') ? '#ef4444'
+    : name.endsWith('-yellow') ? '#facc15' : baseColor });
   const widget = runInNewContext(`({${widgetMethod("updateAudioWaveformCanvas", "audioWaveformMaster")}})`, {
-    window, timeline_metrics_1: { CLIP_HEADER_HEIGHT }, filmstrip_geometry_1: geometry,
+    window, getComputedStyle, timeline_metrics_1: { CLIP_HEADER_HEIGHT }, filmstrip_geometry_1: geometry,
   });
+  widget.node = {};
+  widget.audioWaveformMasterCache = new Map();
   widget.audioWaveformPeakIdentity = () => 1;
   widget.audioWaveformMaster = (key, factory, height) => {
     masters.push({ key, height });
