@@ -8,6 +8,7 @@ import {
 import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
+import { compareVersions } from './version.mjs';
 const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
 const creatorRoot = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
 function resolveAssetLibraryRoots(env) {
@@ -20,15 +21,11 @@ const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
 const PLUGIN_DESCRIPTION = 'AKARI Video 拡張キットのスキルをまとめて提供するローカルプラグイン。';
 
 function parseVersion(value) {
-  const match = String(value).match(/^(\d+)\.(\d+)\.(\d+)$/u);
-  return match ? match.slice(1).map(Number) : null;
-}
-
-function compareVersions(left, right) {
-  for (let index = 0; index < 3; index += 1) {
-    if (left[index] !== right[index]) return left[index] - right[index];
-  }
-  return 0;
+  const match = typeof value === 'string'
+    ? value.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z.-]+)?$/u)
+    : null;
+  if (!match || match[4]?.split('.').some(id => /^0\d+$/u.test(id))) return null;
+  return match.slice(1, 4).map(Number);
 }
 
 function satisfies(version, range) {
@@ -36,13 +33,14 @@ function satisfies(version, range) {
   const match = String(range).match(/^(\^|~|>=)?(\d+\.\d+\.\d+)$/u);
   if (!actual || !match) return false;
   const required = parseVersion(match[2]);
-  if (compareVersions(actual, required) < 0) return false;
+  if (!required) return false;
+  if (compareVersions(version, match[2]) < 0) return false;
   if (match[1] === '^') {
     return actual[0] === required[0] && (required[0] !== 0 || actual[1] === required[1]);
   }
   if (match[1] === '~') return actual[0] === required[0] && actual[1] === required[1];
   if (match[1] === '>=') return true;
-  return compareVersions(actual, required) === 0;
+  return compareVersions(version, match[2]) === 0;
 }
 
 export function readKitManifest(kitDir) {
