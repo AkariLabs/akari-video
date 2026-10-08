@@ -1,5 +1,0 @@
-electron_bin=/Users/ryoma/_edit/30_products/akari-video-wt/preview-tight-selection-bounds/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
-path_txt=Electron.app/Contents/MacOS/Electron
-libffmpeg_h264=1
-head=010109ab372edd5d2640e98707f237b1c85a5d24
-overlay_runtime_dirty=3

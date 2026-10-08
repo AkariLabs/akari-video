@@ -21,6 +21,10 @@ export const previewContextBarPageScript = `(() => {
   document.head.appendChild(style);
   window.addEventListener('message', event => {
     const message = event.data;
+    if (message?.type === 'akari-preview-telop-inner-selection') {
+      akari.interaction?.setTelopInnerSelection?.(message.overlayId, message.inner);
+      return;
+    }
     if (message?.type === 'akari-preview-caption-style-live') {
       const field = message.field;
       const property = { sizePx: 'font-size', lineHeight: 'line-height', letterSpacingEm: 'letter-spacing',
@@ -87,8 +91,12 @@ export const previewContextBarPageScript = `(() => {
       || body.contains('akari-caption-moving') || body.contains('akari-caption-transforming')
       || body.contains('akari-caption-rotating');
     const stage = document.getElementById('preview-layers');
+    const interaction = akari.interaction;
     const next = { box: frame ? rect(frame) : null, busy, pointerHeld,
-      stage: stage && shown(stage) ? rect(stage) : null };
+      stage: stage && shown(stage) ? rect(stage) : null,
+      telopId: interaction?.selectedTelop ? interaction.selectedId : null,
+      telop: interaction?.selectedTelop === true,
+      telopInner: interaction?.telopInner === true };
     const text = JSON.stringify(next);
     if (text === last) return;
     last = text;

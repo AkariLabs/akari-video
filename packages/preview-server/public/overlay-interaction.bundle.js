@@ -410,6 +410,7 @@
     let selectedId = null;
     let selectedIds = [];
     let elementFocus = null;
+    let telopInnerId = null;
     let elementGeometryCache = null;
     let elementNudge = null;
     let elementNudgeTimer = null;
@@ -1590,8 +1591,10 @@
     }
     function clearSelection() {
       const hadElementFocus = window.akari.capabilities?.elementSelection === true && Boolean(selectedElementFocus());
+      const hadTelopSelection = window.akari.capabilities?.elementSelection === true && selectedOverlay && isTelopOverlay(selectedOverlay);
       flushElementNudge();
       elementFocus = null;
+      telopInnerId = null;
       if (activeRotate) cancelRotate();
       if (activeLine) finishLineEndpoint(true);
       flushNudge();
@@ -1609,7 +1612,7 @@
       selectionFrame?.remove();
       selectionFrame = null;
       hideSnapGuides();
-      if (hadElementFocus) renderScopeBreadcrumb();
+      if (hadElementFocus || hadTelopSelection) renderScopeBreadcrumb();
     }
     function handleSelectedOverlayUnavailable(container) {
       if (selectedOverlay !== container) return;
@@ -1644,20 +1647,33 @@
           selectedOverlay.setAttribute("data-akari-interaction-selected", "true");
           reconcileElementFocus();
         } else {
+          const keepTelopInner = selectedId === nextId && telopInnerId === nextId && selectedIds.length === 1 && !groupSelection;
           clearSelection();
           selectedOverlay = container;
           selectedId = nextId;
           selectedIds = selectedId === null ? [] : [selectedId];
+          if (keepTelopInner) telopInnerId = nextId;
           selectedOverlay.setAttribute("data-akari-interaction-selected", "true");
         }
       }
       refreshSelectionFrame();
+      if (window.akari.capabilities?.elementSelection === true && isTelopOverlay(selectedOverlay)) renderScopeBreadcrumb();
       startSelectionTracking();
       return true;
     }
-    function canFocusElement(container) {
+    function elementSelectionEnabled(container) {
       if (window.akari.capabilities?.elementSelection !== true || !container || selectedIds.length > 1) return false;
       return window.akari.state?.summary?.overlays?.some((overlay) => overlay.id === container.dataset.overlayId && overlay.elementSelection === true) === true;
+    }
+    function canFocusElement(container) {
+      return elementSelectionEnabled(container) && (!isTelopOverlay(container) || telopInnerId === selectedId && selectedId === container.dataset.overlayId);
+    }
+    function setTelopInnerSelection(overlayId, inner) {
+      if (typeof overlayId !== "string" || selectedId !== overlayId || selectedIds.length !== 1 || groupSelection || !selectedOverlay || !isTelopOverlay(selectedOverlay) || !elementSelectionEnabled(selectedOverlay)) return false;
+      telopInnerId = inner === true ? overlayId : null;
+      if (!telopInnerId && selectedElementFocus()) focusElement(null);
+      hideHover();
+      return true;
     }
     function focusedElement() {
       if (!selectedElementFocus() || !selectedOverlay) return null;
@@ -1697,6 +1713,7 @@
         tag: element.tagName.toLowerCase(),
         label: elementLabel(root, element)
       } : null;
+      if (!next && telopInnerId === selectedId) telopInnerId = null;
       if (elementFocus?.ref === next?.ref && elementFocus?.overlayId === next?.overlayId) return;
       flushElementNudge();
       elementFocus = next;
@@ -1836,7 +1853,7 @@
       clearBreadcrumbHover();
       const entries = [];
       const append = (label, action, target) => entries.push({ label, action, target });
-      if (selectedElementFocus() && selectedOverlay) {
+      if (selectedOverlay && (selectedElementFocus() || window.akari.capabilities?.elementSelection === true && selectedIds.length === 1 && isTelopOverlay(selectedOverlay))) {
         append("\u5168\u4F53", () => {
           clearSelection();
           publishScopedSelection();
@@ -4450,7 +4467,7 @@
         if (activeEdit?.container === hit && eventHitsElement(event, activeEdit.element)) return;
         clickOrigin.scopedHit = true;
         if (activeEdit) void commitEdit();
-        if (window.akari.capabilities?.elementSelection === true && event.isTrusted && !event.shiftKey) {
+        if (window.akari.capabilities?.elementSelection === true && event.isTrusted && !event.shiftKey && (!isTelopOverlay(hit) || canFocusElement(hit))) {
           const root = fragmentRoot(hit);
           const target = event.target instanceof Element && root?.contains(event.target) ? nearestSelectableElement(root, event.target, stage?.getBoundingClientRect(), selectionOptions(root)) : null;
           clickOrigin.hitId = hit.dataset.overlayId;
@@ -4473,7 +4490,7 @@
           const focused = focusedElement();
           if (focused && isSelectionContainer(focused) && focused.contains(event.target)) {
             clickOrigin.preservedContainer = true;
-          } else if (clickOrigin?.hitId === selectedId) {
+          } else if ((!isTelopOverlay(selectedOverlay) || canFocusElement(selectedOverlay)) && clickOrigin?.hitId === selectedId) {
             focusElement(elementByAddress(fragmentRoot(selectedOverlay), clickOrigin.elementRef));
           } else focusElementAt(selectedOverlay, event);
         } else if (selectedElementFocus()) focusElement(null);
@@ -5195,7 +5212,7 @@
       else selectOverlay(hit);
       if (window.akari.capabilities?.elementSelection === true && event.isTrusted && !event.shiftKey && selectedOverlay) {
         if (clickOrigin?.preservedContainer) focusElementAt(selectedOverlay, event);
-        else if (!nextId && clickOrigin?.hitId === selectedId) {
+        else if ((!isTelopOverlay(selectedOverlay) || canFocusElement(selectedOverlay)) && (!nextId || isTelopOverlay(selectedOverlay) && telopInnerId === selectedId && nextId === selectedId) && clickOrigin?.hitId === selectedId) {
           focusElement(elementByAddress(fragmentRoot(selectedOverlay), clickOrigin.elementRef));
         } else focusElementAt(selectedOverlay, event);
       }
@@ -5288,10 +5305,11 @@
           return;
         }
       }
-      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && canFocusElement(selectedOverlay)) {
+      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && elementSelectionEnabled(selectedOverlay) && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
         const root = fragmentRoot(selectedOverlay);
         const first = firstSelectableElement(root, stage?.getBoundingClientRect(), selectionOptions(root));
         if (first) {
+          if (isTelopOverlay(selectedOverlay)) telopInnerId = selectedId;
           focusElement(first);
           event.preventDefault();
           event.stopPropagation();
@@ -5369,7 +5387,7 @@
             handled();
             return;
           }
-          if (selectedOverlay) {
+          if (selectedOverlay && (!isTelopOverlay(selectedOverlay) || telopInnerId === selectedId && Boolean(selectedElementFocus()))) {
             const root = fragmentRoot(selectedOverlay);
             const text = root && [root, ...root.querySelectorAll("*")].find(canEditText);
             if (text) {
@@ -5777,6 +5795,13 @@
       get elementFocus() {
         return selectedElementFocus();
       },
+      get selectedTelop() {
+        return Boolean(selectedOverlay && selectedIds.length === 1 && isTelopOverlay(selectedOverlay));
+      },
+      get telopInner() {
+        return telopInnerId !== null && telopInnerId === selectedId;
+      },
+      setTelopInnerSelection,
       clearElementFocus() {
         if (selectedElementFocus()) focusElement(null, { notify: false });
       },
