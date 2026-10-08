@@ -1,0 +1,1745 @@
+{
+ "mode": "before",
+ "run": "F",
+ "startedAt": "2026-10-08T07:46:29.439Z",
+ "status": "RECORDED",
+ "records": [
+  {
+   "name": "tsb-chart",
+   "label": "(6) タイムラインの行でアイテムを選ぶ → 枠 = 中身の範囲",
+   "status": "recorded",
+   "measured": {
+    "chip": {
+     "x": 376.9140625,
+     "y": 549.515625,
+     "width": 45.7109375,
+     "height": 48
+    },
+    "selectedId": "tsb-chart",
+    "focusRef": null,
+    "frame": {
+     "left": 120.63,
+     "top": 104.38,
+     "width": 162.75,
+     "height": 116.25
+    },
+    "focusBox": null,
+    "focusContent": null,
+    "focusDraws": null,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate",
+     "move"
+    ],
+    "breadcrumb": "",
+    "rootBox": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    },
+    "rootDraws": false,
+    "itemContent": {
+     "left": 120.63,
+     "top": 104.38,
+     "width": 162.75,
+     "height": 116.25,
+     "count": 4
+    },
+    "expected": {
+     "left": 120.63,
+     "top": 104.38,
+     "width": 162.75,
+     "height": 116.25
+    },
+    "frameMinusContent": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0
+    },
+    "stage": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    }
+   }
+  },
+  {
+   "name": "tsb-chart",
+   "label": "(1)(2) 押した要素 → Esc → … → 解除 の各段",
+   "status": "recorded",
+   "measured": {
+    "labels": [
+     ".bar[1]",
+     ".chart[0]",
+     "item",
+     "none"
+    ],
+    "expected": [
+     ".bar[1]",
+     ".chart[0]",
+     "item",
+     "none"
+    ],
+    "ladder": [
+     {
+      "label": ".bar[1]",
+      "selectedId": "tsb-chart",
+      "focusRef": ".bar[1]",
+      "frame": {
+       "left": 189.21,
+       "top": 125.88,
+       "width": 29.05,
+       "height": 81.38
+      },
+      "focusBox": {
+       "left": 189.21,
+       "top": 125.88,
+       "width": 29.06,
+       "height": 81.38
+      },
+      "focusContent": {
+       "left": 189.21,
+       "top": 125.88,
+       "width": 29.06,
+       "height": 81.38,
+       "count": 1
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "e",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-chart › chart › bar 2",
+      "range": {
+       "left": 189.21,
+       "top": 125.88,
+       "width": 29.06,
+       "height": 81.38,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": ".chart[0]",
+      "selectedId": "tsb-chart",
+      "focusRef": ".chart[0]",
+      "frame": {
+       "left": 120.62,
+       "top": 104.37,
+       "width": 162.75,
+       "height": 116.25
+      },
+      "focusBox": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25
+      },
+      "focusContent": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25,
+       "count": 4
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-chart › chart",
+      "range": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25,
+       "count": 4
+      },
+      "frameMinusRange": {
+       "left": -0.01,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": "item",
+      "selectedId": "tsb-chart",
+      "focusRef": null,
+      "frame": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25
+      },
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate",
+       "move"
+      ],
+      "breadcrumb": "",
+      "range": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25,
+       "count": 4
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      },
+      "boxMinusRange": {
+       "left": -104.63,
+       "top": -46.5,
+       "right": 104.63,
+       "bottom": 46.5
+      }
+     },
+     {
+      "label": "none",
+      "selectedId": null,
+      "focusRef": null,
+      "frame": null,
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [],
+      "breadcrumb": "",
+      "range": {
+       "left": 120.63,
+       "top": 104.38,
+       "width": 162.75,
+       "height": 116.25,
+       "count": 4
+      },
+      "frameMinusRange": null,
+      "boxMinusRange": {
+       "left": -104.63,
+       "top": -46.5,
+       "right": 104.63,
+       "bottom": 46.5
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "tsb-chart",
+   "label": "(3) アイテムを選んで Enter → 降りた先",
+   "status": "recorded",
+   "measured": {
+    "expected": ".chart[0]",
+    "selectedId": "tsb-chart",
+    "focusRef": ".chart[0]",
+    "frame": {
+     "left": 120.62,
+     "top": 104.37,
+     "width": 162.75,
+     "height": 116.25
+    },
+    "focusBox": {
+     "left": 120.63,
+     "top": 104.38,
+     "width": 162.75,
+     "height": 116.25
+    },
+    "focusContent": {
+     "left": 120.63,
+     "top": 104.38,
+     "width": 162.75,
+     "height": 116.25,
+     "count": 4
+    },
+    "focusDraws": true,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-chart › chart",
+    "frameMinusContent": {
+     "left": -0.01,
+     "top": -0.01,
+     "right": -0.01,
+     "bottom": -0.01
+    }
+   }
+  },
+  {
+   "name": "tsb-wide",
+   "label": "(6) タイムラインの行でアイテムを選ぶ → 枠 = 中身の範囲",
+   "status": "recorded",
+   "measured": {
+    "chip": {
+     "x": 422.625,
+     "y": 549.515625,
+     "width": 45.7109375,
+     "height": 48
+    },
+    "selectedId": "tsb-wide",
+    "focusRef": null,
+    "frame": {
+     "left": 16,
+     "top": 99.72,
+     "width": 372,
+     "height": 125.55
+    },
+    "focusBox": null,
+    "focusContent": null,
+    "focusDraws": null,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate",
+     "move"
+    ],
+    "breadcrumb": "",
+    "rootBox": {
+     "left": 16,
+     "top": 99.73,
+     "width": 372,
+     "height": 125.55
+    },
+    "rootDraws": false,
+    "itemContent": {
+     "left": 39.25,
+     "top": 117.16,
+     "width": 69.75,
+     "height": 25.57,
+     "count": 1
+    },
+    "expected": {
+     "left": 39.25,
+     "top": 117.16,
+     "width": 69.75,
+     "height": 25.58
+    },
+    "frameMinusContent": {
+     "left": -23.25,
+     "top": -17.44,
+     "right": 279,
+     "bottom": 82.53
+    },
+    "stage": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    }
+   }
+  },
+  {
+   "name": "tsb-wide",
+   "label": "(1)(2) 押した要素 → Esc → … → 解除 の各段",
+   "status": "recorded",
+   "measured": {
+    "labels": [
+     ".badge[0]",
+     "item",
+     "none"
+    ],
+    "expected": [
+     ".badge[0]",
+     "item",
+     "none"
+    ],
+    "ladder": [
+     {
+      "label": ".badge[0]",
+      "selectedId": "tsb-wide",
+      "focusRef": ".badge[0]",
+      "frame": {
+       "left": 39.24,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57
+      },
+      "focusBox": {
+       "left": 39.25,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57
+      },
+      "focusContent": {
+       "left": 39.25,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57,
+       "count": 1
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "s",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-wide › badge",
+      "range": {
+       "left": 39.25,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": -0.01,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": "item",
+      "selectedId": "tsb-wide",
+      "focusRef": null,
+      "frame": {
+       "left": 16,
+       "top": 99.72,
+       "width": 372,
+       "height": 125.55
+      },
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate",
+       "move"
+      ],
+      "breadcrumb": "",
+      "range": {
+       "left": 39.25,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": -23.25,
+       "top": -17.44,
+       "right": 279,
+       "bottom": 82.53
+      },
+      "boxMinusRange": {
+       "left": -23.25,
+       "top": -17.44,
+       "right": 279,
+       "bottom": 82.54
+      }
+     },
+     {
+      "label": "none",
+      "selectedId": null,
+      "focusRef": null,
+      "frame": null,
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [],
+      "breadcrumb": "",
+      "range": {
+       "left": 39.25,
+       "top": 117.16,
+       "width": 69.75,
+       "height": 25.57,
+       "count": 1
+      },
+      "frameMinusRange": null,
+      "boxMinusRange": {
+       "left": -23.25,
+       "top": -17.44,
+       "right": 279,
+       "bottom": 82.54
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "tsb-wide",
+   "label": "(3) アイテムを選んで Enter → 降りた先",
+   "status": "recorded",
+   "measured": {
+    "expected": ".badge[0]",
+    "selectedId": "tsb-wide",
+    "focusRef": ".badge[0]",
+    "frame": {
+     "left": 39.24,
+     "top": 117.16,
+     "width": 69.75,
+     "height": 25.57
+    },
+    "focusBox": {
+     "left": 39.25,
+     "top": 117.16,
+     "width": 69.75,
+     "height": 25.57
+    },
+    "focusContent": {
+     "left": 39.25,
+     "top": 117.16,
+     "width": 69.75,
+     "height": 25.57,
+     "count": 1
+    },
+    "focusDraws": true,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "s",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-wide › badge",
+    "frameMinusContent": {
+     "left": -0.01,
+     "top": -0.01,
+     "right": -0.01,
+     "bottom": -0.01
+    }
+   }
+  },
+  {
+   "name": "tsb-scaffold",
+   "label": "(6) タイムラインの行でアイテムを選ぶ → 枠 = 中身の範囲",
+   "status": "recorded",
+   "measured": {
+    "chip": {
+     "x": 468.3359375,
+     "y": 549.515625,
+     "width": 45.7109375,
+     "height": 48
+    },
+    "selectedId": "tsb-scaffold",
+    "focusRef": null,
+    "frame": {
+     "left": 53.2,
+     "top": 78.8,
+     "width": 297.59,
+     "height": 167.4
+    },
+    "focusBox": null,
+    "focusContent": null,
+    "focusDraws": null,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate",
+     "move"
+    ],
+    "breadcrumb": "",
+    "rootBox": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    },
+    "rootDraws": false,
+    "itemContent": {
+     "left": 64.82,
+     "top": 90.43,
+     "width": 139.5,
+     "height": 40.69,
+     "count": 2
+    },
+    "expected": {
+     "left": 64.83,
+     "top": 90.43,
+     "width": 139.5,
+     "height": 40.69
+    },
+    "frameMinusContent": {
+     "left": -11.63,
+     "top": -11.63,
+     "right": 146.46,
+     "bottom": 115.08
+    },
+    "stage": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    }
+   }
+  },
+  {
+   "name": "tsb-scaffold",
+   "label": "(1)(2) 押した要素 → Esc → … → 解除 の各段",
+   "status": "recorded",
+   "measured": {
+    "labels": [
+     ".card[0]",
+     ".scaffold[0]",
+     "item",
+     "none"
+    ],
+    "expected": [
+     ".card[0]",
+     "item",
+     "none"
+    ],
+    "ladder": [
+     {
+      "label": ".card[0]",
+      "selectedId": "tsb-scaffold",
+      "focusRef": ".card[0]",
+      "frame": {
+       "left": 64.82,
+       "top": 90.42,
+       "width": 63.93,
+       "height": 40.69
+      },
+      "focusBox": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 63.94,
+       "height": 40.69
+      },
+      "focusContent": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 63.94,
+       "height": 40.69,
+       "count": 1
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-scaffold › scaffold › card 1",
+      "range": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 63.94,
+       "height": 40.69,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": -0.01,
+       "bottom": 0
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": ".scaffold[0]",
+      "selectedId": "tsb-scaffold",
+      "focusRef": ".scaffold[0]",
+      "frame": {
+       "left": 53.2,
+       "top": 78.8,
+       "width": 297.59,
+       "height": 167.4
+      },
+      "focusBox": {
+       "left": 53.2,
+       "top": 78.8,
+       "width": 297.6,
+       "height": 167.4
+      },
+      "focusContent": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 139.5,
+       "height": 40.69,
+       "count": 2
+      },
+      "focusDraws": false,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-scaffold › scaffold",
+      "range": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 139.5,
+       "height": 40.69,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": -11.63,
+       "top": -11.63,
+       "right": 146.46,
+       "bottom": 115.08
+      },
+      "boxMinusRange": {
+       "left": -11.62,
+       "top": -11.63,
+       "right": 146.48,
+       "bottom": 115.09
+      }
+     },
+     {
+      "label": "item",
+      "selectedId": "tsb-scaffold",
+      "focusRef": null,
+      "frame": {
+       "left": 53.2,
+       "top": 78.8,
+       "width": 297.59,
+       "height": 167.4
+      },
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate",
+       "move"
+      ],
+      "breadcrumb": "",
+      "range": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 139.5,
+       "height": 40.69,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": -11.63,
+       "top": -11.63,
+       "right": 146.46,
+       "bottom": 115.08
+      },
+      "boxMinusRange": {
+       "left": -48.82,
+       "top": -32.55,
+       "right": 183.68,
+       "bottom": 136.01
+      }
+     },
+     {
+      "label": "none",
+      "selectedId": null,
+      "focusRef": null,
+      "frame": null,
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [],
+      "breadcrumb": "",
+      "range": {
+       "left": 64.82,
+       "top": 90.43,
+       "width": 139.5,
+       "height": 40.69,
+       "count": 2
+      },
+      "frameMinusRange": null,
+      "boxMinusRange": {
+       "left": -48.82,
+       "top": -32.55,
+       "right": 183.68,
+       "bottom": 136.01
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "tsb-scaffold",
+   "label": "(3) アイテムを選んで Enter → 降りた先",
+   "status": "recorded",
+   "measured": {
+    "expected": ".card[0]",
+    "selectedId": "tsb-scaffold",
+    "focusRef": ".scaffold[0]",
+    "frame": {
+     "left": 53.2,
+     "top": 78.8,
+     "width": 297.59,
+     "height": 167.4
+    },
+    "focusBox": {
+     "left": 53.2,
+     "top": 78.8,
+     "width": 297.6,
+     "height": 167.4
+    },
+    "focusContent": {
+     "left": 64.82,
+     "top": 90.43,
+     "width": 139.5,
+     "height": 40.69,
+     "count": 2
+    },
+    "focusDraws": false,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-scaffold › scaffold",
+    "frameMinusContent": {
+     "left": -11.63,
+     "top": -11.63,
+     "right": 146.46,
+     "bottom": 115.08
+    }
+   }
+  },
+  {
+   "name": "tsb-holder",
+   "label": "(6) タイムラインの行でアイテムを選ぶ → 枠 = 中身の範囲",
+   "status": "recorded",
+   "measured": {
+    "chip": {
+     "x": 514.0546875,
+     "y": 549.515625,
+     "width": 45.7109375,
+     "height": 48
+    },
+    "selectedId": "tsb-holder",
+    "focusRef": null,
+    "frame": {
+     "left": 143.88,
+     "top": 121.81,
+     "width": 116.25,
+     "height": 69.75
+    },
+    "focusBox": null,
+    "focusContent": null,
+    "focusDraws": null,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate",
+     "move"
+    ],
+    "breadcrumb": "",
+    "rootBox": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    },
+    "rootDraws": false,
+    "itemContent": {
+     "left": 143.88,
+     "top": 121.81,
+     "width": 116.25,
+     "height": 69.75,
+     "count": 2
+    },
+    "expected": {
+     "left": 143.88,
+     "top": 121.81,
+     "width": 116.25,
+     "height": 69.75
+    },
+    "frameMinusContent": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0
+    },
+    "stage": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    }
+   }
+  },
+  {
+   "name": "tsb-holder",
+   "label": "(1)(2) 押した要素 → Esc → … → 解除 の各段",
+   "status": "recorded",
+   "measured": {
+    "labels": [
+     ".label[0]",
+     ".card[0]",
+     ".holder[0]",
+     "item",
+     "none"
+    ],
+    "expected": [
+     ".label[0]",
+     ".card[0]",
+     "item",
+     "none"
+    ],
+    "ladder": [
+     {
+      "label": ".label[0]",
+      "selectedId": "tsb-holder",
+      "focusRef": ".label[0]",
+      "frame": {
+       "left": 153.17,
+       "top": 129.95,
+       "width": 34.88,
+       "height": 13.95
+      },
+      "focusBox": {
+       "left": 153.18,
+       "top": 129.95,
+       "width": 34.88,
+       "height": 13.95
+      },
+      "focusContent": {
+       "left": 153.18,
+       "top": 129.95,
+       "width": 34.88,
+       "height": 13.95,
+       "count": 1
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "s",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-holder › holder › card › label",
+      "range": {
+       "left": 153.18,
+       "top": 129.95,
+       "width": 34.88,
+       "height": 13.95,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": ".card[0]",
+      "selectedId": "tsb-holder",
+      "focusRef": ".card[0]",
+      "frame": {
+       "left": 143.88,
+       "top": 121.8,
+       "width": 116.24,
+       "height": 69.75
+      },
+      "focusBox": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75
+      },
+      "focusContent": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-holder › holder › card",
+      "range": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": ".holder[0]",
+      "selectedId": "tsb-holder",
+      "focusRef": ".holder[0]",
+      "frame": {
+       "left": 143.88,
+       "top": 121.8,
+       "width": 116.24,
+       "height": 69.75
+      },
+      "focusBox": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75
+      },
+      "focusContent": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "focusDraws": false,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-holder › holder",
+      "range": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": "item",
+      "selectedId": "tsb-holder",
+      "focusRef": null,
+      "frame": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75
+      },
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate",
+       "move"
+      ],
+      "breadcrumb": "",
+      "range": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      },
+      "boxMinusRange": {
+       "left": -127.88,
+       "top": -63.94,
+       "right": 127.88,
+       "bottom": 75.56
+      }
+     },
+     {
+      "label": "none",
+      "selectedId": null,
+      "focusRef": null,
+      "frame": null,
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [],
+      "breadcrumb": "",
+      "range": {
+       "left": 143.88,
+       "top": 121.81,
+       "width": 116.25,
+       "height": 69.75,
+       "count": 2
+      },
+      "frameMinusRange": null,
+      "boxMinusRange": {
+       "left": -127.88,
+       "top": -63.94,
+       "right": 127.88,
+       "bottom": 75.56
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "tsb-holder",
+   "label": "(3) アイテムを選んで Enter → 降りた先",
+   "status": "recorded",
+   "measured": {
+    "expected": ".card[0]",
+    "selectedId": "tsb-holder",
+    "focusRef": ".holder[0]",
+    "frame": {
+     "left": 143.88,
+     "top": 121.8,
+     "width": 116.24,
+     "height": 69.75
+    },
+    "focusBox": {
+     "left": 143.88,
+     "top": 121.81,
+     "width": 116.25,
+     "height": 69.75
+    },
+    "focusContent": {
+     "left": 143.88,
+     "top": 121.81,
+     "width": 116.25,
+     "height": 69.75,
+     "count": 2
+    },
+    "focusDraws": false,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-holder › holder",
+    "frameMinusContent": {
+     "left": 0,
+     "top": -0.01,
+     "right": -0.01,
+     "bottom": -0.01
+    }
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(6) タイムラインの行でアイテムを選ぶ → 枠 = 中身の範囲",
+   "status": "recorded",
+   "measured": {
+    "chip": {
+     "x": 559.765625,
+     "y": 549.515625,
+     "width": 45.7109375,
+     "height": 48
+    },
+    "selectedId": "tsb-pair",
+    "focusRef": null,
+    "frame": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5
+    },
+    "focusBox": null,
+    "focusContent": null,
+    "focusDraws": null,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate",
+     "move"
+    ],
+    "breadcrumb": "",
+    "rootBox": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    },
+    "rootDraws": false,
+    "itemContent": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5,
+     "count": 2
+    },
+    "expected": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5
+    },
+    "frameMinusContent": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0
+    },
+    "stage": {
+     "left": 16,
+     "top": 57.88,
+     "width": 372,
+     "height": 209.25
+    }
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(1)(2) 押した要素 → Esc → … → 解除 の各段",
+   "status": "recorded",
+   "measured": {
+    "labels": [
+     ".chip[0]",
+     ".pair[0]",
+     "item",
+     "none"
+    ],
+    "expected": [
+     ".chip[0]",
+     ".pair[0]",
+     "item",
+     "none"
+    ],
+    "ladder": [
+     {
+      "label": ".chip[0]",
+      "selectedId": "tsb-pair",
+      "focusRef": ".chip[0]",
+      "frame": {
+       "left": 108.99,
+       "top": 139.24,
+       "width": 81.38,
+       "height": 46.5
+      },
+      "focusBox": {
+       "left": 109,
+       "top": 139.25,
+       "width": 81.38,
+       "height": 46.5
+      },
+      "focusContent": {
+       "left": 109,
+       "top": 139.25,
+       "width": 81.38,
+       "height": 46.5,
+       "count": 1
+      },
+      "focusDraws": true,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-pair › pair › chip 1",
+      "range": {
+       "left": 109,
+       "top": 139.25,
+       "width": 81.38,
+       "height": 46.5,
+       "count": 1
+      },
+      "frameMinusRange": {
+       "left": -0.01,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": ".pair[0]",
+      "selectedId": "tsb-pair",
+      "focusRef": ".pair[0]",
+      "frame": {
+       "left": 108.99,
+       "top": 139.24,
+       "width": 186,
+       "height": 46.5
+      },
+      "focusBox": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5
+      },
+      "focusContent": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5,
+       "count": 2
+      },
+      "focusDraws": false,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate"
+      ],
+      "breadcrumb": "全体 › tsb-pair › pair",
+      "range": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": -0.01,
+       "top": -0.01,
+       "right": -0.01,
+       "bottom": -0.01
+      },
+      "boxMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      }
+     },
+     {
+      "label": "item",
+      "selectedId": "tsb-pair",
+      "focusRef": null,
+      "frame": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5
+      },
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [
+       "nw",
+       "ne",
+       "se",
+       "sw",
+       "n",
+       "e",
+       "s",
+       "w",
+       "rotate",
+       "move"
+      ],
+      "breadcrumb": "",
+      "range": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5,
+       "count": 2
+      },
+      "frameMinusRange": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0
+      },
+      "boxMinusRange": {
+       "left": -93,
+       "top": -81.38,
+       "right": 93,
+       "bottom": 81.38
+      }
+     },
+     {
+      "label": "none",
+      "selectedId": null,
+      "focusRef": null,
+      "frame": null,
+      "focusBox": null,
+      "focusContent": null,
+      "focusDraws": null,
+      "handles": [],
+      "breadcrumb": "",
+      "range": {
+       "left": 109,
+       "top": 139.25,
+       "width": 186,
+       "height": 46.5,
+       "count": 2
+      },
+      "frameMinusRange": null,
+      "boxMinusRange": {
+       "left": -93,
+       "top": -81.38,
+       "right": 93,
+       "bottom": 81.38
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(3) アイテムを選んで Enter → 降りた先",
+   "status": "recorded",
+   "measured": {
+    "expected": ".pair[0]",
+    "selectedId": "tsb-pair",
+    "focusRef": ".pair[0]",
+    "frame": {
+     "left": 108.99,
+     "top": 139.24,
+     "width": 186,
+     "height": 46.5
+    },
+    "focusBox": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5
+    },
+    "focusContent": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5,
+     "count": 2
+    },
+    "focusDraws": false,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-pair › pair",
+    "frameMinusContent": {
+     "left": -0.01,
+     "top": -0.01,
+     "right": -0.01,
+     "bottom": -0.01
+    }
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(4a) 入れ物 .pair に焦点 → 枠 = 札 2 枚の合併・ハンドルは回転だけ",
+   "status": "recorded",
+   "measured": {
+    "selectedId": "tsb-pair",
+    "focusRef": ".pair[0]",
+    "frame": {
+     "left": 108.99,
+     "top": 139.24,
+     "width": 186,
+     "height": 46.5
+    },
+    "focusBox": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5
+    },
+    "focusContent": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5,
+     "count": 2
+    },
+    "focusDraws": false,
+    "handles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w",
+     "rotate"
+    ],
+    "breadcrumb": "全体 › tsb-pair › pair",
+    "union": {
+     "left": 109,
+     "top": 139.25,
+     "width": 186,
+     "height": 46.5
+    },
+    "frameMinusUnion": {
+     "left": -0.01,
+     "top": -0.01,
+     "right": -0.01,
+     "bottom": -0.01
+    },
+    "boxHandles": [
+     "nw",
+     "ne",
+     "se",
+     "sw",
+     "n",
+     "e",
+     "s",
+     "w"
+    ]
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(4b) 入れ物 .pair を枠の中（札の上）でドラッグ → 札 2 枚とも動く",
+   "status": "recorded",
+   "measured": {
+    "from": {
+     "x": 149.6875,
+     "y": 162.5
+    },
+    "to": {
+     "x": 179.6875,
+     "y": 182.5
+    },
+    "moved": [
+     {
+      "dx": 30,
+      "dy": 20
+     },
+     {
+      "dx": 0,
+      "dy": 0
+     }
+    ],
+    "elements": {
+     ".chip[0]": {
+      "style": {
+       "translate": "51.61px 34.41px"
+      }
+     }
+    },
+    "after": {
+     "selectedId": "tsb-pair",
+     "focusRef": ".chip[0]",
+     "frame": {
+      "left": 138.99,
+      "top": 159.25,
+      "width": 81.37,
+      "height": 46.49
+     },
+     "focusBox": {
+      "left": 139,
+      "top": 159.25,
+      "width": 81.37,
+      "height": 46.5
+     },
+     "focusContent": {
+      "left": 139,
+      "top": 159.25,
+      "width": 81.37,
+      "height": 46.5,
+      "count": 1
+     },
+     "focusDraws": true,
+     "handles": [
+      "nw",
+      "ne",
+      "se",
+      "sw",
+      "n",
+      "e",
+      "s",
+      "w",
+      "rotate"
+     ],
+     "breadcrumb": "全体 › tsb-pair › pair › chip 1"
+    }
+   }
+  },
+  {
+   "name": "tsb-pair",
+   "label": "(4c) 入れ物 .pair を回転ハンドルで回す → rotate が書かれ、枠は中身の向きに沿う",
+   "status": "recorded-error",
+   "error": "Error: focus lost: .chip[0]\n    at file:///private/tmp/ptsb-base/apps/shell/extensions/akari-preview/evidence/preview-tight-selection-bounds-v1/scripts/run-l1.mjs:336:42\n    at async step (file:///private/tmp/ptsb-base/apps/shell/extensions/akari-preview/evidence/preview-tight-selection-bounds-v1/scripts/run-l1.mjs:224:40)\n    at async runFixture (file:///private/tmp/ptsb-base/apps/shell/extensions/akari-preview/evidence/preview-tight-selection-bounds-v1/scripts/run-l1.mjs:334:3)\n    at async file:///private/tmp/ptsb-base/apps/shell/extensions/akari-preview/evidence/preview-tight-selection-bounds-v1/scripts/run-l1.mjs:432:74"
+  }
+ ],
+ "summary": {
+  "total": 18,
+  "ok": 0
+ },
+ "finishedAt": "2026-10-08T07:47:03.551Z"
+}
