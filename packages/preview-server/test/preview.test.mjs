@@ -1205,6 +1205,13 @@ async function main() {
     fs.writeFileSync(editJsonPath, JSON.stringify(withBg, null, 2));
 
     const bp = await context.newPage();
+    const bgWsMessages = [];
+    bp.on('websocket', socket => socket.on('framereceived', frame => {
+      try {
+        const message = JSON.parse(frame.payload.toString());
+        if (message.type === 'reload') bgWsMessages.push(message);
+      } catch { /* reload 以外のフレームは診断対象外。 */ }
+    }));
     await bp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await bp.waitForTimeout(2000);
     await bp.click('#edit-toggle');
@@ -1273,10 +1280,20 @@ async function main() {
 
     // Delete: 選択中の背景を消す（消したら黒でよい = 2026-08-07 裁定。lint 警告も出ない）
     await bp.keyboard.press('Delete');
-    // PUT 成功後のファイル通知から soft reload へ進むため、固定待ちでは DOM 更新より先に読める。
-    await bp.waitForFunction(() =>
-      !document.querySelector('[data-overlay-id="bg-test"]')
-      && !(window.akari?.state?.summary?.overlays ?? []).some(o => o.id === 'bg-test'));
+    // PUT 成功時のローカル soft reload が DOM と state の両方を更新するまで待つ。
+    try {
+      await bp.waitForFunction(() =>
+        !document.querySelector('[data-overlay-id="bg-test"]')
+        && !(window.akari?.state?.summary?.overlays ?? []).some(o => o.id === 'bg-test'));
+    } catch (error) {
+      const ui = await bp.evaluate(() => ({
+        dom: [...document.querySelectorAll('[data-overlay-id]')].map(el => el.dataset.overlayId),
+        selected: document.querySelector('[data-akari-interaction-selected]')?.dataset.overlayId ?? null,
+        state: window.akari?.state?.summary?.overlays?.map(o => o.id) ?? null,
+      })).catch(e => ({ evaluationError: e.message }));
+      const disk = await fetch(`${BASE}/api/summary`).then(r => r.json()).catch(e => ({ error: e.message }));
+      throw new Error(`Delete reflection failed: ui=${JSON.stringify(ui)} disk=${JSON.stringify(disk.overlays ?? disk)} ws=${JSON.stringify(bgWsMessages.slice(-5))}; ${error.message}`, { cause: error });
+    }
     const afterDelete = await bp.evaluate(() => !!document.querySelector('[data-overlay-id="bg-test"]'));
     const summaryAfterDelete = await fetch(`${BASE}/api/summary`).then(r => r.json());
     (!afterDelete && !(summaryAfterDelete.overlays || []).some(o => o.id === 'bg-test'))

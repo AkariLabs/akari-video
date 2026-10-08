@@ -2934,6 +2934,7 @@ function requestSoftReload(changedPaths = [], overlayIds = []) {
     console.warn('[preview] soft reload failed; falling back to full reload', err);
     location.reload();
   });
+  return softReloadTail;
 }
 
 async function applySoftReload(changedPaths = [], overlayIds = []) {
@@ -4010,6 +4011,9 @@ async function deleteOverlayViaPut(overlayId) {
     } catch {}
     throw new Error(`削除の書き戻しに失敗しました: ${detail}`);
   }
+  // PUT の WS 通知は接続切替中に取りこぼせる。自分の保存成功は直接 reload に結び、
+  // DOM と state の削除反映が終わってから Delete 操作を完了する。
+  await requestSoftReload(['edit.json']);
 }
 
 async function overlayWriteViaPut(editPath, overlayId, patch) {

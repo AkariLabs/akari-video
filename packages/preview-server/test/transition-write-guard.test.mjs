@@ -62,28 +62,40 @@ function pollutedFixture() {
 }
 
 async function openFirstCutEditor(page) {
+  // seek.max だけでは初期 summary の公開前や前回の soft reload 中にも進める。
+  // ポップアップを閉じる reload が終わり、最初のカットを指せる状態で操作する。
+  await page.waitForFunction(() => Boolean(window.akari?.state?.summary?.cuts?.length)
+    && Number(document.getElementById('seek')?.max) > 0);
   await page.evaluate(() => {
     const seek = document.getElementById('seek');
     seek.value = '0.25';
     seek.dispatchEvent(new Event('input', { bubbles: true }));
     seek.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   });
-  await page.waitForSelector('#cut-inp-to-type', { state: 'visible' });
+  try { await page.waitForSelector('#cut-inp-to-type', { state: 'visible' }); }
+  catch (error) {
+    const state = await page.evaluate(() => ({seek: document.getElementById('seek')?.value,
+      max: document.getElementById('seek')?.max, popupHidden: document.getElementById('cut-info-popup')?.hidden,
+      cuts: window.akari?.state?.summary?.cuts?.length}));
+    throw new Error(`cut editor did not open: ${JSON.stringify(state)}; ${error.message}`, {cause:error});
+  }
 }
 
 async function applyTransition(page, type, duration) {
   await openFirstCutEditor(page);
   await page.selectOption('#cut-inp-to-type', type);
   await page.fill('#cut-inp-to-dur', String(duration));
+  // PUT は summary を後で差し替える。hidden だけでは seekTo の先行 close と
+  // WS → applySoftReload の完了を区別できないため、旧 object を保持して両方待つ。
+  await page.evaluate(() => { window.__transitionSummaryBeforePut = window.akari.state.summary; });
   const [response] = await Promise.all([
     page.waitForResponse(candidate => candidate.url().endsWith('/api/edit.json')
       && candidate.request().method() === 'PUT'),
     page.click('#cut-apply-btn'),
   ]);
   assert.equal(response.status(), 200, `transition ${type} PUT failed`);
-  // PUT → WS reload → applySoftReload() が末尾でポップアップを閉じる。summary が同期になり
-  // リロードが select 操作より先に終わるようになったので、閉じ切るのを待ってから開き直す。
-  await page.waitForSelector('#cut-info-popup', { state: 'hidden' });
+  await page.waitForFunction(() => window.akari?.state?.summary !== window.__transitionSummaryBeforePut
+    && document.getElementById('cut-info-popup')?.hidden === true);
 }
 
 function readEdit(project) {
