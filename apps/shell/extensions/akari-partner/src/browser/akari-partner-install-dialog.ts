@@ -38,6 +38,9 @@ export class AkariPartnerInstallDialog extends AbstractDialog<boolean> {
         add('取得元', externalLink(disclosure.sourceUrl, disclosure.sourceUrl));
         add('入れる場所', disclosure.location);
         add('環境変更', disclosure.environment);
+        if (disclosure.connectionNote) {
+            add('接続先', disclosure.connectionNote.replace(/^接続先:\s*/, ''));
+        }
         add('利用条件', externalLink(disclosure.termsUrl, '提供元の利用規約・ライセンス'));
         this.contentNode.appendChild(details);
         this.appendCloseButton('やめる');

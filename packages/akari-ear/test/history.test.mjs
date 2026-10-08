@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
-import os from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { createHistory, voiceDictionaryPaths } from '../src/index.mjs';
 
 test('既定オフはファイルを作らず、オンでは trial を除外して保持数と期限を守る', async () => {
-  const home = await mkdtemp(path.join(process.env.TMPDIR || os.tmpdir(), 'ear-history-'));
+  const home = await mkdtemp(path.join(tmpdir(), 'ear-history-'));
   const env = { AKARI_HOME: home };
   try {
     let now = Date.UTC(2026, 9, 7);

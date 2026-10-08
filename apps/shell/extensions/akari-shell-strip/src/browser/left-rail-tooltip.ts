@@ -1,0 +1,52 @@
+import { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+
+/** An immediate chip for the left activity bar; identity follows the title across DOM redraws. */
+export class LeftRailTooltip {
+    readonly node: HTMLDivElement;
+    protected title: Title<Widget> | undefined;
+
+    constructor(protected readonly tabBar: TabBar<Widget>) {
+        if (!document.getElementById('akari-left-rail-tip-style')) {
+            const style = document.createElement('style');
+            style.id = 'akari-left-rail-tip-style';
+            style.textContent = `.akari-left-rail-tip { position: fixed; display: none; pointer-events: none; z-index: 10050; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--akari-line, #333); background: var(--akari-elevated, #262626); color: var(--akari-ink, #e5e5e5); font-size: 12px; line-height: 1.5; white-space: nowrap; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5); }`;
+            document.head.appendChild(style);
+        }
+        const existing = document.getElementById('akari-left-rail-tip') as HTMLDivElement | null;
+        this.node = existing ?? document.createElement('div');
+        if (!existing) {
+            this.node.id = 'akari-left-rail-tip';
+            this.node.className = 'akari-left-rail-tip';
+            this.node.setAttribute('role', 'tooltip');
+            document.body.appendChild(this.node);
+        }
+        const content = tabBar.contentNode;
+        content.addEventListener('mouseover', event => this.onOver(event));
+        content.addEventListener('mouseleave', () => this.hide());
+        content.addEventListener('focusout', () => this.hide());
+        content.addEventListener('pointerdown', () => this.hide(), true);
+        content.addEventListener('click', () => this.hide());
+    }
+
+    protected onOver(event: MouseEvent): void {
+        const tab = (event.target as Element | null)?.closest?.('.lm-TabBar-tab');
+        const index = tab ? Array.from(this.tabBar.contentNode.children).indexOf(tab) : -1;
+        const title = index >= 0 ? this.tabBar.titles[index] : undefined;
+        if (!tab || !title || document.body.classList.contains('akari-rail-drag-active')) {
+            this.hide();
+            return;
+        }
+        if (this.title === title && this.node.style.display === 'block') { return; }
+        this.title = title;
+        this.node.textContent = title.caption || title.label;
+        this.node.style.display = 'block';
+        const box = tab.getBoundingClientRect();
+        this.node.style.top = `${Math.round(box.top + box.height / 2 - this.node.offsetHeight / 2)}px`;
+        this.node.style.left = `${Math.round(box.right + 6)}px`;
+    }
+
+    hide(): void {
+        this.title = undefined;
+        this.node.style.display = 'none';
+    }
+}

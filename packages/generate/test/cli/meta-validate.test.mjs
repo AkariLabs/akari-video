@@ -16,7 +16,7 @@ async function fixtureDocuments() {
   return Promise.all(names.map(async (name) => ({
     label: name,
     value: JSON.parse(await readFile(path.join(FIXTURES, name), "utf8")),
-    valid: true,
+    valid: !name.startsWith("frame-invalid-"),
   })));
 }
 
@@ -31,6 +31,7 @@ function mutationDocuments(fixtures) {
   const done = byName["done.json"];
   const generating = byName["generating.json"];
   const planned = byName["planned.json"];
+  const frame = byName["frame-valid.json"];
   const mutations = [
     ["next.kind 不正", byName["still-next.json"], (meta) => { meta.next.kind = "still"; }, "kind"],
     ["placeholder.sha256 不正", byName["generating-placeholder.json"], (meta) => { meta.placeholder.sha256 = "invalid"; }, "sha256"],
@@ -64,6 +65,23 @@ function mutationDocuments(fixtures) {
     ["provenance の未知キー", done, (meta) => { meta.provenance.unknown_provenance = true; }, "unknown_provenance"],
     ["result の未知キー", done, (meta) => { meta.result.unknown_result = true; }, "unknown_result"],
     ["historyEntry の未知キー", planned, (meta) => { meta.history[0].unknown_history = true; }, "unknown_history"],
+    ["frame の未知キー", frame, (meta) => { meta.frame.unknown = true; }, "unknown"],
+    ["frame.content 欠け", frame, (meta) => { delete meta.frame.content; }, "content"],
+    ["frame.version 不正", frame, (meta) => { meta.frame.version = 1; }, "version"],
+    ["frame.content.kind 不正", frame, (meta) => { meta.frame.content.kind = "video"; }, "kind"],
+    ["scribble の scene 欠け", frame, (meta) => { meta.frame.content.kind = "scribble"; delete meta.frame.content.scene; }, "scene"],
+    ["frame.scene.id 欠け", frame, (meta) => { delete meta.frame.content.scene.id; }, "id"],
+    ["frame.scene.path 空", frame, (meta) => { meta.frame.content.scene.path = ""; }, "path"],
+    ["frame.content.excerpt 不正", frame, (meta) => { meta.frame.content.excerpt = 1; }, "excerpt"],
+    ["frame.content.keep 不正", frame, (meta) => { meta.frame.content.keep = "yes"; }, "keep"],
+    ["frame.rendered.at 欠け", frame, (meta) => { delete meta.frame.rendered.at; }, "at"],
+    ["frame.rendered.scene_sha256 桁違い", frame, (meta) => { meta.frame.rendered.scene_sha256 = "A".repeat(63); }, "scene_sha256"],
+    ["frame.rendered.renderer 空", frame, (meta) => { meta.frame.rendered.renderer = ""; }, "renderer"],
+    ["frame.rendered.outputs 不正", frame, (meta) => { meta.frame.rendered.outputs = {}; }, "outputs"],
+    ["frame.outputs.role 不正", frame, (meta) => { meta.frame.rendered.outputs[0].role = "video"; }, "role"],
+    ["frame.outputs.sha256 桁違い", frame, (meta) => { meta.frame.rendered.outputs[0].sha256 = "A".repeat(63); }, "sha256"],
+    ["frame.outputs.duration_s が 0", frame, (meta) => { meta.frame.rendered.outputs[0].duration_s = 0; }, "duration_s"],
+    ["frame.outputs.fps が 0", frame, (meta) => { meta.frame.rendered.outputs[0].fps = 0; }, "fps"],
   ];
   return mutations.map(([label, source, mutate, field]) => ({
     label,
@@ -73,11 +91,34 @@ function mutationDocuments(fixtures) {
   }));
 }
 
-test("generation-meta fixtures 9 本を受理する", async () => {
+function acceptedFrameDocuments(fixtures) {
+  const frame = fixtures.find(({ label }) => label === "frame-valid.json").value;
+  return [
+    { label: "frame の大文字 SHA256", value: changed(frame, meta => {
+      meta.frame.rendered.scene_sha256 = "A".repeat(64);
+      meta.frame.rendered.outputs[0].sha256 = "F".repeat(64);
+    }), valid: true },
+    { label: "frame の text と空の outputs", value: changed(frame, meta => {
+      meta.frame.content = { kind: "text", excerpt: null, keep: false };
+      meta.frame.rendered.outputs = [];
+    }), valid: true },
+    { label: "frame の正の duration_s と fps", value: changed(frame, meta => {
+      meta.frame.rendered.outputs[0].duration_s = 0.5;
+      meta.frame.rendered.outputs[0].fps = 24;
+    }), valid: true },
+  ];
+}
+
+test("generation-meta fixtures 13 本の受理・拒否を検査する", async () => {
   const fixtures = await fixtureDocuments();
-  assert.equal(fixtures.length, 9);
+  assert.equal(fixtures.length, 13);
+  assert.equal(fixtures.filter(fixture => fixture.valid).length, 10);
+  assert.equal(fixtures.filter(fixture => !fixture.valid).length, 3);
   for (const fixture of fixtures) {
-    assert.deepEqual(validateGenerationMeta(fixture.value), { ok: true, errors: [] }, fixture.label);
+    const checked = validateGenerationMeta(fixture.value);
+    assert.equal(checked.ok, fixture.valid, fixture.label);
+    if (fixture.valid) assert.deepEqual(checked.errors, [], fixture.label);
+    else assert.ok(checked.errors.length > 0, fixture.label);
   }
 });
 
@@ -146,9 +187,12 @@ test("同梱 validator と AJV の判定がドリフトしていない", async (
   ajv.addFormat("date-time", (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && /^\d{4}-\d{2}-\d{2}T/.test(value));
   const validateWithAjv = ajv.compile(schema);
   const fixtures = await fixtureDocuments();
-  const documents = [...fixtures, ...mutationDocuments(fixtures)];
+  const documents = [...fixtures, ...mutationDocuments(fixtures), ...acceptedFrameDocuments(fixtures)];
   for (const document of documents) {
-    assert.equal(validateGenerationMeta(document.value).ok, validateWithAjv(document.value), document.label);
+    const bundled = validateGenerationMeta(document.value).ok;
+    const schemaValid = validateWithAjv(document.value);
+    assert.equal(bundled, schemaValid, document.label);
+    assert.equal(bundled, document.valid, document.label);
   }
   console.log(`generation-meta AJV ドリフト検査: ${documents.length} 件一致`);
 });

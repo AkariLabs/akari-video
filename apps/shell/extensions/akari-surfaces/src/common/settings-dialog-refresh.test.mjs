@@ -96,6 +96,20 @@ function loadDialogModule() {
     return exports;
 }
 const dialogModule = loadDialogModule();
+test('ストレージの色は内訳 id で決まり、未知の id は muted になる', () => {
+    const expected = {
+        cache: 'Blue', models: 'Violet', library: 'Green', exports: 'Orange', history: 'Cyan'
+    };
+    for (const [id, name] of Object.entries(expected)) {
+        assert.equal(dialogModule.storageColorFor(id), `var(--theia-akariTheme-placedText${name})`);
+    }
+    assert.equal(dialogModule.storageColorFor('other'), 'var(--akari-muted)');
+    assert.equal(dialogModule.storageColorFor('toString'), 'var(--akari-muted)');
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /const color = storageColorFor\(entry\.id\)/);
+    assert.match(dialog, /part\.style\.background = color/);
+    assert.match(dialog, /item\.style\.setProperty\('--akari-storage-color', color\)/);
+});
 function makeDialog(values = {}, extra = {}) {
     const dialog = Object.create(dialogModule.AkariSettingsDialog.prototype);
     const writes = [];

@@ -14,7 +14,7 @@ import {
     readEngine, readVibeMode, resolveEarEngine, VIBE_MODE_DESCRIPTIONS, VIBE_MODE_KEY,
     VIBE_MODE_LABELS, VibeMode
 } from '../common/vibe-mode';
-import { EarRecorder } from './ear-recorder';
+import { EarSession } from './ear-session';
 import { ensureCorrectedTextStyles } from './corrected-text';
 import { lastKnownListeningMic, rememberListeningMic } from './listening-preferences';
 
@@ -68,6 +68,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
     readonly sectionId = 'listening';
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(AkariEarFrontend) protected readonly ear!: AkariEarFrontend;
+    @inject(EarSession) protected readonly session!: EarSession;
     @inject(AkariVoiceDictionaryService) protected readonly dictionary!: AkariVoiceDictionaryService;
     @inject(CommandRegistry) protected readonly commandRegistry!: CommandRegistry;
     @inject(CommandService) protected readonly commands!: CommandService;
@@ -80,8 +81,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         let disposed = false;
         let running = false;
         let stopping = false;
-        let started = false;
-        let recorder: EarRecorder | undefined;
+        const session = this.session ?? new EarSession(this.ear, this.preferences);
         let currentEngine: EarEngineId | undefined;
         let voiceAt: number | undefined;
         let latency: string | undefined;
@@ -132,15 +132,11 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
             }
         };
         const stopTrial = async (): Promise<void> => {
-            if (stopping || (!running && !recorder)) return;
+            if (stopping || !running) return;
             stopping = true;
             trialStatus.textContent = currentEngine === 'record-then-transcribe' ? '文字にしています…' : '停止しています…';
             try {
-                try { if (recorder) await recorder.stop(); }
-                finally {
-                    recorder = undefined;
-                    if (started) { await this.ear.stop(); started = false; }
-                }
+                await session.stop();
                 if (!disposed) trialStatus.textContent = '待機中';
             } catch { if (!disposed) trialStatus.textContent = '試し聞きを止められませんでした'; }
             running = false;
@@ -156,6 +152,10 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         };
         const startTrial = async (): Promise<void> => {
             if (running || disposed) return;
+            if (session.state.state === 'listening' && session.state.purpose !== 'trial') {
+                trialStatus.textContent = '区画で聞き取り中です';
+                return;
+            }
             currentEngine = resolveEarEngine(this.preferences, capabilities);
             if (!currentEngine) { trialStatus.textContent = '使える聞き取りエンジンがありません'; return; }
             running = true;
@@ -165,17 +165,12 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
             trialStatus.textContent = currentEngine === 'record-then-transcribe' ? '止めたあとで文字にします' : '聞いています';
             paintTrialButton();
             try {
-                const status = await this.ear.start({ purpose: 'trial', engine: currentEngine });
+                const status = await session.start({ purpose: 'trial', engine: currentEngine });
                 if (status.mic === 'ok' || status.mic === 'denied') {
                     mic = status.mic; rememberListeningMic(mic); void findMic();
                 }
                 if (status.state === 'error') throw new Error(status.message ?? '聞き取りを始められませんでした');
-                started = true;
-                if (disposed) { await this.ear.stop(); started = false; return; }
-                if (currentEngine === 'record-then-transcribe') {
-                    recorder = new EarRecorder(this.ear);
-                    await recorder.start();
-                }
+                if (disposed) { await session.stop(); return; }
             } catch (error) {
                 if (error instanceof DOMException && error.name === 'NotAllowedError') {
                     mic = 'denied'; micName = ''; rememberListeningMic(mic); paintMic();
@@ -266,7 +261,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         };
 
         paintMic(); void findMic(); paintEngine(); paintMode(); paintDictionary();
-        disposables.push(this.ear.onStatus(status => {
+        disposables.push(session.onDidChange(status => {
             if (disposed) return;
             if (status.mic === 'ok' || status.mic === 'denied' || status.mic === 'unsupported') {
                 mic = status.mic; if (mic !== 'ok') micName = '';
@@ -277,12 +272,12 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
                 void stopTrial().then(() => { if (!disposed) trialStatus.textContent = message; });
             }
         }));
-        disposables.push(this.ear.onLevel(level => {
+        disposables.push(session.onLevel(level => {
             if ((!running && !stopping) || disposed) return;
             levelFill.style.transform = `scaleX(${Math.max(0, Math.min(1, level * 10))})`;
             if (level > 0.01 && voiceAt === undefined) voiceAt = performance.now();
         }));
-        disposables.push(this.ear.onUtterance(utterance => {
+        disposables.push(session.onUtterance(utterance => {
             if ((!running && !stopping) || disposed) return;
             if (latency === undefined && voiceAt !== undefined) latency = `${((performance.now() - voiceAt) / 1000).toFixed(2)} 秒`;
             paintUtterance(utterance);
@@ -301,7 +296,7 @@ export class ListeningSettingsSection implements SettingsSectionBodyContribution
         return Disposable.create(() => {
             disposed = true;
             disposables.dispose();
-            void stopTrial();
+            void stopTrial().then(() => { if (!this.session) session.dispose(); });
             root.remove();
         });
     }

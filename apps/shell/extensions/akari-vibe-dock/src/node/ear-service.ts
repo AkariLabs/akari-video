@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { release } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { injectable } from '@theia/core/shared/inversify';
 import {
@@ -82,7 +82,8 @@ function localTranscriber(): EarServiceOptions['transcribe'] | undefined {
     return (wavPath, { signal }) => new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [cli, 'transcribe', wavPath,
             '--no-record', '--no-word-book'], {
-            stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, signal
+            stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, signal,
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
         });
         let output = '';
         let errorOutput = '';
@@ -112,6 +113,10 @@ export class AkariEarServiceImpl implements AkariEarService {
     protected status: EarStatus = { state: 'idle', mic: 'unknown' };
     protected readonly nowEpochMs: () => number;
     protected readonly env: NodeJS.ProcessEnv;
+    protected testFeed: ReturnType<typeof setTimeout> | undefined;
+    protected testFeedPending: Promise<void> | undefined;
+    protected testUtteranceId = 0;
+    protected testPaperOpen = false;
 
     constructor(protected readonly options: EarServiceOptions = {}) {
         this.nowEpochMs = options.nowEpochMs ?? Date.now;
@@ -147,17 +152,88 @@ export class AkariEarServiceImpl implements AkariEarService {
         return this.options.transcribe ?? localTranscriber();
     }
 
+    // 検証用。無効な入力は製品の通常経路へ戻す。
+    protected testInputFile(): string | undefined {
+        const path = this.env.AKARI_EAR_TEST_FILE;
+        if (!path || !isAbsolute(path)) return undefined;
+        try {
+            const stat = statSync(path);
+            return stat.isFile() && stat.size <= 50 * 1024 * 1024 ? path : undefined;
+        } catch { return undefined; }
+    }
+
+    protected testAudio(path: string): Buffer {
+        const wav = readFileSync(path);
+        const invalid = (): never => { throw new Error('検証用の音声は 16kHz・モノラル・16bit の WAV にしてください'); };
+        if (wav.length < 12 || wav.toString('ascii', 0, 4) !== 'RIFF'
+            || wav.toString('ascii', 8, 12) !== 'WAVE') invalid();
+        let format = false;
+        let data: Buffer | undefined;
+        for (let offset = 12; offset + 8 <= wav.length;) {
+            const length = wav.readUInt32LE(offset + 4);
+            const start = offset + 8;
+            if (start + length > wav.length) invalid();
+            const chunk = wav.toString('ascii', offset, offset + 4);
+            if (chunk === 'fmt ' && length >= 16) {
+                format = wav.readUInt16LE(start) === 1 && wav.readUInt16LE(start + 2) === 1
+                    && wav.readUInt32LE(start + 4) === 16000 && wav.readUInt32LE(start + 8) === 32000
+                    && wav.readUInt16LE(start + 12) === 2 && wav.readUInt16LE(start + 14) === 16;
+            }
+            if (chunk === 'data') data = wav.subarray(start, start + length);
+            offset = start + length + (length % 2);
+        }
+        if (!format || !data || data.length % 2) invalid();
+        return data!;
+    }
+
+    protected feedTestAudio(active: NonNullable<AkariEarServiceImpl['active']>, audio: Buffer): void {
+        let offset = 0;
+        const send = async (): Promise<void> => {
+            if (this.active !== active || offset >= audio.length) return;
+            try {
+                await active.engine.appendAudio?.(audio.subarray(offset, offset + 3200));
+                offset += 3200;
+                if (this.active === active && offset < audio.length) {
+                    this.testFeed = setTimeout(() => { this.testFeedPending = send(); }, 100);
+                }
+            } catch (error) {
+                if (this.active !== active) return;
+                this.active = undefined;
+                this.publish({ state: 'error', mic: 'unknown', purpose: active.purpose, engine: active.id,
+                    message: error instanceof Error ? error.message : '検証用の音声を読めませんでした' });
+                void active.engine.stop();
+            }
+        };
+        this.testFeedPending = send();
+    }
+
     async getCapabilities(): ReturnType<AkariEarService['getCapabilities']> {
         const module = await this.earModule();
+        const testInput = this.testInputFile();
         if (!module) return { engines: [
             { id: 'speechanalyzer-live', available: false, reason: '聞き取り部品が見つかりません' },
             { id: 'record-then-transcribe', available: false, reason: '聞き取り部品が見つかりません' }
-        ] };
-        return module.getCapabilities({
+        ], ...(testInput ? { testInput: true } : {}), ...(this.env.AKARI_JEV_TEST_TEXT === '1' ? { testText: true } : {}) };
+        const capabilities = module.getCapabilities({
             platform: this.options.platform ?? process.platform,
             darwinMajor: this.options.darwinMajor ?? Number(release().split('.')[0]),
             helperPath: this.helperPath(), env: this.env, transcribe: this.transcriber()
         });
+        return { ...capabilities, ...(testInput ? { testInput: true } : {}),
+            ...(this.env.AKARI_JEV_TEST_TEXT === '1' ? { testText: true } : {}) };
+    }
+
+    // 検証用
+    async injectTestUtterance(text: string): Promise<void> {
+        if (this.env.AKARI_JEV_TEST_TEXT !== '1' || typeof text !== 'string' || !text.trim()) return;
+        const module = await this.earModule();
+        if (!module) return;
+        let corrected: { text: string; applied: EarUtterance['applied'] };
+        try { corrected = module.applyVoiceDictionary(text, module.loadVoiceDictionary({ env: this.env }), { final: true }); }
+        catch { corrected = { text, applied: [] }; }
+        this.client?.onUtterance({ id: `test-utterance-${++this.testUtteranceId}`, raw: text, text: corrected.text,
+            final: true, applied: corrected.applied, t: 0,
+            kind: module.classifyUtterance(corrected.text, { paperOpen: this.active?.sessions.isOpen() ?? this.testPaperOpen }) });
     }
 
     setClient(client: AkariEarClient | undefined): void { this.client = client; }
@@ -180,8 +256,9 @@ export class AkariEarServiceImpl implements AkariEarService {
         if (!module || !id) return this.publish({ state: 'error', mic: 'unsupported', message: caps.engines.map(e => e.reason).filter(Boolean).join(' / ') });
         const startedAt = this.nowEpochMs();
         const transcribe = this.transcriber();
+        const testInput = this.testInputFile();
         const engine = id === 'speechanalyzer-live'
-            ? module.createLiveEngine({ helperPath: this.helperPath() })
+            ? module.createLiveEngine({ helperPath: this.helperPath(), args: testInput ? ['--file', testInput] : [] })
             : module.createRecordEngine({ transcribe });
         const sessions = module.createPaperSessions({ nowEpochMs: this.nowEpochMs,
             engineStartedAtEpochMs: startedAt, engine: module.engineLabel(id) });
@@ -227,14 +304,23 @@ export class AkariEarServiceImpl implements AkariEarService {
         this.publish({ state: 'starting', mic: 'unknown', purpose: options.purpose, engine: id });
         try {
             await engine.start();
+            if (testInput && id === 'record-then-transcribe') {
+                const audio = this.testAudio(testInput);
+                this.feedTestAudio(active, audio);
+            }
             return this.status;
         } catch (error) {
             this.active = undefined;
+            void engine.stop();
             return this.publish({ state: 'error', mic: 'unknown', message: error instanceof Error ? error.message : '聞き取りを開始できません' });
         }
     }
 
     async stop(): Promise<EarStatus> {
+        if (this.testFeed) clearTimeout(this.testFeed);
+        this.testFeed = undefined;
+        await this.testFeedPending;
+        this.testFeedPending = undefined;
         const active = this.active;
         if (!active) return this.publish({ state: 'idle', mic: 'unknown' });
         this.publish({ state: 'stopping', mic: 'unknown', purpose: active.purpose, engine: active.id });
@@ -244,6 +330,7 @@ export class AkariEarServiceImpl implements AkariEarService {
     }
 
     async notifyRoughCanvas(event: RoughCanvasEarEvent): Promise<void> {
+        if (this.env.AKARI_JEV_TEST_TEXT === '1') this.testPaperOpen = event.type === 'roughCanvas.opened';
         const sessions = this.active?.sessions;
         if (!sessions) return;
         if (event.type === 'roughCanvas.opened') {

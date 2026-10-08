@@ -10,6 +10,7 @@ export interface StatusLine {
     tone: StatusTone;
     source?: StatusSource;
     action?: VibeDockJob['action'];
+    actions?: Array<{ label: string; run: () => void }>;
 }
 export interface LayoutStorage {
     getItem(key: string): string | null;
@@ -76,7 +77,7 @@ export class VibeDockState {
         this.onDidChangeEmitter.fire();
     }
     pressMark(): void {
-        this.setLayout(this.layout === 'closed' ? 'open' : 'closed');
+        if (this.layout === 'closed') this.setLayout('open');
         this.onDidPressMarkEmitter.fire();
     }
     setMark(mark: MarkState, unavailable?: string): void {
@@ -100,9 +101,9 @@ export class VibeDockState {
     }
 
     readonly status = {
-        set: (line: string, tone: StatusTone = 'info', source?: StatusSource): Disposable => {
+        set: (line: string, tone: StatusTone = 'info', source?: StatusSource, actions?: StatusLine['actions']): Disposable => {
             const id = ++this.sequence;
-            this.statuses.set(id, { line, tone, source });
+            this.statuses.set(id, { line, tone, source, ...(actions ? { actions } : {}) });
             this.onDidChangeEmitter.fire();
             return Disposable.create(() => {
                 if (this.statuses.delete(id)) this.onDidChangeEmitter.fire();

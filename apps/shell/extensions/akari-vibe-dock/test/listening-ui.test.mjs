@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -155,8 +156,7 @@ test('メモから画面への切替だけ確認し、試し聞きは節を離�
     assert.equal(confirmations.length, 1);
     assert.equal(data.store['akari.vibe.mode'], 'full');
 
-    const base = process.env.TMPDIR ?? process.cwd();
-    const sandbox = mkdtempSync(join(base, 'listening-trial-'));
+    const sandbox = mkdtempSync(join(tmpdir(), 'listening-trial-'));
     const previousHome = process.env.AKARI_HOME;
     const previousTmp = process.env.TMPDIR;
     const previousStorage = globalThis.localStorage;
@@ -176,7 +176,8 @@ test('メモから画面への切替だけ確認し、試し聞きは節を離�
         assert.equal(storageWrites, 0);
     } finally {
         process.env.AKARI_HOME = previousHome;
-        process.env.TMPDIR = previousTmp;
+        if (previousTmp === undefined) delete process.env.TMPDIR;
+        else process.env.TMPDIR = previousTmp;
         globalThis.localStorage = previousStorage;
         rmSync(sandbox, { recursive: true, force: true });
     }

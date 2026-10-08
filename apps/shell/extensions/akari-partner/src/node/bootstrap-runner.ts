@@ -47,6 +47,13 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
             environment: '必要なら https://nodejs.org/dist/v24.21.0/ から Node.js を取得し、npm global で CLI を導入します。利用者の PATH は変更せず、パートナー起動時に一時追加します。',
             termsUrl: 'https://github.com/earendil-works/pi/blob/main/LICENSE'
         },
+        deepseek: {
+            name: 'DeepSeek Harness', provider: 'DeepSeek（杭州深度求索人工智能基础技术研究有限公司）',
+            sourceUrl: 'https://registry.npmjs.org/@deepseek-ai/dsh',
+            location: `${privateNode} と ${npmPrefix}（npm global）`,
+            environment: '必要なら https://nodejs.org/dist/v24.21.0/ から Node.js を取得し、npm global で CLI を導入します。利用者の PATH は変更せず、パートナー起動時に一時追加します。',
+            termsUrl: 'https://cdn.deepseek.com/policies/en-US/deepseek-terms-of-use.html'
+        },
         devin: {
             name: 'Devin', provider: 'Cognition',
             sourceUrl: windows ? 'https://static.devin.ai/cli/setup.ps1' : 'https://cli.devin.ai/install.sh',
@@ -84,7 +91,7 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
     };
     const overrideNames: Record<PartnerAgentId, string> = {
         claude: 'AKARI_PARTNER_CLAUDE_INSTALL_URL', codex: 'AKARI_PARTNER_CODEX_RELEASE_API_URL',
-        opencode: 'AKARI_PARTNER_OPENCODE_INSTALL_URL', commandcode: '', pi: '',
+        opencode: 'AKARI_PARTNER_OPENCODE_INSTALL_URL', commandcode: '', pi: '', deepseek: '',
         devin: 'AKARI_PARTNER_DEVIN_INSTALL_URL', copilot: 'AKARI_PARTNER_COPILOT_INSTALL_URL',
         cursor: 'AKARI_PARTNER_CURSOR_INSTALL_URL', antigravity: 'AKARI_PARTNER_ANTIGRAVITY_INSTALL_URL',
         grok: 'AKARI_PARTNER_GROK_INSTALL_URL'
@@ -217,7 +224,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         return candidates;
     }
 
-    function npmAgentCandidates(agent: 'commandcode' | 'pi'): string[] {
+    function npmAgentCandidates(agent: 'commandcode' | 'pi' | 'deepseek'): string[] {
         return candidatePaths(agent,
             { homeDir: os.homedir(), platform: process.platform, env: process.env });
     }
@@ -746,7 +753,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         }
     }
 
-    type NpmAgent = 'commandcode' | 'pi';
+    type NpmAgent = 'commandcode' | 'pi' | 'deepseek';
     const npmAgentConfigs: Record<NpmAgent, {
         label: string; packageName: string;
         manualInstall: string; marker: string; minimumNode: [number, number];
@@ -759,6 +766,11 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             label: 'Pi', packageName: '@earendil-works/pi-coding-agent',
             manualInstall: 'npm install -g @earendil-works/pi-coding-agent（Node.js 22.19 以上が必要）',
             marker: 'pi-installed', minimumNode: [22, 19]
+        },
+        deepseek: {
+            label: 'DeepSeek Harness', packageName: '@deepseek-ai/dsh',
+            manualInstall: 'npm install -g @deepseek-ai/dsh（Node.js 22.19 以上が必要）',
+            marker: 'dsh-installed', minimumNode: [22, 19]
         }
     };
 
@@ -1354,17 +1366,17 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
-            && agent !== 'commandcode' && agent !== 'pi' && agent !== 'devin'
+            && agent !== 'commandcode' && agent !== 'pi' && agent !== 'deepseek' && agent !== 'devin'
             && agent !== 'copilot' && agent !== 'cursor'
             && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, devin, copilot, cursor, antigravity, or grok');
+            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, deepseek, devin, copilot, cursor, antigravity, or grok');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
             outcome = await runClaudeInstaller();
         } else if (agent === 'codex') {
             outcome = await installCodexBinary();
-        } else if (agent === 'commandcode' || agent === 'pi') {
+        } else if (agent === 'commandcode' || agent === 'pi' || agent === 'deepseek') {
             outcome = await installNpmAgent(agent);
         } else {
             outcome = await runScriptInstaller(scriptInstallAgentConfigs[agent]);

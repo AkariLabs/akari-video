@@ -83,6 +83,7 @@ function validateEdit(value) {
   }
   if (value.version === 2) {
     validateV2Tracks(value.tracks);
+    validateV2SyncGroups(value.sync_groups, value.sources);
     return;
   }
   if (value.version !== 0 && value.version !== 1) {
@@ -112,6 +113,30 @@ function validateEdit(value) {
   validateDirection(value.direction);
   validateTracks(value.tracks);
   validateTimeline(value.timeline);
+}
+
+function validateV2SyncGroups(groups, sources) {
+  if (groups === undefined) return;
+  if (!Array.isArray(groups)) { fail('sync_groups は配列である必要があります'); return; }
+  const sourceIds = new Set(Array.isArray(sources) ? sources.map(source => source?.id) : []);
+  const groupIds = new Set();
+  const members = new Set();
+  for (const [index, group] of groups.entries()) {
+    if (!isPlainObject(group) || !isNonEmptyString(group.id) || !Array.isArray(group.members)
+      || group.members.length < 2) { fail(`sync_groups[${index}] の id と members が不正です`); continue; }
+    if (groupIds.has(group.id)) fail(`sync_groups[${index}].id が重複しています`);
+    groupIds.add(group.id);
+    for (const [memberIndex, member] of group.members.entries()) {
+      if (!isPlainObject(member) || !sourceIds.has(member.source) ||
+        typeof member.offset_sec !== 'number' || !Number.isFinite(member.offset_sec)) {
+        fail(`sync_groups[${index}].members[${memberIndex}] の素材・ずれが不正です`);
+        continue;
+      }
+      if (members.has(member.source)) fail(`sync_groups[${index}] の素材が別の組と重複しています`);
+      members.add(member.source);
+      if (memberIndex === 0 && member.offset_sec !== 0) fail(`sync_groups[${index}] の基準素材のずれは 0 です`);
+    }
+  }
 }
 
 function validateV2Tracks(value) {

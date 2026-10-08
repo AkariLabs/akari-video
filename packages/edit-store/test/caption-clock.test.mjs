@@ -5,6 +5,49 @@ import { readInternalEdit } from '../lib/internal-model.js';
 import { applyCutRanges, projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio,
     unlinkCutAudio } from '../lib/index.js';
 
+test('別ファイルの声は実配置へ射影し、映像の外の声も一度だけ残す', () => {
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
+        sync_groups: [{ id: 'take', members: [
+            { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 1 }
+        ] }],
+        tracks: [
+            { id: 'v', lane: 'visual', items: [{ id: 'v1', at: 30, duration: 150,
+                source: { kind: 'media', src: 'cam', in: 0, out: 5 } }] },
+            { id: 'a', lane: 'audio', items: [{ id: 'a1', role: 'speech', at: 60, duration: 150,
+                source: { kind: 'media', src: 'mic', in: 1, out: 6 } }] }
+        ] };
+    const segments = buildCaptionTimelineSegments([], readInternalEdit(edit));
+    const mic = segments.filter(segment => segment.src === 'mic');
+    assert.equal(mic.length, 2);
+    assert.deepEqual(mic.map(segment => [segment.in, segment.out, segment.outStart, segment.outEnd]),
+        [[1, 5, 2, 6], [5, 6, 6, 7]]);
+});
+
+test('同期映像が覆わない声の末尾は音声自身の時刻に残り、カット後も重複しない', () => {
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'cam', path: 'cam.mp4' }, { id: 'mic', path: 'mic.wav' }],
+        sync_groups: [{ id: 'take', members: [
+            { source: 'cam', offset_sec: 0 }, { source: 'mic', offset_sec: 0 },
+        ] }], tracks: [
+            { id: 'v', lane: 'visual', items: [{ id: 'cam-1', at: 0, duration: 300,
+                source: { kind: 'media', src: 'cam', in: 0, out: 10 } }] },
+            { id: 'a', lane: 'audio', items: [{ id: 'mic-1', role: 'speech', at: 0, duration: 360,
+                source: { kind: 'media', src: 'mic', in: 0, out: 12 } }] },
+        ] };
+    const mapped = source => {
+        const internal = readInternalEdit(source);
+        const cuts = projectLegacyEdit(internal).cuts;
+        return buildCaptionTimelineSegments(cuts, internal, { fps: 30 })
+            .filter(segment => segment.src === 'mic')
+            .map(segment => [segment.outStart, segment.outEnd, segment.in, segment.out]);
+    };
+    assert.deepEqual(mapped(edit), [[0, 10, 0, 10], [10, 12, 10, 12]]);
+    const cut = { in: 3, out: 4, kind: 'row', captionId: 'mic' };
+    assert.deepEqual(mapped(JSON.parse(applyCutRanges(`${JSON.stringify(edit)}\n`, [cut]).source)),
+        [[0, 3, 0, 3], [3, 9, 4, 10], [9, 11, 10, 12]]);
+});
+
 test('caption timeline maps visual, voice, both, and duplicate sources once', () => {
     const edit = {
         version: 2, output: { width: 1920, height: 1080, fps: 30 },

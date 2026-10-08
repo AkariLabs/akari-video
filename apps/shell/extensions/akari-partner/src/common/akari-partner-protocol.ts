@@ -1,6 +1,6 @@
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
-export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
 
 export interface PartnerInstallDisclosure {
     name: string;
@@ -8,6 +8,7 @@ export interface PartnerInstallDisclosure {
     sourceUrl: string;
     location: string;
     environment: string;
+    connectionNote?: string;
     termsUrl: string;
 }
 
@@ -26,6 +27,15 @@ export interface BootstrapConsentRequiredResult {
 }
 
 export type PartnerBootstrapOutcome = BootstrapResult | BootstrapConsentRequiredResult;
+
+export interface PartnerWebLaunch {
+    url: string;
+    pid: number;
+    cwd: string;
+    provider: 'deepseek-official' | 'opencode-go';
+    providerNote: string;
+    guidance?: string;
+}
 
 export interface BinaryVerificationRequest {
     packagePath: string;
@@ -128,6 +138,11 @@ export interface AkariPartnerServer {
      */
     ensureCli(): Promise<EnsureCliResult>;
     prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
+    startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined, executablePath: string,
+        ownerId: string): Promise<PartnerWebLaunch>;
+    stopWebPartner(pid: number, ownerId: string): Promise<void>;
+    reconcileWebPartners(ownerId: string, activeRootUris: string[]): Promise<void>;
+    isWebPartnerRunning(pid: number): Promise<boolean>;
     getRenderPins(): Promise<RenderPins>;
     /**
      * 接続成立時にアプリ単位マーカーを書き、書いた内容を返す。フロントエンドが

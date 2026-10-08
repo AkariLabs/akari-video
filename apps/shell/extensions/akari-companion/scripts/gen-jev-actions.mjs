@@ -5,6 +5,8 @@ import {derivedAllowedCommandIds} from '../../../../../packages/akari-vibe/src/j
 
 const catalogUrl = new URL('../../../../../packages/akari-vibe/src/jev/jev-actions.json', import.meta.url);
 const defaultOutput = new URL('../src/common/jev-actions.generated.ts', import.meta.url);
+const dockOutput = new URL('../../akari-vibe-dock/src/common/jev-catalog.generated.ts', import.meta.url);
+const validatorUrl = new URL('../src/common/jev-catalog-validate.ts', import.meta.url);
 
 function commandValueSchema(action, argsMap) {
     if (!argsMap) return action.valueSchema;
@@ -53,6 +55,19 @@ export function generateJevActions(catalog) {
 
 export function writeGenerated(catalog, output = defaultOutput) {
     fs.writeFileSync(output, generateJevActions(catalog));
+    if (output === defaultOutput) fs.writeFileSync(dockOutput, generateDockCatalog(catalog));
+}
+
+export function generateDockCatalog(catalog) {
+    const result = validateCatalog(catalog);
+    if (!result.ok) throw new Error(result.errors.join('; '));
+    const actions = catalog.actions.filter(action => action.available).map(action => ({
+        id: action.id, tierMax: action.tierMax, reversible: action.reversible,
+        valueSchema: action.valueSchema, commands: action.commands
+    }));
+    return '// 自動生成・編集しない・再生成は npm run gen:jev\n' +
+        fs.readFileSync(validatorUrl, 'utf8') + '\n' +
+        `export const JEV_LOCAL_ACTIONS = ${JSON.stringify(actions, null, 2)} as const;\n`;
 }
 
 if (process.argv[1] && fs.existsSync(process.argv[1]) &&

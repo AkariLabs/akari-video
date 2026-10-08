@@ -33,7 +33,7 @@ test('パートナーカタログの全エントリが PartnerCatalogEntry の�
         assert.equal(typeof entry.name, 'string', where);
         assert.equal(typeof entry.description, 'string', where);
         assert.equal(typeof entry.recommended, 'boolean', where);
-        assert.ok(['cli', 'extension'].includes(entry.form), `${where}: form が cli / extension でない`);
+        assert.ok(['cli', 'web', 'extension'].includes(entry.form), `${where}: form が cli / web / extension でない`);
 
         if (entry.form === 'extension') {
             assert.equal(typeof entry.extensionId, 'string', where);
@@ -41,7 +41,7 @@ test('パートナーカタログの全エントリが PartnerCatalogEntry の�
             assert.equal(typeof entry.binaryVerification, 'object', where);
         } else {
             for (const key of EXTENSION_KEYS) {
-                assert.ok(!Object.hasOwn(entry, key), `${where}: cli に ${key} が付いている`);
+                assert.ok(!Object.hasOwn(entry, key), `${where}: cli / web に ${key} が付いている`);
             }
         }
 
@@ -73,12 +73,14 @@ test('form: extension の 2 件だけが互換用の caution 文面を持つ', a
     );
 });
 
-test('caution を持たないエントリ（CLI 10 件）には注意書きの元データが無い', async () => {
+test('caution を持たないエントリ（CLI 10 件・Web 1 件）には注意書きの元データが無い', async () => {
     const catalog = await readCatalog();
     const cli = catalog.filter(entry => entry.form === 'cli');
+    const web = catalog.filter(entry => entry.form === 'web');
 
     assert.equal(cli.length, 10);
-    for (const entry of cli) {
+    assert.equal(web.length, 1);
+    for (const entry of [...cli, ...web]) {
         assert.equal(entry.caution, undefined, `${entry.id} に caution が付いている`);
     }
 });

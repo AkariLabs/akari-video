@@ -14,10 +14,10 @@ const listener = source.slice(start, end);
 const code = ts.transpileModule(`class Harness { receive(event) { ${listener} captionSelection(event); } }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
-const Harness = new Function('URI', 'clearSelection', `${code}; return Harness;`)(
+const Harness = new Function('URI', 'clearSelection', 'PreferenceScope', 'DAIHON_HIDDEN_SOURCES_PREFERENCE', `${code}; return Harness;`)(
   class { constructor(value) { this.value = value; } normalizePath() { return this; }
     toString() { return this.value.replace('/./', '/'); } },
-  () => ({ selected: [], anchorId: null })
+  () => ({ selected: [], anchorId: null }), { Workspace: 'workspace' }, 'hidden-sources'
 );
 
 function fixture({ visible = true, dock = undefined } = {}) {
@@ -99,6 +99,34 @@ test('external selection clears filters only when its row is hidden', () => {
   assert.equal(widget.speakerFilter, null);
   assert.ok(calls.some(([name, guarded]) => name === 'filter' && guarded === true));
   assert.equal(widget.autoScrolling, false, 'filter adjustment must release a prior playback scroll guard');
+});
+
+test('timeline selection reveals a source-filtered row and clears saved hidden sources', () => {
+  const { widget, roots, send } = fixture();
+  const saved = [];
+  widget.hiddenSourceIds = ['mic'];
+  widget.preferences = { set: (...args) => { saved.push(args); return Promise.resolve(); } };
+  roots.get('a').root.classList.contains = name => name === 'source-hidden';
+  send(['a']);
+  assert.deepEqual(widget.hiddenSourceIds, []);
+  assert.equal(saved.length, 1);
+  assert.deepEqual(saved[0][1], []);
+});
+
+test('range selection order excludes rows hidden by source, QC, or speaker filters', () => {
+  const start = source.indexOf('    protected rowOrder(): string[] {');
+  const end = source.indexOf('    protected handleRowShortcut(', start);
+  assert.ok(start >= 0 && end > start);
+  const compiled = ts.transpileModule(`class OrderHarness { ${source.slice(start, end)} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  const OrderHarness = new Function(`${compiled}; return OrderHarness;`)();
+  const widget = new OrderHarness();
+  widget.rows = ['a', 'b', 'c', 'd'].map(id => ({ id }));
+  widget.elements = new Map(['a', 'b', 'c', 'd'].map(id => [id, { root: {
+    classList: { contains: name => ({ b: 'source-hidden', c: 'qc-hidden', d: 'speaker-hidden' })[id] === name }
+  } }]));
+  assert.deepEqual(widget.rowOrder(), ['a']);
 });
 
 test('manual scroll suppresses later dock or resize reveal until the selection changes', () => {

@@ -5,6 +5,13 @@ type RawCaptionEdit = {
     output?: {
         fps?: number;
     };
+    sync_groups?: Array<{
+        id: string;
+        members: Array<{
+            source: string;
+            offset_sec: number;
+        }>;
+    }>;
     tracks: Array<{
         lane?: string;
         muted?: boolean;

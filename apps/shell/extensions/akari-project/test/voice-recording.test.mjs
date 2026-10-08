@@ -4,6 +4,8 @@ import {
     VOICE_RECORDING_DENOISE, voiceRecordingFileName, formatRecordingClock, canonicalEditUri, preferWorkspaceEditUri,
     mixToMono, rmsLevel, levelToBars, resampleToPcm16
 } from '../lib/common/voice-recording.js';
+const normalizedTempEditUri = 'file:///private/tmp/a/edit.json';
+const normalizedProjectEditUri = 'file:///private/tmp/p/edit.json';
 
 test('recorded voice uses the measured non-muffling denoise preset', () => {
     assert.deepEqual(VOICE_RECORDING_DENOISE, { method: 'nlm', strength: 0.75 });
@@ -17,19 +19,19 @@ test('local recording name and clock', () => {
 });
 
 test('edit URI canonicalization matches preview root aliases and path tails', () => {
-    assert.equal(canonicalEditUri('file:///tmp/a/edit.json'), 'file:///private/tmp/a/edit.json');
-    assert.equal(canonicalEditUri('file:///private/tmp/a/edit.json'), 'file:///private/tmp/a/edit.json');
-    assert.equal(canonicalEditUri('file:///Users/x/edit.json'), 'file:///Users/x/edit.json');
-    assert.equal(canonicalEditUri('file:///tmp/a/./edit.json/'), 'file:///private/tmp/a/edit.json');
+    assert.equal(canonicalEditUri('file:///tmp/a/edit.json'), normalizedTempEditUri);
+    assert.equal(canonicalEditUri(normalizedTempEditUri), normalizedTempEditUri);
+    assert.equal(canonicalEditUri('file:///work/x/edit.json'), 'file:///work/x/edit.json');
+    assert.equal(canonicalEditUri('file:///tmp/a/./edit.json/'), normalizedTempEditUri);
     assert.equal(canonicalEditUri('file:///var/a/../b/edit.json'), 'file:///private/var/b/edit.json');
     assert.equal(canonicalEditUri('file:///etc/a/edit.json'), 'file:///private/etc/a/edit.json');
 });
 
 test('the workspace URI is preferred only when it identifies the given edit file', () => {
-    assert.equal(preferWorkspaceEditUri('file:///private/tmp/p/edit.json', 'file:///tmp/p/edit.json'),
+    assert.equal(preferWorkspaceEditUri(normalizedProjectEditUri, 'file:///tmp/p/edit.json'),
         'file:///tmp/p/edit.json');
-    assert.equal(preferWorkspaceEditUri('file:///Users/x/edit.json', 'file:///Users/y/edit.json'),
-        'file:///Users/x/edit.json');
+    assert.equal(preferWorkspaceEditUri('file:///work/x/edit.json', 'file:///work/y/edit.json'),
+        'file:///work/x/edit.json');
     assert.equal(preferWorkspaceEditUri(undefined, 'file:///tmp/p/edit.json'), undefined);
 });
 

@@ -791,7 +791,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         } });
         this.id = AkariRoleBucketsWidget.ID;
         this.title.label = '素材';
-        this.title.caption = 'ドメインオブジェクトのカード棚';
+        this.title.caption = '素材（プロジェクト / ライブラリ）';
         this.title.iconClass = 'codicon codicon-files';
         this.title.closable = false;
         // 俯瞰の取り込みドロップゾーンと同じ流儀: このパネルへのドロップは
@@ -1001,6 +1001,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /** 外部コマンドからの状態変更はここで既存の更新経路へ委譲する。 */
+    public getCatalogView() {
+        return {
+            tab: this.topView === 'materials' ? 'project' as const : 'library' as const,
+            materials: { ...this.materialsPane.getVoiceMaterialView(), query: this.materialQuery },
+            library: { ...this.libraryFilter(), query: this.catalogQuery, category: this.libraryCategory }
+        };
+    }
+
     public setMaterialViewFromCommand(patch: MaterialViewPatch) {
         if (!this.workflow.workspaceRoot) return { applied: null, previous: null, matched: false };
         const tab = this.topView;

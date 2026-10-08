@@ -46,12 +46,30 @@ too, e.g. "make local whisper the default for transcription."
 
 ## Partner agents (the app's connect button)
 
-The desktop shell's connect button opens a partner catalog: each card connects one
-agent CLI (in a PTY tab) or one editor extension. The current catalog ships
-**8 CLIs** — Claude Code, Codex, opencode, Command Code, Copilot, Cursor,
-Antigravity, and Grok Build — plus the Claude Code and Codex extensions. Command
-Code requires Node.js 22 or newer; when it is not installed, the shell uses the
-official `npm install -g command-code` package flow. The catalog is data-driven
+When you open a project, the last successfully used CLI or web partner for that
+project opens automatically. If there is no project history, the last app-wide
+partner is used. Turn off Settings → Partner → “起動したら前回のパートナーを開く,” or close its tab to stop
+automatic opening in that project. An uninstalled partner is never installed automatically.
+Exiting inside a CLI (for example, `/exit`) does not count as closing its tab; it opens again next time. Close the tab or turn off the setting to stop it.
+
+The desktop shell's connect button opens a partner catalog. It offers
+**10 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,
+Devin, Copilot, Cursor, Antigravity, and Grok Build — plus the Claude Code
+and Codex editor extensions. Command Code requires Node.js 22 or newer;
+when it is not installed, the shell uses the official
+`npm install -g command-code` package flow. DeepSeek Harness is installed
+through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
+in the right panel without opening a browser. Its workspace is the
+currently open project folder. The shell automatically detects an
+OpenCode Go login or a DeepSeek API key and chooses the connection.
+When you reopen a project, DeepSeek returns to its last open conversation if the project's assigned port is available.
+If that port is occupied and another is used, the last conversation may not reopen.
+For conversations created in earlier versions, you may need to select the project folder once.
+The DeepSeek work screen follows the app's Dark, Light, or System
+appearance and updates when that appearance changes.
+A theme explicitly chosen in DeepSeek Settings takes priority; AKARI
+leaves DeepSeek font size and other settings unchanged.
+The catalog is data-driven
 (`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
 not a promise. Whichever partner you connect, everything converges on the same file
 contracts under `.akari/`.

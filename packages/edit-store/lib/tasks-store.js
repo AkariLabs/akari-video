@@ -16,7 +16,7 @@ const TASKS_VERSION = 0;
 const PATCH_FIELDS = new Set([
     'state', 'via', 'priority', 'rank', 'outcome', 'title', 'body', 'target', 'anchor',
     'ref', 'attachments', 'gate', 'undo', 'batchId', 'sentAt', 'sentTo', 'response',
-    'needsConfirm', 'updatedAt', 'orphaned', 'kind', 'targetDetail', 'evidence',
+    'needsConfirm', 'confirmedAt', 'updatedAt', 'orphaned', 'kind', 'targetDetail', 'evidence',
     'confidence', 'question', 'risk', 'route', 'dependsOn', 'origin', 'mergedFrom'
 ]);
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -132,6 +132,10 @@ function applyTaskPatch(task, patch, actor) {
     for (const key of Object.keys(patch))
         if (!PATCH_FIELDS.has(key))
             throw new Error(`${key} は変更できません。`);
+    if (patch.needsConfirm === false && actor !== 'human')
+        throw new Error('案の承認は人が行ってください。');
+    if (task.needsConfirm === true && patch.needsConfirm === false && !patch.confirmedAt)
+        throw new Error('承認時刻が必要です。');
     if (isObject(task.ref) && task.ref.kind === 'annotation') {
         for (const key of ['title', 'body', 'target', 'anchor', 'via', 'ref']) {
             if (key in patch)

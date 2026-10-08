@@ -12,6 +12,7 @@ import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { installPartnerTerminalStyle } from './partner-terminal-style';
+import { markPartnerShuttingDown } from '../common/partner-last-session';
 
 // パートナーペイン既定幅（契約 §2「パートナーペインは全状態で右側既定 44%」、
 // モック mock-2026-07-21-shell-home-chat-first.html の `.app`
@@ -25,6 +26,8 @@ const LAYOUT_STORAGE_KEY = 'layout';
 
 @injectable()
 export class AkariPartnerContribution implements FrontendApplicationContribution {
+
+    onWillStop(): undefined { markPartnerShuttingDown(); return undefined; }
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;

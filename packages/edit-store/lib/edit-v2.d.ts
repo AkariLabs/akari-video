@@ -14,6 +14,19 @@ export interface EditSourceV2 {
     proxy?: string | null;
     chroma_key?: Record<string, unknown> | null;
 }
+/** 同じ収録の素材時刻。先頭 member を基準 (offset_sec = 0) とする。 */
+export interface SyncGroupV2 {
+    id: string;
+    members: Array<{
+        source: string;
+        offset_sec: number;
+    }>;
+}
+export declare function removeSourceFromSyncGroups<T extends {
+    sync_groups?: SyncGroupV2[];
+}>(edit: T, sourceId: string): T;
+/** 音声素材を 1 つの映像素材と同期させる。解除時は映像 id を省略する。 */
+export declare function setSourceSyncGroup(edit: EditV2, audioSource: string, visualSource?: string): EditV2;
 export interface TransformV2 {
     x?: number;
     y?: number;
@@ -346,6 +359,12 @@ export interface ItemV2Base {
 }
 export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
+    /** 同期組の端をまたぐカットで残った映像片の元の素材端と配置。 */
+    cut_edge?: {
+        in: number;
+        out: number;
+        at: number;
+    };
     /** この映像の間の字幕表示。省略時は通常の字幕表示に従う。 */
     captions?: 'on' | 'off';
     /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
@@ -429,6 +448,8 @@ export interface AudioMediaItemV2 {
         out: number;
         at: number;
     };
+    reason?: 'silence' | 'word';
+    label?: string;
     /** item 単位のミュート。省略時は false。 */
     mute?: boolean;
     source: AudioMediaSourceV2;
@@ -505,6 +526,7 @@ export interface EditV2 {
     version: 2;
     output: OutputV2;
     sources: EditSourceV2[];
+    sync_groups?: SyncGroupV2[];
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
     /**
@@ -523,6 +545,7 @@ export interface InternalEditV2 {
     version: 2;
     output: OutputV2;
     sources: EditSourceV2[];
+    sync_groups?: SyncGroupV2[];
     /** 入力順を保持した下→上のトラック列。 */
     tracks: InternalTrackV2[];
     audio?: unknown;

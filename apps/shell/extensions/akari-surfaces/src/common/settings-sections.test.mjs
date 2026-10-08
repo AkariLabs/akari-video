@@ -99,10 +99,24 @@ test('設定値は有効値を保持し、不正値を既定へ正規化する',
     assert.equal(normalizeOutputDirectory('file:///tmp/exports'), 'file:///tmp/exports');
 });
 
-test('ホームの Store 設定は接続節を指定して設定ダイアログを開く', () => {
+test('ホームの Store 設定は AKARI アカウント節を指定して設定ダイアログを開く', () => {
     const home = source('../browser/akari-home-widget.tsx');
     const body = home.match(/protected async openStoreSettings\(\): Promise<void> \{([\s\S]*?)\n    \}/)?.[1].trim();
-    assert.equal(body, "await this.commands.executeCommand('akari.settings.open', { section: 'connections' });");
+    assert.equal(body, "await this.commands.executeCommand('akari.settings.open', { section: 'account' });");
+});
+
+test('ナビの期限のない印を外し、統計の準備中だけを残す', () => {
+    assert.deepEqual(SETTINGS_SECTIONS.filter(section => 'badge' in section).map(section => [section.id, section.badge]),
+        [['statistics', '準備中']]);
+});
+
+test('設定の通常列と通知を中央に揃え、ライトのオフのつまみだけ白くする', () => {
+    const css = source('../browser/settings/settings-ui-style.ts');
+    assert.match(css, /\.akari-set-page:not\(\[data-akari-settings-section="ai-models"\]\) \{[^}]*max-width: 770px; margin-inline: auto;/);
+    assert.match(css, /main > \.akari-set-notice \{[^}]*max-width: 770px; margin: 12px auto 0; padding-inline: 28px;/);
+    assert.ok(css.includes("${S} main:has(> .akari-set-page[data-akari-settings-section=\"ai-models\"]:not([hidden])) > .akari-set-notice { max-width: none; }"));
+    assert.match(css, /body\.theia-light \$\{S\} button\.akari-set-switch\[aria-checked="false"\] \.akari-set-switch-knob \{ background: #fff; \}/);
+    assert.match(css, /button\.akari-set-switch\[aria-checked="true"\] \.akari-set-switch-knob \{[^}]*background: var\(--akari-bg\);/);
 });
 
 test('レールの許可リストに旧設定 widget がなく、設定 opener は残る', () => {

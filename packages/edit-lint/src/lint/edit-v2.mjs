@@ -151,6 +151,32 @@ export function validateEditV2(edit, findings) {
     }
   }
 
+  if (edit.sync_groups !== undefined) {
+    const groupIds = new Set();
+    const grouped = new Set();
+    const fail = (path, message) => addFinding(findings, {
+      severity: "error", check: "v2.sync-groups", message, path,
+    });
+    if (!Array.isArray(edit.sync_groups)) fail("edit.json#sync_groups", "sync_groups must be an array");
+    else for (const [index, group] of edit.sync_groups.entries()) {
+      const path = `edit.json#sync_groups[${index}]`;
+      if (!isRecord(group) || !isNonEmptyString(group.id) || !Array.isArray(group.members)
+        || group.members.length < 2) { fail(path, "sync group needs an id and at least two members"); continue; }
+      if (groupIds.has(group.id)) fail(`${path}.id`, "duplicate sync group id");
+      groupIds.add(group.id);
+      for (const [memberIndex, member] of group.members.entries()) {
+        const memberPath = `${path}.members[${memberIndex}]`;
+        if (!isRecord(member) || !sourceIds.has(member.source)
+          || typeof member.offset_sec !== "number" || !Number.isFinite(member.offset_sec)) {
+          fail(memberPath, "sync member needs an existing source and finite offset_sec"); continue;
+        }
+        if (grouped.has(member.source)) fail(`${memberPath}.source`, "source belongs to more than one sync group");
+        grouped.add(member.source);
+        if (memberIndex === 0 && member.offset_sec !== 0) fail(`${memberPath}.offset_sec`, "first member offset must be 0");
+      }
+    }
+  }
+
   const fps = edit.output?.fps;
 
   for (const [trackIndex, track] of edit.tracks.entries()) {

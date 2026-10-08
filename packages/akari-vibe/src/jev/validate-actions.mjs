@@ -1,4 +1,4 @@
-const schemaKeys = new Set(['type', 'enum', 'items', 'maxItems', 'maxLength', 'minimum',
+const schemaKeys = new Set(['type', 'enum', 'items', 'maxItems', 'maxLength', 'pattern', 'minimum',
     'exclusiveMinimum', 'required', 'properties', 'additionalProperties']);
 const types = new Set(['object', 'string', 'number', 'integer', 'boolean', 'array']);
 
@@ -15,6 +15,7 @@ export function validateSchema(schema, path = 'valueSchema') {
     for (const key of ['maxItems', 'maxLength']) {
         if (schema[key] !== undefined && (!Number.isInteger(schema[key]) || schema[key] < 0)) errors.push(`${path}: invalid ${key}`);
     }
+    if (schema.pattern !== undefined && (schema.type !== 'string' || typeof schema.pattern !== 'string')) errors.push(`${path}: invalid pattern`);
     for (const key of ['minimum', 'exclusiveMinimum']) {
         if (schema[key] !== undefined && (typeof schema[key] !== 'number' || !Number.isFinite(schema[key]))) errors.push(`${path}: invalid ${key}`);
     }

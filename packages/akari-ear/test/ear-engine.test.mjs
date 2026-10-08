@@ -30,6 +30,15 @@ test('ヘルパーの JSONL を状態・途中経過・確定・音量に写す'
   engine.stop();
 });
 
+test('検証用の --file 引数をヘルパーへ渡し、通常は空にする', () => {
+  const received = [];
+  const create = args => createLiveEngine({ helperPath: fixture, args,
+    spawn: (_path, passed) => { received.push(passed); return { stdout: { on() {} }, on() {}, kill() {} }; } });
+  create([]).start();
+  create(['--file', '/tmp/audio.wav']).start();
+  assert.deepEqual(received, [[], ['--file', '/tmp/audio.wav']]);
+});
+
 test('異常終了は error、stop は冪等', async () => {
   const engine = createLiveEngine({ helperPath: fixture, spawn: fakeSpawn('crash') });
   const error = new Promise(resolve => engine.on('error', resolve));

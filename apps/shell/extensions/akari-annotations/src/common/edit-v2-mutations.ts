@@ -26,6 +26,7 @@ import {
     moveKeyframe as moveTreeKeyframe,
     normalizeTracks,
     relativeTransform,
+    removeSourceFromSyncGroups,
     removeKeyframe as removeTreeKeyframe,
     removeItem as removeTreeItem,
     serializeEdit,
@@ -889,6 +890,10 @@ export function removePlacedMaterialAndUnusedSource(doc: EditV2Document, itemId:
     if (removedSources.size > 0) {
         const usedSources = new Set(allLocations(edit).flatMap(location => sourceIdsOf(location.item)));
         edit.sources = edit.sources.filter(source => !removedSources.has(source.id) || usedSources.has(source.id));
+        const surviving = new Set(edit.sources.map(source => source.id));
+        for (const sourceId of removedSources) if (!surviving.has(sourceId)) {
+            removeSourceFromSyncGroups(edit, sourceId);
+        }
     }
     return edit as unknown as EditV2Document;
 }

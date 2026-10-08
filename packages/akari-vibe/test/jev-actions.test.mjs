@@ -14,10 +14,16 @@ test('the catalog covers the contracted action families and preserves the 33 bas
         for (let n = 1; n <= length; n++) assert.ok(ids.has(`${letter}${n}`));
     }
     for (const prefix of ['roughCanvas.', 'browser.', 'scratch.']) assert.ok([...ids].some(id => id.startsWith(prefix)));
-    assert.equal(derivedAllowedCommandIds(catalog).length, 39);
+    assert.equal(derivedAllowedCommandIds(catalog).length, 49);
     assert.deepEqual(derivedAllowedCommandIds(catalog).slice(0, 33), catalog.baseAllowedCommandIds);
     assert.equal(catalog.baseAllowedCommandIds.length, 33);
     assert.ok(Object.isFrozen(catalog.actions[0].valueSchema));
+    const allowed = derivedAllowedCommandIds(catalog);
+    for (const id of ['akari.sketch.open', 'akari.sketch.close', 'akari.sketch.next', 'akari.sketch.backdrop',
+        'akari.sketch.tool', 'akari.sketch.deleteSelected', 'akari.sketch.submit',
+        'akari.browser.search', 'akari.browser.pickMode', 'akari.browser.close']) assert.ok(allowed.includes(id), id);
+    assert.ok(!allowed.includes('akari.browser.open'));
+    assert.ok(catalog.actions.find(action => action.id === 'A8').available);
 });
 
 test('catalog validator rejects unsafe or inconsistent edits', () => {

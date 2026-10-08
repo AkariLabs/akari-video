@@ -261,6 +261,8 @@ const STYLE = `
 .akari-daihon-source-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:var(--akari-ink, var(--theia-foreground)); }
 .akari-daihon-source-chip { display:inline-flex; align-items:center; gap:5px; max-width:100%; border:1px solid var(--akari-line); border-radius:999px; padding:2px 7px; background:transparent; color:var(--akari-ink, var(--theia-foreground)); font:inherit; cursor:pointer; }
 .akari-daihon-source-chip[aria-pressed="false"] { opacity:.35; }
+.akari-daihon-source-chip.untranscribed { opacity:.7; border-style:dashed; }
+.akari-daihon-source-chip.untranscribed .akari-daihon-source-dot { background:transparent; border:1px solid var(--daihon-source-color); box-sizing:border-box; }
 .akari-daihon-source-chip:disabled { cursor:default; }
 .akari-daihon-source-chip-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .akari-daihon-source-dot { display:inline-block; flex:none; width:8px; height:8px; border-radius:50%; background:var(--daihon-source-color); }
@@ -624,6 +626,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
     protected segments: TimelineSegment[] = [];
     protected editSources: CaptionSource[] = [];
+    protected syncedSourceIds = new Set<string>();
+    protected syncedVideoNames = new Map<string, string>();
+    protected syncedVisualIds = new Set<string>();
     protected sourceColors = new Map<string, string>();
     protected activeSourceIds: string[] = [];
     protected hiddenSourceIds: string[] = [];
@@ -839,10 +844,14 @@ export class AkariDaihonWidget extends BaseWidget {
             const primary = detail.primaryCaptionId && ids.includes(detail.primaryCaptionId)
                 ? detail.primaryCaptionId : ids[0];
             const hiddenByFilter = ids.some(id => { const root = this.elements.get(id)?.root;
-                return root?.classList.contains('qc-hidden') || root?.classList.contains('speaker-hidden'); });
+                return root?.classList.contains('qc-hidden') || root?.classList.contains('speaker-hidden')
+                    || root?.classList.contains('source-hidden'); });
             if (hiddenByFilter) {
                 this.qcFilter = false;
                 this.speakerFilter = null;
+                this.hiddenSourceIds = [];
+                void this.preferences?.set(DAIHON_HIDDEN_SOURCES_PREFERENCE, [], PreferenceScope.Workspace);
+                this.updateSourceBand?.();
                 this.autoScrolling = true;
                 this.applyQcFilter();
                 if (typeof requestAnimationFrame === 'function') {
@@ -1281,6 +1290,24 @@ export class AkariDaihonWidget extends BaseWidget {
         this.cutCandidates = [];
         this.updateCutsButton();
         const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
+        this.syncedSourceIds = new Set((Array.isArray(editForSources.sync_groups) ? editForSources.sync_groups : [])
+            .flatMap((group: { members?: Array<{ source?: string }> }) =>
+                Array.isArray(group.members) ? group.members.map(member => member.source).filter((id): id is string => typeof id === 'string') : []));
+        this.syncedVideoNames = new Map();
+        this.syncedVisualIds = new Set((editForSources.tracks ?? [])
+            .filter((track: { lane: string }) => track.lane === 'visual')
+            .flatMap((track: { items?: Array<{ source?: { src?: string } }> }) =>
+                (track.items ?? []).map(item => item.source?.src).filter((id: unknown): id is string => typeof id === 'string')));
+        for (const group of Array.isArray(editForSources.sync_groups) ? editForSources.sync_groups : []) {
+            const video = group.members?.find((member: { source: string }) =>
+                editForSources.tracks?.some((track: { lane: string; items?: Array<{ source?: { src?: string } }> }) =>
+                    track.lane === 'visual' && track.items?.some(item => item.source?.src === member.source)));
+            const name = editForSources.sources?.find((source: { id: string }) => source.id === video?.source)?.path
+                ?.replace(/\\/gu, '/').split('/').pop();
+            if (name) for (const member of group.members ?? []) {
+                if (member.source !== video.source) this.syncedVideoNames.set(member.source, name);
+            }
+        }
         this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.sourceColors = sourceBadgeColors(this.editSources);
         this.silencesBySourceId = new Map();
@@ -1599,6 +1626,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected audioOnlyCutReason(row: { id: string; src?: string | null }): string | undefined {
         const sourceId = this.sourceIdForRow(row);
         if (!sourceId) return undefined;
+        if (this.syncedSourceIds?.has(sourceId)) return this.syncedVideoNames?.has(sourceId)
+            || this.syncedVisualIds?.has(sourceId)
+            ? undefined : '同期した映像がタイムラインにありません';
         const sourceSegments = this.segments.filter(segment => segment.kind === 'src' && segment.src === sourceId);
         return sourceSegments.length > 0 && sourceSegments.every(segment => segment.cutIndex === null)
             ? 'マイクなど音声だけの素材の行は、まだ台本からは切れません（タイムラインで切ってください）'
@@ -1651,17 +1681,27 @@ export class AkariDaihonWidget extends BaseWidget {
             this.sourceBand.appendChild(name);
         }
         for (const source of sources) {
+            const hasRows = rowIds.includes(source.id);
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'akari-daihon-source-chip';
             chip.style.setProperty('--daihon-source-color', this.sourceColors.get(source.id) ?? '');
-            chip.setAttribute('aria-pressed', String(visibleIds.includes(source.id)));
-            chip.disabled = !rowIds.includes(source.id) || (visibleIds.length === 1 && visibleIds[0] === source.id);
-            chip.title = source.path;
+            chip.setAttribute('aria-pressed', String(hasRows && visibleIds.includes(source.id)));
+            chip.disabled = !hasRows || (visibleIds.length === 1 && visibleIds[0] === source.id);
+            chip.title = hasRows ? source.path : `未起こし · ${source.path}`;
+            const syncName = this.syncedVideoNames.get(source.id);
+            if (syncName) chip.title = `${chip.title}\n${syncName} と同期`;
+            if (!hasRows) chip.classList.add('untranscribed');
             const dot = document.createElement('span'); dot.className = 'akari-daihon-source-dot';
             const name = document.createElement('span'); name.className = 'akari-daihon-source-chip-name';
             name.textContent = sourceBadgeName(source);
             chip.append(dot, name);
+            if (syncName) {
+                const sync = document.createElement('span');
+                sync.textContent = `🔗 ${syncName} と同期`;
+                sync.style.cssText = 'font-size:10px;white-space:nowrap;color:var(--akari-muted)';
+                chip.append(sync);
+            }
             if (this.sourceCaptions.some(caption => caption.src === source.id)
                 || (sources.length === 1 && this.sourceCaptions.length > 0)) {
                 const done = document.createElement('span');
@@ -3867,23 +3907,26 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async applyCutEntries(entries: CutEntry[], label: string): Promise<void> {
         if (!this.editUri || !this.rootUri || entries.length === 0) return;
-        if (entries.some(entry => {
+        const disabledReason = entries.map(entry => {
             const row = this.rows.find(candidate => candidate.id === entry.rowId);
             return row && this.audioOnlyCutReason(row);
-        })) {
-            this.notify('マイクなど音声だけの素材の行は、まだ台本からは切れません（タイムラインで切ってください）');
+        }).find((reason): reason is string => typeof reason === 'string');
+        if (disabledReason) {
+            this.notify(disabledReason);
             return;
         }
         try {
             const ranges = normalizeCutRanges(entries.map(entry => entry.range));
             let removedFrames = 0;
+            let cutWarnings: string[] = [];
             await this.withHistory(label, async () => {
                 const result = await this.annotationsService.applyCutRanges({
                     editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges, label
                 });
                 removedFrames = result.removedFrames;
+                cutWarnings = result.warnings ?? [];
             }, true);
-            if (removedFrames === 0) { this.notifyError('カットできる区間が見つかりませんでした。'); return; }
+            if (removedFrames === 0) { this.notifyError(cutWarnings[0] ?? 'カットできる区間が見つかりませんでした。'); return; }
             await this.reload();
             this.refreshCutTimeline();
             const only = entries[0];
@@ -3892,8 +3935,14 @@ export class AkariDaihonWidget extends BaseWidget {
             const rowLabel = rowCharacters.length > 12 ? `${rowCharacters.slice(0, 12).join('')}…` : rowText;
             const cutLabel = only?.range.kind === 'row' && only.range.label === '行'
                 ? rowLabel || 'この行' : only?.range.label ?? 'この箇所';
-            this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${entries.length} 件をカットしました`,
+            const refusals = cutWarnings.filter(warning => warning !== '映像のある部分だけ切りました。');
+            const refused = Math.min(entries.length, refusals.length);
+            const cutCount = entries.length - refused;
+            this.showCutToast(entries.length === 1 ? `「${cutLabel}」をカットしました` : `${cutCount} 件をカットしました`,
                 () => void this.historyService.undo());
+            if (refused) this.notify(`${refused} 箇所は切りませんでした（${refusals[0].replace(/、カットしませんでした。$/, '')}）`);
+            if (cutWarnings.includes('映像のある部分だけ切りました。'))
+                this.notify('映像のある部分だけ切りました');
         } catch (error) {
             this.notifyError(this.errorMessage(error));
         }
@@ -4379,7 +4428,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(), ranges: [range],
                     label: 'カットの範囲を直す'
                 });
-                if (applied.removedFrames === 0) throw new Error('新しい範囲をカットできませんでした。');
+                if (applied.removedFrames === 0) throw new Error(applied.warnings?.[0] ?? '新しい範囲をカットできませんでした。');
             }, true, true);
             await this.reload();
             this.refreshCutTimeline();
@@ -4414,15 +4463,24 @@ export class AkariDaihonWidget extends BaseWidget {
                 captionId: candidate.sourceId ?? candidate.rowId, label: candidate.text
             } }));
             const before = await this.readText(this.editUri);
+            let removedFrames = 0;
+            let warnings: string[] = [];
             await this.withHistory('カットを整える', async () => {
-                await this.annotationsService.applyCutRanges({
+                const result = await this.annotationsService.applyCutRanges({
                     editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     ranges: normalizeCutRanges(entries.map(entry => entry.range)), label: 'カットを整える'
                 });
+                removedFrames = result.removedFrames;
+                warnings = result.warnings ?? [];
             }, true);
             const changed = before !== await this.readText(this.editUri);
             if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
-            return changed;
+            const seconds = removedFrames / this.editFps;
+            const refusals = warnings.filter(warning => warning !== '映像のある部分だけ切りました。');
+            const refused = Math.min(selected.length, refusals.length);
+            return { changed, count: Math.max(0, selected.length - refused), seconds, refused,
+                refusal: refusals[0]?.replace(/、カットしませんでした。$/, ''),
+                partial: warnings.includes('映像のある部分だけ切りました。') };
         }, () => this.historyService.undo(), async (min, keep) => {
             this.silenceMin = min; this.silenceKeep = keep;
             await Promise.all([
@@ -5324,7 +5382,11 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected rowOrder(): string[] {
-        return this.rows.map(row => row.id);
+        return this.rows.filter(row => {
+            const root = this.elements?.get(row.id)?.root;
+            return !root || !root.classList.contains('qc-hidden')
+                && !root.classList.contains('speaker-hidden') && !root.classList.contains('source-hidden');
+        }).map(row => row.id);
     }
 
     protected handleRowShortcut(action: 'selectAll' | 'clear'): void {

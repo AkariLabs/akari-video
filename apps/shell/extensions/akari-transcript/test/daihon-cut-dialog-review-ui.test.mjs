@@ -12,6 +12,7 @@ const method = (start, end) => source.slice(source.indexOf(start), source.indexO
 const methods = method('    protected render(): void', '    protected renderSearch(): void')
   + method('    protected renderReview(): void', '    protected async confirm(): Promise<void>')
   + method('    protected async confirm(): Promise<void>', '    protected renderDone(): void')
+  + method('    protected renderDone(): void', '    protected onReviewKey(')
   + source.slice(source.indexOf('    protected onReviewKey('), source.lastIndexOf('\n}'));
 const compiled = ts.transpileModule(`class ReviewHarness { ${methods} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
@@ -114,4 +115,18 @@ test('apply=false explains that nothing changed; errors show only their message'
   dialog.apply = async () => { throw '文字列の失敗'; };
   await dialog.confirm();
   assert.equal(dialog.notice.textContent, '文字列の失敗');
+});
+
+test('batch completion shows actual cuts and refused count; total refusal explains why', async () => {
+  const dialog = setup();
+  dialog.renderDone = ReviewHarness.prototype.renderDone.bind(dialog);
+  dialog.apply = async () => ({ changed: true, count: 1, seconds: .2, refused: 1, partial: false });
+  await dialog.confirm();
+  assert.equal(dialog.state.step, 2);
+  assert.ok(descendants(dialog.body).some(node => node.textContent === '1 箇所を切りました'));
+  assert.ok(descendants(dialog.body).some(node => node.textContent.includes('1 箇所は切りませんでした')));
+  const allRefused = setup();
+  allRefused.apply = async () => ({ changed: false, count: 0, seconds: 0, refused: 2, partial: false });
+  await allRefused.confirm();
+  assert.match(allRefused.notice.textContent, /2 箇所は切りませんでした/);
 });

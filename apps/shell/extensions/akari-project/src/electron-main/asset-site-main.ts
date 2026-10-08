@@ -1,21 +1,31 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
-import { app, BrowserWindow, dialog, ipcMain, session, shell, WebContentsView } from '@theia/core/electron-shared/electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell, WebContentsView } from '@theia/core/electron-shared/electron';
+import { randomBytes } from 'crypto';
 import { injectable } from '@theia/core/shared/inversify';
 import { existsSync, promises as fs } from 'fs';
 import { homedir } from 'os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'path';
+import { contextMenuActions, isReplacedBrowserNavigation, originalUrlHint, PickPayload, validatePickPayload, validatedViewPick,
+    viewModeMessage } from '../common/browser-pick';
+import { sanitizeExternalText } from '../common/external-text';
 import { AssetSite, highlightCandidateIndex, markHighlightScript, READ_HIGHLIGHT_CANDIDATES_SCRIPT } from '../common/asset-sites';
 import { BrowserDefinition } from '../common/browser-engines';
 import { cssRectToViewBounds, CssRect } from '../common/browser-zoom';
 import { downloadChainAllowed, navigationAllowed, SitePolicy } from '../common/site-navigation-policy';
-import { CHANNEL_ASSET_SITE, CHANNEL_ASSET_SITE_EVENT, AssetSiteEvent } from '../electron-common/electron-api';
+import { CHANNEL_ASSET_SITE, CHANNEL_ASSET_SITE_EVENT, CHANNEL_SCRATCH, CHANNEL_SCRATCH_CHANGED,
+    CHANNEL_VIEW_MODE, CHANNEL_VIEW_PICK, CHANNEL_VIEW_RESOLVE_AT, AssetSiteEvent } from '../electron-common/electron-api';
+import { acceptImage, decodeDataImage, fetchScratchImage, ScratchFetchError, sniffImage } from './scratch-fetch';
+import { cleanupScratch, listScratch, saveScratch } from './scratch-store';
 import { extractSiteZip } from './site-download';
 import { readBrowserConfig } from './browser-data';
 
 type TrustedSite = (AssetSite | BrowserDefinition) & SitePolicy;
 interface SiteState { window: BrowserWindow; view: WebContentsView; site: TrustedSite; temporary: string; url: string;
     navigationLog: { stage: string; url: string; allowed: boolean }[]; lastRect?: CssRect & { visible: boolean };
-    guarded: boolean; pickMode: boolean; zoomListener: () => void; }
+    pendingInitialUrl?: string;
+    guarded: boolean; pickMode: boolean; blockedNavigation: boolean; zoomListener: () => void; lastPick?: number;
+    search: { engine: string; query: string } | null; pendingResolve?: { token: string; timer: ReturnType<typeof setTimeout>;
+        show: (payload?: PickPayload) => void } }
 const HIGHLIGHT_CSS = '[data-akari-site-highlight="true"] { outline: 4px solid #f97316 !important; outline-offset: 4px !important; box-shadow: 0 0 0 7px #f9731666 !important; }';
 const testHttp = !app.isPackaged && process.env.AKARI_ASSET_SITE_TEST_HTTP === '1'
     && Boolean(process.env.AKARI_ASSET_SITE_TEST_CATALOG);
@@ -30,6 +40,35 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
 
     onStart(_application: ElectronMainApplication): void {
         this.configurePartition('persist:akari-asset-sites');
+        void cleanupScratch().catch(() => undefined);
+        ipcMain.handle(CHANNEL_SCRATCH, async (event, operation: string) => {
+            if (!BrowserWindow.fromWebContents(event.sender) || operation !== 'list') return [];
+            const browser = await readBrowserConfig(testHttp ? process.env.AKARI_ASSET_SITE_TEST_CATALOG : undefined);
+            const labels = new Map(browser?.engines.map(engine => [engine.id, engine.label]) ?? []);
+            const items = await listScratch(undefined, id => labels.get(id));
+            void cleanupScratch().catch(() => undefined);
+            return items;
+        });
+        ipcMain.on(CHANNEL_VIEW_PICK, (event, input: { token?: string; payload?: unknown; unresolved?: unknown; preloadFailure?: unknown }) => {
+            const state = Array.from(this.states.values()).find(item => item.view.webContents === event.sender);
+            if (!state || state.site.navigation !== 'open' || event.senderFrame !== event.sender.mainFrame) return;
+            if (input?.token) {
+                const pending = state.pendingResolve;
+                if (!pending || input.token !== pending.token) return;
+                state.pendingResolve = undefined; clearTimeout(pending.timer);
+                pending.show(validatedViewPick(event, { webContents: state.view.webContents, pickMode: state.pickMode }, input, pending.token));
+                return;
+            }
+            if (!state.pickMode) return;
+            if (input?.preloadFailure === 'too-large' || input?.preloadFailure === 'network') {
+                this.emit(state, { type: 'scratch', result: 'failed', reason: input.preloadFailure }); return;
+            }
+            if (input?.unresolved === 'not-loaded' || input?.unresolved === 'unsupported') {
+                this.emit(state, { type: 'scratch', result: 'failed', unresolved: input.unresolved }); return;
+            }
+            const payload = validatedViewPick(event, { webContents: state.view.webContents, pickMode: state.pickMode }, input);
+            if (payload) void this.takePick(state, payload, 'browser:pick');
+        });
         ipcMain.handle(CHANNEL_ASSET_SITE, async (event, operation: string, input?: any) => {
             const window = BrowserWindow.fromWebContents(event.sender);
             if (!window) throw new Error('ウィンドウが見つかりません');
@@ -45,10 +84,19 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 if (typeof input?.on !== 'boolean') throw new Error('操作が不正です');
                 this.pickModes.set(window.id, input.on);
                 const current = this.states.get(window.id);
-                if (current) { current.pickMode = input.on; this.emit(current, { type: 'pickMode', on: input.on }); }
+                if (current) { current.pickMode = input.on; current.view.webContents.send(CHANNEL_VIEW_MODE, viewModeMessage(input.on));
+                    this.emit(current, { type: 'pickMode', on: input.on }); }
                 return;
             }
-            if (operation === 'open') return this.open(window, input?.site, input?.url);
+            if (operation === 'searchContext') {
+                const state = this.states.get(window.id);
+                if (!state || state.site.navigation !== 'open') return;
+                if (typeof input?.engine !== 'string' || !/^[a-z0-9-]{1,64}$/u.test(input.engine)
+                    || typeof input?.query !== 'string') return;
+                state.search = { engine: input.engine, query: sanitizeExternalText(input.query, 512) };
+                return;
+            }
+            if (operation === 'open') return this.open(window, input?.site, input?.url, input?.rect);
             const state = this.states.get(window.id);
             if (operation === 'close' && !state) { this.pickModes.delete(window.id); return; }
             if (!state) throw new Error('素材サイトが開いていません');
@@ -89,12 +137,18 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 if (![x, y, width, height].every((value: unknown) => typeof value === 'number' && Number.isFinite(value))
                     || typeof visible !== 'boolean') return;
                 state.lastRect = { x, y, width, height, visible };
-                this.applyBounds(state); return;
+                this.applyBounds(state);
+                if (state.pendingInitialUrl && visible && state.view.getBounds().width > 0
+                    && state.view.getBounds().height > 0) {
+                    const pendingUrl = state.pendingInitialUrl; state.pendingInitialUrl = undefined;
+                    void this.loadSiteUrl(state, pendingUrl).catch(() => void this.close(state));
+                }
+                return;
             }
             if (operation === 'navigate') {
                 if (typeof input?.url !== 'string' || input.url.length > 8192 || !navigationAllowed(input.url, state.site, testHttp))
                     throw new Error('このアドレスは開けません');
-                await state.view.webContents.loadURL(input.url); return;
+                await this.loadSiteUrl(state, input.url); return;
             }
             if (operation === 'highlight') {
                 if (state.site.downloads === 'deny') return false;
@@ -159,7 +213,23 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         state.view.setVisible(visible);
     }
 
-    private async open(window: BrowserWindow, site: AssetSite | BrowserDefinition, url: string): Promise<void> {
+    private async loadSiteUrl(state: SiteState, url: string): Promise<void> {
+        state.blockedNavigation = false;
+        try {
+            await state.view.webContents.loadURL(url);
+            if (state.blockedNavigation) throw new Error('このアドレスは開けません');
+        }
+        catch (error) {
+            if (!isReplacedBrowserNavigation(error, {
+                windowAlive: !state.window.isDestroyed(),
+                viewAlive: this.states.get(state.window.id) === state && !state.view.webContents.isDestroyed(),
+                blocked: state.blockedNavigation
+            })) throw error;
+        }
+    }
+
+    private async open(window: BrowserWindow, site: AssetSite | BrowserDefinition, url: string,
+        rect?: CssRect & { visible: boolean }): Promise<void> {
         const trusted = await this.readTrustedSite(site?.id);
         if (!trusted || typeof url !== 'string' || url.length > 8192 || !navigationAllowed(url, trusted, testHttp) ||
             ('entry_url' in trusted && !navigationAllowed(trusted.entry_url, trusted, testHttp)))
@@ -175,19 +245,42 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         const partition = trusted.partition ?? 'persist:akari-asset-sites';
         this.configurePartition(partition);
         const view = new WebContentsView({ webPreferences: {
-            partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true
-            // No preload in the untrusted site view.
+            partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+            ...(trusted.navigation === 'open' ? { preload: join(app.getAppPath(), 'node_modules', 'akari-project',
+                'lib', 'electron-main', 'browser-view-preload.js') } : {})
         } });
         const wc = view.webContents;
         // Theia's global web-contents-created hook prevents every non-secondary will-navigate.
         // Remove that hook only from this dedicated site view, then install our own hosts[] guard below.
         wc.removeAllListeners('will-navigate');
+        const initialRect = rect && [rect.x, rect.y, rect.width, rect.height].every(value =>
+            typeof value === 'number' && Number.isFinite(value)) && typeof rect.visible === 'boolean' ? rect : undefined;
         const state: SiteState = { window, view, site: trusted, temporary, url, navigationLog: [],
-            guarded: false, pickMode: this.pickModes.get(window.id) ?? false, zoomListener: () => this.applyBounds(state) };
+            lastRect: trusted.navigation === 'open' ? initialRect : undefined,
+            guarded: false, pickMode: this.pickModes.get(window.id) ?? false, blockedNavigation: false, search: null,
+            zoomListener: () => this.applyBounds(state) };
         this.states.set(window.id, state);
         window.contentView.addChildView(view);
-        view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+        this.applyBounds(state);
         window.webContents.on('zoom-changed', state.zoomListener);
+        if (trusted.navigation === 'open') {
+            const syncMode = (): void => wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode));
+            wc.on('dom-ready', syncMode);
+            wc.on('context-menu', (_event, params) => {
+                const contextPayload: PickPayload | undefined = params.mediaType === 'image' && params.srcURL
+                    ? validatePickPayload({ kind: params.srcURL.startsWith('data:') ? 'data' : 'url', imageUrl: params.srcURL,
+                        pageUrl: wc.getURL(), pageTitle: wc.getTitle().slice(0, 300), alt: params.altText?.slice(0, 300) ?? '',
+                        linkUrl: params.linkURL || undefined,
+                        naturalWidth: 0, naturalHeight: 0, resolvedFrom: 'context-menu' }) : undefined;
+                if (contextPayload) { this.showPickMenu(state, contextPayload, params); return; }
+                if (params.mediaType !== 'none') { this.showPickMenu(state, undefined, params); return; }
+                if (state.pendingResolve) { clearTimeout(state.pendingResolve.timer); state.pendingResolve = undefined; }
+                const token = randomBytes(16).toString('hex');
+                const timer = setTimeout(() => { state.pendingResolve = undefined; this.showPickMenu(state, undefined, params); }, 1000);
+                state.pendingResolve = { token, timer, show: payload => { this.showPickMenu(state, payload, params); } };
+                wc.send(CHANNEL_VIEW_RESOLVE_AT, { x: params.x, y: params.y, token });
+            });
+        }
         wc.setWindowOpenHandler(({ url: target }) => {
             if (navigationAllowed(target, state.site, testHttp)) void wc.loadURL(target);
             else this.rejectNavigation(state, target);
@@ -196,20 +289,26 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
         wc.on('will-navigate', (event, target) => { const allowed = navigationAllowed(target, state.site, testHttp);
             if (testHttp) state.navigationLog.push({ stage: 'will-navigate', url: target, allowed });
             if (!allowed) {
-            event.preventDefault(); this.rejectNavigation(state, target);
+            state.blockedNavigation = true; event.preventDefault(); this.rejectNavigation(state, target);
         } });
         wc.on('will-redirect', (event, target) => { const allowed = navigationAllowed(target, state.site, testHttp);
             if (testHttp) state.navigationLog.push({ stage: 'will-redirect', url: target, allowed });
             if (!allowed) {
-            event.preventDefault(); this.rejectNavigation(state, target);
+            state.blockedNavigation = true; event.preventDefault(); this.rejectNavigation(state, target);
         } });
         wc.on('did-navigate', (_event, target) => { state.url = target;
             if (testHttp) state.navigationLog.push({ stage: 'did-navigate', url: target, allowed: true });
-            this.emit(state, { type: 'navigated', url: target }); });
-        wc.on('did-navigate-in-page', (_event, target) => { state.url = target; this.emit(state, { type: 'navigated', url: target }); });
+            this.emit(state, { type: 'navigated', url: target });
+            if (trusted.navigation === 'open') wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode)); });
+        wc.on('did-navigate-in-page', (_event, target) => { state.url = target; this.emit(state, { type: 'navigated', url: target });
+            if (trusted.navigation === 'open') wc.send(CHANNEL_VIEW_MODE, viewModeMessage(state.pickMode)); });
         window.once('closed', () => { void this.close(state); });
         if (state.pickMode) this.emit(state, { type: 'pickMode', on: true });
-        await wc.loadURL(url);
+        if (trusted.navigation === 'open' && (!initialRect?.visible || !view.getBounds().width || !view.getBounds().height)) {
+            state.pendingInitialUrl = url; return;
+        }
+        try { await this.loadSiteUrl(state, url); }
+        catch (error) { await this.close(state); throw error; }
     }
 
     private async libraryRoot(): Promise<string> {
@@ -221,6 +320,78 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
                 typeof location.root === 'string' && isAbsolute(location.root)) return resolve(location.root);
         } catch { /* Legacy library location. */ }
         return join(home, 'assets');
+    }
+
+    private showPickMenu(state: SiteState, payload?: PickPayload,
+        params?: { srcURL?: string; linkURL?: string; x?: number; y?: number }): void {
+        if (this.states.get(state.window.id) !== state) return;
+        const menu = Menu.buildFromTemplate(contextMenuActions(Boolean(payload), Boolean(params?.srcURL), Boolean(params?.linkURL))
+            .map(action => {
+                if (action === 'pick') return { label: 'AKARI に取り込む', click: () => { void this.takePick(state, payload!, 'browser:contextmenu'); } };
+                if (action === 'separator') return { type: 'separator' as const };
+                if (action === 'copy-image') return { label: '画像をコピー', click: () => state.view.webContents.copyImageAt(params?.x ?? 0, params?.y ?? 0) };
+                if (action === 'copy-image-address') return { label: '画像のアドレスをコピー', click: () => clipboard.writeText(params!.srcURL!) };
+                if (action === 'copy-link-address') return { label: 'リンクのアドレスをコピー', click: () => clipboard.writeText(params!.linkURL!) };
+                if (action === 'back') return { label: '戻る', enabled: state.view.webContents.canGoBack(), click: () => state.view.webContents.goBack() };
+                if (action === 'forward') return { label: '進む', enabled: state.view.webContents.canGoForward(), click: () => state.view.webContents.goForward() };
+                if (action === 'reload') return { label: '再読み込み', click: () => state.view.webContents.reload() };
+                return { role: action };
+            }));
+        menu.popup({ window: state.window });
+    }
+
+    private async takePick(state: SiteState, original: PickPayload, via: 'browser:pick' | 'browser:contextmenu'): Promise<void> {
+        if (this.states.get(state.window.id) !== state) return;
+        if (Date.now() - (state.lastPick ?? 0) < 500) return;
+        state.lastPick = Date.now();
+        const payload = validatePickPayload({ ...original, pageUrl: state.view.webContents.getURL() });
+        if (!payload) return;
+        const userAgent = state.view.webContents.session.getUserAgent();
+        const allowLoopbackForTest = !app.isPackaged && process.env.AKARI_ASSET_SITE_TEST_HTTP === '1';
+        const options = { pageUrl: payload.pageUrl, userAgent, allowLoopbackForTest };
+        let bytes: Buffer | undefined; let mime: string | undefined; let reason: AssetSiteEvent['reason'];
+        let resolvedFrom: string = payload.resolvedFrom;
+        let selectedImageUrl = payload.imageUrl;
+        try {
+            if (via === 'browser:contextmenu' && payload.imageUrl) {
+                const hint = originalUrlHint(payload.linkUrl, allowLoopbackForTest);
+                if (hint) try {
+                    const fetched = await fetchScratchImage(hint.url, options);
+                    bytes = fetched.bytes; mime = fetched.mime; resolvedFrom = `link-param:${hint.param}`;
+                    selectedImageUrl = hint.url;
+                } catch { /* The selected image remains the fallback. */ }
+            }
+            if (!bytes) {
+                if (payload.kind === 'data') {
+                    const result = decodeDataImage(payload.imageUrl!); bytes = result.bytes; mime = result.mime;
+                } else if (payload.kind === 'blob') {
+                    bytes = Buffer.from(payload.bytes!);
+                    if (bytes.length > 25 * 1024 * 1024) throw new ScratchFetchError('too-large');
+                    mime = sniffImage(bytes);
+                    if (!mime) throw new ScratchFetchError('not-an-image');
+                    acceptImage(bytes, mime);
+                } else {
+                    const fetched = await fetchScratchImage(payload.imageUrl!, options);
+                    bytes = fetched.bytes; mime = fetched.mime;
+                }
+            }
+        } catch (error) { reason = error instanceof ScratchFetchError ? error.reason : 'network'; }
+        try {
+            // Rejected content and unsafe destinations leave no scratch entry.
+            const mayKeepUrl = reason && !['blocked-host', 'bad-scheme', 'too-large', 'not-an-image'].includes(reason);
+            if (!bytes && !mayKeepUrl) {
+                this.emit(state, { type: 'scratch', result: 'failed', reason: reason ?? 'network' }); return;
+            }
+            const saved = await saveScratch({ bytes, mime, pageUrl: payload.pageUrl, imageUrl: selectedImageUrl,
+                linkUrl: payload.linkUrl, pageTitle: payload.pageTitle, alt: payload.alt, resolvedFrom, via,
+                width: payload.naturalWidth, height: payload.naturalHeight, search: state.search,
+                dataBytes: payload.kind === 'data' ? bytes?.length : undefined });
+            this.emit(state, { type: 'scratch', result: bytes ? saved.duplicate ? 'duplicate' : 'added' : 'failed',
+                id: saved.source.id, quality: saved.source.app.quality, reason, flags: saved.source.flags });
+            for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed())
+                window.webContents.send(CHANNEL_SCRATCH_CHANGED);
+            void cleanupScratch().catch(() => undefined);
+        } catch { this.emit(state, { type: 'scratch', result: 'failed', reason: 'network' }); }
     }
 
     private async readTrustedSite(id: unknown): Promise<TrustedSite | undefined> {
@@ -267,6 +438,7 @@ export class AssetSiteMain implements ElectronMainApplicationContribution {
     }
     private async close(state: SiteState): Promise<void> {
         if (this.states.get(state.window.id) !== state) return;
+        state.pendingInitialUrl = undefined;
         this.states.delete(state.window.id);
         this.pickModes.delete(state.window.id);
         if (!state.window.isDestroyed()) state.window.webContents.removeListener('zoom-changed', state.zoomListener);

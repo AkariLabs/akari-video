@@ -228,6 +228,16 @@ test('buildPrivateNodePathEnv: Pi は自分のマーカーだけで専用 Node �
     assert.deepEqual(buildPrivateNodePathEnv(options), { PATH: `${path.join(root, 'bin')}:/usr/bin` });
 });
 
+test('buildPrivateNodePathEnv: DeepSeek は dsh マーカーだけで専用 Node を前置する', () => {
+    const akariHome = '/tmp/akari-deepseek-node-test';
+    const root = path.join(akariHome, 'runtime/node/v24.21.0');
+    const files = new Set([path.join(root, 'pi-installed'), path.join(root, 'bin/node'), path.join(root, 'bin/npm')]);
+    const options = { agent: 'deepseek', akariHome, platform: 'darwin', existingPath: '/usr/bin', exists: file => files.has(file) };
+    assert.deepEqual(buildPrivateNodePathEnv(options), {});
+    files.add(path.join(root, 'dsh-installed'));
+    assert.deepEqual(buildPrivateNodePathEnv(options), { PATH: `${path.join(root, 'bin')}:/usr/bin` });
+});
+
 test('起動 PATH の専用 Node 版は bootstrap runner の固定版と一致する', () => {
     const match = /const nodeVersion = '([^']+)'/.exec(bootstrapRunner.toString());
     assert.ok(match, 'runner の固定 Node.js 版を読み取れること');

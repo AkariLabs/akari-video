@@ -23,7 +23,7 @@ export function createWorldBand(options: {
     for (const marker of layout.markers) {
         const element = document.createElement('button');
         element.type = 'button'; element.dataset.akariItemKind = 'world-edge'; element.dataset.akariItemId = marker.id; element.title = marker.title;
-        Object.assign(element.style, { position: 'absolute', left: `${marker.left}px`, width: `${marker.width}px`, top: '0', height: '100%', border: '0', background: '#fff', padding: '0' });
+        Object.assign(element.style, { position: 'absolute', left: `${marker.left}px`, width: `${marker.width}px`, top: '0', height: '100%', border: '0', background: 'var(--akari-tl-playhead)', padding: '0' });
         element.addEventListener('click', event => { event.stopPropagation(); options.onSelect({ kind: 'world-edge', id: marker.id }); });
         lane.appendChild(element);
     }

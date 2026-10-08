@@ -11,7 +11,7 @@ export const VIBE_MODE_LABELS: Record<VibeMode, string> = {
 export const VIBE_MODE_DESCRIPTIONS: Record<VibeMode, string> = {
     off: '話したことを「いま」にメモとして残します。何も実行しません',
     screen: 'フィルターや検索など、画面の状態だけを声で動かします。編集はしません',
-    full: '画面の操作に加えて、編集も声で行います。編集は取り消せます'
+    full: 'フィルターや検索など、画面の状態を声で動かします。編集はまだこの入口から動きません'
 };
 export const EAR_ENGINE_LABELS: Record<ListeningEngine, string> = {
     auto: 'おまかせ',
@@ -24,6 +24,7 @@ interface GlobalPreferences {
 }
 export interface EarCapabilities {
     engines: Array<{ id: EarEngineId; available: boolean; reason?: string }>;
+    testText?: boolean;
 }
 
 export function readVibeMode(preferences: GlobalPreferences): VibeMode {

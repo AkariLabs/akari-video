@@ -313,6 +313,20 @@ test('既存 source は再利用し、消えた枠では edit を変えない', 
   assert.deepEqual(doc, before);
 });
 
+test('静止画の差し替えで旧素材が組の基準なら残りを付け直す', () => {
+  const doc = { sources: [
+    { id: 'still-src-1', path: 'old.png' }, { id: 'mic', path: 'mic.wav' },
+    { id: 'mic2', path: 'mic2.wav' }],
+  sync_groups: [{ id: 'take', members: [
+    { source: 'still-src-1', offset_sec: 0 }, { source: 'mic', offset_sec: 0.5 },
+    { source: 'mic2', offset_sec: 0.2 } ] }],
+  tracks: [{ items: [{ id: 'clip', source: { kind: 'media', src: 'still-src-1' } }] }] };
+  placeStillInEdit(doc, 'clip', 'new.png');
+  assert.deepEqual(doc.sync_groups[0].members,
+    [{ source: 'mic', offset_sec: 0 }, { source: 'mic2', offset_sec: -0.3 }]);
+  assert.equal(doc.sources.some(source => source.id === 'still-src-1'), false);
+});
+
 test('sidecar の元の入力をメモリなしで読み、結果の作成中と失敗を描く', () => {
   const meta = { inputs: { prompt: '画角を足す前', extra: { still_batch: { prompt: '画角を足す前',
     aspect: '9:16', routes: ['codex', 'grok'], references: ['ref.png'], cropToAspect: false } } },

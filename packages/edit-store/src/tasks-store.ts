@@ -19,7 +19,7 @@ const TASKS_VERSION = 0;
 const PATCH_FIELDS = new Set([
     'state', 'via', 'priority', 'rank', 'outcome', 'title', 'body', 'target', 'anchor',
     'ref', 'attachments', 'gate', 'undo', 'batchId', 'sentAt', 'sentTo', 'response',
-    'needsConfirm', 'updatedAt', 'orphaned', 'kind', 'targetDetail', 'evidence',
+    'needsConfirm', 'confirmedAt', 'updatedAt', 'orphaned', 'kind', 'targetDetail', 'evidence',
     'confidence', 'question', 'risk', 'route', 'dependsOn', 'origin', 'mergedFrom'
 ]);
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -111,6 +111,8 @@ export function applyTaskPatch(task: TaskRecord, patch: Record<string, unknown>,
     if (!SOURCES.has(task.source) || !STATES.has(task.state)) throw new Error('未知のタスクは変更できません。');
     if (!isObject(patch)) throw new Error('変更内容が不正です。');
     for (const key of Object.keys(patch)) if (!PATCH_FIELDS.has(key)) throw new Error(`${key} は変更できません。`);
+    if (patch.needsConfirm === false && actor !== 'human') throw new Error('案の承認は人が行ってください。');
+    if (task.needsConfirm === true && patch.needsConfirm === false && !patch.confirmedAt) throw new Error('承認時刻が必要です。');
     if (isObject(task.ref) && task.ref.kind === 'annotation') {
         for (const key of ['title', 'body', 'target', 'anchor', 'via', 'ref']) {
             if (key in patch) throw new Error(`注釈の ${key} は review.json で変更してください。`);

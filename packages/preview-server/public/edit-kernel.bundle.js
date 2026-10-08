@@ -1229,6 +1229,7 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
   if (!edit) return visual;
   const audio = [];
   const fps = options.fps ?? edit.output?.fps ?? 30;
+  const syncGroups = edit.syncGroups ?? edit.sync_groups;
   const subtract = (parts, start, end) => parts.flatMap((part) => end <= part.start || start >= part.end ? [part] : [
     ...start > part.start ? [{ start: part.start, end: Math.min(start, part.end) }] : [],
     ...end < part.end ? [{ start: Math.max(end, part.start), end: part.end }] : []
@@ -1263,6 +1264,57 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
       const speed = (sourceOut - sourceIn) / duration;
       if (!(duration > 0) || !(speed > 0)) continue;
       let uncovered = [{ start: at, end: at + duration }];
+      const group = syncGroups?.find((candidate) => candidate.members.some((member) => member.source === src));
+      if (group) {
+        const projected = [];
+        for (const member of group.members) {
+          if (member.source === src) continue;
+          for (const visualTrack of edit.tracks) {
+            if (visualTrack.lane !== "visual") continue;
+            for (const visualItem of visualTrack.items ?? []) {
+              const timedVisual = visualItem;
+              const visualSource = visualItem.source;
+              if (visualSource.kind !== "media" || (visualSource.sourceId ?? visualSource.src) !== member.source || visualSource.in === void 0 || visualSource.out === void 0) continue;
+              const visualAt = typeof timedVisual.atFrames === "number" ? timedVisual.at ?? 0 : (timedVisual.at ?? 0) / fps;
+              const visualDuration = typeof timedVisual.durationFrames === "number" ? timedVisual.duration ?? 0 : (timedVisual.duration ?? 0) / fps;
+              const start = Math.max(at, visualAt);
+              const end = Math.min(at + duration, visualAt + visualDuration);
+              if (end <= start) continue;
+              projected.push({
+                start,
+                end,
+                in: sourceIn + (start - at) * speed,
+                out: sourceIn + (end - at) * speed
+              });
+            }
+          }
+        }
+        if (projected.length) {
+          for (const part of projected) audio.push({
+            kind: "src",
+            outStart: part.start,
+            outEnd: part.end,
+            cutIndex: null,
+            src,
+            in: part.in,
+            out: part.out,
+            speed: (part.out - part.in) / (part.end - part.start)
+          });
+          let sourceRemainder = [{ start: sourceIn, end: sourceOut }];
+          for (const part of projected) sourceRemainder = subtract(sourceRemainder, part.in, part.out);
+          for (const part of sourceRemainder) audio.push({
+            kind: "src",
+            outStart: at + (part.start - sourceIn) / speed,
+            outEnd: at + (part.end - sourceIn) / speed,
+            cutIndex: null,
+            src,
+            in: part.start,
+            out: part.end,
+            speed
+          });
+          continue;
+        }
+      }
       const root = item.id?.match(/^(.*)-audio(?:-split(?:-\d+)*)*$/)?.[1];
       const family = root && visualFamilies.get(`${src}\0${root}`);
       if (family && (family.length > 1 || family[0].id !== root || item.id === `${root}-audio`)) {
@@ -3560,7 +3612,7 @@ var ITEM_KEYS = /* @__PURE__ */ new Set([
   "audio",
   "anchor"
 ]);
-var MEDIA_ITEM_KEYS = /* @__PURE__ */ new Set([...ITEM_KEYS, "captions"]);
+var MEDIA_ITEM_KEYS = /* @__PURE__ */ new Set([...ITEM_KEYS, "captions", "cut_edge"]);
 var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "id",
   "name",
@@ -3571,6 +3623,8 @@ var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "role",
   "link",
   "cut_edge",
+  "reason",
+  "label",
   "mute",
   "source",
   "gain_db",
@@ -3594,7 +3648,7 @@ var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
 function readEditV2(json) {
   const parsed = parseInput(json);
   requireRecord2(parsed, "edit.json");
-  requireExactKeys(parsed, /* @__PURE__ */ new Set(["version", "output", "sources", "tracks", "audio", "captions", "thumbnail"]), "edit.json");
+  requireExactKeys(parsed, /* @__PURE__ */ new Set(["version", "output", "sources", "sync_groups", "tracks", "audio", "captions", "thumbnail"]), "edit.json");
   if (parsed.version !== 2) {
     throw invalid("edit.json.version", "2 \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\uFF08v0/v1 \u306F\u3053\u306E reader \u306E\u5BFE\u8C61\u5916\u3067\u3059\uFF09");
   }
@@ -3622,6 +3676,33 @@ function readEditV2(json) {
   if (hasOwn(parsed, "thumbnail")) requireRecord2(parsed.thumbnail, "edit.json.thumbnail");
   const sourceIds = /* @__PURE__ */ new Set();
   parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
+  if (hasOwn(parsed, "sync_groups")) {
+    if (!Array.isArray(parsed.sync_groups)) throw invalid("edit.json.sync_groups", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    const groupIds = /* @__PURE__ */ new Set();
+    const groupedSources = /* @__PURE__ */ new Set();
+    parsed.sync_groups.forEach((value, index) => {
+      const path = `edit.json.sync_groups[${index}]`;
+      requireRecord2(value, path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["id", "members"]), path);
+      requireText(value.id, `${path}.id`);
+      if (groupIds.has(value.id)) throw invalid(`${path}.id`, "\u7D44 id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059");
+      groupIds.add(value.id);
+      if (!Array.isArray(value.members) || value.members.length < 2) throw invalid(`${path}.members`, "2 \u7D20\u6750\u4EE5\u4E0A\u304C\u5FC5\u8981\u3067\u3059");
+      value.members.forEach((member, memberIndex) => {
+        const memberPath = `${path}.members[${memberIndex}]`;
+        requireRecord2(member, memberPath);
+        requireExactKeys(member, /* @__PURE__ */ new Set(["source", "offset_sec"]), memberPath);
+        requireText(member.source, `${memberPath}.source`);
+        if (!sourceIds.has(member.source)) throw invalid(`${memberPath}.source`, "\u7D20\u6750\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+        if (groupedSources.has(member.source)) throw invalid(`${memberPath}.source`, "\u7D20\u6750\u306F 1 \u3064\u306E\u7D44\u306B\u3060\u3051\u5165\u308C\u3089\u308C\u307E\u3059");
+        groupedSources.add(member.source);
+        if (typeof member.offset_sec !== "number" || !Number.isFinite(member.offset_sec)) {
+          throw invalid(`${memberPath}.offset_sec`, "\u6709\u9650\u306E\u6570\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+      });
+      if (value.members[0].offset_sec !== 0) throw invalid(`${path}.members[0].offset_sec`, "\u57FA\u6E96\u7D20\u6750\u306F 0 \u3067\u3059");
+    });
+  }
   const trackIds = /* @__PURE__ */ new Set();
   const itemIds = /* @__PURE__ */ new Set();
   parsed.tracks.forEach((track, index) => validateTrack(track, index, trackIds, itemIds, sourceIds));
@@ -3630,6 +3711,7 @@ function readEditV2(json) {
     version: 2,
     output: { ...edit.output },
     sources: edit.sources.map((source) => ({ ...source })),
+    ...edit.sync_groups !== void 0 ? { sync_groups: structuredClone(edit.sync_groups) } : {},
     ...edit.audio !== void 0 ? { audio: edit.audio } : {},
     ...edit.captions !== void 0 ? { captions: edit.captions } : {},
     ...edit.thumbnail !== void 0 ? { thumbnail: { ...edit.thumbnail } } : {},
@@ -3738,6 +3820,8 @@ function validateAudioItem(value, path, ids, sourceIds) {
   }
   if (hasOwn(value, "link")) requireText(value.link, `${path}.link`);
   if (hasOwn(value, "cut_edge")) validateCutEdge(value.cut_edge, `${path}.cut_edge`);
+  if (hasOwn(value, "reason") && value.reason !== "silence" && value.reason !== "word") throw invalid(`${path}.reason`, "silence/word \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  if (hasOwn(value, "label") && typeof value.label !== "string") throw invalid(`${path}.label`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   if (hasOwn(value, "mute") && typeof value.mute !== "boolean") {
     throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
@@ -3835,6 +3919,7 @@ function validateItem(value, path, ids, sourceIds) {
   if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
   if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
   validateItemSource(value.source, `${path}.source`, sourceIds);
+  if (hasOwn(value, "cut_edge")) validateCutEdge(value.cut_edge, `${path}.cut_edge`);
   if (hasOwn(value, "captions") && value.captions !== "on" && value.captions !== "off") {
     throw invalid(`${path}.captions`, "on \u307E\u305F\u306F off \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
@@ -5292,6 +5377,7 @@ function readV2Internal(raw) {
       ...edit.output.look !== void 0 ? { look: edit.output.look } : {}
     },
     sources,
+    ...edit.sync_groups !== void 0 ? { syncGroups: structuredClone(edit.sync_groups) } : {},
     sourceTableDeclared: true,
     emptyProject: sources.length === 0,
     tracks,

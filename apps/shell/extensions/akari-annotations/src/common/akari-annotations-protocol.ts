@@ -512,6 +512,7 @@ export interface ApplyCutRangesRequest {
 export interface ApplyCutRangesResult extends WriteBackResult {
     removedFrames: number;
     beforeSource: string;
+    warnings: string[];
 }
 
 export interface RestoreCutRangeRequest {

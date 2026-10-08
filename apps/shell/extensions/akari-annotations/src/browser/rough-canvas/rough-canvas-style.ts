@@ -44,6 +44,12 @@ export function ensureRoughCanvasStyle(): void {
 .akari-rough-canvas-footer .theia-button.small { height:22px; padding:0 5px; margin:0; white-space:nowrap; flex:none; font-size:11px; }
 .akari-rough-canvas-error { padding:0 10px; color:var(--akari-danger); }
 .akari-rough-canvas-confirm { padding:5px 10px; background:var(--akari-elevated); }
+.akari-rough-canvas-confirm-actions { display:flex; justify-content:flex-end; gap:5px; padding-top:4px; }
+.akari-rough-canvas-confirm-actions .theia-button { margin:0; }
+.akari-rough-canvas-task-packet { display:flex; align-items:center; gap:6px; min-width:0; padding:2px 8px; color:var(--akari-muted); font-size:10px; }
+.akari-rough-canvas-task-packet[hidden] { display:none; }
+.akari-rough-canvas-task-packet span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-rough-canvas-task-packet label { display:inline-flex; align-items:center; white-space:nowrap; }
 .akari-rough-canvas-resize { position:absolute; right:2px; bottom:2px; width:18px; height:18px; cursor:nwse-resize; background:transparent; opacity:0; }
 @container (max-width:540px) {
   .akari-rough-canvas-header { gap:2px; padding:8px 5px; font-size:9px; }

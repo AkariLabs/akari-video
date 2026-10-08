@@ -56,3 +56,28 @@ test('渡す行のアプリ内ドロップは window 捕捉で取り込み先へ
     assert.equal(prevented, true);
     assert.equal(stopped, true);
 });
+
+test('外の行は札・利用条件・サムネを示し、本体が無い行は渡せない', () => {
+    const tab = new HandoffVibeDockTab();
+    const notices = [];
+    Object.assign(tab, { commands: { executeCommand: async () => [] }, tabs: { refreshBadges() {} }, items: [
+        { uri: 'file:///tmp/image.png', path: '/tmp/image.png', name: '画像（example.com）', origin: 'scratch',
+            badge: '外', fresh: true, status: 'ready', thumb: 'data:image/jpeg;base64,AA' },
+        { uri: '', path: '', name: '画像（example.org）', origin: 'scratch', badge: '外', fresh: false, status: 'url_only' }
+    ] });
+    const host = new Node();
+    const view = tab.render(host, { status: { set: message => { notices.push(message); return { dispose() {} }; } } });
+    const rows = walk(host).filter(node => node.tag === 'button');
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].draggable, true);
+    assert.equal(rows[1].draggable, false);
+    assert.equal(walk(rows[0]).some(node => node.tag === 'img' && node.alt === ''), true);
+    assert.equal(walk(rows[0]).some(node => node.textContent === '外'), true);
+    assert.equal(walk(rows[0]).some(node => node.textContent === '利用条件: 不明'), true);
+    assert.equal(walk(rows[1]).some(node => node.textContent === '本体なし（渡せません）・利用条件: 不明'), true);
+    assert.equal(rows[1].className.includes('akari-vibe-handoff-external-unavailable'), true);
+    assert.equal(rows[0].className.includes('akari-vibe-handoff-external-unavailable'), false);
+    rows[1].fire('click');
+    assert.deepEqual(notices, ['本体が取れていないため渡せません']);
+    view.dispose();
+});

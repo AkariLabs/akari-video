@@ -9,6 +9,7 @@ import { buildUiTargetRow, parseUiTarget } from '../../common/doc-target';
 import { CLIP_ANNOTATION_REVEAL_EVENT } from '../../common/timeline-context-menu-items';
 import { ReviewModel } from '../review-model';
 import { TaskService } from './task-service';
+import { AkariRoughCanvasService } from '../../common/rough-canvas-protocol';
 
 type Column = 'unsent' | 'sent' | 'review' | 'done';
 type SourceFilter = 'all' | 'annotation' | 'lint' | 'proposal' | 'export';
@@ -44,6 +45,7 @@ export class AkariTaskBoardWidget extends BaseWidget {
     @inject(TaskService) protected readonly tasks!: TaskService;
     @inject(ReviewModel) protected readonly review!: ReviewModel;
     @inject(MessageService) protected readonly messages!: MessageService;
+    @inject(AkariRoughCanvasService) protected readonly canvas!: AkariRoughCanvasService;
 
     protected filter: SourceFilter = 'all';
     protected doneLimit = 50;
@@ -98,6 +100,8 @@ export class AkariTaskBoardWidget extends BaseWidget {
             else if (action.id === 'confirm') await this.tasks.confirm(task.id);
             else if (action.id === 'markPasted') await this.tasks.markPasted(task.id);
             else if (action.id === 'retry') await this.tasks.update(task.id, { state: 'unsent' }, 'human');
+            else if (action.id === 'approve') await this.tasks.update(task.id,
+                { needsConfirm: false, confirmedAt: new Date().toISOString() }, 'human');
             this.renderBoard();
         } catch (error) { this.messages.error(`タスクを変更できませんでした: ${String(error)}`); }
     }
@@ -123,6 +127,58 @@ export class AkariTaskBoardWidget extends BaseWidget {
         body.className = 'akari-task-body';
         body.textContent = oneLine(task.body) || oneLine(task.title) || '内容なし';
         card.append(body);
+
+        if (task.source === 'proposal' && task.needsConfirm === true) {
+            const origin = task.origin as { memo?: string; job?: string } | undefined;
+            const evidence = task.evidence as { quote?: string } | undefined;
+            const detail = task.targetDetail as { region?: { box?: number[] } } | undefined;
+            const badge = document.createElement('small'); badge.className = 'akari-task-source';
+            badge.textContent = '案'; badge.style.color = 'var(--akari-accent-light)';
+            const sourceRow = document.createElement('span');
+            Object.assign(sourceRow.style, { display: 'inline-flex', alignItems: 'center', gap: '4px' });
+            source.replaceWith(sourceRow); sourceRow.append(badge, source);
+            const visual = document.createElement('span');
+            Object.assign(visual.style, { display: 'inline-flex', alignItems: 'center', gap: '5px' });
+            const paperSlot = document.createElement('span');
+            const regionSlot = document.createElement('span');
+            visual.append(paperSlot, regionSlot); card.append(visual);
+            const box = detail?.region?.box;
+            const showRegion = (): void => {
+                if (!Array.isArray(box) || box.length !== 4) return;
+                const diagram = document.createElement('span'); diagram.title = '画面のここ';
+                diagram.style.cssText = 'display:block;position:relative;width:72px;height:40px;border:1px solid var(--akari-line);';
+                const region = document.createElement('span');
+                Object.assign(region.style, { position: 'absolute', left: `${box[0] * 100}%`, top: `${box[1] * 100}%`,
+                    width: `${box[2] * 100}%`, height: `${box[3] * 100}%`, border: '1px solid var(--akari-accent)' });
+                diagram.append(region); regionSlot.append(diagram);
+            };
+            showRegion();
+            if (origin?.memo && /^c-\d{4,}$/.test(origin.memo)) {
+                const older = this.tasks.list().some(other => {
+                    const prior = other.origin as { memo?: string; job?: string } | undefined;
+                    return prior?.memo === origin.memo && prior?.job !== origin.job
+                        && String(prior?.job ?? '') < String(origin.job ?? '');
+                });
+                if (older) { const newer = document.createElement('small'); newer.textContent = '新しい案'; card.append(newer); }
+                const root = this.review.location?.root.toString();
+                if (root) void this.canvas.readMemo(root, origin.memo).then(memo => {
+                    if (memo.paperDataUrl) {
+                        const image = document.createElement('img'); image.alt = '紙のメモ';
+                        image.style.maxWidth = '72px'; image.style.maxHeight = '42px'; image.style.objectFit = 'contain';
+                        image.onerror = () => image.remove();
+                        image.src = memo.paperDataUrl; paperSlot.append(image);
+                    }
+                }).catch(() => undefined);
+            }
+            const proof = document.createElement('small'); proof.className = 'akari-task-meta';
+            proof.textContent = [evidence?.quote ? `根拠: ${evidence.quote}` : '',
+                task.confidence === 'low' ? '位置は自信がありません' : ''].filter(Boolean).join(' · ');
+            if (proof.textContent) card.append(proof);
+            if (typeof task.question === 'string' && task.question.trim()) {
+                const question = document.createElement('small'); question.className = 'akari-task-meta';
+                question.textContent = `確かめたいこと: ${task.question}`; card.append(question);
+            }
+        }
 
         if (task.state === 'sent') {
             const sentTo = task.sentTo as { agent?: string; route?: string; pasted?: boolean } | undefined;

@@ -50,6 +50,7 @@ export interface TimelineCutAudioMenuContext {
     linked?: boolean;
     copyable?: boolean;
     narrationRedo?: boolean;
+    syncVideo?: boolean;
 }
 
 export interface TimelineTreeMenuContext {
@@ -92,6 +93,7 @@ export function buildTimelineClipMenuItems(
         ...(audio.split.ok === false ? { disabled: true, disabledReason: audio.split.message } : {})
     });
     if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: 'リンクを解除' });
+    if (kind === 'audio' && audio.syncVideo) items.push({ id: 'sync-video', label: '映像と同期させる…' });
     if (kind === 'audio' && audio.narrationRedo) items.push({ id: 'narrate-redo', label: '作り直す…' });
     if (kind === 'caption') items.push({ id: 'narrate', label: '音声を作る…' });
     items.push({ id: 'annotate', label: '注釈…' });

@@ -8,9 +8,10 @@ interface HandoffItem {
     uri: string;
     path: string;
     name: string;
-    origin: 'output' | 'material';
+    origin: 'output' | 'material' | 'scratch';
     badge: string;
     fresh: boolean;
+    ref?: string; badges?: readonly string[]; thumb?: string; quality?: string; status?: 'ready' | 'url_only';
 }
 
 const HANDOFF_MIME = 'application/x-akari-handoff';
@@ -82,6 +83,13 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
 .akari-vibe-handoff-row:focus-visible { outline:2px solid var(--akari-accent-light); }
 .akari-vibe-handoff-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .akari-vibe-handoff-badge { flex:none; color:var(--akari-faint); font-size:10px; }
+.akari-vibe-handoff-row.akari-vibe-handoff-external { min-height:46px; max-height:46px; }
+.akari-vibe-handoff-row.akari-vibe-handoff-external-unavailable { color:var(--akari-muted); }
+.akari-vibe-handoff-thumb { flex:none; width:28px; height:28px; border-radius:5px; object-fit:cover; }
+.akari-vibe-handoff-external-copy { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.akari-vibe-handoff-license { color:var(--akari-faint); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-vibe-handoff-external-badge { flex:none; border:1px dashed var(--akari-muted); border-radius:4px;
+ padding:1px 4px; color:var(--akari-muted); font-size:10px; }
 .akari-vibe-handoff-hint { flex:none; margin-top:auto; padding:5px 2px; color:var(--akari-faint); font-size:10px; line-height:1.4; }
 `;
             host.append(style);
@@ -96,18 +104,35 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
             for (const item of this.items) {
                 const row = document.createElement('button');
                 row.type = 'button';
-                row.className = 'akari-vibe-handoff-row';
-                row.draggable = true;
-                row.title = item.path;
-                row.setAttribute('data-handoff-path', item.path);
+                row.className = `akari-vibe-handoff-row${item.origin === 'scratch' ? ' akari-vibe-handoff-external' : ''}`
+                    + `${item.origin === 'scratch' && item.status === 'url_only' ? ' akari-vibe-handoff-external-unavailable' : ''}`;
+                row.draggable = item.origin !== 'scratch' || item.status === 'ready';
+                if (item.path) { row.title = item.path; row.setAttribute('data-handoff-path', item.path); }
                 const name = document.createElement('span');
                 name.className = 'akari-vibe-handoff-name';
                 name.textContent = item.name;
-                const badge = document.createElement('small');
-                badge.className = 'akari-vibe-handoff-badge';
-                badge.textContent = item.fresh ? '新着' : item.badge;
-                row.append(name, badge);
+                if (item.origin === 'scratch') {
+                    if (item.thumb) {
+                        const thumb = document.createElement('img'); thumb.className = 'akari-vibe-handoff-thumb';
+                        thumb.src = item.thumb; thumb.alt = ''; row.append(thumb);
+                    } else {
+                        const icon = document.createElement('span'); icon.className = 'codicon codicon-file-media';
+                        icon.setAttribute('aria-hidden', 'true'); row.append(icon);
+                    }
+                    const copy = document.createElement('span'); copy.className = 'akari-vibe-handoff-external-copy';
+                    const license = document.createElement('small'); license.className = 'akari-vibe-handoff-license';
+                    license.textContent = item.status === 'url_only' ? '本体なし（渡せません）・利用条件: 不明' : '利用条件: 不明';
+                    copy.append(name, license); row.append(copy);
+                    const external = document.createElement('small'); external.className = 'akari-vibe-handoff-external-badge';
+                    external.textContent = '外'; row.append(external);
+                } else {
+                    const badge = document.createElement('small');
+                    badge.className = 'akari-vibe-handoff-badge';
+                    badge.textContent = item.fresh ? '新着' : item.badge;
+                    row.append(name, badge);
+                }
                 row.addEventListener('dragstart', event => {
+                    if (item.origin === 'scratch' && item.status !== 'ready') { event.preventDefault(); return; }
                     if (!event.dataTransfer) return;
                     event.dataTransfer.setData('text/uri-list', item.uri);
                     event.dataTransfer.setData('text/plain', item.path);
@@ -119,6 +144,10 @@ export class HandoffVibeDockTab implements VibeDockTabContribution, FrontendAppl
                     event.stopPropagation();
                 });
                 row.addEventListener('click', () => {
+                    if (item.origin === 'scratch' && item.status !== 'ready') {
+                        const notice = ctx.status.set('本体が取れていないため渡せません', 'info');
+                        setTimeout(() => notice.dispose(), 4000); return;
+                    }
                     void navigator.clipboard.writeText(item.path).then(() => {
                         const notice = ctx.status.set('パスを写しました', 'info');
                         setTimeout(() => notice.dispose(), 4000);

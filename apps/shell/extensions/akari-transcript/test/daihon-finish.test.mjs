@@ -271,6 +271,11 @@ test('映像区間の無い声の素材だけを候補から外す', () => {
     { id: 'mixed', src: 'mixed' }, { id: 'missing', src: 'missing' }];
   widget.sourceIdForRow = row => row.src;
   assert.match(widget.audioOnlyCutReason(widget.rows[0]), /音声だけの素材の行/u);
+  widget.syncedSourceIds = new Set(['voice-mp4']);
+  assert.equal(widget.audioOnlyCutReason(widget.rows[0]), '同期した映像がタイムラインにありません');
+  widget.syncedVideoNames = new Map([['voice-mp4', 'take.mp4']]);
+  assert.equal(widget.audioOnlyCutReason(widget.rows[0]), undefined);
+  widget.syncedSourceIds.clear();
   assert.equal(widget.audioOnlyCutReason(widget.rows[1]), undefined);
   assert.equal(widget.audioOnlyCutReason(widget.rows[2]), undefined);
   assert.equal(widget.audioOnlyCutReason(widget.rows[3]), undefined);

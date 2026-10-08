@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { AkariEarServiceImpl } from '../lib/node/ear-service.js';
@@ -8,7 +9,7 @@ import { sharedHistory, voiceDictionaryPaths } from '../../../../../packages/aka
 const modulePath = path.resolve(import.meta.dirname, '../../../../../packages/akari-ear/src/index.mjs');
 
 test('偽ヘルパーの途中経過と確定に辞書を当て、確定だけを履歴に残す', async () => {
-    const home = await mkdtemp(path.join(process.env.TMPDIR, 'vd-ear-'));
+    const home = await mkdtemp(path.join(tmpdir(), 'vd-ear-'));
     const env = { AKARI_HOME: home };
     const helper = path.join(home, 'fake-ear.mjs');
     await writeFile(helper, `#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({type:'ready',locale:'ja-JP'})+'\\n');\nfor(const final of [false,true]) process.stdout.write(JSON.stringify({type:'stt',t:0.2,final,text:'てろっぷを出して'})+'\\n');\n`);
@@ -33,7 +34,7 @@ test('偽ヘルパーの途中経過と確定に辞書を当て、確定だけ�
 });
 
 test('壊れた自分の辞書でも発話が流れる', async () => {
-    const home = await mkdtemp(path.join(process.env.TMPDIR, 'vd-ear-broken-'));
+    const home = await mkdtemp(path.join(tmpdir(), 'vd-ear-broken-'));
     const env = { AKARI_HOME: home };
     const paths = voiceDictionaryPaths({ env });
     await import('node:fs/promises').then(fs => fs.mkdir(path.dirname(paths.user), { recursive: true }));

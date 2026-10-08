@@ -4,6 +4,9 @@ import { hasAudioClipFx } from '../../media-bin/src/preview-audio-sidecar.mjs';
 
 const DECODED_BYTES_THRESHOLD = 64 * 1024 * 1024;
 const isHeavy = duration => duration * 48000 * 2 * 4 > DECODED_BYTES_THRESHOLD;
+export const PREVIEW_AUDIO_SUMMARY_DERIVED_FIELDS = Object.freeze([
+  'sidecar', 'sidecarState', 'sidecarWarningEmitted',
+]);
 
 export function selectPreviewAudioItemsAt(items, t) {
   if (!Number.isFinite(t)) return [];
@@ -47,9 +50,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
   const speech = projectSpeechDeclarations(readData?.cuts ?? [], { fps }).map(item => ({ ...item }));
   const audio = { ...(readData?.audio ?? {}) };
   const enqueue = (target, kind, id, at, options, fallback) => {
-    delete target.sidecar;
-    delete target.sidecarState;
-    delete target.sidecarWarningEmitted;
+    for (const field of PREVIEW_AUDIO_SUMMARY_DERIVED_FIELDS) delete target[field];
     requests.push({ target, kind, id, at, options, fallback });
   };
   for (const declaration of speech) {

@@ -2687,7 +2687,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const committedByStandardPath = await this.commitWrite(projectRoot, request.label);
         const committed = committedByStandardPath
             || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
-        return { committed, removedFrames: applied.removedFrames, beforeSource };
+        return { committed, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
     }
 
     async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {

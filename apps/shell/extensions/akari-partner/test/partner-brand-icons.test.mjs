@@ -13,10 +13,10 @@ test('Claude は選択・ホバー時のタブ色に依存しないブランド�
     assert.match(iconRules('claude'), /background-color: #D97757 !important;/);
 });
 
-test('Codex / Copilot はボタン・タブの選択色ではなくテーマの文字色を共有する', () => {
-    for (const agent of ['codex', 'copilot']) {
-        assert.match(iconRules(agent), /background-color: var\(--theia-editor-foreground, currentColor\) !important;/);
-    }
+test('Codex はテーマ文字色、Copilot と DeepSeek はブランド色で表示する', () => {
+    assert.match(iconRules('codex'), /background-color: var\(--theia-editor-foreground, currentColor\) !important;/);
+    assert.match(iconRules('copilot'), /background-color: #8534F3 !important;/);
+    assert.match(iconRules('deepseek'), /background-color: #4D6BFE !important;/);
 });
 
 test('Antigravity は提供された公式多色 SVG を background-image で描く', () => {
@@ -63,6 +63,7 @@ test('Grok / Cursor / OpenCode / Command Code の出力 CSS は BEFORE と同一
     for (const [agent, expected] of Object.entries(before)) {
         assert.equal(iconRules(agent)
             .replace('.akari-partner-pi-cli-icon,\n', '')
+            .replace('.akari-partner-deepseek-cli-icon,\n', '')
             .replace('.akari-partner-devin-cli-icon,\n', ''), expected, agent);
     }
 });

@@ -13,6 +13,7 @@ export default new ContainerModule(bind => {
     bind(BackendApplicationContribution).toService(CliPathStartupContribution);
     bind(AkariPartnerServerImpl).toSelf().inSingletonScope();
     bind(AkariPartnerServer).toService(AkariPartnerServerImpl);
+    bind(BackendApplicationContribution).toService(AkariPartnerServerImpl);
     bind(ConnectionHandler).toDynamicValue(ctx => new RpcConnectionHandler(
         AKARI_PARTNER_SERVICE_PATH,
         () => ctx.container.get(AkariPartnerServer)

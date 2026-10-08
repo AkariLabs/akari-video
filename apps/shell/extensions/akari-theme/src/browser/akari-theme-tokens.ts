@@ -6,7 +6,7 @@
 // 正式に提供しているため、ライト側にも白×オレンジの実値を与える。
 // accent 系は「背景から遠いほど強調」という役割で並んでいるので、ライトでは
 // light/lighter が濃い方向（orange-600→800)へ反転する点に注意。
-// ── 線の階層（2026-09-05 / 内部リポ akari-video-internal のカード意匠 spec §2 が正典）──
+// ── 線の階層（2026-09-05 / カード意匠 spec §2 が正典）──
 //
 // spec の階層は 3 段:
 //   カード外周      1px rgba(255,255,255,.13)  ← 最強。--akari-line（下の 2 値より必ず強い）
@@ -54,6 +54,8 @@ export const DARK = {
     bg: '#0a0a0a',
     card: '#141414',
     elevated: '#1a1a1a',
+    toastSurface: 'rgba(24,24,24,.84)',
+    toastShadow: '0 18px 40px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.4)',
     panelProject: '#161616',
     panelProjectItem: '#202020',
     panelProjectElevated: '#2a2a2a',
@@ -99,6 +101,8 @@ export const LIGHT: AkariPalette = {
     bg: '#ffffff',
     card: '#f5f5f5',
     elevated: '#e5e5e5',
+    toastSurface: 'rgba(255,255,255,.88)',
+    toastShadow: '0 18px 40px rgba(0,0,0,.16), 0 2px 6px rgba(0,0,0,.08)',
     panelProject: '#f1f1f1',
     panelProjectItem: '#e4e4e4',
     panelProjectElevated: '#d8d8d8',

@@ -33,6 +33,7 @@ import { AkariHomeWidget } from './akari-home-widget';
  * フォルダ選択版は「場所を選んで新規作成…」として akari-project 側に残してある。
  */
 export const AkariHomeCommands = {
+    OPEN: { id: 'akari.home.open', label: 'ホームを開く' } as Command,
     OPEN_INTAKE_FORM: {
         id: 'akari.home.openIntakeForm',
         label: '進め方フォームを開く'
@@ -76,6 +77,9 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
     protected readonly windowService!: WindowService;
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand(AkariHomeCommands.OPEN, {
+            execute: async () => { await this.revealHome(); }
+        });
         registry.registerCommand(AkariHomeCommands.OPEN_INTAKE_FORM, {
             execute: async () => {
                 const widget = await this.revealHome();

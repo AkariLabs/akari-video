@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, cp, mkdir, readdir, readFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describeUnresolved, tracePackageClosure } from './cross-package-closure.mjs';
 
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const repoRoot = path.resolve(shellRoot, '../..');
@@ -97,6 +98,14 @@ console.log(`Copied project-default template to ${path.relative(shellRoot, proje
 // そこで写した後に **パッケージの外へ出る相対 import を実際に辿って写す**（連鎖も追う）。
 // これで同種の同梱漏れは構造的に起きなくなる。verify-asar-contents.mjs 側にも
 // 実在チェックを置いてあり、こちらが取りこぼしても package 時に落ちる。
+// しかし v1.2.0-beta.1〜beta.3 の配布版では再び「新しい動画の作成に失敗しました
+// （Cannot find module './edit-store'）」が出た。project-scaffold が
+// ../../edit-store/lib/index.js を import し、その index.js は CommonJS の
+// require("./edit-store") で先を読む。従来の辿り方は ESM の import … from だけ
+// だったため index.js 1 本しか写らず、リポ内では本物の packages/ に当たって露見しなかった。
+// 決め打ちのファイル名は増やさず、CJS も辿って届くファイルだけを写す。
+// ディレクトリごと写すと配布物が太り、届かないはずのファイルまで入って
+// 同梱検査の取りこぼしが見えなくなる。asar の検査とテストも同じ規則を使う。
 for (const name of ['project-scaffold', 'creator-root']) {
   const source = path.join(repoRoot, 'packages', name);
   const destination = path.join(shellRoot, 'lib', 'packages', name);
@@ -107,44 +116,38 @@ for (const name of ['project-scaffold', 'creator-root']) {
 await copyCrossPackageImports(['project-scaffold', 'creator-root']);
 
 /**
- * 写した packages/<name>/src 配下の ESM を読み、`../../<other>/…` のように
- * 自パッケージの外を指す相対 import を lib/packages/ へ写す。写したファイルが
- * さらに外を指していれば、それも辿る（連鎖・循環対応）。
+ * 写した packages/<name>/src から届く相対参照を lib/packages/ へ写す。
+ * CJS の先を辿らないと index.js だけが入り、リポ内では本物の packages/ を
+ * 上方探索できるため同梱漏れが露見しない。閉包を調べて届いた分だけ写す。
  *
  * packages/ の外（node_modules や別ツリー）を指す import は運べないので、その場で落とす
  * — 黙って通すと「配布版でだけ落ちる」という一番気づきにくい形の壊れ方に戻るため。
  */
 async function copyCrossPackageImports(rootNames) {
   const packagesRoot = path.join(repoRoot, 'packages');
-  const queue = [];
+  const roots = [];
   for (const name of rootNames) {
-    queue.push(...(await listEsmFiles(path.join(packagesRoot, name, 'src'))));
+    roots.push(...(await listEsmFiles(path.join(packagesRoot, name, 'src'))));
   }
-  const visited = new Set(queue);
-  while (queue.length > 0) {
-    const file = queue.shift();
-    const contents = await readFile(file, 'utf8');
-    for (const specifier of contents.matchAll(/(?:^|\n)\s*(?:import|export)[^'"]*?from\s*['"](\.[^'"]*)['"]/g)) {
-      const resolved = path.resolve(path.dirname(file), specifier[1]);
-      if (!resolved.startsWith(`${packagesRoot}${path.sep}`)) {
-        throw new Error(
-          `${path.relative(repoRoot, file)} が packages/ の外を相対 import しています: ${specifier[1]}\n` +
-          'パッケージ済み .app へは運べません（lib/packages/ 配下しか写せない）。import を packages/ 内へ寄せてください。'
-        );
-      }
-      if (visited.has(resolved)) {
-        continue;
-      }
-      visited.add(resolved);
-      if (!existsSync(resolved)) {
-        throw new Error(`${path.relative(repoRoot, file)} の import 先が存在しません: ${specifier[1]}`);
-      }
-      const destination = path.join(shellRoot, 'lib', 'packages', path.relative(packagesRoot, resolved));
-      await mkdir(path.dirname(destination), { recursive: true });
-      await copyFile(resolved, destination);
-      console.log(`Copied cross-package import to ${path.relative(shellRoot, destination)}`);
-      queue.push(resolved);
-    }
+  const kind = async candidate => stat(candidate).then(entry => entry, () => null);
+  const { files, unresolved } = await tracePackageClosure({
+    roots,
+    packagesRoot,
+    readFile: file => readFile(file, 'utf8'),
+    isFile: async file => (await kind(file))?.isFile() ?? false,
+    isDirectory: async file => (await kind(file))?.isDirectory() ?? false
+  });
+  if (unresolved.length > 0) {
+    const details = unresolved.map(issue =>
+      describeUnresolved(issue, path.relative(repoRoot, issue.file))).join('\n');
+    throw new Error(`lib/packages/ へ運べない参照があります:\n${details}`);
+  }
+  for (const file of files) {
+    if (roots.includes(file)) continue;
+    const destination = path.join(shellRoot, 'lib', 'packages', path.relative(packagesRoot, file));
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(file, destination);
+    console.log(`Copied cross-package import to ${path.relative(shellRoot, destination)}`);
   }
 }
 
