@@ -119,7 +119,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
     }
 
     async startWebPartner(agent: PartnerAgentId, workspaceRootUri: string | undefined,
-        executablePath: string, ownerId: string, theme?: 'dark' | 'light' | 'system'): Promise<PartnerWebLaunch> {
+        executablePath: string, ownerId: string): Promise<PartnerWebLaunch> {
         if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
         if (!ownerId?.trim()) throw new Error('Web partner owner is required');
         if (!workspaceRootUri) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
@@ -147,7 +147,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const inProgress = this.pendingWebLaunches.get(cwdKey);
         if (inProgress) { inProgress.owners.add(ownerId); return { ...await inProgress.promise, cwd }; }
         const owners = new Set([ownerId]);
-        const promise = this.launchNewWebPartner(agent, cwd, executablePath, theme).then(launch => {
+        const promise = this.launchNewWebPartner(agent, cwd, executablePath).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
                 throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
@@ -161,8 +161,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         finally { if (this.pendingWebLaunches.get(cwdKey) === pending) this.pendingWebLaunches.delete(cwdKey); }
     }
 
-    protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string,
-        theme?: 'dark' | 'light' | 'system'): Promise<PartnerWebLaunch> {
+    protected async launchNewWebPartner(agent: PartnerAgentId, cwd: string, executablePath: string): Promise<PartnerWebLaunch> {
         const partnersDir = path.join(resolveAkariHomeDir(), 'partners', 'deepseek');
         await fs.mkdir(partnersDir, { recursive: true });
         const pluginPath = path.join(partnersDir, 'akari-cwd-workspace.mjs');
@@ -173,7 +172,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const appVersion = await readInstalledAppVersion(resolveAkariHomeDir()) ?? 'dev';
         const patchPath = path.join(partnersDir, 'akari.patch.yml');
         await fs.writeFile(patchPath, buildDshPatchYaml({
-            pluginPath, provider: connection.provider, appVersion, sessionId: buildDshSessionId(cwd), theme
+            pluginPath, provider: connection.provider, appVersion, sessionId: buildDshSessionId(cwd)
         }), { mode: 0o600 });
         await fs.chmod(patchPath, 0o600).catch(() => undefined);
         const launch = await this.prepareLaunch(agent, executablePath);

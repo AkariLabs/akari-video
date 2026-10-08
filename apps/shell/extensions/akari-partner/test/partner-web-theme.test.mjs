@@ -10,6 +10,7 @@ for (const [preference, currentThemeType, expected] of [
     ['dark', 'light', 'light'],
     ['dark', 'dark', 'dark'],
     ['dark', 'hc', 'dark'],
+    ['dark', 'hcLight', 'light'],
     ['invalid', 'light', 'light'],
     ['invalid', undefined, 'dark']
 ]) {

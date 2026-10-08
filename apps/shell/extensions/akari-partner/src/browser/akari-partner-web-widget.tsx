@@ -1,15 +1,22 @@
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
+import { ThemeService } from '@theia/core/lib/browser/theming';
+import { Disposable, PreferenceService } from '@theia/core/lib/common';
 import type { WebviewTag } from 'electron';
 import { AkariPartnerServer, PartnerAgentId, PartnerWebLaunch } from '../common/akari-partner-protocol';
 import { PARTNER_AGENT_LABELS, PARTNER_CLI_ICON_CLASSES } from './partner-catalog';
+import { resolvePartnerWebTheme } from '../common/partner-web-theme';
 import '../electron-common/electron-api';
+
+const APPEARANCE_THEME_PREFERENCE = 'akari.appearance.themeMode';
 
 @injectable()
 export class PartnerWebWidget extends ReactWidget {
     static readonly ID = 'akari-partner-web';
     @inject(AkariPartnerServer) protected readonly server!: AkariPartnerServer;
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(ThemeService) protected readonly themeService!: ThemeService;
     private launch?: PartnerWebLaunch;
     private ownerId?: string;
     private host?: HTMLElement;
@@ -19,6 +26,7 @@ export class PartnerWebWidget extends ReactWidget {
     private retryLoading?: () => void;
     private cancelLoading?: (error: Error) => void;
     private closePromise?: Promise<void>;
+    private readonly themeListeners: Disposable[] = [];
 
     @postConstruct()
     protected init(): void {
@@ -28,6 +36,8 @@ export class PartnerWebWidget extends ReactWidget {
         this.title.closable = true;
         this.node.style.height = '100%';
         this.disposed.connect(() => {
+            for (const listener of this.themeListeners) listener.dispose();
+            this.themeListeners.length = 0;
             this.cancelLoading?.(new Error('DeepSeek Harness の作業画面が閉じられました'));
             this.removeWebview();
             void this.closeLaunch();
@@ -48,6 +58,11 @@ export class PartnerWebWidget extends ReactWidget {
         this.loaded = false;
         this.update();
         try {
+            await this.preferences.ready;
+            if (this.isDisposed) throw new Error('DeepSeek Harness の作業画面が閉じられました');
+            this.watchTheme();
+            await this.sendTheme();
+            if (this.isDisposed) throw new Error('DeepSeek Harness の作業画面が閉じられました');
             for (;;) {
                 if (this.slowLoading) {
                     this.slowLoading = false;
@@ -91,6 +106,27 @@ export class PartnerWebWidget extends ReactWidget {
             await this.closeLaunch();
             throw error;
         }
+    }
+
+    private watchTheme(): void {
+        if (this.themeListeners.length) return;
+        this.themeListeners.push(this.themeService.onDidColorThemeChange(() => { void this.sendTheme(); }));
+        this.themeListeners.push(this.preferences.onPreferenceChanged(change => {
+            if (change.preferenceName === APPEARANCE_THEME_PREFERENCE) void this.sendTheme();
+        }));
+    }
+
+    private async sendTheme(): Promise<void> {
+        if (!this.ownerId || this.isDisposed) return;
+        const preference = this.preferences.get<string>(APPEARANCE_THEME_PREFERENCE, 'dark');
+        let currentThemeType: string | undefined;
+        if (preference !== 'system') {
+            try { currentThemeType = this.themeService.getCurrentTheme().type; }
+            catch { /* The active theme is unavailable; use dark. */ }
+        }
+        const theme = resolvePartnerWebTheme(preference, currentThemeType);
+        try { await window.electronAkariPartner.web.setTheme(this.ownerId, theme); }
+        catch (error) { console.warn('[akari-partner] guest theme update skipped:', error); }
     }
 
     private closeLaunch(): Promise<void> {

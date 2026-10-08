@@ -50,31 +50,6 @@ test('unregistered pid cannot be stopped and a live cwd is reused', async t => {
     assert.deepEqual(server.killed, [initial.pid]);
 });
 
-test('a new web launch passes its theme into the generated patch', async t => {
-    const { root, first, executable } = await fixture(t);
-    const previousHome = process.env.AKARI_HOME;
-    process.env.AKARI_HOME = join(root, 'home');
-    class PatchWebServer extends AkariPartnerServerImpl {
-        patch;
-        async prepareLaunch(agent) { return { agent, args: [], log: [], env: {} }; }
-        async launchWebProcess(input) {
-            this.patch = await readFile(input.patchPath, 'utf8');
-            return { url: 'http://127.0.0.1:41000/?token=fixture', pid: 41008 };
-        }
-        webProcessAlive() { return true; }
-        killWebProcess() {}
-    }
-    try {
-        const server = new PatchWebServer();
-        await server.startWebPartner('deepseek', pathToFileURL(first).href, executable, 'window-a', 'light');
-        assert.match(server.patch, /- id: ui-theme\n  config: \{ preference: light \}/);
-        assert.doesNotMatch(server.patch, /fontSize/);
-    } finally {
-        if (previousHome === undefined) delete process.env.AKARI_HOME;
-        else process.env.AKARI_HOME = previousHome;
-    }
-});
-
 test('reconcile releases only the calling window ownership', async t => {
     const { first, second, executable } = await fixture(t);
     const server = new StubWebServer();

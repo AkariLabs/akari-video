@@ -9,7 +9,12 @@ const require = createRequire(import.meta.url);
 
 function contents(type = 'window') {
     const listeners = new Map();
+    let destroyed = false;
+    let attached = false;
+    let attachCalls = 0;
+    const commands = [];
     return {
+        commands,
         getType: () => type,
         on(name, callback) {
             const callbacks = listeners.get(name) ?? [];
@@ -17,9 +22,38 @@ function contents(type = 'window') {
             listeners.set(name, callbacks);
         },
         removeAllListeners(name) { listeners.delete(name); },
+        removeListener(name, callback) {
+            listeners.set(name, (listeners.get(name) ?? []).filter(listener => listener !== callback));
+        },
+        once(name, callback) {
+            const once = (...args) => { this.removeListener(name, once); callback(...args); };
+            this.on(name, once);
+        },
         emit(name, ...args) { for (const callback of listeners.get(name) ?? []) callback(...args); },
         listenerCount: name => (listeners.get(name) ?? []).length,
-        isDestroyed: () => false
+        isDestroyed: () => destroyed,
+        destroy() { destroyed = true; this.emit('destroyed'); },
+        debugger: {
+            get attachCalls() { return attachCalls; },
+            on(name, callback) {
+                const callbacks = listeners.get('debugger:' + name) ?? [];
+                callbacks.push(callback);
+                listeners.set('debugger:' + name, callbacks);
+            },
+            removeListener(name, callback) {
+                listeners.set('debugger:' + name,
+                    (listeners.get('debugger:' + name) ?? []).filter(listener => listener !== callback));
+            },
+            emit(name, ...args) {
+                for (const callback of listeners.get('debugger:' + name) ?? []) callback(...args);
+            },
+            isAttached: () => attached,
+            attach() { if (this.attachError) throw this.attachError; attachCalls++; attached = true; },
+            async sendCommand(name, params) {
+                if (this.commandError) throw this.commandError;
+                commands.push({ name, params });
+            }
+        }
     };
 }
 
@@ -30,7 +64,20 @@ function harness(existing) {
     webSession.setPermissionCheckHandler = () => undefined;
     webSession.webRequest = { onBeforeRequest(listener) { webSession.beforeRequest = listener; } };
     const dialogs = [];
+    const warnings = [];
     const exports = {};
+    const windows = new WeakMap();
+    const ipcHandlers = new Map();
+    const windowFor = sender => {
+        if (sender.noWindow) return undefined;
+        let window = windows.get(sender);
+        if (!window) {
+            window = contents('window');
+            window.id = sender.windowId ?? 1;
+            windows.set(sender, window);
+        }
+        return window;
+    };
     const electron = {
         app,
         webContents: { getAllWebContents: () => existing },
@@ -38,8 +85,8 @@ function harness(existing) {
             assert.equal(partition, 'persist:akari-partner-deepseek');
             return webSession;
         } },
-        ipcMain: { handle() {} },
-        BrowserWindow: { fromWebContents: () => ({ isDestroyed: () => false }) },
+        ipcMain: { handle(name, handler) { ipcHandlers.set(name, handler); } },
+        BrowserWindow: { fromWebContents: windowFor },
         dialog: { async showMessageBox(_window, options) { dialogs.push(options); return { response: 0 }; } },
         shell: { async openExternal() { assert.fail('external navigation was not approved'); } }
     };
@@ -55,10 +102,113 @@ function harness(existing) {
             assert.ok(id in modules, `unexpected import: ${id}`);
             return modules[id];
         },
-        URL
+        URL,
+        console: { warn: message => warnings.push(message) }
     });
-    return { app, webSession, dialogs, main: new exports.PartnerWebMain() };
+    return { app, webSession, dialogs, warnings, main: new exports.PartnerWebMain(),
+        invoke: (sender, operation, ...args) => {
+            const handler = ipcHandlers.get('AkariPartnerWeb');
+            return handler({ sender, senderFrame: sender.mainFrame }, operation, ...args);
+        } };
 }
+
+function attachGuardedGuest(host, guest) {
+    guest.close = () => assert.fail('valid guest closed');
+    guest.setWindowOpenHandler = () => undefined;
+    host.emit('will-attach-webview', { preventDefault() { assert.fail('valid attach rejected'); } },
+        { partition: 'persist:akari-partner-deepseek' }, { src: 'http://127.0.0.1:42317/' });
+    host.emit('did-attach-webview', {}, guest);
+}
+
+const settle = () => new Promise(resolve => setImmediate(resolve));
+
+test('owner theme reaches guarded guests at attach and updates without a reload', async () => {
+    const host = contents();
+    host.mainFrame = {};
+    const fixture = harness([host]);
+    fixture.main.onStart({});
+    assert.equal(await fixture.invoke(host, 'ownerId'), '1');
+    await fixture.invoke(host, 'setTheme', '1', 'dark');
+    const guest = contents('webview');
+    attachGuardedGuest(host, guest);
+    await settle();
+    assert.equal(guest.debugger.isAttached(), true);
+    assert.deepEqual(JSON.parse(JSON.stringify(guest.commands)), [{ name: 'Emulation.setEmulatedMedia',
+        params: { features: [{ name: 'prefers-color-scheme', value: 'dark' }] } }]);
+    await fixture.invoke(host, 'setTheme', '1', 'light');
+    await settle();
+    assert.equal(guest.commands.at(-1).params.features[0].value, 'light');
+    await fixture.invoke(host, 'setTheme', '1', 'system');
+    await settle();
+    assert.equal(guest.commands.at(-1).params.features[0].value, '');
+    assert.equal(guest.commands.length, 3);
+    assert.equal(guest.debugger.attachCalls, 1);
+    guest.destroy();
+    await fixture.invoke(host, 'setTheme', '1', 'dark');
+    await settle();
+    assert.equal(guest.commands.length, 3);
+    assert.equal(guest.listenerCount('debugger:detach'), 0);
+});
+
+test('theme IPC ignores mismatched owners and values outside the three choices', async () => {
+    const host = contents();
+    host.mainFrame = {};
+    const fixture = harness([host]);
+    fixture.main.onStart({});
+    for (const [ownerId, theme] of [['other', 'dark'], ['1', 'invalid'], ['1', null]]) {
+        await fixture.invoke(host, 'setTheme', ownerId, theme);
+    }
+    const guest = contents('webview');
+    attachGuardedGuest(host, guest);
+    await settle();
+    assert.equal(guest.debugger.isAttached(), false);
+    assert.equal(guest.commands.length, 0);
+    await fixture.invoke(host, 'setTheme', '1', 'system');
+    await settle();
+    assert.equal(guest.debugger.isAttached(), false);
+    assert.equal(guest.commands.length, 0);
+});
+
+test('debugger failures and detach do not interrupt a guarded work screen', async () => {
+    const host = contents();
+    host.mainFrame = {};
+    const fixture = harness([host]);
+    fixture.main.onStart({});
+    await fixture.invoke(host, 'setTheme', '1', 'dark');
+    const guest = contents('webview');
+    guest.debugger.attachError = new Error('attach failed');
+    attachGuardedGuest(host, guest);
+    await settle();
+    assert.equal(guest.commands.length, 0);
+    assert.equal(guest.listenerCount('will-navigate'), 1);
+    guest.debugger.attachError = undefined;
+    guest.debugger.commandError = new Error('command failed');
+    await fixture.invoke(host, 'setTheme', '1', 'light');
+    await settle();
+    guest.debugger.emit('detach', {}, 'devtools opened');
+    assert.equal(fixture.warnings.length, 3);
+    assert.match(fixture.warnings[0], /attach failed/);
+    assert.match(fixture.warnings[1], /command failed/);
+    assert.match(fixture.warnings[2], /debugger detached/);
+    guest.destroy();
+    guest.debugger.emit('detach', {}, 'later');
+    assert.equal(fixture.warnings.length, 3);
+});
+
+test('guest without a successful guard pass receives no theme command', async () => {
+    const host = contents();
+    host.mainFrame = {};
+    const fixture = harness([host]);
+    fixture.main.onStart({});
+    await fixture.invoke(host, 'setTheme', '1', 'dark');
+    const guest = contents('webview');
+    let closed = false;
+    guest.close = () => { closed = true; };
+    host.emit('did-attach-webview', {}, guest);
+    await settle();
+    assert.equal(closed, true);
+    assert.equal(guest.commands.length, 0);
+});
 
 test('guard installs before onStart, catches existing windows, and does not install twice', () => {
     const earlyWindow = contents();

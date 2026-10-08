@@ -2,12 +2,76 @@ import { ElectronMainApplication, ElectronMainApplicationContribution } from '@t
 import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from '@theia/core/electron-shared/electron';
 import type { WebContents } from 'electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { CHANNEL_PARTNER_WEB } from '../electron-common/electron-api';
+import { CHANNEL_PARTNER_WEB, PartnerWebTheme } from '../electron-common/electron-api';
 import { allowPartnerWebRequest, externalUrl, guardPartnerWebview, PARTNER_WEB_PARTITION } from '../electron-common/partner-web-url';
 
 export { externalUrl, localWebOrigin } from '../electron-common/partner-web-url';
 
 const guardedContents = new WeakSet<WebContents>();
+const ownerThemes = new Map<string, PartnerWebTheme>();
+const ownerGuests = new Map<string, Set<GuardedGuest>>();
+const observedWindows = new WeakSet<BrowserWindow>();
+
+interface GuardedGuest {
+    contents: WebContents;
+    ownerId: string;
+    pending: Promise<void>;
+    disposed: boolean;
+}
+
+function logThemeFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[akari-partner] guest theme emulation skipped: ' + message.replace(/[\r\n]+/g, ' '));
+}
+
+function applyGuestTheme(record: GuardedGuest): void {
+    record.pending = record.pending.then(async () => {
+        if (record.disposed || record.contents.isDestroyed()) return;
+        const theme = ownerThemes.get(record.ownerId);
+        if (!theme) return;
+        try {
+            const debuggerClient = record.contents.debugger;
+            if (theme === 'system') {
+                if (!debuggerClient.isAttached()) return;
+            } else if (!debuggerClient.isAttached()) {
+                debuggerClient.attach();
+            }
+            await debuggerClient.sendCommand('Emulation.setEmulatedMedia', {
+                features: [{ name: 'prefers-color-scheme', value: theme === 'system' ? '' : theme }]
+            });
+        } catch (error) { logThemeFailure(error); }
+    });
+}
+
+function observeOwnerWindow(window: BrowserWindow): void {
+    if (observedWindows.has(window)) return;
+    observedWindows.add(window);
+    window.once('closed', () => {
+        const ownerId = String(window.id);
+        ownerThemes.delete(ownerId);
+        ownerGuests.delete(ownerId);
+    });
+}
+
+function rememberGuardedGuest(host: WebContents, guest: WebContents): void {
+    const window = BrowserWindow.fromWebContents(host);
+    if (!window) return;
+    observeOwnerWindow(window);
+    const ownerId = String(window.id);
+    const record: GuardedGuest = { contents: guest, ownerId, pending: Promise.resolve(), disposed: false };
+    const records = ownerGuests.get(ownerId) ?? new Set<GuardedGuest>();
+    records.add(record);
+    ownerGuests.set(ownerId, records);
+    const onDetach = (_event: unknown, reason: string): void => logThemeFailure('debugger detached: ' + reason);
+    guest.debugger.on('detach', onDetach);
+    guest.once('destroyed', () => {
+        record.disposed = true;
+        records.delete(record);
+        if (records.size === 0) ownerGuests.delete(ownerId);
+        guest.debugger.removeListener('detach', onDetach);
+    });
+    applyGuestTheme(record);
+}
 
 export function installWebviewGuard(contents: WebContents): void {
     if (guardedContents.has(contents)) return;
@@ -24,6 +88,7 @@ export function installWebviewGuard(contents: WebContents): void {
             return;
         }
         restrictGuest(contents, guest, origin);
+        rememberGuardedGuest(contents, guest);
     });
 }
 
@@ -40,11 +105,19 @@ export class PartnerWebMain implements ElectronMainApplicationContribution {
             callback({ cancel: !allowPartnerWebRequest(details) });
         });
         for (const contents of webContents.getAllWebContents()) installWebviewGuard(contents);
-        ipcMain.handle(CHANNEL_PARTNER_WEB, async (event, operation: string) => {
+        ipcMain.handle(CHANNEL_PARTNER_WEB, async (event, operation: string, ownerId?: string, theme?: unknown) => {
             if (event.senderFrame !== event.sender.mainFrame) throw new Error('Main frame required');
             const window = BrowserWindow.fromWebContents(event.sender);
             if (!window) throw new Error('Window unavailable');
             if (operation === 'ownerId') return String(window.id);
+            if (operation === 'setTheme') {
+                if (ownerId !== String(window.id)) return;
+                if (theme !== 'dark' && theme !== 'light' && theme !== 'system') return;
+                observeOwnerWindow(window);
+                ownerThemes.set(ownerId, theme);
+                for (const guest of ownerGuests.get(ownerId) ?? []) applyGuestTheme(guest);
+                return;
+            }
             throw new Error('Invalid operation');
         });
     }

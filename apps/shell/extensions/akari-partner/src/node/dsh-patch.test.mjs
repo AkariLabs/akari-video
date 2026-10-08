@@ -67,20 +67,10 @@ test('patch uses an absolute plugin path and replaces the default model', () => 
     }), /absolute/);
 });
 
-test('theme patch accepts only the three preferences and never overrides font size', () => {
-    const input = { pluginPath, provider: 'deepseek-official', appVersion: '1.2.3',
-        sessionId: buildDshSessionId(homeDir) };
+test('generated patches leave the DeepSeek UI theme to its own settings', () => {
+    const input = { pluginPath, appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir) };
     for (const provider of ['deepseek-official', 'opencode-go']) {
-        for (const theme of ['dark', 'light', 'system']) {
-            const yaml = buildDshPatchYaml({ ...input, provider, theme });
-            assert.match(yaml, new RegExp(`- id: ui-theme\\n  config: \\{ preference: ${theme} \\}`));
-            assert.doesNotMatch(yaml, /fontSize/);
-        }
-        for (const theme of [undefined, 'invalid', 'dark\n- id: unexpected']) {
-            const yaml = buildDshPatchYaml({ ...input, provider, theme });
-            assert.doesNotMatch(yaml, /- id: ui-theme/);
-            assert.doesNotMatch(yaml, /fontSize/);
-        }
+        assert.doesNotMatch(buildDshPatchYaml({ ...input, provider }), /- id: ui-theme/);
     }
 });
 
