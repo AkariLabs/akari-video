@@ -18,6 +18,8 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /akari-channel-area akari-channel-projects/);
     assert.match(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
     assert.match(widget, /resolveProjectCardThumbnails\(key\)/);
+    assert.match(widget, /<ChannelMemorySheets\b/);
+    assert.match(widget, /openMemorySheet\(/);
     // 一覧を開くときは見ているチャンネルを渡す（別のチャンネルの一覧を開ける）。チャンネルを選ぶと project モードでは一覧を開く
     assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*const channel = this\.context\.viewingChannel;\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList, \.\.\.\(channel \? \[\{ channel \}\] : \[\]\)\);\s*\}/);
     assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{[\s\S]*?this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);

@@ -11,6 +11,8 @@ import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-ser
 import { ProjectProgressService, stageSummary } from '../home/project-progress';
 import { AkariChannelContextService, ChannelProject } from './akari-channel-context-service';
 import { CHANNEL_DOC_KINDS, ChannelDocKind, channelDocFileName, channelDocTemplate, resolveChannelDocFileName } from './channel-docs';
+import { ChannelMemoryFiles } from './channel-memory-files';
+import { ChannelMemorySheets, ChannelMemorySheetKind, readChannelMemoryCounts } from './channel-memory-sheets';
 
 export const CHANNEL_WIDGET_ID = RAIL_CHANNEL_WIDGET_ID;
 export const CHANNEL_WIDGET_LABEL = 'チャンネル';
@@ -64,6 +66,9 @@ export class AkariChannelWidget extends ReactWidget {
     protected projectThumbnails = new Map<string, string[]>();
     protected channelDocFiles = new Map<ChannelDocKind, string>();
     protected docRefreshVersion = 0;
+    protected memoryFiles?: ChannelMemoryFiles;
+    protected memorySheet?: ChannelMemorySheetKind;
+    protected memoryCounts = { people: 0, notes: 0, packs: 0 };
     protected popoverOpen = false;
 
     protected readonly onOutsidePointerDown = (event: PointerEvent): void => {
@@ -84,6 +89,7 @@ export class AkariChannelWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        this.memoryFiles = new ChannelMemoryFiles(this.files);
         this.id = AkariChannelWidget.ID;
         this.title.label = CHANNEL_WIDGET_LABEL;
         this.updateCaption();
@@ -182,8 +188,15 @@ export class AkariChannelWidget extends ReactWidget {
             const name = resolveChannelDocFileName(kind, candidate => existing.has(candidate));
             return name ? [[kind, name] as const] : [];
         }));
+        const counts = root && channel && this.memoryFiles
+            ? await readChannelMemoryCounts(this.memoryFiles, this.memoryFiles.channelDir(root, channel))
+            : { people: 0, notes: 0, packs: 0 };
+        if (version !== this.docRefreshVersion) return;
+        this.memoryCounts = counts;
         this.update();
     }
+
+    protected openMemorySheet(kind?: ChannelMemorySheetKind): void { this.memorySheet = kind; this.update(); }
 
     protected async openChannelDoc(kind: ChannelDocKind): Promise<void> {
         const root = this.context.rootUri;
@@ -249,10 +262,12 @@ export class AkariChannelWidget extends ReactWidget {
                 <button type='button' className='akari-channel-row' aria-current={this.scope.scope === 'channel' ? 'page' : undefined}
                     onClick={() => void this.openProjectList()}>プロジェクト一覧</button>
                 {CHANNEL_DOC_KINDS.map(kind => <div className='akari-channel-doc-row' key={kind}>
-                    <button type='button' className='akari-channel-row' onClick={() => void this.openChannelDoc(kind)}>
+                    <button type='button' className='akari-channel-row' onClick={() => kind === 'people' || kind === 'notes' ? this.openMemorySheet(kind) : void this.openChannelDoc(kind)}>
                         {{ channel: 'チャンネル設計', design: 'デザイン', people: '人とモノ', notes: '辞書とメモ' }[kind]}
                     </button>
-                    {this.channelDocFiles.has(kind) ? <small>あり</small>
+                    {kind === 'people' || kind === 'notes'
+                        ? <small>{kind === 'people' ? `${this.memoryCounts.people} 件${this.memoryCounts.packs > 0 ? ` · ☆${this.memoryCounts.packs}` : ''}` : `${this.memoryCounts.notes} 件`}</small>
+                        : this.channelDocFiles.has(kind) ? <small>あり</small>
                         : <button type='button' className='akari-channel-create' onClick={() => void this.openChannelDoc(kind)}>作る</button>}
                 </div>)}
                 <button type='button' className='akari-channel-row' onClick={() => void this.shell.revealWidget(RAIL_SKILLS_WIDGET_ID)}>スキル</button>
@@ -268,6 +283,10 @@ export class AkariChannelWidget extends ReactWidget {
                         <small>{this.context.currentProjectUri?.toString() === project.uri.toString() ? '開いています' : this.projectStages.get(project.uri.toString()) ?? ''}</small></span>
                 </button>)}
             </div>
+            <ChannelMemorySheets open={this.memorySheet} channel={channel} root={this.context.rootUri} files={this.memoryFiles!}
+                onClose={() => this.openMemorySheet(undefined)} onOpen={kind => this.openMemorySheet(kind)}
+                onTypePrompt={text => void this.commands.executeCommand('akari.partner.typePrompt', text)}
+                onChanged={() => void this.refreshChannelDocs()} />
         </div>;
     }
 }
