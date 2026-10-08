@@ -6,6 +6,7 @@ import { CHANNEL_QUESTIONS, ChannelAnswers, buildChannelMarkdown, rankTypes, spl
 export function ChannelDesignWizard(props: {
     channelName: string; initialAnswers?: ChannelAnswers; initialAppliedType?: string; rest?: string; hasProKey: boolean;
     onCreate: (markdown: string) => void; onPartner: (answers: ChannelAnswers) => void; onNotice: (text: string) => void; onClose: () => void;
+    onCatalog?: () => void;
 }): React.ReactElement {
     const [step, setStep] = React.useState(0);
     const [answers, setAnswers] = React.useState<ChannelAnswers>(props.initialAnswers ?? {});
@@ -55,6 +56,8 @@ export function ChannelDesignWizard(props: {
                         }}>{appliedType === type.name ? '当てています' : '当てる'}</button>
                     </div>)}
                 </div>}
+                {props.onCatalog && <button type='button' className='theia-button secondary' data-akari-wizard-catalog
+                    onClick={props.onCatalog}>カタログで探す…</button>}
             </div>
         </div>
         <div className='akari-channel-sheet-actions'>
@@ -67,18 +70,35 @@ export function ChannelDesignWizard(props: {
 
 export function ChannelDesignView(props: {
     fileName: string; text: string; onRedesign: () => void; onOpenFile: () => void; onPartner: () => void; onClose: () => void;
+    onCatalog?: () => void; banner?: React.ReactNode; onHelper?: () => void;
 }): React.ReactElement {
     return <HomeScrim kind='channel-design-view' onClose={props.onClose}>
         <style>{homePanelCss}{channelSheetCss}</style>
-        <h3>チャンネル設計</h3><p>{props.fileName} の中身です。</p>
+        <h3>チャンネル設計</h3>{props.banner}<p>{props.fileName} の中身です。</p>
         {splitMarkdownSections(props.text).map((section, index) => <section className='akari-channel-sheet-section' key={`${section.heading}-${index}`}>
             {section.heading && <h4>{section.heading}</h4>}
             {section.body.split('\n').map((line, lineIndex) => <div key={lineIndex}>{line || '\u00a0'}</div>)}
         </section>)}
         <div className='akari-channel-sheet-actions'>
+            {props.onHelper && <button type='button' className='theia-button secondary' data-akari-design-helper onClick={props.onHelper}>過去の動画からヘルパーに書いてもらう</button>}
+            {props.onCatalog && <button type='button' className='theia-button secondary' data-akari-design-catalog
+                onClick={props.onCatalog}>型を見る・当て直す…</button>}
             <button type='button' className='theia-button secondary' data-akari-design-redesign onClick={props.onRedesign}>設計し直す</button>
             <button type='button' className='theia-button secondary' onClick={props.onOpenFile}>ファイルを開く</button>
             <button type='button' className='theia-button main' onClick={props.onPartner}>パートナーと深掘り</button>
+        </div>
+    </HomeScrim>;
+}
+
+export function ChannelDesignStart(props: { onFromType: () => void; onFromQuestions: () => void; onClose: () => void }): React.ReactElement {
+    return <HomeScrim kind='channel-design-start' onClose={props.onClose}>
+        <style>{homePanelCss}{channelSheetCss}</style>
+        <h3>チャンネル設計</h3>
+        <p>channel.md がまだ空です</p>
+        <p>チャンネルの型から始めると、設計・デザイン・辞書・スキル・ライブラリの下書きがまとめて入ります。</p>
+        <div className='akari-channel-sheet-actions'>
+            <button type='button' className='theia-button main' data-akari-design-start-type onClick={props.onFromType}>チャンネルの型から作る</button>
+            <button type='button' className='theia-button secondary' data-akari-design-start-questions onClick={props.onFromQuestions}>選ぶだけの質問から作る</button>
         </div>
     </HomeScrim>;
 }

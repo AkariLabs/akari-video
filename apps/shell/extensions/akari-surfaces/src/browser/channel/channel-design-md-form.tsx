@@ -8,6 +8,7 @@ const FONT_FIELDS = [['heading', '見出しの文字'], ['body', '本文の文�
 
 export function DesignMdForm(props: {
     channelName: string; initial: DesignMdValues; onSave: (text: string) => void; onOpenFile: (text: string) => void; onClose: () => void;
+    onHelper?: () => void;
 }): React.ReactElement {
     const [values, setValues] = React.useState<DesignMdValues>(props.initial);
     const [newHeading, setNewHeading] = React.useState('');
@@ -61,6 +62,7 @@ export function DesignMdForm(props: {
                     onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addHeading(); } }} />
                 <button type='button' className='theia-button secondary' onClick={addHeading}>足す</button>
             </>}
+            {props.onHelper && <button type='button' className='theia-button secondary' data-akari-design-helper onClick={props.onHelper}>過去の動画からヘルパーに書いてもらう</button>}
         </div>
         <div className='akari-channel-sheet-actions'>
             <button type='button' className='theia-button secondary' onClick={() => props.onOpenFile(buildDesignMd(values, props.channelName))}>ファイルを開く</button>
