@@ -2,6 +2,8 @@
 
 隔離起動したアプリの CDP ポートへ、生の Chrome DevTools Protocol で接続する計測スクリプトです。アプリや拡張を起動する処理は含みません。Node 22 以降で実行してください。
 
+遅延 resolve は Codex 拡張 `openai.chatgpt` の `chatgpt.sidebarView` と `chatgpt.sidebarSecondaryView` だけに適用します。他の webview ビューは Theia の通常経路で resolve します。Theia を更新したときや Codex 拡張のビュー id が変わったときは `CODEX_LAZY_WEBVIEW_IDS` の一覧を見直してください。
+
 ## 隔離起動
 
 以下は Windows PowerShell の例です。`<WORKTREE>` はこのリポの worktree、`<TMP>` は計測専用の一時ディレクトリ、`<HOME>` は Codex 拡張が既に配備された元のホームです。`<TMP>` は新規に用意し、他のアプリのプロファイルと共有しません。

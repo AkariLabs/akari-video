@@ -17,9 +17,19 @@ const methodsFrom = (url, className, names) => {
 };
 const derived = methodsFrom(new URL('../src/browser/akari-plugin-view-registry.ts', import.meta.url),
     'AkariPluginViewRegistry', ['prepareView', 'resolveWebviewView', 'registerWebviewView']);
+const registrySource = ts.createSourceFile('akari-plugin-view-registry.ts',
+    readFileSync(new URL('../src/browser/akari-plugin-view-registry.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
+const idsStatement = registrySource.statements.find(node => ts.isVariableStatement(node)
+    && node.declarationList.declarations.some(declaration => declaration.name.getText(registrySource) === 'CODEX_LAZY_WEBVIEW_IDS'));
+assert.ok(idsStatement, 'Codex lazy webview ID list exists');
+const idsSource = idsStatement.getText(registrySource).replace(/^export /, '');
+const CODEX_PRIMARY = 'chatgpt.sidebarView';
+const CODEX_SECONDARY = 'chatgpt.sidebarSecondaryView';
+const OTHER_WEBVIEW = 'claudeVSCodeSidebar';
 const theia = methodsFrom(new URL('../../../../../node_modules/@theia/plugin-ext/src/main/browser/view/plugin-view-registry.ts', import.meta.url),
     'PluginViewRegistry', ['prepareView', 'createViewDataWidget']);
 const js = ts.transpileModule(`
+    ${idsSource}
     class BaseRegistry {
         ${theia.join('\n')}
         async resolveWebviewView(viewId, webview) {
@@ -68,7 +78,7 @@ function fixture() {
     registry.resolvers = new Map();
     registry.pendingRevivals = new Map();
     registry.revivals = 0;
-    const view = (viewId = 'webview', visible = false) => {
+    const view = (viewId = CODEX_PRIMARY, visible = false) => {
         const listeners = [];
         const widget = {
             options: { viewId }, title: { label: '' }, widgets: [], isVisible: visible, isDisposed: false,
@@ -90,17 +100,21 @@ function fixture() {
         hooks.get(widget)?.(widget, { type: 'after-show' });
         await Promise.resolve();
     };
-    return { registry, view, webview, show };
+    return { registry, view, webview, show, hooks };
 }
+
+test('only Codex contributed view IDs use lazy resolution', () => {
+    assert.deepEqual([...new Function(`${js}\nreturn CODEX_LAZY_WEBVIEW_IDS;`)()], [CODEX_PRIMARY, CODEX_SECONDARY]);
+});
 
 test('visible before registration, then hidden at registration, waits until shown and resolves once', async () => {
     const { registry, view, webview, show } = fixture();
-    const parent = view('webview', true);
+    const parent = view(CODEX_PRIMARY, true);
     await registry.prepareView(parent);
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     parent.isVisible = false;
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     assert.equal(calls, 0);
     assert.equal(registry.revivals, 0);
     await show(parent);
@@ -111,20 +125,20 @@ test('visible before registration, then hidden at registration, waits until show
 
 test('registered and visible webview resolves immediately', async () => {
     const { registry, view, webview } = fixture();
-    await registry.prepareView(view('webview', true));
+    await registry.prepareView(view(CODEX_SECONDARY, true));
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
-    await registry.resolveWebviewView('webview', webview(), {});
+    await registry.registerWebviewView(CODEX_SECONDARY, { resolve: async () => { calls++; } });
+    await registry.resolveWebviewView(CODEX_SECONDARY, webview(), {});
     assert.equal(calls, 1);
     assert.equal(registry.revivals, 0);
 });
 
 test('visible webview waits for resolver registration, then resolves once', async () => {
     const { registry, view, webview } = fixture();
-    await registry.prepareView(view('webview', true));
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    await registry.prepareView(view(CODEX_PRIMARY, true));
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     await pending;
     assert.equal(calls, 1);
     assert.equal(registry.revivals, 0);
@@ -132,12 +146,12 @@ test('visible webview waits for resolver registration, then resolves once', asyn
 
 test('webview without a prepared parent never enters Theia revival queue', async () => {
     const { registry, view, webview, show } = fixture();
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     assert.equal(calls, 0);
     assert.equal(registry.revivals, 0);
-    const parent = view('webview', false);
+    const parent = view(CODEX_PRIMARY, false);
     await registry.prepareView(parent);
     assert.equal(calls, 0);
     await show(parent);
@@ -149,13 +163,13 @@ test('resolver disposal closes the gate until another resolver registers', async
     const { registry, view, webview, show } = fixture();
     const parent = view();
     await registry.prepareView(parent);
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     let calls = 0;
-    const registration = await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    const registration = await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     registration.dispose();
     await show(parent);
     assert.equal(calls, 0);
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     await pending;
     assert.equal(calls, 1);
 });
@@ -164,11 +178,11 @@ test('disposed PluginViewWidget stays unresolved after show and registration', a
     const { registry, view, webview, show } = fixture();
     const parent = view();
     await registry.prepareView(parent);
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     parent.dispose();
     await show(parent);
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     await pending;
     assert.equal(calls, 0);
     assert.equal(registry.revivals, 0);
@@ -178,20 +192,57 @@ test('a disposed view cannot resolve its old webview through a replacement view'
     const { registry, view, webview } = fixture();
     const oldParent = view();
     await registry.prepareView(oldParent);
-    const pending = registry.resolveWebviewView('webview', webview(), {});
+    const pending = registry.resolveWebviewView(CODEX_PRIMARY, webview(), {});
     oldParent.dispose();
-    await registry.prepareView(view('webview', true));
+    await registry.prepareView(view(CODEX_PRIMARY, true));
     let calls = 0;
-    await registry.registerWebviewView('webview', { resolve: async () => { calls++; } });
+    await registry.registerWebviewView(CODEX_PRIMARY, { resolve: async () => { calls++; } });
     await pending;
     assert.equal(calls, 0);
 });
 
+test('unlisted hidden webview enters Theia revival queue and resolves on registration', async () => {
+    const { registry, view, webview, hooks } = fixture();
+    const parent = view(OTHER_WEBVIEW, false);
+    await registry.prepareView(parent);
+    assert.equal(hooks.has(parent), false);
+    assert.equal(registry.viewWidgets.has(OTHER_WEBVIEW), false);
+    const pending = registry.resolveWebviewView(OTHER_WEBVIEW, webview(), {});
+    assert.equal(registry.revivals, 1);
+    assert.equal(registry.pendingRevivals.has(OTHER_WEBVIEW), true);
+    assert.equal(registry.gatesByViewId.has(OTHER_WEBVIEW), false);
+    let calls = 0;
+    const registration = await registry.registerWebviewView(OTHER_WEBVIEW, { resolve: async () => { calls++; } });
+    await pending;
+    assert.equal(calls, 1);
+    assert.equal(registry.pendingRevivals.has(OTHER_WEBVIEW), false);
+    assert.equal(registry.registeredResolvers.has(OTHER_WEBVIEW), false);
+    registration.dispose();
+    assert.equal(registry.resolvers.has(OTHER_WEBVIEW), false);
+});
+
+test('unlisted hidden webview resolves immediately when resolver is registered', async () => {
+    const { registry, view, webview, hooks } = fixture();
+    const parent = view(OTHER_WEBVIEW, false);
+    await registry.prepareView(parent);
+    let calls = 0;
+    await registry.registerWebviewView(OTHER_WEBVIEW, { resolve: async () => { calls++; } });
+    await registry.resolveWebviewView(OTHER_WEBVIEW, webview(), {});
+    assert.equal(calls, 1);
+    assert.equal(registry.revivals, 0);
+    assert.equal(hooks.has(parent), false);
+    assert.equal(registry.viewWidgets.has(OTHER_WEBVIEW), false);
+    assert.equal(registry.gatesByViewId.has(OTHER_WEBVIEW), false);
+    assert.equal(registry.registeredResolvers.has(OTHER_WEBVIEW), false);
+});
+
 test('tree view creates and adds its data widget immediately through Theia prepareView', async () => {
-    const { registry, view } = fixture();
+    const { registry, view, hooks } = fixture();
     const parent = view('tree', false);
     const tree = { handleViewWelcomeContentChange() {} };
     registry.viewDataProviders.set('tree', async () => tree);
     await registry.prepareView(parent);
     assert.deepEqual(parent.widgets, [tree]);
+    assert.equal(hooks.has(parent), false);
+    assert.equal(registry.viewWidgets.has('tree'), false);
 });

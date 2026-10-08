@@ -8,6 +8,14 @@ import { WebviewView, WebviewViewResolver } from '@theia/plugin-ext/lib/main/bro
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { AkariLazyWebviewResolve } from './akari-lazy-webview-resolve';
 
+// openai.chatgpt contributes these mutually exclusive views. After setting HTML on
+// resolve, Codex starts a 30-second ready timer. A hidden view has no iframe to
+// send ready, so resolving it early produces an error notification.
+export const CODEX_LAZY_WEBVIEW_IDS: ReadonlySet<string> = new Set([
+    'chatgpt.sidebarView',
+    'chatgpt.sidebarSecondaryView'
+]);
+
 @injectable()
 export class AkariPluginViewRegistry extends PluginViewRegistry {
     private readonly viewWidgets = new Map<string, PluginViewWidget>();
@@ -18,6 +26,9 @@ export class AkariPluginViewRegistry extends PluginViewRegistry {
     private readonly registeredResolvers = new Set<string>();
 
     protected override async prepareView(widget: PluginViewWidget): Promise<void> {
+        if (!CODEX_LAZY_WEBVIEW_IDS.has(widget.options.viewId)) {
+            return super.prepareView(widget);
+        }
         this.viewWidgets.set(widget.options.viewId, widget);
         if (!this.visibilityHooks.has(widget)) {
             this.visibilityHooks.add(widget);
@@ -62,6 +73,9 @@ export class AkariPluginViewRegistry extends PluginViewRegistry {
     }
 
     override resolveWebviewView(viewId: string, webview: WebviewView, cancellation: CancellationToken): Promise<void> {
+        if (!CODEX_LAZY_WEBVIEW_IDS.has(viewId)) {
+            return super.resolveWebviewView(viewId, webview, cancellation);
+        }
         if (webview.webview.isDisposed) {
             return Promise.resolve();
         }
@@ -97,6 +111,9 @@ export class AkariPluginViewRegistry extends PluginViewRegistry {
     }
 
     override async registerWebviewView(viewId: string, resolver: WebviewViewResolver): Promise<Disposable> {
+        if (!CODEX_LAZY_WEBVIEW_IDS.has(viewId)) {
+            return super.registerWebviewView(viewId, resolver);
+        }
         // Theia's registration resolves queued revivals without checking visibility.
         // Our resolveWebviewView keeps them out of that queue until this point.
         const registration = await super.registerWebviewView(viewId, resolver);
