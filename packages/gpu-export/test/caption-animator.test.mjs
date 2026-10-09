@@ -78,6 +78,7 @@ function measured(chars = true) {
 
 test("char tokens carry cue indices, parent word timing and line membership", () => {
   const measurement = measured();
+  assert.deepEqual(measurement.ink, { x: 100, y: 40, width: 80, height: 20 });
   assert.deepEqual(measurement.tokens.map(t => [t.tokenIndex, t.charIndex, t.wordIndex, t.lineIndex]),
     [[7, 7, 0, 0], [8, 8, 0, 0], [9, 9, 1, 0], [10, 10, 1, 0]]);
   assert.deepEqual(measurement.tokens.slice(0, 2).map(t => t.timing),
@@ -237,6 +238,7 @@ test("animated caption texture freezes the plate and carries its box center", as
   const input = { id: "cue", html: "plain", start: 0, duration: 3, motion: { in: { id: "spin-in" } } };
   const animated = (await buildCaptionUnits(input, config, [], [], {})).units[0];
   assert.deepEqual([animated.originX, animated.originY], [520, 530]);
+  assert.deepEqual(animated.inkRect, measurement.ink);
   assert.ok(animated.sharedCss.includes(".akari-caption__plate{animation:none!important}"));
   assert.ok(variants.every(css => css.includes(".akari-caption__plate{animation:none!important}")));
   const plain = (await buildCaptionUnits({ ...input, motion: null }, config, [], [], {})).units[0];

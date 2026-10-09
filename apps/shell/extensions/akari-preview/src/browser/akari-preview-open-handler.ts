@@ -7992,7 +7992,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
-.caption-row-plate[data-selected] .akari-caption__plate[data-akari-textanim], .caption-row-plate.akari-caption-host--editing .akari-caption__plate[data-akari-textanim] { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
+.caption-row-plate.akari-caption-host--editing .akari-caption__plate[data-akari-textanim] { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
 .caption-row-plate[data-output-caption] .akari-caption__plate { width: var(--caption-width, 92%); right: auto; }
 .caption-row-plate[data-caption-sized-run][data-output-caption] .akari-caption__plate { width: var(--caption-width, max-content); right: var(--caption-right, 0); margin-inline: var(--caption-plate-margin, auto); }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }

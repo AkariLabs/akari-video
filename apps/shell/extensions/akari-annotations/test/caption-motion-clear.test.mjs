@@ -35,8 +35,8 @@ class Element {
 
 const selected = (root, kind, id) => root.querySelectorAll('*').find(node =>
     node.dataset.motionKind === kind && node.dataset.motionId === id);
-const panel = (animation, write) => createCaptionMotionPanel({
-    kind: 'caption', id: 'cue-1', text: '本文', sourceStart: 0, sourceEnd: 2,
+const panel = (animation, write, id = 'cue-1') => createCaptionMotionPanel({
+    kind: 'caption', id, text: '本文', sourceStart: 0, sourceEnd: 2,
     textStyle: { animation }, effectiveTextStyle: { animation }
 }, write);
 
@@ -48,6 +48,43 @@ test('解除要求は袋があっても字幕の全体と各席を null で書�
         });
     }
     assert.deepEqual(captionMotionComboClear('cue-1'), captionTextAnimationClear('cue-1', 'all'));
+});
+
+test('テキストアニメは表示中のタブへ書き、保存成功後の pressed と尺が一致する', async () => {
+    const previousDocument = globalThis.document;
+    const previousWindow = globalThis.window;
+    globalThis.document = { createElement: tag => new Element(tag) };
+    globalThis.window = { dispatchEvent: () => {} };
+    const writes = [];
+    try {
+        const root = panel({ in: { id: 'slide-up', durationSec: .8 } }, async request => {
+            writes.push(request);
+            return { ok: true };
+        }, 'cue-tabs');
+        assert.equal(selected(root, 'slot', 'slide-up').getAttribute('aria-pressed'), 'true');
+        selected(root, 'textanim', 'fade-in-out').click();
+        await Promise.resolve();
+        assert.equal(selected(root, 'slot', 'slide-up').getAttribute('aria-pressed'), 'false');
+        assert.equal(selected(root, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'true');
+        assert.equal(writes[0].value.parts[0].animation.in.duration_sec, .8);
+
+        root.querySelectorAll('*').find(node => node.tag === 'button' && node.textContent === '退場').click();
+        const outPanel = root.replacement;
+        assert.equal(selected(outPanel, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'false');
+        selected(outPanel, 'textanim', 'fade-in-out').click();
+        await Promise.resolve();
+        assert.deepEqual(writes[1].value.parts[0].animation, {
+            in: { id: 'fade-in-out', duration_sec: .8 },
+            out: { id: 'fade-in-out', duration_sec: .27 }
+        });
+        assert.equal(selected(outPanel, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'true');
+        assert.equal(selected(outPanel, 'slot', 'fade').getAttribute('aria-pressed'), 'true');
+    } finally {
+        if (previousDocument === undefined) delete globalThis.document;
+        else globalThis.document = previousDocument;
+        if (previousWindow === undefined) delete globalThis.window;
+        else globalThis.window = previousWindow;
+    }
 });
 
 test('語の時刻がない行では三つの語表示を無効にして理由を示す', async () => {
@@ -158,7 +195,7 @@ test('Undo 用に字幕の元の動きを全席復元できる', () => {
     });
 });
 
-test('押し直しと「なし」は解除し、二つのフェード表示が直ちに外れる', async () => {
+test('押し直しと「なし」は解除し、保存成功後に二つのフェード表示が外れる', async () => {
     const previousDocument = globalThis.document;
     const previousWindow = globalThis.window;
     globalThis.document = { createElement: tag => new Element(tag) };
@@ -173,9 +210,9 @@ test('押し直しと「なし」は解除し、二つのフェード表示が�
         assert.equal(selected(root, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'true');
         selected(root, 'textanim', 'fade-in-out').click();
         assert.deepEqual(writes[0], captionTextAnimationClear('cue-1', 'in'));
+        await Promise.resolve();
         assert.equal(selected(root, 'slot', 'fade').getAttribute('aria-pressed'), 'false');
         assert.equal(selected(root, 'textanim', 'fade-in-out').getAttribute('aria-pressed'), 'false');
-        await Promise.resolve();
         assert.equal(replays, 0);
 
         const comboRoot = panel({ in: { id: 'typewriter' }, out: { id: 'fade-in-out' } }, write);

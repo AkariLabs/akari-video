@@ -856,6 +856,17 @@
     });
     const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
+    const block = unitElement.querySelector('.akari-caption__block');
+    const runRects = [...unitElement.querySelectorAll('.akari-caption__run')]
+      .filter(run => typeof run.getBoundingClientRect === 'function')
+      .map(run => relativeRect(run.getBoundingClientRect(), origin));
+    const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines), ...runRects];
+    const ink = inkRects.length ? {
+      x: Math.min(...inkRects.map(rect => rect.x)),
+      y: Math.min(...inkRects.map(rect => rect.y)),
+      width: Math.max(...inkRects.map(rect => rect.x + rect.width)) - Math.min(...inkRects.map(rect => rect.x)),
+      height: Math.max(...inkRects.map(rect => rect.y + rect.height)) - Math.min(...inkRects.map(rect => rect.y)),
+    } : null;
     const typeChars = [...unitElement.querySelectorAll(".akari-caption__type-char")]
       .filter((char) => !char.parentElement?.closest?.('.akari-caption__type-char'))
       .map((char) => [...char.getClientRects()].map((rect) => relativeRect(rect, origin)));
@@ -869,7 +880,7 @@
     const revealDelay = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-delay", 0) : 0;
     const revealDuration = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-dur", 0.2) : 0;
     const wordCount = unitElement.querySelectorAll(".akari-caption__tok").length;
-    return { tokens, lines, typeChars, plate, ...(plateElement ? { plateEmPx, plateLayoutWidthPx } : {}), emPx, wordCount,
+    return { tokens, lines, ink, typeChars, plate, ...(plateElement ? { plateEmPx, plateLayoutWidthPx } : {}), emPx, wordCount,
       reveal: groups.length > 0, revealDelay, revealDuration };
   }
 
@@ -1606,6 +1617,7 @@
         plateLayoutWidthPx: unitMeasurement.plateLayoutWidthPx,
         plateHeightPx: unitMeasurement.plate?.height,
         plateRect: unitMeasurement.plate,
+        inkRect: unitMeasurement.ink,
         typeChars: unitMeasurement.typeChars,
         wordCount: unitMeasurement.wordCount,
         style: [...new Set([
@@ -1763,7 +1775,8 @@
       ? rects.map((characterRects, index) => ({ rects: characterRects,
         ...window.__akariTypewriterStepTiming(rects.length, index, enterDuration, exitDuration, unit.cueDuration) }))
       : [];
-    return FE.captionMotionTiles({ plateRect: unit.plateRect, textureRect: unit.textureRect,
+    return FE.captionMotionTiles({ plateRect: unit.plateRect, inkRect: unit.inkRect,
+      textureRect: unit.textureRect,
       clip: state.clip, slices: state.slices, characters, typewriterIn: Boolean(inSlot),
       typewriterOut: Boolean(outSlot), localSeconds });
   }

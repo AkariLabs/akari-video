@@ -6,6 +6,7 @@ import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
+import { setCaptionInkClipVariables } from "./caption-ink-clip.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -76,6 +77,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     ? `rotate(var(--rotate, 0deg)) ${overlayScaleCss}`
     : `${overlayScaleCss} rotate(var(--rotate, 0deg))`;
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
+  const usesCaptionInkClip = strippedOverlayHtml.some(html => html.includes('data-akari-ink-clip'));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
       && Object.keys(overlay.params).length > 0,
@@ -225,7 +227,8 @@ ${nodes}${slotRuntimeScripts}
     // no matter which writer runs last — __akariSeek (the retired browser writer), the transport hold
     // loop below (the retired renderer), or the retired renderer' own WAAPI adapter. Disabling animation-name
     // afterwards cancels the originals so nothing free-runs or double-drives the elements.
-    (function() {
+    (function() {${usesCaptionInkClip ? `
+      const setCaptionInkClipVariables = (${setCaptionInkClipVariables.toString()});` : ''}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const startMilliseconds = Number(container.dataset.start) * 1000;
         const conversions = [];
@@ -236,7 +239,10 @@ ${nodes}${slotRuntimeScripts}
         // clip offset (issue: late-start overlay animations). Raise the gate for the scan only,
         // the same way gpu-export's page-runtime samples entrances, then restore it.
         const wasActive = container.hasAttribute('data-akari-active');
-        container.toggleAttribute('data-akari-active', true);
+        container.toggleAttribute('data-akari-active', true);${usesCaptionInkClip ? `
+        for (const plate of container.querySelectorAll('.akari-caption__plate[data-akari-ink-clip]')) {
+          setCaptionInkClipVariables(plate);
+        }` : ''}
         for (const animation of container.getAnimations({ subtree: true })) {
           if (typeof CSSAnimation === 'undefined' || !(animation instanceof CSSAnimation)) continue;
           const effect = animation.effect;
@@ -278,7 +284,10 @@ ${nodes}${slotRuntimeScripts}
     })();
     window.__akariSyncAnimations = function(seconds) {
       const milliseconds = seconds * 1000;
-      for (const container of document.querySelectorAll('.akari-overlay-container')) {${itemMotionSyncBranch}${itemKeyframesSyncBranch}
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {${itemMotionSyncBranch}${itemKeyframesSyncBranch}${usesCaptionInkClip ? `
+        for (const plate of container.querySelectorAll('.akari-caption__plate[data-akari-ink-clip]')) {
+          setCaptionInkClipVariables(plate);
+        }` : ''}
         for (const animation of container.getAnimations({ subtree: true })) {
           try { animation.pause(); } catch {}
           try { animation.currentTime = milliseconds; } catch {}

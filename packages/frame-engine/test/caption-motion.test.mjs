@@ -165,6 +165,14 @@ test("all push directions and both wipes clip the same edge as CSS", () => {
   }
 });
 
+test('out-only fade-in-out keeps entrance visible and fades at the cue end', () => {
+  const declaration = { out: { id: 'fade-in-out', duration_sec: .27, ease: 'linear' } };
+  assert.equal(captionMotionAt(declaration, .1, 2, 20).opacity, 1);
+  assert.equal(captionMotionAt(declaration, 1.73, 2, 20).opacity, 1);
+  assert.ok(Math.abs(captionMotionAt(declaration, 1.865, 2, 20).opacity - .5) < 1e-9);
+  assert.equal(captionMotionAt(declaration, 2, 2, 20).opacity, 0);
+});
+
 test('typewriter returns the same entrance and exit progress at half duration', () => {
   assert.equal(captionMotionAt({ in: { id: 'typewriter', duration_sec: .6 } }, .3, 1, 20).typewriter, .5);
   assert.ok(Math.abs(captionMotionAt({ out: { id: 'typewriter', duration_sec: .6 } }, .7, 1, 20).typewriter - .5) < 1e-12);

@@ -17,8 +17,10 @@ export interface CaptionMotionTile extends CaptionMotionRect {
 
 export interface CaptionMotionTileInput {
   plateRect: CaptionMotionRect | null;
+  /** Union of visible text rows; percentage clip keyframes use this box. */
+  inkRect?: CaptionMotionRect | null;
   textureRect: CaptionMotionRect;
-  /** Normalized plate clip. A one-band recipe may provide the same clip in slices. */
+  /** Normalized ink clip. A one-band recipe may provide the same clip in slices. */
   clip?: CaptionMotionRect;
   slices?: readonly CaptionMotionRect[];
   characters?: readonly CaptionMotionCharacter[];
@@ -48,9 +50,10 @@ export function captionMotionTiles(input: CaptionMotionTileInput): CaptionMotion
   const { plateRect: plate, textureRect: texture, localSeconds } = input;
   if (!plate) return null;
   const clip = input.slices?.length === 1 ? input.slices[0] : input.clip;
+  const ink = input.inkRect ?? plate;
   const plateClip = clip
-    ? { x: plate.x + clip.x * plate.width, y: plate.y + clip.y * plate.height,
-      width: clip.width * plate.width, height: clip.height * plate.height }
+    ? { x: ink.x + clip.x * ink.width, y: ink.y + clip.y * ink.height,
+      width: clip.width * ink.width, height: clip.height * ink.height }
     : plate;
   const visible = intersect(plateClip, texture);
   if (!visible) return [];

@@ -38,6 +38,7 @@ import {
 } from '@akari-video/edit-store';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
+import { captionInkClipRecipe, setCaptionInkClipVariables } from '../../../../../../packages/render-cut/src/caption-ink-clip.mjs';
 import { captionRowWrapRect } from '../common/caption-row-box';
 import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../common/caption-zone-write';
 import { captionWrapWidthDrag, captionWrapHeightDrag, captionCornerTransform } from '../common/caption-plate-handles';
@@ -4897,29 +4898,52 @@ export function previewBootstrapScript(): string {
                 };
             };
             const captionVisualRect = (captionPlate = selectedCaptionPlate()) => {
-                if (!captionPlate?.isConnected || captionPlate.querySelector('[data-akari-motion-replay]')) return null;
-                const block = captionPlate.querySelector('.akari-caption__block');
-                const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
-                const rects = elements
-                    .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
-                    .filter(element => element.isConnected)
-                    .map(element => element.getBoundingClientRect())
-                    .filter(rect => rect.width !== 0 || rect.height !== 0);
-                if (!rects.length) return null;
-                const clientRect = {
-                    left: Math.min(...rects.map(rect => rect.left)),
-                    right: Math.max(...rects.map(rect => rect.right)),
-                    top: Math.min(...rects.map(rect => rect.top)),
-                    bottom: Math.max(...rects.map(rect => rect.bottom))
-                };
-                const topLeft = captionOutputPoint(clientRect.left, clientRect.top);
-                const bottomRight = captionOutputPoint(clientRect.right, clientRect.bottom);
-                return {
-                    left: topLeft.x,
-                    right: bottomRight.x,
-                    top: topLeft.y,
-                    bottom: bottomRight.y
-                };
+                if (!captionPlate?.isConnected || captionPlate.querySelector?.('[data-akari-motion-replay]')) return null;
+                const motionPlate = captionPlate.querySelector?.('.akari-caption__plate[data-akari-textanim]');
+                // Selection, drag and snap geometry use the settled ink while the plate keeps
+                // its seeked visual pose. Restore and re-seek before the browser paints.
+                const still = motionPlate;
+                const previousAnimation = still && motionPlate.style.getPropertyValue('animation');
+                const previousPriority = still && motionPlate.style.getPropertyPriority('animation');
+                if (still) motionPlate.style.setProperty('animation', 'none', 'important');
+                try {
+                    const block = captionPlate.querySelector('.akari-caption__block');
+                    const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
+                    const rects = elements
+                        .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
+                        .filter(element => element.isConnected)
+                        .map(element => element.getBoundingClientRect())
+                        .filter(rect => rect.width !== 0 || rect.height !== 0);
+                    if (!rects.length) return null;
+                    const clientRect = {
+                        left: Math.min(...rects.map(rect => rect.left)),
+                        right: Math.max(...rects.map(rect => rect.right)),
+                        top: Math.min(...rects.map(rect => rect.top)),
+                        bottom: Math.max(...rects.map(rect => rect.bottom))
+                    };
+                    const topLeft = captionOutputPoint(clientRect.left, clientRect.top);
+                    const bottomRight = captionOutputPoint(clientRect.right, clientRect.bottom);
+                    return {
+                        left: topLeft.x,
+                        right: bottomRight.x,
+                        top: topLeft.y,
+                        bottom: bottomRight.y
+                    };
+                } finally {
+                    if (still) {
+                        if (previousAnimation) motionPlate.style.setProperty('animation', previousAnimation, previousPriority);
+                        else motionPlate.style.removeProperty('animation');
+                        const row = captionRows.get(captionPlate.dataset.captionKey);
+                        if (row?.caption) {
+                            const localMs = (clamp(outputTime, row.caption.start, row.caption.end)
+                                - row.caption.start) * 1000;
+                            for (const animation of motionPlate.getAnimations()) {
+                                animation.pause();
+                                animation.currentTime = localMs;
+                            }
+                        }
+                    }
+                }
             };
             const frameCaptionPosition = (candidate, value) => candidate?.textStyle?.background?.fit === 'frame'
                 || candidate?.textStyleVars?.['--caption-plate-fit'] === 'frame'
@@ -7530,6 +7554,8 @@ export function previewBootstrapScript(): string {
             // Mirrors render-cut/src/captions.mjs buildCaptionAnimation. The recipe table is
             // injected by the host because the sandboxed webview cannot import render-cut.
             const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
+            const captionInkClipRecipeFn = (${captionInkClipRecipe.toString()});
+            const setCaptionInkClipVariablesFn = (${setCaptionInkClipVariables.toString()});
             const typewriterDurations = ${typewriterDurations.toString()};
             const typewriterStepTiming = ${typewriterStepTiming.toString()};
             const decorateCaptionTypewriterHtml = ${decorateTypewriterHtml.toString()};
@@ -7550,7 +7576,7 @@ export function previewBootstrapScript(): string {
                         onWarning?.('unknown textanim id "' + slot.id + '" (' + kind + ' slot); slot ignored');
                         return;
                     }
-                    keyframes.set(slot.id, recipe);
+                    keyframes.set(slot.id, captionInkClipRecipeFn(recipe));
                     if (slot.amp !== undefined) ampValues.push(slot.amp);
                     if (kind === 'loop') {
                         const period = slot.duration_sec ?? 1.6;
@@ -7584,11 +7610,12 @@ export function previewBootstrapScript(): string {
                 return {
                     animationCss: parts.join(', '),
                     keyframesCss,
+                    hasInkClip: [...keyframes.values()].some(recipe => recipe.includes('clip-path')),
                     ampCss: ampValues.length > 0 ? '--akari-anim-amp: ' + ampValues[0] + ';' : ''
                 };
             };
             const captionTextAnimationPlateAttrs = animation => animation
-                ? ' data-akari-textanim style="'
+                ? ' data-akari-textanim' + (animation.hasInkClip ? ' data-akari-ink-clip' : '') + ' style="'
                     + ((animation.ampCss || '') + 'animation:' + animation.animationCss + ';')
                         .replaceAll('&', '&amp;').replaceAll('"', '&quot;')
                         .replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -7967,14 +7994,7 @@ export function previewBootstrapScript(): string {
             };
             const applyCaptionSelectionAttrs = () => {
                 for (const row of captionRows.values()) {
-                    const wasSelected = row.plate.hasAttribute('data-selected');
                     applyCaptionRowSelectionAttrs(row.plate, row.caption);
-                    if (row.captionTextAnimation && wasSelected !== row.plate.hasAttribute('data-selected')) {
-                        // Re-seek the newly enabled animation before measuring its actual ink box.
-                        row.captionHitRegionPending = true;
-                        renderCaptionRow(row.caption, row);
-                        if (row.plate.hasAttribute('data-selected')) row.captionHitRegionPending = false;
-                    }
                 }
                 captionSelectBox.querySelector('.akari-caption-handle-box')?.remove();
                 const caption = captions.find(candidate => selectedCaptionIds.has(candidate.sourceCueId || candidate.id)
@@ -8127,6 +8147,8 @@ export function previewBootstrapScript(): string {
                 }
                 let captionAnimations = [];
                 if (caption && row.styledCaptionActive) {
+                    const inkClipPlate = captionPlate.querySelector?.('.akari-caption__plate[data-akari-ink-clip]');
+                    if (inkClipPlate) setCaptionInkClipVariablesFn(inkClipPlate);
                     const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
                     captionAnimations = captionPlate.getAnimations({ subtree: true });
                     for (const animation of captionAnimations) {

@@ -19,7 +19,7 @@ export interface CaptionMotionState {
   scaleX: number;
   scaleY: number;
   rotateDeg: number;
-  /** Visible part of the untransformed plate, normalized to its box. */
+  /** Visible part of the untransformed text ink box, normalized to that box. */
   clip?: { x: number; y: number; width: number; height: number };
   /** CSS transform origin, normalized to the plate box. */
   originX?: number;

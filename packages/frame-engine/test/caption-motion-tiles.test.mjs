@@ -51,3 +51,13 @@ test('plain sprite returns only the plate clip tile, with no clip fast path', ()
   assert.deepEqual(tilesAt(.5, { clip: { x: 0, y: .5, width: 1, height: .5 } }),
     [{ x: 0, y: 30, width: 100, height: 30 }]);
 });
+
+test('wide plate clips the centered ink box at halfway wipe', () => {
+  const tiles = captionMotionTiles({
+    plateRect: { x: 0, y: 0, width: 1000, height: 100 },
+    inkRect: { x: 400, y: 20, width: 200, height: 40 },
+    textureRect: { x: 0, y: 0, width: 1000, height: 100 },
+    clip: { x: 0, y: 0, width: .5, height: 1 }, localSeconds: .2,
+  });
+  assert.deepEqual(tiles, [{ x: 400, y: 20, width: 100, height: 40 }]);
+});

@@ -7,6 +7,7 @@ import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
 import { BUNDLED_CAPTION_FONT_FACES, captionFontFaceCss, captionFontFaces, captionFontFamilies } from "./caption-font-faces.mjs";
 import { predictedDuration } from "./plan.mjs";
 import { decorateTypewriterHtml, isTypewriterOnlyAnimation, stripAnimationOnlyLookVars } from "./caption-typewriter.mjs";
+import { captionInkClipRecipe } from "./caption-ink-clip.mjs";
 
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
 // packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
@@ -474,7 +475,7 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
 function applyResolvedCaptionAnimation(html, animation, duration) {
   const declaration = buildCaptionAnimation(animation, duration);
   if (!declaration) return html;
-  const attrs = ` data-akari-textanim style="${declaration.ampCss}animation:${declaration.animationCss};"`;
+  const attrs = ` data-akari-textanim${declaration.hasInkClip ? ' data-akari-ink-clip' : ''} style="${declaration.ampCss}animation:${declaration.animationCss};"`;
   return html.replace('</style>', `${declaration.keyframesCss}</style>`)
     .replace('<div class="akari-caption__plate">', `<div class="akari-caption__plate"${attrs}>`);
 }
@@ -686,7 +687,7 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
       onWarning?.(`unknown textanim id "${slot.id}" (${kind} slot); slot ignored`);
       return;
     }
-    keyframes.set(slot.id, recipe);
+    keyframes.set(slot.id, captionInkClipRecipe(recipe));
     if (slot.amp !== undefined) ampValues.push(slot.amp);
     if (kind === "loop") {
       const period = slot.duration_sec ?? DEFAULT_LOOP_PERIOD_SEC;
@@ -720,6 +721,7 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
   return {
     animationCss: parts.join(", "),
     keyframesCss,
+    hasInkClip: [...keyframes.values()].some(recipe => recipe.includes('clip-path')),
     // amp は全スロット共通の 1 変数（スロット別に分けたくなったら変数を分割する）
     ampCss: ampValues.length > 0 ? `--akari-anim-amp: ${ampValues[0]};` : "",
   };
@@ -1049,7 +1051,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
       to { opacity: 1; transform: translateY(0); }
     }${animationKeyframesCss}
   </style>
-  <div class="akari-caption__plate">${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
+  <div class="akari-caption__plate"${options.captionAnimation?.hasInkClip ? ' data-akari-ink-clip' : ''}>${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
 </div>`;
 }
 
@@ -1303,7 +1305,7 @@ ${options.contextStyle?.karaoke ? `    .akari-caption__tok--karaoke-done { color
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
     }${revealWordCss}${revealCss}${emphasisCss}${hasPresetEmphasis ? RESOLVED_CAPTION_WORD_PRESET_CSS : ''}
   </style>
-  <div class="akari-caption__plate">${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
+  <div class="akari-caption__plate"${options.captionAnimation?.hasInkClip ? ' data-akari-ink-clip' : ''}>${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
 </div>`;
 }
 

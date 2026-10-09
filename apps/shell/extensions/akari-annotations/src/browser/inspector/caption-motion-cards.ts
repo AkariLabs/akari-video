@@ -27,12 +27,17 @@ function captionAnimationRequest(id: string, animation: Record<string, unknown>,
 
 export function captionTextAnimationWrite(id: string, current: CaptionAnimation | undefined,
     slot: InspectorMotionSlot, animationId: string, durationSec?: number): InspectorWriteRequest {
-    const animation = Object.fromEntries(Object.entries(current ?? {}).map(([key, value]) => [key,
+    const next = captionTextAnimationNext(current, slot, animationId, durationSec);
+    const animation = Object.fromEntries(Object.entries(next).map(([key, value]) => [key,
         value ? { id: value.id, ...(value.durationSec ? { duration_sec: value.durationSec } : {}),
             ...(value.ease ? { ease: value.ease } : {}), ...(value.amp ? { amp: value.amp } : {}) } : value]));
-    animation[slot] = { id: animationId,
-        ...(durationSec ? { duration_sec: durationSec } : {}) };
     return captionAnimationRequest(id, animation);
+}
+
+export function captionTextAnimationNext(current: CaptionAnimation | undefined, slot: InspectorMotionSlot,
+    animationId: string, durationSec?: number): CaptionAnimation {
+    return { ...current, [slot]: { ...current?.[slot], id: animationId,
+        durationSec: durationSec ?? current?.[slot]?.durationSec ?? { in: .4, out: .27, loop: 3 }[slot] } };
 }
 
 export function captionTextAnimationClear(id: string, slot: InspectorMotionSlot | 'all'): InspectorWriteRequest {

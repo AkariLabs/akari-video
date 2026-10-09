@@ -1,7 +1,9 @@
 import type { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection } from '../timeline-selection-model';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES, PREVIEW_CAPTION_ONE_SHOT_LOOP_IDS } from 'akari-preview/lib/common/caption-text-animation-recipes';
 import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionComboClear, captionMotionCards, presetToAnimation,
-    captionTextAnimationCards, captionTextAnimationWrite, captionTextAnimationClear } from './caption-motion-cards';
+    captionTextAnimationCards, captionTextAnimationWrite, captionTextAnimationNext, captionTextAnimationClear,
+    captionMotionOriginalAnimation } from './caption-motion-cards';
+import type { CaptionAnimation } from '../../common/caption-store';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
 import type { InspectorMotionSlot } from './motion-fields';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES,
@@ -76,7 +78,8 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     root.appendChild(css);
     const state = views.get(snapshot.id) ?? { slot: 'in' as InspectorMotionSlot, all: false };
     views.set(snapshot.id, state);
-    const animation = snapshot.textStyle?.animation;
+    let animation = snapshot.textStyle?.animation;
+    let currentSnapshot = snapshot;
     let karaokeColor = '#ffd94a';
     const active = animation?.[state.slot]?.id;
     if (typeof IntersectionObserver !== 'undefined') {
@@ -97,9 +100,14 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         window.dispatchEvent(new CustomEvent('akari-caption-motion-play',
             { detail: { captionId: snapshot.id, id, kind, wordIndex, slot } }));
     };
-    const commit = (request: InspectorWriteRequest, id?: string, slot?: InspectorMotionSlot): void => {
+    const commit = (request: InspectorWriteRequest, next: CaptionAnimation | undefined,
+        id?: string, slot?: InspectorMotionSlot): void => {
         void write(request).then(result => {
             if (result.ok) {
+                animation = next;
+                currentSnapshot = { ...currentSnapshot,
+                    textStyle: { ...currentSnapshot.textStyle, animation: next } };
+                syncPressed();
                 if (id) play(id, undefined, undefined, slot);
             } else {
                 notice.textContent = result.message ?? '動きを書き込めませんでした。';
@@ -166,17 +174,22 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         }
         parent.appendChild(container);
     };
-    const clearPressed = (slot?: InspectorMotionSlot, id?: string): void => {
-        root.querySelectorAll<HTMLButtonElement>('.akari-caption-motion-card[aria-pressed="true"]')
-            .forEach(card => {
-                if ((card.dataset.motionKind === 'combo' || card.dataset.motionKind === 'slot'
-                    || card.dataset.motionKind === 'textanim')
-                    && (!slot || card.dataset.motionKind === 'combo'
-                        || (card.dataset.motionSlot === slot
-                            && (!id || card.dataset.motionAnimation === id)))) {
-                    card.setAttribute('aria-pressed', 'false');
-                }
-            });
+    const syncPressed = (): void => {
+        root.querySelectorAll<HTMLButtonElement>('.akari-caption-motion-card').forEach(card => {
+            const kind = card.dataset.motionKind;
+            if (kind === 'combo') {
+                const combo = CAPTION_MOTION_COMBOS.find(item => item.id === card.dataset.motionId);
+                if (!combo) return;
+                card.setAttribute('aria-pressed', String(
+                    animation?.in?.id === (combo.id === 'typewriter' ? 'typewriter' : presetToAnimation[combo.in])
+                    && animation?.out?.id === presetToAnimation[combo.out]
+                    && animation?.loop?.id === ('loop' in combo && combo.loop
+                        ? presetToAnimation[combo.loop] : undefined)));
+            } else if (kind === 'slot' || kind === 'textanim') {
+                card.setAttribute('aria-pressed', String(card.dataset.motionSlot === state.slot
+                    && animation?.[state.slot]?.id === card.dataset.motionAnimation));
+            }
+        });
     };
     if (snapshot.effectiveTextStyle?.animation && !snapshot.textStyle?.animation) {
         const note = document.createElement('div');
@@ -193,13 +206,16 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             && animation?.loop?.id === ('loop' in combo && combo.loop ? presetToAnimation[combo.loop] : undefined),
         onClick: selected => {
             if (selected) {
-                clearPressed();
-                commit(captionMotionComboClear(snapshot.id));
+                commit(captionMotionComboClear(snapshot.id), undefined);
                 return;
             }
             const id = combo.id === 'typewriter' ? 'typewriter' : presetToAnimation[combo.in];
             const [request] = captionMotionComboWrites(snapshot.id, combo.id);
-            commit(request, id);
+            const raw = (request as unknown as { value: { parts: { animation: Record<string, unknown> }[] } })
+                .value.parts[0].animation;
+            const next = captionMotionOriginalAnimation(JSON.stringify([{ id: snapshot.id,
+                text_style: { animation: raw } }]), snapshot.id) ?? undefined;
+            commit(request, next, id);
         }
     })));
     heading('動き');
@@ -210,7 +226,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         button.type = 'button';
         button.textContent = labels[slot];
         button.setAttribute('aria-pressed', String(state.slot === slot));
-        button.addEventListener('click', () => { state.slot = slot; root.replaceWith(createCaptionMotionPanel(snapshot, write, services)); });
+        button.addEventListener('click', () => { state.slot = slot; root.replaceWith(createCaptionMotionPanel(currentSnapshot, write, services)); });
         switcher.appendChild(button);
     }
     const clear = document.createElement('button');
@@ -218,8 +234,9 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     clear.textContent = 'なし';
     clear.addEventListener('click', () => {
         const slot = state.slot;
-        clearPressed(slot, animation?.[slot]?.id);
-        commit(captionTextAnimationClear(snapshot.id, slot));
+        const next = { ...animation };
+        delete next[slot];
+        commit(captionTextAnimationClear(snapshot.id, slot), next);
     });
     switcher.appendChild(clear);
     root.appendChild(switcher);
@@ -228,30 +245,37 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         selected: active === presetToAnimation[card.id],
         onClick: selected => {
             if (selected) {
-                clearPressed(state.slot, presetToAnimation[card.id]);
-                commit(captionTextAnimationClear(snapshot.id, state.slot));
+                const next = { ...animation };
+                delete next[state.slot];
+                commit(captionTextAnimationClear(snapshot.id, state.slot), next);
                 return;
             }
+            const next = captionTextAnimationNext(animation, state.slot, presetToAnimation[card.id]);
             commit(captionTextAnimationWrite(snapshot.id, animation, state.slot,
-                presetToAnimation[card.id]), presetToAnimation[card.id], state.slot);
+                presetToAnimation[card.id]), next, presetToAnimation[card.id], state.slot);
         }
     })));
     heading('テキストアニメ');
     grid(captionTextAnimationCards(state.all).map(card => ({
-        id: card.id, kind: 'textanim' as const, label: card.label, animation: card.id, slot: card.slot,
-        selected: animation?.[card.slot]?.id === card.id,
+        id: card.id, kind: 'textanim' as const, label: card.label, animation: card.id, slot: state.slot,
+        selected: animation?.[state.slot]?.id === card.id,
         onClick: selected => {
             if (selected) {
-                clearPressed(card.slot, card.id);
-                commit(captionTextAnimationClear(snapshot.id, card.slot));
-            } else commit(captionTextAnimationWrite(snapshot.id, animation, card.slot, card.id), card.id, card.slot);
+                const next = { ...animation };
+                delete next[state.slot];
+                commit(captionTextAnimationClear(snapshot.id, state.slot), next);
+            } else {
+                const next = captionTextAnimationNext(animation, state.slot, card.id);
+                commit(captionTextAnimationWrite(snapshot.id, animation, state.slot, card.id),
+                    next, card.id, state.slot);
+            }
         }
     })));
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'akari-caption-motion-more';
     more.textContent = state.all ? '代表だけ見る' : `もっと見る（全 ${CAPTION_TEXT_ANIMATIONS.length} 種）`;
-    more.addEventListener('click', () => { state.all = !state.all; root.replaceWith(createCaptionMotionPanel(snapshot, write, services)); });
+    more.addEventListener('click', () => { state.all = !state.all; root.replaceWith(createCaptionMotionPanel(currentSnapshot, write, services)); });
     root.appendChild(more);
     const wordSection = document.createElement('div');
     const emphasisSection = document.createElement('div');
@@ -437,6 +461,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         if (!seat) return;
         const base = state.slot === 'loop' ? 3 : state.slot === 'out' ? .27 : .4;
         commit(captionTextAnimationWrite(snapshot.id, animation, state.slot, seat.id, base / Number(speed.value)),
+            captionTextAnimationNext(animation, state.slot, seat.id, base / Number(speed.value)),
             seat.id, state.slot);
     });
     root.appendChild(speed);
@@ -450,7 +475,8 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         const seat = animation?.[state.slot];
         const seconds = Number(durationInput.value);
         if (!seat || !Number.isFinite(seconds) || seconds <= 0) return;
-        commit(captionTextAnimationWrite(snapshot.id, animation, state.slot, seat.id, seconds), seat.id, state.slot);
+        commit(captionTextAnimationWrite(snapshot.id, animation, state.slot, seat.id, seconds),
+            captionTextAnimationNext(animation, state.slot, seat.id, seconds), seat.id, state.slot);
     });
     duration.appendChild(durationInput);
     root.appendChild(duration);

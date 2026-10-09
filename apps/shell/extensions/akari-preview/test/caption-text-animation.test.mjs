@@ -68,10 +68,14 @@ test('字幕の板に paused textanim を置き、tick・seek・選択を同じ�
     assert.equal(app.animations[0].currentTime, 1000);
     app.seek(13.5);
     assert.equal(app.animations[0].currentTime, 3500);
-    assert.match(source, /\.caption-row-plate\[data-selected\] \.akari-caption__plate\[data-akari-textanim\], \.caption-row-plate\.akari-caption-host--editing \.akari-caption__plate\[data-akari-textanim\] \{ animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; \}/u);
+    assert.match(source, /\.caption-row-plate\.akari-caption-host--editing \.akari-caption__plate\[data-akari-textanim\] \{ animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; \}/u);
+    assert.doesNotMatch(source, /\.caption-row-plate\[data-selected\] \.akari-caption__plate\[data-akari-textanim\]/u);
     app.run("selectedCaptionIds.add('textanim-1'); applyCaptionSelectionAttrs();");
     assert.equal(app.plate.hasAttribute('data-selected'), true);
     assert.equal(app.hitRegions.length > 0, true);
+    app.seek(10.2);
+    assert.ok(Math.abs(app.animations[0].currentTime - 200) < 1e-6);
+    app.seek(13.5);
     app.run('selectedCaptionIds.clear(); applyCaptionSelectionAttrs();');
     assert.equal(app.plate.hasAttribute('data-selected'), false);
     assert.equal(app.animations[0].currentTime, 3500);

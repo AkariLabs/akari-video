@@ -11,7 +11,15 @@ import { CAPTION_EFFECT_GROUPS, CAPTION_EFFECT_SPECS, captionEffectAdjustmentKey
 import { createCaptionEffectImageCache, scheduleCaptionEffectImages } from '../lib/browser/inspector/caption-effect-images.js';
 import { createCaptionStylePreviewController } from '../../akari-preview/lib/common/caption-style-preview.js';
 import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards, captionTextAnimationCards,
-    captionTextAnimationWrite } from '../lib/browser/inspector/caption-motion-cards.js';
+    captionTextAnimationWrite, presetToAnimation } from '../lib/browser/inspector/caption-motion-cards.js';
+import { CAPTION_TEXT_ANIMATIONS } from '../lib/browser/inspector/caption-motion-catalog.js';
+import { MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS } from '../lib/browser/inspector/motion-fields.js';
+import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../../akari-preview/lib/common/caption-text-animation-recipes.js';
+import { CAPTION_ANIMATION_RECIPES, buildCaptionAnimation } from '../../../../../packages/render-cut/src/captions.mjs';
+import { CAPTION_SPRITE_MOTIONS, isCaptionMotionSupported as frameSupports }
+    from '../../../../../packages/frame-engine/dist/timeline/caption-motion.js';
+import { isCaptionMotionSupported as gpuSupports }
+    from '../../../../../packages/gpu-export/src/eligibility.mjs';
 import { addInspectorAnimatorTemplate, INSPECTOR_ANIMATOR_TEMPLATES,
     inspectorAnimatorTemplateFor } from '../lib/browser/inspector/animator-fields.js';
 import { captionMotionSampleKeyframes, CAPTION_MOTION_PANEL_CSS } from '../lib/browser/inspector/caption-motion-panel.js';
@@ -128,12 +136,36 @@ test('動きの各段は字幕の animation の席へ書く', () => {
         'loop', 'wobble');
     assert.equal(request.kind, 'caption-style-my-style');
     assert.deepEqual(request.value.parts[0].animation, {
-        in: { id: 'fade-up', duration_sec: .4 }, loop: { id: 'wobble' }
+        in: { id: 'fade-up', duration_sec: .4 }, loop: { id: 'wobble', duration_sec: 3 }
     });
     const combo = captionMotionComboWrites('cue-1', 'smart');
     assert.equal(combo.length, 1);
     assert.equal(combo[0].kind, 'caption-style-my-style');
     assert.deepEqual(Object.keys(combo[0].value.parts[0].animation), ['in', 'out', 'loop']);
+});
+
+test('インスペクターが書ける全 id は preview・OSR・frame-engine・GPU に存在する', () => {
+    const writable = new Set([
+        ...CAPTION_MOTION_COMBOS.flatMap(combo => [combo.in, combo.out,
+            ...('loop' in combo ? [combo.loop] : [])].map(preset => presetToAnimation[preset])),
+        ...[...MOTION_IN_OUT_PRESETS, ...MOTION_LOOP_PRESETS].map(preset => presetToAnimation[preset]),
+        ...CAPTION_TEXT_ANIMATIONS.map(card => card.id)
+    ].filter(id => id && id !== 'typewriter'));
+    assert.ok(writable.size >= 46, '既存の動きをインスペクターから減らさない');
+    for (const id of writable) {
+        assert.ok(Object.hasOwn(PREVIEW_CAPTION_ANIMATION_RECIPES, id), `preview: ${id}`);
+        assert.ok(Object.hasOwn(CAPTION_ANIMATION_RECIPES, id), `OSR: ${id}`);
+        assert.ok(Object.hasOwn(CAPTION_SPRITE_MOTIONS, id), `frame-engine: ${id}`);
+        assert.equal(frameSupports({ in: { id } }).supported, true, `frame-engine: ${id}`);
+        assert.equal(gpuSupports({ in: { id } }).supported, true, `GPU: ${id}`);
+    }
+});
+
+test('out の fade-in-out は終端だけ逆再生される', () => {
+    const css = buildCaptionAnimation({ out: { id: 'fade-in-out', duration_sec: .27 } }, 2);
+    assert.match(css.animationCss, /akari-anim-fade-in-out 0\.27s ease-out 1\.73s 1 reverse forwards paused/u);
+    assert.equal(frameSupports({ out: { id: 'fade-in-out' } }).supported, true);
+    assert.equal(gpuSupports({ out: { id: 'fade-in-out' } }).supported, true);
 });
 
 test('アニメーターのひな形は必要な欄だけを案内する', () => {
