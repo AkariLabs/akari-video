@@ -7556,8 +7556,8 @@ export function previewBootstrapScript(): string {
             const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
             const captionInkClipRecipeFn = (${captionInkClipRecipe.toString()});
             const setCaptionInkClipVariablesFn = (${setCaptionInkClipVariables.toString()});
-            const typewriterDurations = ${typewriterDurations.toString()};
-            const typewriterStepTiming = ${typewriterStepTiming.toString()};
+            const replayTypewriterDurations = ${typewriterDurations.toString()};
+            const replayTypewriterStepTiming = ${typewriterStepTiming.toString()};
             const decorateCaptionTypewriterHtml = ${decorateTypewriterHtml.toString()};
             const isTypewriterOnlyAnimationFn = ${isTypewriterOnlyAnimation.toString()};
             const captionPlaybackStallMsFn = ${captionPlaybackStallMs.toString()};
@@ -8296,7 +8296,13 @@ export function previewBootstrapScript(): string {
                     if (captionLayer.children[index] !== row.plate) {
                         captionLayer.insertBefore(row.plate, captionLayer.children[index] || null);
                     }
-                    renderCaptionRow(caption, row);
+                    try {
+                        renderCaptionRow(caption, row);
+                    } catch (error) {
+                        row.renderedCaption = null;
+                        console.warn('[akari-preview] caption row ' + (caption.id || '(unknown)')
+                            + ' failed to render', error);
+                    }
                 }
                 window.akari.updateCanvasCaptionLayer?.();
                 if (requestedCutId !== undefined) updateCutSelectBox();
@@ -8389,37 +8395,81 @@ export function previewBootstrapScript(): string {
                         style.textContent = '@keyframes akari-caption-preview-caret{50%{opacity:0}}';
                         document.head.appendChild(style);
                     }
-                    const letters = targets.map(target => Array.from(
-                        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(target.textContent || ''),
-                        part => part.segment));
-                    const total = letters.reduce((sum, line) => sum + line.length, 0);
+                    // Preserve the complete text and its measured box throughout replay.
+                    // Hidden graphemes still take part in line wrapping and max-content width.
+                    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+                    const letters = [];
+                    for (const target of targets) {
+                        const copy = target.cloneNode(true);
+                        const allTypeChars = [...copy.querySelectorAll('.akari-caption__type-char')];
+                        allTypeChars.forEach(char => { char.style.animation = 'none'; });
+                        const typeChars = allTypeChars
+                            .filter(char => !char.parentElement?.closest('.akari-caption__type-char'));
+                        for (const char of typeChars) {
+                            char.classList.add('akari-caption__replay-char');
+                            char.style.position = 'relative';
+                            char.style.visibility = 'hidden';
+                            letters.push(char);
+                        }
+                        if (!typeChars.length) {
+                            const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+                            const textNodes = [];
+                            while (walker.nextNode()) textNodes.push(walker.currentNode);
+                            for (const node of textNodes) {
+                                const parts = [...segmenter.segment(node.textContent || '')];
+                                const fragment = document.createDocumentFragment();
+                                for (const part of parts) {
+                                    const char = document.createElement('span');
+                                    char.className = 'akari-caption__replay-char';
+                                    char.textContent = part.segment;
+                                    char.style.position = 'relative';
+                                    char.style.visibility = 'hidden';
+                                    letters.push(char);
+                                    fragment.appendChild(char);
+                                }
+                                node.replaceWith(fragment);
+                            }
+                        }
+                        target.replaceChildren(...copy.childNodes);
+                    }
+                    const total = letters.length;
+                    if (!total) { finishCaptionMotionReplay(replay); return; }
                     const caret = document.createElement('span');
                     caret.textContent = '|';
-                    caret.style.cssText = 'display:inline-block;color:inherit;animation:akari-caption-preview-caret .55s step-end infinite';
-                    const step = Math.max(55, Math.round(1400 / Math.max(1, total)));
-                    let index = Math.min(total, Math.floor(elapsed() / step));
+                    caret.style.cssText = 'position:absolute;left:100%;top:0;width:0;white-space:nowrap;visibility:visible;pointer-events:none;color:inherit;animation:akari-caption-preview-caret .55s step-end infinite';
+                    const overlayDuration = Math.max(0, (row.caption?.end || 0) - (row.caption?.start || 0));
+                    const { enterDuration, exitDuration } = replayTypewriterDurations(
+                        row.caption?.textStyle?.animation, overlayDuration);
+                    const duration = (replay.slot === 'out' ? exitDuration : enterDuration) * 1000;
+                    const revealAt = letters.map((_, index) => {
+                        const timing = replayTypewriterStepTiming(total, index,
+                            enterDuration, exitDuration, overlayDuration);
+                        return 1000 * (replay.slot === 'out'
+                            ? timing.outDelay - Math.max(0, overlayDuration - exitDuration)
+                            : timing.inDelay);
+                    });
                     const draw = () => {
-                        let remaining = index;
-                        let active = 0;
-                        letters.forEach((line, lineIndex) => {
-                            const count = Math.max(0, Math.min(line.length, remaining));
-                            targets[lineIndex].replaceChildren(document.createTextNode(line.slice(0, count).join('')));
-                            if (remaining > 0 || lineIndex === 0) active = lineIndex;
-                            remaining -= line.length;
+                        const ms = elapsed();
+                        let visible = 0;
+                        letters.forEach((char, index) => {
+                            const show = replay.slot === 'out' ? ms < revealAt[index] : ms >= revealAt[index];
+                            char.style.visibility = show ? 'visible' : 'hidden';
+                            if (show) visible = index + 1;
                         });
-                        targets[active].appendChild(caret);
+                        const anchor = letters[Math.max(0, visible - 1)];
+                        caret.style.left = visible ? '100%' : '0';
+                        anchor.appendChild(caret);
                     };
                     draw();
                     replay.interval = window.setInterval(() => {
                         if (captionMotionReplay !== replay) return;
-                        index = Math.min(total, Math.floor(elapsed() / step));
                         draw();
-                        if (index >= total) {
+                        if (elapsed() >= duration) {
                             window.clearInterval(replay.interval);
                             replay.interval = null;
                             replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay), 650);
                         }
-                    }, step);
+                    }, 16);
                     return;
                 }
                 const line = targets[0];

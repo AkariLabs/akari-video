@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { transformSync } from 'esbuild';
 import { CAPTION_ANIMATION_RECIPES, applyCaptionRichLayers, buildCaptionAnimation } from '../../../../../packages/render-cut/src/captions.mjs';
 import { decorateTypewriterHtml } from '../../../../../packages/render-cut/src/caption-typewriter.mjs';
 import { harness, source } from './caption-animator-webview-harness.mjs';
@@ -158,6 +161,38 @@ test('typewriter は書記素単位の span に等間隔の遅延を付ける', 
     assert.match(preview.plate.innerHTML, /0\.700000s[^>]*>👩‍👩‍👧‍👦<\/span>/u);
     assert.match(output, /\.akari-caption__type-char\{display:inline\}/u);
     assert.doesNotMatch(output, /white-space:pre/u);
+});
+
+test('production minify 後の toString をモジュール束縛の無い webview で実行できる', () => {
+    const sourceText = readFileSync(new URL('../../../../../packages/render-cut/src/caption-typewriter.mjs', import.meta.url), 'utf8');
+    const code = transformSync(sourceText, { format: 'cjs', minify: true }).code;
+    const module = { exports: {} };
+    vm.runInNewContext(code, { module, exports: module.exports });
+    const functions = ['decorateTypewriterHtml', 'typewriterDurations', 'typewriterStepTiming'];
+    const isolated = Object.fromEntries(functions.map(name => [name,
+        vm.runInNewContext(`(${module.exports[name].toString()})`)]));
+    const html = '<div><style></style><p class="akari-caption__line">あ👩‍👩‍👧‍👦い</p></div>';
+    const animation = { in: { id: 'typewriter', duration_sec: 1.4 } };
+    const decorated = isolated.decorateTypewriterHtml(html, animation, 3);
+    assert.equal((decorated.match(/class="akari-caption__type-char"/gu) || []).length, 3);
+    assert.match(decorated, /0\.466667s[^>]*>あ<\/span>/u);
+    assert.match(decorated, /1\.400000s[^>]*>い<\/span>/u);
+    const durations = isolated.typewriterDurations(animation, 3);
+    assert.ok(Math.abs(isolated.typewriterStepTiming(3, 2, durations.enterDuration, durations.exitDuration, 3).inDelay - 1.4) < 1e-9);
+});
+
+test('typewriter 行の描画例外は他の字幕行を止めず、次 tick で再試行する', () => {
+    const broken = cue({ id: 'broken', textStyle: { animation: { in: { id: 'typewriter' } } } });
+    const other = cue({ id: 'other' });
+    const app = harness({ cues: [broken, other] });
+    app.run('globalThis.__originalSegmenter = Intl.Segmenter; Intl.Segmenter = class { constructor() { throw new Error("segmenter unavailable"); } };');
+    app.tick(11);
+    assert.equal(app.plates.length, 2);
+    assert.match(app.plates[1].innerHTML, /字幕/u);
+    assert.equal(app.warnings.length, 1);
+    app.run('Intl.Segmenter = globalThis.__originalSegmenter;');
+    app.tick(11.1);
+    assert.match(app.plates[0].innerHTML, /akari-caption__type-char/u);
 });
 
 test('typewriter は runs と複数行の構造を保ち、runs 適用後に span を付ける', () => {

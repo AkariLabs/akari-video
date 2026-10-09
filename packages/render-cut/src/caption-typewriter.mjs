@@ -37,13 +37,18 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   });
   const count = chunks.reduce((total, chunk) => total + chunk.parts.reduce((n, part) => n + (Array.isArray(part) ? part.length : 0), 0), 0);
   if (!count) return html;
-  const { enterDuration, exitDuration } = typewriterDurations(animation, overlayDuration);
+  // This function is serialized into the preview webview with toString(). Keep its
+  // timing calculation self-contained: a production minifier renames module helpers.
+  const maximum = Math.max(.05, overlayDuration);
+  const enterDuration = Math.min(animation?.in?.duration_sec ?? .6, maximum);
+  const exitDuration = Math.min(animation?.out?.duration_sec ?? .6, maximum);
   let index = 0;
   const rendered = chunks.map(chunk => chunk.open + chunk.parts.map(part => {
     if (!Array.isArray(part)) return part;
     return part.map(char => {
       const i = index++;
-      const { inDelay, outDelay } = typewriterStepTiming(count, i, enterDuration, exitDuration, overlayDuration);
+      const inDelay = enterDuration * (i + 1) / count;
+      const outDelay = Math.max(0, overlayDuration - exitDuration) + exitDuration * i / count;
       let value = char;
       if (exit) value = `<span class="akari-caption__type-char" style="animation:akari-typewriter-char-out .01s ${outDelay.toFixed(6)}s linear both paused">${value}</span>`;
       if (entrance) value = `<span class="akari-caption__type-char" style="animation:akari-typewriter-char-in .01s ${inDelay.toFixed(6)}s linear both paused">${value}</span>`;

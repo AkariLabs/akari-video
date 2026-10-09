@@ -1781,6 +1781,28 @@
       typewriterOut: Boolean(outSlot), localSeconds });
   }
 
+  function captionMotionDrawDisposition(unit, state, localSeconds, motionTiles) {
+    if (motionTiles?.length !== 0) return 'all';
+    if (unit.mode !== 'typewriter') return 'none';
+    // An empty character set does not hide the plate. Ask the same geometry
+    // solver without character reveal whether the clip still intersects it.
+    const plateTiles = FE.captionMotionTiles({ plateRect: unit.plateRect,
+      textureRect: unit.textureRect, clip: state.clip, slices: state.slices,
+      localSeconds });
+    return plateTiles?.length === 0 ? 'none' : 'plate';
+  }
+
+  function captionBandDraws(unit, state, tiles, disposition) {
+    if (disposition === 'none') return [];
+    const draws = [{ z: unit.z, index: unit.index, id: unit.id,
+      textureRect: unit.textureRect, originX: unit.originX, originY: unit.originY, ...state }];
+    if (unit.mode !== 'typewriter' || disposition === 'all') {
+      draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId,
+        textureRect: unit.textureRect, originX: unit.originX, originY: unit.originY, tiles, ...state });
+    }
+    return draws;
+  }
+
   function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
     const batches = [];
     let current = null;
@@ -3441,7 +3463,8 @@
                 originY: unit.plateRect.y + state.originY * unit.plateRect.height + 1 };
             }
             const motionTiles = captionMotionTiles(unit, state, localSeconds);
-            if (motionTiles?.length === 0) continue;
+            const motionDisposition = captionMotionDrawDisposition(unit, state, localSeconds, motionTiles);
+            if (motionDisposition === 'none') continue;
             if (unit.tiles === null) {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
                 originX: unit.originX, originY: unit.originY, ...state,
@@ -3477,10 +3500,7 @@
                 opacity: (tile.opacity ?? 1) * (clip.opacity ?? 1) }] : [];
             }));
             if (unit.mode === "geometry" || unit.mode === 'typewriter') {
-              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
-                originX: unit.originX, originY: unit.originY, ...state });
-              draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect,
-                originX: unit.originX, originY: unit.originY, tiles, ...state });
+              draws.push(...captionBandDraws(unit, state, tiles, motionDisposition));
             } else {
               draws.push({
                 z: unit.z,
