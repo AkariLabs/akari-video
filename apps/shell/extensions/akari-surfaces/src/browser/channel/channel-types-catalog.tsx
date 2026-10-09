@@ -3,12 +3,15 @@ import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { TYPE_FIELDS } from './channel-types-data';
 import { ChannelTypeEntry, channelTypeSummary, filterChannelTypes, findChannelType, nearChannelTypes, tierLabel, typeContents } from './channel-types-model';
+import { proGate } from '../../common/pro-key';
+import { PRO_FEATURE_APPLY_TYPE } from './channel-pro-sheet';
 
 type AuthorFilter = 'all' | 'akari' | 'community' | 'free';
 type SortMode = 'uses' | 'new';
 
 export function ChannelTypesCatalog(props: {
     channelName: string; initialTypeId?: string; onApply: (type: ChannelTypeEntry) => void;
+    hasProKey: boolean; onNeedPro: (feature: string) => void;
     onSaveMyType: () => void; onClose: () => void;
 }): React.ReactElement {
     const initial = findChannelType(props.initialTypeId ?? '') ?? findChannelType('daily-basic');
@@ -82,7 +85,11 @@ export function ChannelTypesCatalog(props: {
             <button type='button' className='theia-button secondary' data-akari-types-save-mine onClick={props.onSaveMyType}>今のチャンネルを型として残す</button>
             <div><button type='button' className='theia-button secondary' onClick={props.onClose}>閉じる</button>
                 <button type='button' className='theia-button main' data-akari-types-apply disabled={!selected}
-                    onClick={() => { if (selected) props.onApply(selected); }}>この型を当てる…</button></div>
+                    onClick={() => {
+                        if (!selected) return;
+                        if (!proGate(selected.tier, props.hasProKey)) props.onNeedPro(PRO_FEATURE_APPLY_TYPE);
+                        else props.onApply(selected);
+                    }}>この型を当てる…</button></div>
         </div>
     </HomeScrim>;
 }

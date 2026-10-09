@@ -2,6 +2,8 @@ import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { ChannelSkillDraft, validateSkillSlug } from './channel-skills-model';
+import { proGate } from '../../common/pro-key';
+import { PRO_FEATURE_PRESET_SKILL } from './channel-pro-sheet';
 
 export interface ChannelSkillRow { slug: string; title: string; description: string; copiedFrom?: string }
 
@@ -10,6 +12,8 @@ export function ChannelSkillsSheet(props: {
     presets: readonly ChannelSkillDraft[];
     akariSkills: { name: string; description: string }[];
     onAddPreset: (draft: ChannelSkillDraft) => void;
+    hasProKey: boolean;
+    onNeedPro: (feature: string) => void;
     onCreate: (draft: ChannelSkillDraft) => void;
     onCopyAkari: (name: string) => void;
     onOpen: (slug: string) => void;
@@ -50,7 +54,10 @@ export function ChannelSkillsSheet(props: {
         {mode === 'preset' && <div className='akari-channel-skills-options'>
             {props.presets.map(draft => <div className='akari-channel-skill-option' data-akari-skills-preset={draft.slug} key={draft.slug}>
                 <div><code>☆ /{draft.slug}</code><b>{draft.title}</b><span>{draft.description}</span><small>読むもの: {draft.reads.join('・')}</small></div>
-                <button type='button' className='theia-button secondary' disabled={existing.has(draft.slug)} onClick={() => props.onAddPreset(draft)}>{existing.has(draft.slug) ? '足しています' : '足す'}</button>
+                <button type='button' className='theia-button secondary' disabled={existing.has(draft.slug)} onClick={() => {
+                    if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PRESET_SKILL);
+                    else props.onAddPreset(draft);
+                }}>{existing.has(draft.slug) ? '足しています' : '足す'}</button>
             </div>)}
         </div>}
         {mode === 'create' && <div className='akari-channel-skills-form'>

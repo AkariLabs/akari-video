@@ -28,6 +28,8 @@ import { ChannelSkillDraft, PRESET_CHANNEL_SKILLS, buildSkillMd, copiedSkillMd, 
 import { ChannelSkillRow, ChannelSkillsSheet } from './channel-skills-sheet';
 import { ChannelMemoryFiles } from './channel-memory-files';
 import { ChannelMemorySheets, ChannelMemorySheetKind, readChannelMemoryCounts } from './channel-memory-sheets';
+import { hasProKey, proGate } from '../../common/pro-key';
+import { ChannelProSheet, PRO_FEATURE_APPLY_TYPE } from './channel-pro-sheet';
 
 export const CHANNEL_WIDGET_ID = RAIL_CHANNEL_WIDGET_ID;
 export const CHANNEL_WIDGET_LABEL = 'チャンネル';
@@ -86,6 +88,9 @@ export class AkariChannelWidget extends ReactWidget {
     protected docRefreshVersion = 0;
     protected memoryFiles?: ChannelMemoryFiles;
     protected memorySheet?: ChannelMemorySheetKind;
+    protected proKey = false;
+    protected proKeyRefreshVersion = 0;
+    protected proNotice?: string;
     protected memoryCounts = { people: 0, notes: 0, packs: 0 };
     protected popoverOpen = false;
     protected helperMenuOpen = false;
@@ -135,7 +140,25 @@ export class AkariChannelWidget extends ReactWidget {
         setTimeout(() => this.updateRailTab(), 500);
         void this.context.refresh();
         void this.refreshChannelDocs();
+        void this.refreshProKey();
     }
+
+    protected async refreshProKey(): Promise<void> {
+        const version = ++this.proKeyRefreshVersion;
+        let next = false;
+        try {
+            const view = await this.storeService.getAssetCatalogView(undefined, 'automatic');
+            next = hasProKey(view.entitledProducts ?? []);
+        } catch { /* 未接続や読取失敗では鍵なしとして扱う。 */ }
+        if (version !== this.proKeyRefreshVersion) return;
+        this.proKey = next;
+        this.update();
+    }
+
+    protected readonly onNeedPro = (feature: string): void => {
+        this.proNotice = feature;
+        this.update();
+    };
 
     protected installStyle(): void {
         if (document.getElementById(STYLE_ID)) return;
@@ -237,7 +260,11 @@ export class AkariChannelWidget extends ReactWidget {
         this.update();
     }
 
-    protected openMemorySheet(kind?: ChannelMemorySheetKind): void { this.memorySheet = kind; this.update(); }
+    protected openMemorySheet(kind?: ChannelMemorySheetKind): void {
+        this.memorySheet = kind;
+        this.update();
+        if (kind) void this.refreshProKey();
+    }
 
     protected async openChannelDoc(kind: ChannelDocKind): Promise<void> {
         const root = this.context.rootUri;
@@ -299,6 +326,7 @@ export class AkariChannelWidget extends ReactWidget {
     protected async openSkillsSheet(): Promise<void> {
         this.sheet = { kind: 'skills' };
         this.update();
+        void this.refreshProKey();
         try {
             const root = this.context.currentProjectUri ?? (await this.workspace.roots)[0]?.resource;
             this.akariSkills = await this.skillCatalog.loadSkills(root);
@@ -418,6 +446,7 @@ export class AkariChannelWidget extends ReactWidget {
     }
 
     protected async openTypeApply(type: ChannelTypeEntry): Promise<void> {
+        if (!proGate(type.tier, this.proKey)) { this.onNeedPro(PRO_FEATURE_APPLY_TYPE); return; }
         const returnTo = this.sheet?.kind === 'types-catalog' ? this.sheet.returnTo : undefined;
         try {
             const [channelMd, designMd, wordBookText, notesText] = await Promise.all([
@@ -577,10 +606,10 @@ export class AkariChannelWidget extends ReactWidget {
                 </button>)}
             </div>
             {this.sheet?.kind === 'design-start' && <ChannelDesignStart
-                onFromType={() => { this.sheet = { kind: 'types-catalog' }; this.update(); }}
-                onFromQuestions={() => { this.sheet = { kind: 'design-wizard' }; this.update(); }} onClose={this.closeSheet} />}
+                onFromType={() => { this.sheet = { kind: 'types-catalog' }; this.update(); void this.refreshProKey(); }}
+                onFromQuestions={() => { this.sheet = { kind: 'design-wizard' }; this.update(); void this.refreshProKey(); }} onClose={this.closeSheet} />}
             {this.sheet?.kind === 'types-catalog' && <ChannelTypesCatalog channelName={channel || ''}
-                initialTypeId={this.sheet.initialTypeId}
+                initialTypeId={this.sheet.initialTypeId} hasProKey={this.proKey} onNeedPro={this.onNeedPro}
                 onApply={type => void this.openTypeApply(type)}
                 onSaveMyType={() => void this.saveMyType()} onClose={this.closeSheet} />}
             {this.sheet?.kind === 'types-apply' && <ChannelTypeApplySheet type={this.sheet.type} channelName={channel || ''}
@@ -590,16 +619,18 @@ export class AkariChannelWidget extends ReactWidget {
                     if (this.sheet?.kind !== 'types-apply') return;
                     this.sheet = { kind: 'types-catalog', initialTypeId: this.sheet.type.id, returnTo: this.sheet.returnTo };
                     this.update();
+                    void this.refreshProKey();
                 }} onClose={this.closeSheet} />}
             {this.sheet?.kind === 'helper-consent' && <HelperConsentSheet channelName={channel || ''}
                 onAllow={() => { if (this.sheet?.kind === 'helper-consent') void this.allowHelper(this.sheet.next); }}
                 onCancel={this.closeSheet} />}
             {this.sheet?.kind === 'design-wizard' && <ChannelDesignWizard channelName={channel || ''}
-                initialAnswers={this.sheet.answers} initialAppliedType={this.sheet.appliedType} rest={this.sheet.rest} hasProKey={false}
+                initialAnswers={this.sheet.answers} initialAppliedType={this.sheet.appliedType} rest={this.sheet.rest} hasProKey={this.proKey}
                 onCreate={markdown => void this.saveSheetFile('channel.md', markdown)}
                 onPartner={answers => void this.askPartner(channelDesignPartnerPrompt(answers))}
                 onNotice={text => { void this.messages.info(text); }}
-                onCatalog={() => { this.sheet = { kind: 'types-catalog', returnTo: 'wizard' }; this.update(); }}
+                onNeedPro={this.onNeedPro}
+                onCatalog={() => { this.sheet = { kind: 'types-catalog', returnTo: 'wizard' }; this.update(); void this.refreshProKey(); }}
                 onClose={this.closeSheet} />}
             {this.sheet?.kind === 'design-view' && <ChannelDesignView fileName={this.sheet.fileName} text={this.sheet.text}
                 banner={this.sheet.appliedType && <ChannelTypeBanner typeName={this.sheet.appliedType} canUndo={this.sheet.canUndo}
@@ -607,12 +638,14 @@ export class AkariChannelWidget extends ReactWidget {
                         const typeId = this.sheet?.kind === 'design-view' ? findChannelTypeByName(this.sheet.appliedType ?? '')?.id : undefined;
                         this.sheet = { kind: 'types-catalog', initialTypeId: typeId, returnTo: 'view' };
                         this.update();
+                        void this.refreshProKey();
                     }} onUndo={() => void this.undoType()} />}
                 onRedesign={() => {
                     const parsed = this.sheet?.kind === 'design-view' && this.sheet.fileName === 'channel.md'
                         ? parseChannelMarkdown(this.sheet.text) : undefined;
                     this.sheet = { kind: 'design-wizard', answers: parsed?.answers, appliedType: parsed?.appliedType, rest: parsed?.rest };
                     this.update();
+                    void this.refreshProKey();
                 }}
                 onOpenFile={() => { if (this.sheet?.kind === 'design-view') void this.openSheetFile(this.sheet.fileName); }}
                 onPartner={() => void this.askPartner('/channel-design channel.md を読んで、ほかとの違い・見る人の困りごと・続けられる量を一緒に深掘りしてください')}
@@ -621,6 +654,7 @@ export class AkariChannelWidget extends ReactWidget {
                     const typeId = this.sheet?.kind === 'design-view' ? findChannelTypeByName(parseChannelMarkdown(this.sheet.text).appliedType ?? '')?.id : undefined;
                     this.sheet = { kind: 'types-catalog', initialTypeId: typeId, returnTo: 'view' };
                     this.update();
+                    void this.refreshProKey();
                 }}
                 onClose={this.closeSheet} />}
             {this.sheet?.kind === 'design-form' && <DesignMdForm channelName={channel || ''} initial={this.sheet.values}
@@ -628,13 +662,24 @@ export class AkariChannelWidget extends ReactWidget {
                 onOpenFile={text => void this.openSheetFile('design.md', text)} onHelper={() => void this.runHelper('design')}
                 onClose={this.closeSheet} />}
             {this.sheet?.kind === 'skills' && <ChannelSkillsSheet skills={this.channelSkills} presets={PRESET_CHANNEL_SKILLS} akariSkills={this.akariSkills}
+                hasProKey={this.proKey} onNeedPro={this.onNeedPro}
                 onAddPreset={draft => void this.addChannelSkill(draft)} onCreate={draft => void this.addChannelSkill(draft)}
                 onCopyAkari={name => void this.copyAkariSkill(name)} onOpen={slug => void this.openChannelSkill(slug)}
                 onRemove={slug => void this.removeChannelSkill(slug)} onClose={this.closeSheet} />}
             <ChannelMemorySheets open={this.memorySheet} channel={channel} root={this.context.rootUri} files={this.memoryFiles!}
+                hasProKey={this.proKey} onNeedPro={this.onNeedPro}
                 onClose={() => this.openMemorySheet(undefined)} onOpen={kind => this.openMemorySheet(kind)}
                 onTypePrompt={text => void this.commands.executeCommand('akari.partner.typePrompt', text)}
                 onChanged={() => void this.refreshChannelDocs()} />
+            {this.proNotice && <ChannelProSheet feature={this.proNotice}
+                onClose={() => { this.proNotice = undefined; this.update(); }}
+                onConnect={() => {
+                    this.proNotice = undefined;
+                    this.sheet = undefined;
+                    this.memorySheet = undefined;
+                    this.update();
+                    void this.commands.executeCommand('akari.settings.open', { section: 'account' });
+                }} />}
         </div>;
     }
 }

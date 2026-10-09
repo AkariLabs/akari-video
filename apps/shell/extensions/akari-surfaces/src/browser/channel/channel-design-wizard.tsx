@@ -2,10 +2,13 @@ import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { CHANNEL_QUESTIONS, ChannelAnswers, buildChannelMarkdown, rankTypes, splitMarkdownSections } from './channel-design-model';
+import { proGate } from '../../common/pro-key';
+import { PRO_FEATURE_APPLY_TYPE } from './channel-pro-sheet';
 
 export function ChannelDesignWizard(props: {
     channelName: string; initialAnswers?: ChannelAnswers; initialAppliedType?: string; rest?: string; hasProKey: boolean;
     onCreate: (markdown: string) => void; onPartner: (answers: ChannelAnswers) => void; onNotice: (text: string) => void; onClose: () => void;
+    onNeedPro: (feature: string) => void;
     onCatalog?: () => void;
 }): React.ReactElement {
     const [step, setStep] = React.useState(0);
@@ -51,7 +54,7 @@ export function ChannelDesignWizard(props: {
                         <b>{type.tier === 'pro' ? '☆ ' : ''}{type.name}</b><span>合う: {type.matched.join('・')}</span>
                         <span>テンプレ・字幕スタイル・スキルの下書きつき</span>
                         <button type='button' className='theia-button secondary' disabled={appliedType === type.name} onClick={() => {
-                            if (type.tier === 'pro' && !props.hasProKey) props.onNotice('☆ この型を当てるのは Akari Pro です。中身は見られます');
+                            if (!proGate(type.tier, props.hasProKey)) props.onNeedPro(PRO_FEATURE_APPLY_TYPE);
                             else setAppliedType(type.name);
                         }}>{appliedType === type.name ? '当てています' : '当てる'}</button>
                     </div>)}

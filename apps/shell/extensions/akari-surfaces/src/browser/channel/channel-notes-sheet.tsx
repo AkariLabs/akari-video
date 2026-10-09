@@ -4,6 +4,8 @@ import { HomeScrim } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { ChannelMemoryFiles } from './channel-memory-files';
 import { WordBookEntry, WordBookFile } from './channel-people-model';
+import { proGate } from '../../common/pro-key';
+import { PRO_FEATURE_PRESET_NOTES } from './channel-pro-sheet';
 import { addInfo, addRule, addWordEntry, applyPreparedInfos, applyPreparedRules, applyPreparedWords,
     emptyNotesFile, filterWordEntries, INFO_KIND_LABELS, InfoEntry, InfoKind, NotesFile, PREPARED_INFOS,
     PREPARED_RULES, PREPARED_WORDS, removeInfo, removeRule, removeWordEntry, RULE_AREA_LABELS, RuleArea,
@@ -51,6 +53,7 @@ const splitVariants = (value: string): string[] => value.split(/[,、，]/).map(
 
 export function ChannelNotesSheet(props: { channel: string; dir: URI; files: ChannelMemoryFiles; onClose: () => void;
     onOpenPacks: () => void; onTypePrompt: (text: string) => void; onChanged?: () => void;
+    hasProKey: boolean; onNeedPro: (feature: string) => void;
     initialTab?: Tab }): React.ReactElement {
     const [tab, setTab] = React.useState<Tab>(props.initialTab || 'words');
     const [book, setBook] = React.useState<WordBookFile>({ version: 0, entries: [] });
@@ -166,7 +169,10 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
             <button type='button' onClick={() => props.onTypePrompt('このチャンネルの動画の台本と会話から、言い換え・よく使う情報・決まりごとの候補を集めて')}>パートナーに集めてもらう</button>
         </div>
         {menu && <div className='akari-notes-menu'>{packs.map(pack => <button type='button' key={pack.name} disabled={busy}
-            onClick={() => void apply(pack)}>{pack.name}（{pack.entries.length} 件）</button>)}<hr />
+            onClick={() => {
+                if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PRESET_NOTES);
+                else void apply(pack);
+            }}>{pack.name}（{pack.entries.length} 件）</button>)}<hr />
             <button type='button' onClick={props.onOpenPacks}>記憶パック…</button></div>}
         {message && <p role='status'>{message}</p>}
         <div className='akari-notes-tabs' role='tablist' aria-label='辞書とメモ'>

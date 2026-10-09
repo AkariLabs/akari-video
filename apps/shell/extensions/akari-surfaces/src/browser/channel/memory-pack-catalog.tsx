@@ -7,6 +7,8 @@ import { defaultScene, initialOf, PeopleFile, WordBookFile } from './channel-peo
 import { countPacks, emptyPacksFile, importPack, isImported, packWordExamples, PacksFile,
     removePack, removePackCounts } from './memory-pack-model';
 import { MEMORY_PACK_GENRES, MEMORY_PACKS, MemoryPack, packTotal } from './memory-packs-builtin';
+import { proGate } from '../../common/pro-key';
+import { PRO_FEATURE_PACK } from './channel-pro-sheet';
 
 const STYLE_ID = 'akari-channel-packs-style';
 const CSS = `
@@ -51,7 +53,8 @@ const CSS = `
 type Filter = 'all' | 'imported' | string;
 
 export function MemoryPackCatalog(props: { channel: string; dir: URI; files: ChannelMemoryFiles; onClose: () => void;
-    onOpenPeople: () => void; onChanged?: () => void; initialPack?: string; onToast?: (text: string) => void }): React.ReactElement {
+    onOpenPeople: () => void; onChanged?: () => void; initialPack?: string; onToast?: (text: string) => void;
+    hasProKey: boolean; onNeedPro: (feature: string) => void }): React.ReactElement {
     const [filter, setFilter] = React.useState<Filter>('all');
     const [selectedName, setSelectedName] = React.useState(props.initialPack || 'AI 業界');
     const [selectedEntry, setSelectedEntry] = React.useState(0);
@@ -175,7 +178,10 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
                     {selected.status === 'planned' ? <button type='button' disabled>準備中（Lab で配布予定）</button>
                         : imported ? <><button type='button' onClick={props.onOpenPeople}>人とモノで『{selected.name}』を見る</button>
                             <button type='button' disabled={busy} onClick={() => { setKeepEdited(true); setConfirm(true); }}>外す…</button></>
-                            : <button type='button' disabled={busy} onClick={() => void takeIn()}>☆ 『{selected.name}』を取り込む</button>}
+                            : <button type='button' disabled={busy} onClick={() => {
+                                if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PACK);
+                                else void takeIn();
+                            }}>☆ 『{selected.name}』を取り込む</button>}
                 </div>}
             </section>
         </div>
