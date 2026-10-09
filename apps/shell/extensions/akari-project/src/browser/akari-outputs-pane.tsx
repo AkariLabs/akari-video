@@ -136,7 +136,8 @@ export class AkariOutputsPane {
             Promise.all(exportFiles.map(file => this.buildOutputEntry(root, file, 'export'))),
             Promise.all(
                 reportFiles
-                    .filter(file => /\.html?$/i.test(file.resource.path.base))
+                    // プロジェクトを作ったときの記録（scaffold の作成ログ）は「できたもの」に数えない
+                    .filter(file => /\.html?$/i.test(file.resource.path.base) && !/^create-project-report\.html?$/i.test(file.resource.path.base))
                     .map(file => this.buildOutputEntry(root, file, 'report'))
             )
         ]);

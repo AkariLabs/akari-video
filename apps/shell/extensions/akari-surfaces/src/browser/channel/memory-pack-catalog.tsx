@@ -11,7 +11,10 @@ import { MEMORY_PACK_GENRES, MEMORY_PACKS, MemoryPack, packTotal } from './memor
 const STYLE_ID = 'akari-channel-packs-style';
 const CSS = `
 .akari-home-sheet-scrim[data-akari-home-dialog=channel-packs] .akari-home-sheet{width:min(900px,95vw);max-height:90vh;overflow-y:auto}
-.akari-packs-layout{display:grid;grid-template-columns:200px minmax(0,1fr) 300px;gap:14px;margin-top:16px;min-height:420px}
+.akari-packs-layout{display:grid;grid-template-columns:200px minmax(0,1fr) 300px;gap:14px;margin-top:16px;height:calc(100vh - 240px);min-height:300px}
+.akari-packs-nav,.akari-packs-list,.akari-packs-detail{overflow-y:auto;min-height:0}
+.akari-packs-detail{display:flex;flex-direction:column}
+.akari-packs-detail>.akari-packs-actions,.akari-packs-detail>.akari-packs-confirm{position:sticky;bottom:0;margin-top:auto;padding:10px 0 2px;background:var(--theia-editorWidget-background,var(--theia-editor-background))}
 .akari-packs-nav,.akari-packs-list{border-right:1px solid var(--theia-widget-border);padding-right:12px;min-width:0}
 .akari-packs-nav{display:flex;flex-direction:column;gap:2px}
 .akari-packs-nav h4{font-size:12px;color:var(--theia-descriptionForeground);margin:12px 0 3px}
@@ -41,7 +44,7 @@ const CSS = `
 .akari-packs-confirm{border:1px solid var(--theia-widget-border);border-radius:7px;background:var(--theia-editor-background);padding:11px;margin-top:12px}
 .akari-packs-confirm label{display:flex;align-items:flex-start;gap:6px;margin-top:9px}
 .akari-packs-error{color:var(--theia-errorForeground)!important}
-@media(max-width:750px){.akari-packs-layout{grid-template-columns:150px minmax(0,1fr)}.akari-packs-detail{grid-column:1/-1;border-top:1px solid var(--theia-widget-border);padding-top:12px}}
+@media(max-width:750px){.akari-packs-layout{grid-template-columns:150px minmax(0,1fr);height:auto}.akari-packs-nav,.akari-packs-list,.akari-packs-detail{overflow-y:visible}.akari-packs-detail{grid-column:1/-1;border-top:1px solid var(--theia-widget-border);padding-top:12px}}
 @media(max-width:520px){.akari-packs-layout{grid-template-columns:1fr}.akari-packs-nav,.akari-packs-list{border-right:0;border-bottom:1px solid var(--theia-widget-border);padding:0 0 10px}.akari-packs-nav{max-height:180px;overflow-y:auto}}
 `;
 
