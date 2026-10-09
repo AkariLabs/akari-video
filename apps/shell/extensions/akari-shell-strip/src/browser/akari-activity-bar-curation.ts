@@ -2,11 +2,21 @@ import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { computeLeftPanelOrder } from './left-panel-order';
-import { LeftRailTooltip } from './left-rail-tooltip';
+import { LeftRailTooltip, railViewLabel, shouldDismissExpandedRail } from './left-rail-tooltip';
+import { AkariScopeService } from './akari-scope-service';
+import { AkariExportAvailabilityService } from './akari-export-availability-service';
+import { installLeftRailStyle } from './left-rail-style';
+import { railDisabledIds, railOpenerCommand, railSelection } from '../common/rail-model';
+import {
+    AKARI_CATALOG_TAB_BODY_ATTRIBUTE, EXPORT_ONBOARDING_TARGET,
+    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID, RAIL_SKILLS_WIDGET_ID,
+    RAIL_EXPORT_OPENER_ID, RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID,
+    RAIL_SETTINGS_OPENER_ID, RAIL_ROLE_BUCKETS_WIDGET_ID
+} from '../common/rail-ids';
 
 /**
  * AKARI Video shell — S15 動的 activity bar curation。
@@ -50,9 +60,6 @@ interface CurationEntry {
     label: string | null;
 }
 
-const ROLE_BUCKETS_WIDGET_ID = 'akari-role-buckets-widget';
-const MENU_WIDGET_ID = 'akari-menu-widget';
-
 /**
  * サイドパネル最上部のタイトル帯（`.theia-sidepanel-toolbar`）を畳むビュー。
  * 素材/ライブラリ面は自前の固定セグメントを最上部に持っており、その上にさらに
@@ -60,7 +67,7 @@ const MENU_WIDGET_ID = 'akari-menu-widget';
  * （2026-09-03 オーナー指示「一番上に書いてある『素材』という文字はいらない」）。
  * 検索・パートナー/拡張はツールバー項目を持つので対象にしない。
  */
-const TITLE_BAR_SUPPRESSED_IDS = new Set([ROLE_BUCKETS_WIDGET_ID]);
+const TITLE_BAR_SUPPRESSED_IDS = new Set([RAIL_ROLE_BUCKETS_WIDGET_ID]);
 
 /** `ApplicationShell.leftPanelHandler` の、ここで触る分だけの最小形（Theia 内部 API）。 */
 interface LeftPanelInternals {
@@ -73,27 +80,28 @@ interface LeftPanelInternals {
     };
 }
 
-// ホームを固定先頭に置き、素材のモード切り替え後も順序を保つ。
-// 「素材」は下記 MODE_SENSITIVE_PAIR の 2 id のどちらか一方だけが常時表示される。
-// akari-settings-opener は AkariSettingsContribution.onStart、
-// akari-menu-widget は AkariMenuContribution.onStart で追加される自前 widget。
 const ALLOWLIST: CurationEntry[] = [
-    { id: 'akari-home-opener', label: null },
-    { id: EXPLORER_VIEW_CONTAINER_ID, label: '素材' },
-    { id: ROLE_BUCKETS_WIDGET_ID, label: null },
-    { id: 'search-view-container', label: '検索' },
-    { id: 'akari-settings-opener', label: null },
-    { id: MENU_WIDGET_ID, label: null }
+    { id: RAIL_EXPAND_ID, label: null },
+    { id: RAIL_PROJECT_OPENER_ID, label: null },
+    { id: RAIL_LIBRARY_OPENER_ID, label: null },
+    { id: RAIL_SKILLS_WIDGET_ID, label: null },
+    { id: RAIL_EXPORT_OPENER_ID, label: null },
+    { id: EXPLORER_VIEW_CONTAINER_ID, label: null },
+    { id: 'search-view-container', label: null },
+    { id: RAIL_CHANNEL_WIDGET_ID, label: null },
+    { id: RAIL_DEVELOPER_OPENER_ID, label: null },
+    { id: RAIL_SETTINGS_OPENER_ID, label: null },
+    { id: RAIL_ROLE_BUCKETS_WIDGET_ID, label: null }
 ];
 
 /** 保存レイアウトの順序や後からの追加にかかわらず、ALLOWLIST の順に揃える。 */
 const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
-    'akari-home-opener',
+    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID,
+    RAIL_SKILLS_WIDGET_ID, RAIL_EXPORT_OPENER_ID,
     EXPLORER_VIEW_CONTAINER_ID,
-    ROLE_BUCKETS_WIDGET_ID,
     'search-view-container',
-    'akari-settings-opener',
-    MENU_WIDGET_ID
+    RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID, RAIL_SETTINGS_OPENER_ID,
+    RAIL_ROLE_BUCKETS_WIDGET_ID
 ];
 
 const ALLOW_IDS = new Set(ALLOWLIST.map(e => e.id));
@@ -101,7 +109,7 @@ const LABEL_OVERRIDE = new Map(ALLOWLIST.map(e => [e.id, e.label]));
 
 // developer mode に応じてどちらか一方だけを見せる「素材」ペア。
 const DEVELOPER_MODE_WIDGET_ID = EXPLORER_VIEW_CONTAINER_ID;
-const NON_DEVELOPER_MODE_WIDGET_ID = ROLE_BUCKETS_WIDGET_ID;
+const NON_DEVELOPER_MODE_WIDGET_ID = RAIL_ROLE_BUCKETS_WIDGET_ID;
 
 @injectable()
 export class AkariActivityBarCuration implements FrontendApplicationContribution {
@@ -112,10 +120,23 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected readonly developerMode!: AkariDeveloperModeService;
     @inject(CommandService)
     protected readonly commands!: CommandService;
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
+    @inject(AkariScopeService)
+    protected readonly scopeService!: AkariScopeService;
+    @inject(AkariExportAvailabilityService)
+    protected readonly exportAvailability!: AkariExportAvailabilityService;
 
     protected shell?: ApplicationShell;
     protected loggedIds = new Set<string>();
     protected leftTooltip?: LeftRailTooltip;
+    protected catalogObserver?: MutationObserver;
+    protected leftRailObserver?: MutationObserver;
+    protected leftRailDecorateFrame = 0;
+    protected decoratingLeftRail = false;
+    protected restoreLeftPanelForProject = false;
+    protected railCloseTimer?: number;
+    protected railCloseAnimationEnd?: (event: AnimationEvent) => void;
 
     onDidInitializeLayout(app: FrontendApplication): Promise<void> {
         return guardInitLayout('akari-shell-strip', () => {
@@ -126,7 +147,6 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             // 起動時一括フィルタ（PoC 由来、pass 1）。
             this.reconcileLeftPanel('onDidInitializeLayout');
             void this.ensureModeAppropriateAssetView('onDidInitializeLayout');
-            void this.ensureMenuWidgetAttachment('onDidInitializeLayout');
 
             // S15 常時フィルタ: 左パネルに何か追加されるたび（VS Code 拡張の
             // 遅延 view container 追加を含む）に再走査する。
@@ -145,7 +165,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             // 左パネルのタブ切り替え（素材 ⇄ 検索 ⇄ パートナー…）ではウィジェットの
             // 追加が起きないので onDidAddWidget では拾えない。タイトル帯の出し入れは
             // tabBar.currentChanged（Lumino シグナル）に直接ぶら下げる。
-            this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => this.reconcileSidePanelTitleBar());
+            this.installLeftRailObservers?.();
 
             // developer mode の切り替え時に「素材」の表示先を即座に入れ替える。
             // トグルはアプリ再起動なしに反映される想定（task.md 要件）。
@@ -158,20 +178,157 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected installLeftRailInteractions(): void {
         const tabBar = this.shell?.leftPanelHandler.tabBar;
         if (!tabBar) { return; }
+        installLeftRailStyle();
         const renderer = tabBar.renderer as typeof tabBar.renderer & { handleMouseEnterEvent?: (event: MouseEvent) => void };
         renderer.handleMouseEnterEvent = () => undefined;
         if (!this.leftTooltip) { this.leftTooltip = new LeftRailTooltip(tabBar); }
-        // Lumino handles pointerdown on the tab bar node. Capture on its content
-        // prevents the home tab from ever becoming current, including when closed.
+        // 擬似タブは Lumino に選ばせず、コマンドへ直結する。
         tabBar.contentNode.addEventListener('pointerdown', event => {
             if (event.button !== 0) { return; }
             const tab = (event.target as Element | null)?.closest?.('.lm-TabBar-tab');
             const index = tab ? Array.from(tabBar.contentNode.children).indexOf(tab) : -1;
-            if (index < 0 || tabBar.titles[index]?.owner.id !== 'akari-home-opener') { return; }
+            const id = index >= 0 ? tabBar.titles[index]?.owner.id : undefined;
+            if (!id) return;
+            if (document.body.getAttribute('data-akari-rail-expanded') === 'closing') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (id === RAIL_EXPAND_ID) this.setExpanded(true);
+                return;
+            }
+            if (id !== RAIL_EXPAND_ID && document.body.getAttribute('data-akari-rail-expanded') === 'true') {
+                this.setExpanded(false);
+            }
+            const command = railOpenerCommand(id);
+            const disabled = railDisabledIds(this.scopeService.scope, this.exportAvailability.snapshot.exists).has(id);
+            if (!command && id !== RAIL_SKILLS_WIDGET_ID) return;
+            if (!command && !disabled) return;
             event.preventDefault();
             event.stopPropagation();
-            void this.commands.executeCommand('akari.home.open').catch(() => undefined);
+            if (disabled) {
+                const message = this.scopeService.scope === 'channel'
+                    ? id === RAIL_SKILLS_WIDGET_ID
+                        ? 'プロジェクトを開くと、スキルをパートナーに頼めます'
+                        : 'プロジェクトを開くと使えます'
+                    : '編集まで進むと使えます';
+                void this.messages.info(message);
+                return;
+            }
+            if (!command) return;
+            if (id === RAIL_EXPAND_ID) {
+                this.setExpanded(document.body.getAttribute('data-akari-rail-expanded') !== 'true');
+                return;
+            }
+            void this.commands.executeCommand(command.id, ...(command.args ? [command.args] : [])).catch(() => undefined);
         }, true);
+        let clearOutsideClick: (() => void) | undefined;
+        document.addEventListener('pointerdown', event => {
+            clearOutsideClick?.();
+            if (!shouldDismissExpandedRail(document.body.getAttribute('data-akari-rail-expanded'),
+                tabBar.node.contains(event.target as Node), event.button)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.setExpanded(false);
+            const stopFollowingEvent = (following: Event) => {
+                following.preventDefault();
+                following.stopPropagation();
+            };
+            const onPointerUp = (following: PointerEvent) => {
+                stopFollowingEvent(following);
+                document.removeEventListener('pointerup', onPointerUp, true);
+            };
+            const onMouseUp = (following: MouseEvent) => {
+                stopFollowingEvent(following);
+                document.removeEventListener('mouseup', onMouseUp, true);
+            };
+            const onClick = (following: MouseEvent) => {
+                stopFollowingEvent(following);
+                clear();
+            };
+            const clear = () => {
+                document.removeEventListener('pointerup', onPointerUp, true);
+                document.removeEventListener('mouseup', onMouseUp, true);
+                document.removeEventListener('click', onClick, true);
+                window.clearTimeout(timeout);
+                if (clearOutsideClick === clear) clearOutsideClick = undefined;
+            };
+            document.addEventListener('pointerup', onPointerUp, true);
+            document.addEventListener('mouseup', onMouseUp, true);
+            document.addEventListener('click', onClick, true);
+            const timeout = window.setTimeout(clear, 1000);
+            clearOutsideClick = clear;
+        }, true);
+    }
+
+    protected setExpanded(expanded: boolean): void {
+        const body = document.body;
+        if (!expanded && body.getAttribute('data-akari-rail-expanded') !== 'true') return;
+        const tabBarNode = this.shell?.leftPanelHandler.tabBar?.node;
+        if (this.railCloseTimer !== undefined) window.clearTimeout(this.railCloseTimer);
+        if (tabBarNode && this.railCloseAnimationEnd) tabBarNode.removeEventListener('animationend', this.railCloseAnimationEnd);
+        this.railCloseTimer = undefined;
+        this.railCloseAnimationEnd = undefined;
+        if (expanded) {
+            body.setAttribute('data-akari-rail-expanded', 'true');
+            return;
+        }
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !tabBarNode) {
+            body.removeAttribute('data-akari-rail-expanded');
+            return;
+        }
+        body.setAttribute('data-akari-rail-expanded', 'closing');
+        const finish = () => {
+            if (body.getAttribute('data-akari-rail-expanded') === 'closing') body.removeAttribute('data-akari-rail-expanded');
+            if (this.railCloseTimer !== undefined) window.clearTimeout(this.railCloseTimer);
+            tabBarNode.removeEventListener('animationend', onAnimationEnd);
+            this.railCloseTimer = undefined;
+            this.railCloseAnimationEnd = undefined;
+        };
+        const onAnimationEnd = (event: AnimationEvent) => {
+            if (event.target === tabBarNode && event.animationName === 'akari-rail-slide-out') finish();
+        };
+        this.railCloseAnimationEnd = onAnimationEnd;
+        tabBarNode.addEventListener('animationend', onAnimationEnd);
+        this.railCloseTimer = window.setTimeout(finish, 320);
+    }
+
+    protected installLeftRailObservers(): void {
+        void this.exportAvailability.refresh().then(() => this.reconcileLeftPanelOrder());
+        this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => {
+            this.reconcileSidePanelTitleBar();
+            this.reconcileLeftPanelOrder();
+            this.reconcileLeftPanelScope();
+            this.scheduleLeftRailDecoration();
+        });
+        const contentNode = this.shell?.leftPanelHandler.tabBar?.contentNode;
+        if (contentNode && !this.leftRailObserver) {
+            this.leftRailObserver = new MutationObserver(() => {
+                if (!this.decoratingLeftRail) this.scheduleLeftRailDecoration();
+            });
+            this.leftRailObserver.observe(contentNode, {
+                childList: true, subtree: true, attributes: true, attributeFilter: ['class']
+            });
+        }
+        this.scopeService.onDidChangeScope(() => {
+            this.reconcileLeftPanelScope();
+            this.reconcileLeftPanelOrder();
+        });
+        this.reconcileLeftPanelScope();
+        this.exportAvailability.onDidChange(() => this.reconcileLeftPanelOrder());
+        this.catalogObserver = new MutationObserver(() => this.reconcileLeftPanelOrder());
+        this.catalogObserver.observe(document.body, { attributes: true, attributeFilter: [AKARI_CATALOG_TAB_BODY_ATTRIBUTE] });
+    }
+
+    protected reconcileLeftPanelScope(): void {
+        const shell = this.shell;
+        if (shell && this.scopeService.scope === 'channel') {
+            if (this.leftPanelInternals()?.tabBar?.currentTitle?.owner.id === RAIL_ROLE_BUCKETS_WIDGET_ID) {
+                this.restoreLeftPanelForProject = true;
+                void shell.collapsePanel('left');
+            }
+        } else if (shell && this.restoreLeftPanelForProject) {
+            this.restoreLeftPanelForProject = false;
+            shell.expandPanel('left');
+        }
     }
 
     /**
@@ -206,24 +363,11 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
         if (this.developerMode.isEnabled) {
             const search = await this.widgetManager.getOrCreateWidget('search-view-container');
             if (!search.isAttached) { await shell.addWidget(search, { area: 'left', rank: 200 }); }
+            const developer = await this.widgetManager.getOrCreateWidget(RAIL_DEVELOPER_OPENER_ID);
+            if (!developer.isAttached) await shell.addWidget(developer, { area: 'left', rank: 390 });
         }
         await shell.revealWidget(showId);
-    }
-
-    /**
-     * メニュー（`akari-menu-widget`）は常時 1 種類の widget なので、
-     * 無ければ作り、既存なら再アタッチする。
-     */
-    protected async ensureMenuWidgetAttachment(trigger: string): Promise<void> {
-        const shell = this.shell;
-        if (!shell) {
-            return;
-        }
-        const widget = await this.widgetManager.getOrCreateWidget(MENU_WIDGET_ID);
-        if (!widget.isAttached) {
-            await shell.addWidget(widget, { area: 'left', rank: 500 });
-        }
-        this.reconcileLeftPanel(trigger);
+        this.reconcileLeftPanelScope();
     }
 
     protected reconcileLeftPanel(trigger: string): void {
@@ -251,7 +395,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 console.info(`[akari-shell-strip] left activity bar widget observed (trigger=${trigger}):`, JSON.stringify({ id, label: title.label }));
             }
             if (ALLOW_IDS.has(id)) {
-                const overriddenLabel = LABEL_OVERRIDE.get(id);
+                const overriddenLabel = railViewLabel(id, EXPLORER_VIEW_CONTAINER_ID) ?? LABEL_OVERRIDE.get(id);
                 if (overriddenLabel) {
                     title.label = overriddenLabel;
                 }
@@ -280,14 +424,51 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 tabBar.insertTab(index, title);
             }
         });
-        requestAnimationFrame(() => {
+        this.scheduleLeftRailDecoration();
+    }
+
+    protected scheduleLeftRailDecoration(): void {
+        if (this.leftRailDecorateFrame) return;
+        this.leftRailDecorateFrame = requestAnimationFrame(() => {
+            this.leftRailDecorateFrame = 0;
+            this.decorateLeftRailTabs();
+        });
+    }
+
+    protected decorateLeftRailTabs(): void {
+        const tabBar = this.shell?.leftPanelHandler.tabBar;
+        if (!tabBar) return;
+        this.decoratingLeftRail = true;
+        try {
+            const disabled = railDisabledIds(this.scopeService.scope, this.exportAvailability.snapshot.exists);
+            const selected = this.scopeService.scope === 'project'
+                ? railSelection(document.body.getAttribute(AKARI_CATALOG_TAB_BODY_ATTRIBUTE),
+                    tabBar.currentTitle?.owner.id, !this.shell?.isExpanded('left'))
+                : undefined;
+            const present = new Set(Array.from(tabBar.titles, title => title.owner.id));
+            const lowerStart = [RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID, RAIL_SETTINGS_OPENER_ID]
+                .find(id => present.has(id) && !this.isHidden(id));
             Array.from(tabBar.contentNode.children).forEach((element, index) => {
                 if (!(element instanceof HTMLElement)) return;
-                if (tabBar.titles[index]?.owner.id === MENU_WIDGET_ID) {
-                    element.setAttribute('data-akari-onboarding-target', 'menu-button');
-                }
+                const title = tabBar.titles[index];
+                const id = title?.owner.id;
+                if (!id) return;
+                element.setAttribute('data-akari-rail-id', id);
+                element.classList.toggle('akari-rail-disabled', disabled.has(id));
+                element.classList.toggle('akari-rail-selected', selected === id);
+                element.classList.toggle('akari-rail-separator', id === RAIL_EXPORT_OPENER_ID || id === lowerStart);
+                element.classList.toggle('akari-rail-lower-start', id === lowerStart);
+                element.toggleAttribute('data-akari-rail-hidden', id === RAIL_ROLE_BUCKETS_WIDGET_ID);
+                if (id === RAIL_EXPORT_OPENER_ID) element.setAttribute('data-akari-onboarding-target', EXPORT_ONBOARDING_TARGET);
+                else element.removeAttribute('data-akari-onboarding-target');
+                element.title = disabled.has(id)
+                    ? (id === RAIL_EXPORT_OPENER_ID ? '編集まで進むと使えます' : 'プロジェクトを開くと使えます')
+                    : title.caption || title.label;
             });
-        });
+        } finally {
+            this.leftRailObserver?.takeRecords();
+            this.decoratingLeftRail = false;
+        }
     }
 
     protected leftPanelInternals(): LeftPanelInternals | undefined {
@@ -324,10 +505,10 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
 
     /**
      * 素材（Explorer/ロールバケットの対）を developer mode で出し分ける。
-     * メニューを含むその他の allowlist widget はここでは隠さない。
+     * その他の allowlist widget はここでは隠さない。
      */
     protected isHidden(id: string): boolean {
-        if (id === 'search-view-container') { return !this.developerMode.isEnabled; }
+        if (id === 'search-view-container' || id === RAIL_DEVELOPER_OPENER_ID) { return !this.developerMode.isEnabled; }
         if (id === DEVELOPER_MODE_WIDGET_ID || id === NON_DEVELOPER_MODE_WIDGET_ID) {
             return this.isModeMismatched(id);
         }

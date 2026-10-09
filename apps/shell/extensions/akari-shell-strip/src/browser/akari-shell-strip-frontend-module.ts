@@ -10,10 +10,11 @@ import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsContribution, AkariSettingsOpener } from './akari-settings-contribution';
-import { AkariHomeOpener, AkariHomeOpenerContribution } from './akari-home-opener-contribution';
-import { AkariMenuWidget } from './akari-menu-widget';
-import { AkariMenuContribution } from './akari-menu-contribution';
+import { AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener,
+    AkariRailExportOpener, AkariRailDeveloperOpener, AkariRailOpenersContribution } from './akari-rail-openers';
 import { AkariMenuFocusCommandContribution } from './akari-menu-command-contribution';
+import { AkariLegacyMenuCommands } from './akari-legacy-menu-commands';
+import { AkariSkillCatalogService } from './akari-skill-catalog-service';
 import { AkariMenuCuration } from './akari-menu-curation';
 import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
@@ -36,8 +37,11 @@ import { AkariStatusbarResources } from './statusbar/akari-statusbar-resources';
 import { AkariStatusBar } from './statusbar/akari-statusbar';
 import { StatusBar, StatusBarImpl } from '@theia/core/lib/browser/status-bar/status-bar';
 import { AkariStatusbarResourcesService, AKARI_STATUSBAR_RESOURCES_PATH } from '../common/statusbar-resources-protocol';
+import { bindSkillsPanel } from './akari-skills-bindings';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    // 1 枚の画面 v0（contract-2026-10-08-one-shell-v0 §3 レーン S）: スキルの左パネルの束ね口。
+    bindSkillsPanel(bind);
     // ApplicationShell と各 contribution が同じ StatusBar 実体を使う。
     rebind(StatusBarImpl).to(AkariStatusBar).inSingletonScope();
     rebind(StatusBar).toService(StatusBarImpl);
@@ -85,15 +89,18 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariActivityBarCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariActivityBarCuration);
 
-    bind(AkariHomeOpener).toSelf();
-    bind(WidgetFactory).toDynamicValue(ctx => ({
-        id: AkariHomeOpener.ID,
-        createWidget: () => ctx.container.get(AkariHomeOpener)
-    })).inSingletonScope();
-    bind(AkariHomeOpenerContribution).toSelf().inSingletonScope();
-    bind(FrontendApplicationContribution).toService(AkariHomeOpenerContribution);
+    for (const opener of [AkariRailExpandOpener, AkariRailProjectOpener, AkariRailLibraryOpener,
+        AkariRailExportOpener, AkariRailDeveloperOpener]) {
+        bind(opener).toSelf();
+        bind(WidgetFactory).toDynamicValue(ctx => ({
+            id: opener.ID,
+            createWidget: () => ctx.container.get(opener)
+        })).inSingletonScope();
+    }
+    bind(AkariRailOpenersContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariRailOpenersContribution);
 
-    // 4番目のアイコン（設定）から surfaces のダイアログを開く。
+    // 設定の擬似タブから surfaces のダイアログを開く。
     bind(AkariSettingsOpener).toSelf();
     bind(WidgetFactory).toDynamicValue(ctx => ({
         id: AkariSettingsOpener.ID,
@@ -102,17 +109,12 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariSettingsContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariSettingsContribution);
 
-    // 5番目のアイコン（メニュー）— 「ひらく」よく使う画面へのショートカットと
-    // 「やらせる（スキル）」プロジェクトの .claude/skills 一覧を見せる v0
-    bind(AkariMenuWidget).toSelf();
-    bind(WidgetFactory).toDynamicValue(ctx => ({
-        id: AkariMenuWidget.ID,
-        createWidget: () => ctx.container.get(AkariMenuWidget)
-    })).inSingletonScope();
-    bind(AkariMenuContribution).toSelf().inSingletonScope();
-    bind(FrontendApplicationContribution).toService(AkariMenuContribution);
+    bind(AkariSkillCatalogService).toSelf().inSingletonScope();
     bind(AkariMenuFocusCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariMenuFocusCommandContribution);
+    bind(AkariLegacyMenuCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariLegacyMenuCommands);
+    bind(FrontendApplicationContribution).toService(AkariLegacyMenuCommands);
 
     // S17: メニューバー消し込み
     bind(AkariMenuCuration).toSelf().inSingletonScope();

@@ -139,7 +139,7 @@ test('widget: 素材を選ぶと編集を表示し、タイムライン選択変
 
 test('インスペクターは素材イベントで開き、タイムライン選択で対象を消す', () => {
   assert.match(source, /window\.addEventListener\(AKARI_MATERIAL_SELECTED_EVENT/u);
-  assert.match(source, /'akari\.inspector\.open', \{ tabId: 'generation' \}/u);
+  assert.match(source, /'akari\.inspector\.open', \{ tabId: 'generation', attachOnly: true \}/u);
   assert.match(source, /if \(!widget\) \{[\s\S]*getOrCreateWidget/u);
   assert.match(method('init'), /this\.model\.onChanged\(\(\) => \{\s*this\.clearSoloForSelectionChange\(\);\s*if \(this\.materialSelection\) \{\s*this\.materialSelection = undefined;/u);
   assert.match(method('renderContent'), /if \(this\.materialSelection\) \{[\s\S]*appendAiMaterialView/u);
@@ -173,9 +173,9 @@ test('タイムラインが無いときも素材イベントからインスペ�
     );
     listeners.get(AKARI_MATERIAL_SELECTED_EVENT)({ detail: detail('image', 'assets/still.png') });
     await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(calls.map(row => row[0]), ['create', 'add', 'reveal', 'select']);
+    assert.deepEqual(calls.map(row => row[0]), ['create', 'add', 'select']);
     assert.equal(calls[1][1], 'right');
-    assert.equal(calls[3][1].mediaKind, 'image');
+    assert.equal(calls[2][1].mediaKind, 'image');
   } finally {
     if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow); else delete globalThis.window;
   }

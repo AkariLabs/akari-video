@@ -7,6 +7,7 @@ import { AkariExportAvailabilityService } from './akari-export-availability-serv
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { exportUnavailableReason, exportToolbarState } from '../common/export-toolbar-state';
+import { AkariScopeService } from './akari-scope-service';
 
 export const OPEN_EXPORT_DIALOG: Command = { id: 'akari.export.openDialog', label: '書き出し…' };
 
@@ -18,6 +19,7 @@ export class AkariExportToolbarContribution implements CommandContribution, TabB
     @inject(AkariExportAvailabilityService) protected readonly availability!: AkariExportAvailabilityService;
     @inject(AkariExportSessionService) protected readonly exportSession!: AkariExportSessionService;
     @inject(AkariExportDialog) protected readonly exportDialog!: AkariExportDialog;
+    @inject(AkariScopeService) protected readonly scopeService!: AkariScopeService;
 
     protected readonly changed = new Emitter<void>();
     protected readonly toDispose = new DisposableCollection();
@@ -27,6 +29,7 @@ export class AkariExportToolbarContribution implements CommandContribution, TabB
         this.toDispose.push(this.changed);
         this.toDispose.push(this.availability.onDidChange(() => this.changed.fire()));
         this.toDispose.push(this.exportSession.onDidChange(() => this.changed.fire()));
+        this.toDispose.push(this.scopeService.onDidChangeScope(() => this.changed.fire()));
     }
 
     registerCommands(commands: CommandRegistry): void {
@@ -50,7 +53,7 @@ export class AkariExportToolbarContribution implements CommandContribution, TabB
             command: OPEN_EXPORT_DIALOG.id,
             group: 'navigation',
             priority: 100,
-            isVisible: widget => !!widget && this.shell.getAreaFor(widget) === 'main',
+            isVisible: widget => this.scopeService.scope === 'project' && !!widget && this.shell.getAreaFor(widget) === 'main',
             onDidChange: this.changed.event,
             render: () => this.renderButton()
         });

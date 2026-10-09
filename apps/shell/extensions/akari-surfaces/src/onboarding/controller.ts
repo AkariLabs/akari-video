@@ -14,6 +14,7 @@ import { introVisual, inviteMarkup } from './intro-model';
 import { groupChatLines } from './chat-model';
 import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
     guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
+import { EXPORT_ONBOARDING_TARGET } from 'akari-shell-strip/lib/common/rail-ids';
 
 interface CoachSpec {
     key?: string;
@@ -167,7 +168,7 @@ export class OnboardingController {
         this.followTargets();
         if (this.state.step === 'prompt' && this.state.sub === 0) this.startPromptTypewriter();
         if (this.state.step === 'work') void this.startWork();
-        if (this.state.step === 'export' && this.state.sub >= 3) this.beginExportPoll();
+        if (this.state.step === 'export' && this.state.sub === 2) this.beginExportPoll();
         this.enterStep();
     }
 
@@ -475,10 +476,13 @@ export class OnboardingController {
         }
         if (step === 'export') {
             if (sub === 0) {
-                if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
-                if (this.exportMenuIsOpen()) await this.setSub(1);
-            } else {
-                document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${['menu-button', 'export-button', 'export-submit'][sub]}"]`)?.click();
+                if (!this.exportDialogIsOpen()) {
+                    this.pressExportRailTab();
+                    await new Promise<void>(resolve => window.setTimeout(resolve, 150));
+                }
+                if (this.exportDialogIsOpen()) await this.setSub(1);
+            } else if (sub === 1) {
+                document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${[EXPORT_ONBOARDING_TARGET, 'export-submit'][sub]}"]`)?.click();
             }
         }
     }
@@ -549,12 +553,11 @@ export class OnboardingController {
                 : sub === 1 ? { ...DAIHON_GUIDE_COPY[1], clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top' }
                 : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [['次へ', 'next', true]] };
             case 'export': return ([
-                { title: '書き出しは、左のメニューから', clear: ['menu-button'], rings: ['menu-button'], bounce: true, body: '<p>≡ を押してください。</p>' },
-                { title: '「書き出し…」を押します', clear: ['menu-panel'], rings: ['export-button'], bounce: true, body: '<p>編集データ（edit.json）ができていると押せます。</p>' },
+                { title: '書き出しは、左の列の「書き出し」から', clear: [EXPORT_ONBOARDING_TARGET], rings: [EXPORT_ONBOARDING_TARGET], bounce: true, body: '<p>左の列の「書き出し」を押してください。編集データ（edit.json）ができていると押せます。</p>' },
                 { title: '標準のまま「書き出す」', clear: ['export-dialog'], rings: ['export-submit'], bounce: true, place: 'top', body: '<p>画質や保存先は、ここで変えられます。</p>' },
                 { title: '書き出しています', noDim: true, rings: ['export-progress'], place: 'bottom', body: '<p>進み具合は右下に出ます。そのまま作業を続けても大丈夫です。</p>' },
                 { title: '書き出せました', clear: ['assets'], rings: ['export-result'], body: '<p>できたファイルは「できたもの」に並びます。</p><p>AI パートナーに「書き出して」と頼んでも書き出せます（中身を見せて、確認してから実行します）。</p>', buttons: [['次へ', 'next', true]] }
-            ] as CoachSpec[])[Math.min(sub, 4)];
+            ] as CoachSpec[])[Math.min(sub, 3)];
             default: return undefined;
         }
     }
@@ -1001,7 +1004,7 @@ export class OnboardingController {
             if (step === 'caption' && this.state.sub === 1) return this.setSub(2);
             if (['tour0', 'matpreview', 'play', 'caption', 'daihon', 'export'].includes(step)
                 && (step === 'tour0' ? this.state.sub < 1 : step === 'caption' ? this.state.sub < 2
-                    : step === 'export' ? this.state.sub < 4 : step === 'daihon' ? this.state.sub < 2 : this.state.sub < 1)) return this.nudge();
+                    : step === 'export' ? this.state.sub < 3 : step === 'daihon' ? this.state.sub < 2 : this.state.sub < 1)) return this.nudge();
             const next: Partial<Record<OnboardingStep, OnboardingStep>> = {
                 tour1: 'tour2', tour2: 'tour3', matpreview: 'ask', play: 'caption', caption: 'daihon',
                 daihon: 'export', export: 'done'
@@ -1009,6 +1012,7 @@ export class OnboardingController {
             if (next[step]) await this.go(next[step]!);
         } else if (action === 'yes') await this.go('invite');
         else if (action === 'back') {
+            if (this.state.step === 'export' && this.state.sub === 2) return;
             const previous = previousGuidePosition(this.state);
             if (previous) {
                 if (this.state.step === 'export') this.restoreExportBackSurface();
@@ -1099,22 +1103,18 @@ export class OnboardingController {
     }
 
     protected restoreExportBackSurface(): void {
-        if (this.state.sub === 2) {
-            // Setup has not submitted an export yet. Closing it restores access to the menu action.
+        if (this.state.sub === 1) {
             document.querySelector<HTMLElement>('.akari-export-dialog-host button[aria-label="閉じる"]')?.click();
-            if (!this.exportMenuIsOpen()) this.pressExportMenuTab();
-        } else if (this.state.sub === 1 && this.exportMenuIsOpen()) {
-            this.pressExportMenuTab();
         }
     }
 
-    protected exportMenuIsOpen(): boolean {
-        const menu = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-panel"]');
-        return !!menu && menu.getClientRects().length > 0 && getComputedStyle(menu).visibility === 'visible';
+    protected exportDialogIsOpen(): boolean {
+        const dialog = document.querySelector<HTMLElement>('.akari-export-dialog-host');
+        return !!dialog && dialog.getClientRects().length > 0 && getComputedStyle(dialog).visibility === 'visible';
     }
 
-    protected pressExportMenuTab(): void {
-        const tab = document.querySelector<HTMLElement>('[data-akari-onboarding-target="menu-button"]');
+    protected pressExportRailTab(): void {
+        const tab = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${EXPORT_ONBOARDING_TARGET}"]`);
         if (!tab) return;
         const rect = tab.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
@@ -1156,7 +1156,7 @@ export class OnboardingController {
         else if (this.state.step === 'daihon' && name === 'daihon-button' && this.state.sub === 0) void this.setSub(1);
         else if (this.state.step === 'daihon' && name === 'daihon-first-row' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'export') {
-            const expected = ['menu-button', 'export-button', 'export-submit'][this.state.sub];
+            const expected = [EXPORT_ONBOARDING_TARGET, 'export-submit'][this.state.sub];
             if (name === expected) void this.setSub(this.state.sub + 1);
             else this.nudge();
         } else if (!['drag', 'play', 'caption', 'matpreview'].includes(this.state.step)) this.nudge();
@@ -1282,9 +1282,9 @@ export class OnboardingController {
     protected beginExportPoll(): void {
         if (this.exportPoll) window.clearInterval(this.exportPoll);
         this.exportPoll = window.setInterval(() => {
-            if (this.state.step !== 'export' || this.state.sub !== 3 || !this.state.projectUri || this.exportFinishing) return;
+            if (this.state.step !== 'export' || this.state.sub !== 2 || !this.state.projectUri || this.exportFinishing) return;
             void this.service.hasExport(this.state.projectUri).then(async found => {
-                if (!found || this.state.step !== 'export' || this.state.sub !== 3 || this.exportFinishing) return;
+                if (!found || this.state.step !== 'export' || this.state.sub !== 2 || this.exportFinishing) return;
                 const dialog = document.querySelector<HTMLElement>('.akari-export-dialog-host');
                 if (dialog && !dialog.textContent?.includes('書き出し完了')) return;
                 this.exportFinishing = true;
@@ -1292,7 +1292,7 @@ export class OnboardingController {
                     dialog?.querySelector<HTMLButtonElement>('button[aria-label="閉じる"]')?.click();
                     await this.showAssets();
                     window.dispatchEvent(new Event('akari.onboarding.refreshProject'));
-                    await this.setSub(4);
+                    await this.setSub(3);
                 } finally { this.exportFinishing = false; }
             });
         }, 1000);

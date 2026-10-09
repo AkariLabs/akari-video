@@ -17,6 +17,8 @@ import { installRightRailIconStyle } from './right-rail-icons';
 import { RightRailTooltip } from './right-rail-tooltip';
 import { trackDragGesture } from './right-rail-drag-gesture';
 import { RightPanelDockSlot } from './right-panel-dock-slot';
+import { RIGHT_RAIL_LAST_TAB_KEY, rightRailLogicalTab } from './right-rail-last-tab';
+import { railNameForPartner } from '../common/partner-rail-name';
 
 type RailLayoutData = SidePanel.LayoutData & { akariRail?: unknown };
 type PanelMover = (widget: Widget, area: 'main' | 'bottom' | 'right') => Promise<void>;
@@ -55,6 +57,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
     protected separatorFrame = 0;
     protected readonly paneTabBars = new Set<TabBar<Widget>>();
     protected readonly decoratedPaneTabBars = new WeakSet<TabBar<Widget>>();
+    protected pointerTab: Title<Widget> | undefined;
 
     protected readonly onDidStartPanelDragEmitter = new Emitter<Widget>();
     /** レール・右パネルの見出しからパネルを持ち上げたとき（置き場所の表示は AkariRightRailDnd が出す）。 */
@@ -72,9 +75,20 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         this.tabBar.tabsMovable = false;
         this.suppressDelayedHover();
         this.tooltip = new RightRailTooltip(this.tabBar);
+        this.tabBar.currentChanged.connect((_, { currentTitle }) => {
+            if (currentTitle && currentTitle === this.pointerTab) {
+                const logical = rightRailLogicalTab(currentTitle.owner.id);
+                if (logical) {
+                    try { window.localStorage.setItem(RIGHT_RAIL_LAST_TAB_KEY, logical); } catch { /* storage unavailable */ }
+                }
+            }
+        });
         this.installRailPointer();
         this.installToolbarDrag();
         this.installPaneFocusTracking();
+        new MutationObserver(() => this.decorateModeName())
+            .observe(this.bottomMenu.node, { childList: true, subtree: true });
+        this.decorateModeName();
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(() => this.scheduleSeparator()).observe(this.tabBar.node);
         }
@@ -416,7 +430,9 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             onClick: (x, y) => {
                 const title = tabAt(x, y);
                 if (title) {
-                    this.clickRail(title);
+                    this.pointerTab = title;
+                    try { this.clickRail(title); }
+                    finally { this.pointerTab = undefined; }
                 }
             },
             onStart: (x, y, pressX, pressY) => {
@@ -547,6 +563,19 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         });
     }
 
+    protected decorateModeName(): void {
+        const modeMenu = this.bottomMenu.node.querySelector<HTMLElement>('.akari-mode-switch-icon')
+            ?.closest<HTMLElement>('.theia-sidebar-menu-item');
+        if (modeMenu && !modeMenu.querySelector('.akari-mode-rail-name')) {
+            const name = document.createElement('span');
+            name.className = 'akari-mode-rail-name';
+            name.setAttribute('data-akari-rail-name', 'モード');
+            name.textContent = 'モード';
+            name.style.cssText = 'display:block;text-align:center;font-size:8px;line-height:12px;white-space:nowrap';
+            modeMenu.appendChild(name);
+        }
+    }
+
     protected layoutSeparator(): void {
         const node = this.tabBar.node;
         const height = node.clientHeight;
@@ -555,7 +584,25 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         }
         const tabs = Array.from(this.tabBar.contentNode.children) as HTMLElement[];
         tabs.forEach((tab, index) => {
-            if (this.tabBar.titles[index]?.owner.id === 'akari-daihon-widget') {
+            const id = this.tabBar.titles[index]?.owner.id;
+            if (id) tab.setAttribute('data-akari-rail-id', id);
+            const title = this.tabBar.titles[index];
+            if (id === 'akari-partner-onboarding' && title && title.label !== 'パートナー') {
+                title.label = 'パートナー';
+            }
+            const label = tab.querySelector<HTMLElement>('.lm-TabBar-tabLabel');
+            if (label) {
+                const name = id === 'akari-partner-onboarding' ? 'パートナー'
+                    : id === 'akari-daihon-widget' ? '台本'
+                    : id === 'akari-review-panel-widget' ? '注釈'
+                    : id === 'akari-inspector-widget' ? 'インスペクター'
+                    : id === 'akari-audio-meter-widget' ? '音声'
+                    : id && (id.startsWith('terminal-') || id === 'akari-partner-web')
+                        ? railNameForPartner(id, title?.label || '', title?.caption)
+                    : this.tabBar.titles[index]?.label || '';
+                label.setAttribute('data-akari-rail-name', name);
+            }
+            if (id === 'akari-daihon-widget') {
                 tab.setAttribute('data-akari-onboarding-target', 'daihon-button');
             }
         });

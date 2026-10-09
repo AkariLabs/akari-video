@@ -1,9 +1,24 @@
-import { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+import type { TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
+
+export function shouldDismissExpandedRail(expanded: string | null, insideRail: boolean, button: number): boolean {
+    return expanded === 'true' && !insideRail && button === 0;
+}
+
+export function railViewLabel(id: string, explorerId: string): string | undefined {
+    if (id === explorerId) return 'エクスプローラー';
+    if (id === 'search-view-container') return '検索';
+    return undefined;
+}
+
+export function shouldShowLeftRailTooltip(expanded: string | null, dragActive: boolean, suppressUntil = 0, now = Date.now()): boolean {
+    return expanded === null && !dragActive && now >= suppressUntil;
+}
 
 /** An immediate chip for the left activity bar; identity follows the title across DOM redraws. */
 export class LeftRailTooltip {
     readonly node: HTMLDivElement;
     protected title: Title<Widget> | undefined;
+    protected suppressUntil = 0;
 
     constructor(protected readonly tabBar: TabBar<Widget>) {
         if (!document.getElementById('akari-left-rail-tip-style')) {
@@ -21,6 +36,15 @@ export class LeftRailTooltip {
             document.body.appendChild(this.node);
         }
         const content = tabBar.contentNode;
+        let wasClosing = document.body.getAttribute?.('data-akari-rail-expanded') === 'closing';
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(() => {
+                const closing = document.body.getAttribute?.('data-akari-rail-expanded') === 'closing';
+                if (wasClosing && !closing) this.suppressUntil = Date.now() + 300;
+                wasClosing = closing;
+                if (closing) this.hide();
+            }).observe(document.body, { attributes: true, attributeFilter: ['data-akari-rail-expanded'] });
+        }
         content.addEventListener('mouseover', event => this.onOver(event));
         content.addEventListener('mouseleave', () => this.hide());
         content.addEventListener('focusout', () => this.hide());
@@ -32,13 +56,16 @@ export class LeftRailTooltip {
         const tab = (event.target as Element | null)?.closest?.('.lm-TabBar-tab');
         const index = tab ? Array.from(this.tabBar.contentNode.children).indexOf(tab) : -1;
         const title = index >= 0 ? this.tabBar.titles[index] : undefined;
-        if (!tab || !title || document.body.classList.contains('akari-rail-drag-active')) {
+        if (!tab || !title || !shouldShowLeftRailTooltip(document.body.getAttribute?.('data-akari-rail-expanded') ?? null,
+            document.body.classList.contains('akari-rail-drag-active'), this.suppressUntil)) {
             this.hide();
             return;
         }
         if (this.title === title && this.node.style.display === 'block') { return; }
         this.title = title;
-        this.node.textContent = title.caption || title.label;
+        this.node.textContent = tab.classList?.contains('akari-rail-disabled')
+            ? tab.getAttribute('title') || title.caption || title.label
+            : title.caption || title.label;
         this.node.style.display = 'block';
         const box = tab.getBoundingClientRect();
         this.node.style.top = `${Math.round(box.top + box.height / 2 - this.node.offsetHeight / 2)}px`;

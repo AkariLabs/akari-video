@@ -2,7 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import URI from '@theia/core/lib/common/uri';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { CommandService, MessageService } from '@theia/core/lib/common';
+import { CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, OpenerService, open, QuickInputService, WidgetManager } from '@theia/core/lib/browser';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -15,6 +15,8 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileStat, FileOperationResult, toFileOperationResult } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WorkspaceCommands } from '@theia/workspace/lib/browser/workspace-commands';
+import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
+import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { captionSourcePathRule } from 'akari-project/lib/common/caption-source-path-rule';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
@@ -69,7 +71,6 @@ import {
 } from '../common/akari-new-project-protocol';
 import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
-import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { runAutomaticNetworkCheck } from '../common/automatic-network-check';
 import { AkariSettingsMaintenanceService } from '../common/settings-maintenance-protocol';
@@ -77,9 +78,19 @@ import { AkariOnboardingService } from '../onboarding/protocol';
 import { OnboardingController } from '../onboarding/controller';
 import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
-import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
-import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
+import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
+import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
+import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
+import { resolveListChannel } from './home/project-list-channel';
+import { projectHomeCss } from './home/project-home-style';
+import { animateProjectOpen } from './home/open-motion';
+import { decideOpenFlow, openChoices, OpenChoice } from './home/home-open-decision';
+import { eventHistoryEntry, exportHistoryEntry, HomeHistoryEntry, sortHomeHistory } from './home/home-history';
+import type { OpenProjectRequest } from './akari-home-command-contribution';
+import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
+import { AkariChannelContextService } from './channel/akari-channel-context-service';
+import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
 import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_ICON, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, shouldLoadMoreProjects, sortProjects } from '../common/project-browser';
@@ -165,7 +176,28 @@ const CREATOR_ROOT_DEFAULT_CHANNEL = 'my-channel';
 const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
 
 // --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） ---
-const NEW_PROJECT_NAME_SLUG = 'new-video';
+function newProjectNameStem(date = new Date()): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}-${hour}${minute}`;
+}
+
+function newProjectDisplayTitle(date = new Date()): string {
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `新しい動画 ${date.getMonth() + 1}/${date.getDate()} ${hour}:${minute}`;
+}
+
+function newProjectDisplayTitleFor(name: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(?:-\d+)?$/.exec(name);
+    if (match) {
+        const [, year, month, day, hour, minute] = match;
+        return newProjectDisplayTitle(new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+    }
+    return newProjectDisplayTitle();
+}
 
 // --- U3 プロジェクト一覧の「単体」行（task 2026-08-03-home-v5-terms） ---
 interface CreatorRootProjectEntry extends ProjectDetails {
@@ -233,10 +265,16 @@ interface IntakeSnapshot {
 
 @injectable()
 export class AkariHomeWidget extends ReactWidget {
-    static readonly ID = 'akari-home-widget';
+    static readonly ID = HOME_WIDGET_ID;
 
     @inject(OpenerService) protected readonly openers: OpenerService;
     @inject(ApplicationShell) protected readonly shell: ApplicationShell;
+    @inject(CommandRegistry) protected readonly commandRegistry!: CommandRegistry;
+    @inject(ContextKeyService) protected readonly contextKeys!: ContextKeyService;
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(ProjectProgressService) protected readonly progress!: ProjectProgressService;
+    @inject(AkariScopeService) protected readonly scope!: AkariScopeService;
+    @inject(AkariChannelContextService) protected readonly channelContext!: AkariChannelContextService;
     protected projectSort: ProjectSortOrder = readProjectSort('home');
     protected projectRefreshing = false;
     protected projectQuery = '';
@@ -354,6 +392,7 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- F5 新しい動画を始める ---
     protected startingNewProject = false;
+    protected newProjectOriginRect: DOMRect | undefined;
 
     // --- U2 状態バッジ（旧 F6 現在地 1 行を置換。task 2026-08-03-home-v5-terms） ---
     protected currentLocation: CurrentLocation | undefined;
@@ -361,22 +400,38 @@ export class AkariHomeWidget extends ReactWidget {
     protected currentProjectUri: URI | undefined;
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
-    protected homeDialog: 'start' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | undefined;
+    protected homeDialog: 'templates' | 'open' | 'channels' | 'channel-create' | 'channel-choice' | 'standalone-create' | undefined;
     protected chosenFolder: URI | undefined;
+    protected standaloneFolder: URI | undefined;
+    protected standaloneDestination: URI | undefined;
     protected openChoice: 'channel' | 'standalone' = 'channel';
     protected channels: string[] = [];
+    protected listChannelOverride: string | undefined;
+    protected projectListRefreshToken = 0;
     protected pendingChannel: string | undefined;
     protected pendingChannelProjectUri: URI | undefined;
     protected newChannelName = '';
     protected newChannelError = '';
     protected creatingChannel = false;
-    protected voiceRequirement = '';
+    protected projectTemplates: ProjectTemplate[] = [...BUILTIN_PROJECT_TEMPLATES];
+    protected applyingTemplate = false;
+    protected renamingProject = false;
+    protected projectNameDraft = '';
     /** 直近に描いた一覧の全件数。スクロール追い読み（{@link handleHomeScroll}）が参照する。 */
     protected projectRowsTotal = 0;
     protected currentFrames: string[] = [];
     protected currentStats: HomeStats = {};
     protected currentCanPreview = false;
     protected currentDisplayPath = '';
+    protected openPrompt: { request: OpenProjectRequest; name: string; badge: string; updatedAt?: number; busy: boolean } | undefined;
+    protected closePrompt = false;
+    protected noAskChecked = false;
+    protected queuedOpen: OpenProjectRequest | undefined;
+    protected historyOpen = false;
+    protected menuOpen = false;
+    protected historyEntries: HomeHistoryEntry[] = [];
+    protected latestReport: URI | undefined;
+    protected latestExport: URI | undefined;
 
     // --- ホーム v3 由来: 接続状態の判定 / 進め方フォーム ---
     // 接続案内カード自体は裁定 C4 により撤去済み（task 2026-08-17-home-launcher-popup）。
@@ -388,9 +443,8 @@ export class AkariHomeWidget extends ReactWidget {
     protected intakeSnapshot: IntakeSnapshot | undefined;
 
     // 進め方フォームを dashboard 内の展開セクションとして開いているか。
-    // v4 ではホーム上のカードから開く経路が無くなったため、
-    // `akari.home.openIntakeForm` コマンド（akari-home-command-contribution.ts）
-    // 経由でのみ開く。画面の切り替えではなく「開いている / 畳んでいる」だけの
+    // 企画の「詳しく」と `akari.home.openIntakeForm` コマンドから開く。
+    // 画面の切り替えではなく「開いている / 畳んでいる」だけの
     // 純粋な UI 状態で、工程の状態は一切表さない（工程の SSOT は intake.json のまま）。
     protected intakeFormOpen = false;
     // プリフィル時に intake.json から読んだ target.taste の生値。見直し中に
@@ -421,9 +475,26 @@ export class AkariHomeWidget extends ReactWidget {
     protected init(): void {
         this.id = AkariHomeWidget.ID;
         this.title.label = 'ホーム';
-        this.title.caption = 'AKARI プロジェクトホーム';
+        this.title.caption = 'ホーム';
         this.title.iconClass = 'codicon codicon-home';
         this.title.closable = false;
+        this.title.label = this.scope.scope === 'channel' ? 'プロジェクト一覧' : 'ホーム';
+        this.toDispose.push(this.scope.onDidChangeScope(scope => {
+            this.title.label = scope === 'channel' ? 'プロジェクト一覧' : 'ホーム';
+            if (scope === 'channel') this.setListChannelOverride(undefined);
+            this.update();
+        }));
+        this.toDispose.push(this.progress.onDidChange(() => this.update()));
+        this.toDispose.push(this.contextKeys.onDidChange(() => {
+            if (this.queuedOpen && !this.isPartnerBusy()) {
+                const request = this.queuedOpen;
+                this.queuedOpen = undefined;
+                void this.commitOpenProject(request, false);
+            }
+        }));
+        const clearReservation = (): void => { this.queuedOpen = undefined; };
+        window.addEventListener('beforeunload', clearReservation);
+        this.toDispose.push({ dispose: () => window.removeEventListener('beforeunload', clearReservation) });
         void this.watchStoreConnection().catch(error => console.warn('[akari-surfaces] store status watch failed:', error));
         // カードのホバー再生は React の外で DOM を持つため、widget と一緒に必ず止める。
         this.toDispose.push({
@@ -470,10 +541,8 @@ export class AkariHomeWidget extends ReactWidget {
         // 内側かどうかの判定に使うため。
         await measureStep('refreshCurrentLocation', () => this.refreshCurrentLocation());
         await measureStep('loadCurrentBand', () => this.loadCurrentBand());
-        void this.resumeStartKind();
         this.homeReady = true;
         this.update();
-        // ランチャーは別モーダルでホーム面のデータを作らないため後段へ（初回セットアップの優先判定は引き継ぐ）。
         await measureStep('initializeProjectLauncher', () => this.initializeProjectLauncher(firstRunWillAutoOpen));
         // 更新通知はホームの判定・一覧に依存されないため後段へ。
         await measureStep('loadUpdateStatus', () => this.loadUpdateStatus());
@@ -529,7 +598,8 @@ export class AkariHomeWidget extends ReactWidget {
         void this.refreshHomeFlow();
         void this.loadCreatorRootProjects()
             .then(() => this.loadStandaloneProjects())
-            .then(() => this.refreshCurrentLocation());
+            .then(() => this.refreshCurrentLocation())
+            .then(() => this.loadCurrentBand());
     }
 
     /**
@@ -540,6 +610,11 @@ export class AkariHomeWidget extends ReactWidget {
         const roots = await this.workspaceService.roots;
         this.welcomeMode = roots.length === 0;
         this.update();
+    }
+
+    /** channel モードの一覧がランチャーを兼ねる。初期化段は既存の起動契約のため保持する。 */
+    protected async initializeProjectLauncher(_firstRunWillAutoOpen: boolean): Promise<void> {
+        this.showPendingGuideAnnouncement();
     }
 
     /**
@@ -584,7 +659,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.firstVideoGuide ??= new OnboardingController(
             this.onboardingService,
             this.fileService,
-            uri => this.workspaceService.openWorkspace(new URI(uri), { preserveWindow: true }),
+            async uri => { await this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri, reason: 'onboarding' }); },
             async uri => {
                 const editUri = new URI(uri).resolve('edit.json');
                 if (await this.fileService.exists(editUri)) {
@@ -607,23 +682,6 @@ export class AkariHomeWidget extends ReactWidget {
             void this.messages.error('ガイドを開けませんでした。', '閉じる');
         }
     };
-
-    /**
-     * ランチャーの自動表示判定（正本 §3.2）。純ロジックは `launcher-visibility.ts` に
-     * 分離してあり、ここは状態集めと呼び出しだけを行う。
-     */
-    protected async initializeProjectLauncher(firstRunWillAutoOpen: boolean): Promise<void> {
-        const roots = await this.workspaceService.roots;
-        if (!shouldAutoOpenProjectLauncher({
-            hasOpenProject: roots.length > 0,
-            firstRunWillAutoOpen,
-            dismissedThisSession: this.launcherDismissedThisSession
-        })) {
-            this.showPendingGuideAnnouncement();
-            return;
-        }
-        void this.openProjectLauncher();
-    }
 
     /** Mount only after a launcher dialog is present: an already mounted body sibling becomes inert. */
     protected showPendingGuideAnnouncement(): void {
@@ -840,12 +898,9 @@ export class AkariHomeWidget extends ReactWidget {
                     await this.loadCreatorRootProjects();
                 },
                 onFinished: () => {
-                    this.showDashboardWithoutProject = true;
+                    this.showDashboardWithoutProject = false;
                     this.update();
                     void this.refreshHomeFlow();
-                    // D3（正本）: オンボーディング 1→2→3 の完了後はランチャーへ続く。
-                    // 完了直後は `launcherDismissedThisSession` がまだ false なので無条件に開いてよい。
-                    void this.openProjectLauncher();
                 }
             },
             this.fileService,
@@ -1085,6 +1140,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.creatorRootProjects = [];
             this.creatorRootUri = undefined;
             this.channels = [];
+            this.projectListRefreshToken++;
             this.update();
             return;
         }
@@ -1092,6 +1148,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.creatorRootUri = rootUri;
         this.channels = await this.resolveManifestChannels(rootUri);
         this.creatorRootProjects = await this.listCreatorRootProjects(rootUri);
+        this.projectListRefreshToken++;
         this.update();
     }
 
@@ -1269,22 +1326,96 @@ export class AkariHomeWidget extends ReactWidget {
      * 「このウィンドウで切り替える」かを本人が選べるようにする。未オープン
      * （ウェルカム状態）のときは従来どおり即このウィンドウで開く。
      */
-    protected openCreatorRootProject = (uri: URI): void => {
-        void this.openProjectWithChoice(uri);
+    protected openCreatorRootProject = (uri: URI, originRect?: DOMRect): void => {
+        void this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri: uri.toString(), originRect });
     };
 
-    protected async openProjectWithChoice(uri: URI): Promise<void> {
-        if (!this.workspaceService.opened) {
-            this.workspaceService.open(uri);
+    protected isPartnerBusy(): boolean {
+        return this.contextKeys.match(AKARI_PARTNER_BUSY_CONTEXT_KEY);
+    }
+
+    async openProject(request: OpenProjectRequest): Promise<void> {
+        const uri = new URI(request.uri);
+        if (this.currentProjectUri?.toString() === uri.toString()) {
+            await this.shell.activateWidget(this.id);
             return;
         }
-        const choice = await new AkariOpenProjectChoiceDialog(uri.path.base || uri.path.fsPath()).open();
-        if (choice === 'new-window') {
-            this.workspaceService.open(uri, { preserveWindow: false });
-        } else if (choice === 'this-window') {
-            this.workspaceService.open(uri, { preserveWindow: true });
+        const busy = this.isPartnerBusy();
+        const ask = !this.preferences.get<boolean>(AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, false);
+        if (decideOpenFlow({ ask, busy, hasOrigin: !!request.originRect, reducedMotion: false }) === 'direct') {
+            await this.commitOpenProject(request, false);
+            return;
         }
-        // undefined = キャンセル。何もしない。
+        const row = this.buildProjectRows().find(candidate => candidate.uri.toString() === uri.toString());
+        const [name, details, presence] = await Promise.all([
+            row?.name ?? this.readProjectTitle(uri).then(title => title ?? uri.path.base),
+            row ?? this.readProjectDetails(uri),
+            this.progress.readPresence(uri)
+        ]);
+        this.openPrompt = { request, name, badge: stageSummary(presence), updatedAt: details.updatedAt, busy };
+        this.noAskChecked = false;
+        this.historyOpen = false;
+        this.menuOpen = false;
+        this.update();
+    }
+
+    protected async chooseOpen(choice: OpenChoice): Promise<void> {
+        const prompt = this.openPrompt;
+        if (!prompt) return;
+        this.openPrompt = undefined;
+        this.update();
+        if (choice === 'after-work') {
+            this.queuedOpen = prompt.request;
+            this.messages.info(`パートナーの作業が終わったら「${prompt.name}」を開きます`);
+            if (!this.isPartnerBusy()) {
+                const queued = this.queuedOpen; this.queuedOpen = undefined;
+                if (queued) await this.commitOpenProject(queued, false);
+            }
+            return;
+        }
+        if (this.noAskChecked && !prompt.busy) {
+            await this.preferences.set(AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, true, PreferenceScope.User);
+        }
+        await this.commitOpenProject(prompt.request, choice === 'new-window', choice === 'here' && prompt.busy);
+    }
+
+    protected async commitOpenProject(request: OpenProjectRequest, newWindow: boolean, busyConfirmed = false): Promise<void> {
+        if (this.isPartnerBusy() && !busyConfirmed) {
+            await this.openProject(request);
+            return;
+        }
+        const uri = new URI(request.uri);
+        const root = this.creatorRootUri ?? await this.resolveCreatorRootDir();
+        const relative = root?.relative(uri)?.toString().split('/').filter(Boolean);
+        const channel = relative?.length === 4 && relative[0] === CREATOR_ROOT_CHANNELS_DIRNAME
+            && relative[2] === CREATOR_ROOT_VIDEOS_DIRNAME ? relative[1] : undefined;
+        if (!newWindow) {
+            const row = this.buildProjectRows().find(candidate => candidate.uri.toString() === request.uri);
+            await animateProjectOpen(request.originRect, row?.name ?? uri.path.base,
+                row ? stageSummary(await this.progress.readPresence(uri)) : undefined, this.projectCardFrames.get(request.uri)?.[0]);
+        }
+        if (channel) localStorage.setItem(AKARI_LAST_CHANNEL_STORAGE_KEY, channel);
+        // 再読み込み中の地の色を「開く先」（プロジェクトの中）にする（akari-theme の scope-ground が読む）。
+        if (!newWindow) { try { localStorage.setItem('akari.ground.scope', 'project'); } catch { /* 保存不可なら直前の色のまま */ } }
+        if (!newWindow && request.reason?.startsWith('start-kind:')) {
+            sessionStorage.setItem('akari.home.start-kind', request.reason.slice('start-kind:'.length));
+        }
+        this.workspaceService.open(uri, { preserveWindow: !newWindow });
+    }
+
+    async closeProject(): Promise<void> {
+        if (!this.currentProjectUri) return;
+        this.historyOpen = false;
+        this.menuOpen = false;
+        this.closePrompt = true;
+        this.update();
+    }
+
+    protected async confirmCloseProject(): Promise<void> {
+        this.closePrompt = false;
+        this.queuedOpen = undefined;
+        this.update();
+        await this.workspaceService.close();
     }
 
     /**
@@ -1328,13 +1459,12 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * `<root>/channels/<channel>/videos/` 配下で空いているプロジェクト名を探す
-     * （日付プレフィックスは過去プロジェクト一覧の並び順（sortCreatorRootProjects）と
+     * （日時プレフィックスは過去プロジェクト一覧の並び順（sortCreatorRootProjects）と
      * 揃える）。同名衝突時は `-2` `-3` ... を試す（`availableTarget` と同じ流儀）。
      */
     protected async reserveNewProjectName(rootUri: URI, channel: string): Promise<string> {
         const videosUri = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
-        const datePrefix = new Date().toISOString().slice(0, 10);
-        const stem = `${datePrefix}-${NEW_PROJECT_NAME_SLUG}`;
+        const stem = newProjectNameStem();
         let candidate = stem;
         for (let index = 2; await this.fileService.exists(videosUri.resolve(candidate)); index++) {
             candidate = `${stem}-${index}`;
@@ -1366,51 +1496,74 @@ export class AkariHomeWidget extends ReactWidget {
      * フラグ復帰は finally に置く — 成功時に戻し忘れるとボタンが
      * disabled のまま二度と押せなくなる（同上）。
      */
-    startNewProject = async (startKind?: string): Promise<void> => {
+    startNewProject = async (): Promise<void> => {
         if (this.startingNewProject) {
             return;
         }
+        const originRect = this.newProjectOriginRect;
+        this.newProjectOriginRect = undefined;
         this.startingNewProject = true;
         this.update();
         try {
-            // まず選択だけを行い、作成の確定後に保存先とプロジェクトを書き込む。
             let rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
             const channels = rootUri ? await this.resolveManifestChannels(rootUri) : [CREATOR_ROOT_DEFAULT_CHANNEL];
-            const options = startKind ? { channel: this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : channels[0], autonomy: INTAKE_DEFAULT_AUTONOMY } : await new AkariNewVideoDialog(channels).open();
-            if (!options) { return; }
+            const preferredChannel = this.listChannel();
+            const channel = channels.includes(preferredChannel) ? preferredChannel : channels[0];
             if (!rootUri) {
                 rootUri = new URI(await this.newProjectService.ensureCreatorRoot());
                 this.creatorRootUri = rootUri;
                 this.creatorRootAvailable = true;
             }
-            const channel = options.channel;
-            if (!channels.includes(channel)) { throw new Error('チャンネルを選び直してください'); }
             const name = await this.reserveNewProjectName(rootUri, channel);
             const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
-            await this.newProjectService.createProject(destination.toString());
-            const intake = {
-                version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
-                autonomy: options.autonomy, status: 'draft', submitted_at: null, title: null
-            };
-            await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
-                BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
-            if (startKind) { sessionStorage.setItem('akari.home.start-kind', startKind); }
-            await this.workspaceService.openWorkspace(destination, { preserveWindow: true });
+            await this.createAndOpenProject(destination, originRect);
         } catch (error) {
-            console.error('[akari-surfaces] failed to start a new project:', error);
-            // 理由を出さない 1 行だけだと実機の失敗（雛形/scaffold の同梱漏れ・権限・
-            // 同名衝突）がすべて同じ文言に潰れて切り分けができない。`ensureCreatorRoot`
-            // 側（describeEnsureError）と同じ流儀で、原因を括弧で添える。
-            this.messages.error(
-                error instanceof Error && error.message
-                    ? `新しい動画の作成に失敗しました（${error.message}）。`
-                    : '新しい動画の作成に失敗しました。'
-            );
-        } finally {
+            this.reportNewProjectError(error);
             this.startingNewProject = false;
             this.update();
         }
     };
+
+    async startNewProjectIn(destination: URI): Promise<void> {
+        if (this.startingNewProject) { return; }
+        await this.createAndOpenProject(destination);
+    }
+
+    protected async createAndOpenProject(destination: URI, originRect?: DOMRect): Promise<void> {
+        this.startingNewProject = true;
+        this.update();
+        try {
+            await this.newProjectService.createProject(destination.toString());
+            const intake = {
+                version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
+                autonomy: INTAKE_DEFAULT_AUTONOMY, status: 'draft', submitted_at: null, title: newProjectDisplayTitleFor(destination.path.base)
+            };
+            await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
+                BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
+            await this.loadCreatorRootProjects();
+            await this.commands.executeCommand(AKARI_COMMANDS.openProject,
+                { uri: destination.toString(), reason: 'new-project', originRect });
+            if (this.openPrompt?.request.uri === destination.toString()
+                && this.openPrompt.request.reason === 'new-project') {
+                await this.chooseOpen('here');
+            }
+        } catch (error) {
+            this.reportNewProjectError(error);
+        } finally {
+            this.startingNewProject = false;
+            this.update();
+        }
+    }
+
+    protected reportNewProjectError(error: unknown): void {
+        console.error('[akari-surfaces] failed to start a new project:', error);
+        // 雛形や権限など、失敗の理由を一緒に示す。
+        this.messages.error(
+            error instanceof Error && error.message
+                ? `新しい動画の作成に失敗しました（${error.message}）。`
+                : '新しい動画の作成に失敗しました。'
+        );
+    }
 
     // --- U2 状態バッジ（旧 F6 現在地 1 行を置換。task 2026-08-03-home-v5-terms） --
 
@@ -1557,7 +1710,7 @@ export class AkariHomeWidget extends ReactWidget {
             const destinationUri = await this.newProjectService.adoptProject(rootUri.toString(), projectUri.toString(), channel);
             // 成功後はワークスペースが切り替わり本ウィジェットは作り直されるため、
             // joiningChannel を戻す必要はない。
-            this.workspaceService.open(new URI(destinationUri));
+            await this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri: destinationUri, reason: 'join-channel' });
         } catch (error) {
             console.error('[akari-surfaces] failed to adopt project into a channel:', error);
             this.messages.error(error instanceof Error ? error.message : 'チャンネルへの取り込みに失敗しました。');
@@ -1953,7 +2106,264 @@ export class AkariHomeWidget extends ReactWidget {
             lastExport = times.length ? Math.max(...times) : undefined;
         } catch { /* optional metric */ }
         this.currentStats = buildHomeStats(edit, assetCount, assetBytes, lastExport);
+        await this.loadProjectHistory(uri);
         this.update();
+    }
+
+    protected async loadProjectHistory(root: URI): Promise<void> {
+        const entries: HomeHistoryEntry[] = [];
+        try {
+            const dir = await this.fileService.resolve(root.resolve('.akari/events'), { resolveMetadata: true });
+            await Promise.all((dir.children ?? []).filter(child => child.isFile && /\.json$/i.test(child.name)).map(async child => {
+                try {
+                    const value = JSON.parse((await this.fileService.readFile(child.resource)).value.toString());
+                    const entry = eventHistoryEntry(value, child.mtime ?? 0);
+                    if (entry) entries.push(entry);
+                } catch { /* 壊れた記録だけ飛ばす。 */ }
+            }));
+        } catch { /* 記録が無い。 */ }
+        this.latestExport = undefined;
+        try {
+            const dir = await this.fileService.resolve(root.resolve('exports'), { resolveMetadata: true });
+            const videos = (dir.children ?? []).filter(child => child.isFile && /\.(mp4|mov|m4v|webm|mkv)$/i.test(child.name))
+                .sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
+            this.latestExport = videos[0]?.resource;
+            for (const video of videos) entries.push(exportHistoryEntry(video.name, video.mtime ?? 0));
+        } catch { /* 書き出しが無い。 */ }
+        this.latestReport = undefined;
+        try {
+            const dir = await this.fileService.resolve(root.resolve('.akari/reports'), { resolveMetadata: true });
+            this.latestReport = (dir.children ?? []).filter(child => child.isFile && /\.html?$/i.test(child.name))
+                .sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0))[0]?.resource;
+        } catch { /* レポートが無い。 */ }
+        if (!this.latestReport && await this.fileService.exists(root.resolve('analysis-report.html'))) {
+            this.latestReport = root.resolve('analysis-report.html');
+        }
+        this.historyEntries = sortHomeHistory(entries);
+    }
+
+    async refreshProjectListData(): Promise<void> {
+        await this.refreshProjectBrowser();
+        this.projectListRefreshToken++;
+        this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.update();
+    }
+
+    setListChannelOverride(channel: string | undefined): void {
+        const next = channel !== undefined && this.channels.includes(channel) ? channel : undefined;
+        if (this.listChannelOverride === next) return;
+        this.listChannelOverride = next;
+        this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.update();
+    }
+
+    protected listChannel(): string {
+        return resolveListChannel({
+            scope: this.scope.scope,
+            override: this.listChannelOverride,
+            workspaceChannel: this.scope.scope === 'project' && this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined,
+            channels: this.channels,
+            lastChannel: localStorage.getItem(AKARI_LAST_CHANNEL_STORAGE_KEY),
+            fallback: CREATOR_ROOT_DEFAULT_CHANNEL
+        });
+    }
+
+    renderProjectListForTab(): React.ReactNode {
+        const channel = this.listChannel();
+        const rows = this.buildProjectRows();
+        return <ProjectListView channel={channel} rows={rows.filter(row => row.channel === channel)} refreshToken={this.projectListRefreshToken}
+            standalone={rows.filter(row => row.standalone)}
+            currentName={this.scope.scope === 'project' ? rows.find(row => row.current)?.name ?? this.currentProjectUri?.path.base : undefined}
+            onNew={rect => { this.newProjectOriginRect = rect; void this.startNewProject(); }} onRefresh={() => void this.refreshProjectListData()}
+            onNewStandalone={() => void this.chooseStandaloneFolder()}
+            onOpenChannel={() => void this.shell.revealWidget(RAIL_CHANNEL_WIDGET_ID)}
+            onOpen={(row, rect) => this.openCreatorRootProject(row.uri, rect)}
+            readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />;
+    }
+
+    protected async runAvailableCommand(id: string, ...args: unknown[]): Promise<void> {
+        this.menuOpen = false;
+        this.update();
+        if (!this.commandRegistry.getCommand(id)) { this.messages.warn('この版では使えません'); return; }
+        await this.commands.executeCommand(id, ...args);
+    }
+
+    protected async openTemplateSheet(): Promise<void> {
+        this.projectTemplates = [...BUILTIN_PROJECT_TEMPLATES];
+        this.homeDialog = 'templates';
+        this.update();
+        const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined;
+        if (!channel || !this.creatorRootUri) return;
+        const directory = this.creatorRootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve('templates');
+        try {
+            const files = (await this.fileService.resolve(directory)).children ?? [];
+            const loaded = await Promise.all(files.filter(file => !file.isDirectory && /\.md$/i.test(file.name))
+                .map(async file => {
+                    try { return parseTemplateMarkdown(file.name, (await this.fileService.readFile(file.resource)).value.toString()); }
+                    catch { return undefined; }
+                }));
+            const templates = loaded.filter((template): template is ProjectTemplate => template !== undefined);
+            if (this.homeDialog === 'templates') {
+                this.projectTemplates = [...templates, ...BUILTIN_PROJECT_TEMPLATES];
+                this.update();
+            }
+        } catch { /* チャンネルにテンプレが無ければ同梱だけを表示する。 */ }
+    }
+
+    protected async writeProjectTitle(title: string, onlyIfEmpty = false): Promise<void> {
+        const root = this.currentProjectUri;
+        if (!root) return;
+        const uri = root.resolve(INTAKE_RELATIVE_PATH);
+        const intake = JSON.parse((await this.fileService.readFile(uri)).value.toString());
+        if (onlyIfEmpty && parseIntakeTitle(intake)) return;
+        intake.title = title;
+        await this.fileService.writeFile(uri, BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
+        await Promise.all([this.refreshHomeFlow(), this.loadCreatorRootProjects()]);
+    }
+
+    protected beginProjectRename(): void {
+        const root = this.currentProjectUri;
+        if (!root) return;
+        this.projectNameDraft = this.buildProjectRows().find(row => row.current)?.name ?? root.path.base;
+        this.renamingProject = true;
+        this.menuOpen = false;
+        this.update();
+    }
+
+    protected async finishProjectRename(save: boolean): Promise<void> {
+        if (!this.renamingProject) return;
+        this.renamingProject = false;
+        const title = this.projectNameDraft.trim();
+        this.update();
+        if (!save || !title) return;
+        try { await this.writeProjectTitle(title); }
+        catch { this.messages.error('名前を変更できませんでした。'); }
+    }
+
+    protected async applyProjectTemplate(template: ProjectTemplate): Promise<void> {
+        const root = this.currentProjectUri;
+        if (!root || this.applyingTemplate) return;
+        this.applyingTemplate = true;
+        this.update();
+        try {
+            const directory = root.resolve('planning');
+            if (!await this.fileService.exists(directory)) await this.fileService.createFolder(directory);
+            const existing = (await this.fileService.resolve(directory)).children?.map(file => file.name) ?? [];
+            const target = directory.resolve(planFileName(existing));
+            await this.fileService.writeFile(target, BinaryBuffer.fromString(template.planMarkdown));
+            await this.writeProjectTitle(defaultProjectTitle(template.name, new Date()), true);
+            this.closeHomeDialog();
+            this.messages.info('企画書のひな形が planning/ に入りました');
+        } catch {
+            this.messages.error('企画書のひな形を追加できませんでした。');
+        } finally {
+            this.applyingTemplate = false;
+            this.update();
+        }
+    }
+
+    protected async startFromMaterials(): Promise<void> {
+        await this.importForStartKind('import');
+        try {
+            const result = await this.commands.executeCommand<string>('akari.partner.typePrompt', '素材を見て企画を下書きして');
+            if (result === 'no-partner') this.messages.info('右の「パートナー」からパートナーを開くと、企画を下書きしてもらえます');
+        } catch { this.messages.info('右の「パートナー」からパートナーを開くと、企画を下書きしてもらえます'); }
+    }
+
+    protected async startByTalking(): Promise<void> {
+        try {
+            await this.commands.executeCommand('akari.partner.open');
+            await this.commands.executeCommand('akari.partner.typePrompt', 'この動画の企画書を一緒に作って');
+        } catch { this.messages.info('右の「パートナー」からパートナーを開いてください'); }
+    }
+
+    protected async openProgressStage(key: ProjectStageKey): Promise<void> {
+        if (key === 'plan' || key === 'assets') {
+            await this.runAvailableCommand(AKARI_COMMANDS.catalogOpen, { tab: 'project' });
+        } else if (key === 'edit') {
+            await this.runAvailableCommand(AKARI_COMMANDS.previewEnsureVisible, { editUri: this.currentProjectUri?.resolve('edit.json').toString() });
+        } else if (key === 'check') {
+            if (this.latestReport) await open(this.openers, this.latestReport);
+            else this.messages.info('まだレポートがありません。');
+        } else {
+            await this.runAvailableCommand(AKARI_COMMANDS.exportOpenDialog);
+        }
+    }
+
+    protected renderProjectHome(): React.ReactNode {
+        const root = this.currentProjectUri;
+        if (!root) return undefined;
+        const rows = this.buildProjectRows();
+        const current = rows.find(row => row.current);
+        const name = current?.name ?? root.path.base;
+        const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined;
+        const others = channel ? rows.filter(row => row.channel === channel && !row.current) : [];
+        const presence = this.progress.presence ?? EMPTY_PRESENCE;
+        const summary = stageSummary(presence);
+        const status: { title: string; body: string; primary?: { label: string; run: () => void }; secondary: { label: string; run: () => void } } =
+            summary === '素材まで' && presence.assetFiles === 0
+                ? { title: '企画ができました', body: '次は素材を入れます。動画・写真・音声をこのプロジェクトに入れてください。',
+                    primary: { label: '素材を入れる', run: () => void this.openProgressStage('assets') },
+                    secondary: { label: 'パートナーに頼む', run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } }
+                : { title: summary === '素材まで' ? '企画と素材がそろっています' : summary === '編集の途中' ? '編集の途中' : summary === '確認中' ? '確認中' : '書き出しました',
+                    body: summary === '素材まで' ? `素材 ${presence.assetFiles} 件。次は並べる段です。` : summary === '編集の途中' ? '続きから開けます。' : summary === '確認中' ? '直したら書き出せます。' : '上の絵を押すと再生します。',
+                    primary: summary === '書き出し済み' ? undefined : { label: summary === '素材まで' ? '編集に入る' : summary === '編集の途中' ? '続きを編集する' : '書き出す',
+                        run: () => void this.openProgressStage(summary === '確認中' ? 'export' : 'edit') },
+                    secondary: { label: 'AI エージェントを開く', run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } };
+        return <div className='akari-os-project-home'>
+            <div className='akari-os-phead'>
+                {this.latestExport ? <div className='akari-os-poster'><video src={this.latestExport.toString()} controls preload='metadata' /></div>
+                    : this.currentCanPreview ? <button type='button' className='akari-os-poster' data-akari-project-poster='true' aria-label='プレビューで見る'
+                        onClick={() => void this.openProgressStage('edit')}>
+                        {this.currentFrames[0] && <img src={this.currentFrames[0]} alt='' />}<span className='play'>▶</span></button>
+                        : <div className='akari-os-poster'><span className='codicon codicon-device-camera-video' aria-hidden='true' /></div>}
+                <div style={{ minWidth: 0, position: 'relative' }}><div className='akari-os-project-title'>
+                    {this.renamingProject ? <input type='text' className='theia-input akari-os-name-input' autoFocus
+                        aria-label='プロジェクトの名前' value={this.projectNameDraft}
+                        onChange={event => { this.projectNameDraft = event.currentTarget.value; this.update(); }}
+                        onKeyDown={event => { if (event.key === 'Enter') void this.finishProjectRename(true); else if (event.key === 'Escape') void this.finishProjectRename(false); }}
+                        onBlur={() => void this.finishProjectRename(true)} />
+                        : <h1><button type='button' className='akari-os-name-button' data-akari-project-rename='true'
+                            title='名前を変える' onClick={() => this.beginProjectRename()}>{name}</button></h1>}
+                    <span className='actions'>
+                    <button type='button' data-akari-project-history='true' onClick={() => { this.historyOpen = !this.historyOpen; this.menuOpen = false; this.update(); }}>履歴</button>
+                    <button type='button' data-akari-project-menu='true' aria-label='このプロジェクトのメニュー' onClick={() => { this.menuOpen = !this.menuOpen; this.historyOpen = false; this.update(); }}>⋯</button>
+                </span></div>
+                    <p>{this.currentStats.duration && <span>尺 <b>{this.currentStats.duration}</b></span>}
+                        <span>素材 <b>{presence.assetFiles}</b></span>
+                        <span>最後に触った <b>{current?.updatedAt ? new Date(current.updatedAt).toLocaleString('ja-JP') : '不明'}</b></span></p>
+                    {this.historyOpen && <div className='akari-os-popover akari-os-history'><h4>履歴 · {name}</h4>
+                        <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? new Date(entry.time).toLocaleString('ja-JP') : '日時なし'}</time><span>{entry.label}</span></li>)}</ul>
+                        {!this.historyEntries.length && <p>まだ履歴がありません。</p>}
+                        {this.latestReport && <button type='button' data-akari-project-report='true' onClick={() => void open(this.openers, this.latestReport!)}>分析レポートを見る</button>}</div>}
+                    {this.menuOpen && <div className='akari-os-popover'>
+                        <button type='button' data-akari-project-rename-menu='true' onClick={() => this.beginProjectRename()}>名前を変える</button>
+                        <button type='button' data-akari-project-reveal='true' onClick={() => void this.runAvailableCommand('akari.project.revealProjectRoot')}>{isOSX ? 'Finder で表示' : 'エクスプローラーで開く'}</button>
+                        <button type='button' data-akari-project-browser-preview='true' onClick={() => void this.runAvailableCommand(AKARI_COMMANDS.previewServerOpen)}>ブラウザプレビュー</button>
+                        <button type='button' data-akari-project-clean='true' onClick={() => void this.runAvailableCommand(AKARI_COMMANDS.projectCleanData)}>不要なデータを整理</button>
+                        <hr /><button type='button' data-akari-project-close='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.closeProject)}>このプロジェクトを閉じる</button>
+                    </div>}
+                </div>
+            </div>
+            <div className='akari-os-steps' aria-label='進み具合'>{(this.progress.stages ?? computeProjectStages(presence)).map((stage, index, stages) => <div className='akari-os-stage-cell' key={stage.key}><button type='button' data-akari-project-stage={stage.key}
+                className={`akari-os-step${stage.done ? ' done' : ''}${stage.current ? ' now' : ''}${index > 0 && stages[index - 1].done ? ' after-done' : ''}`}
+                onClick={() => void this.openProgressStage(stage.key)}><span className='dot'>{stage.done ? '✓' : '○'}</span><b>{stage.label}</b>
+                <small>{stage.current ? 'いまここ' : stage.detail}</small></button>
+                {stage.key === 'plan' && <button type='button' className='akari-os-stage-detail' data-akari-plan-detail='true'
+                    onClick={() => void this.openIntakeForm()}>詳しく</button>}</div>)}</div>
+            {summary === '作ったばかり' ? <section className='akari-os-start-section'><h2>どこから始めますか</h2>
+                <div className='akari-os-start-grid'>
+                    <button type='button' className='akari-os-start-card' data-akari-start='templates' onClick={() => void this.openTemplateSheet()}><b>テンプレから</b><span>このチャンネルのテンプレ。枠・字幕・企画書のひな形が入ります。</span></button>
+                    <button type='button' className='akari-os-start-card' data-akari-start='materials' onClick={() => void this.startFromMaterials()}><b>素材から</b><span>動画・写真・音声を入れると、パートナーが中身を見て企画を下書きします。</span></button>
+                    <button type='button' className='akari-os-start-card' data-akari-start='talk' onClick={() => void this.startByTalking()}><b>話して</b><span>作りたい動画をパートナーに話すと、企画書から一緒に作ります。</span></button>
+                </div></section> : <section className='akari-os-status'><div><span className='label'>いまの状態</span><h4>{status.title}</h4><p>{status.body}</p></div>
+                <div className='actions'>{status.primary && <button type='button' className='theia-button main' onClick={status.primary.run}>{status.primary.label}</button>}
+                    <button type='button' className='theia-button secondary' onClick={status.secondary.run}>{status.secondary.label}</button></div>
+            </section>}
+            {channel && <section><div className='akari-os-other-heading'><h3>{channel} のほかのプロジェクト</h3><small>{others.length} 本</small>
+                <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>プロジェクト一覧へ</button></div>
+                <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
+                    onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
+                    readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>}
+        </div>;
     }
 
     protected renderCurrentBand(): React.ReactNode {
@@ -1964,7 +2374,6 @@ export class AkariHomeWidget extends ReactWidget {
         return <CurrentProjectBand name={name} channel={channel} path={this.currentDisplayPath || this.currentProjectUri.path.fsPath()}
             frames={this.currentFrames} stats={this.currentStats} canPreview={this.currentCanPreview}
             onPreview={() => void this.openOutputPreview(true)} onReveal={() => void this.commands.executeCommand(REVEAL_IN_FILE_MANAGER_COMMAND, this.currentProjectUri)}
-            onStart={() => { this.voiceRequirement = ''; this.homeDialog = 'start'; this.update(); }}
             onSwitch={() => void this.openChannelSwitcher()} onJoin={() => void this.joinChannel()} />;
     }
 
@@ -1988,11 +2397,30 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected closeHomeDialog = (): void => { this.homeDialog = undefined; this.update(); };
 
+    protected async chooseStandaloneFolder(): Promise<void> {
+        const picked = await this.fileDialogs.showOpenDialog({
+            title: '単体プロジェクトを作るフォルダを選ぶ',
+            canSelectFiles: false, canSelectFolders: true, canSelectMany: false
+        });
+        if (!picked) { return; }
+        const folder = Array.isArray(picked) ? picked[0] : picked;
+        if (!folder) { return; }
+        this.standaloneFolder = folder;
+        const stem = newProjectNameStem();
+        let name = stem;
+        for (let index = 2; await this.fileService.exists(folder.resolve(name)); index++) {
+            name = `${stem}-${index}`;
+        }
+        this.standaloneDestination = folder.resolve(name);
+        this.homeDialog = 'standalone-create';
+        this.update();
+    }
+
     protected async chooseFolder(): Promise<void> {
         const folder = await this.fileDialogs.showOpenDialog({ title: 'プロジェクトを開く', canSelectFiles: false, canSelectFolders: true });
         if (!folder) { return; }
         if (await this.fileService.exists(folder.resolve('.akari'))) {
-            await this.openProjectWithChoice(folder);
+            await this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri: folder.toString(), reason: 'folder' });
             return;
         }
         this.chosenFolder = folder;
@@ -2014,7 +2442,7 @@ export class AkariHomeWidget extends ReactWidget {
                 const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : await this.resolveDefaultChannelName(root);
                 target = new URI(await this.newProjectService.adoptProject(root.toString(), folder.toString(), channel));
             }
-            await this.workspaceService.openWorkspace(target, { preserveWindow: true });
+            await this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri: target.toString(), reason: 'new-project' });
         } catch (error) { this.messages.error(error instanceof Error ? error.message : 'プロジェクトを開けませんでした。'); }
     }
 
@@ -2032,16 +2460,30 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
     }
 
-    protected openNewChannelDialog(): void {
+    async openNewChannelDialog(): Promise<void> {
         this.newChannelName = '';
         this.newChannelError = '';
+        if (!this.creatorRootUri) {
+            this.creatorRootUri = await this.resolveCreatorRootDir();
+        }
+        if (this.creatorRootUri && this.channels.length === 0) {
+            this.channels = await this.resolveManifestChannels(this.creatorRootUri);
+        }
+        if (!this.creatorRootUri) {
+            this.newChannelError = '作業場が見つかりません。';
+        }
         this.homeDialog = 'channel-create';
         this.update();
     }
 
-    /** 新規プロジェクトを機械の AKARI_HOME に作り、creator-root の既存 adopt RPC で新チャンネルへ移す。 */
+    /** チャンネルのフォルダとマニフェスト登録を作る。 */
     protected async createNewChannel(): Promise<void> {
-        if (this.creatingChannel || !this.creatorRootUri) { return; }
+        if (this.creatingChannel) { return; }
+        if (!this.creatorRootUri) {
+            this.newChannelError = '作業場が見つかりません。';
+            this.update();
+            return;
+        }
         const validation = validateChannelName(this.newChannelName, this.channels);
         if (!validation.name) {
             this.newChannelError = validation.error ?? 'チャンネル名を確認してください。';
@@ -2053,29 +2495,33 @@ export class AkariHomeWidget extends ReactWidget {
         this.creatingChannel = true;
         this.newChannelError = '';
         this.update();
-        let stagedProject: URI | undefined;
         try {
-            const machineHome = await this.resolveAkariHomeUri();
-            // AKARI_HOME が作業場内に指定されていても、一時プロジェクトは必ず外へ置く。
-            const staging = root.relative(machineHome) === undefined
-                ? machineHome.resolve('channel-staging') : root.parent.resolve('.akari-channel-staging');
             const videos = root.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
-            const stem = await this.reserveNewProjectName(root, channel);
-            let name = stem;
-            for (let index = 2; await this.fileService.exists(staging.resolve(name)) || await this.fileService.exists(videos.resolve(name)); index++) {
-                name = `${stem}-${index}`;
+            await this.fileService.createFolder(videos);
+            const manifestUri = root.resolve(CREATOR_ROOT_MANIFEST_RELATIVE_PATH);
+            let manifest: Record<string, unknown> = { schema: CREATOR_ROOT_SCHEMA };
+            try {
+                const parsed: unknown = JSON.parse((await this.fileService.readFile(manifestUri)).value.toString());
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    manifest = parsed as Record<string, unknown>;
+                }
+            } catch {
+                // 読み込めない場合はチャンネル一覧を補う。
             }
-            stagedProject = staging.resolve(name);
-            await this.newProjectService.createProject(stagedProject.toString());
-            this.pendingChannelProjectUri = new URI(await this.newProjectService.adoptProject(root.toString(), stagedProject.toString(), channel));
-            this.pendingChannel = channel;
+            const existing = Array.isArray(manifest.channels)
+                ? manifest.channels.filter((value): value is string => typeof value === 'string' && value.length > 0)
+                : this.channels;
+            manifest.channels = [...new Set([...existing, channel])];
+            await this.fileService.writeFile(manifestUri, BinaryBuffer.fromString(`${JSON.stringify(manifest, null, 2)}\n`));
             this.channels = await this.resolveManifestChannels(root);
             this.creatorRootProjects = await this.listCreatorRootProjects(root);
-            this.homeDialog = 'channel-choice';
+            await this.channelContext.refresh();
+            this.channelContext.setViewingChannel(channel);
+            this.setListChannelOverride(channel);
+            this.closeHomeDialog();
+            this.messages.info(`『${channel}』を作りました`);
         } catch (error) {
-            const reason = error instanceof Error ? error.message : '作成に失敗しました。';
-            this.newChannelError = stagedProject
-                ? `${reason} 一時プロジェクト: ${stagedProject.path.fsPath()}` : reason;
+            this.newChannelError = error instanceof Error ? error.message : '作成に失敗しました。';
         } finally {
             this.creatingChannel = false;
             this.update();
@@ -2087,38 +2533,19 @@ export class AkariHomeWidget extends ReactWidget {
         const uri = this.pendingChannelProjectUri ?? row?.uri;
         this.closeHomeDialog();
         if (!uri) { this.messages.info('このチャンネルにはまだプロジェクトがありません。'); return; }
-        this.workspaceService.open(uri, { preserveWindow: !newWindow });
+        void this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri: uri.toString(), reason: newWindow ? 'new-window' : 'channel' });
     }
 
     protected renderHomeDialog(): React.ReactNode {
-        if (this.homeDialog === 'start') {
-            const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : this.channels[0] ?? '既定のチャンネル';
-            const name = this.buildProjectRows().find(row => row.current)?.name ?? '現在のプロジェクト';
-            const cards: Array<{ id: string; label: string; detail: string; icon: string; disabled?: boolean; badge?: string }> = [
-                { id: 'import', label: '素材を入れて', detail: '動画・写真・音声をドラッグするか選ぶ', icon: 'cloud-upload' },
-                { id: 'transcribe', label: '文字起こしから', detail: '話した動画を入れて台本を作る', icon: 'mic' },
-                { id: 'partner', label: 'パートナーに話しかけて', detail: '作りたい動画を相棒に伝える', icon: 'comment-discussion' },
-                { id: 'voice', label: '声で', detail: 'Akari Vibe — しゃべって編集する', icon: 'unmute', badge: '試用' },
-                { id: 'generate', label: '生成から', detail: '画像や動画を AI で作ってから並べる', icon: 'sparkle' },
-                { id: 'plan', label: '企画から', detail: 'テーマから構成案と台本を作る', icon: 'note', disabled: true, badge: '準備中' }
-            ];
-            return <HomeScrim kind='new-video' onClose={this.closeHomeDialog}>
-                <h3>新しい動画を始める</h3>
-                <p>「{channel}」に<strong>新しいプロジェクト</strong>を作って、選んだところから始めます。いま開いている「{name}」はそのまま残ります。</p>
-                <div className='akari-home-start-grid'>{cards.map(card => <button type='button' key={card.id}
-                    className='akari-home-start-card' data-akari-start-card={card.id}
-                    data-trial-unavailable={card.id === 'voice' ? 'true' : undefined}
-                    disabled={card.disabled} aria-disabled={card.id === 'voice' ? true : undefined}
-                    onClick={() => {
-                        if (card.id === 'voice') {
-                            this.voiceRequirement = 'Akari Vibe のインストールと起動連携が必要です。';
-                            this.update();
-                        } else { void this.startNewProjectFrom(card.id); }
-                    }}>
-                    <span className={`codicon codicon-${card.icon}`} />
-                    <span><b>{card.label}</b><small>{card.detail}</small></span>{card.badge && <em>{card.badge}</em>}
+        if (this.homeDialog === 'templates') {
+            return <HomeScrim kind='templates' onClose={this.closeHomeDialog}>
+                <h3>テンプレを選ぶ</h3>
+                <p>企画書のひな形を追加します。名前はあとから変えられます。</p>
+                <div className='akari-os-template-grid'>{this.projectTemplates.map(template => <button type='button'
+                    className='akari-os-template-card' key={template.id} data-akari-template={template.id}
+                    disabled={this.applyingTemplate} onClick={() => void this.applyProjectTemplate(template)}>
+                    <b>{template.name}</b><small>{template.description}</small>
                 </button>)}</div>
-                {this.voiceRequirement && <p className='akari-home-voice-requirement' data-akari-voice-requirement='true' role='status'>{this.voiceRequirement}</p>}
             </HomeScrim>;
         }
         if (this.homeDialog === 'open' && this.chosenFolder) {
@@ -2131,7 +2558,7 @@ export class AkariHomeWidget extends ReactWidget {
         if (this.homeDialog === 'channel-create') {
             return <HomeScrim kind='channel-create' onClose={this.closeHomeDialog}>
                 <h3>新しいチャンネルを作る</h3>
-                <p>名前を決めると、新しいプロジェクトをそのチャンネルに作ります。</p>
+                <p>チャンネルのフォルダ（channels/&lt;名前&gt;/）を作ります。設計・デザイン・辞書は左の『チャンネル』から</p>
                 <label className='akari-home-channel-name-label'>チャンネル名
                     <input className='theia-input akari-home-channel-name' type='text' autoFocus
                         data-akari-channel-name='true' value={this.newChannelName}
@@ -2139,11 +2566,28 @@ export class AkariHomeWidget extends ReactWidget {
                 </label>
                 {this.newChannelError && <p className='akari-home-channel-error' role='alert' data-akari-channel-error='true'>{this.newChannelError}</p>}
                 <div className='akari-home-dialog-actions'>
-                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>キャンセル</button>
+                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>やめる</button>
                     <button type='button' className='theia-button main' disabled={this.creatingChannel}
                         data-akari-channel-create-submit='true' onClick={() => void this.createNewChannel()}>
-                        {this.creatingChannel ? '作成しています…' : '作成して始める'}
+                        {this.creatingChannel ? '作成しています…' : '作る'}
                     </button>
+                </div>
+            </HomeScrim>;
+        }
+        if (this.homeDialog === 'standalone-create' && this.standaloneDestination) {
+            return <HomeScrim kind='standalone-create' onClose={this.closeHomeDialog}>
+                <h3>チャンネルに入れずに作る</h3>
+                <p>好きなフォルダに、単体のプロジェクトとして作ります。チャンネルの設計やスタイルは効きません。あとからチャンネルに入れられます。</p>
+                <div className='akari-home-dialog-path'>{this.standaloneDestination.path.fsPath()}</div>
+                <div className='akari-home-dialog-actions'>
+                    <button type='button' className='theia-button secondary' onClick={this.closeHomeDialog}>やめる</button>
+                    <button type='button' className='theia-button main' data-akari-standalone-create-submit='true'
+                        disabled={this.startingNewProject} onClick={() => {
+                            const destination = this.standaloneDestination;
+                            if (!destination) { return; }
+                            this.closeHomeDialog();
+                            void this.startNewProjectIn(destination);
+                        }}>作る</button>
                 </div>
             </HomeScrim>;
         }
@@ -2153,24 +2597,22 @@ export class AkariHomeWidget extends ReactWidget {
         return undefined;
     }
 
+    /** 旧プロジェクトのセッション情報を読む互換処理。新規作成からは呼ばない。 */
     protected async resumeStartKind(): Promise<void> {
         const kind = sessionStorage.getItem('akari.home.start-kind');
-        if (!kind || !this.currentProjectUri) { return; }
+        if (!kind || !this.currentProjectUri) return;
         sessionStorage.removeItem('akari.home.start-kind');
         if (kind === 'partner') {
             await this.commands.executeCommand('akari.partner.open').catch(() => undefined);
         } else if (kind === 'import' || kind === 'transcribe') {
             await this.importForStartKind(kind);
         } else if (kind === 'generate') {
-            try {
-                await this.commands.executeCommand('akari.inspector.open', { tabId: 'generation' });
-            } catch (error) {
-                console.warn('[akari-surfaces] could not open generation inspector:', error);
-            }
+            try { await this.commands.executeCommand('akari.inspector.open', { tabId: 'generation' }); }
+            catch (error) { console.warn('[akari-surfaces] could not open generation inspector:', error); }
         }
     }
 
-    /** 新規プロジェクトへ移った後、既存のホーム取り込み経路から素材を選ばせる。 */
+    /** ホームの「素材から」で使う取り込み経路。 */
     protected async importForStartKind(kind: 'import' | 'transcribe'): Promise<void> {
         const picked = await this.fileDialogs.showOpenDialog({
             title: kind === 'transcribe' ? '文字起こしする素材を選ぶ' : '素材を入れる',
@@ -2180,12 +2622,12 @@ export class AkariHomeWidget extends ReactWidget {
         const root = this.currentProjectUri;
         const selected = (Array.isArray(picked) ? picked : [picked]).filter(uri => kind === 'transcribe'
             ? captionSourcePathRule(uri.path.toString(), root?.path.toString()).status === 'voice'
-            : IMPORTABLE_EXTENSIONS.includes(this.extensionOf(uri.path.base)));
+            : [...IMPORTABLE_EXTENSIONS, ...AUDIO_EXTENSIONS].includes(this.extensionOf(uri.path.base)));
         if (!selected.length) {
-            this.messages.warn(kind === 'transcribe' ? '声の入った動画または音声を選んでください。' : '動画または写真のファイルを選んでください。');
+            this.messages.warn(kind === 'transcribe' ? '声の入った動画または音声を選んでください。' : '動画・写真・音声のファイルを選んでください。');
             return;
         }
-        const imported = await this.importDroppedSources(selected, kind === 'transcribe');
+        const imported = await this.importDroppedSources(selected, true);
         if (kind !== 'transcribe') { return; }
         const first = imported.find(uri => captionSourcePathRule(uri.path.toString(), root?.path.toString()).status === 'voice');
         if (!first) {
@@ -2202,11 +2644,6 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
-    protected async startNewProjectFrom(kind: string): Promise<void> {
-        this.closeHomeDialog();
-        await this.startNewProject(kind);
-    }
-
     // --- ホーム v2: アクション ---
     // 接続案内カード（旧 connectPartner・BEGIN_ONBOARDING_COMMAND）は裁定 C4 により撤去済み
     // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
@@ -2214,9 +2651,9 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * 進め方フォームを dashboard 内の展開セクションとして開く（裁定 R5）。
-     * v4 ではホーム上にカードが無いため、`AkariHomeCommandContribution`
-     * （`akari.home.openIntakeForm` コマンド）からのみ呼ばれる —
-     * そのため public にしてある。「進め方を決める」（absent / draft）と
+     * 企画の「詳しく」と `AkariHomeCommandContribution`
+     * （`akari.home.openIntakeForm` コマンド）から呼ばれる。
+     * コマンドのため public にしてある。「進め方を決める」（absent / draft）と
      * 「進め方を見直す」（submitted）はどちらもこの 1 経路で、intake.json が
      * 読めればその内容をプリフィルする — ファイルが SSOT なので、エージェントが
      * 書いた draft もそのまま編集の出発点になる。
@@ -2244,7 +2681,7 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     /**
-     * フォームを畳む唯一の導線（「ダッシュボードに戻る」）。戻り先は dashboard の
+     * フォームを畳む唯一の導線（「ホームに戻る」）。戻り先はホームの
      * 1 種類だけで、どこへ着地するかが状態次第で変わることはない。
      */
     protected closeIntakeForm = (): void => {
@@ -2332,6 +2769,7 @@ export class AkariHomeWidget extends ReactWidget {
         // 再送信でも同じ挙動 — 戻り先は常に dashboard の 1 種類）。
         this.intakeFormOpen = false;
         await this.refreshHomeFlow();
+        this.messages.info('進め方をパートナーに送りました');
     }
 
     protected buildIntakeSummaryText(tasks: IntakeTaskId[], target: { duration_s: number | null; keep_length: boolean; taste: string | null }): string {
@@ -2580,13 +3018,19 @@ export class AkariHomeWidget extends ReactWidget {
      * （状態バッジ・説明・接続カード等）を混在させない（task.md §2 指定）。
      */
     protected override render(): React.ReactNode {
-        if (this.welcomeMode && !this.showDashboardWithoutProject) {
-            return this.renderWelcomeSurface();
+        if (!this.scope) {
+            if (this.welcomeMode) return this.renderWelcomeSurface();
+            return <div className='akari-home-surface' data-akari-home-stage='dashboard'
+                data-akari-home-ready={this.homeReady ? 'true' : 'false'}>
+                <style>{homePanelCss}</style>{this.renderHomeTopBar()}{this.renderDashboardHeader()}
+                {this.renderProjectList()}{this.renderHomeDialog()}
+            </div>;
         }
+        const channelMode = this.welcomeMode || this.scope.scope === 'channel';
         return (
             <div
                 className='akari-home-surface'
-                data-akari-home-stage='dashboard'
+                data-akari-home-stage={channelMode ? 'project-list' : 'dashboard'}
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 data-akari-dropzone='true'
                 onDragOver={this.handleDragOver}
@@ -2595,12 +3039,12 @@ export class AkariHomeWidget extends ReactWidget {
                 onScroll={this.handleHomeScroll}
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative', containerType: 'inline-size' }}
             >
-                <style>{homePanelCss}</style>
+                <style>{homePanelCss + projectListCss + projectHomeCss}</style>
                 {this.renderHomeTopBar()}
-                {this.renderDashboardHeader()}
+                {channelMode ? this.renderProjectListForTab() : this.renderProjectHome()}
                 {this.importedNotice && this.renderImportedNotice()}
-                {this.renderProjectList()}
                 {this.renderHomeDialog()}
+                {this.renderOpenClosePrompts()}
                 {/* 2026-09-26 オーナー指摘（ホームの認知負荷を下げる）: AKARI Store の
                     接続状態は面の右上（{@link renderHomeTopBar}）へ移し、拡張キットの
                     棚卸しはホームから外した。{@link renderKitCard} は描画から外れただけで、
@@ -2609,6 +3053,37 @@ export class AkariHomeWidget extends ReactWidget {
                 {this.dragActive && this.renderDropOverlay()}
             </div>
         );
+    }
+
+    protected renderOpenClosePrompts(): React.ReactNode {
+        const prompt = this.openPrompt;
+        const current = this.buildProjectRows().find(row => row.current)?.name ?? this.currentProjectUri?.path.base;
+        return <>
+            {prompt && <HomeScrim kind='open-project' onClose={() => { this.openPrompt = undefined; this.update(); }}>
+                <h3>「{prompt.name}」を開きますか？</h3>
+                <p>{current ? `いま開いている「${current}」は保存されています。`
+                    : `${prompt.badge} · 最後に触ったのは ${prompt.updatedAt ? new Date(prompt.updatedAt).toLocaleString('ja-JP') : '不明'}`}</p>
+                {prompt.busy && <div className='akari-os-warn'>右のパートナーが作業中です。この画面で開くと、この作業は止まります。</div>}
+                {openChoices(prompt.busy).map(choice => <button key={choice} type='button' className='akari-os-choice' data-akari-open-choice={choice}
+                    onClick={() => void this.chooseOpen(choice)}><b>{choice === 'after-work' ? '作業が終わってから開く'
+                        : choice === 'here' ? prompt.busy ? '作業を止めて、この画面で開く' : 'この画面で開く'
+                            : '新しいウィンドウで開く'}</b><small>{choice === 'after-work' ? `終わったら「${prompt.name}」がこの画面で開きます`
+                                : choice === 'here' ? current ? `「${current}」から切り替えます` : 'この画面がプロジェクトの中になります'
+                                    : current ? `「${current}」はこのまま残ります` : 'この一覧はこのまま残ります'}</small></button>)}
+                {!prompt.busy && <label><input type='checkbox' checked={this.noAskChecked}
+                    onChange={event => { this.noAskChecked = event.currentTarget.checked; this.update(); }} /> 次から聞かずに、この画面で開く</label>}
+                <div className='akari-home-dialog-actions'><button type='button' className='theia-button secondary'
+                    onClick={() => { this.openPrompt = undefined; this.update(); }}>やめる</button></div>
+            </HomeScrim>}
+            {this.closePrompt && <HomeScrim kind='close-project' onClose={() => { this.closePrompt = false; this.update(); }}>
+                <h3>「{current}」を閉じますか？</h3><p>保存されています。プロジェクト一覧の画面に戻ります。</p>
+                {this.isPartnerBusy() && <div className='akari-os-warn'>右のパートナーが作業中です。閉じると、この作業は止まります。</div>}
+                <div className='akari-home-dialog-actions'><button type='button' className='theia-button secondary'
+                    onClick={() => { this.closePrompt = false; this.update(); }}>やめる</button>
+                    <button type='button' className='theia-button main' onClick={() => void this.confirmCloseProject()}>
+                        {this.isPartnerBusy() ? '止めて閉じる' : 'このプロジェクトを閉じる'}</button></div>
+            </HomeScrim>}
+        </>;
     }
 
     /** プロジェクト未選択時の既存ウェルカム面。更新のお知らせは右下の通知で扱う。 */
@@ -2651,7 +3126,7 @@ export class AkariHomeWidget extends ReactWidget {
                     style={homeFlowStyles.welcomeNewButton}
                     disabled={this.startingNewProject}
                     data-akari-welcome-new-project='true'
-                    onClick={() => void this.startNewProject()}
+                    onClick={event => { this.newProjectOriginRect = event.currentTarget.getBoundingClientRect(); void this.startNewProject(); }}
                 >
                     {this.startingNewProject ? '作成しています…' : '＋ 新しい動画を始める'}
                 </button>
@@ -2760,7 +3235,12 @@ export class AkariHomeWidget extends ReactWidget {
                     見出しが「このチャンネルの」だったのは実態と合っていなかったうえ、
                     幅が狭いと真っ先に "…" で潰れる長さだった。 */}
                 <h3>最近のプロジェクト</h3>
-                {this.renderNewProjectItem()}
+                <button type='button' className='theia-button main akari-home-toolbar-button'
+                    disabled={this.startingNewProject} data-akari-new-project='true'
+                    onClick={event => { this.newProjectOriginRect = event.currentTarget.getBoundingClientRect(); void this.startNewProject(); }}>
+                    <span className={`codicon ${this.startingNewProject ? 'codicon-loading codicon-modifier-spin' : 'codicon-add'}`} aria-hidden='true' />
+                    <span>{this.startingNewProject ? '作成しています…' : '新しい動画'}</span>
+                </button>
                 <button type='button' className='theia-button secondary' style={iconStyle}
                     title='プロジェクトを開く…' aria-label='プロジェクトを開く…'
                     data-akari-open-folder='true' onClick={() => void this.chooseFolder()}>
@@ -2929,22 +3409,6 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
     }
 
-    /** プロジェクト一覧見出しの隣に置く、幅を取らない新規作成ボタン。 */
-    protected renderNewProjectItem(): React.ReactNode {
-        return (
-            <button
-                type='button'
-                className='theia-button main akari-home-toolbar-button'
-                disabled={this.startingNewProject}
-                data-akari-new-project='true'
-                onClick={() => { this.voiceRequirement = ''; this.homeDialog = 'start'; this.update(); }}
-            >
-                <span className={`codicon ${this.startingNewProject ? 'codicon-loading codicon-modifier-spin' : 'codicon-add'}`} aria-hidden='true' />
-                <span>{this.startingNewProject ? '作成しています…' : '新しい動画'}</span>
-            </button>
-        );
-    }
-
     /**
      * ホーム面の右上に常設する AKARI Store の在席表示
      * （2026-09-26 オーナー指摘: 「パネルの右上ではなくホームの中へ。製品名ではなく
@@ -3035,24 +3499,15 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
-    /**
-     * 進め方フォーム（intake サーフェス）。ステージではなく dashboard 内の展開
-     * セクションで、畳む導線は「ダッシュボードに戻る」の 1 種類だけ（裁定 R5）。
-     * v4 では `akari.home.openIntakeForm` コマンドからのみ開く（v3 の
-     * 「進め方カード」はホームから撤去済み）。
-     */
+    /** 企画の「詳しく」とコマンドから開く進め方フォーム。 */
     protected renderIntakeForm(): React.ReactNode {
         return (
-            <div style={homeFlowStyles.intakeSection}>
-                <button type='button' className='theia-button quiet' style={homeFlowStyles.backLink} onClick={this.closeIntakeForm}>
-                    <span className='codicon codicon-arrow-left' aria-hidden='true' /> ダッシュボードに戻る
-                </button>
+            <HomeScrim kind='intake' onClose={this.closeIntakeForm}>
                 {this.intakeStatus === 'submitted' && (
                     <p style={homeFlowStyles.reviewNotice}>
                         以前送信した内容を表示しています。内容を直して送信すると上書きされます。
                     </p>
                 )}
-                <p style={homeFlowStyles.eyebrow}>Home — Intake</p>
                 <h2 style={homeFlowStyles.h2}>今回の進め方</h2>
                 <p style={homeFlowStyles.sub}>チェックした内容がそのままパートナーへの指示になります。あとから変更も OK。</p>
                 <div style={homeFlowStyles.formWrap}>
@@ -3112,22 +3567,17 @@ export class AkariHomeWidget extends ReactWidget {
                             ))}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <button
-                            type='button'
-                            className='theia-button main'
-                            style={homeFlowStyles.cta}
-                            disabled={this.intakeSubmitting}
-                            onClick={() => void this.submitIntake()}
-                        >
-                            {this.intakeSubmitting ? '送信しています…' : 'この内容でパートナーに依頼する'}
-                        </button>
-                        <p style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.7 }}>
-                            保存先: .akari/intake.json（schema 検証つき）<br />チャットにも同じ内容が流れます
-                        </p>
-                    </div>
                 </div>
-            </div>
+                <p style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.7 }}>
+                    保存先: .akari/intake.json（schema 検証つき）<br />チャットにも同じ内容が流れます
+                </p>
+                <div className='akari-home-dialog-actions'>
+                    <button type='button' className='theia-button secondary' onClick={this.closeIntakeForm}>閉じる</button>
+                    <button type='button' className='theia-button main' disabled={this.intakeSubmitting} onClick={() => void this.submitIntake()}>
+                        {this.intakeSubmitting ? '送信しています…' : 'この内容でパートナーに依頼する'}
+                    </button>
+                </div>
+            </HomeScrim>
         );
     }
 }
@@ -3249,21 +3699,11 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         color: 'var(--theia-descriptionForeground)', background: AKARI_SURFACE.elevated
     },
 
-    // dashboard 内に展開する進め方フォーム（ステージではない）。
-    intakeSection: {
-        marginBottom: 22, padding: '16px 18px', borderRadius: AKARI_RADIUS.panel,
-        border: AKARI_BORDER.accent, background: AKARI_SURFACE.raised
-    },
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     checks: { display: 'flex', flexDirection: 'column', gap: 8 },
     pills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
 
-    // 展開フォームを畳む唯一の導線「← ダッシュボードに戻る」。
-    backLink: {
-        display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: 0,
-        fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
-    },
     reviewNotice: {
         marginBottom: 16, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel, fontSize: 12.5,
         border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,

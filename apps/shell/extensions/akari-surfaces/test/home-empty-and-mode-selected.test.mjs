@@ -12,7 +12,7 @@ const { installModeSwitchStyle } = require('../lib/browser/mode-switch/mode-swit
 
 const render = (overrides = {}) => renderToStaticMarkup(React.createElement(CurrentProjectBand, {
     name: '試作', path: '/tmp/example', frames: [], stats: {}, canPreview: false,
-    onPreview() {}, onStart() {}, onReveal() {}, onSwitch() {}, onJoin() {},
+    onPreview() {}, onReveal() {}, onSwitch() {}, onJoin() {},
     ...overrides
 }));
 
@@ -33,8 +33,8 @@ test('missing poster shows a calm next step and zero statistics as dashes', () =
     const html = render({ stats });
     assert.match(html, /data-akari-current-hero-empty="true"/);
     assert.match(html, /まだ映像がありません/);
-    assert.match(html, /素材を入れて始める/);
-    assert.match(html, /素材をドラッグしても取り込めます/);
+    assert.match(html, /素材をドラッグして取り込めます/);
+    assert.doesNotMatch(html, /素材を入れて始める/);
     assert.doesNotMatch(html, /akari-current-play|data-akari-current-thumbnails/);
     assert.equal((html.match(/>—<\/b>/g) ?? []).length, 4);
     assert.match(homePanelCss, /\.akari-current-hero-empty\{[^}]*linear-gradient/);
@@ -61,7 +61,7 @@ test('a poster load failure keeps the preview click handler', () => {
     const onPreview = () => {};
     const element = exports.CurrentProjectBand({
         name: '試作', path: '/tmp/example', frames: ['missing.jpg'], stats: {}, canPreview: true,
-        onPreview, onStart() {}, onReveal() {}, onSwitch() {}, onJoin() {}
+        onPreview, onReveal() {}, onSwitch() {}, onJoin() {}
     });
     const find = node => {
         if (!node || typeof node !== 'object') return undefined;

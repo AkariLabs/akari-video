@@ -15,6 +15,12 @@ import {
 } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { AkariHomeWidget } from './akari-home-widget';
+import { AkariProjectListWidget } from './akari-project-list-widget';
+import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
+import { AKARI_COMMANDS } from 'akari-shell-strip/lib/common/rail-ids';
+import { OpenOriginRect } from './home/open-motion';
+
+export interface OpenProjectRequest { uri: string; originRect?: OpenOriginRect; reason?: string }
 
 /**
  * 進め方フォーム（intake サーフェス）をホーム以外から開く経路
@@ -42,6 +48,7 @@ export const AkariHomeCommands = {
         id: 'akari.home.newProject',
         label: '新規プロジェクト作成'
     } as Command,
+    NEW_CHANNEL: { id: 'akari.home.newChannel', label: '新しいチャンネルを作る' } as Command,
     OPEN_FIRST_RUN_SETUP: {
         id: 'akari.home.openFirstRunSetup',
         label: '初回セットアップを開く'
@@ -76,7 +83,33 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
     @inject(WindowService)
     protected readonly windowService!: WindowService;
 
+    @inject(AkariScopeService)
+    protected readonly scope!: AkariScopeService;
+
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand({ id: AKARI_COMMANDS.openProject, label: 'プロジェクトを開く' }, {
+            execute: async (request: OpenProjectRequest) => {
+                if (!request?.uri) { return; }
+                const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
+                await home.openProject(request);
+            }
+        });
+        registry.registerCommand({ id: AKARI_COMMANDS.openProjectList, label: 'プロジェクト一覧' }, {
+            execute: async (request?: { channel?: string }) => {
+                const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
+                home.setListChannelOverride(request?.channel);
+                if (this.scope.scope === 'channel') { await this.revealHome(); return; }
+                const list = await this.widgetManager.getOrCreateWidget<AkariProjectListWidget>(AkariProjectListWidget.ID);
+                if (!list.isAttached) this.shell.addWidget(list, { area: 'main' });
+                await this.shell.activateWidget(list.id);
+            }
+        });
+        registry.registerCommand({ id: AKARI_COMMANDS.closeProject, label: 'このプロジェクトを閉じる' }, {
+            execute: async () => {
+                const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
+                await home.closeProject();
+            }
+        });
         registry.registerCommand(AkariHomeCommands.OPEN, {
             execute: async () => { await this.revealHome(); }
         });
@@ -92,6 +125,12 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 // 出るので、メニューから始めても進行が見える場所に居る。
                 const widget = await this.revealHome();
                 await widget.startNewProject();
+            }
+        });
+        registry.registerCommand(AkariHomeCommands.NEW_CHANNEL, {
+            execute: async () => {
+                const widget = await this.revealHome();
+                await widget.openNewChannelDialog();
             }
         });
         registry.registerCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP, {

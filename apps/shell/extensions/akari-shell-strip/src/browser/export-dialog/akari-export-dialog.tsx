@@ -21,10 +21,25 @@ export class AkariExportDialog extends ReactDialog<void> {
         ensureExportDialogStyle();
         this.toDispose.push(this.session.onDidChange(() => this.update()));
         this.toDispose.push(this.visibilityEmitter);
+        this.node.addEventListener('keydown', this.onEscapeKeyDown, true);
+        this.toDispose.push({ dispose: () => this.node.removeEventListener('keydown', this.onEscapeKeyDown, true) });
     }
+
+    protected readonly onEscapeKeyDown = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.handleEscape(event);
+    };
 
     get value(): void {
         return undefined;
+    }
+
+    protected override handleEscape(_event: KeyboardEvent): boolean | void {
+        const phase = this.session.snapshot.status.phase;
+        if (phase === 'linting' || phase === 'rendering') return false;
+        this.close();
     }
 
     protected override onAfterAttach(msg: Message): void {

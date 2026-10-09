@@ -8,8 +8,90 @@ export const RIGHT_RAIL_CLOSE_ICON_SVG = '<svg viewBox="0 0 24 24" width="13" he
 
 const LINE = 'var(--akari-rail-separator, #444)';
 const ACCENT = 'var(--akari-accent, #f97316)';
+const PARTNER_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNzUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTAiIGN5PSI4IiByPSIzLjUiLz48cGF0aCBkPSJNMy41IDIwYzAtMy42IDIuOS02LjUgNi41LTYuNXM2LjUgMi45IDYuNSA2LjUiLz48cGF0aCBkPSJNMTkgMTJ2Nk0xNiAxNWg2Ii8+PC9zdmc+';
 
 export const RIGHT_RAIL_CSS = `
+/* 左レールと同じアイコン下の短い名前。Theia の縦書き指定を戻す。 */
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab {
+    min-height: 52px !important;
+    height: 52px !important;
+    flex: 0 0 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 0 !important;
+    overflow: visible;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .theia-tab-icon-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabIcon {
+    position: static !important;
+    top: auto !important;
+    transform: none !important;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    font-size: 26px;
+    text-align: center;
+    margin: 0 !important;
+    background-size: 26px 26px;
+    mask-size: 26px 26px;
+    -webkit-mask-size: 26px 26px;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon {
+    mask-image: url("${PARTNER_ICON}");
+    -webkit-mask-image: url("${PARTNER_ICON}");
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+    mask-size: 26px 26px;
+    -webkit-mask-size: 26px 26px;
+    background-color: var(--theia-activityBar-inactiveForeground);
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"] .lm-TabBar-tabIcon::before {
+    content: none !important;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab[data-akari-rail-id="akari-partner-onboarding"]:is(:hover, .lm-mod-current, .akari-rail-shown) .lm-TabBar-tabIcon {
+    background-color: var(--theia-activityBar-foreground);
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel {
+    display: block !important;
+    position: static !important;
+    top: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    writing-mode: horizontal-tb !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none;
+    font-size: 0;
+    line-height: 13px;
+    text-align: center;
+    letter-spacing: -.4px;
+    white-space: nowrap;
+    overflow: visible;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tabLabel::after {
+    content: attr(data-akari-rail-name);
+    font-size: 8px;
+    letter-spacing: -.4px;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current {
+    box-shadow: none !important;
+    border-left: 0 !important;
+}
+#theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.lm-mod-current::before {
+    content: none !important;
+    display: none !important;
+}
 /* ── レールの区切り線: 縦バーの縦の真ん中（--akari-rail-middle はハンドラーが実測して入れる） ── */
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right::after {
     content: "";
@@ -40,7 +122,7 @@ export const RIGHT_RAIL_CSS = `
     background: ${LINE};
     pointer-events: none;
 }
-/* 2 段のとき: 出ている 2 つは明るく、フォーカスの側だけに既存のアクセント棒（lm-mod-current）。 */
+/* 2 段のとき: 出ている 2 つを明るくする。 */
 #theia-app-shell .akari-right-rail .lm-TabBar.theia-app-right .lm-TabBar-tab.akari-rail-shown:not(.lm-mod-current) {
     background-color: var(--theia-activityBar-activeBackground, var(--akari-elevated, #1a1a1a));
     color: var(--theia-activityBar-foreground, var(--akari-ink, #e5e5e5));

@@ -6,6 +6,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { parseWorldMapMarker, WorldMapMarkerState } from '../common/world-map-marker';
+import { AKARI_SCOPE_BODY_ATTRIBUTE, AKARI_SCOPE_CONTEXT_KEY, AkariScope } from '../common/rail-ids';
 
 export interface AkariWorldMapMarker {
     state: WorldMapMarkerState;
@@ -13,6 +14,12 @@ export interface AkariWorldMapMarker {
     error?: string;
 }
 
+/**
+ * 場所（1 枚の画面 v0・契約 §1 裁定 1）: `channel` = ワークスペース未オープン（チャンネルにいる）/
+ * `project` = ルートに edit.json（プロジェクトの中）。edit.json の無いフォルダを開いているときも
+ * `project` 扱い（画面の構成はプロジェクトの中と同じ。進み具合が「作ったばかり」になるだけ）。
+ * 同じ値を body[data-akari-scope]（CSS 用）と context key `akari.scope`（when 句用）に出す。
+ */
 @injectable()
 export class AkariScopeService implements FrontendApplicationContribution {
     @inject(FileService) protected readonly files!: FileService;
@@ -21,17 +28,25 @@ export class AkariScopeService implements FrontendApplicationContribution {
 
     protected readonly changed = new Emitter<AkariWorldMapMarker>();
     readonly onDidChangeWorldMap: Event<AkariWorldMapMarker> = this.changed.event;
+    protected readonly scopeChanged = new Emitter<AkariScope>();
+    readonly onDidChangeScope: Event<AkariScope> = this.scopeChanged.event;
     protected readonly watches = new DisposableCollection();
     protected rootWatches = new DisposableCollection();
     protected worldMapKey?: ContextKey<WorldMapMarkerState>;
+    protected scopeKey?: ContextKey<AkariScope>;
     protected _worldMap: AkariWorldMapMarker = { state: 'absent' };
-    protected _scope: 'project' | 'unknown' = 'unknown';
+    protected _scope: AkariScope = 'channel';
+    /** ルートに edit.json があるか（旧 `scope === 'project'` の意味）。 */
+    protected _hasEditJson = false;
 
     get worldMap(): AkariWorldMapMarker { return this._worldMap; }
-    get scope(): 'project' | 'unknown' { return this._scope; }
+    get scope(): AkariScope { return this._scope; }
+    get hasEditJson(): boolean { return this._hasEditJson; }
 
     async onStart(): Promise<void> {
         this.worldMapKey = this.contextKeys.createKey<WorldMapMarkerState>('akari.worldMap', 'absent');
+        this.scopeKey = this.contextKeys.createKey<AkariScope>(AKARI_SCOPE_CONTEXT_KEY, 'channel');
+        this.applyScope('channel', true);
         this.watches.push(this.workspace.onWorkspaceChanged(() => void this.refreshRoot()));
         await this.refreshRoot();
     }
@@ -40,6 +55,15 @@ export class AkariScopeService implements FrontendApplicationContribution {
         this.rootWatches.dispose();
         this.watches.dispose();
         this.changed.dispose();
+        this.scopeChanged.dispose();
+    }
+
+    protected applyScope(scope: AkariScope, force = false): void {
+        const changed = this._scope !== scope;
+        this._scope = scope;
+        this.scopeKey?.set(scope);
+        if (typeof document !== 'undefined') { document.body.setAttribute(AKARI_SCOPE_BODY_ATTRIBUTE, scope); }
+        if (changed || force) { this.scopeChanged.fire(scope); }
     }
 
     protected async refreshRoot(): Promise<void> {
@@ -47,11 +71,13 @@ export class AkariScopeService implements FrontendApplicationContribution {
         this.rootWatches = new DisposableCollection();
         const root = (await this.workspace.roots)[0]?.resource;
         if (!root) {
-            this._scope = 'unknown';
+            this._hasEditJson = false;
+            this.applyScope('channel');
             this.update({ state: 'absent' });
             return;
         }
-        this._scope = await this.files.exists(root.resolve('edit.json')) ? 'project' : 'unknown';
+        this._hasEditJson = await this.files.exists(root.resolve('edit.json'));
+        this.applyScope('project');
         const planning = root.resolve('planning');
         const marker = planning.resolve('world-map.json');
         await this.refreshMarker(marker);

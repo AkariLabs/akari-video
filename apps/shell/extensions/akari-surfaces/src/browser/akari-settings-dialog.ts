@@ -286,7 +286,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.searchInput.setAttribute('aria-label', '設定を検索');
         this.searchInput.addEventListener('input', () => this.filterSections());
         const search = element('label'); search.className = 'akari-set-search-wrap';
-        const keyHint = element('kbd', '⌘F');
+        const keyHint = element('kbd', OS.type() === OS.Type.OSX ? '⌘F' : 'Ctrl+F');
         search.append(settingsIcon('search', 'sm'), this.searchInput, keyHint);
         nav.append(search);
         let previousGroup: string = 'main';
@@ -519,7 +519,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const zoom = clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100)));
             const zoomLabel = element('span', `${zoom}%`);
             const changeZoom = (next: number): void => { const value = clampZoom(next); zoomLabel.textContent = `${value}%`; this.savePreference(AKARI_APPEARANCE_ZOOM, value); applyAkariZoom(value); };
-            section.append(groupCard('UI の大きさ', settingRow('UI の大きさ', 'ズーム 60〜200%。⌘+ / ⌘− でも変更できます',
+            section.append(groupCard('UI の大きさ', settingRow('UI の大きさ', `ズーム 60〜200%。${OS.type() === OS.Type.OSX ? '⌘+ / ⌘−' : 'Ctrl++ / Ctrl+−'} でも変更できます`,
                 action('−', () => changeZoom(Number(zoomLabel.textContent?.replace('%', '')) - 10), { small: true }), zoomLabel,
                 action('+', () => changeZoom(Number(zoomLabel.textContent?.replace('%', '')) + 10), { small: true }),
                 action('元に戻す', () => changeZoom(100), { small: true }))));

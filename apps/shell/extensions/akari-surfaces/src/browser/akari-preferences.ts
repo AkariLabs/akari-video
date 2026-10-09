@@ -2,6 +2,7 @@ import { PreferenceContribution, PreferenceSchema, PreferenceScope } from '@thei
 import { injectable } from '@theia/core/shared/inversify';
 
 import { TRANSCRIBE_BACKENDS } from 'akari-shell-strip/lib/common/akari-connections-protocol';
+import { AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE } from 'akari-shell-strip/lib/common/rail-ids';
 
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
@@ -22,6 +23,10 @@ export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnE
 
 const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
+        [AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE]: {
+            type: 'boolean', default: false, scope: PreferenceScope.User,
+            description: 'プロジェクトをこの画面で開く前の確認を省く'
+        },
         [AKARI_VIBE_PREVIEW_ENABLED]: {
             type: 'boolean', default: false, scope: PreferenceScope.User,
             description: '開発中の AKARI バイブの画面と入口を表示する（再起動後に反映）'

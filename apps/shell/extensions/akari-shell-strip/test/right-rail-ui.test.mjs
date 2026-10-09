@@ -19,6 +19,32 @@ const WIDGETS = {
     audioMeter: '../../akari-preview/src/browser/akari-audio-meter-widget.ts'
 };
 
+test('右の主要ラベルは短い日本語になる', () => {
+    assert.match(read(WIDGETS.inspector), /this\.title\.label = 'インスペクター'/);
+    assert.match(read('../../akari-partner/src/browser/akari-partner-widget.tsx'), /'チャット'/);
+    assert.match(read('../../akari-partner/src/browser/akari-partner-web-widget.tsx'), /'チャット（DeepSeek）'/);
+});
+
+test('パートナーのレール名と線画アイコンを表示する', () => {
+    const handler = read('../src/browser/akari-right-panel-handler.ts');
+    assert.match(handler, /id === 'akari-partner-onboarding' \? 'パートナー'/);
+    assert.match(handler, /title\.label = 'パートナー'/);
+    assert.match(handler, /railNameForPartner\(id, title\?\.label \|\| '', title\?\.caption\)/);
+    assert.match(handler, /tab\.setAttribute\('data-akari-rail-id', id\)/);
+    assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-id="akari-partner-onboarding"[^\n]*\.lm-TabBar-tabIcon \{/);
+    assert.match(style.RIGHT_RAIL_CSS, /mask-image: url\("data:image\/svg\+xml;base64,/);
+});
+
+test('右レール下端のモード切替に短い名前を表示する', () => {
+    const handler = read('../src/browser/akari-right-panel-handler.ts');
+    const switcher = read('../../akari-surfaces/src/browser/akari-mode-switch-contribution.ts');
+    assert.match(switcher, /const MENU_ID = 'akari-mode-switch'/);
+    assert.match(handler, /\.akari-mode-switch-icon/);
+    assert.match(handler, /name\.setAttribute\('data-akari-rail-name', 'モード'\)/);
+    assert.match(handler, /name\.textContent = 'モード'/);
+    assert.match(handler, /MutationObserver\(\(\) => this\.decorateModeName\(\)\)/);
+});
+
 test('the four right-rail widgets use the line-art icon classes (no codicon)', () => {
     for (const [key, path] of Object.entries(WIDGETS)) {
         const lines = read(path).split('\n').filter(line => line.includes('this.title.iconClass'));
@@ -70,6 +96,8 @@ test('the right side panel handler and the drop zones are wired in the frontend 
         assert.ok(dnd.includes(`'${label}'`), label);
     }
     assert.ok(style.RIGHT_RAIL_CSS.includes('--akari-rail-middle'), 'separator is placed at the measured middle');
+    assert.match(style.RIGHT_RAIL_CSS, /data-akari-rail-name/);
+    assert.match(read('../src/browser/akari-right-panel-handler.ts'), /label\.setAttribute\('data-akari-rail-name', name\)/);
     assert.match(style.RIGHT_RAIL_CLOSE_ICON_SVG, /M6 6l12 12M18 6L6 18/);
 });
 
