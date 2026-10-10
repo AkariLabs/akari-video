@@ -10,6 +10,7 @@ import { AKARI_COMMANDS, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/co
 import { AkariSkillCatalogService } from 'akari-shell-strip/lib/browser/akari-skill-catalog-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { ProjectProgressService, stageSummary } from '../home/project-progress';
 import { AkariChannelContextService, ChannelProject } from './akari-channel-context-service';
@@ -83,6 +84,7 @@ export class AkariChannelWidget extends ReactWidget {
     @inject(ProjectProgressService) protected readonly progress!: ProjectProgressService;
     @inject(AkariSkillCatalogService) protected readonly skillCatalog!: AkariSkillCatalogService;
     @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
+    @inject(AkariAnnotationsService) protected readonly annotations!: AkariAnnotationsService;
     protected projectStages = new Map<string, string>();
     protected projectThumbnails = new Map<string, string[]>();
     protected channelDocFiles = new Map<ChannelDocKind, string>();
@@ -718,7 +720,9 @@ export class AkariChannelWidget extends ReactWidget {
                 hasProKey={this.proKey} onNeedPro={this.onNeedPro}
                 onClose={() => this.openMemorySheet(undefined)} onOpen={kind => this.openMemorySheet(kind)}
                 onTypePrompt={text => void this.commands.executeCommand('akari.partner.typePrompt', text)}
-                onChanged={() => void this.refreshChannelDocs()} />
+                onChanged={() => void this.refreshChannelDocs()}
+                loadVoiceProfiles={() => this.annotations.voiceProfiles().then(result => result.profiles.map(profile => ({ id: profile.id, label: profile.label || profile.id, avatar: profile.avatar })), () => [])}
+                onOpenSettings={section => void this.commands.executeCommand('akari.settings.open', { section })} />
             {this.proNotice && <ChannelProSheet feature={this.proNotice}
                 onClose={() => { this.proNotice = undefined; this.update(); }}
                 onConnect={() => {
