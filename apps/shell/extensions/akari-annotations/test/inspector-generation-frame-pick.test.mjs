@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -6,6 +8,12 @@ import ts from 'typescript';
 import uriModule from '@theia/core/lib/common/uri.js';
 import * as mirror from '../lib/common/generation-pick-mirror.js';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 // Exercise the compiled widget methods without loading Electron's BaseWidget/DOM.
 // As in inspector-generation-service, retain production method bodies in the harness.

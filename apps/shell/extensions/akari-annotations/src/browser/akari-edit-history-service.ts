@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { MaterialTrialHistory } from '../common/material-trial-history';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -91,7 +92,7 @@ export class AkariEditHistoryService {
     pushPreviewCaptionWrite(change: PreviewCaptionWrite, io: PreviewCaptionHistoryIO): HistoryEntry {
         const restore = async (expected: string, content: string): Promise<void> => {
             if (await io.read(change.captionsUri) !== expected) {
-                throw new Error('字幕ファイルが後から変更されています');
+                throw new Error(t('annotations.editHistoryService.text.theSubtitleFileHasBeenChangedSince'));
             }
             await io.write(change, content);
         };

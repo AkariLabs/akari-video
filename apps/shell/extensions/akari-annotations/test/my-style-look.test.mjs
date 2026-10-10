@@ -1,3 +1,5 @@
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -9,6 +11,9 @@ import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedSty
 import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
 import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 test('実効の見た目を解決し、位置と動きを保存しない', () => {
   const look = effectiveMyStyleLook({ color: '#ffffff', stroke: { color: '#000000', widthPx: 2 },

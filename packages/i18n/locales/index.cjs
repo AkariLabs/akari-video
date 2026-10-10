@@ -3,6 +3,7 @@
 
 module.exports = {
   ja: {
+    ...require("./ja/annotations.json"),
     ...require("./ja/common.json"),
     ...require("./ja/companion.json"),
     ...require("./ja/decision-log.json"),
@@ -17,6 +18,7 @@ module.exports = {
     ...require("./ja/world.json"),
   },
   en: {
+    ...require("./en/annotations.json"),
     ...require("./en/common.json"),
     ...require("./en/companion.json"),
     ...require("./en/decision-log.json"),

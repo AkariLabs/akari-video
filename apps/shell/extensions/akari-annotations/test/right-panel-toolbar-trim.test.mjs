@@ -1,7 +1,16 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const panel = readFileSync(new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8');
 const timeline = readAllSourceText();
@@ -15,7 +24,8 @@ test('注釈の重複見出しを空のスロットにし、フィルタとボ�
     assert.match(heading, /heading\.style\.marginRight = 'auto'/);
     assert.match(heading, /setAttribute\('aria-hidden', 'true'\)/);
     assert.match(panel, /this\.toolbar\.append\(heading, this\.filterSelect, this\.openBoardButton\)/);
-    assert.match(panel, /this\.title\.label = '注釈'/);
+    assert.match(panel, /this\.title\.label = t\('annotations\.reviewPanelWidget\.text\.annotation'\)/);
+    assert.equal(ja['annotations.reviewPanelWidget.text.annotation'], '注釈');
     assert.match(panel, /this\.filterSelect\.addEventListener\('change'/);
     assert.match(panel, /this\.openBoardButton\.addEventListener\('click'/);
 });
@@ -34,5 +44,6 @@ test('録音帯は保存済み true を読まず非表示で初期化し、描�
     assert.match(timeline, /if \(!this\.recordingRangesVisible\) return;/);
     assert.match(timeline, /this\.recordingRangesVisible && this\.reviewSessionBandsCache\.length > 0/);
     assert.match(timeline, /protected focusReviewSession\(/);
-    assert.match(panel, /recordingTitle\.textContent = '録音セッション'/);
+    assert.match(panel, /recordingTitle\.textContent = t\('annotations\.reviewPanelWidget\.text\.recordingSession'\)/);
+    assert.equal(ja['annotations.reviewPanelWidget.text.recordingSession'], '録音セッション');
 });
