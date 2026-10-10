@@ -4,127 +4,248 @@ import { SkillCategory } from './skills-panel-model';
 const accent = 'var(--akari-accent, #f97316)';
 const shade = 'var(--theia-descriptionForeground)';
 
-// 各行は輪郭、仕事を示す二つ目の形、細部、強調の順。
-const SKILL_PATHS: Record<string, readonly [string, string, string, string]> = {
-    'address-review': [
-        'M8 8h27l8 8v18H8zM35 8v8h8', 'M14 17h14M14 22h10M14 27h8',
-        'm29 35 4-10 13-12 4 4-13 13z', 'm43 15 5 5'],
-    akari: [
-        'm8 20 21-14 21 14M13 18v18h32V18', 'M17 30h8M33 30h8',
-        'M20 35h18', 'm26 18 13 7-13 7z'],
-    'analyze-footage': [
-        'M7 8h35v22H7zM7 13h35M7 25h35', 'M12 8v5M22 8v5M32 8v5M13 17h13v5H13z',
-        'M40 27a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'm46 25 9 10'],
-    'analyze-project': [
-        'M8 33V12h29M11 33h31', 'M14 28v-8h5v8M23 28V15h5v13M32 28v-5h5v5',
-        'M44 25a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'm50 23 8 9'],
-    'bake-3d': [
-        'm10 14 12-6 12 6-12 7zM10 14v14l12 7 12-7V14M22 21v14',
-        'M39 32h16M41 35h12M40 26h14', 'M48 22c0-2 2-3 2-5',
-        'M45 24c-4-5 2-8 1-14 7 7 10 11 6 15-3 3-8 2-7-1z'],
-    'beat-sync-edit': [
-        'M13 8v18a5 5 0 1 1-4-5V12l22-5v18a5 5 0 1 1-4-5V8',
-        'M8 35h47M18 31v8M29 31v8M40 31v8M51 31v8', 'M14 15 29 11',
-        'M36 14h18M39 10v8M46 10v8M53 10v8'],
-    'compile-review-session': [
-        'M9 13h25v22H9zM14 18h14M14 29h13',
-        'M46 30a11 11 0 1 0 0-22 11 11 0 0 0 0 22z',
-        'M46 12v8l5 3M39 34h14',
-        'M20 25a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
-    'create-project': [
-        'M7 14h19l4 4h25v18H7zM7 14V9h17l4 5', 'M12 31h13',
-        'M31 27h17', 'M39.5 19v16'],
-    'critique-cut': [
-        'M10 11 39 31M11 31 39 11',
-        'M10 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 25a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
-        'M37 13h13M37 29h13',
-        'M47 13a9 9 0 1 0 0 18 9 9 0 0 0 0-18z'],
-    'declare-audio': [
-        'M9 18h8l10-8v25l-10-8H9z', 'M32 15c5 3 5 10 0 13M36 10c9 6 9 17 0 23',
-        'M45 35h1M52 35h1M59 35h1', 'M45 15v16M52 11v20M59 18v13'],
-    'design-world': [
-        'M27 36a15 15 0 1 0 0-30 15 15 0 0 0 0 30z',
-        'M12 21h30M27 6c-9 9-9 21 0 30M27 6c9 9 9 21 0 30',
-        'm34 34 9-12 6 7 5-8 7 13z', 'm40 27 3-5 3 4'],
-    'edit-lint': [
-        'M12 7h35v30H12zM18 15h5M18 24h5M18 33h5',
-        'M27 15h13M27 24h13M27 33h10', 'M9 12v26h35',
-        'm17 14 2 2 4-5m-6 12 2 2 4-5m-6 12 2 2 4-5'],
-    'edit-plan': [
-        'M10 5h29l7 7v20H10zM39 5v7h7', 'M16 14h15M16 19h23M16 24h17',
-        'M11 37h43M18 34v6M31 34v6M45 34v6', 'M30 37h13'],
-    'export-nle': [
-        'M8 16h28v20H8zM8 21h28M13 16v5M23 16v5M32 16v5',
-        'm18 26 8 4-8 4z', 'M39 11h15v25H39',
-        'M38 26h16m-6-6 6 6-6 6'],
-    'generate-media': [
-        'M8 10h37v26H8zM13 30l10-10 7 7 5-5 6 8',
-        'M18 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-        'm49 28 3 2 3-2-3 5z', 'M52 7v13M46 13h12'],
-    'generate-narration': [
-        'M21 7a6 6 0 0 0-6 6v10a6 6 0 0 0 12 0V13a6 6 0 0 0-6-6z',
-        'M10 21a11 11 0 0 0 22 0M21 32v6M15 38h12',
-        'M36 35h21', 'M37 22h3l2-7 4 15 3-12 3 5h5'],
-    'harvest-asset': [
-        'M9 21h45l-5 16H14zM15 21l7-12M48 21 41 9',
-        'M19 26v7M31 26v7M43 26v7', 'M29 12h2',
-        'M25 9h18v13H25zM28 19l5-5 4 4 3-3'],
-    'manage-connections': [
-        'M8 13h18v15H8zM12 8v5M22 8v5M17 28v8h10',
-        'M40 11v4l4 2 4-2 4 5-3 4 2 4-3 5-5-2-3 2-4-2-4 2-3-5 2-4-3-4 4-5 4 2z',
-        'M28 35h8', 'M40 19a5 5 0 1 0 0 10 5 5 0 0 0 0-10z'],
-    'overlay-authoring': [
-        'M6 8h44v27H6zM11 30h15', 'M17 14h39v25H17z',
-        'M28 33h17', 'M27 20h18M36 20v13'],
-    'render-cut': [
-        'M17 23a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM17 9v3M23 14h-3M17 19v-3M11 14h3',
-        'M17 23v12h14', 'M32 18h25v19H32zM37 23h15M37 32h15',
-        'm42 26 7 3-7 3z'],
-    'research-plan': [
-        'm7 10 15-4 16 5 18-4v28l-18 4-16-5-15 4zM22 6v28M38 11v28',
-        'm11 24 6-5M26 17l7 5', 'M47 18h1',
-        'M47 13a6 6 0 0 0-6 6c0 5 6 11 6 11s6-6 6-11a6 6 0 0 0-6-6z'],
-    'setup-audio-library': [
-        'M24 7a8 8 0 0 0-9 10L7 29l8 8 12-13a8 8 0 0 0 10-9l-6 5-8-7z',
-        'M11 29l5 5', 'M39 35h18',
-        'M47 8v20a5 5 0 1 1-4-5V12l13-4v17a5 5 0 1 1-4-5V9'],
-    'setup-chat-approval': [
-        'M8 8h47v25H29l-10 7v-7H8z', 'M15 16h14M15 22h10',
-        'M33 13h16', 'm35 23 5 5 9-11'],
-    'setup-library': [
-        'M7 35h48M11 12v23M24 12v23M37 12v23M50 12v23M11 12h39',
-        'M16 17v12M29 17v12M42 17v12', 'M17 35v4',
-        'M46 5a6 6 0 0 0-8 8L27 24l5 5 11-11a6 6 0 0 0 8-8l-4 4-5-5z'],
-    'setup-remote': [
-        'M13 6h25v33H13zM17 10h17M21 35h9',
-        'M44 13c5 1 8 5 8 10M43 19c2 1 3 2 3 4',
-        'M26 18v10m-4-5h8', 'M52 7c6 3 9 8 9 16'],
-    verify: [
-        'M13 7v31M36 7v31M13 12h23M13 22h23M13 32h23',
-        'M8 38h33M8 7h33', 'M46 11h10',
-        'm41 25 6 6 10-14']
+// 1 パーツ = 役割 + path + 任意の transform。
+//   line   : 線（currentColor）
+//   body   : 主役の面（薄い面 + 線）
+//   accent : 橙の線（強調は 1 枚につき 1 か所）
+//   dot    : 橙の塗り（点）
+type Role = 'line' | 'body' | 'accent' | 'dot';
+type Part = readonly [Role, string, string?];
+
+const n = (value: number): string => String(Math.round(value * 100) / 100);
+
+// 角丸の四角
+const rr = (x: number, y: number, w: number, h: number, r = 2): string =>
+    `M${n(x + r)} ${n(y)}h${n(w - 2 * r)}a${r} ${r} 0 0 1 ${r} ${r}v${n(h - 2 * r)}a${r} ${r} 0 0 1-${r} ${r}` +
+    `h-${n(w - 2 * r)}a${r} ${r} 0 0 1-${r}-${r}v-${n(h - 2 * r)}a${r} ${r} 0 0 1 ${r}-${r}z`;
+
+// 円
+const circ = (cx: number, cy: number, r: number): string =>
+    `M${n(cx - r)} ${n(cy)}a${r} ${r} 0 1 0 ${n(2 * r)} 0a${r} ${r} 0 1 0-${n(2 * r)} 0z`;
+
+// 折り返しのある書類（輪郭 + 折り目）
+const doc = (x: number, y: number, w: number, h: number, f: number): readonly [string, string] => [
+    `M${x} ${y}h${w - f}l${f} ${f}v${h - f}H${x}z`,
+    `M${x + w - f} ${y}v${f}h${f}`
+];
+
+// 歯車（歯 teeth 枚・中心 cx,cy・歯先 ro・歯元 ri）。歯は台形、歯と歯の間は歯元の円弧
+const gear = (cx: number, cy: number, ro: number, ri: number, teeth: number): string => {
+    const step = (2 * Math.PI) / teeth;
+    const at = (angle: number, radius: number): string =>
+        `${n(cx + radius * Math.cos(angle))} ${n(cy + radius * Math.sin(angle))}`;
+    let d = '';
+    for (let i = 0; i < teeth; i++) {
+        const a = i * step - Math.PI / 2;
+        d += `${i === 0 ? 'M' : 'A' + ri + ' ' + ri + ' 0 0 1 '}${at(a - step * 0.29, ri)}`;
+        d += `L${at(a - step * 0.15, ro)}L${at(a + step * 0.15, ro)}L${at(a + step * 0.29, ri)}`;
+    }
+    return `${d}A${ri} ${ri} 0 0 1 ${at(-Math.PI / 2 - step * 0.29, ri)}z`;
 };
 
-export const DEDICATED_PICTOGRAM_NAMES: readonly string[] = Object.keys(SKILL_PATHS);
+// 波形の縦棒（中心線 y・半分の高さの並び）
+const bars = (xs: readonly number[], cy: number, halves: readonly number[]): string =>
+    xs.map((x, i) => `M${x} ${n(cy - halves[i])}v${n(halves[i] * 2)}`).join('');
+
+const L = (d: string, t?: string): Part => ['line', d, t];
+const B = (d: string, t?: string): Part => ['body', d, t];
+const A = (d: string, t?: string): Part => ['accent', d, t];
+const D = (d: string, t?: string): Part => ['dot', d, t];
+
+const addressDoc = doc(9, 7, 24, 30, 8);
+const planDoc = doc(8, 6, 22, 32, 7);
+const compileDoc = doc(35, 7, 20, 30, 6);
+const catPlanDoc = doc(17, 6, 30, 32, 8);
+const catReviewDoc = doc(17, 6, 30, 32, 8);
+
+const SKILL_PARTS: Record<string, readonly Part[]> = {
+    // レビューの指摘に応える: 書類 + 鉛筆
+    'address-review': [
+        B(addressDoc[0]), L(addressDoc[1]), L('M14 21h13M14 26h13M14 31h7'),
+        L('M-2.5-11h5v15l-2.5 5-2.5-5z', 'translate(46 23) rotate(45)'),
+        A('M-2.5-7h5', 'translate(46 23) rotate(45)')
+    ],
+    // 入口: モニターと再生
+    akari: [
+        B(rr(10, 7, 44, 26, 4)), L('M24 38h16M32 33v5'), A('M28 14l11 6-11 6z')
+    ],
+    // 素材（フィルム）を虫眼鏡で観察
+    'analyze-footage': [
+        B(rr(6, 8, 28, 28, 3)), L(rr(11, 17, 18, 10, 1.5)),
+        L('M11 12.5h.1M17 12.5h.1M23 12.5h.1M29 12.5h.1M11 31.5h.1M17 31.5h.1M23 31.5h.1M29 31.5h.1'),
+        B(circ(46, 18, 7.5)), A('M51.5 23.5L57 29')
+    ],
+    // プロジェクト全体の読み: グラフ + 虫眼鏡
+    'analyze-project': [
+        B(circ(18, 16, 7.5)), L('M12.7 21.3L7 27'),
+        L(rr(31, 24, 6, 13, 1)), A(rr(40, 8, 6, 29, 1)), L(rr(49, 17, 6, 20, 1))
+    ],
+    // 3D を焼く: 立方体 + 炎
+    'bake-3d': [
+        B('M22 7.5l12.5 7.25v14.5L22 36.5 9.5 29.25v-14.5z'),
+        L('M9.5 14.75L22 22l12.5-7.25M22 22v14.5'),
+        L('M48 36c-5.5 0-8.5-3.5-8.5-8 0-4 3-6 4.5-10 .8 2 2 3 3 3.5-.5-5 .5-9.5 3-14 4 3 6.5 8 6.5 15 0 8-3.5 13.5-8.5 13.5z'),
+        A('M48 33.5c-2 0-3.2-1.4-3.2-3 0-1.8 1.4-2.6 2.2-4.6 2.6 1.4 4.2 3.2 4.2 5.2 0 1.4-1.2 2.4-3.2 2.4z')
+    ],
+    // 音のビートに編集を合わせる: 音符 + 拍
+    'beat-sync-edit': [
+        B(rr(6, 6, 28, 32, 4)),
+        B(circ(13.5, 29, 2.8)), B(circ(25, 26, 2.8)), L('M16.3 29V17.5M27.8 26V14.5'),
+        B('M16.3 13l11.5-3v4.5l-11.5 3z'),
+        L('M41 15v14M53 15v14'), A('M47 10v24')
+    ],
+    // 録音 → 文字 → 命令: 波形 → 書類
+    'compile-review-session': [
+        L('M9 18v8M15 14v16M21 17v10'), A('M26 22h5m-2.5-2.5L31 22l-2.5 2.5'),
+        B(compileDoc[0]), L(compileDoc[1]), L('M40 21h10M40 26h10M40 31h6')
+    ],
+    // 新規プロジェクト: フォルダ + プラス
+    'create-project': [
+        B('M8 8h14l4 5h30v24H8z'), A('M32 19.5v11M26.5 25h11')
+    ],
+    // カットの批評: はさみ
+    'critique-cut': [
+        B(circ(16, 12, 4.5)), B(circ(16, 32, 4.5)),
+        B('M18.8 15.3L52 29 20.4 12.1z'), B('M20.4 31.9L52 15 18.8 28.7z'), D(circ(37.2, 22, 1.8))
+    ],
+    // 音に宣言をつける: 波形 + 区間のかっこ
+    'declare-audio': [
+        B(rr(6, 6, 52, 32, 4)),
+        L(bars([11, 18, 25, 32, 39, 46, 53], 19, [3, 7, 5, 10, 7, 4, 3])),
+        A('M25 29.5v4h14v-4')
+    ],
+    // 世界を作る: 地球
+    'design-world': [
+        B(circ(32, 22, 14.5)), L('M32 7.5c-6.5 4.5-6.5 24.5 0 29 6.5-4.5 6.5-24.5 0-29M17.5 22h29'), D(circ(41, 15, 1.7))
+    ],
+    // 編集の検査: チェックリスト
+    'edit-lint': [
+        B(rr(10, 6, 44, 32, 4)),
+        L('M16 14l2.5 2.5 4.5-5M16 22l2.5 2.5 4.5-5M28 14h18M28 22h14M28 30h10'), A(circ(19.5, 30, 2.6))
+    ],
+    // 企画と段取り: 企画書 + 工程
+    'edit-plan': [
+        B(planDoc[0]), L(planDoc[1]), L('M13 20h12M13 26h12M13 32h7'),
+        A(rr(35, 9, 12, 7, 1.5)), L(rr(49, 9, 7, 7, 1.5)),
+        L(rr(35, 20, 7, 7, 1.5)), L(rr(44, 20, 12, 7, 1.5)), L(rr(35, 31, 16, 7, 1.5))
+    ],
+    // 他社 NLE へ書き出す: 枠から矢印が出る
+    'export-nle': [
+        L('M28 8H14a3 3 0 0 0-3 3v22a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3V24'),
+        L('M21 16l11 6-11 6z'), A('M38 22L52 8M44 8h8v8')
+    ],
+    // 生成素材: 画像 + きらめき
+    'generate-media': [
+        B(rr(6, 9, 34, 28, 3)), L(circ(15, 18, 3)), L('M8 31l8.5-8.5 6.5 6.5 5-5 10 10'),
+        A('M51 9q.8 5.2 6 6-5.2.8-6 6-.8-5.2-6-6 5.2-.8 6-6z')
+    ],
+    // ナレーション: マイク + 声
+    'generate-narration': [
+        B('M26 12a6 6 0 0 1 12 0v8a6 6 0 0 1-12 0z'), L('M21 19v1a11 11 0 0 0 22 0v-1M32 31v6M26 37h12'),
+        A('M30 13h4M30 18h4'),
+        L('M17 16c-2 3-2 7 0 10M12 12c-4 6-4 14 0 20M47 16c2 3 2 7 0 10M52 12c4 6 4 14 0 20')
+    ],
+    // 素材化: かご + 素材カード
+    'harvest-asset': [
+        L('M19 20V9a2 2 0 0 1 2-2h22a2 2 0 0 1 2 2v11'), L('M23 17l5-5 4 4 3-3 5 5'), D(circ(26.5, 11.5, 1.4)),
+        B(rr(9, 21, 46, 6, 2)), B('M12 27v9a2 2 0 0 0 2 2h36a2 2 0 0 0 2-2v-9'), A('M27 32h10')
+    ],
+    // 接続・設定: 歯車
+    'manage-connections': [
+        B(gear(32, 22, 14.5, 11.5, 8)), A(circ(32, 22, 4.5))
+    ],
+    // オーバーレイ: 重なる 2 枚 + 文字
+    'overlay-authoring': [
+        L('M42 14V9a3 3 0 0 0-3-3H11a3 3 0 0 0-3 3v19a3 3 0 0 0 3 3h9'),
+        B(rr(20, 14, 34, 22, 3)), A('M31 21h12M37 21v10')
+    ],
+    // 書き出し: カチンコ + 再生
+    'render-cut': [
+        B('M9 21h46v16H9z'), B('M9 15h46v6H9z', 'rotate(-8 9 21)'),
+        L('M19 15l-3 6M29 15l-3 6M39 15l-3 6M49 15l-3 6', 'rotate(-8 9 21)'), A('M28 25l9 4.5-9 4.5z')
+    ],
+    // 企画・調査: 地図 + ピン
+    'research-plan': [
+        B('M8 11l14-4 20 5 14-4v26l-14 4-20-5-14 4z'), L('M22 7v26M42 12v26'),
+        A('M32 31c-5-5-6-8-6-11a6 6 0 0 1 12 0c0 3-1 6-6 11zM32 18a2 2 0 1 0 0 4a2 2 0 1 0 0-4z')
+    ],
+    // 音源ライブラリを揃える: ヘッドホン + ダウンロード
+    'setup-audio-library': [
+        L('M12 28v-2a20 20 0 0 1 40 0v2'), B(rr(8, 28, 8, 11, 3)), B(rr(48, 28, 8, 11, 3)),
+        A('M32 17v14m-5-5l5 5 5-5'), L('M26 36h12')
+    ],
+    // チャットで承認: 吹き出し + チェック
+    'setup-chat-approval': [
+        B('M10 8h44a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H31l-9 7v-7H10a3 3 0 0 1-3-3V11a3 3 0 0 1 3-3z'),
+        A('M25 20l5 5 10-11')
+    ],
+    // 初期セットアップ: 道具箱
+    'setup-library': [
+        B(rr(8, 16, 48, 21, 3)), L('M23 16v-4.5a2.5 2.5 0 0 1 2.5-2.5h13a2.5 2.5 0 0 1 2.5 2.5V16'),
+        L('M8 26h20M36 26h20'), A(rr(28, 23, 8, 6, 1.5))
+    ],
+    // 遠隔: スマホ + 電波
+    'setup-remote': [
+        B(rr(13, 5, 22, 34, 4)), L('M21 9.5h6M21 34h6'), A('M40 17a8 8 0 0 1 0 10M46 12a14 14 0 0 1 0 20')
+    ],
+    // 検証: 盾 + チェック
+    verify: [
+        B(circ(28, 18, 12)), L('M36.5 26.5L46 36'), A('M22 18.5l4.5 4.5 8-9')
+    ]
+};
+
+// 描画範囲の中心を枠の中心（32,22）へ寄せる平行移動（getBBox の実測から。0.5 刻み）
+const SKILL_SHIFT: Record<string, readonly [number, number]> = {
+    akari: [0, -0.5], 'analyze-footage': [0.5, 0], 'analyze-project': [1, -0.5], 'bake-3d': [-1, 0],
+    'beat-sync-edit': [2.5, 0], 'create-project': [0, -0.5], verify: [1, 1],
+    'export-nle': [0.5, 0],
+    'generate-media': [0.5, -1], 'generate-narration': [0, 0.5], 'harvest-asset': [0, -0.5],
+    'overlay-authoring': [1, 1], 'render-cut': [0.5, -0.5], 'research-plan': [0, -0.5],
+    'setup-audio-library': [0, -0.5], 'setup-chat-approval': [0, -1], 'setup-library': [0, -1],
+    'setup-remote': [0.5, 0]
+};
+
+export const DEDICATED_PICTOGRAM_NAMES: readonly string[] = Object.keys(SKILL_PARTS);
+
+function renderParts(parts: readonly Part[]): React.ReactNode {
+    return <>
+        {parts.map(([role, d, transform], index) => {
+            const common = { d, transform };
+            switch (role) {
+                case 'body':
+                    return <path key={index} {...common} fill={shade} fillOpacity={0.16} />;
+                case 'accent':
+                    return <path key={index} {...common} stroke={accent} />;
+                case 'dot':
+                    return <path key={index} {...common} stroke={accent} fill={accent} />;
+                default:
+                    return <path key={index} {...common} />;
+            }
+        })}
+    </>;
+}
 
 const SKILL_ART: Record<string, React.ReactNode> = Object.fromEntries(
-    Object.entries(SKILL_PATHS).map(([name, paths]) => [name, <>
-        {paths.map((d, index) => <path key={index} d={d} stroke={index === 3 ? accent : 'currentColor'}
-            fill={name === 'overlay-authoring' && index === 1 ? shade : 'none'}
-            fillOpacity={name === 'overlay-authoring' && index === 1 ? 0.3 : undefined} />)}
-    </>])
+    Object.entries(SKILL_PARTS).map(([name, parts]) => {
+        const shift = SKILL_SHIFT[name];
+        return [name, shift ? <g transform={`translate(${shift[0]} ${shift[1]})`}>{renderParts(parts)}</g> : renderParts(parts)];
+    })
 );
 
-const CATEGORY_ART: Record<SkillCategory, React.ReactNode> = {
-    plan: <><path d='M9 8h19v27H9zM31 8h19v27H31z' /><path d='M15 16h8M36 16h8' stroke={accent} /></>,
-    analysis: <><path d='M10 12h27v21H10zM15 27v-6M22 27v-10M29 27v-4' /><path d='M45 25a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM51 23l7 8' stroke={accent} /></>,
-    material: <><path d='M9 14h45v22H9zM9 19h45M17 24h9v7h-9z' /><path d='M36 24h10v7H36z' stroke={accent} /></>,
-    edit: <><path d='M8 10h47v25H8zM8 16h47M17 10v6M29 10v6M41 10v6' /><path d='M32 18v19' stroke={accent} /></>,
-    review: <><path d='M11 7h33l7 7v23H11zM44 7v7h7M17 19h17' /><path d='m19 29 4 4 9-10' stroke={accent} /></>,
-    export: <><path d='M10 24v12h44V24M16 30h9' /><path d='M32 7v22m-8-8 8 8 8-8' stroke={accent} /></>,
-    setup: <><path d='M20 9h24v7l5 5-5 5v8H20v-8l-5-5 5-5z' /><path d='M32 15a7 7 0 1 0 0 14 7 7 0 0 0 0-14z' stroke={accent} /></>,
-    other: <><path d='M10 8h44v29H10zM17 16h30M17 23h20' /><path d='M40 30h8' stroke={accent} /></>
+const CATEGORY_PARTS: Record<SkillCategory, readonly Part[]> = {
+    plan: [B(catPlanDoc[0]), L(catPlanDoc[1]), L('M30 20h10M30 26h10M30 32h6'), A('M24 20h.1'), L('M24 26h.1M24 32h.1')],
+    analysis: [B(circ(25, 20, 11)), L('M33 28l10 10'), A('M20 24v-4M25 24v-8M30 24v-5')],
+    material: [B(rr(10, 6, 12, 28, 2)), A(rr(26, 10, 12, 24, 2)), B(rr(42, 6, 12, 28, 2)), L('M10 38h44')],
+    edit: [B(rr(8, 10, 11, 9, 2)), L(rr(22, 10, 10, 9, 2)), B(rr(40, 10, 16, 9, 2)), L(rr(8, 25, 24, 9, 2)), B(rr(40, 25, 16, 9, 2)), A('M36 5v34')],
+    review: [B(catReviewDoc[0]), L(catReviewDoc[1]), L('M24 19h10'), A('M26 29l4 4 9-10')],
+    export: [B(rr(10, 24, 44, 14, 3)), L('M32 8v18'), A('M24 15l8-8 8 8')],
+    setup: [L('M10 14h10M28 14h26M10 30h22M40 30h14'), B(circ(24, 14, 4)), A(circ(36, 30, 4))],
+    other: [B(rr(10, 8, 20, 12, 3)), L(rr(34, 8, 20, 12, 3)), L(rr(10, 24, 20, 12, 3)), A(rr(34, 24, 20, 12, 3))]
 };
+
+const CATEGORY_ART: Record<SkillCategory, React.ReactNode> = Object.fromEntries(
+    Object.entries(CATEGORY_PARTS).map(([category, parts]) => [category, renderParts(parts)])
+) as Record<SkillCategory, React.ReactNode>;
 
 export function skillPictogramFor(name: string, category: SkillCategory): { dedicated: boolean; art: React.ReactNode } {
     if (Object.prototype.hasOwnProperty.call(SKILL_ART, name)) {
