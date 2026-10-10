@@ -174,7 +174,7 @@ test("transcripts の segment に判定版を記録し、span と top-level の�
   const f = await fixture(t, []);
   await transcribeMedia(f.target, speechOptions(f));
   const transcript = await json(transcriptPath(f));
-  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
+  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap", "transcript_language"]);
   assert.equal(transcript.segments[0].unrecognized_algo_version, UNRECOGNIZED_ALGO_VERSION);
   assert.deepEqual(transcript.segments[0].unrecognized, [{ start: 1.5, end: 2.5 }]);
 });
