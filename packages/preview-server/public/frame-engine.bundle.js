@@ -3360,6 +3360,28 @@ var require_caption_timeline = __commonJS({
   }
 });
 
+// ../content-language/src/caption-defaults.json
+var require_caption_defaults = __commonJS({
+  "../content-language/src/caption-defaults.json"(exports, module) {
+    module.exports = {
+      ja: {
+        landscapeCharacters: 20,
+        portraitCharacters: 10,
+        charactersPerSecond: null,
+        minimumSeconds: 1,
+        fontStack: '"Noto Sans JP", sans-serif'
+      },
+      en: {
+        landscapeCharacters: 42,
+        portraitCharacters: 24,
+        charactersPerSecond: 17,
+        minimumSeconds: 1,
+        fontStack: '"Noto Sans JP", "AKARI Noto Sans JP", sans-serif'
+      }
+    };
+  }
+});
+
 // ../edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
   "../edit-store/lib/caption-display.js"(exports) {
@@ -3404,6 +3426,8 @@ var require_caption_display = __commonJS({
     var textstyle_catalog_1 = require_textstyle_catalog();
     var caption_runs_1 = require_caption_runs();
     var caption_timeline_1 = require_caption_timeline();
+    var CAPTION_LANGUAGE_DEFAULTS = require_caption_defaults();
+    var captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split("-")[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
     exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
     exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
     exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -3798,7 +3822,10 @@ var require_caption_display = __commonJS({
           const karaokeEligible = (sourceCaption.style ?? policy.word_style) === "karaoke" && karaokeEligibleByCaption.has(occurrence.caption_input_index);
           const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
           const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some((word) => !word.untimed));
-          const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+          let cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+          if (policy.locale.split("-")[0].toLowerCase() !== "ja" && !cueStyleVars?.["--caption-font-family"]) {
+            (cueStyleVars ??= {})["--caption-font-family"] = captionDefaultsFor(policy.locale).fontStack;
+          }
           const sourceRuns = captions[occurrence.caption_input_index].runs;
           const cueRuns = Array.isArray(sourceRuns) ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd) : void 0;
           displayCues.push({
@@ -4856,7 +4883,7 @@ var require_caption_display = __commonJS({
         }
         candidates.push({
           fragments: [first, second],
-          score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
+          score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints, policy.locale),
           boundary
         });
       }
@@ -4889,7 +4916,14 @@ var require_caption_display = __commonJS({
           return [];
         if (remaining === 0)
           return void 0;
-        const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+        const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).sort((left, right) => {
+          if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
+            const penalty = (end) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(text.slice(start, end)) ? 1 : 0;
+            if (penalty(left) !== penalty(right))
+              return penalty(left) - penalty(right);
+          }
+          return right - left;
+        });
         for (const end of candidates) {
           const rest = visit(end, remaining - 1);
           if (rest)
@@ -4911,8 +4945,8 @@ var require_caption_display = __commonJS({
       if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
         return [text];
       const Segmenter = Intl.Segmenter;
-      const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : Array.from(text);
-      const tokens = segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits));
+      const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
+      const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits)) : segments;
       const result = [];
       let current = "";
       for (let index = 0; index < tokens.length; index++) {
@@ -4948,7 +4982,7 @@ var require_caption_display = __commonJS({
         chunks.push(current);
       return chunks;
     }
-    function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
+    function captionBreakScore(first, second, firstUnits, secondUnits, hints, locale = "ja") {
       let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
       if ((hints?.preferred_second_starts ?? []).some((value) => second.startsWith(value)))
         score += 34;
@@ -4962,6 +4996,8 @@ var require_caption_display = __commonJS({
         score -= 100;
       if (/^[はがをにでとのもへや]/u.test(second))
         score -= 28;
+      if (captionDefaultsFor(locale) !== CAPTION_LANGUAGE_DEFAULTS.ja && /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(first))
+        score -= 100;
       if (/[（「『【]/u.test(first.slice(-1)))
         score -= 80;
       return score;

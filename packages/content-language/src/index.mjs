@@ -1,3 +1,5 @@
+import captionDefaults from './caption-defaults.json' with { type: 'json' };
+
 const LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 /** @param {unknown} tag @returns {string | null} Lowercase primary language or null. */
@@ -28,4 +30,13 @@ export function packLanguage(language, available) {
   if (available.includes(language)) return language;
   if (language === 'ja') return 'ja';
   return available.includes('en') ? 'en' : available[0];
+}
+
+// Netflix English (USA) Timed Text Style Guide: 42 characters/line; 20 CPS adult, 17 CPS child.
+// https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977-English-USA-Timed-Text-Style-Guide
+// Netflix Subtitle Templates guide: 17 CPS adult template limit.
+// https://partnerhelp.netflixstudios.com/hc/en-us/articles/219375728-Timed-Text-Style-Guide-Subtitle-Templates
+// English portrait 24 characters is an AKARI screen-width adaptation; the 1 s floor preserves the previous value.
+export function captionLanguageDefaults(language) {
+  return captionDefaults[packLanguage(normalizeLanguage(language) ?? 'en', ['ja', 'en'])];
 }

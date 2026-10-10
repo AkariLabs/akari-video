@@ -3,6 +3,7 @@ import { stripHtmlComments, stripCssComments, rawTextElements, htmlTags, findAtt
 import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
 import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
 import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
+import { captionLanguageDefaults, normalizeLanguage } from '../../content-language/src/index.mjs';
 import { accessSync, constants, statSync } from 'node:fs';
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
@@ -294,8 +295,6 @@ const UNSUPPORTED_MOTIONS = new Set();
 
 const SUPPORTED_WORD_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
 const GEOMETRY_EMPHASIS_STYLES = new Set(["one-char-bang", "one-char-jumble", "size-pulse"]);
-const DEFAULT_MAX_CHARACTERS = 20;
-const PORTRAIT_MAX_CHARACTERS = 10;
 
 export function evaluateGpuEligibility({
   edit = {},
@@ -428,6 +427,7 @@ export function evaluateGpuEligibility({
       output: edit.output,
       inheritedTextStyle,
       emphasisWords: validEmphasis,
+      locale: Array.isArray(captions) ? 'ja' : captions?.display_policy?.locale,
     });
     if (wordSupport.hasWordDisplay && textStyle?.vertical === true) {
       entries.push(entry("caption", id, "unsupported", "caption-text-style-vertical-unsupported", ["text_style.vertical"]));
@@ -472,14 +472,15 @@ function isValidEmphasis(value) {
     && (value.style_hint === undefined || typeof value.style_hint === "string");
 }
 
-export function classifyCaptionWordMode({ cue = {}, output = {}, inheritedTextStyle = null, emphasisWords = [] } = {}) {
+export function classifyCaptionWordMode({ cue = {}, output = {}, inheritedTextStyle = null, emphasisWords = [], locale = 'ja' } = {}) {
   const portrait = Number(output?.height) > Number(output?.width);
   const textStyle = mergeTextStyle(inheritedTextStyle, cue?.text_style);
-  const maximum = textStyle?.max_characters ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
+  const defaults = captionLanguageDefaults(locale);
+  const maximum = textStyle?.max_characters ?? (portrait ? defaults.portraitCharacters : defaults.landscapeCharacters);
   const words = clipWordsToRange(cue?.words, cue?.start, cue?.end);
   const displayText = typeof cue?.display_text === "string" ? cue.display_text : String(cue?.text ?? "");
   let effectiveStyle = SUPPORTED_WORD_STYLES.has(cue?.style) ? cue.style : null;
-  if (portrait && effectiveStyle === null && words.length > 0 && splitCaptionLines(displayText, maximum).length > 1) {
+  if (portrait && effectiveStyle === null && words.length > 0 && splitCaptionLines(displayText, maximum, false, normalizeLanguage(locale) ?? 'ja').length > 1) {
     effectiveStyle = "reveal";
   }
   const normalizedEmphasis = Array.isArray(emphasisWords) ? emphasisWords.filter(isValidEmphasis) : [];

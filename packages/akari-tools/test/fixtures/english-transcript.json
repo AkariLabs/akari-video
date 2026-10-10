@@ -1,0 +1,939 @@
+[
+  {
+    "start": 0.589896,
+    "end": 8.093862,
+    "text": "Hey everyone, so this week I, okay let me start over. Hey everyone, this week I",
+    "words": [
+      {
+        "start": 0.649896,
+        "end": 0.840038,
+        "text": "Hey"
+      },
+      {
+        "start": 0.840038,
+        "end": 1.347083,
+        "text": "everyone"
+      },
+      {
+        "start": 1.9,
+        "end": 2.121708,
+        "text": ",so"
+      },
+      {
+        "start": 2.423687,
+        "end": 2.910937,
+        "text": "this"
+      },
+      {
+        "start": 2.910937,
+        "end": 3.398187,
+        "text": "week"
+      },
+      {
+        "start": 3.398187,
+        "end": 3.52,
+        "text": "I"
+      },
+      {
+        "start": 4.450771,
+        "end": 4.501699,
+        "text": ","
+      },
+      {
+        "start": 4.501699,
+        "end": 4.705409,
+        "text": "okay"
+      },
+      {
+        "start": 4.705409,
+        "end": 4.960046,
+        "text": "letme"
+      },
+      {
+        "start": 4.960046,
+        "end": 5.214684,
+        "text": "start"
+      },
+      {
+        "start": 5.214684,
+        "end": 5.418394,
+        "text": "over"
+      },
+      {
+        "start": 5.418394,
+        "end": 5.469321,
+        "text": "."
+      },
+      {
+        "start": 5.469321,
+        "end": 5.622104,
+        "text": "Hey"
+      },
+      {
+        "start": 6.502646,
+        "end": 6.87462,
+        "text": "everyone"
+      },
+      {
+        "start": 6.87462,
+        "end": 6.92462,
+        "text": ","
+      },
+      {
+        "start": 6.92462,
+        "end": 7.107104,
+        "text": "this"
+      },
+      {
+        "start": 7.71,
+        "end": 8.01709,
+        "text": "week"
+      },
+      {
+        "start": 8.01709,
+        "end": 8.093862,
+        "text": "I"
+      }
+    ]
+  },
+  {
+    "start": 8.093862,
+    "end": 13.099194,
+    "text": "finally set up a little recording corner at home and I learned a few things the",
+    "words": [
+      {
+        "start": 8.093862,
+        "end": 8.861587,
+        "text": "finallyset"
+      },
+      {
+        "start": 8.861587,
+        "end": 9.015131,
+        "text": "up"
+      },
+      {
+        "start": 9.015131,
+        "end": 9.091904,
+        "text": "a"
+      },
+      {
+        "start": 9.091904,
+        "end": 9.552538,
+        "text": "little"
+      },
+      {
+        "start": 9.552538,
+        "end": 10.24349,
+        "text": "recording"
+      },
+      {
+        "start": 10.24349,
+        "end": 10.704125,
+        "text": "corner"
+      },
+      {
+        "start": 11.143146,
+        "end": 11.273549,
+        "text": "at"
+      },
+      {
+        "start": 11.273549,
+        "end": 11.534356,
+        "text": "home"
+      },
+      {
+        "start": 11.534356,
+        "end": 11.72996,
+        "text": "and"
+      },
+      {
+        "start": 11.72996,
+        "end": 12.251573,
+        "text": "Ilearned"
+      },
+      {
+        "start": 12.251573,
+        "end": 12.512379,
+        "text": "afew"
+      },
+      {
+        "start": 12.512379,
+        "end": 12.903589,
+        "text": "things"
+      },
+      {
+        "start": 12.903589,
+        "end": 13.099194,
+        "text": "the"
+      }
+    ]
+  },
+  {
+    "start": 13.099194,
+    "end": 19.06935,
+    "text": "hard way. So the first thing is like the room matters way more than the mic. My",
+    "words": [
+      {
+        "start": 13.099194,
+        "end": 13.36,
+        "text": "hard"
+      },
+      {
+        "start": 13.826042,
+        "end": 14.041075,
+        "text": "way."
+      },
+      {
+        "start": 14.041075,
+        "end": 14.148592,
+        "text": "So"
+      },
+      {
+        "start": 14.148592,
+        "end": 14.309867,
+        "text": "the"
+      },
+      {
+        "start": 14.309867,
+        "end": 14.578658,
+        "text": "first"
+      },
+      {
+        "start": 14.578658,
+        "end": 14.84745,
+        "text": "thing"
+      },
+      {
+        "start": 14.84745,
+        "end": 14.954967,
+        "text": "is"
+      },
+      {
+        "start": 14.954967,
+        "end": 15.17,
+        "text": "like"
+      },
+      {
+        "start": 15.704646,
+        "end": 15.926398,
+        "text": "the"
+      },
+      {
+        "start": 15.926398,
+        "end": 16.222067,
+        "text": "room"
+      },
+      {
+        "start": 16.222067,
+        "end": 16.739488,
+        "text": "matters"
+      },
+      {
+        "start": 16.739488,
+        "end": 16.96124,
+        "text": "way"
+      },
+      {
+        "start": 16.96124,
+        "end": 17.552579,
+        "text": "morethan"
+      },
+      {
+        "start": 17.552579,
+        "end": 17.774331,
+        "text": "the"
+      },
+      {
+        "start": 17.774331,
+        "end": 17.996083,
+        "text": "mic"
+      },
+      {
+        "start": 17.996083,
+        "end": 18.07,
+        "text": "."
+      },
+      {
+        "start": 18.920021,
+        "end": 19.06935,
+        "text": "My"
+      }
+    ]
+  },
+  {
+    "start": 19.06935,
+    "end": 24.492471,
+    "text": "first take sounded like I was in a bathroom because you know it basically",
+    "words": [
+      {
+        "start": 19.06935,
+        "end": 19.442672,
+        "text": "first"
+      },
+      {
+        "start": 19.442672,
+        "end": 19.741329,
+        "text": "take"
+      },
+      {
+        "start": 19.741329,
+        "end": 20.26398,
+        "text": "sounded"
+      },
+      {
+        "start": 20.26398,
+        "end": 20.562638,
+        "text": "like"
+      },
+      {
+        "start": 20.562638,
+        "end": 20.637302,
+        "text": "I"
+      },
+      {
+        "start": 20.637302,
+        "end": 20.861296,
+        "text": "was"
+      },
+      {
+        "start": 20.861296,
+        "end": 21.010624,
+        "text": "in"
+      },
+      {
+        "start": 21.010624,
+        "end": 21.682604,
+        "text": "abathroom"
+      },
+      {
+        "start": 22.230396,
+        "end": 22.58,
+        "text": "because"
+      },
+      {
+        "start": 23.034854,
+        "end": 23.25,
+        "text": "youknow"
+      },
+      {
+        "start": 23.634062,
+        "end": 24.492471,
+        "text": "itbasically"
+      }
+    ]
+  },
+  {
+    "start": 24.492471,
+    "end": 34.510758,
+    "text": "was a bathroom. Second thing, where was I? Right, the second thing, put the mic",
+    "words": [
+      {
+        "start": 24.492471,
+        "end": 24.726582,
+        "text": "was"
+      },
+      {
+        "start": 24.726582,
+        "end": 25.428917,
+        "text": "abathroom"
+      },
+      {
+        "start": 26.098979,
+        "end": 26.37,
+        "text": "."
+      },
+      {
+        "start": 27.294687,
+        "end": 27.570312,
+        "text": "Second"
+      },
+      {
+        "start": 27.570312,
+        "end": 27.8,
+        "text": "thing"
+      },
+      {
+        "start": 30.27975,
+        "end": 30.487456,
+        "text": ",where"
+      },
+      {
+        "start": 30.487456,
+        "end": 30.591309,
+        "text": "was"
+      },
+      {
+        "start": 30.591309,
+        "end": 30.641309,
+        "text": "I"
+      },
+      {
+        "start": 30.641309,
+        "end": 30.691309,
+        "text": "?"
+      },
+      {
+        "start": 30.691309,
+        "end": 30.81825,
+        "text": "Right"
+      },
+      {
+        "start": 30.81825,
+        "end": 30.86825,
+        "text": ","
+      },
+      {
+        "start": 32.474562,
+        "end": 32.627552,
+        "text": "the"
+      },
+      {
+        "start": 32.627552,
+        "end": 32.933531,
+        "text": "second"
+      },
+      {
+        "start": 32.933531,
+        "end": 33.188514,
+        "text": "thing"
+      },
+      {
+        "start": 33.188514,
+        "end": 33.23951,
+        "text": ","
+      },
+      {
+        "start": 33.23951,
+        "end": 33.3925,
+        "text": "put"
+      },
+      {
+        "start": 34.051479,
+        "end": 34.281118,
+        "text": "the"
+      },
+      {
+        "start": 34.281118,
+        "end": 34.510758,
+        "text": "mic"
+      }
+    ]
+  },
+  {
+    "start": 34.510758,
+    "end": 40.514978,
+    "text": "closer, like a fist away from your mouth, not across the desk. And the third",
+    "words": [
+      {
+        "start": 34.510758,
+        "end": 35.046583,
+        "text": "closer,"
+      },
+      {
+        "start": 35.429021,
+        "end": 35.58,
+        "text": "like"
+      },
+      {
+        "start": 35.58,
+        "end": 35.63,
+        "text": "a"
+      },
+      {
+        "start": 35.955229,
+        "end": 36.26946,
+        "text": "fist"
+      },
+      {
+        "start": 36.26946,
+        "end": 36.583691,
+        "text": "away"
+      },
+      {
+        "start": 36.583691,
+        "end": 36.897922,
+        "text": "from"
+      },
+      {
+        "start": 36.897922,
+        "end": 37.212153,
+        "text": "your"
+      },
+      {
+        "start": 37.212153,
+        "end": 37.604942,
+        "text": "mouth"
+      },
+      {
+        "start": 37.604942,
+        "end": 37.6835,
+        "text": ","
+      },
+      {
+        "start": 37.933729,
+        "end": 38.174773,
+        "text": "not"
+      },
+      {
+        "start": 38.174773,
+        "end": 38.656862,
+        "text": "across"
+      },
+      {
+        "start": 38.656862,
+        "end": 39.219298,
+        "text": "thedesk"
+      },
+      {
+        "start": 39.219298,
+        "end": 39.299646,
+        "text": "."
+      },
+      {
+        "start": 39.896167,
+        "end": 40.064934,
+        "text": "And"
+      },
+      {
+        "start": 40.064934,
+        "end": 40.2337,
+        "text": "the"
+      },
+      {
+        "start": 40.2337,
+        "end": 40.514978,
+        "text": "third"
+      }
+    ]
+  },
+  {
+    "start": 40.514978,
+    "end": 45.835853,
+    "text": "one, this one actually surprised me. Record 10 seconds of silence before you",
+    "words": [
+      {
+        "start": 40.514978,
+        "end": 40.683744,
+        "text": "one"
+      },
+      {
+        "start": 40.683744,
+        "end": 40.74,
+        "text": ","
+      },
+      {
+        "start": 41.044125,
+        "end": 41.457089,
+        "text": "thisone"
+      },
+      {
+        "start": 41.457089,
+        "end": 41.929047,
+        "text": "actually"
+      },
+      {
+        "start": 41.929047,
+        "end": 42.46,
+        "text": "surprised"
+      },
+      {
+        "start": 43.352292,
+        "end": 43.559255,
+        "text": "me."
+      },
+      {
+        "start": 43.559255,
+        "end": 43.973182,
+        "text": "Record"
+      },
+      {
+        "start": 43.973182,
+        "end": 44.111158,
+        "text": "10"
+      },
+      {
+        "start": 44.111158,
+        "end": 44.594072,
+        "text": "seconds"
+      },
+      {
+        "start": 44.594072,
+        "end": 44.732048,
+        "text": "of"
+      },
+      {
+        "start": 44.732048,
+        "end": 45.214963,
+        "text": "silence"
+      },
+      {
+        "start": 45.214963,
+        "end": 45.62889,
+        "text": "before"
+      },
+      {
+        "start": 45.62889,
+        "end": 45.835853,
+        "text": "you"
+      }
+    ]
+  },
+  {
+    "start": 45.835853,
+    "end": 51.271838,
+    "text": "start so you can clean up the background noise later. I honestly didn't know that",
+    "words": [
+      {
+        "start": 45.835853,
+        "end": 46.180792,
+        "text": "start"
+      },
+      {
+        "start": 46.619604,
+        "end": 46.943398,
+        "text": "soyou"
+      },
+      {
+        "start": 46.943398,
+        "end": 47.137675,
+        "text": "can"
+      },
+      {
+        "start": 47.137675,
+        "end": 47.461469,
+        "text": "clean"
+      },
+      {
+        "start": 47.461469,
+        "end": 47.785263,
+        "text": "upthe"
+      },
+      {
+        "start": 47.785263,
+        "end": 48.432852,
+        "text": "background"
+      },
+      {
+        "start": 48.432852,
+        "end": 48.756646,
+        "text": "noise"
+      },
+      {
+        "start": 49.549604,
+        "end": 49.846541,
+        "text": "later"
+      },
+      {
+        "start": 49.846541,
+        "end": 49.905928,
+        "text": "."
+      },
+      {
+        "start": 49.905928,
+        "end": 49.965316,
+        "text": "I"
+      },
+      {
+        "start": 49.965316,
+        "end": 50.440415,
+        "text": "honestly"
+      },
+      {
+        "start": 50.440415,
+        "end": 50.677964,
+        "text": "didn"
+      },
+      {
+        "start": 50.677964,
+        "end": 50.796739,
+        "text": "'t"
+      },
+      {
+        "start": 50.796739,
+        "end": 51.034288,
+        "text": "know"
+      },
+      {
+        "start": 51.034288,
+        "end": 51.271838,
+        "text": "that"
+      }
+    ]
+  },
+  {
+    "start": 51.271838,
+    "end": 60.131453,
+    "text": "was a thing. So yeah, room first, mic close, and 10 seconds of silence.",
+    "words": [
+      {
+        "start": 51.271838,
+        "end": 51.45,
+        "text": "was"
+      },
+      {
+        "start": 52.064146,
+        "end": 52.567414,
+        "text": "athing"
+      },
+      {
+        "start": 52.567414,
+        "end": 52.651292,
+        "text": "."
+      },
+      {
+        "start": 52.902958,
+        "end": 52.991583,
+        "text": "So"
+      },
+      {
+        "start": 52.991583,
+        "end": 53.168833,
+        "text": "yeah"
+      },
+      {
+        "start": 53.773562,
+        "end": 53.850206,
+        "text": ","
+      },
+      {
+        "start": 53.850206,
+        "end": 54.156781,
+        "text": "room"
+      },
+      {
+        "start": 54.156781,
+        "end": 54.54,
+        "text": "first"
+      },
+      {
+        "start": 55.41,
+        "end": 55.713926,
+        "text": ",mic"
+      },
+      {
+        "start": 55.713926,
+        "end": 56.093833,
+        "text": "close"
+      },
+      {
+        "start": 56.62,
+        "end": 56.7,
+        "text": ","
+      },
+      {
+        "start": 56.7,
+        "end": 57.13,
+        "text": "and"
+      },
+      {
+        "start": 57.592625,
+        "end": 57.735634,
+        "text": "10"
+      },
+      {
+        "start": 57.735634,
+        "end": 58.236167,
+        "text": "seconds"
+      },
+      {
+        "start": 58.236167,
+        "end": 58.879708,
+        "text": "ofsilence"
+      },
+      {
+        "start": 60.073792,
+        "end": 60.131453,
+        "text": "."
+      }
+    ],
+    "unrecognized": [
+      {
+        "start": 55.035,
+        "end": 55.41
+      }
+    ],
+    "unrecognized_algo_version": 2
+  },
+  {
+    "start": 60.14,
+    "end": 61.64,
+    "text": "That's basically it.",
+    "words": [
+      {
+        "start": 60.14,
+        "end": 60.44,
+        "text": "That"
+      },
+      {
+        "start": 60.44,
+        "end": 60.53,
+        "text": "'s"
+      },
+      {
+        "start": 60.74,
+        "end": 61.23,
+        "text": "basically"
+      },
+      {
+        "start": 61.3,
+        "end": 61.4,
+        "text": "it"
+      },
+      {
+        "start": 61.4,
+        "end": 61.57,
+        "text": "."
+      }
+    ]
+  },
+  {
+    "start": 62.160354,
+    "end": 63.51,
+    "text": "If you've got a tip that I missed,",
+    "words": [
+      {
+        "start": 62.220354,
+        "end": 62.436955,
+        "text": "Ifyou"
+      },
+      {
+        "start": 62.436955,
+        "end": 62.566916,
+        "text": "'ve"
+      },
+      {
+        "start": 62.566916,
+        "end": 62.696876,
+        "text": "got"
+      },
+      {
+        "start": 62.696876,
+        "end": 62.870157,
+        "text": "atip"
+      },
+      {
+        "start": 62.870157,
+        "end": 63.043438,
+        "text": "that"
+      },
+      {
+        "start": 63.043438,
+        "end": 63.39,
+        "text": "Imissed,"
+      }
+    ]
+  },
+  {
+    "start": 64.24,
+    "end": 66.468127,
+    "text": "leave it in the comments.",
+    "words": [
+      {
+        "start": 64.3,
+        "end": 64.791083,
+        "text": "leave"
+      },
+      {
+        "start": 65.510417,
+        "end": 65.630131,
+        "text": "it"
+      },
+      {
+        "start": 65.630131,
+        "end": 65.749845,
+        "text": "in"
+      },
+      {
+        "start": 65.749845,
+        "end": 65.929415,
+        "text": "the"
+      },
+      {
+        "start": 65.929415,
+        "end": 66.40827,
+        "text": "comments"
+      },
+      {
+        "start": 66.40827,
+        "end": 66.468127,
+        "text": "."
+      }
+    ]
+  },
+  {
+    "start": 66.468127,
+    "end": 67.904979,
+    "text": "I'd really like to hear it.",
+    "words": [
+      {
+        "start": 66.468127,
+        "end": 66.647698,
+        "text": "I'd"
+      },
+      {
+        "start": 66.647698,
+        "end": 67.006839,
+        "text": "really"
+      },
+      {
+        "start": 67.006839,
+        "end": 67.246267,
+        "text": "like"
+      },
+      {
+        "start": 67.246267,
+        "end": 67.365981,
+        "text": "to"
+      },
+      {
+        "start": 67.365981,
+        "end": 67.605408,
+        "text": "hear"
+      },
+      {
+        "start": 67.605408,
+        "end": 67.725122,
+        "text": "it"
+      },
+      {
+        "start": 67.725122,
+        "end": 67.784979,
+        "text": "."
+      }
+    ]
+  },
+  {
+    "start": 70.446812,
+    "end": 70.76,
+    "text": "Okay.",
+    "words": [
+      {
+        "start": 70.506812,
+        "end": 70.64,
+        "text": "Okay."
+      }
+    ]
+  },
+  {
+    "start": 71.661563,
+    "end": 72.79,
+    "text": "See you next week.",
+    "words": [
+      {
+        "start": 71.721563,
+        "end": 72.353854,
+        "text": "Seeyounext"
+      },
+      {
+        "start": 72.353854,
+        "end": 72.606771,
+        "text": "week"
+      },
+      {
+        "start": 72.606771,
+        "end": 72.67,
+        "text": "."
+      }
+    ]
+  }
+]
