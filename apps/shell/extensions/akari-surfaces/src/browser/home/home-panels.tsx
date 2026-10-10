@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import * as ReactDOM from '@theia/core/shared/react-dom';
 import { HomeStats } from './home-model';
@@ -70,7 +71,7 @@ export function HomeScrim(props: { kind: string; onClose: () => void; children: 
         return () => document.removeEventListener('keydown', close);
     }, [props.onClose]);
     return ReactDOM.createPortal(<div className='akari-home-sheet-scrim' data-akari-home-dialog={props.kind} onMouseDown={event => { if (event.target === event.currentTarget) { props.onClose(); } }}>
-        <div className='akari-home-sheet' role='dialog' aria-modal='true'><button type='button' className='akari-home-sheet-close' aria-label='閉じる' onClick={props.onClose}>×</button>{props.children}</div>
+        <div className='akari-home-sheet' role='dialog' aria-modal='true'><button type='button' className='akari-home-sheet-close' aria-label={t('surfaces.home.homeScrimClose.label')} onClick={props.onClose}>×</button>{props.children}</div>
     </div>, document.body);
 }
 
@@ -90,20 +91,20 @@ function EmptyFilmIcon(): React.ReactElement {
 export function CurrentProjectBand(p: CurrentProjectBandProps): React.ReactElement {
     const [failedPosterSrc, setFailedPosterSrc] = React.useState<string | undefined>();
     const poster = p.frames[0] !== failedPosterSrc && p.frames[0];
-    const values: Array<[string, string | undefined]> = [['尺', p.stats.duration], ['クリップ', p.stats.clips], ['素材', p.stats.assets], ['データ量', p.stats.bytes], ['最後の書き出し', p.stats.lastExport]];
+    const values: Array<[string, string | undefined]> = [[t('surfaces.home.duration.label'), p.stats.duration], [t('surfaces.home.currentProjectBandClip.label'), p.stats.clips], [t('surfaces.home.currentProjectBandAssets.label'), p.stats.assets], [t('surfaces.home.currentProjectBandAmountData.label'), p.stats.bytes], [t('surfaces.home.currentProjectBandLastExport.label'), p.stats.lastExport]];
     // 絵が用意できないときの 1 行。帯の中ではなく詳細側の弱い注記として出す
     // （小さなサムネ枠の中に文とボタンを詰め込むと、狭い幅で真っ先に壊れる）。
     const note = poster ? undefined : p.canPreview
-        ? <p className='akari-current-note'><span className='akari-current-empty-title'>サムネイルはありません</span></p>
-        : <p className='akari-current-note'><span className='akari-current-empty-title'>まだ映像がありません</span>
-            <span className='akari-current-empty-hint'>素材をドラッグして取り込めます</span></p>;
+        ? <p className='akari-current-note'><span className='akari-current-empty-title'>{t('surfaces.home.currentProjectBandNoThumbnails.label')}</span></p>
+        : <p className='akari-current-note'><span className='akari-current-empty-title'>{t('surfaces.home.currentProjectBandNoVideoYet.label')}</span>
+            <span className='akari-current-empty-hint'>{t('surfaces.home.currentProjectBandImportAssetsDraggingThem.label')}</span></p>;
     return <section className='akari-current-project' data-akari-current-location='true' data-akari-status-kind={p.channel ? 'inside' : 'outside'}>
-        <p className='akari-current-label'>いま開いているプロジェクト</p>
+        <p className='akari-current-label'>{t('surfaces.home.currentProjectBandProjectsCurrentlyOpen.label')}</p>
         <div className='akari-current-band' data-akari-current-band='true'>
-            <div className='akari-current-art'>{poster ? (p.canPreview ? <button type='button' className='akari-current-hero' data-akari-current-hero='true' aria-label='出力プレビューで再生' onClick={p.onPreview}>
+            <div className='akari-current-art'>{poster ? (p.canPreview ? <button type='button' className='akari-current-hero' data-akari-current-hero='true' aria-label={t('surfaces.home.currentProjectBandPlayOutputPreview.label')} onClick={p.onPreview}>
                 <img src={poster} alt='' onError={() => setFailedPosterSrc(poster)} /><span className='akari-current-play'>▶</span>
             </button> : <div className='akari-current-hero' data-akari-current-hero='true'><img src={poster} alt='' onError={() => setFailedPosterSrc(poster)} /></div>)
-                : p.canPreview ? <button type='button' className='akari-current-hero akari-current-hero-empty akari-current-hero-preview-placeholder' data-akari-current-hero='true' data-akari-current-hero-preview-placeholder='true' aria-label='出力プレビューで再生' onClick={p.onPreview}>
+                : p.canPreview ? <button type='button' className='akari-current-hero akari-current-hero-empty akari-current-hero-preview-placeholder' data-akari-current-hero='true' data-akari-current-hero-preview-placeholder='true' aria-label={t('surfaces.home.currentProjectBandPlayOutputPreview.label')} onClick={p.onPreview}>
                     <EmptyFilmIcon />
                     <span className='akari-current-play'>▶</span>
                 </button> : <div className='akari-current-hero akari-current-hero-empty' data-akari-current-hero='true' data-akari-current-hero-empty='true'>
@@ -112,14 +113,14 @@ export function CurrentProjectBand(p: CurrentProjectBandProps): React.ReactEleme
             <div className='akari-current-detail'>
                 <div className='akari-current-crumb'>
                     <button type='button' className={`akari-current-tag ${p.channel ? 'channel' : 'single'}`} data-akari-channel-switch='true'
-                        title={p.channel ? 'チャンネルを切り替える' : 'このプロジェクトをチャンネルに入れる'}
+                        title={p.channel ? t('surfaces.home.currentProjectBandSwitchChannels.label') : t('surfaces.home.currentProjectBandPutProjectChannel.label')}
                         onClick={p.channel ? p.onSwitch : p.onJoin}>
                         <span className={`codicon ${p.channel ? 'codicon-layers' : 'codicon-circle-outline'}`} aria-hidden='true' />
-                        {p.channel || '単体'}
+                        {p.channel || t('surfaces.home.currentProjectBandSingleUnit.label')}
                     </button>
                 </div>
                 <h2 className='akari-current-name'>{p.name}</h2>
-                <button type='button' className='akari-current-path' title={`${p.path}（クリックでフォルダを開く）`} onClick={p.onReveal}>
+                <button type='button' className='akari-current-path' title={t('surfaces.home.currentProjectBandClickOpenFolder.message', { pPath: p.path })} onClick={p.onReveal}>
                     <span className='codicon codicon-folder-opened' aria-hidden='true' />
                     <span className='p'>{p.path}</span>
                 </button>

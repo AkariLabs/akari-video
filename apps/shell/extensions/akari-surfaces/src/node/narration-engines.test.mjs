@@ -3,8 +3,12 @@ import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
-import { NarrationCli } from '../../lib/node/narration-engines.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { NarrationCli } = await import("../../lib/node/narration-engines.js");
+
 
 test('narration RPC は Electron node モードで CLI を呼び、鍵を返さず状態と操作を渡す', async () => {
     const calls = [];

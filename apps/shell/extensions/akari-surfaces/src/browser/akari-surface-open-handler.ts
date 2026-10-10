@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -207,8 +208,16 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected surfaceBridgeScript(includeDecisionBridge: boolean): string {
+        const copy = JSON.stringify({
+            showChanges: t('surfaces.surfaceBridge.showChanges.label'),
+            undo: t('surfaces.surfaceBridge.undo.message'),
+            saved: t('surfaces.surfaceBridge.saved.message'),
+            saveFailed: t('surfaces.surfaceBridge.saveFailed.message'),
+            editHint: t('surfaces.surfaceBridge.editHint.tooltip')
+        });
         return `(() => {
             const vscode = acquireVsCodeApi();
+            const copy = ${copy};
             const nativeFetch = window.fetch.bind(window);
             const pending = new Map();
             let sequence = 0;
@@ -233,7 +242,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
                     button = document.createElement('button');
                     button.id = 'akari-show-changes';
                     button.type = 'button';
-                    button.textContent = '変更を見る';
+                    button.textContent = copy.showChanges;
                     button.addEventListener('click', () => post({ type: 'akari-show-changes' }));
                     document.body.appendChild(button);
                 }
@@ -249,7 +258,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
                 if (!active || active.element !== element || active.saving) return;
                 element.innerHTML = active.originalHtml;
                 finishEditing(element);
-                notify('編集を取り消しました');
+                notify(copy.undo);
             };
             const saveEditing = element => {
                 if (!active || active.element !== element || active.saving) return;
@@ -300,12 +309,12 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
                     pending.delete(message.requestId);
                     if (message.ok) {
                         finishEditing(request.element);
-                        notify('変更を保存しました');
+                        notify(copy.saved);
                         showChangesButton();
                     } else {
                         request.element.classList.remove('akari-block-saving');
                         if (active?.element === request.element) active.saving = false;
-                        notify(message.error || '変更を保存できませんでした', 'error');
+                        notify(message.error || copy.saveFailed, 'error');
                         request.element.focus();
                     }
                 } else if (message && message.type === 'akari-decision-state-changed') {
@@ -333,7 +342,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
                 document.querySelectorAll('[data-block-id]').forEach(element => {
                     element.classList.add('akari-editable-block');
                     element.tabIndex = 0;
-                    element.title = 'ダブルクリックで編集';
+                    element.title = copy.editHint;
                 });
             });
             document.addEventListener('dblclick', event => {
@@ -404,7 +413,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
     protected async handleBlockEditRequest(widget: WebviewWidget, surfaceUri: URI, request: BlockEditRequest): Promise<void> {
         try {
             if (!request.blockId || request.blockId.length > 200 || request.text.length > 200_000) {
-                throw new Error('編集内容が大きすぎるか、ブロック ID が不正です。');
+                throw new Error(t('surfaces.surfaceEditor.blockEditRequestEditTooLargeBlockIdInvalid.message'));
             }
             const targetUri = await this.editTargetUri(surfaceUri, request.blockId);
             const source = await this.readText(targetUri);
@@ -425,12 +434,12 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
             widget.sendMessage({ type: 'akari-block-edit-response', requestId: request.requestId, ok: true });
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.messages.error(`変更を保存できませんでした: ${detail}`);
+            this.messages.error(t('surfaces.surfaceEditor.blockEditRequestFailedSaveChanges.message', { detail: detail }));
             widget.sendMessage({
                 type: 'akari-block-edit-response',
                 requestId: request.requestId,
                 ok: false,
-                error: `変更を保存できませんでした: ${detail}`
+                error: t('surfaces.surfaceEditor.blockEditRequestFailedSaveChanges.error', { detail: detail })
             });
         }
     }
@@ -440,14 +449,14 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
             const roots = await this.workspaceService.roots;
             const root = roots[0]?.resource;
             if (!root) {
-                throw new Error('先にプロジェクトを開いてください。');
+                throw new Error(t('surfaces.surfaceEditor.editTargetUriOpenProjectFirst.message'));
             }
             return root.resolve('project/captions.json');
         }
         const path = surfaceUri.path.toString();
         const extension = surfaceUri.path.ext.toLowerCase();
         if (!path.includes('/planning/') || !['.md', '.html'].includes(extension)) {
-            throw new Error('このファイルはサーフェスから編集できません。');
+            throw new Error(t('surfaces.surfaceEditor.editTargetUriFileCannotEditedSurface.message'));
         }
         return surfaceUri;
     }
@@ -466,7 +475,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
                 const diffUri = DiffUris.encode(snapshotUri, new URI(targetUri));
                 await open(this.openerService, diffUri, { mode: 'activate' });
             } catch (error) {
-                this.messages.error(`変更を表示できませんでした: ${this.errorMessage(error)}`);
+                this.messages.error(t('surfaces.surfaceEditor.changesDisplayChanges.message', { error: this.errorMessage(error) }));
             }
         }
     }
@@ -479,7 +488,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
         const root = roots.find(candidate => candidate.resource.isEqualOrParent(targetUri))?.resource;
         const relative = root?.relative(targetUri);
         if (!root || !relative) {
-            throw new Error('編集対象がプロジェクト内にありません。');
+            throw new Error(t('surfaces.surfaceEditor.editSnapshotObjectEditedProject.message'));
         }
         const relativePath = relative.toString();
         const snapshotFolder = root.resolve(`.akari/diffs/${Date.now()}`);

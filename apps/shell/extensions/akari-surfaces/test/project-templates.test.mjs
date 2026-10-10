@@ -1,6 +1,9 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName } from '../lib/browser/home/project-templates.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName } = await import('../lib/browser/home/project-templates.js');
 
 test('同梱テンプレは四種類で企画書の見出しと空欄を持つ', () => {
     assert.equal(BUILTIN_PROJECT_TEMPLATES.length, 4);

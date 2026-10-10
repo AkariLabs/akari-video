@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import ts from 'typescript';
+import { setLanguage, t } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const code = ts.transpileModule(readFileSync(new URL('../src/browser/akari-home-tab-anchor.ts', import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2021, module: ts.ModuleKind.CommonJS }
@@ -9,6 +13,7 @@ const code = ts.transpileModule(readFileSync(new URL('../src/browser/akari-home-
 const load = (environment = {}) => {
     const exports = {};
     const require = name => {
+        if (name === '@akari-video/i18n') return { t };
         assert.equal(name, '@theia/core/lib/common');
         return { Disposable: { create: dispose => ({ dispose }) } };
     };

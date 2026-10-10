@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import test from 'node:test';
+import { assertCatalogCopy } from './i18n-source-copy.mjs';
+import test, { after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
 const React = require('@theia/core/shared/react');
@@ -76,8 +81,8 @@ test('a poster load failure keeps the preview click handler', () => {
 
 test('the empty preview guard gives guidance while real open failures retain their error', () => {
     const source = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
-    assert.match(source, /this\.messages\.info\('まだ映像がありません。素材を入れてください。'\)/);
-    assert.match(source, /this\.messages\.error\('出力プレビューを開けませんでした。'\)/);
+    assertCatalogCopy(source, 'まだ映像がありません。素材を入れてください。');
+    assertCatalogCopy(source, '出力プレビューを開けませんでした。');
 });
 
 test('populated poster keeps playback control and missing small frames get light boxes', () => {

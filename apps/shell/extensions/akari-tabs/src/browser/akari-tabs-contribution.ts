@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import {
@@ -130,16 +131,16 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
                     data: '●',
                     // 青全廃（v2 T1）: charts-blue ではなく AKARI アクセントのオレンジを使う。
                     fontData: { color: 'var(--theia-charts-orange)' },
-                    tooltip: '決定を編集中'
+                    tooltip: t('tabs.tabs.decorateEditingDecision.tooltip')
                 }],
-                tooltip: '決定を編集中'
+                tooltip: t('tabs.tabs.decorateEditingDecision.tooltip')
             }];
         }
         if (state.kind === 'pending') {
             return [{
                 priority: 90,
                 badge: state.count,
-                tooltip: `未回答の決定 ${state.count} 件`
+                tooltip: t('tabs.tabs.decorateUnansweredDecisions.tooltip', { stateCount: state.count })
             }];
         }
         return [{
@@ -147,9 +148,9 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
             tailDecorations: [{
                 data: '✓',
                 fontData: { color: 'var(--theia-charts-green)' },
-                tooltip: 'すべての決定に回答済み'
+                tooltip: t('tabs.tabs.decorateAllDecisionsAnswered.tooltip')
             }],
-            tooltip: 'すべての決定に回答済み'
+            tooltip: t('tabs.tabs.decorateAllDecisionsAnswered.tooltip')
         }];
     }
 
