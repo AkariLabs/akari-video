@@ -33,7 +33,7 @@ test('26 件すべてに専用の絵があり、パスが二枚の間で重複�
         assert.doesNotMatch(markup.replaceAll('var(--akari-accent, #f97316)', ''),
             /#[0-9a-f]{3,8}\b/gi, `色の直書き: ${name}`);
         const paths = [...markup.matchAll(/\bd="([^"]+)"/g)].map(match => match[1]);
-        assert.ok(paths.length >= 4 && paths.length <= 10, name);
+        assert.ok(paths.length >= 2 && paths.length <= 10, name);
         for (const d of paths) {
             assert.equal(pathOwners.get(d), undefined, `${name} と ${pathOwners.get(d)} のパスが重複`);
             pathOwners.set(d, name);

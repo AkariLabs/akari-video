@@ -46,3 +46,13 @@ test('チャンネルの札とシートの表示を整える', () => {
     assert.doesNotMatch(notes, /ヘルパーに集めてもらう/);
     assert.match(sheetStyle, /--theia-input-background/);
 });
+
+test('チャンネルの区画とデザイン素材を接続する', () => {
+    const widget = readFileSync(new URL('../src/browser/channel/akari-channel-widget.tsx', import.meta.url), 'utf8');
+    assert.doesNotMatch(widget, /<div className='akari-channel-section'>このチャンネル<\/div>/);
+    assert.match(widget, /data-akari-helper-block/);
+    assert.match(widget, /data-akari-helper-row[\s\S]*?>AI に整えてもらう<\/button>/);
+    assert.match(widget, /<DesignMdForm[\s\S]*?onAddAsset=\{this\.addDesignAsset\}/);
+    assert.match(widget, /designAssetBadge\(parseDesignMd\(/);
+    assert.match(widget, /data-akari-design-badge/);
+});
