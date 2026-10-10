@@ -1,4 +1,7 @@
-import type { AkariAnnotationsService, NarrationCandidate, NarrationEngine, NarrationVoice } from '../../common/akari-annotations-protocol';
+import { AkariAnnotationsService, type NarrationCandidate, type NarrationEngine, type NarrationVoice,
+    type VoiceProfileSummary } from '../../common/akari-annotations-protocol';
+import { channelPeopleLocation, eligibleNarrationPeople, narrationPersonRoute, parseChannelPeople, selectNarrationPerson,
+    type ChannelPerson } from '../../common/channel-people-reader';
 import { irodoriCustomVoiceMissing, narrationEstimate, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice } from '../../common/read-aloud-model';
 import { stillMakerBadge } from './maker-badge';
 import { aiNarrationNeedsChoice, placeAiNarration, planAiNarrationPlacement,
@@ -12,6 +15,8 @@ export interface AiNarrationState {
     preferredEngineId?: string; favorites?: string[]; candidates?: NarrationCandidate[]; completed?: number;
     playingPath?: string; lastRoutes?: string[];
     runningRoutes?: string[];
+    personId?: string; personProfileId?: string; people?: ChannelPerson[];
+    personProfiles?: VoiceProfileSummary[]; personLoading?: boolean;
 }
 export interface AiNarrationActions {
     change(): void; chooseEngine(engineId: string): void; chooseVoice?(engineId: string, voiceId: string): void;
@@ -106,7 +111,10 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         const radio = make('input', 'engine-checkbox'); radio.type = 'checkbox';
         radio.value = engine.id; radio.checked = (state.selectedEngineIds ?? [state.engineId]).includes(engine.id);
         radio.disabled = state.running || engine.availability.state !== 'available' && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
-        radio.addEventListener('change', () => actions.chooseEngine(engine.id));
+        radio.addEventListener('change', () => {
+            state.personId = undefined; state.personProfileId = undefined;
+            actions.chooseEngine(engine.id);
+        });
         const text = make('span', 'engine-text');
         text.append(stillMakerBadge(narrationMakerId(engine.id)),
             make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? '自声' : engine.label}`),
@@ -125,11 +133,73 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         }
         voice.value = state.voiceByEngine?.[engine.id] ?? (engine.id === state.engineId ? state.voiceId : '');
         voice.disabled = state.running || !radio.checked;
-        voice.addEventListener('change', () => actions.chooseVoice?.(engine.id, voice.value));
+        voice.addEventListener('change', () => {
+            state.personId = undefined; state.personProfileId = undefined;
+            actions.chooseVoice?.(engine.id, voice.value);
+        });
         voiceLabel.append(voice); card.append(voiceLabel); cards.append(card);
         }
     }
     panel.append(cards);
+    const showPeople = (): void => {
+        const people = state.people ?? [];
+        if (!people.length || panel.querySelector('[data-akari-narration-person]')) return;
+        const personLabel = make('label', 'label', '人物');
+        personLabel.dataset.akariNarrationPerson = 'true';
+        const select = make('select', 'person'); select.setAttribute('aria-label', '人物');
+        const empty = document.createElement('option'); empty.value = ''; empty.textContent = '人物を選ぶ'; select.append(empty);
+        for (const person of people) {
+            const option = document.createElement('option'); option.value = person.id; option.textContent = person.name;
+            option.disabled = !selectNarrationPerson(person, state.personProfiles ?? [], 'fal-qwen3',
+                engines.filter(engine => engine.availability.state === 'available').map(engine => engine.id));
+            select.append(option);
+        }
+        select.value = state.personId ?? '';
+        select.addEventListener('change', () => {
+            const person = people.find(item => item.id === select.value);
+            const choice = person && selectNarrationPerson(person, state.personProfiles ?? [], 'fal-qwen3',
+                engines.filter(engine => engine.availability.state === 'available').map(engine => engine.id));
+            if (!choice) return;
+            const engineId = choice.engineId;
+            state.personId = person.id; state.personProfileId = choice.profile.id;
+            state.selectedEngineIds = [engineId]; state.engineId = engineId; state.voiceId = choice.profile.id;
+            state.voiceByEngine ??= {}; state.voiceByEngine[engineId] = choice.profile.id;
+            state.voicesByEngine ??= {};
+            if (!state.voicesByEngine[engineId]?.some(voice => voice.id === choice.profile.id)) {
+                state.voicesByEngine[engineId] = [...state.voicesByEngine[engineId] ?? [],
+                    { id: choice.profile.id, label: choice.profile.label }];
+            }
+            actions.chooseVoice?.(engineId, choice.profile.id);
+            actions.change();
+        });
+        personLabel.append(select); panel.insertBefore(personLabel, cards);
+    };
+    showPeople();
+    if (!state.personLoading && !state.personProfiles) {
+        const container = (window as Window & { theia?: { container?: { get(key: unknown): unknown } } }).theia?.container;
+        if (container) {
+            state.personLoading = true;
+            void Promise.all([
+                import('@theia/core/lib/common/uri'),
+                import('@theia/filesystem/lib/browser/file-service'),
+                import('@theia/workspace/lib/browser/workspace-service')
+            ]).then(async ([{ default: URI }, { FileService }, { WorkspaceService }]) => {
+                const project = (container.get(WorkspaceService) as InstanceType<typeof WorkspaceService>)
+                    .tryGetRoots()[0]?.resource;
+                const location = project && channelPeopleLocation(project.toString());
+                if (!location) { state.personProfiles = []; state.people = []; return; }
+                const files = container.get(FileService) as InstanceType<typeof FileService>;
+                const service = container.get(AkariAnnotationsService) as AkariAnnotationsService;
+                const [file, result] = await Promise.all([
+                    files.readFile(new URI(location.peopleUri)), service.voiceProfiles()
+                ]);
+                state.personProfiles = result.profiles;
+                state.people = eligibleNarrationPeople(parseChannelPeople(file.value.toString()), result.profiles);
+                if (panel.isConnected) showPeople();
+            }).catch(() => { state.personProfiles = []; state.people = []; })
+                .finally(() => { state.personLoading = false; });
+        }
+    }
     const selected = state.selectedEngineIds ?? [state.engineId];
     if (selected.includes('gemini-tts') || selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom') {
         const required = selected.includes('irodori') && state.voiceByEngine?.irodori === 'custom';
@@ -180,7 +250,53 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     button.type = 'button'; button.disabled = state.running || !state.script.trim() || !selected.length
         || selected.some(id => !state.voiceByEngine?.[id])
         || irodoriCustomVoiceMissing(selected.includes('irodori') ? 'irodori' : undefined, state.voiceByEngine?.irodori ?? '', state.style ?? '');
-    button.addEventListener('click', () => actions.generate()); panel.append(button);
+    const generateWithPerson = async (): Promise<void> => {
+        const engineId = state.selectedEngineIds?.[0];
+        const profileId = state.personProfileId;
+        if (!profileId || engineId === 'fal-qwen3' || state.voiceByEngine?.[engineId ?? ''] !== profileId) {
+            actions.generate(); return;
+        }
+        const container = (window as Window & { theia?: { container?: { get(key: unknown): unknown } } }).theia?.container;
+        if (!container || !placement || !engineId) {
+            state.error = '人物の声を使う準備ができていません。'; actions.change(); return;
+        }
+        const engine = engines.find(item => item.id === engineId);
+        const item = placement.tracks.flatMap(track => track.items).find(row => row.id === placement.itemId);
+        if (!engine || !item) { state.error = '読み上げる位置を確認できません。'; actions.change(); return; }
+        const readingText = state.reading.trim() || state.script;
+        const confirmation = narrationBatchConfirm([engine], readingText);
+        if (confirmation) {
+            const { ConfirmDialog } = await import('@theia/core/lib/browser/dialogs');
+            if (!(await new ConfirmDialog(confirmation).open())) return;
+        }
+        const [{ WorkspaceService }, { currentTimelineEditUri }] = await Promise.all([
+            import('@theia/workspace/lib/browser/workspace-service'), import('../active-timeline')
+        ]);
+        const root = (container.get(WorkspaceService) as InstanceType<typeof WorkspaceService>)
+            .tryGetRoots()[0]?.resource;
+        if (!root) { state.error = 'プロジェクトを開いてください。'; actions.change(); return; }
+        const service = container.get(AkariAnnotationsService) as AkariAnnotationsService;
+        state.error = undefined; state.cancelled = false; state.running = true;
+        state.completed = 0; state.startedAt = Date.now(); state.runningRoutes = [engineId];
+        actions.chooseVoice?.(engineId, profileId);
+        try {
+            const batch = await service.startNarrationBatch({ projectRootUri: root.toString(),
+                ...{ editUri: currentTimelineEditUri(root).toString() }, itemId: placement.itemId,
+                script: state.script, reading: readingText, t: item.at / placement.fps,
+                approved: !!confirmation,
+                routes: [{ ...narrationPersonRoute(profileId, engineId),
+                    style: engineId === 'irodori' ? undefined : state.style }] });
+            if (state.cancelled) return;
+            state.candidates = batch.candidates; state.completed = batch.completed;
+            const candidate = batch.candidates.find(row => row.ok && row.relativePath);
+            if (candidate) actions.adopt?.(candidate);
+        } catch (error) { if (!state.cancelled) state.error = String(error); }
+        finally {
+            state.running = false; state.runningRoutes = undefined;
+            actions.chooseVoice?.(engineId, profileId);
+        }
+    };
+    button.addEventListener('click', () => void generateWithPerson()); panel.append(button);
     if (state.running) {
         const activeRoutes = state.runningRoutes ?? selected;
         panel.append(make('p', 'progress', `${activeRoutes.length} 案作成中 · ${state.completed ?? 0}/${activeRoutes.length}`));
@@ -240,7 +356,8 @@ export async function generateAiNarration(options: {
     const result = await options.service.generateNarration({ projectRootUri: options.projectRootUri,
         engine: engine.id, voice: state.voiceId, script, reading, captionId: null,
         t: options.atSeconds, approved: plan.needsApproval,
-        profile: engine.id === 'fal-qwen3' ? state.voiceId : undefined,
+        profile: state.personProfileId && state.personProfileId === state.voiceId
+            ? state.personProfileId : engine.id === 'fal-qwen3' ? state.voiceId : undefined,
         style: engine.id === 'gemini-tts' || engine.id === 'irodori' && state.voiceId === 'custom' ? state.style : undefined,
         irodoriUrl: engine.id === 'irodori' ? options.irodoriUrl : undefined });
     if (state.cancelled) return undefined;
