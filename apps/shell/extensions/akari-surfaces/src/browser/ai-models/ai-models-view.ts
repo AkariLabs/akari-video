@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     AkariAiModelsService, AI_MODEL_KINDS, AiModel, AiModelCatalog, AiModelKind,
     AiModelPreferences, AiModelSetId
@@ -391,7 +392,7 @@ export class AiModelsView {
             card.append(menu);
         }
         const nameRow = node('div', 'akari-ai-name-row');
-        nameRow.append(node('h4', '', model.name), node('span', 'akari-ai-price', model.via === 'api' ? formatAiModelPrice(model) : '¥0'));
+        nameRow.append(node('h4', '', model.name), node('span', 'akari-ai-price', model.via === 'api' ? formatAiModelPrice(model) : t('common.currency.price.free')));
         card.append(nameRow);
         const otherPrices = formatAiModelOtherPrices(model);
         if (otherPrices) {

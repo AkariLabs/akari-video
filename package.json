@@ -18,6 +18,7 @@
     "check:entry-skill": "node scripts/check-entry-skill.mjs",
     "check:cross-package-imports": "node scripts/ci/check-cross-package-imports.mjs",
     "check:docs-sync": "node scripts/check-docs-sync.mjs",
+    "lint:i18n": "node scripts/ci/check-no-hardcoded-ja.mjs",
     "test:unit": "node scripts/ci/run-unit-tests.mjs --lane pure",
     "test:shell": "node scripts/ci/run-unit-tests.mjs --lane shell",
     "test:quarantine": "node scripts/ci/run-unit-tests.mjs --lane quarantine",

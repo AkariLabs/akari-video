@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 export type ProjectViewMode = 'cards' | 'list';
 export const PROJECT_PAGE_SIZE = 24;
 const VIEW_KEY = 'akari.projects.view';
@@ -60,9 +61,9 @@ export function sortProjects<T extends ProjectDetails & { name: string; key: str
 
 export function formatProjectUpdatedAt(value?: number): string {
     if (!Number.isFinite(value)) { return '—'; }
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatDate(value, {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-    }).format(value);
+    });
 }
 
 export function projectEditStatus(row: ProjectDetails): string {

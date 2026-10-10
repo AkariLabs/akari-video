@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * カタログ面「1 ビュー」の純関数群（ビューのマージ・resolver 生アイテムの正規化・
  * 状態→バッジ文言）。node/browser のどちらからも import される想定のため、
@@ -314,7 +315,7 @@ export function assetDistributionBadgeText(distribution: AssetDistribution | und
     switch (distribution) {
         case 'bundled': return '✓ 同梱済み';
         case 'subscription': return 'サブスク';
-        case 'paid': return '¥ 各自入手';
+        case 'paid': return t('common.currency.price.selfPurchase');
         case 'free': return sourceAcquisition === 'login' ? '☁ 無料 DL（要登録）' : '☁ 無料 DL';
         default: return undefined;
     }
@@ -407,7 +408,7 @@ export function summarizeCatalogPackDistribution(items: readonly Pick<AssetCatal
 const PACK_BREAKDOWN_LABEL: Record<'bundled' | 'free' | 'paid' | 'subscription', string> = {
     bundled: '同梱',
     free: '無料 DL',
-    paid: '¥ 各自入手',
+    paid: t('common.currency.price.selfPurchase'),
     subscription: 'サブスク'
 };
 

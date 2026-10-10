@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 export interface HomeStats {
     duration?: string;
     clips?: string;
@@ -48,7 +49,7 @@ export function buildHomeStats(edit: unknown, assetCount?: number, assetBytes?: 
         clips: clips ? clips.length ? String(clips.length) : '—' : undefined,
         assets: assetCount === undefined ? Array.isArray(value.sources) ? value.sources.length ? String(value.sources.length) : '—' : undefined : assetCount ? String(assetCount) : '—',
         bytes: assetBytes === 0 ? '—' : formatBytes(assetBytes),
-        lastExport: lastExport === undefined ? undefined : new Date(lastExport).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        lastExport: lastExport === undefined ? undefined : formatDate(new Date(lastExport), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
 }
 

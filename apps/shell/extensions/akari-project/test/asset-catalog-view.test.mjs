@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import {
     assetDistributionBadgeText,
     assetStateBadgeText,
@@ -350,7 +351,9 @@ test('assetDistributionBadgeText: subscription は「サブスク」', () => {
 });
 
 test('assetDistributionBadgeText: paid は「¥ 各自入手」', () => {
-    assert.equal(assetDistributionBadgeText('paid'), '¥ 各自入手');
+    setLanguage('ja');
+    try { assert.equal(assetDistributionBadgeText('paid'), '¥ 各自入手'); }
+    finally { setLanguage(undefined); }
 });
 
 test('assetDistributionBadgeText: free かつ acquisition 未指定/direct は「☁ 無料 DL」', () => {

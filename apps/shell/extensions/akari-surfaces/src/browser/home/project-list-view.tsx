@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { ProjectPresence, stageSummary } from './project-progress-model';
@@ -34,7 +35,7 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
         onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}>
         <span className='akari-os-thumb'>{thumbnail
             ? <img src={thumbnail} alt='' /> : <span className='codicon codicon-device-camera-video' aria-hidden='true' />}</span>
-        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? '開いています · ' : ''}{row.updatedAt ? new Date(row.updatedAt).toLocaleString('ja-JP') : '更新日なし'}</small>
+        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? '開いています · ' : ''}{row.updatedAt ? formatDate(new Date(row.updatedAt)) : '更新日なし'}</small>
             {badge && <span className='akari-os-stage'>{badge}</span>}</span>
     </button>;
 }
