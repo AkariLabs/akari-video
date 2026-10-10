@@ -7,7 +7,7 @@ import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
+import { CommandRegistry, CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -142,6 +142,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
     @inject(CommandService)
     protected readonly commandService!: CommandService;
+
+    @inject(CommandRegistry)
+    protected readonly commandRegistry!: CommandRegistry;
 
     @inject(FileService)
     protected readonly fileService!: FileService;
@@ -883,6 +886,10 @@ export class AkariPartnerWidget extends ReactWidget {
         await this.preferences.ready;
         const roots = await this.workspaceService.roots;
         const projectLast = await this.storageService.getData<{ entryId: string | null }>(PARTNER_LAST_KEY);
+        if (projectLast?.entryId === 'akari-chat' && this.preferences.get<boolean>(PARTNER_REOPEN_PREFERENCE, true) && roots.length > 0 && this.liveTerminals.size === 0) {
+            if (this.commandRegistry.getCommand('akari.chat.open')) await this.commandService.executeCommand('akari.chat.open', { resumeLast: true });
+            return;
+        }
         let markerAgent: PartnerAgentId | undefined;
         if (projectLast === undefined) {
             try {
@@ -1420,6 +1427,10 @@ export class AkariPartnerWidget extends ReactWidget {
             <div style={styles.container}>
                 <h2 style={styles.heading}>パートナーを追加</h2>
                 <p style={styles.lead}>CLI・作業画面・公式拡張を選んで、右パネルに追加します。</p>
+                <button data-akari-chat-card style={{ width: '100%', textAlign: 'left', padding: 14, marginBottom: 12, borderRadius: 10, border: '1px solid #f97316', background: '#25180f', color: '#eee', cursor: 'pointer' }} onClick={() => { if (this.commandRegistry.getCommand('akari.chat.open')) void this.commandService.executeCommand('akari.chat.open'); }}>
+                    <strong>✦ AKARI チャット</strong><br />動画づくり専用のチャット。どのパートナーでも同じ画面
+                </button>
+
 
                 <div style={styles.buttonStack}>
                     {PARTNER_CATALOG.reduce<Array<{

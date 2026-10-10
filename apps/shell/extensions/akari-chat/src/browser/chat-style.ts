@@ -1,0 +1,474 @@
+const css = `
+.akari-chat {
+  height: 100%;
+  min-width: 300px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0a;
+  color: #e5e5e5;
+  font: 13px -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+}
+.akari-chat * { box-sizing: border-box; }
+.akari-chat button {
+  cursor: pointer;
+  font: inherit;
+}
+.akari-chat button:disabled {
+  cursor: default;
+  opacity: .42;
+}
+.akari-chat-head {
+  position: relative;
+  z-index: 4;
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border-bottom: 1px solid #2b2b2b;
+}
+.akari-chat-head strong {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.akari-chat-spacer { flex: 1; }
+.akari-chat-plain {
+  border: 0 !important;
+  background: transparent !important;
+  color: #bbb !important;
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.akari-chat-plain:hover {
+  background: #252525 !important;
+  color: #fff !important;
+}
+.akari-chat-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 18px 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.akari-chat-resume {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #a3a3a3;
+  font-size: 12px;
+  padding: 3px 0 8px;
+}
+.akari-chat-resume span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.akari-chat-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fdba74;
+  background: rgba(249, 115, 22, .10);
+  border: 2px dashed rgba(249, 115, 22, .55);
+  font-size: 15px;
+  font-weight: 600;
+}
+.akari-chat-empty {
+  margin: auto;
+  text-align: center;
+  color: #aaa;
+  line-height: 1.7;
+}
+.akari-chat-empty svg {
+  display: block;
+  margin: 0 auto 12px;
+}
+.akari-chat-bubble {
+  max-width: 92%;
+  line-height: 1.65;
+}
+.akari-chat-bubble[data-chat-role=user] {
+  align-self: flex-end;
+  background: #262626;
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+}
+.akari-chat-bubble[data-chat-role=assistant] {
+  align-self: flex-start;
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.akari-chat-avatar {
+  width: 27px;
+  height: 27px;
+  flex: none;
+}
+.akari-chat-md {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.akari-chat-md p { margin: 0 0 10px; }
+.akari-chat-md pre {
+  background: #161616;
+  padding: 12px;
+  border-radius: 9px;
+  overflow: auto;
+}
+.akari-chat-md code {
+  font-family: monospace;
+  background: #222;
+  padding: 1px 3px;
+}
+.akari-chat-md pre code { background: none; }
+.akari-chat-md table {
+  border-collapse: collapse;
+  display: block;
+  overflow: auto;
+  margin: 8px 0;
+}
+.akari-chat-md th, .akari-chat-md td {
+  border: 1px solid #424242;
+  padding: 7px 10px;
+}
+.akari-chat-md th { background: #242424; }
+.akari-chat-md a { color: #fb923c; }
+.akari-chat-tool {
+  margin-left: 36px;
+  min-width: 0;
+  color: #a3a3a3;
+}
+.akari-chat-tool-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  padding: 3px 4px;
+  border-radius: 8px;
+}
+.akari-chat-tool-line:hover { background: #121212; }
+.akari-chat-tool-toggle {
+  all: unset !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+}
+.akari-chat-tool-icon {
+  width: 18px;
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+}
+.akari-chat-tool-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.akari-chat-tool[data-tool-kind=think] .akari-chat-tool-icon { color: #d8b4fe; }
+.akari-chat-tool[data-tool-kind=read] .akari-chat-tool-icon { color: #d4d4d4; }
+.akari-chat-tool[data-tool-kind=write] .akari-chat-tool-icon { color: #86efac; }
+.akari-chat-tool[data-tool-kind=command] .akari-chat-tool-icon { color: #93c5fd; }
+.akari-chat-tool[data-tool-kind=skill] .akari-chat-tool-icon { color: #fdba74; }
+.akari-chat-tool[data-tool-kind=web] .akari-chat-tool-icon,
+.akari-chat-tool[data-tool-kind=search] .akari-chat-tool-icon { color: #5eead4; }
+.akari-chat-tool[data-tool-kind=command] .akari-chat-tool-title {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+.akari-chat-inline-chip {
+  flex: none;
+  max-width: 36%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0 !important;
+  background: #202020 !important;
+  color: #ccc !important;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px !important;
+}
+.akari-chat-diff-count {
+  flex: none;
+  display: flex;
+  gap: 5px;
+  font: 11px ui-monospace, monospace;
+}
+.akari-chat-diff-count .added, .akari-chat-diff .added { color: #86efac; }
+.akari-chat-diff-count .removed, .akari-chat-diff .removed { color: #fca5a5; }
+.akari-chat-tool-duration {
+  flex: none;
+  margin-left: auto;
+  color: #8a8a8a;
+  font-size: 11px;
+}
+.akari-chat-tool-expanded {
+  margin: 2px 0 8px 26px;
+  padding-left: 12px;
+}
+.akari-chat-tool-detail {
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: 280px;
+  margin: 0;
+  color: #ddd;
+  background: #111;
+  padding: 8px;
+  border-radius: 6px;
+  font: 12px/1.5 ui-monospace, monospace;
+}
+.akari-chat-diff span { display: block; }
+.akari-chat-files { margin-left: 36px; }
+.akari-chat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #45403a !important;
+  background: #25201b !important;
+  color: #fdba74 !important;
+  border-radius: 8px;
+  padding: 5px 8px;
+  margin: 3px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.akari-chat-ask {
+  margin-left: 36px;
+  background: #151515;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 12px;
+}
+.akari-chat-ask button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-top: 1px solid #333;
+  padding: 8px;
+  background: transparent;
+  color: #ddd;
+}
+.akari-chat-error {
+  color: #fca5a5;
+  padding: 8px 12px;
+}
+.akari-chat-composer {
+  position: relative;
+  margin: 8px 12px 16px;
+  background: #141414;
+  border: 1px solid #383838;
+  border-radius: 14px;
+  padding: 9px;
+}
+.akari-chat-composer textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  min-height: 64px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #eee;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: inherit;
+  padding: 5px;
+}
+.akari-chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.akari-chat-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f97316 !important;
+  color: #160a02 !important;
+  border: 0 !important;
+  border-radius: 8px;
+  min-width: 33px;
+  height: 33px;
+}
+.akari-chat-send[data-chat-stop] {
+  background: #262626 !important;
+  color: #eee !important;
+}
+.akari-chat-ring {
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+}
+.akari-chat-ring:after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: #141414;
+  border-radius: 50%;
+}
+.akari-chat-pop {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: #1c1c1c;
+  border: 1px solid #444;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px #000b;
+  z-index: 2;
+  max-height: 420px;
+  overflow: auto;
+  min-width: 260px;
+}
+.akari-chat-pop button {
+  border: 0 !important;
+  background: transparent !important;
+  color: #ddd !important;
+  text-align: left !important;
+  padding: 8px;
+  border-radius: 6px;
+}
+.akari-chat-pop button:hover { background: #313131 !important; }
+.akari-chat-pop small {
+  color: #999;
+  display: block;
+  font-size: 11px;
+}
+.akari-chat-history {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: auto;
+  right: 10px;
+  width: min(340px, calc(100% - 20px));
+  padding: 8px;
+  max-height: min(420px, 70vh);
+}
+.akari-chat-history button {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  height: auto !important;
+  min-height: 52px !important;
+  overflow: hidden;
+}
+.akari-chat-history-title {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+.akari-chat-history-current { color: #f97316; margin-right: 6px; }
+.akari-chat-history button small {
+  display: block;
+  width: 100%;
+  color: #999;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.akari-chat-history-empty { display: block; padding: 12px; color: #999; }
+.akari-chat-model-pop {
+  display: flex;
+  width: min(560px, 100%);
+  min-height: 300px;
+  overflow: hidden;
+}
+.akari-chat-agent-column {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 50px;
+  gap: 5px;
+  padding: 8px;
+  background: #141414;
+  border-right: 1px solid #333;
+}
+.akari-chat-agent-column button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #ddd;
+}
+.akari-chat-agent-column button[data-installed=false] { color: #666 !important; }
+.akari-chat-agent-column button.selected,
+.akari-chat-model-column button.selected {
+  background: rgba(249, 115, 22, .16) !important;
+  color: #fdba74 !important;
+}
+.akari-chat-model-column {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+.akari-chat-model-column strong {
+  display: block;
+  font-size: 11px;
+  color: #999;
+  margin: 8px 5px;
+}
+.akari-chat-model-column > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.akari-chat-model-column > small { margin: 10px 5px; }
+.akari-chat-efforts {
+  display: flex;
+  border: 1px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.akari-chat-efforts button {
+  flex: 1;
+  text-align: center !important;
+  border-radius: 0;
+}
+`;
+
+export function installChatStyle(): void {
+    if (document.getElementById('akari-chat-style')) {
+        return;
+    }
+    const style = document.createElement('style');
+    style.id = 'akari-chat-style';
+    style.textContent = css;
+    document.head.appendChild(style);
+}

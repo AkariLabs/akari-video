@@ -40,6 +40,7 @@ export function partnerPanelWidth(windowWidth: number, currentWidth: number | un
  * `PartnerChannel#send`）を再利用することで満たす。
  */
 export const AkariPartnerCommands = {
+    LOGIN_CLAUDE: { id: 'akari.partner.loginClaude', label: 'Claude Code でログイン' } as Command,
     OPEN: {
         id: 'akari.partner.open',
         label: 'パートナーを開く'
@@ -95,6 +96,15 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     }
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand(AkariPartnerCommands.LOGIN_CLAUDE, { execute: async () => {
+            const entry = PARTNER_CATALOG.find(candidate => candidate.agent === 'claude' && candidate.form === 'cli');
+            if (!entry) return;
+            const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+            if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'right', rank: 100 });
+            await this.shell.activateWidget(widget.id);
+            await widget.begin(entry);
+        } });
+
         window.addEventListener('akari.onboarding.revealPartner', () => {
             void registry.executeCommand(AkariPartnerCommands.OPEN.id).catch(error =>
                 console.warn('[akari-onboarding] partner could not be revealed:', error));
