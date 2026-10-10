@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -8,7 +9,7 @@ import { parseCaptureArguments } from '../src/capture/arguments.mjs';
 import { normalizeCaptureArgs } from '../bin/capture.mjs';
 
 test('media and capture ignore the application home but keep a nested project', async (t) => {
-  const root = await mkdtemp(join(process.env.TMPDIR, 'akari-tools-home-'));
+  const root = await mkdtemp(join(os.tmpdir(), 'akari-tools-home-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, 'home');
   const work = join(home, 'work');

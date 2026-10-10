@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import os from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -10,7 +11,7 @@ import { hasProjectAkariDirectory } from '../src/project-root.mjs';
 const packagesRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('a symlink to AKARI_HOME is not a project marker', async (t) => {
-  const root = await mkdtemp(join(process.env.TMPDIR, 'project-marker-'));
+  const root = await mkdtemp(join(os.tmpdir(), 'project-marker-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, 'home');
   const appHome = join(home, '.akari');

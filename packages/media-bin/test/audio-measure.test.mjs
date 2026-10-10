@@ -123,7 +123,7 @@ test("CLI の既定 cacheDir は素材親から見つけた projectRoot の .aka
 });
 
 test("CLI cache skips AKARI_HOME and uses the material directory", (t) => {
-  const root = fs.mkdtempSync(path.join(process.env.TMPDIR, "audio-home-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "audio-home-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const home = path.join(root, "home");
   const materialDirectory = path.join(home, "material");
