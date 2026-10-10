@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>AKARI Video 分析レポート</title>
+    <title data-i18n="report-analysis.page.title.text">AKARI Video 分析レポート</title>
     <!--
     AKARI 分析レポート 安全な差し替え規約:
     - このファイルは UI 正本（不変）。データは一切含まない。
@@ -820,27 +820,27 @@
     </style>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">本文へ移動</a>
+    <a class="skip-link" href="#main-content" data-i18n="report-analysis.page.skip.text">本文へ移動</a>
 
     <header class="report-header">
       <div class="report-header__inner">
-        <p class="eyebrow">AKARI VIDEO / ANALYSIS REPORT（読み取り専用）</p>
-        <h1 id="report-title" data-mount="report-title">分析レポート</h1>
+        <p class="eyebrow" data-i18n="report-analysis.page.eyebrow.text">AKARI VIDEO / ANALYSIS REPORT（読み取り専用）</p>
+        <h1 id="report-title" data-mount="report-title" data-i18n="report-analysis.page.heading.text">分析レポート</h1>
         <dl class="report-meta" aria-label="レポート基本情報">
           <div>
-            <dt>生成日時</dt>
+            <dt data-i18n="report-analysis.meta.generated.label">生成日時</dt>
             <dd data-mount="meta-generated-at">—</dd>
           </div>
           <div>
-            <dt>対象素材</dt>
+            <dt data-i18n="report-analysis.meta.assets.label">対象素材</dt>
             <dd data-mount="meta-asset-count">—</dd>
           </div>
           <div>
-            <dt>検出イベント数</dt>
+            <dt data-i18n="report-analysis.meta.events.label">検出イベント数</dt>
             <dd data-mount="meta-event-count">—</dd>
           </div>
           <div>
-            <dt>取材台帳</dt>
+            <dt data-i18n="report-analysis.meta.questions.label">取材台帳</dt>
             <dd data-mount="meta-question-count">—</dd>
           </div>
         </dl>
@@ -849,12 +849,12 @@
 
     <nav class="report-nav" aria-label="章ジャンプナビ">
       <div class="report-nav__inner">
-        <a href="#section-timeline">1. タイムライン</a>
-        <a href="#section-transcript">2. 文字起こし</a>
-        <a href="#section-facts">3. 素材別事実カード</a>
-        <a href="#section-relations">4. 関係・浮いた素材（解釈）</a>
-        <a href="#section-questions">5. 取材台帳（解釈）</a>
-        <a href="#section-provenance">6. 来歴</a>
+        <a href="#section-timeline" data-i18n="report-analysis.nav.timeline.text">1. タイムライン</a>
+        <a href="#section-transcript" data-i18n="report-analysis.transcript.heading.text">2. 文字起こし</a>
+        <a href="#section-facts" data-i18n="report-analysis.nav.facts.text">3. 素材別事実カード</a>
+        <a href="#section-relations" data-i18n="report-analysis.nav.relations.text">4. 関係・浮いた素材（解釈）</a>
+        <a href="#section-questions" data-i18n="report-analysis.nav.questions.text">5. 取材台帳（解釈）</a>
+        <a href="#section-provenance" data-i18n="report-analysis.provenance.heading.text">6. 来歴</a>
       </div>
     </nav>
 
@@ -867,7 +867,7 @@
         aria-labelledby="heading-timeline"
       >
         <span class="section-kicker">SECTION 1</span>
-        <h2 id="heading-timeline">1. 素材タイムライン帯</h2>
+        <h2 id="heading-timeline" data-i18n="report-analysis.timeline.heading.text">1. 素材タイムライン帯</h2>
         <p class="section-lead">
           素材ごとの章・トラブル・フィラー・見どころ区間を帯として俯瞰する。事実層（analysis.json
           の events / keyframes）のみで構成する。バーとキーフレームの chip は元の秒数を
@@ -882,7 +882,7 @@
         aria-labelledby="heading-transcript"
       >
         <span class="section-kicker">SECTION 2</span>
-        <h2 id="heading-transcript">2. 文字起こし</h2>
+        <h2 id="heading-transcript" data-i18n="report-analysis.transcript.heading.text">2. 文字起こし</h2>
         <p class="section-lead">
           章単位で折りたたんだ transcript（事実層）。各行は発話区間の開始秒を
           <code>data-seek</code> として保持する。
@@ -896,7 +896,7 @@
         aria-labelledby="heading-facts"
       >
         <span class="section-kicker">SECTION 3</span>
-        <h2 id="heading-facts">3. 素材別 事実カード</h2>
+        <h2 id="heading-facts" data-i18n="report-analysis.facts.heading.text">3. 素材別 事実カード</h2>
         <p class="section-lead">
           events（trouble / filler / hook / highlight）の要約と tracks
           の検出状況。各素材カードの先頭には解釈層の「素材の読み」（role /
@@ -913,7 +913,7 @@
         aria-labelledby="heading-relations"
       >
         <span class="section-kicker">SECTION 4</span>
-        <h2 id="heading-relations">4. 解釈: 素材間関係・浮いた素材</h2>
+        <h2 id="heading-relations" data-i18n="report-analysis.relations.heading.text">4. 解釈: 素材間関係・浮いた素材</h2>
         <p class="section-lead">
           同一人物・同一場所・同一時間帯・内容の重複など、素材の読みとして客観的に特定できる
           関係（relations）と、orphan / unclear の検出結果を示す（構成の提案はここでは行わない
@@ -929,8 +929,8 @@
         aria-labelledby="heading-questions"
       >
         <span class="section-kicker">SECTION 5</span>
-        <h2 id="heading-questions">5. 取材台帳</h2>
-        <p class="section-lead">
+        <h2 id="heading-questions" data-i18n="report-analysis.questions.heading.text">5. 取材台帳</h2>
+        <p class="section-lead" data-i18n="report-analysis.questions.description.text">
           open_questions の状態表示のみ。質問行為自体はチャットで行う — このレポートは台帳。
         </p>
         <div data-mount="questions"></div>
@@ -942,7 +942,7 @@
         aria-labelledby="heading-provenance"
       >
         <span class="section-kicker">SECTION 6</span>
-        <h2 id="heading-provenance">6. 来歴</h2>
+        <h2 id="heading-provenance" data-i18n="report-analysis.provenance.heading.text">6. 来歴</h2>
         <p class="section-lead">
           2 パス目に与えた文脈の全記録（interpretation.inputs）。analysis.json
           は変更していない。

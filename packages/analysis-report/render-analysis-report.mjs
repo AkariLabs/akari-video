@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { localizeReportTemplate, reportLanguage } from "./report-i18n.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(here, "template.html");
@@ -31,7 +32,7 @@ const BLOCKS_PLACEHOLDER = '{"__AKARI_ANALYSIS_REPORT_BLOCKS__": true}';
 function usage() {
   return [
     "使い方:",
-    "  node render-analysis-report.mjs --analysis <ref>=<path> [--analysis <ref>=<path> ...] --interpretation <path> --out <report.html>",
+    "  node render-analysis-report.mjs --analysis <ref>=<path> [--analysis <ref>=<path> ...] --interpretation <path> --out <report.html> [--lang <ja|en>]",
     "",
     "  --analysis の正式形は <ref>=<path>（ref は interpretation.assets[].ref を明示する）。",
     "  素の <path> のみの指定も許容するが、inputs.analyses[].path と basename / suffix で",
@@ -46,6 +47,7 @@ function parseArgs(argv) {
   const analysisPaths = [];
   let interpretationPath = null;
   let outPath = null;
+  let lang;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -73,6 +75,12 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (arg === "--lang") {
+      const value = argv[++i];
+      if (value === undefined) throw new Error("--lang requires ja or en");
+      lang = reportLanguage(value);
+      continue;
+    }
     throw new Error(`未知の引数です: ${arg}`);
   }
 
@@ -80,7 +88,7 @@ function parseArgs(argv) {
   if (!interpretationPath) throw new Error("--interpretation は必須です");
   if (!outPath) throw new Error("--out は必須です");
 
-  return { help: false, analysisPaths, interpretationPath, outPath };
+  return { help: false, analysisPaths, interpretationPath, outPath, lang: reportLanguage(lang) };
 }
 
 function fail(message) {
@@ -574,7 +582,7 @@ function main() {
   if (!templateText.includes(BLOCKS_PLACEHOLDER)) {
     fail(`template.html の block-id マニフェスト埋め込み用プレースホルダーが見つかりません: ${templatePath}`);
   }
-  const rendered = templateText
+  const rendered = localizeReportTemplate(templateText, "report-analysis", args.lang)
     .replace(DATA_PLACEHOLDER, serialized)
     .replace(BLOCKS_PLACEHOLDER, serializedBlocks);
 
