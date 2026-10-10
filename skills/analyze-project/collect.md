@@ -14,7 +14,7 @@ List assets in the specified project directory; if none is specified, list video
 
 ## 2. Check existing analysis for each asset
 
-Use the same search order as [edit-plan/workflow.md §2](../edit-plan/workflow.md#2-%E7%B4%A0%E6%9D%90%E3%81%AE%E6%9C%89%E7%84%A1%E3%81%A7%E5%88%86%E5%B2%90%E3%81%99%E3%82%8B) (existing Japanese section anchor):
+Use the same search order as [edit-plan/workflow.md §2](../edit-plan/workflow.md#2-branch-by-media-availability) (English section anchor):
 
 1. User-specified `analysis.json`
 2. `<source-dir>/analysis/<source-stem>/analysis.json`

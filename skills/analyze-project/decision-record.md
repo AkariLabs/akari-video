@@ -22,13 +22,16 @@ context. **Do not invent a format**: use [edit-plan's decision_log convention](.
 chronological append keyed by `(category, subject)`, ISO 8601 timestamp, category, subject, decision, rationale,
 decider, and related checkpoint. For analyze-project, use categories `analysis` (pass-2 decisions) /
 `interview` (interview Q&A).
+Write the decision and reason cell contents in the user's language. Keep the header's exact machine-read column names
+`日時` (time), `決定` (decision), `理由` (reason), `決定者` (decider), and `関連 checkpoint` (related checkpoint)
+regardless of that language. Preserve any existing header and rows unchanged.
 
 The assumption of embedding in one `editing-report.html` was removed from edit-plan in the 2026-07-22 revision
 (consolidation into an analysis-only report; see the opening revision note in [edit-plan/report-guide.md](../edit-plan/report-guide.md)).
 analyze-project and edit-plan therefore append project decisions to a **shared independent file**,
 `<project>/decision-log.md`. analyze-project may start it; later edit-plan stages continue appending.
 1 project = 1 log, a single SSOT. Create the file if absent; write the decision-row table header 1 time
-(category, subject, decision, rationale, decider, related checkpoint). Never change/delete existing rows;
+(`日時`, category, subject, `決定`, `理由`, `決定者`, `関連 checkpoint`). Never change/delete existing rows;
 append new rows at the end.
 
 This location change (embedded HTML → standalone markdown) is a **minimal addition** following edit-plan's
