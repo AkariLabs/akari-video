@@ -95,7 +95,27 @@ async function screenshot(browser, html, code, style, inspect = false) {
       await page.addScriptTag({ content: code });
       await page.evaluate(style => window.applyFixtureRich(document.getElementById('stage'), { textStyle: style }), style);
     }
-    await page.evaluate(() => document.fonts.ready);
+    // setContent は about:blank 起源なので、字幕の file:// @font-face は読み込みに失敗する。
+    // 失敗が確定する前の font-display block 期間を撮らないよう、使用文字と ::after の
+    // FontFace を要求し、loaded または error に落ち着いてから全経路を同条件で撮る。
+    await page.evaluate(async () => {
+      const textNodes = [...document.querySelectorAll('.akari-caption, .akari-caption__tok')];
+      const requests = [];
+      for (const node of textNodes) {
+        node.getBoundingClientRect();
+        for (const pseudo of [null, '::after']) {
+          const font = getComputedStyle(node, pseudo).font;
+          const text = pseudo ? node.dataset.karaokeText : node.textContent;
+          if (font && text) requests.push(document.fonts.load(font, text));
+        }
+      }
+      // file:// の NetworkError も FontFace.status=error への確定として待つ。
+      await Promise.allSettled(requests);
+      await document.fonts.ready;
+      await Promise.allSettled([...document.fonts]
+        .filter(face => face.status === 'loading').map(face => face.loaded));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
     const png = await page.screenshot({ animations: 'disabled' });
     if (!inspect) return png;
     const tokens = await page.evaluate(() => [...document.querySelectorAll('.akari-caption__tok')]
@@ -194,7 +214,11 @@ test('all 36 v0 presets keep their HTML bytes and OSR pixels at 1080x1920', { ti
   assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 36);
   let browser;
   try { browser = await chromium.launch({ headless: true }); }
-  catch { t.skip('Chromium is unavailable in this sandbox'); return; }
+  catch (error) {
+    // CI の Chrome 起動失敗は画像比較不能という失敗として報告する。
+    if (process.env.CI) throw error;
+    t.skip('Chromium is unavailable in this sandbox'); return;
+  }
   try {
     for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
       const rendered = overlay(preset.style);
@@ -209,7 +233,11 @@ test('all 36 v0 presets keep their HTML bytes and OSR pixels at 1080x1920', { ti
 test('eight v1 fixtures compare render, shell, preview, OSR, and GPU pixels at 1080x1920', { timeout: 360_000 }, async t => {
   let browser;
   try { browser = await chromium.launch({ headless: true }); }
-  catch { t.skip('Chromium is unavailable in this sandbox'); return; }
+  catch (error) {
+    // CI の Chrome 起動失敗は画像比較不能という失敗として報告する。
+    if (process.env.CI) throw error;
+    t.skip('Chromium is unavailable in this sandbox'); return;
+  }
   const shellCode = shellLayerCode();
   const previewCode = previewLayerCode();
   const evidence = {};

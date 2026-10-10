@@ -11,6 +11,7 @@ const packageDirectory = path.resolve(
   "..",
 );
 const chromeCandidates = [
+  process.env.AKARI_TEST_CHROME_PATH,
   process.env.CHROME_PATH,
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -87,37 +88,60 @@ async function stopProcess(child) {
 }
 
 class CdpClient {
-  constructor(url) {
+  constructor(child) {
+    this.child = child;
     this.nextId = 1;
     this.pending = new Map();
-    this.socket = new WebSocket(url);
-    this.socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data);
-      if (!message.id || !this.pending.has(message.id)) return;
-      const pending = this.pending.get(message.id);
-      this.pending.delete(message.id);
-      if (message.error) {
-        pending.reject(new Error(message.error.message));
-      } else {
-        pending.resolve(message.result);
-      }
-    });
+    this.buffer = Buffer.alloc(0);
+    this.sessionId = null;
+    this.errorOutput = "";
+    child.stderr.on("data", chunk => { this.errorOutput += chunk.toString(); });
+    child.stdio[4].on("data", chunk => this.receive(chunk));
+    const rejectPending = error => {
+      for (const pending of this.pending.values()) pending.reject(error);
+      this.pending.clear();
+    };
+    child.on("exit", (code, signal) => rejectPending(new Error(`Chrome exited (${code ?? signal}): ${this.errorOutput}`)));
+    child.on("error", rejectPending);
+    child.stdio[3].on("error", rejectPending);
   }
 
-  async connect() {
-    await new Promise((resolve, reject) => {
-      this.socket.addEventListener("open", resolve, { once: true });
-      this.socket.addEventListener("error", reject, { once: true });
-    });
+  receive(chunk) {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    let delimiter = this.buffer.indexOf(0);
+    while (delimiter !== -1) {
+      const payload = this.buffer.subarray(0, delimiter).toString("utf8");
+      this.buffer = this.buffer.subarray(delimiter + 1);
+      if (payload) {
+        const message = JSON.parse(payload);
+        const pending = this.pending.get(message.id);
+        if (pending) {
+          this.pending.delete(message.id);
+          if (message.error) pending.reject(new Error(message.error.message));
+          else pending.resolve(message.result);
+        }
+      }
+      delimiter = this.buffer.indexOf(0);
+    }
   }
 
   command(method, params = {}) {
     const id = this.nextId;
     this.nextId += 1;
     const result = new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      // pipe が応答しない起動失敗を無期限に待たず、stderr を失敗理由に残す。
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`${method} timed out: ${this.errorOutput}`));
+      }, 10_000);
+      this.pending.set(id, {
+        resolve: value => { clearTimeout(timer); resolve(value); },
+        reject: error => { clearTimeout(timer); reject(error); },
+      });
     });
-    this.socket.send(JSON.stringify({ id, method, params }));
+    const message = { id, method, params };
+    if (this.sessionId) message.sessionId = this.sessionId;
+    this.child.stdio[3].write(`${JSON.stringify(message)}\0`);
     return result;
   }
 
@@ -135,7 +159,7 @@ class CdpClient {
   }
 
   close() {
-    this.socket.close();
+    this.child.stdio[3].end();
   }
 }
 
@@ -155,12 +179,9 @@ async function waitFor(check, message, timeout = 10_000) {
 }
 
 async function startFixture(t) {
-  if (typeof WebSocket === "undefined") {
-    t.skip("Node.js with WebSocket support is required for the L1 test");
-    return null;
-  }
   const chromePath = await findChrome();
   if (!chromePath) {
+    if (process.env.CI) throw new Error("Chrome/Chromium is required for the decision-cards browser test");
     t.skip("Chrome/Chromium is required for the decision-cards browser test");
     return null;
   }
@@ -201,12 +222,14 @@ async function startFixture(t) {
     reportUrl = helperMatch[1];
   } catch (error) {
     if (/listen EPERM/.test(error.message)) {
+      if (process.env.CI) throw error;
       t.skip("The sandbox forbids the localhost helper required by the L1 test");
       return null;
     }
     throw error;
   }
 
+  // CI の full Chrome 初回起動と stderr の DevTools 行に依存せず、headless-shell を pipe で直接検査する。
   chrome = spawn(
     chromePath,
     [
@@ -215,30 +238,17 @@ async function startFixture(t) {
       "--disable-dev-shm-usage",
       "--no-first-run",
       "--no-sandbox",
-      "--remote-debugging-port=0",
+      "--remote-debugging-pipe",
       `--user-data-dir=${path.join(temporaryDirectory, "chrome-profile")}`,
-      reportUrl,
+      "about:blank",
     ],
-    { stdio: ["ignore", "ignore", "pipe"] },
+    { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] },
   );
-  const chromeMatch = await waitForOutput(
-    chrome,
-    chrome.stderr,
-    /DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//,
-    "headless Chrome",
-  );
-  const debugPort = chromeMatch[1];
-  const target = await waitFor(async () => {
-    const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`);
-    const targets = await response.json();
-    return targets.find(
-      (candidate) =>
-        candidate.type === "page" && candidate.url.startsWith(reportUrl),
-    );
-  }, "Chrome did not open the sample report");
-
-  cdp = new CdpClient(target.webSocketDebuggerUrl);
-  await cdp.connect();
+  cdp = new CdpClient(chrome);
+  await cdp.command("Browser.getVersion");
+  const { targetId } = await cdp.command("Target.createTarget", { url: reportUrl });
+  const { sessionId } = await cdp.command("Target.attachToTarget", { targetId, flatten: true });
+  cdp.sessionId = sessionId;
   await cdp.command("Runtime.enable");
   // aria-disabled="false" follows binding every card's click handler, including later clicks.
   await waitFor(

@@ -15,6 +15,7 @@ const screenshotDirectory = process.env.STORYBOARD_EVIDENCE_DIR
   ? path.resolve(process.env.STORYBOARD_EVIDENCE_DIR)
   : artifactDirectory;
 const chromeCandidates = [
+  process.env.AKARI_TEST_CHROME_PATH,
   process.env.CHROME_PATH,
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -149,6 +150,7 @@ class CdpPipeClient {
 async function startChromeFixture(t, outputPath) {
   const chromePath = findChrome();
   if (!chromePath) {
+    if (process.env.CI) throw new Error("Chrome/Chromium が必要です");
     t.skip("Chrome/Chromium が無いため実機 DOM 検証を省略");
     return null;
   }
@@ -173,7 +175,9 @@ async function startChromeFixture(t, outputPath) {
   const cdp = new CdpPipeClient(chrome);
   try {
     await cdp.command("Browser.getVersion");
-  } catch {
+  } catch (error) {
+    // CI で起動不能を skip にすると Chrome の回帰が緑として報告されてしまう。
+    if (process.env.CI) throw error;
     t.skip("実行環境が headless Chrome の起動を許可していないため実機検証を省略");
     return null;
   }

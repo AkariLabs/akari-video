@@ -1205,6 +1205,13 @@ async function main() {
     fs.writeFileSync(editJsonPath, JSON.stringify(withBg, null, 2));
 
     const bp = await context.newPage();
+    const bgWsMessages = [];
+    bp.on('websocket', socket => socket.on('framereceived', frame => {
+      try {
+        const message = JSON.parse(frame.payload.toString());
+        if (message.type === 'reload') bgWsMessages.push(message);
+      } catch { /* reload 以外のフレームは診断対象外。 */ }
+    }));
     await bp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await bp.waitForTimeout(2000);
     await bp.click('#edit-toggle');
@@ -1227,6 +1234,16 @@ async function main() {
     const cx = stageBox.x + stageBox.w / 2;
     const cy = stageBox.y + stageBox.h / 2;
 
+    // ホバー枠は body 直下に残り、hidden でも data-overlay-id を保持する。
+    // オーバーレイ本体の検査は #overlay-stage 内に限定する。
+    await bp.mouse.move(cx, cy);
+    try {
+      await bp.waitForFunction(() =>
+        !!document.querySelector('[data-akari-ui="preview-hover-frame"][data-overlay-id="bg-test"]'),
+      undefined, { timeout: 1500 });
+    } catch (error) {
+      if (error.name !== 'TimeoutError') throw error;
+    }
     await bp.mouse.click(cx, cy);
     await bp.waitForTimeout(200);
     const selectedInfo = await bp.evaluate(() => {
@@ -1257,7 +1274,7 @@ async function main() {
     await bp.mouse.up();
     await bp.waitForTimeout(600);
     const afterDrag = await bp.evaluate(() => {
-      const el = document.querySelector('[data-overlay-id="bg-test"]');
+      const el = document.querySelector('#overlay-stage [data-overlay-id="bg-test"]');
       if (!el) return null;
       const cs = getComputedStyle(el);
       return `${cs.getPropertyValue('--x').trim()}/${cs.getPropertyValue('--y').trim()}`;
@@ -1273,8 +1290,25 @@ async function main() {
 
     // Delete: 選択中の背景を消す（消したら黒でよい = 2026-08-07 裁定。lint 警告も出ない）
     await bp.keyboard.press('Delete');
-    await bp.waitForTimeout(800);
-    const afterDelete = await bp.evaluate(() => !!document.querySelector('[data-overlay-id="bg-test"]'));
+    // PUT 成功時のローカル soft reload が DOM と state の両方を更新するまで待つ。
+    try {
+      await bp.waitForFunction(() =>
+        !document.querySelector('#overlay-stage [data-overlay-id="bg-test"]')
+        && !(window.akari?.state?.summary?.overlays ?? []).some(o => o.id === 'bg-test'));
+    } catch (error) {
+      const ui = await bp.evaluate(() => ({
+        dom: [...document.querySelectorAll('#overlay-stage [data-overlay-id]')].map(el => el.dataset.overlayId),
+        hoverFrame: (() => {
+          const frame = document.querySelector('[data-akari-ui="preview-hover-frame"]');
+          return frame ? { overlayId: frame.dataset.overlayId ?? null, hidden: frame.hidden } : null;
+        })(),
+        selected: document.querySelector('[data-akari-interaction-selected]')?.dataset.overlayId ?? null,
+        state: window.akari?.state?.summary?.overlays?.map(o => o.id) ?? null,
+      })).catch(e => ({ evaluationError: e.message }));
+      const disk = await fetch(`${BASE}/api/summary`).then(r => r.json()).catch(e => ({ error: e.message }));
+      throw new Error(`Delete reflection failed: ui=${JSON.stringify(ui)} disk=${JSON.stringify(disk.overlays ?? disk)} ws=${JSON.stringify(bgWsMessages.slice(-5))}; ${error.message}`, { cause: error });
+    }
+    const afterDelete = await bp.evaluate(() => !!document.querySelector('#overlay-stage [data-overlay-id="bg-test"]'));
     const summaryAfterDelete = await fetch(`${BASE}/api/summary`).then(r => r.json());
     (!afterDelete && !(summaryAfterDelete.overlays || []).some(o => o.id === 'bg-test'))
       ? ok('Delete key removes the selected background overlay')
