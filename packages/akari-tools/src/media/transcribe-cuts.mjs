@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { readContentLanguage } from "@akari-video/content-language/node";
-import { normalizeLanguage } from "@akari-video/content-language";
+import { readContentLanguage } from "../../../content-language/src/node.mjs";
+import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { formatNumber, generatedAt, probeRaw, resolveTools } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
 import { countFillerHits, fillerPackLanguage, findFillerSpans } from "./filler-lexicon.mjs";

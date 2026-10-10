@@ -60,6 +60,7 @@ jobs:
       - run: node scripts/gen-skills-index.mjs --check --strict
       - run: node scripts/check-docs-sync.mjs
       - run: node scripts/check-entry-skill.mjs
+      - run: node scripts/ci/check-cross-package-imports.mjs
       - name: "check-extension-deps (拡張間 file 依存と build:ext 順序の照合)"
         run: node scripts/ci/check-extension-deps.mjs
 

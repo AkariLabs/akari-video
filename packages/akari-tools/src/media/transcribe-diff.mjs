@@ -1,8 +1,8 @@
 import { accessSync, constants } from "node:fs";
 import { readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { readContentLanguage } from "@akari-video/content-language/node";
-import { normalizeLanguage } from "@akari-video/content-language";
+import { readContentLanguage } from "../../../content-language/src/node.mjs";
+import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { formatNumber, generatedAt, resolveTarget } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
 import { comparisonText, fillerPackLanguage, findFillerSpans, isFiller } from "./filler-lexicon.mjs";

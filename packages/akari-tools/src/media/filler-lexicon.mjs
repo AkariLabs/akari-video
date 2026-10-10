@@ -1,4 +1,4 @@
-import { packLanguage } from "@akari-video/content-language";
+import { packLanguage } from "../../../content-language/src/index.mjs";
 
 export const FILLER_LEXICON = Object.freeze([
   "えー", "えーと", "えっと", "あー", "あの", "あのー", "その", "そのー",
