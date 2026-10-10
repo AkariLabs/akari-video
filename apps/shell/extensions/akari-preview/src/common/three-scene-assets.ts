@@ -25,6 +25,7 @@ export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
     'lights',
     'animationClip',
     'materialOverrides',
+    'finishes',
     'shadows',
     'texts',
     'physics'
