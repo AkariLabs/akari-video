@@ -62,5 +62,5 @@ test('字幕の再描画直後に保留再生を再開し、host の子要素を
     assert.doesNotMatch(isolatedRow, /captionMotionReplay|resumeCaptionMotionAfterRender|data-akari-motion-replay/u);
     assert.match(playback, /target\.dataset\.akariMotionReplay !== token/u);
     assert.match(playback, /animation\.currentTime = elapsed\(\);[\s\S]*?animation\.play\(\)/u);
-    assert.match(playback, /let index = Math\.min\(total, Math\.floor\(elapsed\(\) \/ step\)\)/u);
+    assert.match(playback, /const draw = \(\) => \{\s*const ms = elapsed\(\);[\s\S]*?const show = replay\.slot === 'out' \? ms < revealAt\[index\] : ms >= revealAt\[index\]/u);
 });
