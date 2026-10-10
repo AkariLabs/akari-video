@@ -3,6 +3,8 @@ import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { CommandService } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { channelPeopleLocation, eligibleNarrationPeople, parseChannelPeople, selectNarrationPerson,
+    type ChannelPerson } from '../../common/channel-people-reader';
 import type { AkariAnnotationsService, GenerateNarrationResult, NarrationEngine, NarrationVoice, VerifyNarrationResult, VoiceProfileSummary } from '../../common/akari-annotations-protocol';
 import { batchNarrationEstimate, batchRetryAction, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, narrationEstimate, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudKeyMissing, readAloudPrice, readAloudPreviewPlan, readAloudProvider, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, voiceProfileConsent, type OverflowChoice, type ReadAloudRow } from '../../common/read-aloud-model';
 
@@ -57,6 +59,9 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected cloudExpanded = false;
     protected lastCopyEngine?: string;
     protected readonly voiceLabel = element('label', '声');
+    protected readonly personRow = element('label', '人物');
+    protected readonly personSelect = element('select');
+    protected people: ChannelPerson[] = [];
     protected result?: GenerateNarrationResult;
     protected audioUrl?: string;
     protected running = false;
@@ -92,7 +97,15 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.body.append(this.freeScript);
             this.freeScript.addEventListener('input', () => { this.invalidate(); this.updateEstimate(); });
         }
-        this.body.append(this.cards);
+        this.personRow.hidden = true;
+        this.personSelect.setAttribute('aria-label', '人物');
+        this.personSelect.addEventListener('change', () => {
+            const person = this.people.find(item => item.id === this.personSelect.value);
+            const selection = person && selectNarrationPerson(person, this.profiles, this.engine?.id);
+            if (selection) void this.chooseProfile(selection.profile.id, selection.engineId);
+        });
+        this.personRow.append(this.personSelect);
+        this.body.append(this.personRow, this.cards);
         this.estimate.dataset.readAloudEstimate = 'true';
         this.copyRow.dataset.readAloudCopyRow = 'true';
         this.copyNote.dataset.readAloudCopyNote = 'true';
@@ -182,6 +195,21 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.defaultProfile = await this.service.voiceDefaultProfile();
             const ordered = orderedVoiceProfiles(fetched.profiles, this.defaultProfile);
             this.profiles = ordered.map(row => row.profile);
+            const location = channelPeopleLocation(this.target.projectRootUri);
+            let people: ChannelPerson[] = [];
+            if (location) {
+                try { people = parseChannelPeople((await this.files.readFile(new URI(location.peopleUri))).value.toString()); }
+                catch { /* 登録前のチャンネル */ }
+            }
+            this.people = eligibleNarrationPeople(people, this.profiles);
+            this.personRow.hidden = this.people.length === 0;
+            this.personSelect.replaceChildren();
+            const emptyPerson = element('option', '人物を選ぶ'); emptyPerson.value = '';
+            this.personSelect.append(emptyPerson);
+            for (const person of this.people) {
+                const option = element('option', person.name); option.value = person.id;
+                this.personSelect.append(option);
+            }
             const preferred = this.voiceMode ? `voice:${this.selectedProfile?.id ?? ''}` : this.engine?.id ?? this.preferences.get<string>('akari.narration.engine', 'voicevox');
             const selected = selectReadAloudEngine(this.engines, preferred);
             this.cards.replaceChildren();

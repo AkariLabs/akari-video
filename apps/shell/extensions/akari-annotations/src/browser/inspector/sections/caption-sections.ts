@@ -1,5 +1,8 @@
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { captionRunRows } from '../caption-run-rows';
+import type URI from '@theia/core/lib/common/uri';
+import type { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { channelPeopleLocation, mergeSpeakerDictionary, orderChannelPeople, parseChannelPeople } from '../../../common/channel-people-reader';
 import { InspectorWriteRequest, InspectorWriteResult, TimelineCaptionSelection, TimelineSelectionTarget } from '../../timeline-selection-model';
 import { CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch, captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch } from '../caption-style-effects';
 import { createCaptionMotionPanel, type CaptionMotionServices } from '../caption-motion-panel';
@@ -9,6 +12,102 @@ import { type InspectorFieldDef, type InspectorSection } from './types';
 import { formatTimestamp, formatDurationSeconds, orDash, CAPTION_STYLE_DEFAULTS, CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM, captionStyleDisplayValue, isCaptionHexColor, effectiveCaptionBackgroundOpacity, type CaptionStyleFieldKey } from './shared-helpers';
 import { ANIMATOR_SECTION } from './animator-section';
 import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../caption-multi-targets';
+
+const speakerNames = new Map<string, Record<string, string>>();
+
+async function captionFiles(): Promise<{ files: FileService; project: URI } | undefined> {
+    if (typeof window === 'undefined') return undefined;
+    const container = (window as Window & { theia?: { container?: { get(key: unknown): unknown } } }).theia?.container;
+    if (!container) return undefined;
+    const [{ FileService }, { WorkspaceService }] = await Promise.all([
+        import('@theia/filesystem/lib/browser/file-service'),
+        import('@theia/workspace/lib/browser/workspace-service')
+    ]);
+    const roots = (container.get(WorkspaceService) as InstanceType<typeof WorkspaceService>).tryGetRoots();
+    const project = roots[0]?.resource;
+    return project ? { files: container.get(FileService) as FileService, project } : undefined;
+}
+
+function dictionaryNames(source: string): Record<string, string> {
+    try {
+        const root = JSON.parse(source) as { speakers?: Record<string, unknown> };
+        return Object.fromEntries(Object.entries(root?.speakers ?? {}).flatMap(([id, value]) => {
+            const name = typeof value === 'string' ? value : value && typeof value === 'object'
+                ? (value as { name?: unknown }).name : undefined;
+            return typeof name === 'string' ? [[id, name]] : [];
+        }));
+    } catch { return {}; }
+}
+
+function refreshSpeakerName(project: URI, files: FileService, speakerId: string): void {
+    const dictionary = project.resolve('.akari/dictionary.json');
+    void files.readFile(dictionary).then(result => {
+        const names = dictionaryNames(result.value.toString());
+        speakerNames.set(project.toString(), names);
+        const row = document.querySelector<HTMLElement>('[data-akari-field="caption-speaker-name"] .akari-inspector-row-value');
+        if (row) row.textContent = names[speakerId] ?? '—';
+    }).catch(() => { speakerNames.set(project.toString(), {}); });
+}
+
+async function chooseCaptionPerson(speakerId: string): Promise<InspectorWriteResult> {
+    const context = await captionFiles();
+    if (!context) return { ok: false, message: 'プロジェクトを開いてください。' };
+    const { files, project } = context;
+    const [{ default: URI }, { BinaryBuffer }] = await Promise.all([
+        import('@theia/core/lib/common/uri'), import('@theia/core/lib/common/buffer')
+    ]);
+    const location = channelPeopleLocation(project.toString());
+    let people = [] as ReturnType<typeof parseChannelPeople>;
+    if (location) {
+        try { people = orderChannelPeople(parseChannelPeople((await files.readFile(new URI(location.peopleUri))).value.toString())); }
+        catch { /* 名前は入力できる */ }
+    }
+    document.querySelector('[data-akari-caption-person-popup]')?.remove();
+    const anchor = document.querySelector<HTMLElement>('[data-akari-field="caption-speaker"]');
+    const rect = anchor?.getBoundingClientRect();
+    const popup = document.createElement('div'); popup.dataset.akariCaptionPersonPopup = 'true';
+    Object.assign(popup.style, { position: 'fixed', zIndex: '1000', width: '240px', padding: '8px',
+        display: 'flex', flexDirection: 'column', gap: '5px', borderRadius: '8px',
+        background: 'var(--akari-elevated)', color: 'var(--akari-ink)',
+        border: '1px solid var(--akari-line)', boxShadow: '0 8px 24px #0006',
+        left: `${Math.max(8, Math.min(rect?.left ?? 8, window.innerWidth - 248))}px`,
+        top: `${Math.max(8, Math.min(rect?.bottom ?? 8, window.innerHeight - 320))}px` });
+    const heading = document.createElement('strong'); heading.textContent = '人物をつなぐ…'; popup.append(heading);
+    const save = async (value: { name: string; person?: string } | undefined): Promise<void> => {
+        try {
+            const folder = project.resolve('.akari'); const dictionary = folder.resolve('dictionary.json');
+            const old = await files.readFile(dictionary).then(result => result.value.toString()).catch(() => '');
+            if (!(await files.exists(folder))) await files.createFolder(folder);
+            const merged = mergeSpeakerDictionary(old, speakerId, value);
+            await files.writeFile(dictionary, BinaryBuffer.fromString(merged));
+            speakerNames.set(project.toString(), dictionaryNames(merged));
+            const row = document.querySelector<HTMLElement>('[data-akari-field="caption-speaker-name"] .akari-inspector-row-value');
+            if (row) row.textContent = value?.name ?? '—';
+            popup.remove();
+        } catch (error) { heading.textContent = String(error); }
+    };
+    const button = (label: string, onClick: () => void): HTMLButtonElement => {
+        const node = document.createElement('button'); node.type = 'button'; node.textContent = label;
+        Object.assign(node.style, { textAlign: 'left', padding: '5px', color: 'inherit',
+            background: 'transparent', border: '0', cursor: 'pointer' });
+        node.addEventListener('click', onClick); return node;
+    };
+    for (const person of people) popup.append(button(`${person.hasVoiceSample ? '♪ ' : ''}${person.name}`,
+        () => void save({ name: person.name, person: `${location!.channel}/${person.id}` })));
+    const input = document.createElement('input'); input.placeholder = '名前だけ付ける';
+    input.setAttribute('aria-label', '名前だけ付ける');
+    const saveName = () => { if (input.value.trim()) void save({ name: input.value.trim() }); };
+    input.addEventListener('keydown', event => { if (event.key === 'Enter') saveName(); });
+    popup.append(input, button('名前だけ付ける', saveName));
+    if (location) {
+        popup.append(button('つなぎを外す', () => void save(undefined)));
+        const note = document.createElement('small'); note.style.color = 'var(--akari-muted)';
+        note.textContent = '声で照らす提案は準備中です（声のサンプルを登録しておくと使えるようになります）';
+        popup.append(note);
+    }
+    document.body.append(popup);
+    return { ok: true };
+}
 
 function captionMotionWriteForTargets(request: InspectorWriteRequest,
     targets: readonly TimelineSelectionTarget[], common?: CaptionAnimation): InspectorWriteRequest {
@@ -65,6 +164,14 @@ export function CAPTION_SECTIONS(
         return zone.startsWith('top') ? 7 : zone === 'center' || zone === 'left' || zone === 'right' ? 50 : 93;
     };
     ensureCompactCaptionZoneStyle();
+    let speakerProjectKey = '';
+    if (snapshot.speaker && typeof window !== 'undefined') {
+        void captionFiles().then(context => {
+            if (!context) return;
+            speakerProjectKey = context.project.toString();
+            refreshSpeakerName(context.project, context.files, snapshot.speaker!);
+        });
+    }
     const raw = snapshot.textStyle;
     const effective = snapshot.effectiveTextStyle;
     const currentEffect = captionEffectFromStyle(effective);
@@ -163,12 +270,17 @@ export function CAPTION_SECTIONS(
                     name: 'caption-speaker', label: '話者',
                     getValue: () => orDash(snapshot.speaker, value => value),
                     getEditValue: () => snapshot.speaker ?? '',
+                    ...(snapshot.speaker ? { menuAction: { label: '人物をつなぐ…',
+                        action: () => chooseCaptionPerson(snapshot.speaker!) } } : {}),
                     write: async (_snapshot, nextValue) => requestWrite({
                         kind: 'caption-speaker',
                         id: snapshot.id,
                         value: nextValue.trim().length > 0 ? nextValue : null
                     })
                 },
+                { name: 'caption-speaker-name', label: '人物名',
+                    getValue: () => snapshot.speaker
+                        ? speakerNames.get(speakerProjectKey)?.[snapshot.speaker] ?? '—' : '—' },
                 { name: 'caption-edited', label: '編集済み', getValue: () => snapshot.edited ? 'はい' : 'いいえ' }
             ]
         },

@@ -26,10 +26,13 @@ import {
     daihonHistoryService
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { channelPeopleLocation, mergeSpeakerDictionary, orderChannelPeople, parseChannelPeople,
+    type ChannelPerson } from '../../common/channel-people-reader';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Message } from '@theia/core/shared/@lumino/messaging';
@@ -3103,6 +3106,10 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.speakerFilter = this.speakerFilter === row.speaker ? null : row.speaker;
                 this.applyQcFilter();
             });
+            speaker.addEventListener('contextmenu', event => {
+                event.preventDefault(); event.stopPropagation();
+                void this.openSpeakerPersonPop(speaker, row.speaker!);
+            });
             head.appendChild(speaker);
         }
         const tc = document.createElement('button');
@@ -4787,6 +4794,60 @@ export class AkariDaihonWidget extends BaseWidget {
             action();
         });
         return button;
+    }
+
+    protected async openSpeakerPersonPop(anchor: HTMLElement, speakerId: string): Promise<void> {
+        if (!this.editUri) return;
+        const project = this.editUri.parent;
+        const location = channelPeopleLocation(project.toString());
+        let people: ChannelPerson[] = [];
+        if (location) {
+            try { people = orderChannelPeople(parseChannelPeople(await this.readText(new URI(location.peopleUri)))); }
+            catch { /* 人物の登録前は名前だけ付けられる */ }
+        }
+        const pop = this.openPop(anchor, 250);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl'; title.textContent = '人物をつなぐ…'; pop.append(title);
+        for (const person of people) {
+            const button = this.popButton(`${person.hasVoiceSample ? '♪ ' : ''}${person.name}`, () => {
+                void this.writeSpeakerPerson(speakerId, { name: person.name,
+                    person: `${location!.channel}/${person.id}` });
+            });
+            pop.append(button);
+        }
+        const input = document.createElement('input'); input.type = 'text';
+        input.placeholder = '名前だけ付ける'; input.setAttribute('aria-label', '名前だけ付ける');
+        input.value = speakerLabel(speakerId, this.speakerDictionary) === speakerId
+            ? '' : speakerLabel(speakerId, this.speakerDictionary);
+        Object.assign(input.style, { padding: '5px 8px', margin: '2px 4px', minWidth: '0',
+            background: 'var(--akari-elevated)', color: 'var(--akari-ink)',
+            border: '1px solid var(--akari-line)' });
+        const save = () => { if (input.value.trim()) void this.writeSpeakerPerson(speakerId, { name: input.value.trim() }); };
+        input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.stopPropagation(); save(); } });
+        pop.append(input, this.popButton('名前だけ付ける', save));
+        if (location) {
+            pop.append(this.popButton('つなぎを外す', () => void this.writeSpeakerPerson(speakerId, undefined)));
+            const note = document.createElement('div'); note.className = 'akari-daihon-pttl';
+            note.textContent = '声で照らす提案は準備中です（声のサンプルを登録しておくと使えるようになります）';
+            pop.append(note);
+        }
+    }
+
+    protected async writeSpeakerPerson(speakerId: string, value: { name: string; person?: string } | undefined): Promise<void> {
+        if (!this.editUri) return;
+        const folder = this.editUri.parent.resolve('.akari');
+        const dictionary = folder.resolve('dictionary.json');
+        try {
+            const source = await this.readText(dictionary).catch(() => '');
+            const merged = mergeSpeakerDictionary(source, speakerId, value);
+            if (!(await this.fileService.exists(folder))) await this.fileService.createFolder(folder);
+            await this.fileService.writeFile(dictionary, BinaryBuffer.fromString(merged));
+            this.speakerDictionary = parseSpeakerDictionary(merged);
+            this.rowsNode.querySelectorAll<HTMLButtonElement>('.akari-daihon-speaker').forEach(chip => {
+                if (chip.dataset.speaker === speakerId) chip.textContent = speakerLabel(speakerId, this.speakerDictionary);
+            });
+            this.closePop();
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected async openHistoryPop(anchor: HTMLElement): Promise<void> {
