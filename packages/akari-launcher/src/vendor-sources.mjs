@@ -44,6 +44,8 @@ export const VENDOR_SOURCES = [
   'packages/edit-lint/bin',
   'packages/edit-lint/src',
   'packages/edit-store/lib',
+  // 作品言語の共有解決関数。後続の CLI とスキルが同じ実装を参照する。
+  'packages/content-language',
   // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
   // 動的 import）が機能するよう同梱する。未同梱の場合は repo-assets.mjs 側で
   // creatorRootModulePath が null になり、現行動作へフォールバックする。
