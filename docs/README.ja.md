@@ -99,6 +99,7 @@
 | [contract-2026-10-06-timeline-ripple-v0.md](./contract-2026-10-06-timeline-ripple-v0.md) | edit.json v2 の切る・ずらす・分割・隙間詰めの共通カーネル |
 | [contract-2026-10-07-material-ranges-v0.md](./contract-2026-10-07-material-ranges-v0.md) | 素材の非破壊 in / out 範囲の保存・帯のつまみ・タイムライン配置（英語） |
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | タスク契約 v0 |
+| [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | チャンネルの人物記録・ローカルの写真と声・話者のつながり・デザイン素材のデータ契約 |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | 断片の `@font-face` 書体の字形検査（`edit-lint` `overlays.fragment-font-glyphs`）は実装済み。書き出し時の自動部分化とキャッシュの掃除は予定。 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |
