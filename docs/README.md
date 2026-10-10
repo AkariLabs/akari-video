@@ -103,6 +103,7 @@ All contracts follow the
 | [contract-2026-10-06-timeline-ripple-v0.md](./contract-2026-10-06-timeline-ripple-v0.md) | Timeline cut, shift, split, and gap closure kernel for edit.json v2 (Japanese) |
 | [contract-2026-10-07-material-ranges-v0.md](./contract-2026-10-07-material-ranges-v0.md) | Persistent non-destructive material in/out ranges, strip handles, and timeline placement |
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | Task contract v0 (Japanese) |
+| [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | Channel people records, local photo and voice files, speaker links, and design assets (Japanese) |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | Fragment `@font-face` glyph lint (`edit-lint` `overlays.fragment-font-glyphs`) implemented; export-time automatic subsetting and cache cleanup planned (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |

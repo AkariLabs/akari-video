@@ -3,8 +3,10 @@ import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { ChannelMemoryFiles } from './channel-memory-files';
+import { ChannelPersonDetail } from './channel-person-detail';
 import { addPerson, AVATAR_CAPS, defaultScene, filterPeople, initialOf, mergeAliasesIntoWordBook,
-    peopleCounts, PeopleFile, PersonKind, PERSON_KIND_LABELS, removePeople, splitAliases, summarizeNames } from './channel-people-model';
+    peopleCounts, PeopleFile, PersonKind, PERSON_KIND_LABELS, personPhoto, hasVoice, removePeople, splitAliases, summarizeNames,
+    VoiceProfileOption } from './channel-people-model';
 
 const STYLE_ID = 'akari-channel-people-style';
 const CSS = `
@@ -24,8 +26,10 @@ const CSS = `
 .akari-people-row input[type=checkbox]{margin-top:12px}
 .akari-people-image{flex:0 0 42px;width:42px;height:42px;border-radius:7px;display:grid;place-items:center;object-fit:cover;background:var(--theia-editor-background);border:1px solid var(--theia-widget-border);font-size:20px}
 .akari-people-row-body{min-width:0;flex:1;display:grid;gap:3px}
-.akari-people-row-body>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px}
+.akari-people-row-body>span:first-child{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px}
 .akari-people-row-body span,.akari-people-row-body small{overflow-wrap:anywhere}
+.akari-people-row-open{min-width:0;flex:1;display:flex;align-items:flex-start;gap:10px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:0;font:inherit}
+.akari-people-row-open:focus-visible{outline:2px solid var(--theia-focusBorder);outline-offset:3px}
 .akari-people-remove{border:0;background:transparent;color:var(--theia-descriptionForeground);cursor:pointer;font-size:19px}
 .akari-people-note{margin-top:16px!important}
 .akari-people-confirm{border:1px solid var(--theia-widget-border);border-radius:8px;background:var(--theia-editor-background);padding:12px;margin:10px 0;display:grid;gap:9px}
@@ -39,17 +43,35 @@ const CSS = `
 .akari-people-caps{display:flex;flex-wrap:wrap;gap:12px}
 .akari-people-caps label,.akari-people-wordbook{display:flex!important;align-items:center;gap:5px}
 .akari-people-error{color:var(--theia-errorForeground)!important;margin:8px 0!important}
+.akari-person-detail{max-height:min(76vh,800px);overflow-y:auto;padding-right:8px;font-family:inherit;font-size:13px}
+.akari-person-detail input,.akari-person-detail select,.akari-person-detail textarea,.akari-person-detail button{font-family:inherit;font-size:13px}
+.akari-person-detail select[data-akari-person-voice-profile]{min-width:220px;max-width:100%;box-sizing:border-box}
+.akari-person-detail p,.akari-person-samples li{font-size:13px}
+.akari-person-photo small,.akari-person-consent label{font-size:12px}
+.akari-person-back{border:0;background:transparent;color:var(--theia-textLink-foreground);cursor:pointer;padding:5px 0}
+.akari-person-section{border-bottom:1px solid var(--theia-widget-border);padding:12px 0 18px}
+.akari-person-section h4{font-size:14px;margin:0 0 12px}.akari-person-section h5{font-size:12px;margin:14px 0 8px}
+.akari-person-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px 14px}
+.akari-person-fields label{display:grid;gap:5px;font-size:12px}.akari-person-fields input:not([type=checkbox]),.akari-person-fields select,.akari-person-fields textarea{box-sizing:border-box;width:100%}
+.akari-person-fields textarea{min-height:65px;resize:vertical}.akari-person-wide{grid-column:1/-1}
+.akari-person-photos{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.akari-person-photo{display:flex;flex-direction:column;gap:3px;align-items:center;max-width:90px}
+.akari-person-photo img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--theia-widget-border)}
+.akari-person-photo button,.akari-person-samples button{border:0;background:transparent;color:var(--theia-textLink-foreground);cursor:pointer}
+.akari-person-samples{padding-left:18px}.akari-person-samples li{margin:5px 0;overflow-wrap:anywhere}.akari-person-consent{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}
+.akari-person-consent label{display:flex;align-items:center;gap:4px}
 @media(max-width:650px){.akari-people-layout{grid-template-columns:1fr}.akari-people-filters{border-right:0;border-bottom:1px solid var(--theia-widget-border);padding:0 0 8px;flex-direction:row;flex-wrap:wrap}.akari-people-filters h4{width:100%}.akari-people-form{grid-template-columns:1fr}}
 `;
 
 export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: ChannelMemoryFiles; onClose: () => void;
-    onOpenPacks: () => void; onTypePrompt: (text: string) => void; onChanged?: () => void; packsImported?: number }): React.ReactElement {
+    onOpenPacks: () => void; onTypePrompt: (text: string) => void; onChanged?: () => void; packsImported?: number;
+    loadVoiceProfiles?: () => Promise<VoiceProfileOption[]>; onOpenSettings?: (section: string) => void }): React.ReactElement {
     const [file, setFile] = React.useState<PeopleFile>({ version: 0, entries: [] });
     const [kindFilter, setKindFilter] = React.useState<PersonKind | 'all'>('all');
     const [sourceFilter, setSourceFilter] = React.useState<string>('all');
     const [selected, setSelected] = React.useState<string[]>([]);
     const [confirmIds, setConfirmIds] = React.useState<string[]>([]);
     const [adding, setAdding] = React.useState(false);
+    const [detailId, setDetailId] = React.useState<string>();
     const [kind, setKind] = React.useState<PersonKind>('person');
     const [name, setName] = React.useState('');
     const [reading, setReading] = React.useState('');
@@ -77,6 +99,7 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
         setConfirmIds([]);
         setSourceFilter('all');
         setKindFilter('all');
+        setDetailId(undefined);
         void props.files.readPeople(props.dir).then(value => { if (active) setFile(value); });
         return () => { active = false; };
     }, [props.dir.toString(), props.files]);
@@ -85,6 +108,7 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
     const shown = filterPeople(file, { kind: kindFilter, source: sourceFilter });
     const selectedSet = new Set(selected);
     const confirmEntries = file.entries.filter(entry => confirmIds.includes(entry.id));
+    const detailEntry = file.entries.find(entry => entry.id === detailId);
 
     const deleteConfirmed = async (): Promise<void> => {
         setBusy(true);
@@ -132,8 +156,10 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
 
     return <HomeScrim kind='channel-people' onClose={props.onClose}>
         <style>{channelSheetCss}</style>
-        <h3>{adding ? '人とモノを足す' : '人とモノ'}</h3>
-        {!adding ? <>
+        <h3>{detailEntry ? detailEntry.name : adding ? '人とモノを足す' : '人とモノ'}</h3>
+        {detailEntry ? <ChannelPersonDetail key={detailEntry.id} dir={props.dir} files={props.files} entry={detailEntry} file={file}
+            onSaved={next => { setFile(next); setDetailId(undefined); props.onChanged?.(); }} onBack={() => setDetailId(undefined)}
+            loadVoiceProfiles={props.loadVoiceProfiles} onOpenSettings={props.onOpenSettings} /> : !adding ? <>
             <p>動画に出てくる人・キャラクター・会社や製品です。名前と写真（ロゴ）を登録しておくと、文字起こしの直し・テロップの名前・画像を入れる場面で使われます。</p>
             <div className='akari-people-actions'>
                 <button type='button' data-akari-people-add onClick={() => { setAdding(true); setError(''); }}>足す…</button>
@@ -165,13 +191,14 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
                         <input type='checkbox' aria-label={`${entry.name}を選ぶ`} checked={selectedSet.has(entry.id)} onChange={event => {
                             setSelected(event.target.checked ? [...selected, entry.id] : selected.filter(id => id !== entry.id)); setConfirmIds([]);
                         }} />
-                        {entry.image ? <img className='akari-people-image' src={props.dir.resolve(entry.image).toString()} alt='' />
-                            : <span className='akari-people-image' aria-hidden='true'>{initialOf(entry.name)}</span>}
-                        <div className='akari-people-row-body'><div><strong>{entry.name}</strong><small>{PERSON_KIND_LABELS[entry.kind]}</small>
-                            {entry.pack && <small>☆{entry.pack}</small>}</div>
+                        <button type='button' className='akari-people-row-open' data-akari-people-row={entry.id} onClick={() => { setDetailId(entry.id); setConfirmIds([]); }}>
+                            {personPhoto(entry) ? <img className='akari-people-image' src={props.dir.resolve(personPhoto(entry)!).toString()} alt='' />
+                                : <span className='akari-people-image' aria-hidden='true'>{initialOf(entry.name)}</span>}
+                        <span className='akari-people-row-body'><span><strong>{entry.name}</strong><small>{PERSON_KIND_LABELS[entry.kind]}</small>
+                            {entry.pack && <small>☆{entry.pack}</small>}{entry.profile?.birthday && <small>誕生日</small>}{hasVoice(entry) && <small>声あり</small>}</span>
                             {entry.role && <span>{entry.role}</span>}
                             {entry.aliases.length > 0 && <small>別名: {entry.aliases.join('、')}</small>}
-                            {entry.scene && <small>使う場面: {entry.scene}</small>}</div>
+                            {entry.scene && <small>使う場面: {entry.scene}</small>}</span></button>
                         <button type='button' className='akari-people-remove' aria-label={`${entry.name}を消す`} onClick={() => setConfirmIds([entry.id])}>×</button>
                     </div>) : <p>まだ登録されていません。</p>}
                 </div>

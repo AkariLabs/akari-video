@@ -1,7 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { normalizePeopleFile, normalizeWordBook, PeopleFile, WordBookFile } from './channel-people-model';
+import { normalizePeopleFile, normalizeWordBook, PeopleFile, WordBookFile, photoPath, uniqueFileName, voiceSamplePath } from './channel-people-model';
 import { normalizeNotesFile, NotesFile, renderNotesMarkdown } from './channel-notes-model';
 import { normalizePacksFile, PacksFile } from './memory-pack-model';
 
@@ -35,6 +35,18 @@ export class ChannelMemoryFiles {
         if (!await this.files.exists(target.parent)) await this.files.createFolder(target.parent);
         const buf = await source.arrayBuffer();
         await this.files.writeFile(target, BinaryBuffer.wrap(new Uint8Array(buf)));
+    }
+
+    async copyPersonPhoto(dir: URI, id: string, file: File, taken: string[]): Promise<string> {
+        const path = photoPath(id, uniqueFileName(file.name, taken.map(item => item.split(/[\\/]/).pop() || '')));
+        await this.copyInto(file, dir.resolve(path));
+        return path;
+    }
+
+    async copyVoiceSample(dir: URI, id: string, file: File, taken: string[]): Promise<string> {
+        const path = voiceSamplePath(id, uniqueFileName(file.name, taken.map(item => item.split(/[\\/]/).pop() || '')));
+        await this.copyInto(file, dir.resolve(path));
+        return path;
     }
 
     async readWordBook(dir: URI): Promise<WordBookFile> {
