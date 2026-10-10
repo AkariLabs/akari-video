@@ -361,6 +361,14 @@
         "to": "packages/edit-store/lib"
       },
       {
+        "from": "../../packages/content-language",
+        "to": "packages/content-language",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "../../packages/schemas",
         "to": "packages/schemas",
         "filter": [
