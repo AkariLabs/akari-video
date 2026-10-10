@@ -1,3 +1,15 @@
+import { after } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = "ja";
+setLanguage("ja");
+after(() => {
+  setLanguage(undefined);
+  if (previousAkariLang === undefined) delete process.env.AKARI_LANG;
+  else process.env.AKARI_LANG = previousAkariLang;
+});
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
