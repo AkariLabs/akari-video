@@ -10015,6 +10015,7 @@ export function previewBootstrapScript(): string {
             };
             previewPane.addEventListener('pointerdown', event => {
                 if ((typeof motionDraw !== 'undefined' && motionDraw) || penModeActive || zoom <= 1.05 || event.button !== 0) return;
+                if (event.target.closest?.('#review-chat-layer')) return;
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
                 // ズーム中のパン開始判定は capture 段で previewPane 配下の pointerdown を扱う。
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
@@ -10077,6 +10078,7 @@ export function previewBootstrapScript(): string {
             window.addEventListener('pointerdown', event => {
                 if ((typeof motionDraw !== 'undefined' && motionDraw) || !isPlaying || event.button !== 0 || event.altKey || penModeActive || rectModeActive
                     || !(event.target instanceof Element)
+                    || event.target.closest('#review-chat-layer')
                     || event.target.closest('button, [role="button"], input, textarea, select, a[href], [contenteditable="true"]')) return;
                 const onSurface = previewStage.contains(event.target)
                     || isDirectManipulationTarget(event.target, event);
