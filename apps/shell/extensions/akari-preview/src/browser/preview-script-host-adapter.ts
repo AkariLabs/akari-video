@@ -957,6 +957,7 @@ export function hostAdapterScript(): string {
             window.akari.reviewRectEnd = box => {
                 vscode.postMessage({ type: 'akari-preview-review-rect-end', box });
             };
+            window.akari.reviewChatPost = message => vscode.postMessage(message);
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
             window.akari.reportPreviewFrameCapture = message => vscode.postMessage(message);

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "talk", "path": "assets/talk_01.mp4" }],
+  "tracks": [{
+    "id": "visual-main",
+    "lane": "visual",
+    "items": [{ "id": "talk-cut", "at": 0, "duration": 600,
+      "source": { "kind": "media", "src": "talk", "in": 0, "out": 20 } }]
+  }],
+  "captions": [{ "start": 10, "end": 14, "text": "え、こんなに軽いの？",
+    "box": { "x": 0.1, "y": 0.65, "w": 0.8, "h": 0.2 } }]
+}

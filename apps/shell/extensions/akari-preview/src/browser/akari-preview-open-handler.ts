@@ -2,6 +2,9 @@ import { previewSelectionHandlesStyle } from './preview-selection-handles-style'
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
+import { previewChatReviewScript } from './preview-chat-review';
+import { ChatAttachment, ChatReviewMark, parseReviewPending, serializeReviewPending,
+    reviewAttachArgument, REVIEW_PENDING_PATH } from '../common/chat-review-attachments';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
 import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
@@ -555,6 +558,64 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly applicationServer: ApplicationServer;
 
     protected currentAppVersionPromise?: Promise<string | undefined>;
+    protected readonly reviewChatWrites = new Map<string, Promise<void>>();
+
+    protected async handleChatReviewMessage(widget: PreviewWidgetMarker, identityUri: URI,
+        kind: 'raw' | 'output', message: any): Promise<void> {
+        const projectRoot = kind === 'output' ? identityUri.parent
+            : widget.akariPreviewRelatedEditUri?.parent
+                ?? (await this.workspaceService.roots).find(root => identityUri.toString()
+                    .startsWith(root.resource.toString().replace(/\/$/, '') + '/'))?.resource;
+        if (!projectRoot) {
+            this.messages.warn('プロジェクトを開いてください');
+            return;
+        }
+        const key = projectRoot.toString();
+        const previous = this.reviewChatWrites.get(key) ?? Promise.resolve();
+        const next = previous.catch(() => undefined).then(async () => {
+            const pendingUri = projectRoot.resolve(REVIEW_PENDING_PATH);
+            const current = await this.fileService.exists(pendingUri)
+                ? parseReviewPending((await this.fileService.readFile(pendingUri)).value.toString()) : [];
+            let attachments: ChatAttachment[] = current;
+            if (message.type === 'akari-preview-chat-review-add') {
+                const mark = message.review as ChatReviewMark;
+                const candidate: ChatAttachment = { kind: 'review', label: `${mark.sourceLabel} ${mark.time.toFixed(1)}秒`, review: mark };
+                if (parseReviewPending(serializeReviewPending([candidate])).length !== 1) return;
+                attachments = [...current, candidate];
+            } else if (message.type === 'akari-preview-chat-review-remove') {
+                if (!Number.isInteger(message.index) || message.index < 0 || message.index >= current.length) return;
+                attachments = current.filter((_, index) => index !== message.index);
+            } else if (message.type === 'akari-preview-chat-review-attach') {
+                if (!current.length) return;
+                if (!this.commandRegistry.getCommand('akari.chat.attach')) {
+                    this.messages.info('AKARI チャットを開いてください');
+                    return;
+                }
+                await this.commandRegistry.executeCommand('akari.chat.attach', reviewAttachArgument(current));
+                attachments = [];
+            }
+            if (attachments !== current) {
+                await this.fileService.createFolder(projectRoot.resolve('.akari/review'));
+                await this.fileService.writeFile(pendingUri, BinaryBuffer.fromString(serializeReviewPending(attachments)));
+            }
+            const viewers = new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values(), widget]);
+            const rootPrefix = projectRoot.toString().replace(/\/$/, '') + '/';
+            for (const viewer of viewers) {
+                if (viewer.isDisposed) continue;
+                const editRoot = viewer.akariPreviewEditUri?.parent ?? viewer.akariPreviewRelatedEditUri?.parent;
+                const sameProject = editRoot?.toString() === projectRoot.toString()
+                    || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
+                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments });
+            }
+        });
+        this.reviewChatWrites.set(key, next);
+        try { await next; } catch (error) {
+            console.warn('[akari-preview] レビュー添付を保存できませんでした', error);
+            this.messages.error('レビュー添付を保存できませんでした');
+        } finally {
+            if (this.reviewChatWrites.get(key) === next) this.reviewChatWrites.delete(key);
+        }
+    }
 
     @inject(OpenerService)
     protected readonly openerService: OpenerService;
@@ -3182,6 +3243,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ]);
         disposables.push(widget.onMessage(message => {
             if (firstWinsMessages.get(message?.type)?.(message)) return;
+            if (typeof message?.type === 'string' && message.type.startsWith('akari-preview-chat-review-')) {
+                void this.handleChatReviewMessage(widget, identityUri, kind, message);
+            }
             const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
             if (trial && message?.type === 'akari-preview-swap-user-control') {
                 logSwapTrial(trial.identity, 'playback_cancel', { reason: 'user_control' }); trial.cancel();
@@ -3462,6 +3526,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, true);
             }
         }));
+        void this.handleChatReviewMessage(widget, identityUri, kind, { type: 'akari-preview-chat-review-load' });
         let placement: { key: string; at: number; until?: number; baseline: Promise<string>;
             refreshedContent?: string } | undefined;
         const onPlacement = (event: Event): void => {
@@ -7627,6 +7692,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // raw = 素材単体プレビュー。出力キャンバス（summary.output）ではなく素材自身の
             // 実寸法をステージ寸法にする（hostAdapterScript の raw 同期を参照）。
             kind,
+            reviewSource: kind === 'output' ? 'edit.json'
+                : model.relatedEditUri && videoUri.path.toString().startsWith(model.relatedEditUri.parent.path.toString() + '/')
+                    ? videoUri.path.toString().slice(model.relatedEditUri.parent.path.toString().length + 1)
+                    : videoUri.path.toString().includes('/exports/')
+                        ? 'exports/' + videoUri.path.toString().split('/exports/').pop()
+                        : videoUri.path.base,
+            reviewSourceLabel: kind === 'output' ? '編集中のプレビュー' : videoUri.path.base,
             summary: model.summary,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -8079,6 +8151,43 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
+.review-tools { display:flex; align-items:center; gap:3px; margin-right:4px; }
+.review-tools button, #review-chat-tray button, .review-note-actions button { border:0; border-radius:5px; padding:4px 7px; color:var(--akari-transport-fg); background:rgba(128,128,128,.18); cursor:pointer; font:inherit; font-size:11px; white-space:nowrap; }
+.review-tools button.on, .review-note-actions [data-review-add], #review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
+.review-tools .review-divider { height:18px; width:1px; margin:0 3px; background:rgba(128,128,128,.55); }
+#review-chat-layer { position:absolute; inset:0; z-index:1800; pointer-events:none; }
+#review-chat-layer.is-active { pointer-events:auto; cursor:crosshair; }
+#review-chat-layer [data-review-ink], #review-chat-layer [data-review-marks] { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+#review-chat-layer [data-review-ink] polyline { fill:none; stroke:#fb923c; stroke-width:3; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+#review-chat-layer [data-review-hint] { position:absolute; top:8px; left:50%; transform:translateX(-50%); padding:5px 9px; border-radius:5px; background:rgba(17,17,17,.88); color:#fff; font-size:11px; white-space:nowrap; pointer-events:none; }
+#review-chat-layer [data-review-hint][hidden], #review-chat-layer [data-review-note][hidden] { display:none; }
+.review-mark { position:absolute; display:grid; place-items:center; min-width:20px; min-height:20px; border-radius:50%; background:#f97316; color:#171717; font-size:11px; font-weight:700; transform:translate(-50%,-50%); }
+.review-mark.pen { box-sizing:border-box; transform:none; border:2px solid #fb923c; background:rgba(249,115,22,.12); color:#fff; }
+#review-chat-layer [data-review-note] { position:absolute; width:min(290px,90%); max-height:calc(100% - 16px); overflow:auto; overflow-wrap:anywhere; box-sizing:border-box; padding:10px; border:1px solid #5e5e5e; border-radius:9px; background:#252525; color:#f5f5f5; box-shadow:0 8px 24px #0009; pointer-events:auto; cursor:default; font-size:12px; }
+.review-what { margin-bottom:7px; color:#bdbdbd; }
+.review-what [data-review-elements] { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; color:#fff; }
+.review-what [data-review-element] { padding:2px 5px; border-radius:4px; background:#454545; }
+#review-chat-layer textarea { width:100%; min-height:52px; box-sizing:border-box; border:1px solid #777; border-radius:5px; padding:6px; background:#151515; color:#fff; resize:vertical; font:inherit; }
+.review-note-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:7px; }
+#review-chat-tray { position:absolute; right:9px; bottom:100%; z-index:2100; width:min(370px,96%); max-height:55vh; overflow:auto; box-sizing:border-box; border:1px solid #555; border-radius:9px 9px 0 0; background:#242424; color:#f5f5f5; box-shadow:0 -8px 24px #0008; font-size:12px; }
+#review-chat-tray[hidden] { display:none; }
+.review-tray-heading, .review-tray-actions { padding:9px; font-weight:700; }
+.review-tray-row { display:flex; align-items:center; gap:8px; padding:7px 9px; border-top:1px solid #444; }
+.review-tray-row img { width:54px; max-height:48px; object-fit:cover; border-radius:3px; }
+.review-tray-row span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.review-tray-actions { display:flex; justify-content:flex-end; gap:7px; border-top:1px solid #444; }
+#review-seek-marks { position:absolute; inset:0; pointer-events:none; }
+.transport-seek { position:relative; }
+.review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }
+#review-range-controls { display:flex; justify-content:flex-end; gap:5px; padding:0 10px 4px; }
+#review-range-controls[hidden] { display:none; }
+#review-range-controls button { border:0; border-radius:4px; padding:2px 8px; background:#474747; color:#fff; cursor:pointer; font-size:11px; }
+.transport { container-type:inline-size; }
+@container (max-width:600px) {
+  .transport-controls { grid-template-columns:1fr auto; height:auto; min-height:34px; }
+  .transport-center { grid-column:2; }
+  .transport-right { grid-column:1 / -1; justify-self:end; }
+}
 /* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
 html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
 html.akari-gen-capturing #preview-stage > :not(#preview-layers):not(#frame-engine-preview),
@@ -8312,7 +8421,7 @@ ${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
 ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
-${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${previewBootstrapScript()}</script>
+${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${previewChatReviewScript()}</script><script>${previewBootstrapScript()}</script>
 ${materialIdentity ? `<script>${materialRangeWebviewScript('video', materialIdentity)}</script>` : ''}
 ${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {
