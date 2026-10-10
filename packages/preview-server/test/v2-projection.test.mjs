@@ -307,13 +307,50 @@ test('v2 WebUI renders projected DOM, track winner, transition, speed and trimme
   assert.match(winner, /source2\.mp4$/);
 
   await seekTo(0.75);
+  // デコード前に再生すると、buffer が揃う前に SFX の短い実効窓を通り過ぎる。
+  // 再生を始める前に BGM と SFX の buffer、および SFX の実効窓を待つ。
+  try {
+    await page.waitForFunction(() => {
+      const audio = window.akari?.audioDebug;
+      const sfx = audio?.sfxNodes[0];
+      return Boolean(audio?.bgmNode?._buffer && sfx?._buffer && sfx.effectiveDuration > 0);
+    }, null, { timeout: 20000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => {
+      const audio = window.akari?.audioDebug;
+      const sfx = audio?.sfxNodes[0];
+      return {
+        bgmHasBuffer: Boolean(audio?.bgmNode?._buffer),
+        sfxHasBuffer: Boolean(sfx?._buffer),
+        sfxEffectiveDuration: sfx?.effectiveDuration,
+      };
+    });
+    assert.fail(`Audio buffers were not ready: ${JSON.stringify(diagnostic)} (${error.message})`);
+  }
   await page.click('#play-toggle');
   await page.waitForFunction(
     () => document.getElementById('preview-video').playbackRate === 2,
     null,
     { timeout: 5000 },
   );
-  await page.waitForTimeout(300);
+  try {
+    await page.waitForFunction(
+      () => Boolean(window.akari?.audioDebug?.sfxNodes[0]?._lastSchedule),
+      null,
+      { timeout: 5000 },
+    );
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => {
+      const sfx = window.akari?.audioDebug?.sfxNodes[0];
+      return {
+        outputTime: Number(document.getElementById('seek').value),
+        isPlaying: document.getElementById('play-toggle').getAttribute('aria-label') === '一時停止',
+        sfx: sfx && { t: sfx.t, effectiveDuration: sfx.effectiveDuration, hasBuffer: Boolean(sfx._buffer) },
+        audioCtxState: window.akari?.baseAudioDebug?.context?.state,
+      };
+    });
+    assert.fail(`SFX was not scheduled: ${JSON.stringify(diagnostic)} (${error.message})`);
+  }
   const audio = await page.evaluate(() => ({
     bgmGain: window.akari.audioDebug.bgmNode?.gain.value,
     sfx: window.akari.audioDebug.sfxNodes[0]?._lastSchedule,
