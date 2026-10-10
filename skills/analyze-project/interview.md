@@ -1,66 +1,64 @@
-# 取材 — チャットで一次情報を埋める
+# Interview — Fill primary-information gaps in chat
 
-## 原則
+## Principle
 
-`interpretation.json` に `open_questions[].status: "open"` が残っている場合だけこの工程に入る。
-取材は伺いではなく事実収集である。**「どうしますか」という文言、または実質的に判断を
-丸投げする言い回しを使わない**（[interpretation.md](interpretation.md#open_questions-は取材質問のみ判断質問の禁止)
-の判断質問の禁止と同じ規律）。設計原則「伺いを立てず作り切る」とも矛盾しない
-— 取材は事実収集であって方針の伺いではない。
+Enter this stage only when `interpretation.json` still has `open_questions[].status: "open"`.
+Interviewing collects facts, not permission. **Do not use “What should we do?” or wording that effectively
+hands decisions to the user** (same discipline as [interpretation.md](interpretation.md#open_questions-are-interview-questions-only-no-decision-questions)).
+This does not conflict with the design principle of completing work without asking for direction:
+interviewing collects facts rather than seeking approval for a direction.
 
-## 1. チャットで質問する
+## 1. Ask in chat
 
-`open_questions[]` の `question` をそのままチャットで提示する。複数ある場合はまとめて提示して
-よいが、1 問 1 決定の原則（1 質問 = 1 情報ギャップ）は保つ。質問の前提（なぜ聞くか = `fills`）を
-添えると回答しやすい。
+Present `open_questions[]`'s `question` unchanged in chat. You may bundle multiple questions, but preserve
+1 question = 1 decision (1 question = 1 information gap). Add the premise (why you ask = `fills`) to make answers easier.
 
-良い言い回しの例:
+Good wording:
 
-> 「`audio/missing.wav` は edit.json の SFX から参照されていますが、対象ファイルが見当たり
-> ませんでした。もともと配置予定だった SFX ですか、それとも参照ミスですか？」
+> “`audio/missing.wav` is referenced by edit.json's SFX, but I could not find the file.
+> Was it an SFX intended for placement, or an incorrect reference?”
 
-避ける言い回しの例（判断丸投げ・書かない）:
+Avoid (decision delegation; do not write):
 
-> 「このトラブル区間、本編に残しますか？ カットしますか？ どうしますか？」
+> “Keep this trouble section in the main video? Cut it? What should we do?”
 
-後者は analyze-project の管轄ではない。事実（トラブルの内容・自己解決したか・本筋との関連度）
-を `flags[]` に記録した上で、採否の判断は `edit-plan` のチャット対話フェーズへ送る。
+The latter is outside analyze-project's remit. Record facts (trouble contents, whether self-resolved, relevance to the
+main story) in `flags[]`; send inclusion decisions to `edit-plan`'s chat dialogue phase.
 
-## 2. 回答を反映する
+## 2. Incorporate answers
 
-回答を得たら、該当 `open_questions[]` エントリを更新する:
+After receiving an answer, update the corresponding `open_questions[]` entry:
 
-- `status` を `"answered"` にする
-- `answer` フィールドに回答を追記する（`open` のときは省略していたフィールド）
+- Set `status` to `"answered"`.
+- Add the answer in `answer` (omitted while `open`).
 
-同時に `inputs.context.interview[]` へ `{ q, a }` の対として昇格する（取材の来歴を
-`inputs.context` に残すのは、後から「何を根拠に解釈したか」を追跡できるようにするため）。
+Also promote it to a `{ q, a }` pair in `inputs.context.interview[]`.
+Retaining interview provenance in `inputs.context` makes interpretation evidence traceable later.
 
-回答が新しい根拠になる場合（例: flags の evidence を補強する事実が得られた）は、該当する
-`assets[].flags[]`/`relations[]`/`arc[]` の記述もその事実で更新してよい。ただし更新後も
-[根拠必須・捏造ゼロ](interpretation.md#根拠必須捏造ゼロ)の規律を守り、取材で得た事実の範囲を
-超えて解釈を広げない。
+If the answer supplies new evidence (e.g., facts supporting flag evidence), you may update corresponding
+`assets[].flags[]`/`relations[]`/`arc[]` with those facts. Continue to follow
+[Mandatory evidence, zero fabrication](interpretation.md#mandatory-evidence-zero-fabrication);
+do not extend interpretations beyond facts obtained in the interview.
 
-## 3. 再生成する
+## 3. Regenerate
 
-`interpretation.json` を更新したら [validate-and-render.md](validate-and-render.md) の手順
-（validate → render → 開く）を再実行し、レポートと取材台帳を最新化する。全 `open_questions`
-が `answered` になっても、それは「取材が尽きた」ことを意味しない —
-[停止条件（80 点ライン）](interpretation.md#停止条件80-点ライン)（構成案が捏造なしに一本通るか）
-を満たしていることを別途確認する。満たしていなければ、新たに生じた `open_questions` を追加して
-同じ工程を繰り返す。
+After updating `interpretation.json`, rerun [validate-and-render.md](validate-and-render.md)
+(validate → render → open) to refresh the report and interview ledger. Even when all `open_questions` are `answered`,
+that does not itself mean interviewing is exhausted: separately check the
+[Stop condition (80-point line)](interpretation.md#stop-condition-80-point-line), whether a coherent arc is possible
+without fabrication. If not, add newly arising `open_questions` and repeat.
 
-## 4. 取材ゼロで通るケース
+## 4. Cases needing no interview
 
-素材が自己完結している場合（発表者が経緯・意図を全て語る等）、`open_questions` が最初から
-0 件で [停止条件](interpretation.md#停止条件80-点ライン)を満たすことがある。これは正常系であり、
-無理に取材質問を作らない。
+Self-contained footage (e.g., presenter explains all history/intent) may meet the
+[stop condition](interpretation.md#stop-condition-80-point-line) with 0 `open_questions` from the start.
+This is normal; do not force interview questions.
 
-## よくある間違い
+## Common mistakes
 
-- 「どうしますか」「どちらがいいですか」等、判断を尋ねる文言を使う。
-- 取材で得た回答をそのまま `arc`/`flags` の根拠として転記せず、`inputs.context.interview` への
-  昇格を省略する（後から来歴を追跡できなくなる）。
-- 1 件も答えが返っていないのに `status: "answered"` にする。
-- 取材が尽きたと判断する基準を「open_questions が 0 件になったから」にする
-  （停止条件は「構成案が捏造なしに一本通るか」であり、`open_questions` の件数そのものではない）。
+- Asking users to decide through “What should we do?” / “Which is better?” wording.
+- Copying answers only into `arc`/`flags` evidence without promotion to `inputs.context.interview`
+  (loses provenance traceability).
+- Setting `status: "answered"` before even 1 answer is received.
+- Declaring interviewing exhausted because open_questions reached 0 (the stop condition is a coherent arc
+  without fabrication, not the `open_questions` count).
