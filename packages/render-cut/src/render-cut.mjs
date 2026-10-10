@@ -76,6 +76,7 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
   [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
+  [--decoder-stall-ms <ms>] [--decoder-retries <n>]
   [--no-verify-blank] [--no-audio]
   [--no-settle]
 
@@ -518,7 +519,7 @@ export async function renderProject(input, options = {}, io = console) {
       if (resolvedEngine === "gpu") {
         const execution = await runGpuWithRuntimeFallback({
           engineRequested,
-          runGpu: () => exportWithGpu({
+          runGpu: () => withGpuDecoderEnvironment(options, () => exportWithGpu({
             ...commonV2Options,
             eligibility: gpuEligibility,
             force: forceGpu,
@@ -528,7 +529,7 @@ export async function renderProject(input, options = {}, io = console) {
             previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
             collectLuma: options.verifyBlank,
             progress: progressEnabled,
-          }),
+          })),
           runOsr: async fallbackReason => {
             osrLauncher = await resolveOsrLauncher();
             assertOsrLauncherAvailable(osrLauncher);
@@ -608,6 +609,24 @@ export async function renderProject(input, options = {}, io = console) {
       await cleanupFailedRunTemporaryDirectory(temporaryDirectory);
     }
     throw error;
+  }
+}
+
+export async function withGpuDecoderEnvironment(options, run) {
+  const values = [
+    ["AKARI_EXPORT_DECODER_STALL_MS", options.decoderStallMs],
+    ["AKARI_EXPORT_DECODER_RETRIES", options.decoderRetries],
+  ];
+  const previous = values.map(([key]) => process.env[key]);
+  try {
+    for (const [key, value] of values) if (value !== undefined) process.env[key] = String(value);
+    return await run();
+  } finally {
+    values.forEach(([key, value], index) => {
+      if (value === undefined) return;
+      if (previous[index] === undefined) delete process.env[key];
+      else process.env[key] = previous[index];
+    });
   }
 }
 

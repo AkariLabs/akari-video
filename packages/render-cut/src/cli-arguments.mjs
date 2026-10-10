@@ -25,6 +25,8 @@ export function parseArguments(argv, env = process.env) {
     codec: "h264",
     // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → saved consent → off に落ちる。
     gpuPreference: undefined,
+    decoderStallMs: undefined,
+    decoderRetries: undefined,
     fps: undefined,
     scaleTo: undefined,
     progress: false,
@@ -58,6 +60,14 @@ export function parseArguments(argv, env = process.env) {
       if (index + 1 >= argv.length) throw new Error("--gpu-preference requires a value");
       options.gpuPreference = parseGpuPreferenceValue(argv[++index]);
     } else if (argument.startsWith("--gpu-preference=")) options.gpuPreference = parseGpuPreferenceValue(argument.slice(17));
+    else if (argument === "--decoder-stall-ms") {
+      if (index + 1 >= argv.length) throw new Error("--decoder-stall-ms requires a value");
+      options.decoderStallMs = parseDecoderInteger(argv[++index], "--decoder-stall-ms", false);
+    } else if (argument.startsWith("--decoder-stall-ms=")) options.decoderStallMs = parseDecoderInteger(argument.slice(19), "--decoder-stall-ms", false);
+    else if (argument === "--decoder-retries") {
+      if (index + 1 >= argv.length) throw new Error("--decoder-retries requires a value");
+      options.decoderRetries = parseDecoderInteger(argv[++index], "--decoder-retries", true);
+    } else if (argument.startsWith("--decoder-retries=")) options.decoderRetries = parseDecoderInteger(argument.slice(18), "--decoder-retries", true);
     else if (argument === "--out") {
       if (index + 1 >= argv.length) throw new Error("--out requires a path");
       options.out = argv[++index];
@@ -84,6 +94,14 @@ export function parseArguments(argv, env = process.env) {
   }
   if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
   return options;
+}
+
+function parseDecoderInteger(value, flag, allowZero) {
+  const number = Number(value);
+  if (value === "" || !Number.isSafeInteger(number) || (allowZero ? number < 0 : number <= 0)) {
+    throw new Error(`${flag} requires ${allowZero ? "a non-negative" : "a positive"} integer`);
+  }
+  return number;
 }
 
 export function resolveEngineChoice(requested, platform, eligibility = null) {

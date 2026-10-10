@@ -33804,6 +33804,8 @@ caused by: ${cause.stack}`;
       hit: statsList.reduce((sum, stats) => sum + stats.prefetchHits, 0),
       miss: statsList.reduce((sum, stats) => sum + stats.prefetchMisses, 0),
       submitted: statsList.reduce((sum, stats) => sum + stats.prefetchSubmitted, 0),
+      decoderRecoveries: statsList.reduce((sum, stats) => sum + stats.decoderRecoveries, 0),
+      decoderRecoveryFailures: statsList.reduce((sum, stats) => sum + stats.decoderRecoveryFailures, 0),
       aheadFrames: {
         count,
         p50: percentile2(50),
@@ -33892,6 +33894,8 @@ caused by: ${cause.stack}`;
       eosFlushes: 0,
       targetSkips: 0,
       droppedTargets: 0,
+      decoderRecoveries: 0,
+      decoderRecoveryFailures: 0,
       prefetchHits: 0,
       prefetchMisses: 0,
       prefetchSubmitted: 0,
@@ -34525,12 +34529,23 @@ caused by: ${cause.stack}`;
       return result;
     }
     async decodeWithRecovery(timeUs) {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      const max = this.options.decoderRecoveryAttempts ?? 1;
+      for (let attempt = 0; attempt <= max; attempt += 1) {
         try {
           return await this.decodeSerialized(timeUs);
         } catch (error) {
-          if (!(error instanceof DecoderExecutionError) || attempt > 0) throw error;
-          this.options.onWarning?.(`${this.id}: decoder runtime error; recreating once: ${error.message}`);
+          if (!(error instanceof DecoderExecutionError)) throw error;
+          if (attempt === max) {
+            this.shared.reader.stats.decoderRecoveryFailures += 1;
+            this.options.onWarning?.(`${this.id}: decoder recovery exhausted after ${max} recreation(s) at ${timeUs}us`);
+            throw error;
+          }
+          const backoff = this.options.decoderRecoveryBackoffMs ?? [];
+          const wait = backoff.length > 0 ? backoff[Math.min(attempt, backoff.length - 1)] : 0;
+          this.options.onWarning?.(max === 1 ? `${this.id}: decoder runtime error; recreating once: ${error.message}` : `${this.id}: decoder runtime error; recreating (${attempt + 1}/${max})${wait ? ` after ${wait}ms` : ""}: ${error.message}`);
+          if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+          if (this.destroyed) throw new Error(`Range source ${this.id} is unavailable`);
+          this.shared.reader.stats.decoderRecoveries += 1;
           await this.resetDecoder();
         }
       }
@@ -34868,7 +34883,7 @@ caused by: ${cause.stack}`;
             dequeued,
             this.decoderFailure ?? new Promise(() => void 0)
           ]),
-          Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
+          Math.min(this.options.decodeTimeoutMs ?? 1e4, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
           `Range decoder progress ${this.id}`
         );
         return "target-or-dequeue";
@@ -34897,7 +34912,7 @@ caused by: ${cause.stack}`;
             pause ?? new Promise(() => void 0),
             this.decoderFailure ?? new Promise(() => void 0)
           ]),
-          Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
+          Math.min(this.options.decodeTimeoutMs ?? 1e4, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
           `Range decoder queue ${this.id}`
         );
       } catch (error) {
@@ -35055,6 +35070,9 @@ caused by: ${cause.stack}`;
         loadStallMs: options.loadStallMs ?? 5e3,
         loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
         tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
+        decoderStallMs: options.decoderStallMs,
+        decoderRecoveryAttempts: options.decoderRecoveryAttempts,
+        decoderRecoveryBackoffMs: options.decoderRecoveryBackoffMs,
         decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1e3,
         hardwareAcceleration: options.hardwareAcceleration,
         codecSupport: options.codecSupport,
@@ -35246,6 +35264,9 @@ caused by: ${cause.stack}`;
       return new RangeMp4Source(this.id, this.src, {
         loadTimeoutMs: this.options.loadTimeoutMs,
         decodeTimeoutMs: this.options.tickTimeoutMs,
+        decoderStallMs: this.options.decoderStallMs,
+        decoderRecoveryAttempts: this.options.decoderRecoveryAttempts,
+        decoderRecoveryBackoffMs: this.options.decoderRecoveryBackoffMs,
         hardwareAcceleration: this.options.hardwareAcceleration,
         codecSupport: this.options.codecSupport ?? this.learnedSupport,
         prefetch: this.options.prefetch,

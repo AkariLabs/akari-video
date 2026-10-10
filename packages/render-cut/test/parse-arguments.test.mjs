@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseArguments, RefusalError } from "../src/render-cut.mjs";
+import { parseArguments, RefusalError, withGpuDecoderEnvironment } from "../src/render-cut.mjs";
+
+test('decoder flags parse both forms and reach GPU child environment', async () => {
+  const options = parseArguments(['/project', '--decoder-stall-ms', '9000', '--decoder-retries=0']);
+  assert.equal(options.decoderStallMs, 9000);
+  assert.equal(options.decoderRetries, 0);
+  const before = [process.env.AKARI_EXPORT_DECODER_STALL_MS, process.env.AKARI_EXPORT_DECODER_RETRIES];
+  const childEnv = await withGpuDecoderEnvironment(options, async () => ({ ...process.env }));
+  assert.equal(childEnv.AKARI_EXPORT_DECODER_STALL_MS, '9000');
+  assert.equal(childEnv.AKARI_EXPORT_DECODER_RETRIES, '0');
+  assert.deepEqual([process.env.AKARI_EXPORT_DECODER_STALL_MS, process.env.AKARI_EXPORT_DECODER_RETRIES], before);
+  assert.equal(parseArguments(['/project', '--decoder-stall-ms=8000', '--decoder-retries', '3']).decoderRetries, 3);
+  for (const flag of ['--decoder-stall-ms', '--decoder-retries']) {
+    assert.throws(() => parseArguments(['/project', flag]), /requires a value/u);
+    assert.throws(() => parseArguments(['/project', `${flag}=-1`]), /integer/u);
+    assert.throws(() => parseArguments(['/project', `${flag}=bad`]), /integer/u);
+  }
+});
 
 test("parseArguments preserves export options and defaults engine to auto", () => {
   const options = parseArguments(["/project", "--quality", "high", "--encoder=x264", "--fps", "24", "--progress"]);

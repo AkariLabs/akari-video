@@ -347,6 +347,7 @@ test('prefetch summary combines pools with nearest-rank percentiles', () => {
     requests: 0, bytes: 0, headerBytes: 0, mediaBytes: 0, maxDecodeQueueSize: 0,
     fullBodyFallback: false, fullBodyBytes: 0, maxFutureFrames: 0, graceWaits: 0,
     eosFlushes: 0, targetSkips: 0, droppedTargets: 0,
+    decoderRecoveries: 0, decoderRecoveryFailures: 0,
   };
   assert.deepEqual(summarizePrefetchStats([
     { ...base, prefetchHits: 2, prefetchMisses: 1, prefetchSubmitted: 7, prefetchAheadHistogram: histogram(1, 9) },
@@ -355,6 +356,8 @@ test('prefetch summary combines pools with nearest-rank percentiles', () => {
     hit: 5,
     miss: 5,
     submitted: 15,
+    decoderRecoveries: 0,
+    decoderRecoveryFailures: 0,
     aheadFrames: { count: 5, p50: 5, p95: 9, max: 9 },
   });
 });
