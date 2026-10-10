@@ -1,6 +1,6 @@
 import {
     AKARI_COMMANDS, RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID,
-    RAIL_SKILLS_WIDGET_ID, RAIL_EXPORT_OPENER_ID, RAIL_DEVELOPER_OPENER_ID,
+    RAIL_SKILLS_WIDGET_ID, RAIL_CONNECT_OPENER_ID, RAIL_EXPORT_OPENER_ID, RAIL_DEVELOPER_OPENER_ID,
     RAIL_SETTINGS_OPENER_ID, RAIL_ROLE_BUCKETS_WIDGET_ID, AkariScope
 } from './rail-ids';
 
@@ -11,6 +11,7 @@ export function railOpenerCommand(id: string): RailCommand | undefined {
         case RAIL_EXPAND_ID: return { id: AKARI_COMMANDS.railToggleExpanded };
         case RAIL_PROJECT_OPENER_ID: return { id: AKARI_COMMANDS.catalogOpen, args: { tab: 'project' } };
         case RAIL_LIBRARY_OPENER_ID: return { id: AKARI_COMMANDS.catalogOpen, args: { tab: 'library' } };
+        case RAIL_CONNECT_OPENER_ID: return { id: 'akari.connect.open' };
         case RAIL_EXPORT_OPENER_ID: return { id: AKARI_COMMANDS.exportOpenDialog };
         case RAIL_DEVELOPER_OPENER_ID: return { id: AKARI_COMMANDS.settingsOpen, args: { section: 'developer' } };
         case RAIL_SETTINGS_OPENER_ID: return { id: AKARI_COMMANDS.settingsOpen };

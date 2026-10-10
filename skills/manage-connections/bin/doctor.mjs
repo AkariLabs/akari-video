@@ -3,6 +3,7 @@
 // 接続レジストリを、無償・読み取り専用の確認だけで更新する。
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -80,7 +81,8 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   const secretValues = collectSecretValues(registry.providers, credentialState, process.env);
   const jsonOutput = `${JSON.stringify(registry, null, 2)}\n`;
   refuseSecretLeak(jsonOutput, secretValues);
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
+  const connectors = readConnectorSummary();
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors);
   refuseSecretLeak(htmlOutput, secretValues);
 
   fs.writeFileSync(connectionsPath, jsonOutput, "utf8");
@@ -90,6 +92,7 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   for (const result of results) {
     console.log(`${result.id}: ${result.doctor.status} — ${result.doctor.detail}`);
   }
+  printConnectorSummary(connectors);
   console.log(`接続レポート: ${reportPath}`);
 }
 
@@ -140,7 +143,8 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
     writeRegistry(resolved.layers.workspace.path, workspaceRegistry, secretValues);
   }
 
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
+  const connectors = readConnectorSummary();
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors);
   refuseSecretLeak(htmlOutput, secretValues);
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
@@ -153,7 +157,38 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   for (const result of results) {
     console.log(`${result.id} [${result.layer}]: ${result.doctor.status} — ${result.doctor.detail}`);
   }
+  printConnectorSummary(connectors);
   console.log(`接続レポート: ${reportPath}`);
+}
+
+const connectorIds = ["fal", "higgsfield", "runway", "elevenlabs", "fish-audio", "suno"];
+
+export function readConnectorSummary(env = process.env, home = os.homedir()) {
+  const file = path.join(env.AKARI_HOME || path.join(home, ".akari"), "connectors.json");
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return { exists: false, enabled: {}, generationOrder: connectorIds, fallbackOnFailure: false };
+  }
+  const enabled = Object.fromEntries(connectorIds.map(id => [id, data?.enabled?.[id] !== false]));
+  const requested = Array.isArray(data?.generationOrder)
+    ? data.generationOrder.filter(id => connectorIds.includes(id)) : [];
+  return { exists: true, enabled,
+    generationOrder: [...new Set(requested), ...connectorIds.filter(id => !requested.includes(id))],
+    fallbackOnFailure: data?.fallbackOnFailure === true };
+}
+
+function printConnectorSummary(summary) {
+  console.log("つなぐ（connectors.json）:");
+  if (!summary.exists) {
+    console.log("  設定なし。状態一覧: akari connect list --json");
+    return;
+  }
+  console.log(`  使う: ${connectorIds.map(id => `${id}=${summary.enabled[id] ? "オン" : "オフ"}`).join(" / ")}`);
+  console.log(`  生成順: ${summary.generationOrder.join(" → ")}`);
+  console.log(`  失敗時の自動切り替え: ${summary.fallbackOnFailure ? "オン" : "オフ"}`);
+  console.log("  状態一覧: akari connect list --json");
 }
 
 function readRegistry(connectionsPath) {
@@ -411,7 +446,7 @@ function refuseSecretLeak(output, values) {
   }
 }
 
-function renderReport(registry, results, credentialState, checkedAt, credentialsPath) {
+function renderReport(registry, results, credentialState, checkedAt, credentialsPath, connectors) {
   const resultById = new Map(results.map((item) => [item.id, item]));
   const cards = registry.providers.map((provider) => {
     const result = resultById.get(provider.id);
@@ -458,12 +493,16 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
     return `<li>${escapeHtml(provider.id)}: <code>${escapeHtml(extractEnvName(provider.env) ?? "KEY_NAME")}</code>${typeof notes.setup_url === "string" ? ` — <a href="${escapeHtml(notes.setup_url)}">取得先</a>` : ""}</li>`;
   }).join("")}</ul></section>`;
   const policy = registry.policy;
+  const connectorsSection = connectors.exists
+    ? `<section class="policy"><h2>つなぐ（connectors.json）</h2><dl><dt>使う</dt><dd>${escapeHtml(connectorIds.map(id => `${id}=${connectors.enabled[id] ? "オン" : "オフ"}`).join(" / "))}</dd><dt>生成順</dt><dd>${escapeHtml(connectors.generationOrder.join(" → "))}</dd><dt>失敗時の自動切り替え</dt><dd>${connectors.fallbackOnFailure ? "オン" : "オフ"}</dd></dl><p>状態一覧: <code>akari connect list --json</code></p></section>`
+    : `<section class="policy"><h2>つなぐ（connectors.json）</h2><p>設定なし。状態一覧: <code>akari connect list --json</code></p></section>`;
   return `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>AKARI 接続レポート</title><style>
 :root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.card-head .layer-badge{background:#263b55}.layer-project .layer-badge{background:#4c356b}.layer-workspace .layer-badge{background:#27534c}.layer-default .layer-badge{background:#4e4930}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>
 <body><header><h1>AKARI 接続レポート</h1><p class="summary">生成日時: ${escapeHtml(checkedAt)}。資格情報は存在有無だけを表示し、値は保存していません。</p></header>
 ${missingGuide}
 <section class="policy"><h2>コスト承認ポリシー</h2><dl><dt>通貨</dt><dd>${escapeHtml(policy.currency)}</dd><dt>月間予算上限</dt><dd>${escapeHtml(money(policy.monthly_budget, policy.currency))}</dd><dt>個別承認閾値</dt><dd>${escapeHtml(money(policy.approval_threshold, policy.currency))}</dd><dt>予算消化状況</dt><dd>実績データ未連携</dd></dl></section>
+${connectorsSection}
 <main class="grid">${cards}</main></body></html>\n`;
 }
 

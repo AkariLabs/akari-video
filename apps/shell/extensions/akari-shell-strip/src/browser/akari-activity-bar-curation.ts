@@ -13,7 +13,7 @@ import { installLeftRailStyle } from './left-rail-style';
 import { railDisabledIds, railOpenerCommand, railSelection } from '../common/rail-model';
 import {
     AKARI_CATALOG_TAB_BODY_ATTRIBUTE, EXPORT_ONBOARDING_TARGET,
-    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID, RAIL_SKILLS_WIDGET_ID,
+    RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID, RAIL_SKILLS_WIDGET_ID, RAIL_CONNECT_OPENER_ID,
     RAIL_EXPORT_OPENER_ID, RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID,
     RAIL_SETTINGS_OPENER_ID, RAIL_ROLE_BUCKETS_WIDGET_ID
 } from '../common/rail-ids';
@@ -85,6 +85,7 @@ const ALLOWLIST: CurationEntry[] = [
     { id: RAIL_PROJECT_OPENER_ID, label: null },
     { id: RAIL_LIBRARY_OPENER_ID, label: null },
     { id: RAIL_SKILLS_WIDGET_ID, label: null },
+    { id: RAIL_CONNECT_OPENER_ID, label: null },
     { id: RAIL_EXPORT_OPENER_ID, label: null },
     { id: EXPLORER_VIEW_CONTAINER_ID, label: null },
     { id: 'search-view-container', label: null },
@@ -97,7 +98,7 @@ const ALLOWLIST: CurationEntry[] = [
 /** 保存レイアウトの順序や後からの追加にかかわらず、ALLOWLIST の順に揃える。 */
 const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
     RAIL_EXPAND_ID, RAIL_PROJECT_OPENER_ID, RAIL_LIBRARY_OPENER_ID,
-    RAIL_SKILLS_WIDGET_ID, RAIL_EXPORT_OPENER_ID,
+    RAIL_SKILLS_WIDGET_ID, RAIL_CONNECT_OPENER_ID, RAIL_EXPORT_OPENER_ID,
     EXPLORER_VIEW_CONTAINER_ID,
     'search-view-container',
     RAIL_CHANNEL_WIDGET_ID, RAIL_DEVELOPER_OPENER_ID, RAIL_SETTINGS_OPENER_ID,

@@ -49,6 +49,10 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 `connections-report.html` を生成する。レポートに表示する資格情報は「設定済み（マスク）」または
 「未設定」の存在有無だけとし、HTTP 応答本文やキー値を表示しない。
 
+アプリ単位の道具・サービス設定は `~/.akari/connectors.json`（`AKARI_HOME` で差し替え可）に置く。
+doctor はその「使う」・生成順・自動切り替え設定を値なしで表示する。各接続の現在の状態は
+`akari connect list --json` で確認し、利用手順は [connect](../connect/SKILL.md) に従う。
+
 ## 既定モデル（defaults.generate）
 
 - `.akari/connections.json` の任意欄 `defaults.generate.still` / `defaults.generate.video` が生成の既定モデル id
