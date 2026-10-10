@@ -12,4 +12,4 @@ Break lines where English syntax and speech naturally pause. When a two-line sub
 
 ## Report and record writing (user language)
 
-When the user writes in English, write recommendations, approval prompts, and the decision and reason cells in clear English. State the recommendation, alternatives, reasons, benefits, and costs; ask for approval, revision, or rejection rather than an open-ended choice. Preserve the machine-read Japanese decision-log column labels and all existing rows. Keep approval prompts concise and explicit.
+When the user writes in English, write recommendations, approval prompts, and the decision and reason cells in clear English. State the recommendation, alternatives, reasons, benefits, and costs; ask for approval, revision, or rejection rather than an open-ended choice. Use the exact English decision-log header from report-guide.md for a new file; when appending to an existing file, preserve its header language and earlier rows. Keep approval prompts concise and explicit.

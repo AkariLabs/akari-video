@@ -107,7 +107,12 @@ Treat this chat presentation as Checkpoint 2 (asset plan) under [approvals-and-g
 
 ## decision_log
 
-Append chronologically, keyed by `(category, subject)`. Each row carries ISO 8601 time, category, subject, decision, reason, decider, and related checkpoint. If a decision for the same key changes, never revise the old row; append a new one referencing the earlier decision. Write decision and reason cell contents in the user's language. Keep the machine-read header exactly `| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |` regardless of user language; `日時`, `決定`, `理由`, `決定者`, and `関連 checkpoint` are fixed column names.
+Append chronologically, keyed by `(category, subject)`. Each row carries ISO 8601 time, category, subject, decision, reason, decider, and related checkpoint. If a decision for the same key changes, never revise the old row; append a new one referencing the earlier decision. Write decision and reason cell contents in the user's language. For a new `decision-log.md`, use the exact header for the user's language:
+
+- English: `| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |`
+- Japanese: `| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |`
+
+When appending to an existing file, preserve its header language and append rows beneath that header. Do not translate or replace existing headers or rows.
 
 **Location** (2026-07-22 revision): Embedding this as a section of fixed six-chapter HTML is retired. Append to standalone `decision-log.md` directly under the project. This single SSOT is shared with [analyze-project's decision-record.md](../analyze-project/decision-record.md): analyze-project pass-2 decisions and interview Q&A accumulate chronologically with edit-plan approvals and generation decisions. Field structure and append-only discipline are unchanged.
 
@@ -122,9 +127,9 @@ node packages/decision-log-report/render-decision-log-report.mjs --log <project>
 Only in the `(category, subject) = (direction, tone)` row, put one inline-code JSON object at the start of the decision cell. `tone` is an array of one or more of the eight shared expression-selection vocabulary values; optional `tempo` is one of `ゆったり` / `標準` / `高速` (fixed machine-read values). Free-form explanatory text may follow the JSON after a space. When updating the same key, keep past rows unchanged; the last appended row takes effect.
 
 ```markdown
-| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |
+| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |
 |---|---|---|---|---|---|---|
-| 2026-08-05T10:00:00+09:00 | direction | tone | `{"tone":["勢い"],"tempo":"高速"}` テンポ感を出したい | 冒頭で視聴者を引き込むため | オーナー | Checkpoint 1 |
+| 2026-08-05T10:00:00+09:00 | direction | tone | `{"tone":["勢い"],"tempo":"高速"}` Keep the pace energetic | To engage viewers from the opening | Owner | Checkpoint 1 |
 ```
 
 Record the following as decisions:
@@ -137,9 +142,9 @@ Record the following as decisions:
 - Thumbnail routes A/B/hybrid left unperformed due to parent-task scope.
 - Settled direction from chat, including whether it followed the recommendation or was revised; record the difference.
 
-The `決定者` (decider) column may use `machine:director` for machine-written prediction rows. Append one `category = proposal` prediction row per added item in the same turn as putting it on the timeline ([autonomy.md](autonomy.md) §3-(4)). Subject is an item id or caption id; the decision says what was added; the reason says why it is useful and cites an `analysis.json` location or akari.md line; the `関連 checkpoint` (related checkpoint) cell gives the source asset id and means. Do not write a prediction row for an item directly requested. Missing prediction rows yield only a warning. At export time the machine appends outcome rows for human deletion, revision, or unchanged export. Never change or delete existing rows.
+The decider column may use `machine:director` for machine-written prediction rows. Append one `category = proposal` prediction row per added item in the same turn as putting it on the timeline ([autonomy.md](autonomy.md) §3-(4)). Subject is an item id or caption id; the decision says what was added; the reason says why it is useful and cites an `analysis.json` location or akari.md line; the related checkpoint cell gives the source asset id and means. Do not write a prediction row for an item directly requested. Missing prediction rows yield only a warning. At export time the machine appends outcome rows for human deletion, revision, or unchanged export. Never change or delete existing rows.
 
-| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |
+| Time | category | subject | Decision | Reason | Decided by | Related checkpoint |
 |---|---|---|---|---|---|---|
 | 2026-09-06T10:00:00+09:00 | proposal | diagram-01 | Added a diagram of the process | Makes the three stages described in analysis.json transcript[3] easier to compare; follows the diagram row in akari.md's procurement preferences | machine:director | source-01 / HTML overlay |
 
