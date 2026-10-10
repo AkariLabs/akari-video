@@ -15,7 +15,8 @@ import { loadAndBuildGpuPage } from "./page-builder.mjs";
 import { createIncrementalMp4Writer } from "./mp4-mux.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
-import { extractGpuDiagnostics, stripGpuDiagnosticsMarker } from "./gpu-diagnostics.mjs";
+import { describeError, extractGpuDiagnostics, stripGpuDiagnosticsMarker } from "./gpu-diagnostics.mjs";
+import { resolveDecoderOptions } from "./decoder-options.mjs";
 import { deviceEmulationParameters, measurePageViewport, VIEWPORT_SETTLE_TIMEOUT_MS, viewportMatches } from "../../osr-export/src/viewport.mjs";
 export { deviceEmulationParameters, viewportMatches } from "../../osr-export/src/viewport.mjs";
 
@@ -174,6 +175,8 @@ export async function runGpuExport(options) {
   const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
   let fatalMemoryError = null;
   let lastDecoderSessions = null;
+  let lastDecoder = null;
+  let lastWarnings = [];
   const memoryWarnings = [];
   const memorySampler = createMemorySampler({
     budget: memoryBudget,
@@ -186,6 +189,7 @@ export async function runGpuExport(options) {
   });
   const runPath = captureMode ? out : join(dirname(out), "run.json");
   const runtimeConfig = {
+    decoder: resolveDecoderOptions(process.env),
     frames,
     queueDepth,
     quality: encoding.quality,
@@ -233,6 +237,8 @@ export async function runGpuExport(options) {
     if (fatalMemoryError) throw fatalMemoryError;
     const { decoderSessions, ...checkpoint } = value ?? {};
     if (decoderSessions) lastDecoderSessions = decoderSessions;
+    if (value?.decoder) lastDecoder = value.decoder;
+    if (Array.isArray(value?.warnings)) lastWarnings = value.warnings.slice(-50);
     recordRendererTimings(value?.timing);
     const running = {
       ...checkpoint,
@@ -394,6 +400,7 @@ export async function runGpuExport(options) {
           : {}),
       },
       memory: { ...memory, warnings: memoryWarnings, decoderSessions: lastDecoderSessions },
+      decoder: result?.decoder ?? lastDecoder ?? { stallMs: runtimeConfig.decoder.stallMs, recoveryAttempts: runtimeConfig.decoder.recoveryAttempts, tickTimeoutMs: runtimeConfig.decoder.tickTimeoutMs, recoveries: 0, recoveryFailures: 0 },
       eligibility: built.eligibility,
       viewport,
       ffprobe: null,
@@ -421,9 +428,10 @@ export async function runGpuExport(options) {
     const failed = {
       version: 1,
       status: "failed",
-      error: stripGpuDiagnosticsMarker(String(error?.stack ?? error)),
+      error: stripGpuDiagnosticsMarker(describeError(error)),
       codec,
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
+      decoder: lastDecoder ?? { stallMs: runtimeConfig.decoder.stallMs, recoveryAttempts: runtimeConfig.decoder.recoveryAttempts, tickTimeoutMs: runtimeConfig.decoder.tickTimeoutMs, recoveries: 0, recoveryFailures: 0 },
       framesRequested: frames,
       gpu: {
         platform: process.platform,
@@ -443,6 +451,8 @@ export async function runGpuExport(options) {
       viewport: viewport ?? error?.viewport ?? null,
       output_scale: outputScale,
     };
+    failed.warnings = [...mergeRecentWarnings(lastWarnings, recentWarningsFromError(error)),
+      ...(failed.warnings ?? [])].slice(-50);
     await writeFile(runPath, `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
   } finally {
@@ -457,12 +467,23 @@ export async function runGpuExport(options) {
 }
 
 export function gpuFailureReasonCode(error) {
-  const message = String(error?.stack ?? error);
+  const message = describeError(error);
   if (message.includes(HEVC_UNSUPPORTED_REASON)) return HEVC_UNSUPPORTED_REASON;
   // RSS hard stop は「この機械では GPU 経路が通らない」であって編集の不備ではないので、
   // auto なら OSR で完走させる（issue #52）
   if (message.includes(MEMORY_HARD_STOP_MARKER)) return MEMORY_HARD_STOP_REASON;
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
+}
+
+function recentWarningsFromError(error) {
+  const block = String(error?.message ?? "").split("\nrecent warnings:\n")[1];
+  return block ? block.split("\n- ").map((line) => line.replace(/^- /u, "")).slice(-50) : [];
+}
+
+function mergeRecentWarnings(previous, recent) {
+  let overlap = Math.min(previous.length, recent.length);
+  while (overlap > 0 && !previous.slice(-overlap).every((value, index) => value === recent[index])) overlap -= 1;
+  return [...previous, ...recent.slice(overlap)].slice(-50);
 }
 
 export function normalizeCodecVerification(verification, codec = "h264") {
@@ -476,7 +497,7 @@ export function extractCaptionMeasureDiffs(error) {
   if (error?.captionMeasureDiffs && typeof error.captionMeasureDiffs === "object") {
     return error.captionMeasureDiffs;
   }
-  const message = String(error?.stack ?? error);
+  const message = describeError(error);
   const start = message.indexOf(CAPTION_MEASURE_DIFF_MARKER);
   if (start < 0) return null;
   const encoded = message.slice(start + CAPTION_MEASURE_DIFF_MARKER.length).split(/\s/u, 1)[0];
@@ -706,7 +727,7 @@ function normalizeCaptureFrames(frameNumbers, totalFrames) {
 async function runCli() {
   let code = 0;
   try { await runGpuExport(parseElectronArguments(process.argv.slice(2))); }
-  catch (error) { code = 1; process.stderr.write(`${String(error?.stack ?? error)}\n`); }
+  catch (error) { code = 1; process.stderr.write(`${describeError(error)}\n`); }
   finally {
     // app.exit() に入ったあと Chromium の終了処理が待ち続けることがある。
     // 親が書き出し結果を確定できるよう、その前に code を報告する。

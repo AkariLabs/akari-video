@@ -33551,6 +33551,8 @@ var HttpRangeReader = class {
     eosFlushes: 0,
     targetSkips: 0,
     droppedTargets: 0,
+    decoderRecoveries: 0,
+    decoderRecoveryFailures: 0,
     prefetchHits: 0,
     prefetchMisses: 0,
     prefetchSubmitted: 0,
@@ -34179,12 +34181,23 @@ var RangeMp4Source = class _RangeMp4Source {
     return result;
   }
   async decodeWithRecovery(timeUs) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const max = this.options.decoderRecoveryAttempts ?? 1;
+    for (let attempt = 0; attempt <= max; attempt += 1) {
       try {
         return await this.decodeSerialized(timeUs);
       } catch (error) {
-        if (!(error instanceof DecoderExecutionError) || attempt > 0) throw error;
-        this.options.onWarning?.(`${this.id}: decoder runtime error; recreating once: ${error.message}`);
+        if (!(error instanceof DecoderExecutionError)) throw error;
+        if (attempt === max) {
+          this.shared.reader.stats.decoderRecoveryFailures += 1;
+          this.options.onWarning?.(`${this.id}: decoder recovery exhausted after ${max} recreation(s) at ${timeUs}us`);
+          throw error;
+        }
+        const backoff = this.options.decoderRecoveryBackoffMs ?? [];
+        const wait = backoff.length > 0 ? backoff[Math.min(attempt, backoff.length - 1)] : 0;
+        this.options.onWarning?.(max === 1 ? `${this.id}: decoder runtime error; recreating once: ${error.message}` : `${this.id}: decoder runtime error; recreating (${attempt + 1}/${max})${wait ? ` after ${wait}ms` : ""}: ${error.message}`);
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+        if (this.destroyed) throw new Error(`Range source ${this.id} is unavailable`);
+        this.shared.reader.stats.decoderRecoveries += 1;
         await this.resetDecoder();
       }
     }
@@ -34522,7 +34535,7 @@ var RangeMp4Source = class _RangeMp4Source {
           dequeued,
           this.decoderFailure ?? new Promise(() => void 0)
         ]),
-        Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
+        Math.min(this.options.decodeTimeoutMs ?? 1e4, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder progress ${this.id}`
       );
       return "target-or-dequeue";
@@ -34551,7 +34564,7 @@ var RangeMp4Source = class _RangeMp4Source {
           pause ?? new Promise(() => void 0),
           this.decoderFailure ?? new Promise(() => void 0)
         ]),
-        Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
+        Math.min(this.options.decodeTimeoutMs ?? 1e4, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder queue ${this.id}`
       );
     } catch (error) {
@@ -34709,6 +34722,9 @@ var ClipSession = class _ClipSession {
       loadStallMs: options.loadStallMs ?? 5e3,
       loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
       tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
+      decoderStallMs: options.decoderStallMs,
+      decoderRecoveryAttempts: options.decoderRecoveryAttempts,
+      decoderRecoveryBackoffMs: options.decoderRecoveryBackoffMs,
       decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1e3,
       hardwareAcceleration: options.hardwareAcceleration,
       codecSupport: options.codecSupport,
@@ -34900,6 +34916,9 @@ var ClipSession = class _ClipSession {
     return new RangeMp4Source(this.id, this.src, {
       loadTimeoutMs: this.options.loadTimeoutMs,
       decodeTimeoutMs: this.options.tickTimeoutMs,
+      decoderStallMs: this.options.decoderStallMs,
+      decoderRecoveryAttempts: this.options.decoderRecoveryAttempts,
+      decoderRecoveryBackoffMs: this.options.decoderRecoveryBackoffMs,
       hardwareAcceleration: this.options.hardwareAcceleration,
       codecSupport: this.options.codecSupport ?? this.learnedSupport,
       prefetch: this.options.prefetch,

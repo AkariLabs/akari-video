@@ -75,6 +75,8 @@ export interface RangeFetchStats {
   targetSkips: number;
   /** target が出ず sync から再シークした回数。 */
   droppedTargets: number;
+  decoderRecoveries: number;
+  decoderRecoveryFailures: number;
   prefetchHits: number;
   prefetchMisses: number;
   prefetchSubmitted: number;
@@ -103,6 +105,9 @@ export interface RangeMp4SourceOptions {
   cacheBytes?: number;
   loadTimeoutMs?: number;
   decodeTimeoutMs?: number;
+  decoderStallMs?: number;
+  decoderRecoveryAttempts?: number;
+  decoderRecoveryBackoffMs?: readonly number[];
   hardwareAcceleration?: HardwarePreference;
   codecSupport?: CodecSupport | null;
   /**
@@ -156,6 +161,8 @@ export function summarizePrefetchStats(statsList: readonly RangeFetchStats[]): {
   hit: number;
   miss: number;
   submitted: number;
+  decoderRecoveries: number;
+  decoderRecoveryFailures: number;
   aheadFrames: { count: number; p50: number; p95: number; max: number };
 } {
   const histogram = new Array<number>(65).fill(0);
@@ -184,6 +191,8 @@ export function summarizePrefetchStats(statsList: readonly RangeFetchStats[]): {
     hit: statsList.reduce((sum, stats) => sum + stats.prefetchHits, 0),
     miss: statsList.reduce((sum, stats) => sum + stats.prefetchMisses, 0),
     submitted: statsList.reduce((sum, stats) => sum + stats.prefetchSubmitted, 0),
+    decoderRecoveries: statsList.reduce((sum, stats) => sum + stats.decoderRecoveries, 0),
+    decoderRecoveryFailures: statsList.reduce((sum, stats) => sum + stats.decoderRecoveryFailures, 0),
     aheadFrames: {
       count,
       p50: percentile(50),
@@ -277,6 +286,8 @@ class HttpRangeReader {
     eosFlushes: 0,
     targetSkips: 0,
     droppedTargets: 0,
+    decoderRecoveries: 0,
+    decoderRecoveryFailures: 0,
     prefetchHits: 0,
     prefetchMisses: 0,
     prefetchSubmitted: 0,
@@ -1049,12 +1060,25 @@ export class RangeMp4Source {
   }
 
   private async decodeWithRecovery(timeUs: number): Promise<VideoFrame> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const max = this.options.decoderRecoveryAttempts ?? 1;
+    for (let attempt = 0; attempt <= max; attempt += 1) {
       try {
         return await this.decodeSerialized(timeUs);
       } catch (error) {
-        if (!(error instanceof DecoderExecutionError) || attempt > 0) throw error;
-        this.options.onWarning?.(`${this.id}: decoder runtime error; recreating once: ${error.message}`);
+        if (!(error instanceof DecoderExecutionError)) throw error;
+        if (attempt === max) {
+          this.shared.reader.stats.decoderRecoveryFailures += 1;
+          this.options.onWarning?.(`${this.id}: decoder recovery exhausted after ${max} recreation(s) at ${timeUs}us`);
+          throw error;
+        }
+        const backoff = this.options.decoderRecoveryBackoffMs ?? [];
+        const wait = backoff.length > 0 ? backoff[Math.min(attempt, backoff.length - 1)]! : 0;
+        this.options.onWarning?.(max === 1
+          ? `${this.id}: decoder runtime error; recreating once: ${error.message}`
+          : `${this.id}: decoder runtime error; recreating (${attempt + 1}/${max})${wait ? ` after ${wait}ms` : ''}: ${error.message}`);
+        if (wait > 0) await new Promise<void>(resolve => setTimeout(resolve, wait));
+        if (this.destroyed) throw new Error(`Range source ${this.id} is unavailable`);
+        this.shared.reader.stats.decoderRecoveries += 1;
         await this.resetDecoder();
       }
     }
@@ -1456,7 +1480,7 @@ export class RangeMp4Source {
           dequeued,
           this.decoderFailure ?? new Promise<never>(() => undefined),
         ]),
-        Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_DEQUEUE_TIMEOUT_MS),
+        Math.min(this.options.decodeTimeoutMs ?? 10_000, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder progress ${this.id}`,
       );
       return 'target-or-dequeue';
@@ -1493,7 +1517,7 @@ export class RangeMp4Source {
           pause ?? new Promise<never>(() => undefined),
           this.decoderFailure ?? new Promise<never>(() => undefined),
         ]),
-        Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_DEQUEUE_TIMEOUT_MS),
+        Math.min(this.options.decodeTimeoutMs ?? 10_000, this.options.decoderStallMs ?? DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder queue ${this.id}`,
       );
     } catch (error) {

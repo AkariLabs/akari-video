@@ -283,9 +283,12 @@ OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--
 | Linux | 明示利用可 | 適格なら GPU、不適格なら OSR | tier 1 / 2（同上） |
 
 **Windows の注記（2026-09-01 追記・2026-09-02 改訂）**: 一時上書きの判定表・順序・sidecar・記録は osr 契約 §11.7 裁定 1〜7 を正とする。`auto` の一時上書きは GPU 出口（`launchGpuExport` が `exit: "gpu"` を渡す launch）だけに適用し、OSR 出口は `force` のときだけ書く（裁定 1 改訂・根拠は §11.7）。receipt の `provenance.gpu_preference` に `exit` が載る。GPU 出口固有の追加は次の 3 点。
+
 (a) page-runtime の `WebCodecs H.264 config is unsupported` throw は `renderer` と `encoder_support` を error に添え（`gpuDiagnostics` プロパティ + メッセージ末尾の ` renderer=<UNMASKED_RENDERER>` と marker）、`electron-main.mjs` の failed run.json は `gpu.renderer` / `gpu.encoder_support` をそれで埋める（固定 `null` にしない）。
 (b) `exportWithGpu` の `attachGpuFailureContext` は run.json の `error` が同文を含むときだけ `error.message` を日本語 1 行（`describeHardwareEncoderFailure`・1 行・改行なし・末尾に `（原因: <元の英語エラー 1 行>）`）に置き換え、`error.originalMessage` に元を保持する。文面は run.json の `gpu.devices` を `summarizeGpuAdapters` で要約した `hybrid / active_is_high_performance` と、launcher の `gpuPreference.reason / applied` で分岐する: hybrid・iGPU・`user-preference-respected` → 省電力固定の説明 + `force` の案内 / hybrid・iGPU・`policy-off` → `auto` の案内 / hybrid・iGPU・`applied` → 書いたのに反映されない旨 + 設定アプリの案内 / dGPU なのに unsupported → ドライバ更新か `--engine osr` / hybrid でない → `--engine osr` / devices null → renderer 文字列だけで同旨 + `（GPU 情報は取得できませんでした）`。render-cut は `render-cut execution error: <この 1 行>` を stderr 最終行に出す。
 (c) hardware 不可のときの OSR 自動フォールバックは増やさない（§12.3 の fail-closed を維持）。
+
+書き出しのデコーダは停止判定 8,000 ms、作り直し 3 回、1 コマ全体の上限 30,000 ms を既定とする。作り直し前に 500 / 1,000 / 2,000 ms 待ち、再試行には同じ時刻を使う。`AKARI_EXPORT_DECODER_STALL_MS`、`AKARI_EXPORT_DECODER_RETRIES`（0 可）、`AKARI_EXPORT_DECODE_TIMEOUT_MS` で変更でき、render-cut は前二者を `--decoder-stall-ms` / `--decoder-retries` でも指定できる。上限が停止判定より短ければ停止判定の値まで引き上げる。成功・失敗の `run.json` とチェックポイントの `decoder` に `stallMs`、`recoveryAttempts`、`tickTimeoutMs`、`recoveries`、`recoveryFailures` を記録する。プレビューの既定（2,000 ms・作り直し 1 回）は変えない。
 
 npm Electron の tier 2 は `node_modules/electron/path.txt` を必須とする。値は win32 が
 `electron.exe`、darwin が `Electron.app/Contents/MacOS/Electron`、linux が `electron` である。

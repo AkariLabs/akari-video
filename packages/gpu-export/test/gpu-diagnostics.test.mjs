@@ -4,6 +4,7 @@ import test from "node:test";
 import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
 import {
   describeHardwareEncoderFailure,
+  describeError,
   extractGpuDiagnostics,
   firstLine,
   GPU_DIAGNOSTICS_MARKER,
@@ -28,6 +29,19 @@ const SINGLE = summarizeGpuAdapters([
   { active: true, deviceString: "Intel(R) Iris(R) Xe Graphics", gpuPreference: 2, vendorId: 32902, deviceId: 1 },
   { active: false, deviceString: "Microsoft Basic Render Driver", gpuPreference: 0, vendorId: 5140, deviceId: 140 },
 ]);
+
+test('describeError preserves useful details without object coercion', () => {
+  const cause = new Error('decoder stalled');
+  const error = new Error('export failed', { cause });
+  const circular = { reason: 'stalled' };
+  circular.self = circular;
+  for (const value of [{ name: 'DecodeError', message: 'stalled' }, error, 'stalled', undefined, circular]) {
+    const text = describeError(value);
+    assert.doesNotMatch(text, /\[object Object\]/u);
+    assert.ok(text.length > 0);
+  }
+  assert.match(describeError(error), /caused by: Error: decoder stalled/u);
+});
 
 function assertOneLine(message) {
   assert.equal(typeof message, "string");

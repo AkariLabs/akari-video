@@ -32,6 +32,9 @@ export interface ClipSessionOptions {
   loadBytesPerSecond?: number;
   retainBudgetBytes?: number;
   tickTimeoutMs?: number;
+  decoderStallMs?: number;
+  decoderRecoveryAttempts?: number;
+  decoderRecoveryBackoffMs?: readonly number[];
   decoderErrorGraceMs?: number;
   hardwareAcceleration?: HardwarePreference;
   codecSupport?: CodecSupport | null;
@@ -156,6 +159,9 @@ export class ClipSession implements NativeFrameSource {
     loadStallMs: number;
     loadBytesPerSecond: number;
     tickTimeoutMs: number;
+    decoderStallMs?: number;
+    decoderRecoveryAttempts?: number;
+    decoderRecoveryBackoffMs?: readonly number[];
     decoderErrorGraceMs: number;
     hardwareAcceleration?: HardwarePreference;
     codecSupport?: CodecSupport | null;
@@ -180,6 +186,9 @@ export class ClipSession implements NativeFrameSource {
       loadStallMs: options.loadStallMs ?? 5_000,
       loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
       tickTimeoutMs: options.tickTimeoutMs ?? 10_000,
+      decoderStallMs: options.decoderStallMs,
+      decoderRecoveryAttempts: options.decoderRecoveryAttempts,
+      decoderRecoveryBackoffMs: options.decoderRecoveryBackoffMs,
       decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1_000,
       hardwareAcceleration: options.hardwareAcceleration,
       codecSupport: options.codecSupport,
@@ -380,6 +389,9 @@ export class ClipSession implements NativeFrameSource {
     return new RangeMp4Source(this.id, this.src, {
       loadTimeoutMs: this.options.loadTimeoutMs,
       decodeTimeoutMs: this.options.tickTimeoutMs,
+      decoderStallMs: this.options.decoderStallMs,
+      decoderRecoveryAttempts: this.options.decoderRecoveryAttempts,
+      decoderRecoveryBackoffMs: this.options.decoderRecoveryBackoffMs,
       hardwareAcceleration: this.options.hardwareAcceleration,
       codecSupport: this.options.codecSupport ?? this.learnedSupport,
       prefetch: this.options.prefetch,

@@ -6,6 +6,27 @@ export const HARDWARE_ENCODER_UNSUPPORTED_MARKER = "WebCodecs H.264 config is un
 export const GPU_DIAGNOSTICS_MARKER = "AKARI_GPU_DIAGNOSTICS:";
 const UNKNOWN_GPU = "不明な GPU";
 
+export function describeError(error) {
+  const seen = new Set();
+  const describe = (value, depth) => {
+    if (value === null || typeof value !== "object") return String(value);
+    if (seen.has(value)) return "[circular]";
+    if (depth >= 5) return "[cause depth limit]";
+    seen.add(value);
+    if (value instanceof Error) {
+      const head = typeof value.stack === "string" && value.stack ? value.stack : `${value.name}: ${value.message}`;
+      return value.cause === undefined ? head : `${head}\ncaused by: ${describe(value.cause, depth + 1)}`;
+    }
+    const fields = ["name", "message", "reason", "code", "stack"]
+      .filter((key) => value[key] !== undefined)
+      .map((key) => `${key}: ${typeof value[key] === "object" ? describe(value[key], depth + 1) : String(value[key])}`);
+    let json;
+    try { json = JSON.stringify(value); } catch { json = "[unserializable object]"; }
+    return [...fields, (json ?? "[unserializable object]").slice(0, 2048)].join("; ");
+  };
+  return describe(error, 0).replaceAll("[object Object]", "[unserializable object]");
+}
+
 export function describeHardwareEncoderFailure({ adapters = null, renderer = null, gpuPreference = null, cause = null } = {}) {
   const rendererName = rendererString(renderer);
   const preference = gpuPreference && typeof gpuPreference === "object" ? gpuPreference : {};
@@ -52,7 +73,7 @@ export function firstLine(text) {
 // メッセージ末尾に marker + encodeURIComponent(JSON) を添える。main はプロパティ → marker の順で拾い、記録からは marker を外す。
 export function extractGpuDiagnostics(error) {
   if (error?.gpuDiagnostics && typeof error.gpuDiagnostics === "object") return normalizeGpuDiagnostics(error.gpuDiagnostics);
-  const message = String(error?.stack ?? error?.message ?? error ?? "");
+  const message = describeError(error);
   const start = message.indexOf(GPU_DIAGNOSTICS_MARKER);
   if (start < 0) return null;
   const encoded = message.slice(start + GPU_DIAGNOSTICS_MARKER.length).split(/\s/u, 1)[0];

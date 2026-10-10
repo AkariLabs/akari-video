@@ -5,6 +5,8 @@
   const FE = window.AkariFrameEngine;
   const bridge = window.akariGpu;
   const warnings = [];
+  let activeEngine = null;
+  let activeConfig = null;
   const captionAnimatorWarnings = new Set();
   const pools = new Map();
   const lookahead = new Map();
@@ -49,6 +51,39 @@
   function warn(message) {
     warnings.push(String(message));
     console.warn("[akari-gpu]", message);
+  }
+
+  function describeRunError(error) {
+    if (error instanceof Error) {
+      const causes = [];
+      const seen = new Set([error]);
+      let cause = error.cause;
+      while (cause !== undefined && causes.length < 5 && !seen.has(cause)) {
+        seen.add(cause);
+        causes.push(cause instanceof Error ? `${cause.name}: ${cause.message}` : describeRunError(cause));
+        cause = cause && typeof cause === "object" ? cause.cause : undefined;
+      }
+      return [error.message, ...causes.map((value) => `caused by: ${value}`)].join("\n");
+    }
+    if (error && typeof error === "object") {
+      let json;
+      try { json = JSON.stringify(error); } catch { json = "[unserializable object]"; }
+      const fields = ["name", "message", "reason", "code", "stack"]
+        .filter((key) => error[key] !== undefined).map((key) => `${key}: ${String(error[key])}`);
+      return [...fields, (json ?? "[unserializable object]").slice(0, 2048)].join("; ").replaceAll("[object Object]", "[unserializable object]");
+    }
+    return String(error);
+  }
+
+  function decoderRecord(config, engine) {
+    const summary = engine?.prefetchSummary();
+    return {
+      stallMs: config?.decoder?.stallMs ?? 2_000,
+      recoveryAttempts: config?.decoder?.recoveryAttempts ?? 1,
+      tickTimeoutMs: config?.decoder?.tickTimeoutMs ?? 10_000,
+      recoveries: summary?.decoderRecoveries ?? 0,
+      recoveryFailures: summary?.decoderRecoveryFailures ?? 0,
+    };
   }
 
   function collectRendererInfo(canvas) {
@@ -453,7 +488,15 @@
           const image = new FE.CachedStillImageSource(url);
           images.set(id, image);
         } else {
-          const pool = new FE.ClipSessionPool(id, url, { onWarning: warn });
+          const pool = new FE.ClipSessionPool(id, url, {
+            onWarning: warn,
+            ...(config.decoder ? {
+              tickTimeoutMs: config.decoder.tickTimeoutMs,
+              decoderStallMs: config.decoder.stallMs,
+              decoderRecoveryAttempts: config.decoder.recoveryAttempts,
+              decoderRecoveryBackoffMs: config.decoder.recoveryBackoffMs,
+            } : {}),
+          });
           // capacity 1: sequential export never re-reads past frames, and every cached frame is a
           // decoder-backed clone that pins a decoder output surface; holding 12 starved the decoder
           // (10 s watchdog -> decoder recreate, 0.73 fps; issue #28). 1 keeps an LRU hit for freezes.
@@ -504,12 +547,13 @@
     }
 
     prefetchSummary() {
-      return FE.summarizePrefetchStats(
+      return this.disposedPrefetchSummary ?? FE.summarizePrefetchStats(
         [...pools.values()].map((pool) => pool.rangeFetchStats()).filter(Boolean),
       );
     }
 
     dispose() {
+      this.disposedPrefetchSummary = this.prefetchSummary();
       for (const source of lookahead.values()) source.clear();
       for (const source of images.values()) source.destroy();
       for (const pool of pools.values()) pool.destroy();
@@ -2946,9 +2990,11 @@
   window.__akariGpuMediaPlaneInternals = { composeMediaPlanes };
 
   window.__akariGpuRun = async function () {
+    try {
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
     const runtimeConfig = await bridge.config();
     const config = { ...pageConfig, ...runtimeConfig };
+    activeConfig = config;
     const captureMode = Array.isArray(config.captureFrames);
     const previewEvery = Number.isInteger(config.previewEvery) && config.previewEvery > 0 ? config.previewEvery : 0;
     const previewWidth = Number.isInteger(config.previewWidth) && config.previewWidth > 0 ? config.previewWidth : 320;
@@ -2969,6 +3015,7 @@
     };
     const restoreTraps = config.trapReadback ? installReadbackTraps(counters) : () => {};
     const engine = new GpuFrameEngineRuntime(config);
+    activeEngine = engine;
     const finalCanvas = document.getElementById("akari-final");
     const previewOutputWidth = config.outputWidth ?? config.width;
     const previewOutputHeight = config.outputHeight ?? config.height;
@@ -3550,6 +3597,8 @@
             // 生存デコーダセッション数。#28 の時点で「RSS はセッション数に比例」と分かって
             // いたのに記録が無く、issue #52 でまた手探りになったので run.json に残す
             decoderSessions: engine.decoderSessions,
+            decoder: decoderRecord(config, engine),
+            warnings: warnings.slice(-50),
           };
           checkpointChain = checkpointChain
             .then(() => bridge.checkpoint(checkpoint))
@@ -3596,6 +3645,7 @@
           luma_total: runtimeTiming.luma_total,
         },
         frameEngineMetrics: { ...engine.metrics.toJSON(), prefetch: engine.prefetchSummary() },
+        decoder: decoderRecord(config, engine),
         gpu: {
           encoder: supported ? "WebCodecsH264Encoder" : "unsupported",
           hardware: hardwareAcceleration,
@@ -3644,6 +3694,18 @@
       spriteCompositor.dispose();
       blender?.dispose();
       engine.dispose();
+    }
+    } catch (error) {
+      const recent = warnings.slice(-10);
+      const message = `${describeRunError(error)}${recent.length ? `\nrecent warnings:\n- ${recent.join("\n- ")}` : ""}`;
+      try {
+        await bridge?.checkpoint?.({
+          status: "failed",
+          decoder: decoderRecord(activeConfig, activeEngine),
+          warnings: warnings.slice(-50),
+        });
+      } catch {}
+      throw new Error(message);
     }
   };
 })();
