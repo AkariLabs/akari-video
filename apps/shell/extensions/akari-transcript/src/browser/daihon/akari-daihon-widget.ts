@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
 import { currentTimelineEditUri, currentTimelineCaptionsUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
 import { isTimelineEditFileName } from 'akari-annotations/lib/common/timeline-files';
@@ -4916,7 +4917,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected historyTime(value: string): string {
         const date = new Date(value);
         if (!Number.isFinite(date.getTime())) return value;
-        return date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return formatDate(date, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
     protected async restoreHistoryEntry(projectRootUri: string, entry: EditHistoryEntry, anchor: HTMLElement): Promise<void> {

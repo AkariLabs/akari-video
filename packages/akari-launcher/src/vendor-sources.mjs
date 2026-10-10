@@ -14,6 +14,7 @@ export const VENDOR_SOURCES = [
   'presets/textanim',
   'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
+  'packages/i18n',
   // schemas の frame-scene 検証器が参照する schema 定義だけを同梱する。
   'packages/frame-scene/src/schema.mjs',
   // schemas の asset / kit 検証は runtimes.mjs を実行し、runtime 宣言は src の

@@ -139,6 +139,11 @@
     ],
     "extraResources": [
       {
+        "from": "../../packages/i18n",
+        "to": "packages/i18n",
+        "filter": ["package.json", "index.cjs", "index.mjs", "index.d.ts", "locales/**/*"]
+      },
+      {
         "from": "resources/onboarding-sample",
         "to": "onboarding-sample"
       },

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { AI_MODEL_KINDS, AiModel, AiModelKind, AiModelSet, AiModelPreferencesDocument } from './ai-models-protocol';
 export const INPUT_LABELS: Record<string, string> = {
     prompt: '指示文', text: '文章', first_frame: '最初のコマ', last_frame: '最後のコマ',
@@ -211,7 +212,7 @@ export function aiModelPriceValue(model: AiModel): number | null {
 
 export function formatAiModelPrice(model: AiModel): string {
     if (model.via !== 'api') {
-        return '追加料金 ¥0';
+        return t('common.currency.price.extraFree');
     }
     const value = aiModelPriceValue(model);
     if (value === null) {

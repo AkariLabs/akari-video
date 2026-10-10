@@ -58,6 +58,7 @@ jobs:
           node-version: '26.3.0'
       - run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
       - run: node scripts/gen-skills-index.mjs --check --strict
+      - run: npm run lint:i18n
       - run: node scripts/check-docs-sync.mjs
       - run: node scripts/check-entry-skill.mjs
       - name: "check-extension-deps (拡張間 file 依存と build:ext 順序の照合)"

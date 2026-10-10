@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import { inject, injectable, named } from '@theia/core/shared/inversify';
 import { ContributionProvider, Disposable, Emitter, Event, MessageService } from '@theia/core/lib/common';
 import { CommandService } from '@theia/core/lib/common/command';
@@ -43,7 +44,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         this.partial = '';
         if (!utterance.text.trim()) { this.paintView?.(); return; }
         const pointed = this.state.consumePointed();
-        const entry = { text: utterance.text, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        const entry = { text: utterance.text, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
             kind: 'メモ', target: pointed?.target, utterance: {
                 raw: utterance.raw, text: utterance.text, applied: [...utterance.applied]
             }, taskState: 'pending' as const, saveState: undefined as 'no-project' | 'failed' | undefined, subdued };
@@ -65,7 +66,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     clearPartial(): void { this.partial = ''; this.paintView?.(); }
     acceptAction(label: string, kind: '操作' | 'タスク', entryId: string, undo?: () => void): void {
         this.partial = '';
-        this.entries.push({ text: label, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        this.entries.push({ text: label, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
             kind, entryId, undo });
         if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
         this.paintView?.();
@@ -190,7 +191,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
             const text = input.value;
             const target = this.state.pointedTarget?.target;
             this.state.submitInstruction(text, mode);
-            this.entries.push({ text, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+            this.entries.push({ text, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
                 kind: mode === 'task' ? 'タスク' : 'すぐ', target });
             if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
             paint();
