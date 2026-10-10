@@ -1,11 +1,13 @@
 import { randomUUID } from 'crypto';
+import { promises as fs } from 'fs';
+import { basename, extname, isAbsolute, join } from 'path';
 import { injectable } from '@theia/core/shared/inversify';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent } from '../common/chat-events';
 import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
 import { chatAdapters } from './adapters';
 import type { ChatAdapterSession } from './adapters/adapter';
-import { addHistory, readHistory, titleFromText, updateHistory, writeHistory } from './history';
+import { addHistory, readHistory, titleFromText, updateHistory, writeHistory, renameHistory, removeHistory } from './history';
 
 type ActiveChat = {
     agent: string;
@@ -164,7 +166,38 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async listHistory(cwd: string): Promise<ChatHistoryEntry[]> {
-        return (await readHistory(cwd)).sessions;
+        return (await readHistory(cwd)).sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+
+    async renameHistory(cwd: string, historyId: string, title: string): Promise<void> {
+        await writeHistory(cwd, renameHistory(await readHistory(cwd), historyId, title));
+    }
+
+    async removeHistory(cwd: string, historyId: string): Promise<void> {
+        await writeHistory(cwd, removeHistory(await readHistory(cwd), historyId));
+    }
+
+    async saveScreenRecording(cwd: string, data: string): Promise<string> {
+        const match = /^data:video\/(mp4|webm);base64,/.exec(data);
+        if (!match) throw new Error('録画の形式を読めません');
+        const bytes = Buffer.from(data.slice(match[0].length), 'base64');
+        if (!bytes.length || bytes.length > 100 * 1024 * 1024) throw new Error('録画のサイズが上限を超えました');
+        const relative = `assets/screen-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}.${match[1]}`;
+        await fs.mkdir(join(cwd, 'assets'), { recursive: true });
+        await fs.writeFile(join(cwd, relative), bytes, { flag: 'wx' });
+        return relative;
+    }
+
+    async importAttachment(cwd: string, sourcePath: string): Promise<string> {
+        if (!isAbsolute(sourcePath)) throw new Error('ファイルの場所を読めません');
+        const info = await fs.stat(sourcePath);
+        if (!info.isFile() || info.size > 500 * 1024 * 1024) throw new Error('ファイルを取り込めません');
+        const original = basename(sourcePath);
+        const stem = original.slice(0, -extname(original).length || undefined).replace(/[^\p{L}\p{N}._-]/gu, '_') || 'file';
+        const relative = `assets/${stem}-${randomUUID().slice(0, 8)}${extname(original)}`;
+        await fs.mkdir(join(cwd, 'assets'), { recursive: true });
+        await fs.copyFile(sourcePath, join(cwd, relative));
+        return relative;
     }
 
     async resume(cwd: string, historyId: string) {
