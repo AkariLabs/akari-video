@@ -7,10 +7,17 @@ export const DESIGN_SECTION_PLACEHOLDERS = [
     '絵文字の多用、虹色のグラデーション、画面を埋める字幕。'
 ] as const;
 const REST_MARKER = '<!-- 読み取れなかった行 -->';
+export const DESIGN_ASSET_ROLES = ['logo', 'logo-mono', 'icon', 'font', 'reference', 'other'] as const;
+export type DesignAssetRole = typeof DESIGN_ASSET_ROLES[number];
+export const DESIGN_ASSET_ROLE_LABELS: Record<DesignAssetRole, string> = {
+    logo: 'ロゴ', 'logo-mono': 'ロゴ（単色）', icon: 'アイコン', font: 'フォント', reference: '参考画像', other: 'そのほか'
+};
+export interface DesignAsset { role: DesignAssetRole; file: string; note: string }
 
 export interface DesignMdValues {
     colors: { main: string; sub: string; text: string; background: string };
     fonts: { heading: string; body: string };
+    assets: DesignAsset[];
     sections: { heading: string; body: string }[];
     rest: string;
 }
@@ -19,6 +26,7 @@ export function defaultDesignValues(): DesignMdValues {
     return {
         colors: { main: '', sub: '', text: '#ffffff', background: '#111111' },
         fonts: { heading: '', body: '' },
+        assets: [],
         sections: DESIGN_SECTION_HEADINGS.map(heading => ({ heading, body: '' })), rest: ''
     };
 }
@@ -26,6 +34,67 @@ export function defaultDesignValues(): DesignMdValues {
 function mapValue(line: string, key: string): string {
     const match = line.match(new RegExp(`(?:^|[,\\s{])${key}\\s*:\\s*"([^"\\n]*)"`));
     return match?.[1] ?? '';
+}
+
+function parseAssets(line: string): DesignAsset[] | undefined {
+    const match = line.match(/^assets:\s*\[(.*)\]\s*$/);
+    if (!match) return undefined;
+    const source = match[1];
+    const quoted = '"(?:\\\\.|[^"\\\\])*"';
+    const field = new RegExp(`\\s*([a-z]+)\\s*:\\s*(${quoted})\\s*`, 'y');
+    let index = 0;
+    const assets: DesignAsset[] = [];
+    while (index < source.length) {
+        while (/\s/.test(source[index] ?? '')) index++;
+        if (index === source.length) break;
+        if (source[index++] !== '{') return undefined;
+        const item: Record<string, string> = {};
+        while (source[index] !== '}') {
+            field.lastIndex = index;
+            const entry = field.exec(source);
+            if (!entry || !['role', 'file', 'note'].includes(entry[1]) || entry[1] in item) return undefined;
+            try { item[entry[1]] = JSON.parse(entry[2]); } catch { return undefined; }
+            index = field.lastIndex;
+            if (source[index] === ',') index++;
+            else if (source[index] !== '}') return undefined;
+        }
+        index++;
+        if (!('role' in item && 'file' in item)) return undefined;
+        if ((DESIGN_ASSET_ROLES as readonly string[]).includes(item.role)
+            && item.file.startsWith('design/') && !item.file.includes('..') && item.file.length > 'design/'.length) {
+            assets.push({ role: item.role as DesignAssetRole, file: item.file, note: item.note ?? '' });
+        }
+        while (/\s/.test(source[index] ?? '')) index++;
+        if (index < source.length && source[index++] !== ',') return undefined;
+    }
+    return assets;
+}
+
+export function isDesignAssetFileName(name: string): boolean {
+    return /\.(?:png|jpe?g|svg|webp|ttf|otf|woff2)$/i.test(name);
+}
+
+export function isDesignImageFile(file: string): boolean {
+    return /\.(?:png|jpe?g|svg|webp)$/i.test(file);
+}
+
+export function safeDesignFileName(original: string, existing: readonly string[]): string {
+    const cleaned = original.replace(/[<>:"/\\|?*]/g, '-')
+        .split('').map(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 ? '-' : char).join('')
+        .replace(/^\.+/, '') || 'asset';
+    const dot = cleaned.lastIndexOf('.');
+    const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned;
+    const ext = dot > 0 ? cleaned.slice(dot).toLowerCase() : '';
+    const used = new Set(existing.map(name => name.toLowerCase()));
+    let candidate = `${stem}${ext}`;
+    for (let n = 2; used.has(candidate.toLowerCase()); n++) candidate = `${stem}-${n}${ext}`;
+    return candidate;
+}
+
+export function designAssetBadge(assets: readonly DesignAsset[]): string | undefined {
+    if (!assets.length) return undefined;
+    if (assets.some(asset => asset.role === 'logo' || asset.role === 'logo-mono')) return 'ロゴあり';
+    return `${assets.every(asset => asset.role === 'font') ? 'フォント' : '画像'} ${assets.length}`;
 }
 
 export function parseDesignMd(text: string): DesignMdValues {
@@ -44,6 +113,10 @@ export function parseDesignMd(text: string): DesignMdValues {
                     for (const key of ['main', 'sub', 'text', 'background'] as const) values.colors[key] = mapValue(line, key);
                 } else if (/^fonts:\s*\{.*\}\s*$/.test(line)) {
                     for (const key of ['heading', 'body'] as const) values.fonts[key] = mapValue(line, key);
+                } else if (line.startsWith('assets:')) {
+                    const assets = parseAssets(line);
+                    if (assets) values.assets = assets;
+                    else unknown.push(line);
                 } else if (line.trim()) unknown.push(line);
             }
             start = end + 1;
@@ -68,6 +141,12 @@ export function parseDesignMd(text: string): DesignMdValues {
 }
 
 function quote(value: string): string { return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]/g, ' '); }
+function quoteAsset(value: string): string {
+    return quote(value.split('').map(char => {
+        const code = char.charCodeAt(0);
+        return code < 32 || (code >= 127 && code <= 159) ? ' ' : char;
+    }).join(''));
+}
 
 export function buildDesignMd(values: DesignMdValues, channelName: string): string {
     const colors = values.colors;
@@ -78,10 +157,12 @@ export function buildDesignMd(values: DesignMdValues, channelName: string): stri
         '---',
         `colors: { main: "${quote(colors.main)}", sub: "${quote(colors.sub)}", text: "${quote(colors.text || '#ffffff')}", background: "${quote(colors.background || '#111111')}" }`,
         `fonts: { heading: "${quote(fonts.heading)}", body: "${quote(fonts.body)}" }`,
+        ...(values.assets.length ? [`assets: [${values.assets.map(asset => `{ role: "${quoteAsset(asset.role)}", file: "${quoteAsset(asset.file)}", note: "${quoteAsset(asset.note)}" }`).join(', ')}]`] : []),
         '---',
         `# ${channelName} のデザイン`,
         ...sections.map(section => `## ${section.heading}\n${section.body.trim()}`)
     ];
-    const body = `${parts.slice(0, 5).join('\n')}\n\n${parts.slice(5).join('\n\n')}`;
+    const frontLength = values.assets.length ? 6 : 5;
+    const body = `${parts.slice(0, frontLength).join('\n')}\n\n${parts.slice(frontLength).join('\n\n')}`;
     return `${body}${values.rest.trim() ? `\n\n${REST_MARKER}\n${values.rest.trimEnd()}` : ''}\n`;
 }

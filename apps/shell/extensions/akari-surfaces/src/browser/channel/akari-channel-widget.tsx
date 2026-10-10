@@ -22,7 +22,8 @@ import { ApplyChoices, ApplyInputs, appliedTypeName, parseTypeUndo, planTypeAppl
 import { ChannelTypeEntry, buildMyTypeJson, findChannelTypeByName } from './channel-types-model';
 import { HELPER_KINDS, HELPER_KIND_LABELS, HELPER_NO_PARTNER_TEXT, HELPER_ROW_DESCRIPTION,
     HelperConsentSheet, HelperKind, buildHelperConsent, helperPrompt, parseHelperConsent } from './channel-helper';
-import { DesignMdValues, defaultDesignValues, parseDesignMd } from './design-md-model';
+import { DesignAsset, DesignAssetRole, DesignMdValues, defaultDesignValues, designAssetBadge,
+    isDesignAssetFileName, parseDesignMd, safeDesignFileName } from './design-md-model';
 import { DesignMdForm } from './channel-design-md-form';
 import { ChannelSkillDraft, PRESET_CHANNEL_SKILLS, buildSkillMd, copiedSkillMd, parseSkillMd, validateSkillSlug } from './channel-skills-model';
 import { ChannelSkillRow, ChannelSkillsSheet } from './channel-skills-sheet';
@@ -49,6 +50,8 @@ ${RAIL_TAB} .lm-TabBar-tabIcon::before { content:attr(data-akari-channel-initial
 .akari-channel-about { flex:1 1 auto; }
 .akari-channel-projects { flex:0 0 auto; margin-top:auto; max-height:40%; }
 .akari-channel-section { margin:0 0 12px; padding-top:12px; border-top:1px solid var(--akari-line,var(--theia-widget-border)); font-size:11px; opacity:.65; font-weight:700; }
+.akari-channel-divider { font-size:0; }
+.akari-channel-helper-block { margin-top:12px; }
 .akari-channel-row { display:flex; width:100%; align-items:center; gap:8px; box-sizing:border-box; border:0; border-radius:7px; padding:8px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 .akari-channel-row:hover { background:var(--theia-list-hoverBackground,rgba(127,127,127,.12)); }
 .akari-channel-row[aria-current="page"] { background:var(--theia-list-activeSelectionBackground,rgba(127,127,127,.16)); }
@@ -83,6 +86,7 @@ export class AkariChannelWidget extends ReactWidget {
     protected projectStages = new Map<string, string>();
     protected projectThumbnails = new Map<string, string[]>();
     protected channelDocFiles = new Map<ChannelDocKind, string>();
+    protected designBadge?: string;
     protected channelSkills: ChannelSkillRow[] = [];
     protected akariSkills: { name: string; description: string }[] = [];
     protected docRefreshVersion = 0;
@@ -229,11 +233,16 @@ export class AkariChannelWidget extends ReactWidget {
         const channel = this.context.viewingChannel;
         const existing = new Set<string>();
         const skills: ChannelSkillRow[] = [];
+        let designBadge: string | undefined;
         if (root && channel) {
             const dir = root.resolve('channels').resolve(channel);
             for (const kind of CHANNEL_DOC_KINDS) {
                 const name = channelDocFileName(kind);
                 try { if (await this.files.exists(dir.resolve(name))) existing.add(name); } catch { /* 表示は作成可能な状態にする。 */ }
+            }
+            if (existing.has('design.md')) {
+                try { designBadge = designAssetBadge(parseDesignMd((await this.files.readFile(dir.resolve('design.md'))).value.toString()).assets); }
+                catch { designBadge = undefined; }
             }
             try {
                 const skillDirs = (await this.files.resolve(dir.resolve('skills'))).children ?? [];
@@ -252,6 +261,7 @@ export class AkariChannelWidget extends ReactWidget {
             return name ? [[kind, name] as const] : [];
         }));
         this.channelSkills = skills.sort((left, right) => left.slug.localeCompare(right.slug));
+        this.designBadge = designBadge;
         const counts = root && channel && this.memoryFiles
             ? await readChannelMemoryCounts(this.memoryFiles, this.memoryFiles.channelDir(root, channel))
             : { people: 0, notes: 0, packs: 0 };
@@ -288,6 +298,38 @@ export class AkariChannelWidget extends ReactWidget {
         const channel = this.context.viewingChannel;
         return root && channel ? root.resolve('channels').resolve(channel).resolve(name) : undefined;
     }
+
+    protected assetUrl = (file: string): string => this.channelFile(file)?.toString() ?? '';
+
+    protected addDesignAsset = async (role: DesignAssetRole, file: File): Promise<DesignAsset | undefined> => {
+        if (!isDesignAssetFileName(file.name)) { void this.messages.warn('使える画像・フォントのファイルを選んでください'); return undefined; }
+        const dir = this.channelFile('design');
+        if (!dir) return undefined;
+        try {
+            if (!await this.files.exists(dir)) await this.files.createFolder(dir);
+            const existing = (await this.files.resolve(dir)).children?.map(child => child.resource.path.base) ?? [];
+            const name = safeDesignFileName(file.name, existing);
+            await this.files.createFile(dir.resolve(name), BinaryBuffer.wrap(new Uint8Array(await file.arrayBuffer())));
+            return { role, file: `design/${name}`, note: '' };
+        } catch { void this.messages.error('素材を足せませんでした'); return undefined; }
+    };
+
+    protected removeDesignAssetFile = async (file: string): Promise<void> => {
+        if (!/^design\/[^/\\]+$/.test(file) || file.includes('..')) throw new Error('design/ の外のファイルは消せません');
+        const uri = this.channelFile(file);
+        if (!uri) return;
+        try { await this.files.delete(uri); }
+        catch { void this.messages.error('素材を消せませんでした'); throw new Error('素材を消せませんでした'); }
+    };
+
+    protected revealDesignFolder = async (): Promise<void> => {
+        const dir = this.channelFile('design');
+        if (!dir) return;
+        try {
+            if (!await this.files.exists(dir)) await this.files.createFolder(dir);
+            await this.commands.executeCommand('akari.project.revealInFileManager', dir);
+        } catch { void this.messages.error('フォルダを開けませんでした'); }
+    };
 
     protected closeSheet = (): void => { this.sheet = undefined; this.update(); };
 
@@ -570,7 +612,7 @@ export class AkariChannelWidget extends ReactWidget {
                 </div>}
             </div>
             <div className='akari-channel-area akari-channel-about'>
-                <div className='akari-channel-section'>このチャンネル</div>
+                <div className='akari-channel-section akari-channel-divider' aria-hidden='true' />
                 <button type='button' className='akari-channel-row' aria-current={this.scope.scope === 'channel' ? 'page' : undefined}
                     onClick={() => void this.openProjectList()}>プロジェクト一覧</button>
                 {CHANNEL_DOC_KINDS.map(kind => <div className='akari-channel-doc-row' key={kind}>
@@ -580,19 +622,23 @@ export class AkariChannelWidget extends ReactWidget {
                     </button>
                     {kind === 'people' || kind === 'notes'
                         ? <small>{kind === 'people' ? `${this.memoryCounts.people} 件${this.memoryCounts.packs > 0 ? ` · ☆${this.memoryCounts.packs}` : ''}` : `${this.memoryCounts.notes} 件`}</small>
+                        : kind === 'design' && this.designBadge ? <small data-akari-design-badge>{this.designBadge}</small>
                         : this.channelDocFiles.has(kind) ? <small>あり</small>
                         : <button type='button' className='akari-channel-create' onClick={() => void (kind === 'channel' ? this.openDesignSheet() : this.openDesignMdSheet())}>作る</button>}
                 </div>)}
                 <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' onClick={() => void this.openSkillsSheet()}>スキル</button>
                     <small>{this.channelSkills.length} 個</small></div>
-                <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' data-akari-helper-row
-                    onClick={() => void this.runHelper('default')}>ヘルパー</button>
-                    <button type='button' className='akari-channel-create' data-akari-helper-menu aria-expanded={this.helperMenuOpen}
-                        onClick={() => { this.helperMenuOpen = !this.helperMenuOpen; this.update(); }}>▾</button></div>
-                <small className='akari-channel-row-hint'>{HELPER_ROW_DESCRIPTION}</small>
-                {this.helperMenuOpen && <div className='akari-channel-helper-menu'>{HELPER_KINDS.map(kind =>
-                    <button key={kind} type='button' className='akari-channel-row' data-akari-helper-kind={kind}
-                        onClick={() => void this.runHelper(kind)}>{HELPER_KIND_LABELS[kind]}</button>)}</div>}
+                <div className='akari-channel-helper-block' data-akari-helper-block>
+                    <div className='akari-channel-section akari-channel-divider' aria-hidden='true' />
+                    <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' data-akari-helper-row
+                        onClick={() => void this.runHelper('default')}>AI に整えてもらう</button>
+                        <button type='button' className='akari-channel-create' data-akari-helper-menu aria-expanded={this.helperMenuOpen}
+                            onClick={() => { this.helperMenuOpen = !this.helperMenuOpen; this.update(); }}>▾</button></div>
+                    <small className='akari-channel-row-hint'>{HELPER_ROW_DESCRIPTION}</small>
+                    {this.helperMenuOpen && <div className='akari-channel-helper-menu'>{HELPER_KINDS.map(kind =>
+                        <button key={kind} type='button' className='akari-channel-row' data-akari-helper-kind={kind}
+                            onClick={() => void this.runHelper(kind)}>{HELPER_KIND_LABELS[kind]}</button>)}</div>}
+                </div>
             </div>
             <div className='akari-channel-area akari-channel-projects'>
                 <div className='akari-channel-section'>プロジェクト</div>
@@ -658,6 +704,8 @@ export class AkariChannelWidget extends ReactWidget {
                 }}
                 onClose={this.closeSheet} />}
             {this.sheet?.kind === 'design-form' && <DesignMdForm channelName={channel || ''} initial={this.sheet.values}
+                assetUrl={this.assetUrl} onAddAsset={this.addDesignAsset} onRemoveAssetFile={this.removeDesignAssetFile}
+                onRevealFolder={() => void this.revealDesignFolder()}
                 onSave={text => void this.saveSheetFile('design.md', text)}
                 onOpenFile={text => void this.openSheetFile('design.md', text)} onHelper={() => void this.runHelper('design')}
                 onClose={this.closeSheet} />}

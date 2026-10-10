@@ -8,9 +8,9 @@ export const HELPER_KIND_LABELS: Record<HelperKind, string> = {
     default: 'いつもの頼み', design: '過去の動画から design.md を書く', words: '辞書の候補を集める',
     skill: 'よく頼むことをスキルにする', trend: 'このチャンネルの傾向は？'
 };
-export const HELPER_ROW_DESCRIPTION = '過去の動画と会話から、設計・デザイン・辞書・スキルに足す候補を出します';
+export const HELPER_ROW_DESCRIPTION = '過去の動画と会話から、設計・デザイン・辞書・人とモノに足す候補を出します';
 export const HELPER_CONSENT_TEXT = 'このチャンネルのプロジェクトの会話の履歴と、分析の記録を読みます。ほかのチャンネルや、プロジェクトの外は読みません。';
-export const HELPER_NO_PARTNER_TEXT = '右の「パートナー」からパートナーを開くと、ヘルパーに頼めます';
+export const HELPER_NO_PARTNER_TEXT = '右の「パートナー」からパートナーを開くと、AI に整えてもらえます';
 
 export function helperPrompt(kind: HelperKind, channelName: string): string {
     const name = `このチャンネル「${channelName}」`;
@@ -38,7 +38,7 @@ export function buildHelperConsent(now: string): string { return JSON.stringify(
 export function HelperConsentSheet(props: { channelName: string; onAllow: () => void; onCancel: () => void }): React.ReactElement {
     return React.createElement(HomeScrim, { kind: 'channel-helper-consent', onClose: props.onCancel, children: null },
         React.createElement('style', null, homePanelCss, channelSheetCss),
-        React.createElement('h3', null, 'ヘルパー'),
+        React.createElement('h3', null, 'AI に整えてもらう'),
         React.createElement('p', null, HELPER_CONSENT_TEXT),
         React.createElement('div', { className: 'akari-channel-sheet-actions' },
             React.createElement('button', { type: 'button', className: 'theia-button secondary', 'data-akari-helper-cancel': '', onClick: props.onCancel }, 'やめる'),
