@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,6 +18,13 @@ import {
     captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField,
     captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch
 } from '../lib/browser/inspector/caption-style-effects.js';
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
@@ -280,7 +289,9 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
     await field(multi, 'caption-style-bg-enabled').write(caption('one'), 'true');
     await field(multi, 'caption-style-effect').write(caption('one'), 'outline');
     assert.ok(multiWrites.every(write => write.targets?.length === 2));
-    assert.match(source, /\['per-line', '行ごと'\], \['block', 'まとめて'\]/u);
+    assert.match(source, /\['per-line', t\('annotations\.inspectorWidget\.text\.lineByLine'\)\], \['block', t\('annotations\.inspectorWidget\.text\.together'\)\]/u);
+    assert.equal(ja['annotations.inspectorWidget.text.lineByLine'], '行ごと');
+    assert.equal(ja['annotations.inspectorWidget.text.together'], 'まとめて');
 });
 
 test('帯の効果を外すと帯の不透明度も一操作で消す', async () => {

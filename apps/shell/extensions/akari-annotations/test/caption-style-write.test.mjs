@@ -1,3 +1,7 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -7,6 +11,15 @@ import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 const source = readCompiledSource('widget').text;
 const start = source.indexOf("                case 'caption-style-my-style':");

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { AbstractDialog, DialogError, DialogMode, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -110,13 +111,13 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
         this.contentNode.appendChild(this.stage);
 
         if (this.props.mode === 'create') {
-            this.hint.textContent = 'ペンで領域を描き、必要ならメモを入力してください（どちらか一方でも確定できます）。';
+            this.hint.textContent = t('annotations.imageAnnotationDialog.text.drawTheAreaWithAPenAnd');
             Object.assign(this.hint.style, {
                 fontSize: '11px', color: 'var(--theia-descriptionForeground)', margin: '8px 0 4px'
             });
             this.textInput.type = 'text';
-            this.textInput.placeholder = 'この画像についてコメント（任意）';
-            this.textInput.setAttribute('aria-label', 'この画像についてコメント');
+            this.textInput.placeholder = t('annotations.imageAnnotationDialog.text.commentAboutThisImageOptional');
+            this.textInput.setAttribute('aria-label', t('annotations.imageAnnotationDialog.text.commentAboutThisImage'));
             Object.assign(this.textInput.style, { width: '100%', boxSizing: 'border-box', margin: '2px 0 6px' });
             this.textInput.addEventListener('input', () => this.update());
             this.contentNode.append(this.hint, this.textInput);
@@ -128,9 +129,9 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
         this.contentNode.appendChild(this.errorNotice);
 
         if (this.props.mode === 'create') {
-            this.appendAcceptButton('注釈を追加');
+            this.appendAcceptButton(t('annotations.imageAnnotationDialog.text.addAnnotation'));
         }
-        this.appendCloseButton(this.props.mode === 'create' ? 'キャンセル' : '閉じる');
+        this.appendCloseButton(this.props.mode === 'create' ? t('annotations.imageAnnotationDialog.text.cancel') : t('annotations.imageAnnotationDialog.text.close'));
 
         void this.load();
     }
@@ -139,7 +140,7 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
         try {
             const stat = await this.fileService.resolve(this.props.imageUri, { resolveMetadata: true });
             if (typeof stat.size === 'number' && stat.size > 25 * 1024 * 1024) {
-                this.showLoadError('この画像はサイズが大きすぎるためプレビューできません。');
+                this.showLoadError(t('annotations.imageAnnotationDialog.text.thisImageIsTooLargeToPreview'));
                 return;
             }
             const content = await this.fileService.readFile(this.props.imageUri);
@@ -162,7 +163,7 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
         } catch (error) {
             console.warn('[akari-annotations] image annotation dialog failed to load image', error);
             this.imageLoadFailed = true;
-            this.showLoadError('画像を読み込めませんでした。');
+            this.showLoadError(t('annotations.imageAnnotationDialog.text.imageCouldNotBeLoaded'));
         }
     }
 
@@ -286,12 +287,12 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
             return true;
         }
         if (this.imageLoadFailed) {
-            return { message: '画像を読み込めなかったため注釈を追加できません。', result: false };
+            return { message: t('annotations.imageAnnotationDialog.text.annotationsCannotBeAddedBecauseTheImage'), result: false };
         }
         const hasText = this.textInput.value.trim().length > 0;
         const hasStrokes = this.completedStrokes.length > 0;
         if (!hasText && !hasStrokes) {
-            return { message: 'テキストまたはペンでの描画のいずれかが必要です。', result: false };
+            return { message: t('annotations.imageAnnotationDialog.text.eitherTextOrPenDrawingIsRequired'), result: false };
         }
         if (mode === 'preview' || this.saved) {
             return true;
@@ -304,7 +305,7 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
             this.saved = true;
             return true;
         } catch (error) {
-            return { message: `注釈を追加できません: ${this.errorMessage(error)}`, result: false };
+            return { message: t('annotations.imageAnnotationDialog.text.unableToAddAnnotation', { reason: this.errorMessage(error) }), result: false };
         }
     }
 

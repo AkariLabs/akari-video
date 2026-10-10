@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
@@ -18,6 +20,12 @@ import { aiNarrationChoiceVisible, generateAiNarration } from '../lib/browser/in
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 
 import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const engine = { id: 'voicevox', label: 'VOICEVOX', place: 'local',
   price: { usd_per_1000_chars: 0, verified: true },

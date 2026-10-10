@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -21,6 +23,13 @@ import {
   resolveCutFreezeDisplayAt,
   updateCutFreeze
 } from '../lib/browser/inspector/freeze-fields.js';
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();
@@ -124,7 +133,8 @@ test('v0 の明示 at / track はフリーズ対象として拒否する', () =>
   assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5, track: 0 }, 0), true);
   assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5 }, 0), false);
   assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5, at: 2 }, 1), false);
-  assert.match(timelineSource, /明示 at\/track を使う edit\.json v0 ではフリーズを設定できません。/u);
+  assert.match(timelineSource, /t\('annotations\.timeline\.text\.freezeCannotBeSetInEditJsonV0'\)/u);
+  assert.equal(ja['annotations.timeline.text.freezeCannotBeSetInEditJsonV0'], '明示 at/track を使う edit.json v0 ではフリーズを設定できません。');
 });
 
 test('v1 書き込みは cuts[].freeze を生成・除去する専用経路を持つ', () => {

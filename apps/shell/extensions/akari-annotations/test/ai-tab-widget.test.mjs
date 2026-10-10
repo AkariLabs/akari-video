@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,6 +13,12 @@ import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspect
 import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);

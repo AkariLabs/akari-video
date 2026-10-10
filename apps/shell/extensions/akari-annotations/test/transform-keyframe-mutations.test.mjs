@@ -1,4 +1,7 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { activateV2ItemTransformKeyframe, removeV2Keyframe,
@@ -6,6 +9,12 @@ import { activateV2ItemTransformKeyframe, removeV2Keyframe,
 import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
 import { evaluatedItemTransform } from '../../../../../packages/edit-store/lib/transform-keyframe-edit.js';
 import { resolvePreviewItemWrite } from '../../../../../packages/edit-store/lib/edit-v2-item-write.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const document = kind => ({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [],
   tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'subject', at: 0, duration: 180,
@@ -67,7 +76,9 @@ test('sequential preview patches resolve against the latest document without los
   const start = source.indexOf("id: 'akari.annotations.commitPreviewTransform'");
   const end = source.indexOf('this.toDispose.push(this.contextKeys.onDidChange', start);
   const handler = source.slice(start, end);
-  assert.match(handler, /commitEditMutation\('プレビューで変形を変更', doc =>/u);
+  assert.match(handler, /commitEditMutation\(t\('annotations\.timeline\.text\.changeTransformationInPreview'\), doc =>/u);
+  const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+  assert.equal(ja['annotations.timeline.text.changeTransformationInPreview'], 'プレビューで変形を変更');
   assert.match(handler, /resolvePreviewItemWrite\(source, command\)/u);
   assert.doesNotMatch(handler, /expectedBefore|JSON\.stringify\(doc\) !==/u);
 });

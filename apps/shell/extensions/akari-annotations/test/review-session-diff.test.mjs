@@ -1,6 +1,11 @@
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { diffReviewSessionEdit } from '../lib/browser/review-session-diff.js';
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 const item = (id, at, duration, input = 0, output = duration / 10) => ({
   id, at, duration, source: { kind: 'media', src: 'src', in: input, out: output }
