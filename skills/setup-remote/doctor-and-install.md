@@ -1,43 +1,43 @@
-# doctor 判定と導入・ログイン（人間手番の受け渡し）
+# Doctor assessment, installation, and login (handing off human actions)
 
-## 1. doctor を実行する
+## 1. Run doctor
 
 ```
 node skills/setup-remote/bin/doctor.mjs
 ```
 
-読み取り専用・ネットワーク設定を変更しない。JSON の `state` で分岐する:
+Read-only; does not change network settings. Branch on JSON `state`:
 
-| state | 意味 | 次の一手 |
+| state | Meaning | Next action |
 |---|---|---|
-| `not-installed` | tailscale の実体が見つからない | §2 導入ガイド |
-| `app-not-running` | 実体はあるが CLI が応答しない（アプリ未起動・初回セットアップ未完が典型） | アプリを起動（`open -a Tailscale`）→ §3 ログイン → doctor 再実行 |
-| `needs-login` | 導入済みだが未ログイン | §3 ログイン |
-| `stopped` | ログイン済み・接続オフ | Tailscale アプリで接続をオンにしてもらう → doctor 再実行 |
-| `running` | 接続中 | §4 スマホ側の確認へ |
+| `not-installed` | Tailscale executable not found | §2 installation guide |
+| `app-not-running` | Executable exists but CLI does not respond (typically app not running or initial setup incomplete) | Start app (`open -a Tailscale`) → §3 login → rerun doctor |
+| `needs-login` | Installed but not logged in | §3 login |
+| `stopped` | Logged in, connection off | Ask the user to turn on connection in Tailscale → rerun doctor |
+| `running` | Connected | §4 phone checks |
 
-## 2. 導入ガイド（人間手番 — ハードルール 3）
+## 2. Installation guide (human action — hard rule 3)
 
-エージェントは代行しない。OS 別に手順を提示し、完了報告を受けたら doctor を再実行して確認する。
+The agent does not perform this action. Present OS-specific steps; after the user reports completion, rerun doctor to verify.
 
-- **macOS**（どちらか）:
-  - App Store 版（GUI・初心者向き）: App Store で「Tailscale」を検索して導入
-  - Homebrew: `brew install --cask tailscale-app` — **.pkg インストーラーが sudo パスワードを
-    対話で要求する**ため、エージェントのシェルからは完遂できない。ユーザー自身のターミナルで
-    実行してもらう（Claude Code のセッション内なら `! brew install --cask tailscale-app` を案内）
-- **Windows**: `winget install Tailscale.Tailscale` または公式インストーラー
-  （https://tailscale.com/download/windows）
-- **Linux**: 公式スクリプト（https://tailscale.com/download/linux）。`sudo` が要るのは同じく人間手番
+- **macOS** (either):
+  - App Store version (GUI, beginner-friendly): Search for “Tailscale” in the App Store and install.
+  - Homebrew: `brew install --cask tailscale-app` — **the .pkg installer interactively requests the sudo password**,
+    so the agent's shell cannot complete it. Ask the user to run it in their own terminal
+    (in a Claude Code session, suggest `! brew install --cask tailscale-app`).
+- **Windows**: `winget install Tailscale.Tailscale` or the official installer
+  (https://tailscale.com/download/windows).
+- **Linux**: Official script (https://tailscale.com/download/linux). Requiring `sudo` likewise makes this a human action.
 
-## 3. ログイン（人間手番）
+## 3. Login (human action)
 
-- Tailscale アプリを起動 → Google / GitHub / Apple 等でログイン
-  （このアカウントが tailnet = 私設ネットワークの鍵になる。個人利用は無料枠で足りる）
-- doctor 再実行で `state: running` を確認する
+- Start Tailscale → log in with Google / GitHub / Apple, etc.
+  (This account is the key to the tailnet, the private network. The free tier suffices for personal use.)
+- Rerun doctor and verify `state: running`.
 
-## 4. スマホ側（人間手番）
+## 4. Phone (human action)
 
-- App Store / Google Play で「Tailscale」を導入し、**PC と同じアカウント**でログイン
-- VPN 構成の許可を承認する。「常時オン」を推奨 — スマホ側の Tailscale がオフだとリンクが
-  開けないのが唯一のハマりどころなので、この時点でユーザーに明示的に伝える
-- ここまで確認できたら [serve-preview.md](serve-preview.md) へ
+- Install “Tailscale” from App Store / Google Play; log in with **the same account as the PC**.
+- Approve VPN configuration permission. Recommend “Always on”: links will not open when phone-side Tailscale
+  is off, the main pitfall. Explicitly explain this to the user here.
+- Once verified, continue to [serve-preview.md](serve-preview.md).

@@ -1,20 +1,19 @@
-# 検証とレポート生成
+# Validate and generate the report
 
-## 1. interpretation.json を検証する
+## 1. Validate interpretation.json
 
-`interpretation.json.tmp` に書いてから検証し、PASS したものだけを `interpretation.json` へ
-原子的に置き換える。
+Write to `interpretation.json.tmp`, validate, and atomically replace `interpretation.json` only with a PASS result.
 
 ```sh
 node packages/schemas/bin/validate-interpretation.mjs <interpretation.json のパス>
 ```
 
-exit code 0 かつ `OK: ...` の出力を確認する。schema 単体では表せない意味制約（`assets[].ref` と
-`inputs.analyses[].ref` の 1:1 対応、`arc[].refs[].asset`/`relations[].target` のダングリング
-参照、`section` の `end > start`、`flag` の start/end 対関係、`open_questions[].status` と
-`answer` の整合）もこの CLI が検証する。fail した場合は黙って緩めず、原因を直して再検証する。
+Confirm exit code 0 and `OK: ...` output. The CLI also checks semantic constraints not expressible by schema alone:
+1:1 `assets[].ref` / `inputs.analyses[].ref`, dangling `arc[].refs[].asset`/`relations[].target` references,
+`section`'s `end > start`, paired `flag` start/end, and consistency of `open_questions[].status` with `answer`.
+On failure, fix the cause and revalidate; never silently relax constraints.
 
-## 2. レポートを生成する
+## 2. Generate the report
 
 ```sh
 node packages/analysis-report/render-analysis-report.mjs \
@@ -24,43 +23,43 @@ node packages/analysis-report/render-analysis-report.mjs \
   --out <report.html の出力先>
 ```
 
-- **`--analysis` は必ず `<ref>=<path>` の明示形で渡す**（`ref` は `collect.md` で決めた
-  `interpretation.assets[].ref` と一致させる）。bare path のみの指定も CLI は受け付けるが、
-  それは `inputs.analyses[].path` との一意な文字列照合に頼る劣化経路であり、複数素材プロジェクト
-  では取り違えのリスクが増える（2026-07-22 改訂前の位置対応づけ規約で silent data corruption が
-  実証されている）。**analyze-project は常に明示 `ref=path` 形式を使う**。
-- `interpretation.assets[]` の全 `ref` に対応する `--analysis` が過不足なく必要。renderer は
-  `inputs.analyses[].ref` との 1:1 対応・path のクロスチェックをハードエラーで検証し、
-  通らない場合は何も書き出さない。
-- 生成前に `interpretation.json` は 1. で PASS 済みであること。renderer 自身も内部で
-  `validate-interpretation.mjs` を呼ぶため、二重に検証されるが省略しない。
+- **Always pass `--analysis` explicitly as `<ref>=<path>`**, with `ref` matching the
+  `interpretation.assets[].ref` established in `collect.md`. Although the CLI accepts bare paths, that degraded
+  route relies on unique string matching against `inputs.analyses[].path` and increases misassociation risk
+  in multi-asset projects. The positional-mapping convention before the 2026-07-22 revision demonstrably caused
+  silent data corruption. **analyze-project always uses explicit `ref=path`.**
+- Supply exactly 1 corresponding `--analysis` for every `ref` in `interpretation.assets[]`.
+  The renderer hard-errors on 1:1 mismatch with `inputs.analyses[].ref` or failed path cross-checks;
+  it writes nothing on failure.
+- `interpretation.json` must already have passed step 1. The renderer also calls `validate-interpretation.mjs`
+  internally; do not omit step 1 despite double validation.
 
-## 3. 開く
+## 3. Open
 
-生成した HTML はテンプレ + データ分離・自己完結（外部 CSS/font/script/remote image 参照なし）
-なので、そのままブラウザで開ける。
+Generated HTML separates template/data and is self-contained (no external CSS/font/script/remote-image references),
+so it can be opened directly in a browser.
 
 ```sh
 open <report.html の出力先>
 ```
 
-`open` が使えない環境ではファイルパスを人間に提示し、ブラウザで開いてもらう。
+If `open` is unavailable, show the file path and ask the human to open it in a browser.
 
-## 4. レポートの読み方（確認観点）
+## 4. Read the report (checks)
 
-- 全カード/行に 事実 / 解釈 のラベルが付いている（テーゼ 2 の可視化）。解釈側は
-  `relations[].evidence`/`flags[].evidence` を「根拠を見る」で開示できる。
-- 節構成は事実 + 素材の読み + 客観的関係 + 取材台帳 + 来歴に限定される。**構成案（arc）は
-  表示されない**（interpretation.json のデータとしては存在する。[interpretation.md](interpretation.md#arc-は内部データレポート非表示) 参照）。
-- 決定 UI（選択肢・ツマミ・確定ボタン）が無いことを確認する。あればテンプレ側の regression。
-- `open_questions` が 0 件の場合は「取材事項なし」の空状態文言が出る（「まだ分析していない」
-  という誤解を招く空白表示にならないことを確認する）。
+- Every card/row is labeled fact / interpretation (visualizing thesis 2). Interpretation evidence
+  `relations[].evidence`/`flags[].evidence` can be opened through the evidence control.
+- Sections are limited to facts + readings of assets + objective relations + interview ledger + provenance.
+  **The proposed arc is not displayed**, though it exists in interpretation.json
+  ([interpretation.md](interpretation.md#arc-is-internal-data-hidden-from-reports)).
+- Verify there is no decision UI (choices, knobs, finalize buttons). Its presence is a template regression.
+- With 0 `open_questions`, a no-interview-items empty-state message appears; verify the page is not blank
+  in a way that misleadingly suggests analysis has not been done.
 
-## よくある間違い
+## Common mistakes
 
-- `--analysis` を bare path のまま複数渡し、renderer の一意照合に頼る（明示 `ref=path` を使う）。
-- validate 前の `.tmp` を確定版として扱う。
-- renderer が拒否したのに手で HTML を編集して辻褄を合わせる。
-- `arc` が表示されないことを理由に `interpretation.json` へ `arc` を書かずに済ませる
-  （schema は `arc` を必須にしている。表示されないのは意図的な仕様であり、データとしての省略は
-  許されない）。
+- Passing multiple bare-path `--analysis` arguments and relying on unique matching (use explicit `ref=path`).
+- Treating an unvalidated `.tmp` as final.
+- Manually editing HTML to reconcile a renderer rejection.
+- Omitting `arc` from `interpretation.json` because it is not displayed.
+  Schema requires `arc`; hiding `arc` is intentional, omitting data is forbidden.
