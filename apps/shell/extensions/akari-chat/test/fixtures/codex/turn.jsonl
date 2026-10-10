@@ -1,0 +1,14 @@
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"reasoning","id":"think-fixed","summary":[],"content":[]},"startedAtMs":1000}}
+{"method":"item/reasoning/summaryTextDelta","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"think-fixed","delta":"確認します","summaryIndex":0}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"reasoning","id":"think-fixed","summary":["確認します"],"content":[]},"completedAtMs":1100}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"commandExecution","id":"command-fixed","command":"pwd","cwd":"/project","status":"inProgress","aggregatedOutput":null,"exitCode":null,"durationMs":null},"startedAtMs":1200}}
+{"method":"item/commandExecution/outputDelta","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"command-fixed","delta":"/project\n"}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"commandExecution","id":"command-fixed","command":"pwd","cwd":"/project","status":"completed","aggregatedOutput":"/project\n","exitCode":0,"durationMs":20},"completedAtMs":1220}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"fileChange","id":"write-fixed","changes":[{"path":"/project/edit.json","diff":"@@\n-old\n+new"}],"status":"inProgress"},"startedAtMs":1300}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"fileChange","id":"write-fixed","changes":[{"path":"/project/edit.json","diff":"@@\n-old\n+new"}],"status":"completed"},"completedAtMs":1350}}
+{"method":"item/started","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"agentMessage","id":"message-fixed","text":""},"startedAtMs":1400}}
+{"method":"item/agentMessage/delta","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"message-fixed","delta":"終わりました。"}}
+{"method":"item/completed","params":{"threadId":"thread-fixed","turnId":"turn-fixed","item":{"type":"agentMessage","id":"message-fixed","text":"終わりました。"},"completedAtMs":1450}}
+{"id":10,"method":"item/tool/requestUserInput","params":{"threadId":"thread-fixed","turnId":"turn-fixed","itemId":"ask-fixed","questions":[{"id":"choice","header":"確認","question":"続けますか？","isOther":false,"isSecret":false,"options":[{"label":"はい","description":"続ける"},{"label":"いいえ","description":"止める"}]}],"isBlocking":true,"autoResolutionMs":null}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"thread-fixed","turnId":"turn-fixed","tokenUsage":{"total":{"totalTokens":15},"last":{"totalTokens":12},"modelContextWindow":128000}}}
+{"method":"turn/completed","params":{"threadId":"thread-fixed","turn":{"id":"turn-fixed","status":"completed","error":null,"items":[]}}}
