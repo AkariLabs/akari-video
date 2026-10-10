@@ -10,6 +10,7 @@ import { canPlaceLibraryAsset, canPlaceOverlay } from './library-asset-placement
 import { isPremiumLocked, libraryItemPrice } from './library-filter';
 import { LAB_PREMIUM_SPDX, LibraryLicenseSheet, libraryLicenseSheet } from './library-license';
 import { libraryItemSource, LibrarySourceFilter } from './library-source-view';
+import { formatCurrency } from '@akari-video/i18n';
 
 export type LibraryMenuActionId =
     | 'place' | 'import' | 'agent-import' | 'ask' | 'lab' | 'place-text' | 'apply'
@@ -36,7 +37,7 @@ export function libraryMenuTargetKey(target: LibraryMenuTarget): string {
 }
 
 export function formatYen(price: number | undefined): string {
-    return `¥${(price ?? 0).toLocaleString('ja-JP')}`;
+    return formatCurrency((price ?? 0) / 150, { yenOnly: true, yenAmount: price ?? 0, precision: 2 });
 }
 
 /** 未購入のプレミアムでも「置く」操作の見た目は同じ（押すと促しのシート）。置ける種類かどうかだけを見る。 */

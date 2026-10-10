@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import URI from '@theia/core/lib/common/uri';
@@ -2329,9 +2330,9 @@ export class AkariHomeWidget extends ReactWidget {
                 </span></div>
                     <p>{this.currentStats.duration && <span>尺 <b>{this.currentStats.duration}</b></span>}
                         <span>素材 <b>{presence.assetFiles}</b></span>
-                        <span>最後に触った <b>{current?.updatedAt ? new Date(current.updatedAt).toLocaleString('ja-JP') : '不明'}</b></span></p>
+                        <span>最後に触った <b>{current?.updatedAt ? formatDate(new Date(current.updatedAt)) : '不明'}</b></span></p>
                     {this.historyOpen && <div className='akari-os-popover akari-os-history'><h4>履歴 · {name}</h4>
-                        <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? new Date(entry.time).toLocaleString('ja-JP') : '日時なし'}</time><span>{entry.label}</span></li>)}</ul>
+                        <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? formatDate(new Date(entry.time)) : '日時なし'}</time><span>{entry.label}</span></li>)}</ul>
                         {!this.historyEntries.length && <p>まだ履歴がありません。</p>}
                         {this.latestReport && <button type='button' data-akari-project-report='true' onClick={() => void open(this.openers, this.latestReport!)}>分析レポートを見る</button>}</div>}
                     {this.menuOpen && <div className='akari-os-popover'>
@@ -3062,7 +3063,7 @@ export class AkariHomeWidget extends ReactWidget {
             {prompt && <HomeScrim kind='open-project' onClose={() => { this.openPrompt = undefined; this.update(); }}>
                 <h3>「{prompt.name}」を開きますか？</h3>
                 <p>{current ? `いま開いている「${current}」は保存されています。`
-                    : `${prompt.badge} · 最後に触ったのは ${prompt.updatedAt ? new Date(prompt.updatedAt).toLocaleString('ja-JP') : '不明'}`}</p>
+                    : `${prompt.badge} · 最後に触ったのは ${prompt.updatedAt ? formatDate(new Date(prompt.updatedAt)) : '不明'}`}</p>
                 {prompt.busy && <div className='akari-os-warn'>右のパートナーが作業中です。この画面で開くと、この作業は止まります。</div>}
                 {openChoices(prompt.busy).map(choice => <button key={choice} type='button' className='akari-os-choice' data-akari-open-choice={choice}
                     onClick={() => void this.chooseOpen(choice)}><b>{choice === 'after-work' ? '作業が終わってから開く'

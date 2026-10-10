@@ -17,8 +17,12 @@ import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboar
 import { AkariOnboardingServiceImpl } from './onboarding-service';
 import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
 import { AkariAiModelsServiceImpl } from './ai-models-service';
+import { LocalizationContribution } from '@theia/core/lib/node/i18n/localization-contribution';
+import { AkariLocalizationContribution } from './akari-localization-contribution';
 
 export default new ContainerModule(bind => {
+    bind(AkariLocalizationContribution).toSelf().inSingletonScope();
+    bind(LocalizationContribution).toService(AkariLocalizationContribution);
     bind(AkariOnboardingServiceImpl).toSelf().inSingletonScope();
     bind(AkariOnboardingService).toService(AkariOnboardingServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>

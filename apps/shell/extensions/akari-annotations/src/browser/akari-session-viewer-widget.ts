@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
@@ -119,7 +120,7 @@ export class AkariSessionViewerWidget extends BaseWidget {
         const header = document.createElement('h3');
         header.setAttribute('data-viewer-header', '');
         const date = startedAt && Number.isFinite(Date.parse(startedAt))
-            ? new Date(startedAt).toLocaleString('ja-JP') : '記録情報なし';
+            ? formatDate(new Date(startedAt)) : '記録情報なし';
         header.textContent = `${bundle.sessionId} ・ 開始日時: ${date} ・ 録音長 ${this.clock(bundle.audioDurationSec)}`;
         this.node.append(header, await this.renderTransport(bundle), this.renderTranscript(bundle), this.renderDiff(diff));
         const warnings = document.createElement('section');

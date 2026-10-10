@@ -1,3 +1,4 @@
+import { formatDate } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
@@ -1777,7 +1778,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected formatSessionDate(value: string): string {
         const date = new Date(value);
         return Number.isFinite(date.getTime())
-            ? date.toLocaleString('ja-JP', {
+            ? formatDate(date, {
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',

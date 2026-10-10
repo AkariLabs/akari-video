@@ -1,3 +1,4 @@
+import { t, formatCurrency } from '@akari-video/i18n';
 import type { NarrationEngine, NarrationVoice, VoiceProfileSummary, VoiceEngine } from './akari-annotations-protocol';
 import { GEMINI_WATERMARK_NOTICE } from './voice-clone-model';
 
@@ -156,8 +157,8 @@ export function narrationEstimate(engine: NarrationEngine, reading: string): {
     const usd = engine.place !== 'cloud' ? 0 : value == null ? null : unit === 'usd_per_second'
         ? chars / 5 * value : unit === 'usd_per_request' ? value : chars / 1000 * value;
     return { chars, usd, yen: usd === null ? null : Math.round(usd * 150), provisional: engine.price?.verified === false,
-        label: engine.place !== 'cloud' ? '費用 ¥0' : usd === null ? '見積不可（従量）' :
-            `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
+        label: engine.place !== 'cloud' ? t('common.currency.price.narrationFree') : usd === null ? '見積不可（従量）' :
+            `見積 ${formatCurrency(usd)}· 承認 1 回` };
 }
 
 export interface ReadAloudRow { id: string; text: string; start: number; end: number;

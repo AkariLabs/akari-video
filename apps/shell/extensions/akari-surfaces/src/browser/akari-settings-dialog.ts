@@ -14,6 +14,8 @@ import { PluginServer } from '@theia/plugin-ext/lib/common/plugin-protocol';
 import { OS } from '@theia/core/lib/common/os';
 import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/common/export-encoder-choices';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { nls } from '@theia/core/lib/common/nls';
+import { t, normalizeLanguage, formatDate } from '@akari-video/i18n';
 import { StopReason } from '@theia/core/lib/common/frontend-application-state';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
@@ -514,8 +516,20 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             if (!themes.some(option => option.value === theme)) { themes.push({ value: theme, label: theme }); }
             section.append(groupCard('テーマ', choiceCards({ label: 'テーマ', options: themes, value: theme, columns: 3,
                 onChange: value => { this.savePreference(AKARI_APPEARANCE_THEME_MODE, value); this.applyTheme(value); } })));
-            section.append(groupCard('言語', settingRow('表示する言語', 'ほかの言語は準備中です',
-                segmentedControl({ label: '言語', options: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English（準備中）', disabled: true }], value: 'ja', onChange: () => undefined }))));
+            const languageChoice = window.localStorage.getItem('akari.ui.language') || 'auto';
+            section.append(groupCard('言語', settingRow('表示する言語', t('settings.appearance.language.hint'),
+                segmentedControl({ label: '言語', options: [
+                    { value: 'auto', label: t('settings.appearance.language.auto') },
+                    { value: 'ja', label: t('settings.appearance.language.ja') },
+                    { value: 'en', label: t('settings.appearance.language.en') }
+                ], value: languageChoice, onChange: value => {
+                    const locale = value === 'auto' ? normalizeLanguage(navigator.language) : value;
+                    window.localStorage.setItem('akari.ui.language', value);
+                    nls.setLocale(locale);
+                    document.documentElement.lang = locale;
+                    this.windows.setSafeToShutDown();
+                    this.windows.reload();
+                } }))));
             const zoom = clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100)));
             const zoomLabel = element('span', `${zoom}%`);
             const changeZoom = (next: number): void => { const value = clampZoom(next); zoomLabel.textContent = `${value}%`; this.savePreference(AKARI_APPEARANCE_ZOOM, value); applyAkariZoom(value); };
@@ -986,7 +1000,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             state: this.aboutUpdaterState,
             lastEventKind: this.aboutLastEventKind,
             currentVersion: this.aboutCurrentVersion ?? '',
-            lastChecked: this.aboutCheckedAt ? new Date(this.aboutCheckedAt).toLocaleString('ja-JP') : 'まだ確認していません',
+            lastChecked: this.aboutCheckedAt ? formatDate(new Date(this.aboutCheckedAt)) : 'まだ確認していません',
             downloadUrl: this.aboutDownloadUrl
         });
         const button = action(view.button.label, () => {
@@ -1936,7 +1950,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     value.textContent = result.display ?? '';
                     value.setAttribute('data-state', 'ok');
                     time.textContent = 'たった今';
-                    time.title = new Date(result.checked_at).toLocaleString('ja-JP');
+                    time.title = formatDate(new Date(result.checked_at));
                     if (accountLink) { accountLink.style.display = result.account_url ? '' : 'none'; }
                 } else {
                     value.textContent = result.error ?? '残高を問い合わせられませんでした。';
@@ -2392,7 +2406,7 @@ function doctorPill(row: ConnectionRow): [string, 'ok' | 'neutral' | 'warn'] {
 }
 function doctorLabel(doctor: ConnectionDoctor): string {
     if (doctor.status === 'unconfigured') { return '未登録'; }
-    if (doctor.status === 'ok') { return `繋がった · ${doctor.last_checked ? new Date(doctor.last_checked).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''}`; }
+    if (doctor.status === 'ok') { return `繋がった · ${doctor.last_checked ? formatDate(new Date(doctor.last_checked), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }) : ''}`; }
     if (!doctor.last_checked) { return '登録済み · 未確認'; }
     return `繋がらない（${doctor.detail}）`;
 }
