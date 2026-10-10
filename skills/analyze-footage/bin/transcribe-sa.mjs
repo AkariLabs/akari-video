@@ -36,14 +36,14 @@ function spawn(command, args) {
   }
 }
 
-function runHelper(helperBin, inputPath) {
+function runHelper(helperBin, inputPath, locale) {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "akari-speech-analyzer-output-"));
   const helperOutputPath = path.join(temporaryDirectory, "stdout.json");
   const helperFd = fs.openSync(helperOutputPath, "w");
   let helperResult = {};
   let helperError = null;
   try {
-    helperResult = spawnSync(helperBin, [inputPath], { stdio: ["ignore", helperFd, "pipe"], encoding: "utf8" });
+    helperResult = spawnSync(helperBin, [inputPath, ...(locale ? [locale] : [])], { stdio: ["ignore", helperFd, "pipe"], encoding: "utf8" });
   } catch (error) {
     helperError = error;
   } finally {
@@ -110,7 +110,7 @@ function checkAvailability() {
 }
 
 function parseArguments(argv) {
-  const result = { check: false, input: null, helperBin: defaultHelperBin, output: null };
+  const result = { check: false, input: null, helperBin: defaultHelperBin, output: null, locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--check") {
@@ -120,6 +120,11 @@ function parseArguments(argv) {
       if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
       if (argument === "--input") result.input = path.resolve(value);
       else result.helperBin = path.resolve(value);
+      index += 1;
+    } else if (argument === "--locale") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
+      result.locale = value;
       index += 1;
     } else if (argument === "--output") {
       const value = argv[index + 1];
@@ -219,7 +224,7 @@ function main() {
     return;
   }
 
-  const helperResult = runHelper(options.helperBin, options.input);
+  const helperResult = runHelper(options.helperBin, options.input, options.locale);
 
   let helperJson = null;
   try {
@@ -241,7 +246,7 @@ function main() {
   if (normalized.droppedSegments > 0 || normalized.droppedWords > 0) {
     process.stderr.write(`SpeechAnalyzer の無効時刻を除外: segments=${normalized.droppedSegments}, words=${normalized.droppedWords}\n`);
   }
-  writeJson(options.output, { backend: "speechanalyzer", available: true, segments: normalized.segments });
+  writeJson(options.output, { backend: "speechanalyzer", available: true, locale: helperJson.locale ?? options.locale ?? "ja-JP", segments: normalized.segments });
 }
 
 main();

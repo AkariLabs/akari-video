@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { readContentLanguage } from "@akari-video/content-language/node";
+import { normalizeLanguage } from "@akari-video/content-language";
 import { formatNumber, generatedAt, probeRaw, resolveTools } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
-import { countFillerHits, findFillerSpans } from "./filler-lexicon.mjs";
-import { runSilenceDetect } from "./transcribe.mjs";
+import { countFillerHits, fillerPackLanguage, findFillerSpans } from "./filler-lexicon.mjs";
+import { resolveWhisper, runSilenceDetect, transcribeMedia } from "./transcribe.mjs";
 import { UNRECOGNIZED_DEFAULTS } from "./unrecognized-spans.mjs";
 import {
   characterTiming, comparisonTarget, readEngineTranscripts, readJson, segmentCharacters, writeSidecar,
@@ -11,8 +13,9 @@ import {
 
 const BASIS_PRIORITY = ["cloud-scribe", "whisper-cpp", "speech-analyzer", "cloud-groq"];
 const overlap = (a, b) => a.start < b.end && a.end > b.start;
+const ENGLISH_RESTART = /\b(?:(?:okay|ok|sorry|wait|no)\b[\s,.;:—–-]*)?(?:let\s+me\s+(?:start\s+(?:over|again)|try\s+(?:that\s+)?again)|scratch\s+that|start\s+over)\b/giu;
 
-export function pickBasisByFillerHits(transcripts) {
+export function pickBasisByFillerHits(transcripts, language = "ja") {
   const priority = (backend) => {
     const index = BASIS_PRIORITY.indexOf(backend);
     return index < 0 ? BASIS_PRIORITY.length : index;
@@ -20,7 +23,7 @@ export function pickBasisByFillerHits(transcripts) {
   const ranked = transcripts.map((transcript, index) => ({
     transcript, index,
     // SA の words は 1 文字単位のため、トークン粒度の差を数えないよう本文を走査する。
-    hits: transcript.segments.reduce((total, segment) => total + countFillerHits(segment.text), 0),
+    hits: transcript.segments.reduce((total, segment) => total + countFillerHits(segment.text, language), 0),
   })).sort((a, b) => b.hits - a.hits
     || priority(a.transcript.backend) - priority(b.transcript.backend) || a.index - b.index);
   return {
@@ -41,29 +44,44 @@ function textCandidates(segments, options) {
   for (const segment of segments) {
     const chars = segmentCharacters(segment);
     const text = segment.text;
-    const spans = findFillerSpans(text);
+    const spans = findFillerSpans(text, options.language);
     const consecutive = (a, b) => a && b && a.filler === b.filler && /^[、,\s]*$/u.test(text.slice(a.to, b.from));
     // Leave every member of a repeated filler run to the redo extractor.
     const fillerRanges = spans.filter((span, index) => !consecutive(spans[index - 1], span) && !consecutive(span, spans[index + 1]));
     const fillers = [];
     const seen = new Set();
     const sliceChars = (from, to) => chars.slice(Array.from(text.slice(0, from)).length, Array.from(text.slice(0, to)).length);
-    for (const { from, to } of fillerRanges) {
+    for (const { from, to, confidence } of fillerRanges) {
       const timing = characterTiming(sliceChars(from, to));
       const key = `${timing.start}:${timing.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      fillers.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on", reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
+      fillers.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on" && confidence !== "low", reason: from === 0 ? "冒頭のフィラー" : "フィラー", ...(confidence ? { confidence } : {}) });
     }
     candidates.push(...fillers);
     // A punctuated one-character unit such as 「で、」 is itself two characters.
-    const repeats = /(?<![^、,。！？.!?\s])([^、,。！？.!?\s]{2,6}|[^、,。！？.!?\s][、,])(?:[、,]*\1)+[、,]*/gu;
+    const repeats = options.language === "en"
+      ? /(?<![\p{L}\p{N}])([\p{L}]+(?:['’][\p{L}]+)?)(?:\s*[,，]\s*|\s+)\1(?![\p{L}\p{N}])/giu
+      : /(?<![^、,。！？.!?\s])([^、,。！？.!?\s]{2,6}|[^、,。！？.!?\s][、,])(?:[、,]*\1)+[、,]*/gu;
     for (const match of text.matchAll(repeats)) {
       const unit = match[1];
-      const last = match[0].lastIndexOf(unit);
+      const last = options.language === "en" ? match[0].toLowerCase().lastIndexOf(unit.toLowerCase()) : match[0].lastIndexOf(unit);
       const timing = characterTiming(sliceChars(match.index, match.index + last));
       if (fillers.some((filler) => overlap(filler, timing))) continue;
       candidates.push({ kind: "redo", ...timing, text: match[0], default_on: options.redo === "on", reason: "言い直し。最後の 1 回を残す" });
+    }
+    if (options.language === "en") {
+      for (const match of text.matchAll(ENGLISH_RESTART)) {
+        const before = text.slice(0, match.index);
+        const sentenceEnd = [...before.matchAll(/[.!?](?=\s|$)/gu)].at(-1);
+        let from = sentenceEnd ? sentenceEnd.index + 1 : 0;
+        while (/\s/u.test(text[from] ?? "") && from < match.index) from += 1;
+        let to = match.index + match[0].length;
+        while (/[ \t]/u.test(text[to] ?? "")) to += 1;
+        if (/[.,]/u.test(text[to] ?? "")) to += 1;
+        const timing = characterTiming(sliceChars(from, to));
+        candidates.push({ kind: "redo", ...timing, text: text.slice(from, to), default_on: options.redo === "on", reason: "Restart phrase" });
+      }
     }
   }
   return candidates;
@@ -109,11 +127,18 @@ export async function transcribeCutsMedia(argument, options = {}) {
   const silenceBreak = numeric(options.silenceBreak, 3, "--silence-break");
   const silenceKeep = numeric(options.silenceKeep, 0.15, "--silence-keep");
   const target = comparisonTarget(argument, options);
-  const transcripts = await readEngineTranscripts(target);
+  const resolvedLanguage = await readContentLanguage(target.projectRoot);
+  let transcripts = await readEngineTranscripts(target);
+  const language = fillerPackLanguage(resolvedLanguage.source === "intake" ? resolvedLanguage.language
+    : normalizeLanguage(transcripts[0]?.transcript_language) ?? "ja");
+  if (language === "en" && filler === "on" && resolveWhisper({ ...options, lang: "en" })) {
+    await transcribeMedia(argument, { ...options, backend: "whisper-cpp", lang: "en", whisperPrompt: true });
+    transcripts = await readEngineTranscripts(target);
+  }
   const requested = options.basis?.replace(/:/g, "-");
   const { basis, reason: basisReason } = requested
     ? { basis: transcripts.find((transcript) => transcript.backend === requested), reason: `explicit (--basis ${options.basis})` }
-    : pickBasisByFillerHits(transcripts);
+    : pickBasisByFillerHits(transcripts, language);
   if (!basis) throw new Error(`根拠エンジンの文字起こしがありません: ${requested}`);
   const { ffmpeg, ffprobe } = resolveTools(options);
   let detected;
@@ -126,7 +151,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
   } catch (error) {
     throw Object.assign(new Error(`素材を読めません: ${error.message}`), { exitCode: 2 });
   }
-  const candidates = textCandidates(basis.segments, { filler, redo });
+  const candidates = textCandidates(basis.segments, { filler, redo, language });
   for (const silence of Array.isArray(detected) ? detected : detected?.silences ?? []) {
     const duration = formatNumber(silence.end - silence.start);
     if (!Number.isFinite(duration) || duration < silenceMin || duration <= silenceKeep) continue;

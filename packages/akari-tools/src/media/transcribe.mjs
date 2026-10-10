@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readContentLanguage } from "@akari-video/content-language/node";
+import { normalizeLanguage } from "@akari-video/content-language";
+import { isMainModule } from "../common/main-module.mjs";
 
 import {
   formatNumber,
@@ -13,7 +16,7 @@ import {
   runChecked,
   sha256File,
 } from "./common.mjs";
-import { recordEngineTranscript, recordObservation } from "./record.mjs";
+import { analysisPathForTarget, recordEngineTranscript, recordObservation } from "./record.mjs";
 import {
   classifyWhisperMarker,
   detectUnrecognizedSpans,
@@ -38,6 +41,21 @@ import {
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
 const speechAnalyzerRequirements = "SpeechAnalyzer は macOS 26 以上 + Command Line Tools が必要です";
+const SPEECH_LOCALES = Object.freeze({ en: "en-US", ja: "ja-JP", de: "de-DE", es: "es-ES", fr: "fr-FR", it: "it-IT", pt: "pt-BR", ko: "ko-KR", yue: "yue-CN", zh: "zh-CN" });
+export const speechLocaleForLanguage = (lang) => SPEECH_LOCALES[normalizeLanguage(lang)] ?? null;
+export const WHISPER_FILLER_PROMPT = "Um, uh, erm, uhm, hmm, like, you know, I mean, sort of, kind of.";
+
+export async function resolveTranscribeLanguage(projectRoot, explicitLang) {
+  if (explicitLang !== undefined && explicitLang !== "auto") return normalizeLanguage(explicitLang) ?? explicitLang;
+  if (!projectRoot) return "auto";
+  const resolved = await readContentLanguage(projectRoot);
+  return resolved.source === "intake" ? resolved.language : "auto";
+}
+
+function transcriptLanguage(lang, backend) {
+  if (backend === "speech-analyzer") return speechLocaleForLanguage(lang) ?? (lang === "auto" ? "ja-JP" : lang);
+  return lang === "auto" ? "und" : normalizeLanguage(lang) ?? lang;
+}
 
 function analyzeFootageScriptCandidates(name, options) {
   const root = path.resolve(options.repoRoot ?? repoRoot);
@@ -65,7 +83,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
   const range = normalizeRange(options.in, options.out, duration);
-  const lang = options.lang ?? "auto";
+  const lang = await resolveTranscribeLanguage(target.projectRoot, options.lang);
   const sha256 = await sha256File(target.inputPath);
   const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
   const silenceDetection = await detectTranscribeSilences(asrResult.segments, target.inputPath, range, ffmpeg, options);
@@ -83,13 +101,13 @@ export async function transcribeMedia(targetArgument, options = {}) {
 
 // ASR 層は normalizeSegments 直後の結果を保存し、markers を含む根拠を保持する。
 async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options }) {
-  let backendInfo = await selectBackend(options.backend, target, options);
+  let backendInfo = await selectBackend(options.backend, target, { ...options, lang });
   let backend = backendInfo.name;
   const cacheDirectory = target.projectRoot
     ? path.join(target.projectRoot, ".akari", "cache", "transcribe")
     : path.join(os.tmpdir(), "akari-transcribe-cache");
   await mkdir(cacheDirectory, { recursive: true });
-  let { key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory });
+  let { key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt: options.whisperPrompt });
 
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
@@ -103,12 +121,15 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, optio
         ? await options.backendRunner({ backend, inputPath: target.inputPath, range, lang, target })
         : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
     } catch (error) {
-      const fallback = options.backend === undefined && backend === "speech-analyzer" ? resolveWhisper(options) : null;
+      const unsupportedLocale = /Unsupported SpeechTranscriber locale/.test(error instanceof Error ? error.message : String(error));
+      const fallback = backend === "speech-analyzer" && (options.backend === undefined || unsupportedLocale)
+        ? resolveWhisper({ ...options, lang }) : null;
+      if (unsupportedLocale && !fallback) throw new Error(`SpeechAnalyzer does not support ${lang}, and no whisper.cpp model is available.`, { cause: error });
       if (!fallback) throw error;
       writeBackendLog(options, `SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}`);
       backendInfo = { name: "whisper-cpp", ...fallback };
       backend = backendInfo.name;
-      ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
+      ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt: options.whisperPrompt }));
       if (existsSync(cachePath)) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
         return { ...cached, cache: { hit: true, key } };
@@ -173,6 +194,11 @@ async function selectBackend(requested, target, options) {
     throw new Error(`未対応の backend です: ${requested}`);
   }
   if (requested === "speech-analyzer") {
+    if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) {
+      const whisper = resolveWhisper(options);
+      if (!whisper) throw new Error(`SpeechAnalyzer does not support ${options.lang}, and no whisper.cpp model is available.`);
+      return { name: "whisper-cpp", ...whisper };
+    }
     const availability = speechAnalyzerAvailability(options);
     if (!availability.available) throw new Error(availability.message);
     return { name: requested };
@@ -183,12 +209,13 @@ async function selectBackend(requested, target, options) {
     return { name: requested, ...whisper };
   }
   const availability = speechAnalyzerAvailability(options);
-  if (availability.available) return { name: "speech-analyzer" };
+  if (availability.available && (options.lang === "auto" || !normalizeLanguage(options.lang) || speechLocaleForLanguage(options.lang))) return { name: "speech-analyzer" };
   const whisper = resolveWhisper(options);
   if (whisper) {
     writeBackendLog(options, `SpeechAnalyzer を利用できないため whisper.cpp へフォールバックします: ${availability.reason}`);
     return { name: "whisper-cpp", ...whisper };
   }
+  if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) throw new Error(`SpeechAnalyzer does not support ${options.lang}, and no whisper.cpp model is available.`);
   throw new Error("利用できるローカル文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）");
 }
 
@@ -237,7 +264,7 @@ export function resolveWhisper(options = {}) {
   const bin = binCandidates.find(executableFile);
   if (!bin) return null;
   const modelCandidates = whisperModelCandidates({ env: process.env, homeDir: os.homedir(), repoRoot, bin });
-  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate));
+  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate, options.lang));
   return model ? { bin, model } : null;
 }
 
@@ -282,7 +309,7 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
       "-ss", String(range.in), "-i", target.inputPath,
       "-t", String(range.out - range.in), "-map", "0:a:0", ...codecArgs, inputPath,
     ], options);
-    if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, options);
+    if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, lang, options);
     if (backendInfo.name === "whisper-cpp") return runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
     if (options.cloudRunner) return await options.cloudRunner({ inputPath, projectRoot: target.projectRoot, connectionId: backendInfo.connectionId, range });
     return runCloud(inputPath, target.projectRoot, backendInfo.connectionId, range, options);
@@ -291,14 +318,14 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
   }
 }
 
-async function runSpeechAnalyzer(wavPath, temporaryDirectory, options) {
+async function runSpeechAnalyzer(wavPath, temporaryDirectory, lang, options) {
   const outputPath = path.join(temporaryDirectory, "speech-analyzer-output.json");
   const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
   if (!speechAnalyzerScript) throw new Error(missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options));
   const helperDirectory = path.join(os.tmpdir(), "akari-speech-analyzer");
   const moduleCache = path.join(helperDirectory, "clang-module-cache");
   await mkdir(helperDirectory, { recursive: true });
-  const result = runChecked(process.execPath, [speechAnalyzerScript, "--input", wavPath, "--helper-bin", path.join(helperDirectory, "speechanalyzer-helper"), "--output", outputPath], {
+  const result = runChecked(process.execPath, [speechAnalyzerScript, "--input", wavPath, "--helper-bin", path.join(helperDirectory, "speechanalyzer-helper"), "--output", outputPath, "--locale", speechLocaleForLanguage(lang) ?? "ja-JP"], {
     ...options,
     spawnOptions: {
       ...options.spawnOptions,
@@ -307,7 +334,7 @@ async function runSpeechAnalyzer(wavPath, temporaryDirectory, options) {
   });
   const value = JSON.parse(await readFile(outputPath, "utf8"));
   if (!value.available) throw new Error(value.reason || "SpeechAnalyzer が失敗しました");
-  return value.segments ?? [];
+  return { segments: value.segments ?? [], locale: value.locale ?? speechLocaleForLanguage(lang) ?? "ja-JP" };
 }
 
 export function whisperDtwPreset(modelPath) {
@@ -322,7 +349,7 @@ export function whisperDtwPreset(modelPath) {
 
 function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   const prefix = path.join(temporaryDirectory, "whisper.raw");
-  const baseArgs = ["-m", backendInfo.model, "-f", wavPath, "-l", lang, "-oj", "-ojf", "-of", prefix];
+  const baseArgs = whisperArguments(backendInfo.model, wavPath, lang, prefix, options);
   const preset = whisperDtwPreset(backendInfo.model);
   let dtw = false;
   if (preset) {
@@ -340,6 +367,11 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
   if (!jsonPath) throw new Error("whisper.cpp の JSON 出力が見つかりません");
   return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8"))), dtw };
+}
+
+export function whisperArguments(model, input, lang, output, options = {}) {
+  return ["-m", model, "-f", input, "-l", lang, "-oj", "-ojf", "-of", output,
+    ...(lang === "en" && options.whisperPrompt === true ? ["--prompt", WHISPER_FILLER_PROMPT] : [])];
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
@@ -550,15 +582,23 @@ function numericOption(value, fallback, label, positive = true) {
 }
 
 async function recordTranscribe(target, result, range, backend, lang, noRecord, rawResult, started) {
-  if (!noRecord) await recordEngineTranscript(target, {
-    backend,
-    generated_at: result.generated_at,
-    source: { path: target.displayPath, range: result.range },
-    elapsed_sec: formatNumber((performance.now() - started) / 1000),
-    cost_usd: backend.startsWith("cloud:") ? rawResult.cost_usd ?? null : null,
-    segments: rawResult.segments,
-    timing_snap: rawResult.timing_snap,
-  });
+  const language = transcriptLanguage(lang, backend);
+  if (!noRecord) {
+    const sidecar = await recordEngineTranscript(target, {
+      backend,
+      generated_at: result.generated_at,
+      source: { path: target.displayPath, range: result.range },
+      elapsed_sec: formatNumber((performance.now() - started) / 1000),
+      cost_usd: backend.startsWith("cloud:") ? rawResult.cost_usd ?? null : null,
+      segments: rawResult.segments,
+      timing_snap: rawResult.timing_snap,
+    });
+    if (sidecar) {
+      const value = JSON.parse(await readFile(sidecar, "utf8"));
+      value.transcript_language = language;
+      await writeFile(sidecar, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    }
+  }
   await recordObservation({
     target,
     kind: "transcribe",
@@ -568,13 +608,43 @@ async function recordTranscribe(target, result, range, backend, lang, noRecord, 
     outputs: [],
     noRecord,
   });
+  const analysisPath = !noRecord && analysisPathForTarget(target);
+  if (analysisPath) {
+    const analysis = JSON.parse(await readFile(analysisPath, "utf8"));
+    analysis.transcript_language = language;
+    await writeFile(analysisPath, `${JSON.stringify(analysis, null, 2)}\n`, "utf8");
+  }
 }
 
 function safeCacheName(value) {
   return value.replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
-function cacheIdentity({ sha256, range, backend, lang, cacheDirectory }) {
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}`;
+function cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt }) {
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === "whisper-cpp" && lang === "en" && whisperPrompt === true ? "-filler-prompt" : ""}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
+}
+
+// Direct CLI for the optional whisper prompt; the shared media CLI owns its own argument table.
+if (isMainModule(import.meta.url)) {
+  const [target, ...argv] = process.argv.slice(2);
+  const options = {};
+  try {
+    for (let index = 0; index < argv.length; index += 2) {
+      const flag = argv[index], value = argv[index + 1];
+      if (!value || !["--lang", "--backend", "--whisper-prompt", "--in", "--out"].includes(flag)) throw new Error(`Unknown or incomplete option: ${flag}`);
+      if (flag === "--lang") options.lang = value;
+      if (flag === "--backend") options.backend = value;
+      if (flag === "--in" || flag === "--out") options[flag.slice(2)] = Number(value);
+      if (flag === "--whisper-prompt") {
+        if (!["on", "off"].includes(value)) throw new Error("--whisper-prompt must be on or off");
+        options.whisperPrompt = value === "on";
+      }
+    }
+    const result = await transcribeMedia(target, options);
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  }
 }

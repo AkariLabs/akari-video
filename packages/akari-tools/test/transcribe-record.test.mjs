@@ -22,7 +22,7 @@ test("transcribe の成功時は生 sidecar を保存、cache hit でも旧版�
   const file = path.join(f.directory, "transcripts/speech-analyzer.json");
   const before = await readFile(file, "utf8");
   const raw = JSON.parse(before);
-  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
+  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap", "transcript_language"]);
   assert.deepEqual(raw.source, { path: f.target, range: { in: 0, out: 30 } });
   assert.equal(raw.version, 1);
   assert.equal(raw.cost_usd, null);
