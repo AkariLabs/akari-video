@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
 import { execFile } from 'child_process';
 import { constants as fsConstants, promises as fs } from 'fs';
@@ -278,7 +279,7 @@ async function attachWhisperModelState(
         ...whisper,
         available: whisper.available && modelAvailable,
         model: { available: modelAvailable, path: modelPath },
-        needs: [...(!whisper.available ? ['本体が無い'] : []), ...(!modelAvailable ? ['モデルが無い'] : [])]
+        needs: [...(!whisper.available ? [t('surfaces.tools.attachWhisperModelStateNoMainBody.label')] : []), ...(!modelAvailable ? [t('surfaces.tools.attachWhisperModelStateNoModel.label')] : [])]
     };
 }
 
@@ -344,12 +345,12 @@ async function detectSpeechAnalyzer(platform: NodeJS.Platform, repoRoot: string,
             if (!result.ok) { break; }
             const value = JSON.parse(result.stdout);
             if (value.available === true) { return { ...base, available: true }; }
-            const reason = String(value.reason ?? 'SpeechAnalyzer の利用条件を確認してください');
+            const reason = String(value.reason ?? t('surfaces.tools.detectSpeechAnalyzerCheckSpeechanalyzerTerms.label'));
             if (/macOS.*26 未満/.test(reason)) { return { ...base, unsupported: true, needs: [reason] }; }
-            return { ...base, needs: [/swiftc/.test(reason) ? 'Command Line Tools が無い' : reason] };
+            return { ...base, needs: [/swiftc/.test(reason) ? t('surfaces.tools.detectSpeechAnalyzerMissingCommandLineTools.label') : reason] };
         } catch { break; }
     }
-    return { ...base, needs: ['SpeechAnalyzer の利用可否を確認できませんでした'] };
+    return { ...base, needs: [t('surfaces.tools.detectSpeechAnalyzerUnableCheckAvailabilitySpeechanalyzer.label')] };
 }
 
 async function defaultPathExists(path: string): Promise<boolean> {

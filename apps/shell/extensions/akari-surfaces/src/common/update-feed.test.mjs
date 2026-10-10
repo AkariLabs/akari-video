@@ -1,23 +1,16 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 
 // このファイルはあえて `src/common/` に同居させている（`test/` は本タスクの
 // 編集境界外 — task.md 所有パスは `apps/shell/extensions/akari-surfaces/src/` のみ）。
 // node --test は既定でリポジトリ全体を再帰探索し、場所によらず `*.test.mjs` を
 // 拾うため、`npm run build:ext`（tsc -b）でこの隣の update-feed.ts をコンパイルした
 // 後に `node --test src/common/update-feed.test.mjs` として直接実行できる。
-import {
-    compareVersions,
-    evaluateUpdateStatus,
-    formatHomeBannerText,
-    isValidFeedShape,
-    parseUpdateCache,
-    resolveUpdateFeedUrl,
-    resolveUpdateDownloadUrl,
-    resolveUpdateSizeLabel,
-    withDismissedVersion,
-    withFetchedFeed
-} from '../../lib/common/update-feed.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { compareVersions, evaluateUpdateStatus, formatHomeBannerText, isValidFeedShape, parseUpdateCache, resolveUpdateFeedUrl, resolveUpdateDownloadUrl, resolveUpdateSizeLabel, withDismissedVersion, withFetchedFeed } = await import("../../lib/common/update-feed.js");
+
 
 const VALID_FEED = {
     schema: 1,

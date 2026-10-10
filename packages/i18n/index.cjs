@@ -2,6 +2,16 @@
 
 const ja = { ...require('./locales/ja/common.json'), ...require('./locales/ja/settings.json') };
 const en = { ...require('./locales/en/common.json'), ...require('./locales/en/settings.json') };
+Object.assign(ja, require('./locales/ja/surfaces.json'));
+Object.assign(en, require('./locales/en/surfaces.json'));
+Object.assign(ja, require('./locales/ja/theme.json'));
+Object.assign(en, require('./locales/en/theme.json'));
+Object.assign(ja, require('./locales/ja/tabs.json'));
+Object.assign(en, require('./locales/en/tabs.json'));
+Object.assign(ja, require('./locales/ja/world.json'));
+Object.assign(en, require('./locales/en/world.json'));
+Object.assign(ja, require('./locales/ja/companion.json'));
+Object.assign(en, require('./locales/en/companion.json'));
 const LANGUAGE_KEY = 'akari.ui.language';
 const LOCALE_KEY = 'localeId';
 let languageOverride;

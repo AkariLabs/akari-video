@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { OnboardingState } from './model';
 
 export const HELP_DELAY = { hint: 4000, next: 1500 } as const;
@@ -5,26 +6,26 @@ export const HELP_DELAY = { hint: 4000, next: 1500 } as const;
 export interface GuideCopy { title: string; body: string }
 
 export const MATERIAL_PREVIEW_SELECT_COPY: GuideCopy = {
-    title: '素材を押すと、中身が見られます',
-    body: '<p>入った動画を押してみてください。</p>'
+    title: t('surfaces.onboarding.pressAssetSeeContents.title'),
+    body: t('surfaces.onboarding.tryClickingIncludedVideo.description')
 };
 
 export const CAPTION_GUIDE_COPY: readonly GuideCopy[] = [
-    { title: '字幕を押すと、その場で直せます', body: '<p>映像の下に出る字幕を選びましょう。</p>' },
-    { title: '見た目を変えてみましょう', body: '<p>上のメニューで色などを自由に試せます。できたら次へ。</p>' },
-    { title: '位置も動かせます', body: '<p>字幕をドラッグすると上下に動きます。文字を直すときはダブルクリック。</p>' }
+    { title: t('surfaces.onboarding.clickCaptionFixSpot.title'), body: t('surfaces.onboarding.selectCaptionsAppearBelowVideo.description') },
+    { title: t('surfaces.onboarding.letsChangeLook.title'), body: t('surfaces.onboarding.freelyTryOutColorsEtcMenuAbove.description') },
+    { title: t('surfaces.onboarding.alsoMovePosition.title'), body: t('surfaces.onboarding.dragCaptionMoveUpDownDoubleClick.description') }
 ];
 
 export const DAIHON_GUIDE_COPY: readonly GuideCopy[] = [
-    { title: '字幕の全文は「台本」で見られます', body: '<p>右端の紙のアイコンを押すと、字幕をまとめて読めます。</p>' },
-    { title: 'この行を押してみてください', body: '<p>右の台本の最初の行を押すと、その場面へ飛びます。</p>' },
-    { title: 'プレビューがこの場面へ飛びました',
-        body: '<p>ダブルクリックで文字も直せます。AI パートナーへは右端のいちばん上のアイコンから戻れます。</p>' }
+    { title: t('surfaces.onboarding.fullTextCaptionsSeenScript.title'), body: t('surfaces.onboarding.clickPaperIconFarRightReadAll.description') },
+    { title: t('surfaces.onboarding.selectRow.title'), body: t('surfaces.onboarding.pressFirstLineScriptRightJumpScene.description') },
+    { title: t('surfaces.onboarding.previewJumpedScene.title'),
+        body: t('surfaces.onboarding.alsoEditTextDoubleClickingReturnAi.description') }
 ];
 
 /** A hint is useful only when it adds a clue absent from the coach copy. */
 export function guideWaitingHint(state: OnboardingState): string | undefined {
-    if (state.step === 'matpreview' && state.sub === 0) return '左のサンプル動画カードを押してください。';
+    if (state.step === 'matpreview' && state.sub === 0) return t('surfaces.onboarding.guideWaitingHintSelectSampleVideoCardLeft.message');
     return undefined;
 }
 

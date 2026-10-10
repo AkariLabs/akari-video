@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
@@ -32,7 +33,7 @@ export class AkariAiModelsServiceImpl implements AkariAiModelsService {
                 directory = parent;
             }
         }
-        throw new Error(`AI モデルのデータが見つかりません: ${relativeTarget}`);
+        throw new Error(t('surfaces.aiModels.resolveRepoFileAiModelDataFound.label', { relativeTarget: relativeTarget }));
     }
 
     async getAiModelCatalog(): Promise<AiModelCatalog> {
@@ -51,7 +52,7 @@ export class AkariAiModelsServiceImpl implements AkariAiModelsService {
                 fs.readFile(makersPath, 'utf8').then(JSON.parse), fs.readFile(setsPath, 'utf8').then(JSON.parse)
             ]);
             if (sets.version !== 1 || !sets.sets) {
-                throw new Error('AI モデルのセットが不正です。');
+                throw new Error(t('surfaces.aiModels.aiModelCatalogAiModelSetInvalid.message'));
             }
             return { models: await module.loadAiModels({ repoRoot: path.resolve(path.dirname(modulePath), '../../..') }), makers, sets: sets.sets };
         })();
@@ -164,7 +165,7 @@ export class AkariAiModelsServiceImpl implements AkariAiModelsService {
         return this.enqueue(async () => {
             const model = (await this.getAiModelCatalog()).models.find(row => row.id === id && row.kind === kind && row.callable);
             if (!model) {
-                throw new Error('このモデルはまだ選べません。');
+                throw new Error(t('surfaces.aiModels.toggleFavoriteModelCannotSelectedYet.message'));
             }
             const app = await this.read(this.appPath());
             const favorites = new Set(app.favorites[kind] || (await this.getAiModelPreferences()).favorites[kind] || []);
@@ -185,10 +186,10 @@ export class AkariAiModelsServiceImpl implements AkariAiModelsService {
     } = {}): Promise<AiModelPreferences> {
         return this.enqueue(async () => {
             if (options.projectRootUri && !(await this.projectAvailable(options.projectRootUri))) {
-                throw new Error('AKARI の動画プロジェクトを開いてください。');
+                throw new Error(t('surfaces.aiModels.defaultOpenAkarisVideoProject.message'));
             }
             if (id && !(await this.getAiModelCatalog()).models.some(row => row.id === id && row.kind === kind && row.callable)) {
-                throw new Error('このモデルはまだ選べません。');
+                throw new Error(t('surfaces.aiModels.defaultModelCannotSelectedYet.message'));
             }
             const projectPath = this.projectPath(options.projectRootUri);
             const file = projectPath || this.appPath();
@@ -209,11 +210,11 @@ export class AkariAiModelsServiceImpl implements AkariAiModelsService {
     } = {}): Promise<AiModelPreferences> {
         return this.enqueue(async () => {
             if (options.projectRootUri && !(await this.projectAvailable(options.projectRootUri))) {
-                throw new Error('AKARI の動画プロジェクトを開いてください。');
+                throw new Error(t('surfaces.aiModels.applySetOpenAkarisVideoProject.message'));
             }
             const catalog = await this.getAiModelCatalog();
             if (!catalog.sets[set]) {
-                throw new Error('おすすめのセットが見つかりません。');
+                throw new Error(t('surfaces.aiModels.applySetNoRecommendedSetsFound.message'));
             }
             const selected = applyAiModelSet(catalog.sets[set], catalog.models);
             const projectPath = this.projectPath(options.projectRootUri);

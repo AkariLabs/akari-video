@@ -1,7 +1,11 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from '../lib/browser/title-bar/title-bar-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } = await import("../lib/browser/title-bar/title-bar-model.js");
+
 
 test('中央は未オープン、チャンネル内、単体で並びが変わる', () => {
     assert.deepEqual(titleBarCenter({ scope: 'channel', channel: '旅' }), ['旅']);

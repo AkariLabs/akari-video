@@ -1,9 +1,13 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile, symlink, utimes, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AkariSettingsMaintenanceServiceImpl, diagnosticEntries, diagnosticFileNameAt, zipEntries, sanitizeDiagnosticText, sanitizeDiagnosticJson } from '../../lib/node/settings-maintenance-service.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { AkariSettingsMaintenanceServiceImpl, diagnosticEntries, diagnosticFileNameAt, zipEntries, sanitizeDiagnosticText, sanitizeDiagnosticJson } = await import("../../lib/node/settings-maintenance-service.js");
+
 
 test('診断 zip の固定エントリには API キーと個人パスを含めない', () => {
     const entries = diagnosticEntries({ version: '1.2.3', os: 'Darwin' });

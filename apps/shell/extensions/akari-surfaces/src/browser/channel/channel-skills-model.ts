@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { parseFrontmatter } from 'akari-shell-strip/lib/common/skill-catalog';
 
 export interface ChannelSkillDraft {
@@ -11,7 +12,7 @@ export interface ChannelSkillDraft {
 
 export function validateSkillSlug(slug: string): string | undefined {
     return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
-        ? undefined : '呼び名は英小文字・数字・ハイフンで（例: write-description）';
+        ? undefined : t('surfaces.channel.skillSlug.error');
 }
 
 export function buildSkillMd(draft: ChannelSkillDraft): string {
