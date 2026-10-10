@@ -1,7 +1,6 @@
 'use strict';
 
-const ja = { ...require('./locales/ja/common.json'), ...require('./locales/ja/settings.json') };
-const en = { ...require('./locales/en/common.json'), ...require('./locales/en/settings.json') };
+const { ja, en } = require('./locales/index.cjs');
 const LANGUAGE_KEY = 'akari.ui.language';
 const LOCALE_KEY = 'localeId';
 let languageOverride;
