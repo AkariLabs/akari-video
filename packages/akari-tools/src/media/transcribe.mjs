@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readContentLanguage } from "@akari-video/content-language/node";
-import { normalizeLanguage } from "@akari-video/content-language";
+import { readContentLanguage } from "../../../content-language/src/node.mjs";
+import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { isMainModule } from "../common/main-module.mjs";
 
 import {
