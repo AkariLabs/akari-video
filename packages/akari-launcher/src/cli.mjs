@@ -27,6 +27,7 @@ import { runCaptionsCommand } from './captions-command.mjs';
 import { runCaptureCommand } from './capture-command.mjs';
 import { runMediaCommand } from './media-command.mjs';
 import { runWordBookCommand } from './word-book-command.mjs';
+import { runConnectCommand } from './connect-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 
 // run を直接呼ぶ利用者と入口で、同じサブコマンドの表を使う。
@@ -36,6 +37,7 @@ export const runSubcommands = {
   capture: runCaptureCommand,
   media: runMediaCommand,
   'word-book': runWordBookCommand,
+  connect: runConnectCommand,
 };
 
 /**
