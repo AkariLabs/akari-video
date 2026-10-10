@@ -22,7 +22,7 @@ Some transcription backends normalize away fillers. Prefer a backend transcript 
 
 This section follows the [M5 contract addendum (2026-07-14)](../../docs/contract-2026-07-13-m5-analysis-report.md). A hook supports a short opening or excerpt; a highlight captures an important statement useful to broader editorial decisions. The same interval may be both when it serves both purposes.
 
-- Write `quote` **faithfully to the actual transcript**. Do not summarize, paraphrase, or invent words. You may add punctuation for readability.
+- Write `quote` **faithfully to the actual transcript**. Do not summarize, paraphrase, or invent words. Formatting is limited to adding punctuation.
 - In `reason`, explain why the statement matters and name the evidence category, such as "states a release date (decision)" or "quantifies an implementation result (number/result)."
 - `importance` is optional and takes an integer from 1 to 5: 3 means a reason to keep the statement in the edit; 4 means a possible on-screen title or chapter heading; 5 means a possible centerpiece for a thumbnail or short clip. Avoid registering 1–2, which would inflate the list.
 - As an initial, unverified guideline, a roughly 60-minute source should yield about 5–15 highlights. Do not copy every statement into the list.

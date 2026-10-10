@@ -12,7 +12,7 @@ akari generate video <projectDir> --item <itemId> --dry-run --json
 
 1. `prompt` / `negative_prompt`: Describe the content and motion. The adapter incorporates camera instructions into the prompt.
 2. `first_frame`: An optional input; if omitted, use the target clip's still image.
-3. `last_frame`: Supply it with `--last-frame`. Reject it for a model that does not support it rather than sending it.
+3. `last_frame`: Supply it with `--last-frame`. Never send it to a model that does not support it; fail with a validation error.
 4. `reference_images[]`: Supply with `--reference-image`, observing the capability catalog's limit on image count.
 5. `reference_videos[]`: Motion references. v1 has no dedicated CLI flag; use `--inputs <json>` when needed.
 6. `reference_audios[]`: Supply with `--reference-audio`, extracting only the needed `range_s`.
@@ -36,7 +36,7 @@ Estimate cost from the capability catalog's price and `as_of` date. When asking 
 外部送信:
 実行後に残す provenance:
 ```
-If a model has no price, explain why an estimate is unavailable and wait for explicit confirmation. For multiple items, show each item's cost and the total before requesting a single cost approval. Add `--yes` only after approval.
+If a model has no price, show `見積不可` ("estimate unavailable") and explain why, then wait for explicit confirmation. For multiple items, show each item's cost and the total before requesting a single cost approval. Add `--yes` only after approval.
 ```sh
 akari generate video <projectDir> --item <itemId> --model <modelId> --prompt <prompt> --last-frame <path> --reference-image <path> --reference-audio <path> --camera <value> --duration <seconds> --resolution <value> --audio-out --inputs <json> --yes --json
 ```

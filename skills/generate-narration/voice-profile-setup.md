@@ -46,17 +46,17 @@ Either route is acceptable.
 
 Record the setup start time. In `~/Downloads`, choose the newest m4a, WAV, or MP3 file **modified after that time**. Voice Memos filenames may reflect the recording location rather than their contents, so select by modification time rather than guessing from the filename.
 
-### 4. Guard before upload (hard rule 2)
+### 4. Mandatory guard before upload (hard rule 2)
 
 Before uploading to fal, transcribe the selected recording locally with Whisper. Compare it with the fixed script from §1 and confirm a duration of 30–300 seconds. This guard is meant to prevent accidental upload of the wrong recording, another person's voice, or private audio; it is not a benchmark of transcription quality.
 
-- Reuse the executable and model discovery order and call convention described for whisper.cpp in [../analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md). Do not create a new discovery path.
+- Reuse the executable and model discovery order and call convention described in the “Layer 2: whisper.cpp” section of [../analyze-footage/media-and-transcript.md](../analyze-footage/media-and-transcript.md). Do not create a new discovery path.
 - If the script match is too low or duration is outside the range, **stop before upload** and ask the owner to record again.
 - Skip verification only on the owner's explicit instruction. If skipped, put a reason and date such as `"skipped by owner instruction (<日付>)"` in `meta.json` `reference.verification`. Keep verification as the default.
 
 ### 5. Clone with fal `clone-voice/1.7b`
 
-Read `FAL_KEY` through manage-connections from `~/.akari/credentials.env`; the legacy `~/.config/akari-video/credentials.env` is also readable (hard rule 5). Encode the reference audio as a data URI and pass the exact §1 script as `reference_text` to `fal-ai/qwen-3-tts/clone-voice/1.7b`. Save the returned `speaker_embedding.url` as the profile asset `embedding_source_url`. **This is paid and uploads audio.** Before sending, explain the target, method, reason, alternatives, cost, wait time, external transfer, and provenance, then obtain explicit approval under the Decision Communication Contract in [../manage-connections/SKILL.md](../manage-connections/SKILL.md). Cloning is normally a small, one-time cost per voice, but the declaration remains mandatory.
+Read `FAL_KEY` only through manage-connections from `~/.akari/credentials.env`; the legacy `~/.config/akari-video/credentials.env` is also readable (hard rule 5). Encode the reference audio as a data URI and pass the exact §1 script as `reference_text` to `fal-ai/qwen-3-tts/clone-voice/1.7b`. Save the returned `speaker_embedding.url` as the profile asset `embedding_source_url`. **This is paid and uploads audio.** Before sending, explain the target, method, reason, alternatives, cost, wait time, external transfer, and provenance, then obtain explicit approval under the Decision Communication Contract in [../manage-connections/SKILL.md](../manage-connections/SKILL.md). Cloning is normally a small, one-time cost per voice, but the declaration remains mandatory.
 
 ### 6. Save
 

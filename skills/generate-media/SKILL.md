@@ -7,16 +7,16 @@ description: Build a timeline placeholder from still images or text cards, gener
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-# Non-negotiable rules
+# FORBIDDEN-level hard rules
 
 These rules take precedence over detailed instructions.
 
-1. **Obtain cost approval before paid generation.** Present an estimate and run with `--yes` only after explicit approval. Generate one clip at a time by default. For a batch, show the total estimated cost and obtain approval for that amount.
-2. **Treat approval to start writing as separate from cost approval.** A planning decision never authorizes a paid generation request.
+1. **Obtain cost approval before paid generation.** Present an estimate and run with `--yes` only after explicit approval. Generate one clip at a time by default. For a batch, show the total estimated cost for every target and obtain one cost approval. Never automatically turn every placeholder into video.
+2. **Reserve the approval stamp for the single export; never use it for generation.** Call the paid-generation gate "cost approval."
 3. **Limit reference inputs to 20 MB per file.** Do not silently upload a larger file to external storage.
 4. **Store outputs in `assets/generated/` with adjacent state and provenance in `<file>.meta.json`.** Do not add generation-only fields to edit.json.
-5. **Use only registered connections and permitted models from [manage-connections](../manage-connections/SKILL.md).** Do not search for or use keys directly.
-6. **Reject unsupported inputs.** Send model-specific inputs only when their names appear in `extra_allowed[]` in the capability catalog.
+5. **Use only connections resolved through the [manage-connections](../manage-connections/SKILL.md) registry and models on its allowed list.** Never search for keys or call an unregistered connection directly.
+6. **Never send inputs the capability catalog does not support; fail instead.** Send model-specific inputs only when their names appear in `extra_allowed[]` in the capability catalog.
 
 ## Execution order and contents
 
@@ -25,16 +25,16 @@ These rules take precedence over detailed instructions.
 3. Read [chain.md](chain.md) for the still → video → resume sequence, failed or stale jobs, and export behavior.
 4. Read [engines.md](engines.md) only when checking model capabilities, defaults, price, or accepted inputs.
 
-Read the file for the current step; avoid reading later steps in advance.
+Read only the file for the current step; do not read later steps in advance.
 
 ## Terms
 
-- **Placeholder:** A still-image clip with a duration and timeline position. It may also be the finished output.
+- **Placeholder:** A still-image clip with a duration and timeline position. It is also a finished output.
 - **Reference video:** Input that guides motion or camera work; it is not inserted directly as the generated clip.
 - **Source video:** Input for extend, edit, motion, or frame-edit operations.
 - **Cost approval:** The gate before paid generation.
-- **Planning approval:** Permission to begin authoring, requested once at the start.
-- **Fact strip:** A one-line summary of model choice, price, duration, inputs, audio, and calibration.
+- **Export stamp:** The one-time approval used only for export.
+- **Fact strip:** A one-line summary of model choice, price, duration, inputs, audio, and calibration; it replaces subjective scores and radar charts.
 
 ## References
 

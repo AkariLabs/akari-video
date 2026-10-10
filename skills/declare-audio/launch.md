@@ -31,16 +31,16 @@ The helper scans `library-root` and lists individual tracks:
 - Ignore directories beginning with `_` or `.`, such as `_quarantine`.
 - If no tracks are found, the screen explains how to install the official library with `akari sounds` or add a track at `<ライブラリ>/<曲名>/<曲名>.mp3`.
 
-Badges mean: **Declared** indicates at least one section or pin; **Pack origin** indicates a declaration from outside this tool, such as a purchased pack. Replacing it creates a new user declaration and records the prior source in `replaced_source`.
+Badges mean: `宣言済み` ("declared") indicates at least one section or pin; `パック由来` ("from a pack") indicates a declaration from outside this tool, such as a purchased pack. Replacing it creates a new user declaration and records the prior source in `replaced_source`.
 
-## 3. Explain the essential controls
+## 3. Explain the essential controls (this is all you need to say)
 
 1. Selecting a track estimates **BPM and the first downbeat**. Treat the estimate as uncertain; it may be off by 1–2 BPM.
-2. Turn on the click-audio control and play the track. If clicks do not align with the kick, adjust BPM or the downbeat with `-10ms`, `+10ms`, "Set current position as downbeat," or "Tap tempo" at least four times.
-3. Drag across the waveform to mark a section and choose its type with the colored buttons. Mark at least one chorus as a drop when the song has a chorus.
+2. Turn on `🥁 クリック音で確認` ("confirm with click sound") and play the track. If clicks do not align with the kick, adjust BPM or the downbeat with `-10ms`, `+10ms`, `今の位置を頭拍に` ("set current position as downbeat"), or `タップでテンポ` ("tap tempo") at least four times.
+3. Drag across the waveform to mark a section and choose its type with the colored buttons. **Always mark one chorus (drop).** The UI calls that section `サビ・見せ場` ("chorus/highlight").
 4. Double-click the waveform to add an accent pin; double-click that position again to remove it.
 5. Zoom with pinch, wheel, or the `ー ＋ 全体` controls. Pan with a two-finger horizontal gesture or the minimap above.
-6. Press "Save."
+6. Press `保存` ("Save").
 
 
 ## 4. Example user guidance
@@ -57,6 +57,6 @@ Badges mean: **Declared** indicates at least one section or pin; **Pack origin**
 ## Common mistakes
 
 - Marking declarations on the person's behalf. The person decides by listening; the agent guides and verifies.
-- Calling an automatic BPM estimate confirmed before the person checks it against the click.
+- Calling an automatic BPM estimate confirmed before the person checks it against the click; always guide them to verify it with the click sound.
 - Binding the server to `0.0.0.0` or forcing a port that may conflict with another process. Keep the default `0` so an available port is assigned.
 - Reporting a declaration before it is saved and checked using [after-save.md](after-save.md).

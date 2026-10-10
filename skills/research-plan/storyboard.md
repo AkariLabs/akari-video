@@ -21,7 +21,7 @@ Use one sentence in `opening_hook` to describe the opening intended to hold view
 
 ## 3. Create storyboard shot cards
 
-Write the principal shots for each chapter in `structure.shots[]`. A shot card describes what to show and how to show it; it is a visual blueprint, separate from the practical list in [shotlist.md](shotlist.md).
+Write the principal shots for each chapter in `structure.shots[]`. A shot card describes only what to show and how to show it; it is a visual blueprint, separate from the practical list in [shotlist.md](shotlist.md).
 
 - `id`: A short shot identifier.
 - `chapter_id`: The associated `structure.chapters[].id`, or `null` if unassigned.
@@ -55,8 +55,8 @@ node packages/decision-cards/render-research-plan-report.mjs \
 ```
 - The card view groups shots by `sequence`. Each row shows a small image on the left and text on the right; opening it reveals the full text and a larger image, or a text placeholder if `image_path` is absent.
 - The structure view orders shots without `cutaway_of` as the main sequence and shows branches and return lines in a read-only SVG.
-- For older data without `sequence` or `cutaway_of`, show the cards normally and display "No structure information" in the structure view.
-- Keep shot-specific and overall annotations in the browser only. "Copy annotation" produces text for pasting back, including shot IDs and the exact annotation wording. The report writes no file itself. The agent overwrites the single `plan-comments.json` file, revises only named shots, and deletes the file after processing.
+- For older data without `sequence` or `cutaway_of`, show the cards normally and display `構造情報なし` ("no structure information") in the structure view.
+- Keep shot-specific and overall annotations in the browser only. `注釈をコピー` ("copy annotations") produces text for pasting back, including shot IDs and the exact annotation wording. The report writes no file itself. The agent overwrites the single `plan-comments.json` file, revises only named shots, and deletes the file after processing.
 
 ## 4. Wait for approval before confirming
 

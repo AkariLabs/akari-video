@@ -16,7 +16,7 @@ When [edit-plan/avatar-resolution.md](../edit-plan/avatar-resolution.md) has res
 
 | `voice.lane` | Engine arguments | Approval gate | Notes |
 |---|---|---|---|
-| `voicevox` | `--engine voicevox --speaker <ref から取り出した id>` | None: it costs zero, so hard rule 4's paid gate does not apply. | Extract the leading integer from `speaker:<id>(<名前>)` and pass it to `--speaker`. |
+| `voicevox` | `--engine voicevox --speaker <ref から取り出した id>` | None: it costs zero and is declaration only, so hard rule 4's paid gate does not apply. | Extract the leading integer from `speaker:<id>(<名前>)` and pass it to `--speaker`. |
 | `fal-clone` | `--engine fal-qwen3 --profile <ref から取り出した profile 名>` | **Required:** disclose the cost and execute only after explicit approval under hard rule 4. | Show the estimate with `--dry-run` first, then run with `--yes --apply` after approval. Hard rule 1 prohibits using another person's voice without consent. |
 | `recorded` | No TTS call | Not applicable | Put the person's supplied audio file in `audio.narration[].path` and record `provenance.provider: "human"`; do not call `akari narration generate`. |
 
@@ -31,7 +31,7 @@ Extract `ref` as follows:
 Transfer a non-null `voice.credit` to the narration's `provenance.credit`.
 
 - **`voicevox` lane:** On each call, `akari narration generate` queries `/speakers` and automatically adds `credit: "VOICEVOX:<話者名>"` to `provenance`; see [engines.md](engines.md#voicevox-adapter). It should match the avatar's registered `credit` for the same speaker ID. Verify the match and that the value is non-empty; no manual rewrite is needed.
-- **`fal-clone` lane:** The fal route does not automatically add `credit` to `provenance`, because an own-voice clone usually needs no character credit. In the exceptional case where the avatar's `voice.credit` is non-null, add it manually to `entry.provenance.credit` before applying the entry to `edit.json`, then rerun `validate-edit.mjs`.
+- **`fal-clone` lane:** The fal route does not automatically add `credit` to `provenance`, because an own-voice clone usually needs no character credit. In the exceptional case where the avatar's `voice.credit` is non-null, such as an exceptional third-party clone, add it manually to `entry.provenance.credit` before applying the entry to `edit.json`, then rerun `validate-edit.mjs`.
 
 ## Check the output
 

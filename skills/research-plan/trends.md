@@ -2,9 +2,9 @@
 
 Read this file only at step 3 of [SKILL.md](SKILL.md). There is no dedicated `trends` field. Incorporate findings into `topic.candidates[].rationale` in [ideate.md](ideate.md) or `target.competitors[].gap` in [competitor.md](competitor.md), and record the sources in `sources[]`. Do not add a separate trend section to the report; these findings support the ranked topics and competitor summary.
 
-## 1. Default to free sources
+## 1. Default to free sources (hard rule)
 
-Complete the initial trend review using free sources:
+Complete default trend retrieval using free sources only:
 
 - Public trend pages and trending lists.
 - Public search results.
@@ -18,7 +18,7 @@ Before using a paid trend source, pass the approval gate in [manage-connections]
 
 ## 3. Record sources
 
-For each source used in trend research, add an entry to `sources[]`:
+Always record each source used in trend research as one entry in `sources[]`:
 
 - `url`: The source page URL, or `null` for general knowledge with no URL.
 - `retrieved_at`: Retrieval time in ISO 8601, or `null` when unknown.

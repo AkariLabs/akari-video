@@ -2,7 +2,7 @@
 
 # Verification loop
 
-**Do not use a full render for routine visual checks.** At 40 minutes per iteration, you can test only about ten times a day. A short project that renders in about 40 seconds allows roughly 60 times as many iterations.
+**Never use a full render as the verification method.** At 40 minutes per iteration, you can test only about ten times a day. A mini-project lasting a few seconds takes about 40 seconds per iteration and allows 60 times as many checks.
 
 ## 1. Render a short verification project by default
 
@@ -17,8 +17,8 @@ node packages/edit-lint/bin/edit-lint.mjs .akari/work/mini
 node packages/render-cut/bin/render-cut.mjs .akari/work/mini
 ffmpeg -ss 1.6 -i .akari/work/mini/exports/*.mp4 -frames:v 1 -y check.png
 ```
-- **Use the production renderer**: previews and Blender may differ from runtime output.
-- Decide 3D pose, texture orientation, and color through this path.
+- **Use the production renderer**: previews and Blender do not match runtime output.
+- **Always** decide 3D pose, texture orientation, and color through this path.
 - To compare two ideas, place them side by side in one frame so a single render answers the question.
 
 ## 2. Probe individual frames for a faster check
@@ -41,7 +41,7 @@ RENDER_CUT_CAPTURE_TIMEOUT_MS=300000 \
   node packages/render-cut/bin/render-cut.mjs <project>
 ```
 - Set `RENDER_CUT_CAPTURE_TIMEOUT_MS` to allow five minutes per frame.
-- On a busy machine, wait until it is free with `akari internal beat-sync-render-when-idle <project>`; waiting is usually faster than restarting a failed render. On Windows, load cannot be measured by this helper, so it starts the render without waiting.
+- On a busy machine, wait until it is free with `akari internal beat-sync-render-when-idle <project>`; waiting is faster than restarting a failed render. On Windows, load cannot be measured by this helper, so it starts the render without waiting.
 - Monitor progress by comparing the number of files under `<project>/.akari/render-tmp/*/frames` with the expected frame count.
 
 ## 4. Inspect the export
@@ -50,7 +50,7 @@ RENDER_CUT_CAPTURE_TIMEOUT_MS=300000 \
 
 1. **File:** Confirm the export exists in `exports/`; use `ffprobe` to check duration, resolution, frame rate, and audio streams.
 2. **Picture:** Extract and view frames around every highlight. A contact sheet can make this faster.
-3. **Sound:** Measure with `ffmpeg -af ebur128=peak=true`. Around −14 LUFS with peaks no higher than 0 dB is the initial target for social delivery.
+3. **Sound:** Measure with `ffmpeg -af ebur128=peak=true`. Around −14 LUFS with peaks no higher than 0 dB is the appropriate range for social media.
 ```sh
 ffmpeg -i out.mp4 -af ebur128=peak=true -f null - 2>&1 | tail -12 | grep -E "^\s+(I|LRA|Peak):"
 ```

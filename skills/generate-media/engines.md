@@ -13,13 +13,13 @@
 - `as_of` / `source_url` / `price_url` / `verified`: Recency and evidence for the entry.
 - `calibration[]`: Measured calibration records to show in the fact strip instead of subjective ratings.
 
-Reject an input with a value in an unsupported slot rather than silently dropping it. Do not invent a reference limit when the catalog does not state one. Pass only names allowed by `extra_allowed[]` through `extra`.
+Never send a value in an unsupported slot; fail instead. Do not invent a reference limit when the catalog does not state one. Pass only names allowed by `extra_allowed[]` through `extra`.
 
 ## Defaults
 
 - Still image: `codex:image`, treated as free.
 - Video: `fal:h3-i2v`, which is paid and sends data externally; estimate the cost and obtain approval first.
 
-For a model with no price entry or `price: null`, show that an estimate is unavailable and require explicit confirmation before execution. Always show `as_of` with a displayed price.
+For a model with no price entry or `price: null`, show `見積不可 + 明示確認` ("estimate unavailable + explicit confirmation") and require that confirmation before execution. Always show `as_of` with a displayed price.
 
-H3 may generate audio even without an audio input field. Default the replaced timeline item to `mute: true`. Save the provider's `expanded_prompt` in `result.expanded_prompt` separately from the submitted prompt, and evaluate the expanded version during calibration too.
+H3 generates audio even without an audio input field. Default the replaced timeline item to `mute: true`. Save the provider's `expanded_prompt` in `result.expanded_prompt` separately from the submitted prompt, and evaluate the expanded version during calibration too.

@@ -37,7 +37,7 @@ Choose quality by purpose:
 
 | Quality | Use | Measured result |
 |---|---|---|
-| `fast` | Preliminary check that a source can be cut out | 256×192 matte with stepped edges; **not for final output** |
+| `fast` | Rough pass and preliminary check only to see whether this source can be cut out | 256×192 matte with stepped edges; **not for final output** |
 | `balanced` (default) | **Production** text-behind-person or cutout | 512×384 matte, 58 ms/frame, usable edges |
 | `accurate` | Close shots or final finishing | 2016×1512 matte, 135 ms/frame, 638 MB peak |
 | `best` | Only when hair detail must be preserved clearly | RVM mobilenetv3; about 1–1.5 minutes for ten seconds of footage |
@@ -56,7 +56,7 @@ node "$PERSON_MATTE_BIN/person-matte.mjs" --check
 ```
 
 Unless the check returns `available:true`, report `reason` and continue with a `null` matte. The result also includes `rvm_model`, indicating whether the default RVM model is deployed. macOS needs `swiftc`, the bundled media tools, and a VP9 alpha encoder. Windows needs the same media tools plus the RVM runtime and mobilenetv3 model, but not swiftc. Let the sidecar generator resolve the media tools.
-Do not install tools from the network as part of this step. On Mac, the Swift helper builds automatically with `swiftc -O` on first use; do not commit the binary (see [.gitignore](.gitignore)).
+Never install tools from the network. On Mac, the Swift helper builds automatically with `swiftc -O` on first use; do not commit the binary (see [.gitignore](.gitignore)).
 
 ## Generate
 

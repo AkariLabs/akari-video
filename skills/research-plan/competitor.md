@@ -34,7 +34,7 @@ For an axis with no meaningful gap, write "no difference" rather than leaving it
 
 ## 4. Market-specific platform context (required research axis)
 
-See lang/<content-language>.md. Populate the required `target.japan_sns` field with `platforms` and `notes`; if free sources yield no evidence, explain why in `notes`. Paid tools remain subject to [manage-connections](../manage-connections/SKILL.md).
+See lang/<content-language>.md. Populate the required `target.japan_sns` field with `platforms` and `notes`; if free sources yield no evidence, explain why in `notes`. Empty or omitted notes fail validate-research-plan.mjs. Paid tools remain subject to [manage-connections](../manage-connections/SKILL.md).
 
 ## Common mistakes
 

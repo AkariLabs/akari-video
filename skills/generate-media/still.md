@@ -72,4 +72,4 @@ Confirm that the output and `<file>.meta.json` both exist under `assets/generate
 - Provenance traces `result.path`, SHA-256, dimensions, creation time, and the method used.
 - The edit.json item ID, track, and duration are preserved without generation-only fields.
 
-A placeholder need not imply unfinished work. If the still image achieves the intended result, keep it as the final asset.
+A placeholder is not a mark of unfinished work. If the still image achieves the intended result, keep it as the final asset.

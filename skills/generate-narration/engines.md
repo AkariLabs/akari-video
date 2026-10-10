@@ -49,23 +49,23 @@ Register the canonical recording on the server with `akari voice copy --profile 
 
 - Read `embedding_source_url` and `reference_text` from `~/.config/akari-video/voice-profiles/<profile>/meta.json`. POST `text`, `language:"Japanese"`, `speaker_voice_embedding_file_url`, `reference_text`, and `max_new_tokens:2048` to `https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b`. The current Japanese language value is an implementation fact; follow the content-language pack before using this route for another language.
 - If no voice profile exists, complete [voice-profile-setup.md](voice-profile-setup.md) first.
-- Read `FAL_KEY` through the registered connection from `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is also readable). If absent, report the key name and storage location and exit 1. Hard rule 5 prohibits direct key use.
+- Read `FAL_KEY` only through manage-connections from `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is also readable). Never call the API key directly. If absent, report the key name and storage location and exit 1 (hard rule 5).
 - Before execution, show the estimate (character count × $0.09 per 1,000 characters) on stderr. **Without an authorized `--yes`, send nothing and exit 2.** This enforces cost disclosure and explicit approval under hard rule 4.
 - Record `provider: fal`, `engine: qwen-3-tts-1.7b`, and `voice: profile:<name>` as provenance.
 
 ## gemini-tts adapter (via fal)
 
 - The default is `--engine gemini-tts --voice Leda`. Choose among 30 voices with `--voice` and set delivery style with `--style <text>`.
-- The estimated price `$0.05 / 1000 字` is provisional. Both list `price.verified` and provenance `price_verified` remain `false`; do not send without approved `--yes`.
+- The estimated price `$0.05 / 1000 字` is provisional because it has not been verified. Therefore both list `price.verified` and provenance `price_verified` remain `false`; do not send without approved `--yes`.
 - Gemini does not support `--speed`; warn and ignore it. For VOICEVOX, pass speed to `speedScale` in `/audio_query`.
 - Supply text directly with `--text <原稿>`, or use `--reading-file` to distinguish the display script from spoken text. `--caption-ref c-0001 --apply` records the source caption ID.
 - `--t` is mandatory with `--apply`. Without `--apply`, generation or cost preview may omit it; the default is timeline time zero.
 
 ## Do not mix reading instructions with the text
 
-Do not put pronunciation or delivery instructions into `--text`, `--reading-file`, or `--script-file`; those fields contain words to speak. Use wording and punctuation, plus the content-language pack's reading rules, for pronunciation. Send delivery instructions only through `--style` on a supported engine; the CLI routes them as shown below.
+Do not put pronunciation or delivery instructions into `--text`, `--reading-file`, or `--script-file`; those fields contain words to speak. Create intonation through punctuation, word order, and the content-language pack's reading-text conversion. Send delivery instructions only through `--style` on a supported engine; the CLI routes them as shown below.
 
-In the September 27, 2026 report (#94), `gemini-3.8-flash-tts` spoke a delivery instruction that had been prepended to the script. `systemInstruction` returned `HTTP 400 Developer instruction is not enabled for this model`. An English instruction also caused the model to translate and read the script in English.
+In the September 27, 2026 report (#94), `gemini-3.8-flash-tts` spoke the prepended instruction “Please read this brightly and briskly:” aloud. `systemInstruction` returned `HTTP 400 Developer instruction is not enabled for this model`. An English instruction also caused the model to translate and read the script in English.
 
 | engine | Destination of `--style` | Notes |
 |---|---|---|
@@ -85,7 +85,7 @@ In the September 27, 2026 report (#94), `gemini-3.8-flash-tts` spoke a delivery 
 
 - `akari narration start --engine voicevox --json` starts vv-engine as a detached process when needed and stores its PID in `~/.akari/run/voicevox.pid`. If an engine is already running, it reports that version and leaves the existing app alone.
 - `akari narration stop --engine voicevox --json` stops only a live PID whose command matches VOICEVOX `run`. It removes stale PID files and never stops a VOICEVOX app started by the user.
-- VOICEVOX `availability.detail` in `engines --json` includes `running`, `version`, `app_found`, and `managed`. Enable the settings-screen "Stop" control only when `managed` is true.
+- VOICEVOX `availability.detail` in `engines --json` includes `running`, `version`, `app_found`, and `managed`. Enable the settings-screen `止める` ("Stop") control only when `managed` is true.
 - A temporary engine started by `generate` is still stopped after generation. Generation does not stop an engine kept alive by `start`.
 
 ## Verify generated speech by listening and transcription
@@ -114,7 +114,7 @@ The multilingual Chatterbox schema uses `voice: japanese`. For reference audio, 
 | Engine | Route and key | Voice and Japanese behavior | Price and cloning |
 |---|---|---|---|
 | `fish-s2.1-pro` | Fish Audio `POST /v1/tts`; obtain `FISH_AUDIO_API_KEY` at https://fish.audio/app/api-keys/ | Five public Japanese voices; default "energetic woman." `--style` becomes a bracketed tag. | $15 per million UTF-8 bytes, about $0.045 for 1,000 Japanese characters. With `--profile`, send the canonical WAV and recording script as MessagePack on every request. |
-| `gemini-3.8-flash-tts` | Google AI Interactions API; obtain `GEMINI_API_KEY` at https://aistudio.google.com/api-keys | Supports Japanese; 30 ready-made voices with Leda as default. `--style` uses `speech_metadata.style`, separate from script `text`; whether it can be spoken aloud remains unverified. | Output $9 per million tokens, with 25 tokens per audio second through 2026-12-31, rising to $18 on 2027-01-01. Input rises from $0.50 to $1.00. Voice cloning is outside this task's scope. |
+| `gemini-3.8-flash-tts` | Google AI Interactions API; obtain `GEMINI_API_KEY` at https://aistudio.google.com/api-keys | Supports Japanese; 30 ready-made voices with Leda as default. `--style` uses `speech_metadata.style`, separate from script `text`; whether it can be spoken aloud remains unverified. | Output $9 per million tokens, with 25 tokens per audio second through 2026-12-31, rising to $18 on 2027-01-01. Input rises from $0.50 to $1.00. Voice cloning is not covered by this table. |
 
 Both read credentials from `~/.akari/credentials.env` and refuse paid calls without authorized `--yes` after the estimate. Fish reference audio additionally requires the owner's consent, cloud-upload consent, and script verification of at least 0.7. Gemini wraps 24 kHz, mono, 16-bit PCM in WAV and accepts a response that already has a RIFF header. Detailed API evidence is in `packages/akari-launcher/fixtures/narration/direct/`.
 
@@ -134,3 +134,5 @@ This mode sends no request to any engine. It prints the prospective payload with
 ## Engine selection and two-stage operation
 
 See lang/<content-language>.md for voice selection and the appropriate draft-to-final workflow. Confirm the selected engine accepts the work's content language before generation.
+
+For any draft-to-final replacement, keep the same reading file (adjust it only if needed) and timeline `--t`, create a new narration `id`, and have the editor remove the old draft entry. The Japanese pack's example uses `--engine voicevox` for a free draft and then `--engine fal-qwen3 --profile <name> --yes --apply` for the final voice (for example, `--profile owner-ja`); its language-specific choice belongs in lang/ja.md. Because the draft stage has no cost, its timing can be revised repeatedly for free.

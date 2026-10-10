@@ -11,8 +11,8 @@ Each world needs at least two stops, serving as entrance and exit. A stop is a c
 ## Choose an edge
 
 - `move`: Continuous travel in one world that conveys distance; default 0.75 seconds.
-- `portal`: Continuous entry into another world, showing the entrance's shape and material; default 1.2 seconds with `transition.kind` set to `dive`.
-- `cut`: A deliberate jump to another world when time must be compressed; hide the switch in mist. Default 0.8 seconds with `transition.kind` set to `mist`.
+- `portal`: Continuous entry into another world; the default when you want to show the entrance's shape or material. Default duration 1.2 seconds with `transition.kind` set to `dive`.
+- `cut`: A semantic jump to another world. Use it only when time must be compressed; switch while mist covers the view. Default duration 0.8 seconds with `transition.kind` set to `mist`.
 
 For a portal, `via` must be a non-empty logical name for the visible passage, such as a window, door, or hole. If the entrance asset ID is `paper-portal`, that name can also be `via`. For a cut, use the logical name of the asset or effect that creates the mist.
 
@@ -25,7 +25,7 @@ Carry only objects needed to connect the story across a world boundary: perhaps 
 
 Allow roughly 1.5–2.0 seconds for a simple visual, 2.0–3.0 seconds for a heading, and 3.0–4.0 seconds for several elements. Give viewers enough reading time first, then shorten travel to meet the total duration.
 
-Expansion sets a provisional `transition.cover` of 0.18 seconds for a portal and 0.24 seconds for a cut so the first build can run. Use the positive value measured by `akari world preview --measure`, within 0–0.4 seconds. Then rerun `akari world build` to update `overlays/world.html`. A move always uses `{ "kind": "none", "cover": 0 }`.
+Expansion sets a provisional `transition.cover` of 0.18 seconds for a portal and 0.24 seconds for a cut so the first build can run. The value measured by `akari world preview --measure` is authoritative and must be within 0–0.4 seconds. Then rerun `akari world build` to update `overlays/world.html`. A move always uses `{ "kind": "none", "cover": 0 }`.
 
 ## Composition guidelines
 
@@ -55,9 +55,9 @@ offset = [cx - w * s / 2, cy - h * s / 2]
 ```
 For a safe margin, let `c` be the asset center, `half` its scaled half-width and half-height, and `cameraScale` the stop camera's magnification. Require `|c.x| + half.width <= (960/cameraScale) - 120` horizontally and `|c.y| + half.height <= (540/cameraScale) - 120` vertically. The 120 world-pixel deduction is the edge margin. If the asset does not fit, shrink it through a CSS variable or `scale`.
 
-The template layout leaves 140 world pixels between the visible frame and world bounds even at minimum scale 1.0. If you change `padding`, `worldHeight`, or `stopOffsetY`, choose margin `M` and satisfy `padding >= (W/2)/scaleMin + M` and `worldHeight/2 >= stopOffsetY + (H/2)/scaleMin + M`. Otherwise a white strip outside the world may appear at a stop's screen edge. `bin/test` checks that every stop's visible frame remains within bounds.
+The template layout leaves 140 world pixels between the visible frame and world bounds even at minimum scale 1.0. If you change `padding`, `worldHeight`, or `stopOffsetY`, choose margin `M` and satisfy `padding >= (W/2)/scaleMin + M` and `worldHeight/2 >= stopOffsetY + (H/2)/scaleMin + M`. Otherwise a white strip outside the world appears at a stop's screen edge. `bin/test` checks that every stop's visible frame remains within bounds.
 
 ### Keep neighboring stops out of frame
 
-The visible frame is `1920/scale` wide. If that exceeds `stopSpacing`, an asset at the next stop can enter the frame. Default `stopSpacing = 2000` exceeds the 1920-pixel frame at minimum scale 1.0. Keep each stop's assets within `±(stopSpacing/2) = ±1000` of its center to avoid showing its neighbors; reduce that reach if you reduce `stopSpacing`.
-Placing an explainer around −400 to the left and the main subject around +400 to the right can guide the eye from left to right. Convert top-left anchors to `offset` with the formula above, and match color variables to that world's `palette.accent`.
+The visible frame is `1920/scale` wide. If that exceeds `stopSpacing`, an asset at the next stop enters the frame. Default `stopSpacing = 2000` exceeds the 1920-pixel frame at minimum scale 1.0. Keep each stop's assets within `±(stopSpacing/2) = ±1000` of its center to avoid showing its neighbors; reduce that reach by the same amount if you reduce `stopSpacing`.
+Placing an explainer around −400 to the left and the main subject around +400 to the right guides the eye from left to right. Convert top-left anchors to `offset` with the formula above, and match color variables to that world's `palette.accent`.

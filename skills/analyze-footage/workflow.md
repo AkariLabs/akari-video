@@ -4,7 +4,7 @@
 
 ## Principles
 
-Treat the source footage as evidence and `analysis.json` as an appendable ledger. Automated observation can suggest candidates; it cannot establish facts that have not been checked. A missing key means "unobserved," not necessarily "absent." The authoritative input, output, and update rules are in the [`akari media` contract §1 / §3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md).
+Treat the source footage as evidence and `analysis.json` as an appendable ledger. Use automated observation to suggest candidates; do not fill in facts you cannot confirm. A missing key means "unobserved," not necessarily "absent." The authoritative input, output, and update rules are in the [`akari media` contract §1 / §3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md).
 
 ## 1. Confirm the source and requested level
 
@@ -44,7 +44,7 @@ Do not add a case-type field to intake. Use these questions to request only the 
 1. **Is there speech?** — Use L1 if yes or unknown. Proceed to transcription only when `speech_likely` is true.
 2. **Must you select visual content?** — If you need evidence for cut decisions, cropping, B-roll selection, and screen changes, use L2.
 3. **Will you use person-based effects?** — L3 only for sections that use cutouts of people, eyes, fingertips, posture, and facial expressions.
-4. **Has the person already chosen a direction?** — If so, only look at the specified window. Do not expand L2/L3 to the full source when only a window is relevant.
+4. **Has the person already chosen a direction?** — If so, only look at the specified window. Never expand to full-length L2/L3 merely because the direction has not been decided.
 
 If clarification is needed, ask one question: **"Should I stop after the default audio analysis (L0 + L1), or do you need visual review (L2) or person-based effects (L3)?"**
 

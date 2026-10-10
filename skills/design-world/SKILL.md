@@ -10,7 +10,7 @@ description: Design, inspect, and assemble a flat world that connects multiple s
 ## Hard rules
 
 - Run world operations only through `akari world check|build|preview|overview`; do not call repository implementation files directly.
-- Treat `planning/world-map.json` as authoritative. Put the generated output on the existing visual track without adding fields to `edit.json`.
+- Treat `planning/world-map.json` as authoritative. Put only the generated output on the existing visual track without adding fields to `edit.json`.
 - Create `planning/world-map.json` with `expand-template.mjs`, never by adding keys manually. The world runtime rejects unknown keys.
 - v0 supports only `kind: flat`; do not design or build `spatial` worlds.
 - Derive coordinates from the script and template layout. Do not copy coordinates from another project.
@@ -67,8 +67,8 @@ Use the following v2 skeleton for `$PROJECT/edit.json`. At 30 fps, 15 seconds gi
 
 The expansion inserts **finite provisional `cover` values** of 0.18 seconds for a portal and 0.24 seconds for a cut so the first build can run. You may override `edges[].cover` in the template within 0–0.4 seconds, but the measured preview value is final.
 4. Run `akari world check "$PROJECT"`; correct the script and expand it again until no errors remain.
-5. Plan assets in three layers: **background, entrance, and motif**. The background establishes each world's visual material, the entrance makes the portal crossing legible, and a motif gives each stop something to show. Fetch assets with `akari assets fetch <category/id>` as needed; `akari world build` resolves them within the project.
-6. Create `planning/world-items.json` to associate assets with zones. Write `asset` as `overlay/<id>`; `offset`, `scale`, and `vars` are optional. A non-negative delay such as `delay: 0.5` starts the asset clock at the matching stop's `at + delay`; omission means zero delay. For a world-sized background, `role: "background"` prevents the zone from being culled off-screen. Without a role, `world-width` or `world-height` in `vars` (optionally with a `--` prefix) also identifies a background.
+5. Plan assets in three layers from a coordinated world-style bundle (for example, the world-compatible Pop Motion bundle): **background, entrance, and motif**. The background establishes each world's visual material, the entrance makes the portal crossing legible, and a motif gives each stop something to show. Fetch assets with `akari assets fetch <category/id>` as needed; `akari world build` resolves them within the project.
+6. Create `planning/world-items.json` to associate assets with zones. Always write `asset` as `overlay/<id>`; `offset`, `scale`, and `vars` are optional. A non-negative delay such as `delay: 0.5` starts the asset clock at the `at + delay` of the stop with the same zone ID; omission means zero delay. For a world-sized background, `role: "background"` prevents the zone from being culled off-screen. Without a role, `world-width` or `world-height` in `vars` (optionally with a `--` prefix) also identifies a background.
 
    ```json
    {

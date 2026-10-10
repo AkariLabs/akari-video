@@ -17,7 +17,7 @@ akari internal beat-sync-beatmap <project> <track-id> [--out .akari/work/beatmap
 | `env30[]` | RMS envelope at 30 fps | Waveform display and playhead |
 | `sections[]` / `hits[]` | Declared sections and accent hits | Assign composition sections and accent timing |
 
-Check whether section boundaries align with the beat grid. A large discrepancy calls the declaration or BPM into question.
+During generation, the generator checks whether section boundaries align with the beat grid. A large discrepancy calls the declaration or BPM into question.
 
 In the generator, refer to beat numbers rather than entering times:
 ```js
@@ -33,12 +33,12 @@ The `sections` labels form the composition. **Make the drop the climax and give 
 
 | Label | Suggested treatment |
 |---|---|
-| `intro` / `build` | Hold back with near-silence, ticks, or risers; build anticipation toward the end. |
-| `drop` | Climax: logo slam, large typography, simultaneous imagery, accent flash |
+| `intro` / `build` | Hold back with near-silence or ticks, then build anticipation at the end with a riser. |
+| `drop` | Climax: logo slam, large typography, simultaneous display of diagrams, accent flash |
 | `bridge` | Give viewers room to read a key sentence or supporting information. |
 | `outro` | Call to action, logo, and close. |
 
-Use the ear-verified `hit_points` directly for flash or sweep timing; do not replace them with automatic guesses.
+Use `hit_points` directly for flash or sweep timing: a person chose these points by ear, so they produce a pleasing result more reliably than automatic detection.
 
 ## 3. Generate overlays
 

@@ -44,7 +44,7 @@ Unless the result is `{"available":true}`, report `reason` and continue without 
 
 ## Generate
 
-Pass an existing, finalized analysis.json to `--analysis`. Unlike person-matte, this tool **reads and updates analysis.json itself**; the agent must not manually paste track pointers into `tracks`.
+Pass an existing, finalized analysis.json to `--analysis`. Unlike person-matte, this tool **reads and updates analysis.json itself**; there is no step where the agent pastes track pointers into `tracks` by hand.
 
 ```bash
 node bin/vision-tracks/vision-tracks.mjs \
@@ -69,7 +69,7 @@ For `ok: false`, report `reason`, omit the track key, and continue analysis. **F
 ### Frames with incomplete face or hand detections
 
 - **Hands:** Omit the key for each joint below `--joint-confidence`. If none passes, keep the hand detection with `joints: {}`. It records that a hand was detected but no joint was reliable; do not erase the detection.
-- **Faces:** If Vision cannot calculate even one of the required landmark regions, including pupils, eyes, or lips, omit that face detection entirely from that time's `detections`. v0 never writes a partial six-region face. In a measured 26.3-second clip with one mostly visible face, no detections were excluded; backlighting or a sustained profile view may produce exclusions.
+- **Faces:** If Vision cannot calculate even one of the required landmark regions, including pupils, eyes, or lips, omit that face detection entirely from that time's `detections`. v0 never writes a partial six-region face. In a measured 26.3-second clip with one mostly visible face, no detections were excluded (see report.md); backlighting or a sustained profile view may produce exclusions.
 
 ### Coordinates
 
@@ -106,7 +106,7 @@ On macOS 14 or later, `VNDetectHumanBodyPose3DRequest` revision 1 returns 17 joi
 
 ## face-expression (head posture + facial expression 52)
 
-For footage chosen to drive an avatar using the speaker's head motion and expressions, generate the separate `face-expression` kind alongside the three existing Vision kinds. It uses **MediaPipe Face Landmarker** through vendored Apache-2.0 `@mediapipe/tasks-vision@0.10.17` JS/WASM in the existing headless Chromium path; it adds no Python or Swift sidecar. It does not replace the existing vowel-based lip-sync track. Wiring the consumer effect is a separate stage.
+Only for footage chosen to drive an avatar using the speaker's head motion and expressions, generate the separate `face-expression` kind alongside the three existing Vision kinds. It uses **MediaPipe Face Landmarker** through vendored Apache-2.0 `@mediapipe/tasks-vision@0.10.17` JS/WASM in the existing headless Chromium path; it adds no Python or Swift sidecar. It does not replace the existing vowel-based lip-sync track. Wiring the consumer effect is a separate stage.
 
 ### Check tools and models
 
@@ -114,7 +114,7 @@ For footage chosen to drive an avatar using the speaker's head motion and expres
 node bin/face-expression/face-expression.mjs --check
 ```
 
-This optional feature requires Chrome and the workspace's existing `puppeteer-core` dependency. If Chrome is missing, stop and explain that this feature needs Chrome, selectable through `AKARI_CHROME_BIN`. Check SHA-256 hashes for the bundled decoder, prober, and vendored runtime. A missing model does not make the runtime unavailable: fetch it from the official versioned URL only on first generation.
+This optional feature requires Chrome and the workspace's existing `puppeteer-core` dependency. If Chrome is missing, stop and report the CLI message ``この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）`` ("this feature requires Chrome; specify it with `AKARI_CHROME_BIN`"). Check SHA-256 hashes for the bundled decoder, prober, and vendored runtime. A missing model does not make the runtime unavailable: fetch it from the official versioned URL only on first generation.
 
 - Save to: `${AKARI_HOME:-~/.akari}/models/mediapipe/face-landmarker/float16-1/face_landmarker.task`
 - URL: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`
@@ -139,7 +139,7 @@ node bin/face-expression/face-expression.mjs \
 
 ### Measure performance
 
-Measure a twelve-second window of real footage rather than inventing unmeasured performance values. Use CPU time as the primary measure and wall time and real-time ratio as secondary measures. On macOS, record `user + sys` as CPU seconds, and inspect `detected_frames / frames`, representative `mouthSmileLeft/Right` values, and the yaw sign in the metrics.
+The fieldtest owner measures a twelve-second window of real footage. Never write unmeasured performance values by guesswork. Use CPU time as the primary measure and wall time and real-time ratio as secondary measures. On macOS, record `user + sys` as CPU seconds, and inspect `detected_frames / frames`, representative `mouthSmileLeft/Right` values, and the yaw sign in the metrics.
 
 ```bash
 /usr/bin/time -p node bin/face-expression/face-expression.mjs \
@@ -153,14 +153,14 @@ Record the Chrome version, CPU seconds, wall seconds, `elapsed_seconds / 12`, de
 
 ## Use tracks for an eye bar
 
-For `edit.json` and `captions.json`, locate the relevant ID and read only its lines, following [the edit.json access guide](../../docs/guides/edit-json-access.md). Write with the Edit operation or edit-store script API for those lines.
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines, following [the edit.json access guide](../../docs/guides/edit-json-access.md). Write with the Edit operation or edit-store script API for those lines.
 
-Generating `face_landmarks` alone does not add a visual effect. The separate deterministic converter `packages/akari-tools/bin/eye-bar.mjs`, also available as `akari internal eye-bar`, draws an anonymizing black bar across the eyes. It is outside this skill; see the [vision-track contract §4](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md). Divide responsibilities as follows:
+Generating `face_landmarks` alone does not add a visual effect. The separate deterministic converter `packages/akari-tools/bin/eye-bar.mjs`, also available as `akari internal eye-bar`, draws a criminal-style black eye bar. It is outside this skill; see the [vision-track contract §4](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md). Divide responsibilities as follows:
 
 - **This skill (vision-tracks.mjs):** Detect eye positions in footage and record them as factual track data.
 - **eye-bar.mjs**: Calculate the black bar's position, angle, and size from the track, then add `layers[].keyframes` to `edit.json`. This consumes analysis data to create a visual effect.
 
-For an eye-bar effect, generate only `--kinds face`; `hand` is unnecessary. Then apply the converter to an approved `edit.json` with finalized cuts. Eye-bar maps source to timeline seconds using each cut's in, out, at, and speed; editing cuts afterward can misalign the bar.
+For an eye-bar effect, generate only `--kinds face`; `hand` is unnecessary. Then apply the converter to an approved `edit.json` with finalized cuts. Eye-bar maps source to timeline seconds using each cut's in, out, at, and speed; editing cuts afterward misaligns the bar.
 
 ```bash
 node packages/akari-tools/bin/eye-bar.mjs \
@@ -171,7 +171,7 @@ node packages/akari-tools/bin/eye-bar.mjs \
 - Without `--apply`, stdout shows the proposed JSON and `edit.json` remains unchanged.
 - Use `--face <index>` to choose a target when multiple people appear. v0 follows one person only; simultaneous multi-person tracking is unsupported.
 - The alpha-MOV bar asset is generated under `.akari/cache/eye-bar/`, a recreatable project cache. It can be rebuilt after deletion.
-- If the target disappears during a cutaway, the converter may add several `layers[]` entries, one per visible interval. This intentionally prevents the bar from floating above unrelated footage.
+- If the target disappears during a cutaway, the converter adds several `layers[]` entries, one per visible interval. This intentionally prevents the bar from floating above unrelated footage.
 - Measurements show that blinking can make Vision swap left and right eyes for a few frames even when confidence remains 1.0, producing an impossible angle jump. Eye-bar rejects jumps over 45° from the last accepted value and fills the gap with a hold. Usually no manual correction is needed; `--outlier-max-angle-jump` can change or disable the threshold.
 
 ## Use tracks for pose-skeleton
@@ -208,7 +208,7 @@ akari internal vision-finger-frame <project> \
 - **Activation:** Correct thumb-to-index distances for the source video's actual pixel aspect. A window opens when both hands exceed `--open-threshold` (default 0.16). It closes when either distance falls below `--close-threshold` (default 0.11) or one hand disappears. Fixed hysteresis prevents rapid toggling; see `bin/finger-frame/gesture.mjs`.
 - **Geometry:** Normalize the four points to `[TL,TR,BL,BR]` for #layerPerspective regardless of which finger initially occupies a corner. Sort points by angle around their centroid to resolve twisted or self-intersecting quads; the derivation is in `bin/finger-frame/corners.mjs`. Within a window, choose the rotation nearest the prior frame's corner assignment to prevent visual jumps.
 - **Time mapping:** Hand poses use source seconds; layers use timeline seconds. Convert using `cuts[]` `in`, `out`, `at`, and `speed`, reusing render-cut's `cut-timeline.mjs` read-only. If a cut declares `framing` or `transform`, the default letterbox assumption no longer holds: skip that interval and record a warning rather than output wrong coordinates.
-- **v0 boundary:** Analysis remains optional and pull-driven; this consumer adds no blanket analysis rule. Keep detailed finger-frame design decisions and benchmarks in the project's private records.
+- **v0 boundary:** Analysis remains optional and pull-driven; this consumer adds no blanket analysis rule. For detailed finger-frame design decisions and measurements, see the private internal records.
 
 ## Common mistakes
 

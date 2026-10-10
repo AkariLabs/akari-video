@@ -9,15 +9,15 @@ Do not put delivery instructions into the text to be spoken. Send supported deli
 
 ## Conversion targets
 
-See lang/<content-language>.md. The display `script` and spoken version may differ for names, abbreviations, numbers, dates, and units. Change only terms that a listening check shows the selected engine misreads.
+See lang/<content-language>.md for language-specific treatment of names and abbreviations. For numbers, dates, and units, generate audio and listen before deciding whether to expand them; do not mechanically expand every number in advance.
 
 ## Procedure
 
 1. Prepare `script` from the approved display copy or captions.
 2. Apply the content-language pack to create `reading`, preserving the intended meaning.
 3. Pass `reading` to `--reading-file` and `script` to `--script-file`.
-4. Listen to the generated audio. Correct individual mispronounced terms and regenerate; do not rewrite the whole script without a reason.
+4. Listen to the generated audio. Correct individual mispronounced terms and regenerate; do not rewrite the whole script.
 
 ## Why save both?
 
-The conversion may be manual or depend on the engine, so `reading` does not determine `script`. Keep the display script as the readable record for review and `reading` as the record of what was actually generated. Both are required when changing engines or revising the audio later.
+The conversion usually involves manual work or non-deterministic rule-based processing, so `script` cannot be reconstructed mechanically from `reading`. Keep the display script as the readable record for review and `reading` as the record of what was actually generated. Always save both `script` and `reading`; never store only one. Both are required when changing engines or revising the audio later.

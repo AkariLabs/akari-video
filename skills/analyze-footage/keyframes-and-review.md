@@ -50,7 +50,7 @@ After selecting times, extract individual 720p-high PNGs to a stable destination
 ```bash
 akari media grab "$SOURCE" -t 12 315.25 --separate --out "$OUT_DIR/keyframes"
 ```
-Record the mapping from output filename to stdout `times_s`; use `keyframes[].t` as the authoritative time. Record selection provenance as `origin: "scene" | "interval" | "transcript"`. Neither `grab` nor `filmstrip` writes a `note`; the generated image is recorded only in `observations[]` until reviewed.
+Record the mapping from output filename to stdout `times_s`; use `keyframes[].t` as the authoritative time. Record selection provenance as `origin: "scene" | "interval" | "transcript"`. Neither `grab` nor `filmstrip` writes a `note`; the generated image is recorded only in `observations[]`.
 
 ## 5. Inspect every selected image
 

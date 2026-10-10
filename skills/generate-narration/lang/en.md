@@ -6,9 +6,9 @@ Do not use `VOICEVOX` or its speaker 3 default for English narration; those are 
 
 Start auditions with actual voices listed in the engine definitions:
 
-- **Calm explanation:** Try `Charon` (informative) or `Schedar` (even). Choose by listening for clarity and a tone that suits the audience.
-- **Bright announcement:** Try `Zephyr` (bright) or `Autonoe` (bright). Check that excitement does not reduce intelligibility.
-- **Slower explanation:** Try `Achernar` (soft) or `Sadachbia` (knowledgeable), with a concise pacing instruction through the supported `--style` field if needed. These are voice candidates, not guaranteed slow-speed settings; verify the rendered pace by ear.
+- **Calm explanation:** Try `Charon` (Informative) or `Schedar` (Even). Choose by listening for clarity and a tone that suits the audience.
+- **Bright announcement:** Try `Zephyr` (Bright) or `Autonoe` (Bright). Check that excitement does not reduce intelligibility.
+- **Slower explanation:** Try `Achernar` (Soft) or `Vindemiatrix` (Gentle), with a concise pacing instruction through the supported `--style` field if needed. These are voice candidates, not guaranteed slow-speed settings; verify the rendered pace by ear.
 
 `Leda` is also a real listed voice and the current Gemini default, but that software default is not proof that it is the best English voice. Audition against the use-case choices above. If the direct path cannot produce acceptable English in the current environment, report the limitation and keep the narration at the script or draft stage rather than silently falling back to a Japanese-only path.
 

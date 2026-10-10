@@ -18,7 +18,7 @@ for (const [id, v] of Object.entries(d)) {
 ```
 Check:
 
-- Is the intended track ID present? Use the **track ID**, which may differ from the library directory name.
+- Is the intended track ID present? Use the **track ID, not the library directory name**.
 - Is there a `drop` section? Without one, no chorus cue is available; tell the person and ask whether they want to add one.
 - Is `source` set to `declare-audio`? A `replaced_source` value records that a declaration from a pack was overwritten.
 
@@ -56,6 +56,6 @@ suggest-bgm で確認したところ、bgm-lofi-085-001 はサビ頭 11.2s 付�
 
 ## Common mistakes
 
-- Reporting success from a "Saved" message without reading the file.
+- Reporting success from the UI message `保存しました` ("saved") without reading the file.
 - Claiming a chorus cue is available when there is no drop section.
 - Calling an automatically estimated BPM a measured value.

@@ -64,7 +64,7 @@ Exclude segments that fail the [transcript-quality criteria](media-and-transcrip
 }
 ```
 
-`origin` is optional but should identify the selection route (`scene`, `interval`, or `transcript`) whenever known, so the choice can be traced.
+`origin` is optional, but always include it when the selection route (`scene`, `interval`, or `transcript`) is known so the choice can be traced.
 
 Allowed event fields differ by type.
 

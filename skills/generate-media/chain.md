@@ -19,13 +19,13 @@ akari generate resume <projectDir> --item <itemId> --json
 ```
 Omit `--item` to check all items with generation jobs.
 
-A job is stale when it still has `status: "generating"` after `stale_after_s` seconds from `started_at` (900 seconds by default). The UI shows "No response / Retrieve again." Stale does not mean failed: use resume to query the existing provider job first.
+A job is stale when it still has `status: "generating"` after `stale_after_s` seconds from `started_at` (900 seconds by default). The UI shows `応答なし・再取得` ("no response / retrieve again"). Stale does not mean failed: use resume to query the existing provider job first.
 
 ## Status and appearance
 
 - `planned`: Show a text card with a small planned badge. Export the text card itself.
 - `generating`: Show progress over the still image. Export the still image while generation continues.
-- stale: Show "No response" and continue exporting the still image.
+- stale: Show the UI label `応答なし` ("no response") and continue exporting the still image.
 - `failed`: Show the failure, retain the original still, and record the reason in history.
 - `done`: Replace the still with video and return to the normal display.
 
