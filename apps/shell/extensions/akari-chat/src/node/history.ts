@@ -32,6 +32,16 @@ export function updateHistory(
     };
 }
 
+export function renameHistory(history: ChatHistory, id: string, title: string): ChatHistory {
+    const normalized = [...title.trim().replace(/\s+/g, ' ')].slice(0, 80).join('');
+    if (!normalized) throw new Error('名前を入力してください');
+    return updateHistory(history, id, { title: normalized });
+}
+
+export function removeHistory(history: ChatHistory, id: string): ChatHistory {
+    return { version: 1, sessions: history.sessions.filter(entry => entry.id !== id) };
+}
+
 function historyPath(cwd: string): string {
     return join(cwd, '.akari', 'chat', 'sessions.json');
 }

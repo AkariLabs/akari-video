@@ -64,8 +64,9 @@ export function ChatIcon({ name, size = 18 }: { name: ChatIconName; size?: numbe
 }
 
 export function AkariLamp({ size = 26 }: { size?: number }): React.ReactNode {
-    return <svg width={size} height={size} viewBox='0 0 28 28' aria-hidden='true'>
-        <path fill='#f97316' d='M14 2c-3 5-8 9-8 15a8 8 0 0 0 16 0c0-4-2-8-8-15Z' />
-        <path fill='#ffd08a' d='M14 12c-2 3-3 5-3 7a3 3 0 0 0 6 0c0-2-1-4-3-7Z' />
+    return <svg width={size} height={size} viewBox='0 0 32 32' aria-hidden='true'>
+        <rect width='32' height='32' rx='8' fill='#0a0a0a' stroke='rgba(255,255,255,.14)' />
+        <circle cx='16' cy='16' r='7' fill='#f97316' />
+        <circle cx='16' cy='16' r='3.4' fill='#fdba74' />
     </svg>;
 }

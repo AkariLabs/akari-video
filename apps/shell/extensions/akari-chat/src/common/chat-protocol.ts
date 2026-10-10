@@ -39,4 +39,8 @@ export interface AkariChatService {
     close(chatId: string): Promise<void>;
     listHistory(cwd: string): Promise<ChatHistoryEntry[]>;
     resume(cwd: string, historyId: string): Promise<{ chatId: string; capabilities: ChatCapabilities }>;
+    renameHistory(cwd: string, historyId: string, title: string): Promise<void>;
+    removeHistory(cwd: string, historyId: string): Promise<void>;
+    saveScreenRecording(cwd: string, data: string): Promise<string>;
+    importAttachment(cwd: string, sourcePath: string): Promise<string>;
 }
