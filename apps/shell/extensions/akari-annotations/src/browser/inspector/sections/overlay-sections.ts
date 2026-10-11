@@ -9,13 +9,16 @@ import { formatTimestamp, formatDurationSeconds, formatPayloadValue, deriveOverl
 import { CROP_FIELDS } from './transform-fields';
 import { LAYER_BLEND_OPTIONS } from './photo-fields';
 import { MOTION_SECTIONS, MOTION_SUMMARY_SECTION, MOTION_EMPTY_SECTION } from './motion-sections';
+import { scene3dOwnedKnobVars } from '../../../common/scene3d-item';
+import { scene3dSection, type Scene3dSectionContext } from '../scene3d-section';
 
 export function OVERLAY_SECTIONS(
     snapshot: TimelineOverlaySelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     knobs: readonly InspectorKnob[] = [],
     openMotion?: () => void,
-    fontFaces: ReadonlyMap<string, string> = new Map()
+    fontFaces: ReadonlyMap<string, string> = new Map(),
+    scene3d: Scene3dSectionContext = {}
 ): InspectorSection[] {
     const transform = snapshot.payload.transform && typeof snapshot.payload.transform === 'object'
         && !Array.isArray(snapshot.payload.transform)
@@ -27,7 +30,16 @@ export function OVERLAY_SECTIONS(
     const source = snapshot.payload.source && typeof snapshot.payload.source === 'object'
         ? snapshot.payload.source as Record<string, unknown> : {};
     const sourcePath = typeof source.html === 'string' ? source.html
-        : typeof source.path === 'string' ? source.path : '';
+        : typeof source.path === 'string' ? source.path
+            : typeof snapshot.payload.html === 'string' ? snapshot.payload.html : '';
+    const sourceVars = source.vars && typeof source.vars === 'object' ? source.vars as Record<string, unknown>
+        : snapshot.payload.vars && typeof snapshot.payload.vars === 'object'
+            ? snapshot.payload.vars as Record<string, unknown> : {};
+    const rotationVars = ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z'];
+    const scene3dItem = /(^|\/)scene3d\//u.test(sourcePath.replace(/\\/gu, '/'))
+        || rotationVars.some(name => name in sourceVars)
+        || (snapshot.keyframes?.some(point => point.vars && typeof point.vars === 'object'
+            && rotationVars.some(name => name in (point.vars as Record<string, unknown>))) ?? false);
     const isTelop = /^telop-/u.test(snapshot.id)
         || /(?:^|[\\/])overlay[\\/]telop-[^\\/]+(?:[\\/]|$)/iu.test(sourcePath);
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
@@ -74,19 +86,21 @@ export function OVERLAY_SECTIONS(
             }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
         })) : []),
-        {
+        ...(!scene3dItem || number('rotate', 0) !== 0 ? [{
             name: 'transform-rotate', label: '回転', unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
-            inputKind: 'scrub-number', scrubStep: 0.1,
+            inputKind: 'scrub-number' as const, scrubStep: 0.1,
             write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: Number(value) }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: null })
-        }
+        }] : [])
     ];
     const groups = new Map<string, InspectorFieldDef<TimelineOverlaySelection>[]>();
     const rawVars = snapshot.payload.vars;
     const variableEntries = rawVars && typeof rawVars === 'object' && !Array.isArray(rawVars)
         ? Object.entries(rawVars as Record<string, unknown>) : [];
+    const ownedVars = scene3dItem ? scene3dOwnedKnobVars(scene3d.meta) : new Set<string>();
     for (const knob of knobs) {
+        if (scene3dItem && ownedVars.has(knob.name)) continue;
         if (variableEntries.some(([name]) => findKnobForVar([knob], name))) continue;
         // The preview fragment lives in a separate webview; its computed CSS is unavailable here.
         const fallback = knob.default ?? (knob.type === 'slider' ? knob.min ?? 0
@@ -95,16 +109,18 @@ export function OVERLAY_SECTIONS(
         variableEntries.push([knob.name, fallback]);
     }
     for (const [name, value] of variableEntries) {
-            const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
-            const knob = findKnobForVar(knobs, name);
-            const group = knob?.group ?? 'ツマミ';
-            const fields = groups.get(group) ?? [];
-            const kind = knob ? knobControlKind(knob.type) : 'text';
-            const fontKnob = knob ? isFontFamilyKnob(knob) : false;
-            const fontOptions = fontKnob ? renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces)
-                .map(font => fontFaces.get(font.id) ?? font.family) : [];
-            if (fontKnob && typeof value === 'string' && value && !fontOptions.includes(value)) fontOptions.unshift(value);
-            fields.push({
+        if (scene3dItem && (ownedVars.has(name) || name === '--akari-3d-clip'
+            || /^--akari-3d-rot-[xyz]$/u.test(name))) continue;
+        const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+        const knob = findKnobForVar(knobs, name);
+        const group = knob?.group ?? 'ツマミ';
+        const fields = groups.get(group) ?? [];
+        const kind = knob ? knobControlKind(knob.type) : 'text';
+        const fontKnob = knob ? isFontFamilyKnob(knob) : false;
+        const fontOptions = fontKnob ? renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces)
+            .map(font => fontFaces.get(font.id) ?? font.family) : [];
+        if (fontKnob && typeof value === 'string' && value && !fontOptions.includes(value)) fontOptions.unshift(value);
+        fields.push({
                 name: `var-${name.replace(/[^a-z0-9_-]+/giu, '-')}`,
                 label: knob?.label ?? `vars.${name}`,
                 getValue: () => formatPayloadValue(value),
@@ -129,8 +145,8 @@ export function OVERLAY_SECTIONS(
                         });
                     }
                 } : {})
-            });
-            groups.set(group, fields);
+        });
+        groups.set(group, fields);
     }
     const knobSections: InspectorSection<TimelineOverlaySelection>[] = [...groups].map(([group, fields], index) => ({
         id: `knobs:${index}-${group.replace(/[^a-z0-9_-]+/giu, '-') || 'default'}`,
@@ -147,6 +163,7 @@ export function OVERLAY_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        ...(scene3dItem ? [scene3dSection(snapshot, requestWrite, scene3d)] : []),
         { id: 'crop', label: 'クロップ', fields: cropFields },
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
         ...(snapshot.durationFrames ? MOTION_SECTIONS({
