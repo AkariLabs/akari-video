@@ -12,6 +12,15 @@ test('fragment boundary toggles round trip', () => {
   assert.deepEqual(next, ['あ', 'いうえ']); assert.deepEqual(fragmentBoundaries(words, next), [1]);
   assert.deepEqual(toggleFragmentBoundary(words, next, 'あいうえ', 1), []);
 });
+test('英語の語境界で分けた断片は空白で始まらない', () => {
+  const words = [{ text: 'When' }, { text: ' the' }, { text: ' score' }];
+  const text = words.map(word => word.text).join('');
+  const fragments = toggleFragmentBoundary(words, undefined, text, 1);
+  assert.deepEqual(fragments, ['When', 'the score']);
+  assert.deepEqual(fragmentBoundaries(words, fragments), [1]);
+  assert.deepEqual(toggleFragmentBoundary(words, fragments, text, 1), []);
+  assert.equal(fragments[1], words.slice(1).map((word, index) => index === 0 ? word.text.trimStart() : word.text).join(''));
+});
 test('自動断片を凍結してクリックした境界だけ外し edited を立てる', () => {
   const text = '今日はねひたすらYouTubeの撮影を';
   const automatic = ['今日はねひたすら', 'YouTube', 'の撮影を'];

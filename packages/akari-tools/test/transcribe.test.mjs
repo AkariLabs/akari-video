@@ -58,12 +58,13 @@ for (const rejectsDtw of [false, true]) {
   });
 }
 
-test("whisper は抜けごとに切り出して起こし直し、抜けが無ければ一度だけ実行する", async (t) => {
+test("whisper は抜けの言語が変わったときだけ起こし直して差し込む", async (t) => {
   const segment = (from, to, text) => ({ offsets: { from, to }, text,
     tokens: [{ offsets: { from, to }, text }] });
-  const run = async (initial, recovered) => {
+  const run = async (initial, detectedLanguage, recovered = [], recoveredLanguage = "en", detectProbability = 0.99) => {
     const f = await fixture(t, []);
     const whisperCalls = [];
+    const fullCalls = [];
     const cuts = [];
     let silenceCalls = 0;
     const spawn = (command, args) => {
@@ -74,20 +75,49 @@ test("whisper は抜けごとに切り出して起こし直し、抜けが無け
       }
       whisperCalls.push(args);
       const prefix = args[args.indexOf("-of") + 1];
-      writeFileSync(`${prefix}.json`, JSON.stringify({ transcription: whisperCalls.length === 1 ? initial : recovered[whisperCalls.length - 2] }));
+      if (args.includes("-dl")) {
+        writeFileSync(`${prefix}.json`, JSON.stringify({ result: { language: detectedLanguage }, transcription: [] }));
+        return { status: 0, stdout: "", stderr: detectedLanguage === null ? "" : detectProbability === null
+          ? `whisper_full_with_state: auto-detected language: ${detectedLanguage}`
+          : `whisper_full_with_state: auto-detected language: ${detectedLanguage} (p = ${detectProbability})` };
+      } else {
+        fullCalls.push(args);
+        writeFileSync(`${prefix}.json`, JSON.stringify({ result: { language: fullCalls.length === 1 ? "ja" : recoveredLanguage },
+          transcription: fullCalls.length === 1 ? initial : recovered[fullCalls.length - 2] ?? [] }));
+      }
       return { status: 0, stdout: "", stderr: "" };
     };
     const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
       whisperBin: "fixture-whisper", whisperModel: "ggml-base.bin", unrecognized: false, snap: false,
       silencesRunner: async () => { silenceCalls += 1; return []; }, stderr: () => {},
     });
-    return { result, whisperCalls, cuts, silenceCalls };
+    return { result, whisperCalls, fullCalls, cuts, silenceCalls };
   };
-  const withGaps = await run([segment(0, 2000, "前"), segment(8000, 10000, "中"), segment(16000, 30000, "後")], [
+  const initial = [segment(0, 2000, "前"), segment(8000, 10000, "中"), segment(16000, 30000, "後")];
+  const sameLanguage = await run([segment(0, 1000, "前")], "ja", [[segment(1200, 3200, "幻聴")]]);
+  assert.equal(sameLanguage.fullCalls.length, 1);
+  assert.equal(sameLanguage.whisperCalls.length, 2);
+  assert.equal(sameLanguage.whisperCalls[1].includes("-dl"), true);
+  assert.deepEqual(sameLanguage.result.segments.map(({ text }) => text), ["前"]);
+
+  const unknownLanguage = await run([segment(0, 1000, "前")], null);
+  assert.equal(unknownLanguage.fullCalls.length, 1);
+  assert.deepEqual(unknownLanguage.result.segments.map(({ text }) => text), ["前"]);
+
+  const lowProbability = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "en", 0.93);
+  assert.equal(lowProbability.fullCalls.length, 1);
+  assert.deepEqual(lowProbability.result.segments.map(({ text }) => text), ["前"]);
+
+  const missingProbability = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "en", null);
+  assert.equal(missingProbability.fullCalls.length, 1);
+  assert.deepEqual(missingProbability.result.segments.map(({ text }) => text), ["前"]);
+
+  const withGaps = await run(initial, "en", [
     [segment(1200, 3200, "Hello")], [segment(1200, 3200, "world")],
   ]);
   assert.equal(withGaps.silenceCalls, 1);
-  assert.equal(withGaps.whisperCalls.length, 3);
+  assert.equal(withGaps.whisperCalls.length, 5);
+  assert.equal(withGaps.fullCalls.length, 3);
   assert.equal(withGaps.cuts.length, 2);
   assert.deepEqual(withGaps.result.segments.map(({ start, text }) => [start, text]),
     [[0, "前"], [3, "Hello"], [8, "中"], [11, "world"], [16, "後"]]);
@@ -95,14 +125,20 @@ test("whisper は抜けごとに切り出して起こし直し、抜けが無け
     assert.equal(args[args.indexOf("-l") + 1], "auto");
     assert.equal(path.basename(args[args.indexOf("-f") + 1]), "input.wav");
   }
-  assert.notEqual(withGaps.whisperCalls[1][withGaps.whisperCalls[1].indexOf("-f") + 1],
-    withGaps.whisperCalls[2][withGaps.whisperCalls[2].indexOf("-f") + 1]);
+  assert.equal(withGaps.whisperCalls.filter((args) => args.includes("-dl")).length, 2);
+  assert.ok(withGaps.whisperCalls.filter((args) => args.includes("-dl")).every((args) => !args.includes("-dtw")));
+  assert.notEqual(withGaps.fullCalls[1][withGaps.fullCalls[1].indexOf("-f") + 1],
+    withGaps.fullCalls[2][withGaps.fullCalls[2].indexOf("-f") + 1]);
 
-  const withoutGaps = await run([segment(0, 30000, "全体")], []);
+  const rejected = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "ja");
+  assert.equal(rejected.fullCalls.length, 2);
+  assert.deepEqual(rejected.result.segments.map(({ text }) => text), ["前"]);
+
+  const withoutGaps = await run([segment(0, 30000, "全体")], "en");
   assert.equal(withoutGaps.whisperCalls.length, 1);
   assert.equal(withoutGaps.silenceCalls, 0);
   assert.equal(withoutGaps.cuts.length, 0);
-  const empty = await run([], []);
+  const empty = await run([], "en");
   assert.equal(empty.whisperCalls.length, 1);
   assert.equal(empty.silenceCalls, 1);
   assert.equal(empty.cuts.length, 0);

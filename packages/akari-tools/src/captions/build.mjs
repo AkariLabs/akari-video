@@ -2,7 +2,7 @@ import { clipSpansToRange } from "../media/unrecognized-spans.mjs";
 
 const roundTime = (value) => Math.round(value * 1000) / 1000;
 export const captionLength = (text) => Array.from(text).reduce((count, char) =>
-  count + (/[\u0020-\u007e\uFF61-\uFF9F]/u.test(char) ? 0.5 : 1), 0);
+  count + (/[\x00-\x7f]/u.test(char) ? 0.5 : 1), 0);
 
 export function buildCaptionsFromTranscript(segments, {
   src, readoutSeconds = 0.3, minDurationSeconds = 1.0, maxCharacters = 20, idStart = 1,
@@ -24,8 +24,8 @@ export function buildCaptionsFromTranscript(segments, {
   for (const { segment, index } of sorted) {
     const originalText = segment.text.trim();
     const alignedWords = segment.words?.length ? alignCaptionWords(originalText, segment.words) : null;
-    const words = alignedWords ? addMissingEnglishSpaces(alignedWords) : segment.words;
-    const text = alignedWords ? words.map((word) => word.text).join("") : originalText;
+    const words = alignedWords ?? segment.words;
+    const text = originalText;
     if (!text) {
       warnings.push(`segment ${index}: 空の text をスキップしました`);
       continue;
@@ -93,25 +93,6 @@ export function buildCaptionsFromTranscript(segments, {
     else delete caption.unrecognized;
   }
   return { captions, warnings };
-}
-
-function addMissingEnglishSpaces(words) {
-  if (!Array.isArray(words)) return words;
-  let changed = false;
-  const result = words.map((word, index) => {
-    if (index === 0) return word;
-    const previous = String(words[index - 1].text ?? "");
-    const current = String(word.text ?? "");
-    const separatedNumberMark = /^[.,:]$/u.test(previous)
-      && index > 1 && /\d$/u.test(String(words[index - 2].text ?? ""));
-    const numberBoundary = (/\d[.,:]$/u.test(previous) || separatedNumberMark) && /^\d/u.test(current);
-    if (!numberBoundary && /[A-Za-z0-9,.!?;:]$/u.test(previous) && /^[A-Za-z0-9]/u.test(current)) {
-      changed = true;
-      return { ...word, text: ` ${current}` };
-    }
-    return word;
-  });
-  return changed ? result : words;
 }
 
 function alignCaptionWords(text, words) {

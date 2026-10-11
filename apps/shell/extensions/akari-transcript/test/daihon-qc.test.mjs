@@ -22,6 +22,12 @@ test('visibleLength は空白と句読点を数えない', () => {
     assert.equal(visibleLength(' こん、にちは！\n世界。 '), 7);
 });
 
+test('英語は半字で数え、速い印を付けない', () => {
+    assert.equal(visibleLength('Hello, world!'), 5);
+    const issues = rowIssues(row({ text: 'Hello, world!', start: 0, end: 1, outEnd: 1, words: null }));
+    assert.equal(issues.some(issue => issue.kind === 'fast'), false);
+});
+
 test('8.1 字/秒は fast になる', () => {
     const issues = rowIssues(row({ text: 'あ'.repeat(81), end: 10, outEnd: 10, words: null }));
     assert.deepEqual(issues.find(issue => issue.kind === 'fast'), {

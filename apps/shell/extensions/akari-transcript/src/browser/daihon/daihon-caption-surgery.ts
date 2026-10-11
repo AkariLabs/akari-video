@@ -6,8 +6,10 @@ export function fragmentBoundaries(words: readonly { text: string }[], fragments
     let offset = 0;
     words.forEach((word, index) => { offsets.set(offset, index); offset += word.text.length; });
     const result: number[] = [];
+    const text = words.map(word => word.text).join('');
     let total = 0;
     for (const fragment of fragments.slice(0, -1)) {
+        if (total > 0) total += /^\s*/u.exec(text.slice(total))?.[0].length ?? 0;
         total += fragment.length;
         const index = offsets.get(total);
         if (index !== undefined && index > 0 && index < words.length) result.push(index);
@@ -31,6 +33,7 @@ export function toggleFragmentBoundaryAtOffset(
     const offsets = new Set<number>();
     let fragmentCursor = 0;
     for (const fragment of fragments?.slice(0, -1) ?? []) {
+        if (fragmentCursor > 0) fragmentCursor += /^\s*/u.exec(text.slice(fragmentCursor))?.[0].length ?? 0;
         fragmentCursor += fragment.length;
         if (fragmentCursor > 0 && fragmentCursor < text.length) offsets.add(fragmentCursor);
     }
@@ -38,7 +41,7 @@ export function toggleFragmentBoundaryAtOffset(
     const sorted = [...offsets].filter(offset => offset > 0 && offset < text.length).sort((a, b) => a - b);
     if (!sorted.length) return [];
     let cursor = 0;
-    return [...sorted, text.length].map(end => { const value = text.slice(cursor, end); cursor = end; return value; });
+    return [...sorted, text.length].map(end => { const value = text.slice(cursor, end).trim(); cursor = end; return value; });
 }
 
 export function freezeAndRemoveCaptionBoundary(

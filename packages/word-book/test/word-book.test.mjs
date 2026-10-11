@@ -37,6 +37,26 @@ test("多語を 1 語へ畳み先頭と末尾の時刻を保つ", () => {
   assert.equal(result.records[0].text, "AKARI Videoです");
 });
 
+for (const mode of ["captions", "transcript"]) {
+  test(`${mode} で語頭の空白を保って置換し、正表記は数えない`, () => {
+    const match = buildMatcher([{ kind: "term", surface: "Claude", variants: ["clode"] }]);
+    for (const [text, surfaces, expected] of [
+      ["I use clode", ["I", " use", " clode"], ["I", " use", " Claude"]],
+      ["今日は clode を", ["今日は", " clode", " を"], ["今日は", " Claude", " を"]],
+    ]) {
+      const words = surfaces.map((surface, index) => ({ start: index, end: index + 0.5, text: surface }));
+      const result = applyWordBook([{ text, words }], match, { mode });
+      assert.equal(result.stats.replaced, 1);
+      assert.deepEqual(result.records[0].words.map((word) => word.text), expected);
+      assert.equal(result.records[0].text, expected.join(""));
+    }
+    const correct = { text: "I use Claude", words: ["I", " use", " Claude"].map((surface, index) => ({ start: index, end: index + 0.5, text: surface })) };
+    const result = applyWordBook([correct], match, { mode });
+    assert.equal(result.stats.replaced, 0);
+    assert.deepEqual(result.records[0], correct);
+  });
+}
+
 test("同じ位置では語数が長い候補を採る", () => {
   const result = applyWordBook([{ text: "あかり ビデオ", words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }] }], matcher([
     term({ surface: "AKARI", variants: ["あかり"] }),

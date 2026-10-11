@@ -4,6 +4,8 @@ export const LANGUAGE_GAP_MIN_SECONDS = 1.5;
 export const LANGUAGE_GAP_MIN_VOICED_SECONDS = 1.0;
 export const LANGUAGE_GAP_PADDING_SECONDS = 0.2;
 export const LANGUAGE_GAP_MAX_RETRIES = 20;
+// 声の無い区間の言語判定は 0.93 まで上がることがあり、本物の英語の区間は 0.97 以上だったため。
+export const LANGUAGE_GAP_MIN_DETECT_PROBABILITY = 0.95;
 
 const round = (value) => Math.round(value * 1000) / 1000;
 
@@ -31,7 +33,7 @@ export function detectLanguageGaps(segments, silences, range, {
 
 export function insertRecoveredSegments(segments, recovered, gap, offset) {
   const additions = (Array.isArray(recovered) ? recovered : []).flatMap((segment) => {
-    const { words: sourceWords, markers: sourceMarkers, lang: _lang, ...rest } = segment;
+    const { words: sourceWords, markers: sourceMarkers, ...rest } = segment;
     const originalStart = Number(segment.start) + offset;
     const originalEnd = Number(segment.end) + offset;
     if (!Number.isFinite(originalStart) || !Number.isFinite(originalEnd)
@@ -39,17 +41,20 @@ export function insertRecoveredSegments(segments, recovered, gap, offset) {
     const start = round(Math.max(gap.start, originalStart));
     const end = round(Math.min(gap.end, originalEnd));
     if (end <= start || !String(segment.text ?? "").trim()) return [];
-    const words = (sourceWords ?? []).map((word) => ({
+    const words = (sourceWords ?? []).filter((word) => Number(word.end) + offset > gap.start
+      && Number(word.start) + offset < gap.end).map((word) => ({
       ...word,
       start: round(Math.max(start, Number(word.start) + offset)),
       end: round(Math.min(end, Number(word.end) + offset)),
     })).filter((word) => word.end > word.start);
+    if (words.length) words[0].text = words[0].text.trimStart();
+    const text = words.length ? words.map((word) => word.text).join("") : segment.text;
     const markers = (sourceMarkers ?? []).map((marker) => ({
       start: round(Math.max(start, Number(marker.start) + offset)),
       end: round(Math.min(end, Number(marker.end) + offset)),
     })).filter((marker) => marker.end > marker.start);
-    return [{ ...rest, start, end,
-      ...(words.length && words.map((word) => word.text).join("") === segment.text ? { words } : {}),
+    return [{ ...rest, start, end, text,
+      ...(words.length ? { words } : {}),
       ...(markers.length ? { markers } : {}),
     }];
   });

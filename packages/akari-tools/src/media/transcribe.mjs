@@ -27,6 +27,7 @@ import {
   detectLanguageGaps,
   insertRecoveredSegments,
   LANGUAGE_GAP_MAX_RETRIES,
+  LANGUAGE_GAP_MIN_DETECT_PROBABILITY,
   LANGUAGE_GAP_PADDING_SECONDS,
 } from "./language-gaps.mjs";
 import {
@@ -303,21 +304,11 @@ async function applyResolvedWordBook(result, target, options) {
     if (!layer.error) continue;
     writeWordBookLog(options, `単語帳: ${layer.scope} を読めません（${layer.error.message}）`);
   }
-  const segments = result.segments.map((segment) => segment.words?.length
-    ? { ...segment, words: segment.words.map((word) => ({ ...word, text: word.text.trimStart() })) }
-    : segment);
-  const applied = applyWordBook(segments, buildMatcher(resolved.entries), { mode: "transcript" });
+  const applied = applyWordBook(result.segments, buildMatcher(resolved.entries), { mode: "transcript" });
   if (applied.stats.replaced > 0) {
     writeWordBookLog(options, `単語帳: ${applied.stats.replaced} 語を置換（layers: ${resolved.layers.map((layer) => layer.scope).join(", ")}）`);
   }
-  return { ...result, segments: applied.records.map((segment) => {
-    if (!segment.words) return segment;
-    const words = alignWordsToText(segment.words, segment.text);
-    if (words) return { ...segment, words };
-    const withoutWords = { ...segment };
-    delete withoutWords.words;
-    return withoutWords;
-  }) };
+  return { ...result, segments: applied.records };
 }
 
 function writeWordBookLog(options, message) {
@@ -451,7 +442,7 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
     if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, options);
     if (backendInfo.name === "whisper-cpp") {
       const first = runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
-      if (lang !== "auto") return first;
+      if (lang !== "auto" || !first.language) return first;
       const relativeRange = { in: 0, out: range.out - range.in };
       if (detectLanguageGaps(first.segments, [], relativeRange).length === 0) return first;
       let silences;
@@ -477,8 +468,13 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
           runChecked(ffmpeg, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y",
             "-ss", String(cutStart), "-i", inputPath, "-t", String(cutEnd - cutStart),
             "-map", "0:a:0", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", gapPath], options);
+          const detectedLanguage = detectWhisperLanguage(gapPath, gapDirectory, backendInfo, options);
+          if (!detectedLanguage || detectedLanguage.language === first.language
+            || detectedLanguage.probability < LANGUAGE_GAP_MIN_DETECT_PROBABILITY) continue;
           const recovered = runWhisper(gapPath, gapDirectory, backendInfo, "auto", options);
-          first.segments = insertRecoveredSegments(first.segments, recovered.segments, gap, cutStart);
+          if (recovered.language && recovered.language !== first.language) {
+            first.segments = insertRecoveredSegments(first.segments, recovered.segments, gap, cutStart);
+          }
         } catch (error) {
           writeBackendLog(options, `言語切替区間 ${index + 1} の起こし直しに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -540,7 +536,21 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   }
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
   if (!jsonPath) throw new Error("whisper.cpp の JSON 出力が見つかりません");
-  return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8"))), dtw };
+  const output = JSON.parse(readFileSync(jsonPath, "utf8"));
+  return { segments: normalizeWhisperJson(output), language: output.result?.language, dtw };
+}
+
+function detectWhisperLanguage(wavPath, temporaryDirectory, backendInfo, options) {
+  const prefix = path.join(temporaryDirectory, "language-detect");
+  const result = runChecked(backendInfo.bin, ["-m", backendInfo.model, "-f", wavPath, "-l", "auto", "-dl", "-oj", "-of", prefix], options);
+  const detected = result.stderr?.match(/auto-detected language:\s*([a-z]{2,3})\s*\(p\s*=\s*([0-9.]+)\)/iu);
+  if (!detected) return null;
+  const probability = Number(detected[2]);
+  if (!Number.isFinite(probability)) return null;
+  const jsonPath = `${prefix}.json`;
+  const jsonLanguage = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")).result?.language : null;
+  const language = typeof jsonLanguage === "string" && jsonLanguage ? jsonLanguage : detected[1];
+  return { language, probability };
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
@@ -825,6 +835,6 @@ function safeCacheName(value) {
 }
 
 function cacheIdentity({ sha256, range, backend, lang, cacheDirectory }) {
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === "whisper-cpp" ? "-mixed-v2" : ""}`;
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === "whisper-cpp" ? "-mixed-v3" : ""}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }

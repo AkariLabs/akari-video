@@ -1423,7 +1423,11 @@ export class AkariDaihonWidget extends BaseWidget {
             const valid = Array.isArray(manual) && manual.length >= 1 && manual.length <= 6
                 && manual.every(fragment => fragment.length > 0 && fragment.trim() === fragment
                     && fragment.normalize() === fragment && measureCaptionUnits(fragment) <= policy.max_line_units)
-                && manual.join('') === caption.text;
+                && manual.reduce((remaining, fragment, index) => {
+                    const start = index ? /^\s*/u.exec(remaining)?.[0].length ?? 0 : 0;
+                    return remaining.slice(start).startsWith(fragment)
+                        ? remaining.slice(start + fragment.length) : '\0';
+                }, caption.text) === '';
             if (valid) displayFragments = manual;
             else this.captionOverflowUnitsById.set(caption.id, policy.max_line_units);
         } else {
