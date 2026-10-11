@@ -180,6 +180,7 @@
         "filter": [
           "package.json",
           "render-analysis-report.mjs",
+          "report-i18n.mjs",
           "template.html"
         ]
       },

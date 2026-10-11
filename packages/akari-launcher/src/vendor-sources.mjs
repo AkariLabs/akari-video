@@ -35,10 +35,14 @@ export const VENDOR_SOURCES = [
   'packages/word-book/src/index.mjs',
   'packages/akari-tools/src/world/invariants.mjs',
   'packages/akari-tools/src/world/normalize.mjs',
-  'packages/project-scaffold',
+  'packages/akari-tools/src/decision-log/i18n.mjs',
+  // テストは実行時に不要で、分析レポートのテスト専用モジュールを参照するため除外する。
+  'packages/project-scaffold/src/index.mjs',
+  'packages/project-scaffold/package.json',
   // analysis-report は package.json / README.md を capability source として既に収集する。
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
   'packages/analysis-report/render-analysis-report.mjs',
+  'packages/analysis-report/report-i18n.mjs',
   'packages/analysis-report/template.html',
   // decision-log-report も package.json / README.md は capability source として収集する。
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
