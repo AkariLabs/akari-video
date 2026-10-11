@@ -1,6 +1,6 @@
 import { buildExportEncoderChoices, ExportEncoder, ExportPlatform } from 'akari-shell-strip/lib/common/export-encoder-choices';
 
-// 詳細ページの順。左のナビは SETTINGS_PILLARS の六つにまとめる。
+// 節の定義。左のナビは SETTINGS_PILLARS の六つにまとめる。
 // icon は browser/settings/settings-icons.ts の線画 SVG の名前（絵文字・記号文字は使わない）。
 export const SETTINGS_SECTIONS = [
     { id: 'account', label: 'AKARI アカウント', group: 'main', icon: 'user' },
@@ -41,6 +41,23 @@ export function settingsPillarForSection(section: SettingsSectionId): SettingsPi
 }
 export function defaultSectionForPillar(pillar: SettingsPillarId): SettingsSectionId {
     return SETTINGS_PILLARS.find(item => item.id === pillar)!.sections[0] as SettingsSectionId;
+}
+
+export function sectionsForPillar(pillar: SettingsPillarId, vibePreviewEnabled: boolean): SettingsSectionId[] {
+    return SETTINGS_PILLARS.find(item => item.id === pillar)!.sections
+        .filter(id => vibePreviewEnabled || id !== 'listening') as SettingsSectionId[];
+}
+
+/** 見出しの上端から、ページ上端に最も近い節を選ぶ。末尾では最後の節を選ぶ。 */
+export function activeSettingsSection(ids: readonly SettingsSectionId[], headingTops: readonly number[], atBottom: boolean): SettingsSectionId | undefined {
+    if (!ids.length) return undefined;
+    if (atBottom) return ids[ids.length - 1];
+    let active = 0;
+    for (let index = 0; index < ids.length; index++) {
+        if (headingTops[index] <= 48) active = index;
+        else break;
+    }
+    return ids[active];
 }
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
