@@ -19,17 +19,51 @@ function fixture(run) {
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 }
 
-test('fake Applications detects nested and versioned apps', () => fixture(({ apps }) => {
+test('Blender だけを検出する', () => fixture(({ apps }) => {
   fs.mkdirSync(path.join(apps, 'Blender.app'));
-  fs.mkdirSync(path.join(apps, 'Adobe Photoshop 2026', 'Adobe Photoshop 2026.app'), { recursive: true });
-  fs.mkdirSync(path.join(apps, 'Adobe After Effects 2025', 'Adobe After Effects 2025.app'), { recursive: true });
-  fs.mkdirSync(path.join(apps, 'Ableton Live 12 Suite.app'));
-  fs.mkdirSync(path.join(apps, 'DaVinci Resolve', 'DaVinci Resolve.app'), { recursive: true });
-  fs.mkdirSync(path.join(apps, 'Final Cut Pro.app'));
-  for (const id of ['blender', 'photoshop', 'after-effects', 'ableton-live', 'davinci-resolve', 'final-cut-pro']) {
-    assert.equal(detectApp(id, [apps], 'darwin'), true, id);
-  }
+  fs.mkdirSync(path.join(apps, 'Adobe Photoshop 2026.app'));
+  assert.equal(detectApp('blender', [apps], 'darwin'), true);
+  assert.equal(detectApp('photoshop', [apps], 'darwin'), false);
   assert.equal(detectApp('blender', [], 'darwin'), false);
+}));
+
+test('Blender コマンドが PATH にあれば 3D レシピを使える', () => fixture(({ root, home, env }) => {
+  const bin = path.join(root, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'blender'), '', { mode: 0o755 });
+  const snapshot = connectSnapshot({ env: { ...env, PATH: bin }, home, platform: 'darwin' });
+  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, '使える');
+}));
+
+test('素材を作る五行はメーカー印のロゴと色を持つ', () => fixture(({ home, apps, env }) => {
+  const rows = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.filter(row => row.group === '素材を作る');
+  assert.deepEqual(rows.map(row => row.maker), ['fal', 'fish', 'google', 'elevenlabs', 'groq']);
+  assert.equal(rows.length, 5);
+  for (const row of rows) {
+    assert.match(row.logo, /^data:image\//);
+    assert.ok(row.background);
+    assert.ok(row.color);
+    assert.ok(row.initials);
+  }
+}));
+
+test('メーカー印が読めなくても一覧と頭文字を維持する', () => fixture(({ root, home, apps, env }) => {
+  const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin', makerRoots: [root] });
+  assert.equal(snapshot.rows.length, 7);
+  for (const row of snapshot.rows.filter(item => item.group === '素材を作る')) {
+    assert.equal(row.logo, undefined);
+    assert.ok(row.icon);
+  }
+}));
+
+test('配布時の resources 構成からメーカー印を読む', () => fixture(({ root, home, apps, env }) => {
+  const resources = path.join(root, 'resources');
+  const file = path.join(resources, 'packages', 'schemas', 'ai-makers.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ fal: { logo: 'data:image/png;base64,fixture', initials: 'f', background: '#111111', color: '#ffffff' } }));
+  const row = connectSnapshot({ env, home, roots: [apps], platform: 'darwin', makerRoots: [resources] }).rows.find(item => item.id === 'fal');
+  assert.equal(row.logo, 'data:image/png;base64,fixture');
+  assert.equal(row.background, '#111111');
 }));
 
 test('fake credentials change only presence and masked tail', () => fixture(({ home, apps, env }) => {
@@ -37,10 +71,10 @@ test('fake credentials change only presence and masked tail', () => fixture(({ h
   fs.writeFileSync(env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=fake-connect-key-1234\n', { mode: 0o600 });
   const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' });
   const fal = snapshot.rows.find(row => row.id === 'fal');
-  assert.equal(fal.status, 'つながった');
+  assert.equal(fal.status, '使える');
   assert.equal(fal.maskedTail, '1234');
   assert.equal(fal.credentialSource, 'credentials.env');
-  assert.equal(snapshot.rows.find(row => row.id === 'fish-audio').status, '準備が要る');
+  assert.equal(snapshot.rows.find(row => row.id === 'fish-audio').status, '鍵が必要');
   assert.equal(JSON.stringify(snapshot).includes('fake-connect-key'), false);
 }));
 
@@ -61,29 +95,32 @@ test('credential order is env, primary file, then legacy file', () => fixture(({
   assert.equal(get(base).credentialSource, 'credentials.env');
 }));
 
-test('Higgsfield stores a combined fake key in the shared credentials file', () => fixture(({ home, apps, env }) => {
-  saveCredential('higgsfield', 'fake-id:fake-secret', env, home);
-  assert.equal(fs.readFileSync(env.AKARI_CREDENTIALS_FILE, 'utf8'), 'HF_KEY=fake-id:fake-secret\n');
-  const row = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(item => item.id === 'higgsfield');
-  assert.equal(row.status, 'つながった');
-  assert.equal(row.credentialSource, 'credentials.env');
-  assert.equal(row.maskedTail, 'cret');
+test('偽の鍵は現行サービスだけに保存できる', () => fixture(({ home, apps, env }) => {
+  saveCredential('fish-audio', 'fake-fish-1234', env, home);
+  assert.equal(fs.readFileSync(env.AKARI_CREDENTIALS_FILE, 'utf8'), 'FISH_AUDIO_API_KEY=fake-fish-1234\n');
+  const row = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(item => item.id === 'fish-audio');
+  assert.equal(row.status, '使える');
+  assert.equal(row.maskedTail, '1234');
+  assert.throws(() => saveCredential('higgsfield', 'unused', env, home));
 }));
 
-test('all four statuses and generation order persist without credentials', () => fixture(({ home, apps, env }) => {
+test('旧 id を無視して二群の順序と設定を維持する', () => fixture(({ home, apps, env }) => {
   fs.mkdirSync(path.join(apps, 'Blender.app'));
   const file = path.join(env.AKARI_HOME, 'connectors.json');
-  writeSettings(file, { version: 1, enabled: { fal: false, 'akari-video': false }, generationOrder: ['runway', 'fal'], fallbackOnFailure: false });
-  assert.deepEqual(readSettings(file).generationOrder, ['runway', 'fal']);
+  writeSettings(file, { version: 1, enabled: { fal: false, 'akari-video': false, higgsfield: true }, generationOrder: ['runway', 'fal', 'fish-audio'], fallbackOnFailure: true });
+  assert.deepEqual(readSettings(file).generationOrder, ['fal', 'fish-audio']);
+  assert.equal(readSettings(file).enabled.higgsfield, undefined);
   const snapshot = connectSnapshot({ env, home, roots: [apps], platform: 'darwin' });
-  assert.deepEqual(snapshot.generationOrder.slice(0, 2), ['runway', 'fal']);
-  assert.equal(snapshot.fallbackOnFailure, false);
+  assert.deepEqual([...new Set(snapshot.rows.map(row => row.group))], ['AKARI の道具', '素材を作る']);
+  assert.deepEqual(snapshot.generationOrder.slice(0, 2), ['fal', 'fish-audio']);
+  assert.equal(snapshot.fallbackOnFailure, true);
   assert.equal(snapshot.rows.find(row => row.id === 'fal').enabled, false);
   assert.equal(snapshot.rows.find(row => row.id === 'akari-video').enabled, true);
-  assert.equal(snapshot.rows.find(row => row.id === 'blender').status, '見つかった');
-  assert.equal(snapshot.rows.find(row => row.id === 'final-cut-xml').status, '準備中');
-  assert.equal(snapshot.rows.find(row => row.id === 'akari-video').status, 'つながった');
-  assert.equal(connectorStatus({ kind: 'key' }, false, false), '準備が要る');
+  assert.equal(snapshot.rows.find(row => row.id === '3d-recipes').status, '使える');
+  assert.equal(connectSnapshot({ env, home, roots: [], platform: 'darwin' }).rows.find(row => row.id === '3d-recipes').status, 'Blender が必要');
+  assert.equal(snapshot.rows.find(row => row.id === 'akari-video').status, '使える');
+  assert.equal(connectorStatus({ kind: 'key' }, false, false), '鍵が必要');
+  assert.deepEqual(snapshot.rows.filter(row => row.group === '素材を作る').map(row => row.id), ['fal', 'fish-audio', 'google-ai', 'elevenlabs', 'groq']);
   assert.equal(fs.readFileSync(file, 'utf8').includes('KEY='), false);
 }));
 
@@ -93,5 +130,5 @@ test('登録した鍵は削除でき、接続設定には値を残さない', ()
   deleteCredential('fal', env, home);
   const file = env.AKARI_CREDENTIALS_FILE;
   assert.equal(fs.readFileSync(file, 'utf8').includes('fake-remove-WXYZ'), false);
-  assert.equal(connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(row => row.id === 'fal').status, '準備が要る');
+  assert.equal(connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(row => row.id === 'fal').status, '鍵が必要');
 }));

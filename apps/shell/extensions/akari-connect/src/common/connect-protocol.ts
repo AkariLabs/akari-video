@@ -1,10 +1,14 @@
-export type ConnectStatus = 'つながった' | '見つかった' | '準備が要る' | '準備中';
-export type ConnectKind = 'built-in' | 'blender-recipe' | 'key' | 'browser' | 'app' | 'planned';
+export type ConnectStatus = '使える' | '鍵が必要' | '準備中' | 'Blender が必要';
+export type ConnectKind = 'built-in' | 'blender-recipe' | 'key' | 'planned';
 export interface Connector {
     id: string; group: string; name: string; description: string; icon: string; kind: ConnectKind;
-    env?: string; app?: string; setupUrl?: string; try?: string;
+    env?: string; app?: string; setupUrl?: string; try?: string; maker?: string;
 }
-export interface ConnectorRow extends Connector { status: ConnectStatus; enabled: boolean; maskedTail: string | null; credentialSource: 'env' | 'credentials.env' | null; detected: boolean; }
+export interface ConnectorRow extends Connector {
+    status: ConnectStatus; enabled: boolean; maskedTail: string | null;
+    credentialSource: 'env' | 'credentials.env' | null; detected: boolean;
+    logo?: string; background?: string; color?: string; initials?: string;
+}
 export interface ConnectSnapshot { rows: ConnectorRow[]; generationOrder: string[]; fallbackOnFailure: boolean; }
 export const ConnectService = Symbol('ConnectService');
 export const CONNECT_SERVICE_PATH = '/services/akari-connect';

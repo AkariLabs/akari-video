@@ -1,20 +1,9 @@
 [
  {"id":"akari-video","group":"AKARI の道具","name":"AKARI Video","description":"動画を企画・編集する","icon":"A","kind":"built-in","try":"動画を作って"},
- {"id":"akari-sounds","group":"AKARI の道具","name":"AKARI Sounds","description":"BGM と効果音を使う","icon":"♪","kind":"built-in","try":"BGM を探して"},
  {"id":"3d-recipes","group":"AKARI の道具","name":"3D レシピ","description":"Blender で 3D 素材を作る","icon":"3D","kind":"blender-recipe","try":"ロゴを 3D にして"},
- {"id":"fal","group":"素材を作る","name":"fal","description":"画像・映像・声を作る","icon":"f","kind":"key","env":"FAL_KEY","setupUrl":"https://fal.ai/dashboard/keys","try":"商品を白背景で撮った写真を 4 枚"},
- {"id":"higgsfield","group":"素材を作る","name":"Higgsfield","description":"映像・画像を作る","icon":"H","kind":"key","env":"HF_KEY","setupUrl":"https://cloud.higgsfield.ai/","try":"海辺のカフェの空撮を 5 秒"},
- {"id":"runway","group":"素材を作る","name":"Runway","description":"映像を作る・動かす","icon":"R","kind":"key","env":"RUNWAYML_API_SECRET","setupUrl":"https://dev.runwayml.com/","try":"写真を 4 秒の動画に"},
- {"id":"elevenlabs","group":"素材を作る","name":"ElevenLabs","description":"ナレーションの声を作る","icon":"E","kind":"key","env":"ELEVENLABS_API_KEY","setupUrl":"https://elevenlabs.io/app/settings/api-keys","try":"落ち着いた声でナレーションして"},
- {"id":"fish-audio","group":"素材を作る","name":"Fish Audio","description":"ナレーションの声を作る","icon":"F","kind":"key","env":"FISH_AUDIO_API_KEY","setupUrl":"https://fish.audio/app/api-keys/","try":"この原稿を読み上げて"},
- {"id":"suno","group":"素材を作る","name":"Suno","description":"ブラウザで BGM と歌を作る","icon":"S","kind":"browser","setupUrl":"https://suno.com/","try":"30 秒のアコースティック BGM を作って"},
- {"id":"blender","group":"行き来する","name":"Blender","description":"3D を作る","icon":"B","kind":"app","app":"blender","try":"ロゴを 3D にして"},
- {"id":"photoshop","group":"行き来する","name":"Photoshop","description":"静止画・サムネを仕上げる","icon":"Ps","kind":"app","app":"photoshop","try":"サムネを Photoshop で仕上げて"},
- {"id":"after-effects","group":"行き来する","name":"After Effects","description":"モーションを仕上げる","icon":"Ae","kind":"app","app":"after-effects","try":"タイトルを After Effects で動かして"},
- {"id":"ableton-live","group":"行き来する","name":"Ableton Live","description":"音を仕上げる","icon":"Ab","kind":"app","app":"ableton-live","try":"BGM を Ableton で整えて"},
- {"id":"davinci-resolve","group":"行き来する","name":"DaVinci Resolve","description":"映像を仕上げる","icon":"Da","kind":"app","app":"davinci-resolve","try":"色を Resolve で仕上げて"},
- {"id":"final-cut-pro","group":"行き来する","name":"Final Cut Pro","description":"映像を仕上げる","icon":"Fc","kind":"app","app":"final-cut-pro","try":"Final Cut に渡して"},
- {"id":"final-cut-xml","group":"渡す","name":"Final Cut XML","description":"Final Cut 用 XML に書き出す","icon":"Fc","kind":"planned"},
- {"id":"resolve-xml","group":"渡す","name":"Resolve XML","description":"Resolve 用 XML に書き出す","icon":"Da","kind":"planned"},
- {"id":"premiere-xml","group":"渡す","name":"Premiere XML","description":"Premiere 用 XML に書き出す","icon":"Pr","kind":"planned"}
+ {"id":"fal","group":"素材を作る","name":"fal","description":"画像・映像・読み上げを作る","icon":"f","kind":"key","env":"FAL_KEY","setupUrl":"https://fal.ai/dashboard/keys","try":"商品を白背景で撮った写真を 4 枚","maker":"fal"},
+ {"id":"fish-audio","group":"素材を作る","name":"Fish Audio","description":"原稿を読み上げる","icon":"F","kind":"key","env":"FISH_AUDIO_API_KEY","setupUrl":"https://fish.audio/app/api-keys/","try":"この原稿を読み上げて","maker":"fish"},
+ {"id":"google-ai","group":"素材を作る","name":"Google AI","description":"原稿の読み上げ・声の写しを作る","icon":"G","kind":"key","env":"GEMINI_API_KEY","setupUrl":"https://aistudio.google.com/apikey","try":"この原稿を読み上げて","maker":"google"},
+ {"id":"elevenlabs","group":"素材を作る","name":"ElevenLabs","description":"音声を文字起こしする","icon":"E","kind":"key","env":"ELEVENLABS_API_KEY","setupUrl":"https://elevenlabs.io/app/settings/api-keys","try":"この音声を文字起こしして","maker":"elevenlabs"},
+ {"id":"groq","group":"素材を作る","name":"Groq","description":"音声を文字起こしする","icon":"G","kind":"key","env":"GROQ_API_KEY","setupUrl":"https://console.groq.com/keys","try":"この音声を文字起こしして","maker":"groq"}
 ]

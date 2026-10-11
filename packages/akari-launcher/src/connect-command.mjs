@@ -68,29 +68,18 @@ function dirNames(root) {
   try { return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name); }
   catch { return []; }
 }
-const appNames = {
-  blender: /^Blender(?: \d+(?:\.\d+)*)?\.app$/i,
-  photoshop: /^Adobe Photoshop(?: \d{4})?(?:\.app)?$/i,
-  'after-effects': /^Adobe After Effects(?: \d{4})?(?:\.app)?$/i,
-  'ableton-live': /^Ableton Live .+\.app$/i,
-  'davinci-resolve': /^DaVinci Resolve(?:\.app)?$/i,
-  'final-cut-pro': /^Final Cut Pro\.app$/i
-};
 export function detectApp(id, roots, platform = process.platform) {
-  if (platform === 'win32' && id === 'final-cut-pro') return false;
-  const pattern = appNames[id];
-  if (!pattern) return false;
-  for (const root of roots) for (const name of dirNames(root)) {
-    if (pattern.test(name) && (name.endsWith('.app') || platform === 'win32')) return true;
-    if ((id === 'photoshop' || id === 'after-effects' || id === 'davinci-resolve') && pattern.test(name) &&
-        dirNames(path.join(root, name)).some(child => pattern.test(child) && (platform === 'win32' || child.endsWith('.app')))) return true;
-    if (platform === 'win32' && (id === 'photoshop' || id === 'after-effects') && name === 'Adobe' &&
-        dirNames(path.join(root, name)).some(child => pattern.test(child))) return true;
-    if (platform === 'win32' && id === 'davinci-resolve' && name === 'Blackmagic Design' &&
-        dirNames(path.join(root, name)).some(child => pattern.test(child))) return true;
-    if (platform === 'win32' && id === 'blender' && name === 'Blender Foundation' && dirNames(path.join(root, name)).length) return true;
-  }
-  return false;
+  if (id !== 'blender') return false;
+  const pattern = platform === 'win32' ? /^(?:Blender Foundation|Blender(?: \d+)?)$/i : /^Blender(?: \d+(?:\.\d+)*)?\.app$/i;
+  return roots.some(root => dirNames(root).some(name => pattern.test(name)));
+}
+function detectBlenderCommand(env, platform) {
+  const executable = platform === 'win32' ? 'blender.exe' : 'blender';
+  const candidates = [env.BLENDER, ...(env.PATH || '').split(platform === 'win32' ? ';' : ':').map(directory => path.join(directory, executable))];
+  return candidates.some(candidate => {
+    if (!candidate) return false;
+    try { fs.accessSync(candidate, fs.constants.X_OK); return fs.statSync(candidate).isFile(); } catch { return false; }
+  });
 }
 export function listConnectors({ env = process.env, home = os.homedir(), platform = process.platform, roots } = {}) {
   const paths = connectPaths(env, home);
@@ -99,13 +88,12 @@ export function listConnectors({ env = process.env, home = os.homedir(), platfor
   const scanRoots = roots || (platform === 'win32' ? [env.ProgramFiles, env['ProgramFiles(x86)']].filter(Boolean) : ['/Applications', path.join(home, 'Applications')]);
   const order = [...new Set(settings.generationOrder), ...generation.filter(id => !settings.generationOrder.includes(id))];
   const rows = catalog.map(entry => {
-    const detected = entry.app ? detectApp(entry.app, scanRoots, platform) : entry.kind === 'blender-recipe' ? detectApp('blender', scanRoots, platform) : false;
+    const detected = entry.kind === 'blender-recipe' ? detectApp('blender', scanRoots, platform) || (!roots && detectBlenderCommand(env, platform)) : false;
     const credential = entry.env ? credentials.get(entry.env) : undefined;
     const hasKey = !!credential;
-    const status = entry.kind === 'built-in' ? 'つながった' : entry.kind === 'planned' ? '準備中' :
-      entry.kind === 'key' ? hasKey ? 'つながった' : '準備が要る' :
-      entry.kind === 'browser' ? '見つかった' :
-      entry.id === 'after-effects' && detected ? '準備が要る' : detected ? '見つかった' : '準備が要る';
+    const status = entry.kind === 'built-in' ? '使える' : entry.kind === 'planned' ? '準備中' :
+      entry.kind === 'key' ? hasKey ? '使える' : '鍵が必要' :
+      entry.kind === 'blender-recipe' ? detected ? '使える' : 'Blender が必要' : '準備中';
     return { id: entry.id, group: entry.group, name: entry.name, status, enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
       detected, credential: entry.env ? hasKey : null, credentialSource: credential?.source ?? null };
   });
@@ -162,7 +150,13 @@ export async function runConnectCommand(args, options = {}) {
   if (args[0] === 'list' && (args.length === 1 || args.length === 2 && args[1] === '--json')) {
     const data = listConnectors({ env, home, roots: options.roots, platform: options.platform });
     if (args[1] === '--json') log(JSON.stringify(data));
-    else for (const row of data.rows) log(`${row.name}: ${row.status}${row.enabled ? '' : '（使わない）'}`);
+    else {
+      let group = '';
+      for (const row of data.rows) {
+        if (row.group !== group) { group = row.group; log(group); }
+        log(`  ${row.name}: ${row.status}${row.enabled ? '' : '（使わない）'}`);
+      }
+    }
     return { exitCode: 0 };
   }
   if (args[0] === 'exec' && args.length >= 4 && args[2] === '--') {
@@ -175,6 +169,9 @@ export async function runConnectCommand(args, options = {}) {
     const secret = credential.value;
     const childEnv = { ...env };
     for (const connector of catalog) if (connector.env) delete childEnv[connector.env];
+    // 旧カタログの鍵も子プロセスへ漏らさない。
+    delete childEnv.HF_KEY;
+    delete childEnv.RUNWAYML_API_SECRET;
     childEnv[entry.env] = secret;
     let child;
     try {
