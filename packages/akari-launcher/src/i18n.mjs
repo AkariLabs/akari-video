@@ -1,12 +1,25 @@
 import { readFileSync } from 'node:fs';
-const core = await import('../../i18n/index.mjs')
-  .catch(() => import('../vendor/packages/i18n/index.mjs').catch(() => null));
+import { createRequire } from 'node:module';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const sourceUrl = import.meta.url;
+const require = createRequire(sourceUrl || pathToFileURL(__filename));
+const roots = sourceUrl
+  ? ['../../i18n', '../vendor/packages/i18n'].map(root => fileURLToPath(new URL(`${root}/`, sourceUrl)))
+  : [...(process.resourcesPath ? [join(process.resourcesPath, 'packages/i18n')] : []),
+    resolve(process.cwd(), '../../packages/i18n'), resolve(process.cwd(), 'packages/i18n')];
+let core = null;
+for (const root of roots) {
+  try { core = require(join(root, 'index.cjs')); break; }
+  catch { /* Try the packaged copy next. */ }
+}
 const normalizeLanguage = core?.normalizeLanguage ?? ((value) => typeof value === 'string' && /^ja/i.test(value) ? 'ja' : 'en');
 const getLanguage = core?.getLanguage ?? (() => normalizeLanguage(process.env.AKARI_LANG ?? Intl.DateTimeFormat().resolvedOptions().locale));
 
 function catalog(language) {
-  for (const root of ['../../i18n', '../vendor/packages/i18n']) {
-    try { return JSON.parse(readFileSync(new URL(`${root}/locales/${language}/cli.json`, import.meta.url), 'utf8')); }
+  for (const root of roots) {
+    try { return JSON.parse(readFileSync(join(root, 'locales', language, 'cli.json'), 'utf8')); }
     catch { /* Try the packaged catalog next. */ }
   }
   return {};
