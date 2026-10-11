@@ -4,6 +4,7 @@ import { basename, extname, isAbsolute, join } from 'path';
 import { injectable } from '@theia/core/shared/inversify';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent } from '../common/chat-events';
+import type { ChatCapabilities } from '../common/chat-agent';
 import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
 import { chatAdapters } from './adapters';
 import type { ChatAdapterSession } from './adapters/adapter';
@@ -20,6 +21,18 @@ type ActiveChat = {
 export class AkariChatServiceImpl implements AkariChatService {
     private client?: AkariChatClient;
     private readonly sessions = new Map<string, ActiveChat>();
+    private readonly historyTails = new Map<string, Promise<void>>();
+    private readonly starts = new Map<string, AbortController>();
+    private readonly cancelledStarts = new Set<string>();
+
+    private async changeHistory(cwd: string, change: (history: Awaited<ReturnType<typeof readHistory>>) => ReturnType<typeof addHistory>): Promise<void> {
+        const previous = this.historyTails.get(cwd) || Promise.resolve();
+        const next = previous.catch(() => undefined).then(async () => {
+            await writeHistory(cwd, change(await readHistory(cwd)));
+        });
+        this.historyTails.set(cwd, next);
+        try { await next; } finally { if (this.historyTails.get(cwd) === next) this.historyTails.delete(cwd); }
+    }
 
     setClient(client: AkariChatClient): void {
         this.client = client;
@@ -36,22 +49,69 @@ export class AkariChatServiceImpl implements AkariChatService {
         model?: string;
         effort?: string;
         permission?: 'auto' | 'all';
+        token?: string;
     }) {
+        if (options.token && this.cancelledStarts.delete(options.token)) throw new Error('start-cancelled');
+        const controller = new AbortController();
+        if (options.token) this.starts.set(options.token, controller);
+        try { return await this.startSession(options, controller.signal); }
+        finally { if (options.token) this.starts.delete(options.token); }
+    }
+
+    async cancelStart(token: string): Promise<void> {
+        const controller = this.starts.get(token);
+        if (controller) controller.abort();
+        else {
+            this.cancelledStarts.add(token);
+            if (this.cancelledStarts.size > 100) this.cancelledStarts.delete(this.cancelledStarts.values().next().value!);
+        }
+    }
+
+    private async startSession(options: {
+        agent: string; cwd: string; resume?: string; model?: string; effort?: string;
+        permission?: 'auto' | 'all'; token?: string;
+    }, signal: AbortSignal) {
         const registered = await Promise.all(chatAdapters.map(async adapter => ({
             adapter,
             info: await adapter.info()
         })));
-        const selected = registered.find(item => item.info.id === options.agent)?.adapter;
-        if (!selected) {
+        const match = registered.find(item => item.info.id === options.agent);
+        if (!match) {
             throw new Error('このパートナーはまだチャットに対応していません');
         }
-        const session = await selected.start({
+        if (signal.aborted) throw new Error('start-cancelled');
+        let session: ChatAdapterSession;
+        try {
+            if (!match.info.installed) throw new Error('not-installed');
+            session = await match.adapter.start({
             cwd: options.cwd,
             resume: options.resume,
             model: options.model,
             effort: options.effort,
-            permission: options.permission || 'auto'
-        });
+            permission: options.permission || 'auto', signal
+            });
+        } catch (cause) {
+            if (signal.aborted) throw new Error('start-cancelled');
+            const message = String(cause);
+            const kind: Extract<ChatEvent, { type: 'error' }>['kind'] = !match.info.installed ? 'not-installed'
+                : /auth|login|log in|sign in/i.test(message) ? 'auth' : 'other';
+            const initialError: Extract<ChatEvent, { type: 'error' }> = {
+                type: 'error', kind, message: kind === 'not-installed' ? match.info.installHint || message : message
+            };
+            const listeners = new Set<(event: ChatEvent) => void>();
+            const capabilities: ChatCapabilities = { models: [], images: false, interrupt: false, clear: false,
+                compact: false, resume: false, ask: false };
+            session = {
+                sessionRef: '', initialError, capabilities: async () => capabilities,
+                onEvent: listener => { listeners.add(listener); return { dispose: () => { listeners.delete(listener); } }; },
+                send: async () => { for (const listener of listeners) {
+                    listener(initialError);
+                    listener({ type: 'turn.end', ok: false, reason: kind });
+                } },
+                interrupt: async () => undefined, close: async () => undefined
+            };
+        }
+        if (signal.aborted) { await session.close(); throw new Error('start-cancelled'); }
         const existing = options.resume
             ? (await readHistory(options.cwd)).sessions.find(entry =>
                 entry.sessionRef === options.resume && entry.agent === options.agent
@@ -83,20 +143,8 @@ export class AkariChatServiceImpl implements AkariChatService {
                 console.warn('[akari-chat] history update failed', { chatId, type: event.type });
             });
         });
-        if (!options.resume) {
-            const now = new Date().toISOString();
-            const entry: ChatHistoryEntry = {
-                id: chatId,
-                agent: options.agent,
-                sessionRef: session.sessionRef,
-                title: '新しいチャット',
-                model: options.model,
-                createdAt: now,
-                updatedAt: now
-            };
-            await writeHistory(options.cwd, addHistory(await readHistory(options.cwd), entry));
-        }
-        return { chatId, capabilities: await session.capabilities() };
+        return { chatId, capabilities: await session.capabilities(),
+            ...(session.initialError ? { error: { kind: session.initialError.kind, message: session.initialError.message } } : {}) };
     }
 
     private async noteEvent(chatId: string, event: ChatEvent): Promise<void> {
@@ -104,8 +152,9 @@ export class AkariChatServiceImpl implements AkariChatService {
         if (!current || (event.type !== 'session' && event.type !== 'turn.end')) {
             return;
         }
-        const history = await readHistory(current.cwd);
-        await writeHistory(current.cwd, updateHistory(history, chatId, {
+        if (current.session.initialError && !current.session.sessionRef) return;
+        if (!current.titleSet) return;
+        await this.changeHistory(current.cwd, history => updateHistory(history, chatId, {
             sessionRef: current.session.sessionRef,
             updatedAt: new Date().toISOString(),
             ...(event.type === 'session' && event.model ? { model: event.model } : {})
@@ -116,12 +165,13 @@ export class AkariChatServiceImpl implements AkariChatService {
         const current = this.require(chatId);
         console.warn('[akari-chat] send', { chatId, state: 'received' });
         try {
-            if (!current.titleSet) {
-                const history = await readHistory(current.cwd);
-                await writeHistory(current.cwd, updateHistory(history, chatId, {
-                    title: titleFromText(text),
-                    updatedAt: new Date().toISOString()
-                }));
+            if (!current.titleSet && !(current.session.initialError && !current.session.sessionRef)) {
+                const now = new Date().toISOString();
+                const entry: ChatHistoryEntry = {
+                    id: chatId, agent: current.agent, sessionRef: current.session.sessionRef,
+                    title: titleFromText(text), createdAt: now, updatedAt: now
+                };
+                await this.changeHistory(current.cwd, history => addHistory(history, entry));
                 current.titleSet = true;
             }
             console.warn('[akari-chat] send', { chatId, state: 'adapter' });
@@ -166,15 +216,16 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async listHistory(cwd: string): Promise<ChatHistoryEntry[]> {
+        await this.historyTails.get(cwd);
         return (await readHistory(cwd)).sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     }
 
     async renameHistory(cwd: string, historyId: string, title: string): Promise<void> {
-        await writeHistory(cwd, renameHistory(await readHistory(cwd), historyId, title));
+        await this.changeHistory(cwd, history => renameHistory(history, historyId, title));
     }
 
     async removeHistory(cwd: string, historyId: string): Promise<void> {
-        await writeHistory(cwd, removeHistory(await readHistory(cwd), historyId));
+        await this.changeHistory(cwd, history => removeHistory(history, historyId));
     }
 
     async saveScreenRecording(cwd: string, data: string): Promise<string> {
@@ -200,12 +251,12 @@ export class AkariChatServiceImpl implements AkariChatService {
         return relative;
     }
 
-    async resume(cwd: string, historyId: string) {
+    async resume(cwd: string, historyId: string, token?: string) {
         const entry = (await this.listHistory(cwd)).find(item => item.id === historyId);
         if (!entry?.sessionRef) {
             throw new Error('この会話は開けません');
         }
-        return this.start({ cwd, agent: entry.agent, resume: entry.sessionRef, model: entry.model });
+        return this.start({ cwd, agent: entry.agent, resume: entry.sessionRef, model: entry.model, token });
     }
 
     private require(chatId: string): ActiveChat {

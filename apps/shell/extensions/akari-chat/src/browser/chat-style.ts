@@ -476,7 +476,11 @@ const css = `
   height: 32px;
   color: #ddd;
 }
-.akari-chat-agent-column button[data-installed=false] { color: #666 !important; }
+.akari-chat-agent-column button[data-installed=false] { opacity: .42; }
+.akari-chat-starting, .akari-chat-stopped, [data-chat-install-guide] { padding: 12px; color: #aaa; }
+.akari-chat-stopped { font-size: 12px; }
+.akari-chat-starting button, [data-chat-install-guide] button, [data-chat-next-step] button { margin: 6px; }
+.akari-chat-model-column input[data-chat-model-search] { width: 100%; box-sizing: border-box; }
 .akari-chat-agent-column button.selected,
 .akari-chat-model-column button.selected {
   background: rgba(249, 115, 22, .16) !important;

@@ -6,7 +6,7 @@ import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
-import { describeAttachments } from './claude-stream-json';
+import { describeAttachments } from '../../common/chat-attachments';
 import { acpVersion, findAcpExecutable, AcpAgentDefinition, AcpDetectionEnvironment } from './acp-agents';
 
 type JsonObject = Record<string, unknown>;
@@ -63,14 +63,18 @@ export class AcpAdapter implements ChatAdapter {
         const executable = await this.executable();
         return {
             id: this.agent.id, name: this.agent.name, installed: Boolean(executable),
-            version: executable ? await acpVersion(executable) : undefined, transport: 'acp'
+            version: executable ? await acpVersion(executable) : undefined, transport: 'acp',
+            installHint: this.agent.installHint, loginHint: this.agent.loginHint
         };
     }
 
-    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all' }): Promise<ChatAdapterSession> {
+    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all'; signal?: AbortSignal }): Promise<ChatAdapterSession> {
         const executable = await this.executable();
         const session = new AcpSession(this.agent, executable, opts);
-        await session.open();
+        const cancel = (): void => { void session.close(); };
+        opts.signal?.addEventListener('abort', cancel, { once: true });
+        try { await session.open(); } finally { opts.signal?.removeEventListener('abort', cancel); }
+        if (opts.signal?.aborted) { await session.close(); throw new Error('start-cancelled'); }
         return session;
     }
 }
@@ -87,7 +91,8 @@ export class AcpSession implements ChatAdapterSession {
     private ref = '';
     private canonicalCwd = '';
     private model = '';
-    private initialEvents: ChatEvent[] = [];
+    initialError?: Extract<ChatEvent, { type: 'error' }>;
+    private sessionAnnounced = false;
     private loadActive = false;
     private closed = false;
     private turnActive = false;
@@ -115,14 +120,11 @@ export class AcpSession implements ChatAdapterSession {
 
     onEvent(listener: (event: ChatEvent) => void): { dispose(): void } {
         this.listeners.add(listener);
-        for (const event of this.initialEvents) { listener(event); }
         return { dispose: () => { this.listeners.delete(listener); } };
     }
 
     private emit(event: ChatEvent): void {
-        if (event.type === 'session') { this.initialEvents = [event]; }
-        else if (!this.turnActive && event.type === 'error') { this.initialEvents = [event]; }
-        else if (!this.turnActive && event.type === 'turn.end') { this.initialEvents.push(event); }
+        if (!this.turnActive && event.type === 'error') { this.initialError = event; }
         for (const listener of this.listeners) {
             try { listener(event); } catch { /* A view listener cannot interrupt the transport. */ }
         }
@@ -166,10 +168,11 @@ export class AcpSession implements ChatAdapterSession {
             if (this.opts.effort) {
                 try { await this.setEffort(this.opts.effort); } catch { /* The session is usable with its current effort. */ }
             }
-            this.emit({ type: 'session', sessionId: this.ref, agent: this.agent.id, model: this.model || undefined, cwd: this.opts.cwd });
         } catch (cause) {
             this.loadActive = false;
             this.fail(cause as RpcError, true);
+            this.child?.kill();
+            this.child = undefined;
         }
     }
 
@@ -327,6 +330,7 @@ export class AcpSession implements ChatAdapterSession {
         return {
             models: modelConfig?.options?.map(option => ({ id: option.value, label: option.name || option.value, description: option.description }))
                 || this.models.map(item => ({ id: item.modelId, label: item.name || item.modelId })),
+            currentModel: this.model || undefined,
             efforts: effortConfig?.options?.map(option => option.value),
             images: Boolean(object(this.agentCapabilities.promptCapabilities).image),
             interrupt: true, clear: true, compact: this.commands.includes('compact'),
@@ -346,8 +350,14 @@ export class AcpSession implements ChatAdapterSession {
     }
 
     private relativePath(path: string): string {
-        if (!isAbsolute(path)) { return path; }
         const root = this.canonicalCwd || this.opts.cwd;
+        if (!isAbsolute(path)) {
+            const stripped = path.replace(/^\/+/, '');
+            const rootStripped = root.replace(/^\/+/, '');
+            if (stripped === rootStripped) return '.';
+            if (stripped.startsWith(`${rootStripped}/`)) return stripped.slice(rootStripped.length + 1);
+            return path;
+        }
         const part = relative(root, path);
         return within(root, path) ? part || '.' : path;
     }
@@ -367,7 +377,7 @@ export class AcpSession implements ChatAdapterSession {
         const status = ['completed', 'done'].includes(string(update.status)) ? 'done'
             : ['failed', 'error'].includes(string(update.status)) ? 'error' : 'running';
         const title = string(update.title);
-        const descriptiveTitle = title.toLowerCase() === string(update.kind).toLowerCase() ? '' : title;
+        const descriptiveTitle = title.toLowerCase() === string(update.kind).toLowerCase() ? '' : this.relativePath(title);
         const location = path ? this.relativePath(path) : '';
         const target = (kind === 'command' ? command || descriptiveTitle || location
             : kind === 'read' || kind === 'write' ? location || descriptiveTitle
@@ -470,11 +480,17 @@ export class AcpSession implements ChatAdapterSession {
 
     private async sendOne(text: string, attachments: ChatAttachment[]): Promise<void> {
         if (this.closed) { return; }
+        if (!this.sessionAnnounced && this.ref) {
+            this.sessionAnnounced = true;
+            this.emit({ type: 'session', sessionId: this.ref, agent: this.agent.id, model: this.model || undefined, cwd: this.opts.cwd });
+        }
         if (!this.child || !this.ref) {
-            const initialError = this.initialEvents.find(event => event.type === 'error');
-            if (!initialError || initialError.type !== 'error') {
+            if (!this.initialError) {
                 this.fail(new Error('ACP process closed'), true);
-            } else { this.emit({ type: 'turn.end', ok: false, reason: initialError.kind }); }
+            } else {
+                this.emit(this.initialError);
+                this.emit({ type: 'turn.end', ok: false, reason: this.initialError.kind });
+            }
             return;
         }
         this.turnActive = true;
@@ -490,7 +506,8 @@ export class AcpSession implements ChatAdapterSession {
             this.emit({ type: 'turn.end', ok, ...(!ok ? { reason: this.interrupted || stopReason === 'cancelled' ? 'interrupted' : stopReason || 'other' } : {}) });
         } catch (cause) {
             this.finishMessage(); this.finishThought();
-            this.fail(cause as RpcError, true);
+            if (this.interrupted) this.emit({ type: 'turn.end', ok: false, reason: 'interrupted' });
+            else this.fail(cause as RpcError, true);
         } finally { this.turnActive = false; }
     }
 

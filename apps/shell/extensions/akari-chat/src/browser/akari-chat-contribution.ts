@@ -4,6 +4,7 @@ import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/c
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import type { ChatAttachment } from '../common/chat-attachments';
 import { AkariChatWidget } from './akari-chat-widget';
+import { markChatLastUsed } from './chat-last-used';
 
 export const ChatCommands = {
     OPEN: { id: 'akari.chat.open', label: 'AKARI チャットを開く' } as Command,
@@ -41,10 +42,7 @@ export class AkariChatContribution implements CommandContribution {
                 if (arg?.resumeLast) {
                     await widget.resumeLast();
                 } else {
-                    await this.storage.setData('akari.partner.last', {
-                        entryId: 'akari-chat',
-                        at: new Date().toISOString()
-                    });
+                    await markChatLastUsed(this.storage);
                 }
             }
         });

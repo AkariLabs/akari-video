@@ -7,7 +7,7 @@ import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
-import { describeAttachments } from './claude-stream-json';
+import { describeAttachments } from '../../common/chat-attachments';
 
 type RpcMessage = { id?: number; method?: string; params?: any; result?: any; error?: { message?: string; code?: number } };
 type PendingRpc = { resolve: (value: any) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; method: string; params: unknown };
@@ -322,7 +322,8 @@ export class CodexAppServerAdapter implements ChatAdapter {
     async info(): Promise<ChatAgentInfo> {
         const executable = this.executableOverride || await findCodex();
         if (!executable) {
-            return { id: 'codex', name: 'Codex', installed: false, transport: 'codex-app-server' };
+            return { id: 'codex', name: 'Codex', installed: false, transport: 'codex-app-server',
+                installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
         }
         const version = await new Promise<string>(resolve => {
             const child = spawn(executable, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
@@ -331,21 +332,27 @@ export class CodexAppServerAdapter implements ChatAdapter {
             child.on('error', () => resolve(''));
             child.on('close', () => resolve(output.trim()));
         });
-        return { id: 'codex', name: 'Codex', installed: true, version, transport: 'codex-app-server' };
+        return { id: 'codex', name: 'Codex', installed: true, version, transport: 'codex-app-server',
+            installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
     }
 
-    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all' }): Promise<ChatAdapterSession> {
+    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all'; signal?: AbortSignal }): Promise<ChatAdapterSession> {
         const executable = this.executableOverride || await findCodex();
         if (!executable) {
             throw new Error('not-installed');
         }
         const session = new CodexSession(executable, opts, this.idleTimeoutMs);
+        const cancel = (): void => { void session.close(); };
+        opts.signal?.addEventListener('abort', cancel, { once: true });
         try {
             await session.initialize();
+            if (opts.signal?.aborted) throw new Error('start-cancelled');
             return session;
         } catch (error) {
             await session.close();
             throw error;
+        } finally {
+            opts.signal?.removeEventListener('abort', cancel);
         }
     }
 }
@@ -382,6 +389,9 @@ class CodexSession implements ChatAdapterSession {
     }
 
     get sessionRef(): string { return this.ref; }
+    get initialError(): Extract<ChatEvent, { type: 'error' }> | undefined {
+        return this.unauthenticated ? { type: 'error', kind: 'auth', message: AUTH_MESSAGE } : undefined;
+    }
 
     private publish(event: ChatEvent): void {
         if (event.type === 'turn.end') {
@@ -408,7 +418,8 @@ class CodexSession implements ChatAdapterSession {
         this.waitingAnswer = undefined;
         if (waiting) {
             clearTimeout(waiting.timer);
-            if (event.ok) { waiting.resolve(); } else { waiting.reject(new Error(event.reason || 'turn failed')); }
+            if (event.ok || event.reason === 'interrupted') { waiting.resolve(); }
+            else { waiting.reject(new Error(event.reason || 'turn failed')); }
         }
     }
 
@@ -663,7 +674,8 @@ class CodexSession implements ChatAdapterSession {
     }
 
     async capabilities(): Promise<ChatCapabilities> {
-        return { models: this.models, ...(this.efforts.length ? { efforts: this.efforts } : {}),
+        return { models: this.models, currentModel: this.actualModel,
+            ...(this.efforts.length ? { efforts: this.efforts } : {}),
             images: true, interrupt: true, clear: true, compact: true, resume: true, ask: true };
     }
 
@@ -723,7 +735,7 @@ class CodexSession implements ChatAdapterSession {
             if (this.unauthenticated) {
                 this.publish({ type: 'error', kind: 'auth', message: AUTH_MESSAGE });
                 this.publish({ type: 'turn.end', ok: false, reason: 'auth' });
-                throw new Error('auth');
+                return;
             }
         }
         const content = [text, describeAttachments(attachments)].filter(Boolean).join('\n\n');

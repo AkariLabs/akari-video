@@ -12,11 +12,13 @@ export interface ChatAdapter {
         model?: string;
         effort?: string;
         permission: 'auto' | 'all';
+        signal?: AbortSignal;
     }): Promise<ChatAdapterSession>;
 }
 
 export interface ChatAdapterSession {
     readonly sessionRef: string;
+    readonly initialError?: Extract<ChatEvent, { type: 'error' }>;
     capabilities(): Promise<ChatCapabilities>;
     send(text: string, attachments: ChatAttachment[]): Promise<void>;
     interrupt(): Promise<void>;

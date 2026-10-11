@@ -4,14 +4,15 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { once } from 'node:events';
 
 const require = createRequire(import.meta.url);
 const {
     ClaudeStreamParser,
     ClaudeStreamJsonAdapter,
-    claudeUserMessage,
-    describeAttachments
+    claudeUserMessage
 } = require('../lib/node/adapters/claude-stream-json.js');
+const { describeAttachments } = require('../lib/common/chat-attachments.js');
 const {
     addHistory,
     updateHistory,
@@ -43,6 +44,9 @@ if (process.argv.includes('--version')) {
 }
 const mode = fs.existsSync('mode.txt') ? fs.readFileSync('mode.txt', 'utf8').trim() : 'persistent';
 if (mode === 'hold-input-close') setInterval(() => {}, 1000);
+if (mode === 'interrupt-result') process.on('SIGINT', () => {
+    process.stdout.write(JSON.stringify({ type: 'result', subtype: 'error_during_execution', is_error: true }) + '\\n', () => process.exit(0));
+});
 fs.appendFileSync('args.jsonl', JSON.stringify(process.argv.slice(2)) + '\\n');
 let buffer = '';
 process.stdin.setEncoding('utf8');
@@ -56,6 +60,7 @@ process.stdin.on('data', chunk => {
         const user = JSON.parse(line);
         fs.appendFileSync('received.jsonl', JSON.stringify(user) + '\\n');
         console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5' }));
+        if (mode === 'hold-turn' || mode === 'interrupt-result') continue;
         console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 }, modelUsage: { 'claude-haiku-5-5': { contextWindow: 1000000 } } }));
         if (mode === 'exit') setTimeout(() => process.exit(0), 5);
     }
@@ -229,7 +234,7 @@ test('attachments become prose and image content', async () => {
             { kind: 'file', path: 'image.png', label: '写真' },
             { kind: 'review', label: '確認', review: { tool: 'pin', source: 'edit.json', sourceLabel: '下書き', time: 12, text: '直して' } }
         ];
-        assert.match(describeAttachments(attachments), /\[レビュー\].*12\.0秒 pin.*直して/);
+        assert.match(describeAttachments(attachments), /\[レビュー\].*0:12 ピン.*直して/);
         const message = await claudeUserMessage('見て', attachments, cwd);
         assert.equal(message.message.content[1].source.media_type, 'image/png');
         assert.match(userText(message), /\[ファイル\] 写真: image\.png/);
@@ -243,13 +248,55 @@ test('a dead process restarts with --resume and receives the next message', asyn
         assert.equal((await adapter.info()).version, 'test');
         const session = await adapter.start({ cwd, permission: 'auto' });
         await session.send('one', []);
-        await new Promise(resolve => setTimeout(resolve, 60));
+        const child = session.child;
+        if (child && child.exitCode === null) await once(child, 'exit');
         await session.send('two', []);
         const received = (await readFile(join(cwd, 'received.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
         const args = (await readFile(join(cwd, 'args.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
         assert.deepEqual(received.map(userText), ['one', 'two']);
         assert.equal(args[1][args[1].indexOf('--resume') + 1], 'session-fixed');
         await session.close();
+    });
+});
+
+test('interrupt resolves the Claude send and the next turn can proceed', async () => {
+    await withTempDirectory('akari-chat-interrupt-', async cwd => {
+        await writeFile(join(cwd, 'mode.txt'), 'hold-turn');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        const events = [];
+        let started;
+        const sessionStarted = new Promise(resolve => { started = resolve; });
+        session.onEvent(event => { events.push(event); if (event.type === 'session') started(); });
+        try {
+            const first = session.send('one', []);
+            await sessionStarted;
+            await session.interrupt();
+            await first;
+            assert.deepEqual(events.at(-1), { type: 'turn.end', ok: false, reason: 'interrupted' });
+            await writeFile(join(cwd, 'mode.txt'), 'persistent');
+            await session.send('two', []);
+            assert.equal(events.at(-1).type, 'turn.end');
+            assert.equal(events.at(-1).ok, true);
+        } finally { await session.close(); }
+    });
+});
+
+test('Claude SIGINT result is reported as stopped without an error', async () => {
+    await withTempDirectory('akari-chat-interrupt-result-', async cwd => {
+        await writeFile(join(cwd, 'mode.txt'), 'interrupt-result');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        const events = [];
+        let started;
+        const sessionStarted = new Promise(resolve => { started = resolve; });
+        session.onEvent(event => { events.push(event); if (event.type === 'session') started(); });
+        try {
+            const turn = session.send('one', []);
+            await sessionStarted;
+            await session.interrupt();
+            await turn;
+            assert.deepEqual(events.at(-1), { type: 'turn.end', ok: false, reason: 'interrupted' });
+            assert.equal(events.some(event => event.type === 'error'), false);
+        } finally { await session.close(); }
     });
 });
 

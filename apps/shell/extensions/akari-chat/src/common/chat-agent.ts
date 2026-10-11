@@ -4,10 +4,13 @@ export interface ChatAgentInfo {
     installed: boolean;
     version?: string;
     transport: 'claude-stream-json' | 'codex-app-server' | 'acp';
+    installHint?: string;
+    loginHint?: string;
 }
 
 export interface ChatCapabilities {
     models: { id: string; label: string; description?: string }[];
+    currentModel?: string;
     efforts?: string[];
     images: boolean;
     interrupt: boolean;

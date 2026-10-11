@@ -294,7 +294,8 @@ test('logged-out account emits an auth error without reading credentials', async
         const events = [];
         session.onEvent(event => events.push(event));
         try {
-            await assert.rejects(session.send('hello', []), /auth/);
+            assert.equal(session.initialError.kind, 'auth');
+            await session.send('hello', []);
             assert.deepEqual(events.at(-2), { type: 'error', kind: 'auth', message: 'Codex でログインしてください' });
             assert.deepEqual(events.at(-1), { type: 'turn.end', ok: false, reason: 'auth' });
             assert.equal((await received(cwd)).filter(row => row.method === 'turn/start').length, 0);
@@ -388,7 +389,7 @@ test('app-server starts, serializes sends, answers approvals and user input', as
             assert.deepEqual(starts.slice(0, 5).map(row => row.params.input[0].text), ['first', 'second', 'approval', 'file approval', 'ask']);
             assert.equal(starts[9].params.input[1].type, 'localImage');
             assert.equal(starts[9].params.input[1].path, join(cwd, 'image.png'));
-            assert.match(starts[10].params.input[0].text, /12\.0秒〜15\.0秒/);
+            assert.match(starts[10].params.input[0].text, /0:12〜0:15/);
             assert.match(starts[10].params.input[0].text, /テロップ、映像/);
             assert.equal(rows.find(row => row.id === 900).result.decision, 'accept');
             assert.equal(rows.find(row => row.id === 901).result.decision, 'accept');
@@ -459,10 +460,18 @@ test('interrupt, clear, compact, resume and next-turn model and effort', async (
             await session.setModel('model-two');
             await session.setEffort('high');
             await session.send('second', []);
+            let turnStarted;
+            const turnStart = new Promise(resolve => { turnStarted = resolve; });
+            const rpc = session.rpc.bind(session);
+            session.rpc = (method, ...args) => {
+                const result = rpc(method, ...args);
+                if (method === 'turn/start') void result.then(turnStarted);
+                return result;
+            };
             const hold = session.send('hold', []);
-            await new Promise(resolve => setTimeout(resolve, 30));
+            await turnStart;
             await session.interrupt();
-            await assert.rejects(hold, /interrupted/);
+            await hold;
             await session.clear();
             assert.equal(session.sessionRef, 'thread-2');
             await session.compact();

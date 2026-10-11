@@ -37,22 +37,15 @@ async function packets(cwd) {
     return (await readFile(join(cwd, 'received.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
 }
 
-async function until(check) {
-    const deadline = Date.now() + 15000;
-    while (Date.now() < deadline) {
-        if (await check()) { return; }
-        await new Promise(resolve => setTimeout(resolve, 20));
-    }
-    assert.fail('fake ACP request did not arrive');
-}
-
 test('prompt streams messages, thought, plan, tools, permission and finish', async () => {
     await withSession('normal', async ({ cwd, session, events }) => {
         assert.equal(session.sessionRef, 'session-fixed');
-        assert.equal(events[0].type, 'session');
+        assert.equal(events.length, 0);
         assert.equal((await session.capabilities()).models[1].id, 'large');
         assert.deepEqual((await session.capabilities()).efforts, ['low', 'high']);
         await session.send('hello', []);
+        assert.equal(events[0].type, 'session');
+        assert.equal(events.filter(event => event.type === 'session').length, 1);
         const types = events.map(event => event.type);
         assert.ok(types.indexOf('message.start') < types.indexOf('message.delta'));
         assert.equal(events.filter(event => event.type === 'message.delta').length, 2);
@@ -81,8 +74,16 @@ test('all permission prefers allow_always', async () => {
 
 test('interrupt sends session/cancel and closes the turn', async () => {
     await withSession('cancel', async ({ cwd, session, events }) => {
+        let promptSent;
+        const prompt = new Promise(resolve => { promptSent = resolve; });
+        const request = session.request.bind(session);
+        session.request = (method, ...args) => {
+            const result = request(method, ...args);
+            if (method === 'session/prompt') promptSent();
+            return result;
+        };
         const turn = session.send('wait', []);
-        await new Promise(resolve => setTimeout(resolve, 30));
+        await prompt;
         await session.interrupt();
         await turn;
         assert.ok((await packets(cwd)).some(packet => packet.method === 'session/cancel'));
@@ -100,10 +101,12 @@ test('resume loads the same session without replaying old updates', async () => 
 
 test('permission without allow options emits ask and consumes numeric reply', async () => {
     await withSession('ask', async ({ cwd, session, events }) => {
+        let askReceived;
+        const asked = new Promise(resolve => { askReceived = resolve; });
+        const subscription = session.onEvent(event => { if (event.type === 'ask') askReceived(); });
         const turn = session.send('first', []);
-        for (let i = 0; i < 50 && !events.some(event => event.type === 'ask'); i++) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
+        await asked;
+        subscription.dispose();
         assert.ok(events.some(event => event.type === 'ask'));
         await session.send('1', []);
         await turn;
@@ -125,9 +128,10 @@ test('fs requests respect project root, including absolute paths and symlinks', 
 
 test('auth and missing executable surface classified errors', async () => {
     await withSession('auth', async ({ session, events }) => {
-        assert.equal(events[0].kind, 'auth');
-        assert.deepEqual(events[1], { type: 'turn.end', ok: false, reason: 'auth' });
+        assert.equal(session.initialError.kind, 'auth');
+        assert.equal(events.length, 0);
         await session.send('test', []);
+        assert.equal(events[0].kind, 'auth');
         assert.equal(events.at(-1).type, 'turn.end');
         assert.equal(events.at(-1).ok, false);
     });
@@ -138,6 +142,8 @@ test('auth and missing executable surface classified errors', async () => {
         const session = await adapter.start({ cwd: root, permission: 'auto' });
         const events = [];
         session.onEvent(event => events.push(event));
+        assert.equal(session.initialError.kind, 'not-installed');
+        await session.send('test', []);
         assert.equal(events[0].kind, 'not-installed');
         assert.deepEqual(events[1], { type: 'turn.end', ok: false, reason: 'not-installed' });
         await session.close();
@@ -187,20 +193,21 @@ test('process exit during prompt is crashed and ends the turn', async () => {
 });
 
 test('auth error includes a redacted agent reason', async () => {
-    await withSession('auth-reason', async ({ events }) => {
-        assert.equal(events[0].kind, 'auth');
-        assert.match(events[0].message, /This client is no longer supported/);
-        assert.match(events[0].message, /\[伏せ字\]/);
-        assert.equal(events[0].message.includes(`person${String.fromCharCode(64)}example.test`), false);
-        assert.doesNotMatch(events[0].message, /A{32}/);
+    await withSession('auth-reason', async ({ session }) => {
+        assert.equal(session.initialError.kind, 'auth');
+        assert.match(session.initialError.message, /This client is no longer supported/);
+        assert.match(session.initialError.message, /\[伏せ字\]/);
+        assert.equal(session.initialError.message.includes(`person${String.fromCharCode(64)}example.test`), false);
+        assert.doesNotMatch(session.initialError.message, /A{32}/);
     });
 });
 
 test('failed initial model selection leaves a usable session without an error event', async () => {
     await withSession('model-error', async ({ cwd, session, events }) => {
-        assert.equal(events[0].type, 'session');
+        assert.equal(events.length, 0);
         assert.equal(events.some(event => event.type === 'error'), false);
         await session.send('still works', []);
+        assert.equal(events[0].type, 'session');
         assert.deepEqual(events.at(-1), { type: 'turn.end', ok: true });
         assert.ok((await packets(cwd)).some(packet => packet.method === 'session/set_config_option'));
     }, { model: 'large' });
@@ -232,11 +239,16 @@ test('initialize, new and load requests allow 600 seconds', async () => {
         const session = new AcpSession({ ...acpAgents[0], args: [fixture] }, process.execPath,
             { cwd, resume, permission: 'auto' });
         try {
+            let requested;
+            const requestSent = new Promise(resolve => { requested = resolve; });
+            const request = session.request.bind(session);
+            session.request = (name, ...args) => {
+                const result = request(name, ...args);
+                if (name === method) requested();
+                return result;
+            };
             const opening = session.open();
-            await until(async () => {
-                try { return (await packets(cwd)).some(packet => packet.method === method); }
-                catch { return false; }
-            });
+            await requestSent;
             assert.equal([...session.pending.values()][0].timer._idleTimeout, 600000, method);
             await session.close();
             await opening;
@@ -249,8 +261,16 @@ test('initialize, new and load requests allow 600 seconds', async () => {
 
 test('clear session/new also allows 600 seconds', async () => {
     await withSession('hold-clear', async ({ cwd, session }) => {
+        let requested;
+        const requestSent = new Promise(resolve => { requested = resolve; });
+        const request = session.request.bind(session);
+        session.request = (name, ...args) => {
+            const result = request(name, ...args);
+            if (name === 'session/new') requested();
+            return result;
+        };
         const clearing = session.clear();
-        await until(async () => (await packets(cwd)).filter(packet => packet.method === 'session/new').length === 2);
+        await requestSent;
         assert.equal([...session.pending.values()][0].timer._idleTimeout, 600000);
         await session.close();
         await assert.rejects(clearing, /closed/);
@@ -278,13 +298,34 @@ test('rate-limit classification requires a specific rate signal', async () => {
 
 test('session/prompt has no timer and remains pending until interrupted', async () => {
     await withSession('cancel', async ({ session }) => {
+        let requested;
+        const requestSent = new Promise(resolve => { requested = resolve; });
+        const request = session.request.bind(session);
+        session.request = (name, ...args) => {
+            const result = request(name, ...args);
+            if (name === 'session/prompt') requested();
+            return result;
+        };
         const turn = session.send('wait', []);
-        for (let i = 0; i < 50 && session.pending.size === 0; i++) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
+        await requestSent;
         assert.equal(session.pending.size, 1);
         assert.equal([...session.pending.values()][0].timer, undefined);
         await session.interrupt();
         await turn;
     });
+});
+
+test('search and file tool titles use project-relative paths', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'akari-acp-title-'));
+    try {
+        const session = new AcpSession(acpAgents[0], undefined, { cwd, permission: 'auto' });
+        const events = [];
+        session.onEvent(event => events.push(event));
+        session.toolUpdate({ toolCallId: 'search', kind: 'search', title: cwd.slice(1), status: 'in_progress' });
+        session.toolUpdate({ toolCallId: 'read', kind: 'read', title: `${cwd}/inside.txt`,
+            locations: [{ path: `${cwd}/inside.txt` }], status: 'in_progress' });
+        assert.equal(events[0].title, '検索しています .');
+        assert.equal(events[1].title, '読んでいます inside.txt');
+        assert.equal(events[1].detail.path, 'inside.txt');
+    } finally { await rm(cwd, { recursive: true, force: true }); }
 });

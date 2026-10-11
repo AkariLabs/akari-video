@@ -4,7 +4,7 @@ import { access, readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { extname, join } from 'path';
 import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
-import type { ChatAttachment } from '../../common/chat-attachments';
+import { describeAttachments, type ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { ClaudeStreamParser } from './claude-stream-parser';
@@ -71,18 +71,6 @@ export async function findClaude(candidates = claudeCandidates()): Promise<strin
     return undefined;
 }
 
-export function describeAttachments(attachments: ChatAttachment[]): string {
-    return attachments.map(item => {
-        if (item.kind === 'file') {
-            return `[ファイル] ${item.label}: ${item.path}`;
-        }
-        const mark = item.review;
-        const end = mark.timeEnd === undefined ? '' : `〜${mark.timeEnd.toFixed(1)}秒`;
-        const context = mark.elements?.join('、') || mark.source;
-        return `[レビュー] ${mark.sourceLabel} ${mark.time.toFixed(1)}秒${end} ${mark.tool} (${context}): ${mark.text}`;
-    }).join('\n');
-}
-
 export async function claudeUserMessage(
     text: string,
     attachments: ChatAttachment[],
@@ -128,6 +116,7 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
                 id: 'claude',
                 name: 'Claude Code',
                 installed: false,
+                installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
                 transport: 'claude-stream-json'
             };
         }
@@ -145,6 +134,7 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
             id: 'claude',
             name: 'Claude Code',
             installed: true,
+            installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
             version,
             transport: 'claude-stream-json'
         };
@@ -214,6 +204,10 @@ class ClaudeSession implements ChatAdapterSession {
     }
 
     private publish(event: ChatEvent): void {
+        if (this.interrupted && this.pending && event.type === 'error') return;
+        if (this.interrupted && this.pending && event.type === 'turn.end' && !event.ok) {
+            event = { type: 'turn.end', ok: false, reason: 'interrupted' };
+        }
         if (event.type === 'session') {
             this.ref = event.sessionId;
         }
@@ -226,7 +220,8 @@ class ClaudeSession implements ChatAdapterSession {
             if (event.ok) {
                 pending?.resolve();
             } else {
-                pending?.reject(new Error(event.reason || 'turn failed'));
+                if (event.reason === 'interrupted') pending?.resolve();
+                else pending?.reject(new Error(event.reason || 'turn failed'));
             }
         }
         for (const listener of this.listeners) {

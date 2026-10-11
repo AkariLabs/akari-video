@@ -1,15 +1,19 @@
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandRegistry, MessageService, PreferenceService } from '@theia/core/lib/common';
 import { OpenerService, open } from '@theia/core/lib/browser/opener-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
+import { StorageService } from '@theia/core/lib/browser/storage-service';
 import URI from '@theia/core/lib/common/uri';
 import type { ChatAgentInfo, ChatCapabilities } from '../common/chat-agent';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../common/chat-events';
 import { connectorPrefill, initialChatPermission, partnerPermission, partnerPermissionAfterChoice,
-    permissionOption, runningTools, type ChatPermission, type PartnerPermission } from '../common/chat-ui-logic';
+    permissionOption, runningTools, modelChoices, modelLabel, chatErrorPresentation,
+    latestResumableHistory, isCurrentHistory,
+    type ChatPermission, type PartnerPermission } from '../common/chat-ui-logic';
 import { screenRecordingFormat } from '../common/screen-recording';
 import { AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
 import { ConnectStack, type ConnectStackItem } from 'akari-connect/lib/browser/connect-stack';
@@ -21,6 +25,7 @@ import { AkariLamp, ChatIcon, ChatIconName } from './chat-icons';
 import { isChatDropTarget } from './chat-drop-target';
 import { renderMarkdown } from './markdown';
 import { installChatStyle } from './chat-style';
+import { markChatLastUsed } from './chat-last-used';
 
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 type AskEvent = Extract<ChatEvent, { type: 'ask' }>;
@@ -37,11 +42,6 @@ type ChatItem =
 type Outgoing = { text: string; attachments: ChatAttachment[] };
 
 const MEDIA_EXTENSION = /\.(mp4|mov|webm|mkv|mp3|wav|m4a|aac|png|jpe?g|webp|gif)$/i;
-const FALLBACK_MODELS: ChatCapabilities['models'] = [
-    { id: 'opus', label: 'Opus' },
-    { id: 'sonnet', label: 'Sonnet' },
-    { id: 'haiku', label: 'Haiku' }
-];
 const EFFORT_LABELS: Record<string, string> = {
     low: '低い',
     medium: 'ふつう',
@@ -58,15 +58,6 @@ const TOOL_ICONS: Record<ToolKind, ChatIconName> = {
     search: 'search',
     other: 'dot'
 };
-
-function shortModelId(model: string): string {
-    for (const id of ['opus', 'sonnet', 'haiku']) {
-        if (model.toLowerCase().includes(id)) {
-            return id;
-        }
-    }
-    return model;
-}
 
 function agentIcon(id: string): ChatIconName {
     if (id === 'claude') {
@@ -100,6 +91,9 @@ export class AkariChatWidget extends ReactWidget {
     @inject(WorkspaceService)
     protected readonly workspace!: WorkspaceService;
 
+    @inject(StorageService)
+    protected readonly storage!: StorageService;
+
     @inject(CommandRegistry)
     protected readonly commands!: CommandRegistry;
 
@@ -128,9 +122,24 @@ export class AkariChatWidget extends ReactWidget {
     private items: ChatItem[] = [];
     private attachments: ChatAttachment[] = [];
     private input = '';
-    private model = 'sonnet';
+    private model?: string;
     private actualModel?: string;
-    private effort = 'medium';
+    private effort?: string;
+    private readonly chosenModels = new Map<string, string>();
+    private readonly chosenEfforts = new Map<string, string>();
+    private readonly recentModels = new Map<string, string[]>();
+    private modelSearch = '';
+    private startPromise?: Promise<string | undefined>;
+    private openingHistoryId?: string;
+    private navigationPending?: Promise<void>;
+    private startToken?: string;
+    private startSequence = 0;
+    private starting = false;
+    private showStarting = false;
+    private startingTimer?: ReturnType<typeof setTimeout>;
+    private userActed = false;
+    private autoRestoreAttempted = false;
+    private stopped = false;
     private busy = false;
     private sending = false;
     private readonly outbox: Outgoing[] = [];
@@ -139,6 +148,8 @@ export class AkariChatWidget extends ReactWidget {
     private usedTokens = 0;
     private contextWindow = 0;
     private error?: ErrorEvent;
+    private errorIsStart = false;
+    private initialErrorChatId?: string;
     private fileInput?: HTMLInputElement;
     private dragActive = false;
     private resumedTitle?: string;
@@ -220,6 +231,14 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
         void this.refreshAgents();
         void this.refreshConnect();
+        this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
+            if (!this.chatId && !this.userActed) void this.restoreOrStart();
+        }));
+    }
+
+    protected override onAfterAttach(message: Message): void {
+        super.onAfterAttach(message);
+        void this.restoreOrStart();
     }
 
     private readonly refreshConnect = async (): Promise<void> => {
@@ -275,19 +294,30 @@ export class AkariChatWidget extends ReactWidget {
         try {
             this.agents = await this.chat.listAgents();
             this.update();
+            void this.restoreOrStart();
         } catch (error) {
             this.messages.error(String(error));
         }
     }
 
     async openAgent(agent = 'claude'): Promise<void> {
+        this.userActed = true;
         this.popup = undefined;
-        this.update();
         if (this.selectedAgent !== agent) {
-            await this.newChat();
             this.selectedAgent = agent;
+            this.model = this.chosenModels.get(agent);
+            this.effort = this.chosenEfforts.get(agent);
+            this.modelSearch = '';
+            this.capabilities = undefined;
+            this.actualModel = undefined;
+            this.starting = !!this.agents.find(item => item.id === agent)?.installed;
             this.update();
+            const navigation = this.newChat(false);
+            this.navigationPending = navigation;
+            try { await navigation; }
+            finally { if (this.navigationPending === navigation) this.navigationPending = undefined; }
         }
+        if (this.agents.find(item => item.id === agent)?.installed) void this.ensureChat();
     }
 
     prefill(text: string): void {
@@ -335,6 +365,12 @@ export class AkariChatWidget extends ReactWidget {
             this.contextWindow = event.contextWindow || this.contextWindow;
         } else if (event.type === 'error') {
             this.error = event;
+            this.errorIsStart = chatId === this.initialErrorChatId;
+        } else if (event.type === 'turn.end' && event.reason === 'interrupted') {
+            this.stopped = true;
+            this.error = undefined;
+        } else if (event.type === 'turn.end' && event.ok) {
+            this.initialErrorChatId = undefined;
         } else if (event.type === 'session' && event.model) {
             this.actualModel = event.model;
         }
@@ -353,36 +389,95 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private async ensureChat(): Promise<string | undefined> {
+        if (this.navigationPending) await this.navigationPending;
         if (this.chatId) {
             return this.chatId;
+        }
+        if (this.startPromise) return this.startPromise;
+        if (this.agents.length && !this.agents.find(item => item.id === this.selectedAgent)?.installed) {
+            this.update();
+            return undefined;
         }
         const cwd = await this.cwd();
         if (!cwd) {
             this.messages.warn('先にプロジェクトを開いてください');
             return undefined;
         }
-        try {
+        const sequence = ++this.startSequence;
+        const token = `start-${Date.now()}-${sequence}`;
+        this.startToken = token;
+        this.starting = true;
+        this.showStarting = false;
+        this.startingTimer = setTimeout(() => {
+            if (this.startSequence === sequence) { this.showStarting = true; this.update(); }
+        }, 1500);
+        this.update();
+        const start = async (): Promise<string | undefined> => { try {
             const started = await this.chat.start({
                 agent: this.selectedAgent,
                 cwd,
                 model: this.model,
                 effort: this.effort,
-                permission: permissionOption(this.permissionMode, this.partnerMode, this.capabilities).permission
+                permission: permissionOption(this.permissionMode, this.partnerMode, this.capabilities).permission,
+                token
             });
+            if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return undefined; }
             this.chatId = started.chatId;
             this.capabilities = started.capabilities;
-            this.error = undefined;
+            this.actualModel = started.capabilities.currentModel;
+            this.error = started.error ? { type: 'error', ...started.error } : undefined;
+            this.errorIsStart = !!started.error;
+            this.initialErrorChatId = started.error ? started.chatId : undefined;
             this.update();
             return this.chatId;
         } catch (error) {
+            if (sequence !== this.startSequence) return undefined;
             this.error = {
                 type: 'error',
                 kind: String(error).includes('not-installed') ? 'not-installed' : 'other',
                 message: String(error)
             };
+            this.errorIsStart = true;
             this.update();
             return undefined;
+        } finally {
+            if (sequence === this.startSequence) {
+                this.starting = false;
+                this.showStarting = false;
+                if (this.startingTimer) clearTimeout(this.startingTimer);
+                this.startPromise = undefined;
+                this.startToken = undefined;
+                this.update();
+            }
+        } };
+        this.startPromise = start();
+        return this.startPromise;
+    }
+
+    private async cancelStarting(): Promise<void> {
+        const token = this.startToken;
+        ++this.startSequence;
+        this.startPromise = undefined;
+        this.openingHistoryId = undefined;
+        this.starting = false;
+        this.showStarting = false;
+        if (this.startingTimer) clearTimeout(this.startingTimer);
+        this.update();
+        if (token) await this.chat.cancelStart(token);
+    }
+
+    private async restoreOrStart(): Promise<void> {
+        if (this.autoRestoreAttempted || this.userActed || this.chatId || this.startPromise || !this.agents.length) return;
+        await this.workspace.ready;
+        const cwd = await this.cwd();
+        if (!cwd || this.userActed) return;
+        this.autoRestoreAttempted = true;
+        if (this.preferences.get<boolean>('akari.partner.reopenLast', true)) {
+            const history = await this.chat.listHistory(cwd);
+            const last = latestResumableHistory(history, new Set(this.agents.filter(agent => agent.installed).map(agent => agent.id)));
+            if (last && !this.userActed) { await this.resume(last, false); return; }
         }
+        if (!this.userActed) void this.ensureChat();
     }
 
     private send(): void {
@@ -395,7 +490,9 @@ export class AkariChatWidget extends ReactWidget {
         this.attachments = [];
         this.items.push({ type: 'user', text: text || attachments.map(item => item.label).join('、'), attachments });
         this.outbox.push({ text, attachments });
+        void markChatLastUsed(this.storage).catch(() => undefined);
         this.error = undefined;
+        this.stopped = false;
         this.update();
         void this.flushOutbox();
     }
@@ -411,7 +508,14 @@ export class AkariChatWidget extends ReactWidget {
             while (this.outbox.length > 0) {
                 const chatId = await this.ensureChat();
                 if (!chatId) {
+                    let remaining = this.outbox.length;
+                    for (let index = this.items.length - 1; index >= 0 && remaining > 0; index--) {
+                        if (this.items[index].type === 'user') { this.items.splice(index, 1); remaining--; }
+                    }
                     this.outbox.length = 0;
+                    this.error ||= { type: 'error', kind: 'other', message: '会話を開けませんでした。相手を選び直してください。' };
+                    this.errorIsStart = true;
+                    this.update();
                     break;
                 }
                 const next = this.outbox.shift()!;
@@ -425,6 +529,7 @@ export class AkariChatWidget extends ReactWidget {
                             this.chat.send(chatId, next.text, next.attachments),
                             timeout
                         ]);
+                        await markChatLastUsed(this.storage).catch(() => undefined);
                     } finally {
                         if (timer) {
                             clearTimeout(timer);
@@ -443,22 +548,27 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private async stop(): Promise<void> {
+        if (!this.chatId && this.startToken) { await this.cancelStarting(); return; }
         if (this.chatId) {
             try {
                 await this.chat.interrupt(this.chatId);
-            } catch (error) {
-                this.error = { type: 'error', kind: 'other', message: String(error) };
+            } catch {
+                this.stopped = true;
+                this.error = undefined;
                 this.update();
             }
         }
     }
 
-    private async newChat(): Promise<void> {
+    private async newChat(start = true): Promise<void> {
+        this.userActed = true;
+        ++this.startSequence;
         this.outbox.length = 0;
-        if (this.chatId) {
-            await this.chat.close(this.chatId);
-        }
+        if (this.startToken) await this.cancelStarting();
+        const previous = this.chatId;
         this.chatId = undefined;
+        this.openingHistoryId = undefined;
+        if (previous) await this.chat.close(previous);
         this.items = [];
         this.tools.clear();
         this.capabilities = undefined;
@@ -467,9 +577,13 @@ export class AkariChatWidget extends ReactWidget {
         this.usedTokens = 0;
         this.contextWindow = 0;
         this.error = undefined;
+        this.errorIsStart = false;
+        this.initialErrorChatId = undefined;
+        this.stopped = false;
         this.popup = undefined;
         this.renamingHistoryId = undefined;
         this.update();
+        if (start) void this.ensureChat();
     }
 
     private async showHistory(): Promise<void> {
@@ -490,42 +604,92 @@ export class AkariChatWidget extends ReactWidget {
             return;
         }
         const history = await this.chat.listHistory(cwd);
-        const last = history.find(entry => !!entry.sessionRef);
+        const last = latestResumableHistory(history, new Set(this.agents.filter(agent => agent.installed).map(agent => agent.id)));
         if (last) {
+            if (isCurrentHistory(last.id, this.chatId, this.openingHistoryId)) {
+                if (this.openingHistoryId === last.id) await this.startPromise;
+                return;
+            }
             await this.resume(last);
         }
     }
 
-    private async resume(entry: ChatHistoryEntry): Promise<void> {
+    private resume(entry: ChatHistoryEntry, userAction = true): Promise<void> {
+        if (userAction) this.userActed = true;
+        const previousToken = this.startToken;
+        const previous = this.chatId;
+        const sequence = ++this.startSequence;
+        const token = `resume-${Date.now()}-${sequence}`;
+        this.startToken = token;
+        this.openingHistoryId = entry.id;
+        this.chatId = undefined;
+        this.selectedAgent = entry.agent;
+        this.resumedTitle = entry.title;
+        this.model = this.chosenModels.get(entry.agent);
+        this.effort = this.chosenEfforts.get(entry.agent);
+        this.capabilities = undefined;
+        this.actualModel = entry.model;
+        this.items = [];
+        this.tools.clear();
+        this.outbox.length = 0;
+        this.error = undefined;
+        this.errorIsStart = false;
+        this.initialErrorChatId = undefined;
+        this.stopped = false;
+        this.usedTokens = 0;
+        this.contextWindow = 0;
+        this.starting = true;
+        this.showStarting = false;
+        if (this.startingTimer) clearTimeout(this.startingTimer);
+        this.startingTimer = setTimeout(() => {
+            if (sequence === this.startSequence) { this.showStarting = true; this.update(); }
+        }, 1500);
         this.popup = undefined;
         this.update();
-        if (this.chatId) {
-            await this.chat.close(this.chatId);
-        }
-        const cwd = await this.cwd();
-        if (!cwd) {
-            return;
-        }
-        try {
-            const started = await this.chat.resume(cwd, entry.id);
+        const opening = async (): Promise<string | undefined> => { try {
+            if (previousToken) await this.chat.cancelStart(previousToken);
+            if (previous) await this.chat.close(previous);
+            if (sequence !== this.startSequence) return undefined;
+            const cwd = await this.cwd();
+            if (!cwd) throw new Error('先にプロジェクトを開いてください');
+            if (sequence !== this.startSequence) return undefined;
+            const started = await this.chat.resume(cwd, entry.id, token);
+            if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return; }
             this.chatId = started.chatId;
             this.capabilities = started.capabilities;
-            this.selectedAgent = entry.agent;
-            this.resumedTitle = entry.title;
-            this.model = shortModelId(entry.model || this.model);
-            this.items = [];
-            this.tools.clear();
-            this.error = undefined;
-            this.popup = undefined;
+            this.actualModel = started.capabilities.currentModel || entry.model;
+            this.error = started.error ? { type: 'error', ...started.error } : undefined;
+            this.errorIsStart = !!started.error;
+            this.initialErrorChatId = started.error ? started.chatId : undefined;
             this.update();
+            return this.chatId;
         } catch (error) {
-            this.messages.error(String(error));
-        }
+            if (sequence === this.startSequence) {
+                this.error = { type: 'error', kind: 'other', message: String(error) };
+                this.errorIsStart = true;
+                this.update();
+            }
+            return undefined;
+        } finally {
+            if (sequence === this.startSequence) {
+                this.starting = false;
+                this.showStarting = false;
+                if (this.startingTimer) clearTimeout(this.startingTimer);
+                this.startPromise = undefined;
+                this.openingHistoryId = undefined;
+                this.startToken = undefined;
+                this.update();
+            }
+        } };
+        this.startPromise = opening();
+        return this.startPromise.then(() => undefined);
     }
 
     private async switchModel(model: string): Promise<void> {
         this.popup = undefined;
         this.model = model;
+        this.chosenModels.set(this.selectedAgent, model);
+        this.recentModels.set(this.selectedAgent, [model, ...(this.recentModels.get(this.selectedAgent) || []).filter(id => id !== model)].slice(0, 5));
         this.update();
         if (this.chatId) {
             await this.chat.setModel(this.chatId, model);
@@ -536,6 +700,7 @@ export class AkariChatWidget extends ReactWidget {
     private async switchEffort(effort: string): Promise<void> {
         this.popup = undefined;
         this.effort = effort;
+        this.chosenEfforts.set(this.selectedAgent, effort);
         this.update();
         if (this.chatId) {
             await this.chat.setEffort(this.chatId, effort);
@@ -855,6 +1020,11 @@ export class AkariChatWidget extends ReactWidget {
         }
     }
 
+    private openPartnerCatalog(): void {
+        const command = this.commands.getCommand('akari.partner.open') ? 'akari.partner.open' : 'akari.connect.open';
+        if (this.commands.getCommand(command)) void this.commands.executeCommand(command);
+    }
+
     private onInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
         if (event.nativeEvent.isComposing) {
             return;
@@ -1112,8 +1282,11 @@ export class AkariChatWidget extends ReactWidget {
         if (this.popup !== 'model') {
             return null;
         }
-        const models = this.capabilities?.models || FALLBACK_MODELS;
-        const efforts = this.capabilities?.efforts || ['low', 'medium', 'high', 'max'];
+        const models = this.capabilities?.models || [];
+        const efforts = this.capabilities?.efforts || [];
+        const choices = modelChoices(models, this.modelSearch, this.recentModels.get(this.selectedAgent) || [], this.model || this.actualModel);
+        const selectedLabel = modelLabel(models, this.model, this.actualModel);
+        const agent = this.agents.find(item => item.id === this.selectedAgent);
         return <div className='akari-chat-pop akari-chat-model-pop' data-chat-model-popup>
             <div className='akari-chat-agent-column'>
                 {this.agents.map(agent => <button
@@ -1121,42 +1294,58 @@ export class AkariChatWidget extends ReactWidget {
                     className={agent.id === this.selectedAgent ? 'selected' : undefined}
                     data-agent-id={agent.id}
                     data-installed={String(agent.installed)}
-                    disabled={!agent.installed}
                     title={agent.name}
                     onClick={() => void this.openAgent(agent.id)}
                 ><ChatIcon name={agentIcon(agent.id)} size={18} /></button>)}
             </div>
             <div className='akari-chat-model-column'>
+                {!agent?.installed ? <div data-chat-install-guide>
+                    <strong>{agent?.name || this.selectedAgent} は入っていません</strong>
+                    <p>{agent?.installHint || 'パートナーをインストールしてください'}</p>
+                    <button onClick={() => this.openPartnerCatalog()}>パートナーを追加で入れる</button>
+                </div> : <>
                 <strong>モデル</strong>
-                {models.map(model => <button
+                {this.starting ? <small>起動しています…</small> : null}
+                {models.length > 12 && <input data-chat-model-search value={this.modelSearch}
+                    placeholder='モデルを検索' onChange={event => { this.modelSearch = event.currentTarget.value; this.update(); }} />}
+                {choices.frequent.length > 0 && <strong>よく使う</strong>}
+                {choices.frequent.map(model => <button key={`frequent-${model.id}`} data-chat-model={model.id}
+                    onClick={() => void this.switchModel(model.id)}>{model.label}</button>)}
+                {!models.length && !this.starting && <small>既定</small>}
+                {choices.matches.map(model => <button
                     key={model.id}
                     data-chat-model={model.id}
-                    className={this.model === model.id ? 'selected' : undefined}
+                    className={selectedLabel === model.label ? 'selected' : undefined}
                     onClick={() => void this.switchModel(model.id)}
                 >
                     <span>{model.label}<small>{model.description}</small></span>
-                    {this.model === model.id && <ChatIcon name='check' size={16} />}
+                    {selectedLabel === model.label && <ChatIcon name='check' size={16} />}
                 </button>)}
-                <strong>考える深さ</strong>
-                <div className='akari-chat-efforts'>
+                {efforts.length > 0 && <strong>考える深さ</strong>}
+                {efforts.length > 0 && <div className='akari-chat-efforts'>
                     {efforts.map(effort => <button
                         key={effort}
                         data-chat-effort={effort}
                         className={this.effort === effort ? 'selected' : undefined}
                         onClick={() => void this.switchEffort(effort)}
                     >{EFFORT_LABELS[effort] || effort}{this.effort === effort && <ChatIcon name='check' size={12} />}</button>)}
-                </div>
+                </div>}
                 {this.actualModel && <small>実行中のモデル: {this.actualModel}</small>}
                 <small>モデルと深さの変更は次の発話から反映されます。</small>
+                </>}
             </div>
         </div>;
     }
 
     protected render(): React.ReactNode {
         const agent = this.agents.find(item => item.id === this.selectedAgent);
-        const models = this.capabilities?.models || FALLBACK_MODELS;
-        const modelLabel = models.find(item => item.id === this.model)?.label || this.model;
-        const effortLabel = EFFORT_LABELS[this.effort] || this.effort;
+        const models = this.capabilities?.models || [];
+        const shownModel = this.starting ? '起動しています…' : modelLabel(models, this.model, this.actualModel);
+        const errorDisplay = this.error
+            ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart)
+            : undefined;
+        const effortLabel = this.effort && this.capabilities?.efforts?.includes(this.effort)
+            ? EFFORT_LABELS[this.effort] || this.effort : undefined;
         const percentage = this.contextWindow
             ? Math.min(100, Math.round(this.usedTokens / this.contextWindow * 100))
             : 0;
@@ -1206,20 +1395,34 @@ export class AkariChatWidget extends ReactWidget {
                     <AkariLamp size={16} />
                     <span>前回の会話の続きです — 『{this.resumedTitle}』</span>
                 </div>}
-                {!this.items.length && !this.resumedTitle && <div className='akari-chat-empty'>
+                {!this.items.length && !this.resumedTitle && !this.showStarting && <div className='akari-chat-empty'>
                     <AkariLamp size={42} />
                     <strong>何から始めますか？</strong>
                     <div>動画づくりのことを話しかけてください。</div>
-                    {(!agent?.installed || this.error?.kind === 'auth') && <button data-chat-login onClick={() => this.login()}>
-                        {this.error?.kind === 'auth' ? 'Claude Code でログイン' : 'パートナーを追加'}
-                    </button>}
+                </div>}
+                {this.showStarting && <div className='akari-chat-starting' data-chat-starting>
+                    起動しています…（{agent?.name || this.selectedAgent}）
+                    <button data-chat-start-cancel onClick={() => void this.cancelStarting()}>止める</button>
                 </div>}
                 {this.items.map((item, index) => this.renderItem(item, index, seenPaths))}
-                {this.error && <div role='alert' className='akari-chat-error'>
-                    {this.error.message}
-                    {this.error.kind === 'auth' && <button data-chat-login onClick={() => this.login()}>
-                        Claude Code でログイン
-                    </button>}
+                {this.stopped && <div className='akari-chat-stopped' role='status' data-chat-stopped>止めました</div>}
+                {agent && !agent.installed && <div data-chat-install-guide>
+                    <strong>{agent.name} は入っていません</strong><p>{agent.installHint}</p>
+                    <button onClick={() => this.openPartnerCatalog()}>パートナーを追加で入れる</button>
+                </div>}
+                {this.error && errorDisplay && <div role='alert' className='akari-chat-error'>
+                    {errorDisplay.heading && <strong>{errorDisplay.heading}</strong>}
+                    <div>{errorDisplay.reason}</div>
+                    {errorDisplay.nextStep && <div data-chat-next-step>
+                        {this.error.kind === 'auth' && this.selectedAgent === 'claude' && <button data-chat-login onClick={() => this.login()}>
+                            Claude Code でログイン
+                        </button>}
+                        {this.error.kind === 'auth' && this.selectedAgent !== 'claude' && agent?.loginHint &&
+                            <button data-chat-login onClick={() => void navigator.clipboard.writeText(agent.loginHint!)}>
+                                ターミナルで {agent.loginHint} を実行（コピー）
+                            </button>}
+                        <button onClick={() => { this.popup = 'model'; this.update(); }}>別の相手を選ぶ</button>
+                    </div>}
                 </div>}
             </div>
             <div className='akari-chat-composer'>
@@ -1265,11 +1468,12 @@ export class AkariChatWidget extends ReactWidget {
                     <button
                         className='akari-chat-plain'
                         data-chat-model-button
+                        data-chat-model-label
                         onClick={() => {
                             this.popup = this.popup === 'model' ? undefined : 'model';
                             this.update();
                         }}
-                    >{modelLabel} · {effortLabel} <ChatIcon name='down' size={13} /></button>
+                    >{shownModel}{effortLabel ? ` · ${effortLabel}` : ''} <ChatIcon name='down' size={13} /></button>
                     <button className='akari-chat-plain' data-chat-permission-chip onClick={() => {
                         this.popup = this.popup === 'permission' ? undefined : 'permission';
                         this.update();
