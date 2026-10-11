@@ -1,14 +1,15 @@
+import { t } from '@akari-video/i18n';
 /** App-level notices for guide discovery and dismissal. */
 export class GuideAnnouncementToast {
     protected node?: HTMLElement;
     protected timer?: number;
 
     show(onOpen: () => void): void {
-        this.mount('<button class="close" type="button" aria-label="閉じる">×</button><b>新しく「はじめてのガイド」ができました</b><p>設定からいつでも見られます</p><button class="open" type="button">今すぐ見る</button>', 20_000, onOpen);
+        this.mount(t('surfaces.onboarding.newFirstTimeGuideHasCreatedView.description'), 20_000, onOpen);
     }
 
     showClosed(): void {
-        this.mount('<button class="close" type="button" aria-label="閉じる">×</button><b>ガイドを閉じました</b><p>設定からいつでも見られます</p>', 7_000);
+        this.mount(t('surfaces.onboarding.closedGuideClosedViewAnytimeSettings.description'), 7_000);
     }
 
     protected mount(content: string, durationMs: number, onOpen?: () => void): void {

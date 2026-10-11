@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
@@ -100,6 +102,12 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
 import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const widgetSource = readInspectorSource();
 const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTarget.Latest, true);
 const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');

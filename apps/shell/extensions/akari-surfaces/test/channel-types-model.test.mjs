@@ -1,7 +1,10 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { TYPE_FIELDS, TYPE_BASES, TYPE_VARIANTS } from '../lib/browser/channel/channel-types-data.js';
-import { allChannelTypes, findChannelType, findChannelTypeByName, filterChannelTypes, nearChannelTypes, typeContents, buildMyTypeJson } from '../lib/browser/channel/channel-types-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const { TYPE_FIELDS, TYPE_BASES, TYPE_VARIANTS } = await import('../lib/browser/channel/channel-types-data.js');
+const { allChannelTypes, findChannelType, findChannelTypeByName, filterChannelTypes, nearChannelTypes, typeContents, buildMyTypeJson } = await import('../lib/browser/channel/channel-types-model.js');
 
 test('型の分野、元、違いと無料枠', () => {
     assert.equal(TYPE_FIELDS.length, 8);

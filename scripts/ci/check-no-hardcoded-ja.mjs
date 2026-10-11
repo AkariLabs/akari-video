@@ -65,7 +65,7 @@ function catalog(language) {
   for (const filename of readdirSync(path.join(catalogRoot, language)).filter(name => name.endsWith('.json'))) {
     const values = JSON.parse(readFileSync(path.join(catalogRoot, language, filename), 'utf8'));
     for (const [key, value] of Object.entries(values)) {
-      if (typeof value !== 'string' || !key.startsWith(`${filename.slice(0, -5)}.`) || !/^[a-z]+(?:\.[a-z][a-zA-Z0-9]*){3,}(?:_(?:one|other))?$/u.test(key)) issues.push(`invalid catalog entry ${language}/${filename}: ${key}`);
+      if (typeof value !== 'string' || !key.startsWith(`${filename.slice(0, -5)}.`) || !/^[a-z][a-z0-9-]*(?:\.[a-z][a-zA-Z0-9]*){3,}(?:_(?:one|other))?$/u.test(key)) issues.push(`invalid catalog entry ${language}/${filename}: ${key}`);
       if (key in entries) issues.push(`duplicate catalog key: ${key}`);
       entries[key] = value;
     }
@@ -87,7 +87,7 @@ for (const relativeRoot of sourceRoots) {
     if (!/\.(?:ts|tsx|mjs|js|cjs)$/u.test(absolute) || /(?:^|\/)[^/]+\.(?:test|spec)\.[^/]+$/u.test(absolute)) return;
     const source = readFileSync(absolute, 'utf8');
     if (!/(?:from\s*['"]@akari-video\/i18n['"]|require\(['"]@akari-video\/i18n['"]\))/u.test(source)) return;
-    for (const match of source.matchAll(/\bt\(\s*['"]([a-z][\w.]*)['"]/gu)) {
+    for (const match of source.matchAll(/\bt\(\s*['"]([a-z][\w.-]*)['"]/gu)) {
       if (!(match[1] in ja) && !(`${match[1]}_other` in ja)) issues.push(`missing catalog key ${match[1]} in ${path.relative(root, absolute)}`);
     }
   });

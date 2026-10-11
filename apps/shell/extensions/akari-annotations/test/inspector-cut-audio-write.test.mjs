@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { findMember } from './helpers/widget-source.mjs';
 import test from 'node:test';
@@ -9,6 +11,12 @@ import { composeInspectorSections } from '../lib/browser/inspector/section-model
 import { readCutFreeze } from '../lib/browser/inspector/freeze-fields.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 // audio-clip-fx-fixture と同じく、Theia の DOM / DI を起動せず実 factory / handler を実行する。
 function compile(code, bindings, result) {

@@ -13,7 +13,7 @@ function isolatedI18n({ osLocale = 'en-US', env = {}, storage, navigatorLanguage
   mockIntl.DateTimeFormat = () => ({ resolvedOptions: () => ({ locale: osLocale }) });
   const context = {
     module,
-    require: specifier => specifier.includes('/ja/') ? (catalogs?.ja ?? {}) : (catalogs?.en ?? {}),
+    require: () => ({ ja: catalogs?.ja ?? {}, en: catalogs?.en ?? {} }),
     Intl: mockIntl,
     process: { env },
     console: { warn: message => warnings.push(message) }

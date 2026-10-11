@@ -1,11 +1,25 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
+
 const dialog = readFileSync(new URL('../src/browser/akari-audio-keyframe-dialog.ts', import.meta.url), 'utf8');
 const widget = readAllSourceText();
 const menu = readFileSync(new URL('../src/browser/akari-timeline-context-menu.ts', import.meta.url), 'utf8');
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 function section(source, startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);
@@ -16,8 +30,10 @@ function section(source, startNeedle, endNeedle) {
 
 test('専用画面は既存流儀どおり AbstractDialog を継承し適用・キャンセルを持つ', () => {
   assert.match(dialog, /extends AbstractDialog<AkariAudioKeyframeDialogValue>/u);
-  assert.match(dialog, /this\.appendAcceptButton\('適用'\)/u);
-  assert.match(dialog, /this\.appendCloseButton\('キャンセル'\)/u);
+  assert.match(dialog, /this\.appendAcceptButton\(t\('annotations\.audioKeyframeDialog\.action\.apply'\)\)/u);
+  assert.match(dialog, /this\.appendCloseButton\(t\('annotations\.audioKeyframeDialog\.text\.cancel'\)\)/u);
+  assert.equal(ja['annotations.audioKeyframeDialog.action.apply'], '適用');
+  assert.equal(ja['annotations.audioKeyframeDialog.text.cancel'], 'キャンセル');
 });
 
 test('波形背景は T9 の source 秒窓スライスと BGM ループタイルを再利用する', () => {
@@ -50,7 +66,8 @@ test('点ドラッグは移動元を除外した同一 t 判定を行い衝突�
 });
 
 test('点クリック選択は t 秒・gain_db・easing の入力欄へ同期する', () => {
-  assert.match(dialog, /this\.configureNumberInput\(this\.timeInput, 't 秒'/u);
+  assert.match(dialog, /this\.configureNumberInput\(this\.timeInput, t\('annotations\.audioKeyframeDialog\.text\.tSeconds'\)/u);
+  assert.equal(ja['annotations.audioKeyframeDialog.text.tSeconds'], 't 秒');
   assert.match(dialog, /this\.configureNumberInput\(this\.gainInput, 'gain_db'/u);
   assert.match(dialog, /const EASING_VALUES = \['linear', 'hold', 'ease-in-out'\]/u);
   assert.match(dialog, /this\.selectPoint\(hitIndex\)/u);
@@ -90,11 +107,13 @@ test('呼び出し側はダイアログ結果を既存 audio-keyframes write へ
 });
 
 test('全体ゲイン欄はdB範囲と0.5刻みを持ち未設定を0表示する', () => {
-  assert.match(dialog, /configureNumberInput\(this\.overallGainInput, '全体ゲイン', '0\.5'\)/u);
+  assert.match(dialog, /configureNumberInput\(this\.overallGainInput, t\('annotations\.audioKeyframeDialog\.text\.overallGain'\), '0\.5'\)/u);
+  assert.equal(ja['annotations.audioKeyframeDialog.text.overallGain'], '全体ゲイン');
   assert.match(dialog, /this\.overallGainInput\.min = String\(AUDIO_KEYFRAME_MIN_DB\)/u);
   assert.match(dialog, /this\.overallGainInput\.max = String\(AUDIO_KEYFRAME_MAX_DB\)/u);
   assert.match(dialog, /this\.overallGainDb = normalizeAudioKeyframeGainDb\(props\.gainDb\)/u);
-  assert.match(dialog, /this\.labeledControl\('全体ゲイン \(dB\)', this\.overallGainInput\)/u);
+  assert.match(dialog, /this\.labeledControl\(t\('annotations\.audioKeyframeDialog\.text\.overallGainDb'\), this\.overallGainInput\)/u);
+  assert.equal(ja['annotations.audioKeyframeDialog.text.overallGainDb'], '全体ゲイン (dB)');
 });
 
 test('全体ゲイン入力はinputイベントごとに波形を即時再描画する', () => {
@@ -134,8 +153,10 @@ test('widgetはkeyframes成功後に変更された全体ゲインだけを書�
 
 test('widgetはkeyframesと全体ゲインの失敗を別々の通知で示す', () => {
   const open = section(widget, 'protected async openAudioKeyframeEditor(', 'protected exitAudioTrimmerMode(');
-  assert.match(open, /音量キーフレームの書き込みに失敗しました:/u);
-  assert.match(open, /全体ゲインの書き込みに失敗しました:/u);
+  assert.match(open, /t\('annotations\.timeline\.text\.failedToWriteVolumeKeyframe'/u);
+  assert.equal(ja['annotations.timeline.text.failedToWriteVolumeKeyframe'], '音量キーフレームの書き込みに失敗しました: {reason}');
+  assert.match(open, /t\('annotations\.timeline\.text\.failedToWriteOverallGain'/u);
+  assert.equal(ja['annotations.timeline.text.failedToWriteOverallGain'], '全体ゲインの書き込みに失敗しました: {reason}');
   assert.match(open, /if \(!keyframeResult\.ok\) \{[\s\S]*return;/u);
 });
 
@@ -152,7 +173,8 @@ test('BGM と narration のダブルクリックも専用エディタを開く',
 
 test('SFX のコンテキストメニューは削除前にトリム（in\/out）を合成する', () => {
   assert.match(menu, /export function withAudioTrimMenuItem\(/u);
-  assert.match(menu, /\{ id: 'audio-trim', label: 'トリム（in\/out）' \}/u);
+  assert.match(menu, /\{ id: 'audio-trim', label: t\('annotations\.timelineContextMenu\.text\.trimInOut'\) \}/u);
+  assert.equal(ja['annotations.timelineContextMenu.text.trimInOut'], 'トリム（in/out）');
   assert.match(menu, /items\.findIndex\(item => item\.id === 'delete'\)/u);
   assert.match(widget, /withAudioTrimMenuItem\(/u);
 });

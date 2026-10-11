@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { ChannelMemoryFiles } from './channel-memory-files';
@@ -81,84 +82,83 @@ export function ChannelPersonDetail(props: { dir: URI; files: ChannelMemoryFiles
                 voiceProfile, voiceAvatar, samples: nextSamples }));
             await props.files.writePeople(props.dir, next);
             props.onSaved(next);
-        } catch { setError('保存できませんでした。内容を確かめてもう一度お試しください。'); }
+        } catch { setError(t('surfaces.channel.saveCheckDetailsTryAgain.error')); }
         finally { setBusy(false); }
     };
 
     return <div className='akari-person-detail' data-akari-person-detail={entry.id}>
-        <button type='button' className='akari-person-back' onClick={props.onBack}>← 人とモノに戻る</button>
+        <button type='button' className='akari-person-back' onClick={props.onBack}>{t('surfaces.channel.channelPersonDetailReturnPeopleThings.button')}</button>
         <section className='akari-person-section'>
-            <h4>基本</h4>
+            <h4>{t('surfaces.channel.channelPersonDetailBasic.heading')}</h4>
             <div className='akari-person-fields'>
-                <label>種類<select value={kind} onChange={event => setKind(event.target.value as PersonKind)}>
+                <label>{t('surfaces.channel.channelPersonDetailType.label')}<select value={kind} onChange={event => setKind(event.target.value as PersonKind)}>
                     {(['person', 'avatar', 'org'] as PersonKind[]).map(value => <option key={value} value={value}>{PERSON_KIND_LABELS[value]}</option>)}</select></label>
-                <label>名前<input value={name} onChange={event => setName(event.target.value)} /></label>
-                <label>読み<input value={reading} onChange={event => setReading(event.target.value)} /></label>
-                <label>別名（カンマ区切り）<input value={aliases} onChange={event => setAliases(event.target.value)} /></label>
-                <label>役割<input value={role} onChange={event => setRole(event.target.value)} /></label>
-                <label className='akari-person-wide'>使う場面<textarea value={scene} onChange={event => setScene(event.target.value)} /></label>
-                {kind === 'avatar' && <div className='akari-person-wide'><strong>使えること</strong><div className='akari-people-caps'>{AVATAR_CAPS.map(cap =>
+                <label>{t('surfaces.channel.channelPersonDetailName.label')}<input value={name} onChange={event => setName(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPersonDetailReading.label')}<input value={reading} onChange={event => setReading(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPersonDetailAliasesCommaSeparated.label')}<input value={aliases} onChange={event => setAliases(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPersonDetailRole.label')}<input value={role} onChange={event => setRole(event.target.value)} /></label>
+                <label className='akari-person-wide'>{t('surfaces.channel.channelPersonDetailSituation.label')}<textarea value={scene} onChange={event => setScene(event.target.value)} /></label>
+                {kind === 'avatar' && <div className='akari-person-wide'><strong>{t('surfaces.channel.channelPersonDetailStrong.label')}</strong><div className='akari-people-caps'>{AVATAR_CAPS.map(cap =>
                     <label key={cap.id}><input type='checkbox' checked={caps.includes(cap.id)} onChange={event => setCaps(event.target.checked ? [...caps, cap.id] : caps.filter(id => id !== cap.id))} />{cap.label}</label>)}</div></div>}
             </div>
         </section>
         <section className='akari-person-section'>
-            <h4>パーソナル</h4>
+            <h4>{t('surfaces.channel.channelPersonDetailPersonal.heading')}</h4>
             <div className='akari-person-fields'>
-                <label>誕生日<input value={birthday} placeholder='1990-04-01 か 04-01' onChange={event => setBirthday(event.target.value)} />
-                    {invalidBirthday && <small className='akari-people-error'>誕生日は 1990-04-01 か 04-01 の形で書いてください</small>}</label>
-                <label className='akari-person-wide'>性格<textarea value={personality} onChange={event => setPersonality(event.target.value)} /></label>
-                <label className='akari-person-wide'>バックグラウンド<textarea value={background} onChange={event => setBackground(event.target.value)} /></label>
-                <label className='akari-person-wide'>メモ<textarea value={notes} onChange={event => setNotes(event.target.value)} /></label>
-                <label className='akari-person-wide'>リンク（1 行に 1 つ）<textarea value={links} onChange={event => setLinks(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPersonDetailBirthday.label')}<input value={birthday} placeholder={t('surfaces.channel.channelPersonDetail.label')} onChange={event => setBirthday(event.target.value)} />
+                    {invalidBirthday && <small className='akari-people-error'>{t('surfaces.channel.channelPersonDetailEnterBirthday.label')}</small>}</label>
+                <label className='akari-person-wide'>{t('surfaces.channel.channelPersonDetailPersonality.label')}<textarea value={personality} onChange={event => setPersonality(event.target.value)} /></label>
+                <label className='akari-person-wide'>{t('surfaces.channel.channelPersonDetailBackground.label')}<textarea value={background} onChange={event => setBackground(event.target.value)} /></label>
+                <label className='akari-person-wide'>{t('surfaces.channel.channelPersonDetailMemo.label')}<textarea value={notes} onChange={event => setNotes(event.target.value)} /></label>
+                <label className='akari-person-wide'>{t('surfaces.channel.channelPersonDetailLinksOnePerLine.label')}<textarea value={links} onChange={event => setLinks(event.target.value)} /></label>
             </div>
         </section>
         <section className='akari-person-section'>
-            <h4>写真</h4>
+            <h4>{t('surfaces.channel.channelPersonDetailPhoto.heading')}</h4>
             <div className='akari-person-photos'>
                 {photos.map((path, index) => <div className='akari-person-photo' key={`${path}-${index}`}>
-                    <img src={props.dir.resolve(path).toString()} alt={`${entry.name}の写真 ${index + 1}`} />
-                    <button type='button' onClick={() => setPhotos(current => current.filter((_, at) => at !== index))}>外す</button>
+                    <img src={props.dir.resolve(path).toString()} alt={t('surfaces.channel.channelPersonDetailPhoto.message', { personName: entry.name, photoNumber: index + 1 })} />
+                    <button type='button' onClick={() => setPhotos(current => current.filter((_, at) => at !== index))}>{t('surfaces.channel.channelPersonDetailRemove.button')}</button>
                 </div>)}
-                {!photos.length && entry.image && <div className='akari-person-photo'><img src={props.dir.resolve(entry.image).toString()} alt={`${entry.name}の以前の写真`} /></div>}
+                {!photos.length && entry.image && <div className='akari-person-photo'><img src={props.dir.resolve(entry.image).toString()} alt={t('surfaces.channel.channelPersonDetailSPreviousPhoto.message', { entryName: entry.name })} /></div>}
                 {pendingPhotos.map((item, index) => <div className='akari-person-photo' key={item.url}>
-                    <img src={item.url} alt={`${item.file.name}（保存待ち）`} /><small>保存待ち</small>
-                    <button type='button' onClick={() => setPendingPhotos(current => current.filter((_, at) => at !== index))}>外す</button>
+                    <img src={item.url} alt={t('surfaces.channel.channelPersonDetailWaitingSave.message', { fileName: item.file.name })} /><small>{t('surfaces.channel.voiceSavePending.status')}</small>
+                    <button type='button' onClick={() => setPendingPhotos(current => current.filter((_, at) => at !== index))}>{t('surfaces.channel.channelPersonDetailRemove.button')}</button>
                 </div>)}
             </div>
             <input type='file' accept='image/*' multiple data-akari-person-photo-input onChange={event => { addPhotos(event.target.files); event.target.value = ''; }} />
         </section>
         <section className='akari-person-section'>
-            <h4>声</h4>
-            <h5>この人の声のプロフィール</h5>
+            <h4>{t('surfaces.channel.channelPersonDetailVoice.heading')}</h4>
+            <h5>{t('surfaces.channel.channelPersonDetailPersonsVoiceProfile.heading')}</h5>
             <select data-akari-person-voice-profile value={voiceProfile} onChange={event => {
                 const selected = profiles.find(item => item.id === event.target.value);
                 setVoiceProfile(event.target.value);
                 setVoiceAvatar(selected?.avatar || '');
             }}>
-                <option value=''>つながない</option>
-                {voiceProfile && !profiles.some(item => item.id === voiceProfile) && <option value={voiceProfile}>見つからない声: {voiceProfile}</option>}
+                <option value=''>{t('surfaces.channel.doNotConnect.option')}</option>
+                {voiceProfile && !profiles.some(item => item.id === voiceProfile) && <option value={voiceProfile}>{t('surfaces.channel.missingVoice.label', { name: voiceProfile })}</option>}
                 {profiles.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
-            {!profiles.length && <p data-akari-person-voice-guide>まだ声のプロフィールがありません。設定 › 読み上げ › 自分の声 で自分の声を登録すると、ここで選べます。
-                {props.onOpenSettings && <> <button type='button' onClick={() => props.onOpenSettings?.('narration')}>設定を開く</button></>}</p>}
-            <p>ナレーションを『この人として』作るときに使います。他の人の声を真似て作ることはしません。</p>
-            <h5>話者を見分ける用の声</h5>
+            {!profiles.length && <p data-akari-person-voice-guide>{t('surfaces.channel.channelPersonDetailNoVoiceProfilesYetAddVoiceSettings.message')}{props.onOpenSettings && <> <button type='button' onClick={() => props.onOpenSettings?.('narration')}>{t('surfaces.channel.channelPersonDetailOpenSettings.button')}</button></>}</p>}
+            <p>{t('surfaces.channel.channelPersonDetailVoiceNarrationPersonOtherPeoplesVoicesNever.message')}</p>
+            <h5>{t('surfaces.channel.channelPersonDetailVoiceIdentifySpeaker.heading')}</h5>
             <ul className='akari-person-samples'>
                 {samples.map((sample, index) => <li key={`${sample.file}-${index}`}><span>{sample.file.split(/[\\/]/).pop()} — {VOICE_CONSENT_LABELS[sample.consent]}{sample.added_at && ` — ${sample.added_at.slice(0, 10)}`}</span>
-                    <button type='button' onClick={() => setSamples(current => current.filter((_, at) => at !== index))}>外す</button></li>)}
-                {pendingSamples.map((sample, index) => <li key={`${sample.file.name}-${index}`}><span>{sample.file.name} — {VOICE_CONSENT_LABELS[sample.consent]} — {sample.added_at.slice(0, 10)}（保存待ち）</span>
-                    <button type='button' onClick={() => setPendingSamples(current => current.filter((_, at) => at !== index))}>外す</button></li>)}
+                    <button type='button' onClick={() => setSamples(current => current.filter((_, at) => at !== index))}>{t('surfaces.channel.channelPersonDetailRemove.button')}</button></li>)}
+                {pendingSamples.map((sample, index) => <li key={`${sample.file.name}-${index}`}><span>{sample.file.name} — {VOICE_CONSENT_LABELS[sample.consent]} — {sample.added_at.slice(0, 10)}{t('surfaces.channel.voiceSavePendingParenthetical.status')}</span>
+                    <button type='button' onClick={() => setPendingSamples(current => current.filter((_, at) => at !== index))}>{t('surfaces.channel.channelPersonDetailRemove.button')}</button></li>)}
             </ul>
             <input key={sampleInputKey} type='file' accept='.wav,.m4a,.mp3,audio/wav,audio/mpeg,audio/mp4' data-akari-person-voice-input onChange={event => setSampleFile(event.target.files?.[0])} />
-            <p>「本人の声です」か「本人の同意を得た声です」を選んでください。</p>
+            <p>{t('surfaces.channel.channelPersonDetailChooseOwnVoiceVoiceConsent.message')}</p>
             <div className='akari-person-consent'>{(['self', 'subject'] as VoiceSampleConsent[]).map(value =>
                 <label key={value}><input type='radio' name={`person-consent-${entry.id}`} data-akari-person-consent={value} checked={consent === value} onChange={() => setConsent(value)} />{VOICE_CONSENT_LABELS[value]}</label>)}</div>
-            {sampleFile && !consent && <p>本人の声か、本人の同意を得た声かを選ぶと足せます</p>}
-            <button type='button' data-akari-person-voice-add disabled={!canAddVoiceSample(consent, sampleFile?.name)} onClick={addSample}>声を足す</button>
+            {sampleFile && !consent && <p>{t('surfaces.channel.channelPersonDetailAddVoiceConfirmingBelongsPersonRecordedConsent.label')}</p>}
+            <button type='button' data-akari-person-voice-add disabled={!canAddVoiceSample(consent, sampleFile?.name)} onClick={addSample}>{t('surfaces.channel.channelPersonDetailAddVoice.button')}</button>
         </section>
-        <p data-akari-person-note>写真と声はこの機械の中だけに置きます。クラウドや記憶パックには入りません。声のプロフィールはナレーションを『この人として』作るときに、声のサンプルは文字起こしの話者に名前を付けるときに使います。</p>
+        <p data-akari-person-note>{t('surfaces.channel.channelPersonDetailPhotosVoicesPlacedInsideMachineDoesFit.description')}</p>
         {error && <p className='akari-people-error' role='alert'>{error}</p>}
-        <div className='akari-people-form-actions'><button type='button' data-akari-person-save disabled={!name.trim() || invalidBirthday || busy} onClick={() => void save()}>保存</button>
-            <button type='button' onClick={props.onBack}>やめる</button></div>
+        <div className='akari-people-form-actions'><button type='button' data-akari-person-save disabled={!name.trim() || invalidBirthday || busy} onClick={() => void save()}>{t('surfaces.channel.channelPersonDetailSave.button')}</button>
+            <button type='button' onClick={props.onBack}>{t('surfaces.channel.channelPersonDetailStop.button')}</button></div>
     </div>;
 }

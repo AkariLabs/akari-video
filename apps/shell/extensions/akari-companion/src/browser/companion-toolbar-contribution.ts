@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { ApplicationShell } from '@theia/core/lib/browser';
 import {
@@ -10,8 +11,8 @@ import { AnchorRect } from '../common/companion-panel-geometry';
 
 export const COMPANION_TOGGLE_COMMAND_ID = 'akari.companion.togglePanel';
 export const COMPANION_TOGGLE_ATTRIBUTE = 'data-akari-companion-toggle';
-export const COMPANION_TOGGLE_LABEL = 'AKARI バイブ';
-export const COMPANION_STARTING_LABEL = 'AKARI バイブを起動しています…';
+export const COMPANION_TOGGLE_LABEL = t('companion.companion.akariVibe.label');
+export const COMPANION_STARTING_LABEL = t('companion.companion.startingAkariVibe.label');
 export const COMPANION_STARTING_LABEL_DELAY_MS = 5_000;
 /**
  * 書き出しボタンは同じ group の priority 100。Theia のツールバーは

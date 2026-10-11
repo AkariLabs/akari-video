@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { ApplicationShell, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandRegistry, Disposable, MessageService } from '@theia/core/lib/common';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
@@ -93,11 +94,11 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         });
         this.client.setPanelHandler((connected, manifest) => this.onConnectionState(connected, manifest));
         this.disposables.push(this.commands.registerCommand(
-            { id: COMPANION_TOGGLE_COMMAND_ID, label: `${COMPANION_TOGGLE_LABEL}を表示/非表示` },
+            { id: COMPANION_TOGGLE_COMMAND_ID, label: t('companion.companion.onStartShowHide.label', { label: COMPANION_TOGGLE_LABEL }) },
             { execute: () => this.togglePanel() }
         ));
         this.disposables.push(this.commands.registerCommand(
-            { id: 'akari.companion.resetPanelPlacement', label: `${COMPANION_TOGGLE_LABEL}を既定の位置へ戻す` },
+            { id: 'akari.companion.resetPanelPlacement', label: t('companion.companion.onStartResetPosition.label', { label: COMPANION_TOGGLE_LABEL }) },
             { execute: () => { this.panel?.resetPlacement(); } }
         ));
         this.disposables.push(this.preferences.onPreferenceChanged(event => {
@@ -159,10 +160,10 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         try {
             this.showVibePrivacyNotice();
             if (!await this.service.start() && this.enabled) {
-                void this.messages.warn('AKARI バイブを起動できませんでした');
+                void this.messages.warn(t('companion.companion.togglePanelStartAkariVibe.label'));
             }
         } catch {
-            if (this.enabled) void this.messages.warn('AKARI バイブを起動できませんでした');
+            if (this.enabled) void this.messages.warn(t('companion.companion.togglePanelStartAkariVibe.label'));
         } finally {
             this.starting = false;
             this.toolbar.refresh(document);
@@ -173,7 +174,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         const noticeStorage = typeof window === 'undefined' ? undefined : window.localStorage;
         if (noticeStorage && noticeStorage.getItem('akari.vibe.privacy-notice-v1') !== 'seen') {
             noticeStorage.setItem('akari.vibe.privacy-notice-v1', 'seen');
-            void this.messages.info('話した指示と編集中のプロジェクトの構成（字幕の文字は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります');
+            void this.messages.info(t('companion.companion.dataSharingNotice.description'));
         }
     }
 

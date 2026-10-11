@@ -1,3 +1,30 @@
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+
+// ../content-language/src/caption-defaults.json
+var require_caption_defaults = __commonJS({
+  "../content-language/src/caption-defaults.json"(exports, module) {
+    module.exports = {
+      ja: {
+        landscapeCharacters: 20,
+        portraitCharacters: 10,
+        charactersPerSecond: null,
+        minimumSeconds: 1,
+        fontStack: '"Noto Sans JP", sans-serif'
+      },
+      en: {
+        landscapeCharacters: 42,
+        portraitCharacters: 24,
+        charactersPerSecond: 17,
+        minimumSeconds: 1,
+        fontStack: '"Noto Sans JP", "AKARI Noto Sans JP", sans-serif'
+      }
+    };
+  }
+});
+
 // ../edit-store/src/transition-vocabulary.ts
 var TRANSITION_VOCABULARY = [
   { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D" },
@@ -1356,6 +1383,7 @@ function buildCaptionTimelineSegments(cuts, edit, options = {}) {
 }
 
 // ../edit-store/src/caption-display.ts
+var CAPTION_LANGUAGE_DEFAULTS = require_caption_defaults();
 var CAPTION_ALIGN_VALUES = /* @__PURE__ */ new Set(["left", "center", "right"]);
 var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
 var CAPTION_TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);

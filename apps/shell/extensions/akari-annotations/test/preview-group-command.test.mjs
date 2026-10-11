@@ -1,8 +1,17 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { indexEditV2Items, removeTreeV2Item } from '../lib/common/edit-v2-mutations.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const widget = readAllSourceText();
 const shortcuts = readFileSync(new URL('../src/browser/akari-shortcuts.ts', import.meta.url), 'utf8');
@@ -19,12 +28,17 @@ test('preview multi receiver opens ancestors and records item rows without an ec
 });
 
 test('group guards give a reason and menu command reuses the shortcut mutation', () => {
-  assert.match(widget, /キャンバスをほどくときは 1 つだけ選んでください/u);
-  assert.match(widget, /キャンバスにするものを 2 つ以上選んでください/u);
-  assert.match(widget, /袋の部品はキャンバスにできません。先に出してください/u);
+  assert.match(widget, /t\('annotations\.timeline\.text\.chooseOnlyOneWhenUnravelingTheCanvas'\)/u);
+  assert.equal(ja['annotations.timeline.text.chooseOnlyOneWhenUnravelingTheCanvas'], 'キャンバスをほどくときは 1 つだけ選んでください');
+  assert.match(widget, /t\('annotations\.timeline\.text\.pleaseSelectTwoOrMoreThingsToBe'\)/u);
+  assert.equal(ja['annotations.timeline.text.pleaseSelectTwoOrMoreThingsToBe'], 'キャンバスにするものを 2 つ以上選んでください');
+  assert.match(widget, /t\('annotations\.timeline\.text\.bagPartsCannotBeMadeIntoCanvasPlease'\)/u);
+  assert.equal(ja['annotations.timeline.text.bagPartsCannotBeMadeIntoCanvasPlease'], '袋の部品はキャンバスにできません。先に出してください');
   assert.match(widget, /runPreviewGroupCommand\([\s\S]*this\.runRegisteredShortcut\(/u);
-  assert.match(widget, /commitEditMutation\('キャンバスにする', doc =>/u);
-  assert.match(widget, /commitEditMutation\('キャンバスをほどく', doc =>/u);
+  assert.match(widget, /commitEditMutation\(t\('annotations\.timeline\.text\.makeItACanvas'\), doc =>/u);
+  assert.equal(ja['annotations.timeline.text.makeItACanvas'], 'キャンバスにする');
+  assert.match(widget, /commitEditMutation\(t\('annotations\.timeline\.text\.unravelTheCanvas'\), doc =>/u);
+  assert.equal(ja['annotations.timeline.text.unravelTheCanvas'], 'キャンバスをほどく');
   assert.match(widget, /notifyPreviewBagGrouping\([\s\S]*this\.previewBagSelection\?\.editUri === editUri/u);
 });
 

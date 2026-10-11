@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
@@ -13,6 +15,13 @@ import { CAPTION_BAG_MOTION_SECTION } from '../lib/browser/inspector/sections/ca
 import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const cue = { id: 'c-0001', start: 1, end: 3, text: 'とても良い', speaker: null, sourceRef: null,
     edited: false, src: 'main', words: [
@@ -232,7 +241,8 @@ test('編集パネルは語の表示と強調の保存先、カラオケ未終�
     assert.match(panel, /語の時刻（words\[\]）がない字幕/u);
     assert.match(panel, /語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません/u);
     const timelineWidget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-    assert.match(timelineWidget, /request\.path === 'motion'[\s\S]*?raw\.source\?\.kind === 'captions'[\s\S]*?字幕の動きは各行の設定から変更/u);
+    assert.match(timelineWidget, /request\.path === 'motion'[\s\S]*?raw\.source\?\.kind === 'captions'[\s\S]*?t\('annotations\.timeline\.text\.pleaseChangeTheSubtitleMovementFromTheSettings'\)/u);
+    assert.equal(ja['annotations.timeline.text.pleaseChangeTheSubtitleMovementFromTheSettings'], '字幕の動きは各行の設定から変更してください。');
 });
 
 test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外部変更を拒否する', async () => {

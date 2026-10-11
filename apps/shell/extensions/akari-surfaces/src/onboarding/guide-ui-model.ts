@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { AiAnswer, OnboardingStep } from './model';
 
 export function guideShowsChat(step: OnboardingStep): boolean {
@@ -20,11 +21,11 @@ export function askHighlightTarget(answer: AiAnswer | undefined): string {
 
 export function askConnectionCopy(answer: AiAnswer | undefined): string {
     return ({
-        claude: 'Claude の Pro・Max なら、つなぐのは「Claude Code CLI」です（光っているところ）。',
-        chatgpt: 'ChatGPT なら、つなぐのは「Codex CLI」です（光っているところ）。無料のアカウントでも使えます。',
-        google: 'Google のアカウントなら、つなぐのは「Antigravity CLI」です（光っているところ）。',
-        none: 'AI とつながなくても、流れはお手本で見られます。',
-        other: 'お使いの AI は、あとでこの一覧からつなげます。'
+        claude: t('surfaces.onboarding.askConnectionCopyClaudesProMaxConnectionClaudeCodeCli.message'),
+        chatgpt: t('surfaces.onboarding.askConnectionCopyChatgptConnectionCodexCliHighlightedPartAlso.message'),
+        google: t('surfaces.onboarding.googleConnectionInstruction.description'),
+        none: t('surfaces.onboarding.askConnectionCopyEvenConnectedAiSeeFlowExample.message'),
+        other: t('surfaces.onboarding.askConnectionCopyConnectAiLaterList.message')
     } as Record<AiAnswer, string>)[answer ?? 'none'];
 }
 

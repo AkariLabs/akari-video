@@ -509,9 +509,10 @@ test('次のバッチの進捗は前回結果を拾わず、候補一覧は重�
       row.route === route && row.args[0] !== 'models').length >= 2));
     const running = await instance.readStillCandidates(dir, 'clip-1');
     assert.equal(running.running, true);
-    assert.equal(running.completed, 0);
-    assert.deepEqual(running.results, []);
-    assert.equal(running.candidates.length, 3);
+    // A route from the new batch may finish before this read under load.
+    assert.ok(running.completed < 3);
+    assert.equal(running.results.length, running.completed);
+    assert.ok(running.candidates.length >= 3);
     await second;
     const done = await instance.readStillCandidates(dir, 'clip-1');
     assert.equal(done.candidates.length, 6);

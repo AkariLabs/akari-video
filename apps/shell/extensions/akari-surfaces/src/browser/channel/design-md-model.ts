@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export const DESIGN_SECTION_HEADINGS = ['雰囲気', '色', '文字と字幕', 'ロゴ', '避けること'] as const;
 export const DESIGN_SECTION_PLACEHOLDERS = [
     'あたたかく、手づくり感。白い器と木のまな板が映える明るさ。',
@@ -10,7 +11,7 @@ const REST_MARKER = '<!-- 読み取れなかった行 -->';
 export const DESIGN_ASSET_ROLES = ['logo', 'logo-mono', 'icon', 'font', 'reference', 'other'] as const;
 export type DesignAssetRole = typeof DESIGN_ASSET_ROLES[number];
 export const DESIGN_ASSET_ROLE_LABELS: Record<DesignAssetRole, string> = {
-    logo: 'ロゴ', 'logo-mono': 'ロゴ（単色）', icon: 'アイコン', font: 'フォント', reference: '参考画像', other: 'そのほか'
+    logo: t('surfaces.channel.logo.label'), 'logo-mono': t('surfaces.channel.logoSingleColor.label'), icon: t('surfaces.channel.icon.label'), font: t('surfaces.channel.font.label'), reference: t('surfaces.channel.referenceImage.label'), other: t('surfaces.channel.others.label')
 };
 export interface DesignAsset { role: DesignAssetRole; file: string; note: string }
 
@@ -93,8 +94,8 @@ export function safeDesignFileName(original: string, existing: readonly string[]
 
 export function designAssetBadge(assets: readonly DesignAsset[]): string | undefined {
     if (!assets.length) return undefined;
-    if (assets.some(asset => asset.role === 'logo' || asset.role === 'logo-mono')) return 'ロゴあり';
-    return `${assets.every(asset => asset.role === 'font') ? 'フォント' : '画像'} ${assets.length}`;
+    if (assets.some(asset => asset.role === 'logo' || asset.role === 'logo-mono')) return t('surfaces.channel.designAssetBadgeLogo.label');
+    return t('surfaces.channel.designAssetBadge.message', { assetKind: assets.every(asset => asset.role === 'font') ? 'フォント' : '画像', count: assets.length });
 }
 
 export function parseDesignMd(text: string): DesignMdValues {

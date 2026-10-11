@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -7,10 +9,17 @@ import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource, readAllSourceText } from './helpers/widget-source.mjs';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const widget = readCompiledSource('widget').text;
 const inspector = read('../lib/browser/inspector/sections/cut-sections.js');
 const source = readAllSourceText();
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 const inspectorSource = readInspectorSource();
 function between(text, start, end, offset = 0) {
     const a = text.indexOf(start, offset);
@@ -24,7 +33,8 @@ const previewCode = between(widget, "if (state.kind === 'cut-trim') {", "if (sta
 const previewFn = new Function('state', 'delta', 'showGuide', 'still_cut_length_1', previewCode);
 const commitCode = between(widget, "case 'cut-trim': {", "case 'cut-move': {");
 const commitFn = new Function('preview', 'still_cut_length_1', 'edit_v2_mutations_1', `const MINIMUM_ITEM_DURATION = 0.15; let mutate, label, message; switch (preview.kind) { ${commitCode} } return mutate;`);
-const patchCode = between(widget, "const input = request.kind === 'cut-source-in'", "label = '素材の範囲を変更';");
+const patchCode = between(widget, "const input = request.kind === 'cut-source-in'", "label = (0, i18n_1.t)('annotations.timeline.text.changeMaterialRange');");
+assert.equal(ja['annotations.timeline.text.changeMaterialRange'], '素材の範囲を変更');
 const patchFn = new Function('request', 'cut', 'indexed', 'still_cut_length_1', `let patch; ${patchCode} return patch;`);
 const overlapCode = between(widget, 'cutWouldOverlap(index, at, duration, track) {', '/**');
 const overlap = new Function(`return ({ ${overlapCode} }).cutWouldOverlap;`)();

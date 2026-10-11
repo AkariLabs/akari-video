@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,6 +9,12 @@ import test from 'node:test';
 
 import { lintProject } from '../../../../../packages/edit-lint/src/edit-lint.mjs';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const text = value => `${JSON.stringify(value, null, 2)}\n`;
 const uri = path => pathToFileURL(path).toString();

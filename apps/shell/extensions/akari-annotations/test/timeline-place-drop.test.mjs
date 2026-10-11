@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -7,6 +9,12 @@ import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
 import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
 import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
 import { insertTrack } from '../lib/common/edit-v2-mutations.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);

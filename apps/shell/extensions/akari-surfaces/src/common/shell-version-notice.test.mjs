@@ -1,17 +1,15 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 
 // update-feed.test.mjs と同じ理由でこのファイルは src/common/ に同居させている
 // （`test/` は本タスクの所有パス外）。`npm run build:ext`（tsc -b）でこの隣の
 // shell-version-notice.ts をコンパイルした後、
 // `node --test src/common/shell-version-notice.test.mjs` として直接実行できる。
-import {
-    buildReleaseNotesUrl,
-    evaluateVersionNotice,
-    formatVersionNoticeText,
-    parseShellLastVersion,
-    withRecordedVersion
-} from '../../lib/common/shell-version-notice.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { buildReleaseNotesUrl, evaluateVersionNotice, formatVersionNoticeText, parseShellLastVersion, withRecordedVersion } = await import("../../lib/common/shell-version-notice.js");
+
 
 test('parseShellLastVersion: 壊れた JSON は例外を投げず null', () => {
     assert.equal(parseShellLastVersion('{ not json'), null);

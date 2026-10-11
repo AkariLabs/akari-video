@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { formatDate } from '@akari-video/i18n';
 export interface HomeStats {
     duration?: string;
@@ -54,7 +55,7 @@ export function buildHomeStats(edit: unknown, assetCount?: number, assetBytes?: 
 }
 
 export function homeWindowTitle(project: string, channel?: string): string {
-    return `${project} — ${channel || '単体'}`;
+    return t('surfaces.home.homeWindowTitle.message', { project: project, channel: channel || t('surfaces.home.homeWindowTitleSingleUnit.label') });
 }
 
 export type UpdateStage = 'found' | 'downloading' | 'ready';
@@ -70,13 +71,13 @@ export function shouldAutoShowNotice(next: { stage: UpdateStage; version: string
 
 export function validateChannelName(input: string, existing: readonly string[]): { name?: string; error?: string } {
     const name = input.trim();
-    if (!name) { return { error: 'チャンネル名を入力してください。' }; }
+    if (!name) { return { error: t('surfaces.home.validateChannelNameEnterChannelName.error') }; }
     if (name === '.' || name.includes('..') || /[/\\<>:"|?*]/.test(name) || [...name].some(char => char.charCodeAt(0) < 32)) {
-        return { error: '「/」「\\」「..」やファイル名に使えない文字は入れられません。' };
+        return { error: t('surfaces.home.validateChannelNameCannotIncludeCharactersSuchOtherCharactersCannot.error') };
     }
-    if (name.length > 64) { return { error: 'チャンネル名は 64 文字以内にしてください。' }; }
+    if (name.length > 64) { return { error: t('surfaces.home.validateChannelNameChannelNamesMustCharactersLess.error') }; }
     if (existing.some(channel => channel.toLocaleLowerCase() === name.toLocaleLowerCase())) {
-        return { error: '同じ名前のチャンネルがあります。' };
+        return { error: t('surfaces.home.validateChannelNameChannelSameName.error') };
     }
     return { name };
 }

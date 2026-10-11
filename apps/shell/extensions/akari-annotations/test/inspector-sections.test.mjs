@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -173,6 +175,13 @@ import {
   telopParamControlKind
 } from '../lib/browser/inspector/field-mappings.js';
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 test('キャンバス欄と図形の外観欄は映像タブに一度ずつ置く', () => {
   const canvas = visualSnapshot('item', { itemKind: 'group', sourceKind: 'group',
@@ -484,7 +493,8 @@ test('字幕位置は 3x3 grid から preview 所有の hover/preset イベン�
   assert.match(inspectorWidgetSource, /akari-caption-zone-grid/u);
   assert.match(inspectorWidgetSource, /akari\.caption\.zoneHover/u);
   assert.match(inspectorWidgetSource, /akari\.caption\.zonePreset/u);
-  assert.match(inspectorWidgetSource, /saved\.textContent = '保存中'/u);
+  assert.match(inspectorWidgetSource, /saved\.textContent = t\('annotations\.inspectorWidget\.text\.saving'\)/u);
+  assert.equal(ja['annotations.inspectorWidget.text.saving'], '保存中');
   assert.doesNotMatch(inspectorWidgetSource, /name: 'caption-zone'[\s\S]{0,500}kind: 'caption-style-zone'/u);
 });
 
@@ -851,8 +861,10 @@ test('nudge は keydown 相当の更新が複数回でも release で1回だけ�
 });
 
 test('前後移動は重なり時も拒否せず新しい段を通知し、legacy item-field は v2 限定文言を返す', () => {
-  assert.match(widgetSource, /を追加しました/);
-  assert.match(widgetSource, /この項目の編集は edit\.json v2 のみ対応です。/);
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.added'/);
+  assert.equal(ja['annotations.timeline.text.added'], '{name} を追加しました');
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.editingThisItemIsOnlySupportedByEdit'\)/);
+  assert.equal(ja['annotations.timeline.text.editingThisItemIsOnlySupportedByEdit'], 'この項目の編集は edit.json v2 のみ対応です。');
 });
 
 test('BGM と音声クリップは共通のフェード・ダッキング節と固定既定値を使う', () => {

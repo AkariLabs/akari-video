@@ -1,0 +1,22 @@
+{
+  "report-project.page.title.text": "AKARI Video プロジェクト作成結果",
+  "report-project.meta.created.label": "作成日時",
+  "report-project.meta.destination.label": "作成先",
+  "report-project.meta.template.label": "使用した雛形",
+  "report-project.files.copied.heading": "コピーしたファイル（{n} 件）",
+  "report-project.files.fallback.heading": "フォールバック補完されたファイル（{n} 件）",
+  "report-project.files.symlinks.heading": "スキップしたシンボリックリンク（{n} 件）",
+  "report-project.files.empty.text": "なし",
+  "report-project.skills.version.heading": "雛形バージョン",
+  "report-project.skills.version.missing": "記録なし",
+  "report-project.git.result.heading": "git 初期化の結果",
+  "report-project.git.action.label": "実施",
+  "report-project.git.action.done": "実施",
+  "report-project.git.action.skipped": "スキップ",
+  "report-project.git.eligibility.label": "判定",
+  "report-project.git.reason.label": "理由",
+  "report-project.git.reason.initialized": "git 初期化して単一コミットを作成",
+  "report-project.git.reason.unavailable": "git が利用できないためスキップ — 後からプロジェクトを開くと自動で git 化されます（{error}）",
+  "report-project.git.reason.ownRoot": "このフォルダは既に git リポジトリのため git init を skip",
+  "report-project.git.reason.parentRoot": "親リポジトリ {parentRoot} の内側のため git init を skip"
+}

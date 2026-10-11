@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { IntakeAutonomy, INTAKE_AUTONOMY_DESCRIPTIONS, INTAKE_AUTONOMY_LABELS, INTAKE_AUTONOMY_ORDER } from '../../common/intake-labels';
 
 const STYLE_ID = 'akari-mode-switch-popup-style';
@@ -57,10 +58,10 @@ export class ModeSwitchPopup {
     constructor(current: IntakeAutonomy | undefined, onSelect: (autonomy: IntakeAutonomy) => void) {
         this.node.className = 'akari-mode-popup';
         this.node.setAttribute('role', 'group');
-        this.node.setAttribute('aria-label', '進め方');
+        this.node.setAttribute('aria-label', t('surfaces.modeSwitch.proceed.label'));
         const heading = document.createElement('div');
         heading.className = 'hd';
-        heading.textContent = '進め方 — AI がどこまで任されて進めるか';
+        heading.textContent = t('surfaces.modeSwitch.scope.heading');
         this.node.appendChild(heading);
         for (const autonomy of INTAKE_AUTONOMY_ORDER) {
             const card = document.createElement('button');
@@ -83,7 +84,7 @@ export class ModeSwitchPopup {
         }
         const footer = document.createElement('div');
         footer.className = 'ft';
-        footer.textContent = 'このプロジェクトの .akari/intake.json に保存されます';
+        footer.textContent = t('surfaces.modeSwitch.savedAkariIntakeJsonProject.label');
         this.node.appendChild(footer);
     }
 

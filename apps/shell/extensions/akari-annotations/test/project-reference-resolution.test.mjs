@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
@@ -8,6 +10,12 @@ import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-servi
 import { recordProjectReference } from '../../../../../packages/asset-resolver/src/project-references.mjs';
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
 import { findMember } from './helpers/widget-source.mjs';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('annotations RPC の解決済み音声で実尺と波形を取得できる', async t => {
     if (!requireFfmpeg(t)) return;

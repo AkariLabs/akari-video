@@ -1,6 +1,11 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { assertCatalogCopy } from './i18n-source-copy.mjs';
+import { setLanguage, t } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const source = path => readFileSync(new URL(`../src/browser/${path}`, import.meta.url), 'utf8');
 const widget = source('akari-home-widget.tsx');
@@ -8,7 +13,7 @@ const widget = source('akari-home-widget.tsx');
 function evaluateDateFunction(name, date) {
     const body = widget.match(new RegExp(`function ${name}\\(date = new Date\\(\\)\\): string \\{([\\s\\S]*?)\\n\\}`))?.[1];
     assert.ok(body, `${name} の本体`);
-    return new Function('date', body)(date);
+    return new Function('date', 't', body)(date, t);
 }
 
 function evaluateDisplayTitleFor(name) {
@@ -48,9 +53,9 @@ test('進め方フォームを閉じられるシートとして表示する', ()
 });
 
 test('ホームの状態文とタブ名を更新する', () => {
-    assert.match(widget, /企画ができました/);
-    assert.match(widget, /素材を入れる/);
-    assert.match(widget, /this\.title\.caption = 'ホーム'/);
+    assertCatalogCopy(widget, '企画ができました');
+    assertCatalogCopy(widget, '素材を入れる');
+    assertCatalogCopy(widget, 'ホーム');
     assert.match(source('home/project-home-style.ts'), /minmax\(180px,1fr\)/);
 });
 

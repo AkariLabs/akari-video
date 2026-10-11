@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { buildHomeStats, formatDuration, formatBytes, homeWindowTitle, noticeStage, noticeStorageKey, shouldAutoShowNotice, validateChannelName } from '../../lib/browser/home/home-model.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { buildHomeStats, formatDuration, formatBytes, homeWindowTitle, noticeStage, noticeStorageKey, shouldAutoShowNotice, validateChannelName } = await import("../../lib/browser/home/home-model.js");
+
 
 test('only available project statistics are shown and values are formatted', () => {
     assert.deepEqual(buildHomeStats({ duration_s: 222.9, clips: [{}, {}] }, 4, 6_800_000_000), {

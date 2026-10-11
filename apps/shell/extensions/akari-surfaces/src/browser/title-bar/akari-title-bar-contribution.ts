@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, Widget } from '@theia/core/lib/browser';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
@@ -235,7 +236,7 @@ export class AkariTitleBarContribution extends ElectronMenuContribution {
             const dots = document.createElement('button');
             dots.className = 'akari-title-dots';
             dots.type = 'button';
-            dots.setAttribute('aria-label', '進み具合を開く');
+            dots.setAttribute('aria-label', t('surfaces.titleBar.centerOpenProgress.label'));
             dots.addEventListener('click', () => {
                 if (this.commands.getCommand('akari.home.open')) { void this.commands.executeCommand('akari.home.open'); }
             });

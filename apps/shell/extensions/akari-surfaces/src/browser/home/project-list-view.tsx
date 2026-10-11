@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { formatDate } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
@@ -35,7 +36,7 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
         onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}>
         <span className='akari-os-thumb'>{thumbnail
             ? <img src={thumbnail} alt='' /> : <span className='codicon codicon-device-camera-video' aria-hidden='true' />}</span>
-        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? '開いています · ' : ''}{row.updatedAt ? formatDate(new Date(row.updatedAt)) : '更新日なし'}</small>
+        <span className='akari-os-card-body'><b>{row.name}</b><small>{row.current ? t('surfaces.projects.currentProjectUpdatedAt.label', { date: row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label') }) : row.updatedAt ? formatDate(new Date(row.updatedAt)) : t('surfaces.projects.projectCardUpdateDateUnavailable.label')}</small>
             {badge && <span className='akari-os-stage'>{badge}</span>}</span>
     </button>;
 }
@@ -43,20 +44,20 @@ export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPr
 export function ProjectListView(props: ProjectListViewProps): React.ReactElement {
     const rows = [...props.rows].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
     return <div className='akari-os-list-view'>
-        {props.currentName && <p className='akari-os-note'>{props.channel} のプロジェクトです。押すと、開くか確かめます（いま開いている「{props.currentName}」はそのまま）。</p>}
+        {props.currentName && <p className='akari-os-note'>{t('surfaces.projects.channelProjectNote.description', { channel: props.channel, name: props.currentName })}</p>}
         <div className='akari-os-list-actions'>
-            <button type='button' className='theia-button main' onClick={event => props.onNew(event.currentTarget.getBoundingClientRect())}>＋ 新しいプロジェクトを始める</button>
-            {!props.currentName && <span>名前は日時が先に入ります。あとで変えられます</span>}
-            <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>チャンネルに入れずに作る…</button>
+            <button type='button' className='theia-button main' onClick={event => props.onNew(event.currentTarget.getBoundingClientRect())}>{t('surfaces.projects.projectListViewStartNewProject.button')}</button>
+            {!props.currentName && <span>{t('surfaces.projects.projectListViewDateTimeEnteredFirstNameChangeLater.label')}</span>}
+            <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>{t('surfaces.projects.projectListViewCreateWithoutEnteringChannel.button')}</button>
         </div>
         <section>
-            <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
-                <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>チャンネルを開く</button>
-                <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>更新</button></div>
+            <div className='akari-os-section-heading'><h3>{t('surfaces.projects.channelProjects.heading', { channel: props.channel })}</h3><small>{t('surfaces.projects.projectCount.label', { count: rows.length })}</small>
+                <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>{t('surfaces.projects.projectListViewOpenChannel.button')}</button>
+                <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>{t('surfaces.projects.projectListViewUpdate.button')}</button></div>
             {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} refreshToken={props.refreshToken} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>
-                : <p className='akari-os-note'>まだプロジェクトがありません。</p>}
+                : <p className='akari-os-note'>{t('surfaces.projects.projectListViewNoProjectsYet.message')}</p>}
         </section>
-        {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>ほかの場所のプロジェクト</h3></div>
+        {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>{t('surfaces.projects.projectListViewProjectsElsewhere.heading')}</h3></div>
             <div className='akari-os-card-grid'>{props.standalone.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={props.refreshToken}
                 onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div></section>}
     </div>;

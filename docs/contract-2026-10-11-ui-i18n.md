@@ -1,6 +1,6 @@
 # UI internationalization contract
 
-Application text lives in `packages/i18n/locales/<language>/<namespace>.json`. Each catalog is a flat JSON object. Supported languages are `ja` and `en`; both catalogs have the same keys. Use keys of the form `<namespace>.<screen-or-feature>.<component>.<role>`, with lower-case English words separated by dots. Keys remain stable when the wording changes. Put only the key in application code: `t('settings.appearance.language.auto')`.
+Application text lives in `packages/i18n/locales/<language>/<namespace>.json`. Each catalog is a flat JSON object. Supported languages are `ja` and `en`; both catalogs have the same keys. Use keys of the form `<namespace>.<screen-or-feature>.<component>.<role>`, with lower-case English words separated by dots (the namespace segment may contain hyphens, e.g. `report-analysis`, `annotations-common`). Keys remain stable when the wording changes. Put only the key in application code: `t('settings.appearance.language.auto')`.
 
 Messages use named placeholders such as `{name}`. Plurals use `_one` and `_other`; Japanese selects `_other` at runtime, and both language catalogs store both variants for a matching key set. A missing translation falls back to English, then to the key; development builds warn about missing keys.
 

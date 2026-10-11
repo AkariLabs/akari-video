@@ -1,6 +1,10 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeProjectStages, currentStage, stageSummary, EMPTY_PRESENCE } from '../lib/browser/home/project-progress-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { computeProjectStages, currentStage, stageSummary, EMPTY_PRESENCE } = await import("../lib/browser/home/project-progress-model.js");
+
 
 const p = (over) => ({ ...EMPTY_PRESENCE, ...over });
 

@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { timelineMethod } from './helpers/perspective-transition-fixture.mjs';
@@ -8,6 +10,12 @@ import { legacyTransformOpFor } from '../lib/browser/inspector/field-mappings.js
 import { isCutFramingWriteRequest } from '../lib/browser/inspector/framing-fields.js';
 import { isCutFreezeWriteRequest } from '../lib/browser/inspector/freeze-fields.js';
 import { validateInspectorMotion } from '../lib/browser/inspector/motion-fields.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const animators = [{
     id: 'a1', basis: 'chars', shape: 'ramp', start: 0, end: 0.3, offset: 0, amount: { y: 24 }
