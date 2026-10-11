@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 /** Host ↔ current renderer acknowledgement. Retrying also covers iframe replacement during setHTML. */
 let nextSeekRequest = 0;
 export async function requestReadyPreviewSeek(transport: {
@@ -22,7 +23,7 @@ export async function requestReadyPreviewSeek(transport: {
                 && message.pageId === transport.pageId() && !transport.disposed()) finish();
         });
         const send = (): void => {
-            if (transport.disposed()) { finish(new Error('出力プレビューが閉じられました。')); return; }
+            if (transport.disposed()) { finish(new Error(t('preview.outputPreview.playback.outputPreviewClosedLabel'))); return; }
             const pageId = transport.pageId();
             if (!pageId) return;
             try {
@@ -31,7 +32,7 @@ export async function requestReadyPreviewSeek(transport: {
             } catch (error) { finish(error as Error); }
         };
         const interval = setInterval(send, 100);
-        const timeout = setTimeout(() => finish(new Error('出力プレビューの再生準備が完了しませんでした。')), timeoutMs);
+        const timeout = setTimeout(() => finish(new Error(t('preview.outputPreview.playback.outputPreviewCouldNotGetReadyPlayError'))), timeoutMs);
         send();
     });
 }

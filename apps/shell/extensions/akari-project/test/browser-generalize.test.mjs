@@ -2,11 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
 const require = createRequire(import.meta.url);
 const { siteUrlAllowed, siteDownloadChainAllowed } = require('../lib/common/asset-sites.js');
 const { navigationAllowed, downloadChainAllowed } = require('../lib/common/site-navigation-policy.js');
 const { buildSearchUrl, cleanSearchQuery, validateEngine, validateBrowserConfig, validUserEngines,
-  BROWSER_COMMAND_IDS, validateBrowserArgs } = require('../lib/common/browser-engines.js');
+  BROWSER_COMMAND_IDS, validateBrowserArgs, browserEngineButtonLabel } = require('../lib/common/browser-engines.js');
+
+test('compact browser engine label uses the engine ID in Japanese and English', () => {
+  try {
+    setLanguage('ja');
+    assert.equal(browserEngineButtonLabel({ id: 'google-images', label: 'Google 画像', template: '' }, 400), 'Google');
+    assert.equal(browserEngineButtonLabel({ id: 'yahoo-jp-images', label: 'Yahoo!画像', template: '' }, 400), 'Yahoo!');
+    setLanguage('en');
+    assert.equal(browserEngineButtonLabel({ id: 'google-images', label: 'Google Images', template: '' }, 400), 'Google');
+    assert.equal(browserEngineButtonLabel({ id: 'custom', label: 'My 画像', template: '' }, 400), 'My 画像');
+    assert.equal(browserEngineButtonLabel({ id: 'google-images', label: 'Google Images', template: '' }, 600), 'Google Images');
+  } finally {
+    setLanguage(undefined);
+  }
+});
 const { cssRectToViewBounds } = require('../lib/common/browser-zoom.js');
 const { HOST_OVERLAY_SELECTORS, shouldHide } = require('../lib/common/browser-host-guard.js');
 

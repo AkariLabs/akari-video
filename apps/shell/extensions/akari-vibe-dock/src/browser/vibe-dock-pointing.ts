@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { injectable, inject } from '@theia/core/shared/inversify';
 import { Disposable, Emitter, Event } from '@theia/core/lib/common';
 import { PointedTarget } from '../common/vibe-dock-tab';
@@ -56,7 +57,7 @@ export class VibeDockPointing {
     start(): void {
         if (this.active) return;
         this.active = true;
-        this.notice = this.state.status.set('指してください（Esc でやめる）', 'info', 'auto');
+        this.notice = this.state.status.set(t('vibe.dock.pointing.pointTargetEscCancelMessage'), 'info', 'auto');
         document.addEventListener('click', this.onClick, true);
         document.addEventListener('keydown', this.onKeyDown, true);
         for (const type of Object.keys(PREVIEW_POINT_EVENTS)) {
@@ -94,7 +95,7 @@ export class VibeDockPointing {
         const found = resolvePointableTarget(event.target as Element);
         if (!found) {
             this.notice?.dispose();
-            this.notice = this.state.status.set('ここは指せません', 'warn', 'auto');
+            this.notice = this.state.status.set(t('vibe.dock.pointing.cannotPointHereMessage'), 'warn', 'auto');
             this.resetTimeout();
             return;
         }

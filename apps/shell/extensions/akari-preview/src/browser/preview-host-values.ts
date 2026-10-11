@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 // F-50: akari-preview-open-handler.ts から機械移設した this 非依存の関数（本文は無改変。インデント 4 を除き、宣言行に export を足しただけ）。
 import { TEXTSTYLE_CATALOG, captionRunStyleFromLook } from '@akari-video/edit-store';
 import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
@@ -90,12 +91,12 @@ export function detectUnsupportedGltfExtensions(bytes: Uint8Array): string[] {
 // どちらも許容（schemas/captions.schema.json oneOf）ため両形を読む。
 export function captionWriteLabel(request: CaptionWriteRequest): string {
     const patch = request.patch;
-    if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return '字幕の位置を既定に戻す';
-    if ('toolStyle' in patch || 'run' in patch) return '字幕の見た目を変更';
-    if ('plateTransform' in patch) return patch.plateTransform.wrapWidthPct === undefined ? '字幕を拡縮・回転' : '文字の折り返し幅を変更';
-    if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return '字幕を移動';
-    if ('text' in patch) return '字幕の文字を変更';
-    return '字幕の配置を変更';
+    if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return t('preview.captionEditor.history.resetCaptionPositionAction');
+    if ('toolStyle' in patch || 'run' in patch) return t('preview.captionEditor.history.changeCaptionAppearanceAction');
+    if ('plateTransform' in patch) return patch.plateTransform.wrapWidthPct === undefined ? t('preview.captionEditor.history.resizeRotateCaptionLabel') : t('preview.outputPreview.window.changeTextWrapWidthAction');
+    if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return t('preview.captionEditor.history.moveCaptionAction');
+    if ('text' in patch) return t('preview.captionEditor.history.editCaptionTextLabel');
+    return t('preview.outputPreview.window.changeCaptionPlacementAction');
 }
 
 export function objectRecord(value: unknown): Record<string, unknown> {

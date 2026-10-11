@@ -31,6 +31,13 @@ import {
  */
 export function previewDiagnosticsGuardScript(): string {
         return `(() => {
+            const uiText = JSON.parse(document.getElementById('akari-preview-text')?.textContent || '{}');
+            const t = (key, params = {}) => {
+                const language = document.documentElement.lang === 'ja' ? 'ja' : 'en';
+                const form = typeof params.n === 'number' ? (language === 'ja' ? 'other' : new Intl.PluralRules(language).select(params.n)) : null;
+                const selected = form && uiText[key + '_' + form] !== undefined ? key + '_' + form : key;
+                return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
+            };
             const STAGES = ${JSON.stringify(PREVIEW_INIT_STAGES)};
             const neutralizePressureObserver = (${neutralizePressureObserver.toString()});
             const createPreviewInitTrace = (${createPreviewInitTrace.toString()});
@@ -111,8 +118,8 @@ export function previewDiagnosticsGuardScript(): string {
                 const blocked = summary.failedStage || summary.stalledStage;
                 const title = document.createElement('strong');
                 title.id = 'akari-preview-diagnostics-title';
-                title.textContent = 'プレビューの初期化が完了しません — 止まった段: '
-                    + (blocked ? blocked.label : '不明');
+                title.textContent = t('preview.diagnostics.overlay.previewInitializationDidNotCompleteStalledPrefix')
+                    + (blocked ? blocked.label : t('preview.diagnostics.overlay.unknownLabel'));
                 const body = document.createElement('pre');
                 body.id = 'akari-preview-diagnostics-report';
                 Object.assign(body.style, {
@@ -123,7 +130,7 @@ export function previewDiagnosticsGuardScript(): string {
                 const copy = document.createElement('button');
                 copy.id = 'akari-preview-diagnostics-copy';
                 copy.type = 'button';
-                copy.textContent = '診断をコピー';
+                copy.textContent = t('preview.diagnostics.overlay.copyDiagnosticsAction');
                 Object.assign(copy.style, {
                     marginTop: '8px', border: '1px solid rgba(255,255,255,0.45)', borderRadius: '4px',
                     padding: '3px 10px', background: 'transparent', color: 'inherit',
@@ -201,7 +208,7 @@ export function previewDiagnosticsGuardScript(): string {
                 summary() { return summarizePreviewInit(trace); }
             };
             window.__akariPreviewDiag = api;
-            api.note('compute-pressure ガード: ' + pressureObserver);
+            api.note(t('preview.diagnostics.overlay.computePressureGuardPrefix') + pressureObserver);
             // 初回描画後もページの JS が動いているかをホストへ伝える。
             // 通常の診断報告の件数上限には含めない。
             window.setInterval(() => {
@@ -220,22 +227,22 @@ export function previewDiagnosticsGuardScript(): string {
                     } else {
                         message = event && event.message ? event.message : String(event && event.error || '');
                     }
-                } catch { message = '(メッセージの取得に失敗)'; }
+                } catch { message = t('preview.diagnostics.webviewCard.couldNotReadMessageError'); }
                 recordPreviewDiagnosticEvent(trace, {
                     kind,
-                    message: message || '不明なエラー',
+                    message: message || t('preview.diagnostics.webviewCard.unknownError'),
                     filename: String(event && event.filename || ''),
                     lineno: Number(event && event.lineno || 0),
                     at: now()
                 });
-                send({ phase: 'event', event: { kind, message: message || '不明なエラー' } });
+                send({ phase: 'event', event: { kind, message: message || t('preview.diagnostics.webviewCard.unknownError') } });
             };
             window.addEventListener('error', event => record('error', event), true);
             window.addEventListener('unhandledrejection', event => record('rejection', event), true);
 
             const keyProbe = api.safeKeyHandler(event => {
                 if (!isSuspiciousKeyEventShape(event)) return;
-                api.recordKeyFailure(event, 'KeyCode 変換が落ちうる形のキーイベント（観測のみ）');
+                api.recordKeyFailure(event, t('preview.diagnostics.webviewCard.keyEventFailKeycodeConversionObservationOnly'));
             });
             window.addEventListener('keydown', keyProbe, true);
             window.addEventListener('keyup', keyProbe, true);
@@ -247,13 +254,13 @@ export function previewDiagnosticsGuardScript(): string {
                 const missing = [];
                 if (!window.__akariPreview) missing.push('window.__akariPreview');
                 if (!window.akari || typeof window.akari.updateLayerLayout !== 'function') {
-                    missing.push('ホストアダプタ (window.akari.updateLayerLayout)');
+                    missing.push(t('preview.diagnostics.webviewCard.hostAdapterWindowAkariUpdatelayerlayout'));
                 }
                 if (typeof window.AkariEditKernel === 'undefined') {
-                    missing.push('共有カーネル (AkariEditKernel)');
+                    missing.push(t('preview.diagnostics.webviewCard.sharedKernelAkarieditkernelLabel'));
                 }
                 if (initialState().frameEngineEnabled === true && typeof window.AkariFrameEngine === 'undefined') {
-                    missing.push('frame-engine バンドル (AkariFrameEngine)');
+                    missing.push(t('preview.diagnostics.webviewCard.frameEngineBundleAkariframeengine'));
                 }
                 return missing;
             };
@@ -305,7 +312,7 @@ export function previewDiagnosticsGuardScript(): string {
                         const layerVideos = document.getElementById('preview-layers')
                             ?.querySelectorAll('video[data-akari-layer-id]') || [];
                         const sourced = Array.from(layerVideos).filter(media => media.hasAttribute('src')).length;
-                        api.note('レイヤー video 総数 / src 付き数: ' + layerVideos.length + ' / ' + sourced);
+                        api.note(t('preview.previewWindow.canvas.videoLayersLayersSrcPrefix') + layerVideos.length + ' / ' + sourced);
                     }
                 }
                 const summary = summarizePreviewInit(trace);
@@ -337,7 +344,7 @@ export function previewDiagnosticsGuardScript(): string {
                 const missing = missingGlobals();
                 if (missing.length > 0 && stageOf('scripts-loaded').status !== 'ok') {
                     markPreviewInitStage(trace, 'scripts-loaded', 'failed', {
-                        at: now(), detail: '未読込: ' + missing.join(', ')
+                        at: now(), detail: t('preview.diagnostics.webviewCard.notLoadedPrefix') + missing.join(', ')
                     });
                 }
                 const final = summarizePreviewInit(trace);
@@ -360,14 +367,14 @@ export function previewDiagnosticsTailScript(): string {
             const initial = window.__akariPreview || {};
             const missing = [];
             if (!window.akari || typeof window.akari.updateLayerLayout !== 'function') {
-                missing.push('ホストアダプタ (window.akari.updateLayerLayout)');
+                missing.push(t('preview.diagnostics.webviewCard.hostAdapterWindowAkariUpdatelayerlayout'));
             }
-            if (typeof window.AkariEditKernel === 'undefined') missing.push('共有カーネル (AkariEditKernel)');
+            if (typeof window.AkariEditKernel === 'undefined') missing.push(t('preview.diagnostics.webviewCard.sharedKernelAkarieditkernelLabel'));
             if (initial.frameEngineEnabled === true && typeof window.AkariFrameEngine === 'undefined') {
-                missing.push('frame-engine バンドル (AkariFrameEngine)');
+                missing.push(t('preview.diagnostics.webviewCard.frameEngineBundleAkariframeengine'));
             }
             if (missing.length > 0) {
-                diag.fail('scripts-loaded', '未読込: ' + missing.join(', '));
+                diag.fail('scripts-loaded', t('preview.diagnostics.webviewCard.notLoadedPrefix') + missing.join(', '));
                 return;
             }
             diag.mark('scripts-loaded');

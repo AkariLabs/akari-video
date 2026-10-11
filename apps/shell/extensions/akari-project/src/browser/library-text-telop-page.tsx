@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
@@ -27,16 +28,15 @@ export function LibraryTextTelopPage(props: { onBack(): void; onPlace(): void; t
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <button type='button' data-akari-library-back onClick={props.onBack}
                     style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)',
-                        cursor: 'pointer', fontSize: '0.8em' }}>← ライブラリ</button>
-                <strong style={{ fontSize: '0.86em' }}>テキスト</strong>
+                        cursor: 'pointer', fontSize: '0.8em' }}>{t('project.library.shelf.backToLibraryAction')}</button>
+                <strong style={{ fontSize: '0.86em' }}>{t('project.library.textPage.textLabel')}</strong>
             </div>
             <button type='button' data-akari-library-place-text onClick={props.onPlace}
                 style={{ width: '100%', margin: '10px 0 9px', padding: '7px 8px', cursor: 'pointer',
                     borderRadius: `${AKARI_RADIUS.panel}px`, border: AKARI_BORDER.ghost,
                     background: AKARI_SURFACE.raised, color: AKARI_INK, textAlign: 'left', fontWeight: 700 }}>
-                ＋ 文字を置く
-            </button>
-            <div role='tablist' aria-label='テキストの種類' data-akari-caption-panel-switch={props.tab}
+                {t('project.library.textPage.addTextLabel')}</button>
+            <div role='tablist' aria-label={t('project.library.textPage.textTypeLabel')} data-akari-caption-panel-switch={props.tab}
                 style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '3px',
                     borderRadius: '8px', background: AKARI_SURFACE.elevated, border: AKARI_BORDER.edge }}>
                 <span aria-hidden='true' style={{ position: 'absolute', top: '3px', bottom: '3px', left: '3px',
@@ -49,21 +49,21 @@ export function LibraryTextTelopPage(props: { onBack(): void; onPlace(): void; t
                     style={{ position: 'relative', border: 0, background: 'transparent', padding: '7px 4px',
                         color: props.tab === tab ? 'var(--akari-accent)' : AKARI_INK,
                         fontWeight: props.tab === tab ? 700 : 400, cursor: 'pointer', fontSize: '12px' }}>
-                    {tab === 'style' ? 'スタイル' : tab === 'font' ? 'フォント' : 'テロップ'}
+                    {tab === 'style' ? t('project.library.textPage.styleLabel') : tab === 'font' ? t('project.library.importSheet.fontLabel') : t('project.library.textOverlayPage.textOverlayLabel')}
                 </button>)}
             </div>
         </div>
         {props.tab === 'style' ? <div role='tabpanel' data-akari-text-look-section='style'>
-            <ShelfHeading label='テキストスタイル' hint='置く / かける' />
+            <ShelfHeading label={t('project.library.pane.textStyleLabel')} hint={t('project.library.textPage.addApplyAction')} />
             <div style={GRID}>{props.styles}</div>
             {props.myStyles}
-            <ShelfHeading label='テキストアニメ' hint='かける・ホバーで再生' />
+            <ShelfHeading label={t('project.library.pane.textAnimationLabel')} hint={t('project.library.textPage.applyHoverPreviewAction')} />
             <div style={GRID}>{props.motions}</div>
         </div> : props.tab === 'font' ? <div role='tabpanel' data-akari-text-look-section='font'>
-            <ShelfHeading label='フォント' hint='置く / かける' />
+            <ShelfHeading label={t('project.library.importSheet.fontLabel')} hint={t('project.library.textPage.addApplyAction')} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '8px 10px 12px' }}>{props.fonts}</div>
         </div> : <div role='tabpanel' data-akari-text-look-section='telop'>
-            <ShelfHeading label='テロップ' hint='置く / ドラッグ' />
+            <ShelfHeading label={t('project.library.textOverlayPage.textOverlayLabel')} hint={t('project.library.textOverlayPage.addDragAction')} />
             <div style={GRID}>{telops.slice(0, telopLimit)}</div>
             {telopLimit < telops.length && <div ref={sentinel} data-akari-telop-more
                 style={{ height: '1px' }} />}

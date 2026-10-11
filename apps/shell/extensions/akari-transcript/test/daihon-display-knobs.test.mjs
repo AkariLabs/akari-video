@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readAllSourceText } from './helpers/daihon-source.mjs';
@@ -52,7 +58,8 @@ test('スライダー値を 5〜28 にクランプしラベルを作る', () => 
 
 test('表示ポップオーバーは overflow 行数を再計算して表示する', async () => {
   const source = readAllSourceText();
-  assert.match(source, /収まらない行: \$\{this\.captionOverflowUnitsById\.size\}/u);
+  assert.match(source, /t\('transcript\.daihon\.editor\.linesDoNotFitWithValueText', \{ value1: this\.captionOverflowUnitsById\.size \}\)/u);
+  assert.equal(globalThis.t('transcript.daihon.editor.linesDoNotFitWithValueText', { value1: 3 }), '収まらない行: 3');
   assert.match(source, /this\.previewDisplayKnobs\(next\);\s*updateOverflowCount\(\);/u);
 });
 
@@ -64,6 +71,7 @@ test('区切り表示は未設定なら ON、User preference の false だけ OF
 
 test('表示ポップに区切りトグルがあり User scope へ保存する', async () => {
   const source = readAllSourceText();
-  assert.match(source, /区切りを表示/u);
+  assert.match(source, /t\('transcript\.daihon\.editor\.showBreaksAction'\)/u);
+  assert.equal(globalThis.t('transcript.daihon.editor.showBreaksAction'), '区切りを表示');
   assert.match(source, /DAIHON_SHOW_BREAKS_PREFERENCE, this\.showBreaks, PreferenceScope\.User/u);
 });

@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { CaptionCuePosition, CaptionPositionAnchor, PreviewCaptionZone } from './caption-zone-write';
 
 export type CaptionInspectorPositionAction =
@@ -26,7 +27,7 @@ export function captionZonePlacement(
     frame: { width: number; height: number }
 ): CaptionCuePosition {
     if (![box.width, box.height, frame.width, frame.height].every(Number.isFinite)
-        || frame.width <= 0 || frame.height <= 0) throw new Error('字幕位置の寸法が不正です');
+        || frame.width <= 0 || frame.height <= 0) throw new Error(t('preview.captionEditor.validation.invalidCaptionPositionDimensionsError'));
     const horizontal = zone.includes('left') ? 'left' : zone.includes('right') ? 'right' : 'center';
     const vertical = zone.startsWith('top') ? 'top' : zone.startsWith('bottom') ? 'bottom' : 'center';
     const x = horizontal === 'left' ? frame.width * .04
@@ -47,7 +48,7 @@ export function captionAxisPlacement(
     current: { x: number; y: number }, anchor: CaptionPositionAnchor = 'tl'
 ): CaptionCuePosition {
     if (![percent, current.x, current.y].every(Number.isFinite) || percent < 0 || percent > 100) {
-        throw new Error('字幕位置は 0〜100% の有限数である必要があります');
+        throw new Error(t('preview.captionEditor.validation.captionPositionMustFiniteNumberZeroHundredError'));
     }
     return { anchor, position: {
         x: Math.round((axis === 'x' ? percent / 100 : current.x) * 10000) / 10000,

@@ -1,14 +1,22 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { methodBody, readHandlerCompiled, readHandlerSource } from './helpers/handler-source.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { cutLayerStyleBoxPx } from '../lib/common/cut-layer-style-entry.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { createPreviewAudioHost } from './helpers/preview-audio-host.mjs';
 
 const handlerSource = readHandlerSource();
+const require = createRequire(import.meta.url);
+globalThis.preview_text_1 = require('../lib/common/preview-text.js');
+after(() => { delete globalThis.preview_text_1; });
 const here = dirname(fileURLToPath(import.meta.url));
 const adapterSource = readFileSync(join(here, '../src/browser/preview-script-host-adapter.ts'), 'utf8');
 const engineSource = readFileSync(join(here, '../src/browser/preview-script-frame-engine-bootstrap.ts'), 'utf8');

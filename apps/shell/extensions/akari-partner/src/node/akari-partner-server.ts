@@ -1,3 +1,4 @@
+import { t, catalogMessages } from '../common/partner-text';
 import { injectable } from '@theia/core/shared/inversify';
 import { ChildProcess, execFile, spawn, spawnSync } from 'child_process';
 import { readFileSync, appendFileSync } from 'fs';
@@ -234,21 +235,21 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         executablePath: string, ownerId: string, permissionMode?: PartnerPermissionMode): Promise<PartnerWebLaunch> {
         if (agent !== 'deepseek') throw new Error('Web partner is available only for DeepSeek');
         if (!ownerId?.trim()) throw new Error('Web partner owner is required');
-        if (!workspaceRootUri) throw new Error('DeepSeek Harness を始めるにはプロジェクトを開いてください');
+        if (!workspaceRootUri) throw new Error(t('partner.connection.server.openProjectStartDeepseekHarnessText'));
         if (!path.isAbsolute(executablePath) || !/^dsh(?:\.cmd|\.exe)?$/i.test(path.basename(executablePath))) {
-            throw new Error('DeepSeek Harness の実行ファイルは絶対パスの dsh / dsh.cmd / dsh.exe を指定してください');
+            throw new Error(t('partner.connection.server.specifyAbsolutePathDshDshCmdDshExeDeepseekHarnessText'));
         }
         if (!(await fs.stat(executablePath).catch(() => undefined))?.isFile()) {
-            throw new Error('DeepSeek Harness の実行ファイルが見つかりません');
+            throw new Error(t('partner.connection.server.deepseekHarnessExecutableNotFoundText'));
         }
         let cwd: string;
         try { cwd = this.toFsPath(workspaceRootUri); }
-        catch { throw new Error('プロジェクトのフォルダが不正です'); }
+        catch { throw new Error(t('partner.connection.server.invalidProjectFolderText')); }
         if (cwd.startsWith('\\\\') || cwd.startsWith('//')) {
-            throw new Error('ネットワークの場所（\\\\server\\share）を直接開いたプロジェクトでは DeepSeek Harness を起動できません。ドライブ文字を割り当てて開き直してください');
+            throw new Error(t('partner.connection.server.deepseekHarnessCannotStartDirectlyOpenedNetworkLocationServerShareMessage'));
         }
         if (!path.isAbsolute(cwd) || !(await fs.stat(cwd).catch(() => undefined))?.isDirectory()) {
-            throw new Error('プロジェクトのフォルダが見つかりません');
+            throw new Error(t('partner.connection.server.projectFolderNotFoundText'));
         }
         const cwdKey = await this.resolveWebCwdKey(cwd);
         for (const [pid, record] of this.webProcesses) {
@@ -262,7 +263,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const promise = this.launchNewWebPartner(agent, cwd, executablePath, cwdKey, normalizePartnerPermissionMode(permissionMode)).then(launch => {
             if (owners.size === 0) {
                 this.killWebProcess(launch.pid);
-                throw new Error('プロジェクトが切り替わったため作業画面を閉じました');
+                throw new Error(t('partner.connection.server.workspaceClosedBecauseProjectChangedText'));
             }
             this.webProcesses.set(launch.pid, { cwdKey, owners, launch });
             return launch;
@@ -338,7 +339,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         const connection = detectDeepSeekConnection({
             env: process.env, homeDir: homedir(), readFile: file => readFileSync(file, 'utf8')
         });
-        return { ...disclosure, connectionNote: connection.note };
+        return { ...disclosure, connectionNote: connection.note, connectionDetail: connection.detail };
     }
 
     async getPlatformKey(): Promise<string> {
@@ -348,7 +349,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
     async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false): Promise<PartnerBootstrapOutcome> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
-        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`;
+        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()}, ${JSON.stringify(catalogMessages())})`;
         const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,
@@ -429,10 +430,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             const probe = resolvedExecutablePath ? await this.cliHelp(resolvedExecutablePath, { ...process.env, ...launchEnv }) : { kind: 'failed' } as const;
             if (probe.kind !== 'ok' || !partnerHelpSupportsArgs(probe.help, requestedArgs)) {
                 permissionArgs = [];
-                const reason = probe.kind === 'timeout' ? '--help の確認が時間切れのため' :
-                    probe.kind === 'failed' ? '--help の確認に失敗したため' : '--help にフラグが無いため';
-                permissionFallbackReason = probe.kind === 'timeout' ? '時間切れ' : probe.kind === 'failed' ? '確認失敗' : 'フラグ無し';
-                const line = `${agent}: ${flag} は ${reason}、権限フラグを付けずに起動します`;
+                const reason = probe.kind === 'timeout' ? t('partner.connection.server.becauseHelpTimedOutText') :
+                    probe.kind === 'failed' ? t('partner.connection.server.becauseHelpCheckFailedError') : t('partner.connection.server.becauseHelpNoFlagText');
+                permissionFallbackReason = probe.kind === 'timeout' ? t('partner.connection.server.timedOutLabel') : probe.kind === 'failed' ? t('partner.connection.server.checkFailedError') : t('partner.connection.server.noFlagLabel');
+                const line = t('partner.connection.server.startingWithoutPermissionFlagText', { value1: agent, value2: flag, value3: reason });
                 console.warn(`[akari-partner] ${line}`);
                 log.push(line);
             }
@@ -569,14 +570,14 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
 
     async verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult> {
         if (!request.packagePath) {
-            return { checked: false, found: false, reason: '拡張の配置先を取得できませんでした' };
+            return { checked: false, found: false, reason: t('partner.connection.server.couldNotGetExtensionLocationError') };
         }
         const root = this.toFsPath(request.packagePath);
         try {
             const match = await this.findExecutable(root, request, 0);
             return match
                 ? { checked: true, found: true, match }
-                : { checked: true, found: false, reason: `対象プラットフォーム用バイナリがありません (${request.platformTokens.join(', ')})` };
+                : { checked: true, found: false, reason: t('partner.connection.server.noBinaryTargetPlatformText', { value1: request.platformTokens.join(', ') }) };
         } catch (error) {
             return { checked: false, found: false, reason: this.errorMessage(error) };
         }

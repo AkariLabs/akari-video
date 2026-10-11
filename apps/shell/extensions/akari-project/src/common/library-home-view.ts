@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { catalogItemCategoryChipKey, CatalogSearchable, filterCatalogItems } from './catalog-reader';
 import { filterPresetShowcaseItems, PresetShowcase } from './preset-showcase';
 import { searchShapeShelf, ShapeShelfPreset } from './shape-shelf';
@@ -18,53 +19,53 @@ export interface LibraryGroupDefinition {
     readonly categories: readonly LibraryCategoryDefinition[];
 }
 
-const TIMELINE_ADD_HINT = 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く';
+const TIMELINE_ADD_HINT = t('project.library.home.dragTimelineRightClickAddPlayheadAction');
 
 /** ライブラリホームの宣言順・語彙・操作導線の正本。 */
 export const LIBRARY_GROUPS = [
     {
-        label: 'マイ',
+        label: t('project.library.shelf.myAssetsLabel'),
         categories: [
-            { key: 'fav', label: 'お気に入り', icon: '★', hint: '★を付けた素材をここに集約', status: 'soon' },
-            { key: 'brandkit', label: 'ブランドキット', icon: '◈', hint: 'ロゴ・色・定番テロップをまとめて管理', status: 'soon' },
-            { key: 'mypresets', label: '保存したプリセット', icon: '✎', hint: '自分で調整したプリセットを保存', status: 'soon' }
+            { key: 'fav', label: t('project.library.textPage.favoritesLabel'), icon: '★', hint: t('project.library.home.assetsMarkedAppearHereMessage'), status: 'soon' },
+            { key: 'brandkit', label: t('project.library.home.brandKitLabel'), icon: '◈', hint: t('project.library.home.manageLogosColorsStandardTextOverlaysMessage'), status: 'soon' },
+            { key: 'mypresets', label: t('project.library.home.savedPresetsLabel'), icon: '✎', hint: t('project.library.home.savePresetsYouHaveCustomizedAction'), status: 'soon' }
         ]
     },
     {
-        label: '音・映像・画像',
+        label: t('project.library.home.audioVideoImagesLabel'),
         categories: [
             { key: 'bgm', label: 'BGM', icon: '♪', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'audio:bgm' },
             { key: 'sfx', label: 'SFX', icon: '♫', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'audio:sfx' },
             { key: 'broll', label: 'B-roll', icon: '▶', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'broll' },
-            { key: 'image', label: '画像', icon: '▦', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'still' },
-            { key: 'overlay', label: 'オーバーレイ', icon: '✦', hint: '右クリックの「取り込む」でプロジェクトに追加', status: 'live', chipKey: 'overlay' },
-            { key: 'scene3d', label: '3D・アバター', icon: '⬡', hint: '右クリックの「取り込む」でプロジェクトに追加', status: 'live', chipKey: 'scene3d' },
-            { key: 'pack', label: 'パック', icon: '▤', hint: 'パック内の素材をまとめて取り込み', status: 'live' }
+            { key: 'image', label: t('project.library.shelf.imageLabel'), icon: '▦', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'still' },
+            { key: 'overlay', label: t('project.catalog.category.overlayLabel'), icon: '✦', hint: t('project.library.home.rightClickChooseImportAddProjectMessage'), status: 'live', chipKey: 'overlay' },
+            { key: 'scene3d', label: t('project.library.home.threeDAndAvatarsLabel'), icon: '⬡', hint: t('project.library.home.rightClickChooseImportAddProjectMessage'), status: 'live', chipKey: 'scene3d' },
+            { key: 'pack', label: t('project.library.home.packsLabel'), icon: '▤', hint: t('project.library.home.importAllAssetsPackAction'), status: 'live' }
         ]
     },
     {
-        label: '文字・飾り',
+        label: t('project.library.home.textDecorationsLabel'),
         categories: [
-            { key: 'textstyle', label: '字幕スタイル', icon: '字', hint: '選んだ文字に当てる・新しい文字として置く', status: 'live', chipKey: 'preset:textstyle' },
-            { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選んだ文字に当てる・ホバーで見本を再生', status: 'live', chipKey: 'preset:textanim' },
-            { key: 'font', label: 'フォント', icon: 'Aa', hint: '選んだ文字に書体を当てる', status: 'live', chipKey: 'font' },
-            { key: 'shapes', label: '図形', icon: '◇', hint: '押すと中央に置く・ドラッグで落とした位置に置く', status: 'live' },
-            { key: 'stamps', label: 'イラスト', icon: '✶', hint: 'イラスト素材は近日利用できるようになります', status: 'soon' }
+            { key: 'textstyle', label: t('project.library.home.captionStylesLabel'), icon: t('project.library.home.textLabel'), hint: t('project.library.home.applySelectedTextAddAsNewAction'), status: 'live', chipKey: 'preset:textstyle' },
+            { key: 'textanim', label: t('project.library.pane.textAnimationLabel'), icon: t('project.library.home.motionIconLabel'), hint: t('project.library.home.applySelectedTextHoverPreviewAction'), status: 'live', chipKey: 'preset:textanim' },
+            { key: 'font', label: t('project.library.importSheet.fontLabel'), icon: 'Aa', hint: t('project.library.home.applyFontSelectedTextAction'), status: 'live', chipKey: 'font' },
+            { key: 'shapes', label: t('project.library.shapeShelf.shapesLabel'), icon: '◇', hint: t('project.library.home.clickAddCenterDragPlaceAnywhereMessage'), status: 'live' },
+            { key: 'stamps', label: t('project.library.home.illustrationsLabel'), icon: '✶', hint: t('project.library.home.illustrationAssetsAreComingSoonMessage'), status: 'soon' }
         ]
     },
     {
-        label: '仕上げ',
+        label: t('project.library.home.finishingLabel'),
         categories: [
-            { key: 'lut', label: 'LUT', icon: '◐', hint: '選択中のカットに適用（強さはインスペクター）', status: 'live', chipKey: 'preset:lut' },
-            { key: 'transition', label: 'トランジション', icon: '⇄', hint: 'タイムラインのカット境界へドラッグして適用', status: 'live' },
-            { key: 'fx', label: 'エフェクト', icon: '✳', hint: 'エフェクトは近日利用できるようになります', status: 'soon' },
-            { key: 'motion', label: 'モーション', icon: '∿', hint: 'モーションは近日利用できるようになります', status: 'soon' }
+            { key: 'lut', label: 'LUT', icon: '◐', hint: t('project.library.home.applySelectedCutAdjustStrengthInspectorAction'), status: 'live', chipKey: 'preset:lut' },
+            { key: 'transition', label: t('project.library.pane.transitionLabel'), icon: '⇄', hint: t('project.library.home.dragCutBoundaryTimelineApplyAction'), status: 'live' },
+            { key: 'fx', label: t('project.library.home.effectsLabel'), icon: '✳', hint: t('project.library.home.effectsAreComingSoonMessage'), status: 'soon' },
+            { key: 'motion', label: t('project.library.home.motionCategoryLabel'), icon: '∿', hint: t('project.library.home.motionEffectsAreComingSoonMessage'), status: 'soon' }
         ]
     },
     {
-        label: '雛形',
+        label: t('project.library.home.templatesLabel'),
         categories: [
-            { key: 'template', label: 'テンプレート', icon: '⧉', hint: 'テンプレートからの新規作成は近日利用できるようになります', status: 'soon' }
+            { key: 'template', label: t('project.library.home.templateCategoryLabel'), icon: '⧉', hint: t('project.library.home.creatingProjectTemplateIsComingSoonMessage'), status: 'soon' }
         ]
     }
 ] as const satisfies readonly LibraryGroupDefinition[];
@@ -106,40 +107,40 @@ export interface LibraryPrimaryTile {
  *   テキストの中に入る（動きはスタイルに内包する。正本 = モック §03）
  */
 export const LIBRARY_PRIMARY_TILES = [
-    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すと一覧・ドラッグで置く', status: 'live',
+    { key: 'text', kind: 'make', label: t('project.library.textPage.textLabel'), icon: 'T', hint: t('project.library.home.clickBrowseDragAddMessage'), status: 'live',
         art: 'text', plate: ['#8b6cff', '#5b3fd6'] },
-    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '棚から選ぶ', status: 'live',
+    { key: 'shapes', kind: 'make', label: t('project.library.shapeShelf.shapesLabel'), icon: '◯', hint: t('project.library.home.chooseShelfAction'), status: 'live',
         art: 'shapes', plate: ['#35cadd', '#1490a8'] },
-    { key: 'stamps', kind: 'make', label: 'イラスト', icon: '◇', hint: '近日', status: 'soon',
+    { key: 'stamps', kind: 'make', label: t('project.library.home.illustrationsLabel'), icon: '◇', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'stamps', plate: ['#f5a742', '#d9761a'] },
 
-    { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live',
+    { key: 'image', kind: 'pick', label: t('project.library.shelf.imageLabel'), icon: '▦', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'image', plate: ['#4aa5ff', '#1e6fd9'], startsGroup: true },
-    { key: 'broll', kind: 'pick', label: '動画', icon: '▶', hint: '一覧から選ぶ', status: 'live',
+    { key: 'broll', kind: 'pick', label: t('project.library.shelf.videoLabel'), icon: '▶', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'video', plate: ['#bc6ef5', '#8a2fd0'] },
-    { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: '一覧から選ぶ', status: 'live',
+    { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'bgm', plate: ['#f9656e', '#cc2431'] },
-    { key: 'sfx', kind: 'pick', label: 'SFX', icon: '♬', hint: '一覧から選ぶ', status: 'live',
+    { key: 'sfx', kind: 'pick', label: 'SFX', icon: '♬', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'sfx', plate: ['#f77fbe', '#d62b89'] },
-    { key: 'overlay', kind: 'pick', label: 'オーバーレイ', icon: '✦', hint: '一覧から選ぶ', status: 'live',
+    { key: 'overlay', kind: 'pick', label: t('project.catalog.category.overlayLabel'), icon: '✦', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'overlay', plate: ['#7d8afc', '#4450d8'] },
-    { key: 'scene3d', kind: 'pick', label: '3D・アバター', icon: '⬡', hint: '一覧から選ぶ', status: 'live',
+    { key: 'scene3d', kind: 'pick', label: t('project.library.home.threeDAndAvatarsLabel'), icon: '⬡', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'scene3d', plate: ['#3cdcc7', '#0d9488'] },
 
-    { key: 'lut', kind: 'pick', label: 'LUT', icon: '◐', hint: '一覧から選ぶ', status: 'live',
+    { key: 'lut', kind: 'pick', label: 'LUT', icon: '◐', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'lut', plate: ['#4bd471', '#1a8c3a'], startsGroup: true },
-    { key: 'transition', kind: 'pick', label: 'トランジション', icon: '⇄', hint: '一覧から選ぶ', status: 'live',
+    { key: 'transition', kind: 'pick', label: t('project.library.pane.transitionLabel'), icon: '⇄', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'transition', plate: ['#26b0f0', '#0369a1'] },
-    { key: 'fx', kind: 'pick', label: 'エフェクト', icon: '✳', hint: '近日', status: 'soon',
+    { key: 'fx', kind: 'pick', label: t('project.library.home.effectsLabel'), icon: '✳', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'fx', plate: ['#f5c231', '#b4860b'] },
-    { key: 'motion', kind: 'pick', label: 'モーション', icon: '∿', hint: '近日', status: 'soon',
+    { key: 'motion', kind: 'pick', label: t('project.library.home.motionCategoryLabel'), icon: '∿', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'motion', plate: ['#fb8496', '#e11d48'] },
 
-    { key: 'mypresets', kind: 'pick', label: 'マイスタイル', icon: '✎', hint: '近日', status: 'soon',
+    { key: 'mypresets', kind: 'pick', label: t('project.library.pane.myStylesLabel'), icon: '✎', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'mystyle', plate: ['#f4b942', '#cc8409'], startsGroup: true },
-    { key: 'template', kind: 'pick', label: 'ひな形', icon: '⧉', hint: '近日', status: 'soon',
+    { key: 'template', kind: 'pick', label: t('project.library.home.templateGroupLabel'), icon: '⧉', hint: t('project.library.shelf.comingSoonLabel'), status: 'soon',
         art: 'template', plate: ['#9aa0b8', '#5c6178'] },
-    { key: 'pack', kind: 'pick', label: 'セット', icon: '▤', hint: '一覧から選ぶ', status: 'live',
+    { key: 'pack', kind: 'pick', label: t('project.library.home.setLabel'), icon: '▤', hint: t('project.library.home.chooseListAction'), status: 'live',
         art: 'pack', plate: ['#a3b0c2', '#64748b'] }
 ] as const satisfies readonly LibraryPrimaryTile[];
 
@@ -162,7 +163,7 @@ function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): Librar
  * - マイの残り（fav / brandkit）… まだ実装枠
  */
 export const LIBRARY_DETAIL_GROUPS: readonly LibraryGroupDefinition[] = [
-    detailGroup('マイ', ['fav', 'brandkit'])
+    detailGroup(t('project.library.shelf.myAssetsLabel'), ['fav', 'brandkit'])
 ];
 
 /**

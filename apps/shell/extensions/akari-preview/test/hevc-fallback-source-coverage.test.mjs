@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readHandlerSource, sliceBetween, methodBody } from './helpers/handler-source.mjs';
@@ -75,9 +79,9 @@ test('webview pins the loaded source and serializes fallback requests in FIFO or
     assert.match(processBody, /const request = hevcFallbackQueue\.shift\(\);/u);
     assert.match(processBody, /hevcFallbackInFlight = true;/u);
     assert.match(processBody, /resolveHevcFallback\(request\.errorCode, request\.requestKey\)/u);
-    assert.match(processBody, /if \(playbackErrored\) \{[\s\S]*?互換用に変換しています…[\s\S]*?previewMessageReload\.hidden = true;[\s\S]*?\}/u);
+    assert.match(processBody, /if \(playbackErrored\) \{[\s\S]*?uiText\.transcoding[\s\S]*?previewMessageReload\.hidden = true;[\s\S]*?\}/u);
     assert.match(processBody, /\.then\(\(\) => \{[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);[\s\S]*?\}, \(\) => \{/u);
-    assert.match(processBody, /\}, \(\) => \{[\s\S]*?if \(playbackErrored\) \{[\s\S]*?再読み込みを試してください。[\s\S]*?previewMessageReload\.hidden = false;[\s\S]*?\}[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);/u);
+    assert.match(processBody, /\}, \(\) => \{[\s\S]*?if \(playbackErrored\) \{[\s\S]*?uiText\.videoError[\s\S]*?previewMessageReload\.hidden = false;[\s\S]*?\}[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);/u);
 
     const attemptBody = extractBetween(
         '            const attemptHevcFallback = (errorCode, videoUri) => {',

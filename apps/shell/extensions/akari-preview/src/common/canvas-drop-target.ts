@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 export interface CanvasDropTarget {
     id: string; name: string; at: number; duration: number; trackIndex: number; itemIndex: number; depth: number;
 }
@@ -31,12 +32,12 @@ export function canvasAtFrame(targets: readonly CanvasDropTarget[], at: number, 
 
 export function canvasDropLabel(targets: readonly CanvasDropTarget[], target: CanvasDropTarget): string {
     if (target.name.trim()) return target.name;
-    return `キャンバス ${[...targets].sort((a, b) => a.at - b.at || a.trackIndex - b.trackIndex)
-        .findIndex(candidate => candidate.id === target.id) + 1}`;
+    return t('preview.libraryDrop.target.canvasLabel', { p1: ([...targets].sort((a, b) => a.at - b.at || a.trackIndex - b.trackIndex)
+        .findIndex(candidate => candidate.id === target.id) + 1) });
 }
 
 export function canvasDropHint(targets: readonly CanvasDropTarget[], seconds: number, fps: number,
     outside = false): string {
     const target = canvasAtFrame(targets, Math.round(seconds * fps), outside);
-    return target ? `${canvasDropLabel(targets, target)} に入ります` : '';
+    return target ? t('preview.libraryDrop.target.goesInsideLabel', { p1: (canvasDropLabel(targets, target)) }) : '';
 }

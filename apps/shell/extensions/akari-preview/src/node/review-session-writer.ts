@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { createHash, randomBytes } from 'crypto';
 import { constants } from 'fs';
 import {
@@ -215,7 +216,7 @@ export class ReviewSessionWriter {
             return {
                 sessionId: request.sessionId,
                 strokes: [],
-                warnings: ['strokes.json を読み取れないため描線なしとして扱いました。']
+                warnings: [t('preview.reviewSession.warning.couldNotReadStrokesJsonProceedingWithoutStrokesError')]
             };
         }
 
@@ -223,18 +224,18 @@ export class ReviewSessionWriter {
         let candidates: unknown[];
         if (Array.isArray(parsed)) {
             candidates = parsed;
-            warnings.push('旧形式（配列ルート）の strokes.json を互換読み込みしました。');
+            warnings.push(t('preview.reviewSession.warning.loadedLegacyStrokesJsonArrayRootCompatibility'));
         } else if (parsed && typeof parsed === 'object'
             && Array.isArray((parsed as { strokes?: unknown }).strokes)) {
             candidates = (parsed as { strokes: unknown[] }).strokes;
             if ((parsed as { version?: unknown }).version !== 1) {
-                warnings.push('旧形式（version 1 以外）の strokes.json を互換読み込みしました。');
+                warnings.push(t('preview.reviewSession.warning.loadedLegacyStrokesJsonVersionOtherOneCompatibility'));
             }
         } else {
             return {
                 sessionId: request.sessionId,
                 strokes: [],
-                warnings: ['strokes.json の形式を認識できないため描線なしとして扱いました。']
+                warnings: [t('preview.reviewSession.warning.unrecognizedStrokesJsonFormatProceedingWithoutStrokes')]
             };
         }
 
@@ -250,7 +251,7 @@ export class ReviewSessionWriter {
                 || (stroke.frame?.cutIndex !== null
                     && (!Number.isInteger(stroke.frame?.cutIndex) || stroke.frame.cutIndex < 0))
                 || !this.isValidStrokeShape(stroke)) {
-                warnings.push(`strokes[${index}] は不正なため再表示から除外しました。`);
+                warnings.push(t('preview.reviewSession.warning.excludedInvalidStrokesRedisplayError', { p1: (index) }));
                 continue;
             }
             strokes.push(stroke);
@@ -287,14 +288,14 @@ export class ReviewSessionWriter {
                         order: index
                     });
                 } catch {
-                    warnings.push(`events.jsonl ${index + 1} 行目を読み飛ばしました。`);
+                    warnings.push(t('preview.reviewSession.warning.skippedLineEventsJsonl', { p1: (index + 1) }));
                 }
             });
             events.sort((left, right) => left.event.recT - right.event.recT || left.order - right.order);
         } catch (error) {
             warnings.push((error as { code?: string }).code === 'ENOENT'
-                ? 'events.jsonl が見つかりません。'
-                : 'events.jsonl を読み取れませんでした。');
+                ? t('preview.reviewSession.warning.eventsJsonlNotFoundError')
+                : t('preview.reviewSession.warning.couldNotReadEventsJsonlError'));
         }
 
         let transcript: ReviewSessionTranscriptSegment[] | null = null;
@@ -313,7 +314,7 @@ export class ReviewSessionWriter {
             }).sort((left, right) => left.start - right.start);
         } catch (error) {
             if ((error as { code?: string }).code !== 'ENOENT') {
-                warnings.push('transcript.json を読み取れないため文字起こしなしとして扱いました。');
+                warnings.push(t('preview.reviewSession.warning.couldNotReadTranscriptJsonProceedingWithoutTranscriptError'));
             }
         }
 
@@ -344,7 +345,7 @@ export class ReviewSessionWriter {
             });
         } catch (error) {
             if ((error as { code?: string }).code !== 'ENOENT') {
-                warnings.push('compile-proposals.json を読み取れないため対象情報なしとして扱いました。');
+                warnings.push(t('preview.reviewSession.warning.couldNotReadCompileProposalsJsonProceedingWithoutError'));
             }
         }
 
@@ -352,12 +353,12 @@ export class ReviewSessionWriter {
         try {
             const snapshotPath = join(sessionDirectory, 'edit.snapshot.json');
             if ((await stat(snapshotPath)).size > 8 * 1024 * 1024) {
-                warnings.push('edit.snapshot.json が 8 MiB を超えるため読み飛ばしました。');
+                warnings.push(t('preview.reviewSession.warning.skippedEditSnapshotJsonBecauseExceedsEightMib'));
             } else {
                 editSnapshotText = await readFile(snapshotPath, 'utf8');
             }
         } catch {
-            warnings.push('edit.snapshot.json を読み取れませんでした。');
+            warnings.push(t('preview.reviewSession.warning.couldNotReadEditSnapshotJsonError'));
         }
 
         let audioUri: string | null = null;

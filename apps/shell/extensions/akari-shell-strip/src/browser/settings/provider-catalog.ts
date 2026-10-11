@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import { PROVIDER_BALANCE_SUPPORT } from '../../common/akari-connections-protocol';
 import { PROVIDER_LOGOS } from './provider-logos';
 
@@ -11,19 +12,19 @@ import { PROVIDER_LOGOS } from './provider-logos';
 export type ProviderGroup = 'generate' | 'transcribe';
 
 export const PROVIDER_GROUP_LABELS: Record<ProviderGroup, string> = {
-    generate: '生成サービス',
-    transcribe: '文字起こし'
+    get generate() { return t('shell.settings.providers.generationServicesLabel'); },
+    get transcribe() { return t('shell.settings.providers.transcriptLabel'); }
 };
 
 export const PROVIDER_DISPLAY: Readonly<Record<string, { group: ProviderGroup; description: string; highlight?: string }>> = {
-    fal: { group: 'generate', description: 'おすすめ · 1 本のキーで画像・動画・読み上げ・BGM を使えます' },
+    fal: { group: 'generate', get description() { return t('shell.settings.providers.recommendedKeyImagesVideoNarrationBgmText'); } },
     openrouter: {
-        group: 'generate', description: 'いろいろな会社のモデルを 1 つのキーで。',
-        highlight: 'つなぐと Akari Vibe（声で話しかけて動画を編集）が使えます'
+        group: 'generate', get description() { return t('shell.settings.providers.modelsMultipleProvidersKeyMessage'); },
+        get highlight() { return t('shell.settings.providers.connectUseAkariVibeEditVideoVoiceText'); }
     },
-    replicate: { group: 'generate', description: '画像・動画・音声のいろいろなモデルを呼び出します' },
-    elevenlabs: { group: 'generate', description: 'ナレーション・音声の生成。つなぐと今月の残りクレジットを見られます' },
-    groq: { group: 'transcribe', description: '速いクラウド文字起こし。残高を問い合わせる公式の口が無いので、管理画面へのリンクだけ出します' }
+    replicate: { group: 'generate', get description() { return t('shell.settings.providers.accessRangeImageVideoAudioModelsText'); } },
+    elevenlabs: { group: 'generate', get description() { return t('shell.settings.providers.generateNarrationAudioConnectSeeMonthSRemainingCreditsMessage'); } },
+    groq: { group: 'transcribe', get description() { return t('shell.settings.providers.fastCloudTranscriptsDashboardLinkHint'); } }
 };
 
 export function providerGroup(id: string): ProviderGroup {

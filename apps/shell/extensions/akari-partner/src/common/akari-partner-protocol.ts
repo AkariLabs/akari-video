@@ -1,3 +1,4 @@
+import { t } from './partner-text';
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
 export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
@@ -10,6 +11,7 @@ export interface PartnerInstallDisclosure {
     location: string;
     environment: string;
     connectionNote?: string;
+    connectionDetail?: string;
     termsUrl: string;
 }
 
@@ -60,7 +62,7 @@ export interface PartnerLaunchPlan {
     args: string[];
     log: string[];
     appliedPermissionMode?: PartnerAppliedPermissionMode;
-    permissionFallbackReason?: '時間切れ' | '確認失敗' | 'フラグ無し';
+    permissionFallbackReason?: string;
     /**
      * Extra environment variables to merge into the partner PTY's environment
      * (task/2026-07-31-shell-ffmpeg-bundle). Currently AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN,

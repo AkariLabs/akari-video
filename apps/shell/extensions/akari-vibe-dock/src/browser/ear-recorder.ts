@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { AkariEarFrontend } from '../common/ear-frontend';
 
 interface RecorderApis {
@@ -25,7 +26,7 @@ export class EarRecorder {
     async start(): Promise<void> {
         if (this.context) return;
         if (this.apis.askForMicrophoneAccess && !await this.apis.askForMicrophoneAccess()) {
-            throw new DOMException('マイクの使用が許可されていません', 'NotAllowedError');
+            throw new DOMException(t('vibe.listening.recorder.microphoneAccessNotAllowedMessage'), 'NotAllowedError');
         }
         this.stream = await this.apis.getUserMedia({ audio: true });
         try {

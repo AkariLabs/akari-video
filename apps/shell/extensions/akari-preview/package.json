@@ -24,6 +24,7 @@
     "test": "tsc -b && node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@akari-video/i18n": "file:../../../../packages/i18n",
     "@theia/core": "1.73.1",
     "@theia/filesystem": "1.73.1",
     "@theia/workspace": "1.73.1",

@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -35,7 +39,7 @@ test('left rail suppresses Theia hover and uses the material caption', () => {
     assert.match(tip, /pointer-events: none/);
     assert.match(tip, /getElementById\('akari-left-rail-tip'\)/);
     assert.doesNotMatch(tip, /setTimeout/);
-    assert.match(material, /this\.title\.caption = '素材（プロジェクト \/ ライブラリ）'/);
+    assert.match(material, /this\.title\.caption = /);
 });
 
 test('left tip keeps one chip and one position when its tab element is recreated', () => {

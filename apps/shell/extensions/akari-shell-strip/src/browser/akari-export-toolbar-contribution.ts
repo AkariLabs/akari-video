@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { ApplicationShell } from '@theia/core/lib/browser';
 import { Command, CommandContribution, CommandRegistry, CommandService, DisposableCollection, Emitter, MessageService } from '@theia/core/lib/common';
@@ -9,7 +10,7 @@ import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { exportUnavailableReason, exportToolbarState } from '../common/export-toolbar-state';
 import { AkariScopeService } from './akari-scope-service';
 
-export const OPEN_EXPORT_DIALOG: Command = { id: 'akari.export.openDialog', label: '書き出し…' };
+export const OPEN_EXPORT_DIALOG: Command = { id: 'akari.export.openDialog', label: t('shell.export.toolbarCommand.exportAction') };
 
 @injectable()
 export class AkariExportToolbarContribution implements CommandContribution, TabBarToolbarContribution {

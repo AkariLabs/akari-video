@@ -1,15 +1,22 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { persistCaptionPlateTransform } from '../lib/common/caption-plate-handles.js';
 import { duplicatePreviewCaptionSource } from '../lib/common/preview-duplicate-fallback.js';
 
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
+const require = createRequire(import.meta.url);
 const start = compiled.indexOf('    async handleCaptionWrite(');
 const end = compiled.indexOf('    async persistCaptionGroupZoneForWidget(', start);
 assert.ok(start >= 0 && end > start);
 const Host = vm.runInNewContext('(class {' + compiled.slice(start, end) + '})', {
+  preview_text_1: require('../lib/common/preview-text.js'),
   caption_plate_handles_1: { persistCaptionPlateTransform },
   preview_duplicate_fallback_1: { duplicatePreviewCaptionSource },
   buffer_1: { BinaryBuffer: { fromString: text => text } }

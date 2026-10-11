@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export interface CaptionRecording {
     itemId: string;
     atSec: number;
@@ -73,10 +74,10 @@ export function recordedBadge(recordings: readonly CaptionRecording[] | undefine
     const latest = microphone[microphone.length - 1];
     const stale = latest.script !== undefined
         && latest.script.replace(/\s+/g, '') !== rowText.replace(/\s+/g, '');
-    const label = `🎙 録音済み${microphone.length > 1 ? ` ×${microphone.length}` : ''}${stale ? ' · 文が変わりました' : ''}`;
+    const label = t('transcript.daihon.recording.microphoneRecordedWithValuesLabel', { value1: microphone.length > 1 ? ` ×${microphone.length}` : '', value2: stale ? t('transcript.daihon.recording.statusTextChanged') : '' });
     const tenths = Math.round(latest.atSec * 10);
     const time = `${String(Math.floor(tenths / 600)).padStart(2, '0')}:${String(Math.floor(tenths / 10) % 60).padStart(2, '0')}.${tenths % 10}`;
     const name = latest.path?.split(/[\\/]/).pop();
-    const title = `録音 ${microphone.length} 本 · 最新 ${time}${name ? `（${name}）` : ''}。押すとその位置へ`;
+    const title = t('transcript.daihon.recording.recordingsLatestSelectSeekThereWithValuesMessage', { value1: microphone.length, value2: time, value3: name ? `（${name}）` : '' });
     return { label, stale, title, atSec: latest.atSec };
 }

@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -5,8 +6,8 @@ import { AkariProjectService } from '../common/akari-project-protocol';
 import { siteUrlAllowed } from '../common/asset-sites';
 import { AssetSiteWidget } from './asset-site-widget';
 
-export const ASSET_SITE_OPEN: Command = { id: 'akari.assetSite.open', label: '素材サイトを開く' };
-export const ASSET_SITE_HIGHLIGHT: Command = { id: 'akari.assetSite.highlight', label: '素材サイトのダウンロード場所を光らせる' };
+export const ASSET_SITE_OPEN: Command = { id: 'akari.assetSite.open', label: t('project.web.assetSiteCommand.openAssetSiteAction') };
+export const ASSET_SITE_HIGHLIGHT: Command = { id: 'akari.assetSite.highlight', label: t('project.web.assetSiteCommand.highlightDownloadLocationAssetSiteAction') };
 
 @injectable()
 export class AssetSiteCommands implements CommandContribution {
@@ -25,10 +26,10 @@ export class AssetSiteCommands implements CommandContribution {
         const targetUrl = typeof request === 'string' ? url : request?.url;
         agent = agent || typeof request !== 'string';
         const listing = (await this.service.getAssetSiteListings()).find(value => value.site.id === siteId);
-        if (!listing) throw new Error('掲載サイトではありません');
+        if (!listing) throw new Error(t('project.web.assetSiteCommand.isNotListedSiteMessage'));
         const target = targetUrl ?? listing.site.entry_url;
         if (!siteUrlAllowed(target, listing.site.hosts, target.startsWith('http://127.0.0.1'))) {
-            throw new Error('このサイトの外へは移動できません');
+            throw new Error(t('project.web.assetSiteCommand.youCannotNavigateOutsideSiteMessage'));
         }
         const widget = await this.widgets.getOrCreateWidget<AssetSiteWidget>(AssetSiteWidget.ID);
         if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
@@ -38,7 +39,7 @@ export class AssetSiteCommands implements CommandContribution {
 
     protected async highlight(request: string[] | { filenames: string[] }): Promise<boolean> {
         const filenames = Array.isArray(request) ? request : request?.filenames;
-        if (!Array.isArray(filenames) || !filenames.every(value => typeof value === 'string')) throw new Error('ファイル名が不正です');
+        if (!Array.isArray(filenames) || !filenames.every(value => typeof value === 'string')) throw new Error(t('project.web.assetSiteCommand.invalidFileNameError'));
         const widget = await this.widgets.getWidget<AssetSiteWidget>(AssetSiteWidget.ID);
         if (!widget) return false;
         return widget.highlight(filenames);

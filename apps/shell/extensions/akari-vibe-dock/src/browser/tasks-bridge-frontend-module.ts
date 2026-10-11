@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { ContainerModule, inject, injectable } from '@theia/core/shared/inversify';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import type { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -22,7 +23,7 @@ export class NoteToTaskBridge implements FrontendApplicationContribution {
             const created = await this.commands.executeCommand<{ id: string }>('akari.tasks.create', {
                 text: input.text, via: 'chat', ...(pointed ? { target: `ui:${pointed.target}` } : {})
             });
-            if (!created?.id) throw new Error('タスクを作成できませんでした。');
+            if (!created?.id) throw new Error(t('vibe.tasks.frontend.couldNotCreateTaskError'));
             if (pointed && this.state.pointedTarget === pointed) this.state.consumePointed();
             if (input.mode === 'send') {
                 await this.commands.executeCommand('akari.tasks.send', { ids: [created.id] });
@@ -30,7 +31,7 @@ export class NoteToTaskBridge implements FrontendApplicationContribution {
                 this.now.showTaskCreated();
             }
         } catch (error) {
-            this.messages.error(`タスクを作れませんでした: ${String(error)}`);
+            this.messages.error(t('vibe.tasks.frontend.couldNotCreateTaskWithDetailError', { value1: String(error) }));
         }
     }
 }

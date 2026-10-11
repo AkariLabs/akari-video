@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { CaptionCuePosition } from './caption-zone-write';
 
 export const CAPTION_SCALE_MIN = 0.4;
@@ -163,7 +164,7 @@ function captionList(root: unknown): unknown[] {
             ? (root as { captions: unknown[] }).captions
             : undefined;
     if (!list) {
-        throw new Error('captions.json の形式が不正です（配列、または captions[] を持つオブジェクトである必要があります）');
+        throw new Error(t('preview.captionEditor.validation.invalidCaptionsJsonFormatExpectedArrayObjectCaptionsError'));
     }
     return list;
 }
@@ -173,7 +174,7 @@ function captionIndex(list: readonly unknown[], captionId: string): number {
         !!value && typeof value === 'object' && !Array.isArray(value)
         && (value as { id?: unknown }).id === captionId
     );
-    if (index < 0) throw new Error(`字幕が見つかりません: ${captionId}`);
+    if (index < 0) throw new Error(t('preview.captionEditor.validation.plateCaptionNotFoundError', { p1: (captionId) }));
     return index;
 }
 

@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import {
@@ -33,8 +34,8 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
     @postConstruct()
     protected init(): void {
         this.id = AkariAssetInspector.ID;
-        this.title.label = '素材の情報';
-        this.title.caption = '選択した素材の情報';
+        this.title.label = t('project.materials.inspector.assetInformationLabel');
+        this.title.caption = t('project.materials.inspector.selectedAssetInformationLabel');
         this.title.closable = false;
         this.node.style.overflow = 'auto';
 
@@ -124,27 +125,27 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
         const description = describeAssetMeta(meta);
         if (meta?.thumbnail) {
             const image = document.createElement('img');
-            image.alt = '素材のサムネイル';
+            image.alt = t('project.materials.inspector.assetThumbnailLabel');
             image.src = this.resolveThumbnail(uri, meta.thumbnail).toString();
             Object.assign(image.style, { width: '100%', maxHeight: '150px', objectFit: 'cover', borderRadius: '6px' });
             image.addEventListener('error', () => image.remove());
             this.card.append(image);
         }
         this.card.append(
-            this.row('尺', description.duration),
-            this.row('解像度', description.resolution),
-            this.row('文字起こし', description.transcript),
-            this.row('分析', description.analysis),
-            this.row('関連する判断', description.decisions),
+            this.row(t('project.materials.inspector.durationLabel'), description.duration),
+            this.row(t('project.materials.inspector.resolutionLabel'), description.resolution),
+            this.row(t('project.materials.inspector.transcriptLabel'), description.transcript),
+            this.row(t('project.materials.inspector.analysisLabel'), description.analysis),
+            this.row(t('project.materials.inspector.relatedDecisionsLabel'), description.decisions),
             // 参照素材は実体がライブラリ側にあるので、どこのファイルを見ているかを出す。
-            this.row('場所', this.workflow.relativePath(uri) ?? uri.path.fsPath())
+            this.row(t('project.materials.inspector.locationLabel'), this.workflow.relativePath(uri) ?? uri.path.fsPath())
         );
         if (this.mode.developerMode) {
             const details = document.createElement('details');
             const summary = document.createElement('summary');
-            summary.textContent = '詳細データ';
+            summary.textContent = t('project.materials.inspector.detailedDataLabel');
             const pre = document.createElement('pre');
-            pre.textContent = raw || 'meta データなし';
+            pre.textContent = raw || t('project.materials.inspector.noMetadataError');
             pre.style.whiteSpace = 'pre-wrap';
             details.append(summary, pre);
             this.card.append(details);
@@ -179,9 +180,9 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
     protected renderEmpty(): void {
         if (this.card) {
             const guide = document.createElement('p');
-            guide.textContent = '動画ファイルをウィンドウにドラッグすると素材に取り込めます';
+            guide.textContent = t('project.materials.inspector.dragVideoFileIntoWindowImportAction');
             guide.style.margin = '0';
-            this.card.replaceChildren(this.heading('素材の情報'), guide);
+            this.card.replaceChildren(this.heading(t('project.materials.inspector.assetInformationLabel')), guide);
         }
     }
 

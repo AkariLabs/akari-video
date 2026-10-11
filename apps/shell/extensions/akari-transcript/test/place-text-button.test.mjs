@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -58,7 +64,8 @@ test('rejected placement keeps selection intact and clears busy state', async ()
 });
 
 test('only the transcript entry remains; the placement command and timeline tools are retained', () => {
-    assert.match(text, /add\('T 文字を置く', \(\) => void this\.placeTextFromSelection\(\)\)/);
+    assert.match(text, /add\(t\('transcript\.daihon\.editor\.addTextLabel'\), \(\) => void this\.placeTextFromSelection\(\)\)/);
+    assert.equal(globalThis.t('transcript.daihon.editor.addTextLabel'), 'T 文字を置く');
     const timeline = readAnnotationsSourceText();
     assert.doesNotMatch(timeline, /placeTextButton|akari-timeline-place-text|T 文字を置く/);
     assert.match(timeline, /this\.selectToolButton, this\.razorToolButton, this\.frameToolButton,/);
