@@ -111,7 +111,7 @@ const ENCODER_SHORT_LABELS: Record<ExportEncoder, string> = {
     auto: '自動', videotoolbox: 'GPU', nvenc: 'NVENC', qsv: 'QSV', amf: 'AMF', mf: 'Media Foundation', x264: 'CPU'
 };
 const TOOL_ICONS: Record<AkariToolId, SettingsIconName> = {
-    ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
+    ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', voice: 'mic', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
 };
 const STORAGE_COLORS: Record<string, string> = {
     cache: 'var(--theia-akariTheme-placedTextBlue)',
