@@ -46,13 +46,18 @@ process.stdin.on('data', chunk => {
       if (fs.existsSync('no-catalog')) send({jsonrpc:'2.0',id:msg.id,error:{code:-32603,message:'catalog unavailable'}});
       else reply(msg.id,{data:[
         {id:'model-one',model:'model-one',displayName:'Model One',description:'Test',hidden:false,supportedReasoningEfforts:[{reasoningEffort:'low',description:''},{reasoningEffort:'high',description:''}]},
-        {id:'model-two',model:'model-two',displayName:'Model Two',description:'Test',hidden:false,supportedReasoningEfforts:[{reasoningEffort:'high',description:''}]}
+        {id:'model-two',model:'model-two',displayName:'Model Two',description:'Test',hidden:false,supportedReasoningEfforts:[{reasoningEffort:'high',description:''}]},
+        {id:'plain',model:'plain',displayName:'Plain',description:'Test',hidden:false,supportedReasoningEfforts:[]}
       ],nextCursor:null});
     }
     else if (msg.method === 'skills/list') reply(msg.id,{data:[{cwd:process.cwd(),skills:[{name:'edit-lint',description:'Check edit'}]}]});
     else if (msg.method === 'thread/start') { active = 'thread-'+(++threadNumber); reply(msg.id,{thread:{id:active},model:msg.params.model||'model-one'}); }
     else if (msg.method === 'thread/resume') { active = msg.params.threadId; reply(msg.id,{thread:{id:active},model:'model-one'}); }
     else if (msg.method === 'turn/start') {
+      if (fs.existsSync('reject-summary') && msg.params.summary) {
+        send({jsonrpc:'2.0',id:msg.id,error:{code:-32602,message:'reasoning summary is unsupported'}});
+        continue;
+      }
       turnNumber++; reply(msg.id,{turn:{id:'turn-'+turnNumber}});
       const text = msg.params.input[0].text;
       if (text === 'approval') send({jsonrpc:'2.0',id:900,method:'item/commandExecution/requestApproval',params:{threadId:active,turnId:'turn-'+turnNumber,itemId:'command-fixed',command:'pwd'}});
@@ -65,6 +70,15 @@ process.stdin.on('data', chunk => {
       else if (text === 'slow') {
         setTimeout(() => send({jsonrpc:'2.0',method:'thread/tokenUsage/updated',params:{threadId:active,turnId:'turn-'+turnNumber,tokenUsage:{last:{totalTokens:1},modelContextWindow:100}}}),700);
         setTimeout(() => complete(),1350);
+      }
+      else if (text === 'reasoning') {
+        if (msg.params.summary === 'detailed') {
+          send({jsonrpc:'2.0',method:'item/started',params:{threadId:active,turnId:'turn-'+turnNumber,item:{type:'reasoning',id:'reasoning-fixed',summary:[]}}});
+          send({jsonrpc:'2.0',method:'item/reasoning/summaryPartAdded',params:{threadId:active,turnId:'turn-'+turnNumber,itemId:'reasoning-fixed',summaryIndex:0}});
+          send({jsonrpc:'2.0',method:'item/reasoning/summaryTextDelta',params:{threadId:active,turnId:'turn-'+turnNumber,itemId:'reasoning-fixed',summaryIndex:0,delta:'考え中'}});
+        }
+        send({jsonrpc:'2.0',method:'item/completed',params:{threadId:active,turnId:'turn-'+turnNumber,item:{type:'reasoning',id:'reasoning-fixed',summary:['考え中']}}});
+        complete();
       }
       else if (text === 'after compact') {
         send({jsonrpc:'2.0',method:'turn/started',params:{threadId:active,turn:{id:'compact-fixed',status:'inProgress'}}});
@@ -115,6 +129,47 @@ test('Codex lists app-server skills and streams reasoning deltas', async () => {
             const parser = new CodexNotificationParser(cwd, event => events.push(event));
             parser.accept({ method: 'item/reasoning/textDelta', params: { itemId: 'r1', delta: '考えています' } });
             assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text), ['考えています']);
+        } finally { await session.close(); }
+    });
+});
+
+test('Codex requests detailed reasoning summaries only for reasoning models', async () => {
+    await withTemp(async cwd => {
+        const session = await new CodexAppServerAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        const events = [];
+        session.onEvent(event => events.push(event));
+        try {
+            await session.send('reasoning', []);
+            assert.equal((await received(cwd)).find(row => row.method === 'turn/start').params.summary, 'detailed');
+            assert.ok(events.some(event => event.type === 'thinking.delta' && event.text === '考え中'));
+            await session.setModel('plain');
+            await session.send('plain', []);
+            const turns = (await received(cwd)).filter(row => row.method === 'turn/start');
+            assert.equal(Object.hasOwn(turns[1].params, 'summary'), false);
+        } finally { await session.close(); }
+    });
+});
+
+test('actual app-server reasoning notification order produces one streamed thought', async () => {
+    const events = await fixture('reasoning-stream');
+    assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text),
+        ['高さを順に比較します']);
+    assert.deepEqual(events.filter(event => event.type === 'tool' && event.kind === 'think').map(event => event.status),
+        ['running', 'done']);
+    assert.deepEqual(events.filter(event => event.type === 'message.delta').map(event => event.text), ['A']);
+    assert.equal(events.at(-1).type, 'turn.end');
+});
+
+test('Codex retries without summary when the app server rejects it', async () => {
+    await withTemp(async cwd => {
+        await writeFile(join(cwd, 'reject-summary'), '1');
+        const session = await new CodexAppServerAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        try {
+            await session.send('plain answer', []);
+            const turns = (await received(cwd)).filter(row => row.method === 'turn/start');
+            assert.equal(turns.length, 2);
+            assert.equal(turns[0].params.summary, 'detailed');
+            assert.equal(Object.hasOwn(turns[1].params, 'summary'), false);
         } finally { await session.close(); }
     });
 });
@@ -379,7 +434,7 @@ test('app-server starts, serializes sends, answers approvals and user input', as
         try {
             const caps = await session.capabilities();
             assert.equal(caps.images, true);
-            assert.deepEqual(caps.models.map(model => model.label), ['Model One', 'Model Two']);
+            assert.deepEqual(caps.models.map(model => model.label), ['Model One', 'Model Two', 'Plain']);
             assert.deepEqual(caps.efforts, ['low', 'high']);
             await Promise.all([session.send('first', []), session.send('second', [])]);
             await session.send('approval', []);
@@ -414,7 +469,7 @@ test('app-server starts, serializes sends, answers approvals and user input', as
             assert.equal(rows.find(row => row.id === 905).error.code, -32601);
             assert.equal(rows.find(row => row.id === 906).result.decision, 'approved');
             assert.equal(events.filter(event => event.type === 'turn.end').length, 11);
-            assert.equal(rows.find(row => row.method === 'thread/start').params.approvalsReviewer, 'auto_review');
+            assert.equal(rows.find(row => row.method === 'thread/start').params.approvalsReviewer, 'guardian_subagent');
         } finally { await session.close(); }
     });
 });
@@ -514,7 +569,7 @@ test('Codex confirmation modes set distinct approval policies', async () => {
         }
         const starts = (await received(cwd)).filter(row => row.method === 'thread/start').map(row => row.params);
         assert.equal(starts[0].approvalPolicy, 'on-request');
-        assert.equal(starts[0].approvalsReviewer, 'auto_review');
+        assert.equal(starts[0].approvalsReviewer, 'guardian_subagent');
         assert.equal(starts[1].approvalPolicy, 'on-request');
         assert.equal(starts[1].approvalsReviewer, undefined);
         assert.equal(starts[2].approvalPolicy, 'untrusted');

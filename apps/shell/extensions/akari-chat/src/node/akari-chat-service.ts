@@ -7,6 +7,7 @@ import type { ChatEvent } from '../common/chat-events';
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../common/chat-agent';
 import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
 import { chatAdapters } from './adapters';
+import { claudeConfiguredModel, claudeInitialCapabilities } from './adapters/claude-stream-json';
 import type { ChatAdapterSession } from './adapters/adapter';
 import { addHistory, readHistory, titleFromText, updateHistory, writeHistory, renameHistory, removeHistory } from './history';
 import { appendTranscript, loadTranscript, readDefaults, writeDefaults, type ChatDefaults } from './chat-storage';
@@ -141,7 +142,8 @@ export class AkariChatServiceImpl implements AkariChatService {
         if (!info || !adapter) throw new Error('このパートナーはまだチャットに対応していません');
         const defaults = await this.getDefaults(options.agent);
         if (options.token && this.cancelledStarts.delete(options.token)) throw new Error('start-cancelled');
-        const model = options.model ?? defaults.model;
+        const model = options.model ?? defaults.model ??
+            (options.agent === 'claude' ? await claudeConfiguredModel() : undefined);
         const effort = options.effort ?? defaults.effort;
         const controller = new AbortController();
         const startEntry = { controller, chatId: undefined as string | undefined };
@@ -193,9 +195,10 @@ export class AkariChatServiceImpl implements AkariChatService {
             if (current) current.session = failed;
             return failed;
         }).finally(() => { if (options.token) this.starts.delete(options.token); });
+        const capabilities = options.agent === 'claude' ? claudeInitialCapabilities(model) : EMPTY_CAPABILITIES;
         this.sessions.set(chatId, { agent: options.agent, cwd: options.cwd, ready, sendTail: Promise.resolve(),
-            titleSet: !!options.resume, model, effort, capabilities: EMPTY_CAPABILITIES });
-        return { chatId, capabilities: EMPTY_CAPABILITIES, ...(initialError ? { error: initialError } : {}) };
+            titleSet: !!options.resume, model, effort, capabilities });
+        return { chatId, capabilities, ...(initialError ? { error: initialError } : {}) };
     }
 
     async cancelStart(token: string): Promise<void> {
@@ -230,6 +233,12 @@ export class AkariChatServiceImpl implements AkariChatService {
             const session = await current.ready;
             if (this.sessions.get(chatId) !== current) throw new Error('会話が見つかりません');
             this.record(chatId, { type: 'user', text, attachments });
+            const skill = current.agent === 'claude' ? /^\/([\w:-]+)(?=\s|$)/.exec(text)?.[1] : undefined;
+            const commands = skill ? await session.listCommands?.().catch(() => []) : undefined;
+            if (skill && commands?.some(command => command.name === skill && command.kind === 'skill')) {
+                this.emit(chatId, { type: 'tool', id: `skill-${randomUUID()}`, kind: 'skill',
+                    title: `使いました ${skill}`, status: 'done' });
+            }
             if (!current.titleSet && !(session.initialError && !session.sessionRef)) {
                 const now = new Date().toISOString();
                 const entry: ChatHistoryEntry = { id: chatId, agent: current.agent, sessionRef: session.sessionRef,

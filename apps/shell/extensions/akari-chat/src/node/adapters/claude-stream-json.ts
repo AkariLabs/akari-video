@@ -8,6 +8,7 @@ import { describeAttachments, type ChatAttachment } from '../../common/chat-atta
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { ClaudeStreamParser } from './claude-stream-parser';
+import { projectSkills, pluginSkills } from './project-skills';
 
 export { ClaudeStreamParser } from './claude-stream-parser';
 
@@ -17,6 +18,24 @@ const MODELS = [
     { id: 'sonnet', label: 'Sonnet' },
     { id: 'haiku', label: 'Haiku' }
 ];
+export function normalizeClaudeModel(model: unknown): string | undefined {
+    if (typeof model !== 'string') return undefined;
+    const value = model.trim().toLowerCase();
+    return MODELS.find(candidate => value === candidate.id ||
+        new RegExp(`(?:^|[-_])${candidate.id}(?:[-_]|$)`).test(value))?.id;
+}
+
+export async function claudeConfiguredModel(home = process.env.HOME || homedir()): Promise<string | undefined> {
+    try {
+        const settings = JSON.parse(await readFile(join(home, '.claude', 'settings.json'), 'utf8'));
+        return normalizeClaudeModel(settings.model);
+    } catch { return undefined; }
+}
+
+export function claudeInitialCapabilities(model?: string): ChatCapabilities {
+    return { models: MODELS, currentModel: normalizeClaudeModel(model), efforts: EFFORTS,
+        images: true, interrupt: true, clear: true, compact: true, resume: true, ask: true };
+}
 const EFFORTS = ['low', 'medium', 'high', 'max'];
 const IMAGE_TYPES: Record<string, string> = {
     '.png': 'image/png',
@@ -143,7 +162,8 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
         if (!executable) {
             throw new Error('not-installed');
         }
-        const session = new ClaudeSession(executable, opts);
+        const session = new ClaudeSession(executable, { ...opts,
+            model: opts.model || await claudeConfiguredModel() });
         await session.warm();
         return session;
     }
@@ -181,22 +201,18 @@ class ClaudeSession implements ChatAdapterSession {
     }
 
     async capabilities(): Promise<ChatCapabilities> {
-        return {
-            models: MODELS,
-            efforts: EFFORTS,
-            images: true,
-            interrupt: true,
-            clear: true,
-            compact: true,
-            resume: true,
-            ask: true
-        };
+        return claudeInitialCapabilities(this.opts.model || this.parser.model);
     }
 
     async listCommands() {
+        const local = await projectSkills(this.opts.cwd, ['.claude/skills', '.agents/skills']);
+        const plugins = await pluginSkills(this.opts.cwd);
+        if (!this.parser.initialized) return [...local, ...plugins];
+        const descriptions = new Map([...local, ...plugins].map(command => [command.name, command.description]));
         const skills = new Set(this.parser.skills.map(name => name.replace(/^\//, '')));
         return [...new Set([...this.parser.slashCommands, ...this.parser.skills].map(name => name.replace(/^\//, '')))]
-            .map(name => ({ name, kind: skills.has(name) ? 'skill' as const : 'command' as const }));
+            .map(name => ({ name, ...(descriptions.get(name) ? { description: descriptions.get(name) } : {}),
+                kind: skills.has(name) ? 'skill' as const : 'command' as const }));
     }
 
     warm(): Promise<void> {

@@ -463,6 +463,26 @@ const css = `
 .akari-chat-attach-menu, .akari-chat-permission-menu { left: auto; right: 0; width: min(340px, 100%); padding: 8px; }
 .akari-chat-attach-menu strong, .akari-chat-permission-menu strong { display: block; color: #aaa; font-size: 11px; padding: 7px; }
 .akari-chat-attach-menu button, .akari-chat-permission-menu button { display: block; width: 100%; }
+.akari-chat-attach-menu button {
+  height: auto !important;
+  min-height: 32px !important;
+  white-space: normal !important;
+  line-height: 1.4;
+}
+.akari-chat-attach-menu button[data-chat-attach-item='record'] {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap !important;
+}
+.akari-chat-attach-menu .akari-chat-soon-badge {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  white-space: nowrap;
+}
 .akari-chat-permission-menu { max-height: min(420px, calc(100vh - 96px)); overflow-y: auto; }
 .akari-chat-permission-menu button {
   display: flex !important;
@@ -481,9 +501,25 @@ const css = `
   line-height: 1.45;
 }
 .akari-chat-permission-menu button:disabled { opacity: .7; }
-.akari-chat-commands { bottom: calc(100% + 4px); width: 100%; padding: 8px; }
+.akari-chat-commands { bottom: calc(100% + 4px); width: 100%; padding: 8px; overflow-y: auto; }
 .akari-chat-commands strong { display: block; color: #999; font-size: 11px; padding: 6px 8px; }
-.akari-chat-commands button { display: block; width: 100%; }
+.akari-chat-commands button {
+  display: block;
+  width: 100%;
+  height: auto !important;
+  min-height: 0 !important;
+  line-height: 1.4;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.akari-chat-commands button small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .akari-chat-commands button.selected { background: #3a281d !important; }
 .akari-chat-context-pop { left: auto; right: 40px; padding: 12px; width: min(280px, 100%); }
 .akari-chat-context-pop > div { padding: 5px 0; font-size: 12px; }

@@ -15,8 +15,7 @@ import { connectorPrefill, initialChatPermission, partnerPermission, partnerPerm
     latestResumableHistory, isCurrentHistory,
     type ChatPermission, type PartnerPermission } from '../common/chat-ui-logic';
 import { screenRecordingFormat } from '../common/screen-recording';
-import { AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
-import { ConnectStack, type ConnectStackItem } from 'akari-connect/lib/browser/connect-stack';
+import { AkariChatService, ChatHistoryEntry, ChatContextInfo } from '../common/chat-protocol';
 import { ConnectService, type ConnectorRow } from 'akari-connect/lib/common/connect-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { EarSession } from 'akari-vibe-dock/lib/browser/ear-session';
@@ -27,7 +26,16 @@ import { renderMarkdown } from './markdown';
 import { installChatStyle } from './chat-style';
 import { markChatLastUsed } from './chat-last-used';
 import { ChatInputIme } from './chat-input-ime';
-import { ChatEventR2, ChatServiceR2, ChatCommand, ChatContextInfo, optionalRpc, commandMatches, commandGroups, thinkingLabel, showElapsedThinking, preparationReady, transcriptToItems, permissionLabel, permissionSelection, contextUsageLabel } from './chat-protocol-r2';
+import { ChatMenuCommand as ChatCommand, optionalRpc, commandMatches, commandGroups, commandMenuMaxHeight, thinkingLabel, showElapsedThinking, preparationReady, transcriptToItems, permissionLabel, permissionSelection, contextUsageLabel } from './chat-view-logic';
+
+interface ConnectStackItem { id: string; icon: string; name: string }
+function ConnectStack({ items, limit = 5 }: { items: readonly ConnectStackItem[]; limit?: number }): React.ReactElement {
+    return <span className='akari-connect-stack' aria-label={items.length
+        ? `接続中: ${items.map(item => item.name).join('、')}` : '接続中の項目なし'}>
+        {items.slice(0, limit).map(item => <span className='akari-connect-stack-icon' title={item.name} key={item.id}>{item.icon}</span>)}
+        {items.length > limit && <span className='akari-connect-stack-more'>+{items.length - limit}</span>}
+    </span>;
+}
 
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 type AskEvent = Extract<ChatEvent, { type: 'ask' }>;
@@ -37,7 +45,8 @@ type ErrorEvent = Extract<ChatEvent, { type: 'error' }>;
 type ChatItem =
     | { type: 'user'; text: string; attachments: ChatAttachment[] }
     | { type: 'message'; id: string; text: string }
-    | { type: 'thinking'; id: string; text: string; startedAt: number; open: boolean }
+    | { type: 'thinking'; id: string; text: string; deltaText?: string; startedAt: number; open: boolean;
+        status: 'running' | 'done' | 'error'; durationMs?: number }
     | { type: 'tool'; event: ToolEvent; open?: boolean }
     | { type: 'files'; files: FileEvent['files'] }
     | { type: 'ask'; event: AskEvent };
@@ -45,6 +54,7 @@ type ChatItem =
 type Outgoing = { text: string; attachments: ChatAttachment[] };
 
 const MEDIA_EXTENSION = /\.(mp4|mov|webm|mkv|mp3|wav|m4a|aac|png|jpe?g|webp|gif)$/i;
+const READ_RPC_TIMEOUT_MS = 8000;
 const EFFORT_LABELS: Record<string, string> = {
     low: '低い',
     medium: 'ふつう',
@@ -171,15 +181,16 @@ export class AkariChatWidget extends ReactWidget {
     private readonly tools = new Map<string, ToolEvent>();
     private readonly ime = new ChatInputIme();
     private commandsList: ChatCommand[] = [];
+    private commandsRequest = 0;
+    private commandsSettled = 0;
     private commandSelection = 0;
     private commandDismissed = false;
     private contextInfo?: ChatContextInfo;
     private ready = false;
-    private r2Known = false;
     private readyEventSeen = false;
     private startReturned = false;
     private turnHasActivity = false;
-    private readonly earlyEvents = new Map<string, ChatEventR2[]>();
+    private readonly earlyEvents = new Map<string, ChatEvent[]>();
     private startAt = 0;
     private now = Date.now();
     private ticker?: ReturnType<typeof setInterval>;
@@ -364,6 +375,7 @@ export class AkariChatWidget extends ReactWidget {
 
     prefill(text: string): void {
         this.input = text;
+        this.refreshCommandsForInput();
         this.update();
     }
 
@@ -372,7 +384,7 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
     }
 
-    receive(chatId: string, event: ChatEventR2): void {
+    receive(chatId: string, event: ChatEvent): void {
         if (chatId !== this.chatId) {
             if (this.starting && !this.chatId) {
                 const pending = this.earlyEvents.get(chatId) || [];
@@ -381,11 +393,7 @@ export class AkariChatWidget extends ReactWidget {
             }
             return;
         }
-        if (event.type === 'ready' || event.type === 'capabilities' || event.type === 'model' || event.type === 'thinking.delta') {
-            this.r2Known = true;
-            if (event.type === 'ready') this.readyEventSeen = true;
-            this.refreshPreparation();
-        }
+        if (event.type === 'ready') { this.readyEventSeen = true; this.refreshPreparation(); }
         if (event.type === 'message.start' || event.type === 'message.delta' || event.type === 'tool' || event.type === 'thinking.delta') {
             this.turnHasActivity = true;
         }
@@ -400,14 +408,17 @@ export class AkariChatWidget extends ReactWidget {
             }
         } else if (event.type === 'thinking.delta') {
             if (!this.thinking || this.thinking.id !== event.id) {
-                this.thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(), open: true };
+                this.thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(), open: true, status: 'running' };
                 this.items.push(this.thinking);
             }
-            this.thinking.text += event.text;
+            this.thinking.deltaText = (this.thinking.deltaText || '') + event.text;
+            if (this.thinking.deltaText.length > this.thinking.text.length) this.thinking.text = this.thinking.deltaText;
         } else if (event.type === 'ready') {
             this.refreshPreparation();
         } else if (event.type === 'capabilities') {
             this.capabilities = event.capabilities;
+            if (event.capabilities.currentModel && !this.model) this.actualModel = event.capabilities.currentModel;
+            void this.loadCommands(chatId);
         } else if (event.type === 'model') {
             if (event.model !== undefined) {
                 this.actualModel = event.model;
@@ -416,6 +427,21 @@ export class AkariChatWidget extends ReactWidget {
             if (event.effort !== undefined) this.effort = event.effort;
         } else if (event.type === 'tool') {
             this.tools.set(event.id, event);
+            if (event.kind === 'think') {
+                let thinking = this.items.find(candidate => candidate.type === 'thinking' && candidate.id === event.id);
+                if (thinking?.type !== 'thinking') {
+                    thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(),
+                        open: false, status: 'running' };
+                    this.items.push(thinking);
+                }
+                if (thinking.type === 'thinking') {
+                    if (event.detail?.text && event.detail.text.length > thinking.text.length) thinking.text = event.detail.text;
+                    thinking.status = event.status;
+                    if (event.durationMs !== undefined) thinking.durationMs = event.durationMs;
+                    if (event.status !== 'running') thinking.open = false;
+                    this.thinking = thinking;
+                }
+            } else {
             const index = this.items.findIndex(candidate =>
                 candidate.type === 'tool' && candidate.event.id === event.id
             );
@@ -428,6 +454,7 @@ export class AkariChatWidget extends ReactWidget {
                 };
             } else {
                 this.items.push({ type: 'tool', event });
+            }
             }
         } else if (event.type === 'files') {
             this.items.push({ type: 'files', files: event.files });
@@ -447,9 +474,20 @@ export class AkariChatWidget extends ReactWidget {
             if (this.thinking) this.thinking.open = false;
             this.initialErrorChatId = undefined;
         } else if (event.type === 'session' && event.model) {
-            this.actualModel = event.model;
+            const models = this.capabilities?.models || [];
+            if (this.selectedAgent !== 'claude' || !this.model ||
+                modelLabel(models, this.model) === modelLabel(models, undefined, event.model)) {
+                this.actualModel = event.model;
+            }
         }
-        if (event.type === 'turn.end' && this.thinking) this.thinking.open = false;
+        if (event.type === 'ready' || event.type === 'turn.end') void this.loadCommands(chatId);
+        if (event.type === 'turn.end') for (const item of this.items) {
+            if (item.type === 'thinking' && item.status === 'running') {
+                item.status = 'done';
+                item.durationMs = Math.max(0, Date.now() - item.startedAt);
+                item.open = false;
+            }
+        }
         if (!this.frame) this.frame = requestAnimationFrame(() => {
             this.frame = undefined;
             this.update();
@@ -479,31 +517,30 @@ export class AkariChatWidget extends ReactWidget {
         return availableChatPermission(this.permissionMode, this.partnerMode, this.selectedAgentInfo());
     }
 
-    private serviceR2(): ChatServiceR2 { return this.chat as ChatServiceR2; }
-
     private async applyDefaults(agent: string, sequence: number): Promise<void> {
-        const defaults = await optionalRpc(() => this.serviceR2().getDefaults(agent));
+        const defaults = await optionalRpc(() => this.chat.getDefaults(agent), READ_RPC_TIMEOUT_MS);
         if (sequence !== this.startSequence || agent !== this.selectedAgent || !defaults) return;
-        this.r2Known = true;
-        this.refreshPreparation();
-        this.model = defaults.model || this.chosenModels.get(agent);
-        this.effort = defaults.effort || this.chosenEfforts.get(agent);
+        this.model = this.chosenModels.get(agent) || defaults.model;
+        this.effort = this.chosenEfforts.get(agent) || defaults.effort;
         this.update();
     }
 
     private async loadCommands(chatId: string): Promise<void> {
-        const commands = await optionalRpc(() => this.serviceR2().listCommands(chatId));
+        const request = ++this.commandsRequest;
+        const commands = await optionalRpc(() => this.chat.listCommands(chatId), READ_RPC_TIMEOUT_MS);
         if (chatId !== this.chatId) return;
-        if (commands) { this.r2Known = true; this.refreshPreparation(); }
-        this.commandsList = commands || [];
+        if (commands && request === this.commandsRequest) {
+            this.commandsList = commands;
+            this.commandsSettled = request;
+        } else if (commands && this.commandsSettled < this.commandsRequest && !this.commandsList.length) {
+            this.commandsList = commands;
+        }
         this.update();
     }
 
     private async loadTranscript(cwd: string, id: string, sequence: number): Promise<void> {
-        const transcript = await optionalRpc(() => this.serviceR2().loadTranscript(cwd, id));
+        const transcript = await optionalRpc(() => this.chat.loadTranscript(cwd, id), READ_RPC_TIMEOUT_MS);
         if (!transcript || sequence !== this.startSequence) return;
-        this.r2Known = true;
-        this.refreshPreparation();
         this.items = transcriptToItems(transcript);
         this.resumedTitle = undefined;
         this.update();
@@ -511,7 +548,6 @@ export class AkariChatWidget extends ReactWidget {
 
     private beginWaiting(): void {
         this.ready = false;
-        this.r2Known = false;
         this.readyEventSeen = false;
         this.startReturned = false;
         this.earlyEvents.clear();
@@ -527,7 +563,7 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private refreshPreparation(): void {
-        this.ready = preparationReady(this.startReturned, this.r2Known, this.readyEventSeen);
+        this.ready = preparationReady(this.readyEventSeen);
         if (this.ready && !this.busy) {
             if (this.ticker) clearInterval(this.ticker);
             this.ticker = undefined;
@@ -601,7 +637,7 @@ export class AkariChatWidget extends ReactWidget {
             this.deferredHistory = undefined;
             this.activePermission = permission;
             this.capabilities = started.capabilities;
-            this.actualModel = started.capabilities.currentModel;
+            this.actualModel = started.capabilities.currentModel || this.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
             this.initialErrorChatId = started.error ? started.chatId : undefined;
@@ -789,6 +825,7 @@ export class AkariChatWidget extends ReactWidget {
         if (previous) await this.chat.close(previous);
         this.tools.clear();
         this.commandsList = [];
+        this.commandsRequest++;
         this.contextInfo = undefined;
         this.capabilities = undefined;
         this.actualModel = undefined;
@@ -856,6 +893,7 @@ export class AkariChatWidget extends ReactWidget {
         this.thinking = undefined;
         this.turnHasActivity = false;
         this.commandsList = [];
+        this.commandsRequest++;
         this.contextInfo = undefined;
         this.tools.clear();
         this.outbox.length = 0;
@@ -918,18 +956,23 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private async switchModel(model: string): Promise<void> {
+        const previous = this.model;
         this.popup = undefined;
         this.model = model;
         this.chosenModels.set(this.selectedAgent, model);
         this.recentModels.set(this.selectedAgent, [model, ...(this.recentModels.get(this.selectedAgent) || []).filter(id => id !== model)].slice(0, 5));
         this.update();
         if (this.chatId) {
-            try { await this.chat.setModel(this.chatId, model); } catch { /* The current session keeps its model. */ }
+            try { await this.chat.setModel(this.chatId, model); }
+            catch {
+                this.model = previous;
+                if (previous) this.chosenModels.set(this.selectedAgent, previous);
+                else this.chosenModels.delete(this.selectedAgent);
+                this.update();
+                return;
+            }
         }
-        if (await optionalRpc(async () => { await this.serviceR2().setDefaults(this.selectedAgent, { model, effort: this.effort }); return true; })) {
-            this.r2Known = true;
-            this.refreshPreparation();
-        }
+        await optionalRpc(async () => { await this.chat.setDefaults(this.selectedAgent, { model, effort: this.effort }); return true; });
         this.update();
     }
 
@@ -941,10 +984,7 @@ export class AkariChatWidget extends ReactWidget {
         if (this.chatId) {
             try { await this.chat.setEffort(this.chatId, effort); } catch { /* The current session keeps its effort. */ }
         }
-        if (await optionalRpc(async () => { await this.serviceR2().setDefaults(this.selectedAgent, { model: this.model, effort }); return true; })) {
-            this.r2Known = true;
-            this.refreshPreparation();
-        }
+        await optionalRpc(async () => { await this.chat.setDefaults(this.selectedAgent, { model: this.model, effort }); return true; });
         this.update();
     }
 
@@ -1313,6 +1353,10 @@ export class AkariChatWidget extends ReactWidget {
         return commandMatches(ordered, this.input.slice(1));
     }
 
+    private refreshCommandsForInput(): void {
+        if (this.input.startsWith('/') && !this.commandsList.length && this.chatId) void this.loadCommands(this.chatId);
+    }
+
     private chooseCommand(command: ChatCommand): void {
         if (command.name === 'new') { this.input = ''; void this.newChat(); return; }
         if (command.name === 'compact') { this.input = ''; if (this.chatId) void this.chat.compact(this.chatId).catch(() => undefined); this.update(); return; }
@@ -1325,7 +1369,12 @@ export class AkariChatWidget extends ReactWidget {
     private renderCommands(): React.ReactNode {
         const commands = this.visibleCommands();
         if (!commands.length || this.ime.composing) return null;
-        return <div className='akari-chat-pop akari-chat-commands' data-chat-commands>
+        const panel = this.node?.querySelector<HTMLElement>('.akari-chat');
+        const composer = this.node?.querySelector<HTMLElement>('.akari-chat-composer');
+        const maxHeight = panel && composer
+            ? commandMenuMaxHeight(panel.getBoundingClientRect().top, composer.getBoundingClientRect().top)
+            : undefined;
+        return <div className='akari-chat-pop akari-chat-commands' data-chat-commands style={{ maxHeight }}>
             {commandGroups(commands).map(group => <React.Fragment key={group.kind}>
                 <strong>{group.label}</strong>
                 {group.rows.map(({ command, index }) => <button key={`${group.kind}-${command.name}`}
@@ -1345,9 +1394,8 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
         if (this.popup === 'context' && this.chatId) {
             const chatId = this.chatId;
-            const info = await optionalRpc(() => this.serviceR2().contextInfo(chatId!));
+            const info = await optionalRpc(() => this.chat.contextInfo(chatId!));
             if (chatId !== this.chatId) return;
-            if (info) { this.r2Known = true; this.refreshPreparation(); }
             this.contextInfo = info;
             this.update();
         }
@@ -1436,7 +1484,8 @@ export class AkariChatWidget extends ReactWidget {
         if (item.type === 'thinking') {
             return <div key={index} className='akari-chat-thinking' data-chat-thinking>
                 <button aria-expanded={item.open} onClick={() => { item.open = !item.open; this.update(); }}>
-                    <ChatIcon name='brain' size={15} /> {thinkingLabel(item.startedAt, this.now, !!item.text)}
+                    <ChatIcon name='brain' size={15} /> {thinkingLabel(item.startedAt, this.now, !!item.text,
+                        item.status === 'done', item.durationMs)}
                 </button>
                 {item.open && item.text && <div className='akari-chat-thinking-text'>{item.text}</div>}
             </div>;
@@ -1557,7 +1606,7 @@ export class AkariChatWidget extends ReactWidget {
             <strong>添付する</strong>
             <button data-chat-attach-item='file' onClick={() => { this.popup = undefined; this.fileInput?.click(); this.update(); }}>ファイル</button>
             <button data-chat-attach-item='folder' onClick={() => { this.popup = undefined; this.folderInput?.click(); this.update(); }}>フォルダ</button>
-            <button data-chat-attach-item='record' disabled title='近日'>画面を録画 <small>近日</small></button>
+            <button data-chat-attach-item='record' disabled title='近日'>画面を録画 <small className='akari-chat-soon-badge'>近日</small></button>
             <strong>作る</strong>
             <button data-chat-attach-item='create' onClick={() => { this.popup = 'create'; this.update(); }}>つないだサービスで作る</button>
             <button data-chat-attach-item='connect' onClick={() => void this.openConnect()}>ほかをつなぐ…</button>
@@ -1770,7 +1819,8 @@ export class AkariChatWidget extends ReactWidget {
                     <strong>コンテキスト</strong>
                     <div>{contextUsageLabel(this.contextInfo?.usedTokens ?? this.usedTokens,
                         (this.contextInfo?.contextWindow ?? this.contextWindow) || undefined)}</div>
-                    <div>モデル: {this.contextInfo?.model || shownModel}</div>
+                    <div title={this.contextInfo?.model || this.actualModel}>モデル: {modelLabel(this.capabilities?.models || [],
+                        this.model, this.contextInfo?.model || this.actualModel)}</div>
                     {this.chatId && (this.contextInfo?.canCompact ?? this.capabilities?.compact) && <button onClick={() => {
                         this.popup = undefined;
                         if (this.chatId) void this.chat.compact(this.chatId).catch(() => undefined);
@@ -1805,10 +1855,12 @@ export class AkariChatWidget extends ReactWidget {
                     defaultValue=''
                     ref={element => { if (element && !this.ime.composing && element.value !== this.input) element.value = this.input; }}
                     onCompositionStart={() => { this.ime.start(); }}
-                    onCompositionEnd={event => { this.ime.end(); this.input = event.currentTarget.value; this.commandSelection = 0; this.commandDismissed = false; this.update(); }}
+                    onCompositionEnd={event => { this.ime.end(); this.input = event.currentTarget.value;
+                        this.refreshCommandsForInput(); this.commandSelection = 0; this.commandDismissed = false; this.update(); }}
                     onChange={event => {
                         if (!this.ime.shouldCommitInput(event.nativeEvent as InputEvent)) return;
                         this.input = event.currentTarget.value;
+                        this.refreshCommandsForInput();
                         this.commandSelection = 0;
                         this.commandDismissed = false;
                         this.update();

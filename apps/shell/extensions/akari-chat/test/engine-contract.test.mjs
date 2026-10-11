@@ -17,7 +17,7 @@ function deferred() {
     return { promise, resolve };
 }
 
-async function withFake(run) {
+async function withFake(run, agentId = 'fake') {
     const root = await mkdtemp(join(tmpdir(), 'chat-engine-'));
     const previousHome = process.env.HOME;
     const previousAdapters = chatAdapters.splice(0);
@@ -60,7 +60,7 @@ async function withFake(run) {
         interrupt: async () => {}, close: async () => { events.clear(); }
     };
     chatAdapters.push({
-        info: async () => { detections++; return { id: 'fake', name: 'Fake', installed: true, transport: 'acp' }; },
+        info: async () => { detections++; return { id: agentId, name: 'Fake', installed: true, transport: 'acp' }; },
         start: async options => { startOptions = options; await opening.promise; return session; }
     });
     try { await run({ root, opening, received, getDetections: () => detections,
@@ -74,6 +74,43 @@ async function withFake(run) {
         await rm(root, { recursive: true, force: true });
     }
 }
+
+test('Claude exposes models before init and records a slash skill tool row', async () => {
+    await withFake(async ({ root, opening, service }) => {
+        const events = [];
+        service.setClient({ onEvent: (_id, event) => events.push(event) });
+        await service.setDefaults('claude', { model: 'haiku' });
+        const started = await service.start({ agent: 'claude', cwd: root });
+        assert.deepEqual(started.capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku']);
+        assert.equal(started.capabilities.currentModel, 'haiku');
+        const sent = service.send(started.chatId, '/edit-lint check', []);
+        opening.resolve();
+        await sent;
+        const skill = events.find(event => event.type === 'tool' && event.kind === 'skill');
+        assert.equal(skill?.title, '使いました edit-lint');
+        assert.equal(skill.status, 'done');
+        const rows = await service.loadTranscript(root, started.chatId);
+        assert.ok(rows.some(row => row.event.type === 'tool' && row.event.title === skill.title));
+    }, 'claude');
+});
+
+test('Claude model selection takes request, then saved defaults, then Claude settings', async () => {
+    await withFake(async ({ root, opening, service, getStartOptions }) => {
+        const settingsDir = join(process.env.HOME, '.claude');
+        await mkdir(settingsDir, { recursive: true });
+        await writeFile(join(settingsDir, 'settings.json'), JSON.stringify({ model: 'claude-haiku-5-5' }));
+        const fromSettings = await service.start({ agent: 'claude', cwd: root });
+        assert.equal(fromSettings.capabilities.currentModel, 'haiku');
+        opening.resolve();
+        await service.listCommands(fromSettings.chatId);
+        assert.equal(getStartOptions().model, 'haiku');
+        await service.setDefaults('claude', { model: 'sonnet' });
+        const fromDefaults = await service.start({ agent: 'claude', cwd: root });
+        assert.equal(fromDefaults.capabilities.currentModel, 'sonnet');
+        const fromRequest = await service.start({ agent: 'claude', cwd: root, model: 'opus' });
+        assert.equal(fromRequest.capabilities.currentModel, 'opus');
+    }, 'claude');
+});
 
 test('start returns before ready and sends queued messages in order', async () => {
     await withFake(async ({ root, opening, received, service, getDetections }) => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -10,7 +10,8 @@ const require = createRequire(import.meta.url);
 const {
     ClaudeStreamParser,
     ClaudeStreamJsonAdapter,
-    claudeUserMessage
+    claudeUserMessage,
+    normalizeClaudeModel
 } = require('../lib/node/adapters/claude-stream-json.js');
 const { describeAttachments } = require('../lib/common/chat-attachments.js');
 const {
@@ -114,6 +115,68 @@ test('Claude lists initialized skills and restarts immediately with resume on mo
             assert.fail('Claude did not restart after model change');
         } finally { await session.close(); }
     });
+});
+
+test('Claude lists project and enabled plugin skills before init, then uses init commands', async () => {
+    const root = await mkdtemp(join(process.cwd(), 'test', 'claude-commands-'));
+    const cwd = join(root, 'project');
+    const home = join(root, 'home');
+    const previousHome = process.env.HOME;
+    const skill = async (directory, name, description) => {
+        await mkdir(join(directory, name), { recursive: true });
+        await writeFile(join(directory, name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n`);
+    };
+    try {
+        await mkdir(cwd, { recursive: true });
+        await skill(join(cwd, '.claude', 'skills'), 'edit-lint', '編集を検査');
+        await skill(join(cwd, '.agents', 'skills'), 'project-only', '案件のスキル');
+        const userPlugin = join(root, 'user-plugin');
+        const projectPlugin = join(root, 'project-plugin');
+        const disabledPlugin = join(root, 'disabled-plugin');
+        await skill(join(userPlugin, 'skills'), 'draft', '下書きを作る');
+        await skill(join(projectPlugin, 'skills'), 'review', '内容を確認');
+        await skill(join(disabledPlugin, 'skills'), 'hidden', '表示しない');
+        await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+        await writeFile(join(home, '.claude', 'settings.json'), JSON.stringify({ model: 'claude-haiku-5-5', enabledPlugins: {
+            'writing@market': true, 'project@market': true, 'disabled@market': false
+        } }));
+        await writeFile(join(home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: {
+            'writing@market': [{ scope: 'user', installPath: userPlugin }],
+            'project@market': [{ scope: 'project', projectPath: cwd, installPath: projectPlugin }],
+            'disabled@market': [{ scope: 'user', installPath: disabledPlugin }]
+        } }));
+        process.env.HOME = home;
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        try {
+            const before = await session.listCommands();
+            assert.deepEqual(before, [
+                { name: 'edit-lint', description: '編集を検査', kind: 'skill' },
+                { name: 'project-only', description: '案件のスキル', kind: 'skill' },
+                { name: 'writing:draft', description: '下書きを作る', kind: 'skill' },
+                { name: 'project:review', description: '内容を確認', kind: 'skill' }
+            ]);
+            const capabilities = await session.capabilities();
+            assert.deepEqual(capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku']);
+            assert.equal(capabilities.currentModel, 'haiku');
+            assert.equal(normalizeClaudeModel('claude-opus-5-1'), 'opus');
+            assert.equal(normalizeClaudeModel('sonnet'), 'sonnet');
+            assert.equal(normalizeClaudeModel('other'), undefined);
+            await writeFile(join(home, '.claude', 'settings.json'), '{broken');
+            assert.deepEqual((await session.listCommands()).map(command => command.name), ['edit-lint', 'project-only']);
+            await writeFile(join(home, '.claude', 'settings.json'), JSON.stringify({ model: 'claude-haiku-5-5', enabledPlugins: {
+                'writing@market': true, 'project@market': true, 'disabled@market': false
+            } }));
+            await session.send('hello', []);
+            assert.deepEqual(await session.listCommands(), [
+                { name: 'edit-lint', description: '編集を検査', kind: 'skill' },
+                { name: 'help', kind: 'command' }
+            ]);
+        } finally { await session.close(); }
+    } finally {
+        if (previousHome === undefined) delete process.env.HOME;
+        else process.env.HOME = previousHome;
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('measured Claude manual permission request answers through control_response', async () => {

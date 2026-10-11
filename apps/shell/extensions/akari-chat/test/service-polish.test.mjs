@@ -174,6 +174,7 @@ test('model search matches id and label and keeps recent choices above the list'
 test('model labels resolve explicit and runtime Claude IDs', () => {
     const models = [{ id: 'opus', label: 'Opus' }, { id: 'sonnet', label: 'Sonnet' }, { id: 'haiku', label: 'Haiku' }];
     assert.equal(modelLabel(models, 'sonnet', 'claude-haiku-5-5'), 'Sonnet');
+    assert.equal(modelLabel(models, 'claude-haiku-5-5', 'claude-opus-5-1'), 'Haiku');
     assert.equal(modelLabel(models, undefined, 'claude-haiku-5-5'), 'Haiku');
     assert.equal(modelLabel(models, undefined, 'HAIKU'), 'Haiku');
     assert.equal(modelLabel(models, undefined, 'unknown-model'), 'unknown-model');

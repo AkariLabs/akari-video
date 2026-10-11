@@ -15,11 +15,12 @@ export function modelChoices(models: ChatCapabilities['models'], query: string, 
 export function modelLabel(models: ChatCapabilities['models'], chosen?: string, actual?: string): string {
     const exact = (id?: string): ChatCapabilities['models'][number] | undefined =>
         id ? models.find(model => model.id.toLocaleLowerCase() === id.toLocaleLowerCase()) : undefined;
-    const selected = exact(chosen) || exact(actual);
-    if (selected) return selected.label;
-    const current = actual?.toLocaleLowerCase();
-    const contained = current ? models.find(model => current.includes(model.id.toLocaleLowerCase())) : undefined;
-    return contained?.label || actual || chosen || '既定';
+    const label = (id?: string): string | undefined => {
+        if (!id) return undefined;
+        const normalized = id.toLocaleLowerCase();
+        return exact(id)?.label || models.find(model => normalized.includes(model.id.toLocaleLowerCase()))?.label;
+    };
+    return label(chosen) || label(actual) || chosen || actual || '既定';
 }
 
 export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' }>, agentName: string, initial: boolean, agentId: string): {

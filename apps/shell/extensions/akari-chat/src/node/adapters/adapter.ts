@@ -1,6 +1,7 @@
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
+import type { ChatCommand } from '../../common/chat-protocol';
 
 export type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
 
@@ -26,7 +27,7 @@ export interface ChatAdapterSession {
     setEffort?(effort: string): Promise<void>;
     clear?(): Promise<void>;
     compact?(): Promise<void>;
-    listCommands?(): Promise<{ name: string; description?: string; kind: 'skill' | 'command' }[]>;
+    listCommands?(): Promise<ChatCommand[]>;
     onEvent(listener: (event: ChatEvent) => void): { dispose(): void };
     close(): Promise<void>;
 }

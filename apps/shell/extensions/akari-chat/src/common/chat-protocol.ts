@@ -15,6 +15,19 @@ export interface ChatHistoryEntry {
     updatedAt: string;
 }
 
+export interface ChatCommand {
+    name: string;
+    description?: string;
+    kind: 'skill' | 'command';
+}
+
+export interface ChatContextInfo {
+    usedTokens?: number;
+    contextWindow?: number;
+    model?: string;
+    canCompact: boolean;
+}
+
 export interface AkariChatClient {
     onEvent(chatId: string, event: ChatEvent): void;
 }
@@ -40,8 +53,8 @@ export interface AkariChatService {
     clear(chatId: string): Promise<void>;
     compact(chatId: string): Promise<void>;
     close(chatId: string): Promise<void>;
-    listCommands(chatId: string): Promise<{ name: string; description?: string; kind: 'skill' | 'command' }[]>;
-    contextInfo(chatId: string): Promise<{ usedTokens?: number; contextWindow?: number; model?: string; canCompact: boolean }>;
+    listCommands(chatId: string): Promise<ChatCommand[]>;
+    contextInfo(chatId: string): Promise<ChatContextInfo>;
     getDefaults(agent: string): Promise<{ model?: string; effort?: string }>;
     setDefaults(agent: string, d: { model?: string; effort?: string }): Promise<void>;
     loadTranscript(cwd: string, historyId: string): Promise<{ at: string; event: ChatEvent }[]>;

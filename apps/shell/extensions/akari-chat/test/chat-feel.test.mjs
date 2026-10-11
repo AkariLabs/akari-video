@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { ChatInputIme } = require('../lib/browser/chat-input-ime.js');
 const { commandMatches, commandGroups, optionalRpc, transcriptToItems, thinkingLabel, showElapsedThinking,
-    preparationReady, permissionLabel, permissionSelection, contextUsageLabel } =
-    require('../lib/browser/chat-protocol-r2.js');
+    commandMenuMaxHeight, preparationReady, permissionLabel, permissionSelection, contextUsageLabel } =
+    require('../lib/browser/chat-view-logic.js');
 
 test('IME composition keeps only confirmed Japanese text and ignores shortcut keys', () => {
     let now = 1000;
@@ -100,9 +100,33 @@ test('transcript restores user attachments, assistant deltas and latest tool sta
     assert.equal(items[2].event.status, 'done');
 });
 
+test('thinking deltas and completed think tools restore as one expandable row', () => {
+    const at = '2026-10-11T00:00:00Z';
+    const later = '2026-10-11T00:00:02Z';
+    const items = transcriptToItems([
+        { at, event: { type: 'thinking.delta', id: 'r1', text: '調べ' } },
+        { at, event: { type: 'thinking.delta', id: 'r1', text: 'ます' } },
+        { at: later, event: { type: 'tool', id: 'r1', kind: 'think', title: '考えました',
+            status: 'done', detail: { text: '調べます' }, durationMs: 2000 } },
+        { at: later, event: { type: 'tool', id: 'r2', kind: 'think', title: '考えました',
+            status: 'done', detail: { text: '別の要約' }, durationMs: 1000 } },
+        { at: later, event: { type: 'tool', id: 'r3', kind: 'think', title: '考えています',
+            status: 'running', detail: { text: '重複なし' } } },
+        { at: later, event: { type: 'thinking.delta', id: 'r3', text: '重複なし' } }
+    ]);
+    assert.equal(items.length, 3);
+    assert.deepEqual(items.map(item => item.type), ['thinking', 'thinking', 'thinking']);
+    assert.equal(items[0].text, '調べます');
+    assert.equal(items[0].status, 'done');
+    assert.equal(items[0].durationMs, 2000);
+    assert.equal(items[1].text, '別の要約');
+    assert.equal(items[2].text, '重複なし');
+});
+
 test('thinking elapsed time and permission labels are stable', () => {
     assert.equal(thinkingLabel(1000, 4200, false), '考えています… 3 秒');
     assert.equal(thinkingLabel(1000, 4200, true), '考えています');
+    assert.equal(thinkingLabel(1000, 4200, true, true), '考えました · 3 秒');
     assert.equal(showElapsedThinking(true, false, false), true);
     for (const activity of ['message.start', 'message.delta', 'tool', 'thinking.delta']) {
         assert.equal(showElapsedThinking(true, !!activity, activity === 'thinking.delta'), false);
@@ -113,12 +137,21 @@ test('thinking elapsed time and permission labels are stable', () => {
         ['automatic', 'automatic', 'checkpoints', 'every']);
 });
 
-test('r2 preparation waits for ready; old backend finishes on start return', () => {
-    assert.equal(preparationReady(false, false, false), false);
-    assert.equal(preparationReady(true, false, false), true);
-    assert.equal(preparationReady(true, true, false), false);
-    assert.equal(preparationReady(true, true, true), true);
-    assert.equal(preparationReady(false, true, true), true);
+test('slash menu height stays below the panel header and rows grow with content', () => {
+    assert.equal(commandMenuMaxHeight(100, 500), 312);
+    assert.equal(commandMenuMaxHeight(100, 800), 420);
+    assert.equal(commandMenuMaxHeight(100, 170), 0);
+    const style = readFileSync(new URL('../src/browser/chat-style.ts', import.meta.url), 'utf8');
+    assert.match(style, /\.akari-chat-commands button \{[^}]*height: auto !important/s);
+    assert.match(style, /\.akari-chat-commands button small \{[^}]*-webkit-line-clamp: 2/s);
+    assert.match(style, /\.akari-chat-commands \{[^}]*overflow-y: auto/s);
+    assert.match(style, /\.akari-chat-attach-menu button \{[^}]*height: auto !important/s);
+    assert.match(style, /\.akari-chat-attach-menu \.akari-chat-soon-badge \{[^}]*display: inline-flex/s);
+});
+
+test('preparation waits for ready', () => {
+    assert.equal(preparationReady(false), false);
+    assert.equal(preparationReady(true), true);
 });
 
 test('context usage labels include grouped numbers and unknown limit', () => {

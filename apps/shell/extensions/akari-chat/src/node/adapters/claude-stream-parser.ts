@@ -90,6 +90,7 @@ function diffFromResult(result: Json): { added: number; removed: number; patch?:
 }
 
 export class ClaudeStreamParser {
+    initialized = false;
     sessionId = '';
     model = '';
     slashCommands: string[] = [];
@@ -441,6 +442,7 @@ export class ClaudeStreamParser {
 
     accept(row: Json): void {
         if (row.type === 'system' && row.subtype === 'init') {
+            this.initialized = true;
             this.sessionId = row.session_id || this.sessionId;
             this.model = row.model || this.model;
             this.slashCommands = row.slash_commands || [];

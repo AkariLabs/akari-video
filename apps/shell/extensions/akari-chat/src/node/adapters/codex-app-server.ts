@@ -658,7 +658,7 @@ class CodexSession implements ChatAdapterSession {
             ? { approvalPolicy: 'never', sandbox: 'danger-full-access' }
             : this.opts.permission === 'every' ? { approvalPolicy: 'untrusted', sandbox: 'workspace-write' }
                 : this.opts.permission === 'checkpoints' ? { approvalPolicy: 'on-request', sandbox: 'workspace-write' }
-                    : { approvalPolicy: 'on-request', approvalsReviewer: 'auto_review', sandbox: 'workspace-write' };
+                    : { approvalPolicy: 'on-request', approvalsReviewer: 'guardian_subagent', sandbox: 'workspace-write' };
         const model = this.validModel(this.opts.model);
         const result = await this.rpc(resume ? 'thread/resume' : 'thread/start', {
             ...(resume ? { threadId: this.ref } : {}), cwd: this.opts.cwd,
@@ -748,9 +748,23 @@ class CodexSession implements ChatAdapterSession {
         try {
             const model = this.validModel(this.opts.model);
             const effort = this.validEffort(this.opts.effort, model || this.actualModel);
-            const result = await this.rpc('turn/start', { threadId: this.ref, input,
+            const reasoningModel = model || this.actualModel;
+            const knownEfforts = reasoningModel ? this.supportedModels.get(reasoningModel) : undefined;
+            const summary = (knownEfforts ? knownEfforts.size > 0 : !!effort || !this.catalogLoaded)
+                ? 'detailed' as const : undefined;
+            const params: { threadId: string; input: any[]; model?: string; effort?: string; summary?: 'detailed' } = {
+                threadId: this.ref, input,
                 ...(model ? { model } : {}),
-                ...(effort ? { effort } : {}) });
+                ...(effort ? { effort } : {}),
+                ...(summary ? { summary } : {})
+            };
+            let result;
+            try { result = await this.rpc('turn/start', params); }
+            catch (error) {
+                if (!summary || !/summary|reasoning|unknown field|invalid params|unsupported/i.test(String(error))) throw error;
+                delete params.summary;
+                result = await this.rpc('turn/start', params);
+            }
             const id = result.turn?.id;
             if (id && (this.turnWait || this.waitingAnswer)) {
                 this.turnId = id;
