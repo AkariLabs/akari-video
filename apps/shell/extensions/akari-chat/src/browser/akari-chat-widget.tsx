@@ -26,6 +26,8 @@ import { isChatDropTarget } from './chat-drop-target';
 import { renderMarkdown } from './markdown';
 import { installChatStyle } from './chat-style';
 import { markChatLastUsed } from './chat-last-used';
+import { ChatInputIme } from './chat-input-ime';
+import { ChatEventR2, ChatServiceR2, ChatCommand, ChatContextInfo, optionalRpc, commandMatches, commandGroups, thinkingLabel, showElapsedThinking, preparationReady, transcriptToItems, permissionLabel, permissionSelection, contextUsageLabel } from './chat-protocol-r2';
 
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 type AskEvent = Extract<ChatEvent, { type: 'ask' }>;
@@ -35,6 +37,7 @@ type ErrorEvent = Extract<ChatEvent, { type: 'error' }>;
 type ChatItem =
     | { type: 'user'; text: string; attachments: ChatAttachment[] }
     | { type: 'message'; id: string; text: string }
+    | { type: 'thinking'; id: string; text: string; startedAt: number; open: boolean }
     | { type: 'tool'; event: ToolEvent; open?: boolean }
     | { type: 'files'; files: FileEvent['files'] }
     | { type: 'ask'; event: AskEvent };
@@ -59,14 +62,11 @@ const TOOL_ICONS: Record<ToolKind, ChatIconName> = {
     other: 'dot'
 };
 
-function agentIcon(id: string): ChatIconName {
-    if (id === 'claude') {
-        return 'chat';
-    }
-    if (id === 'codex') {
-        return 'terminal';
-    }
-    return 'sparkle';
+function AgentIcon({ id, name }: { id: string; name?: string }): React.ReactNode {
+    const branded = ['claude', 'codex', 'opencode', 'copilot', 'grok', 'antigravity'];
+    return branded.includes(id)
+        ? <span className={`akari-partner-${id}-cli-icon`} aria-hidden='true' />
+        : <span className='akari-chat-agent-initial' aria-hidden='true'>{(name || id).slice(0, 1).toUpperCase()}</span>;
 }
 
 function DiffLines({ patch }: { patch: string }): React.ReactNode {
@@ -147,7 +147,7 @@ export class AkariChatWidget extends ReactWidget {
     private busy = false;
     private sending = false;
     private readonly outbox: Outgoing[] = [];
-    private popup?: 'history' | 'model' | 'attach' | 'create' | 'permission' | 'activity';
+    private popup?: 'history' | 'model' | 'attach' | 'create' | 'permission' | 'activity' | 'context';
     private history: ChatHistoryEntry[] = [];
     private usedTokens = 0;
     private contextWindow = 0;
@@ -169,6 +169,23 @@ export class AkariChatWidget extends ReactWidget {
     private folderInput?: HTMLInputElement;
     private screenRecorder?: MediaRecorder;
     private readonly tools = new Map<string, ToolEvent>();
+    private readonly ime = new ChatInputIme();
+    private commandsList: ChatCommand[] = [];
+    private commandSelection = 0;
+    private commandDismissed = false;
+    private contextInfo?: ChatContextInfo;
+    private ready = false;
+    private r2Known = false;
+    private readyEventSeen = false;
+    private startReturned = false;
+    private turnHasActivity = false;
+    private readonly earlyEvents = new Map<string, ChatEventR2[]>();
+    private startAt = 0;
+    private now = Date.now();
+    private ticker?: ReturnType<typeof setInterval>;
+    private thinking?: Extract<ChatItem, { type: 'thinking' }>;
+    private turnStartedAt = 0;
+    private frame?: number;
 
     @postConstruct()
     protected init(): void {
@@ -192,6 +209,8 @@ export class AkariChatWidget extends ReactWidget {
             window.removeEventListener('keydown', this.onWindowKeyDown, true);
             document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
             if (this.silenceTimer) clearTimeout(this.silenceTimer);
+            if (this.ticker) clearInterval(this.ticker);
+            if (this.frame) cancelAnimationFrame(this.frame);
         } });
         this.partnerMode = partnerPermission(this.preferences.get<string>('akari.partner.permissionMode', 'auto'));
         this.permissionMode = initialChatPermission(this.partnerMode);
@@ -245,7 +264,21 @@ export class AkariChatWidget extends ReactWidget {
 
     protected override onAfterAttach(message: Message): void {
         super.onAfterAttach(message);
-        void this.restoreOrStart();
+        void this.agentsReady?.then(() => this.restoreOrStart());
+    }
+
+    protected override onAfterShow(message: Message): void {
+        super.onAfterShow(message);
+        this.warmVisibleChat();
+    }
+
+    protected override onActivateRequest(message: Message): void {
+        super.onActivateRequest(message);
+        this.warmVisibleChat();
+    }
+
+    private warmVisibleChat(): void {
+        void this.agentsReady?.then(() => this.restoreOrStart()).then(() => this.ensureChat());
     }
 
     private readonly refreshConnect = async (): Promise<void> => {
@@ -339,17 +372,48 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
     }
 
-    receive(chatId: string, event: ChatEvent): void {
+    receive(chatId: string, event: ChatEventR2): void {
         if (chatId !== this.chatId) {
+            if (this.starting && !this.chatId) {
+                const pending = this.earlyEvents.get(chatId) || [];
+                if (pending.length < 100) pending.push(event);
+                this.earlyEvents.set(chatId, pending);
+            }
             return;
         }
+        if (event.type === 'ready' || event.type === 'capabilities' || event.type === 'model' || event.type === 'thinking.delta') {
+            this.r2Known = true;
+            if (event.type === 'ready') this.readyEventSeen = true;
+            this.refreshPreparation();
+        }
+        if (event.type === 'message.start' || event.type === 'message.delta' || event.type === 'tool' || event.type === 'thinking.delta') {
+            this.turnHasActivity = true;
+        }
         if (event.type === 'message.start') {
+            if (this.thinking) this.thinking.open = false;
             this.items.push({ type: 'message', id: event.id, text: '' });
         } else if (event.type === 'message.delta') {
+            if (this.thinking) this.thinking.open = false;
             const item = this.items.find(candidate => candidate.type === 'message' && candidate.id === event.id);
             if (item?.type === 'message') {
                 item.text += event.text;
             }
+        } else if (event.type === 'thinking.delta') {
+            if (!this.thinking || this.thinking.id !== event.id) {
+                this.thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(), open: true };
+                this.items.push(this.thinking);
+            }
+            this.thinking.text += event.text;
+        } else if (event.type === 'ready') {
+            this.refreshPreparation();
+        } else if (event.type === 'capabilities') {
+            this.capabilities = event.capabilities;
+        } else if (event.type === 'model') {
+            if (event.model !== undefined) {
+                this.actualModel = event.model;
+                this.model = event.model;
+            }
+            if (event.effort !== undefined) this.effort = event.effort;
         } else if (event.type === 'tool') {
             this.tools.set(event.id, event);
             const index = this.items.findIndex(candidate =>
@@ -376,15 +440,19 @@ export class AkariChatWidget extends ReactWidget {
             this.error = event;
             this.errorIsStart = chatId === this.initialErrorChatId;
         } else if (event.type === 'turn.end' && event.reason === 'interrupted') {
+            if (this.thinking) this.thinking.open = false;
             this.stopped = true;
             this.error = undefined;
         } else if (event.type === 'turn.end' && event.ok) {
+            if (this.thinking) this.thinking.open = false;
             this.initialErrorChatId = undefined;
         } else if (event.type === 'session' && event.model) {
             this.actualModel = event.model;
         }
-        this.update();
-        requestAnimationFrame(() => {
+        if (event.type === 'turn.end' && this.thinking) this.thinking.open = false;
+        if (!this.frame) this.frame = requestAnimationFrame(() => {
+            this.frame = undefined;
+            this.update();
             const thread = this.node.querySelector('.akari-chat-thread');
             if (thread) {
                 thread.scrollTop = thread.scrollHeight;
@@ -409,6 +477,76 @@ export class AkariChatWidget extends ReactWidget {
 
     private selectedPermission(): ChatAdapterPermission {
         return availableChatPermission(this.permissionMode, this.partnerMode, this.selectedAgentInfo());
+    }
+
+    private serviceR2(): ChatServiceR2 { return this.chat as ChatServiceR2; }
+
+    private async applyDefaults(agent: string, sequence: number): Promise<void> {
+        const defaults = await optionalRpc(() => this.serviceR2().getDefaults(agent));
+        if (sequence !== this.startSequence || agent !== this.selectedAgent || !defaults) return;
+        this.r2Known = true;
+        this.refreshPreparation();
+        this.model = defaults.model || this.chosenModels.get(agent);
+        this.effort = defaults.effort || this.chosenEfforts.get(agent);
+        this.update();
+    }
+
+    private async loadCommands(chatId: string): Promise<void> {
+        const commands = await optionalRpc(() => this.serviceR2().listCommands(chatId));
+        if (chatId !== this.chatId) return;
+        if (commands) { this.r2Known = true; this.refreshPreparation(); }
+        this.commandsList = commands || [];
+        this.update();
+    }
+
+    private async loadTranscript(cwd: string, id: string, sequence: number): Promise<void> {
+        const transcript = await optionalRpc(() => this.serviceR2().loadTranscript(cwd, id));
+        if (!transcript || sequence !== this.startSequence) return;
+        this.r2Known = true;
+        this.refreshPreparation();
+        this.items = transcriptToItems(transcript);
+        this.resumedTitle = undefined;
+        this.update();
+    }
+
+    private beginWaiting(): void {
+        this.ready = false;
+        this.r2Known = false;
+        this.readyEventSeen = false;
+        this.startReturned = false;
+        this.earlyEvents.clear();
+        this.startAt = Date.now();
+        this.now = this.startAt;
+        if (this.ticker) clearInterval(this.ticker);
+        this.ticker = setInterval(() => { this.now = Date.now(); this.update(); }, 1000);
+    }
+
+    private finishWaiting(): void {
+        this.startReturned = true;
+        this.refreshPreparation();
+    }
+
+    private refreshPreparation(): void {
+        this.ready = preparationReady(this.startReturned, this.r2Known, this.readyEventSeen);
+        if (this.ready && !this.busy) {
+            if (this.ticker) clearInterval(this.ticker);
+            this.ticker = undefined;
+        } else if (!this.ready && this.startReturned && !this.ticker) {
+            this.ticker = setInterval(() => { this.now = Date.now(); this.update(); }, 1000);
+        }
+    }
+
+    private stopWaiting(): void {
+        this.ready = true;
+        this.startReturned = false;
+        if (this.ticker) clearInterval(this.ticker);
+        this.ticker = undefined;
+    }
+
+    private replayEarlyEvents(chatId: string): void {
+        const events = this.earlyEvents.get(chatId) || [];
+        this.earlyEvents.clear();
+        for (const event of events) this.receive(chatId, event);
     }
 
     private async ensureChat(): Promise<string | undefined> {
@@ -442,13 +580,14 @@ export class AkariChatWidget extends ReactWidget {
         const token = `start-${Date.now()}-${sequence}`;
         this.startToken = token;
         this.starting = true;
-        this.showStarting = false;
-        this.startingTimer = setTimeout(() => {
-            if (this.startSequence === sequence) { this.showStarting = true; this.update(); }
-        }, 1500);
+        this.showStarting = true;
+        this.beginWaiting();
         this.update();
         const start = async (): Promise<string | undefined> => { try {
             const deferred = this.deferredHistory;
+            if (deferred) await this.loadTranscript(cwd, deferred.id, sequence);
+            else await this.applyDefaults(this.selectedAgent, sequence);
+            if (sequence !== this.startSequence) return undefined;
             const started = deferred ? await this.chat.resume(cwd, deferred.id, token, permission) : await this.chat.start({
                 agent: this.selectedAgent,
                 cwd,
@@ -466,6 +605,9 @@ export class AkariChatWidget extends ReactWidget {
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
             this.initialErrorChatId = started.error ? started.chatId : undefined;
+            this.replayEarlyEvents(started.chatId);
+            this.finishWaiting();
+            void this.loadCommands(started.chatId);
             this.update();
             return this.chatId;
         } catch (error) {
@@ -482,6 +624,7 @@ export class AkariChatWidget extends ReactWidget {
             if (sequence === this.startSequence) {
                 this.starting = false;
                 this.showStarting = false;
+                if (!this.startReturned) this.stopWaiting();
                 if (this.startingTimer) clearTimeout(this.startingTimer);
                 this.startPromise = undefined;
                 this.startToken = undefined;
@@ -499,9 +642,14 @@ export class AkariChatWidget extends ReactWidget {
         this.openingHistoryId = undefined;
         this.starting = false;
         this.showStarting = false;
+        const chatId = this.chatId;
+        this.chatId = undefined;
+        this.activePermission = undefined;
+        this.stopWaiting();
         if (this.startingTimer) clearTimeout(this.startingTimer);
         this.update();
         if (token) await this.chat.cancelStart(token);
+        if (chatId) await this.chat.close(chatId);
     }
 
     private async restoreOrStart(): Promise<void> {
@@ -541,6 +689,7 @@ export class AkariChatWidget extends ReactWidget {
             return;
         }
         this.input = '';
+        this.commandDismissed = false;
         this.attachments = [];
         this.items.push({ type: 'user', text: text || attachments.map(item => item.label).join('、'), attachments });
         this.outbox.push({ text, attachments });
@@ -557,6 +706,10 @@ export class AkariChatWidget extends ReactWidget {
         }
         this.sending = true;
         this.busy = true;
+        this.thinking = undefined;
+        this.turnHasActivity = false;
+        this.turnStartedAt = Date.now();
+        if (!this.ticker) this.ticker = setInterval(() => { this.now = Date.now(); this.update(); }, 1000);
         this.update();
         try {
             while (this.outbox.length > 0) {
@@ -598,6 +751,8 @@ export class AkariChatWidget extends ReactWidget {
         } finally {
             this.sending = false;
             this.busy = false;
+            if (this.ticker) clearInterval(this.ticker);
+            this.ticker = undefined;
             this.update();
         }
     }
@@ -620,15 +775,21 @@ export class AkariChatWidget extends ReactWidget {
         ++this.startSequence;
         this.outbox.length = 0;
         if (this.startToken) await this.cancelStarting();
+        else this.stopWaiting();
         const previous = this.chatId;
         this.chatId = undefined;
         this.deferredHistory = undefined;
         this.activePermission = undefined;
         this.hasSentToChat = false;
         this.openingHistoryId = undefined;
-        if (previous) await this.chat.close(previous);
         this.items = [];
+        this.thinking = undefined;
+        this.turnHasActivity = false;
+        this.update();
+        if (previous) await this.chat.close(previous);
         this.tools.clear();
+        this.commandsList = [];
+        this.contextInfo = undefined;
         this.capabilities = undefined;
         this.actualModel = undefined;
         this.resumedTitle = undefined;
@@ -692,6 +853,10 @@ export class AkariChatWidget extends ReactWidget {
         this.capabilities = undefined;
         this.actualModel = entry.model;
         this.items = [];
+        this.thinking = undefined;
+        this.turnHasActivity = false;
+        this.commandsList = [];
+        this.contextInfo = undefined;
         this.tools.clear();
         this.outbox.length = 0;
         this.error = undefined;
@@ -701,11 +866,8 @@ export class AkariChatWidget extends ReactWidget {
         this.usedTokens = 0;
         this.contextWindow = 0;
         this.starting = true;
-        this.showStarting = false;
-        if (this.startingTimer) clearTimeout(this.startingTimer);
-        this.startingTimer = setTimeout(() => {
-            if (sequence === this.startSequence) { this.showStarting = true; this.update(); }
-        }, 1500);
+        this.showStarting = true;
+        this.beginWaiting();
         this.popup = undefined;
         this.update();
         const opening = async (): Promise<string | undefined> => { try {
@@ -714,6 +876,8 @@ export class AkariChatWidget extends ReactWidget {
             if (sequence !== this.startSequence) return undefined;
             const cwd = await this.cwd();
             if (!cwd) throw new Error('先にプロジェクトを開いてください');
+            if (sequence !== this.startSequence) return undefined;
+            await this.loadTranscript(cwd, entry.id, sequence);
             if (sequence !== this.startSequence) return undefined;
             const permission = this.selectedPermission();
             const started = await this.chat.resume(cwd, entry.id, token, permission);
@@ -725,6 +889,9 @@ export class AkariChatWidget extends ReactWidget {
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
             this.initialErrorChatId = started.error ? started.chatId : undefined;
+            this.replayEarlyEvents(started.chatId);
+            this.finishWaiting();
+            void this.loadCommands(started.chatId);
             this.update();
             return this.chatId;
         } catch (error) {
@@ -738,6 +905,7 @@ export class AkariChatWidget extends ReactWidget {
             if (sequence === this.startSequence) {
                 this.starting = false;
                 this.showStarting = false;
+                if (!this.startReturned) this.stopWaiting();
                 if (this.startingTimer) clearTimeout(this.startingTimer);
                 this.startPromise = undefined;
                 this.openingHistoryId = undefined;
@@ -756,7 +924,11 @@ export class AkariChatWidget extends ReactWidget {
         this.recentModels.set(this.selectedAgent, [model, ...(this.recentModels.get(this.selectedAgent) || []).filter(id => id !== model)].slice(0, 5));
         this.update();
         if (this.chatId) {
-            await this.chat.setModel(this.chatId, model);
+            try { await this.chat.setModel(this.chatId, model); } catch { /* The current session keeps its model. */ }
+        }
+        if (await optionalRpc(async () => { await this.serviceR2().setDefaults(this.selectedAgent, { model, effort: this.effort }); return true; })) {
+            this.r2Known = true;
+            this.refreshPreparation();
         }
         this.update();
     }
@@ -767,7 +939,11 @@ export class AkariChatWidget extends ReactWidget {
         this.chosenEfforts.set(this.selectedAgent, effort);
         this.update();
         if (this.chatId) {
-            await this.chat.setEffort(this.chatId, effort);
+            try { await this.chat.setEffort(this.chatId, effort); } catch { /* The current session keeps its effort. */ }
+        }
+        if (await optionalRpc(async () => { await this.serviceR2().setDefaults(this.selectedAgent, { model: this.model, effort }); return true; })) {
+            this.r2Known = true;
+            this.refreshPreparation();
         }
         this.update();
     }
@@ -975,7 +1151,7 @@ export class AkariChatWidget extends ReactWidget {
     };
 
     private readonly onWindowKeyDown = (event: KeyboardEvent): void => {
-        if (event.key !== 'Escape' || !this.popup) {
+        if (event.key !== 'Escape' || !this.popup || this.ime.shouldIgnoreKey(event.key, event)) {
             return;
         }
         event.preventDefault();
@@ -993,10 +1169,10 @@ export class AkariChatWidget extends ReactWidget {
         if (this.renamingHistoryId && !target?.closest?.('[data-chat-history-rename-input]')) {
             this.cancelHistoryRename();
         }
-        const selector = '[data-chat-model-popup], [data-chat-history], [data-chat-model-button], '
+        const selector = '[data-chat-model-popup], [data-chat-history], [data-chat-model-button], [data-chat-context-pop], '
             + '[data-chat-agent-button], [data-chat-history-button], [data-chat-attach-menu], '
             + '[data-chat-create-menu], [data-chat-permission-menu], [data-chat-activity-list], '
-            + '[data-chat-attach], [data-chat-permission-chip], [data-chat-activity]';
+            + '[data-chat-attach], [data-chat-permission-chip], [data-chat-activity], [data-chat-context]';
         if (target?.closest?.(selector)) {
             return;
         }
@@ -1090,8 +1266,27 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private onInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
-        if (event.nativeEvent.isComposing) {
-            return;
+        if (this.ime.shouldPreventDefault(event.key, event.nativeEvent)) event.preventDefault();
+        if (this.ime.shouldIgnoreKey(event.key, event.nativeEvent)) return;
+        const commands = this.visibleCommands();
+        if (commands.length && this.input.startsWith('/') && !this.input.includes(' ')) {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.commandSelection = (this.commandSelection + (event.key === 'ArrowDown' ? 1 : -1) + commands.length) % commands.length;
+                this.update();
+                requestAnimationFrame(() => requestAnimationFrame(() => this.node
+                    .querySelector(`[data-chat-command-index="${this.commandSelection}"]`)
+                    ?.scrollIntoView({ block: 'nearest' })));
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.chooseCommand(commands[this.commandSelection] || commands[0]);
+                return;
+            }
+        }
+        if (event.key === 'Escape' && this.input.startsWith('/')) {
+            event.preventDefault(); this.commandDismissed = true; this.update(); return;
         }
         if (/^[1-9]$/.test(event.key) && !this.input && this.items.some(item => item.type === 'ask')) {
             event.preventDefault();
@@ -1101,6 +1296,60 @@ export class AkariChatWidget extends ReactWidget {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             this.send();
+        }
+    }
+
+    private visibleCommands(): ChatCommand[] {
+        if (this.commandDismissed || !this.input.startsWith('/') || this.input.includes(' ')) return [];
+        const local: ChatCommand[] = [
+            { name: 'new', label: '新しい会話', kind: 'command', local: true },
+            ...(this.capabilities?.compact ? [{ name: 'compact', label: '要約して続ける', kind: 'command' as const, local: true }] : [])
+        ];
+        const ordered = [
+            ...this.commandsList.filter(command => command.kind === 'skill'),
+            ...this.commandsList.filter(command => command.kind === 'command'),
+            ...local
+        ];
+        return commandMatches(ordered, this.input.slice(1));
+    }
+
+    private chooseCommand(command: ChatCommand): void {
+        if (command.name === 'new') { this.input = ''; void this.newChat(); return; }
+        if (command.name === 'compact') { this.input = ''; if (this.chatId) void this.chat.compact(this.chatId).catch(() => undefined); this.update(); return; }
+        this.input = `/${command.name} `;
+        this.commandSelection = 0;
+        this.commandDismissed = false;
+        this.update();
+    }
+
+    private renderCommands(): React.ReactNode {
+        const commands = this.visibleCommands();
+        if (!commands.length || this.ime.composing) return null;
+        return <div className='akari-chat-pop akari-chat-commands' data-chat-commands>
+            {commandGroups(commands).map(group => <React.Fragment key={group.kind}>
+                <strong>{group.label}</strong>
+                {group.rows.map(({ command, index }) => <button key={`${group.kind}-${command.name}`}
+                    className={this.commandSelection === index ? 'selected' : undefined}
+                    data-chat-command={command.name} data-chat-command-index={index}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => this.chooseCommand(command)}>
+                    {command.local ? command.label : `/${command.name}`}
+                    {command.description && <small>{command.description}</small>}
+                </button>)}
+            </React.Fragment>)}
+        </div>;
+    }
+
+    private async toggleContext(): Promise<void> {
+        this.popup = this.popup === 'context' ? undefined : 'context';
+        this.update();
+        if (this.popup === 'context' && this.chatId) {
+            const chatId = this.chatId;
+            const info = await optionalRpc(() => this.serviceR2().contextInfo(chatId!));
+            if (chatId !== this.chatId) return;
+            if (info) { this.r2Known = true; this.refreshPreparation(); }
+            this.contextInfo = info;
+            this.update();
         }
     }
 
@@ -1182,6 +1431,14 @@ export class AkariChatWidget extends ReactWidget {
             return <div key={index} className='akari-chat-bubble' data-chat-role='assistant'>
                 <span className='akari-chat-avatar'><AkariLamp /></span>
                 <div className='akari-chat-md' dangerouslySetInnerHTML={{ __html: renderMarkdown(item.text) }} />
+            </div>;
+        }
+        if (item.type === 'thinking') {
+            return <div key={index} className='akari-chat-thinking' data-chat-thinking>
+                <button aria-expanded={item.open} onClick={() => { item.open = !item.open; this.update(); }}>
+                    <ChatIcon name='brain' size={15} /> {thinkingLabel(item.startedAt, this.now, !!item.text)}
+                </button>
+                {item.open && item.text && <div className='akari-chat-thinking-text'>{item.text}</div>}
             </div>;
         }
         if (item.type === 'tool') {
@@ -1282,7 +1539,7 @@ export class AkariChatWidget extends ReactWidget {
                         <span className='akari-chat-history-title'>
                             {current && <span className='akari-chat-history-current' aria-label='今の会話'>●</span>}{entry.title}
                         </span>
-                        <small>{name} · {this.historyTime(entry.updatedAt)}</small>
+                        <small><AgentIcon id={entry.agent} name={name} /> {name} · {this.historyTime(entry.updatedAt)}</small>
                         {!available && <small>この会話は開けません</small>}
                     </button>}
                     <span className='akari-chat-history-actions'>
@@ -1300,9 +1557,7 @@ export class AkariChatWidget extends ReactWidget {
             <strong>添付する</strong>
             <button data-chat-attach-item='file' onClick={() => { this.popup = undefined; this.fileInput?.click(); this.update(); }}>ファイル</button>
             <button data-chat-attach-item='folder' onClick={() => { this.popup = undefined; this.folderInput?.click(); this.update(); }}>フォルダ</button>
-            <button data-chat-attach-item='record' onClick={() => void this.recordScreen()}>
-                {this.screenRecorder ? '録画を停止' : '画面を録画'}
-            </button>
+            <button data-chat-attach-item='record' disabled title='近日'>画面を録画 <small>近日</small></button>
             <strong>作る</strong>
             <button data-chat-attach-item='create' onClick={() => { this.popup = 'create'; this.update(); }}>つないだサービスで作る</button>
             <button data-chat-attach-item='connect' onClick={() => void this.openConnect()}>ほかをつなぐ…</button>
@@ -1326,15 +1581,17 @@ export class AkariChatWidget extends ReactWidget {
     private renderPermissionPopup(): React.ReactNode {
         if (this.popup !== 'permission') return null;
         const modes: { id: ChatPermission; label: string; note: string }[] = [
-            { id: 'automatic', label: '自動', note: '既定の権限モードで進めます' },
-            { id: 'checkpoints', label: '要所で確認', note: '相手の確認要求で止まります' },
-            { id: 'every', label: '毎回確認', note: '毎回の承認に対応した相手で使えます' }
+            { id: 'automatic', label: '自動', note: '書き出しまで進めます。お金がかかる生成と、公開・削除のときだけ聞きます' },
+            { id: 'checkpoints', label: '要所で確認', note: '構成を決めたとき・書き出しの前に止まって聞きます' },
+            { id: 'every', label: '毎回確認', note: '1 歩ずつ。ファイルを書く前に毎回聞きます' }
         ];
+        const selected = permissionSelection(this.selectedPermission());
         return <div className='akari-chat-pop akari-chat-permission-menu' data-chat-permission-menu>
             <strong>進め方</strong>
             {modes.map(mode => {
                 const option = permissionOption(mode.id, this.partnerMode, this.selectedAgentInfo());
                 return <button key={mode.id} disabled={!option.available} title={option.reason || mode.note}
+                    aria-pressed={selected === mode.id}
                     onClick={() => {
                         const nextPreference = partnerPermissionAfterChoice(mode.id, this.partnerMode);
                         this.permissionMode = mode.id;
@@ -1344,7 +1601,7 @@ export class AkariChatWidget extends ReactWidget {
                         }
                         this.popup = undefined;
                         this.update();
-                    }}>{mode.label}{this.permissionMode === mode.id ? ' ✓' : ''}<small>{option.reason || mode.note}</small></button>;
+                    }}>{mode.label}{selected === mode.id ? ' ✓' : ''}<small>{option.reason || mode.note}</small></button>;
             })}
         </div>;
     }
@@ -1367,7 +1624,7 @@ export class AkariChatWidget extends ReactWidget {
                     data-installed={String(agent.installed)}
                     title={agent.name}
                     onClick={() => void this.openAgent(agent.id)}
-                ><ChatIcon name={agentIcon(agent.id)} size={18} /></button>)}
+                ><AgentIcon id={agent.id} name={agent.name} /></button>)}
             </div>
             <div className='akari-chat-model-column'>
                 {!agent?.installed ? <div data-chat-install-guide>
@@ -1402,7 +1659,6 @@ export class AkariChatWidget extends ReactWidget {
                     >{EFFORT_LABELS[effort] || effort}{this.effort === effort && <ChatIcon name='check' size={12} />}</button>)}
                 </div>}
                 {this.actualModel && <small>実行中のモデル: {this.actualModel}</small>}
-                <small>モデルと深さの変更は次の発話から反映されます。</small>
                 </>}
             </div>
         </div>;
@@ -1411,14 +1667,16 @@ export class AkariChatWidget extends ReactWidget {
     protected render(): React.ReactNode {
         const agent = this.agents.find(item => item.id === this.selectedAgent);
         const models = this.capabilities?.models || [];
-        const shownModel = this.starting ? '起動しています…' : modelLabel(models, this.model, this.actualModel);
+        const shownModel = modelLabel(models, this.model, this.actualModel);
         const errorDisplay = this.error
             ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent)
             : undefined;
         const effortLabel = this.effort && this.capabilities?.efforts?.includes(this.effort)
             ? EFFORT_LABELS[this.effort] || this.effort : undefined;
-        const percentage = this.contextWindow
-            ? Math.min(100, Math.round(this.usedTokens / this.contextWindow * 100))
+        const contextUsed = this.contextInfo?.usedTokens ?? this.usedTokens;
+        const contextLimit = this.contextInfo?.contextWindow ?? this.contextWindow;
+        const percentage = contextLimit
+            ? Math.min(100, Math.round(contextUsed / contextLimit * 100))
             : 0;
         const seenPaths = new Set<string>();
         const connectedItems: ConnectStackItem[] = this.connected.map(row => ({ id: row.id, icon: row.icon, name: row.name }));
@@ -1429,7 +1687,7 @@ export class AkariChatWidget extends ReactWidget {
             data-akari-chat
             onKeyDown={event => {
                 if (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement
-                    || event.nativeEvent.isComposing) {
+                    || this.ime.shouldIgnoreKey(event.key, event.nativeEvent)) {
                     return;
                 }
                 if (/^[1-9]$/.test(event.key)) {
@@ -1448,7 +1706,7 @@ export class AkariChatWidget extends ReactWidget {
                         if (!this.chatId) void this.ensureChat();
                         this.update();
                     }}
-                >{agent?.name || 'Claude Code'} <ChatIcon name='down' size={13} /></button>
+                ><AgentIcon id={this.selectedAgent} name={agent?.name} /> {agent?.name || 'Claude Code'} <ChatIcon name='down' size={13} /></button>
                 <span className='akari-chat-spacer' />
                 <button className='akari-chat-plain' data-chat-new title='新しいチャット' onClick={() => void this.newChat()}>
                     <ChatIcon name='plus' size={18} />
@@ -1472,11 +1730,10 @@ export class AkariChatWidget extends ReactWidget {
                     <strong>何から始めますか？</strong>
                     <div>動画づくりのことを話しかけてください。</div>
                 </div>}
-                {this.showStarting && <div className='akari-chat-starting' data-chat-starting>
-                    起動しています…（{agent?.name || this.selectedAgent}）
-                    <button data-chat-start-cancel onClick={() => void this.cancelStarting()}>止める</button>
-                </div>}
                 {this.items.map((item, index) => this.renderItem(item, index, seenPaths))}
+                {showElapsedThinking(this.busy, this.turnHasActivity, !!this.thinking) && <div className='akari-chat-thinking' data-chat-thinking>
+                    {thinkingLabel(this.turnStartedAt, this.now, false)}
+                </div>}
                 {this.stopped && <div className='akari-chat-stopped' role='status' data-chat-stopped>止めました</div>}
                 {agent && !agent.installed && <div data-chat-install-guide>
                     <strong>{agent.name} は入っていません</strong><p>{agent.installHint}</p>
@@ -1498,12 +1755,28 @@ export class AkariChatWidget extends ReactWidget {
                 </div>}
             </div>
             <div className='akari-chat-composer'>
+                {(this.showStarting || this.startReturned) && !this.ready && <div className='akari-chat-warming' data-chat-starting>
+                    準備中…（{agent?.name || this.selectedAgent}）{Math.floor((this.now - this.startAt) / 1000)} 秒
+                    <button data-chat-start-cancel onClick={() => void this.cancelStarting()}>止める</button>
+                </div>}
                 {this.screenRecorder && <button className='akari-chat-screen-recording' data-chat-screen-recording
                     onClick={() => void this.recordScreen()}>● 画面を録画中 · 停止</button>}
                 {this.renderModelPopup()}
                 {this.renderAttachPopup()}
                 {this.renderCreatePopup()}
                 {this.renderPermissionPopup()}
+                {this.renderCommands()}
+                {this.popup === 'context' && <div className='akari-chat-pop akari-chat-context-pop' data-chat-context-pop>
+                    <strong>コンテキスト</strong>
+                    <div>{contextUsageLabel(this.contextInfo?.usedTokens ?? this.usedTokens,
+                        (this.contextInfo?.contextWindow ?? this.contextWindow) || undefined)}</div>
+                    <div>モデル: {this.contextInfo?.model || shownModel}</div>
+                    {this.chatId && (this.contextInfo?.canCompact ?? this.capabilities?.compact) && <button onClick={() => {
+                        this.popup = undefined;
+                        if (this.chatId) void this.chat.compact(this.chatId).catch(() => undefined);
+                        this.update();
+                    }}>要約して続ける</button>}
+                </div>}
                 {running.length >= 2 && <div className='akari-chat-activity-wrap'>
                     <button data-chat-activity onClick={() => { this.popup = this.popup === 'activity' ? undefined : 'activity'; this.update(); }}>
                         作業中 {running.length}
@@ -1529,9 +1802,15 @@ export class AkariChatWidget extends ReactWidget {
                 <textarea
                     data-chat-input
                     placeholder='話しかける…'
-                    value={this.input}
+                    defaultValue=''
+                    ref={element => { if (element && !this.ime.composing && element.value !== this.input) element.value = this.input; }}
+                    onCompositionStart={() => { this.ime.start(); }}
+                    onCompositionEnd={event => { this.ime.end(); this.input = event.currentTarget.value; this.commandSelection = 0; this.commandDismissed = false; this.update(); }}
                     onChange={event => {
+                        if (!this.ime.shouldCommitInput(event.nativeEvent as InputEvent)) return;
                         this.input = event.currentTarget.value;
+                        this.commandSelection = 0;
+                        this.commandDismissed = false;
                         this.update();
                     }}
                     onKeyDown={event => this.onInputKeyDown(event)}
@@ -1550,15 +1829,16 @@ export class AkariChatWidget extends ReactWidget {
                     <button className='akari-chat-plain' data-chat-permission-chip onClick={() => {
                         this.popup = this.popup === 'permission' ? undefined : 'permission';
                         this.update();
-                    }}>{({ automatic: '自動', checkpoints: '要所で確認', every: '毎回確認' } as const)[this.permissionMode]} <ChatIcon name='down' size={13} /></button>
+                    }}>{permissionLabel(this.selectedPermission())} <ChatIcon name='down' size={13} /></button>
                     <span className='akari-chat-spacer' />
-                    <span
+                    <button
                         data-chat-context
                         data-used-tokens={this.usedTokens}
                         data-context-window={this.contextWindow}
                         title={`${this.usedTokens} / ${this.contextWindow || '—'}`}
                         className='akari-chat-ring'
                         style={{ background: `conic-gradient(#f97316 ${percentage}%, #444 ${percentage}%)` }}
+                        onClick={() => void this.toggleContext()}
                     />
                     <button className='akari-chat-plain' data-chat-attach title='添付' onClick={() => {
                         this.popup = this.popup === 'attach' ? undefined : 'attach';
