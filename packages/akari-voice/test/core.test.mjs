@@ -10,6 +10,7 @@ import {
   speakerLabel, levelFor, suggestFor, bundleBySuggestion, voiceEngineStatus,
   channelPeopleForProject, readChannelPeople, loadCentroids, buildVoicesFile, writeVoicesFile,
   readVoicesFile, setDecided, writeSpeakerEntry, readSpeakerDictionary, dictionaryPathFor,
+  MIN_SPEAKER_SECONDS, MIN_SPEAKER_SHARE, isAudioBufferLimit, AUDIO_TOO_LONG_MESSAGE,
 } from '../src/index.mjs';
 
 const lane = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.tmp-lane');
@@ -140,7 +141,7 @@ test('照合用ランタイムが無い場合は共通の案内で拒む', async
 });
 
 test('人数指定は自動結果を優先し、必要なときだけ再試行する', async () => {
-  const turns = n => Array.from({ length: n }, (_, speaker) => ({ start: speaker, end: speaker + 1, speaker }));
+  const turns = n => Array.from({ length: n }, (_, speaker) => ({ start: speaker * 4, end: speaker * 4 + 4, speaker }));
   const calls = [];
   const run = resultByCluster => async (_samples, { numClusters }) => {
     calls.push(numClusters);
@@ -158,12 +159,39 @@ test('人数指定は自動結果を優先し、必要なときだけ再試行�
   result = await diarizeToCount(run({ [-1]: 2, 3: 2, 4: 4, 5: 4 }), samples, 3);
   assert.deepEqual(calls, [-1, 3, 4, 5]);
   assert.deepEqual([result.requested, result.used, result.fallback, result.turns.length], [3, 2, true, 2]);
-  for (const [speakers, expected] of [[1, 1], ['auto', -1], [4, -1]]) {
+  for (const [speakers, expected, callsExpected] of [[1, 1, [1]], ['auto', -1, [-1]], [4, -1, [-1]]]) {
     calls.length = 0;
     result = await diarizeToCount(run({ [expected]: 1 }), samples, speakers);
-    assert.deepEqual(calls, [expected]);
+    assert.deepEqual(calls, callsExpected);
     assert.equal(result.fallback, false);
   }
+});
+
+test('短い外れ値を人数指定に採用せず、自動結果へ戻す', async () => {
+  assert.equal(MIN_SPEAKER_SECONDS, 3);
+  assert.equal(MIN_SPEAKER_SHARE, 0.03);
+  const auto = [{ start: 0, end: 40, speaker: 0 }, { start: 40, end: 80, speaker: 1 }];
+  const outlier = [...auto, { start: 80, end: 81, speaker: 2 }];
+  const run = async (_samples, { numClusters }) => numClusters === -1 ? auto : outlier;
+  const result = await diarizeToCount(run, new Float32Array(1), 3);
+  assert.deepEqual([result.used, result.fallback], [2, true]);
+  const enough = [...auto, { start: 80, end: 84, speaker: 2 }];
+  const accepted = await diarizeToCount(async (_samples, { numClusters }) => numClusters === -1 ? auto : enough,
+    new Float32Array(1), 3);
+  assert.deepEqual([accepted.used, accepted.fallback], [3, false]);
+  const lowShare = [{ start: 0, end: 200, speaker: 0 }, { start: 200, end: 400, speaker: 1 },
+    { start: 400, end: 404, speaker: 2 }];
+  const rejectedShare = await diarizeToCount(async (_samples, { numClusters }) => numClusters === -1 ? auto : lowShare,
+    new Float32Array(1), 3);
+  assert.equal(rejectedShare.fallback, true);
+});
+
+test('長い音声のバッファ上限だけを専用の案内にする', () => {
+  assert.equal(isAudioBufferLimit({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }), true);
+  assert.equal(isAudioBufferLimit({ code: 'ENOBUFS' }), true);
+  assert.equal(isAudioBufferLimit({ message: 'stdout maxBuffer length exceeded' }), true);
+  assert.equal(isAudioBufferLimit({ code: 'ENOENT', message: 'not found' }), false);
+  assert.match(AUDIO_TOO_LONG_MESSAGE, /約 2 時間/);
 });
 
 test('チャンネルの位置と同意のある見本だけを読む', t => {
@@ -190,4 +218,17 @@ test('人物の重心は見本の内容が同じ間キャッシュを使う', as
   fs.writeFileSync(audio, 'two');
   await loadCentroids(options);
   assert.equal(calls, 2);
+});
+
+test('チャンネル外の見本は拒み、重心を作らない', async t => {
+  const dir = scratch(t), channel = path.join(dir, 'channel');
+  fs.mkdirSync(channel);
+  fs.writeFileSync(path.join(dir, 'outside.wav'), 'voice');
+  const peoplePath = path.join(channel, 'people.json');
+  fs.writeFileSync(peoplePath, JSON.stringify({ entries: [{ kind: 'person', id: 'p', name: '甲', voice: {
+    samples: [{ file: '../outside.wav', consent: 'self' }] } }] }));
+  const result = await loadCentroids({ peoplePath, channel: 'c', embedder: { embed: () => { throw new Error('呼ばれない'); } },
+    decode: () => { throw new Error('呼ばれない'); } });
+  assert.deepEqual(result.compared, []);
+  assert.match(result.warnings[0], /チャンネル外の見本/);
 });

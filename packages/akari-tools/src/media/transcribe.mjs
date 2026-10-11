@@ -129,7 +129,7 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
     : path.join(os.tmpdir(), "akari-diarize-cache");
   const fixedCount = api.clusterCountFor(speakers);
   const key = createHash("sha256").update(JSON.stringify([sha256, range.in, range.out, speakers, voice.version,
-    ...([2, 3].includes(fixedCount) ? ["count-v2"] : [])])).digest("hex");
+    ...([2, 3].includes(fixedCount) ? ["count-v3"] : [])])).digest("hex");
   const cachePath = path.join(cacheDirectory, `${key}.json`);
   const decode = options.voiceDecode ?? ((file, start, duration) => api.decodeAudio16k({ ffmpeg, file, start, duration }));
   const readStarted = performance.now();
@@ -140,7 +140,7 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
     turns = cached.turns;
-    countResult = cached.countResult;
+    countResult = cached.countResult ?? { requested: speakers === "auto" ? "auto" : Number(speakers), fallback: false };
   }
   else {
     countResult = await api.diarizeToCount(engine.diarize.bind(engine), samples, speakers, api.DIARIZE_THRESHOLD);
@@ -191,12 +191,15 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
   }
   const seconds = api.speakerSeconds(turns);
   const ids = Object.keys(seconds);
+  const speakerInfo = { requested: countResult.requested, fallback: countResult.fallback,
+    count: ids.length, ids, seconds };
   if (target.projectRoot && target.projectRelative) {
     const file = api.voicesPathFor(target.projectRoot, target.projectRelative);
     const entries = Object.fromEntries(ids.filter(id => embeddings[id]?.length === 256).map(id => [id, {
       seconds: seconds[id], embedding: embeddings[id], suggestion: identify?.suggestions[id],
     }]));
-    if (canIdentify) api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries }));
+    api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries,
+      requested: countResult.requested, fallback: countResult.fallback }));
     if (!options.noRecord) await updateAnalysisTranscript(target, (before, analysis) => {
       analysis.tracks ??= { speakers: [], faces: [], person_matte: null };
       const oldTracks = Array.isArray(analysis.tracks.speakers) ? analysis.tracks.speakers : [];
@@ -222,7 +225,8 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
   }
   voiceLog(options, `話者の分離: ${ids.length} 人・${((performance.now() - started) / 1000).toFixed(1)} 秒（読み込み ${readSeconds.toFixed(1)} 秒）`);
   return { ...result, segments: api.assignSpeakers(result.segments, turns), speakers: {
-    count: ids.length, ids, seconds, ...(identify ? { identify } : {}),
+    ...speakerInfo,
+    ...(identify ? { identify } : {}),
   } };
 }
 

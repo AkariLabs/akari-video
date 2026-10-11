@@ -21,7 +21,7 @@ import { analysisTranscriptSummary, popupCanNavigate, popupInitialSourceIds, tra
     TranscribeConnectionStatus, TranscribeToolStatus, channelPeopleLocation, ChannelPerson, mergeSpeakerDictionary,
     orderChannelPeople, parseChannelPeople, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided, mergeVoicesDecided,
     analysisHasSpeakers, parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, SpeakerCount, SpeakerReviewRow,
-    voiceEngineReady, voiceGateBlocks,
+    voiceEngineReady, voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage,
     VOICE_ENGINE_DOWNLOAD_MB, SPEAKER_COLORS } from '../../common/transcribe-steps';
 
 export const TRANSCRIBE_ENGINE_CARDS = [
@@ -87,6 +87,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected installingVoice = false;
     protected voiceInstallError = '';
     protected speakerRows = new Map<string, SpeakerReviewRow[]>();
+    protected speakerFallbacks = new Map<string, string>();
     protected speakerDictionary: Record<string, { name: string; person?: string }> = {};
     protected expandedSpeaker = '';
     protected backend = 'auto';
@@ -302,6 +303,10 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                     && transcribeEngineAvailability(id, this.tools, this.connections).state === 'available';
             if (!available(this.backend)) this.backend = 'auto';
             this.compareSet = new Set([...this.compareSet].filter(available));
+            if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                this.identify = false;
+                this.saveSpeakerChoice();
+            }
             if (!this.isDisposed) this.render();
         });
     }
@@ -519,13 +524,15 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         details.ontoggle = () => { this.showDetails = details.open; };
         details.append(el('summary', '詳しく'));
         const compare = el('label'); compare.style.cssText = 'display:block;padding:10px';
-        const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = this.compare;
+        const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = this.compare; toggle.disabled = this.split;
         toggle.onchange = () => {
             this.compare = toggle.checked;
             if (this.compare && this.backend !== 'auto') this.compareSet.add(this.backend);
             this.invalidateRun(); this.render();
         };
-        compare.append(toggle, ' 2 つ以上のエンジンで起こして比べる'); details.append(compare);
+        compare.append(toggle, ' 2 つ以上のエンジンで起こして比べる');
+        if (this.split) compare.append(el('small', ' 話者を分けるときは比較できません。'));
+        details.append(compare);
         this.body.append(details);
     }
 
@@ -538,10 +545,10 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const card = el('label');
             card.style.cssText = `display:block;padding:11px 13px;border:1px solid ${this.split === value ? 'var(--akari-accent)' : 'var(--akari-line)'};border-radius:9px;background:${this.split === value ? 'var(--akari-elevated)' : 'var(--akari-card)'}`;
             const radio = el('input'); radio.type = 'radio'; radio.name = 'speaker-split'; radio.checked = this.split === value;
-            radio.onchange = () => { this.split = value; if (value) this.voiceInstallError = '';
+            radio.onchange = () => { this.split = value; if (value) { this.voiceInstallError = ''; this.compare = false; }
                 this.saveSpeakerChoice(); this.invalidateRun(); this.render(); };
             const name = el('strong', ` ${title}`);
-            if (value) { const tag = el('small', '詳しく'); tag.style.cssText = 'margin-left:8px;color:var(--akari-warning)'; name.append(tag); }
+            if (value) { const tag = el('small', 'アドバンス'); tag.style.cssText = 'margin-left:8px;color:var(--akari-warning)'; name.append(tag); }
             const small = el('small', detail); small.style.cssText = 'display:block;margin:4px 0 0 22px;color:var(--akari-muted)';
             card.append(radio, name, small); choices.append(card);
         }
@@ -566,11 +573,14 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                     [false, '照らさない', '話者 A・B のまま。名前はあとで付けられます']] as const) {
                     const row = el('label'); row.style.cssText = 'display:block;padding:8px';
                     const radio = el('input'); radio.type = 'radio'; radio.name = 'speaker-identify'; radio.checked = this.identify === value;
-                    radio.disabled = value && !hasVoices;
+                    radio.disabled = value && (!hasVoices || this.tools.find(tool => tool.id === 'voice')?.canIdentify === false);
                     radio.onchange = () => { this.identify = value; this.saveSpeakerChoice(); this.invalidateRun(); this.render(); };
                     const caption = el('span', ` ${title}`); const sub = el('small', detail);
                     sub.style.cssText = 'display:block;margin-left:23px;color:var(--akari-muted)'; caption.append(sub);
                     row.append(radio, caption); section.append(row);
+                }
+                if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                    section.append(el('p', 'この Mac では声の照合はできません（分けることはできます）'));
                 }
                 if (this.identify && hasVoices) {
                     for (const person of this.people) {
@@ -593,7 +603,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const warning = el('div'); warning.style.cssText = 'padding:11px;border:1px solid var(--akari-warning);border-radius:7px;color:var(--akari-warning);margin-top:12px';
                 warning.append(el('span', `話者を分けるには準備が要ります（約 ${VOICE_ENGINE_DOWNLOAD_MB} MB を取得します）`));
                 if (this.installingVoice) { warning.append(el('span', ' 準備しています…'), el('progress')); }
-                else warning.append(button('準備する', () => void this.installVoice()));
+                else warning.append(button(this.voiceInstallError ? 'もう一度' : '準備する', () => void this.installVoice()));
                 section.append(warning);
             }
         }
@@ -608,14 +618,18 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected async installVoice(): Promise<void> {
         this.installingVoice = true; this.voiceInstallError = ''; this.render();
         try {
-            const result = await this.commands.executeCommand<{ outcome?: string } | undefined>('akari.tools.install', 'voice');
-            if (!result) throw new Error('準備できませんでした');
+            const result = await this.commands.executeCommand<{ outcome?: string; message?: string } | undefined>('akari.tools.install', 'voice');
+            const failure = voiceInstallFailure(result);
+            if (failure) throw new Error(failure);
             const status = await this.commands.executeCommand<{ tools: TranscribeToolStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-new-project');
             this.tools = status?.tools ?? [];
+            if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                this.identify = false;
+                this.saveSpeakerChoice();
+            }
             if (!voiceEngineReady(this.tools)) throw new Error('声のエンジンが見つかりません');
-        } catch {
-            this.voiceInstallError = 'この版のアプリからはまだ準備できません。ターミナルで akari tools install voice を実行してください。今回は分けずに起こします。';
-            this.split = false; this.saveSpeakerChoice();
+        } catch (error) {
+            this.voiceInstallError = error instanceof Error ? error.message : '準備できませんでした';
         } finally { this.installingVoice = false; this.render(); }
     }
 
@@ -648,7 +662,9 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 }
             }
         }
-        if (this.split) this.body.append(el('p', '話者を分けると、そのぶん時間がかかります（目安は音声の長さの 2 割）。'));
+        if (this.split) this.body.append(el('p', this.speakerCount === 'auto'
+            ? '話者を分けると、そのぶん時間がかかります（目安は音声の長さの 2 割）。'
+            : '話者を分けると、そのぶん時間がかかります（目安は音声の長さの 2 割〜1 倍）。'));
         if (this.currentSource) {
             const backends = this.compare ? [...this.compareSet] : [this.backend];
             const columns = el('div');
@@ -671,6 +687,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
 
     protected async loadSpeakerReview(): Promise<void> {
         this.speakerRows.clear();
+        this.speakerFallbacks.clear();
         for (const source of this.selectedSources()) {
             const folder = this.root.resolve(`.akari/sidecars/${source.path}.analysis`);
             const voices = await this.files.readFile(folder.resolve('voices.json'))
@@ -678,6 +695,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const analysis = await this.files.readFile(folder.resolve('analysis.json'))
                 .then(file => { try { return JSON.parse(file.value.toString()) as unknown; } catch { return undefined; } }, () => undefined);
             this.speakerRows.set(source.id, speakerReviewRows(voices, analysis));
+            const fallback = speakerFallbackMessage(voices, this.speakerRows.get(source.id)?.length ?? 0);
+            if (fallback) this.speakerFallbacks.set(source.id, fallback);
         }
         try {
             const raw = JSON.parse((await this.files.readFile(this.root.resolve('.akari/dictionary.json'))).value.toString()) as {
@@ -693,6 +712,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const location = channelPeopleLocation(this.root.toString());
         for (const source of this.selectedSources()) {
             this.body.append(el('h4', source.name));
+            const fallback = this.speakerFallbacks.get(source.id);
+            if (fallback) this.body.append(el('p', fallback));
             const rows = this.speakerRows.get(source.id) ?? [];
             if (!rows.length) {
                 this.body.append(el('p', '話者の情報が見つかりませんでした。台本パネルの話者の札で名前を付けられます。'));
@@ -968,8 +989,9 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const options = { backend: this.backend, compareSet: this.compare ? [...this.compareSet] : [],
             approved: this.needsTranscription() && this.selectedClouds().length > 0, autoCuts: this.autoCuts,
             ...speakerTranscribeOptions({ split: this.split, count: this.speakerCount,
-                identify: this.split && !!location && this.identify,
-                people: this.split && this.identify && this.people.some(person => person.hasVoiceSample && this.excludedPeople.has(person.id))
+                identify: this.split && !!location && this.identify && this.tools.find(tool => tool.id === 'voice')?.canIdentify !== false,
+                people: this.split && this.identify && this.tools.find(tool => tool.id === 'voice')?.canIdentify !== false
+                    && this.people.some(person => person.hasVoiceSample && this.excludedPeople.has(person.id))
                     ? included.map(person => person.id) : undefined }) };
         try {
             for (const source of this.selectedSources()) {

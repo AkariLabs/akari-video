@@ -115,6 +115,7 @@ export async function detectTools(options: ToolDetectionOptions = {}): Promise<A
     const voiceState = await inspectVoiceEngine({ voiceHome, platform, arch });
     tools.splice(5, 0, {
         id: 'voice', tier: 'advanced', available: voiceState.state === 'ready',
+        ...(voiceState.state === 'ready' ? { canIdentify: !(platform === 'darwin' && arch === 'x64') } : {}),
         ...(voiceState.state === 'ready' ? { version: 'sherpa-onnx 1.13.8', executable: voiceHome } : {}),
         ...(voiceState.state === 'unsupported' ? { unsupported: true } : {}),
         ...(voiceState.state !== 'ready' && voiceState.state !== 'unsupported' ? { needs: voiceState.needs } : {})

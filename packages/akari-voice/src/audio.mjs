@@ -1,5 +1,12 @@
 import { spawnSync } from 'node:child_process';
 
+export const AUDIO_TOO_LONG_MESSAGE = '約 2 時間を超える音声は、今は話者を分けられません（区切って起こしてください）';
+
+export function isAudioBufferLimit(error) {
+  return error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || error?.code === 'ENOBUFS'
+    || /maxBuffer/i.test(error?.message ?? '');
+}
+
 export function decodeAudio16k({ ffmpeg = 'ffmpeg', file, start, duration }) {
   const args = ['-hide_banner', '-loglevel', 'error'];
   if (start !== undefined) args.push('-ss', String(start));
@@ -7,6 +14,7 @@ export function decodeAudio16k({ ffmpeg = 'ffmpeg', file, start, duration }) {
   if (duration !== undefined) args.push('-t', String(duration));
   args.push('-ac', '1', '-ar', '16000', '-f', 'f32le', 'pipe:1');
   const result = spawnSync(ffmpeg, args, { encoding: 'buffer', maxBuffer: 1024 * 1024 * 512 });
+  if (isAudioBufferLimit(result.error)) throw new Error(AUDIO_TOO_LONG_MESSAGE);
   if (result.error || result.status !== 0) throw new Error(`音声の読み込みに失敗しました: ${result.error?.message || result.stderr.toString('utf8').trim()}`);
   if (result.stdout.length % 4) throw new Error('音声データの長さが不正です');
   const bytes = new Uint8Array(result.stdout.length);

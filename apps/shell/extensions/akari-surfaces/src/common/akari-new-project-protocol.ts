@@ -43,6 +43,7 @@ export interface AkariToolCheckResult {
     id: AkariToolId;
     tier: AkariToolTier;
     available: boolean;
+    canIdentify?: boolean;
     version?: string;
     executable?: string;
     unsupported?: boolean;

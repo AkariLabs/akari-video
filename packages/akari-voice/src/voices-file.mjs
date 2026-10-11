@@ -12,8 +12,9 @@ export function readVoicesFile(file) {
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
 }
 
-export function buildVoicesFile({ previous, speakers }) {
+export function buildVoicesFile({ previous, speakers, requested, fallback }) {
   return { schema: 'akari.voices/0', key: EMBEDDING_KEY,
+    ...(requested === undefined ? {} : { requested, fallback: !!fallback }),
     speakers: Object.fromEntries(Object.entries(speakers).map(([id, value]) => [id, {
       seconds: value.seconds, embedding: encodeEmbedding(value.embedding),
       ...(value.suggestion ? { suggestion: value.suggestion } : {}),

@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided,
     mergeVoicesDecided, parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady,
-    voiceGateBlocks } from '../lib/common/caption-popup-speakers.js';
+    voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage } from '../lib/common/caption-popup-speakers.js';
 
 test('ordinary transcription keeps four steps and adds no options', () => {
     assert.deepEqual(captionPopupStepNames(false), ['素材', '起こし方', '起こす', '仕上げ']);
@@ -22,7 +23,24 @@ test('voice engine readiness and valid sample counts', () => {
     assert.equal(voiceEngineReady([{ id: 'voice', available: false }]), false);
     assert.equal(voiceEngineReady([{ id: 'voice', available: true }]), true);
     assert.equal(channelPersonVoiceSampleCount(JSON.stringify({ entries: [{ id: 'p-one', voice: {
-        samples: [{ file: 'a.wav' }, { file: 'b.wav' }, { bad: true }] } }] }), 'p-one'), 2);
+        samples: [{ file: 'a.wav', consent: 'self' }, { file: 'b.wav', consent: 'subject' },
+            { file: 'c.wav' }, { bad: true }] } }] }), 'p-one'), 2);
+});
+
+test('準備結果の失敗文言と人数の fallback を表示用に整える', () => {
+    assert.equal(voiceInstallFailure({ outcome: 'installed' }), undefined);
+    assert.equal(voiceInstallFailure({ outcome: 'failed', message: '取得に失敗しました' }), '取得に失敗しました');
+    assert.equal(voiceInstallFailure(undefined), '準備できませんでした');
+    assert.equal(speakerFallbackMessage({ speakers: {}, decided: {}, requested: 3, fallback: true }, 2),
+        '指定の 3 人には分けられなかったので、声から見た 2 人で分けました');
+});
+
+test('準備失敗で分ける選択を戻さず、再試行を表示する', () => {
+    const source = readFileSync(new URL('../src/browser/daihon/akari-caption-popup.ts', import.meta.url), 'utf8');
+    const body = source.slice(source.indexOf('protected async installVoice()'), source.indexOf('protected renderProgress()'));
+    assert.doesNotMatch(body, /this\.split\s*=\s*false/);
+    assert.doesNotMatch(body, /この版のアプリからはまだ準備できません/);
+    assert.match(source, /もう一度/);
 });
 
 test('analysis reports existing speaker tracks only for a nonempty array', () => {

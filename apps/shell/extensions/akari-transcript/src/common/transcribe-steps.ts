@@ -3,7 +3,8 @@ import { normalizedCaptionPath } from './caption-source-eligibility';
 export { channelPeopleLocation, mergeSpeakerDictionary, orderChannelPeople, parseChannelPeople } from './channel-people-reader';
 export type { ChannelPerson } from './channel-people-reader';
 export { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided, mergeVoicesDecided,
-    parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady, voiceGateBlocks,
+    parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady, voiceGateBlocks, voiceInstallFailure,
+    speakerFallbackMessage,
     VOICE_ENGINE_DOWNLOAD_MB, SPEAKER_COLORS } from './caption-popup-speakers';
 export type { SpeakerCount, SpeakerReviewRow } from './caption-popup-speakers';
 
@@ -60,6 +61,7 @@ export function initialEngineSelection(backend: string, compareSet: readonly str
 export interface TranscribeToolStatus {
     id: string;
     available: boolean;
+    canIdentify?: boolean;
     unsupported?: boolean;
     needs?: string[];
     executable?: string;

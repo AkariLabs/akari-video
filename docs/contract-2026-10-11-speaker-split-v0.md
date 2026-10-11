@@ -9,16 +9,18 @@ akari media transcribe <target> [--diarize] [--speakers auto|1|2|3|4] [--identif
 ```
 
 - 旗なしでは通常の文字起こしを行う。結果 JSON と ASR のキャッシュの鍵は従来どおりである。
-- `--diarize` は話者を分ける。`--speakers` の既定は `auto`。`1`〜`3` はクラスタ数を指定し、`4` は「4 人以上」として自動判定する。`--speakers` だけでも話者分離を有効にする。`2`〜`3` を指定して、その人数ちょうどに分けられないときは自動の結果に戻し、そのことを標準エラーに 1 行示す。
+- `--diarize` は話者を分ける。`--speakers` の既定は `auto`。`1`〜`3` はクラスタ数を指定し、`4` は「4 人以上」として自動判定する。`--speakers` だけでも話者分離を有効にする。`1` は指定クラスタ数で 1 回だけ分離する。`2`〜`3` を指定した場合、各話者が 3 秒以上かつ全発話時間の 3% 以上で人数がちょうど一致した結果を採用する。満たさなければ自動の結果に戻し、そのことを標準エラーに 1 行示す。
 - `--identify` は人物の声と照らす。話者分離も有効にする。`--people` は照合に使う `people.json` を指定し、これだけでも `--identify` と話者分離を有効にする。省略時は対象プロジェクトが `channels/<c>/videos/<p>/` にあれば、そのチャンネルの `people.json` を使う。見つからなければ警告を出し、照合を省く。
 - 声のエンジンが無い場合は exit 2 で `話者を分けるには準備が要ります（akari tools install voice か、アプリの『字幕を作る』から）` と案内する。通常の文字起こしには声のエンジンを要求しない。
 
-結果 JSON には、話者分離を選んだときだけ `speakers` が加わる。`count` は話者数、`ids` は `A` からの話者 ID、`seconds` は話者ごとの発話秒数である。照合できた場合だけ `identify` が加わり、`compared` は実際に比較した人物参照、`suggestions` は話者ごとの候補となる。
+結果 JSON には、話者分離を選んだときだけ `speakers` が加わる。`count` は話者数、`ids` は `A` からの話者 ID、`seconds` は話者ごとの発話秒数、`requested` は指定人数（自動なら `"auto"`）、`fallback` は自動結果へ戻したかどうかである。同じ 2 つを voices.json にも記す（照合できない環境でも書く）。照合できた場合だけ `identify` が加わり、`compared` は実際に比較した人物参照、`suggestions` は話者ごとの候補となる。
 
 ```json
 {
   "speakers": {
     "count": 2,
+    "requested": 2,
+    "fallback": false,
     "ids": ["A", "B"],
     "seconds": { "A": 42.2, "B": 31.5 },
     "identify": {
@@ -40,11 +42,13 @@ ASR のキャッシュは従来のままで、話者分離は `.akari/cache/diar
 
 ## 声の側ファイルと人物の重心
 
-プロジェクト内の素材では、`.akari/sidecars/<素材の相対パス>.analysis/voices.json` に声の特徴量と提案を保存する。埋め込みは 256 次元の float32 を little-endian のバイト列として base64 化したもの。埋め込みを作れた話者だけが `speakers` に入る。再分離しても `decided` は保持する。
+プロジェクト内の素材では、`.akari/sidecars/<素材の相対パス>.analysis/voices.json` に声の特徴量と提案を保存する。埋め込みは 256 次元の float32 を little-endian のバイト列として base64 化したもの。埋め込みを作れた話者だけが `speakers` に入る。埋め込みを作れない場合も空の `speakers` と `requested`、`fallback` を保存する。再分離しても `decided` は保持する。
 
 ```json
 {
   "schema": "akari.voices/0",
+  "requested": 2,
+  "fallback": false,
   "key": {
     "model": "wespeaker-voxceleb-resnet34-LM",
     "space": "wespeaker/voxceleb_resnet34_LM",
@@ -59,7 +63,7 @@ ASR のキャッシュは従来のままで、話者分離は `.akari/cache/diar
 
 人物の重心は、`people.json` の `voice.samples[]` のうち `consent` が `self` または `subject` の見本だけで作る。各見本を 16 kHz モノラルに変換し、埋め込みを平均して L2 正規化する。`channels/<c>/.akari/voice-centroids.json` に、埋め込みの `key` と見本ファイルの SHA-256 を使ってキャッシュする。
 
-声の特徴量は個人を識別できる情報としてこの機械の中だけで扱う。外へ送らず、記憶パックや配布物に入れない。`.akari/sidecars/` は git 管理外である。
+声の特徴量は個人を識別できる情報としてこの機械の中だけで扱う。外へ送らず、記憶パックや配布物に入れない。`.akari/sidecars/` のうち `voices.json` だけを履歴から外し、AI の読み取りも禁止する。
 
 ## 話者に名前を付ける
 

@@ -1634,6 +1634,9 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const target = await this.materialTarget(request.projectRoot, request.relativePath);
         if (this.transcriptions.has(target.path)) throw new Error('この素材は文字起こしを実行中です');
         const selected = [...new Set(request.compareSet ?? [])];
+        if ((request.diarize || request.identify) && selected.length >= 2) {
+            throw new Error('話者を分けるときはエンジンを比較できません');
+        }
         const backends = selected.length ? selected : [request.backend ?? 'auto'];
         if (backends.some(backend => !/^(auto|speech-analyzer|whisper-cpp|cloud:[A-Za-z0-9_-]+)$/.test(backend))) {
             throw new Error('文字起こしエンジンが不正です');
@@ -3041,7 +3044,7 @@ process.stdout.write(JSON.stringify(found));
             '.claude/settings.json': JSON.stringify({
                 permissions: {
                     allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                    deny: ['Edit(/assets/**)']
+                    deny: ['Edit(/assets/**)', 'Read(./.akari/sidecars/**/voices.json)']
                 }
             }, null, 2) + '\n',
             '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,

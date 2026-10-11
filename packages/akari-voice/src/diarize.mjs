@@ -1,4 +1,13 @@
 export const DIARIZE_THRESHOLD = 0.5;
+export const MIN_SPEAKER_SECONDS = 3;
+export const MIN_SPEAKER_SHARE = 0.03;
+
+export function hasSubstantialSpeakers(turns) {
+  const totals = new Map();
+  for (const turn of turns) totals.set(turn.speaker, (totals.get(turn.speaker) || 0) + Math.max(0, turn.end - turn.start));
+  const all = [...totals.values()].reduce((sum, seconds) => sum + seconds, 0);
+  return all > 0 && [...totals.values()].every(seconds => seconds >= MIN_SPEAKER_SECONDS && seconds / all >= MIN_SPEAKER_SHARE);
+}
 
 export function speakerLabel(index) {
   if (!Number.isInteger(index) || index < 0) throw new Error('話者番号が不正です');
@@ -68,10 +77,10 @@ export async function diarizeToCount(diarize, samples, speakers, threshold = DIA
     return { turns, requested: speakers === 'auto' ? 'auto' : Number(speakers), used, fallback: false };
   }
   const auto = await run(-1);
-  if (auto.used === count) return { turns: auto.turns, requested: count, used: count, fallback: false };
+  if (auto.used === count && hasSubstantialSpeakers(auto.turns)) return { turns: auto.turns, requested: count, used: count, fallback: false };
   for (const numClusters of [count, count + 1, count + 2]) {
     const result = await run(numClusters);
-    if (result.used === count) return { turns: result.turns, requested: count, used: count, fallback: false };
+    if (result.used === count && hasSubstantialSpeakers(result.turns)) return { turns: result.turns, requested: count, used: count, fallback: false };
   }
   return { turns: auto.turns, requested: count, used: auto.used, fallback: true };
 }

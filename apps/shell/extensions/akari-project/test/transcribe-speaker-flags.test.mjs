@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, rmdir } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { AkariProjectServiceImpl, filterIdentifyPeople, identifyPersonIds, transcribeSpeakerArgs } from '../lib/node/akari-project-service.js';
 
 test('ordinary CLI arguments stay unchanged', () => {
@@ -36,9 +35,16 @@ test('person ids accept a channel prefix and reject unsafe values', () => {
     assert.throws(() => identifyPersonIds(['../outside'], 'channel'), /人物の指定が不正/);
 });
 
-test('service sends speaker flags only to first engine and removes the filtered people copy', async t => {
-    const base = await mkdtemp(join(tmpdir(), 'speaker-flags-'));
-    t.after(() => rm(base, { recursive: true, force: true }));
+async function createSpeakerService(t) {
+    const scratch = join(process.cwd(), '.tmp-lane');
+    const created = await mkdir(scratch, { recursive: true });
+    const base = await mkdtemp(join(scratch, 'speaker-flags-'));
+    t.after(async () => {
+        await rm(base, { recursive: true, force: true });
+        if (created) await rmdir(scratch).catch(error => {
+            if (error.code !== 'ENOTEMPTY') throw error;
+        });
+    });
     const channel = join(base, 'channels', 'demo');
     const project = join(channel, 'videos', 'clip');
     await mkdir(join(project, 'assets'), { recursive: true });
@@ -55,15 +61,27 @@ test('service sends speaker flags only to first engine and removes the filtered 
             return { code: 0, stdout: '', stderr: '' };
         }
     }
-    const service = new Service();
+    return { service: new Service(), channel, project };
+}
+
+test('話者分けとエンジン比較の併用を起動前に拒否する', async t => {
+    const { service, project } = await createSpeakerService(t);
+    await assert.rejects(service.transcribeMaterial({ projectRoot: project, relativePath: 'assets/talk.wav',
+        compareSet: ['speech-analyzer', 'whisper-cpp'], diarize: true
+    }), /話者を分けるときはエンジンを比較できません/);
+    assert.deepEqual(service.calls, []);
+});
+
+test('単一エンジンへ話者指定を渡し、絞り込んだ人物の一時コピーを消す', async t => {
+    const { service, channel, project } = await createSpeakerService(t);
     await service.transcribeMaterial({ projectRoot: project, relativePath: 'assets/talk.wav',
-        compareSet: ['speech-analyzer', 'whisper-cpp'], diarize: true, speakers: '2', identify: true, people: ['demo/a'] });
-    const first = service.calls.find(args => args.includes('speech-analyzer'));
-    const second = service.calls.find(args => args.includes('whisper-cpp'));
-    assert.deepEqual(first.slice(0, -2), ['transcribe', 'assets/talk.wav', '--backend', 'speech-analyzer',
-        '--diarize', '--speakers', '2', '--identify']);
-    assert.equal(first.at(-2), '--people');
-    assert.deepEqual(second, ['transcribe', 'assets/talk.wav', '--backend', 'whisper-cpp']);
+        backend: 'speech-analyzer', diarize: true, speakers: '2', identify: true, people: ['demo/a'] });
+    assert.equal(service.calls.length, 1);
+    const [args] = service.calls;
+    assert.deepEqual(args.slice(0, -1), ['transcribe', 'assets/talk.wav', '--backend', 'speech-analyzer',
+        '--diarize', '--speakers', '2', '--identify', '--people']);
+    assert.equal(dirname(args.at(-1)), channel);
+    assert.match(basename(args.at(-1)), /^\.people-identify-/);
     assert.deepEqual(service.selected.entries.map(row => row.id), ['a']);
     assert.equal((await readdir(channel)).some(name => name.startsWith('.people-identify-')), false);
 });

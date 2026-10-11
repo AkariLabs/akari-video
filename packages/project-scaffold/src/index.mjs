@@ -164,7 +164,7 @@ export async function writeFallbackTemplate(destinationDir) {
         '.claude/settings.json': JSON.stringify({
             permissions: {
                 allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                deny: ['Edit(./assets/**)']
+                deny: ['Edit(./assets/**)', 'Read(./.akari/sidecars/**/voices.json)']
             }
         }, null, 2) + '\n',
         '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,

@@ -67,9 +67,11 @@ test("分離は記録へ話者を付け、側ファイルと分離キャッシ�
   const first = await transcribeMedia(f.target, { ...f.options, diarize: true });
   const second = await transcribeMedia(f.target, { ...f.options, diarize: true });
   assert.equal(f.calls.diarize, 1);
-  assert.deepEqual(first.speakers, { count: 2, ids: ["A", "B"], seconds: { A: 1, B: 1 } });
+  assert.deepEqual(first.speakers, { requested: "auto", fallback: false,
+    count: 2, ids: ["A", "B"], seconds: { A: 1, B: 1 } });
   assert.deepEqual(second.segments.map(s => s.speaker), ["A", "B"]);
   const analysis = await json(path.join(f.directory, "analysis.json"));
+  assert.equal(Object.hasOwn(analysis, "speakers"), false);
   assert.deepEqual(analysis.transcript.map(s => s.speaker), ["A", "B"]);
   assert.deepEqual(analysis.tracks.speakers, [
     { id: "A", spans: [[0, 1]] }, { id: "B", spans: [[1, 2]] },
@@ -79,6 +81,7 @@ test("分離は記録へ話者を付け、側ファイルと分離キャッシ�
   assert.equal(voices.key.model, "wespeaker-voxceleb-resnet34-LM");
   assert.equal(Buffer.from(voices.speakers.A.embedding, "base64").length, 1024);
   assert.deepEqual(voices.decided, { A: "demo/p1" });
+  assert.deepEqual([voices.requested, voices.fallback], ["auto", false]);
   assert.equal(Object.hasOwn((await json(path.join(f.directory, "transcripts", "speech-analyzer.json"))).segments[0], "speaker"), false);
   assert.equal((await readdir(path.join(f.project, ".akari", "cache", "diarize"))).length, 1);
 });
@@ -140,6 +143,9 @@ test("人数が合わない場合は自動分離へ戻し、一行で知らせ�
   const warnings = [];
   const result = await transcribeMedia(f.target, { ...f.options, speakers: 3, stderr: line => warnings.push(line) });
   assert.equal(result.speakers.count, 2);
+  assert.deepEqual([result.speakers.requested, result.speakers.fallback], [3, true]);
+  const voices = await json(path.join(f.directory, "voices.json"));
+  assert.deepEqual([voices.requested, voices.fallback], [3, true]);
   assert.equal(f.calls.diarize, 4);
   assert.deepEqual(warnings.filter(line => line.includes("指定の 3 人")), [
     "指定の 3 人に分けられなかったので、自動で分けた結果（2 人）を使います",
@@ -154,9 +160,26 @@ test("照合できない環境でも分離結果を返し、照合だけ飛ば�
   assert.equal(result.speakers.count, 2);
   assert.equal(Object.hasOwn(result.speakers, "identify"), false);
   assert.equal(f.calls.embed, 0);
+  const voices = await json(path.join(f.directory, "voices.json"));
+  assert.deepEqual(voices.speakers, {});
+  assert.deepEqual([voices.requested, voices.fallback], ["auto", false]);
   assert.deepEqual(warnings.filter(line => line.includes("この Mac では")), [
     "この Mac では声の照合はできません（話者を分けることはできます）",
   ]);
+});
+
+test("旧い分離キャッシュに人数結果が無くても指定人数を保つ", async t => {
+  const f = await fixture(t);
+  await transcribeMedia(f.target, { ...f.options, speakers: 4 });
+  const cacheDirectory = path.join(f.project, ".akari", "cache", "diarize");
+  const [name] = await readdir(cacheDirectory);
+  const cachePath = path.join(cacheDirectory, name);
+  const cache = await json(cachePath);
+  delete cache.countResult;
+  await writeFile(cachePath, JSON.stringify(cache));
+  const result = await transcribeMedia(f.target, { ...f.options, speakers: 4 });
+  assert.deepEqual([result.speakers.requested, result.speakers.fallback], [4, false]);
+  assert.equal(f.calls.diarize, 1);
 });
 
 test("media の旗は含意と値の検証を行う", async t => {

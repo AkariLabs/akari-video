@@ -17,6 +17,8 @@ export interface VoiceSpeaker { seconds: number; suggestion?: SpeakerSuggestion 
 export interface VoicesSidecar {
     speakers: Record<string, VoiceSpeaker>;
     decided: Record<string, string>;
+    requested?: number | 'auto';
+    fallback?: boolean;
 }
 export interface SpeakerReviewRow {
     id: string;
@@ -29,6 +31,15 @@ export interface SpeakerReviewRow {
 
 export const VOICE_ENGINE_DOWNLOAD_MB = 160; // 実測（取得する npm 包とモデル 3 つの合計）。
 export const SPEAKER_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b'];
+
+export function voiceInstallFailure(result: { outcome?: string; message?: string } | undefined): string | undefined {
+    return result?.outcome === 'installed' ? undefined : result?.message || '準備できませんでした';
+}
+
+export function speakerFallbackMessage(voices: VoicesSidecar | undefined, used: number): string | undefined {
+    return voices?.fallback === true && typeof voices.requested === 'number'
+        ? `指定の ${voices.requested} 人には分けられなかったので、声から見た ${used} 人で分けました` : undefined;
+}
 
 export function captionPopupStepNames(split: boolean): string[] {
     return split ? ['素材', '起こし方', '起こす', '話者を確かめる', '仕上げ'] : ['素材', '起こし方', '起こす', '仕上げ'];
@@ -65,7 +76,8 @@ export function channelPersonVoiceSampleCount(source: string, id: string): numbe
         const root = JSON.parse(source) as { entries?: Array<{ id?: string; voice?: { samples?: unknown[] } }> };
         const samples = root.entries?.find(entry => entry.id === id)?.voice?.samples;
         return Array.isArray(samples) ? samples.filter(sample => !!sample && typeof sample === 'object'
-            && typeof (sample as { file?: unknown }).file === 'string' && !!(sample as { file: string }).file).length : 0;
+            && typeof (sample as { file?: unknown }).file === 'string' && !!(sample as { file: string }).file
+            && ['self', 'subject'].includes((sample as { consent?: string }).consent ?? '')).length : 0;
     } catch { return 0; }
 }
 
@@ -84,7 +96,9 @@ export function parseVoicesSidecar(source: string): VoicesSidecar | undefined {
                         score: suggestion.score, level: suggestion.level } } : {}) };
         }
         const decided = root.decided && typeof root.decided === 'object' ? root.decided as Record<string, string> : {};
-        return { speakers, decided };
+        return { speakers, decided,
+            ...(typeof root.requested === 'number' || root.requested === 'auto' ? { requested: root.requested as number | 'auto' } : {}),
+            ...(typeof root.fallback === 'boolean' ? { fallback: root.fallback } : {}) };
     } catch { return undefined; }
 }
 
