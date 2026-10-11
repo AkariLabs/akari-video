@@ -1,5 +1,6 @@
 import { t } from '../browser/vibe-text';
 import { spawn } from 'node:child_process';
+import { childProcessEnv } from '@akari-video/i18n';
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { release } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -84,7 +85,7 @@ function localTranscriber(): EarServiceOptions['transcribe'] | undefined {
         const child = spawn(process.execPath, [cli, 'transcribe', wavPath,
             '--no-record', '--no-word-book'], {
             stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, signal,
-            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+            env: childProcessEnv({ ...process.env, ELECTRON_RUN_AS_NODE: '1' })
         });
         let output = '';
         let errorOutput = '';

@@ -41,7 +41,7 @@ export interface ContextBarSource {
     fps: number;
     playhead: number;
     sourcePath(id: string): string | undefined;
-    caption?: { id: string; textStyle: object };
+    caption?: { id: string; textStyle: object; locale?: string };
 }
 
 export interface ContextBarState {
@@ -146,7 +146,8 @@ export class ContextBarController implements Disposable {
             editUri: source.editUri,
             selectedId: caption?.id ?? (place ? String(item!.id) : null),
             kind: caption ? 'caption' : place ? contextBarKind(item, src) : null,
-            item: caption ? { textStyle: JSON.parse(JSON.stringify(caption.textStyle ?? {})) }
+            item: caption ? { textStyle: JSON.parse(JSON.stringify(caption.textStyle ?? {})),
+                ...(caption.locale ? { captionLocale: caption.locale } : {}) }
                 : item ? JSON.parse(JSON.stringify(item)) : null,
             sourcePath: src ?? null,
             parentId: place?.parent ? String(place.parent.id) : null,

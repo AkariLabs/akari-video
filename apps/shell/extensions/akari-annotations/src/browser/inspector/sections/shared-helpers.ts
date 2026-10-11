@@ -3,6 +3,7 @@ import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { CAPTION_PANEL_FONTS } from '../../../common/caption-panel-catalog';
 import { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
+import { captionFontLabel } from 'akari-preview/lib/common/caption-font-label';
 import { TimelineAudioSelection, TimelineCaptionSelection } from '../../timeline-selection-model';
 import { type CaptionTextStyle } from '../../../common/caption-store';
 import type { InspectorFieldDef } from './types';
@@ -90,7 +91,7 @@ export type CaptionStyleFieldKey =
 export function captionFontFamilyField(snapshot: TimelineCaptionSelection,
     openFontPanel: () => Promise<boolean>): InspectorFieldDef<TimelineCaptionSelection> {
     const rawFamily = snapshot.effectiveTextStyle?.fontFamily ?? snapshot.textStyle?.fontFamily;
-    const family = rawFamily === CAPTION_FONT_FAMILY ? 'Noto Sans JP' : rawFamily ?? 'Noto Sans JP';
+    const family = captionFontLabel(snapshot.captionLocale, rawFamily);
     return {
         name: 'caption-font-family', label: t('inspector.sharedHelpers.label.font'),
         getValue: () => family,

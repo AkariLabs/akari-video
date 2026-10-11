@@ -1,4 +1,5 @@
 import { t } from '../common/project-text';
+import { childProcessEnv } from '@akari-video/i18n';
 import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
 import { libraryFavoritesPath, readLibraryFavorites, setLibraryFavorite } from './library-favorites-store';
 import { brandKitPath, readBrandKit, updateBrandKit } from './brand-kit-store';
@@ -1376,7 +1377,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
     protected async runResolverScript(script: string, input?: string, timeoutMs?: number): Promise<{ code: number; stdout: string; stderr: string }> {
         return new Promise(resolvePromise => {
             const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                env: childProcessEnv({ ...process.env, ELECTRON_RUN_AS_NODE: '1' }),
                 stdio: ['pipe', 'pipe', 'pipe']
             });
             child.stdin.on('error', () => { /* Early process exit is reported below. */ });
@@ -1966,7 +1967,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const mediaBinEnv = await this.mediaBinEnv();
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
-                env: { ...process.env, ...mediaBinEnv, ELECTRON_RUN_AS_NODE: '1' },
+                env: childProcessEnv({ ...process.env, ...mediaBinEnv, ELECTRON_RUN_AS_NODE: '1' }),
                 cwd,
                 stdio: ['ignore', 'pipe', 'pipe']
             });

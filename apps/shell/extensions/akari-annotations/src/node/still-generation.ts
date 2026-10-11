@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { spawn, type ChildProcess } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -59,7 +59,7 @@ export class StillGenerationManager {
         const fallback = ['/opt/homebrew/bin', '/usr/local/bin', join(homedir(), '.local', 'bin')];
         const env = { ...this.env, PATH: [...new Set([dirname(resolve(cli)), ...entries, ...fallback])].join(delimiter) };
         for (const name of keyNames) delete env[name];
-        return env;
+        return childProcessEnv(env);
     }
 
     private async falKey(): Promise<{ key: string; key_source: string } | undefined> {

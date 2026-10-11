@@ -5,6 +5,8 @@ const LANGUAGE_KEY = 'akari.ui.language';
 const LOCALE_KEY = 'localeId';
 let languageOverride;
 let macOsLanguage;
+let childProcessLanguage;
+const inheritedAkariLang = typeof process !== 'undefined' ? process.env?.AKARI_LANG : undefined;
 
 function normalizeLanguage(value) {
   return typeof value === 'string' && /^ja/i.test(value) ? 'ja' : 'en';
@@ -51,6 +53,23 @@ function setLanguage(language) {
   return languageOverride;
 }
 
+function setChildProcessLanguage(choice) {
+  childProcessLanguage = choice === 'ja' || choice === 'en' ? choice : undefined;
+  if (typeof process !== 'undefined' && process.env) {
+    const language = childProcessLanguage ?? inheritedAkariLang;
+    if (language === undefined) delete process.env.AKARI_LANG;
+    else process.env.AKARI_LANG = language;
+  }
+}
+
+function childProcessEnv(base = process.env) {
+  const env = { ...base };
+  const language = childProcessLanguage ?? inheritedAkariLang;
+  if (language === undefined) delete env.AKARI_LANG;
+  else env.AKARI_LANG = language;
+  return env;
+}
+
 function t(key, params = {}, language = getLanguage()) {
   const chosen = language === 'ja' ? ja : en;
   const count = Number(params.n);
@@ -85,4 +104,4 @@ function formatCurrency(amountUsd, { yenRate = 150, yenAmount, yenOnly = false, 
 }
 function compareText(a, b, options) { return String(a).localeCompare(String(b), intlLocale(), options); }
 
-module.exports = { t, getLanguage, setLanguage, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };
+module.exports = { t, getLanguage, setLanguage, setChildProcessLanguage, childProcessEnv, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };

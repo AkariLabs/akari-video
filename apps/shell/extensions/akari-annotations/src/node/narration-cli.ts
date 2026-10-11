@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -134,7 +134,7 @@ export class NarrationCliManager {
         if (key && this.children.has(key)) throw new Error(t('annotationscommon.narrationCli.error.narrationAlreadyGenerating'));
         return new Promise((resolve, reject) => {
             const child = this.spawnImpl(process.execPath, [cli, ...args], {
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe']
+                env: childProcessEnv({ ...process.env, ELECTRON_RUN_AS_NODE: '1' }), stdio: ['ignore', 'pipe', 'pipe']
             });
             if (key) this.children.set(key, child);
             let stdout = ''; let stderr = '';

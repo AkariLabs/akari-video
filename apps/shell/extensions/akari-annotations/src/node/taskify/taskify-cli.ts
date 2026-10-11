@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -61,7 +61,7 @@ export async function invokeTaskifyCli(options: { agent: Agent; bin: string; inp
     }
     return new Promise(resolveResult => {
         let stdout = '', stderr = '', timedOut = false, ended = false;
-        const child = spawn(options.bin, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(options.bin, args, { cwd, env: childProcessEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
         const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, options.timeoutMs ?? 90_000);
         const abort = (): void => { child.kill('SIGKILL'); };
         options.signal?.addEventListener('abort', abort, { once: true });

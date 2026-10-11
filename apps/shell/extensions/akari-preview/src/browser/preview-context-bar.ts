@@ -1,4 +1,5 @@
 import { t } from '../common/preview-text';
+import { captionToolbarFontLabel } from '../common/caption-font-label';
 import { CommandRegistry, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
 import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
@@ -473,7 +474,7 @@ export class PreviewContextBar implements Disposable {
             captionBullet: '•☰', captionSpacing: '↔', captionVertical: t('preview.contextBar.toolbar.verticalLabel'), captionOpacity: ICON.opacity };
         const align = style.align === 'left' || style.align === 'right' ? style.align : 'center';
         const content = key === 'captionFont'
-            ? `<span class="akari-ctx-font-name">${escapeHtml(style.fontFamily || 'Noto Sans JP')}</span><span>⌄</span>`
+            ? `<span class="akari-ctx-font-name">${escapeHtml(captionToolbarFontLabel(this.state?.item?.captionLocale, style.fontFamily))}</span><span>⌄</span>`
             : key === 'captionTextColor' ? `<span class="akari-ctx-color-a">A<span style="background:${escapeHtml(style.color ?? '#ffffff')}"></span></span>`
                 : key === 'captionAlign' ? ICON[`align-${align}`] : glyph[key] ?? escapeHtml(label[key]);
         const overflowIcon = key === 'captionEffect' || key === 'captionAnimation' ? ICON[key] : content;

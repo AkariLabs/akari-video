@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
@@ -107,7 +107,7 @@ export class GenerationCliManager {
             let child: ChildProcess;
             try {
                 child = this.spawnImpl(process.execPath, [cli, ...args], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' },
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }),
                     stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) {
