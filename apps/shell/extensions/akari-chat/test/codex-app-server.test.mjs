@@ -357,7 +357,8 @@ test('model and effort pass through only when the catalog is unavailable', async
 test('app-server starts, serializes sends, answers approvals and user input', async () => {
     await withTemp(async cwd => {
         const adapter = new CodexAppServerAdapter(await fakeExecutable(cwd));
-        assert.equal((await adapter.info()).version, 'codex-cli test');
+        assert.equal((await adapter.info()).version, undefined);
+        await assert.rejects(readFile(join(cwd, 'received.jsonl'), 'utf8'));
         const session = await adapter.start({ cwd, permission: 'auto' });
         const events = [];
         session.onEvent(event => events.push(event));
@@ -487,5 +488,21 @@ test('interrupt, clear, compact, resume and next-turn model and effort', async (
             assert.equal(resumed.sessionRef, 'thread-fixed');
             assert.ok((await received(cwd)).some(row => row.method === 'thread/resume' && row.params.threadId === 'thread-fixed'));
         } finally { await resumed.close(); }
+    });
+});
+
+test('Codex confirmation modes set distinct approval policies', async () => {
+    await withTemp(async cwd => {
+        const adapter = new CodexAppServerAdapter(await fakeExecutable(cwd));
+        for (const permission of ['auto', 'checkpoints', 'every']) {
+            const session = await adapter.start({ cwd, permission });
+            await session.close();
+        }
+        const starts = (await received(cwd)).filter(row => row.method === 'thread/start').map(row => row.params);
+        assert.equal(starts[0].approvalPolicy, 'on-request');
+        assert.equal(starts[0].approvalsReviewer, 'auto_review');
+        assert.equal(starts[1].approvalPolicy, 'on-request');
+        assert.equal(starts[1].approvalsReviewer, undefined);
+        assert.equal(starts[2].approvalPolicy, 'untrusted');
     });
 });

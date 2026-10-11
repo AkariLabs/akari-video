@@ -1,4 +1,4 @@
-import type { ChatAgentInfo, ChatCapabilities } from './chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from './chat-agent';
 import type { ChatAttachment } from './chat-attachments';
 import type { ChatEvent } from './chat-events';
 
@@ -28,7 +28,7 @@ export interface AkariChatService {
         resume?: string;
         model?: string;
         effort?: string;
-        permission?: 'auto' | 'all';
+        permission?: ChatAdapterPermission;
         token?: string;
     }): Promise<{ chatId: string; capabilities: ChatCapabilities; error?: { kind: Extract<ChatEvent, { type: 'error' }>['kind']; message: string } }>;
     cancelStart(token: string): Promise<void>;
@@ -40,7 +40,7 @@ export interface AkariChatService {
     compact(chatId: string): Promise<void>;
     close(chatId: string): Promise<void>;
     listHistory(cwd: string): Promise<ChatHistoryEntry[]>;
-    resume(cwd: string, historyId: string, token?: string): ReturnType<AkariChatService['start']>;
+    resume(cwd: string, historyId: string, token?: string, permission?: ChatAdapterPermission): ReturnType<AkariChatService['start']>;
     renameHistory(cwd: string, historyId: string, title: string): Promise<void>;
     removeHistory(cwd: string, historyId: string): Promise<void>;
     saveScreenRecording(cwd: string, data: string): Promise<string>;

@@ -245,6 +245,22 @@ export class ClaudeStreamParser {
         this.emit({ type: 'tool', id, kind, title, status: 'running', detail });
     }
 
+    private toolStatusTitle(tracked: TrackedTool, verb: string): string {
+        const target = tracked.title.split(' ').slice(1).join(' ');
+        return [verb, target].filter(Boolean).join(' ');
+    }
+
+    permissionPending(toolUseId: string, name: string, input: Json): void {
+        if (!toolUseId) return;
+        if (!this.tools.has(toolUseId)) this.tool({ id: toolUseId, name, input });
+        const tracked = this.tools.get(toolUseId);
+        if (!tracked) return;
+        const verbs: Record<ToolKind, string> = { think: '考えています', read: '読んでいます', write: '書いています',
+            command: '実行しています', search: '調べています', skill: '使っています', web: '調べています', other: '操作しています' };
+        this.emit({ type: 'tool', id: toolUseId, kind: tracked.kind,
+            title: this.toolStatusTitle(tracked, verbs[tracked.kind]), status: 'running', detail: tracked.detail });
+    }
+
     private completeTool(block: Json, outer: Json): void {
         const tracked = this.tools.get(block.tool_use_id);
         if (!tracked) {
@@ -256,16 +272,16 @@ export class ClaudeStreamParser {
             output: valueText(block.content),
             ...(diff ? { diff } : {})
         };
+        const blocked = block.is_error && /permission|denied|rejected|拒否|許可/i.test(valueText(block.content));
         this.emit({
             type: 'tool',
             id: block.tool_use_id,
             kind: tracked.kind,
-            title: tracked.title,
+            title: block.is_error ? this.toolStatusTitle(tracked, blocked ? '止められました' : '失敗しました') : tracked.title,
             status: block.is_error ? 'error' : 'done',
             detail,
             durationMs: Date.now() - tracked.at
         });
-        this.tools.delete(block.tool_use_id);
 
         if (block.is_error || tracked.kind !== 'write' || !detail.path || this.emittedFiles.has(detail.path)) {
             return;
@@ -412,6 +428,7 @@ export class ClaudeStreamParser {
         this.emittedFiles.clear();
         this.streamBlocks = [];
         this.blocks.clear();
+        this.tools.clear();
     }
 
     accept(row: Json): void {

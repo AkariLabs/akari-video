@@ -59,6 +59,15 @@ process.stdin.on('data', chunk => {
         if (!line) continue;
         const user = JSON.parse(line);
         fs.appendFileSync('received.jsonl', JSON.stringify(user) + '\\n');
+        if (mode === 'permission') {
+            if (user.type === 'control_response') {
+                console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false }));
+            } else {
+                console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed' }));
+                console.log(fs.readFileSync('permission-request.json', 'utf8'));
+            }
+            continue;
+        }
         console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5' }));
         if (mode === 'hold-turn' || mode === 'interrupt-result') continue;
         console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 }, modelUsage: { 'claude-haiku-5-5': { contextWindow: 1000000 } } }));
@@ -82,6 +91,122 @@ async function withTempDirectory(prefix, run) {
 function userText(message) {
     return message.message.content.find(part => part.type === 'text').text;
 }
+
+test('measured Claude manual permission request answers through control_response', async () => {
+    await withTempDirectory('akari-chat-permission-', async cwd => {
+        const rows = (await readFile(new URL('./fixtures/claude-permission-manual.jsonl', import.meta.url), 'utf8'))
+            .trim().split('\n').map(JSON.parse);
+        const request = rows.find(row => row.type === 'control_request' && row.request?.subtype === 'can_use_tool');
+        assert.ok(request);
+        await writeFile(join(cwd, 'mode.txt'), 'permission');
+        await writeFile(join(cwd, 'permission-request.json'), JSON.stringify(request));
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'checkpoints' });
+        try {
+            const tools = [];
+            session.onEvent(event => { if (event.type === 'tool') tools.push(event); });
+            const asked = new Promise(resolve => {
+                const subscription = session.onEvent(event => {
+                    if (event.type === 'ask') { subscription.dispose(); resolve(event); }
+                });
+            });
+            const turn = session.send('write', []);
+            const ask = await asked;
+            assert.deepEqual(ask.options.map(option => option.label), ['許可', '拒否']);
+            assert.equal(ask.question, `${request.request.tool_name} を許可しますか？ ${request.request.description}`);
+            assert.equal(tools.at(-1).id, request.request.tool_use_id);
+            assert.equal(tools.at(-1).status, 'running');
+            assert.match(tools.at(-1).title, /^書いています .*hello\.txt$/);
+            await session.send('許可', []);
+            await turn;
+            const responses = (await readFile(join(cwd, 'received.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+            assert.deepEqual(responses[1], { type: 'control_response', response: {
+                subtype: 'success', request_id: request.request_id,
+                response: { behavior: 'allow', updatedInput: request.request.input }
+            } });
+            const args = JSON.parse((await readFile(join(cwd, 'args.jsonl'), 'utf8')).trim());
+            assert.equal(args[args.indexOf('--permission-mode') + 1], 'default');
+            assert.equal(args[args.indexOf('--permission-prompt-tool') + 1], 'stdio');
+        } finally { await session.close(); }
+    });
+});
+
+test('measured Claude permission keeps a write pending until tool_result', async () => {
+    const rows = (await readFile(new URL('./fixtures/claude-permission-manual.jsonl', import.meta.url), 'utf8'))
+        .trim().split('\n').map(JSON.parse);
+    const events = [];
+    const parser = new ClaudeStreamParser('/workspace/project', event => events.push(event));
+    for (const row of rows.slice(0, 17)) parser.accept(row);
+    const request = rows[17].request;
+    parser.permissionPending(request.tool_use_id, request.tool_name, request.input);
+    assert.equal(events.filter(event => event.type === 'tool' && event.id === request.tool_use_id).at(-1).title,
+        '書いています hello.txt');
+    assert.equal(events.filter(event => event.type === 'tool' && event.id === request.tool_use_id).at(-1).status,
+        'running');
+    parser.accept(rows[18]);
+    const denied = events.filter(event => event.type === 'tool' && event.id === request.tool_use_id).at(-1);
+    assert.equal(denied.status, 'error');
+    assert.equal(denied.title, '止められました hello.txt');
+    const success = [];
+    const accepted = new ClaudeStreamParser('/workspace/project', event => success.push(event));
+    accepted.accept(rows[15]);
+    accepted.permissionPending(request.tool_use_id, request.tool_name, request.input);
+    accepted.accept({ type: 'user', message: { content: [{ type: 'tool_result',
+        tool_use_id: request.tool_use_id, content: 'ok' }] } });
+    assert.equal(success.filter(event => event.type === 'tool').at(-1).status, 'done');
+    assert.equal(success.filter(event => event.type === 'tool').at(-1).title, '書きました hello.txt');
+});
+
+test('closing Claude while permission is pending sends a denial', async () => {
+    await withTempDirectory('akari-chat-denial-', async cwd => {
+        const rows = (await readFile(new URL('./fixtures/claude-permission-manual.jsonl', import.meta.url), 'utf8'))
+            .trim().split('\n').map(JSON.parse);
+        const request = rows.find(row => row.type === 'control_request' && row.request?.subtype === 'can_use_tool');
+        await writeFile(join(cwd, 'mode.txt'), 'permission');
+        await writeFile(join(cwd, 'permission-request.json'), JSON.stringify(request));
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'checkpoints' });
+        const asked = new Promise(resolve => {
+            const subscription = session.onEvent(event => {
+                if (event.type === 'ask') { subscription.dispose(); resolve(); }
+            });
+        });
+        const turn = session.send('write', []).catch(() => undefined);
+        await asked;
+        const packets = [];
+        const write = session.child.stdin.write.bind(session.child.stdin);
+        session.child.stdin.write = (chunk, callback) => {
+            const packet = JSON.parse(String(chunk));
+            if (packet.type === 'control_response') packets.push(packet);
+            return write(chunk, callback);
+        };
+        await session.close();
+        await turn;
+        assert.equal(packets[0].response.request_id, request.request_id);
+        assert.equal(packets[0].response.response.behavior, 'deny');
+    });
+});
+
+test('Claude permission question omits missing description', async () => {
+    await withTempDirectory('akari-chat-question-', async cwd => {
+        const rows = (await readFile(new URL('./fixtures/claude-permission-manual.jsonl', import.meta.url), 'utf8'))
+            .trim().split('\n').map(JSON.parse);
+        const request = rows.find(row => row.type === 'control_request' && row.request?.subtype === 'can_use_tool');
+        delete request.request.description;
+        await writeFile(join(cwd, 'mode.txt'), 'permission');
+        await writeFile(join(cwd, 'permission-request.json'), JSON.stringify(request));
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'checkpoints' });
+        try {
+            const asked = new Promise(resolve => {
+                const subscription = session.onEvent(event => {
+                    if (event.type === 'ask') { subscription.dispose(); resolve(event); }
+                });
+            });
+            const turn = session.send('write', []);
+            assert.equal((await asked).question, `${request.request.tool_name} を許可しますか？`);
+            await session.send('拒否', []);
+            await turn;
+        } finally { await session.close(); }
+    });
+});
 
 test('drop target predicate claims only chat descendants', () => {
     const chatRoot = { closest: selector => selector === '[data-akari-chat]' ? chatRoot : null };
@@ -245,7 +370,8 @@ test('a dead process restarts with --resume and receives the next message', asyn
     await withTempDirectory('akari-chat-exit-', async cwd => {
         await writeFile(join(cwd, 'mode.txt'), 'exit');
         const adapter = new ClaudeStreamJsonAdapter(await fakeExecutable(cwd));
-        assert.equal((await adapter.info()).version, 'test');
+        assert.equal((await adapter.info()).version, undefined);
+        await assert.rejects(readFile(join(cwd, 'args.jsonl'), 'utf8'));
         const session = await adapter.start({ cwd, permission: 'auto' });
         await session.send('one', []);
         const child = session.child;

@@ -458,7 +458,24 @@ const css = `
 .akari-chat-attach-menu, .akari-chat-permission-menu { left: auto; right: 0; width: min(340px, 100%); padding: 8px; }
 .akari-chat-attach-menu strong, .akari-chat-permission-menu strong { display: block; color: #aaa; font-size: 11px; padding: 7px; }
 .akari-chat-attach-menu button, .akari-chat-permission-menu button { display: block; width: 100%; }
-.akari-chat-permission-note { display: block; padding: 8px; color: #fdba74; font-size: 11px; line-height: 1.5; }
+.akari-chat-permission-menu { max-height: min(420px, calc(100vh - 96px)); overflow-y: auto; }
+.akari-chat-permission-menu button {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 9px 8px !important;
+  white-space: normal !important;
+  line-height: 1.35;
+}
+.akari-chat-permission-menu button small {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.45;
+}
+.akari-chat-permission-menu button:disabled { opacity: .7; }
 .akari-chat-agent-column {
   display: flex;
   flex-direction: column;

@@ -7,11 +7,11 @@ import { OpenerService, open } from '@theia/core/lib/browser/opener-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import URI from '@theia/core/lib/common/uri';
-import type { ChatAgentInfo, ChatCapabilities } from '../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../common/chat-agent';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../common/chat-events';
 import { connectorPrefill, initialChatPermission, partnerPermission, partnerPermissionAfterChoice,
-    permissionOption, runningTools, modelChoices, modelLabel, chatErrorPresentation,
+    permissionOption, availableChatPermission, runningTools, modelChoices, modelLabel, chatErrorPresentation,
     latestResumableHistory, isCurrentHistory,
     type ChatPermission, type PartnerPermission } from '../common/chat-ui-logic';
 import { screenRecordingFormat } from '../common/screen-recording';
@@ -116,8 +116,12 @@ export class AkariChatWidget extends ReactWidget {
     protected readonly earFrontend!: AkariEarFrontend;
 
     private agents: ChatAgentInfo[] = [];
+    private agentsReady?: Promise<void>;
     private selectedAgent = 'claude';
     private chatId?: string;
+    private deferredHistory?: ChatHistoryEntry;
+    private activePermission?: ChatAdapterPermission;
+    private hasSentToChat = false;
     private capabilities?: ChatCapabilities;
     private items: ChatItem[] = [];
     private attachments: ChatAttachment[] = [];
@@ -193,8 +197,11 @@ export class AkariChatWidget extends ReactWidget {
         this.permissionMode = initialChatPermission(this.partnerMode);
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
             if (change.preferenceName !== 'akari.partner.permissionMode') return;
-            this.partnerMode = partnerPermission(this.preferences.get<string>('akari.partner.permissionMode', 'auto'));
+            const next = partnerPermission(this.preferences.get<string>('akari.partner.permissionMode', 'auto'));
+            if (next === this.partnerMode) return;
+            this.partnerMode = next;
             this.permissionMode = initialChatPermission(this.partnerMode);
+            this.normalizePermission();
             this.update();
         }));
         this.toDispose.push(this.ear.onDidChange(status => {
@@ -229,7 +236,7 @@ export class AkariChatWidget extends ReactWidget {
             window.removeEventListener('focus', this.refreshConnect);
         } });
         this.update();
-        void this.refreshAgents();
+        this.agentsReady = this.refreshAgents();
         void this.refreshConnect();
         this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
             if (!this.chatId && !this.userActed) void this.restoreOrStart();
@@ -293,6 +300,7 @@ export class AkariChatWidget extends ReactWidget {
     private async refreshAgents(): Promise<void> {
         try {
             this.agents = await this.chat.listAgents();
+            this.normalizePermission();
             this.update();
             void this.restoreOrStart();
         } catch (error) {
@@ -305,6 +313,7 @@ export class AkariChatWidget extends ReactWidget {
         this.popup = undefined;
         if (this.selectedAgent !== agent) {
             this.selectedAgent = agent;
+            this.normalizePermission();
             this.model = this.chosenModels.get(agent);
             this.effort = this.chosenEfforts.get(agent);
             this.modelSearch = '';
@@ -388,12 +397,38 @@ export class AkariChatWidget extends ReactWidget {
         return roots[0]?.resource.path.fsPath();
     }
 
+    private selectedAgentInfo(): ChatAgentInfo | undefined {
+        return this.agents.find(item => item.id === this.selectedAgent);
+    }
+
+    private normalizePermission(): void {
+        if (!permissionOption(this.permissionMode, this.partnerMode, this.selectedAgentInfo()).available) {
+            this.permissionMode = 'automatic';
+        }
+    }
+
+    private selectedPermission(): ChatAdapterPermission {
+        return availableChatPermission(this.permissionMode, this.partnerMode, this.selectedAgentInfo());
+    }
+
     private async ensureChat(): Promise<string | undefined> {
         if (this.navigationPending) await this.navigationPending;
-        if (this.chatId) {
+        const permission = this.selectedPermission();
+        if (this.chatId && this.activePermission === permission) {
             return this.chatId;
         }
         if (this.startPromise) return this.startPromise;
+        if (this.chatId) {
+            const previous = this.chatId;
+            const cwd = await this.cwd();
+            if (this.hasSentToChat && cwd) {
+                this.deferredHistory = (await this.chat.listHistory(cwd)).find(entry => entry.id === previous);
+            }
+            this.chatId = undefined;
+            this.activePermission = undefined;
+            this.hasSentToChat = false;
+            await this.chat.close(previous);
+        }
         if (this.agents.length && !this.agents.find(item => item.id === this.selectedAgent)?.installed) {
             this.update();
             return undefined;
@@ -413,16 +448,19 @@ export class AkariChatWidget extends ReactWidget {
         }, 1500);
         this.update();
         const start = async (): Promise<string | undefined> => { try {
-            const started = await this.chat.start({
+            const deferred = this.deferredHistory;
+            const started = deferred ? await this.chat.resume(cwd, deferred.id, token, permission) : await this.chat.start({
                 agent: this.selectedAgent,
                 cwd,
                 model: this.model,
                 effort: this.effort,
-                permission: permissionOption(this.permissionMode, this.partnerMode, this.capabilities).permission,
+                permission,
                 token
             });
             if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return undefined; }
             this.chatId = started.chatId;
+            this.deferredHistory = undefined;
+            this.activePermission = permission;
             this.capabilities = started.capabilities;
             this.actualModel = started.capabilities.currentModel;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
@@ -467,17 +505,33 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private async restoreOrStart(): Promise<void> {
-        if (this.autoRestoreAttempted || this.userActed || this.chatId || this.startPromise || !this.agents.length) return;
+        if (this.autoRestoreAttempted || this.userActed || this.chatId || this.deferredHistory || this.startPromise || !this.agents.length) return;
         await this.workspace.ready;
         const cwd = await this.cwd();
-        if (!cwd || this.userActed) return;
+        if (!cwd || this.userActed || this.chatId || this.deferredHistory || this.startPromise) return;
         this.autoRestoreAttempted = true;
         if (this.preferences.get<boolean>('akari.partner.reopenLast', true)) {
             const history = await this.chat.listHistory(cwd);
             const last = latestResumableHistory(history, new Set(this.agents.filter(agent => agent.installed).map(agent => agent.id)));
-            if (last && !this.userActed) { await this.resume(last, false); return; }
+            if (last && !this.userActed) {
+                this.showDeferredHistory(last);
+                return;
+            }
         }
-        if (!this.userActed) void this.ensureChat();
+        this.update();
+    }
+
+    private showDeferredHistory(entry: ChatHistoryEntry): void {
+        if (isCurrentHistory(entry.id, this.chatId, this.openingHistoryId) || this.deferredHistory?.id === entry.id) return;
+        this.deferredHistory = entry;
+        this.selectedAgent = entry.agent;
+        this.normalizePermission();
+        this.resumedTitle = entry.title;
+        this.model = this.chosenModels.get(entry.agent);
+        this.effort = this.chosenEfforts.get(entry.agent);
+        this.capabilities = undefined;
+        this.actualModel = entry.model;
+        this.update();
     }
 
     private send(): void {
@@ -520,6 +574,7 @@ export class AkariChatWidget extends ReactWidget {
                 }
                 const next = this.outbox.shift()!;
                 try {
+                    this.hasSentToChat = true;
                     let timer: ReturnType<typeof setTimeout> | undefined;
                     try {
                         const timeout = new Promise<never>((_resolve, reject) => {
@@ -567,6 +622,9 @@ export class AkariChatWidget extends ReactWidget {
         if (this.startToken) await this.cancelStarting();
         const previous = this.chatId;
         this.chatId = undefined;
+        this.deferredHistory = undefined;
+        this.activePermission = undefined;
+        this.hasSentToChat = false;
         this.openingHistoryId = undefined;
         if (previous) await this.chat.close(previous);
         this.items = [];
@@ -599,6 +657,8 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     async resumeLast(): Promise<void> {
+        await this.agentsReady;
+        await this.workspace.ready;
         const cwd = await this.cwd();
         if (!cwd) {
             return;
@@ -606,11 +666,9 @@ export class AkariChatWidget extends ReactWidget {
         const history = await this.chat.listHistory(cwd);
         const last = latestResumableHistory(history, new Set(this.agents.filter(agent => agent.installed).map(agent => agent.id)));
         if (last) {
-            if (isCurrentHistory(last.id, this.chatId, this.openingHistoryId)) {
-                if (this.openingHistoryId === last.id) await this.startPromise;
-                return;
-            }
-            await this.resume(last);
+            if (isCurrentHistory(last.id, this.chatId, this.openingHistoryId) || this.deferredHistory?.id === last.id) return;
+            if (this.chatId || this.startPromise) await this.newChat(false);
+            this.showDeferredHistory(last);
         }
     }
 
@@ -618,12 +676,16 @@ export class AkariChatWidget extends ReactWidget {
         if (userAction) this.userActed = true;
         const previousToken = this.startToken;
         const previous = this.chatId;
+        this.deferredHistory = undefined;
+        this.activePermission = undefined;
+        this.hasSentToChat = false;
         const sequence = ++this.startSequence;
         const token = `resume-${Date.now()}-${sequence}`;
         this.startToken = token;
         this.openingHistoryId = entry.id;
         this.chatId = undefined;
         this.selectedAgent = entry.agent;
+        this.normalizePermission();
         this.resumedTitle = entry.title;
         this.model = this.chosenModels.get(entry.agent);
         this.effort = this.chosenEfforts.get(entry.agent);
@@ -653,9 +715,11 @@ export class AkariChatWidget extends ReactWidget {
             const cwd = await this.cwd();
             if (!cwd) throw new Error('先にプロジェクトを開いてください');
             if (sequence !== this.startSequence) return undefined;
-            const started = await this.chat.resume(cwd, entry.id, token);
+            const permission = this.selectedPermission();
+            const started = await this.chat.resume(cwd, entry.id, token, permission);
             if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return; }
             this.chatId = started.chatId;
+            this.activePermission = permission;
             this.capabilities = started.capabilities;
             this.actualModel = started.capabilities.currentModel || entry.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
@@ -1046,6 +1110,16 @@ export class AkariChatWidget extends ReactWidget {
             return;
         }
         this.items = this.items.filter(item => item !== ask);
+        if (this.busy && this.chatId) {
+            const choice = ask.event.options[option].label;
+            this.items.push({ type: 'user', text: choice, attachments: [] });
+            void this.chat.send(this.chatId, choice, []).catch(error => {
+                this.error = { type: 'error', kind: 'other', message: String(error) };
+                this.update();
+            });
+            this.update();
+            return;
+        }
         this.input = ask.event.options[option].label;
         this.send();
     }
@@ -1259,7 +1333,7 @@ export class AkariChatWidget extends ReactWidget {
         return <div className='akari-chat-pop akari-chat-permission-menu' data-chat-permission-menu>
             <strong>進め方</strong>
             {modes.map(mode => {
-                const option = permissionOption(mode.id, this.partnerMode, this.capabilities);
+                const option = permissionOption(mode.id, this.partnerMode, this.selectedAgentInfo());
                 return <button key={mode.id} disabled={!option.available} title={option.reason || mode.note}
                     onClick={() => {
                         const nextPreference = partnerPermissionAfterChoice(mode.id, this.partnerMode);
@@ -1272,9 +1346,6 @@ export class AkariChatWidget extends ReactWidget {
                         this.update();
                     }}>{mode.label}{this.permissionMode === mode.id ? ' ✓' : ''}<small>{option.reason || mode.note}</small></button>;
             })}
-            {this.partnerMode === 'ask' && this.permissionMode === 'checkpoints' && <small className='akari-chat-permission-note'>
-                この相手は毎回確認に対応していないため要所で確認で進めます
-            </small>}
         </div>;
     }
 
@@ -1342,7 +1413,7 @@ export class AkariChatWidget extends ReactWidget {
         const models = this.capabilities?.models || [];
         const shownModel = this.starting ? '起動しています…' : modelLabel(models, this.model, this.actualModel);
         const errorDisplay = this.error
-            ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart)
+            ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent)
             : undefined;
         const effortLabel = this.effort && this.capabilities?.efforts?.includes(this.effort)
             ? EFFORT_LABELS[this.effort] || this.effort : undefined;
@@ -1374,6 +1445,7 @@ export class AkariChatWidget extends ReactWidget {
                     data-chat-agent-button
                     onClick={() => {
                         this.popup = 'model';
+                        if (!this.chatId) void this.ensureChat();
                         this.update();
                     }}
                 >{agent?.name || 'Claude Code'} <ChatIcon name='down' size={13} /></button>
@@ -1421,7 +1493,7 @@ export class AkariChatWidget extends ReactWidget {
                             <button data-chat-login onClick={() => void navigator.clipboard.writeText(agent.loginHint!)}>
                                 ターミナルで {agent.loginHint} を実行（コピー）
                             </button>}
-                        <button onClick={() => { this.popup = 'model'; this.update(); }}>別の相手を選ぶ</button>
+                        <button onClick={() => { this.popup = 'model'; if (!this.chatId) void this.ensureChat(); this.update(); }}>別の相手を選ぶ</button>
                     </div>}
                 </div>}
             </div>
@@ -1471,6 +1543,7 @@ export class AkariChatWidget extends ReactWidget {
                         data-chat-model-label
                         onClick={() => {
                             this.popup = this.popup === 'model' ? undefined : 'model';
+                            if (this.popup === 'model' && !this.chatId) void this.ensureChat();
                             this.update();
                         }}
                     >{shownModel}{effortLabel ? ` · ${effortLabel}` : ''} <ChatIcon name='down' size={13} /></button>

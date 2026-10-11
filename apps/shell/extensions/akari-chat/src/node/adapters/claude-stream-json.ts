@@ -3,7 +3,7 @@ import { constants } from 'fs';
 import { access, readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { extname, join } from 'path';
-import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import { describeAttachments, type ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
@@ -117,26 +117,17 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
                 name: 'Claude Code',
                 installed: false,
                 installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
-                transport: 'claude-stream-json'
+                transport: 'claude-stream-json', permissionModes: ['automatic', 'checkpoints'],
+                permissionReasons: { every: '読み取りは確認しないため選べません' }
             };
         }
-        const version = await new Promise<string>(resolve => {
-            const child = spawn(executable, ['--version'], {
-                stdio: ['ignore', 'pipe', 'ignore'],
-                shell: false
-            });
-            let output = '';
-            child.stdout.on('data', data => { output += String(data); });
-            child.on('error', () => resolve(''));
-            child.on('close', () => resolve(output.trim()));
-        });
         return {
             id: 'claude',
             name: 'Claude Code',
             installed: true,
             installHint: 'Claude Code をインストールしてください（npm install -g @anthropic-ai/claude-code）',
-            version,
-            transport: 'claude-stream-json'
+            transport: 'claude-stream-json', permissionModes: ['automatic', 'checkpoints'],
+            permissionReasons: { every: '読み取りは確認しないため選べません' }
         };
     }
 
@@ -145,8 +136,9 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
         resume?: string;
         model?: string;
         effort?: string;
-        permission: 'auto' | 'all';
+        permission: ChatAdapterPermission;
     }): Promise<ChatAdapterSession> {
+        if (opts.permission === 'every') throw new Error('Claude Code は毎回確認に対応していません');
         const executable = this.executableOverride || await findClaude();
         if (!executable) {
             throw new Error('not-installed');
@@ -166,6 +158,7 @@ class ClaudeSession implements ChatAdapterSession {
     private closed = false;
     private restart = false;
     private interrupted = false;
+    private permissionRequest?: { id: string; input: Record<string, unknown>; child: ChildProcessWithoutNullStreams };
 
     constructor(
         private readonly executable: string,
@@ -174,7 +167,7 @@ class ClaudeSession implements ChatAdapterSession {
             resume?: string;
             model?: string;
             effort?: string;
-            permission: 'auto' | 'all';
+            permission: ChatAdapterPermission;
         }
     ) {
         this.ref = opts.resume || '';
@@ -253,6 +246,19 @@ class ClaudeSession implements ChatAdapterSession {
         this.restart = true;
     }
 
+    private answerPermission(allow: boolean): Promise<void> {
+        const pending = this.permissionRequest;
+        this.permissionRequest = undefined;
+        if (!pending || !pending.child.stdin.writable) return Promise.resolve();
+        return new Promise(resolve => {
+            pending.child.stdin.write(JSON.stringify({ type: 'control_response', response: {
+                subtype: 'success', request_id: pending.id, response: allow
+                    ? { behavior: 'allow', updatedInput: pending.input }
+                    : { behavior: 'deny', message: '許可されませんでした' }
+            } }) + '\n', () => resolve());
+        });
+    }
+
     private launch(): ChildProcessWithoutNullStreams {
         const args = [
             '-p',
@@ -263,6 +269,8 @@ class ClaudeSession implements ChatAdapterSession {
         ];
         if (this.opts.permission === 'all') {
             args.push('--dangerously-skip-permissions');
+        } else if (this.opts.permission === 'checkpoints') {
+            args.push('--permission-mode', 'default', '--permission-prompt-tool', 'stdio');
         } else {
             args.push('--permission-mode', 'auto');
         }
@@ -301,7 +309,17 @@ class ClaudeSession implements ChatAdapterSession {
                     continue;
                 }
                 try {
-                    this.parser.accept(JSON.parse(line));
+                    const row = JSON.parse(line);
+                    if (row.type === 'control_request' && row.request?.subtype === 'can_use_tool') {
+                        if (this.permissionRequest) void this.answerPermission(false);
+                        this.permissionRequest = { id: String(row.request_id), input: row.request.input || {}, child };
+                        this.parser.permissionPending(String(row.request.tool_use_id || ''),
+                            String(row.request.tool_name || 'Tool'), row.request.input || {});
+                        const description = String(row.request.description || '').trim();
+                        this.publish({ type: 'ask', id: `permission-${row.request_id}`,
+                            question: `${row.request.tool_name || '操作'} を許可しますか？${description ? ` ${description}` : ''}`,
+                            options: [{ label: '許可' }, { label: '拒否' }] });
+                    } else this.parser.accept(row);
                 } catch {
                     // A malformed line is isolated from the rest of the stream.
                 }
@@ -339,6 +357,7 @@ class ClaudeSession implements ChatAdapterSession {
             if (this.child !== child) {
                 return;
             }
+            if (this.permissionRequest?.child === child) this.permissionRequest = undefined;
             if (this.pending?.child === child && !this.pending.writeAcknowledged) {
                 const error = Object.assign(new Error(`process exited (${code})`), { code: 'EPIPE' });
                 this.pending.onWriteError(error);
@@ -438,12 +457,16 @@ class ClaudeSession implements ChatAdapterSession {
     }
 
     send(text: string, attachments: ChatAttachment[]): Promise<void> {
+        if (this.permissionRequest) {
+            return this.answerPermission(text.trim() === '許可');
+        }
         const next = this.sendTail.then(() => this.sendOne(text, attachments));
         this.sendTail = next.catch(() => undefined);
         return next;
     }
 
     async interrupt(): Promise<void> {
+        await this.answerPermission(false);
         this.interrupted = true;
         this.restart = true;
         const child = this.child;
@@ -486,6 +509,7 @@ class ClaudeSession implements ChatAdapterSession {
     }
 
     async close(): Promise<void> {
+        await this.answerPermission(false);
         this.closed = true;
         const child = this.child;
         this.child = undefined;

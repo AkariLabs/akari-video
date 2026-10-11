@@ -4,7 +4,7 @@ import { basename, extname, isAbsolute, join } from 'path';
 import { injectable } from '@theia/core/shared/inversify';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent } from '../common/chat-events';
-import type { ChatCapabilities } from '../common/chat-agent';
+import type { ChatCapabilities, ChatAdapterPermission } from '../common/chat-agent';
 import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../common/chat-protocol';
 import { chatAdapters } from './adapters';
 import type { ChatAdapterSession } from './adapters/adapter';
@@ -48,7 +48,7 @@ export class AkariChatServiceImpl implements AkariChatService {
         resume?: string;
         model?: string;
         effort?: string;
-        permission?: 'auto' | 'all';
+        permission?: ChatAdapterPermission;
         token?: string;
     }) {
         if (options.token && this.cancelledStarts.delete(options.token)) throw new Error('start-cancelled');
@@ -69,7 +69,7 @@ export class AkariChatServiceImpl implements AkariChatService {
 
     private async startSession(options: {
         agent: string; cwd: string; resume?: string; model?: string; effort?: string;
-        permission?: 'auto' | 'all'; token?: string;
+        permission?: ChatAdapterPermission; token?: string;
     }, signal: AbortSignal) {
         const registered = await Promise.all(chatAdapters.map(async adapter => ({
             adapter,
@@ -251,12 +251,12 @@ export class AkariChatServiceImpl implements AkariChatService {
         return relative;
     }
 
-    async resume(cwd: string, historyId: string, token?: string) {
+    async resume(cwd: string, historyId: string, token?: string, permission?: ChatAdapterPermission) {
         const entry = (await this.listHistory(cwd)).find(item => item.id === historyId);
         if (!entry?.sessionRef) {
             throw new Error('この会話は開けません');
         }
-        return this.start({ cwd, agent: entry.agent, resume: entry.sessionRef, model: entry.model, token });
+        return this.start({ cwd, agent: entry.agent, resume: entry.sessionRef, model: entry.model, token, permission });
     }
 
     private require(chatId: string): ActiveChat {

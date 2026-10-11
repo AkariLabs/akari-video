@@ -150,14 +150,17 @@ test('model labels resolve explicit and runtime Claude IDs', () => {
 
 test('auth errors show the agent reason and next actions; ordinary turn errors do not', () => {
     const gemini = chatErrorPresentation({ type: 'error', kind: 'auth',
-        message: 'This client is no longer supported. Please migrate to Antigravity.' }, 'Gemini CLI', true);
+        message: 'This client is no longer supported. Please migrate to Antigravity.' }, 'Gemini CLI', true, 'gemini');
     assert.equal(gemini.heading, 'Gemini CLI にログインが必要です');
     assert.match(gemini.reason, /Antigravity/);
     assert.equal(gemini.nextStep, true);
-    const turn = chatErrorPresentation({ type: 'error', kind: 'other', message: '処理に失敗しました' }, 'Codex', false);
+    const turn = chatErrorPresentation({ type: 'error', kind: 'other', message: '処理に失敗しました' }, 'Codex', false, 'codex');
     assert.equal(turn.heading, undefined);
     assert.equal(turn.reason, '処理に失敗しました');
     assert.equal(turn.nextStep, false);
+    const agy = chatErrorPresentation({ type: 'error', kind: 'other', message: 'Antigravity model unavailable' },
+        'Antigravity', false, 'antigravity');
+    assert.equal(agy.reason, 'Antigravity model unavailable');
 });
 
 test('sending marks chat as the last partner, even after another startup writes its marker', async () => {
@@ -183,4 +186,25 @@ test('restore chooses the latest installed session and reuses an open or opening
     assert.equal(isCurrentHistory(latest.id, latest.id), true);
     assert.equal(isCurrentHistory(latest.id, undefined, latest.id), true);
     assert.equal(isCurrentHistory(latest.id, 'old', undefined), false);
+});
+
+test('history preview leaves the partner stopped until the first deferred resume', async () => {
+    await withService(async (service, cwd) => {
+        const calls = [];
+        const adapter = chatAdapters[0];
+        const start = adapter.start;
+        adapter.start = async options => { calls.push(options); return start(options); };
+        const first = await service.start({ agent: 'fake', cwd });
+        await service.send(first.chatId, 'saved', []);
+        await service.close(first.chatId);
+        const preview = latestResumableHistory(await service.listHistory(cwd), new Set(['fake']));
+        assert.equal(preview.title, 'saved');
+        assert.equal(calls.length, 1);
+        const reopened = await service.resume(cwd, preview.id, undefined, 'checkpoints');
+        assert.equal(reopened.chatId, preview.id);
+        assert.equal(calls.length, 2);
+        assert.equal(calls[1].permission, 'checkpoints');
+        await service.send(reopened.chatId, 'next', []);
+        await service.listHistory(cwd);
+    });
 });

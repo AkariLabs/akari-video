@@ -2,12 +2,12 @@ import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { constants } from 'fs';
 import { access, lstat, readFile, realpath, writeFile } from 'fs/promises';
 import { extname, isAbsolute, relative, resolve, sep } from 'path';
-import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { describeAttachments } from '../../common/chat-attachments';
-import { acpVersion, findAcpExecutable, AcpAgentDefinition, AcpDetectionEnvironment } from './acp-agents';
+import { findAcpExecutable, AcpAgentDefinition, AcpDetectionEnvironment } from './acp-agents';
 
 type JsonObject = Record<string, unknown>;
 type RpcError = Error & { code?: number; crashed?: boolean };
@@ -17,8 +17,13 @@ type ConfigOption = { id: string; category?: string; type?: string; currentValue
 
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 const TOOL_KINDS: Record<string, ToolKind> = {
-    read: 'read', edit: 'write', delete: 'write', move: 'write', search: 'search',
-    execute: 'command', think: 'think', fetch: 'web', other: 'other'
+    read: 'read', list: 'read', write: 'write', edit: 'write', delete: 'write', move: 'write', search: 'search',
+    execute: 'command', command: 'command', think: 'think', fetch: 'web', web: 'web', other: 'other'
+};
+const NAMED_TOOLS: Record<string, ToolKind> = {
+    read_file: 'read', write_file: 'write', edit: 'write', grep: 'search', glob: 'search', find: 'search',
+    list_dir: 'read', ls: 'read', run_terminal_cmd: 'command', shell: 'command', bash: 'command',
+    fetch: 'web', web_search: 'search'
 };
 
 function object(value: unknown): JsonObject {
@@ -63,12 +68,14 @@ export class AcpAdapter implements ChatAdapter {
         const executable = await this.executable();
         return {
             id: this.agent.id, name: this.agent.name, installed: Boolean(executable),
-            version: executable ? await acpVersion(executable) : undefined, transport: 'acp',
+            transport: 'acp', permissionModes: ['automatic', 'checkpoints'],
+            permissionReasons: { every: '確認の頻度は相手側が決めるため選べません' },
             installHint: this.agent.installHint, loginHint: this.agent.loginHint
         };
     }
 
-    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all'; signal?: AbortSignal }): Promise<ChatAdapterSession> {
+    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission; signal?: AbortSignal }): Promise<ChatAdapterSession> {
+        if (opts.permission === 'every') throw new Error('この相手は毎回確認に対応していません');
         const executable = await this.executable();
         const session = new AcpSession(this.agent, executable, opts);
         const cancel = (): void => { void session.close(); };
@@ -85,6 +92,7 @@ export class AcpSession implements ChatAdapterSession {
     private readonly pending = new Map<number, PendingRpc>();
     private readonly tools = new Map<string, ToolEvent>();
     private readonly toolTargets = new Map<string, string>();
+    private readonly toolNames = new Map<string, string>();
     private sequence = 0;
     private lineBuffer = '';
     private stderr = '';
@@ -113,7 +121,7 @@ export class AcpSession implements ChatAdapterSession {
     constructor(
         private readonly agent: AcpAgentDefinition,
         private readonly executable: string | undefined,
-        private readonly opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all' }
+        private readonly opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission }
     ) { }
 
     get sessionRef(): string { return this.ref; }
@@ -277,7 +285,7 @@ export class AcpSession implements ChatAdapterSession {
                 const options = Array.isArray(params.options) ? params.options.map(object) : [];
                 const allow = this.opts.permission === 'all' ? ['allow_always', 'allow_once'] : ['allow_once', 'allow_always'];
                 const selected = allow.map(kind => options.find(option => option.kind === kind)).find(Boolean);
-                if (selected) {
+                if (selected && this.opts.permission !== 'checkpoints') {
                     this.reply(id, { outcome: { outcome: 'selected', optionId: selected.optionId } });
                 } else {
                     this.pendingPermission = {
@@ -371,25 +379,42 @@ export class AcpSession implements ChatAdapterSession {
         const path = string(locations[0]?.path) || string(raw.path) || previous?.detail?.path || '';
         const command = (Array.isArray(raw.command) ? raw.command.map(string).filter(Boolean).join(' ') : string(raw.command))
             || previous?.detail?.command || '';
-        const query = string(raw.pattern) || string(raw.query);
+        const query = (string(raw.pattern) || string(raw.query)).replace(/\\([^\w\s])/g, '$1');
         const url = string(raw.url);
-        const kind = TOOL_KINDS[string(update.kind)] || previous?.kind || 'other';
+        const meta = object(object(update._meta)['x.ai/tool']);
+        const title = string(update.title);
+        const name = string(meta.name) || this.toolNames.get(id) || title;
+        if (name) this.toolNames.set(id, name);
+        const list = /^(list_dir|ls)$/.test(name.toLowerCase()) || string(meta.kind) === 'list'
+            || string(update.kind) === 'list' || /^list\b/i.test(title);
+        const declaredKind = TOOL_KINDS[string(meta.kind)] || TOOL_KINDS[string(update.kind)];
+        const kind = NAMED_TOOLS[name.toLowerCase()] || (list ? 'read' : undefined)
+            || (declaredKind === 'other' ? undefined : declaredKind) || previous?.kind || 'other';
         const status = ['completed', 'done'].includes(string(update.status)) ? 'done'
             : ['failed', 'error'].includes(string(update.status)) ? 'error' : 'running';
-        const title = string(update.title);
-        const descriptiveTitle = title.toLowerCase() === string(update.kind).toLowerCase() ? '' : this.relativePath(title);
-        const location = path ? this.relativePath(path) : '';
+        const displayTarget = (value: string): string => {
+            const unquoted = value.trim().replace(/^`+|`+$/g, '');
+            const relative = unquoted ? this.relativePath(unquoted) : '';
+            return relative === '.' || relative === './' ? '' : relative;
+        };
+        const titledTarget = list ? title.replace(/^list\b\s*/i, '') : title;
+        const descriptiveTitle = title && title !== name ? displayTarget(titledTarget).replace(/\\([^\w\s])/g, '$1') : '';
+        const location = displayTarget(path);
+        const namedTarget = name.toLowerCase() === 'other' ? '' : displayTarget(name);
+        const kindHint = [string(meta.kind), string(update.kind)].find(value => value && value !== 'other') || '';
         const target = (kind === 'command' ? command || descriptiveTitle || location
             : kind === 'read' || kind === 'write' ? location || descriptiveTitle
                 : kind === 'search' ? query || location || descriptiveTitle
                     : kind === 'web' ? url || descriptiveTitle
-                        : descriptiveTitle || location) || this.toolTargets.get(id) || '';
+                        : descriptiveTitle || location || namedTarget || displayTarget(kindHint)) || this.toolTargets.get(id) || '';
+        if (kind === 'other' && !target && !namedTarget) return;
         this.toolTargets.set(id, target);
         const running: Record<ToolKind, string> = { read: '読んでいます', write: '書いています', command: '実行しています',
             search: '検索しています', web: '取得しています', think: '考えています', skill: '操作しています', other: '操作しています' };
         const done: Record<ToolKind, string> = { read: '読みました', write: '書きました', command: '実行しました',
             search: '検索しました', web: '取得しました', think: '考えました', skill: '操作しました', other: '操作しました' };
-        const verb = status === 'error' ? '失敗しました' : status === 'done' ? done[kind] : running[kind];
+        const verb = status === 'error' ? '失敗しました' : list ? status === 'done' ? '一覧を見ました' : '一覧を見ています'
+            : status === 'done' ? done[kind] : running[kind];
         const content = Array.isArray(update.content) ? update.content.map(object) : [];
         const output = content.filter(item => item.type === 'content' || item.type === 'text')
             .map(item => string(item.text) || string(object(item.content).text)).filter(Boolean).join('\n');
@@ -400,7 +425,7 @@ export class AcpSession implements ChatAdapterSession {
             patch: `-${oldText}\n+${newText}`.slice(0, 4000) } : previous?.detail?.diff;
         const event: ToolEvent = {
             type: 'tool', id, kind, title: `${verb} ${target}`.trim().replace(/\s+/g, ' ').slice(0, 200), status,
-            detail: { ...previous?.detail, ...(command ? { command } : {}), ...(path ? { path: this.relativePath(path) } : {}),
+            detail: { ...previous?.detail, ...(command ? { command } : {}), ...(location && location !== '.' ? { path: location } : {}),
                 ...(output ? { output: output.slice(0, 8000) } : {}), ...(diff ? { diff } : {}) }
         };
         this.tools.set(id, event);
@@ -498,6 +523,7 @@ export class AcpSession implements ChatAdapterSession {
         this.planId = '';
         this.tools.clear();
         this.toolTargets.clear();
+        this.toolNames.clear();
         try {
             const result = await this.request('session/prompt', { sessionId: this.ref, prompt: await this.promptBlocks(text, attachments) });
             this.finishMessage(); this.finishThought();

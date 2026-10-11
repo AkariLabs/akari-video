@@ -3,10 +3,14 @@ export interface ChatAgentInfo {
     name: string;
     installed: boolean;
     version?: string;
-    transport: 'claude-stream-json' | 'codex-app-server' | 'acp';
+    transport: 'claude-stream-json' | 'agy-stream-json' | 'codex-app-server' | 'acp';
+    permissionModes?: readonly ('automatic' | 'checkpoints' | 'every')[];
+    permissionReasons?: Partial<Record<'checkpoints' | 'every', string>>;
     installHint?: string;
     loginHint?: string;
 }
+
+export type ChatAdapterPermission = 'auto' | 'all' | 'checkpoints' | 'every';
 
 export interface ChatCapabilities {
     models: { id: string; label: string; description?: string }[];

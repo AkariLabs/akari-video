@@ -3,7 +3,7 @@ import { constants } from 'fs';
 import { access } from 'fs/promises';
 import { homedir } from 'os';
 import { basename, extname, isAbsolute, join, relative } from 'path';
-import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
@@ -322,21 +322,14 @@ export class CodexAppServerAdapter implements ChatAdapter {
     async info(): Promise<ChatAgentInfo> {
         const executable = this.executableOverride || await findCodex();
         if (!executable) {
-            return { id: 'codex', name: 'Codex', installed: false, transport: 'codex-app-server',
+            return { id: 'codex', name: 'Codex', installed: false, transport: 'codex-app-server', permissionModes: ['automatic', 'checkpoints', 'every'],
                 installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
         }
-        const version = await new Promise<string>(resolve => {
-            const child = spawn(executable, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
-            let output = '';
-            child.stdout.on('data', chunk => { output += String(chunk); });
-            child.on('error', () => resolve(''));
-            child.on('close', () => resolve(output.trim()));
-        });
-        return { id: 'codex', name: 'Codex', installed: true, version, transport: 'codex-app-server',
+        return { id: 'codex', name: 'Codex', installed: true, transport: 'codex-app-server', permissionModes: ['automatic', 'checkpoints', 'every'],
             installHint: 'Codex をインストールしてください（npm install -g @openai/codex）' };
     }
 
-    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all'; signal?: AbortSignal }): Promise<ChatAdapterSession> {
+    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission; signal?: AbortSignal }): Promise<ChatAdapterSession> {
         const executable = this.executableOverride || await findCodex();
         if (!executable) {
             throw new Error('not-installed');
@@ -382,7 +375,7 @@ class CodexSession implements ChatAdapterSession {
     private unauthenticated = false;
 
     constructor(private readonly executable: string,
-        private readonly opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all' },
+        private readonly opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission },
         private readonly idleTimeoutMs: number) {
         this.ref = opts.resume || '';
         this.parser = new CodexNotificationParser(opts.cwd, event => this.publish(event));
@@ -661,7 +654,9 @@ class CodexSession implements ChatAdapterSession {
     private async openThread(resume: boolean): Promise<void> {
         const permission = this.opts.permission === 'all'
             ? { approvalPolicy: 'never', sandbox: 'danger-full-access' }
-            : { approvalPolicy: 'on-request', approvalsReviewer: 'auto_review', sandbox: 'workspace-write' };
+            : this.opts.permission === 'every' ? { approvalPolicy: 'untrusted', sandbox: 'workspace-write' }
+                : this.opts.permission === 'checkpoints' ? { approvalPolicy: 'on-request', sandbox: 'workspace-write' }
+                    : { approvalPolicy: 'on-request', approvalsReviewer: 'auto_review', sandbox: 'workspace-write' };
         const model = this.validModel(this.opts.model);
         const result = await this.rpc(resume ? 'thread/resume' : 'thread/start', {
             ...(resume ? { threadId: this.ref } : {}), cwd: this.opts.cwd,

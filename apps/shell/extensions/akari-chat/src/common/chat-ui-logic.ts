@@ -1,4 +1,4 @@
-import type { ChatCapabilities } from './chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from './chat-agent';
 import type { ChatEvent } from './chat-events';
 
 export function modelChoices(models: ChatCapabilities['models'], query: string, recent: readonly string[], current?: string): {
@@ -22,10 +22,10 @@ export function modelLabel(models: ChatCapabilities['models'], chosen?: string, 
     return contained?.label || actual || chosen || '既定';
 }
 
-export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' }>, agentName: string, initial: boolean): {
+export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' }>, agentName: string, initial: boolean, agentId: string): {
     heading?: string; reason: string; nextStep: boolean
 } {
-    const unsupported = /no longer supported|Antigravity/i.test(error.message);
+    const unsupported = agentId === 'gemini' && /no longer supported|Antigravity/i.test(error.message);
     return {
         ...(error.kind === 'auth' ? { heading: `${agentName} にログインが必要です` } : {}),
         reason: unsupported
@@ -63,14 +63,19 @@ export function partnerPermissionAfterChoice(mode: ChatPermission, current: Part
     return current === 'bypass' ? 'bypass' : 'auto';
 }
 
-export function permissionOption(mode: ChatPermission, preference: PartnerPermission, capabilities?: ChatCapabilities): {
-    permission: 'auto' | 'all'; available: boolean; reason?: string
+export function permissionOption(mode: ChatPermission, preference: PartnerPermission, agent?: ChatAgentInfo): {
+    permission: ChatAdapterPermission; available: boolean; reason?: string
 } {
     if (mode === 'automatic') return { permission: preference === 'bypass' ? 'all' : 'auto', available: true };
-    if (mode === 'checkpoints') return { permission: 'auto', available: true };
-    return { permission: 'auto', available: false,
-        reason: capabilities?.ask ? 'この相手は毎回確認の開始設定に対応していません'
-            : 'この相手は毎回の確認に対応していません' };
+    const supported = agent?.permissionModes || ['automatic'];
+    return supported.includes(mode) ? { permission: mode, available: true }
+        : { permission: mode, available: false,
+            reason: agent?.permissionReasons?.[mode] || 'この相手では選べません' };
+}
+
+export function availableChatPermission(mode: ChatPermission, preference: PartnerPermission, agent?: ChatAgentInfo): ChatAdapterPermission {
+    const option = permissionOption(mode, preference, agent);
+    return option.available ? option.permission : permissionOption('automatic', 'auto', agent).permission;
 }
 
 export function connectorPrefill(name: string, example?: string): string {

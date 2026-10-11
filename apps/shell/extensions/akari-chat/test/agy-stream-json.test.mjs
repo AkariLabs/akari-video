@@ -218,9 +218,9 @@ test('fake agy persists turns, restarts after controls, and sends text attachmen
     const adapter = new AgyStreamJsonAdapter(executable);
     const info = await adapter.info();
     assert.equal(info.id, 'antigravity');
-    assert.equal(info.version, 'agy 1.3.3');
+    assert.equal(info.version, undefined);
     assert.equal(info.loginHint, 'agy');
-    assert.equal(info.transport, 'claude-stream-json');
+    assert.equal(info.transport, 'agy-stream-json');
     assert.doesNotMatch(info.installHint, /antigravity/i);
     const session = await adapter.start({ cwd, permission: 'auto' });
     const events = [];

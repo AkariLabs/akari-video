@@ -72,6 +72,56 @@ test('all permission prefers allow_always', async () => {
     }, { permission: 'all' });
 });
 
+test('checkpoints asks before choosing an available allow option', async () => {
+    await withSession('normal', async ({ cwd, session, events }) => {
+        const asked = new Promise(resolve => {
+            const subscription = session.onEvent(event => {
+                if (event.type === 'ask') { subscription.dispose(); resolve(); }
+            });
+        });
+        const turn = session.send('hello', []);
+        await asked;
+        assert.ok(events.some(event => event.type === 'ask'));
+        await session.send('一度許可', []);
+        await turn;
+        assert.equal((await packets(cwd)).find(packet => packet.id === 101).result.outcome.optionId, 'once');
+    }, { permission: 'checkpoints' });
+});
+
+test('measured Grok search and list updates use readable actions and omit empty other', async () => {
+    const cwd = '/workspace/project';
+    const session = new AcpSession(acpAgents[0], undefined, { cwd, permission: 'auto' });
+    const events = [];
+    session.onEvent(event => events.push(event));
+    const rows = (await readFile(new URL('./fixtures/acp/grok-search-list.jsonl', import.meta.url), 'utf8'))
+        .trim().split('\n').map(JSON.parse);
+    for (const row of rows) session.toolUpdate(row.params.update);
+    const search = events.filter(event => event.id?.includes('call-9a01ffc9-55c5-4c6d-a824-d9bbe58bd400-0'));
+    const listing = events.filter(event => event.id?.includes('call-9a01ffc9-55c5-4c6d-a824-d9bbe58bd400-1'));
+    assert.equal(search.at(-1).title, '検索しました edit.json');
+    assert.equal(listing.at(-1).title, '一覧を見ました');
+    assert.equal(listing.at(-1).detail.path, undefined);
+    const count = events.length;
+    session.toolUpdate({ toolCallId: 'empty', kind: 'other', status: 'completed' });
+    assert.equal(events.length, count);
+    session.toolUpdate({ toolCallId: 'empty-dot', kind: 'other', status: 'completed', locations: [{ path: './' }] });
+    assert.equal(events.length, count);
+    session.toolUpdate({ toolCallId: 'named-other', kind: 'other', title: 'mcp__akari__render', status: 'completed' });
+    assert.equal(events.at(-1).title, '操作しました mcp__akari__render');
+    session.toolUpdate({ toolCallId: 'described-other', kind: 'other', title: 'Rendered frame', status: 'completed',
+        _meta: { 'x.ai/tool': { name: 'mcp__akari__render' } } });
+    assert.equal(events.at(-1).title, '操作しました Rendered frame');
+    session.toolUpdate({ toolCallId: 'kind-only', kind: 'mcp', status: 'completed' });
+    assert.equal(events.at(-1).title, '操作しました mcp');
+    session.toolUpdate({ toolCallId: 'list-kind', kind: 'other', status: 'completed',
+        _meta: { 'x.ai/tool': { kind: 'list' } } });
+    assert.equal(events.at(-1).title, '一覧を見ました');
+    session.toolUpdate({ toolCallId: 'list-sub', kind: 'other', title: 'List `sub`', status: 'completed',
+        locations: [{ path: '`sub`' }], _meta: { 'x.ai/tool': { name: 'list_dir', kind: 'list' } } });
+    assert.equal(events.at(-1).title, '一覧を見ました sub');
+    assert.equal(events.at(-1).detail.path, 'sub');
+});
+
 test('interrupt sends session/cancel and closes the turn', async () => {
     await withSession('cancel', async ({ cwd, session, events }) => {
         let promptSent;
@@ -324,7 +374,7 @@ test('search and file tool titles use project-relative paths', async () => {
         session.toolUpdate({ toolCallId: 'search', kind: 'search', title: cwd.slice(1), status: 'in_progress' });
         session.toolUpdate({ toolCallId: 'read', kind: 'read', title: `${cwd}/inside.txt`,
             locations: [{ path: `${cwd}/inside.txt` }], status: 'in_progress' });
-        assert.equal(events[0].title, '検索しています .');
+        assert.equal(events[0].title, '検索しています');
         assert.equal(events[1].title, '読んでいます inside.txt');
         assert.equal(events[1].detail.path, 'inside.txt');
     } finally { await rm(cwd, { recursive: true, force: true }); }

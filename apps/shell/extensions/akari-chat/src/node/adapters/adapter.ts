@@ -1,4 +1,4 @@
-import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 
@@ -11,7 +11,7 @@ export interface ChatAdapter {
         resume?: string;
         model?: string;
         effort?: string;
-        permission: 'auto' | 'all';
+        permission: ChatAdapterPermission;
         signal?: AbortSignal;
     }): Promise<ChatAdapterSession>;
 }

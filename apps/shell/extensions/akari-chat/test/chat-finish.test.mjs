@@ -35,8 +35,22 @@ test('進め方は共有設定を正しく写し、要所の選択では書き�
     assert.equal(initialChatPermission('ask'), 'checkpoints');
     assert.deepEqual(permissionOption('automatic', 'auto'), { permission: 'auto', available: true });
     assert.deepEqual(permissionOption('automatic', 'bypass'), { permission: 'all', available: true });
-    assert.deepEqual(permissionOption('checkpoints', 'ask'), { permission: 'auto', available: true });
-    assert.equal(permissionOption('every', 'ask', { ask: true }).available, false);
+    const codex = { permissionModes: ['automatic', 'checkpoints', 'every'] };
+    const claude = { permissionModes: ['automatic', 'checkpoints'],
+        permissionReasons: { every: '読み取りは確認しないため選べません' } };
+    const acp = { permissionModes: ['automatic', 'checkpoints'],
+        permissionReasons: { every: '確認の頻度は相手側が決めるため選べません' } };
+    const agy = { permissionModes: ['automatic'], permissionReasons: {
+        checkpoints: 'この相手では選べません（headless では確認を出せません）',
+        every: 'この相手では選べません（headless では確認を出せません）'
+    } };
+    assert.deepEqual(permissionOption('checkpoints', 'ask', codex), { permission: 'checkpoints', available: true });
+    assert.deepEqual(permissionOption('every', 'ask', codex), { permission: 'every', available: true });
+    assert.equal(permissionOption('every', 'ask', claude).available, false);
+    assert.equal(permissionOption('checkpoints', 'ask', agy).available, false);
+    assert.match(permissionOption('checkpoints', 'ask', agy).reason, /headless/);
+    assert.match(permissionOption('every', 'ask', claude).reason, /読み取り/);
+    assert.match(permissionOption('every', 'ask', acp).reason, /相手側/);
     assert.equal(partnerPermissionAfterChoice('checkpoints', 'bypass'), 'bypass');
     assert.equal(partnerPermissionAfterChoice('automatic', 'ask'), 'auto');
     assert.equal(partnerPermissionAfterChoice('automatic', 'bypass'), 'bypass');

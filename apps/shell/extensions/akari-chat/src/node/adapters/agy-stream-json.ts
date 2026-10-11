@@ -3,11 +3,11 @@ import { constants } from 'fs';
 import { access } from 'fs/promises';
 import { homedir } from 'os';
 import { isAbsolute, relative } from 'path';
-import type { ChatAgentInfo, ChatCapabilities } from '../../common/chat-agent';
+import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import { describeAttachments, type ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
-import { acpCandidates, acpVersion, findAcpExecutable, type AcpAgentDefinition } from './acp-agents';
+import { acpCandidates, findAcpExecutable, type AcpAgentDefinition } from './acp-agents';
 
 const AGENT: AcpAgentDefinition = {
     id: 'antigravity', name: 'Antigravity', executable: 'agy', args: [], extraDirs: [],
@@ -56,7 +56,7 @@ export function agyToolKind(name: string): ToolKind | 'ask' {
     return 'other';
 }
 
-export function agyArgs(opts: { model?: string; effort?: string; permission: 'auto' | 'all' }, conversation?: string): string[] {
+export function agyArgs(opts: { model?: string; effort?: string; permission: ChatAdapterPermission }, conversation?: string): string[] {
     const args = ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print='];
     if (opts.model) args.push('--model', opts.model);
     if (opts.effort) args.push('--effort', opts.effort);
@@ -208,14 +208,17 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
         const executable = this.executableOverride || await findAgy();
         return {
             id: 'antigravity', name: 'Antigravity', installed: !!executable,
-            ...(executable ? { version: await acpVersion(executable) } : {}),
             installHint: AGENT.installHint, loginHint: 'agy',
-            // agy uses the same NDJSON stream transport as Claude; the shared type has no agy variant.
-            transport: 'claude-stream-json'
+            transport: 'agy-stream-json', permissionModes: ['automatic'],
+            permissionReasons: { checkpoints: 'この相手では選べません（headless では確認を出せません）',
+                every: 'この相手では選べません（headless では確認を出せません）' }
         };
     }
 
-    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all' }): Promise<ChatAdapterSession> {
+    async start(opts: { cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission }): Promise<ChatAdapterSession> {
+        if (opts.permission === 'checkpoints' || opts.permission === 'every') {
+            throw new Error('この相手では確認モードを選べません');
+        }
         const executable = this.executableOverride || await findAgy();
         if (!executable) throw new Error('not-installed');
         return new AgySession(executable, opts, () => this.getModels(executable, opts.cwd));
@@ -257,7 +260,7 @@ class AgySession implements ChatAdapterSession {
     private closed = false;
 
     constructor(private readonly executable: string, private readonly opts: {
-        cwd: string; resume?: string; model?: string; effort?: string; permission: 'auto' | 'all'
+        cwd: string; resume?: string; model?: string; effort?: string; permission: ChatAdapterPermission
     }, private readonly getModels: () => Promise<ChatCapabilities['models']>) {
         this.ref = opts.resume || '';
         this.parser = new AgyStreamParser(opts.cwd, event => this.publish(event));
