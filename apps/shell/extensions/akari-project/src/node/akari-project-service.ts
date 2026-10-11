@@ -118,6 +118,56 @@ const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg']);
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
+// Windows の省電力抑制（EcoQoS）で、アプリから起こした重い CLI（文字起こし・話者分離）が遅くなる。
+// 子プロセスの抑制だけを外す（管理者権限は要らない）。
+export function powerThrottlingOffArgs(pid: number): string[] {
+    if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('プロセス ID は正の整数で指定してください');
+    const script = `Add-Type -TypeDefinition '
+using System;
+using System.Runtime.InteropServices;
+public static class AkariPowerThrottling {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ProcessPowerThrottlingState {
+        public uint Version;
+        public uint ControlMask;
+        public uint StateMask;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint access, bool inheritHandle, int processId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessInformation(IntPtr process, int informationClass,
+        ref ProcessPowerThrottlingState state, uint size);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseHandle(IntPtr process);
+    public static bool Release(int pid) {
+        IntPtr process = OpenProcess(0x0200, false, pid);
+        if (process == IntPtr.Zero) return false;
+        try {
+            var state = new ProcessPowerThrottlingState { Version = 1, ControlMask = 1, StateMask = 0 };
+            return SetProcessInformation(process, 4, ref state,
+                (uint)Marshal.SizeOf(typeof(ProcessPowerThrottlingState)));
+        } finally {
+            CloseHandle(process);
+        }
+    }
+}
+'; if (-not [AkariPowerThrottling]::Release(${pid})) { exit 1 }`;
+    return ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script];
+}
+
+export function releaseProcessPowerThrottling(pid: number, spawnImpl = spawn): void {
+    if (process.platform !== 'win32') return;
+    try {
+        const helper = spawnImpl('powershell.exe', powerThrottlingOffArgs(pid), { windowsHide: true, stdio: 'ignore' });
+        const timer = setTimeout(() => { try { helper.kill(); } catch { /* Best effort only. */ } }, 20_000);
+        timer.unref();
+        helper.once('error', () => clearTimeout(timer));
+        helper.once('close', () => clearTimeout(timer));
+    } catch { /* Transcription continues if the helper cannot start. */ }
+}
+
 function classifyDroppedAssetExtension(name: string): DroppedAssetKind | undefined {
     const ext = extname(name).toLowerCase();
     if (VIDEO_EXTENSIONS.has(ext)) {
@@ -1591,7 +1641,8 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
                     // transcribe-cloud.mjs --send --approved path; gate entry here, before spawn.
                     if (backend.startsWith('cloud:') && request.approved !== true) throw new Error('音声送信の承認がありません');
                     const result = await this.runNodeScript(cli, ['transcribe', target.relativePath,
-                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root, trackChild);
+                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root, trackChild,
+                        { releasePowerThrottling: true });
                     if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
                     if (backends.length > 1) await publish('completed', 'completed', backend, undefined, (Date.now() - started) / 1000);
                     return { backend, stdout: result.stdout };
@@ -1835,7 +1886,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * 開発時の素の node プロセスでは無害に無視される。
      */
     protected async runNodeScript(scriptPath: string, args: string[], cwd?: string,
-        onSpawn?: (child: ChildProcess) => void): Promise<{ code: number; stdout: string; stderr: string }> {
+        onSpawn?: (child: ChildProcess) => void, options: { releasePowerThrottling?: boolean } = {}): Promise<{ code: number; stdout: string; stderr: string }> {
         const mediaBinEnv = await this.mediaBinEnv();
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
@@ -1844,6 +1895,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             onSpawn?.(child);
+            if (options.releasePowerThrottling && child.pid) releaseProcessPowerThrottling(child.pid);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', chunk => stdout += chunk.toString());

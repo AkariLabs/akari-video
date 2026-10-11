@@ -1,4 +1,5 @@
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { inspectVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { execFile } from 'child_process';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { homedir } from 'os';
@@ -21,6 +22,7 @@ export interface ToolDetectionOptions {
     arch?: string;
     env?: NodeJS.ProcessEnv;
     homeDir?: string;
+    voiceHome?: string;
     now?: () => Date;
     runCommand?: (command: string, args: string[], env: NodeJS.ProcessEnv) => Promise<CommandResult>;
     pathExists?: (path: string) => Promise<boolean>;
@@ -39,7 +41,7 @@ export interface ToolDetectionOptions {
 }
 
 interface ExecutableSpec {
-    id: Exclude<AkariToolId, 'voicevox' | 'xcode-clt' | 'speech-analyzer'>;
+    id: Exclude<AkariToolId, 'voicevox' | 'voice' | 'xcode-clt' | 'speech-analyzer'>;
     tier: AkariToolTier;
     envNames: string[];
     commands: (platform: NodeJS.Platform) => string[];
@@ -109,6 +111,14 @@ export async function detectTools(options: ToolDetectionOptions = {}): Promise<A
     }
     // VOICEVOX の run は起動すると常駐エンジンになるため、存在確認だけに留める。
     tools.splice(4, 0, await detectVoicevox(platform, homeDir, env, pathExists, options.fetchImpl ?? fetch));
+    const voiceHome = options.voiceHome ?? resolveVoiceHome({ env, homeDir });
+    const voiceState = await inspectVoiceEngine({ voiceHome, platform, arch });
+    tools.splice(5, 0, {
+        id: 'voice', tier: 'advanced', available: voiceState.state === 'ready',
+        ...(voiceState.state === 'ready' ? { version: 'sherpa-onnx 1.13.8', executable: voiceHome } : {}),
+        ...(voiceState.state === 'unsupported' ? { unsupported: true } : {}),
+        ...(voiceState.state !== 'ready' && voiceState.state !== 'unsupported' ? { needs: voiceState.needs } : {})
+    });
     if (platform === 'darwin') {
         tools.push(await detectCommandLineTools(env, runCommand));
     }
