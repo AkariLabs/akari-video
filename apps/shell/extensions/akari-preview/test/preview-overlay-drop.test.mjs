@@ -97,3 +97,25 @@ test('素材がドラッグ中に 3D に当たれば待たずに画面へ適用�
         editUri: 'file:///edit.json'
     }]]);
 });
+
+test('drop の直後に dragend が当たり判定を消しても、3D の画面へ適用する', async () => {
+    const payload = { kind: 'video', relativePath: 'assets/video/sample.mp4' };
+    const geometry = { rect: { x: 0, y: 0, width: 100, height: 100 }, time: 3,
+        output: { width: 1280, height: 720 } };
+    const calls = [];
+    const receiver = { active: { ...payload, source: 'material' }, geometry,
+        hoverHit: { kind: 'item', id: 'item-1' }, pendingGeometryRequests: new Set(),
+        fullscreen: () => false, editUri: () => 'file:///edit.json',
+        // ブラウザは drop と同じタスクで dragend を送る。最初の await の間に当たり判定が消える
+        queryGeometry: async function () { this.hoverHit = undefined; this.active = undefined; return geometry; },
+        queryHit: () => assert.fail('落下時に当たり判定を待たない'),
+        clear() { this.active = undefined; this.hoverHit = undefined; },
+        commands: { executeCommand: async (id, request) => { calls.push([id, request]); } } };
+    const event = { clientX: 50, clientY: 50, altKey: false,
+        dataTransfer: { getData: type => type === 'application/x-akari-material' ? JSON.stringify(payload) : '' },
+        preventDefault() {}, stopPropagation() {} };
+    await PreviewLibraryDrop.prototype.drop.call(receiver, event);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], 'akari.timeline.applyLibraryItem');
+    assert.deepEqual(calls[0][1].target, { kind: 'item', id: 'item-1' });
+});

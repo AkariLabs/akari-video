@@ -539,6 +539,8 @@ export class PreviewLibraryDrop {
         const ghostRect = this.ghost?.getBoundingClientRect();
         const heldGhost = ghostRect && this.ghost?.style.display !== 'none' && this.ghost?.cloneNode
             ? this.ghost.cloneNode(true) as HTMLDivElement : undefined;
+        // 3D の画面へのドロップ先も同じ理由で最初の await の前に控える（dragend が hoverHit を消す）
+        const screenHit = this.hoverHit;
         const pageId = (this.widget as (WebviewWidget & { akariPreviewPlaybackPageId?: string }) | undefined)
             ?.akariPreviewPlaybackPageId;
         let placementStarted = false;
@@ -636,7 +638,7 @@ export class PreviewLibraryDrop {
             }
         }
         if (payload.source === 'material' && SCREEN_KINDS.has(payload.kind) && payload.relativePath) {
-            const hit = this.hoverHit;
+            const hit = screenHit;
             if (hit?.kind === 'item') {
                 this.clear();
                 const editUri = this.editUri();
