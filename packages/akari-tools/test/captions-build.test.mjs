@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildCaptionsFromTranscript as build } from "../src/captions/build.mjs";
+import { readFileSync } from 'node:fs';
 
 const segment = (start, end, text = "字幕") => ({ start, end, text, words: [{ start, end, text }] });
 
@@ -219,4 +220,68 @@ test("unrecognized spans straddling a caption edge are trimmed to that caption",
   assert.equal(captions.length, 2);
   assert.deepEqual(captions[0].unrecognized, [{ start: 0.5, end: captions[0].end }]);
   assert.deepEqual(captions[1].unrecognized, [{ start: captions[1].start, end: 3 }]);
+});
+
+test('English transcript restores spaces from segment text despite joined transcriber words', () => {
+  const transcript = JSON.parse(readFileSync(new URL('./fixtures/english-transcript.json', import.meta.url)));
+  const { captions } = build(transcript, { lang: 'en-US' });
+  assert.equal(captions.length, 36);
+  assert.equal(captions.filter(cue => cue.text.length > 42).length, 0);
+  assert.equal(captions.filter(cue => /[a-z]{12,}/iu.test(cue.text)).length, 0);
+  assert.equal(captions.filter(cue => /^[,.?!;:]/u.test(cue.text)).length, 0);
+  assert.equal(captions.filter(cue => /(?:^|\s)(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by|from|before)$/iu.test(cue.text)).length, 0);
+  assert.deepEqual(captions.flatMap(cue => cue.words), transcript.flatMap(segment => segment.words));
+  assert.ok(captions.some(cue => cue.text.includes('let me')));
+  assert.ok(captions.some(cue => cue.text.includes('I learned')));
+});
+
+test('English character splitting carries function words into the next cue without changing word times', () => {
+  const words = 'We walked to the recording room'.split(' ')
+    .map((text, index) => ({ text, start: index * 0.2, end: index * 0.2 + 0.1 }));
+  const segment = { start: 0, end: 1.1, text: 'We walked to the recording room', words };
+  const captions = build([segment], { lang: 'en', maxCharacters: 19, maxSeconds: 0, pauseSeconds: 1 }).captions;
+  assert.deepEqual(captions.map(cue => cue.text), ['We walked', 'to the recording', 'room']);
+  assert.deepEqual(captions.flatMap(cue => cue.words), words);
+});
+
+test('English transcriber words with prefixed punctuation attach marks to the previous cue', () => {
+  const words = [
+    { text: 'Hello', start: 0, end: 0.2 },
+    { text: ',where', start: 0.2, end: 0.4 },
+    { text: 'next', start: 0.4, end: 0.6 },
+  ];
+  const captions = build([{ start: 0, end: 0.6, text: 'Hello, where next', words }], {
+    lang: 'en', maxCharacters: 6, maxSeconds: 0, pauseSeconds: 1,
+  }).captions;
+  assert.deepEqual(captions.map(cue => cue.text), ['Hello,', 'where', 'next']);
+  assert.deepEqual(captions.flatMap(cue => cue.words), words);
+});
+
+test('a genuine pause still separates English cues at the original word times', () => {
+  const input = [
+    { start: 0, end: 0.4, text: 'walked to', words: [
+      { text: 'walked', start: 0, end: 0.2 }, { text: 'to', start: 0.2, end: 0.4 },
+    ] },
+    { start: 1.2, end: 1.5, text: 'town', words: [{ text: 'town', start: 1.2, end: 1.5 }] },
+  ];
+  assert.deepEqual(build(input, { lang: 'en', pauseSeconds: 0.6 }).captions.map(cue => cue.text),
+    ['walked to', 'town']);
+});
+
+test('Japanese none-mode keeps legacy gap ownership byte for byte', () => {
+  const words = [
+    { text: '前半', start: 0, end: 1 },
+    { text: '後半', start: 1, end: 2 },
+  ];
+  const captions = build([{ start: 0, end: 2, text: '前半、 後半', words }], {
+    lang: 'ja', splitMode: 'none', maxCharacters: 3,
+  }).captions;
+  assert.deepEqual(captions.map(cue => cue.text), ['前半', '、 後半']);
+});
+
+test('English fallback separates words and attaches punctuation without doubled spaces; Japanese stays joined', () => {
+  const words = ['hello', '  world', ',', 'again'].map((text, index) => ({ text, start: index, end: index + 0.5 }));
+  const input = [{ start: 0, end: 4, text: 'different source', words }];
+  assert.deepEqual(build(input, { lang: 'en', maxCharacters: 42 }).captions.map(cue => cue.text), ['hello world, again']);
+  assert.deepEqual(build(input, { lang: 'ja', maxCharacters: 42 }).captions.map(cue => cue.text), ['hello  world,again']);
 });

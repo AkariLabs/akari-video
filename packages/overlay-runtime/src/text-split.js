@@ -1,6 +1,6 @@
 // テキスト分割プリミティブ
 //
-// 契約: 内部リポ akari-video-internal のテロップ運動文法契約 v0（2026-08-15）
+// 契約: テロップ運動文法契約 v0（2026-08-15）
 //
 // 断片は `data-akari-split="bunsetsu"` のような宣言だけを持ち、分割済みの
 // `<span class="akari-u" style="--i:N">` で出荷する。ランタイムは
@@ -97,18 +97,23 @@ window.akari.textSplit = (() => {
    * @param {"none"|"chars"|"bunsetsu"|"words"|"lines"} mode
    * @returns {string[]}
    */
-  function segment(text, mode) {
+  function segment(text, mode, locale = "ja") {
     if (typeof text !== "string" || text === "") return [];
     if (!MODES.has(mode) || mode === "none") return [text];
     if (mode === "lines") return text.split("\n");
     if (mode === "chars") return [...text];
     if (mode === "words") {
       if (!hasIntlSegmenter()) return [text];
-      return [...new Intl.Segmenter("ja", { granularity: "word" }).segment(text)]
+      return [...new Intl.Segmenter(locale, { granularity: "word" }).segment(text)]
         .map((s) => s.segment)
         .filter((s) => s !== "");
     }
     // bunsetsu
+    if (!/^ja(?:-|$)/iu.test(locale)) {
+      if (!hasIntlSegmenter()) return [text];
+      return [...new Intl.Segmenter(locale, { granularity: "word" }).segment(text)]
+        .map((s) => s.segment).filter(Boolean);
+    }
     const budoux = window.akari?._budoux;
     if (budoux?.parse) return budoux.parse(text);
     if (!warnedNoBudoux) {
@@ -143,7 +148,7 @@ window.akari.textSplit = (() => {
     if (!isSplitHost(element)) return 0;
     const mode = element.getAttribute(ATTR) || "none";
     const text = element.textContent ?? "";
-    const units = segment(text, mode);
+    const units = segment(text, mode, element.lang || element.closest('[lang]')?.lang || "ja");
 
     // 冪等性: 現在の子が既に望む分割と一致していれば何もしない
     const current = element.children;

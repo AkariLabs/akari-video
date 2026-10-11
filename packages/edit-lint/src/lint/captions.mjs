@@ -4,6 +4,8 @@ import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mj
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
 import { resolveCaptionDisplay } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
+import { captionLanguageDefaults, resolveContentLanguage } from "../../../content-language/src/index.mjs";
+import { readContentLanguageSync } from "../../../content-language/src/node.mjs";
 
 export function validateCaptionRunRanges(caption) {
   if (!Array.isArray(caption?.runs)) return [];
@@ -84,6 +86,10 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     }
     captions = captions.captions;
   }
+  const locale = typeof paths.projectRoot === 'string'
+    ? readContentLanguageSync(paths.projectRoot, { cliLang: displayPolicy?.locale }).language
+    : resolveContentLanguage({ cliLang: displayPolicy?.locale, analysis }).language;
+  const speedLimit = locale === 'ja' ? null : captionLanguageDefaults(locale).charactersPerSecond;
   const ids = new Set();
   // ここには以前 `captions.overlay-link`（caption の id と一致する overlays[].id が無ければ警告）
   // があったが、2026-08-07 に撤去した。字幕のオーバーレイは消費側が captions[] から合成する
@@ -319,6 +325,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         }
       }
       const displaySeconds = caption.end - caption.start;
+      if (speedLimit && displaySeconds > 0 && isNonEmptyString(caption.text)) {
+        const characters = Array.from(typeof caption.display_text === 'string' ? caption.display_text : caption.text).length;
+        const speed = characters / displaySeconds;
+        if (speed > speedLimit + EPSILON) {
+          addFinding(findings, {
+            severity: 'warning', check: 'captions.reading-speed',
+            message: `caption reading speed is ${speed.toFixed(1)} characters/s, over ${speedLimit} characters/s for ${locale}`,
+            path: itemPath, range: { start: caption.start, end: caption.end },
+          });
+        }
+      }
       if (displaySeconds < 1.0 - EPSILON) {
         addFinding(findings, {
           severity: "warning",
