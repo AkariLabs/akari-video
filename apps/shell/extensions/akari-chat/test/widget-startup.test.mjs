@@ -89,6 +89,17 @@ test('resumeLast stays deferred while hidden and warms when shown', async () => 
     assert.equal(starts, 1);
 });
 
+test('deferred history keeps the selected agent model display name', () => {
+    const widget = new AkariChatWidget();
+    widget.selectedAgent = 'grok';
+    widget.setCapabilities({ models: [{ id: 'provider/custom-model', label: 'Custom Display' }] });
+    widget.selectedAgent = 'claude';
+    widget.setCapabilities({ models: [{ id: 'haiku', label: 'Haiku' }] });
+    widget.showDeferredHistory({ id: 'saved', agent: 'grok', model: 'provider/custom-model', title: 'Saved' });
+    assert.equal(widget.capabilities, undefined);
+    assert.equal(modelLabel(widget.currentModels(), widget.model, widget.actualModel), 'Custom Display');
+});
+
 test('start keeps preparing until ready event', async () => {
     const widget = new AkariChatWidget();
     widget.agents = [{ id: 'claude', name: 'Claude Code', installed: true, transport: 'claude-stream-json' }];

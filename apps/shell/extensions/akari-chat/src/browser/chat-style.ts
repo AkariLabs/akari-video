@@ -8,7 +8,9 @@ const css = `
 }
 .akari-chat {
   height: 100%;
-  min-width: 300px;
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -33,17 +35,21 @@ const css = `
   display: flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   padding: 0 12px;
   border-bottom: 1px solid #2b2b2b;
 }
-.akari-chat-head [data-chat-agent-button] { min-width: 0; overflow: hidden; white-space: nowrap; }
+.akari-chat-head [data-chat-agent-button] { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
 .akari-chat-head [data-chat-agent-button] svg { flex: none; }
 .akari-chat-head [data-chat-agent-button] span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.akari-chat-head > .akari-chat-spacer { min-width: 0; }
+.akari-chat-head > button:not([data-chat-agent-button]) { flex: none; }
 .akari-chat-connect-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
   flex: none;
   min-height: 34px;
   padding: 6px 14px;
@@ -54,7 +60,10 @@ const css = `
   text-align: left;
 }
 .akari-chat-connect-row:hover { color: #fff !important; background: #1d1d1d !important; }
-.akari-chat-connect-row .akari-connect-stack { display: inline-flex; align-items: center; }
+.akari-chat-connect-row > span:first-child,
+.akari-chat-connect-row > svg { flex: none; }
+.akari-chat-connect-row > .akari-chat-spacer { min-width: 0; }
+.akari-chat-connect-row .akari-connect-stack { display: inline-flex; align-items: center; min-width: 0; overflow: hidden; }
 .akari-chat-connect-row .akari-connect-stack-icon, .akari-chat-connect-row .akari-connect-stack-more {
   display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px;
   border: 1px solid #111; border-radius: 50%; background: #315a65; color: #fff;
@@ -79,6 +88,7 @@ const css = `
 }
 .akari-chat-thread {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 18px 18px 25px;
   display: flex;
@@ -346,6 +356,7 @@ const css = `
 }
 .akari-chat-composer {
   position: relative;
+  min-width: 0;
   margin: 8px 12px 16px;
   background: #141414;
   border: 1px solid #383838;
@@ -371,6 +382,45 @@ const css = `
   display: flex;
   align-items: center;
   gap: 3px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.akari-chat-controls [data-chat-model-button],
+.akari-chat-controls [data-chat-permission-chip] {
+  flex: 0 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-inline: 4px;
+}
+.akari-chat-controls [data-chat-permission-chip] { flex-shrink: 1.1; }
+.akari-chat-controls .akari-chat-control-label {
+  display: block;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.akari-chat-controls [data-chat-model-button] .akari-chat-control-label { min-width: 3em; }
+.akari-chat-controls [data-chat-permission-chip] .akari-chat-control-label { min-width: 2.5em; }
+.akari-chat-controls [data-chat-model-button] svg,
+.akari-chat-controls [data-chat-permission-chip] svg,
+.akari-chat-controls > button:not([data-chat-model-button]):not([data-chat-permission-chip]) {
+  flex-shrink: 0;
+}
+.akari-chat-controls > .akari-chat-spacer { min-width: 0; }
+@container (max-width: 320px) {
+  .akari-chat-controls { gap: 2px; }
+  .akari-chat-controls [data-chat-model-button],
+  .akari-chat-controls [data-chat-permission-chip] { gap: 1px; padding-inline: 2px; }
+}
+@container (max-width: 280px) {
+  .akari-chat-composer { margin-inline: 8px; padding-inline: 7px; }
+  .akari-chat-controls { gap: 1px; }
+  .akari-chat-controls [data-chat-model-button],
+  .akari-chat-controls [data-chat-permission-chip] { gap: 1px; padding-inline: 1px; }
+  .akari-chat-controls [data-chat-attach],
+  .akari-chat-controls [data-chat-mic] { padding-inline: 4px; }
 }
 .akari-chat-listening { display: flex; align-items: center; gap: 8px; min-height: 25px; color: #fca5a5; font-size: 12px; }
 .akari-chat-wave { width: 26px; height: 16px; border-radius: 3px; flex: none; background: repeating-linear-gradient(90deg, #ef4444 0 2px, transparent 2px 5px); transform-origin: center; }
@@ -425,7 +475,7 @@ const css = `
   z-index: 2;
   max-height: 420px;
   overflow: auto;
-  min-width: 260px;
+  min-width: min(260px, 100%);
 }
 .akari-chat-pop button {
   border: 0 !important;

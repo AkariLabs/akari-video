@@ -149,6 +149,31 @@ test('slash menu height stays below the panel header and rows grow with content'
     assert.match(style, /\.akari-chat-attach-menu \.akari-chat-soon-badge \{[^}]*display: inline-flex/s);
 });
 
+test('chat controls keep narrow panels within the widget', () => {
+    const style = readFileSync(new URL('../src/browser/chat-style.ts', import.meta.url), 'utf8');
+    const chat = style.match(/\.akari-chat \{([^}]*)\}/s)?.[1] || '';
+    assert.match(chat, /min-width: 0;/);
+    assert.doesNotMatch(chat, /min-width: 300px;/);
+    assert.match(style, /\.akari-chat-head \{[^}]*min-width: 0;/s);
+    assert.match(style, /\.akari-chat-thread \{[^}]*min-width: 0;/s);
+    assert.match(style, /\.akari-chat-composer \{[^}]*min-width: 0;/s);
+    const controls = style.match(/\.akari-chat-controls \[data-chat-model-button\],\s*\.akari-chat-controls \[data-chat-permission-chip\] \{([^}]*)\}/s)?.[1] || '';
+    assert.match(controls, /white-space: nowrap;/);
+    assert.match(controls, /text-overflow: ellipsis;/);
+    assert.doesNotMatch(controls, /min-width:/);
+    assert.match(style, /\.akari-chat-controls \[data-chat-permission-chip\] \{ flex-shrink: 1\.1; \}/);
+    const label = style.match(/\.akari-chat-controls \.akari-chat-control-label \{([^}]*)\}/s)?.[1] || '';
+    assert.match(label, /display: block;/);
+    assert.match(label, /overflow: hidden;/);
+    assert.match(label, /text-overflow: ellipsis;/);
+    assert.match(label, /white-space: nowrap;/);
+    assert.match(style, /\[data-chat-model-button\] \.akari-chat-control-label \{ min-width: 3em; \}/);
+    assert.match(style, /\[data-chat-permission-chip\] \.akari-chat-control-label \{ min-width: 2\.5em; \}/);
+    assert.match(style, /@container \(max-width: 320px\)/);
+    assert.match(style, /@container \(max-width: 280px\)/);
+    assert.match(style, /\.akari-chat-controls > button:not\(\[data-chat-model-button\]\):not\(\[data-chat-permission-chip\]\) \{[^}]*flex-shrink: 0;/s);
+});
+
 test('preparation waits for ready', () => {
     assert.equal(preparationReady(false), false);
     assert.equal(preparationReady(true), true);

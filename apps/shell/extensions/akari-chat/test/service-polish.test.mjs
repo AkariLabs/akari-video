@@ -231,6 +231,19 @@ test('model labels resolve explicit and runtime Claude IDs', () => {
     assert.equal(modelLabel(models), '既定');
 });
 
+test('model labels stay readable while capabilities are unavailable', () => {
+    const models = [];
+    assert.equal(modelLabel(models, undefined, 'claude-haiku-5-5'), 'Haiku');
+    assert.equal(modelLabel(models, undefined, 'claude-opus-5-5'), 'Opus');
+    assert.equal(modelLabel(models, undefined, 'claude-sonnet-5-5'), 'Sonnet');
+    assert.equal(modelLabel(models, undefined, 'claude-fable-5-1'), 'Fable');
+    assert.equal(modelLabel(models, undefined, 'claude-sonnetry-5-5'), 'claude-sonnetry-5-5');
+    assert.equal(modelLabel(models, undefined, 'provider/long-model-id'), 'long-model-id');
+    assert.equal(modelLabel(models, 'provider:short-name'), 'short-name');
+    assert.equal(modelLabel([{ id: 'provider/long-model-id', label: 'Display Name' }],
+        undefined, 'provider/long-model-id'), 'Display Name');
+});
+
 test('auth errors show the agent reason and next actions; ordinary turn errors do not', () => {
     const gemini = chatErrorPresentation({ type: 'error', kind: 'auth',
         message: 'This client is no longer supported. Please migrate to Antigravity.' }, 'Gemini CLI', true, 'gemini');

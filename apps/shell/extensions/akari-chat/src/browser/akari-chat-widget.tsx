@@ -134,6 +134,7 @@ export class AkariChatWidget extends ReactWidget {
     private activePermission?: ChatAdapterPermission;
     private hasSentToChat = false;
     private capabilities?: ChatCapabilities;
+    private readonly modelsByAgent = new Map<string, ChatCapabilities['models']>();
     private items: ChatItem[] = [];
     private attachments: ChatAttachment[] = [];
     private input = '';
@@ -204,6 +205,15 @@ export class AkariChatWidget extends ReactWidget {
     private thinking?: Extract<ChatItem, { type: 'thinking' }>;
     private turnStartedAt = 0;
     private frame?: number;
+
+    private setCapabilities(capabilities: ChatCapabilities): void {
+        this.capabilities = capabilities;
+        if (capabilities.models.length) this.modelsByAgent.set(this.selectedAgent, capabilities.models);
+    }
+
+    private currentModels(): ChatCapabilities['models'] {
+        return this.capabilities?.models.length ? this.capabilities.models : this.modelsByAgent.get(this.selectedAgent) || [];
+    }
 
     @postConstruct()
     protected init(): void {
@@ -433,7 +443,7 @@ export class AkariChatWidget extends ReactWidget {
         } else if (event.type === 'ready') {
             this.refreshPreparation();
         } else if (event.type === 'capabilities') {
-            this.capabilities = event.capabilities;
+            this.setCapabilities(event.capabilities);
             if (event.capabilities.currentModel && !this.model) this.actualModel = event.capabilities.currentModel;
             void this.loadCommands(chatId);
         } else if (event.type === 'model') {
@@ -491,7 +501,7 @@ export class AkariChatWidget extends ReactWidget {
             if (this.thinking) this.thinking.open = false;
             this.initialErrorChatId = undefined;
         } else if (event.type === 'session' && event.model) {
-            const models = this.capabilities?.models || [];
+            const models = this.currentModels();
             if (this.selectedAgent !== 'claude' || !this.model ||
                 modelLabel(models, this.model) === modelLabel(models, undefined, event.model)) {
                 this.actualModel = event.model;
@@ -653,7 +663,7 @@ export class AkariChatWidget extends ReactWidget {
             this.chatId = started.chatId;
             this.deferredHistory = undefined;
             this.activePermission = permission;
-            this.capabilities = started.capabilities;
+            this.setCapabilities(started.capabilities);
             this.actualModel = started.capabilities.currentModel || this.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
@@ -953,7 +963,7 @@ export class AkariChatWidget extends ReactWidget {
             if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return; }
             this.chatId = started.chatId;
             this.activePermission = permission;
-            this.capabilities = started.capabilities;
+            this.setCapabilities(started.capabilities);
             this.actualModel = started.capabilities.currentModel || entry.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
@@ -1715,7 +1725,7 @@ export class AkariChatWidget extends ReactWidget {
         if (this.popup !== 'model') {
             return null;
         }
-        const models = this.capabilities?.models || [];
+        const models = this.currentModels();
         const efforts = this.capabilities?.efforts || [];
         const choices = modelChoices(models, this.modelSearch, this.recentModels.get(this.selectedAgent) || [], this.model || this.actualModel);
         const selectedLabel = modelLabel(models, this.model, this.actualModel);
@@ -1766,7 +1776,7 @@ export class AkariChatWidget extends ReactWidget {
                         aria-pressed={this.effort === effort}
                     >{EFFORT_LABELS[effort] || effort}</button>)}
                 </div>}
-                {this.actualModel && <small>実行中のモデル: {this.actualModel}</small>}
+                {this.actualModel && <small title={this.actualModel}>実行中のモデル: {modelLabel(models, undefined, this.actualModel)}</small>}
                 </>}
             </div>
         </div>;
@@ -1774,7 +1784,7 @@ export class AkariChatWidget extends ReactWidget {
 
     protected render(): React.ReactNode {
         const agent = this.agents.find(item => item.id === this.selectedAgent);
-        const models = this.capabilities?.models || [];
+        const models = this.currentModels();
         const shownModel = modelLabel(models, this.model, this.actualModel);
         const errorDisplay = this.error
             ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent)
@@ -1876,7 +1886,7 @@ export class AkariChatWidget extends ReactWidget {
                     <strong>コンテキスト</strong>
                     <div>{contextUsageLabel(this.contextInfo?.usedTokens ?? this.usedTokens,
                         (this.contextInfo?.contextWindow ?? this.contextWindow) || undefined)}</div>
-                    <div title={this.contextInfo?.model || this.actualModel}>モデル: {modelLabel(this.capabilities?.models || [],
+                    <div title={this.contextInfo?.model || this.actualModel}>モデル: {modelLabel(models,
                         this.model, this.contextInfo?.model || this.actualModel)}</div>
                     {this.chatId && (this.contextInfo?.canCompact ?? this.capabilities?.compact) && <button onClick={() => {
                         this.popup = undefined;
@@ -1932,16 +1942,20 @@ export class AkariChatWidget extends ReactWidget {
                         className='akari-chat-plain'
                         data-chat-model-button
                         data-chat-model-label
+                        title={`${shownModel}${effortLabel ? ` · ${effortLabel}` : ''}`}
                         onClick={() => {
                             this.popup = this.popup === 'model' ? undefined : 'model';
                             if (this.popup === 'model' && !this.chatId) void this.ensureChat();
                             this.update();
                         }}
-                    >{shownModel}{effortLabel ? ` · ${effortLabel}` : ''} <ChatIcon name='down' size={13} /></button>
-                    <button className='akari-chat-plain' data-chat-permission-chip onClick={() => {
+                    ><span className='akari-chat-control-label'>{shownModel}{effortLabel ? ` · ${effortLabel}` : ''}</span>
+                        <ChatIcon name='down' size={13} /></button>
+                    <button className='akari-chat-plain' data-chat-permission-chip
+                        title={permissionLabel(this.selectedPermission())} onClick={() => {
                         this.popup = this.popup === 'permission' ? undefined : 'permission';
                         this.update();
-                    }}>{permissionLabel(this.selectedPermission())} <ChatIcon name='down' size={13} /></button>
+                    }}><span className='akari-chat-control-label'>{permissionLabel(this.selectedPermission())}</span>
+                        <ChatIcon name='down' size={13} /></button>
                     <span className='akari-chat-spacer' />
                     <button
                         data-chat-context

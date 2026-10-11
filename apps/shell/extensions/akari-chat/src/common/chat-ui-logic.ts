@@ -18,9 +18,13 @@ export function modelLabel(models: ChatCapabilities['models'], chosen?: string, 
     const label = (id?: string): string | undefined => {
         if (!id) return undefined;
         const normalized = id.toLocaleLowerCase();
-        return exact(id)?.label || models.find(model => normalized.includes(model.id.toLocaleLowerCase()))?.label;
+        return exact(id)?.label || models.find(model => normalized.includes(model.id.toLocaleLowerCase()))?.label
+            || (['opus', 'sonnet', 'haiku', 'fable'] as const).find(family =>
+            new RegExp(`(?:^|[-_/:.])${family}(?:[-_/:.]|$)`, 'i').test(normalized)
+        )?.replace(/^./, first => first.toUpperCase());
     };
-    return label(chosen) || label(actual) || chosen || actual || '既定';
+    const fallback = (id?: string): string | undefined => id?.split(/[/:]/).filter(Boolean).pop();
+    return label(chosen) || label(actual) || fallback(chosen) || fallback(actual) || '既定';
 }
 
 export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' }>, agentName: string, initial: boolean, agentId: string): {
