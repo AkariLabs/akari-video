@@ -43,6 +43,8 @@ L2 未観察でも、観察した結果が 0 件でも妥当である。どち�
 
 `speaker` と `words` は任意であり、確認できた場合だけ次のように追加する。
 
+`--diarize` を選んだとき、発話と一番重なる話者 ID が `transcript[].speaker` に入る。声の埋め込みは `analysis.json` に入れない。
+
 ```json
 {
   "start": 1.2,
@@ -119,6 +121,8 @@ tracks の形:
 ```
 
 `person_matte` は生成・照合済みのときだけ値を入れ、それ以外は `null` にする。生成は任意工程であり、既定は `null` である（[person-matte.md](person-matte.md)）。`path`（マット動画へのパス）と `fps`（マット動画の fps）が必須、`quality` / `generated_at` / `tool` は任意である。相対パスは `analysis.json` のディレクトリ基準とし、区切りは `/` を使う。データ契約は [docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md) が正本である。
+
+`tracks.speakers` の `{ id, spans }` も `--diarize` を選んだときに話者の区間から入る。埋め込みはここにも入れない。
 
 単一パスの文字列（`"mattes/person-alpha.mov"`）は旧形であり、`{ "path": ... }` の糖衣として読み手が受けるが、新しく書かない。face の speaker は対応する `tracks.speakers[].id` に存在させる。
 
