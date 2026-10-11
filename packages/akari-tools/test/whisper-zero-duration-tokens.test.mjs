@@ -78,7 +78,7 @@ test("English Whisper tokens keep word spaces and attach punctuation and contrac
   const [english] = normalizeWhisperJson(input, "en");
   assert.deepEqual(english.words, [
     { start: 0.1, end: 0.3, text: "let" },
-    { start: 0.4, end: 0.75, text: "me's," },
+    { start: 0.4, end: 0.7, text: "me's," },
     { start: 0.9, end: 1.2, text: "go" },
   ]);
   assert.equal(english.words.map((word) => word.text).join(" "), english.text);
@@ -109,6 +109,21 @@ test("Whisper's zero-length English tokens keep every word and the Japanese path
   assert.deepEqual(segments[3].words.at(-1), { start: 9.825, end: 10, text: "I?" });
   assert.deepEqual(segments[4].words, [{ start: 11, end: 11.1, text: "Bye." }]);
   assert.deepEqual(normalizeWhisperJson(spacedRaw, "ja"), legacySpacedJa);
+});
+
+test("punctuation-only Whisper tokens keep text without extending the preceding word", () => {
+  const [segment] = normalizeWhisperJson({ result: { language: "en" }, transcription: [{
+    offsets: { from: 0, to: 1200 }, text: "Hello, world.", tokens: [
+      { offsets: { from: 100, to: 300 }, text: " Hello" },
+      { offsets: { from: 300, to: 500 }, text: "," },
+      { offsets: { from: 600, to: 800 }, text: " world" },
+      { offsets: { from: 800, to: 1100 }, text: "." },
+    ],
+  }] }, "en");
+  assert.deepEqual(segment.words, [
+    { start: 0.1, end: 0.3, text: "Hello," },
+    { start: 0.6, end: 0.8, text: "world." },
+  ]);
 });
 
 test("Whisper language tags and auto detection preserve Japanese token assembly", () => {

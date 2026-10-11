@@ -620,7 +620,7 @@ function normalizeSpacedWhisperWords(segment, markers, segmentStart, segmentEnd)
     else {
       const last = words.at(-1);
       last.text += text;
-      if (end > start) last.end = Math.max(last.end, end);
+      if (end > start && /[\p{L}\p{N}]/u.test(text)) last.end = Math.max(last.end, end);
     }
   }
 
@@ -852,7 +852,7 @@ function safeCacheName(value) {
 function cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt }) {
   const promptKey = typeof whisperPrompt === 'string' && whisperPrompt ? `-prompt-${createHash('sha256').update(whisperPrompt).digest('hex').slice(0, 12)}` : lang === 'en' && whisperPrompt === true ? '-filler-prompt' : '';
   const normalized = knownLanguage(lang);
-  const wordKey = backend === 'whisper-cpp' && normalized && !['ja', 'zh'].includes(normalized) ? '-words2' : '';
+  const wordKey = backend === 'whisper-cpp' && normalized && !['ja', 'zh'].includes(normalized) ? '-words3' : '';
   const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? promptKey : ''}${wordKey}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }

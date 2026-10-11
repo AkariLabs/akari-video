@@ -6,7 +6,7 @@ Read the content-language sections when the video's spoken or written content is
 
 Select content words that carry the point of a sentence, especially a key noun or verb, a number, a negation, or a contrast. Do not select hesitation fillers such as um, uh, erm, uhm, or hmm. Treat like, you know, I mean, sort of, and kind of as context-dependent suggestions, since they may carry meaning. Do not emphasize function words such as so, and, or the merely because they are short or occur at a beat. Preserve the general candidate tier, timing, evidence, and density rules in emphasis-detection.md. The filler examples match the English pack in `packages/akari-tools/src/media/filler-lexicon.mjs`.
 
-For English `transcribe-cuts` filler and redo candidates, the proposed interval extends to the middle of an adjacent quiet span, or to the neighboring word boundary if there is no quiet span; `adjacent: true` means there is no gap on at least one side. For an approved cut with usable overlap, a short `transition_out` uses render-cut's audio crossfade; check the exported boundary by listening.
+For English `transcribe-cuts` filler and redo candidates, align Whisper words with SpeechAnalyzer words for timing; place Whisper-only disfluencies in the gap between aligned SpeechAnalyzer neighbors, and keep any quiet-span extension clear of other words. Keep cut boundaries in quiet spans, tightening inward when they land in speech; review `adjacent: true` candidates, and check the exported boundary by listening when an approved short `transition_out` uses render-cut's audio crossfade.
 
 ## English captions and title text
 
