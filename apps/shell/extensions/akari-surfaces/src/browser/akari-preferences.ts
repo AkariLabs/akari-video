@@ -12,6 +12,7 @@ export const AKARI_NARRATION_VOICE = 'akari.narration.voice';
 export const AKARI_NARRATION_IRODORI_URL = 'akari.narration.irodoriUrl';
 
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+export const AKARI_PREVIEW_SCRUB_AUDIO = 'akari.preview.scrubAudio';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 // 読む側の文字列ミラー。スキーマは akari-project/src/browser/akari-project-frontend-module.ts が所有する。
@@ -52,6 +53,10 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
             enum: ['draft', 'final'],
             default: 'draft',
             description: 'AKARI Video の書き出し品質ティア'
+        },
+        [AKARI_PREVIEW_SCRUB_AUDIO]: {
+            type: 'boolean', default: false,
+            description: 'シークしたとき（つまみ・タイムラインのドラッグ・コマ送り）に、その位置の音を短く鳴らす。通常の再生の音は変わらない'
         },
         [AKARI_TIMELINE_VISUAL_THUMBNAILS]: {
             type: 'boolean', default: false,
