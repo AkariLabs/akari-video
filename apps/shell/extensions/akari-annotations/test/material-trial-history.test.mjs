@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import test from 'node:test';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -16,6 +18,11 @@ const replacement = await import('../lib/common/material-replacement.js');
 const trialWindow = await import('../lib/common/material-trial-window.js');
 
 
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 const source = readCompiledSource('widget').text;
 function method(name) {
  const start = source.search(new RegExp('    (async )?' + name + '\\(')); assert.notEqual(start, -1, name);

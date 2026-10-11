@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * 素材パネルの右クリックメニュー（素材カード / できたもの行）の項目構成を組み立てる
  * 純関数（task 2026-08-09-material-context-menu-mvp 指示2、2026-08-10-material-menu-r2 で拡張）。
@@ -50,28 +51,28 @@ export function buildMaterialContextMenuItems(
         // 実体が無いときのファイル系（missing）だけ。
         const referenceItems: MaterialContextMenuItem[] = [];
         if (!context.missing) {
-            referenceItems.push({ id: 'open', label: '開く' });
+            referenceItems.push({ id: 'open', label: t('project.library.importSheet.openAction') });
             if (context.materialKind === 'video' || context.materialKind === 'audio' || context.materialKind === 'image') {
-                referenceItems.push({ id: 'add-to-timeline', label: 'タイムラインに追加' });
+                referenceItems.push({ id: 'add-to-timeline', label: t('project.materials.contextMenu.addTimelineAction') });
             }
         } else {
-            referenceItems.push({ id: 'retry-reference', label: 'もう一度取得' });
+            referenceItems.push({ id: 'retry-reference', label: t('project.materials.pane.downloadAgainAction') });
         }
-        referenceItems.push({ id: 'view-library', label: 'ライブラリで見る' });
-        referenceItems.push({ id: 'show-info', label: '素材の情報を表示' });
+        referenceItems.push({ id: 'view-library', label: t('project.materials.contextMenu.viewLibraryAction') });
+        referenceItems.push({ id: 'show-info', label: t('project.materials.contextMenu.showAssetInformationAction') });
         if (!context.missing) {
-            referenceItems.push({ id: 'reveal', label: isOSX ? 'Finder で表示' : 'フォルダを開く' });
+            referenceItems.push({ id: 'reveal', label: isOSX ? t('project.materials.contextMenu.showFinderAction') : t('project.materials.contextMenu.openFolderAction') });
             if (isOSX) {
-                referenceItems.push({ id: 'copy-file', label: 'ファイルをコピー' });
+                referenceItems.push({ id: 'copy-file', label: t('project.materials.contextMenu.copyFileAction') });
             }
-            referenceItems.push({ id: 'copy-path', label: 'パスをコピー' });
+            referenceItems.push({ id: 'copy-path', label: t('project.materials.contextMenu.copyPathAction') });
         }
-        referenceItems.push({ id: 'ask-agent', label: 'エージェントに頼む…' });
-        referenceItems.push({ id: 'remove-reference', label: 'このプロジェクトから外す', danger: true });
+        referenceItems.push({ id: 'ask-agent', label: t('project.materials.contextMenu.askAgentAction') });
+        referenceItems.push({ id: 'remove-reference', label: t('project.materials.pane.removeProjectAction'), danger: true });
         return referenceItems;
     }
     const items: MaterialContextMenuItem[] = [
-        { id: 'open', label: '開く' }
+        { id: 'open', label: t('project.library.importSheet.openAction') }
     ];
     if (
         context && target === 'material'
@@ -79,34 +80,34 @@ export function buildMaterialContextMenuItems(
     ) {
         // video/audio/image の素材カードのみ（task 2026-08-10-material-menu-r2 司令塔裁定1、
         // task 2026-08-10-material-dnd-timeline 司令塔裁定3で image まで拡張）。
-        items.push({ id: 'add-to-timeline', label: 'タイムラインに追加' });
+        items.push({ id: 'add-to-timeline', label: t('project.materials.contextMenu.addTimelineAction') });
     }
-    items.push({ id: 'reveal', label: isOSX ? 'Finder で表示' : 'フォルダを開く' });
+    items.push({ id: 'reveal', label: isOSX ? t('project.materials.contextMenu.showFinderAction') : t('project.materials.contextMenu.openFolderAction') });
     if (isOSX) {
         // 「ファイルをコピー」は v0 = macOS のみ（司令塔裁定2）。非 macOS では出さない。
-        items.push({ id: 'copy-file', label: 'ファイルをコピー' });
+        items.push({ id: 'copy-file', label: t('project.materials.contextMenu.copyFileAction') });
     }
-    items.push({ id: 'copy-path', label: 'パスをコピー' });
+    items.push({ id: 'copy-path', label: t('project.materials.contextMenu.copyPathAction') });
     if (context && target === 'material') {
         // assets/ 配下の素材カード全部（素材グループ含む）。未整理・できたもの行には出さない
         // （task 2026-08-10-material-menu-r2 司令塔裁定3）。
-        items.push({ id: 'show-info', label: '素材の情報を表示' });
+        items.push({ id: 'show-info', label: t('project.materials.contextMenu.showAssetInformationAction') });
         if (!context.assetGroup && (context.materialKind === 'video' || context.materialKind === 'audio')) {
-            items.push({ id: 'transcribe', label: '文字起こし' });
+            items.push({ id: 'transcribe', label: t('project.materials.inspector.transcriptLabel') });
         }
     }
     if (target === 'material' || target === 'unorganized') {
-        items.push({ id: 'store-library', label: 'ライブラリに保管' });
+        items.push({ id: 'store-library', label: t('project.materials.contextMenu.saveLibraryAction') });
     }
     if (DESTRUCTIVE_CAPABLE_TARGETS.has(target)) {
         items.push(
-            { id: 'rename', label: '名前を変更…' },
-            { id: 'delete', label: '削除…', danger: true },
-            { id: 'ask-agent', label: 'エージェントに頼む…' }
+            { id: 'rename', label: t('project.materials.contextMenu.renameAction') },
+            { id: 'delete', label: t('project.materials.contextMenu.deleteAction'), danger: true },
+            { id: 'ask-agent', label: t('project.materials.contextMenu.askAgentAction') }
         );
     }
     if (target === 'unorganized') {
-        items.push({ id: 'move-to-assets', label: 'assets へ移動' });
+        items.push({ id: 'move-to-assets', label: t('project.materials.pane.moveAssetsAction') });
     }
     return items;
 }

@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -5,6 +7,12 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { placeTextCaption } from '../lib/common/place-text.js';
 import { insertCaptionLine } from '../lib/common/caption-store.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 
@@ -26,6 +34,7 @@ test('T placement writes 80px over the project fallback but respects a placed lo
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
   let defaultTextStyle = {};
   const Widget = vm.runInNewContext(`${code}; Widget`, {
+    t: annotationT, i18n_1: annotationI18n,
     placeTextCaption, parseCaptions: () => ({ captions: [], defaultTextStyle }),
     readInternalEdit: () => ({}), toAnchorCaptions: () => [],
     timelineDurationSeconds: () => ({ seconds: 10 }), canvasDropTargets: () => [],

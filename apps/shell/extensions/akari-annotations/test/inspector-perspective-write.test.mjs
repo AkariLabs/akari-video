@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -17,6 +19,12 @@ const { legacyTransformOpFor } = await import('../lib/browser/inspector/field-ma
 const { isCutFramingWriteRequest } = await import('../lib/browser/inspector/framing-fields.js');
 const { isCutFreezeWriteRequest } = await import('../lib/browser/inspector/freeze-fields.js');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('perspective normalize は欠け・不正な座標を identity で補完し独立した配列を返す', () => {
     for (const raw of [undefined, null, [], {}, { corners: null }]) {

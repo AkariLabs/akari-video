@@ -1,16 +1,11 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import test from 'node:test';
-import {
-    SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
-    visibleSettingsSections,
-    resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
-    SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
-    normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
-    normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
-    showTemporaryGpuPreferenceSetting,
-    QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, QUALITY_TIER_RESERVED_NOTE
-} from '../../lib/common/settings-sections.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey, visibleSettingsSections, resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier, SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible, normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory, showTemporaryGpuPreferenceSetting, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, QUALITY_TIER_RESERVED_NOTE } = await import("../../lib/common/settings-sections.js");
+
 
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 

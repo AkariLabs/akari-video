@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /**
  * `catalog/` 配下の各アイテムディレクトリにある meta.json を寛容リーダーで読む。
  * 必須は id・category・title の 3 フィールドのみ。他フィールドの欠落・未知
@@ -76,13 +77,13 @@ interface CatalogCategoryChipDefinition {
 
 /** raw category の audio だけを、元の位置で BGM → 音声クリップの 2 チップへ展開する。 */
 const CATALOG_CATEGORY_CHIP_DEFINITIONS: readonly CatalogCategoryChipDefinition[] = [
-    { category: 'overlay', label: 'オーバーレイ' },
-    { category: 'still', label: '静止画' },
+    { category: 'overlay', label: t('project.catalog.category.overlayLabel') },
+    { category: 'still', label: t('project.catalog.category.stillImageLabel') },
     { category: 'scene3d', label: '3D' },
     { category: CATALOG_AUDIO_BGM_CATEGORY, label: 'BGM' },
-    { category: CATALOG_AUDIO_SFX_CATEGORY, label: '音声クリップ' },
-    { category: 'broll', label: 'Bロール' },
-    { category: 'font', label: 'フォント' }
+    { category: CATALOG_AUDIO_SFX_CATEGORY, label: t('project.catalog.category.audioClipLabel') },
+    { category: 'broll', label: t('project.catalog.category.bRollLabel') },
+    { category: 'font', label: t('project.library.importSheet.fontLabel') }
 ];
 
 export interface CatalogCategoryChip {

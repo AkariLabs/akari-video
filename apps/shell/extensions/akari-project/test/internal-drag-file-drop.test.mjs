@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readSourceFile, findMember } from './helpers/role-buckets-source.mjs';
 import { readFileSync } from 'node:fs';

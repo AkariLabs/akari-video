@@ -1,8 +1,18 @@
+import { t } from '../common/project-text';
 import { navigationAllowed, blockedWebHost } from './site-navigation-policy';
 
 export interface BrowserEngine { id: string; label: string; template: string }
 export interface BrowserDefinition { id: string; name: string; navigation: 'open'; downloads: 'deny'; partition: string }
 export interface BrowserConfig { version: 1; open_web: BrowserDefinition; engines: BrowserEngine[]; testHttp?: boolean }
+const COMPACT_IMAGE_ENGINE_NAMES: Record<string, string> = {
+    'google-images': 'Google',
+    'yahoo-jp-images': 'Yahoo!',
+    'bing-images': 'Bing'
+};
+/** Built-in engine IDs determine the short label; translated or user labels do not control behavior. */
+export function browserEngineButtonLabel(engine: BrowserEngine, width: number): string {
+    return width > 0 && width <= 480 ? COMPACT_IMAGE_ENGINE_NAMES[engine.id] ?? engine.label : engine.label;
+}
 export const OPEN_WEB_POLICY = { navigation: 'open', downloads: 'deny', hosts: [], download_hosts: [] } as const;
 export type BrowserCommandResult = { ok: boolean; code?: string; message?: string };
 export const BROWSER_COMMAND_IDS = {
@@ -53,7 +63,7 @@ export function validateBrowserConfig(value: unknown, testHttp = false): value i
 }
 
 export function validUserEngines(value: unknown, builtIn: readonly BrowserEngine[]): { engines: BrowserEngine[]; invalidIds: string[] } {
-    if (!Array.isArray(value)) return { engines: [], invalidIds: ['設定'] };
+    if (!Array.isArray(value)) return { engines: [], invalidIds: [t('project.web.engine.settingsLabel')] };
     const ids = new Set(builtIn.map(engine => engine.id));
     const engines: BrowserEngine[] = []; const invalidIds: string[] = [];
     value.forEach((item: unknown, index) => {
@@ -86,15 +96,15 @@ export function validateBrowserArgs(command: string, value: unknown): BrowserCom
     if (command === BROWSER_COMMAND_IDS.search) {
         if (!exactObject(value, ['engine', 'query']) || typeof value.engine !== 'string' ||
             !/^[a-z0-9-]{1,64}$/.test(value.engine) || typeof value.query !== 'string')
-            return { ok: false, code: 'bad-args', message: '検索の指定が不正です' };
+            return { ok: false, code: 'bad-args', message: t('project.web.engine.invalidSearchRequestError') };
         return { ok: true };
     }
     if (command === BROWSER_COMMAND_IDS.pickMode) return exactObject(value, ['on']) && typeof value.on === 'boolean'
-        ? { ok: true } : { ok: false, code: 'bad-args', message: '操作の指定が不正です' };
+        ? { ok: true } : { ok: false, code: 'bad-args', message: t('project.web.engine.invalidActionRequestError') };
     if (command === BROWSER_COMMAND_IDS.close) return exactObject(value, [])
-        ? { ok: true } : { ok: false, code: 'bad-args', message: '操作の指定が不正です' };
+        ? { ok: true } : { ok: false, code: 'bad-args', message: t('project.web.engine.invalidActionRequestError') };
     if (command === BROWSER_COMMAND_IDS.open) return exactObject(value, ['url']) &&
         typeof value.url === 'string' && value.url.length <= 8192
-        ? { ok: true } : { ok: false, code: 'bad-args', message: 'アドレスの指定が不正です' };
-    return { ok: false, code: 'bad-args', message: '操作が不正です' };
+        ? { ok: true } : { ok: false, code: 'bad-args', message: t('project.web.engine.invalidAddressError') };
+    return { ok: false, code: 'bad-args', message: t('project.web.engine.invalidActionError') };
 }

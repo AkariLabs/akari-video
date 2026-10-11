@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 /** Build the same single-document duplicate as the annotations history command when it is unavailable. */
 export function duplicatePreviewItemSource(source: string, itemId: string,
     transform: { x?: number; y?: number; scale?: number; rotate?: number; scaleX?: number; scaleY?: number }): string {
@@ -47,7 +48,7 @@ export function duplicatePreviewItemSource(source: string, itemId: string,
         }
         return `${JSON.stringify(doc, undefined, 2)}\n`;
     }
-    throw new Error(`複製する要素が見つかりません: ${itemId}`);
+    throw new Error(t('preview.elementEditor.validation.couldNotFindItemDuplicateError', { p1: (itemId) }));
 }
 
 /** Duplicate one placed caption while retaining the source cue and assigning a fresh cue id. */
@@ -55,13 +56,13 @@ export function duplicatePreviewCaptionSource(source: string, captionId: string,
     value: { anchor: string; position: { x?: number; y: number } }): string {
     if (!/^[tmb][lcr]$/.test(value.anchor)
         || !Number.isFinite(value.position.x) || !Number.isFinite(value.position.y)) {
-        throw new Error('複製先の位置が不正です');
+        throw new Error(t('preview.elementEditor.validation.invalidDuplicatePositionError'));
     }
     const root = JSON.parse(source) as Record<string, any> | Array<Record<string, any>>;
     const captions = Array.isArray(root) ? root : root?.captions;
-    if (!Array.isArray(captions)) throw new Error('字幕ファイルの形式が不正です');
+    if (!Array.isArray(captions)) throw new Error(t('preview.elementEditor.validation.invalidCaptionFileFormatError'));
     const index = captions.findIndex(item => item?.id === captionId);
-    if (index < 0) throw new Error(`文字が見つかりません: ${captionId}`);
+    if (index < 0) throw new Error(t('preview.elementEditor.validation.textNotFoundError', { p1: (captionId) }));
     const clone = structuredClone(captions[index]);
     const existing = new Set(captions.map(item => item?.id));
     let next = captions.reduce((max: number, item: Record<string, any>) => {

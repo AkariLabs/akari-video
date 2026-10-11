@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { createPortal } from '@theia/core/shared/react-dom';
 import { hoverPopupPosition } from '../common/material-card-hover';
@@ -39,7 +40,7 @@ export function LibraryHoverPreview(props: { root: HTMLElement; enabled: boolean
             timer.current = setTimeout(() => {
                 timer.current = undefined;
                 if (root.contains(card) && !dragging.current && !card.querySelector('[data-akari-library-dots][aria-expanded="true"]')) {
-                    setActive({ card, spec, label: card.dataset.akariHoverPreviewLabel ?? card.title ?? '見本' });
+                    setActive({ card, spec, label: card.dataset.akariHoverPreviewLabel ?? card.title ?? t('project.library.hoverPreview.previewAction') });
                 }
             }, LIBRARY_HOVER_DELAY_MS);
         };
@@ -89,7 +90,7 @@ export function LibraryHoverPreview(props: { root: HTMLElement; enabled: boolean
     return createPortal(<>
         <style data-akari-library-hover-css>{CSS}</style>
         <div id={LIBRARY_HOVER_DESCRIPTION_ID} role='tooltip' data-akari-library-hover-preview data-kind={active.spec.kind}
-            aria-label={`${active.label} の見本`}
+            aria-label={t('project.library.hoverPreview.previewLabelAction', { label: active.label })}
             style={{ position: 'fixed', left: position.left, top: position.top, width: active.spec.width,
                 height: active.spec.height, zIndex: 10000, pointerEvents: 'none', overflow: 'hidden',
                 borderRadius: '8px', backgroundColor: 'var(--akari-card, var(--theia-editor-background))',
@@ -100,9 +101,8 @@ export function LibraryHoverPreview(props: { root: HTMLElement; enabled: boolean
                 ? <span data-akari-font-hover-sample style={{ display: 'block', width: '100%', height: '100%',
                     backgroundColor: 'currentColor', mask: `url("${active.spec.src}") center / contain no-repeat`,
                     WebkitMask: `url("${active.spec.src}") center / contain no-repeat` }} />
-                : <div style={{ padding: '22px', fontSize: '13px' }}>この書体は入手後に見本を表示します
-                    {active.spec.source && <div style={{ marginTop: '12px', overflowWrap: 'anywhere', opacity: 0.7 }}>
-                        入手先: {active.spec.source}</div>}</div>
+                : <div style={{ padding: '22px', fontSize: '13px' }}>{t('project.library.hoverPreview.previewWillAppearAfterYouGetMessage')}{active.spec.source && <div style={{ marginTop: '12px', overflowWrap: 'anywhere', opacity: 0.7 }}>
+                        {t('project.library.hoverPreview.sourceLabel')}{active.spec.source}</div>}</div>
                 : <img src={active.spec.src} alt='' loading='lazy' decoding='async' draggable={false}
                     width={active.spec.width} height={active.spec.height}
                     style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain',

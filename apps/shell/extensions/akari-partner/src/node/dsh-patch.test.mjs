@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
@@ -45,6 +49,22 @@ test('missing credentials keep the official provider with setup guidance', () =>
     assert.equal(result.secret, undefined);
     assert.match(result.note, /未設定/);
     assert.match(result.guidance, /Settings → Models/);
+});
+
+test('connection detail has no display prefix in either language', () => {
+    try {
+        for (const language of ['ja', 'en']) {
+            setLanguage(language);
+            const connection = detectDeepSeekConnection({
+                env: { DEEPSEEK_API_KEY: fixtureSecret }, homeDir,
+                readFile: () => { throw new Error('should not read auth.json'); }
+            });
+            assert.equal(connection.provider, 'deepseek-official');
+            assert.ok(connection.detail.includes('DeepSeek'));
+            assert.equal(connection.detail.includes('接続先:'), false);
+            assert.equal(connection.detail.includes('Destination:'), false);
+        }
+    } finally { setLanguage('ja'); }
 });
 
 test('patch uses an absolute plugin path and replaces the default model', () => {

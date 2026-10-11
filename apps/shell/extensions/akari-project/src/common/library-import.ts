@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 /** Wire contract owned by asset-resolver/README.md. Classification stays in the resolver. */
 export type LibraryImportKind = 'sfx' | 'bgm' | 'still' | 'broll' | 'font' | 'scene3d';
 export interface LibraryImportFile { path: string; name: string; bytes?: number; }
@@ -21,9 +22,9 @@ export interface LibraryImportResult {
     failures: { path?: string; reason: string }[];
 }
 export const LIBRARY_IMPORT_KINDS: { kind: LibraryImportKind; label: string; icon: string }[] = [
-    { kind: 'sfx', label: '効果音', icon: '♫' }, { kind: 'bgm', label: 'BGM', icon: '♪' },
-    { kind: 'font', label: 'フォント', icon: 'Aa' }, { kind: 'broll', label: '映像', icon: '▣' },
-    { kind: 'still', label: '画像', icon: '▧' }, { kind: 'scene3d', label: '3D', icon: '◇' }
+    { kind: 'sfx', label: t('project.library.importSheet.soundEffectLabel'), icon: '♫' }, { kind: 'bgm', label: 'BGM', icon: '♪' },
+    { kind: 'font', label: t('project.library.importSheet.fontLabel'), icon: 'Aa' }, { kind: 'broll', label: t('project.library.import.videoLabel'), icon: '▣' },
+    { kind: 'still', label: t('project.library.shelf.imageLabel'), icon: '▧' }, { kind: 'scene3d', label: '3D', icon: '◇' }
 ];
 export function libraryImportGroups(plan: LibraryImportPlan): { kind: LibraryImportKind; label: string; icon: string; items: LibraryImportItem[] }[] {
     return LIBRARY_IMPORT_KINDS.map(group => ({ ...group, items: plan.items.filter(item => !item.ambiguous && item.kind === group.kind) }))

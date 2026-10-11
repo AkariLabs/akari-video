@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -81,10 +82,10 @@ export class RoughCanvasCommands implements CommandContribution {
     }
     private async openNew(): Promise<{ ok: boolean; reason?: string }> {
         const workspaceRoot = this.workspace.tryGetRoots()[0]?.resource;
-        if (!workspaceRoot) { this.messages.error('プロジェクトを開いてください。'); return { ok: false, reason: 'project-not-open' }; }
+        if (!workspaceRoot) { this.messages.error(t('annotations.roughCanvasCommands.text.pleaseOpenTheProject')); return { ok: false, reason: 'project-not-open' }; }
         const project = await this.files.exists(workspaceRoot.resolve('edit.json')) ? workspaceRoot : workspaceRoot.resolve('project');
         const edit = currentTimelineEditUri(project);
-        if (!await this.files.exists(edit)) { this.messages.error('タイムラインを開いてください。'); return { ok: false, reason: 'edit-not-found' }; }
+        if (!await this.files.exists(edit)) { this.messages.error(t('annotations.roughCanvasCommands.text.pleaseOpenYourTimeline')); return { ok: false, reason: 'edit-not-found' }; }
         const editUri = edit.toString();
         let parsed: { output?: { width?: number; height?: number }; cuts?: EditCut[] } = {};
         try { parsed = JSON.parse((await this.files.readFile(edit)).value.toString()); } catch { /* A blank paper still opens. */ }

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+
 
 const require = createRequire(import.meta.url);
 const { ONBOARDING_STEPS, INITIAL_ONBOARDING_STATE } = require('../../lib/onboarding/model.js');

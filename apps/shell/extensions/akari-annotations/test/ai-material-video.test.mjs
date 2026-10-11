@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
@@ -24,6 +26,12 @@ const { aiActionCatalog, aiActionPlacement } = await import('../lib/common/ai-ac
 const { GenerationCliManager } = await import('../lib/node/generation-cli.js');
 const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 class Node {
   constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.attrs = new Map(); this.textContent = ''; this.className = ''; }

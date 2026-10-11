@@ -13,6 +13,13 @@ import { clampPreviewPlaybackRate } from '../common/preview-playback-rate';
 
 export function frameEngineBootstrapScript(): string {
         return `(() => {
+            const uiText = JSON.parse(document.getElementById('akari-preview-text')?.textContent || '{}');
+            const t = (key, params = {}) => {
+                const language = document.documentElement.lang === 'ja' ? 'ja' : 'en';
+                const form = typeof params.n === 'number' ? (language === 'ja' ? 'other' : new Intl.PluralRules(language).select(params.n)) : null;
+                const selected = form && uiText[key + '_' + form] !== undefined ? key + '_' + form : key;
+                return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
+            };
             const initial = window.__akariPreview || {};
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             let engineSummary = initial.summary || {};
@@ -340,7 +347,7 @@ export function frameEngineBootstrapScript(): string {
                         onSoftwareFallbackDenied: support => {
                             const known = sourceSupports.get(id);
                             if (!(known && (known.hw || known.any))) {
-                                showNotice('ソフトウェアデコード非対応: ' + support.codec);
+                                showNotice(t('preview.frameEngine.status.softwareDecodingUnsupportedPrefix') + support.codec);
                             }
                         }
                     });
@@ -463,13 +470,13 @@ export function frameEngineBootstrapScript(): string {
                     }, generation);
                     if (disposed || generation !== sourceGeneration) return;
                     if (decision.chosen === 'auto-proxy') {
-                        showNotice('プロキシ生成中…（' + id + '）');
+                        showNotice(t('preview.frameEngine.status.generatingProxyPrefix') + id + t('preview.diagnostics.overlay.closeParen'));
                         const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
                         if (window.akari && window.akari.engine && videoUri) {
                             void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
                                 if (disposed || generation !== sourceGeneration) return;
                                 console.warn('[frame-engine] proxy request failed', reason);
-                                showNotice('プロキシを生成できませんでした（' + id + '）');
+                                showNotice(t('preview.frameEngine.status.couldNotGenerateProxyPrefix') + id + t('preview.diagnostics.overlay.closeParen'));
                             });
                         }
                     } else if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
@@ -652,12 +659,12 @@ export function frameEngineBootstrapScript(): string {
                     }
                     let message = '';
                     if (supply?.phase === 'degraded') {
-                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                        message = t('preview.frameEngine.status.someAudioCouldNotPlayedPrefix') + supply.failed.join(', ');
                     } else if (supply?.gate?.holding && supply.gate.heldMs >= 300) {
-                        message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
+                        message = t('preview.frameEngine.status.waitingAudioPrefix') + (supply.gate.heldMs / 1000).toFixed(1) + t('preview.frameEngine.status.waitSecondsSuffix');
                     } else if (statusPlaying && missingAudioSinceMs !== null
                         && performance.now() - missingAudioSinceMs >= 300) {
-                        message = '音声を準備中 ' + (supply.required.length - missing.length) + '/' + supply.required.length;
+                        message = t('preview.frameEngine.status.preparingAudioPrefix') + (supply.required.length - missing.length) + '/' + supply.required.length;
                     }
                     if (audioStatus.textContent !== message) audioStatus.textContent = message;
                     audioStatus.hidden = !message;

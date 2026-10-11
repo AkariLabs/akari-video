@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     Command,
@@ -39,35 +40,35 @@ export interface OpenProjectRequest { uri: string; originRect?: OpenOriginRect; 
  * フォルダ選択版は「場所を選んで新規作成…」として akari-project 側に残してある。
  */
 export const AkariHomeCommands = {
-    OPEN: { id: 'akari.home.open', label: 'ホームを開く' } as Command,
+    OPEN: { id: 'akari.home.open', label: t('surfaces.home.openHome.label') } as Command,
     OPEN_INTAKE_FORM: {
         id: 'akari.home.openIntakeForm',
-        label: '進め方フォームを開く'
+        label: t('surfaces.home.planningForm.button')
     } as Command,
     NEW_PROJECT: {
         id: 'akari.home.newProject',
-        label: '新規プロジェクト作成'
+        label: t('surfaces.home.createNewProject.label')
     } as Command,
-    NEW_CHANNEL: { id: 'akari.home.newChannel', label: '新しいチャンネルを作る' } as Command,
+    NEW_CHANNEL: { id: 'akari.home.newChannel', label: t('surfaces.home.createNewChannel.label') } as Command,
     OPEN_FIRST_RUN_SETUP: {
         id: 'akari.home.openFirstRunSetup',
-        label: '初回セットアップを開く'
+        label: t('surfaces.home.openFirstTimeSetup.label')
     } as Command,
     OPEN_FIRST_VIDEO_GUIDE: {
         id: 'akari.home.openFirstVideoGuide',
-        label: 'はじめてのガイドをもう一度'
+        label: t('surfaces.home.firstGuideAgain.label')
     } as Command,
     // task 2026-08-25-shell-window-and-notify ②: 別プロジェクトを並行で開くための入口。
     // ワークスペース未指定の既定ウィンドウ（ホーム + ランチャー）が開く。Theia 標準の
     // File > New Window（workbench.action.newWindow・英語ラベル）と重複するため、
     // あちらのメニュー項目は AkariMenuCuration（akari-shell-strip）が外している
     // （コマンド自体は残す）。
-    TEST_UPDATE_FOUND: { id: 'akari.update.testFound', label: '更新通知を検証: 見つかった' } as Command,
-    TEST_UPDATE_DOWNLOADING: { id: 'akari.update.testDownloading', label: '更新通知を検証: ダウンロード中' } as Command,
-    TEST_UPDATE_READY: { id: 'akari.update.testReady', label: '更新通知を検証: 準備できた' } as Command,
+    TEST_UPDATE_FOUND: { id: 'akari.update.testFound', label: t('surfaces.home.verifyUpdateNotificationFound.label') } as Command,
+    TEST_UPDATE_DOWNLOADING: { id: 'akari.update.testDownloading', label: t('surfaces.home.verifyUpdateNotificationDownloading.label') } as Command,
+    TEST_UPDATE_READY: { id: 'akari.update.testReady', label: t('surfaces.home.validateUpdateNotificationReady.label') } as Command,
     NEW_WINDOW: {
         id: 'akari.home.newWindow',
-        label: '新しいウィンドウ'
+        label: t('surfaces.home.newWindow.label')
     } as Command
 };
 
@@ -87,14 +88,14 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
     protected readonly scope!: AkariScopeService;
 
     registerCommands(registry: CommandRegistry): void {
-        registry.registerCommand({ id: AKARI_COMMANDS.openProject, label: 'プロジェクトを開く' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.openProject, label: t('surfaces.home.registerCommandsOpenProject.label') }, {
             execute: async (request: OpenProjectRequest) => {
                 if (!request?.uri) { return; }
                 const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
                 await home.openProject(request);
             }
         });
-        registry.registerCommand({ id: AKARI_COMMANDS.openProjectList, label: 'プロジェクト一覧' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.openProjectList, label: t('surfaces.home.registerCommandsProjectList.label') }, {
             execute: async (request?: { channel?: string }) => {
                 const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
                 home.setListChannelOverride(request?.channel);
@@ -104,7 +105,7 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 await this.shell.activateWidget(list.id);
             }
         });
-        registry.registerCommand({ id: AKARI_COMMANDS.closeProject, label: 'このプロジェクトを閉じる' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.closeProject, label: t('surfaces.home.registerCommandsCloseProject.label') }, {
             execute: async () => {
                 const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
                 await home.closeProject();

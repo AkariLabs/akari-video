@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { CAPTION_DEFAULT_SIZE_PX } from 'akari-preview/lib/common/textstyle-sample';
@@ -44,7 +45,7 @@ export function myStyleOutputHeight(editSource: string): number {
     const edit = JSON.parse(editSource) as { output?: { height?: unknown } };
     const height = edit.output?.height;
     if (typeof height !== 'number' || !Number.isInteger(height) || height < 1) {
-        throw new Error('出力解像度の高さを確認できません。');
+        throw new Error(t('annotations.myStyleLook.text.unableToCheckOutputResolutionHeight'));
     }
     return height;
 }
@@ -112,7 +113,7 @@ export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: u
     const height = cue.reference_height_px ?? cue.referenceHeightPx
         ?? base.reference_height_px ?? base.referenceHeightPx;
     if (layout !== undefined && height !== undefined) {
-        throw new Error('既定のスタイルを含めて layout と基準高さが重なるため、マイスタイルを当てられません。');
+        throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
     }
 }
 
@@ -186,12 +187,12 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
     const document = JSON.parse(source) as unknown;
     const rows = Array.isArray(document) ? document
         : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
-    if (!rows) throw new Error('字幕データを読み取れません。');
+    if (!rows) throw new Error(t('annotations.myStyleLook.text.unableToReadSubtitleData'));
     const defaultStyle = record(document) && record(document.default_text_style) ? document.default_text_style : {};
     const catalog = options.catalog ?? TEXTSTYLE_CATALOG;
     for (const id of new Set(ids)) {
         const matches = rows.filter(row => record(row) && row.id === id);
-        if (matches.length !== 1) throw new Error(`字幕 ${id} が一意に見つかりません。`);
+        if (matches.length !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
         const row = matches[0] as Record<string, unknown>;
         const before = record(row.text_style) ? row.text_style : {};
         const next = { ...before };
@@ -334,7 +335,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
     };
     for (const captionId of targets) {
         const caption = captions.find(candidate => candidate.id === captionId);
-        if (!caption) throw new Error(`字幕 ${captionId} が見つかりません。`);
+        if (!caption) throw new Error(t('annotations.myStyleLook.text.subtitleNotFound', { id: captionId }));
         for (const part of parts) {
             if (!supportedMyStyleAttachPart(part)) continue;
             const attach = part.attach as { at?: string; offset_frames?: number } | undefined;
@@ -355,7 +356,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
                 const category = part.kind === 'sfx' ? 'audio' : 'overlay';
                 if (asset?.category !== category || typeof asset.id !== 'string' || typeof part.file !== 'string'
                     || !assetLocation(`assets/${category}/${asset.id}/${part.file}`, category))
-                    throw new Error(`${part.kind} の素材参照が不正です。`);
+                    throw new Error(t('annotations.myStyleLook.text.theMaterialReferenceForIsInvalid', { kind: part.kind }));
                 const path = `assets/${category}/${asset.id}/${part.file}`;
                 if (part.kind === 'sfx') {
                     let source = next.sources.find(candidate => candidate.path === path);
@@ -385,7 +386,7 @@ export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { 
 export function appendMyStyleUsage(source: string | undefined, entry: MyStyleUsageEntry): string {
     const document = source ? JSON.parse(source) as unknown : { version: 1, entries: [] };
     if (!record(document) || document.version !== 1 || !Array.isArray(document.entries)) {
-        throw new Error('スタイル利用台帳の保存形を確認できません。');
+        throw new Error(t('annotations.myStyleLook.text.theStorageFormatOfTheStyleUsage'));
     }
     return `${JSON.stringify({ ...document, entries: [...document.entries, entry] }, null, 2)}\n`;
 }
@@ -453,12 +454,12 @@ export function unsupportedMyStyleLookFields(value: unknown): string[] {
 }
 
 const PART_LABELS: Readonly<Record<string, string>> = {
-    look: '見た目', motion: '動き', sfx: '効果音', fx: '画面効果', decor: '装飾', camera: 'カメラ'
+    get look() { return t('annotations.myStyleLook.text.appearance'); }, get motion() { return t('annotations.myStyleLook.text.movement'); }, get sfx() { return t('annotations.myStyleLook.text.soundEffects'); }, get fx() { return t('annotations.myStyleLook.text.screenEffects'); }, get decor() { return t('annotations.myStyleLook.text.decoration'); }, get camera() { return t('annotations.myStyleLook.text.camera'); }
 };
 const FIELD_LABELS: Readonly<Record<string, string>> = {
-    italic: '斜体', underline: '下線', align: '文字揃え', vertical: '縦書き',
-    'background.width_pct': '座布団の幅', 'background.height_pct': '座布団の高さ',
-    max_width_pct: '文字の最大幅', text_transform: '文字変換'
+    get italic() { return t('annotations.myStyleLook.text.italic'); }, get underline() { return t('annotations.myStyleLook.text.underline'); }, get align() { return t('annotations.myStyleLook.text.characterAlignment'); }, get vertical() { return t('annotations.myStyleLook.text.verticalWriting'); },
+    get 'background.width_pct'() { return t('annotations.myStyleLook.text.widthOfCushion'); }, get 'background.height_pct'() { return t('annotations.myStyleLook.text.heightOfCushion'); },
+    get max_width_pct() { return t('annotations.myStyleLook.text.maximumCharacterWidth'); }, get text_transform() { return t('annotations.myStyleLook.text.characterConversion'); }
 };
 
 export function myStyleApplyNotice(parts: readonly { kind: string; mode?: unknown; text_style?: unknown }[],
@@ -470,8 +471,8 @@ export function myStyleApplyNotice(parts: readonly { kind: string; mode?: unknow
         ...unsupportedMyStyleLookFields(look?.text_style).map(field => FIELD_LABELS[field] ?? field)
     ])];
     if (!ignored.length) return undefined;
-    const labels = ignored.length > 3 ? `${ignored.slice(0, 3).join('・')}ほか` : ignored.join('・');
-    return `${labels} は当てません。`;
+    const labels = ignored.length > 3 ? t('annotations.myStyleLook.text.andOthers', { labels: ignored.slice(0, 3).join(t('annotations.myStyleLook.list.separator')) }) : ignored.join(t('annotations.myStyleLook.list.separator'));
+    return t('annotations.myStyleLook.text.isNotApplicable', { label: labels });
 }
 
 /** Put the look in the new cue before insertCaption, keeping its default position. */

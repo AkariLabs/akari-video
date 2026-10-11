@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>AKARI Video 判断記録レポート</title>
+    <title data-i18n="report-decision.page.title.text">AKARI Video 判断記録レポート</title>
     <!--
       AKARI 判断記録レポート 安全な差し替え規約:
       - このファイルはデータを含まない UI 正本。ログの内容は JSON ブロックだけへ埋め込む。
@@ -145,29 +145,29 @@
     </style>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">本文へ移動</a>
+    <a class="skip-link" href="#main-content" data-i18n="report-decision.page.skip.text">本文へ移動</a>
     <header class="report-header" id="section-overview">
       <div class="report-header__inner">
         <p class="eyebrow">SECTION 1 / AKARI VIDEO / READ ONLY</p>
         <h1>1. 判断記録レポート — <span data-mount="project-name">—</span></h1>
         <p data-mount="source-path">—</p>
         <dl class="report-meta" aria-label="判断記録の統計">
-          <div><dt>構造化した決定</dt><dd data-mount="decision-count">—</dd></div>
-          <div><dt>原文ブロック</dt><dd data-mount="block-count">—</dd></div>
-          <div><dt>画像参照</dt><dd data-mount="image-count">—</dd></div>
-          <div><dt>欠落画像</dt><dd data-mount="missing-count">—</dd></div>
+          <div><dt data-i18n="report-decision.stats.structured.label">構造化した決定</dt><dd data-mount="decision-count">—</dd></div>
+          <div><dt data-i18n="report-decision.stats.blocks.label">原文ブロック</dt><dd data-mount="block-count">—</dd></div>
+          <div><dt data-i18n="report-decision.stats.images.label">画像参照</dt><dd data-mount="image-count">—</dd></div>
+          <div><dt data-i18n="report-decision.stats.missing.label">欠落画像</dt><dd data-mount="missing-count">—</dd></div>
         </dl>
       </div>
     </header>
 
     <nav class="report-nav" aria-label="章ジャンプナビ">
       <div class="report-nav__inner">
-        <a href="#section-overview">1. ヘッダ</a>
-        <a href="#section-current">2. いま有効な決定</a>
-        <a href="#section-history">3. チェックポイント別の履歴</a>
-        <a href="#section-images">4. 画像</a>
-        <a href="#section-original">5. 記録原文</a>
-        <a href="#section-provenance">6. 来歴</a>
+        <a href="#section-overview" data-i18n="report-decision.nav.overview.text">1. ヘッダ</a>
+        <a href="#section-current" data-i18n="report-decision.nav.current.text">2. いま有効な決定</a>
+        <a href="#section-history" data-i18n="report-decision.nav.history.text">3. チェックポイント別の履歴</a>
+        <a href="#section-images" data-i18n="report-decision.nav.images.text">4. 画像</a>
+        <a href="#section-original" data-i18n="report-decision.nav.original.text">5. 記録原文</a>
+        <a href="#section-provenance" data-i18n="report-decision.nav.provenance.text">6. 来歴</a>
       </div>
     </nav>
 
@@ -175,32 +175,32 @@
       <div data-mount="fatal"></div>
       <section class="report-section" id="section-current">
         <span class="section-kicker">SECTION 2</span>
-        <h2>2. いま有効な決定</h2>
-        <p class="section-lead">同じ category / subject では、ファイル順で最後に追記された行を表示します。</p>
+        <h2 data-i18n="report-decision.nav.current.text">2. いま有効な決定</h2>
+        <p class="section-lead" data-i18n="report-decision.current.description.text">同じ category / subject では、ファイル順で最後に追記された行を表示します。</p>
         <div data-mount="current"></div>
       </section>
       <section class="report-section" id="section-history">
         <span class="section-kicker">SECTION 3</span>
-        <h2>3. チェックポイント別の履歴</h2>
+        <h2 data-i18n="report-decision.nav.history.text">3. チェックポイント別の履歴</h2>
         <div data-mount="history"></div>
       </section>
       <section class="report-section" id="section-images">
         <span class="section-kicker">SECTION 4</span>
-        <h2>4. 画像</h2>
+        <h2 data-i18n="report-decision.nav.images.text">4. 画像</h2>
         <div data-mount="images"></div>
       </section>
       <section class="report-section" id="section-original">
         <span class="section-kicker">SECTION 5</span>
-        <h2>5. 記録原文</h2>
+        <h2 data-i18n="report-decision.nav.original.text">5. 記録原文</h2>
         <div data-mount="original"></div>
       </section>
       <section class="report-section" id="section-provenance">
         <span class="section-kicker">SECTION 6</span>
-        <h2>6. 来歴</h2>
+        <h2 data-i18n="report-decision.nav.provenance.text">6. 来歴</h2>
         <div data-mount="provenance"></div>
       </section>
     </main>
-    <footer class="report-footer"><p>この HTML は decision-log.md から生成した読み取り専用の派生物です。決定 UI は持ちません。</p></footer>
+    <footer class="report-footer"><p data-i18n="report-decision.footer.description.text">この HTML は decision-log.md から生成した読み取り専用の派生物です。決定 UI は持ちません。</p></footer>
 
     <script type="application/json" id="akari-decision-log-report-data">{"__AKARI_DECISION_LOG_REPORT_DATA__":true}</script>
     <script>

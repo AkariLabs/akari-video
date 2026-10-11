@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import type { LibraryTextstylePreset } from '@akari-video/edit-store';
 
 export type PresetShowcaseKind = 'lut' | 'textanim' | 'textstyle';
@@ -148,8 +149,8 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
 export function derivePresetShowcaseChips(showcase: PresetShowcase): PresetShowcaseChip[] {
     return [
         { category: 'preset:lut', label: 'LUT', count: showcase.lut.length },
-        { category: 'preset:textanim', label: 'テキストアニメ', count: showcase.textanim.length },
-        { category: 'preset:textstyle', label: 'テキストスタイル', count: showcase.textstyle.length }
+        { category: 'preset:textanim', label: t('project.library.pane.textAnimationLabel'), count: showcase.textanim.length },
+        { category: 'preset:textstyle', label: t('project.library.pane.textStyleLabel'), count: showcase.textstyle.length }
     ];
 }
 

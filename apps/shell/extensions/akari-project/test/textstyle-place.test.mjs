@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readAllSourceText, sliceBetween } from './helpers/role-buckets-source.mjs';
 import { readFileSync } from 'node:fs';
@@ -37,7 +38,8 @@ test('grid と list のかけるカードはドラッグでき、文字の新規
 });
 
 test('テキストスタイルの hint はタイムラインへの配置を案内する', () => {
-  assert.match(home, /hint: '選んだ文字に当てる・新しい文字として置く'/);
+  assert.match(home, /hint: t\('project\.library\.home\.applySelectedTextAddAsNewAction'\)/);
+  assert.equal(globalThis.t('project.library.home.applySelectedTextAddAsNewAction'), '選んだ文字に当てる・新しい文字として置く');
   assert.doesNotMatch(home, /プレビューへドラッグ/);
 });
 

@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 export const EXPORT_SHARE_TARGETS = [
     { id: 'x', label: 'X', url: 'https://x.com/compose/post' },
     { id: 'youtube', label: 'YouTube', url: 'https://www.youtube.com/upload' },
@@ -16,26 +17,26 @@ export function composeExportHandOffPacket(input: {
     bytes?: number;
     engine?: string;
 }): string {
-    const facts = [`パス: ${input.artifactPath}`];
+    const facts = [t('shell.export.sharing.pathLabel', { value1: input.artifactPath })];
     if (input.durationSeconds !== undefined) {
-        facts.push(`尺: ${input.durationSeconds} 秒`);
+        facts.push(t('shell.export.sharing.durationSecLabel', { value1: input.durationSeconds }));
     }
     if (input.width !== undefined && input.height !== undefined) {
-        facts.push(`画角: ${input.width}×${input.height}`);
+        facts.push(t('shell.export.sharing.orientationLabel', { value1: input.width, value2: input.height }));
     }
     if (input.fps !== undefined) {
         facts.push(`fps: ${input.fps}`);
     }
     if (input.bytes !== undefined) {
-        facts.push(`容量: ${input.bytes} bytes`);
+        facts.push(t('shell.export.sharing.sizeBytesLabel', { value1: input.bytes }));
     }
     if (input.engine !== undefined) {
-        facts.push(`エンジン: ${input.engine}`);
+        facts.push(t('shell.export.sharing.engineLabel', { value1: input.engine }));
     }
     return [
-        '【パートナーへの依頼】',
-        'この動画を確認して、投稿文（X / YouTube 用）とサムネ案と切り抜き候補を提案してください。',
-        '【動画の事実】',
+        t('shell.export.sharing.requestPartnerLabel'),
+        t('shell.export.sharing.reviewVideoSuggestCopyXYoutubeThumbnailPotentialClipsMessage'),
+        t('shell.export.sharing.videoFactsLabel'),
         ...facts
     ].join('\n');
 }

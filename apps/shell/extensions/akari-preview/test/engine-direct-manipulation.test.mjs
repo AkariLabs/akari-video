@@ -1,3 +1,10 @@
+import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
+const restorePreviewTestI18n = installPreviewTestI18n();
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+after(restorePreviewTestI18n);
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readHandlerSource } from './helpers/handler-source.mjs';

@@ -11,9 +11,9 @@ const keybindingsSource = readFileSync(process.env.AKARI_SHORTCUT_KEYBINDINGS_SO
   || new URL('../src/browser/akari-shortcut-keybindings.ts', import.meta.url), 'utf8');
 const shortcutsSource = readFileSync(new URL('../src/browser/akari-shortcuts.ts', import.meta.url), 'utf8');
 const shortcutsModule = { exports: {} };
-new Function('exports', ts.transpileModule(shortcutsSource, {
+new Function('exports', 'require', ts.transpileModule(shortcutsSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS }
-}).outputText)(shortcutsModule.exports);
+}).outputText)(shortcutsModule.exports, require);
 const playback = shortcutsModule.exports.AKARI_SHORTCUTS.find(item => item.command.id === 'akari.timeline.togglePlayback');
 assert.deepEqual(playback.keys, ['space']);
 

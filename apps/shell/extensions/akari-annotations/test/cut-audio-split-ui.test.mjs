@@ -1,4 +1,5 @@
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readAllSourceText, findMember } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
@@ -11,6 +12,12 @@ setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
 const { audioSections } = await import('./helpers/audio-clip-fx-fixture.mjs');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const require = createRequire(import.meta.url);
 const kernel = require('@akari-video/edit-store');

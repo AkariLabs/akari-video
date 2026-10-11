@@ -1,14 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import {
-    deriveToolSelection,
-    describeToolInstallOutcome,
-    filterInstallableSelection,
-    formatInstallProgressLabel,
-    shortenHomePath,
-    TOOL_INSTALL_NOTICE,
-    TOOL_PROVIDERS
-} from '../../lib/common/tool-install-ui.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { deriveToolSelection, describeToolInstallOutcome, filterInstallableSelection, formatInstallProgressLabel, shortenHomePath, TOOL_INSTALL_NOTICE, TOOL_PROVIDERS } = await import("../../lib/common/tool-install-ui.js");
+
 
 test('unsupported は初回にも previous に残っていても選択しない', () => {
     const tools = [

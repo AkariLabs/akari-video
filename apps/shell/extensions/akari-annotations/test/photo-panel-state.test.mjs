@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setLanguage } from '@akari-video/i18n';
@@ -7,6 +9,12 @@ resetLanguageAfter(() => setLanguage(undefined));
 const { appendAdoptedRegion, buildAdoptedPhotoRegion, photoAdoptionPolarity, photoPanelPlacement, regionDisplayName, togglePhotoCandidateSelection } = await import('../lib/browser/inspector/photo-panel-state.js');
 
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('adoption keeps the panel open on the new named region', () => {
     const previous = [{ id: 'region-1', name: '人物 1' }];

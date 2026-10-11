@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifySelectedFiles, importFabItems } from '../lib/common/import-fab-items.js';

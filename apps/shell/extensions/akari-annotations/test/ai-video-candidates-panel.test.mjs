@@ -1,4 +1,5 @@
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import test from 'node:test';
@@ -12,6 +13,12 @@ setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
 const { appendAiVideoCandidatesPanel, replaceVideoInEdit, videoApprovalMessage, videoCandidateDetail, videoModelGroups, videoModelName, videoProgress, videoProgressCandidate, videoProgressLayoutKey, videoSelectionEstimate, videoRoundedDuration, videoOverhangSeconds, videoRequestedDuration, videoSecondsLabel } = await import('../lib/browser/inspector/ai-video-candidates-panel.js');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8')).models;
 

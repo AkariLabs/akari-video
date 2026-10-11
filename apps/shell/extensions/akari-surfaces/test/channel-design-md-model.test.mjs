@@ -1,7 +1,10 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDesignMd, buildDesignMd, defaultDesignValues, DESIGN_SECTION_HEADINGS, DESIGN_ASSET_ROLES,
-    DESIGN_ASSET_ROLE_LABELS, isDesignAssetFileName, isDesignImageFile, safeDesignFileName, designAssetBadge } from '../lib/browser/channel/design-md-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+const { parseDesignMd, buildDesignMd, defaultDesignValues, DESIGN_SECTION_HEADINGS, DESIGN_ASSET_ROLES,
+    DESIGN_ASSET_ROLE_LABELS, isDesignAssetFileName, isDesignImageFile, safeDesignFileName, designAssetBadge } = await import('../lib/browser/channel/design-md-model.js');
 
 test('front matter と本文を読む', () => {
     const parsed = parseDesignMd('---\ncolors: { main: "#aabbcc", sub: "", text: "#ffffff", background: "#111111" }\nfonts: { heading: "太字", body: "標準" }\n---\n# 料理 のデザイン\n\n## 雰囲気\n明るい\n');

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * 警告バナー（タイムライン下・レビュー面・レビューボード・書き起こし面で共有）。
  *
@@ -89,8 +90,8 @@ export function createAkariNoticeBanner(options: AkariNoticeBannerOptions = {}):
     const close = document.createElement('button');
     close.type = 'button';
     close.textContent = '×';
-    close.title = '閉じる';
-    close.setAttribute('aria-label', '閉じる');
+    close.title = t('annotations.noticeBanner.text.close');
+    close.setAttribute('aria-label', t('annotations.noticeBanner.text.close'));
     close.setAttribute('data-akari-notice-close', '');
     Object.assign(close.style, {
         flex: 'none', border: 'none', background: 'transparent', color: 'inherit',

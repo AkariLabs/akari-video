@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     formatDownloadedBannerText, formatDownloadingBannerText, formatUpdaterFallbackText,
     ShellUpdaterEventKind, ShellUpdaterUiState
@@ -19,42 +20,42 @@ export function resolveSettingsUpdateView(input: {
     downloadUrl?: string;
 }): SettingsUpdateView {
     const { state, lastEventKind, currentVersion, lastChecked, downloadUrl } = input;
-    const checked = `最後に確かめた: ${lastChecked}`;
+    const checked = t('surfaces.settings.lastChecked.message', { lastChecked: lastChecked });
     if (state.downloaded && state.downloadedVersion) {
         return {
-            label: `v${state.downloadedVersion} の準備ができました`,
-            detail: `${formatDownloadedBannerText(state)} 現在 v${currentVersion} · ${checked}`,
-            button: { kind: 'restart', label: '再起動して更新', disabled: false, primary: true },
+            label: t('surfaces.settings.vReady.label', { downloadedVersion: state.downloadedVersion }),
+            detail: t('surfaces.settings.currentlyV.label', { updateStatus: formatDownloadedBannerText(state), currentVersion: currentVersion, checkedAt: checked }),
+            button: { kind: 'restart', label: t('surfaces.settings.rebootUpdate.label'), disabled: false, primary: true },
             browserFallback: false
         };
     }
     if (state.downloading && state.downloadingVersion) {
         return {
-            label: `v${state.downloadingVersion} をダウンロードしています`,
-            detail: `${formatDownloadingBannerText(state)} 現在 v${currentVersion} · ${checked}`,
-            button: { kind: 'check', label: 'ダウンロード中', disabled: true, primary: false },
+            label: t('surfaces.settings.downloadingV.label', { downloadingVersion: state.downloadingVersion }),
+            detail: t('surfaces.settings.currentlyV.label', { updateStatus: formatDownloadingBannerText(state), currentVersion: currentVersion, checkedAt: checked }),
+            button: { kind: 'check', label: t('surfaces.settings.downloading.label'), disabled: true, primary: false },
             browserFallback: false
         };
     }
     if (state.failed) {
         return {
-            label: state.failureReason ?? '更新を確認できませんでした。時間をおいてもう一度お試しください',
+            label: state.failureReason ?? t('surfaces.settings.checkUpdatesTryAgainLater.status'),
             detail: state.fallbackReason ? `${formatUpdaterFallbackText(state)} · ${checked}` : checked,
-            button: { kind: 'check', label: 'もう一度確かめる', disabled: false, primary: false },
+            button: { kind: 'check', label: t('surfaces.settings.checkAgain.label'), disabled: false, primary: false },
             browserFallback: !!downloadUrl
         };
     }
     if (state.checkRequestedByUser || lastEventKind === 'checking-for-update') {
         return {
-            label: '確認しています…', detail: checked,
-            button: { kind: 'check', label: 'アップデートを確認', disabled: true, primary: false },
+            label: t('surfaces.settings.confirming.label'), detail: checked,
+            button: { kind: 'check', label: t('surfaces.settings.checkUpdates.label'), disabled: true, primary: false },
             browserFallback: false
         };
     }
     return {
-        label: lastEventKind === 'update-not-available' ? `最新です（v${currentVersion}）` : 'アップデートを確認できます',
+        label: lastEventKind === 'update-not-available' ? t('surfaces.settings.latestV.message', { currentVersion: currentVersion }) : t('surfaces.settings.checkUpdatesAvailable.status'),
         detail: checked,
-        button: { kind: 'check', label: 'アップデートを確認', disabled: false, primary: false },
+        button: { kind: 'check', label: t('surfaces.settings.checkUpdates.label'), disabled: false, primary: false },
         browserFallback: false
     };
 }

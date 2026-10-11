@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { memberText } from './helpers/widget-source.mjs';
@@ -27,6 +29,12 @@ const { insertCaptionLine } = await import('../lib/common/caption-store.js');
 const { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage, supportedMyStyleAttachPart } = await import('../lib/browser/my-style-look.js');
 const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => memberText(name, { in: 'widget' })).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Widget = new Function('placeTextCaption', 'centeredPreviewTextPlacement', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'canvasAtFrame', 'canvasDropTargets', 'placeTreeV2CaptionIntoCanvas', 'resolveItemAnchors', 'insertCaptionLine', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(

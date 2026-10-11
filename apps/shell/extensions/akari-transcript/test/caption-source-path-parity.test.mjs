@@ -1,10 +1,27 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
 import { captionSourceEligibility, CAPTION_IMAGE_EXTENSIONS, CAPTION_VIDEO_EXTENSIONS, CAPTION_AUDIO_EXTENSIONS } from '../lib/common/caption-source-eligibility.js';
-import { captionSourcePathRule, CAPTION_IMAGE_EXTENSIONS as PROJECT_IMAGES, CAPTION_VIDEO_EXTENSIONS as PROJECT_VIDEOS,
-    CAPTION_AUDIO_EXTENSIONS as PROJECT_AUDIO } from '../../akari-project/lib/common/caption-source-path-rule.js';
 import { aiTranscribePathRule, CAPTION_IMAGE_EXTENSIONS as INSPECTOR_IMAGES, CAPTION_VIDEO_EXTENSIONS as INSPECTOR_VIDEOS,
     CAPTION_AUDIO_EXTENSIONS as INSPECTOR_AUDIO } from '../../akari-annotations/lib/browser/inspector/ai-transcribe-panel.js';
+
+const projectSource = readFileSync(new URL('../../akari-project/src/common/caption-source-path-rule.ts', import.meta.url), 'utf8');
+const projectModule = { exports: {} };
+const projectJs = ts.transpileModule(projectSource, { compilerOptions: { module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2022 } }).outputText;
+new Function('require', 'module', 'exports', projectJs)(id => id === '../common/project-text'
+    ? require('../../akari-project/lib/common/project-text.js') : require(id), projectModule, projectModule.exports);
+const { captionSourcePathRule, CAPTION_IMAGE_EXTENSIONS: PROJECT_IMAGES, CAPTION_VIDEO_EXTENSIONS: PROJECT_VIDEOS,
+    CAPTION_AUDIO_EXTENSIONS: PROJECT_AUDIO } = projectModule.exports;
 
 const excluded = reason => ({ status: 'excluded', reason });
 const image = excluded('画像には音声がありません');

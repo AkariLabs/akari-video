@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -24,6 +26,12 @@ const { describeGenerationChip, generationChipLabel, resolveGenerationState } = 
 const { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } = await import('../lib/browser/inspector/ai-video-candidates-panel.js');
 
 
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = readAllSourceText();
 const chipLayoutFixture = JSON.parse(await readFile(new URL('chip-layout.json', fixture), 'utf8'));
@@ -43,7 +51,7 @@ function widgetMethod(name, dependencies) {
   const code = ts.transpileModule(`class Widget { ${method.getText(ast)} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
   }).outputText;
-  return new Function(...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(...Object.values(dependencies));
+  return new Function('t', ...Object.keys(dependencies), `${code}\nreturn Widget.prototype.${name};`)(annotationT, ...Object.values(dependencies));
 }
 
 function widgetFunction(name) {
@@ -114,6 +122,7 @@ const reloadGenerationSidecars = widgetMethod('reloadGenerationSidecars', {});
 const refreshCompareSidecar = widgetMethod('refreshCompareSidecar', {});
 
 test('生成尺の点線は表示だけで、次の item に重なる幅と実尺へ更新できる', () => {
+  assert.equal(annotationI18n.getLanguage(), 'ja');
   const element = new DummyElement();
   const cut = { in: 0, out: 0.8 };
   const segment = { index: 0, track: 0, tlStart: 3, tlEnd: 3.8 };

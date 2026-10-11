@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TRANSITION_VOCABULARY, cutOverlapFrames, areCutsAdjacent } from '@akari-video/edit-store';
@@ -14,6 +16,12 @@ const { transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteR
 const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
 const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
 
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 test('transition select は「なし」+ 正準語彙の labelJa 配列順を使用する', () => {
     const [row] = transitionFields(cutSnapshot(), () => {});
@@ -112,7 +120,7 @@ test('cut-transition-out は applyTransitionOut に委譲し、成功・拒否�
 
 const applyTransitionOut = timelineMethod('applyTransitionOut', {
     updateV2Item, cutOverlapFrames, areCutsAdjacent, formatTransitionSeconds, roundTransitionDurationForWrite,
-    ZERO_OVERLAP_TRANSITION_MESSAGE: 'zero overlap'
+    ZERO_OVERLAP_TRANSITION_MESSAGE: () => 'zero overlap'
 });
 function transitionContext(overrides = {}) {
     return {

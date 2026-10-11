@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { localizeReportTemplate, reportDataStrings, reportLanguage } from "../analysis-report/report-i18n.mjs";
 
 const MIME_BY_EXTENSION = new Map([
   [".gif", "image/gif"],
@@ -27,7 +28,7 @@ export function buildStoryboardAnnotationText({ title, shots, overall = "" }) {
   return lines.join("\n");
 }
 
-export function renderResearchPlanReport({ plan, planPath = "research-plan.json", generatedAt = new Date() }) {
+export function renderResearchPlanReport({ plan, planPath = "research-plan.json", generatedAt = new Date(), lang = reportLanguage() }) {
   if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
     throw new TypeError("research-plan.json のルートは object である必要があります");
   }
@@ -38,7 +39,7 @@ export function renderResearchPlanReport({ plan, planPath = "research-plan.json"
   const reportTitle = selectedTopicTitle(plan) || "リサーチプラン";
   const generated = generatedAt instanceof Date ? generatedAt.toISOString() : String(generatedAt);
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
@@ -48,14 +49,14 @@ export function renderResearchPlanReport({ plan, planPath = "research-plan.json"
   <style>${reportStyles()}</style>
 </head>
 <body>
-  <a class="skip-link" href="#main-content">本文へ移動</a>
+  <a class="skip-link" href="#main-content" data-i18n="report-cards.common.skip.label">本文へ移動</a>
   <header class="report-header">
     <div class="report-header__inner">
       <p class="eyebrow">AKARI VIDEO / RESEARCH PLAN</p>
       <h1>${escapeHtml(reportTitle)}</h1>
       <dl class="report-meta" aria-label="レポート基本情報">
-        <div><dt>レポート</dt><dd>ビジュアル絵コンテ</dd></div>
-        <div><dt>生成日時</dt><dd><time datetime="${escapeHtml(generated)}">${escapeHtml(generated)}</time></dd></div>
+        <div><dt data-i18n="report-cards.research.meta.report">レポート</dt><dd data-i18n="report-cards.research.meta.storyboard">ビジュアル絵コンテ</dd></div>
+        <div><dt data-i18n="report-cards.common.generated.label">生成日時</dt><dd><time datetime="${escapeHtml(generated)}">${escapeHtml(generated)}</time></dd></div>
         <div><dt>ショット</dt><dd>${shots.length} 件 / ${chapters.length} 章</dd></div>
       </dl>
     </div>
@@ -71,9 +72,10 @@ export function renderResearchPlanReport({ plan, planPath = "research-plan.json"
   <script>${reportScript()}</script>
 </body>
 </html>\n`;
+  return localizeReportTemplate(html, "report-cards", reportLanguage(lang), [...reportDataStrings(plan), ...reportDataStrings(planPath)]);
 }
 
-export function renderResearchPlanReportFile(inputPath, outputPath = null) {
+export function renderResearchPlanReportFile(inputPath, outputPath = null, options = {}) {
   const absoluteInput = path.resolve(inputPath);
   const plan = JSON.parse(fs.readFileSync(absoluteInput, "utf8"));
   const absoluteOutput = outputPath
@@ -81,7 +83,7 @@ export function renderResearchPlanReportFile(inputPath, outputPath = null) {
     : path.join(path.dirname(absoluteInput), "research-plan-report.html");
   fs.writeFileSync(
     absoluteOutput,
-    renderResearchPlanReport({ plan, planPath: absoluteInput }),
+    renderResearchPlanReport({ plan, planPath: absoluteInput, lang: options.lang }),
     "utf8",
   );
   return absoluteOutput;
@@ -454,13 +456,21 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const [inputPath, outputPath, extra] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const langIndex = args.indexOf("--lang");
+  let lang;
+  if (langIndex >= 0) {
+    if (args[langIndex + 1] === undefined) throw new Error("--lang requires ja or en");
+    lang = reportLanguage(args[langIndex + 1]);
+    args.splice(langIndex, 2);
+  }
+  const [inputPath, outputPath, extra] = args;
   if (!inputPath || extra) {
-    console.error("使い方: node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> [research-plan-report.html]");
+    console.error("使い方: node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> [research-plan-report.html] [--lang <ja|en>]");
     process.exit(2);
   }
   try {
-    const renderedPath = renderResearchPlanReportFile(inputPath, outputPath);
+    const renderedPath = renderResearchPlanReportFile(inputPath, outputPath, { lang });
     console.log(`OK: ${renderedPath}`);
   } catch (error) {
     console.error(`NG: ${error instanceof Error ? error.message : String(error)}`);

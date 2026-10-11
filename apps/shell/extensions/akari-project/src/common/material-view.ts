@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 export type MaterialViewKind = 'video' | 'audio' | 'image' | 'other' | '3d';
 
 export interface MaterialViewState {
@@ -15,7 +16,7 @@ export const DEFAULT_MATERIAL_VIEW: MaterialViewState = {
 
 const KIND_ORDER: readonly MaterialViewKind[] = ['video', 'audio', 'image', 'other', '3d'];
 const KIND_LABELS: Record<MaterialViewKind, string> = {
-    video: '動画', audio: '音', image: '画像', other: 'その他', '3d': '3D'
+    video: t('project.library.shelf.videoLabel'), audio: t('project.handoff.item.audioLabel'), image: t('project.library.shelf.imageLabel'), other: t('project.materials.list.otherLabel'), '3d': '3D'
 };
 
 function copyState(state: MaterialViewState): MaterialViewState {
@@ -83,11 +84,11 @@ export function describeMaterialView(state: MaterialViewState): string {
     const parts: string[] = [];
     if (state.kinds.length) parts.push(state.kinds.map(kind => KIND_LABELS[kind]).join('・'));
     if (state.sort.by === 'duration') {
-        parts.push(state.sort.order === 'asc' ? '長さの短い順' : '長さの長い順');
+        parts.push(state.sort.order === 'asc' ? t('project.materials.list.shortestFirstLabel') : t('project.materials.list.longestFirstLabel'));
     } else if (state.sort.by === 'created') {
-        parts.push(state.sort.order === 'asc' ? '古い順' : '新しい順');
+        parts.push(state.sort.order === 'asc' ? t('project.materials.list.oldestFirstLabel') : t('project.materials.list.newestFirstLabel'));
     } else if (state.sort.order === 'desc') {
-        parts.push('名前の降順');
+        parts.push(t('project.materials.list.nameZLabel'));
     }
     return parts.join(' · ');
 }

@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 // 不具合メモ 第12項: `Cannot get key code from the keyboard event: [object KeyboardEvent]` が
 // 繰り返し出て Console が埋まり、本当のエラーを探せなかった。発火条件（押されたキー・IME 状態・
 // event.key/code/keyCode）はログに無く未確定で、灰色との因果関係も未確認。

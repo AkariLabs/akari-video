@@ -520,6 +520,7 @@ test('次のバッチの進捗は前回結果を拾わず、候補一覧は重�
       row.route === route && row.args[0] !== 'models').length >= 2));
     const running = await instance.readStillCandidates(dir, 'clip-1');
     assert.ok(running.running || running.completed === 3);
+    if (running.running) assert.ok(running.completed < 3);
     assert.equal(running.results.length, running.completed);
     assert.ok(running.results.every(row => !row.relativePath || !previousPaths.has(row.relativePath)));
     assert.equal(running.candidates.length, 3 + running.results.filter(row => row.ok).length);
