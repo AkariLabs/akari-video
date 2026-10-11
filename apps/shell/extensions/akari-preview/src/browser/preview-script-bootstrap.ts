@@ -6141,7 +6141,7 @@ export function previewBootstrapScript(): string {
                         const hasEmphasis = hasWords && candidate.words.some(word => findMatchingEmphasis(word));
                         const reveal = hasWords && (candidate.style === 'reveal'
                             || (!candidate.style && !candidate.textStyle?.vertical && captionPortrait
-                                && splitCaptionLines(candidate.text || '', captionLineBudget).length > 1));
+                                && splitCaptionLines(candidate.text || '', captionLineBudget(candidate), false, captionLocale(candidate)).length > 1));
                         const usesWords = hasWords && (candidate.style === 'karaoke'
                             || candidate.style === 'pop' || candidate.style === 'reveal-word'
                             || hasEmphasis || reveal);
@@ -7317,11 +7317,30 @@ export function previewBootstrapScript(): string {
                 return lines;
             };
             // --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
-            // 縦長出力の既定: 行 10 字・文字は出力幅 6%・複数行の無指定字幕は行単位の順送り（reveal）。
+            // 縦長出力では文字は出力幅 6%・複数行の無指定字幕は行単位の順送り（reveal）。
             // webview はサンドボックスで import できないため、意図的なコード重複（app.js と同じ判断）。
             const captionOutput = (initial.summary && initial.summary.output) || {};
             const captionPortrait = Number(captionOutput.height) > Number(captionOutput.width);
-            const captionLineBudget = captionPortrait ? 10 : 20;
+            // packages/content-language/src/caption-defaults.json の行文字数既定値。
+            const captionLanguageDefaults = {
+                ja: { landscapeCharacters: 20, portraitCharacters: 10 },
+                en: { landscapeCharacters: 42, portraitCharacters: 24,
+                    fontStack: '"Noto Sans JP", "AKARI Noto Sans JP", sans-serif' }
+            };
+            const captionLocale = caption => caption?.displayPolicy?.locale || caption?.display_policy?.locale
+                || caption?.locale || summary?.displayPolicy?.locale || summary?.display_policy?.locale
+                || summary?.language || initial.language
+                // Resolved English cues already carry the language-specific font stack.
+                || (caption?.resolvedTimeline && caption?.textStyleVars?.['--caption-font-family']
+                    === captionLanguageDefaults.en.fontStack ? 'en' : 'ja');
+            const captionLineBudget = caption => {
+                const explicit = caption?.textStyle?.max_characters;
+                if (Number.isInteger(explicit) && explicit > 0) return explicit;
+                const language = String(captionLocale(caption)).split('-')[0].toLowerCase();
+                const defaults = captionLanguageDefaults[language] || captionLanguageDefaults.en;
+                return (captionPortrait ? defaults?.portraitCharacters : defaults?.landscapeCharacters)
+                    || (captionPortrait ? 10 : 20);
+            };
             const captionDefaultFontSize = captionPortrait
                 ? Math.round(Number(captionOutput.width) * 0.06) : 38;
             const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
@@ -7381,8 +7400,31 @@ export function previewBootstrapScript(): string {
                 segments.push(characters.slice(start).join(''));
                 return segments;
             };
-            const splitCaptionLines = (text, maximum, graphemes = false) => {
+            const ENGLISH_FUNCTION_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'of', 'to', 'in', 'on', 'at', 'with', 'by']);
+            const splitSpaceDelimitedLines = (value, limit) => {
+                const words = value.trim().split(/\\s+/u).filter(Boolean);
+                if (!words.length) return [''];
+                const lines = [];
+                let current = [];
+                for (const word of words) {
+                    if (current.length && [...current, word].join(' ').length > limit) {
+                        const moved = [];
+                        while (current.length > 1 && ENGLISH_FUNCTION_WORDS.has(current.at(-1).toLowerCase())) {
+                            moved.unshift(current.pop());
+                        }
+                        lines.push(current.join(' '));
+                        current = moved;
+                    }
+                    current.push(word);
+                }
+                if (current.length) lines.push(current.join(' '));
+                return lines;
+            };
+            const splitCaptionLines = (text, maximum, graphemes = false, locale = 'ja') => {
                 const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
+                if (!['ja', 'zh'].includes(String(locale).split('-')[0].toLowerCase())) {
+                    return String(text).split(/\\r?\\n/u).flatMap(value => splitSpaceDelimitedLines(value, limit));
+                }
                 const lines = [];
                 for (const value of String(text).split(/\\r?\\n/u)) {
                     if (value.length === 0) { lines.push(''); continue; }
@@ -7393,13 +7435,20 @@ export function previewBootstrapScript(): string {
                 return lines;
             };
             // splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
-            const groupWordsIntoDisplayLines = (words, maximum) => {
+            const groupWordsIntoDisplayLines = (words, maximum, locale = 'ja') => {
                 if (words.length === 0) return [];
                 const text = words.map(word => word.text).join('');
                 const desiredBoundaries = [];
                 let desiredOffset = 0;
-                for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
-                    desiredOffset += Array.from(line).length;
+                const spaceDelimited = !['ja', 'zh'].includes(String(locale).split('-')[0].toLowerCase());
+                for (const line of splitCaptionLines(text, maximum, false, locale).slice(0, -1)) {
+                    if (spaceDelimited) {
+                        const match = text.indexOf(line, desiredOffset);
+                        desiredOffset = match >= 0 ? match + line.length : desiredOffset + line.length;
+                        while (/\\s/u.test(text[desiredOffset] || '')) desiredOffset += 1;
+                    } else {
+                        desiredOffset += Array.from(line).length;
+                    }
                     desiredBoundaries.push(desiredOffset);
                 }
                 const ranges = [];
@@ -7774,7 +7823,7 @@ export function previewBootstrapScript(): string {
                 // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
                 const reveal = style === 'reveal'
                     || (!style && !caption.textStyle?.vertical && captionPortrait
-                        && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
+                        && splitCaptionLines(caption.text || '', captionLineBudget(caption), false, captionLocale(caption)).length > 1);
                 const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
                 let karaokeIndex = 0;
                 let karaokeCursor = 0;
@@ -7791,9 +7840,9 @@ export function previewBootstrapScript(): string {
                 }).join('');
                 const markup = reveal
                     ? renderRevealGroupsMarkup(
-                        groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget),
+                        groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget(caption), captionLocale(caption)),
                         caption.start, caption.end, renderLine)
-                    : groupWordsIntoLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget).map(line =>
+                    : groupWordsIntoLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget(caption)).map(line =>
                         '<p class="akari-caption__line">' + renderLine(line) + '</p>'
                     ).join('');
                 const revealCss = reveal
@@ -7936,7 +7985,7 @@ export function previewBootstrapScript(): string {
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
                 const lines = caption.textStyle?.vertical
                     ? String(caption.text || '').split(/\\r?\\n/)
-                    : splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
+                    : splitCaptionLines(caption.text || '', captionLineBudget(caption), Boolean(renderChars), captionLocale(caption));
                 const markup = lines.map(line => '<p class="akari-caption__line">'
                     + (caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined
                         ? richPreviewWords(line, renderText) : renderText(line)) + '</p>').join('');
@@ -8123,7 +8172,7 @@ export function previewBootstrapScript(): string {
                     const wantsCaptionReveal = hasCaptionWords
                         && (caption.style === 'reveal'
                             || (!caption.style && !caption.textStyle?.vertical && captionPortrait
-                                && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
+                                && splitCaptionLines(caption.text || '', captionLineBudget(caption), false, captionLocale(caption)).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
                     // caption item は書き出しと同じ全幅プレートを使う。通常の出力字幕だけ
