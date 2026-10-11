@@ -7,6 +7,7 @@ import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
+import { projectSkills } from './project-skills';
 import { describeAttachments } from '../../common/chat-attachments';
 
 type RpcMessage = { id?: number; method?: string; params?: any; result?: any; error?: { message?: string; code?: number } };
@@ -195,7 +196,8 @@ export class CodexNotificationParser {
                 this.messageDeltas.add(id);
                 this.emit({ type: 'message.delta', id, text: params.delta });
             }
-        } else if (method === 'item/reasoning/summaryTextDelta') {
+        } else if (method === 'item/reasoning/summaryTextDelta' || method === 'item/reasoning/textDelta') {
+            if (params.delta) this.emit({ type: 'thinking.delta', id, text: params.delta });
             const prior = this.tools.get(id);
             const text = (prior?.detail?.text || '') + (params.delta || '');
             if (text) { this.tool(id, 'think', '考えています', 'running', { text }); }
@@ -783,8 +785,29 @@ class CodexSession implements ChatAdapterSession {
         await this.rpc('turn/interrupt', { threadId: this.ref, turnId: this.turnId });
     }
 
-    async setModel(model: string): Promise<void> { this.opts.model = this.validModel(model); }
-    async setEffort(effort: string): Promise<void> { this.opts.effort = effort; }
+    async setModel(model: string): Promise<void> {
+        if (this.catalogLoaded && !this.supportedModels.has(model)) throw new Error('このモデルは選べません');
+        this.opts.model = model;
+    }
+    async setEffort(effort: string): Promise<void> {
+        if (this.catalogLoaded && !this.validEffort(effort, this.opts.model || this.actualModel)) throw new Error('この深さは選べません');
+        this.opts.effort = effort;
+    }
+
+    async listCommands() {
+        try {
+            const result = await this.rpc('skills/list', { cwds: [this.opts.cwd] });
+            const items = Array.isArray(result.skills) ? result.skills : Array.isArray(result.data)
+                ? result.data.flatMap((group: any) => Array.isArray(group.skills) ? group.skills : [group]) : [];
+            const commands = items.flatMap((item: any) => {
+                const name = String(item.name || '');
+                return name ? [{ name, description: item.description ? String(item.description) : undefined,
+                    kind: 'skill' as const }] : [];
+            });
+            if (commands.length) return commands;
+        } catch { /* 古い app-server では利用できない場合がある。 */ }
+        return projectSkills(this.opts.cwd);
+    }
 
     async clear(): Promise<void> {
         if (this.turnId) { await this.interrupt(); }

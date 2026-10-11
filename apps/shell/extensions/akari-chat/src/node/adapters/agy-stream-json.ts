@@ -8,6 +8,7 @@ import { describeAttachments, type ChatAttachment } from '../../common/chat-atta
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { acpCandidates, findAcpExecutable, type AcpAgentDefinition } from './acp-agents';
+import { projectSkills } from './project-skills';
 
 const AGENT: AcpAgentDefinition = {
     id: 'antigravity', name: 'Antigravity', executable: 'agy', args: [], extraDirs: [],
@@ -221,7 +222,9 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
         }
         const executable = this.executableOverride || await findAgy();
         if (!executable) throw new Error('not-installed');
-        return new AgySession(executable, opts, () => this.getModels(executable, opts.cwd));
+        const session = new AgySession(executable, opts, () => this.getModels(executable, opts.cwd));
+        await session.warm();
+        return session;
     }
 
     private async getModels(executable: string, cwd: string): Promise<ChatCapabilities['models']> {
@@ -273,6 +276,25 @@ class AgySession implements ChatAdapterSession {
             clear: true, compact: false, resume: true, ask: true, currentModel: this.opts.model || this.parser.model || undefined };
     }
 
+    listCommands() { return projectSkills(this.opts.cwd, ['.agents/skills', '.agent/skills', '.agy/skills', 'skills']); }
+
+    warm(): Promise<void> {
+        const child = this.launch();
+        return new Promise((resolve, reject) => {
+            child.once('spawn', () => resolve());
+            child.once('error', reject);
+        });
+    }
+
+    private restartIdle(): void {
+        if (this.pending || this.closed) { this.restart = true; return; }
+        const child = this.child;
+        this.child = undefined;
+        child?.stdin.end();
+        child?.kill();
+        this.launch();
+    }
+
     onEvent(listener: (event: ChatEvent) => void): { dispose(): void } {
         this.listeners.add(listener);
         return { dispose: () => { this.listeners.delete(listener); } };
@@ -287,6 +309,7 @@ class AgySession implements ChatAdapterSession {
             const pending = this.pending;
             if (pending) clearTimeout(pending.timeout);
             this.pending = undefined;
+            if (this.restart && !this.closed) queueMicrotask(() => this.restartIdle());
             if (event.ok || event.reason === 'interrupted') pending?.resolve();
             else pending?.reject(new Error(event.reason || 'turn failed'));
         }
@@ -328,6 +351,7 @@ class AgySession implements ChatAdapterSession {
         child.stderr.on('data', chunk => { if (this.child === child) this.stderr = (this.stderr + String(chunk)).slice(-4000); });
         child.stdin.on('error', error => this.failTurn(child, `agy に送れませんでした: ${error.message}`));
         child.on('error', error => {
+            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: `agy を起動できませんでした: ${error.message}` });
             this.failTurn(child, `agy を起動できませんでした: ${error.message}`);
             if (this.child === child) this.child = undefined;
         });
@@ -380,8 +404,8 @@ class AgySession implements ChatAdapterSession {
         }
     }
 
-    async setModel(model: string): Promise<void> { this.opts.model = model; this.restart = true; }
-    async setEffort(effort: string): Promise<void> { this.opts.effort = effort; this.restart = true; }
+    async setModel(model: string): Promise<void> { this.opts.model = model; this.restartIdle(); }
+    async setEffort(effort: string): Promise<void> { this.opts.effort = effort; this.restartIdle(); }
     async clear(): Promise<void> { this.ref = ''; this.restart = true; }
 
     async close(): Promise<void> {

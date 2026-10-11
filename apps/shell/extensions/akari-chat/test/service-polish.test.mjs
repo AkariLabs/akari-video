@@ -51,15 +51,15 @@ test('empty starts leave no history; concurrent first sends and events retain ev
     });
 });
 
-test('start reports an initial error and the first send replays error then end', async () => {
+test('start reports an initial error by event and the first send ends', async () => {
     await withService(async (service, cwd) => {
         const events = [];
         service.setClient({ onEvent: (_id, event) => events.push(event) });
         const started = await service.start({ agent: 'fake', cwd });
-        assert.equal(started.error.kind, 'auth');
-        assert.equal(events.length, 0);
+        assert.ok(started.chatId);
         await service.send(started.chatId, 'hello', []);
-        assert.deepEqual(events.map(event => event.type), ['error', 'turn.end']);
+        assert.ok(events.some(event => event.type === 'error' && event.kind === 'auth'));
+        assert.ok(events.some(event => event.type === 'turn.end' && !event.ok));
         assert.deepEqual(await service.listHistory(cwd), []);
     }, async () => {
         const listeners = new Set();
@@ -82,14 +82,46 @@ test('cancelStart aborts the adapter and leaves no active history', async () => 
     let entered;
     const started = new Promise(resolve => { entered = resolve; });
     await withService(async (service, cwd) => {
+        const events = [];
+        service.setClient({ onEvent: (_id, event) => events.push(event) });
         const opening = service.start({ agent: 'fake', cwd, token: 'cancel-me' });
         await started;
+        const { chatId } = await opening;
         await service.cancelStart('cancel-me');
-        await assert.rejects(opening, /start-cancelled/);
+        await assert.rejects(service.send(chatId, 'ignored', []), /会話が見つかりません/);
+        await Promise.resolve();
+        assert.equal(service.sessions.has(chatId), false);
+        assert.equal(events.some(event => event.type === 'error'), false);
         assert.deepEqual(await service.listHistory(cwd), []);
     }, async ({ signal }) => {
         entered();
         await new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }));
+    });
+});
+
+test('cancelStart closes a session returned after cancellation without an error event', async () => {
+    let release;
+    const delayed = new Promise(resolve => { release = resolve; });
+    let closed;
+    const wasClosed = new Promise(resolve => { closed = resolve; });
+    await withService(async (service, cwd) => {
+        const events = [];
+        service.setClient({ onEvent: (_id, event) => events.push(event) });
+        const { chatId } = await service.start({ agent: 'fake', cwd, token: 'late-cancel' });
+        await service.cancelStart('late-cancel');
+        release();
+        await wasClosed;
+        assert.equal(service.sessions.has(chatId), false);
+        assert.equal(events.some(event => event.type === 'error'), false);
+        await assert.rejects(service.send(chatId, 'ignored', []), /会話が見つかりません/);
+    }, async () => {
+        await delayed;
+        return {
+            sessionRef: 'late-session', capabilities: async () => ({ models: [], images: false, interrupt: true,
+                clear: false, compact: false, resume: true, ask: false }),
+            onEvent: () => ({ dispose: () => {} }), send: async () => {}, interrupt: async () => {},
+            close: async () => { closed(); }
+        };
     });
 });
 
@@ -110,7 +142,7 @@ test('a failed resume keeps the saved history reference usable', async () => {
         assert.equal(saved.sessionRef, 'saved-ref');
         await service.close(first.chatId);
         const reopened = await service.resume(cwd, saved.id);
-        assert.equal(reopened.error.kind, 'auth');
+        assert.ok(reopened.chatId);
         await service.send(reopened.chatId, 'retry', []);
         const [after] = await service.listHistory(cwd);
         assert.equal(after.sessionRef, 'saved-ref');

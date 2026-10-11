@@ -143,7 +143,9 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
         if (!executable) {
             throw new Error('not-installed');
         }
-        return new ClaudeSession(executable, opts);
+        const session = new ClaudeSession(executable, opts);
+        await session.warm();
+        return session;
     }
 }
 
@@ -191,6 +193,29 @@ class ClaudeSession implements ChatAdapterSession {
         };
     }
 
+    async listCommands() {
+        const skills = new Set(this.parser.skills.map(name => name.replace(/^\//, '')));
+        return [...new Set([...this.parser.slashCommands, ...this.parser.skills].map(name => name.replace(/^\//, '')))]
+            .map(name => ({ name, kind: skills.has(name) ? 'skill' as const : 'command' as const }));
+    }
+
+    warm(): Promise<void> {
+        const child = this.launch();
+        return new Promise((resolve, reject) => {
+            child.once('spawn', () => resolve());
+            child.once('error', reject);
+        });
+    }
+
+    private restartIdle(): void {
+        if (this.pending || this.closed) { this.restart = true; return; }
+        const child = this.child;
+        this.child = undefined;
+        child?.stdin.end();
+        child?.kill();
+        this.launch();
+    }
+
     onEvent(listener: (event: ChatEvent) => void): { dispose(): void } {
         this.listeners.add(listener);
         return { dispose: () => { this.listeners.delete(listener); } };
@@ -210,6 +235,7 @@ class ClaudeSession implements ChatAdapterSession {
                 clearTimeout(pending.timeout);
             }
             this.pending = undefined;
+            if (this.restart && !this.closed) queueMicrotask(() => this.restartIdle());
             if (event.ok) {
                 pending?.resolve();
             } else {
@@ -348,6 +374,7 @@ class ClaudeSession implements ChatAdapterSession {
             }
         });
         child.on('error', error => {
+            if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: `Claude Code を起動できませんでした: ${error.message}` });
             this.failTurn(child, `Claude Code を起動できませんでした: ${error.message}`);
             if (this.child === child) {
                 this.child = undefined;
@@ -491,12 +518,12 @@ class ClaudeSession implements ChatAdapterSession {
 
     async setModel(model: string): Promise<void> {
         this.opts.model = model;
-        this.restart = true;
+        this.restartIdle();
     }
 
     async setEffort(effort: string): Promise<void> {
         this.opts.effort = effort;
-        this.restart = true;
+        this.restartIdle();
     }
 
     async clear(): Promise<void> {

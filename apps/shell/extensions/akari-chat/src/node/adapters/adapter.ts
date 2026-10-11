@@ -26,6 +26,7 @@ export interface ChatAdapterSession {
     setEffort?(effort: string): Promise<void>;
     clear?(): Promise<void>;
     compact?(): Promise<void>;
+    listCommands?(): Promise<{ name: string; description?: string; kind: 'skill' | 'command' }[]>;
     onEvent(listener: (event: ChatEvent) => void): { dispose(): void };
     close(): Promise<void>;
 }
