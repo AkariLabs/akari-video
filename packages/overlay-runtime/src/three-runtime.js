@@ -137,7 +137,14 @@ window.akari.threeRuntime = (() => {
   const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
   const CSS_VAR_REFERENCE_PATTERN = /^var\(\s*(--[\w-]+)\s*\)$/;
   const CSS_CUSTOM_PROPERTY_PATTERN = /^--[A-Za-z_][A-Za-z0-9_-]*$/;
-  const FINISH_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+  // materialOverrides の差し込み先。emissive（既定・画面）は emissiveMap、mask は baseColor の
+  // 「形」（アルファ）。mask は SVG / PNG の形で切り抜く板（背面ロゴ等）を CSS 変数で差し替えるためのもの
+  const MATERIAL_OVERRIDE_KEYS = new Set(["texture", "textureVar", "brightness", "target", "fit", "fitVar"]);
+  const MATERIAL_OVERRIDE_TARGETS = new Set(["emissive", "mask"]);
+  const MASK_TEXTURE_SIZE = 1024;
+  const MASK_SVG_MAX_CHARS = 2_000_000;
+  const SVG_TEXTURE_PATTERN = /^data:image\/svg\+xml|\.svg(?:[?#]|$)/i;
+  const FINISH_NAME_PATTERN =/^[A-Za-z_][A-Za-z0-9_-]*$/;
   const FINISH_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
   const FINISH_PROPERTIES = new Set([
     "color", "metalness", "roughness", "clearcoat", "clearcoatRoughness", "emissive",
@@ -734,11 +741,35 @@ window.akari.threeRuntime = (() => {
           || typeof override !== "object"
           || Array.isArray(override)
           || Object.keys(override).some(
-            (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+            (key) => !MATERIAL_OVERRIDE_KEYS.has(key)
           )
           || typeof override.texture !== "string"
           || override.texture.length === 0) {
           throw new TypeError("materialOverrides は material 名ごとに texture URL を指定してください");
+        }
+        if (override.target !== undefined && !MATERIAL_OVERRIDE_TARGETS.has(override.target)) {
+          throw new TypeError("materialOverrides.target は emissive または mask である必要があります");
+        }
+        if (override.target !== "mask"
+          && (override.fit !== undefined || override.fitVar !== undefined)) {
+          throw new TypeError("materialOverrides.fit / fitVar は target が mask のときだけ指定できます");
+        }
+        if (override.target === "mask") {
+          if (override.brightness !== undefined) {
+            throw new TypeError("materialOverrides.brightness は target が mask のときは指定できません");
+          }
+          if (override.fit !== undefined
+            && !(typeof override.fit === "number"
+              && Number.isFinite(override.fit)
+              && override.fit >= 0
+              && override.fit <= 1)) {
+            throw new TypeError("materialOverrides.fit は 0〜1 の数値である必要があります");
+          }
+          if (override.fitVar !== undefined
+            && (typeof override.fitVar !== "string"
+              || !CSS_CUSTOM_PROPERTY_PATTERN.test(override.fitVar))) {
+            throw new TypeError("materialOverrides.fitVar は CSS カスタムプロパティ名である必要があります");
+          }
         }
         if (override.textureVar !== undefined
           && (typeof override.textureVar !== "string"
@@ -843,6 +874,123 @@ window.akari.threeRuntime = (() => {
     });
   }
 
+  // --- target: "mask"（形の差し替え）---
+  // SVG をそのまま使えるように、viewBox から width / height を補ってからラスタライズする
+  // （width / height の無い SVG は <img> の自然な大きさが決まらず、描画がぼける・欠ける）
+  function sizeSvgForRaster(text) {
+    const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) {
+      throw new Error("SVG として読めません");
+    }
+    const box = (svg.getAttribute("viewBox") ?? "").trim().split(/[\s,]+/).map(Number);
+    let width = box.length === 4 && box.every(Number.isFinite) ? box[2] : parseFloat(svg.getAttribute("width"));
+    let height = box.length === 4 && box.every(Number.isFinite) ? box[3] : parseFloat(svg.getAttribute("height"));
+    if (!(width > 0) || !(height > 0)) { width = 100; height = 100; }
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    return new XMLSerializer().serializeToString(svg);
+  }
+
+  // 画像（SVG / PNG / JPEG 等）を正方形のキャンバスへ「全体が収まる・中央寄せ」で描き、
+  // RGB = 白・アルファ = 形 の画素列にして返す。アルファのある画像はそのアルファを形とする。
+  // 不透明な画像（JPEG 等）は暗い部分を形とみなす（白地に黒のロゴ）
+  async function loadMaskPixels(url, fit) {
+    if (VIDEO_TEXTURE_PATTERN.test(url)) throw new Error("mask に動画は使えません");
+    const source = previewAssetUrl(url);
+    let imageSource = source;
+    if (SVG_TEXTURE_PATTERN.test(url)) {
+      const response = await fetch(source);
+      if (!response.ok) throw new Error(`SVG を取得できません: HTTP ${response.status}`);
+      const text = await response.text();
+      if (text.length > MASK_SVG_MAX_CHARS) throw new Error("SVG が大きすぎます");
+      imageSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sizeSvgForRaster(text))}`;
+    }
+    const size = MASK_TEXTURE_SIZE;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (fit > 0) {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error(`画像を読み込めません: ${String(url).slice(0, 96)}`));
+        image.src = imageSource;
+      });
+      const naturalWidth = image.naturalWidth || image.width;
+      const naturalHeight = image.naturalHeight || image.height;
+      if (!(naturalWidth > 0) || !(naturalHeight > 0)) throw new Error("画像の大きさが取れません");
+      const scale = (fit * size) / Math.max(naturalWidth, naturalHeight);
+      const drawWidth = naturalWidth * scale;
+      const drawHeight = naturalHeight * scale;
+      context.drawImage(image, (size - drawWidth) / 2, (size - drawHeight) / 2, drawWidth, drawHeight);
+    }
+    const pixels = context.getImageData(0, 0, size, size);
+    const data = pixels.data;
+    let translucent = false;
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] < 250) { translucent = true; break; }
+    }
+    for (let index = 0; index < data.length; index += 4) {
+      let alpha = data[index + 3];
+      if (!translucent && fit > 0) {
+        alpha = 255 - Math.round(0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2]);
+      }
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+      data[index + 3] = alpha;
+    }
+    return data;
+  }
+
+  async function applyMaskOverride(THREE, materialsByName, computedStyle, materialName, override, url, resolvedFrom) {
+    const report = (applied, from, fit) => ({
+      name: materialName, applied, resolvedFrom: from, brightness: 1, emissiveIntensity: null,
+      video: false, target: "mask", fit,
+    });
+    let fit = override.fit ?? 1;
+    if (override.fitVar !== undefined) {
+      const raw = computedStyle.getPropertyValue(override.fitVar).trim();
+      if (raw !== "") {
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed)) fit = Math.min(1, Math.max(0, parsed));
+        else console.warn(`[akari-three] materialOverrides の "${materialName}" は fit が数値でないため ${fit} を使います`);
+      }
+    }
+    const materials = materialsByName.get(materialName);
+    if (!materials?.size) {
+      console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
+      return report(false, "missing-material", fit);
+    }
+    let data;
+    try {
+      data = await loadMaskPixels(url, fit);
+    } catch (error) {
+      // 利用者が指定した SVG / 画像が読めないときはシーンごと落とさず、モデルに焼き込みの既定の形を残す
+      console.warn(`[akari-three] materialOverrides の "${materialName}" の mask を適用できません: ${error.message}`);
+      return report(false, "mask-error", fit);
+    }
+    const texture = new THREE.DataTexture(data, MASK_TEXTURE_SIZE, MASK_TEXTURE_SIZE, THREE.RGBAFormat);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+    for (const material of materials) {
+      // DataTexture の 1 行目 = v 0（glTF の画像の上端）。glTF の UV 規約と同じ向き
+      texture.channel = material.map?.channel ?? 0;
+      material.map = texture;
+      material.transparent = true;
+      material.needsUpdate = true;
+    }
+    return report(true, resolvedFrom, fit);
+  }
+
   async function applyMaterialOverrides(THREE, instance, root, overrides) {
     if (!overrides) return;
     const materialsByName = new Map();
@@ -889,6 +1037,9 @@ window.akari.threeRuntime = (() => {
           };
         }
         if (resolvedTexture !== override.texture) resolvedFrom = "cssVar";
+      }
+      if (override.target === "mask") {
+        return applyMaskOverride(THREE, materialsByName, computedStyle, materialName, override, resolvedTexture, resolvedFrom);
       }
 
       let brightness = 1;

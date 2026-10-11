@@ -19,6 +19,7 @@ export const TOOL_PROVIDERS: Record<AkariToolId, { provider: string; termsUrl: s
     whisper: { provider: t('surfaces.tools.ggmlDevelopmentTeam.label'), termsUrl: 'https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE' },
     'yt-dlp': { provider: t('surfaces.tools.ytDlpDevelopmentTeam.label'), termsUrl: 'https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE' },
     voicevox: { provider: 'VOICEVOX', termsUrl: 'https://voicevox.hiroshiba.jp/term/' },
+    voice: { provider: t('surfaces.tools.voice.provider.label'), termsUrl: 'https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE' },
     blender: { provider: 'Blender Foundation', termsUrl: 'https://www.blender.org/about/license/' },
     'xcode-clt': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' },
     'speech-analyzer': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' }

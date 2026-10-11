@@ -724,5 +724,11 @@
   "cli.connections.notes.openrouter.workflows": "00 企画・調査 / 42 AI 生成素材",
   "cli.connections.notes.openrouter.billing": "選択モデルごとの従量課金。キー単位の上限とプロジェクト予算の両方を守る。",
   "cli.connections.notes.openrouter.quota": "キーの limit と limit_remaining。doctor は読み取り専用で認証だけ確認する。",
-  "cli.connections.notes.openrouter.scopes": "キー情報の参照 / 承認後のモデル呼び出し"
+  "cli.connections.notes.openrouter.scopes": "キー情報の参照 / 承認後のモデル呼び出し",
+  "cli.help.commands.speakers": "  speakers               話者の名前と人物の対応を確認・保存する",
+  "cli.help.commands.speakersHelp": "  speakers               話者の名前と人物の対応を確認・保存する",
+  "cli.help.commands.toolsVoice": "  tools install voice    話者分離に使う声のエンジンを準備する",
+  "cli.help.commands.toolsVoiceHelp": "  tools install voice    話者分離に使う声のエンジンを準備する",
+  "cli.speakers.scriptMissing.error": "akari speakers の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:",
+  "cli.tools.scriptMissing.error": "akari tools の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:"
 }

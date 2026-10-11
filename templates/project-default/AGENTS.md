@@ -11,6 +11,7 @@ Below, `<library-location>` is the existing library-location placeholder; audio 
 - `exports/` holds finished video exports.
 - `.akari/sidecars/` holds media analysis results; `.akari/events/` holds workflow milestone records.
 - Save media analysis results in `.akari/sidecars/<relative-path-under-assets>.meta.json` (the placeholder means the relative path beneath assets).
+- Never read or upload `.akari/sidecars/**/voices.json` (voice embeddings are biometric identifiers).
 - At report creation, approval, editing completion, and export completion, append 1 new record to `.akari/events/`.
   Never modify or delete existing records.
 - When `.akari/intake.json` has `status` set to `submitted`, follow `tasks` / `target` / `autonomy`.

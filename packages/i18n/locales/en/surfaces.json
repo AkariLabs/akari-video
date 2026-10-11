@@ -2215,5 +2215,12 @@
   "surfaces.surfaceEditor.blockEditRequestEditTooLargeBlockIdInvalid.message": "The edit is too large or the block ID is invalid.",
   "surfaces.surfaceEditor.editTargetUriOpenProjectFirst.message": "Open a project first.",
   "surfaces.surfaceEditor.editTargetUriFileCannotEditedSurface.message": "This file cannot be edited in the surface.",
-  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "The target file is outside this project."
+  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "The target file is outside this project.",
+  "surfaces.settings.unknownTool.error": "Unknown tool",
+  "surfaces.tools.voice.badge.label": "Advanced",
+  "surfaces.tools.voice.license.note": "WeSpeaker model: CC BY 4.0; pyannote and Silero: MIT; sherpa-onnx: Apache-2.0; ONNX Runtime: MIT.",
+  "surfaces.tools.voice.name.label": "Speaker separation (voice engine)",
+  "surfaces.tools.voice.provider.label": "k2-fsa (sherpa-onnx)",
+  "surfaces.tools.voice.purpose.message": "Separates speakers in footage and suggests who spoke. Voices are processed only on this computer.",
+  "surfaces.tools.voice.size.label": "About 160 MB"
 }

@@ -15,6 +15,7 @@ Edit this project according to these roles:
 
 Save media analysis results in `.akari/sidecars/<relative-path-under-assets>.meta.json`
 (the placeholder means the relative path beneath assets).
+Never read or upload `.akari/sidecars/**/voices.json` (voice embeddings are biometric identifiers).
 At report creation, approval, editing completion, and export completion, append 1 new record to `.akari/events/`.
 Never modify or delete existing records.
 

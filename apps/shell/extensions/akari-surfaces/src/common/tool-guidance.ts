@@ -71,6 +71,12 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         sizeLabel: t('surfaces.tools.voicevoxDownloadSize.label'),
         note: t('surfaces.tools.mustProvideCreditAccordingTermsConditionsAudio.message')
     },
+    voice: {
+        name: t('surfaces.tools.voice.name.label'), badge: t('surfaces.tools.voice.badge.label'),
+        purpose: t('surfaces.tools.voice.purpose.message'),
+        sizeLabel: t('surfaces.tools.voice.size.label'),
+        note: t('surfaces.tools.voice.license.note')
+    },
     blender: {
         name: 'Blender CLI', badge: t('surfaces.tools.advance.label'), purpose: t('surfaces.tools.blenderPreRenderThreeDimensionalAssets.description'),
         sizeLabel: t('surfaces.tools.blenderDownloadSize.label')
