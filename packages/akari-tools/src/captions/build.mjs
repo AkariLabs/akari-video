@@ -1,7 +1,8 @@
 import { clipSpansToRange } from "../media/unrecognized-spans.mjs";
 
 const roundTime = (value) => Math.round(value * 1000) / 1000;
-const length = (text) => Array.from(text).length;
+export const captionLength = (text) => Array.from(text).reduce((count, char) =>
+  count + (/[\x00-\x7f]/u.test(char) ? 0.5 : 1), 0);
 
 export function buildCaptionsFromTranscript(segments, {
   src, readoutSeconds = 0.3, minDurationSeconds = 1.0, maxCharacters = 20, idStart = 1,
@@ -21,25 +22,29 @@ export function buildCaptionsFromTranscript(segments, {
   const sorted = segments.map((segment, index) => ({ segment, index }))
     .sort((a, b) => a.segment.start - b.segment.start || a.index - b.index);
   for (const { segment, index } of sorted) {
-    const text = segment.text.trim();
+    const originalText = segment.text.trim();
+    const alignedWords = segment.words?.length ? alignCaptionWords(originalText, segment.words) : null;
+    const words = alignedWords ?? segment.words;
+    const text = originalText;
     if (!text) {
       warnings.push(`segment ${index}: 空の text をスキップしました`);
       continue;
     }
-    let pieces = [{ text, words: segment.words }];
+    let pieces = [{ text, words }];
     if (splitMode === "phrase") {
-      if (segment.words?.length) pieces = splitPhrases(text, segment.words, { maxCharacters, maxSeconds, pauseSeconds });
+      if (words?.length) pieces = splitPhrases(text, words, { maxCharacters, maxSeconds, pauseSeconds });
       else {
         pieces = splitProportionally(text, segment);
         warnings.push(`segment ${index}: words が無いため文字数比で時刻を按分しました`);
       }
-    } else if (maxCharacters && length(text) > maxCharacters) {
-      if (!segment.words?.length) warnings.push(`segment ${index}: words が無いため分割しませんでした`);
-      else pieces = splitWords(text, segment.words, maxCharacters);
+    } else if (maxCharacters && captionLength(text) > maxCharacters) {
+      if (!words?.length) warnings.push(`segment ${index}: words が無いため分割しませんでした`);
+      else pieces = splitWords(text, words, maxCharacters);
     }
     for (const piece of pieces) {
       const start = piece.words?.length ? piece.words[0].start : piece.start ?? segment.start;
       const lastEnd = piece.words?.length ? piece.words.at(-1).end : piece.end ?? segment.end;
+      const captionWords = piece.words?.length ? alignCaptionWords(piece.text, piece.words) : null;
       if (!Number.isFinite(start) || !Number.isFinite(lastEnd) || start < 0 || lastEnd < start) {
         throw new Error(`segment ${index}: 時刻が不正です`);
       }
@@ -51,7 +56,7 @@ export function buildCaptionsFromTranscript(segments, {
         speaker: typeof segment.speaker === "string" && segment.speaker.length > 0 ? segment.speaker : null,
         sourceRef: { segment: index }, edited: false,
         ...(src !== undefined ? { src } : {}),
-        ...(piece.words !== undefined ? { words: piece.words } : {}),
+        ...(piece.words !== undefined ? { words: captionWords ?? piece.words } : {}),
         ...(segment.unrecognized !== undefined ? { unrecognized: segment.unrecognized } : {}),
       });
     }
@@ -90,6 +95,29 @@ export function buildCaptionsFromTranscript(segments, {
   return { captions, warnings };
 }
 
+function alignCaptionWords(text, words) {
+  if (words.map((word) => word.text).join("") === text) return words;
+  if (words.map((word) => word.text).join("").replace(/\s/gu, "") !== text.replace(/\s/gu, "")) return null;
+  let cursor = 0;
+  const aligned = [];
+  for (const word of words) {
+    const surface = String(word.text ?? "").replace(/\s/gu, "");
+    if (!surface) return null;
+    const position = text.slice(cursor).search(/\S/u) + cursor;
+    if (position < cursor) return null;
+    let end = position;
+    for (const char of surface) {
+      while (/\s/u.test(text[end] ?? "")) end += 1;
+      if (!text.startsWith(char, end)) return null;
+      end += char.length;
+    }
+    aligned.push({ ...word, text: text.slice(cursor, end) });
+    cursor = end;
+  }
+  if (aligned.length) aligned.at(-1).text += text.slice(cursor);
+  return aligned;
+}
+
 function splitWords(text, words, maxCharacters) {
   // 元の本文にある空白・句読点も語に付随させ、分割で消さない。
   let cursor = 0;
@@ -112,7 +140,7 @@ function splitWords(text, words, maxCharacters) {
   let piece = { text: "", words: [] };
   for (let index = 0; index < words.length; index += 1) {
     const candidate = piece.text + tokens[index];
-    if (piece.words.length && length(candidate.trim()) > maxCharacters) {
+    if (piece.words.length && captionLength(candidate.trim()) > maxCharacters) {
       pieces.push({ ...piece, text: piece.text.trim() });
       piece = { text: "", words: [] };
     }
@@ -168,7 +196,7 @@ function splitPhrases(text, words, { maxCharacters, maxSeconds, pauseSeconds }) 
     while (pending.length) {
       const candidate = pending.map((item) => item.text).join("") + token.text;
       const seconds = token.words.at(-1).end - pending[0].words[0].start;
-      if (!(maxCharacters && length(candidate.trim()) > maxCharacters) && !(maxSeconds && seconds > maxSeconds)) break;
+      if (!(maxCharacters && captionLength(candidate.trim()) > maxCharacters) && !(maxSeconds && seconds > maxSeconds)) break;
       const boundary = pending.findLastIndex((item) => softBoundary(item.text));
       emit(boundary >= 0 ? boundary + 1 : pending.length);
     }
@@ -184,9 +212,9 @@ function splitProportionally(text, segment) {
   const pieces = [];
   let consumed = 0;
   for (const fragment of fragments) {
-    const start = segment.start + (segment.end - segment.start) * consumed / length(text);
-    consumed += length(fragment);
-    const end = segment.start + (segment.end - segment.start) * consumed / length(text);
+    const start = segment.start + (segment.end - segment.start) * consumed / captionLength(text);
+    consumed += captionLength(fragment);
+    const end = segment.start + (segment.end - segment.start) * consumed / captionLength(text);
     if (!fragment.trim() || (punctuationOnly(fragment) && pieces.length)) {
       if (pieces.length) {
         pieces.at(-1).text += fragment.trim();

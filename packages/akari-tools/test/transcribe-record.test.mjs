@@ -90,6 +90,27 @@ test("機械の生は単語帳適用前、analysis は従来どおり適用後�
   assert.deepEqual((await json(path.join(f.directory, "analysis.json"))).transcript.map((segment) => segment.text), ["残す", "AKARI Video"]);
 });
 
+test("transcribe の単語帳置換は英語の語間の空白を保つ", async (t) => {
+  const f = await fixture(t, []);
+  const wordBookPath = path.join(f.project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [
+    { kind: "term", surface: "AKARI Video", variants: ["akari video"] },
+    { kind: "term", surface: "Claude", variants: ["clode"] },
+  ] });
+  const wordTexts = ["I", " use", " akari", " video", " and", " clode", " today"];
+  const result = await transcribeMedia(f.target, { ...speechOptions(f),
+    wordBookPath, snap: false, noRecord: true, stderr: () => {},
+    backendRunner: async () => [{ start: 0, end: 1.4,
+      text: "I use akari video and clode today",
+      words: wordTexts.map((text, index) => ({ start: index * 0.2, end: (index + 1) * 0.2, text })),
+    }],
+  });
+  const [line] = result.segments;
+  assert.equal(line.text, "I use AKARI Video and Claude today");
+  assert.deepEqual(line.words.map((word) => word.text), ["I", " use", " AKARI Video", " and", " Claude", " today"]);
+  assert.equal(line.words.map((word) => word.text).join(""), line.text);
+});
+
 test("クラウドの見積が戻れば流用し、無ければ null。ローカルは cost を記録しない", async (t) => {
   const f = await fixture(t, []);
   await putJson(path.join(f.project, ".akari/connections.json"), { providers: [{ id: "scribe", doctor: { status: "ok" } }] });

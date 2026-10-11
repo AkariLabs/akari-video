@@ -59,10 +59,38 @@ test("連結不一致や併合先なしは words も追加の不整合フラグ�
   }
 });
 
-test("一致比較では空白を除き、句読点は落とさない", () => {
-  const tokens = [{ text: " hello", start: 0, end: 1 }, { text: "world!", start: 1, end: 2 }];
-  assert.equal(joined(normalizeTokens("hello \n world!", tokens)), "helloworld!");
+test("英語の空白を含めて照合し、句読点も落とさない", () => {
+  const tokens = [{ text: " hello", start: 0, end: 1 }, { text: " world!", start: 1, end: 2 }];
+  const segment = normalizeTokens("hello world!", tokens);
+  assert.deepEqual(segment.words.map((word) => word.text), ["hello", " world!"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
+  const withoutSpaces = normalizeTokens("helloworld!", tokens);
+  assert.deepEqual(withoutSpaces.words.map((word) => word.text), ["hello", "world!"]);
+  assert.equal(withoutSpaces.words.map((word) => word.text).join(""), withoutSpaces.text);
   assert.equal(Object.hasOwn(normalizeTokens("hello world", tokens), "words"), false);
+});
+
+test("英語のゼロ長トークンを空白ごと次の語へ併合する", () => {
+  const segment = normalizeTokens("When the score is high,", [
+    { text: " When", start: 0, end: 0.4 },
+    { text: " the", start: 0.5, end: 0.5 },
+    { text: " score", start: 0.6, end: 1 },
+    { text: " is", start: 1.1, end: 1.3 },
+    { text: " high", start: 1.4, end: 1.8 },
+    { text: ",", start: 1.8, end: 2 },
+  ]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["When", " the score", " is", " high", ","]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
+});
+
+test("日本語の行頭と全角文字間に紛れた空白を除く", () => {
+  const segment = normalizeTokens("今日は晴れ", [
+    { text: " 今日", start: 0, end: 0.5 },
+    { text: " は", start: 0.5, end: 1 },
+    { text: " 晴れ", start: 1, end: 2 },
+  ]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["今日", "は", "晴れ"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
 });
 
 async function normalizeThroughTranscribe(t, segments) {
@@ -95,6 +123,16 @@ test("normalizeSegments も途中の負長語を次へ併合する", async (t) =
     { text: "う", start: 1.5, end: 2 },
   ] }]);
   assert.deepEqual(segment.words, [{ start: 5, end: 5.5, text: "あ" }, { start: 6, end: 7, text: "いう" }]);
+});
+
+test("別バックエンドの英語語列も本文の空白に合わせる", async (t) => {
+  const [segment] = await normalizeThroughTranscribe(t, [{ start: 0, end: 3, text: "When the score", words: [
+    { text: "When", start: 0, end: 0.5 },
+    { text: "the", start: 0.5, end: 1 },
+    { text: "score", start: 1, end: 2 },
+  ] }]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["When", " the", " score"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
 });
 
 test("normalizeSegments の不一致・全語範囲外は本文だけを返す", async (t) => {

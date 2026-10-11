@@ -4,7 +4,11 @@ export function fragmentBoundaries(words: readonly { text: string }[], fragments
     if (!fragments?.length) return [];
     const offsets = new Map<number, number>();
     let offset = 0;
-    words.forEach((word, index) => { offsets.set(offset, index); offset += word.text.length; });
+    words.forEach((word, index) => {
+        offsets.set(offset, index);
+        offsets.set(offset + (/^\s*/u.exec(word.text)?.[0].length ?? 0), index);
+        offset += word.text.length;
+    });
     const result: number[] = [];
     let total = 0;
     for (const fragment of fragments.slice(0, -1)) {
@@ -34,7 +38,16 @@ export function toggleFragmentBoundaryAtOffset(
         fragmentCursor += fragment.length;
         if (fragmentCursor > 0 && fragmentCursor < text.length) offsets.add(fragmentCursor);
     }
-    if (offsets.has(at)) offsets.delete(at); else offsets.add(at);
+    let runStart = at;
+    let runEnd = at;
+    if (/\s/u.test(text[at]) || /\s/u.test(text[at - 1])) {
+        if (!/\s/u.test(text[at])) runStart--;
+        while (runStart > 0 && /\s/u.test(text[runStart - 1])) runStart--;
+        runEnd = runStart;
+        while (runEnd < text.length && /\s/u.test(text[runEnd])) runEnd++;
+    }
+    const existing = [...offsets].find(offset => offset >= runStart && offset <= runEnd);
+    if (existing !== undefined) offsets.delete(existing); else offsets.add(runEnd);
     const sorted = [...offsets].filter(offset => offset > 0 && offset < text.length).sort((a, b) => a - b);
     if (!sorted.length) return [];
     let cursor = 0;

@@ -37,6 +37,26 @@ test("多語を 1 語へ畳み先頭と末尾の時刻を保つ", () => {
   assert.equal(result.records[0].text, "AKARI Videoです");
 });
 
+for (const mode of ["captions", "transcript"]) {
+  test(`${mode} で語頭の空白を保って置換し、正表記は数えない`, () => {
+    const match = buildMatcher([{ kind: "term", surface: "Claude", variants: ["clode"] }]);
+    for (const [text, surfaces, expected] of [
+      ["I use clode", ["I", " use", " clode"], ["I", " use", " Claude"]],
+      ["今日は clode を", ["今日は", " clode", " を"], ["今日は", " Claude", " を"]],
+    ]) {
+      const words = surfaces.map((surface, index) => ({ start: index, end: index + 0.5, text: surface }));
+      const result = applyWordBook([{ text, words }], match, { mode });
+      assert.equal(result.stats.replaced, 1);
+      assert.deepEqual(result.records[0].words.map((word) => word.text), expected);
+      assert.equal(result.records[0].text, expected.join(""));
+    }
+    const correct = { text: "I use Claude", words: ["I", " use", " Claude"].map((surface, index) => ({ start: index, end: index + 0.5, text: surface })) };
+    const result = applyWordBook([correct], match, { mode });
+    assert.equal(result.stats.replaced, 0);
+    assert.deepEqual(result.records[0], correct);
+  });
+}
+
 test("同じ位置では語数が長い候補を採る", () => {
   const result = applyWordBook([{ text: "あかり ビデオ", words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }] }], matcher([
     term({ surface: "AKARI", variants: ["あかり"] }),
@@ -115,6 +135,18 @@ test("stats は surface ごとの置換数を持つ", () => {
 
 test("scanRecord は term を置換せず列挙する", () => {
   assert.deepEqual(scanRecord({ text: "あかりビデオ", words: [{ start: 0, end: 1, text: "あかりビデオ" }] }, matcher()), [{ surface: "AKARI Video", kind: "term", matched: "あかりビデオ", index: 0 }]);
+});
+
+test("scanRecord は語頭の空白を matched から除く", () => {
+  const built = buildMatcher([{ kind: "term", surface: "Claude", variants: ["clode"] }]);
+  for (const [word, expected] of [[" Claude", "Claude"], [" clode", "clode"]]) {
+    const record = { text: `I use${word}`, words: [
+      { start: 0, end: 0.3, text: "I" },
+      { start: 0.3, end: 0.6, text: " use" },
+      { start: 0.6, end: 1, text: word },
+    ] };
+    assert.equal(scanRecord(record, built)[0].matched, expected);
+  }
 });
 
 test("loadWordBookFile は ENOENT を null として返す", async () => {

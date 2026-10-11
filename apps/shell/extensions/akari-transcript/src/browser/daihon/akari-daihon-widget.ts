@@ -1421,7 +1421,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (extras?.hasDisplayFragments) {
             const manual = extras.displayFragments;
             const valid = Array.isArray(manual) && manual.length >= 1 && manual.length <= 6
-                && manual.every(fragment => fragment.length > 0 && fragment.trim() === fragment
+                && manual.every(fragment => fragment.trim().length > 0
                     && fragment.normalize() === fragment && measureCaptionUnits(fragment) <= policy.max_line_units)
                 && manual.join('') === caption.text;
             if (valid) displayFragments = manual;
