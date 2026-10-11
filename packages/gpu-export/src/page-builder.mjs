@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { t } from "../../i18n/index.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -237,6 +238,7 @@ export function buildGpuPage({
     adjustLutCubeTexts,
     spriteManifest,
     eligibility: effectiveEligibility,
+    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder") },
   };
   if (interleaved) {
     const spriteZ = Object.fromEntries([...stackZByOverlay]);

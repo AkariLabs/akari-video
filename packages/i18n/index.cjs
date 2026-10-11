@@ -4,6 +4,7 @@ const { ja, en } = require('./locales/index.cjs');
 const LANGUAGE_KEY = 'akari.ui.language';
 const LOCALE_KEY = 'localeId';
 let languageOverride;
+let macOsLanguage;
 
 function normalizeLanguage(value) {
   return typeof value === 'string' && /^ja/i.test(value) ? 'ja' : 'en';
@@ -15,8 +16,23 @@ function readStorage(key) {
 }
 
 function osLanguage() {
-  if (typeof navigator !== 'undefined' && navigator.language) return navigator.language;
-  return Intl.DateTimeFormat().resolvedOptions().locale;
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.language) return navigator.language;
+  if (typeof process !== 'undefined' && process.platform === 'darwin') {
+    if (macOsLanguage === undefined) {
+      macOsLanguage = null;
+      try {
+        const { execFileSync } = require('node:child_process');
+        const output = execFileSync('defaults', ['read', '-g', 'AppleLanguages'], {
+          encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore']
+        });
+        const first = output.match(/^\s*\(\s*"?([a-z]{2,3}(?:[-_][a-z0-9]+)*)"?/i);
+        macOsLanguage = first?.[1] ?? null;
+      } catch { /* An unavailable defaults command falls back to Intl. */ }
+    }
+    if (macOsLanguage) return macOsLanguage;
+  }
+  try { return Intl.DateTimeFormat().resolvedOptions().locale || 'en'; }
+  catch { return 'en'; }
 }
 
 function getLanguage() {
@@ -69,4 +85,4 @@ function formatCurrency(amountUsd, { yenRate = 150, yenAmount, yenOnly = false, 
 }
 function compareText(a, b, options) { return String(a).localeCompare(String(b), intlLocale(), options); }
 
-module.exports = { t, getLanguage, setLanguage, normalizeLanguage, formatDate, formatNumber, formatCurrency, compareText };
+module.exports = { t, getLanguage, setLanguage, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };

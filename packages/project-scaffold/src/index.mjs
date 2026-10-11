@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { reportCatalog, reportLanguage, reportText } from '../../analysis-report/report-i18n.mjs';
+import { t } from '../../i18n/index.mjs';
 
 // 履歴に何を入れるかの単一の宣言（issue #48）。ここで別に書き起こすと、雛形とアプリ側の
 // 除外規則が片方だけ育つ。相対パスなのは npm 配布 tarball の vendor ミラーでも同じ深さに
@@ -438,7 +439,7 @@ export async function checkGitBoundary(destinationDir) {
     return { eligibility: 'inside-parent-repository', parentRoot };
 }
 
-export async function commitInitialProject(destinationDir, message = 'プロジェクトを作成') {
+export async function commitInitialProject(destinationDir, message = t('cli.project.git.initialCommit')) {
     await runGit(destinationDir, ['init']);
     await runGit(destinationDir, ['add', '-A', '--', '.']);
     const { stdout } = await runGit(destinationDir, ['status', '--porcelain']);

@@ -238,10 +238,11 @@ test("GPU と OSR は display_policy 下でも同じ字幕 HTML と同じ本数�
 });
 
 test("display_policy 未宣言の字幕スプライトは既存バイト列を保ち、ページは R·S 順を使う", () => {
-  // 字幕スプライトは既存値を維持。ページ HTML は文字送りの共通遅延関数を含む値を固定する。
+  // 字幕スプライトは既存値を維持。ページ HTML のロケール依存警告だけを正規化する。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
-    .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")).digest("hex");
+    .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")
+      .replace(/"messages":\{"preserve3dOrder":"[^"]*"\}/gu, '"messages":{"preserve3dOrder":"LOCALIZED"}')).digest("hex");
   const legacyArray = [punctuated, { id: "c-0008", src: "main", start: 3, end: 5, text: "短い字幕" }];
   const legacyObject = {
     default_text_style: { color: "#ffffff", size_px: 64, weight: 700 },
@@ -253,11 +254,11 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "fb2376246a499dea945fe96ef324a61832c01c6e3e87495edb64c6acf56e0480",
+      html: "a56bf9a43207fe98ced5a79e8cd8a6eaaa394dcff9a2bbbd857d9bd4a1855332",
       sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "88c2b0c9cc8dbffe58537c89213d6a9812aafb40db20e0a0a6d3c01a911d2b85",
+      html: "1af2861430d7998a851300394cbdadf1b0a225e5450315354ac019c15dab8923",
       sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };

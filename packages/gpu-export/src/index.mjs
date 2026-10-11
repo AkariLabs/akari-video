@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { t } from "../../i18n/index.mjs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
@@ -35,7 +36,7 @@ export function gpuRuntimeFallbackReason(error, fallbackReasons = FALLBACK_REASO
 export function assertNoSkippedLayers(run) {
   const skipped = Number(run?.frameEngineMetrics?.skippedLayers ?? 0);
   if (skipped > 0 || !Number.isFinite(skipped)) {
-    throw new Error(`GPU run skipped ${run.frameEngineMetrics.skippedLayers} layer draw(s); 層の欠けた出力は採用しません（run.json の frameEngineMetrics.skippedLayers）`);
+    throw new Error(t("render.gpu.error.skippedLayers", { count: run.frameEngineMetrics.skippedLayers }));
   }
 }
 
@@ -184,7 +185,7 @@ export async function exportWithGpu({
         source_has_audio: Boolean(sourceHasAudio),
       };
       if (!sourceHasAudio) {
-        io.error?.(`gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: ${audio.source}`);
+        io.error?.(t("render.gpu.warning.silentCarrier", { source: audio.source }));
       }
     }
     recordTiming("audio_mux", audioMuxStarted);

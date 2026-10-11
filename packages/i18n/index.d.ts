@@ -1,5 +1,6 @@
 export type Language = 'ja' | 'en';
 export function normalizeLanguage(value: string | undefined): Language;
+export function osLanguage(): string;
 export function getLanguage(): Language;
 export function setLanguage(value: Language | 'auto' | undefined): Language;
 export function t(key: string, params?: Record<string, string | number | boolean>, language?: Language): string;

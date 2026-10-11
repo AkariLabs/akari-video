@@ -191,6 +191,7 @@
   "cli.launcher.project.createFailed": "プロジェクトの雛形作成でエラーが発生しました（続行します）: {message}",
   "cli.launcher.project.existing": "既存の AKARI Video プロジェクトを検出しました: {root}",
   "cli.launcher.doctor.checking": "接続状態を確認します…",
+  "cli.project.git.initialCommit": "プロジェクトを作成",
   "cli.launcher.doctor.failed": "接続確認でエラーが発生しました（続行します）: {message}",
   "cli.launcher.assets.noticeFailed": "素材案内の表示でエラーが発生しました（続行します）: {message}",
   "cli.launcher.agent.startOpencode": "opencode を起動します…",

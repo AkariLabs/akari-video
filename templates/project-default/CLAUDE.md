@@ -4,7 +4,7 @@
 
 The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
-Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
+Below, `<library-location>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
 Edit this project according to these roles:
 
@@ -13,7 +13,7 @@ Edit this project according to these roles:
 - `exports/` … Finished video exports.
 - `.akari/` … Media analysis results and workflow milestone records.
 
-Save media analysis results in `.akari/sidecars/<assets 以下の相対パス>.meta.json`
+Save media analysis results in `.akari/sidecars/<relative-path-under-assets>.meta.json`
 (the placeholder means the relative path beneath assets).
 At report creation, approval, editing completion, and export completion, append 1 new record to `.akari/events/`.
 Never modify or delete existing records.
@@ -25,7 +25,7 @@ When writing the workflow to `.akari/intake.json`, use only the 5 prescribed IDs
 If assets are missing, inspect the account's asset library (all free + purchased assets) with `akari assets list`.
 Import a chosen asset into this project with `akari assets fetch <id> --project .` (including sha256 verification).
 Paid assets are available if purchased through the account connected with `akari store connect`;
-unpurchased assets display `locked` and their price. Library files live in `<ライブラリの置き場>/`
+unpurchased assets display `locked` and their price. Library files live in `<library-location>/`
 (the existing library-location placeholder). Operate through these commands rather than editing them directly.
 
 ## Check the preview
@@ -44,7 +44,7 @@ Checking only rendering components or a separate page does not count as checking
 - `~/.akari/app` … AKARI Video installed via `install.sh`. It need not exist when only the desktop app is used.
 - App-bundled `<App>/Contents/Resources/packages/` … Editing and checking commands such as render-cut and edit-lint. On Windows: `<install dir>\resources\packages\`.
 - App-bundled `<App>/Contents/Resources/media-bin/` … ffmpeg and ffprobe. Some builds do not bundle whisper-cli. On Windows: `<install dir>\resources\media-bin\`.
-- `<ライブラリの置き場>` … Existing placeholder for the asset library's actual location.
+- `<library-location>` … Existing placeholder for the asset library's actual location.
 
 Assume none is on PATH. Outside the partner PTY, run the full path: `~/.akari/cli/bin/akari` on macOS / Linux,
 `~/.akari/cli/bin/akari.cmd` on Windows (the only Windows entry point is `akari.cmd`; Git Bash cannot find it if you omit the extension).
