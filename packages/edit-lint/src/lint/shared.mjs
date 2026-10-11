@@ -2,6 +2,7 @@ import { constants as fsConstants, statSync } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { resolveLibraryFallback } from "../library-reference.mjs";
+import { lintText } from '../i18n.mjs';
 
 export const EPSILON = 1e-6;
 
@@ -55,7 +56,7 @@ export function resolveReferenceBinding(editPath, reference, paths = null) {
 }
 
 export function unfetchedLibraryNote(binding) {
-  return binding.libraryReference ? "（共有ライブラリ参照（未取得））" : "";
+  return binding.libraryReference ? lintText('lint-messages.library.reference.unfetched') : "";
 }
 
 export function isRegularFileSync(filePath) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AKARI Video — メインエントリーポイント
+# AKARI Video — main entry point
 set -euo pipefail
 
 MUTED='\033[0;2m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[38;5;214m'; BOLD='\033[1m'; NC='\033[0m'
@@ -21,7 +21,7 @@ find_monorepo() {
   if [[ -n "${AKARI_MONOREPO:-}" ]] && [[ -f "$AKARI_MONOREPO/packages/akari-launcher/bin/akari.mjs" ]]; then
     echo "$AKARI_MONOREPO"; return 0
   fi
-  # install.sh 済みの環境（プロジェクトフォルダを新 PC へ持ち込んだ場合も含む）を拾う。
+  # Detect installations made by install.sh, including projects moved to a new computer.
   local install_dir="${AKARI_INSTALL_DIR:-$HOME/.akari/app}"
   if [[ -f "$install_dir/packages/akari-launcher/bin/akari.mjs" ]]; then
     echo "$install_dir"; return 0
@@ -29,11 +29,11 @@ find_monorepo() {
   return 1
 }
 
-# ─── 行き止まり撤去: 本体/Node が見つからない・使えないときに、専門語
-#     （Node / monorepo / PATH / env）を出さず 1 問の同意でその場セットアップ
-#     して復帰する。承諾されればインストーラ実行後に元のコマンドをそのまま
-#     再実行し、拒否・非対話（tty 無し: CI・パイプ）なら案内 1 行だけ出して
-#     exit 1 する（install.sh の /dev/tty ガードと同じ流儀） ───
+# ─── Recover when the app or Node is missing or unusable. Avoid technical jargon
+#     (Node / monorepo / PATH / env) and ask one setup question.
+#     On approval, run the installer and retry the original command.
+#     On refusal or without a TTY (CI / pipe), print one guidance line
+#     and exit 1, following the install.sh /dev/tty guard. ───
 INSTALL_ONE_LINER='curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash'
 
 show_setup_guide() {
@@ -42,7 +42,7 @@ show_setup_guide() {
 
 run_self_heal_installer() {
   if [[ -n "${AKARI_SELF_HEAL_INSTALLER:-}" ]]; then
-    # テスト・開発用フック: 実ネットワークを叩かず、指定コマンドで代替する。
+    # Test hook: run a supplied command instead of using the network.
     bash -c "$AKARI_SELF_HEAL_INSTALLER"
   else
     curl -fsSL "https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh" | bash
@@ -56,14 +56,14 @@ self_heal_and_reexec() {
     exit 1
   fi
 
-  # 制御端末が実際に開けるかをまず確認する（パーミッションビットは常に rw に
-  # 見えるため事前チェックでは判定できない — install.sh の /dev/tty ガードと
-  # 同じ流儀）。注意: 素の `exec 3<>/dev/tty 2>/dev/null`（コマンド無しの
-  # exec）は、その 2>/dev/null をこの後ずっとシェルへ居座らせてしまう
-  # （サブシェルではなく現在のシェルの fd テーブルを直接書き換えるため）。
-  # それだと `read -p` のプロンプト（fd2 に出る仕様）まで道連れで消え、実機で
-  # 無言のまま止まって見える不具合になる。open 試行時だけ fd2 を一時退避して
-  # 復元することで、プロンプト自体は素の stderr へ出す。
+  # Check whether the controlling terminal can actually be opened; permission bits
+  # always appear rw, so a preliminary check is unreliable. Follow the install.sh
+  # /dev/tty guard. A bare `exec 3<>/dev/tty 2>/dev/null` (without a command)
+  # leaves stderr redirected to /dev/null for the rest of the shell process
+  # because exec changes the current shell file descriptors.
+  # That also hides the `read -p` prompt, which writes to fd 2, making the
+  # command appear stuck. Save fd 2 only for the open attempt and restore it
+  # so the prompt remains visible on stderr.
   local answer=n
   local tty_ok=1
   exec 4>&2 2>/dev/null
@@ -88,9 +88,9 @@ self_heal_and_reexec() {
   fi
 
   info "セットアップが完了しました。続行します…"
-  # macOS 標準の bash（3.2 系）は `set -u` 下で空配列の `"${arr[@]}"` 展開を
-  # unbound variable として落とす（bash 4.4 で修正された既知の非互換）。
-  # 配列が空かどうかで exec の引数展開自体を分岐して回避する。
+  # macOS Bash 3.2 treats an empty `"${arr[@]}"` expansion under `set -u`
+  # as an unbound variable (fixed in Bash 4.4).
+  # Branch on the array length before expanding exec arguments.
   if [[ ${#ORIGINAL_ARGS[@]} -gt 0 ]]; then
     exec "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
   else
@@ -102,8 +102,8 @@ MONOREPO="$(find_monorepo "$SCRIPT_PATH")" || self_heal_and_reexec
 
 # ─── Resolve Node.js: system PATH first, then portable Node (install.sh's
 #     ~/.akari/runtime/ fallback for machines without a system Node).
-#     `NODE_BIN` はグローバル変数に直接代入する — $(...) はサブシェルなので
-#     中の export PATH が親シェルへ伝わらない ───
+#     Assign `NODE_BIN` directly in the global scope; $(...) uses a subshell,
+#     so exporting PATH inside it does not affect the parent shell. ───
 resolve_node() {
   if command -v node >/dev/null 2>&1; then
     NODE_BIN="node"
@@ -113,17 +113,17 @@ resolve_node() {
   local candidate
   candidate="$(find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d -name 'node-v*' 2>/dev/null | sort -V | tail -1)"
   if [[ -n "$candidate" ]] && [[ -x "$candidate/bin/node" ]]; then
-    # このプロセス以降で spawn される子（npm・ffmpeg-static 探索など）にも
-    # 効くよう PATH の先頭に足す。
+    # Add to PATH for later spawned children (npm and ffmpeg-static lookups).
+    # Keep the portable runtime first.
     export PATH="$candidate/bin:$PATH"
     NODE_BIN="$candidate/bin/node"
     return 0
   fi
   return 1
 }
-# Node 不在も行き止まりにしない: 3 と同じ同意フローでインストーラを実行し
-# （portable Node を入れて）復帰する（再実行時は resolve_node が上の
-# runtime_dir 走査で拾う）。
+# Use the same consent flow when Node is missing, then install the portable
+# Node runtime and retry. On retry, resolve_node finds it through the
+# runtime_dir scan above.
 resolve_node || self_heal_and_reexec
 
 # ─── Preview server launcher ───
@@ -198,8 +198,8 @@ cmd_preview() {
 
 # ─── Main ───
 if [[ $# -eq 0 ]]; then
-  # デフォルトは Claude Code（launcher の自動検出に任せる）
-  # --opencode を付けたい場合は明示的に指定
+  # Default to Claude Code through the launcher's automatic detection.
+  # Pass --opencode explicitly to use it instead.
   exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
 fi
 

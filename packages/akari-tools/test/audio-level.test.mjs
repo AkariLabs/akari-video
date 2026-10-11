@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -28,6 +33,7 @@ function copyProject(kind, t, { generateMedia = true } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), `audio-level-${kind}-`));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   fs.cpSync(path.join(fixtureRoot, kind), directory, { recursive: true });
+  fs.mkdirSync(path.join(directory, '.akari'), { recursive: true });
   const assets = path.join(directory, "assets");
   fs.mkdirSync(assets, { recursive: true });
   if (!generateMedia) {

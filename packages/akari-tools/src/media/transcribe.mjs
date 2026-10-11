@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -6,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { readContentLanguage } from "../../../content-language/src/node.mjs";
 import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { isMainModule } from "../common/main-module.mjs";
+import { toolsText, toolsLanguage } from '../i18n.mjs';
 
 import {
   formatNumber,
@@ -40,7 +42,7 @@ import {
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
-const speechAnalyzerRequirements = "SpeechAnalyzer は macOS 26 以上 + Command Line Tools が必要です";
+const speechAnalyzerRequirements = (language) => toolsText('tools.transcribe.error.speechRequirements', {}, language);
 const SPEECH_LOCALES = Object.freeze({ en: "en-US", ja: "ja-JP", de: "de-DE", es: "es-ES", fr: "fr-FR", it: "it-IT", pt: "pt-BR", ko: "ko-KR", yue: "yue-CN", zh: "zh-CN" });
 export const speechLocaleForLanguage = (lang) => SPEECH_LOCALES[normalizeLanguage(lang)] ?? null;
 export const WHISPER_FILLER_PROMPT = "Um, uh, erm, uhm, hmm, like, you know, I mean, sort of, kind of.";
@@ -70,7 +72,7 @@ export function resolveAnalyzeFootageScript(name, options = {}) {
 }
 
 function missingScriptMessage(label, name, options) {
-  return `${label}実装が同梱されていません（${analyzeFootageScriptCandidates(name, options).join(" / ")}）`;
+  return toolsText('tools.transcribe.error.scriptMissing', { label, paths: analyzeFootageScriptCandidates(name, options).join(" / ") }, options.uiLanguage);
 }
 
 function writeBackendLog(options, message) {
@@ -82,7 +84,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const target = resolveTarget(targetArgument, options);
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
-  const range = normalizeRange(options.in, options.out, duration);
+  const range = normalizeRange(options.in, options.out, duration, options.uiLanguage);
   const lang = await resolveTranscribeLanguage(target.projectRoot, options.lang);
   const sha256 = await sha256File(target.inputPath);
   const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
@@ -126,7 +128,7 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, optio
         ? resolveWhisper({ ...options, lang }) : null;
       if (unsupportedLocale && !fallback) throw new Error(`SpeechAnalyzer does not support ${lang}, and no whisper.cpp model is available.`, { cause: error });
       if (!fallback) throw error;
-      writeBackendLog(options, `SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}`);
+      writeBackendLog(options, toolsText('tools.transcribe.warning.speechFallback', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage));
       backendInfo = { name: "whisper-cpp", ...fallback };
       backend = backendInfo.name;
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt: options.whisperPrompt }));
@@ -166,11 +168,11 @@ async function applyResolvedWordBook(result, target, options) {
   });
   for (const layer of resolved.layers) {
     if (!layer.error) continue;
-    writeWordBookLog(options, `単語帳: ${layer.scope} を読めません（${layer.error.message}）`);
+    writeWordBookLog(options, toolsText('tools.transcribe.warning.wordBookLoad', { scope: layer.scope, message: layer.error.message }, options.uiLanguage));
   }
   const applied = applyWordBook(result.segments, buildMatcher(resolved.entries), { mode: "transcript" });
   if (applied.stats.replaced > 0) {
-    writeWordBookLog(options, `単語帳: ${applied.stats.replaced} 語を置換（layers: ${resolved.layers.map((layer) => layer.scope).join(", ")}）`);
+    writeWordBookLog(options, toolsText('tools.transcribe.notice.wordBookReplaced', { count: applied.stats.replaced, n: applied.stats.replaced, layers: resolved.layers.map((layer) => layer.scope).join(", ") }, options.uiLanguage));
   }
   return { ...result, segments: applied.records };
 }
@@ -180,10 +182,10 @@ function writeWordBookLog(options, message) {
   else process.stderr.write(`${message}\n`);
 }
 
-function normalizeRange(input, output, duration) {
+function normalizeRange(input, output, duration, language) {
   const range = { in: input ?? 0, out: output ?? duration };
   if (!Number.isFinite(range.in) || !Number.isFinite(range.out) || range.in < 0 || range.out > duration || range.out <= range.in) {
-    throw new Error(`文字起こし範囲は 0〜${duration} 秒内で out > in にしてください`);
+    throw new Error(toolsText('tools.transcribe.error.invalidRange', { duration, n: duration }, language));
   }
   return { in: formatNumber(range.in), out: formatNumber(range.out) };
 }
@@ -191,7 +193,7 @@ function normalizeRange(input, output, duration) {
 async function selectBackend(requested, target, options) {
   if (requested?.startsWith("cloud:")) return validateCloudBackend(requested, target);
   if (requested && !["speech-analyzer", "whisper-cpp"].includes(requested)) {
-    throw new Error(`未対応の backend です: ${requested}`);
+    throw new Error(toolsText('tools.transcribe.error.unsupportedBackend', { backend: requested }, options.uiLanguage));
   }
   if (requested === "speech-analyzer") {
     if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) {
@@ -205,18 +207,18 @@ async function selectBackend(requested, target, options) {
   }
   if (requested === "whisper-cpp") {
     const whisper = resolveWhisper(options);
-    if (!whisper) throw new Error("whisper.cpp の実行ファイルまたはモデルが見つかりません");
+    if (!whisper) throw new Error(toolsText('tools.transcribe.error.whisperMissing', {}, options.uiLanguage));
     return { name: requested, ...whisper };
   }
   const availability = speechAnalyzerAvailability(options);
   if (availability.available && (options.lang === "auto" || !normalizeLanguage(options.lang) || speechLocaleForLanguage(options.lang))) return { name: "speech-analyzer" };
   const whisper = resolveWhisper(options);
   if (whisper) {
-    writeBackendLog(options, `SpeechAnalyzer を利用できないため whisper.cpp へフォールバックします: ${availability.reason}`);
+    writeBackendLog(options, toolsText('tools.transcribe.warning.speechUnavailable', { reason: availability.reason }, options.uiLanguage));
     return { name: "whisper-cpp", ...whisper };
   }
   if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) throw new Error(`SpeechAnalyzer does not support ${options.lang}, and no whisper.cpp model is available.`);
-  throw new Error("利用できるローカル文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）");
+  throw new Error(toolsText('tools.transcribe.error.noLocalBackend', {}, options.uiLanguage));
 }
 
 export function speechAnalyzerAvailable(options = {}) {
@@ -225,25 +227,28 @@ export function speechAnalyzerAvailable(options = {}) {
 
 function speechAnalyzerAvailability(options) {
   if (typeof options.speechAnalyzerAvailable === "boolean") {
-    return { available: options.speechAnalyzerAvailable, reason: speechAnalyzerRequirements, message: speechAnalyzerRequirements };
+    return { available: options.speechAnalyzerAvailable, reason: speechAnalyzerRequirements(options.uiLanguage), message: speechAnalyzerRequirements(options.uiLanguage) };
   }
   const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
   if (!speechAnalyzerScript) {
     return {
       available: false,
-      reason: `SpeechAnalyzer の実装スクリプトが見つからない（${analyzeFootageScriptCandidates("transcribe-sa.mjs", options).join(" / ")}）`,
-      message: missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options),
+      reason: toolsText('tools.transcribe.error.speechScriptMissing', { paths: analyzeFootageScriptCandidates("transcribe-sa.mjs", options).join(" / ") }, options.uiLanguage),
+      message: missingScriptMessage(toolsText('tools.transcribe.label.speechAnalyzer', {}, options.uiLanguage), "transcribe-sa.mjs", options),
     };
   }
   try {
     const result = runChecked(process.execPath, [speechAnalyzerScript, "--check"], options);
     const value = JSON.parse(result.stdout);
-    const detail = String(value.reason ?? speechAnalyzerRequirements);
-    const reason = /macOS.*26 未満/.test(detail) ? `macOS 26 未満（${detail}）`
-      : /swiftc.*(?:ありません|無い)/.test(detail) ? `swiftc が無い（${detail}）` : detail;
-    return { available: value.available === true, reason, message: speechAnalyzerRequirements };
+    const detail = String(value.reason ?? speechAnalyzerRequirements(options.uiLanguage));
+    const localizedDetail = options.uiLanguage === 'ja' || (options.uiLanguage === undefined && toolsLanguage() === 'ja') ? detail
+      : /macOS.*26 未満/.test(detail) ? toolsText('tools.transcribe.error.macOsDetail', { version: detail.match(/macOS\s+([\d.]+)/)?.[1] ?? '?' })
+      : /swiftc.*(?:ありません|無い)/.test(detail) ? toolsText('tools.transcribe.error.swiftcDetail') : detail;
+    const reason = /macOS.*26 未満/.test(detail) ? toolsText('tools.transcribe.error.macOsBelow', { detail: localizedDetail }, options.uiLanguage)
+      : /swiftc.*(?:ありません|無い)/.test(detail) ? toolsText('tools.transcribe.error.swiftcMissing', { detail: localizedDetail }, options.uiLanguage) : localizedDetail;
+    return { available: value.available === true, reason, message: speechAnalyzerRequirements(options.uiLanguage) };
   } catch (error) {
-    const message = `SpeechAnalyzer の利用可否チェックに失敗しました: ${error instanceof Error ? error.message : String(error)}`;
+    const message = toolsText('tools.transcribe.error.speechCheckFailed', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage);
     return { available: false, reason: message, message };
   }
 }
@@ -286,13 +291,13 @@ function findOnPath(name) {
 }
 
 function validateCloudBackend(requested, target) {
-  if (!target.projectRoot) throw new Error("cloud backend は AKARI Video プロジェクト内でのみ使えます");
+  if (!target.projectRoot) throw new Error(toolsText('tools.transcribe.error.cloudProjectRequired', {}, options.uiLanguage));
   const id = requested.slice("cloud:".length);
   const connectionsPath = path.join(target.projectRoot, ".akari", "connections.json");
-  if (!existsSync(connectionsPath)) throw new Error(".akari/connections.json が見つかりません");
+  if (!existsSync(connectionsPath)) throw new Error(toolsText('tools.transcribe.error.connectionsMissing', {}, options.uiLanguage));
   const connections = JSON.parse(readFileSync(connectionsPath, "utf8"));
   const provider = connections.providers?.find((item) => item.id === id);
-  if (!provider || provider.doctor?.status !== "ok") throw new Error(`接続 ${id} の doctor が ok ではありません`);
+  if (!provider || provider.doctor?.status !== "ok") throw new Error(toolsText('tools.transcribe.error.connectionUnhealthy', { id }, options.uiLanguage));
   return { name: requested, connectionId: id };
 }
 
@@ -321,7 +326,7 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
 async function runSpeechAnalyzer(wavPath, temporaryDirectory, lang, options) {
   const outputPath = path.join(temporaryDirectory, "speech-analyzer-output.json");
   const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
-  if (!speechAnalyzerScript) throw new Error(missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options));
+  if (!speechAnalyzerScript) throw new Error(missingScriptMessage(toolsText('tools.transcribe.label.speechAnalyzer', {}, options.uiLanguage), "transcribe-sa.mjs", options));
   const helperDirectory = path.join(os.tmpdir(), "akari-speech-analyzer");
   const moduleCache = path.join(helperDirectory, "clang-module-cache");
   await mkdir(helperDirectory, { recursive: true });
@@ -333,7 +338,7 @@ async function runSpeechAnalyzer(wavPath, temporaryDirectory, lang, options) {
     },
   });
   const value = JSON.parse(await readFile(outputPath, "utf8"));
-  if (!value.available) throw new Error(value.reason || "SpeechAnalyzer が失敗しました");
+  if (!value.available) throw new Error(value.reason || toolsText('tools.transcribe.error.speechFailed', {}, options.uiLanguage));
   return { segments: value.segments ?? [], locale: value.locale ?? speechLocaleForLanguage(lang) ?? "ja-JP" };
 }
 
@@ -358,25 +363,26 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
       dtw = true;
     } catch (error) {
       if (!/unknown|invalid/i.test(error instanceof Error ? error.message : String(error))) throw error;
-      writeBackendLog(options, `whisper.cpp が -dtw を受理しないため、DTW なしで再実行します: ${error instanceof Error ? error.message : String(error)}`);
+      writeBackendLog(options, toolsText('tools.transcribe.warning.dtwUnsupported', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage));
       runChecked(backendInfo.bin, baseArgs, options);
     }
   } else {
     runChecked(backendInfo.bin, baseArgs, options);
   }
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
-  if (!jsonPath) throw new Error("whisper.cpp の JSON 出力が見つかりません");
+  if (!jsonPath) throw new Error(toolsText('tools.transcribe.error.jsonMissing', {}, options.uiLanguage));
   return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8"))), dtw };
 }
 
 export function whisperArguments(model, input, lang, output, options = {}) {
   return ["-m", model, "-f", input, "-l", lang, "-oj", "-ojf", "-of", output,
-    ...(lang === "en" && options.whisperPrompt === true ? ["--prompt", WHISPER_FILLER_PROMPT] : [])];
+    ...(typeof options.whisperPrompt === 'string' && options.whisperPrompt ? ["--prompt", options.whisperPrompt]
+      : lang === "en" && options.whisperPrompt === true ? ["--prompt", WHISPER_FILLER_PROMPT] : [])];
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
   const cloudScript = resolveAnalyzeFootageScript("transcribe-cloud.mjs", options);
-  if (!cloudScript) throw new Error(missingScriptMessage("クラウド文字起こしの", "transcribe-cloud.mjs", options));
+  if (!cloudScript) throw new Error(missingScriptMessage(toolsText('tools.transcribe.label.cloud', {}, options.uiLanguage), "transcribe-cloud.mjs", options));
   const provider = /groq/i.test(connectionId) ? "groq" : "scribe";
   try {
     const result = runChecked(process.execPath, [
@@ -386,7 +392,7 @@ function runCloud(wavPath, projectRoot, connectionId, range, options) {
     const value = JSON.parse(result.stdout);
     return { segments: value.segments ?? value.transcript ?? [], cost_estimate_usd: value.cost_estimate_usd ?? null };
   } catch (error) {
-    throw new Error(`クラウド文字起こしの実行に失敗しました: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    throw new Error(toolsText('tools.transcribe.error.cloudFailed', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage), { cause: error });
   }
 }
 
@@ -576,7 +582,7 @@ function withoutInternalMarkers(segment) {
 function numericOption(value, fallback, label, positive = true) {
   const resolved = value ?? fallback;
   if (!Number.isFinite(resolved) || (positive ? resolved <= 0 : false)) {
-    throw new Error(`${label} は${positive ? " 0 より大きい" : ""}数値で指定してください`);
+    throw new Error(toolsText('tools.transcribe.error.numericOption', { label, qualifier: positive ? toolsText('tools.transcribe.error.positiveQualifier') : '' }));
   }
   return resolved;
 }
@@ -621,7 +627,8 @@ function safeCacheName(value) {
 }
 
 function cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt }) {
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === "whisper-cpp" && lang === "en" && whisperPrompt === true ? "-filler-prompt" : ""}`;
+  const promptKey = typeof whisperPrompt === 'string' && whisperPrompt ? `-prompt-${createHash('sha256').update(whisperPrompt).digest('hex').slice(0, 12)}` : lang === 'en' && whisperPrompt === true ? '-filler-prompt' : '';
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? promptKey : ''}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }
 

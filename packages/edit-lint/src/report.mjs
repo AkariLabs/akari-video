@@ -1,5 +1,6 @@
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { lintText } from './i18n.mjs';
 
 // report-helper is an executable module rather than an importable rendering API. Keep its
 // repository-relative module address as the single report-serving mechanism.
@@ -28,7 +29,7 @@ export function renderLintReport(result, reportPath, projectRoot) {
             </tr>`,
         )
         .join("")
-    : '<tr><td colspan="5" class="empty">No findings</td></tr>';
+    : `<tr><td colspan="5" class="empty">${lintText('lint-messages.report.empty.findings')}</td></tr>`;
   const skipped = result.skipped.length
     ? result.skipped
         .map(
@@ -36,14 +37,14 @@ export function renderLintReport(result, reportPath, projectRoot) {
             `<li><code>${escapeHtml(item.check)}</code> — ${escapeHtml(item.reason)}</li>`,
         )
         .join("")
-    : "<li>None</li>";
+    : `<li>${lintText('lint-messages.report.empty.none')}</li>`;
 
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AKARI edit-lint report</title>
+  <title>${lintText('lint-messages.report.head.title')}</title>
   <style>
     :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
     body { margin: 0; background: #0b1020; color: #e7ecf7; }
@@ -68,22 +69,22 @@ export function renderLintReport(result, reportPath, projectRoot) {
 </head>
 <body>
 <main>
-  <h1>edit-lint report</h1>
-  <div class="meta">Checked at ${escapeHtml(result.checked_at)}</div>
+  <h1>${lintText('lint-messages.report.heading.title')}</h1>
+  <div class="meta">${lintText('lint-messages.report.meta.checkedAt')}${escapeHtml(result.checked_at)}</div>
   <div class="summary">
     <span class="badge verdict ${escapeHtml(result.verdict)}">${escapeHtml(result.verdict)}</span>
-    <span class="badge error">${counts.error} errors</span>
-    <span class="badge warning">${counts.warning} warnings</span>
+    <span class="badge error">${counts.error}${lintText('lint-messages.report.summary.errors')}</span>
+    <span class="badge warning">${counts.warning}${lintText('lint-messages.report.summary.warnings')}</span>
   </div>
-  <h2>Findings</h2>
+  <h2>${lintText('lint-messages.report.section.findings')}</h2>
   <table>
-    <thead><tr><th>ID</th><th>Severity</th><th>Check</th><th>Message</th><th>Path</th></tr></thead>
+    <thead><tr><th>ID</th><th>${lintText('lint-messages.report.table.severity')}</th><th>${lintText('lint-messages.report.table.check')}</th><th>${lintText('lint-messages.report.table.message')}</th><th>${lintText('lint-messages.report.table.path')}</th></tr></thead>
     <tbody>${rows}
     </tbody>
   </table>
-  <h2>Skipped checks</h2>
+  <h2>${lintText('lint-messages.report.section.skipped')}</h2>
   <ul>${skipped}</ul>
-  <p class="meta">Serve locally with <code>node ${escapeHtml(helperPath)} ${escapeHtml(reportRelativePath)}</code>.</p>
+  <p class="meta">${lintText('lint-messages.report.footer.serve')}<code>node ${escapeHtml(helperPath)} ${escapeHtml(reportRelativePath)}</code>.</p>
 </main>
 </body>
 </html>

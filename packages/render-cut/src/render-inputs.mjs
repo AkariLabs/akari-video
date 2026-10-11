@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { renderText } from './i18n.mjs';
 import { createReadStream, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -109,7 +110,7 @@ export async function enumerateDeclaredRenderInputs({
         addInput(`${role}:fragment-asset`, reference.path);
       } catch (error) {
         if (error instanceof RenderInputError) {
-          error.message = `${role} fragment ${overlaySourcePath(overlay)} の参照 "${reference.raw}": ${error.message}`;
+          error.message = renderText('render.fragment.error.assetReference', { role, html: overlaySourcePath(overlay), reference: reference.raw, message: error.message });
         }
         throw error;
       }

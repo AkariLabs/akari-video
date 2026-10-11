@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -85,7 +90,7 @@ function akariVersionOf(appDir, env) {
   const bin = join(appDir, 'packages', 'akari-launcher', 'bin', 'akari.mjs');
   const result = execFileSync(process.execPath, [bin, '--version'], {
     encoding: 'utf8',
-    env: { ...process.env, ...env }
+    env: { ...process.env, AKARI_LANG: "ja", ...env }
   });
   return result.split('\n').find((line) => /^v\d+\.\d+\.\d+/.test(line));
 }

@@ -1,4 +1,5 @@
 import { addFinding, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
+import { lintText } from '../i18n.mjs';
 import { areCutsAdjacent, captionsHaveRenderableCues, collectFitBasisCandidates, cutOverlapFrames, findCrossTrackLayerEvacuations, isStillImageSourcePath, planTransitionHandleWindow, withoutItemAnchors } from "./external.mjs";
 
 /**
@@ -13,7 +14,7 @@ export function validateGeometryFitCompat(rawEdit, internalEdit, findings) {
   addFinding(findings, {
     severity: "warning",
     check: "geometry.fit-compat",
-    message: "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+    message: lintText('lint-messages.geometry.fit.compat'),
     path: "edit.json#output.geometry",
   });
 }
@@ -50,7 +51,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
         addFinding(findings, {
           severity: "warning",
           check: "cuts.transition-out.zero-overlap",
-          message: "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
+          message: lintText('lint-messages.cuts.transition.zeroOverlap'),
           path: `edit.json#cuts[${earlier.index}].transition_out`,
           range: { start: earlier.end, end: later.start },
         });
@@ -66,7 +67,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
     addFinding(findings, {
       severity: "error",
       check: "cuts.transition-out.non-adjacent",
-      message: "transition_out の次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+      message: lintText('lint-messages.cuts.transition.nonAdjacent'),
       path: `edit.json#cuts[${earlier.index}].transition_out`,
       range: { start: earlier.end, end: later.start },
     });
@@ -97,12 +98,12 @@ export function validateTransitionLayerEvacuations(rawEdit, internalEdit, findin
       const location = rawLocations.get(item.id);
       const cause = crossTrackCauses.get(item.id);
       const reason = cause
-        ? `このクリップは他トラックのアイテム（${cause.causeItemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。`
-        : "このクリップは合成機能または同一トラック内の重なりにより PiP 経路へ退避され、宣言したトランジションは書き出されません。";
+        ? lintText('lint-messages.cuts.transition.evacuatedCrossTrack', { id: cause.causeItemId })
+        : lintText('lint-messages.cuts.transition.evacuatedComposite');
       addFinding(findings, {
         severity: "warning",
         check: "cuts.transition-out.layer-evacuated",
-        message: `${reason}重なりを解消するか、トランジションを削除してください。`,
+        message: lintText('lint-messages.cuts.transition.evacuatedGuidance', { reason }),
         path: location
           ? `edit.json#tracks[${location.trackIndex}].items[${location.itemIndex}].source.transition_out`
           : `edit.json#tracks[${track.z}].items`,
@@ -127,7 +128,7 @@ export function validateCaptionTrackDeclaration(rawEdit, captionsRoot, findings)
   addFinding(findings, {
     severity: "warning",
     check: "v2.captions-track-undeclared",
-    message: 'captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { "id": "captions", "name": "字幕", "at": 0, "duration": <出力尺>, "source": { "kind": "captions", "path": "captions.json" }, "items": [] } を追加してください。',
+    message: lintText('lint-messages.captions.track.undeclared'),
     path: "edit.json#tracks",
   });
 }

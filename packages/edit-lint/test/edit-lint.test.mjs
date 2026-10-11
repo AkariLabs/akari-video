@@ -1,7 +1,12 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,6 +39,9 @@ const preparedFixtures = join(preparedFixtureRoot, "fixtures");
 await cp(fixtureRoot, preparedFixtures, { recursive: true });
 await migrateFixtureTree(preparedFixtures);
 await prepareCutAudioFixtures(preparedFixtures);
+for (const entry of await readdir(preparedFixtures, { withFileTypes: true })) {
+  if (entry.isDirectory()) await mkdir(join(preparedFixtures, entry.name, ".akari"), { recursive: true });
+}
 test.after(() => rm(preparedFixtureRoot, { recursive: true, force: true }));
 const styleParity = JSON.parse(await readFile(join(
   packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
@@ -83,7 +91,7 @@ async function withFixtures(callback) {
 function run(project, args = [], env = {}) {
   return spawnSync(process.execPath, [cliPath, project, "--json", ...args], {
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, AKARI_LANG: 'ja', ...env },
   });
 }
 
@@ -104,10 +112,11 @@ function styleRootForCase(item, caption = styleParity.caption) {
   return root;
 }
 
-test("INTAKE_ROOT_FIELDS matches intake.schema.json properties", () => {
+test("INTAKE_ROOT_FIELDS matches linted intake.schema.json properties", () => {
+  assert.ok(Object.hasOwn(intakeSchema.properties, "language"));
   assert.deepEqual(
     new Set(INTAKE_ROOT_FIELDS),
-    new Set(Object.keys(intakeSchema.properties)),
+    new Set(Object.keys(intakeSchema.properties).filter(field => field !== "language")),
   );
 });
 
@@ -2046,6 +2055,7 @@ test("different sfx on the same track at the same t report info", async () => {
 test("identical sfx on the same track at the same t warn without failing", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-same-path-"));
   try {
+    await mkdir(join(root, ".akari"));
     const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
     edit.sources[0].path = "sample.mp4";
     edit.audio.sfx = [
@@ -2070,6 +2080,7 @@ test("identical sfx on the same track at the same t warn without failing", async
 test("three simultaneous sfx compare paths within the whole time group", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-overlap-"));
   try {
+    await mkdir(join(root, ".akari"));
     const editPath = join(root, "edit.json");
     const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
     edit.sources[0].path = "sample.mp4";

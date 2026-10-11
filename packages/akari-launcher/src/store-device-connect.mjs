@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { cliText } from './i18n.mjs';
 import {
   chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync
 } from 'node:fs';
@@ -62,19 +63,19 @@ export async function fetchStoreEntitlements(fetchImpl, baseUrl, token) {
       headers: { authorization: `Bearer ${token}` }
     });
   } catch (error) {
-    return { error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}` };
+    return { error: cliText('cli.store.error.labConnection', { message: error instanceof Error ? error.message : String(error) }) };
   }
-  if (response.status === 401) return { error: 'トークンが無効です。マイページで発行し直してください。' };
-  if (!response.ok) return { error: `AKARI Video Lab がエラーを返しました（${response.status}）` };
+  if (response.status === 401) return { error: cliText('cli.store.error.invalidToken') };
+  if (!response.ok) return { error: cliText('cli.store.error.labResponse', { status: response.status }) };
   return { data: await response.json() };
 }
 
 export function formatStoreEntitlements(data, log) {
   if (data.entitlements.length === 0) {
-    log('購入済みの商品はまだありません。');
+    log(cliText('cli.store.purchases.empty'));
     return;
   }
-  log('購入済みの商品:');
+  log(cliText('cli.store.purchases.heading'));
   for (const entitlement of data.entitlements) {
     log(`  - ${entitlement.product_id}（v${entitlement.current_version}）`);
   }
@@ -86,7 +87,7 @@ export async function validateAndSaveCredentials(
   token
 ) {
   if (!/^akst_[A-Za-z0-9_-]+$/.test(token)) {
-    const error = 'トークンの形式が正しくありません（akst_ で始まる文字列です）。';
+    const error = cliText('cli.store.error.tokenFormat');
     log(error);
     return { status: 'error', error };
   }
@@ -102,9 +103,9 @@ export async function validateAndSaveCredentials(
     connected_at: now().toISOString()
   };
   writeCredentials(env, credentials);
-  log(`接続しました: ${data.email}`);
+  log(cliText('cli.store.connect.complete', { email: data.email }));
   formatStoreEntitlements(data, log);
-  log('セッション内で「購入した素材をセットアップして」と頼むと展開まで進みます。');
+  log(cliText('cli.store.connect.installGuide'));
   return { status: 'approved', credentials, entitlements: data.entitlements };
 }
 
@@ -125,16 +126,16 @@ export async function startDeviceConnection({
   } catch (error) {
     return {
       status: 'network-error',
-      error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
+      error: cliText('cli.store.error.labConnection', { message: error instanceof Error ? error.message : String(error) })
     };
   }
   if (!response.ok) {
-    return { status: 'error', error: `AKARI Video Lab に接続できませんでした（${response.status}）` };
+    return { status: 'error', error: cliText('cli.store.error.labStatus', { status: response.status }) };
   }
   const body = await response.json().catch(() => ({}));
   if (typeof body.device_code !== 'string' || typeof body.user_code !== 'string'
     || typeof body.verification_url !== 'string') {
-    return { status: 'error', error: 'AKARI Video Lab から接続に必要な情報を受け取れませんでした。' };
+    return { status: 'error', error: cliText('cli.store.error.labPayload') };
   }
   const result = {
     status: 'started',
@@ -168,7 +169,7 @@ export async function pollDeviceConnection({
   } catch (error) {
     return {
       status: 'network-error',
-      error: `AKARI Video Lab に接続できませんでした: ${error instanceof Error ? error.message : String(error)}`
+      error: cliText('cli.store.error.labConnection', { message: error instanceof Error ? error.message : String(error) })
     };
   }
   if (response.status === 410) {

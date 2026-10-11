@@ -1,4 +1,5 @@
 import { segmentDuration } from "../cut-timeline.mjs";
+import { lintText } from '../i18n.mjs';
 import { buildMatcher, protectedTermsFrom } from "../../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mjs";
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
@@ -25,7 +26,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "warning",
       check: "word-book.invalid",
-      message: `単語帳を読み込めません（${layer.error.code}）: ${layer.error.message}`,
+      message: lintText('lint-messages.wordBook.load.error', { code: layer.error.code, message: layer.error.message }),
       path: relativePath(paths.projectRoot, layer.path),
     });
   }
@@ -33,7 +34,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "info",
       check: "word-book.variant-shadowed",
-      message: `variant ${conflict.variant_key} は ${conflict.winner.surface} (${conflict.winner.scope}) が優先され、${conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ")} を隠します`,
+      message: lintText('lint-messages.wordBook.variant.shadowed', { variant: conflict.variant_key, winner: conflict.winner.surface, scope: conflict.winner.scope, shadowed: conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ") }),
       path: captionPath,
     });
   }
@@ -275,7 +276,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       addFinding(findings, {
         severity: "warning",
         check: `captions.${caption.style}-without-words`,
-        message: `字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${caption.style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        message: lintText('lint-messages.captions.words.missing', { id: caption.id ?? "(unknown)", style: caption.style === "karaoke" ? lintText('lint-messages.captions.style.karaoke') : lintText('lint-messages.captions.style.pop') }),
         path: itemPath,
       });
     }
@@ -332,7 +333,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.output-domain-exceeds-duration",
-          message: `captions[${index}] は time_domain: output の宣言区間が動画総尺 ${cutsEndSeconds.toFixed(1)}s を超えています。書き出しでは ${cutsEndSeconds.toFixed(1)}s までにクランプして表示されます。`,
+          message: lintText('lint-messages.captions.duration.exceeds', { index, seconds: cutsEndSeconds.toFixed(1) }),
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });
@@ -389,14 +390,14 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: caption.edited === true ? "info" : "warning",
           check: "captions.word-book-term",
-          message: `${position} に単語帳の表記ゆれ ${JSON.stringify(match.matched)} が残っています（正表記: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.variant', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       } else if (match.kind === "notation") {
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-notation",
-          message: `${position} に非推奨表記 ${JSON.stringify(match.matched)} があります（推奨: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.notation', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       }
@@ -413,7 +414,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-break-fallback",
-          message: `単語帳の行分割保護を外しました: ${fallback.dropped_terms.join(", ")}`,
+          message: lintText('lint-messages.captions.wordBook.breakFallback', { terms: fallback.dropped_terms.join(", ") }),
           path: index >= 0 ? `captions.json#[${index}]` : captionPath,
         });
       }

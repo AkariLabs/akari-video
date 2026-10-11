@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { renderText } from './i18n.mjs';
 import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 
@@ -424,7 +425,7 @@ export function renderItemDeclaration(item, temporaryDirectory) {
       };
     case "telop":
       if (item.source.baked === undefined) {
-        throw new Error(`telop.retired: ${item.id}: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。既存の baked は再生できます。`);
+        throw new Error(renderText('render.telop.error.retired', { id: item.id }));
       }
       return {
         ...declaration,

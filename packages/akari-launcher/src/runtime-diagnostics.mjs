@@ -7,6 +7,7 @@ import { findExecutable } from './path-lookup.mjs';
 import { loadMediaBinModule } from './media-bin-loader.mjs';
 import { readInstalledAppVersionInfo, readOwnVersion, resolveAkariHome } from './update-check.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
+import { cliText } from './i18n.mjs';
 
 const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
 const creatorCredentials = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
@@ -293,18 +294,18 @@ export function determineDoctorVerdict(report) {
 function doctorNextSteps(report) {
   const steps = [];
   if (report.render_cut.origin === 'none' && report.edit_lint.origin === 'none') {
-    steps.push('書き出し部品がありません。デスクトップ版を導入するか、install.sh 経路の本体を導入してください。');
+    steps.push(cliText('cli.doctor.steps.exportMissing'));
   } else {
-    if (report.render_cut.origin === 'none') steps.push('render-cut がありません。デスクトップ版または install.sh 経路の本体を修復してください。');
-    if (report.edit_lint.origin === 'none') steps.push('edit-lint がありません。デスクトップ版または install.sh 経路の本体を修復してください。');
+    if (report.render_cut.origin === 'none') steps.push(cliText('cli.doctor.steps.renderMissing'));
+    if (report.edit_lint.origin === 'none') steps.push(cliText('cli.doctor.steps.lintMissing'));
   }
-  if (report.ffmpeg.origin === 'none') steps.push('ffmpeg を導入し、PATH または AKARI_FFMPEG_BIN で参照できるようにしてください。');
-  if (report.ffprobe.origin === 'none') steps.push('ffprobe を導入し、PATH または AKARI_FFPROBE_BIN で参照できるようにしてください。');
+  if (report.ffmpeg.origin === 'none') steps.push(cliText('cli.doctor.steps.ffmpegMissing'));
+  if (report.ffprobe.origin === 'none') steps.push(cliText('cli.doctor.steps.ffprobeMissing'));
   if (!report.path.on_path && report.render_cut.origin !== 'monorepo') {
-    steps.push('`~/.akari/cli/bin` を PATH に追加してください。');
+    steps.push(cliText('cli.doctor.steps.pathMissing'));
   }
   if (report.fal_key?.source === 'missing') {
-    steps.push('FAL_KEY がありません。環境変数 FAL_KEY か credentials.env に置くと fal の生成が使えます（無くても書き出しは動きます）。');
+    steps.push(cliText('cli.doctor.steps.falMissing'));
   }
   return steps;
 }

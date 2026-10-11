@@ -24,6 +24,8 @@ export const VENDOR_SOURCES = [
   'packages/overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf',
   // edit-lint と world-map validator が参照する実行時閉包。
   'packages/render-cut/src/fragment-assets.mjs',
+  // The selected render-cut helpers read the render catalog through this sibling module.
+  'packages/render-cut/src/i18n.mjs',
   'packages/render-cut/src/render-inputs.mjs',
   'packages/render-cut/src/caption-font.mjs',
   'packages/render-cut/src/html-scan.mjs',

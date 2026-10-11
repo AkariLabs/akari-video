@@ -1,4 +1,5 @@
 import { segmentDuration } from "../cut-timeline.mjs";
+import { lintText } from '../i18n.mjs';
 import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
 import { TRANSITION_TYPE_IDS, areCutsAdjacent, findUnsupportedDeclaredTrackTransitions, isStillImageSourcePath } from "./external.mjs";
 
@@ -314,8 +315,8 @@ export function validateSfxTracks(sfx, findings) {
           severity: samePath ? "warning" : "info",
           check: "audio.sfx.track-overlap",
           message: samePath
-            ? `効果音 audio.sfx[${current.index}] が同じ track ${current.track}・同じ時刻 ${formatNumber(current.t)} 秒に同じ素材 ${current.path} で置かれています（二重置きの可能性）。意図した重ねなら track を分けてください（書き出しのミックスは track を見ずに全部鳴らしますが、NLE 書き出しは track を NLE のトラック単位にするため同じトラックに重なります）。`
-            : `効果音 audio.sfx[${current.index}] が同じ track ${current.track}・同じ時刻 ${formatNumber(current.t)} 秒に別素材と重なっています。書き出しのミックスは track を見ずに両方鳴らします。重ねるつもりなら track を分けてください（NLE 書き出しは track を NLE のトラック単位にするため、同じトラックに重なります）。`,
+            ? lintText('lint-messages.audio.sfx.sameAssetOverlap', { index: current.index, track: current.track, seconds: formatNumber(current.t), path: current.path })
+            : lintText('lint-messages.audio.sfx.differentAssetOverlap', { index: current.index, track: current.track, seconds: formatNumber(current.t) }),
           path: `edit.json#audio.sfx[${current.index}]`,
           range: { start: current.t, end: current.t },
         });
@@ -504,9 +505,7 @@ export function validateTrackTransitionOutCompatibility(edit, findings) {
     addFinding(findings, {
       severity: "error",
       check: "cuts.track-transition-unsupported",
-      message:
-        `映像トラック ${trackRef} の transition_out は、PiP または複数トラックを合成する方式では書き出せません。`
-        + `トランジションを削除するか、映像を単一の cuts トラックへ戻してください。`,
+      message: lintText('lint-messages.cuts.trackTransition.unsupported', { track: trackRef }),
       path: `edit.json#cuts[${cutIndex}]`,
     });
   }

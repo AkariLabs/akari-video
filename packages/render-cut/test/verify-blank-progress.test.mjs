@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 // 不具合メモ第22項の 3 点目（2026-09-18）: 黒画面検査の進捗と検査工程名が親の進捗ログへ
 // 出ていなかったため、88 分 4K では約 57 分間まったく音沙汰が無く「レンダーが停止した」ように
 // 見えていた。ストリーミング版は同期版と同じ引数列・同じ判定器を使うので、出す結果は変わらない。
