@@ -1279,6 +1279,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
+    protected captionDisplayLocale = 'ja';
     protected lastAppliedCaptionsSource: string | undefined;
     protected captionDisplayCuesBySource = new Map<string, CaptionDisplayCueLike[]>();
     protected captionDisplayReloadGeneration = 0;
@@ -5348,7 +5349,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const caption = selectedCaptionId ? this.captions.find(item => item.id === selectedCaptionId) : undefined;
         return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
             playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path,
-            caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {} } : undefined };
+            caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {},
+                locale: this.captionDisplayLocale } : undefined };
     }
 
     async applyContextCaptionPreset(id: string, presetId: string, targetIds: readonly string[]): Promise<{ ok: boolean }> {
@@ -6022,7 +6024,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
             const animatorOwner = this.captionAnimatorOwner(caption.id);
             return {
-                kind: 'caption', id: caption.id, text: caption.text,
+                kind: 'caption', id: caption.id, text: caption.text, captionLocale: this.captionDisplayLocale,
                 ...(caption.displayText !== undefined ? { displayText: caption.displayText } : {}),
                 ...(caption.runs?.length ? { runs: caption.runs } : {}),
                 sourceStart: caption.start, sourceEnd: caption.end,
@@ -10450,6 +10452,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const previousCaptions = this.captions;
                 this.invalidateContentExtent();
                 this.captions = parsed.captions;
+                const parsedWithPolicy = parsed as typeof parsed & {
+                    displayPolicy?: { locale?: unknown }; display_policy?: { locale?: unknown }
+                };
+                let locale: unknown = parsedWithPolicy.displayPolicy?.locale ?? parsedWithPolicy.display_policy?.locale;
+                if (locale === undefined) {
+                    try { locale = JSON.parse(nextSource)?.display_policy?.locale; }
+                    catch { /* The parsed caption rows remain available. */ }
+                }
+                this.captionDisplayLocale = typeof locale === 'string' && locale.trim() ? locale : 'ja';
                 this.captionSources = readCaptionSourceMap(nextSource);
                 this.defaultTextStyle = parsed.defaultTextStyle;
                 this.lastAppliedCaptionsSource = nextSource;
@@ -10461,6 +10472,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (generation !== this.captionReloadGeneration) return;
                 this.invalidateContentExtent();
                 this.captions = [];
+                this.captionDisplayLocale = 'ja';
                 this.captionSources.clear();
                 this.defaultTextStyle = undefined;
                 this.lastAppliedCaptionsSource = undefined;

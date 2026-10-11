@@ -19,8 +19,15 @@ import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai
 import { AkariAiModelsServiceImpl } from './ai-models-service';
 import { LocalizationContribution } from '@theia/core/lib/node/i18n/localization-contribution';
 import { AkariLocalizationContribution } from './akari-localization-contribution';
+import { AkariChildLanguageService, AKARI_CHILD_LANGUAGE_PATH } from '../common/child-language-protocol';
+import { AkariChildLanguageServiceImpl } from './child-language-service';
 
 export default new ContainerModule(bind => {
+    bind(AkariChildLanguageServiceImpl).toSelf().inSingletonScope();
+    bind(AkariChildLanguageService).toService(AkariChildLanguageServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_CHILD_LANGUAGE_PATH, () => context.container.get(AkariChildLanguageService))
+    ).inSingletonScope();
     bind(AkariLocalizationContribution).toSelf().inSingletonScope();
     bind(LocalizationContribution).toService(AkariLocalizationContribution);
     bind(AkariOnboardingServiceImpl).toSelf().inSingletonScope();

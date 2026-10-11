@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -195,7 +195,7 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                 try {
                     child = spawn(isWindowsShim ? `"${executable.replace(/"/g, '\\"')}"` : executable,
                         [isWindowsShim ? '"--version"' : '--version'], {
-                            stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...privateEnv }, shell: isWindowsShim
+                            stdio: ['ignore', 'pipe', 'pipe'], env: childProcessEnv({ ...process.env, ...privateEnv }), shell: isWindowsShim
                         });
                 } catch { resolve(undefined); return; }
                 let output = '';

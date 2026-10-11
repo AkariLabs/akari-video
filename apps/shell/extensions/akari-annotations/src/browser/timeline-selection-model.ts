@@ -88,6 +88,7 @@ export interface TimelineOverlaySelection {
 
 export interface TimelineCaptionSelection {
     kind: 'caption';
+    captionLocale?: string;
     id: string;
     text: string;
     displayText?: string;

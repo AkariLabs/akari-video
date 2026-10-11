@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
@@ -59,7 +59,7 @@ export class NarrationCli implements AkariNarrationEnginesService {
             let stdout = '';
             let stderr = '';
             const child = this.spawnImpl(process.execPath, [cli, command, ...args, '--json'], {
-                env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: false
+                env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }), stdio: ['ignore', 'pipe', 'pipe'], detached: false
             });
             child.stdout?.on('data', chunk => { stdout += chunk.toString(); });
             child.stderr?.on('data', chunk => { stderr += chunk.toString(); });
@@ -79,7 +79,7 @@ export class NarrationCli implements AkariNarrationEnginesService {
         if (process.platform !== 'darwin') return false;
         for (const brew of ['brew', '/opt/homebrew/bin/brew', '/usr/local/bin/brew']) {
             const result = await new Promise<{ found: boolean; available: boolean }>(resolvePromise => {
-                const child = this.spawnImpl(brew, ['info', '--cask', 'voicevox'], { env: this.env, stdio: 'ignore' });
+                const child = this.spawnImpl(brew, ['info', '--cask', 'voicevox'], { env: childProcessEnv(this.env), stdio: 'ignore' });
                 child.on('error', () => resolvePromise({ found: false, available: false }));
                 child.on('close', code => resolvePromise({ found: true, available: code === 0 }));
             });

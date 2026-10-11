@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { ChildProcess, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -38,7 +38,7 @@ export class WorldCliRunner {
             };
             try {
                 child = this.spawnImpl(process.execPath, [cli, 'world', 'overview', projectRoot, '--json'], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: false
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }), stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) { finish({ html: '', error: error instanceof Error ? error.message : String(error) }); return; }
             this.children.set(key, child);
@@ -79,7 +79,7 @@ export class WorldCliRunner {
             };
             try {
                 child = this.spawnImpl(process.execPath, [cli, 'world', 'move-stop', projectRoot, '--stop', stopId, '--c', c.join(','), '--json'], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' },
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }),
                     stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) {

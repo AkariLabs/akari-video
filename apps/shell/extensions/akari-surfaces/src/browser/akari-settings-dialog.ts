@@ -70,6 +70,7 @@ import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-t
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
 import { AiModelsView } from './ai-models/ai-models-view';
+import { AkariChildLanguageService } from '../common/child-language-protocol';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
 import {
     applyImmediateUpdaterFallback, applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck,
@@ -199,7 +200,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly narrationService: AkariNarrationEnginesService,
         protected readonly keybindingRegistry: KeybindingRegistry, protected readonly commandRegistry: CommandRegistry,
         protected readonly keymapsService: KeymapsService, protected readonly keyboardLayout: KeyboardLayoutService,
-        protected readonly aiModelsService: AkariAiModelsService, initialSection?: SettingsSectionId
+        protected readonly aiModelsService: AkariAiModelsService,
+        protected readonly childLanguage: AkariChildLanguageService, initialSection?: SettingsSectionId
     ) {
         super({ title: t('surfaces.settings.akariVideoSettings.title') });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -523,9 +525,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     { value: 'auto', label: t('settings.appearance.language.auto') },
                     { value: 'ja', label: t('settings.appearance.language.ja') },
                     { value: 'en', label: t('settings.appearance.language.en') }
-                ], value: languageChoice, onChange: value => {
+                ], value: languageChoice, onChange: async value => {
                     const locale = value === 'auto' ? normalizeLanguage(navigator.language) : value;
                     window.localStorage.setItem('akari.ui.language', value);
+                    await this.childLanguage.setLanguage(value as 'auto' | 'ja' | 'en');
                     nls.setLocale(locale);
                     document.documentElement.lang = locale;
                     this.windows.setSafeToShutDown();
@@ -2188,6 +2191,7 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
 @injectable()
 export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(AkariChildLanguageService) protected readonly childLanguage!: AkariChildLanguageService;
     @inject(PreferenceSchemaService) protected readonly preferenceSchemas!: PreferenceSchemaService;
     @inject(AkariConnectionsService) protected readonly connections!: AkariConnectionsService;
     @inject(AkariAnnotationsService) protected readonly imageRoutes!: AkariAnnotationsService;
@@ -2341,7 +2345,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         await this.preferences.ready;
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.childLanguage, this.requestedSection);
         dialog.setImageRoutesService(this.imageRoutes);
         this.dialog = dialog;
         try { await dialog.open(); }

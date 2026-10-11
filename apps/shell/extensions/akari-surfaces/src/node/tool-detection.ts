@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
 import { inspectVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { execFile } from 'child_process';
@@ -85,7 +85,7 @@ export async function defaultRunCommand(
     env: NodeJS.ProcessEnv
 ): Promise<CommandResult> {
     return new Promise(resolve => {
-        execFile(command, args, { env, timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+        execFile(command, args, { env: childProcessEnv(env), timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
             resolve({
                 ok: !error,
                 stdout,

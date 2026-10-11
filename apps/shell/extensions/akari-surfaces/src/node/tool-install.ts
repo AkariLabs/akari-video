@@ -1,4 +1,4 @@
-import { t } from '@akari-video/i18n';
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
 import { installVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { spawn } from 'child_process';
@@ -522,7 +522,7 @@ export async function defaultRunCommand(
         };
         let child: ReturnType<typeof spawn>;
         try {
-            child = spawn(command, args, { env: options.env ?? process.env });
+            child = spawn(command, args, { env: childProcessEnv(options.env ?? process.env) });
         } catch {
             resolve({ ok: false, stdout: '', stderr: '' });
             return;

@@ -1,4 +1,5 @@
 import { t } from '../common/partner-text';
+import { childProcessEnv } from '@akari-video/i18n';
 import { spawn as nodeSpawn, ChildProcessWithoutNullStreams, SpawnOptionsWithoutStdio } from 'child_process';
 import * as path from 'path';
 import { maskToken } from '../common/dsh-output-mask';
@@ -50,7 +51,7 @@ export async function launchDshWeb(input: {
 }): Promise<{ url: string; pid: number }> {
     const { command, args, windowsVerbatimArguments } = buildDshWebArgs(input.executablePath, input.patchPath, input.platform, input.env, input.port);
     const options: SpawnOptionsWithoutStdio = {
-        cwd: input.cwd, env: input.env, windowsHide: true, detached: input.platform !== 'win32',
+        cwd: input.cwd, env: childProcessEnv(input.env), windowsHide: true, detached: input.platform !== 'win32',
         windowsVerbatimArguments
     };
     const child = (input.spawn ?? nodeSpawn)(command, args, options) as ChildProcessWithoutNullStreams;

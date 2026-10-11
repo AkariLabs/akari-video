@@ -1,4 +1,5 @@
 import { t, catalogMessages } from '../common/partner-text';
+import { childProcessEnv } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import { ChildProcess, execFile, spawn, spawnSync } from 'child_process';
 import { readFileSync, appendFileSync } from 'fs';
@@ -73,7 +74,7 @@ export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Pla
             resolve(result);
         };
         try {
-            child = run(command, args, { env, detached: platform !== 'win32', windowsHide: true,
+            child = run(command, args, { env: childProcessEnv(env), detached: platform !== 'win32', windowsHide: true,
                 windowsVerbatimArguments: isBatch });
             const append = (chunk: Buffer | string): void => {
                 if (done) return;
@@ -445,7 +446,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             log,
             permissionFallbackReason,
             appliedPermissionMode: appliedPartnerPermissionMode(agent, mode, permissionArgs),
-            env: launchEnv
+            env: childProcessEnv(launchEnv)
         };
     }
 
