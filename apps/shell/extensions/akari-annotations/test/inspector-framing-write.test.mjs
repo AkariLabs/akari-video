@@ -1,4 +1,4 @@
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, t } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -125,9 +125,20 @@ test('既存 KF への追加は直近倍率を継承し、衝突を +0.1 秒ず�
 
 test('UI は KF 配列丸ごと write・削除メニュー・無効窓タイトルを配線する', () => {
   assert.match(inspectorSource, /kind: 'cut-framing-keyframes'/u);
-  assert.match(inspectorSource, /inspector\.transformFields\.action\.removeKf/u);
-  assert.match(inspectorSource, /inspector\.transformFields\.label\.whenZoomKfPresentWindowIgnored/u);
-  assert.match(inspectorSource, /inspector\.transformFields\.label\.addZoomKf/u);
+  assert.match(inspectorSource, /label: translate\('inspector\.transformFields\.action\.removeKf'\)/u);
+  assert.equal(t('inspector.transformFields.action.removeKf'), 'この KF を削除');
+  assert.match(inspectorSource, /CUT_FRAMING_CROP_DISABLED_TITLE = translate\('inspector\.transformFields\.label\.whenZoomKfPresentWindowIgnored'\)/u);
+  assert.equal(t('inspector.transformFields.label.whenZoomKfPresentWindowIgnored'), 'ズーム KF があるときは窓は無視されます');
+  assert.match(inspectorSource, /actionLabel: translate\('inspector\.transformFields\.label\.addZoomKf'\)/u);
+  assert.equal(t('inspector.transformFields.label.addZoomKf'), '＋ ズーム KF を追加');
+  assert.match(inspectorSource, /name: `\$\{prefix\}-t`, label: translate\('inspector\.transformFields\.label\.kfTime', \{ index: index \+ 1 \}\)/u);
+  assert.match(inspectorSource, /name: `\$\{prefix\}-scale`, label: translate\('inspector\.transformFields\.label\.kfMagnification', \{ index: index \+ 1 \}\)/u);
+  assert.match(inspectorSource, /label: translate\('inspector\.transformFields\.label\.kfCenter', \{ index: index \+ 1, axis: axis === 'cx' \? 'X' : 'Y' \}\)/u);
+  for (const index of [1, 2]) {
+    assert.equal(t('inspector.transformFields.label.kfTime', { index }), `KF ${index} 時刻`);
+    assert.equal(t('inspector.transformFields.label.kfMagnification', { index }), `KF ${index} 倍率`);
+    for (const axis of ['X', 'Y']) assert.equal(t('inspector.transformFields.label.kfCenter', { index, axis }), `KF ${index} 中心 ${axis}`);
+  }
   for (const key of ['kfTimeShouldBeEnteredWithinRange', 'enterKfMagnificationRangeFrom110', 'enterKfCenterRangeFrom0100']) {
     assert.match(inspectorSource, new RegExp(`inspector\\.transformFields\\.message\\.${key}`, 'u'));
   }

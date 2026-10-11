@@ -52,9 +52,9 @@ test('bad JSON, login, exit, rate limit, schema and timeout are classified', asy
   for (const [mode, code] of [['bad', 'bad-json'], ['login', 'login'], ['exit', 'unknown'],
     ['rate', 'rate-limit'], ['schema', 'schema'], ['timeout', 'timeout']]) {
     const dir = await input(); process.env.FAKE_TASKIFY_MODE = mode;
-    const result = await invokeTaskifyCli({ agent: 'claude', bin: fake, inputDir: dir, timeoutMs: mode === 'timeout' ? 400 : 5000 });
+    const result = await invokeTaskifyCli({ agent: 'claude', bin: fake, inputDir: dir, timeoutMs: mode === 'timeout' ? 5000 : 1500 });
     assert.equal(result.error?.code, code, mode);
-    if (mode !== 'timeout') await flags(await call(dir), 'claude');
+    await flags(await call(dir), 'claude');
   }
   assert.equal(classifyCliFailure(1, '', 'Bearer secret-token-value').raw.includes('secret-token-value'), false);
 });
