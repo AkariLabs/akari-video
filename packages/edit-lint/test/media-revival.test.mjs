@@ -61,6 +61,7 @@ function baseEdit() {
 async function makeProject(edit = baseEdit()) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-media-revival-"));
   await mkdir(join(root, "assets"), { recursive: true });
+  await mkdir(join(root, ".akari"), { recursive: true });
   await writeFile(join(root, "assets", "clip.mp4"), "fixture", "utf8");
   await writeFile(join(root, "assets", "vo.m4a"), "fixture", "utf8");
   await writeFile(join(root, "edit.json"), `${JSON.stringify(edit, null, 2)}\n`, "utf8");
@@ -70,7 +71,7 @@ async function makeProject(edit = baseEdit()) {
 function run(project, args = [], env = {}) {
   return spawnSync(process.execPath, [cliPath, project, "--json", ...args], {
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, AKARI_LANG: 'ja', ...env },
   });
 }
 

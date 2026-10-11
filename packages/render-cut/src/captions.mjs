@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { renderText } from './i18n.mjs';
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -362,7 +363,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     if ((style === "karaoke" || style === "pop") && allWords.length === 0) {
       warn(
         `${style}-without-words`,
-        `[${style}-without-words] 字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        renderText('render.captions.warning.wordsMissing', { style, id: caption.id ?? "(unknown)", display: style === "karaoke" ? renderText('render.captions.style.karaoke') : renderText('render.captions.style.pop') }),
       );
     }
     for (const [index, range] of ranges.entries()) {

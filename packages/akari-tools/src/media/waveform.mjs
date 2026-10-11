@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { toolsText } from '../i18n.mjs';
 
 import {
   generatedAt,
@@ -16,11 +17,11 @@ export async function waveformMedia(targetArgument, options = {}) {
   const target = resolveTarget(targetArgument, options);
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
-  if (!value.streams?.some((stream) => stream.codec_type === "audio")) throw new Error("音声ストリームがありません");
+  if (!value.streams?.some((stream) => stream.codec_type === "audio")) throw new Error(toolsText('tools.media.error.audioStreamMissing'));
   const silenceDb = options.silenceDb ?? -35;
   const minSilence = options.minSilence ?? 0.6;
-  if (!Number.isFinite(silenceDb)) throw new Error("--silence-db は数値で指定してください");
-  if (!Number.isFinite(minSilence) || minSilence <= 0) throw new Error("--min-silence は 0 より大きい秒数で指定してください");
+  if (!Number.isFinite(silenceDb)) throw new Error(toolsText('tools.waveform.error.silenceDb'));
+  if (!Number.isFinite(minSilence) || minSilence <= 0) throw new Error(toolsText('tools.waveform.error.minSilence'));
 
   const silenceResult = runChecked(ffmpeg, [
     "-hide_banner", "-nostdin", "-i", target.inputPath,

@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -278,6 +283,6 @@ function command(argumentsList, cwd, options = {}) {
     cwd,
     encoding: "utf8",
     input: options.input,
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, AKARI_LANG: "ja", NO_COLOR: "1" },
   });
 }

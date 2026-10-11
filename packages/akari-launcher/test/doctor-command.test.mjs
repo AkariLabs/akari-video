@@ -1,7 +1,13 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import test from 'node:test';
 
 import { runUpdateCommand } from '../src/cli.mjs';
@@ -171,6 +177,7 @@ test('render-cut 解決順は monorepo → managed-app → app-bundle → none',
     const options = {
       env: { AKARI_HOME: join(root, 'home') },
       launcherDirectory,
+      exists: candidate => candidate.startsWith(`${root}${sep}`) && existsSync(candidate),
       installInfo: { status: 'valid', version: '1.0.0', path: join(managedRoot, '.akari-install-ref') },
       appBundle: { found: true, path: bundleRoot, version: '1.0.0' },
     };

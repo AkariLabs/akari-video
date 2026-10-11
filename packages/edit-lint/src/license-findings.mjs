@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, dirname } from 'node:path';
 import { deriveLicenseAxes } from './license-axes.mjs';
+import { lintText } from './i18n.mjs';
 
 function usedSourceIds(edit) {
   const ids = new Set();
@@ -59,13 +60,13 @@ export async function collectLicenseFindings(edit, resolveSource) {
     const detail = { asset: key, name, credit: axes.attributionRequired === true ? await creditFor(dir, meta) : '' };
     const path = `edit.json#sources.${source.id}`;
     if (axes.commercial === 'prohibited') findings.push({
-      severity: 'warning', check: 'license.non-commercial', message: `${name}: 商用利用できない素材です`, path, details: detail,
+      severity: 'warning', check: 'license.non-commercial', message: lintText('lint-messages.license.material.nonCommercial', { name }), path, details: detail,
     });
     if (axes.commercial === 'unknown') findings.push({
-      severity: 'info', check: 'license.unknown', message: `${name}: ライセンスが分かりません`, path, details: detail,
+      severity: 'info', check: 'license.unknown', message: lintText('lint-messages.license.material.unknown', { name }), path, details: detail,
     });
     if (axes.attributionRequired === true) findings.push({
-      severity: 'info', check: 'license.attribution', message: `${name}: 帰属表示が必要です`, path, details: detail,
+      severity: 'info', check: 'license.attribution', message: lintText('lint-messages.license.material.attribution', { name }), path, details: detail,
     });
   }
   return findings;

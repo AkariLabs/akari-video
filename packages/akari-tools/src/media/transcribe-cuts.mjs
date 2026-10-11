@@ -5,6 +5,7 @@ import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { formatNumber, generatedAt, probeRaw, resolveTools } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
 import { countFillerHits, fillerPackLanguage, findFillerSpans } from "./filler-lexicon.mjs";
+import { toolsText } from '../i18n.mjs';
 import { resolveWhisper, runSilenceDetect, transcribeMedia } from "./transcribe.mjs";
 import { UNRECOGNIZED_DEFAULTS } from "./unrecognized-spans.mjs";
 import {
@@ -35,7 +36,7 @@ export function pickBasisByFillerHits(transcripts, language = "ja") {
 
 function numeric(value, fallback, label) {
   const resolved = value ?? fallback;
-  if (!Number.isFinite(resolved) || resolved < 0) throw new Error(`${label} は 0 以上の数値で指定してください`);
+  if (!Number.isFinite(resolved) || resolved < 0) throw new Error(toolsText('tools.transcribeCuts.error.nonNegative', { label }));
   return resolved;
 }
 
@@ -56,7 +57,7 @@ function textCandidates(segments, options) {
       const key = `${timing.start}:${timing.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      fillers.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on" && confidence !== "low", reason: from === 0 ? "冒頭のフィラー" : "フィラー", ...(confidence ? { confidence } : {}) });
+      fillers.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on" && confidence !== "low", reason: from === 0 ? toolsText('tools.transcribeCuts.reason.openingFiller') : toolsText('tools.transcribeCuts.reason.filler'), ...(confidence ? { confidence } : {}) });
     }
     candidates.push(...fillers);
     // A punctuated one-character unit such as 「で、」 is itself two characters.
@@ -68,7 +69,7 @@ function textCandidates(segments, options) {
       const last = options.language === "en" ? match[0].toLowerCase().lastIndexOf(unit.toLowerCase()) : match[0].lastIndexOf(unit);
       const timing = characterTiming(sliceChars(match.index, match.index + last));
       if (fillers.some((filler) => overlap(filler, timing))) continue;
-      candidates.push({ kind: "redo", ...timing, text: match[0], default_on: options.redo === "on", reason: "言い直し。最後の 1 回を残す" });
+      candidates.push({ kind: "redo", ...timing, text: match[0], default_on: options.redo === "on", reason: toolsText('tools.transcribeCuts.reason.redo') });
     }
     if (options.language === "en") {
       for (const match of text.matchAll(ENGLISH_RESTART)) {
@@ -121,7 +122,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
   const filler = options.filler ?? "off";
   const redo = options.redo ?? "off";
   for (const [name, value] of Object.entries({ filler, redo })) {
-    if (!["on", "off"].includes(value)) throw new Error(`--${name} は on / off で指定してください`);
+    if (!["on", "off"].includes(value)) throw new Error(toolsText('tools.transcribeCuts.error.toggle', { name }));
   }
   const silenceMin = numeric(options.silenceMin, 0.45, "--silence-min");
   const silenceBreak = numeric(options.silenceBreak, 3, "--silence-break");
@@ -139,7 +140,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
   const { basis, reason: basisReason } = requested
     ? { basis: transcripts.find((transcript) => transcript.backend === requested), reason: `explicit (--basis ${options.basis})` }
     : pickBasisByFillerHits(transcripts, language);
-  if (!basis) throw new Error(`根拠エンジンの文字起こしがありません: ${requested}`);
+  if (!basis) throw new Error(toolsText('tools.transcribeCuts.error.basisMissing', { requested }));
   const { ffmpeg, ffprobe } = resolveTools(options);
   let detected;
   try {
@@ -149,7 +150,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
       silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb, silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options,
     });
   } catch (error) {
-    throw Object.assign(new Error(`素材を読めません: ${error.message}`), { exitCode: 2 });
+    throw Object.assign(new Error(toolsText('tools.transcribeCuts.error.sourceUnreadable', { message: error.message })), { exitCode: 2 });
   }
   const candidates = textCandidates(basis.segments, { filler, redo, language });
   for (const silence of Array.isArray(detected) ? detected : detected?.silences ?? []) {
@@ -158,10 +159,10 @@ export async function transcribeCutsMedia(argument, options = {}) {
     const belowBreak = duration < silenceBreak;
     candidates.push({ kind: "silence", start: silence.start, end: formatNumber(silence.end - silenceKeep), text: null,
       default_on: false,
-      reason: belowBreak ? `無音 ${duration} 秒 → ${silenceKeep} 秒残す` : `無音 ${duration} 秒。章の切れ目とみなす` });
+      reason: belowBreak ? toolsText('tools.transcribeCuts.reason.silenceKeep', { duration, keep: silenceKeep }) : toolsText('tools.transcribeCuts.reason.chapterBreak', { duration }) });
   }
   for (const span of unionUnrecognized(transcripts)) {
-    candidates.push({ kind: "unrecognized", ...span, text: null, default_on: false, reason: "未認識。決まるまで切らない" });
+    candidates.push({ kind: "unrecognized", ...span, text: null, default_on: false, reason: toolsText('tools.transcribeCuts.reason.unrecognized') });
   }
   candidates.sort((a, b) => a.start - b.start || a.end - b.end || a.kind.localeCompare(b.kind, "en"));
   // A sub-tenth-second duplicate occupies the same stable id; retain its union.
@@ -179,12 +180,12 @@ export async function transcribeCutsMedia(argument, options = {}) {
   const directory = path.dirname(transcriptsDirForTarget(target));
   const cutsPath = path.join(directory, "cuts.json");
   const previous = existsSync(cutsPath) ? await readJson(cutsPath) : { candidates: [] };
-  if (!Array.isArray(previous?.candidates)) throw new Error("既存 cuts.json の candidates が不正です");
+  if (!Array.isArray(previous?.candidates)) throw new Error(toolsText('tools.transcribeCuts.error.candidatesInvalid'));
   const previousOn = new Map(previous.candidates.map((candidate) => [candidate.id, candidate.on]));
   const captionsPath = path.join(target.projectRoot, "captions.json");
   const captionRoot = existsSync(captionsPath) ? await readJson(captionsPath) : [];
   const captions = Array.isArray(captionRoot) ? captionRoot : captionRoot?.captions;
-  if (!Array.isArray(captions)) throw new Error("captions.json の形式が不正です");
+  if (!Array.isArray(captions)) throw new Error(toolsText('tools.transcribeCuts.error.captionsInvalid'));
   const handEdited = applyHandEdited(unique, captions, basis, target);
   for (const candidate of unique) {
     const on = previousOn.get(candidate.id);

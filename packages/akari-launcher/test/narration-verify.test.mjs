@@ -3,7 +3,12 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
 import { compareNarrationText, normalizeVerifyText, runNarrationCommand, verifyLanguage } from '../src/narration-command.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const collect = () => { const lines = []; return { lines, log: line => lines.push(line), logError: () => {} }; };
 

@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { lintProject } from "../src/edit-lint.mjs";
+import { setLanguage } from "../../i18n/index.mjs";
+
+setLanguage("ja");
+after(() => setLanguage(undefined));
 
 async function findingsFor(item, lane = "visual", path = "clip.mp4") {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-duration-units-"));
   try {
+    await mkdir(join(root, ".akari"));
     const edit = {
       version: 2,
       output: { width: 320, height: 180, fps: 30 },

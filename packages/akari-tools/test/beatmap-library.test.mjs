@@ -10,7 +10,7 @@ test('beatmap reads the pinned library and fallback declarations by track id', a
   const temp = await fs.mkdtemp(path.join(tmpdir(), 'beatmap-library-'));
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
   const home = path.join(temp,'home'), root = path.join(temp,'creator/library'), project = path.join(temp,'project');
-  const env = { ...process.env, AKARI_HOME: home, AKARI_CREATOR_ROOT: path.join(temp,'creator'), AKARI_LIBRARY_ROOT: '' };
+  const env = { ...process.env, AKARI_LANG: 'ja', AKARI_HOME: home, AKARI_CREATOR_ROOT: path.join(temp,'creator'), AKARI_LIBRARY_ROOT: '' };
   await writeLibraryLocation({ root, state: 'done' }, env);
   for (const location of [root, path.join(home,'assets')]) {
     await fs.mkdir(path.join(location,'audio/theme'), { recursive: true });

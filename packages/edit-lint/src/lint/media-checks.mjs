@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { lintText } from '../i18n.mjs';
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { resolveFfmpeg, resolveFfprobe } from "../../../media-bin/src/index.mjs";
@@ -221,9 +222,9 @@ function addSourceVfrFinding(source, sourceIndex, findings, paths) {
     ? timing.cumulative_drift_ms
     : 0;
   const nominalFrameMs = Number.isFinite(timing.nominal_frame_ms) ? timing.nominal_frame_ms : 0;
-  let message = `この素材は可変フレームレートです（ぶれ ${formatNumber(irregularDeltas)} 回・最大 ${formatNumber(maxDeviationMs)} ms）。最近傍で写像しています`;
+  let message = lintText('lint-messages.media.vfr.detected', { irregular: formatNumber(irregularDeltas), n: irregularDeltas, deviation: formatNumber(maxDeviationMs) });
   if (nominalFrameMs > 0 && Math.abs(cumulativeDriftMs) > nominalFrameMs / 2) {
-    message += "。固定フレームレートに変換すると音ズレを防げます（任意）";
+    message += lintText('lint-messages.media.vfr.conversionHint');
   }
   addFinding(findings, {
     severity: "warning",
@@ -356,7 +357,7 @@ function addSourceRangeFindings(
     addFinding(findings, {
       severity: "error",
       check: "media.source-range",
-      message: `${label}: in=${inSeconds.toFixed(3)}s は素材の実尺 ${duration.toFixed(3)}s 以上です（その先に素材がありません）`,
+      message: lintText('lint-messages.media.sourceRange.inTooLate', { label, inSeconds: inSeconds.toFixed(3), duration: duration.toFixed(3) }),
       path: `${pathPrefix}.in${pathSuffix}`,
     });
     return;
@@ -365,7 +366,7 @@ function addSourceRangeFindings(
     addFinding(findings, {
       severity: "error",
       check: "media.source-range",
-      message: `${label}: out=${outSeconds.toFixed(3)}s が素材の実尺 ${duration.toFixed(3)}s を ${(outSeconds - duration).toFixed(3)}s 超えています（存在しない区間の要求）`,
+      message: lintText('lint-messages.media.sourceRange.outTooLate', { label, outSeconds: outSeconds.toFixed(3), duration: duration.toFixed(3), excess: (outSeconds - duration).toFixed(3) }),
       path: `${pathPrefix}.out${pathSuffix}`,
     });
   }
@@ -583,11 +584,10 @@ export function findCropScaleProxyRatioFindings(items, ratioOf) {
     return {
       severity: "warning",
       check: "media.crop-scale-proxy-ratio",
-      message: `素材 ${entry.sourceId} の crop を持つ item ${count} 件の transform.scale ${formatNumber(scale)} が、`
-        + `原本 ÷ プロキシの寸法比（${original.width}x${original.height} ÷ ${proxy.width}x${proxy.height}`
-        + ` = ${formatNumber(ratio)}）と一致します。プレビューがプロキシを復号していた時期の回避策の値`
-        + `である可能性が高く、原本を復号する現在は構図が約 ${formatNumber(ratio)} 倍に拡大します。`
-        + `意図したズームでなければ transform.scale を原本基準（通常 1）へ戻してください。`,
+      message: lintText('lint-messages.media.proxyScale.legacyValue', {
+        sourceId: entry.sourceId, count, n: count, scale: formatNumber(scale), originalWidth: original.width,
+        originalHeight: original.height, proxyWidth: proxy.width, proxyHeight: proxy.height, ratio: formatNumber(ratio),
+      }),
       path: `${entry.itemPath}.transform.scale`,
     };
   });
@@ -715,7 +715,7 @@ export async function validateProxyGops(rawEdit, findings, paths, options) {
       addFinding(findings, {
         severity: "warning",
         check: "source.proxy-long-gop",
-        message: `プロキシの最大キーフレーム間隔が ${maxKeyframeIntervalSeconds.toFixed(3)} 秒のため、プレビューのカット切り替えが遅くなります。GOP 1 秒以下で焼き直してください: ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>`,
+        message: lintText('lint-messages.media.proxyGop.longInterval', { seconds: maxKeyframeIntervalSeconds.toFixed(3), n: maxKeyframeIntervalSeconds }),
         path: declaration.path,
       });
     }

@@ -1,3 +1,5 @@
+import { cliText } from './i18n.mjs';
+
 // fal TTS の追加点。価格の verified は fal の課金単位を確認できた場合だけ true にする。
 const geminiVoices = Object.entries({
   Leda: 'Youthful', Achernar: 'Soft', Achird: 'Friendly', Algenib: 'Gravelly',
@@ -106,14 +108,14 @@ function msgpack(value) {
     else if (typeof item === 'string') { const data = Buffer.from(item); const head = Buffer.alloc(5); head[0] = 0xdb; head.writeUInt32BE(data.length, 1); write(head, data); }
     else if (Array.isArray(item)) { const head = Buffer.alloc(5); head[0] = 0xdd; head.writeUInt32BE(item.length, 1); write(head); item.forEach(encode); }
     else if (item && typeof item === 'object') { const entries = Object.entries(item); const head = Buffer.alloc(5); head[0] = 0xdf; head.writeUInt32BE(entries.length, 1); write(head); for (const [key, value] of entries) { encode(key); encode(value); } }
-    else throw new TypeError('MessagePack の値が不正です');
+    else throw new TypeError(cliText('cli.tts.error.msgpackValue'));
   };
   encode(value);
   return Buffer.concat(parts);
 }
 
 export function pcmToWav(pcm) {
-  if (pcm.length % 2) throw new Error('PCM のバイト数が不正です');
+  if (pcm.length % 2) throw new Error(cliText('cli.tts.error.pcmLength'));
   const header = Buffer.alloc(44);
   header.write('RIFF', 0); header.writeUInt32LE(pcm.length + 36, 4); header.write('WAVEfmt ', 8);
   header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22);
@@ -125,11 +127,11 @@ export function pcmToWav(pcm) {
 export function parseGeminiAudio(result) {
   const content = result?.steps?.filter(step => step.type === 'model_output').flatMap(step => step.content ?? [])
     .find(part => part.type === 'audio' && typeof part.data === 'string');
-  if (!content) throw new Error('Gemini API の応答に音声がありません');
+  if (!content) throw new Error(cliText('cli.tts.error.geminiAudioMissing'));
   const bytes = Buffer.from(content.data, 'base64');
   if (bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') return bytes;
   if (content.mime_type === 'audio/l16') return pcmToWav(bytes);
-  throw new Error(`Gemini API の音声形式に対応していません: ${content.mime_type ?? 'unknown'}`);
+  throw new Error(cliText('cli.tts.error.geminiFormat', { format: content.mime_type ?? 'unknown' }));
 }
 
 export const DIRECT_TTS_ENGINES = Object.freeze([
@@ -171,8 +173,8 @@ export const ttsEngine = id => falTtsEngine(id) ?? DIRECT_TTS_ENGINES.find(engin
 export const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
 
 export function referenceDataUri(bytes) {
-  if (!Buffer.isBuffer(bytes)) throw new Error('参照音声のデータが不正です');
-  if (bytes.length > MAX_REFERENCE_BYTES) throw new Error('20 MB 超の参照音声は送信できません');
+  if (!Buffer.isBuffer(bytes)) throw new Error(cliText('cli.tts.error.referenceInvalid'));
+  if (bytes.length > MAX_REFERENCE_BYTES) throw new Error(cliText('cli.tts.error.referenceTooLarge'));
   return `data:audio/wav;base64,${bytes.toString('base64')}`;
 }
 
