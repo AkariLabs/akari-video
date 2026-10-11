@@ -1,11 +1,16 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmod, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
+import { setLanguage } from '@akari-video/i18n';
 import { TaskifyQueue } from '../lib/node/taskify/taskify-queue.js';
+setLanguage('ja');
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
 const fake = fileURLToPath(new URL('./fixtures/taskify/fake-cli.mjs', import.meta.url));
 const waitFor = async (fn, ms = 3000) => { const end = Date.now() + ms;
   while (Date.now() < end) { const value = fn(); if (value) return value; await new Promise(r => setTimeout(r, 10)); }
