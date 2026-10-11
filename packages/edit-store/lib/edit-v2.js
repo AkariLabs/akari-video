@@ -902,6 +902,15 @@ function validateKeyframes(value, path, audio = false) {
             requireRecord(entry.perspective, `${itemPath}.perspective`);
         if (hasOwn(entry, 'opacity'))
             requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+        if (hasOwn(entry, 'vars')) {
+            requireRecord(entry.vars, `${itemPath}.vars`);
+            for (const [name, number] of Object.entries(entry.vars)) {
+                if (!/^--[A-Za-z0-9_-]+$/.test(name))
+                    throw invalid(`${itemPath}.vars.${name}`, '-- で始まる CSS 変数名である必要があります');
+                if (typeof number !== 'number' || !Number.isFinite(number))
+                    throw invalid(`${itemPath}.vars.${name}`, '有限の数値である必要があります');
+            }
+        }
         if (hasOwn(entry, 'animator')) {
             requireRecord(entry.animator, `${itemPath}.animator`);
             for (const [id, state] of Object.entries(entry.animator)) {

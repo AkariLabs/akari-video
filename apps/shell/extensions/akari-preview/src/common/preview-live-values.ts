@@ -4,7 +4,9 @@ export interface PreviewLiveValues {
     clear: boolean;
 }
 
-const fields = new Set(['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+// 3D の向きはツマミ名のまま流す（gizmo のドラッグ中にインスペクタの回転 X/Y/Z を追従させる）
+const fields = new Set(['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate',
+    '--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z']);
 
 export function previewLiveValues(message: unknown): PreviewLiveValues | undefined {
     if (!message || typeof message !== 'object') return undefined;

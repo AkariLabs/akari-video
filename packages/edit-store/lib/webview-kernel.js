@@ -4465,6 +4465,13 @@ var AkariEditKernel = (() => {
       if (hasOwn(entry, "crop")) validateCrop(entry.crop, `${itemPath}.crop`);
       if (hasOwn(entry, "perspective")) requireRecord2(entry.perspective, `${itemPath}.perspective`);
       if (hasOwn(entry, "opacity")) requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+      if (hasOwn(entry, "vars")) {
+        requireRecord2(entry.vars, `${itemPath}.vars`);
+        for (const [name, number2] of Object.entries(entry.vars)) {
+          if (!/^--[A-Za-z0-9_-]+$/.test(name)) throw invalid(`${itemPath}.vars.${name}`, "-- \u3067\u59CB\u307E\u308B CSS \u5909\u6570\u540D\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          if (typeof number2 !== "number" || !Number.isFinite(number2)) throw invalid(`${itemPath}.vars.${name}`, "\u6709\u9650\u306E\u6570\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+      }
       if (hasOwn(entry, "animator")) {
         requireRecord2(entry.animator, `${itemPath}.animator`);
         for (const [id, state] of Object.entries(entry.animator)) {

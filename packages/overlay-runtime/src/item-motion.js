@@ -182,6 +182,37 @@
     const parents = (record.motionParents ?? []).map(parent => ({ ...parent, fps }));
     return evaluateItemMotion(item, t, parents);
   }
+  // 数値の CSS 変数のキーフレーム（keyframes[].vars。v0 は 3D の向き --akari-3d-rot-x/y/z）。
+  // キーを持つ変数だけを { 名前: 値 } で返す。easing は文字列か "vars.<名前>"（edit-store の
+  // evaluatedItemVar と同じ規則。内部契約 2026-10-11-3d-place §2.2）
+  function evaluateOverlayVars(record, t, fps) {
+    const item = record.motionSource ? { ...record.motionSource, fps }
+      : { at: number(record.start, 0), fps, keyframeUnit: record.keyframeUnit ?? 'frames',
+        keyframes: record.keyframes };
+    const points = (Array.isArray(item.keyframes) ? item.keyframes : [])
+      .filter(p => p && Number.isFinite(p.t) && p.vars && typeof p.vars === 'object')
+      .slice().sort((a, b) => a.t - b.t);
+    const names = new Set(points.flatMap(p => Object.keys(p.vars)));
+    const localSeconds = t - number(item.at, 0);
+    const frame = item.keyframeUnit === 'seconds' ? localSeconds : localSeconds * number(item.fps, 30);
+    const values = {};
+    for (const name of names) {
+      const declared = points.filter(p => Number.isFinite(p.vars[name]));
+      if (!declared.length) continue;
+      if (frame <= declared[0].t) { values[name] = declared[0].vars[name]; continue; }
+      const last = declared[declared.length - 1];
+      if (frame >= last.t) { values[name] = last.vars[name]; continue; }
+      for (let i = 1; i < declared.length; i++) {
+        const b = declared[i], a = declared[i - 1];
+        if (frame > b.t) continue;
+        const easing = typeof b.easing === 'string' ? b.easing : b.easing?.['vars.' + name];
+        const u = ease(easing, (frame - a.t) / (b.t - a.t || 1));
+        values[name] = a.vars[name] + (b.vars[name] - a.vars[name]) * u;
+        break;
+      }
+    }
+    return values;
+  }
   function motionRevealCss(state) {
     const box = state.reveal;
     return box ? 'inset(' + (box.y * 100) + '% ' + ((1 - box.x - box.w) * 100)
@@ -205,6 +236,6 @@
     const visible = { x: visibleStart.x + dx, y: visibleStart.y + dy };
     return { visible, base: invertItemMotionPosition(item, t, parentChain, visible.x, visible.y) };
   }
-  return Object.freeze({ evaluateItemMotion, evaluateOverlayMotion, motionRevealCss,
+  return Object.freeze({ evaluateItemMotion, evaluateOverlayMotion, evaluateOverlayVars, motionRevealCss,
     invertItemMotionPosition, dragItemMotionPosition });
 });
