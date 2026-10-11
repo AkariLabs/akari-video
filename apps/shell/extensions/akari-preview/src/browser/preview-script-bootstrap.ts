@@ -527,6 +527,7 @@ export function previewBootstrapScript(): string {
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
             let outputTime = 0;
+            Object.defineProperty(window.akari, 'playheadSeconds', { get: () => outputTime, configurable: true });
             window.addEventListener('message', event => {
                 const request = event.data;
                 if (request?.type !== 'akari-preview-library-drop-geometry-request') return;
@@ -10605,6 +10606,7 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                window.akari.interaction?.observeRotation3dModel?.(nextSummary);
                 nextSummary = window.akari.interaction?.protectModelSummary?.(nextSummary) ?? nextSummary;
                 const nextLayers = Array.isArray(nextSummary.layers) ? nextSummary.layers : [];
                 const previousLayerIds = new Set(layerEntries.map(entry => String(entry.spec.id)));
@@ -10616,6 +10618,20 @@ export function previewBootstrapScript(): string {
                 const addedLayers = nextLayers.filter(layer => !previousLayerIds.has(String(layer.id)));
                 const oldOverlays = Array.isArray(summary.overlays) ? summary.overlays : [];
                 const newOverlays = Array.isArray(nextSummary.overlays) ? nextSummary.overlays : [];
+                const rotationSnapshot = overlay => JSON.stringify({
+                    vars: ['x', 'y', 'z'].map(axis => overlay?.vars?.['--akari-3d-rot-' + axis] ?? 0),
+                    keys: (overlay?.keyframes ?? []).filter(point => ['x', 'y', 'z']
+                        .some(axis => point.vars?.['--akari-3d-rot-' + axis] !== undefined))
+                        .map(point => [point.t, ...['x', 'y', 'z']
+                            .map(axis => point.vars['--akari-3d-rot-' + axis] ?? null), point.easing])
+                });
+                const oldById = new Map(oldOverlays.map(overlay => [overlay.id, overlay]));
+                const rotationChanged = newOverlays.some(overlay => {
+                    const old = oldById.get(overlay.id);
+                    if (!old || rotationSnapshot(old) === rotationSnapshot(overlay)) return false;
+                    return Boolean(stage.querySelector('[data-overlay-id="' + CSS.escape(String(overlay.id)) + '"]'
+                        + ' script[data-akari-3d-scene]'));
+                });
                 const overlaysAppended = newOverlays.length > oldOverlays.length
                     && oldOverlays.every((overlay, index) => overlay.id === newOverlays[index]?.id);
                 if (window.akari.frameEngineClock?.updateModel) {
@@ -10654,6 +10670,11 @@ export function previewBootstrapScript(): string {
                     window.akari.interaction?.clearSelection?.();
                     void window.akari.runtime.mount(summary).catch(error =>
                         console.warn('[akari-preview] incremental overlay mount failed', error));
+                } else if (rotationChanged) {
+                    void window.akari.runtime.mount(summary).then(() => {
+                        window.akari.interaction?.restoreRotation3dAfterModel?.();
+                        tick(true);
+                    }).catch(error => console.warn('[akari-preview] 3D rotation mount failed', error));
                 }
                 for (const layer of addedLayers) {
                     const entry = createLayerEntry(layer, layerEntries.length);
@@ -10727,6 +10748,7 @@ export function previewBootstrapScript(): string {
                     }
                 }
                 window.akari.interaction?.restorePendingDragTransforms?.();
+                if (!rotationChanged || overlaysAppended) window.akari.interaction?.restoreRotation3dAfterModel?.();
                 window.akari.requestGenerationUpdate?.();
                 const renderedModel = playbackModelUpdate;
                 void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
