@@ -2155,13 +2155,18 @@ window.akari.threeRuntime = (() => {
     const pose = instance.pose;
     pose.rest = [];
     pose.anchors = [];
+    instance.scene.updateMatrixWorld(true);
     instance.model.traverse((node) => {
       pose.rest.push([node, node.position.clone(), node.quaternion.clone(), node.scale.clone()]);
       if (!node.geometry || node.isSkinnedMesh) return;
       if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
       const box = node.geometry.boundingBox;
       if (!box || box.isEmpty()) return;
-      const weight = box.min.distanceTo(box.max);
+      // 重みは世界寸法の外接箱の体積。対角長だと小さな部品（カメラの出っ張り・ボタン）が多い側へ
+      // 中心が寄って見た目の中心からずれる。平らな部品（画面の板）も消えないよう対角長の 3 乗の 1/1000 を下限に
+      const size = box.getSize(new THREE.Vector3()).multiply(node.getWorldScale(new THREE.Vector3()));
+      const diagonal = size.length();
+      const weight = Math.max(Math.abs(size.x * size.y * size.z), diagonal ** 3 * 1e-3);
       if (weight > 0) pose.anchors.push([node, box.getCenter(new THREE.Vector3()), weight]);
     });
     // カメラがモデルの木の中にある（camera.fromModel）ときは、回転でカメラごと回らないよう

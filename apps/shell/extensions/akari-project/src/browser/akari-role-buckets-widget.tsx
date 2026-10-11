@@ -1827,6 +1827,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    /** ライブラリを参照して置いた素材の断片 HTML を読む（取り込まない・書かない。インスペクタの 3D セクション用）。 */
+    async readCatalogOverlayFragment(key: string): Promise<string | undefined> {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
+        const file = item.mediaFile && /\.html?$/i.test(item.mediaFile) ? item.mediaFile : 'fragment.html';
+        try {
+            return (await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve(file))).value.toString();
+        } catch { return undefined; }
+    }
+
     async readCatalogOverlayMeta(key: string): Promise<unknown | undefined> {
         const item = this.assetCatalogItems.find(entry => entry.key === key);
         if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
@@ -3766,7 +3776,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 実体 URL（mediaUrl）があればそれを、無ければサムネイル（previewUrl）を開く。
      */
     protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        const source = item.mediaUrl ?? item.previewUrl;
+        // 3D の実体（model.glb）はテキストとして開けない。見本の画像を開く（置くのはドラッグか「プレイヘッドに置く」）
+        const source = item.category === 'scene3d'
+            ? item.previewUrl ?? item.mediaUrl
+            : item.mediaUrl ?? item.previewUrl;
         try {
             if (item.category === 'overlay' && item.state === 'cached' && item.libraryDir) {
                 const fragment = URI.fromFilePath(item.libraryDir).resolve('fragment.html');

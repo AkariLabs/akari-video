@@ -2171,6 +2171,8 @@ export class AkariInspectorWidget extends BaseWidget {
             const match = /^assets\/((?:overlay|scene3d)\/[^/]+)\/meta\.json$/u.exec(metaPath);
             const meta = match ? await this.commandRegistry.executeCommand<unknown>(
                 'akari.catalog.readOverlayMeta', match[1]).catch(() => undefined) : undefined;
+            // ライブラリを参照して置いた 3D でも、動きの選択肢・画面系ツマミの除外に同じメタを使う
+            if (meta && typeof meta === 'object') this.scene3dMetaCache.set(metaPath, meta as Scene3dMeta);
             this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         }
         const current = this.model.snapshot;
@@ -2184,7 +2186,13 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!root) return;
             const uri = /^[a-z][a-z0-9+.-]*:/iu.test(path) ? new URI(path) : root.resolve(path);
             this.scene3dFragmentCache.set(path, (await this.fileService.readFile(uri)).value.toString());
-        } catch { this.scene3dFragmentCache.set(path, null); }
+        } catch {
+            // ライブラリを参照して置いた素材はプロジェクトに実体が無い。カタログからライブラリの断片を読む
+            const match = /^assets\/(scene3d\/[^/]+)\/[^/]+\.html?$/u.exec(path);
+            const fragment = match ? await this.commandRegistry.executeCommand<unknown>(
+                'akari.catalog.readOverlayFragment', match[1]).catch(() => undefined) : undefined;
+            this.scene3dFragmentCache.set(path, typeof fragment === 'string' ? fragment : null);
+        }
         if ((this.model.snapshot?.kind === 'overlay' || this.model.snapshot?.kind === 'item')
             && this.model.snapshot.id === overlayId) this.render();
     }
