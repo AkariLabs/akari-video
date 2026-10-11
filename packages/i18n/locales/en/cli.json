@@ -191,6 +191,7 @@
   "cli.launcher.project.createFailed": "Could not create the project scaffold (continuing): {message}",
   "cli.launcher.project.existing": "Found an existing AKARI Video project: {root}",
   "cli.launcher.doctor.checking": "Checking connections…",
+  "cli.project.git.initialCommit": "Create project",
   "cli.launcher.doctor.failed": "Connection check failed (continuing): {message}",
   "cli.launcher.assets.noticeFailed": "Could not show the asset notice (continuing): {message}",
   "cli.launcher.agent.startOpencode": "Starting opencode…",

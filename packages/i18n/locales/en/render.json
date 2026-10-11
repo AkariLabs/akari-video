@@ -96,5 +96,20 @@
   "render.verify.audio.measureFailed_one": "Could not measure audio level (threshold {threshold} dB; {count} interval): {error}",
   "render.verify.audio.measureFailed_other": "Could not measure audio level (threshold {threshold} dB; {count} intervals): {error}",
   "render.verify.audio.intervalCount_one": "{count} interval",
-  "render.verify.audio.intervalCount_other": "{count} intervals"
+  "render.verify.audio.intervalCount_other": "{count} intervals",
+  "render.gpu.diagnostics.unknownGpu": "unknown GPU",
+  "render.gpu.diagnostics.noDevices": "This GPU ({gpu}) has no hardware H.264 encoder. Retry with --engine osr (GPU information could not be retrieved)",
+  "render.gpu.diagnostics.noEncoder": "This GPU ({gpu}) has no hardware H.264 encoder. Retry with --engine osr",
+  "render.gpu.diagnostics.highPerformance": "The high-performance GPU ({gpu}) is active, but its hardware H.264 encoder is not responding. Update the GPU driver or retry with --engine osr",
+  "render.gpu.diagnostics.integratedPrefix": "The hardware H.264 encoder is unavailable. Export is running on the integrated GPU ({gpu}). ",
+  "render.gpu.diagnostics.userPreference": "Windows Graphics settings are locked to power saving for this app, so AKARI did not switch GPUs automatically. Select high performance or retry with AKARI_EXPORT_GPU_PREFERENCE=force (render-cut --gpu-preference force)",
+  "render.gpu.diagnostics.policyOff": "Automatic switching to the high-performance GPU ({gpu}) is off. Retry with AKARI_EXPORT_GPU_PREFERENCE=auto",
+  "render.gpu.diagnostics.applied": "The GPU setting for {executable} was written but did not take effect. Set this executable to high performance in Windows Graphics settings",
+  "render.gpu.diagnostics.executable": "executable",
+  "render.gpu.diagnostics.parenthesized": " ({value})",
+  "render.gpu.diagnostics.noSwitch": "Automatic GPU switching did not occur{reason}. Set this executable{executable} to high performance in Windows Graphics settings",
+  "render.gpu.diagnostics.cause": " (cause: {cause})",
+  "render.gpu.error.skippedLayers": "GPU run skipped {count} layer draw(s); output with missing layers was rejected (run.json frameEngineMetrics.skippedLayers)",
+  "render.gpu.warning.silentCarrier": "gpu-export: The audio source has no audio stream, so a silent carrier track was added: {source}",
+  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d children overlap on screen, and their depth order differs from DOM order. GPU occlusion follows DOM order, so the image will differ from OSR. Avoid overlapping these children or export with --engine osr"
 }

@@ -6,16 +6,18 @@ import { runInNewContext } from 'node:vm';
 import * as esm from '../index.mjs';
 const cjs = createRequire(import.meta.url)('../index.cjs');
 
-function isolatedI18n({ osLocale = 'en-US', env = {}, storage, navigatorLanguage, catalogs, warnings = [] } = {}) {
+function isolatedI18n({ osLocale = 'en-US', env = {}, storage, navigatorLanguage, catalogs, warnings = [], platform = 'linux', defaults, calls = [] } = {}) {
   const source = readFileSync(new URL('../index.cjs', import.meta.url), 'utf8');
   const module = { exports: {} };
   const mockIntl = Object.create(Intl);
   mockIntl.DateTimeFormat = () => ({ resolvedOptions: () => ({ locale: osLocale }) });
   const context = {
     module,
-    require: () => ({ ja: catalogs?.ja ?? {}, en: catalogs?.en ?? {} }),
+    require: (name) => name === 'node:child_process'
+      ? { execFileSync: (...args) => { calls.push(args); if (defaults instanceof Error) throw defaults; return defaults ?? ''; } }
+      : { ja: catalogs?.ja ?? {}, en: catalogs?.en ?? {} },
     Intl: mockIntl,
-    process: { env },
+    process: { env, platform },
     console: { warn: message => warnings.push(message) }
   };
   if (storage) context.window = { localStorage: { getItem: key => storage.get(key) ?? null } };
@@ -75,6 +77,30 @@ test('browser setting, auto, OS, and stored Theia locale', () => {
 test('Node OS locale is used without browser storage or AKARI_LANG', () => {
   assert.equal(isolatedI18n({ osLocale: 'ja-JP' }).getLanguage(), 'ja');
   assert.equal(isolatedI18n({ osLocale: 'fr-FR' }).getLanguage(), 'en');
+});
+test('macOS AppleLanguages wins over shell locale and runs defaults once', () => {
+  const calls = [];
+  const i18n = isolatedI18n({ platform: 'darwin', osLocale: 'en-US', defaults: '(\n    "ja-JP",\n    "en-US"\n)', calls });
+  assert.equal(i18n.getLanguage(), 'ja');
+  assert.equal(i18n.getLanguage(), 'ja');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'defaults');
+  assert.deepEqual(Array.from(calls[0][1]), ['read', '-g', 'AppleLanguages']);
+  assert.equal(i18n.osLanguage(), 'ja-JP');
+  assert.equal(calls.length, 1);
+  assert.equal(isolatedI18n({ platform: 'darwin', navigatorLanguage: 'en-US', defaults: '(\n ja-JP\n)' }).getLanguage(), 'ja');
+});
+test('AKARI_LANG wins; failed or empty defaults falls back to Intl without retry', () => {
+  const calls = [];
+  const env = { AKARI_LANG: 'en' };
+  const i18n = isolatedI18n({ platform: 'darwin', osLocale: 'ja-JP', env, defaults: new Error('missing'), calls });
+  assert.equal(i18n.getLanguage(), 'en');
+  assert.equal(calls.length, 0);
+  delete env.AKARI_LANG;
+  assert.equal(i18n.getLanguage(), 'ja');
+  assert.equal(i18n.getLanguage(), 'ja');
+  assert.equal(calls.length, 1);
+  assert.equal(isolatedI18n({ platform: 'darwin', osLocale: 'ja-JP', defaults: '()', calls: [] }).getLanguage(), 'ja');
 });
 test('explicit browser setting wins over AKARI_LANG', () => {
   assert.equal(isolatedI18n({ storage: new Map([['akari.ui.language', 'ja']]), env: { AKARI_LANG: 'en' } }).getLanguage(), 'ja');

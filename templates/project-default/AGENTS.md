@@ -4,13 +4,13 @@
 
 The library defaults to the workspace's `library/`. Without a workspace, use the legacy `~/.akari/assets/`.
 Check the first line of `akari-assets list` (or `akari assets list`) for the actual location.
-Below, `<ライブラリの置き場>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
+Below, `<library-location>` is the existing library-location placeholder; audio belongs in its `audio/` subdirectory.
 
 - `assets/` holds source video and audio. Preserve the English directory name; never modify or delete originals.
 - `planning/` holds human-readable proposals, analysis reports, and edit plans.
 - `exports/` holds finished video exports.
 - `.akari/sidecars/` holds media analysis results; `.akari/events/` holds workflow milestone records.
-- Save media analysis results in `.akari/sidecars/<assets 以下の相対パス>.meta.json` (the placeholder means the relative path beneath assets).
+- Save media analysis results in `.akari/sidecars/<relative-path-under-assets>.meta.json` (the placeholder means the relative path beneath assets).
 - At report creation, approval, editing completion, and export completion, append 1 new record to `.akari/events/`.
   Never modify or delete existing records.
 - When `.akari/intake.json` has `status` set to `submitted`, follow `tasks` / `target` / `autonomy`.
@@ -40,7 +40,7 @@ Checking only rendering components or a separate page does not count as checking
 - `~/.akari/app` … Installation via `install.sh`. It need not exist when only the desktop app is used.
 - App-bundled `<App>/Contents/Resources/packages/` … CLI implementations such as render-cut and edit-lint. Windows: `<install dir>\resources\packages\`.
 - App-bundled `<App>/Contents/Resources/media-bin/` … ffmpeg and ffprobe; some builds omit whisper-cli. Windows: `<install dir>\resources\media-bin\`.
-- `<ライブラリの置き場>` … Existing placeholder for the asset library's actual location.
+- `<library-location>` … Existing placeholder for the asset library's actual location.
 
 Assume none is on PATH. Outside the partner PTY, run the full path: `~/.akari/cli/bin/akari` on macOS / Linux,
 `~/.akari/cli/bin/akari.cmd` on Windows (the only Windows entry point is `akari.cmd`; Git Bash cannot find it if you omit the extension).
@@ -51,7 +51,7 @@ Assume none is on PATH. Outside the partner PTY, run the full path: `~/.akari/cl
 - Import into this project with `akari assets fetch <id> --project .` (including sha256 verification).
 - Paid assets are available if purchased through the account connected with `akari store connect`.
   Unpurchased assets display `locked` and their price.
-- Library files live in `<ライブラリの置き場>/` (the existing library-location placeholder). Operate through these commands rather than editing directly.
+- Library files live in `<library-location>/` (the existing library-location placeholder). Operate through these commands rather than editing directly.
 
 ## Skills in this project
 
@@ -70,7 +70,7 @@ Harnesses such as Codex / Cursor discover the same skills through `.agents/skill
 (symlinks to `.claude/skills/`).
 
 If your environment does not read skills automatically, read procedures directly from the project-relative path
-`.claude/skills/<スキル名>/SKILL.md` (the placeholder means skill name).
+`.claude/skills/<skill-name>/SKILL.md` (the placeholder means skill name).
 The directory listing of `.claude/skills/` is the available skill list itself.
 
 See `.claude/skills/analyze-footage/references/akari-data-contract.md`

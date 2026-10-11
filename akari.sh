@@ -7,6 +7,19 @@ info() { echo -e "${GREEN}$1${NC}"; }
 warn() { echo -e "${YELLOW}$1${NC}"; }
 err()  { echo -e "${RED}$1${NC}"; }
 
+# Match the CLI's explicit override and the macOS system language, even when
+# the terminal uses a different LANG. This also works before Node is installed.
+shell_language() {
+  local locale="${AKARI_LANG:-}"
+  if [[ -z "$locale" ]] && [[ "$(uname -s)" == "Darwin" ]] && command -v defaults >/dev/null 2>&1; then
+    locale="$(defaults read -g AppleLanguages 2>/dev/null | sed -n 's/^[[:space:]]*"*\([[:alpha:]]\{2,3\}\).*/\1/p' | head -n 1)" || true
+  fi
+  locale="${locale:-${LANG:-en}}"
+  case "$locale" in ja*|JA*|Ja*|jA*) echo ja ;; *) echo en ;; esac
+}
+SHELL_LANGUAGE="$(shell_language)"
+user_text() { if [[ "$SHELL_LANGUAGE" == ja ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+
 # ─── Resolve script location (works via PATH/symlink) ───
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
 ORIGINAL_ARGS=("$@")
@@ -37,7 +50,7 @@ find_monorepo() {
 INSTALL_ONE_LINER='curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash'
 
 show_setup_guide() {
-  warn "セットアップするには次を実行してください: $INSTALL_ONE_LINER"
+  warn "$(user_text "セットアップするには次を実行してください: $INSTALL_ONE_LINER" "To set up AKARI Video, run: $INSTALL_ONE_LINER")"
 }
 
 run_self_heal_installer() {
@@ -51,7 +64,7 @@ run_self_heal_installer() {
 
 self_heal_and_reexec() {
   if [[ -n "${AKARI_SELF_HEAL_ATTEMPTED:-}" ]]; then
-    err "セットアップを試みましたが、まだ利用できる状態になっていません。お手数ですが上記コマンドを手動で実行するか、サポートにご相談ください。"
+    err "$(user_text 'セットアップを試みましたが、まだ利用できる状態になっていません。お手数ですが上記コマンドを手動で実行するか、サポートにご相談ください。' 'Setup was attempted, but AKARI Video is still unavailable. Please run the command above manually or contact support.')"
     show_setup_guide
     exit 1
   fi
@@ -70,7 +83,7 @@ self_heal_and_reexec() {
   exec 3<>/dev/tty && tty_ok=0 || tty_ok=$?
   exec 2>&4 4>&-
   if [[ "$tty_ok" -eq 0 ]]; then
-    read -rp "AKARI Video 本体がこのパソコンにまだ入っていません。いまセットアップしますか？（数分かかります） [Y/n] " answer <&3 || answer=n
+    read -rp "$(user_text 'AKARI Video 本体がこのパソコンにまだ入っていません。いまセットアップしますか？（数分かかります） [Y/n] ' 'AKARI Video is not installed on this computer. Set it up now? (This takes a few minutes.) [Y/n] ')" answer <&3 || answer=n
     exec 3<&-
   fi
 
@@ -79,15 +92,15 @@ self_heal_and_reexec() {
     exit 1
   fi
 
-  info "セットアップしています…（数分かかります）"
+  info "$(user_text 'セットアップしています…（数分かかります）' 'Setting up AKARI Video… (This takes a few minutes.)')"
   export AKARI_SELF_HEAL_ATTEMPTED=1
   if ! run_self_heal_installer; then
-    err "セットアップに失敗しました。"
+    err "$(user_text 'セットアップに失敗しました。' 'Setup failed.')"
     show_setup_guide
     exit 1
   fi
 
-  info "セットアップが完了しました。続行します…"
+  info "$(user_text 'セットアップが完了しました。続行します…' 'Setup is complete. Continuing…')"
   # macOS Bash 3.2 treats an empty `"${arr[@]}"` expansion under `set -u`
   # as an unbound variable (fixed in Bash 4.4).
   # Branch on the array length before expanding exec arguments.
@@ -182,7 +195,7 @@ cmd_preview() {
   echo -e "  ${BOLD}Project:${NC} $PROJECT"
   echo -e "  ${BOLD}URL:${NC}     http://localhost:$PORT"
   echo ""
-  echo -e "  ${MUTED}Ctrl+C で停止${NC}"
+  echo -e "  ${MUTED}$(user_text 'Ctrl+C で停止' 'Press Ctrl+C to stop')${NC}"
   echo ""
 
   "$NODE_BIN" "$MONOREPO/packages/preview-server/src/server.mjs" "$PROJECT" --port "$PORT" &
@@ -211,7 +224,7 @@ case "$1" in
     echo "Usage: $SCRIPT_NAME [command] [options...]"
     echo ""
     echo "Commands:"
-    echo "  (no args)             Launch AI agent (Claude Code優先)"
+    echo "  (no args)             $(user_text 'Launch AI agent (Claude Code優先)' 'Launch AI agent (Claude Code preferred)')"
     echo "  --preview, -pv        Start preview server"
     echo "  store connect         Connect your account (free starter pack + purchased assets)"
     echo "  sounds                Download official sound library (AKARI Sounds, free)"
@@ -224,15 +237,15 @@ case "$1" in
     echo "Typical workflow:"
     echo "  1. mkdir ~/my-first-video && cd ~/my-first-video"
     echo "  2. $SCRIPT_NAME                        # AI agent (project auto-created)"
-    echo "  3. $SCRIPT_NAME --preview               # Preview server (別の端末で)"
-    echo "  4. $SCRIPT_NAME store connect           # 無料の素材パックを使えるようにする"
-    echo "  5. $SCRIPT_NAME update                  # 更新を確認する"
+    echo "  3. $SCRIPT_NAME --preview               # $(user_text 'Preview server (別の端末で)' 'Preview server (in another terminal)')"
+    echo "  4. $SCRIPT_NAME store connect           # $(user_text '無料の素材パックを使えるようにする' 'Enable the free asset pack')"
+    echo "  5. $SCRIPT_NAME update                  # $(user_text '更新を確認する' 'Check for updates')"
     echo ""
     echo "Examples:"
-    echo "  $SCRIPT_NAME                           # Claude Code起動"
+    echo "  $SCRIPT_NAME                           # $(user_text 'Claude Code起動' 'Launch Claude Code')"
     echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
     echo "  $SCRIPT_NAME --preview ~/my-project 3000"
-    echo "  $SCRIPT_NAME store connect             # 無料の素材パックを使えるようにする"
+    echo "  $SCRIPT_NAME store connect             # $(user_text '無料の素材パックを使えるようにする' 'Enable the free asset pack')"
     echo "  $SCRIPT_NAME update"
     echo "  $SCRIPT_NAME -y                        # Claude Code + auto-confirm"
     echo "  $SCRIPT_NAME --opencode -y             # opencode + auto-confirm"

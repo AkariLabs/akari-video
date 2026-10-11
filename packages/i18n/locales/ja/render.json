@@ -96,5 +96,20 @@
   "render.verify.audio.measureFailed_one": "音量を測定できません（閾値 {threshold} dB・{count} 区間）: {error}",
   "render.verify.audio.measureFailed_other": "音量を測定できません（閾値 {threshold} dB・{count} 区間）: {error}",
   "render.verify.audio.intervalCount_one": "{count} 区間",
-  "render.verify.audio.intervalCount_other": "{count} 区間"
+  "render.verify.audio.intervalCount_other": "{count} 区間",
+  "render.gpu.diagnostics.unknownGpu": "不明な GPU",
+  "render.gpu.diagnostics.noDevices": "この GPU（{gpu}）にはハードウェア H.264 エンコーダがありません。--engine osr で再実行してください（GPU 情報は取得できませんでした）",
+  "render.gpu.diagnostics.noEncoder": "この GPU（{gpu}）にはハードウェア H.264 エンコーダがありません。--engine osr で再実行してください",
+  "render.gpu.diagnostics.highPerformance": "高パフォーマンス GPU（{gpu}）で動作していますがハードウェア H.264 エンコーダが応答しません。GPU ドライバの更新、または --engine osr で再実行してください",
+  "render.gpu.diagnostics.integratedPrefix": "ハードウェア H.264 エンコーダが使えません。書き出しプロセスは内蔵 GPU（{gpu}）で動作しています。",
+  "render.gpu.diagnostics.userPreference": "Windows の「グラフィックスの設定」でこのアプリが省電力に固定されているため自動切り替えしませんでした。高パフォーマンスへ変更するか、AKARI_EXPORT_GPU_PREFERENCE=force（render-cut --gpu-preference force）で再実行してください",
+  "render.gpu.diagnostics.policyOff": "高パフォーマンス GPU（{gpu}）への自動切り替えが off です。AKARI_EXPORT_GPU_PREFERENCE=auto で再実行してください",
+  "render.gpu.diagnostics.applied": "GPU 設定（{executable}）を書き込みましたが反映されませんでした。Windows の「グラフィックスの設定」でこの実行ファイルを高パフォーマンスにしてください",
+  "render.gpu.diagnostics.executable": "実行ファイル",
+  "render.gpu.diagnostics.parenthesized": "（{value}）",
+  "render.gpu.diagnostics.noSwitch": "自動切り替えは行われませんでした{reason}。Windows の「グラフィックスの設定」でこの実行ファイル{executable}を高パフォーマンスにしてください",
+  "render.gpu.diagnostics.cause": "（原因: {cause}）",
+  "render.gpu.error.skippedLayers": "GPU run skipped {count} layer draw(s); 層の欠けた出力は採用しません（run.json の frameEngineMetrics.skippedLayers）",
+  "render.gpu.warning.silentCarrier": "gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: {source}",
+  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください"
 }
