@@ -44,7 +44,7 @@ export function speakerFallbackMessage(voices: VoicesSidecar | undefined, used: 
 }
 
 export function speakerShortNote(voices: VoicesSidecar | undefined, id: string): string | undefined {
-    return voices?.shortSpeakers?.includes(id) ? '声がごく短い（3 秒未満）' : undefined;
+    return voices?.shortSpeakers?.includes(id) ? '声がごく短い（3 秒未満か全体の 3% 未満）' : undefined;
 }
 
 export function captionPopupStepNames(split: boolean): string[] {

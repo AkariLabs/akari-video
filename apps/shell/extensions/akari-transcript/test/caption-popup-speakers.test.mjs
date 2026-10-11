@@ -80,8 +80,8 @@ test('短い話者の ID を読み、該当する行だけに文字の注記を�
         speakers: { A: { seconds: 10 }, B: { seconds: 2.9 } }, shortSpeakers: ['B'] }));
     assert.deepEqual(voices.shortSpeakers, ['B']);
     assert.equal(speakerShortNote(voices, 'A'), undefined);
-    assert.equal(speakerShortNote(voices, 'B'), '声がごく短い（3 秒未満）');
-    assert.deepEqual(speakerReviewRows(voices, {}).map(row => row.shortNote), [undefined, '声がごく短い（3 秒未満）']);
+    assert.equal(speakerShortNote(voices, 'B'), '声がごく短い（3 秒未満か全体の 3% 未満）');
+    assert.deepEqual(speakerReviewRows(voices, {}).map(row => row.shortNote), [undefined, '声がごく短い（3 秒未満か全体の 3% 未満）']);
     assert.equal(parseVoicesSidecar(JSON.stringify({ schema: 'akari.voices/0', speakers: {}, shortSpeakers: [2] })).shortSpeakers, undefined);
 });
 
