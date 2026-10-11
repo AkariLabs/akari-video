@@ -47,6 +47,8 @@ jobs:
         run: node apps/shell/resources/scripts/bundle-cli-node-modules.mjs
       - name: check-packaged-imports
         run: node scripts/release/check-packaged-imports.mjs
+      - name: check-distribution-import-closure
+        run: node scripts/ci/check-distribution-import-closure.mjs
 
   skills-index:
     name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML)
