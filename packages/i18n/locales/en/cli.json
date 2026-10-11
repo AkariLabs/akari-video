@@ -724,5 +724,9 @@
   "cli.connections.notes.openrouter.workflows": "00 Planning and research / 42 AI generated assets",
   "cli.connections.notes.openrouter.billing": "Usage-based pricing per selected model. Respect both per-key limits and the project budget.",
   "cli.connections.notes.openrouter.quota": "Key limit and limit_remaining. The doctor only checks authentication with a read-only request.",
-  "cli.connections.notes.openrouter.scopes": "View key information / Call models after approval"
+  "cli.connections.notes.openrouter.scopes": "View key information / Call models after approval",
+  "cli.help.commands.speakers": "  speakers               Review and save speaker names and person links",
+  "cli.help.commands.speakersHelp": "  speakers               Review and save speaker names and person links",
+  "cli.help.commands.toolsVoice": "  tools install voice    Prepare the voice engine for speaker separation",
+  "cli.help.commands.toolsVoiceHelp": "  tools install voice    Prepare the voice engine for speaker separation"
 }

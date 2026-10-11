@@ -1,5 +1,6 @@
 import { t } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { installVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -36,6 +37,10 @@ export type RunCommandFn = (command: string, args: string[], options?: RunComman
 
 export interface ToolInstallOptions {
     platform?: NodeJS.Platform;
+    arch?: string;
+    voiceHome?: string;
+    statfs?: typeof fs.statfs;
+    voicePins?: typeof import('../../../../../../packages/akari-tools/bin/tools.mjs').VOICE_ENGINE_PINS;
     env?: NodeJS.ProcessEnv;
     homeDir?: string;
     repoRoot?: string;
@@ -126,6 +131,18 @@ export function akariToolsModelsDir(homeDir: string): string {
 export async function installTool(id: AkariToolId, options: ToolInstallOptions = {}): Promise<AkariToolInstallResult> {
     if (id === 'speech-analyzer') {
         return { id, outcome: 'skipped', message: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE };
+    }
+    if (id === 'voice') {
+        const voiceHome = options.voiceHome ?? resolveVoiceHome({ env: options.env ?? process.env, homeDir: options.homeDir ?? homedir() });
+        const result = await installVoiceEngine({
+            voiceHome, platform: options.platform ?? process.platform, arch: options.arch ?? process.arch,
+            fetchImpl: options.fetchImpl, statfs: options.statfs, pins: options.voicePins,
+            onProgress: progress => options.onProgress?.({
+                toolId: 'voice', kind: 'download', phase: progress.phase,
+                downloadedBytes: progress.downloadedBytes, totalBytes: progress.totalBytes
+            })
+        });
+        return { id, outcome: result.outcome === 'installed' || result.outcome === 'unchanged' ? 'installed' : 'failed', message: result.message };
     }
     const ctx: InstallContext = {
         id,

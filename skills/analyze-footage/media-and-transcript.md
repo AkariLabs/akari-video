@@ -45,6 +45,24 @@ Pass --lang for the work's content language on every transcription call. SpeechA
 
 The [`akari media` contract §2.5](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) defines the three-layer backend choice, caching, `segments[]` format, no-speech result, and error handling. This skill does not discover backend executables or models or convert input audio itself.
 
+### Separate speakers (only when requested or multiple voices are likely)
+
+Never read or upload `.akari/sidecars/**/voices.json`; its voice embeddings are biometric identifiers.
+
+Transcribe without speaker flags by default. Ask about separation only when requested or when a conversation, interview, or exchange suggests at least two voices. Do not ask for single-person narration. Ask only for a speaker count (or `auto` if unknown), then pass `--diarize --speakers <n|auto>`.
+
+Intel Macs can separate speakers but cannot identify voices. If `--identify` is requested there, use the separated result and skip identification.
+
+```bash
+akari media transcribe "$SOURCE" --diarize --speakers 2
+akari media transcribe "$SOURCE" --diarize --speakers auto --identify
+akari speakers set "$SOURCE" A --person channel/p-123
+akari speakers list "$SOURCE"
+```
+
+With `--identify`, compare only against consented (`self` or `subject`) voice samples for channel people. The result is a suggestion; a person decides the name. Confirm even a `strong` match before writing it with `akari speakers set`. Show `maybe` as a candidate for review and leave `none` unnamed. If the voice engine is missing and the command exits 2, do not guess speakers. Stop and guide the user to `akari tools install voice` or preparation in the app's caption creation flow. Follow the [speaker separation contract](../../docs/contract-2026-10-11-speaker-split-v0.md) for flags, output, and destinations.
+
+
 ### Cloud use requires approval
 
 - Do not upload audio by default.
@@ -84,3 +102,5 @@ Inspect the original file at L0 and L1; do not create `proxy.mp4`. For individua
 - Applying a custom transformation to raw backend output instead of using the contracted `segments[]`.
 - Uploading audio merely because a cloud connection is registered, without approval.
 - Inventing a transcript to conceal an unavailable backend.
+- Asking about speaker separation for single-person narration.
+- Writing proposed speaker names to the speaker dictionary before review.

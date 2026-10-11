@@ -207,6 +207,7 @@ export const LANES = {
       pkg('project-scaffold'),
       pkg('schemas'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
+      pkg('akari-voice'),         // 依存ゼロ・純関数。実エンジンの結合テストは AKARI_VOICE_HOME と AKARI_VOICE_TEST_AUDIO があるときだけ走り、無ければ skip（話者分離 v0 2026-10-11）
       // 2026-10-02 quarantine から昇格（テスト側の追随で 497/497。ubuntu の参考レーンで fail 0 を確認してから）
       pkg('akari-launcher'),
       pkg('generate'),            // 依存ゼロ・純関数（生成入力バリデータ w1-b 2026-09-13。adapters/ は test script の glob 外 = 合流後の統合小票で吸収）

@@ -6,12 +6,14 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 import { PROJECT_GITIGNORE } from 'akari-video/src/history-policy.mjs';
 
 import { AkariProjectServiceImpl } from '../lib/node/akari-project-service.js';
 
 const execFileAsync = promisify(execFile);
+const lane = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '.tmp-lane');
 
 const LEGACY_GITIGNORE = [
     '# Source video and audio are intentionally kept outside the project history.',
@@ -31,6 +33,14 @@ const LEGACY_GITIGNORE = [
 class MigrationService extends AkariProjectServiceImpl {
     fsPath(uri) {
         return uri;
+    }
+}
+
+class GitlessMigrationService extends MigrationService {
+    async gitEligibility(root) {
+        try { await stat(join(root, '.git')); }
+        catch { return 'none'; }
+        return super.gitEligibility(root);
     }
 }
 
@@ -209,4 +219,22 @@ test('git の無いプロジェクトでは黙って何もしない', async () =
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+test('git の無いプロジェクトは最初の追加前に声の側ファイルを除外する', async () => {
+    await mkdir(lane, { recursive: true });
+    const root = await mkdtemp(join(lane, 'akari-history-gitless-'));
+    try {
+        await writeAll(root, {
+            '.gitignore': LEGACY_GITIGNORE,
+            'edit.json': '{}\n',
+            '.akari/sidecars/clip.mp4.analysis/voices.json': '{"schema":"akari.voices/0"}\n'
+        });
+        await new GitlessMigrationService().ensureGitInitialized(root);
+        const files = await trackedFiles(root);
+        assert.ok(files.includes('.gitignore'));
+        assert.ok(files.includes('edit.json'));
+        assert.ok(!files.includes('.akari/sidecars/clip.mp4.analysis/voices.json'));
+        assert.equal(await readFile(join(root, '.gitignore'), 'utf8'), PROJECT_GITIGNORE);
+    } finally { await rm(root, { recursive: true, force: true }); }
 });

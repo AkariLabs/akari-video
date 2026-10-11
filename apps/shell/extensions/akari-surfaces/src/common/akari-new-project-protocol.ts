@@ -36,13 +36,14 @@ export interface AkariLibraryStatus {
     usage: import('./library-storage').LibraryStorageSummary;
 }
 
-export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt' | 'speech-analyzer';
+export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'voice' | 'blender' | 'xcode-clt' | 'speech-analyzer';
 export type AkariToolTier = 'required' | 'advanced' | 'recommended';
 
 export interface AkariToolCheckResult {
     id: AkariToolId;
     tier: AkariToolTier;
     available: boolean;
+    canIdentify?: boolean;
     version?: string;
     executable?: string;
     unsupported?: boolean;

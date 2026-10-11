@@ -485,7 +485,7 @@ function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
               || typeof override !== "object"
               || Array.isArray(override)
               || Object.keys(override).some(
-                (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+                (key) => !["texture", "textureVar", "brightness", "target", "fit", "fitVar"].includes(key)
               )
               || typeof override.texture !== "string"
               || override.texture.length === 0) {

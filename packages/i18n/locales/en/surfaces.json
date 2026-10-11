@@ -2215,5 +2215,6 @@
   "surfaces.surfaceEditor.blockEditRequestEditTooLargeBlockIdInvalid.message": "The edit is too large or the block ID is invalid.",
   "surfaces.surfaceEditor.editTargetUriOpenProjectFirst.message": "Open a project first.",
   "surfaces.surfaceEditor.editTargetUriFileCannotEditedSurface.message": "This file cannot be edited in the surface.",
-  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "The target file is outside this project."
+  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "The target file is outside this project.",
+  "surfaces.settings.unknownTool.error": "Unknown tool"
 }

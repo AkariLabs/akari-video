@@ -115,6 +115,15 @@ function parseOptions(subcommand, argv, language) {
       options.whisperPrompt = true;
       continue;
     }
+    if (subcommand === "transcribe" && argument === "--diarize") {
+      options.diarize = true;
+      continue;
+    }
+    if (subcommand === "transcribe" && argument === "--identify") {
+      options.identify = true;
+      options.diarize = true;
+      continue;
+    }
     if (subcommand === "grab" && argument === "-t") {
       options.times ??= [];
       let consumed = 0;
@@ -172,6 +181,8 @@ function allowedValueOptions(subcommand) {
     "--lang": ["lang", String],
     "--whisper-prompt": ["whisperPrompt", String],
     "--word-book": ["wordBookPath", String],
+    "--speakers": ["speakers", speakerCountValue],
+    "--people": ["people", String],
     "--unrecognized-min-gap": ["unrecognizedMinGap", numberValue],
     "--unrecognized-min-voiced": ["unrecognizedMinVoiced", numberValue],
   };
@@ -210,6 +221,12 @@ function integerValue(value, label, language) {
   return parsed;
 }
 
+function speakerCountValue(value, label, language) {
+  if (value === "auto") return value;
+  if (/^[1-4]$/.test(value)) return Number(value);
+  throw new Error(toolsText('tools.media.error.speakerCount', {}, language));
+}
+
 function numberValue(value, label, language) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new Error(toolsText('tools.media.error.number', { option: label }, language));
@@ -217,6 +234,10 @@ function numberValue(value, label, language) {
 }
 
 function validateOptionCombinations(subcommand, options, language) {
+  if (subcommand === "transcribe") {
+    if (options.speakers !== undefined) options.diarize = true;
+    if (options.people !== undefined) { options.identify = true; options.diarize = true; }
+  }
   if (subcommand === "filmstrip" && options.every !== undefined && (options.count !== undefined || options.scenes !== undefined)) {
     throw new Error(toolsText('tools.media.error.everyConflict', {}, language));
   }

@@ -858,5 +858,14 @@
   "project.workspace.service.transcribeFailedError": "文字起こしに失敗しました",
   "project.workspace.service.transcriptCanceledMessage": "文字起こしを中止しました",
   "project.workspace.service.updateChangeHistorySettingsLabel": "変更履歴の設定を更新",
-  "project.workspace.service.viewChangesRelativePathAction": "変更を見る: {relativePath}"
+  "project.workspace.service.viewChangesRelativePathAction": "変更を見る: {relativePath}",
+  "project.workspace.service.denyNotArray": "deny が配列ではありません",
+  "project.workspace.service.peopleInvalid": "人物の一覧が不正です",
+  "project.workspace.service.permissionsNotObject": "permissions がオブジェクトではありません",
+  "project.workspace.service.personInvalid": "文字起こしの人物の指定が不正です",
+  "project.workspace.service.pidInvalid": "プロセス ID は正の整数で指定してください",
+  "project.workspace.service.settingsInvalidJson": "設定が JSON として読めません",
+  "project.workspace.service.settingsNotObject": "設定の最上位がオブジェクトではありません",
+  "project.workspace.service.speakerCompareUnavailable": "話者を分けるときはエンジンを比較できません",
+  "project.workspace.service.speakerCountInvalid": "文字起こしの話者の指定が不正です"
 }

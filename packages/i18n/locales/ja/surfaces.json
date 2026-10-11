@@ -2215,5 +2215,6 @@
   "surfaces.surfaceEditor.blockEditRequestEditTooLargeBlockIdInvalid.message": "編集内容が大きすぎるか、ブロック ID が不正です。",
   "surfaces.surfaceEditor.editTargetUriOpenProjectFirst.message": "先にプロジェクトを開いてください。",
   "surfaces.surfaceEditor.editTargetUriFileCannotEditedSurface.message": "このファイルはサーフェスから編集できません。",
-  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "編集対象がプロジェクト内にありません。"
+  "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "編集対象がプロジェクト内にありません。",
+  "surfaces.settings.unknownTool.error": "不明な道具です"
 }

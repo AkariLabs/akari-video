@@ -858,5 +858,14 @@
   "project.workspace.service.transcribeFailedError": "Could not transcribe.",
   "project.workspace.service.transcriptCanceledMessage": "Transcription canceled",
   "project.workspace.service.updateChangeHistorySettingsLabel": "Update change history settings",
-  "project.workspace.service.viewChangesRelativePathAction": "View changes: {relativePath}"
+  "project.workspace.service.viewChangesRelativePathAction": "View changes: {relativePath}",
+  "project.workspace.service.denyNotArray": "deny must be an array",
+  "project.workspace.service.peopleInvalid": "Invalid people list",
+  "project.workspace.service.permissionsNotObject": "permissions must be an object",
+  "project.workspace.service.personInvalid": "Invalid person for transcription",
+  "project.workspace.service.pidInvalid": "Process ID must be a positive integer",
+  "project.workspace.service.settingsInvalidJson": "Settings are not valid JSON",
+  "project.workspace.service.settingsNotObject": "Settings must be a JSON object",
+  "project.workspace.service.speakerCompareUnavailable": "Engines cannot be compared while separating speakers",
+  "project.workspace.service.speakerCountInvalid": "Invalid speaker count for transcription"
 }

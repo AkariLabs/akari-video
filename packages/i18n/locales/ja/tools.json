@@ -1,7 +1,7 @@
 {
   "tools.media.help.usage": "使い方: akari media <subcommand> <target> [options]",
   "tools.media.help.commands": "サブコマンド:",
-  "tools.media.help.transcribe": "  transcribe <target> [--no-snap]",
+  "tools.media.help.transcribe": "  transcribe <target> [--no-snap] [--diarize] [--speakers auto|1|2|3|4] [--identify] [--people <people.json>]",
   "tools.media.help.prompt": "  --whisper-prompt <text>  whisper.cpp に初期プロンプトを渡す",
   "tools.media.help.fillers": "  --keep-fillers           英語の言い淀みを残す既定のプロンプトを使う",
   "tools.media.error.unknownCommand": "不明な media サブコマンドです: {command}",
@@ -174,5 +174,11 @@
   "tools.transcribe.error.invalidRange_one": "文字起こし範囲は 0〜{duration} 秒内で out > in にしてください",
   "tools.transcribe.error.invalidRange_other": "文字起こし範囲は 0〜{duration} 秒内で out > in にしてください",
   "tools.media.error.timeRange_one": "{label} は 0〜{duration} 秒で指定してください",
-  "tools.media.error.timeRange_other": "{label} は 0〜{duration} 秒で指定してください"
+  "tools.media.error.timeRange_other": "{label} は 0〜{duration} 秒で指定してください",
+  "tools.media.error.speakerCount": "--speakers は auto または 1〜4 で指定してください",
+  "tools.transcribe.voice.embeddingError": "話者の特徴量: {message}",
+  "tools.transcribe.voice.identificationWarning": "話者の照合: {message}",
+  "tools.transcribe.voice.noSamples": "話者の照合: 声の見本がある人物がいないので照らしません",
+  "tools.transcribe.voice.peopleMissing": "話者の照合: 人物の一覧（people.json）が見つからないので照らしません",
+  "tools.transcribe.voice.separationComplete": "話者の分離: {count} 人・{seconds} 秒（読み込み {readSeconds} 秒）"
 }
