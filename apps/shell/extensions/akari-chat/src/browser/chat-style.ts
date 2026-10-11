@@ -1,4 +1,11 @@
+const railLampIcon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0a0a0a" stroke="rgba(255,255,255,.14)"/><circle cx="16" cy="16" r="7" fill="#f97316"/><circle cx="16" cy="16" r="3.4" fill="#fdba74"/></svg>')}`;
+
 const css = `
+.lm-TabBar-tabIcon.akari-chat-rail-icon {
+  width: 24px !important;
+  height: 24px !important;
+  background: url("${railLampIcon}") center / contain no-repeat !important;
+}
 .akari-chat {
   height: 100%;
   min-width: 300px;

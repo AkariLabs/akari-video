@@ -114,13 +114,17 @@ export function readRightRailState(raw: unknown): RightRailState {
     };
 }
 
+/** AKARI チャットは annotations の既定表に無いが、パートナーの並びに置く。 */
+const defaultGroup = (id: string): RightRailGroup =>
+    id === 'akari-chat-widget' ? 'agent' : defaultRightRailGroup(id);
+
 export function rightRailGroupOf(state: RightRailState, id: string): RightRailGroup {
-    return state.groups[id] ?? defaultRightRailGroup(id);
+    return state.groups[id] ?? defaultGroup(id);
 }
 
 /** 既定と同じ所属なら差分を消す（保存データを最小に保つ）。 */
 export function setRightRailGroup(state: RightRailState, id: string, group: RightRailGroup): void {
-    if (defaultRightRailGroup(id) === group) {
+    if (defaultGroup(id) === group) {
         delete state.groups[id];
     } else {
         state.groups[id] = group;
