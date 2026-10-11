@@ -728,5 +728,7 @@
   "cli.help.commands.speakers": "  speakers               話者の名前と人物の対応を確認・保存する",
   "cli.help.commands.speakersHelp": "  speakers               話者の名前と人物の対応を確認・保存する",
   "cli.help.commands.toolsVoice": "  tools install voice    話者分離に使う声のエンジンを準備する",
-  "cli.help.commands.toolsVoiceHelp": "  tools install voice    話者分離に使う声のエンジンを準備する"
+  "cli.help.commands.toolsVoiceHelp": "  tools install voice    話者分離に使う声のエンジンを準備する",
+  "cli.speakers.scriptMissing.error": "akari speakers の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:",
+  "cli.tools.scriptMissing.error": "akari tools の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:"
 }

@@ -1,3 +1,4 @@
+import { cliText } from "./i18n.mjs";
 import { spawnSync } from "node:child_process";
 
 import { resolveLauncherAssets } from "./repo-assets.mjs";
@@ -7,7 +8,7 @@ export async function runToolsCommand(args, options = {}) {
   const assets = options.assets ?? resolveLauncherAssets();
   const spawn = options.spawn ?? spawnSync;
   if (!assets.toolsScript) {
-    logError("akari tools の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:");
+    logError(cliText('cli.tools.scriptMissing.error'));
     logError("  npm install -g akari-video");
     return { exitCode: 1 };
   }

@@ -72,10 +72,10 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         note: t('surfaces.tools.mustProvideCreditAccordingTermsConditionsAudio.message')
     },
     voice: {
-        name: '話者を分ける（声のエンジン）', badge: 'アドバンス',
-        purpose: '素材の話者を分けて、誰の声かを提案するのに使います。声はこのパソコンの中だけで処理します。',
-        sizeLabel: '約 160MB',
-        note: 'モデルの WeSpeaker は CC BY 4.0、pyannote・Silero は MIT、sherpa-onnx は Apache-2.0、ONNX Runtime は MIT です。'
+        name: t('surfaces.tools.voice.name.label'), badge: t('surfaces.tools.voice.badge.label'),
+        purpose: t('surfaces.tools.voice.purpose.message'),
+        sizeLabel: t('surfaces.tools.voice.size.label'),
+        note: t('surfaces.tools.voice.license.note')
     },
     blender: {
         name: 'Blender CLI', badge: t('surfaces.tools.advance.label'), purpose: t('surfaces.tools.blenderPreRenderThreeDimensionalAssets.description'),

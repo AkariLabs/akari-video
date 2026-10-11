@@ -866,6 +866,7 @@
   "project.workspace.service.pidInvalid": "Process ID must be a positive integer",
   "project.workspace.service.settingsInvalidJson": "Settings are not valid JSON",
   "project.workspace.service.settingsNotObject": "Settings must be a JSON object",
+  "project.workspace.service.settingsUpdateFailedWarning": "Could not update settings:",
   "project.workspace.service.speakerCompareUnavailable": "Engines cannot be compared while separating speakers",
   "project.workspace.service.speakerCountInvalid": "Invalid speaker count for transcription"
 }

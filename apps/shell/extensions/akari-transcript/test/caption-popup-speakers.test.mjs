@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { setLanguage } from '@akari-video/i18n';
 import { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided,
     mergeVoicesDecided, parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady,
     voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage, speakerShortNote } from '../lib/common/caption-popup-speakers.js';
+
+setLanguage('ja');
 
 test('ordinary transcription keeps four steps and adds no options', () => {
     assert.deepEqual(captionPopupStepNames(false), ['素材', '起こし方', '起こす', '仕上げ']);
@@ -40,7 +43,7 @@ test('準備失敗で分ける選択を戻さず、再試行を表示する', ()
     const body = source.slice(source.indexOf('protected async installVoice()'), source.indexOf('protected renderProgress()'));
     assert.doesNotMatch(body, /this\.split\s*=\s*false/);
     assert.doesNotMatch(body, /この版のアプリからはまだ準備できません/);
-    assert.match(source, /もう一度/);
+    assert.match(source, /transcript\.captionPopup\.dialog\.retry/);
 });
 
 test('analysis reports existing speaker tracks only for a nonempty array', () => {

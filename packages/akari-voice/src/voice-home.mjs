@@ -1,11 +1,12 @@
+import { t } from '../../i18n/index.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 
-export const VOICE_MISSING_MESSAGE = '話者を分けるには準備が要ります（akari tools install voice か、アプリの『字幕を作る』から）';
-export const VOICE_IDENTIFY_UNAVAILABLE_MESSAGE = 'この Mac では声の照合はできません（話者を分けることはできます）';
+export const VOICE_MISSING_MESSAGE = t('tools.voice.engine.error.setupRequired');
+export const VOICE_IDENTIFY_UNAVAILABLE_MESSAGE = t('tools.voice.engine.error.identificationUnavailable');
 export const VOICE_ENGINE_VERSION = 'akari.voice/1';
 const models = ['wespeaker_en_voxceleb_resnet34_LM.onnx', 'pyannote-segmentation-3.0.onnx', 'silero_vad.onnx'];
 

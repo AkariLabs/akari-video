@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.mjs';
 const EPSILON = 1.1920928955078125e-7;
 const mel = hz => 1127 * Math.log1p(hz / 700);
 const windows = new Map();
@@ -5,7 +6,7 @@ const melBanks = new Map();
 const rotations = new Map();
 
 export function windowValues(length = 400, kind = 'hamming') {
-  if (!['hamming', 'povey'].includes(kind)) throw new Error('窓の種類が不正です');
+  if (!['hamming', 'povey'].includes(kind)) throw new Error(t('tools.voice.engine.error.invalidWindow'));
   const key = `${length}:${kind}`;
   if (windows.has(key)) return windows.get(key);
   const values = Float64Array.from({ length }, (_, i) => {

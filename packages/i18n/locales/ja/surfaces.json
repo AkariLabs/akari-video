@@ -2216,5 +2216,11 @@
   "surfaces.surfaceEditor.editTargetUriOpenProjectFirst.message": "先にプロジェクトを開いてください。",
   "surfaces.surfaceEditor.editTargetUriFileCannotEditedSurface.message": "このファイルはサーフェスから編集できません。",
   "surfaces.surfaceEditor.editSnapshotObjectEditedProject.message": "編集対象がプロジェクト内にありません。",
-  "surfaces.settings.unknownTool.error": "不明な道具です"
+  "surfaces.settings.unknownTool.error": "不明な道具です",
+  "surfaces.tools.voice.badge.label": "アドバンス",
+  "surfaces.tools.voice.license.note": "モデルの WeSpeaker は CC BY 4.0、pyannote・Silero は MIT、sherpa-onnx は Apache-2.0、ONNX Runtime は MIT です。",
+  "surfaces.tools.voice.name.label": "話者を分ける（声のエンジン）",
+  "surfaces.tools.voice.provider.label": "k2-fsa（sherpa-onnx）",
+  "surfaces.tools.voice.purpose.message": "素材の話者を分けて、誰の声かを提案するのに使います。声はこのパソコンの中だけで処理します。",
+  "surfaces.tools.voice.size.label": "約 160MB"
 }

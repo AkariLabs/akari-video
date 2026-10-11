@@ -2775,7 +2775,7 @@ process.stdout.write(JSON.stringify(found));
                 throw error;
             });
             const outcome = ensureVoicesReadDenied(current);
-            if (outcome.error) { console.warn('[akari-project] 設定を更新できません:', outcome.error); return; }
+            if (outcome.error) { console.warn('[akari-project] ' + t('project.workspace.service.settingsUpdateFailedWarning'), outcome.error); return; }
             if (!outcome.changed || outcome.text === undefined) return;
             await fs.mkdir(dirname(file), { recursive: true });
             const temporary = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
@@ -2783,7 +2783,7 @@ process.stdout.write(JSON.stringify(found));
                 await fs.writeFile(temporary, outcome.text, 'utf8');
                 await fs.rename(temporary, file);
             } finally { await fs.rm(temporary, { force: true }); }
-        } catch (error) { console.warn('[akari-project] 設定を更新できません:', error); }
+        } catch (error) { console.warn('[akari-project] ' + t('project.workspace.service.settingsUpdateFailedWarning'), error); }
     }
 
     protected async ensureHistoryIgnore(root: string): Promise<boolean> {

@@ -592,7 +592,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                         check.disabled = !person.hasVoiceSample;
                         check.onchange = () => { if (check.checked) this.excludedPeople.delete(person.id); else this.excludedPeople.add(person.id);
                             this.saveSpeakerChoice(); this.render(); };
-                        const face = el('span', person.name[0] ?? '・');
+                        const face = el('span', person.name[0] ?? t('transcript.captionPopup.dialog.personInitialFallback'));
                         face.style.cssText = 'display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--akari-elevated)';
                         const status = el('small', person.hasVoiceSample
                             ? t('transcript.captionPopup.dialog.voiceSampleCount', { count: channelPersonVoiceSampleCount(this.peopleSource, person.id) }) : t('transcript.captionPopup.dialog.noVoiceSample'));

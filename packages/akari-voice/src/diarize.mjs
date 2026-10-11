@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.mjs';
 export const DIARIZE_THRESHOLD = 0.5;
 export const MIN_SPEAKER_SECONDS = 3;
 export const MIN_SPEAKER_SHARE = 0.03;
@@ -15,7 +16,7 @@ export function hasSubstantialSpeakers(turns) {
 }
 
 export function speakerLabel(index) {
-  if (!Number.isInteger(index) || index < 0) throw new Error('話者番号が不正です');
+  if (!Number.isInteger(index) || index < 0) throw new Error(t('tools.voice.engine.error.invalidSpeakerIndex'));
   let result = '';
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) result = String.fromCharCode(65 + (n - 1) % 26) + result;
   return result;
@@ -64,11 +65,11 @@ export function mergeSpeakers(turns, mapping) {
 export function clusterCountFor(speakers) {
   if (speakers === 'auto' || speakers === 4 || speakers === '4') return -1;
   if ([1, 2, 3, '1', '2', '3'].includes(speakers)) return Number(speakers);
-  throw new Error('話者数は auto または 1〜4 で指定してください');
+  throw new Error(t('tools.voice.engine.error.invalidSpeakerCount'));
 }
 
 export function diarizeCountFallbackMessage(requested, used) {
-  return `指定の ${requested} 人に分けられなかったので、自動で分けた結果（${used} 人）を使います`;
+  return t('tools.voice.engine.notice.countFallback', { requested, used });
 }
 
 export async function diarizeToCount(diarize, samples, speakers, threshold = DIARIZE_THRESHOLD) {

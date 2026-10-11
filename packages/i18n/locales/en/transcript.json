@@ -717,6 +717,7 @@
   "transcript.captionPopup.dialog.notCompared": "Not compared",
   "transcript.captionPopup.dialog.onePerson": "1 person",
   "transcript.captionPopup.dialog.personCount": "{count} people",
+  "transcript.captionPopup.dialog.personInitialFallback": "•",
   "transcript.captionPopup.dialog.prepare": "Prepare",
   "transcript.captionPopup.dialog.prepareFailed": "Preparation failed",
   "transcript.captionPopup.dialog.retry": "Try again",
@@ -747,5 +748,8 @@
   "transcript.captionPopup.dialog.voiceMissing": "Voice engine not found",
   "transcript.captionPopup.dialog.voicePreparing": " Preparing…",
   "transcript.captionPopup.dialog.voiceSampleCount": "{count} voice samples",
-  "transcript.captionPopup.dialog.voiceSampleHelp": "Add voice samples under People & Things person details (only your own voice or a voice with the person’s consent)."
+  "transcript.captionPopup.dialog.voiceSampleHelp": "Add voice samples under People & Things person details (only your own voice or a voice with the person’s consent).",
+  "transcript.captionPopup.speakers.fallback.message": "Could not separate into {requested} speakers; used {used} detected voices instead.",
+  "transcript.captionPopup.speakers.prepareFailed.error": "Preparation failed",
+  "transcript.captionPopup.speakers.shortVoice.note": "Voice is very short (under 3 seconds or 3% of the total)."
 }

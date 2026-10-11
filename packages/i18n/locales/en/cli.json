@@ -728,5 +728,7 @@
   "cli.help.commands.speakers": "  speakers               Review and save speaker names and person links",
   "cli.help.commands.speakersHelp": "  speakers               Review and save speaker names and person links",
   "cli.help.commands.toolsVoice": "  tools install voice    Prepare the voice engine for speaker separation",
-  "cli.help.commands.toolsVoiceHelp": "  tools install voice    Prepare the voice engine for speaker separation"
+  "cli.help.commands.toolsVoiceHelp": "  tools install voice    Prepare the voice engine for speaker separation",
+  "cli.speakers.scriptMissing.error": "akari speakers script not found. Reinstall the complete AKARI Video:",
+  "cli.tools.scriptMissing.error": "akari tools script not found. Reinstall the complete AKARI Video:"
 }

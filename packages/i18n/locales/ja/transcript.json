@@ -717,6 +717,7 @@
   "transcript.captionPopup.dialog.notCompared": "照らしていません",
   "transcript.captionPopup.dialog.onePerson": "1 人",
   "transcript.captionPopup.dialog.personCount": "{count} 人",
+  "transcript.captionPopup.dialog.personInitialFallback": "・",
   "transcript.captionPopup.dialog.prepare": "準備する",
   "transcript.captionPopup.dialog.prepareFailed": "準備できませんでした",
   "transcript.captionPopup.dialog.retry": "もう一度",
@@ -747,5 +748,8 @@
   "transcript.captionPopup.dialog.voiceMissing": "声のエンジンが見つかりません",
   "transcript.captionPopup.dialog.voicePreparing": " 準備しています…",
   "transcript.captionPopup.dialog.voiceSampleCount": "声のサンプル {count} 本",
-  "transcript.captionPopup.dialog.voiceSampleHelp": "声のサンプルは『人とモノ』の人物の詳細で足せます（本人の声か、本人の同意を得た声だけ）。"
+  "transcript.captionPopup.dialog.voiceSampleHelp": "声のサンプルは『人とモノ』の人物の詳細で足せます（本人の声か、本人の同意を得た声だけ）。",
+  "transcript.captionPopup.speakers.fallback.message": "指定の {requested} 人には分けられなかったので、声から見た {used} 人で分けました",
+  "transcript.captionPopup.speakers.prepareFailed.error": "準備できませんでした",
+  "transcript.captionPopup.speakers.shortVoice.note": "声がごく短い（3 秒未満か全体の 3% 未満）"
 }
