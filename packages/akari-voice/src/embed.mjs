@@ -1,4 +1,5 @@
 import { fbank } from './fbank.mjs';
+import { VOICE_IDENTIFY_UNAVAILABLE_MESSAGE } from './voice-home.mjs';
 
 export const EMBEDDING_KEY = Object.freeze({ model: 'wespeaker-voxceleb-resnet34-LM', space: 'wespeaker/voxceleb_resnet34_LM', preprocess: 'akari.voice/hamming-cmn-tile10-v1' });
 
@@ -58,6 +59,7 @@ export function decodeEmbedding(base64) {
 }
 
 export async function createEmbedder(runtime, modelPath) {
+  if (!runtime.ort) throw new Error(VOICE_IDENTIFY_UNAVAILABLE_MESSAGE);
   const session = await runtime.ort.InferenceSession.create(modelPath, { intraOpNumThreads: 2 });
   return {
     async embed(samples, cmnMean) {

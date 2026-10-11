@@ -338,6 +338,8 @@ export function describeCliHelp() {
     '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
     '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
     '  doctor [--json]        必須部品の実在と解決元を診断する',
+    '  speakers               話者の名前と人物の対応を確認・保存する',
+    '  tools install voice    話者分離に使う声のエンジンを準備する',
     '  update [--force]       更新を確認する（--force で install.sh 経路の本体を入れ直す）',
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',

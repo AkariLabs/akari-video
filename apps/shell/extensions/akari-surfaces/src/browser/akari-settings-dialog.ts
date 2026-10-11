@@ -2297,6 +2297,14 @@ export class AkariSettingsCommandContribution implements CommandContribution {
                 throw new Error('Unknown status service');
             }
         });
+        commands.registerCommand({ id: 'akari.tools.install' }, {
+            execute: (id: unknown) => {
+                if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(TOOL_ICONS, id)) {
+                    throw new Error('不明な道具です');
+                }
+                return this.tools.installTool(id as AkariToolId);
+            }
+        });
         commands.registerCommand({ id: 'akari.settings.open', label: 'AKARI Video の設定' }, {
             execute: (arg?: unknown) => {
                 const section = resolveSettingsSectionId(arg);

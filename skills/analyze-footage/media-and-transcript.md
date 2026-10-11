@@ -47,14 +47,16 @@ akari media transcribe "$SOURCE" --in 120 --out 180 --lang ja
 
 既定は旗なしで文字起こしし、話者を分けない。話者分離を聞くのは、依頼されたとき、または対談・インタビュー・掛け合いなど 2 人以上の声がありそうなときだけ。1 人の語りでは聞かない。聞くのは「何人ですか（わからなければ自動）」という人数だけで、`--diarize --speakers <n|auto>` を指定する。
 
+Intel Mac では話者を分けられるが、声の照合はできない。`--identify` を指定しても分離結果を使い、照合は飛ばす。
+
 ```bash
 akari media transcribe "$SOURCE" --diarize --speakers 2
 akari media transcribe "$SOURCE" --diarize --speakers auto --identify
-node packages/akari-tools/bin/speakers.mjs set "$SOURCE" A --person channel/p-123
-node packages/akari-tools/bin/speakers.mjs list "$SOURCE"
+akari speakers set "$SOURCE" A --person channel/p-123
+akari speakers list "$SOURCE"
 ```
 
-`--identify` で照らすのは、チャンネルの人物に同意済み（`self` / `subject`）の声の見本がある人だけ。結果は提案で、名前を決めるのは人である。`strong` でも確認してから `akari speakers set`（現時点では上記の Node 入口）で書く。`maybe` は候補として並べて確認し、`none` には名前を付けない。声のエンジンが無く exit 2 になったときは話者を推測せず、案内文どおり `akari tools install voice` かアプリの「字幕を作る」からの準備を案内して止まる。旗、出力、保存先は[話者分離の契約](../../docs/contract-2026-10-11-speaker-split-v0.md)に従う。
+`--identify` で照らすのは、チャンネルの人物に同意済み（`self` / `subject`）の声の見本がある人だけ。結果は提案で、名前を決めるのは人である。`strong` でも確認してから `akari speakers set` で書く。`maybe` は候補として並べて確認し、`none` には名前を付けない。声のエンジンが無く exit 2 になったときは話者を推測せず、案内文どおり `akari tools install voice` かアプリの「字幕を作る」からの準備を案内して止まる。旗、出力、保存先は[話者分離の契約](../../docs/contract-2026-10-11-speaker-split-v0.md)に従う。
 
 ### 承認制クラウド
 

@@ -53,6 +53,29 @@ export function clusterCountFor(speakers) {
   throw new Error('話者数は auto または 1〜4 で指定してください');
 }
 
+export function diarizeCountFallbackMessage(requested, used) {
+  return `指定の ${requested} 人に分けられなかったので、自動で分けた結果（${used} 人）を使います`;
+}
+
+export async function diarizeToCount(diarize, samples, speakers, threshold = DIARIZE_THRESHOLD) {
+  const count = clusterCountFor(speakers);
+  const run = async numClusters => {
+    const turns = await diarize(samples, { numClusters, threshold });
+    return { turns, used: new Set(turns.map(turn => turn.speaker)).size };
+  };
+  if (count === -1 || count === 1) {
+    const { turns, used } = await run(count);
+    return { turns, requested: speakers === 'auto' ? 'auto' : Number(speakers), used, fallback: false };
+  }
+  const auto = await run(-1);
+  if (auto.used === count) return { turns: auto.turns, requested: count, used: count, fallback: false };
+  for (const numClusters of [count, count + 1, count + 2]) {
+    const result = await run(numClusters);
+    if (result.used === count) return { turns: result.turns, requested: count, used: count, fallback: false };
+  }
+  return { turns: auto.turns, requested: count, used: auto.used, fallback: true };
+}
+
 export function createDiarizer(runtime, { segmentationModel, embeddingModel, numClusters = -1, threshold = DIARIZE_THRESHOLD }) {
   const engine = new runtime.sherpa.OfflineSpeakerDiarization({
     segmentation: { pyannote: { model: segmentationModel }, numThreads: 4, debug: 0 },

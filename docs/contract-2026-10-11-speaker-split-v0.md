@@ -9,7 +9,7 @@ akari media transcribe <target> [--diarize] [--speakers auto|1|2|3|4] [--identif
 ```
 
 - 旗なしでは通常の文字起こしを行う。結果 JSON と ASR のキャッシュの鍵は従来どおりである。
-- `--diarize` は話者を分ける。`--speakers` の既定は `auto`。`1`〜`3` はクラスタ数を指定し、`4` は「4 人以上」として自動判定する。`--speakers` だけでも話者分離を有効にする。
+- `--diarize` は話者を分ける。`--speakers` の既定は `auto`。`1`〜`3` はクラスタ数を指定し、`4` は「4 人以上」として自動判定する。`--speakers` だけでも話者分離を有効にする。`2`〜`3` を指定して、その人数ちょうどに分けられないときは自動の結果に戻し、そのことを標準エラーに 1 行示す。
 - `--identify` は人物の声と照らす。話者分離も有効にする。`--people` は照合に使う `people.json` を指定し、これだけでも `--identify` と話者分離を有効にする。省略時は対象プロジェクトが `channels/<c>/videos/<p>/` にあれば、そのチャンネルの `people.json` を使う。見つからなければ警告を出し、照合を省く。
 - 声のエンジンが無い場合は exit 2 で `話者を分けるには準備が要ります（akari tools install voice か、アプリの『字幕を作る』から）` と案内する。通常の文字起こしには声のエンジンを要求しない。
 
@@ -68,11 +68,13 @@ akari speakers set <target> <A> --person <channel>/<id> | --name <名前> | --cl
 akari speakers list <target> [--json]
 ```
 
-`set` は人が確認した結果をプロジェクトの `.akari/dictionary.json` の `speakers.<id> = { name, person }` に書く。`--name` だけなら `name` を保存し、既存の `person` は保持する。`--person` で人物を決め、声の側ファイルがある場合は `voices.json` の `decided` にその人物参照を保存する。`--clear` は辞書の決定と側ファイルの `decided` を消す。`list` は秒数、提案、決定を表示し、`--json` なら JSON で返す。実装の入口は `packages/akari-tools/bin/speakers.mjs`。ランチャーから `akari speakers` として呼べるようになるまでは `node packages/akari-tools/bin/speakers.mjs` で実行する。
+`set` は人が確認した結果をプロジェクトの `.akari/dictionary.json` の `speakers.<id> = { name, person }` に書く。`--name` だけなら `name` を保存し、既存の `person` は保持する。`--person` で人物を決め、声の側ファイルがある場合は `voices.json` の `decided` にその人物参照を保存する。`--clear` は辞書の決定と側ファイルの `decided` を消す。`list` は秒数、提案、決定を表示し、`--json` なら JSON で返す。実装の入口は `packages/akari-tools/bin/speakers.mjs`。ランチャーから `akari speakers` として実行する。
 
 ## 声のエンジン
 
-実行時の部品 `sherpa-onnx-node`、対応プラットフォームの `sherpa-onnx-<plat>`（Windows は `sherpa-onnx-win-x64`）、`onnxruntime-node` と、WeSpeaker ResNet34-LM、pyannote segmentation 3.0、Silero VAD の 3 モデルはアプリに同梱しない。初回に `akari tools install voice` またはアプリの「字幕を作る」から `<AKARI_HOME>/tools/voice/` へ取得する契約である。取得導線は別工程で、この版の実装は配置済みエンジンの検出と利用までを担う。実装が認識する形は `manifest.json`、`runtime/<platform>-<arch>/node_modules/`、`models/`。`AKARI_VOICE_HOME` で置き場を差し替えられる。対応する環境は `win32-x64`、`darwin-arm64`、`darwin-x64` である。
+実行時の部品 `sherpa-onnx-node`、対応プラットフォームの `sherpa-onnx-<plat>`（Windows は `sherpa-onnx-win-x64`）、`onnxruntime-node` と、WeSpeaker ResNet34-LM、pyannote segmentation 3.0、Silero VAD の 3 モデルはアプリに同梱しない。初回に `akari tools install voice` またはアプリの「字幕を作る」から `<AKARI_HOME>/tools/voice/` へ取得する。実装が認識する形は `manifest.json`、`runtime/<platform>-<arch>/node_modules/`、`models/`。`AKARI_VOICE_HOME` で置き場を差し替えられる。対応する環境は `win32-x64`、`darwin-arm64`、`darwin-x64` である。
+
+Intel Mac（`darwin-x64`）では話者を分けられるが、声の照合はできない。この環境では `onnxruntime-node` と `onnxruntime-common` を準備の必須条件にしない。
 
 `key.preprocess` の `hamming-cmn-tile10-v1` は、Kaldi 互換の fbank に hamming 窓を使い、録音全体の特徴量平均を引き、10 秒未満の発話を敷き詰めてから WeSpeaker に渡す処理を指す。照合用の埋め込みは `onnxruntime-node` で作る。
 

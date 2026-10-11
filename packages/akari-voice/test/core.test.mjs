@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   fbank, windowValues, fbankMean, subtractMean, tileSamples, encodeEmbedding, decodeEmbedding,
-  relabelTurns, assignSpeakers, speakerTracks, speakerSeconds, mergeSpeakers, clusterCountFor,
+  createEmbedder, VOICE_IDENTIFY_UNAVAILABLE_MESSAGE,
+  relabelTurns, assignSpeakers, speakerTracks, speakerSeconds, mergeSpeakers, clusterCountFor, diarizeToCount,
   speakerLabel, levelFor, suggestFor, bundleBySuggestion, voiceEngineStatus,
   channelPeopleForProject, readChannelPeople, loadCentroids, buildVoicesFile, writeVoicesFile,
   readVoicesFile, setDecided, writeSpeakerEntry, readSpeakerDictionary, dictionaryPathFor,
@@ -110,6 +111,59 @@ test('声の置き場の ready、missing、unsupported', t => {
   assert.equal(voiceEngineStatus({ home, platform: 'linux', arch: 'x64' }).status, 'unsupported');
   fs.writeFileSync(path.join(home, 'manifest.json'), '{');
   assert.ok(voiceEngineStatus({ home, platform: 'win32', arch: 'x64' }).missing.includes('manifest.json'));
+});
+
+test('Intel Mac は ORT なしで分離でき、Windows は ORT を必要とする', t => {
+  const home = scratch(t);
+  const files = ['manifest.json', ...['wespeaker_en_voxceleb_resnet34_LM.onnx', 'pyannote-segmentation-3.0.onnx', 'silero_vad.onnx'].map(name => `models/${name}`)];
+  for (const key of ['darwin-x64', 'win32-x64']) {
+    const native = key === 'win32-x64' ? 'sherpa-onnx-win-x64' : 'sherpa-onnx-darwin-x64';
+    files.push(...['sherpa-onnx-node', native].map(name => `runtime/${key}/node_modules/${name}/package.json`));
+  }
+  for (const name of files) {
+    const file = path.join(home, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, name === 'manifest.json' ? '{}' : '');
+  }
+  const mac = voiceEngineStatus({ home, platform: 'darwin', arch: 'x64' });
+  assert.equal(mac.status, 'ready');
+  assert.equal(mac.canIdentify, false);
+  const windows = voiceEngineStatus({ home, platform: 'win32', arch: 'x64' });
+  assert.equal(windows.status, 'missing');
+  assert.equal(windows.canIdentify, false);
+  assert.ok(windows.missing.some(name => name.includes('onnxruntime-node')));
+});
+
+test('照合用ランタイムが無い場合は共通の案内で拒む', async () => {
+  await assert.rejects(createEmbedder({ ort: null }, 'model.onnx'),
+    error => error.message === VOICE_IDENTIFY_UNAVAILABLE_MESSAGE);
+});
+
+test('人数指定は自動結果を優先し、必要なときだけ再試行する', async () => {
+  const turns = n => Array.from({ length: n }, (_, speaker) => ({ start: speaker, end: speaker + 1, speaker }));
+  const calls = [];
+  const run = resultByCluster => async (_samples, { numClusters }) => {
+    calls.push(numClusters);
+    return turns(resultByCluster[numClusters]);
+  };
+  const samples = new Float32Array(1);
+  let result = await diarizeToCount(run({ [-1]: 2 }), samples, 2);
+  assert.deepEqual(calls, [-1]);
+  assert.deepEqual([result.used, result.fallback], [2, false]);
+  calls.length = 0;
+  result = await diarizeToCount(run({ [-1]: 2, 3: 2, 4: 3 }), samples, 3);
+  assert.deepEqual(calls, [-1, 3, 4]);
+  assert.deepEqual([result.used, result.fallback], [3, false]);
+  calls.length = 0;
+  result = await diarizeToCount(run({ [-1]: 2, 3: 2, 4: 4, 5: 4 }), samples, 3);
+  assert.deepEqual(calls, [-1, 3, 4, 5]);
+  assert.deepEqual([result.requested, result.used, result.fallback, result.turns.length], [3, 2, true, 2]);
+  for (const [speakers, expected] of [[1, 1], ['auto', -1], [4, -1]]) {
+    calls.length = 0;
+    result = await diarizeToCount(run({ [expected]: 1 }), samples, speakers);
+    assert.deepEqual(calls, [expected]);
+    assert.equal(result.fallback, false);
+  }
 });
 
 test('チャンネルの位置と同意のある見本だけを読む', t => {

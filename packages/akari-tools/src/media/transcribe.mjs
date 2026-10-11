@@ -92,13 +92,16 @@ async function prepareVoice(options) {
   if ((typeof status === "string" ? status : status?.status) !== "ready") {
     throw Object.assign(new Error(voice.VOICE_MISSING_MESSAGE), { exitCode: 2 });
   }
-  if (options.voiceEngine) return { api: voice, engine: options.voiceEngine, version: options.voiceEngine.version ?? voice.VOICE_ENGINE_VERSION };
+  if (options.voiceEngine) return { api: voice, engine: options.voiceEngine,
+    canIdentify: (typeof status === "string" ? options.voiceEngine.canIdentify : status.canIdentify) !== false,
+    version: options.voiceEngine.version ?? voice.VOICE_ENGINE_VERSION };
   const runtime = voice.loadVoiceRuntime(status);
   const embeddingModel = path.join(status.modelsDir, "wespeaker_en_voxceleb_resnet34_LM.onnx");
   const diarizers = new Map();
-  const embedder = await voice.createEmbedder(runtime, embeddingModel);
+  const embedder = status.canIdentify ? await voice.createEmbedder(runtime, embeddingModel) : null;
   return {
     api: voice,
+    canIdentify: status.canIdentify,
     version: voice.voiceEngineVersion(status.manifest),
     engine: {
       diarize(samples, { numClusters, threshold }) {
@@ -108,7 +111,7 @@ async function prepareVoice(options) {
         }));
         return diarizers.get(numClusters).process(samples);
       },
-      embed: (samples, mean) => embedder.embed(samples, mean),
+      embed: (samples, mean) => embedder?.embed(samples, mean),
     },
   };
 }
@@ -119,33 +122,44 @@ function voiceLog(options, message) {
 
 async function attachVoice(result, { target, range, sha256, ffmpeg, options, voice }) {
   const started = performance.now();
-  const { api, engine } = voice;
+  const { api, engine, canIdentify } = voice;
   const speakers = options.speakers ?? "auto";
   const cacheDirectory = target.projectRoot
     ? path.join(target.projectRoot, ".akari", "cache", "diarize")
     : path.join(os.tmpdir(), "akari-diarize-cache");
-  const key = createHash("sha256").update(JSON.stringify([sha256, range.in, range.out, speakers, voice.version])).digest("hex");
+  const fixedCount = api.clusterCountFor(speakers);
+  const key = createHash("sha256").update(JSON.stringify([sha256, range.in, range.out, speakers, voice.version,
+    ...([2, 3].includes(fixedCount) ? ["count-v2"] : [])])).digest("hex");
   const cachePath = path.join(cacheDirectory, `${key}.json`);
   const decode = options.voiceDecode ?? ((file, start, duration) => api.decodeAudio16k({ ffmpeg, file, start, duration }));
   const readStarted = performance.now();
   const samples = await decode(target.inputPath, range.in, range.out - range.in);
   const readSeconds = (performance.now() - readStarted) / 1000;
   let turns;
-  if (existsSync(cachePath)) turns = JSON.parse(await readFile(cachePath, "utf8")).turns;
-  else {
-    const raw = await engine.diarize(samples, { numClusters: api.clusterCountFor(speakers), threshold: api.DIARIZE_THRESHOLD });
-    turns = api.relabelTurns(raw).map(turn => ({ ...turn, start: formatNumber(turn.start + range.in), end: formatNumber(turn.end + range.in) }));
-    await mkdir(cacheDirectory, { recursive: true });
-    await writeFile(cachePath, `${JSON.stringify({ turns }, null, 2)}\n`, "utf8");
+  let countResult;
+  if (existsSync(cachePath)) {
+    const cached = JSON.parse(await readFile(cachePath, "utf8"));
+    turns = cached.turns;
+    countResult = cached.countResult;
   }
+  else {
+    countResult = await api.diarizeToCount(engine.diarize.bind(engine), samples, speakers, api.DIARIZE_THRESHOLD);
+    turns = api.relabelTurns(countResult.turns).map(turn => ({ ...turn, start: formatNumber(turn.start + range.in), end: formatNumber(turn.end + range.in) }));
+    await mkdir(cacheDirectory, { recursive: true });
+    await writeFile(cachePath, `${JSON.stringify({ turns, countResult: {
+      requested: countResult.requested, used: countResult.used, fallback: countResult.fallback,
+    } }, null, 2)}\n`, "utf8");
+  }
+  if (countResult?.fallback) voiceLog(options, api.diarizeCountFallbackMessage(countResult.requested, countResult.used));
   let embeddings = {};
-  try {
+  if (!canIdentify && (options.identify || options.people)) voiceLog(options, api.VOICE_IDENTIFY_UNAVAILABLE_MESSAGE);
+  if (canIdentify) try {
     embeddings = await api.embedSpeakers({ embedder: { embed: (audio, mean) => engine.embed(audio, mean) }, samples, turns, offsetSeconds: range.in });
   } catch (error) {
     voiceLog(options, `話者の特徴量: ${error.message}`);
   }
   let identify;
-  if (options.identify) {
+  if (options.identify && canIdentify) {
     const located = options.people
       ? { peoplePath: path.resolve(options.cwd ?? process.cwd(), options.people), channel: path.basename(path.dirname(path.resolve(options.cwd ?? process.cwd(), options.people))) }
       : api.channelPeopleForProject(target.projectRoot ?? "");
@@ -182,7 +196,7 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
     const entries = Object.fromEntries(ids.filter(id => embeddings[id]?.length === 256).map(id => [id, {
       seconds: seconds[id], embedding: embeddings[id], suggestion: identify?.suggestions[id],
     }]));
-    api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries }));
+    if (canIdentify) api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries }));
     if (!options.noRecord) await updateAnalysisTranscript(target, (before, analysis) => {
       analysis.tracks ??= { speakers: [], faces: [], person_matte: null };
       const oldTracks = Array.isArray(analysis.tracks.speakers) ? analysis.tracks.speakers : [];

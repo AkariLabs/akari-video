@@ -27,7 +27,7 @@ export interface SpeakerReviewRow {
     decided?: string;
 }
 
-export const VOICE_ENGINE_DOWNLOAD_MB = 70; // 実行時エンジン約 34 MB とモデル 3 つの仮の合計。
+export const VOICE_ENGINE_DOWNLOAD_MB = 160; // 実測（取得する npm 包とモデル 3 つの合計）。
 export const SPEAKER_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b'];
 
 export function captionPopupStepNames(split: boolean): string[] {

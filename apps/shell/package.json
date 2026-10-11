@@ -210,10 +210,20 @@
           "bin/finger-frame/**/*",
           "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
+          "bin/speakers.mjs",
+          "bin/tools.mjs",
           "bin/probe-frame.mjs",
           "bin/render-when-idle.mjs",
           "bin/word-book.mjs",
           "bin/world.mjs",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/akari-voice",
+        "to": "packages/akari-voice",
+        "filter": [
+          "package.json",
           "src/**/*"
         ]
       },

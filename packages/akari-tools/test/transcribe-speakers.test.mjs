@@ -135,6 +135,30 @@ test("エンジンが無い場合は ASR の前に終了コード 2 を返す", 
   assert.equal(f.calls.asr, 0);
 });
 
+test("人数が合わない場合は自動分離へ戻し、一行で知らせる", async t => {
+  const f = await fixture(t);
+  const warnings = [];
+  const result = await transcribeMedia(f.target, { ...f.options, speakers: 3, stderr: line => warnings.push(line) });
+  assert.equal(result.speakers.count, 2);
+  assert.equal(f.calls.diarize, 4);
+  assert.deepEqual(warnings.filter(line => line.includes("指定の 3 人")), [
+    "指定の 3 人に分けられなかったので、自動で分けた結果（2 人）を使います",
+  ]);
+});
+
+test("照合できない環境でも分離結果を返し、照合だけ飛ばす", async t => {
+  const f = await fixture(t);
+  f.engine.status = { status: "ready", canIdentify: false };
+  const warnings = [];
+  const result = await transcribeMedia(f.target, { ...f.options, identify: true, stderr: line => warnings.push(line) });
+  assert.equal(result.speakers.count, 2);
+  assert.equal(Object.hasOwn(result.speakers, "identify"), false);
+  assert.equal(f.calls.embed, 0);
+  assert.deepEqual(warnings.filter(line => line.includes("この Mac では")), [
+    "この Mac では声の照合はできません（話者を分けることはできます）",
+  ]);
+});
+
 test("media の旗は含意と値の検証を行う", async t => {
   const f = await fixture(t);
   for (const args of [["--speakers", "2"], ["--people", "missing.json"]]) {
