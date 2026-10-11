@@ -1,0 +1,220 @@
+[
+  {
+    "start": 0,
+    "end": 1.9,
+    "text": "Hey everyone, um, okay, let me start over.",
+    "words": [
+      {
+        "start": 0,
+        "end": 0.3,
+        "text": "Heyeveryone"
+      },
+      {
+        "start": 0.3,
+        "end": 0.5,
+        "text": ",um"
+      },
+      {
+        "start": 0.5,
+        "end": 0.7,
+        "text": ",okay"
+      },
+      {
+        "start": 0.7,
+        "end": 0.75,
+        "text": ","
+      },
+      {
+        "start": 0.8,
+        "end": 0.9,
+        "text": "letme"
+      },
+      {
+        "start": 1,
+        "end": 1.1,
+        "text": "start"
+      },
+      {
+        "start": 1.1,
+        "end": 1.3,
+        "text": "over."
+      }
+    ]
+  },
+  {
+    "start": 2,
+    "end": 4.9,
+    "text": "I set up a little corner. A fist away from your mouth.",
+    "words": [
+      {
+        "start": 2,
+        "end": 2.1,
+        "text": "I"
+      },
+      {
+        "start": 2.1,
+        "end": 2.25,
+        "text": "set"
+      },
+      {
+        "start": 2.25,
+        "end": 2.35,
+        "text": "up"
+      },
+      {
+        "start": 2.4,
+        "end": 2.7,
+        "text": "alittle"
+      },
+      {
+        "start": 2.7,
+        "end": 2.9,
+        "text": "corner"
+      },
+      {
+        "start": 2.9,
+        "end": 3.1,
+        "text": ".A"
+      },
+      {
+        "start": 3.1,
+        "end": 3.3,
+        "text": "fist"
+      },
+      {
+        "start": 3.3,
+        "end": 3.5,
+        "text": "away"
+      },
+      {
+        "start": 3.5,
+        "end": 3.7,
+        "text": "from"
+      },
+      {
+        "start": 3.8,
+        "end": 4.05,
+        "text": "yourmouth."
+      }
+    ]
+  },
+  {
+    "start": 5,
+    "end": 7.6,
+    "text": "I'd really like to hear it. Okay, see you next week.",
+    "words": [
+      {
+        "start": 5,
+        "end": 5.1,
+        "text": "I"
+      },
+      {
+        "start": 5.1,
+        "end": 5.15,
+        "text": "'d"
+      },
+      {
+        "start": 5.2,
+        "end": 5.5,
+        "text": "really"
+      },
+      {
+        "start": 5.6,
+        "end": 6,
+        "text": "liketohear"
+      },
+      {
+        "start": 6.1,
+        "end": 6.2,
+        "text": "it"
+      },
+      {
+        "start": 6.2,
+        "end": 7.15,
+        "text": ".Okay,seeyou"
+      },
+      {
+        "start": 7.2,
+        "end": 7.3,
+        "text": "next"
+      },
+      {
+        "start": 7.3,
+        "end": 7.45,
+        "text": "week"
+      },
+      {
+        "start": 7.45,
+        "end": 7.6,
+        "text": "."
+      }
+    ]
+  },
+  {
+    "start": 8,
+    "end": 10,
+    "text": "That's, that's what it is. I've seen it, haven't I?",
+    "words": [
+      {
+        "start": 8,
+        "end": 8.2,
+        "text": "That's,that"
+      },
+      {
+        "start": 8.2,
+        "end": 8.3,
+        "text": "'s"
+      },
+      {
+        "start": 8.4,
+        "end": 8.7,
+        "text": "what"
+      },
+      {
+        "start": 8.7,
+        "end": 8.8,
+        "text": "it"
+      },
+      {
+        "start": 8.8,
+        "end": 9,
+        "text": "is"
+      },
+      {
+        "start": 9,
+        "end": 9.2,
+        "text": ".I"
+      },
+      {
+        "start": 9.2,
+        "end": 9.25,
+        "text": "'ve"
+      },
+      {
+        "start": 9.3,
+        "end": 9.5,
+        "text": "seen"
+      },
+      {
+        "start": 9.5,
+        "end": 9.65,
+        "text": "it"
+      },
+      {
+        "start": 9.65,
+        "end": 9.9,
+        "text": ",haven"
+      },
+      {
+        "start": 9.9,
+        "end": 9.95,
+        "text": "'tI?"
+      }
+    ]
+  },
+  {
+    "start": 11,
+    "end": 11.1,
+    "text": "Bye."
+  }
+]

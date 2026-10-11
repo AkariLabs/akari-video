@@ -44,6 +44,11 @@ const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
 const speechAnalyzerRequirements = (language) => toolsText('tools.transcribe.error.speechRequirements', {}, language);
 const SPEECH_LOCALES = Object.freeze({ en: "en-US", ja: "ja-JP", de: "de-DE", es: "es-ES", fr: "fr-FR", it: "it-IT", pt: "pt-BR", ko: "ko-KR", yue: "yue-CN", zh: "zh-CN" });
+const languageNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
+const knownLanguage = (tag) => {
+  const code = normalizeLanguage(tag);
+  return code && languageNames.of(code) ? code : null;
+};
 export const speechLocaleForLanguage = (lang) => SPEECH_LOCALES[normalizeLanguage(lang)] ?? null;
 export const WHISPER_FILLER_PROMPT = "Um, uh, erm, uhm, hmm, like, you know, I mean, sort of, kind of.";
 
@@ -522,7 +527,7 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   }
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
   if (!jsonPath) throw new Error(toolsText('tools.transcribe.error.jsonMissing', {}, options.uiLanguage));
-  return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8"))), dtw };
+  return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8")), lang), dtw };
 }
 
 export function whisperArguments(model, input, lang, output, options = {}) {
@@ -547,15 +552,22 @@ function runCloud(wavPath, projectRoot, connectionId, range, options) {
   }
 }
 
-export function normalizeWhisperJson(value) {
+export function normalizeWhisperJson(value, language = "ja") {
+  const requestedLanguage = knownLanguage(language);
+  const detectedLanguage = [value.result?.language, value.result?.lang, value.language,
+    value.detected_language, value.metadata?.language]
+    .map(knownLanguage).find(Boolean);
+  const resolvedLanguage = requestedLanguage ?? detectedLanguage ?? "ja";
+  const spacedWords = resolvedLanguage !== "ja" && resolvedLanguage !== "zh";
   const source = value.transcription ?? value.segments ?? [];
   return source.map((segment) => {
     const start = Number(segment.offsets?.from ?? segment.start) / (segment.offsets ? 1000 : 1);
     const end = Number(segment.offsets?.to ?? segment.end) / (segment.offsets ? 1000 : 1);
     const markers = [];
-    const words = [];
-    let pending = null;
-    for (const token of segment.tokens ?? segment.words ?? []) {
+    const words = spacedWords ? normalizeSpacedWhisperWords(segment, markers, start, end) : [];
+    if (!spacedWords) {
+      let pending = null;
+      for (const token of segment.tokens ?? segment.words ?? []) {
       const wordStart = Number(token.offsets?.from ?? token.start) / (token.offsets ? 1000 : 1);
       const wordEnd = Number(token.offsets?.to ?? token.end) / (token.offsets ? 1000 : 1);
       const markerKind = classifyWhisperMarker(token.text);
@@ -573,11 +585,13 @@ export function normalizeWhisperJson(value) {
       }
       words.push({ start: pending?.start ?? wordStart, end: wordEnd, text: (pending?.text ?? "") + text });
       pending = null;
+      }
+      if (pending && words.length) words.at(-1).text += pending.text;
     }
-    if (pending && words.length) words.at(-1).text += pending.text;
     const text = String(segment.text ?? "").replace(/\uFFFD/g, "").trim();
     const useWords = words.length && words.every((word) => word.end > word.start)
-      && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "");
+      && (spacedWords ? words.map((word) => word.text).join(" ").replace(/\s+/gu, " ").trim() === text.replace(/\s+/gu, " ").trim()
+        : words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, ""));
     return {
       start,
       end,
@@ -586,6 +600,64 @@ export function normalizeWhisperJson(value) {
       ...(markers.length ? { markers } : {}),
     };
   });
+}
+
+function normalizeSpacedWhisperWords(segment, markers, segmentStart, segmentEnd) {
+  const words = [];
+  for (const token of segment.tokens ?? segment.words ?? []) {
+    const start = Number(token.offsets?.from ?? token.start) / (token.offsets ? 1000 : 1);
+    const end = Number(token.offsets?.to ?? token.end) / (token.offsets ? 1000 : 1);
+    const markerKind = classifyWhisperMarker(token.text);
+    if (markerKind === "non-speech") {
+      if (end > start) markers.push({ start, end });
+      continue;
+    }
+    if (markerKind === "control") continue;
+    const rawText = String(token.text ?? "").replace(/\uFFFD/g, "");
+    const text = rawText.trim();
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end)) continue;
+    if (/^\s/u.test(rawText) || !words.length) words.push({ start, end: end > start ? end : start, text });
+    else {
+      const last = words.at(-1);
+      last.text += text;
+      if (end > start && /[\p{L}\p{N}]/u.test(text)) last.end = Math.max(last.end, end);
+    }
+  }
+
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    if (word.end > word.start) continue;
+    let next = index + 1;
+    while (next < words.length && words[next].start <= word.start && words[next].end <= word.start) next += 1;
+    if (next < words.length && words[next].start > word.start) {
+      const duration = (words[next].start - word.start) / (next - index);
+      for (let at = index; at < next; at += 1) {
+        words[at].start = word.start + duration * (at - index);
+        words[at].end = word.start + duration * (at - index + 1);
+      }
+      index = next - 1;
+    } else {
+      const limit = next < words.length ? words[next].end : segmentEnd;
+      if (limit > word.start) {
+        const duration = (limit - word.start) / (next - index + (next < words.length ? 1 : 0));
+        for (let at = index; at < next + (next < words.length ? 1 : 0); at += 1) {
+          words[at].start = word.start + duration * (at - index);
+          words[at].end = word.start + duration * (at - index + 1);
+        }
+        index = next;
+      } else if (index > 0 && words[index - 1].end > words[index - 1].start) {
+        const previous = words[index - 1];
+        const middle = (previous.start + previous.end) / 2;
+        previous.end = middle;
+        word.start = middle;
+        word.end = Math.max(segmentEnd, middle + 0.001);
+      } else {
+        word.start = Math.min(segmentStart, word.start);
+        word.end = Math.max(segmentEnd, word.start + 0.001);
+      }
+    }
+  }
+  return words;
 }
 
 function normalizeSegments(segments, range) {
@@ -779,7 +851,9 @@ function safeCacheName(value) {
 
 function cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt }) {
   const promptKey = typeof whisperPrompt === 'string' && whisperPrompt ? `-prompt-${createHash('sha256').update(whisperPrompt).digest('hex').slice(0, 12)}` : lang === 'en' && whisperPrompt === true ? '-filler-prompt' : '';
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? promptKey : ''}`;
+  const normalized = knownLanguage(lang);
+  const wordKey = backend === 'whisper-cpp' && normalized && !['ja', 'zh'].includes(normalized) ? '-words3' : '';
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? promptKey : ''}${wordKey}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }
 

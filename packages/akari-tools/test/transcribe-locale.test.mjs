@@ -103,7 +103,7 @@ test("Japanese lexicon stays fixed; English high and low confidence are distinct
   assert.equal(countFillerHits("album umbrella", "en"), 0);
 });
 
-test("English cuts use word repeats and restart phrase; low-confidence fillers stay off", async (t) => {
+test("English cuts detect repeats and restart phrases; candidates without quiet boundaries stay off", async (t) => {
   const f = await fixture(t, ["speech-analyzer"]);
   await writeFile(path.join(f.project, ".akari/intake.json"), JSON.stringify({ language: "en" }));
   const transcriptPath = path.join(f.directory, "transcripts/speech-analyzer.json");
@@ -112,14 +112,15 @@ test("English cuts use word repeats and restart phrase; low-confidence fillers s
   await writeFile(transcriptPath, JSON.stringify(transcript));
   await transcribeCutsMedia(f.target, { ...f.options, whisperAvailable: false, filler: "on", redo: "on", silencesRunner: async () => [] });
   const cuts = await json(path.join(f.directory, "cuts.json"));
-  assert.equal(cuts.candidates.find((item) => item.text?.toLowerCase().startsWith("um")).on, true);
+  const um = cuts.candidates.find((item) => item.text?.toLowerCase().startsWith("um"));
+  assert.deepEqual([um.on, um.default_on, um.adjacent, um.boundary_review], [false, false, true, true]);
   assert.equal(cuts.candidates.find((item) => item.text?.toLowerCase().startsWith("like")).on, false);
   assert.ok(cuts.candidates.some((item) => item.kind === "redo" && item.text.includes("I, I")));
   assert.ok(cuts.candidates.some((item) => item.kind === "redo" && item.text.includes("that's, that's")));
   assert.ok(cuts.candidates.some((item) => item.kind === "redo" && item.text.includes("let me start over")));
 });
 
-test("English restart candidates cover abandoned sentences across comma and dash forms", async (t) => {
+test("English restart candidates cover abandoned sentences but stay off without quiet boundaries", async (t) => {
   const cases = [
     ["Hey everyone, um, so this week I, okay, let me start over. Hey everyone, this week I finally made it.",
       "Hey everyone, um, so this week I, okay, let me start over."],
@@ -139,7 +140,7 @@ test("English restart candidates cover abandoned sentences across comma and dash
     assert.equal(restarts.length, 1, text);
     assert.equal(restarts[0].text, abandoned);
     assert.equal(restarts[0].start, 2);
-    assert.equal(restarts[0].on, true);
+    assert.deepEqual([restarts[0].on, restarts[0].default_on, restarts[0].boundary_review], [false, false, true]);
   }
 });
 

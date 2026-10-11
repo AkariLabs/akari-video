@@ -14,7 +14,9 @@ import {
 
 const BASIS_PRIORITY = ["cloud-scribe", "whisper-cpp", "speech-analyzer", "cloud-groq"];
 const overlap = (a, b) => a.start < b.end && a.end > b.start;
+const ALIGNED_CORE = Symbol("aligned speech word interval");
 const ENGLISH_RESTART = /\b(?:(?:okay|ok|sorry|wait|no)\b[\s,.;:—–-]*)?(?:let\s+me\s+(?:start\s+(?:over|again)|try\s+(?:that\s+)?again)|scratch\s+that|start\s+over)\b/giu;
+const NUMBER_WORDS = Object.freeze({ "1st": "first", "2nd": "second", "3rd": "third", "10": "ten", mike: "mic" });
 
 export function pickBasisByFillerHits(transcripts, language = "ja") {
   const priority = (backend) => {
@@ -88,6 +90,220 @@ function textCandidates(segments, options) {
   return candidates;
 }
 
+function timedWords(segments) {
+  return segments.flatMap((segment) => segment.words ?? [])
+    .filter((word) => Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > word.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+}
+
+function comparableWord(text) {
+  const word = String(text).toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  return NUMBER_WORDS[word] ?? word;
+}
+
+function alignEnglishWindow(basisWords, saWords) {
+  const basis = basisWords.map((word) => comparableWord(word.text));
+  const sa = saWords.map((word) => comparableWord(word.text));
+  const rows = Array.from({ length: basis.length + 1 }, () => new Uint16Array(sa.length + 1));
+  for (let i = basis.length - 1; i >= 0; i -= 1) for (let j = sa.length - 1; j >= 0; j -= 1) {
+    rows[i][j] = basis[i] && basis[i] === sa[j] && Math.abs(basisWords[i].start - saWords[j].start) <= 10
+      ? rows[i + 1][j + 1] + 1
+      : Math.max(rows[i + 1][j], rows[i][j + 1]);
+  }
+  const matched = new Map();
+  let i = 0, j = 0;
+  while (i < basis.length && j < sa.length) {
+    // If either occurrence can be skipped without reducing the match count, keep the later
+    // basis occurrence. This leaves the first "I" in "I, I" available as the redo candidate.
+    if (rows[i + 1][j] === rows[i][j]) i += 1;
+    else if (rows[i][j + 1] === rows[i][j]) j += 1;
+    else if (basis[i] && basis[i] === sa[j] && Math.abs(basisWords[i].start - saWords[j].start) <= 10) {
+      matched.set(i, j); i += 1; j += 1;
+    }
+    else { i += 1; j += 1; }
+  }
+  return matched;
+}
+
+export function alignEnglishWords(basisWords, saWords) {
+  const windowSeconds = 120;
+  const haloSeconds = 10;
+  const maxWordsPerWindow = 512;
+  const lowerBound = (words, time) => {
+    let low = 0, high = words.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (words[middle].start < time) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  const proposed = new Map();
+  if (!basisWords.length || !saWords.length) return proposed;
+  const firstWindow = Math.floor(basisWords[0].start / windowSeconds) * windowSeconds;
+  const lastTime = basisWords.at(-1).start;
+  for (let windowStart = firstWindow; windowStart <= lastTime; windowStart += windowSeconds) {
+    const coreStart = lowerBound(basisWords, windowStart);
+    const coreEnd = lowerBound(basisWords, windowStart + windowSeconds);
+    if (coreStart === coreEnd) continue;
+    const basisStart = lowerBound(basisWords, windowStart - haloSeconds);
+    const basisEnd = lowerBound(basisWords, windowStart + windowSeconds + haloSeconds);
+    const saStart = lowerBound(saWords, windowStart - haloSeconds);
+    const saEnd = lowerBound(saWords, windowStart + windowSeconds + haloSeconds);
+    // Dense or remote words remain unmatched; candidate review then favors retaining speech.
+    if (basisEnd - basisStart > maxWordsPerWindow || saEnd - saStart > maxWordsPerWindow) continue;
+    const local = alignEnglishWindow(basisWords.slice(basisStart, basisEnd), saWords.slice(saStart, saEnd));
+    for (const [basisIndex, saIndex] of local) {
+      const globalBasis = basisStart + basisIndex;
+      if (globalBasis >= coreStart && globalBasis < coreEnd) proposed.set(globalBasis, saStart + saIndex);
+    }
+  }
+  const matched = new Map();
+  let previousBasis = -1, previousSa = -1;
+  for (const [basisIndex, saIndex] of proposed) {
+    if (saIndex > previousSa) { matched.set(basisIndex, saIndex); previousBasis = basisIndex; previousSa = saIndex; }
+    else if (saIndex === previousSa) {
+      matched.delete(previousBasis);
+      matched.set(basisIndex, saIndex);
+      previousBasis = basisIndex;
+    }
+  }
+  return matched;
+}
+
+function closestSafeGap(saWords, from, to, start, end, duration) {
+  const boundaries = [saWords[from]?.end ?? 0];
+  for (let index = from + 1; index < to; index += 1) boundaries.push(saWords[index].start, saWords[index].end);
+  boundaries.push(saWords[to]?.start ?? duration);
+  const center = (start + end) / 2;
+  const gaps = [];
+  for (let index = 0; index + 1 < boundaries.length; index += 2) {
+    const left = boundaries[index], right = boundaries[index + 1];
+    if (right > left) gaps.push({ start: left, end: right,
+      distance: center < left ? left - center : center > right ? center - right : 0 });
+  }
+  return gaps.sort((a, b) => a.distance - b.distance || b.end - b.start - (a.end - a.start))[0];
+}
+
+function expandEnglishSpeechCuts(candidates, segments, silences, duration, saSegments) {
+  const words = timedWords(segments);
+  if (!words.length) return;
+  const saWords = saSegments?.length ? timedWords(saSegments) : [];
+  const aligned = saWords.length ? alignEnglishWords(words, saWords) : null;
+  const quiet = silences.filter((span) => Number.isFinite(span.start) && Number.isFinite(span.end) && span.end > span.start)
+    .sort((a, b) => a.start - b.start);
+  for (const candidate of candidates) {
+    if (candidate.kind !== "filler" && candidate.kind !== "redo") continue;
+    if (candidate.timing === "estimated") continue;
+    // Keep the identifier tied to the recognized occurrence when its proposed cut grows.
+    candidate.id = `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
+    const first = words.findIndex((word) => overlap(word, candidate));
+    const last = words.findLastIndex((word) => overlap(word, candidate));
+    if (first < 0) {
+      if (aligned) { candidate.default_on = false; candidate.alignment_review = true; }
+      continue;
+    }
+    let coreStart = candidate.start, coreEnd = candidate.end;
+    let left = words[first - 1]?.end ?? 0;
+    let right = words[last + 1]?.start ?? duration;
+    let adjacent = (words[first - 1] && coreStart - left <= 0.005)
+      || (words[last + 1] && right - coreEnd <= 0.005);
+    if (aligned) {
+      const matched = Array.from({ length: last - first + 1 }, (_, index) => aligned.get(first + index));
+      const complete = matched.every(Number.isInteger)
+        && matched.every((position, index) => index === 0 || position === matched[index - 1] + 1);
+      if (complete) {
+        coreStart = saWords[matched[0]].start;
+        coreEnd = saWords[matched.at(-1)].end;
+        candidate[ALIGNED_CORE] = { start: coreStart, end: coreEnd };
+        left = saWords[matched[0] - 1]?.end ?? 0;
+        right = saWords[matched.at(-1) + 1]?.start ?? duration;
+        adjacent = (matched[0] > 0 && coreStart - left <= 0.005)
+          || (matched.at(-1) < saWords.length - 1 && right - coreEnd <= 0.005);
+      } else {
+        let before = first - 1, after = last + 1;
+        while (before >= 0 && !aligned.has(before)) before -= 1;
+        while (after < words.length && !aligned.has(after)) after += 1;
+        const beforeSa = before < 0 ? -1 : aligned.get(before);
+        const afterSa = after === words.length ? saWords.length : aligned.get(after);
+        const safe = closestSafeGap(saWords, beforeSa, afterSa, candidate.start, candidate.end, duration);
+        if (beforeSa < 0 || afterSa === saWords.length || afterSa - beforeSa > 1) {
+          candidate.default_on = false;
+          candidate.alignment_review = true;
+        }
+        if (!safe || safe.end - safe.start <= 0.005) {
+          candidate.adjacent = true;
+          candidate.default_on = false;
+          candidate.alignment_review = true;
+          continue;
+        }
+        coreStart = left = safe.start;
+        coreEnd = right = safe.end;
+        adjacent = false;
+      }
+    }
+    if (left >= right || Math.max(left, coreStart) >= Math.min(right, coreEnd)) {
+      candidate.adjacent = true;
+      if (aligned) { candidate.default_on = false; candidate.alignment_review = true; }
+      continue;
+    }
+    const before = [...quiet].reverse().find((span) => span.start >= left && span.end <= coreStart);
+    const after = quiet.find((span) => span.start >= coreEnd && span.end <= right);
+    const start = Math.max(left, before ? (before.start + before.end) / 2 : (aligned ? coreStart : left > 0 ? left : coreStart));
+    const end = Math.min(right, after ? (after.start + after.end) / 2 : (aligned ? coreEnd : right < duration ? right : coreEnd));
+    if (end > start) { candidate.start = formatNumber(start); candidate.end = formatNumber(end); }
+    if (adjacent) candidate.adjacent = true;
+  }
+}
+
+function tightenEnglishSpeechCuts(candidates, shortSilences) {
+  if (!shortSilences) return;
+  const quiet = shortSilences.filter((span) => Number.isFinite(span.start) && Number.isFinite(span.end) && span.end > span.start)
+    .sort((a, b) => a.start - b.start);
+  const isQuiet = (time) => quiet.some((span) => span.start + 0.005 <= time && time <= span.end - 0.005);
+  const hasSpeech = (start, end) => {
+    let cursor = start;
+    for (const span of quiet) {
+      if (span.end <= cursor || span.start >= end) continue;
+      if (span.start > cursor + 0.005) return true;
+      cursor = Math.max(cursor, span.end);
+    }
+    return cursor < end - 0.005;
+  };
+  for (const candidate of candidates) {
+    if (candidate.kind !== "filler" && candidate.kind !== "redo") continue;
+    const originalStart = candidate.start, originalEnd = candidate.end;
+    const inside = quiet.filter((span) => span.end > originalStart && span.start < originalEnd);
+    const leftQuiet = isQuiet(originalStart), rightQuiet = isQuiet(originalEnd);
+    const left = leftQuiet ? originalStart : inside.length
+      ? (Math.max(originalStart, inside[0].start) + Math.min(originalEnd, inside[0].end)) / 2 : null;
+    const right = rightQuiet ? originalEnd : inside.length
+      ? (Math.max(originalStart, inside.at(-1).start) + Math.min(originalEnd, inside.at(-1).end)) / 2 : null;
+    const core = candidate[ALIGNED_CORE];
+    const cutsEarlierSpeech = !rightQuiet && core && left < core.start - 0.005 && right < core.end - 0.005;
+    if (left === null || right === null || right <= left || !hasSpeech(left, right) || cutsEarlierSpeech) {
+      // A quiet-only interval is safer even when a prior human selection remains ON.
+      const retreat = (cutsEarlierSpeech ? inside.at(-1) : inside[0]);
+      if (retreat) {
+        const retreatStart = Math.max(originalStart, retreat.start);
+        const retreatEnd = Math.min(originalEnd, retreat.end);
+        if (retreatEnd > retreatStart) {
+          const width = retreatEnd - retreatStart;
+          const isolatedValley = cutsEarlierSpeech && inside.length > 1;
+          candidate.start = formatNumber(retreatStart + width * (isolatedValley ? 0.25 : 0.1));
+          candidate.end = formatNumber(retreatStart + width * (isolatedValley ? 0.75 : 0.25));
+        }
+      }
+      candidate.adjacent = true;
+      candidate.default_on = false;
+      candidate.boundary_review = true;
+      continue;
+    }
+    candidate.start = formatNumber(left);
+    candidate.end = formatNumber(right);
+  }
+}
+
 export function unionUnrecognized(transcripts) {
   const spans = transcripts.flatMap((transcript) => transcript.segments.flatMap((segment) => segment.unrecognized ?? []))
     .map((span) => ({ ...span })).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -143,8 +359,9 @@ export async function transcribeCutsMedia(argument, options = {}) {
   if (!basis) throw new Error(toolsText('tools.transcribeCuts.error.basisMissing', { requested }));
   const { ffmpeg, ffprobe } = resolveTools(options);
   let detected;
+  let duration;
   try {
-    const { duration } = probeRaw(target.inputPath, ffprobe, options);
+    ({ duration } = probeRaw(target.inputPath, ffprobe, options));
     detected = await (options.silencesRunner ?? runSilenceDetect)({
       inputPath: target.inputPath, range: { in: 0, out: duration }, ffmpeg,
       silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb, silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options,
@@ -153,7 +370,21 @@ export async function transcribeCutsMedia(argument, options = {}) {
     throw Object.assign(new Error(toolsText('tools.transcribeCuts.error.sourceUnreadable', { message: error.message })), { exitCode: 2 });
   }
   const candidates = textCandidates(basis.segments, { filler, redo, language });
-  for (const silence of Array.isArray(detected) ? detected : detected?.silences ?? []) {
+  const silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+  if (language === "en") expandEnglishSpeechCuts(candidates, basis.segments, silences, duration,
+    basis.backend === "speech-analyzer" ? null : transcripts.find((transcript) => transcript.backend === "speech-analyzer")?.segments);
+  if (language === "en" && candidates.some((candidate) => candidate.kind === "filler" || candidate.kind === "redo")) {
+    let shortSilences = null;
+    try {
+      const detectedShort = await (options.silencesRunner ?? runSilenceDetect)({
+        inputPath: target.inputPath, range: { in: 0, out: duration }, ffmpeg,
+        silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb, silenceMinSec: 0.02, options,
+      });
+      shortSilences = Array.isArray(detectedShort) ? detectedShort : detectedShort?.silences ?? [];
+    } catch { /* Keep the projected intervals if the boundary-only detector is unavailable. */ }
+    tightenEnglishSpeechCuts(candidates, shortSilences);
+  }
+  for (const silence of silences) {
     const duration = formatNumber(silence.end - silence.start);
     if (!Number.isFinite(duration) || duration < silenceMin || duration <= silenceKeep) continue;
     const belowBreak = duration < silenceBreak;
@@ -168,11 +399,13 @@ export async function transcribeCutsMedia(argument, options = {}) {
   // A sub-tenth-second duplicate occupies the same stable id; retain its union.
   const byId = new Map();
   for (const candidate of candidates) {
-    const id = `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
+    const id = candidate.id ?? `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
     const previous = byId.get(id);
     if (previous) {
       previous.end = Math.max(previous.end, candidate.end);
       previous.default_on &&= candidate.default_on;
+      if (candidate.alignment_review) previous.alignment_review = true;
+      if (candidate.boundary_review) previous.boundary_review = true;
       if (candidate.timing) previous.timing = candidate.timing;
     } else byId.set(id, { id, ...candidate });
   }

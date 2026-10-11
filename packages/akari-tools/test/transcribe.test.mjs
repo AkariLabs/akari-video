@@ -32,6 +32,27 @@ test("whisper model 名から DTW preset を詳細モデル優先で選ぶ", () 
   assert.equal(whisperDtwPreset("ggml-large-v2.bin"), null);
 });
 
+test("whisper cache key versions only explicitly requested spaced-word languages", async (t) => {
+  const f = await fixture(t, []);
+  const common = { ...f.options, backend: "whisper-cpp", whisperBin: "fixture-whisper", whisperModel: "fixture-model",
+    backendRunner: async () => [], noRecord: true, wordBook: false, unrecognized: false, snap: false };
+  const keys = new Map();
+  for (const lang of ["en", "en-US", "de", "ja", "ja-JP", "zh", "zh-CN", "auto", "und", "unknown", "zz"]) {
+    const result = await transcribeMedia(f.target, { ...common, lang });
+    keys.set(lang, result.cache.key);
+  }
+  assert.match(keys.get("en"), /-whisper-cpp-en-words3$/u);
+  assert.equal(keys.get("en-US"), keys.get("en"));
+  assert.match(keys.get("de"), /-whisper-cpp-de-words3$/u);
+  for (const lang of ["ja", "zh", "auto", "und", "unknown", "zz"]) assert.doesNotMatch(keys.get(lang), /-words3$/u);
+  assert.equal(keys.get("ja-JP"), keys.get("ja"));
+  assert.equal(keys.get("zh-CN"), keys.get("zh"));
+  const prompted = await transcribeMedia(f.target, { ...common, lang: "en", whisperPrompt: true });
+  assert.match(prompted.cache.key, /-whisper-cpp-en-filler-prompt-words3$/u);
+  const speech = await transcribeMedia(f.target, { ...speechOptions(f), lang: "en", noRecord: true });
+  assert.doesNotMatch(speech.cache.key, /-words3$/u);
+});
+
 for (const rejectsDtw of [false, true]) {
   test(`whisper-cli は -dtw を${rejectsDtw ? "拒否時だけ外して再実行する" : "モデル preset 付きで実行する"}`, async (t) => {
     const f = await fixture(t, []);
