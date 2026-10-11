@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile, realpath, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -55,6 +55,46 @@ test('empty starts leave no history; concurrent first sends and events retain ev
         const history = await service.listHistory(cwd);
         assert.deepEqual(new Set(history.map(row => row.title)), new Set(['first', 'second']));
         assert.equal(history.length, 2);
+    });
+});
+
+test('history writes from real and symlink cwd share one queue and index', async () => {
+    await withService(async (service, cwd) => {
+        const alias = join(cwd, 'alias');
+        await symlink(cwd, alias);
+        const one = await service.start({ agent: 'fake', cwd });
+        const two = await service.start({ agent: 'fake', cwd: alias });
+        await Promise.all([service.send(one.chatId, 'real', []), service.send(two.chatId, 'alias', [])]);
+        assert.deepEqual(new Set((await service.listHistory(`${alias}/`)).map(row => row.title)),
+            new Set(['real', 'alias']));
+    });
+});
+
+test('a broken history index is backed up before the next first send', async () => {
+    await withService(async (service, cwd) => {
+        const directory = join(cwd, '.akari', 'chat');
+        await mkdir(directory, { recursive: true });
+        await writeFile(join(directory, 'sessions.json'), '{broken');
+        await assert.rejects(service.listHistory(cwd), SyntaxError);
+        const started = await service.start({ agent: 'fake', cwd });
+        await service.send(started.chatId, 'recovered', []);
+        assert.equal((await service.listHistory(cwd))[0].title, 'recovered');
+        const backups = (await readdir(directory)).filter(name => /^sessions\.json\.broken-/.test(name));
+        assert.equal(backups.length, 1);
+        assert.equal(await readFile(join(directory, backups[0]), 'utf8'), '{broken');
+    });
+});
+
+test('attachment path classification uses project realpath', async () => {
+    await withService(async (service, cwd) => {
+        const alias = join(cwd, 'alias');
+        await symlink(cwd, alias);
+        await mkdir(join(cwd, 'assets'));
+        await writeFile(join(cwd, 'assets', 'clip.mp4'), 'clip');
+        const result = await service.resolveAttachmentPath(alias, join(alias, 'assets', 'clip.mp4'));
+        assert.equal(result.inside, true);
+        assert.equal(result.relative, 'assets/clip.mp4');
+        assert.equal(result.path, await realpath(join(cwd, 'assets', 'clip.mp4')));
     });
 });
 
@@ -176,6 +216,9 @@ test('model search matches id and label and keeps recent choices above the list'
     assert.deepEqual(modelChoices(models, 'DEEP', [], undefined).matches.map(model => model.id), ['b/deep']);
     assert.deepEqual(modelChoices(models, 'quick', [], undefined).matches.map(model => model.id), ['a/fast']);
     assert.deepEqual(modelChoices(models, '', ['b/deep'], 'a/fast').frequent.map(model => model.id), ['a/fast', 'b/deep']);
+    const many = Array.from({ length: 5 }, (_, index) => ({ id: `model-${index}`, label: `Model ${index}` }));
+    assert.deepEqual(modelChoices(many, '', ['model-4', 'model-3', 'model-2', 'model-1'], 'model-0')
+        .frequent.map(model => model.id), ['model-0', 'model-4', 'model-3']);
 });
 
 test('model labels resolve explicit and runtime Claude IDs', () => {

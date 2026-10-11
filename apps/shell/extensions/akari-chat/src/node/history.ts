@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import type { ChatHistoryEntry } from '../common/chat-protocol';
 
 export interface ChatHistory {
@@ -42,24 +42,37 @@ export function removeHistory(history: ChatHistory, id: string): ChatHistory {
     return { version: 1, sessions: history.sessions.filter(entry => entry.id !== id) };
 }
 
-function historyPath(cwd: string): string {
-    return join(cwd, '.akari', 'chat', 'sessions.json');
+async function historyPath(cwd: string): Promise<string> {
+    return join(await fs.realpath(cwd), '.akari', 'chat', 'sessions.json');
 }
 
 export async function readHistory(cwd: string): Promise<ChatHistory> {
+    const target = await historyPath(cwd);
     try {
-        const value = JSON.parse(await fs.readFile(historyPath(cwd), 'utf8')) as ChatHistory;
-        return value.version === 1 && Array.isArray(value.sessions)
-            ? value
-            : { version: 1, sessions: [] };
-    } catch {
+        const value = JSON.parse(await fs.readFile(target, 'utf8')) as ChatHistory;
+        if (value?.version === 1 && Array.isArray(value.sessions)) return value;
+        throw new SyntaxError('履歴の形式が正しくありません');
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { version: 1, sessions: [] };
+        throw error;
+    }
+}
+
+export async function readHistoryForWrite(cwd: string): Promise<ChatHistory> {
+    try {
+        return await readHistory(cwd);
+    } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        const target = await historyPath(cwd);
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await fs.rename(target, `${target}.broken-${stamp}-${randomUUID().slice(0, 8)}`);
         return { version: 1, sessions: [] };
     }
 }
 
 export async function writeHistory(cwd: string, history: ChatHistory): Promise<void> {
-    const target = historyPath(cwd);
-    await fs.mkdir(join(cwd, '.akari', 'chat'), { recursive: true });
+    const target = await historyPath(cwd);
+    await fs.mkdir(dirname(target), { recursive: true });
     const temporary = `${target}.${randomUUID()}.tmp`;
     try {
         await fs.writeFile(temporary, JSON.stringify(history, null, 2) + '\n');

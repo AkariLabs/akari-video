@@ -65,4 +65,5 @@ export interface AkariChatService {
     removeHistory(cwd: string, historyId: string): Promise<void>;
     saveScreenRecording(cwd: string, data: string): Promise<string>;
     importAttachment(cwd: string, sourcePath: string): Promise<string>;
+    resolveAttachmentPath(cwd: string, sourcePath: string): Promise<{ path: string; inside: boolean; relative: string }>;
 }

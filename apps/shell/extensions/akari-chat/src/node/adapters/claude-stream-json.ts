@@ -16,7 +16,8 @@ const ASK_RULE = '選択肢を出すときは ```akari-ask と JSON {"question":
 const MODELS = [
     { id: 'opus', label: 'Opus' },
     { id: 'sonnet', label: 'Sonnet' },
-    { id: 'haiku', label: 'Haiku' }
+    { id: 'haiku', label: 'Haiku' },
+    { id: 'fable', label: 'Fable', description: '文章・台本向け' }
 ];
 export function normalizeClaudeModel(model: unknown): string | undefined {
     if (typeof model !== 'string') return undefined;

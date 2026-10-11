@@ -36,10 +36,9 @@ const css = `
   padding: 0 12px;
   border-bottom: 1px solid #2b2b2b;
 }
-.akari-chat-head strong {
-  font-size: 13px;
-  white-space: nowrap;
-}
+.akari-chat-head [data-chat-agent-button] { min-width: 0; overflow: hidden; white-space: nowrap; }
+.akari-chat-head [data-chat-agent-button] svg { flex: none; }
+.akari-chat-head [data-chat-agent-button] span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .akari-chat-connect-row {
   display: flex;
   align-items: center;
@@ -290,6 +289,9 @@ const css = `
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.akari-chat-chip > svg { flex: none; }
+.akari-chat-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.akari-chat-chip [data-chat-attachment-remove] { flex: none; }
 .akari-chat-review-chip { white-space: normal; text-align: left; max-width: 100%; }
 .akari-chat-review-chip img, .akari-chat-review-frame {
   width: 32px; height: 22px; object-fit: cover; border-radius: 3px; flex: none;
@@ -297,16 +299,34 @@ const css = `
 }
 .akari-chat-review-chip small { display: block; color: #d4d4d4; font-size: 11px; }
 .akari-chat-sent-attachments { margin-bottom: 5px; }
+.akari-chat-drop-pending {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin: 3px;
+  padding: 5px 9px;
+  border: 1px dashed #6b5542;
+  border-radius: 8px;
+  color: #fdba74;
+  font-size: 12px;
+}
 .akari-chat-ask {
   margin-left: 36px;
+  min-width: 0;
   background: #151515;
   border: 1px solid #333;
   border-radius: 12px;
   padding: 12px;
 }
+.akari-chat-ask > strong { display: block; overflow-wrap: anywhere; margin-bottom: 6px; }
 .akari-chat-ask button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  min-width: 0;
+  height: 56px;
+  overflow: hidden;
   text-align: left;
   border: 0;
   border-top: 1px solid #333;
@@ -314,6 +334,12 @@ const css = `
   background: transparent;
   color: #ddd;
 }
+.akari-chat-ask-number { flex: none; align-self: flex-start; line-height: 18px; }
+.akari-chat-ask-copy { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 18px; }
+.akari-chat-ask-copy > span, .akari-chat-ask-copy small {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.akari-chat-ask-copy small { color: #999; font-size: 11px; }
 .akari-chat-error {
   color: #fca5a5;
   padding: 8px 12px;
@@ -562,7 +588,9 @@ const css = `
 .akari-chat-agent-column button[data-installed=false] { opacity: .42; }
 .akari-chat-starting, .akari-chat-stopped, [data-chat-install-guide] { padding: 12px; color: #aaa; }
 .akari-chat-stopped { font-size: 12px; }
-.akari-chat-starting button, [data-chat-install-guide] button, [data-chat-next-step] button { margin: 6px; }
+.akari-chat-starting button, [data-chat-install-guide] button { margin: 6px; }
+[data-chat-next-step] { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+[data-chat-next-step] button { min-height: 36px; min-width: 0; max-width: 100%; margin: 0; white-space: normal; text-align: left; }
 .akari-chat-model-column input[data-chat-model-search] { width: 100%; box-sizing: border-box; }
 .akari-chat-agent-column button.selected,
 .akari-chat-model-column button.selected {
@@ -581,6 +609,11 @@ const css = `
   color: #999;
   margin: 8px 5px;
 }
+.akari-chat-model-column .akari-chat-model-all {
+  border-top: 1px solid #3b3b3b;
+  margin-top: 12px;
+  padding-top: 10px;
+}
 .akari-chat-model-column > button {
   display: flex;
   align-items: flex-start;
@@ -596,13 +629,18 @@ const css = `
 .akari-chat-model-column > button small { display: block; margin-top: 4px; white-space: normal; line-height: 1.45; overflow-wrap: anywhere; }
 .akari-chat-model-column > small { margin: 10px 5px; }
 .akari-chat-efforts {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid #444;
   border-radius: 8px;
   overflow: hidden;
 }
 .akari-chat-efforts button {
-  flex: 1;
+  min-width: 0;
+  padding: 7px 2px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center !important;
   border-radius: 0;
 }

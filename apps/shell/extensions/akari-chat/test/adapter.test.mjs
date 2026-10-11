@@ -156,10 +156,11 @@ test('Claude lists project and enabled plugin skills before init, then uses init
                 { name: 'project:review', description: '内容を確認', kind: 'skill' }
             ]);
             const capabilities = await session.capabilities();
-            assert.deepEqual(capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku']);
+            assert.deepEqual(capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku', 'fable']);
             assert.equal(capabilities.currentModel, 'haiku');
             assert.equal(normalizeClaudeModel('claude-opus-5-1'), 'opus');
             assert.equal(normalizeClaudeModel('sonnet'), 'sonnet');
+            assert.equal(normalizeClaudeModel('fable'), 'fable');
             assert.equal(normalizeClaudeModel('other'), undefined);
             await writeFile(join(home, '.claude', 'settings.json'), '{broken');
             assert.deepEqual((await session.listCommands()).map(command => command.name), ['edit-lint', 'project-only']);

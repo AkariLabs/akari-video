@@ -6,7 +6,7 @@ export function modelChoices(models: ChatCapabilities['models'], query: string, 
 } {
     const needle = query.trim().toLocaleLowerCase();
     const matches = models.filter(model => `${model.id} ${model.label}`.toLocaleLowerCase().includes(needle));
-    const ids = [...new Set([current, ...recent].filter((id): id is string => !!id))].slice(0, 5);
+    const ids = [...new Set([current, ...recent].filter((id): id is string => !!id))].slice(0, 3);
     const frequent = needle ? [] : ids.map(id => models.find(model => model.id === id))
         .filter((model): model is ChatCapabilities['models'][number] => !!model);
     return { frequent, matches };
