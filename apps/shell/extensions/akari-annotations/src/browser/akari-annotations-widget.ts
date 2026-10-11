@@ -21,6 +21,8 @@ import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SE
 import { ANNOTATIONS_WIDGET_CSS } from './style/annotations-widget-style';
 import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars, overlayBoxWithinDelay,
     parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../common/overlay-place';
+import { isScene3dPath, scene3dPlacementVars, scene3dScreenTextureVar, scene3dScreenVars,
+    SCENE3D_MAX_SCREEN_BYTES } from '../common/scene3d-item';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
 import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWrapRequest } from '../common/preview-caption-wrap';
@@ -5077,7 +5079,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    async applyLibraryItem(payload: ApplyPayload, target?: ApplyTarget): Promise<boolean> {
+    async applyLibraryItem(payload: ApplyPayload | { kind: 'video'; relativePath: string }
+        | { kind: 'image'; relativePath: string }, target?: ApplyTarget): Promise<boolean> {
+        if ((payload.kind === 'video' || payload.kind === 'image') && target?.kind === 'item') {
+            return this.applyScene3dScreen(payload.relativePath, target.id);
+        }
+        if (payload.kind === 'video' || payload.kind === 'image') return false;
         const current = target ?? (this.selection?.kind === 'caption' ? { kind: 'caption' as const, id: this.selection.id }
             : this.selection?.kind === 'cut' ? { kind: 'cut' as const, id: this.cutItemId(this.selection.index) }
                 : this.selection?.kind === 'layer' || this.selection?.kind === 'item'
@@ -5112,6 +5119,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (index >= 0) this.applySelection({ kind: 'cut', index }, false);
         } else if (current?.kind === 'layer') this.applySelection({ kind: 'layer', id: current.id }, false);
         return true;
+    }
+
+    protected async applyScene3dScreen(relativePath: string, itemId: string): Promise<boolean> {
+        const location = this.location;
+        if (!location?.editUri || !scene3dScreenVars('--akari-screen-path', relativePath)) return false;
+        const editUri = location.editUri.toString();
+        const findItem = (doc: Record<string, unknown>): Record<string, unknown> | undefined => {
+            const visit = (items: unknown[]): Record<string, unknown> | undefined => {
+                for (const raw of items) {
+                    if (!raw || typeof raw !== 'object') continue;
+                    const item = raw as Record<string, unknown>;
+                    if (item.id === itemId) return item;
+                    const child = Array.isArray(item.items) ? visit(item.items) : undefined;
+                    if (child) return child;
+                }
+                return undefined;
+            };
+            for (const track of (Array.isArray(doc.tracks) ? doc.tracks : [])) {
+                const items = (track as { items?: unknown[] }).items;
+                const found = Array.isArray(items) ? visit(items) : undefined;
+                if (found) return found;
+            }
+            return undefined;
+        };
+        try {
+            const doc = JSON.parse((await this.fileService.readFile(location.editUri)).value.toString()) as Record<string, unknown>;
+            const source = findItem(doc)?.source as { kind?: unknown; path?: unknown } | undefined;
+            const path = typeof source?.path === 'string' ? source.path : undefined;
+            if (source?.kind !== 'html' || !isScene3dPath(path)) return false;
+            const stat = await this.fileService.resolve(location.root.resolve(relativePath), { resolveMetadata: true });
+            if (typeof stat.size === 'number' && stat.size > SCENE3D_MAX_SCREEN_BYTES) {
+                this.messages.warn('大きすぎます（720p のプロキシを使ってください）');
+                return false;
+            }
+            await this.refreshReferenceMediaUris(undefined, [path!]);
+            const fragment = (await this.fileService.readFile(this.resolveEditMediaUri(path!, location.editUri)))
+                .value.toString();
+            if (this.location?.editUri?.toString() !== editUri) return false;
+            const screenVar = scene3dScreenTextureVar(fragment);
+            if (!screenVar) { this.messages.info('この 3D には画面がありません'); return false; }
+            const vars = scene3dScreenVars(screenVar, relativePath);
+            if (!vars) return false;
+            await this.commitEditMutation('3D の画面を入れる', current => {
+                const item = findItem(current);
+                const existing = item?.source as { kind?: unknown; path?: unknown; vars?: Record<string, unknown> } | undefined;
+                if (existing?.kind !== 'html' || existing.path !== path) throw new Error('3D が変更されました');
+                return updateTreeV2Item(current, itemId, { source: { vars: { ...existing.vars, ...vars } } });
+            });
+            return true;
+        } catch (error) {
+            this.messages.warn(`画面を入れられませんでした: ${this.errorMessage(error)}`);
+            return false;
+        }
     }
 
     protected async withHistory(label: string, operation: () => Promise<void>): Promise<void> {
@@ -6779,8 +6839,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     async addOverlayAtOutputPoint(request: unknown): Promise<string | undefined> {
         const options = parseOverlayPlaceRequest(request);
+        const scene3d = options?.key.startsWith('scene3d/') === true;
         if (!options || !this.location?.editUri) {
-            this.messages.warn('オーバーレイを置けません。');
+            this.messages.warn('素材を置けません。');
             return undefined;
         }
         const editUri = this.location.editUri.toString();
@@ -6804,14 +6865,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 async resolved => {
                     diagnostic('resolve');
                     if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
-                    const vars = overlayDefaultVars(resolved.meta, resolved.fragment);
-                    const measurement = Promise.resolve(this.commands.executeCommand('akari.preview.measureOverlayBox', {
+                    const defaults = overlayDefaultVars(resolved.meta, resolved.fragment);
+                    const vars = scene3d ? scene3dPlacementVars(Object.fromEntries(Object.entries(defaults)
+                        .map(([name, value]) => [name, String(value)]))) : defaults;
+                    const measurement = scene3d ? undefined : Promise.resolve(this.commands.executeCommand('akari.preview.measureOverlayBox', {
                         editUri, fragment: resolved.fragment, relativePath: resolved.relativePath, vars }));
-                    const box = await overlayBoxWithinDelay(measurement);
-                    diagnostic(box ? 'measure' : 'measure-fallback');
-                    if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
+                    const box = measurement ? await overlayBoxWithinDelay(measurement) : undefined;
+                    if (!scene3d) {
+                        diagnostic(box ? 'measure' : 'measure-fallback');
+                        if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
+                    }
                     if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
-                    const write = await this.commitEditMutation('オーバーレイを置く', doc => {
+                    const label = scene3d ? '3D を置く' : 'オーバーレイを置く';
+                    const write = await this.commitEditMutation(label, doc => {
                         const output = doc.output as { width?: number; height?: number } | undefined;
                         const width = Number(output?.width) || 1920;
                         const height = Number(output?.height) || 1080;
@@ -6819,16 +6885,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const item = buildOverlayItem({ id: placedId, at: this.frameAt(t),
                             duration: this.frameAt(5), path: resolved.relativePath,
                             output: { width, height }, center: options.center,
-                            vars, box });
+                            vars, box, scene3d });
                         return insertOverlayItem(doc, item, options.outsideCanvas === true);
                     }, { history: false });
                     diagnostic('write');
                     let historyAfter = write.after;
-                    const history: HistoryEntry = { label: 'オーバーレイを置く', before: write.before, after: historyAfter,
+                    const history: HistoryEntry = { label, before: write.before, after: historyAfter,
                         undo: async () => { await this.writeEditSnapshotGuarded(write.before); await this.reloadEdit(); },
                         redo: async () => { await this.writeEditSnapshotGuarded(historyAfter); await this.reloadEdit(); } };
                     this.pushHistory(history);
-                    if (!box && placedId) void measurement.then(async lateBox => {
+                    if (measurement && !box && placedId) void measurement.then(async lateBox => {
                         if (!isUsableOverlayBox(lateBox) || !this.historyService.isTop(history)
                             || this.location?.editUri?.toString() !== editUri) return;
                         const corrected = await this.commitEditMutation('オーバーレイの枠を合わせる', doc => {
@@ -6858,11 +6924,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.requestSeek?.(start, { domain: 'output' });
                 }
             }
-            this.footer.textContent = 'オーバーレイを置きました。';
+            this.footer.textContent = scene3d ? '3D を置きました。' : 'オーバーレイを置きました。';
             diagnostic('focus');
             return placedId;
         } catch (error) {
-            this.messages.warn(`オーバーレイを置けませんでした: ${this.errorMessage(error)}`);
+            this.messages.warn(`素材を置けませんでした: ${this.errorMessage(error)}`);
             return undefined;
         } finally {
             emitPlacement('akari-preview-placement', { phase: 'end', editUri, key: options.key });
@@ -7678,7 +7744,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
         const payload = raw ? parseLibraryDragPayload(raw) : undefined;
-        return payload?.kind === 'overlay' ? payload : undefined;
+        return payload?.kind === 'overlay' || payload?.kind === 'scene3d' ? payload : undefined;
     }
 
     protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined {

@@ -561,7 +561,8 @@ export function previewBootstrapScript(): string {
                 const hit = Number.isFinite(x) && Number.isFinite(y) && x >= stageRect.left && x <= stageRect.right
                     && y >= stageRect.top && y <= stageRect.bottom
                     ? window.akari.interaction?.libraryApplyHitTest?.(x, y, fallback, request.kind) : null;
-                const accepted = !!hit && (request.kind === 'lut' ? hit.kind !== 'caption' : hit.kind === 'caption');
+                const accepted = !!hit && (request.kind === 'video' || request.kind === 'image'
+                    ? hit.kind === 'item' : request.kind === 'lut' ? hit.kind !== 'caption' : hit.kind === 'caption');
                 if (accepted && request.highlight) {
                     libraryApplyHighlight = document.createElement('div');
                     libraryApplyHighlight.className = 'akari-preview-apply-target';

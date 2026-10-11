@@ -2168,7 +2168,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.scene3dMetaCache.set(metaPath, meta);
             this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         } catch {
-            const match = /^assets\/(overlay\/[^/]+)\/meta\.json$/u.exec(metaPath);
+            const match = /^assets\/((?:overlay|scene3d)\/[^/]+)\/meta\.json$/u.exec(metaPath);
             const meta = match ? await this.commandRegistry.executeCommand<unknown>(
                 'akari.catalog.readOverlayMeta', match[1]).catch(() => undefined) : undefined;
             this.knobCache.set(metaPath, parseInspectorKnobs(meta));
