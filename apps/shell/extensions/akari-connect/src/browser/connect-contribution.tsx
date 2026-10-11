@@ -1,23 +1,17 @@
-import { ApplicationShell, FrontendApplicationContribution, WidgetManager } from '@theia/core/lib/browser';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ConnectService } from '../common/connect-protocol';
-import { ConnectWidget } from './connect-widget';
 
 export const CONNECT_OPEN: Command = { id: 'akari.connect.open', label: 'つなぐ' };
 
 @injectable()
 export class ConnectContribution implements CommandContribution, FrontendApplicationContribution {
-    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
-    @inject(WidgetManager) protected readonly widgets!: WidgetManager;
     @inject(ConnectService) protected readonly service!: ConnectService;
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(CONNECT_OPEN, { execute: async (arg?: { id?: string }) => {
-            const widget = await this.widgets.getOrCreateWidget<ConnectWidget>(ConnectWidget.ID);
-            if (!widget.isAttached) await this.shell.addWidget(widget, { area: 'main' });
-            await this.shell.activateWidget(widget.id);
-            widget.select(arg?.id);
+            await registry.executeCommand('akari.settings.open', { section: 'connections', connectorId: arg?.id });
         } });
     }
     onDidInitializeLayout(): void {

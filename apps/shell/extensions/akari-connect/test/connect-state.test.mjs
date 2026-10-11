@@ -86,3 +86,12 @@ test('all four statuses and generation order persist without credentials', () =>
   assert.equal(connectorStatus({ kind: 'key' }, false, false), '準備が要る');
   assert.equal(fs.readFileSync(file, 'utf8').includes('KEY='), false);
 }));
+
+test('登録した鍵は削除でき、接続設定には値を残さない', () => fixture(({ home, apps, env }) => {
+  const { deleteCredential } = require('../lib/node/connect-state.js');
+  saveCredential('fal', 'fake-remove-WXYZ', env, home);
+  deleteCredential('fal', env, home);
+  const file = env.AKARI_CREDENTIALS_FILE;
+  assert.equal(fs.readFileSync(file, 'utf8').includes('fake-remove-WXYZ'), false);
+  assert.equal(connectSnapshot({ env, home, roots: [apps], platform: 'darwin' }).rows.find(row => row.id === 'fal').status, '準備が要る');
+}));

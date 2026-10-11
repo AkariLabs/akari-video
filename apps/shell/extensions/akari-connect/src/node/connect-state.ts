@@ -147,6 +147,11 @@ export function saveCredential(id: string, value: string, env: NodeJS.ProcessEnv
     if (!entry?.env) throw new Error('鍵を追加できない接続です。');
     writeCredential(credentialsFilePath(env, home), entry.env, value);
 }
+export function deleteCredential(id: string, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): void {
+    const entry = entries.find(item => item.id === id);
+    if (!entry?.env) throw new Error('鍵を削除できない接続です。');
+    writeCredential(credentialsFilePath(env, home), entry.env, null);
+}
 export function updateSettings(change: (settings: ConnectSettings) => void, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): void {
     const file = connectorsPath(env, home);
     const settings = readSettings(file);

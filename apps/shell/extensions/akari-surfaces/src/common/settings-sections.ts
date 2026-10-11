@@ -1,6 +1,6 @@
 import { buildExportEncoderChoices, ExportEncoder, ExportPlatform } from 'akari-shell-strip/lib/common/export-encoder-choices';
 
-// ナビの順（2026-09-22 設定ダイアログ刷新）。Akari アカウントを先頭に置き、テーマは開発者モードから外観へ移した。
+// 詳細ページの順。左のナビは SETTINGS_PILLARS の六つにまとめる。
 // icon は browser/settings/settings-icons.ts の線画 SVG の名前（絵文字・記号文字は使わない）。
 export const SETTINGS_SECTIONS = [
     { id: 'account', label: 'AKARI アカウント', group: 'main', icon: 'user' },
@@ -26,6 +26,22 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 
 export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
+
+export const SETTINGS_PILLARS = [
+    { id: 'general', label: '一般', icon: 'user', sections: ['account', 'start', 'developer', 'help', 'about'] },
+    { id: 'partner', label: 'パートナー', icon: 'bot', sections: ['partner'] },
+    { id: 'connect', label: 'つなぐ', icon: 'key', sections: ['connections', 'ai-models', 'narration', 'transcribe', 'listening', 'export'] },
+    { id: 'workflow', label: '進め方と上限', icon: 'gauge', sections: ['quality', 'notifications', 'tools', 'statistics'] },
+    { id: 'display', label: '表示', icon: 'contrast', sections: ['appearance', 'shortcuts'] },
+    { id: 'data', label: 'データの場所', icon: 'disk', sections: ['storage', 'privacy'] }
+] as const;
+export type SettingsPillarId = typeof SETTINGS_PILLARS[number]['id'];
+export function settingsPillarForSection(section: SettingsSectionId): SettingsPillarId {
+    return SETTINGS_PILLARS.find(pillar => (pillar.sections as readonly string[]).includes(section))?.id ?? 'general';
+}
+export function defaultSectionForPillar(pillar: SettingsPillarId): SettingsSectionId {
+    return SETTINGS_PILLARS.find(item => item.id === pillar)!.sections[0] as SettingsSectionId;
+}
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
     account: 'AKARI アカウントの接続と、AKARI Video Lab で購入した素材の受け取りをここで管理します。',
@@ -152,7 +168,8 @@ export function sectionForPreferenceKey(key: string): SettingsSectionId | undefi
 export function resolveSettingsSectionId(argument: unknown): SettingsSectionId | undefined {
     const record = typeof argument === 'object' && argument !== null ? argument as { section?: unknown; preference?: unknown } : undefined;
     const id = record && 'section' in record ? record.section : argument;
-    const section = SETTINGS_SECTIONS.find(item => item.id === id)?.id;
+    const section = SETTINGS_SECTIONS.find(item => item.id === id)?.id ??
+        SETTINGS_PILLARS.find(item => item.id === id)?.sections[0] as SettingsSectionId | undefined;
     if (section === 'developer' && typeof record?.preference === 'string') {
         return sectionForPreferenceKey(record.preference) ?? section;
     }

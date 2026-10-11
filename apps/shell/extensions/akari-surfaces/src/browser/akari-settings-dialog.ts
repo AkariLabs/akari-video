@@ -53,7 +53,7 @@ import {
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_GPU_PREFERENCE_CONSENT, showTemporaryGpuPreferenceSetting,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
-    SETTINGS_SECTIONS, visibleSettingsSections, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
+    SETTINGS_SECTIONS, SETTINGS_PILLARS, settingsPillarForSection, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
@@ -131,6 +131,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         catch { return false; }
     }
     protected readonly body = element('main');
+    protected readonly detailNav = element('nav');
     protected readonly transcribe = element('section');
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
@@ -254,6 +255,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
     }
 
+    selectConnector(id?: string): void {
+        findSettingsSectionBody('connections')?.select?.(id);
+        this.showSection('connections');
+    }
     get value(): void { return undefined; }
     focusSearch(): void { this.searchInput.focus(); }
     refreshPrivacy(): void { if (!this.isDisposed) { this.renderSection('privacy'); } }
@@ -289,21 +294,17 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const keyHint = element('kbd', OS.type() === OS.Type.OSX ? '⌘F' : 'Ctrl+F');
         search.append(settingsIcon('search', 'sm'), this.searchInput, keyHint);
         nav.append(search);
-        let previousGroup: string = 'main';
-        for (const section of visibleSettingsSections(this.vibePreviewEnabled())) {
-            if (section.group !== previousGroup) {
-                const group = element('h3', section.group === 'data' ? 'データとプライバシー' : section.group === 'support' ? 'サポート' : '開発者');
-                group.className = 'akari-set-nav-group';
-                group.setAttribute('data-settings-nav-group', section.group);
-                nav.append(group);
-            }
-            previousGroup = section.group;
-            nav.append(this.navigation(section.label, section.id, section.icon, 'badge' in section ? section.badge : undefined));
+        for (const pillar of SETTINGS_PILLARS) {
+            nav.append(this.navigation(pillar.label, pillar.sections[0] as SettingsSectionId, pillar.icon));
+            nav.lastElementChild?.setAttribute('data-settings-nav', pillar.id);
         }
         Object.assign(this.body.style, { display: 'flex', flexDirection: 'column', flex: '1', minWidth: '0', minHeight: '0', position: 'relative' });
         this.notice.setAttribute('role', 'alert');
         this.notice.className = 'akari-set-notice';
         this.body.append(this.notice);
+        this.detailNav.className = 'akari-set-detail-nav';
+        this.detailNav.setAttribute('aria-label', '柱の中の設定');
+        this.body.append(this.detailNav);
         for (const section of SETTINGS_SECTIONS) {
             const node = section.id === 'transcribe' ? this.transcribe
                 : section.id === 'connections' ? this.connections : element('section');
@@ -317,12 +318,17 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             this.body.append(node);
         }
         this.storeRow.setAttribute('data-akari-store-settings', 'true');
-        // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
-        const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Video Lab との接続は「AKARI アカウント」へ移りました。');
-        storeMoved.append(' ', inlineLink('AKARI アカウントを開く', () => this.showSection('account')));
-        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.subscriptionList,
-            element('h3', '使った分だけ — API キー'), this.providerList, this.imageAiRow, this.storage);
-        this.providerList.append(settingsNote('接続を読み込んでいます…'));
+        const connectBody = findSettingsSectionBody('connections');
+        this.connections.append(...this.sectionHeading('connections'));
+        const defaults = element('div');
+        defaults.setAttribute('data-akari-generation-defaults', 'true');
+        const diagnostics = element('details');
+        const diagnosticsTitle = element('summary', '接続診断・残高とその他のサービス');
+        diagnostics.append(diagnosticsTitle, this.providerList, this.imageAiRow);
+        this.connections.append(defaults, diagnostics);
+        if (connectBody) { this.toDispose.push(mountSettingsSectionBody(this.connections, connectBody)); }
+        void this.renderGenerationDefaults(defaults);
+        this.providerList.append(settingsNote('その他のサービスを読み込んでいます…'));
         this.renderStore();
         this.contentNode.append(nav, this.body);
         this.addEventListener(this.node, 'keydown', event => {
@@ -333,7 +339,18 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     showSection(section: SettingsSectionId): void {
         if (section === 'listening' && !this.vibePreviewEnabled()) section = SETTINGS_SECTIONS[0].id;
         if (section !== 'about') { this.stopAboutUpdaterEvents(); }
-        const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
+        const pillar = settingsPillarForSection(section);
+        const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${pillar}"]`);
+        const detailIds = SETTINGS_PILLARS.find(item => item.id === pillar)!.sections;
+        this.detailNav.replaceChildren(...detailIds.filter(id => id !== 'listening' || this.vibePreviewEnabled()).map(id => {
+            const item = SETTINGS_SECTIONS.find(sectionItem => sectionItem.id === id)!;
+            const button = element('button', item.label);
+            button.type = 'button';
+            button.setAttribute('data-settings-detail', item.id);
+            if (item.id === section) button.setAttribute('aria-current', 'page');
+            button.addEventListener('click', () => this.showSection(item.id));
+            return button;
+        }));
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {
             node.hidden = !isSettingsSectionVisible(id, section);
@@ -342,7 +359,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         try { localStorage.setItem(SETTINGS_LAST_SECTION_KEY, section); } catch { /* 保存不可でもページは切り替える。 */ }
         // 選択中は面の色（一段明るい面 + 太字 + アイコンだけアクセント色）で示す。縦バーは使わない（CSS 側）。
         for (const item of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]'))) {
-            if (item.getAttribute('data-settings-nav') === section) { item.setAttribute('aria-current', 'true'); }
+            if (item.getAttribute('data-settings-nav') === pillar) { item.setAttribute('aria-current', 'true'); }
             else { item.removeAttribute('aria-current'); }
         }
         this.highlightSearch(section);
@@ -353,23 +370,19 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected filterSections(): void {
         const query = this.searchInput.value;
         let first: SettingsSectionId | undefined;
-        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) {
-            const node = this.sections.get(item.id)!;
-            const rows = Array.from(node.querySelectorAll<HTMLElement>(
+        for (const pillar of SETTINGS_PILLARS) {
+            const pages = SETTINGS_SECTIONS.filter(item => settingsPillarForSection(item.id) === pillar.id);
+            const rows = pages.flatMap(item => Array.from(this.sections.get(item.id)!.querySelectorAll<HTMLElement>(
                 '.akari-set-row-label,.akari-set-row-desc,.akari-set-group-title,.akari-set-partner-name,.akari-set-partner-sub,.akari-set-storage-header,.akari-set-permission-row'
-            )).map(row => row.textContent ?? '');
-            const match = matchesSettingsSearch(query, item.label, SETTINGS_SECTION_DESCRIPTIONS[item.id], rows);
-            const nav = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`);
-            if (nav) { nav.hidden = !match; }
-            if (match && !first) { first = item.id; }
+            )).map(row => row.textContent ?? ''));
+            const match = matchesSettingsSearch(query, pillar.label, pages.map(item => SETTINGS_SECTION_DESCRIPTIONS[item.id]).join(' '), rows);
+            const nav = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${pillar.id}"]`);
+            if (nav) nav.hidden = !match;
+            if (match && !first) first = pages[0].id;
         }
         const visible = Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]')).find(item => item.getAttribute('aria-current') === 'true' && !item.hidden);
-        if (!visible && first) { this.showSection(first); }
-        for (const item of visibleSettingsSections(this.vibePreviewEnabled())) { this.highlightSearch(item.id); }
-        for (const group of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav-group]'))) {
-            const name = group.getAttribute('data-settings-nav-group');
-            group.hidden = !visibleSettingsSections(this.vibePreviewEnabled()).some(item => item.group === name && !this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`)?.hidden);
-        }
+        if (!visible && first) this.showSection(first);
+        for (const item of SETTINGS_SECTIONS) this.highlightSearch(item.id);
     }
 
     protected highlightSearch(id: SettingsSectionId): void {
@@ -626,7 +639,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const rows = partnerSettingsCliRows().map(({ entry, name }) => {
             const id = entry.agent;
             const detail = this.partnerDetails?.[id];
-            return this.partnerRow(id, name, detail?.installed === undefined ? '調べています' : detail.installed ? 'インストール済み' : '未インストール',
+            return this.partnerRow(id, name, detail?.installed === undefined ? '準備中' : detail.installed ? '見つかった' : '準備が要る',
                 detail?.detail || '—', detail?.installed === false ? '入れ方' : '起動', async () => {
                 this.close();
                 await this.commands.executeCommand('akari.partner.open');
@@ -639,7 +652,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             { id: 'anthropic.claude-code', agent: 'claude' as const, name: 'Claude Code 拡張' },
             { id: 'openai.chatgpt', agent: 'codex' as const, name: 'Codex 拡張' }
         ].map(entry => this.partnerRow(entry.agent, entry.name,
-            this.extensionVersions ? entry.id in this.extensionVersions ? '入っている' : '入っていない' : '調べています',
+            this.extensionVersions ? entry.id in this.extensionVersions ? '見つかった' : '準備が要る' : '準備中',
             `${entry.id}${this.extensionVersions?.[entry.id] ? ` · ${this.extensionVersions[entry.id]}` : ''}`, '開く', () => {
                 this.close(); void this.commands.executeCommand('akari.partner.open');
             }));
@@ -648,7 +661,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         if (cliHeading) { cliHeading.append(element('span', '右のレールの線の上に並ぶ')); }
         const caution = element('div'); caution.className = 'akari-set-caution';
         caution.append(settingsIcon('info', 'sm'), element('span', '拡張は、拡張ホストが再起動すると会話が切れます。長い作業には CLI をおすすめします。'));
-        section.append(cli, groupCard('公式拡張',
+        section.append(...(this.subscriptionList ? [this.subscriptionList] : []), cli, groupCard('公式拡張',
             caution,
             ...extensions,
             settingRow('ほかの拡張を探す', 'Open VSX から（くわしい人向け）', action('開く', async () => {
@@ -1582,16 +1595,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             ? `fal · キーを登録済み${state.maskedTail ? `（末尾 ${state.maskedTail}）` : ''}`
             : 'fal · キーを設定すると使えます');
         status.setAttribute('data-akari-image-ai-status', state.configured ? 'configured' : 'unconfigured');
-        const input = element('input'); input.type = 'password'; input.autocomplete = 'off';
-        input.placeholder = 'fal のキー'; input.setAttribute('aria-label', '画像のキー');
         const result = settingsNote(''); result.setAttribute('role', 'status');
-        const save = action('保存', () => {
-            if (!input.value.trim()) { result.textContent = 'キーを入力してください。'; return; }
-            save.disabled = true;
-            void this.service.setImageAiKey(input.value).then(() => this.renderImageAi()).catch(() => {
-                result.textContent = 'キーを保存できませんでした。'; save.disabled = false;
-            });
-        }, { small: true });
         const check = action('接続を確かめる', () => {
             check.disabled = true; result.textContent = '接続を確かめています…';
             void this.service.checkImageAiConnection().then(doctor => { result.textContent = doctor.detail; })
@@ -1599,7 +1603,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 .finally(() => { check.disabled = false; });
         }, { small: true });
         const card = element('div');
-        card.append(status, settingRow('画像の AI のキー', 'このパソコンの鍵の保存先に記録します。', input, save));
+        card.append(status);
         if (state.narrationKeyAvailable) {
             const reuse = action(state.useNarrationKey ? '同じキーを使用中' : '同じキーを使う', () => {
                 reuse.disabled = true;
@@ -1645,8 +1649,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             detail.style.minWidth = '0';
             const name = element('div'); name.className = 'akari-set-prov-name';
             name.append(element('span', entry.label));
-            const status = state?.state === 'ready' ? '使える' : state?.state === 'signed-out' ? 'サインインが必要'
-                : state?.state === 'missing' ? '入っていない' : state?.state === 'unknown' ? '確かめられませんでした' : '確かめています';
+            const status = state?.state === 'ready' ? 'つながった' : state?.state === 'signed-out' ? '準備が要る'
+                : state?.state === 'missing' ? '準備が要る' : state?.state === 'unknown' ? '準備が要る' : '準備中';
             name.append(statusPill(status, state?.state === 'ready' ? 'ok' : 'neutral'));
             detail.append(name, element('div', state?.state === 'ready' ? 'サインイン済み · 静止画' : entry.guide));
             row.append(logo, detail);
@@ -1849,7 +1853,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         };
         const run = async (operation: () => Promise<void>): Promise<void> => {
             for (const control of Array.from(controls.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button'))) { control.disabled = true; }
-            setPill(status, '確認中…', 'neutral');
+            setPill(status, '準備中', 'neutral');
             try {
                 await operation();
                 renderControls();
@@ -1895,9 +1899,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 controls.append(input, save);
             }
         };
-        renderControls();
+        const managedInConnect = ['fal', 'elevenlabs', 'runway', 'higgsfield', 'fish-audio'].includes(row.id);
+        if (managedInConnect) {
+            paintStatus();
+            controls.append(settingsNote('鍵は上のサービスカードで管理します。'));
+        } else renderControls();
         card.append(logo, main, actions);
-        if (row.id === 'fal') {
+        if (row.id === 'fal' && !managedInConnect) {
             const defaults = element('div');
             defaults.className = 'akari-set-defaults';
             defaults.setAttribute('data-akari-generation-defaults', 'true');
@@ -2195,6 +2203,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(AkariSettingsMaintenanceService) protected readonly maintenance!: AkariSettingsMaintenanceService;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
+    protected requestedConnectorId: string | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
@@ -2300,9 +2309,14 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         commands.registerCommand({ id: 'akari.settings.open', label: 'AKARI Video の設定' }, {
             execute: (arg?: unknown) => {
                 const section = resolveSettingsSectionId(arg);
+                const connectorId = typeof arg === 'object' && arg !== null && (('connectorId' in arg && typeof arg.connectorId === 'string') ||
+                        ('provider' in arg && typeof arg.provider === 'string'))
+                    ? ('connectorId' in arg ? arg.connectorId : arg.provider) as string : undefined;
                 if (section) {
                     this.requestedSection = section;
-                    this.dialog?.showSection(section);
+                    this.requestedConnectorId = connectorId;
+                    if (section === 'connections') this.dialog?.selectConnector(connectorId);
+                    else this.dialog?.showSection(section);
                 }
                 if (!this.opened) {
                     this.opened = this.openSettings().finally(() => { this.opened = undefined; });
@@ -2318,11 +2332,13 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
         const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);
         dialog.setImageRoutesService(this.imageRoutes);
+        if (this.requestedSection === 'connections') dialog.selectConnector(this.requestedConnectorId);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {
             this.dialog = undefined;
             this.requestedSection = undefined;
+            this.requestedConnectorId = undefined;
             dialog.dispose();
         }
     }
@@ -2384,11 +2400,11 @@ function themePreview(theme: string): HTMLElement {
     preview.append(el('i'), el('i', 'm'), el('i'));
     return preview;
 }
-/** 状態のピルは「接続済み / 未接続」の 2 値（キーが通らないと分かったときだけ「繋がらない」）。確認の詳細は下の 1 行に出す。 */
+/** 状態のピルは柱で使う三つの状態へ揃え、診断の詳細は下の行へ置く。 */
 function doctorPill(row: ConnectionRow): [string, 'ok' | 'neutral' | 'warn'] {
-    if (!row.configured || row.doctor.status === 'unconfigured') { return ['未接続', 'neutral']; }
-    if (row.doctor.status === 'unauthorized') { return ['繋がらない', 'warn']; }
-    return ['接続済み', 'ok'];
+    if (!row.configured || row.doctor.status === 'unconfigured') { return ['準備が要る', 'neutral']; }
+    if (row.doctor.status === 'unauthorized') { return ['準備が要る', 'warn']; }
+    return ['つながった', 'ok'];
 }
 function doctorLabel(doctor: ConnectionDoctor): string {
     if (doctor.status === 'unconfigured') { return '未登録'; }
