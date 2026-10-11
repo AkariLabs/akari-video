@@ -39,6 +39,15 @@ interface PreviewOptions {
   fps: number;
 }
 
+function formatFrameEngineWarning(message: string, detail?: { code: 'long-gop'; id: string; gopSeconds: number }): string {
+  if (detail?.code !== 'long-gop') return message;
+  const messages = (window as unknown as { __AKARI_PREVIEW_MESSAGES__?: { longGop?: string } }).__AKARI_PREVIEW_MESSAGES__;
+  if (!messages?.longGop) return message;
+  return messages.longGop
+    .replaceAll('{id}', String(detail.id))
+    .replaceAll('{gopSeconds}', Number(detail.gopSeconds).toFixed(3));
+}
+
 interface TimelineUiSegment {
   index: number;
   isGap: false;
@@ -873,7 +882,8 @@ class FrameEngineRuntime {
     const choice = this.sourceChoices.get(id);
     const pool = new ClipSessionPool(id, url, {
       codecSupport: choice?.support,
-      onWarning: message => this.showError(message, false),
+      onWarning: ((message: string, detail?: { code: 'long-gop'; id: string; gopSeconds: number }) =>
+        this.showError(formatFrameEngineWarning(message, detail), false)) as (message: string) => void,
       onSoftwareFallbackDenied: support => {
         if (!(choice?.support?.hw || choice?.support?.any)) {
           this.ui.showNotice(`ソフトウェアデコード非対応: ${support.codec}`);
