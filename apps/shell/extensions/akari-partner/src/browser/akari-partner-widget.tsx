@@ -1427,11 +1427,6 @@ export class AkariPartnerWidget extends ReactWidget {
             <div style={styles.container}>
                 <h2 style={styles.heading}>パートナーを追加</h2>
                 <p style={styles.lead}>CLI・作業画面・公式拡張を選んで、右パネルに追加します。</p>
-                <button data-akari-chat-card style={{ width: '100%', textAlign: 'left', padding: 14, marginBottom: 12, borderRadius: 10, border: '1px solid #f97316', background: '#25180f', color: '#eee', cursor: 'pointer' }} onClick={() => { if (this.commandRegistry.getCommand('akari.chat.open')) void this.commandService.executeCommand('akari.chat.open'); }}>
-                    <strong>✦ AKARI チャット</strong><br />動画づくり専用のチャット。どのパートナーでも同じ画面
-                </button>
-
-
                 <div style={styles.buttonStack}>
                     {PARTNER_CATALOG.reduce<Array<{
                         agent: PartnerCatalogEntry['agent'];
@@ -1487,6 +1482,10 @@ export class AkariPartnerWidget extends ReactWidget {
                         </div>;
                     })}
                 </div>
+                <button data-akari-chat-card style={{ width: '100%', textAlign: 'left', padding: '8px 10px', marginTop: 14, borderRadius: 8, border: '1px solid #555', background: 'transparent', color: '#bbb', cursor: 'pointer', fontSize: 12 }} onClick={() => { if (this.commandRegistry.getCommand('akari.chat.open')) void this.commandService.executeCommand('akari.chat.open'); }}>
+                    <strong>AKARI チャット</strong> <small style={{ border: '1px solid #777', borderRadius: 4, padding: '1px 4px' }}>お試し</small>
+                    <span style={{ display: 'block' }}>動画づくりをチャットで相談できます</span>
+                </button>
 
                 {this.installCancelledNotice && <p role='status'>{this.installCancelledNotice}</p>}
                 {selectedFlow?.state === 'idle' && selectedFlow.status &&
