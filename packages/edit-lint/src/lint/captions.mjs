@@ -168,8 +168,8 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     if (!isNonEmptyString(caption.text)) {
       captionFinding(findings, "captions.schema", "text must be a non-empty string", itemPath);
     }
-    if (caption.speaker !== null) {
-      captionFinding(findings, "captions.schema", "speaker must be null in v0", itemPath);
+    if (caption.speaker !== null && !isNonEmptyString(caption.speaker)) {
+      captionFinding(findings, "captions.schema", "speaker must be null or a non-empty string", itemPath);
     }
     if (typeof caption.edited !== "boolean") {
       captionFinding(findings, "captions.edited", "edited must be a boolean", itemPath);
