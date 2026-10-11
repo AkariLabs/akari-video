@@ -5,7 +5,7 @@ import {
     SETTINGS_SECTIONS, SETTINGS_PILLARS, settingsPillarForSection, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
     visibleSettingsSections,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
-    SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
+    SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, sectionsForPillar, activeSettingsSection,
     normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     showTemporaryGpuPreferenceSetting,
@@ -132,11 +132,14 @@ test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
     assert.equal(source('../browser/akari-settings-dialog.ts').includes('akari-settings-widget'), false);
 });
 
-test('ページ選択では全節のうち自分だけを表示する', () => {
-    for (const { id: selected } of SETTINGS_SECTIONS) {
-        const visible = SETTINGS_SECTIONS.filter(({ id }) => isSettingsSectionVisible(id, selected));
-        assert.deepEqual(visible.map(({ id }) => id), [selected]);
+test('柱の目次は同じ柱の節を順に収め、試用外の聞き取りを除く', () => {
+    for (const pillar of SETTINGS_PILLARS) {
+        assert.deepEqual(sectionsForPillar(pillar.id, true), [...pillar.sections]);
+        assert.deepEqual(sectionsForPillar(pillar.id, false), pillar.sections.filter(id => id !== 'listening'));
     }
+    assert.equal(activeSettingsSection(['account', 'start', 'about'], [24, 500, 900], false), 'account');
+    assert.equal(activeSettingsSection(['account', 'start', 'about'], [-500, 18, 500], false), 'start');
+    assert.equal(activeSettingsSection(['account', 'start', 'about'], [-900, -400, 100], true), 'about');
 });
 
 test('最後のページの復元は明示指定を優先し、不正な保存値は無視する', () => {
@@ -194,7 +197,7 @@ test('全 akari スキーマキーをフォールバックに頼らずページ�
         'akari.catalog.root can be saved');
 });
 
-test('全ページは共通の見出しと説明を持ち、hidden で切り替えてページ内だけスクロールする', () => {
+test('全節は共通の見出しと説明を持ち、柱内で一本のページに並ぶ', () => {
     for (const { id } of SETTINGS_SECTIONS) {
         assert.equal(typeof SETTINGS_SECTION_DESCRIPTIONS[id], 'string');
         assert.ok(SETTINGS_SECTION_DESCRIPTIONS[id].trim().length > 0, id);
@@ -210,10 +213,11 @@ test('全ページは共通の見出しと説明を持ち、hidden で切り替�
     assert.match(dialog, /this\.transcribe\.replaceChildren\(\.\.\.this\.sectionHeading\('transcribe'\)\)/);
     assert.match(dialog, /this\.connections\.append\(\.\.\.this\.sectionHeading\('connections'\)/);
     assert.match(dialog, /node\.hidden = true/);
-    assert.match(dialog, /node\.hidden = !isSettingsSectionVisible\(id, section\)/);
-    assert.match(dialog, /if \(!node\.hidden\) \{ node\.scrollTop = 0; \}/);
-    assert.match(dialog, /Object\.assign\(node\.style, \{[^}]*minHeight: '0', overflowY: 'auto'/);
-    assert.doesNotMatch(dialog, /scrollIntoView|scheduleSectionScroll|settingsSectionScrollTop|ResizeObserver|releaseScroll/);
+    assert.match(dialog, /node\.hidden = !detailIds\.includes\(id\)/);
+    assert.match(dialog, /this\.body\.scrollTo\(\{ top: 0, behavior: 'instant' \}\)/);
+    assert.match(dialog, /this\.body\.scrollTo\(/);
+    assert.match(dialog, /root: this\.body/);
+    assert.match(dialog, /this\.contentsResizeObserver = new ResizeObserver/);
 });
 
 // カタログのフォルダ（手入力・選択・キャンセル）の DOM 検査は settings-dialog-refresh.test.mjs へ移した。
@@ -292,6 +296,7 @@ test('六つの柱が旧節を重複なく収め、旧 id と柱 id を解決す
     }
     const dialog = source('../browser/akari-settings-dialog.ts');
     assert.match(dialog, /for \(const pillar of SETTINGS_PILLARS\)/);
-    assert.match(dialog, /data-settings-detail/);
-    assert.match(dialog, /const detailIds = SETTINGS_PILLARS\.find\(item => item\.id === pillar\)!\.sections/);
+    assert.match(dialog, /data-settings-contents/);
+    assert.match(dialog, /const detailIds = sectionsForPillar\(pillar, this\.vibePreviewEnabled\(\)\)/);
+    assert.doesNotMatch(dialog, /data-settings-detail|akari-set-detail-nav/);
 });
