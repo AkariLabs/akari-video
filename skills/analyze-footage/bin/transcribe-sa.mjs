@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -138,23 +139,46 @@ function parseArguments(argv) {
   return result;
 }
 
-function needsBuild(helperBin) {
-  const sourceStat = fs.statSync(helperSource);
+function managedHelperBin(helperBin) {
+  const cacheBin = path.join(os.tmpdir(), "akari-speech-analyzer", "speechanalyzer-helper");
+  if (helperBin !== defaultHelperBin && helperBin !== cacheBin) return { path: helperBin, managed: false };
+  const hash = createHash("sha256").update(fs.readFileSync(helperSource)).digest("hex").slice(0, 16);
+  return { path: `${helperBin}-${hash}`, managed: true };
+}
+
+function needsBuild(helperBin, managed) {
+  if (!managed) {
+    const sourceStat = fs.statSync(helperSource);
+    try {
+      return fs.statSync(helperBin).mtimeMs < sourceStat.mtimeMs;
+    } catch (error) {
+      if (error?.code === "ENOENT") return true;
+      throw error;
+    }
+  }
   try {
-    return fs.statSync(helperBin).mtimeMs < sourceStat.mtimeMs;
+    fs.accessSync(helperBin, fs.constants.X_OK);
+    return false;
   } catch (error) {
-    if (error?.code === "ENOENT") return true;
+    if (error?.code === "ENOENT" || error?.code === "EACCES") return true;
     throw error;
   }
 }
 
-function buildHelper(helperBin) {
-  if (!needsBuild(helperBin)) return null;
-  const result = spawn("swiftc", ["-O", "-parse-as-library", helperSource, "-o", helperBin]);
-  if (result.error || result.status !== 0) {
-    return summarize(result.stderr, result.error?.code === "ENOENT" ? "swiftc が PATH 上にありません" : "終了コードが 0 ではありません");
+function buildHelper(helperBin, managed) {
+  if (!needsBuild(helperBin, managed)) return null;
+  if (managed) fs.mkdirSync(path.dirname(helperBin), { recursive: true });
+  const outputPath = managed ? `${helperBin}.tmp-${process.pid}-${randomUUID()}` : helperBin;
+  try {
+    const result = spawn("swiftc", ["-O", "-parse-as-library", helperSource, "-o", outputPath]);
+    if (result.error || result.status !== 0) {
+      return summarize(result.stderr, result.error?.code === "ENOENT" ? "swiftc が PATH 上にありません" : "終了コードが 0 ではありません");
+    }
+    if (managed) fs.renameSync(outputPath, helperBin);
+    return null;
+  } finally {
+    if (managed) fs.rmSync(outputPath, { force: true });
   }
-  return null;
 }
 
 function validTimedItem(value) {
@@ -212,7 +236,9 @@ function main() {
   }
 
   try {
-    const buildError = buildHelper(options.helperBin);
+    const helper = managedHelperBin(options.helperBin);
+    options.helperBin = helper.path;
+    const buildError = buildHelper(helper.path, helper.managed);
     if (buildError) {
       printJson({ backend: "speechanalyzer", available: false, reason: `swiftc build failed: ${buildError}` });
       process.exitCode = 1;

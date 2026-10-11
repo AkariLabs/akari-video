@@ -38,7 +38,7 @@ The authoritative source for terminology, inputs, outputs, and ledger updates is
 - Use OpenMontage for structural reference only; do not copy AGPL text or code.
 - Follow the "existing contract sidecars" layer of the [project-structure-v0 contract](../../docs/contract-2026-07-25-project-structure-v0.md) for `.akari/sidecars/` output paths.
 
-Pass --lang for the work's content language on transcription calls. For English audio, explicitly select the supported --backend whisper-cpp route until the default backend supports English.
+Pass --lang for the work's content language on transcription calls. The default SpeechAnalyzer backend uses that language when its locale is supported.
 
 ## Execution order and stopping conditions
 

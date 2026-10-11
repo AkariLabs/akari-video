@@ -41,7 +41,7 @@ If only a selected window is needed, limit the call with source-second bounds in
 akari media transcribe "$SOURCE" --in 120 --out 180 --lang ja
 ```
 
-Pass --lang for the work's content language on every transcription call. For English, use --lang en and explicitly select --backend whisper-cpp. The current speech-analyzer path does not accept an English language parameter and is fixed to Japanese. The command above is a Japanese-language example.
+Pass --lang for the work's content language on every transcription call. SpeechAnalyzer receives a matching locale when supported; otherwise the local backend may fall back to whisper.cpp. The command above is a Japanese-language example. Read the relevant language pack for transcription and filler guidance.
 
 The [`akari media` contract §2.5](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) defines the three-layer backend choice, caching, `segments[]` format, no-speech result, and error handling. This skill does not discover backend executables or models or convert input audio itself.
 
