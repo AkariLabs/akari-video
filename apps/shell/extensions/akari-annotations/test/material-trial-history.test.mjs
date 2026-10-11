@@ -4,11 +4,19 @@ import test from 'node:test';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { MaterialTrialHistory } from '../lib/common/material-trial-history.js';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import * as replacement from '../lib/common/material-replacement.js';
+
+
+
 import * as playback from '../../akari-preview/lib/common/swap-trial-playback.js';
-import * as trialWindow from '../lib/common/material-trial-window.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { MaterialTrialHistory } = await import('../lib/common/material-trial-history.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const replacement = await import('../lib/common/material-replacement.js');
+const trialWindow = await import('../lib/common/material-trial-window.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

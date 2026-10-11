@@ -1,14 +1,14 @@
-import { after as afterI18n } from 'node:test';
-import { setLanguage } from '@akari-video/i18n';
-setLanguage('ja');
-afterI18n(() => setLanguage(undefined));
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import {
     quickExportErrorNotification,
     quickExportStageLabel,
     shouldShowRenderJsonProgress
 } from '../lib/common/quick-export-ui.js';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 test('shouldShowRenderJsonProgress: quick export phase ごとの真理値表', () => {
     const cases = [

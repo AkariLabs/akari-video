@@ -1,3 +1,4 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -6,12 +7,20 @@ import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { spawn } from 'node:child_process';
-import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
-import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
-import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
-import { appendAiStillResultPanel } from '../lib/browser/inspector/ai-still-result-panel.js';
+
+
+
+
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } = await import('../lib/node/still-generation.js');
+const { aiActionCatalog } = await import('../lib/common/ai-action-catalog.js');
+const { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { appendAiStillResultPanel } = await import('../lib/browser/inspector/ai-still-result-panel.js');
+
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const bin = fileURLToPath(new URL('./fixtures/ai-still-routes-bin/', import.meta.url));
@@ -503,16 +512,18 @@ test('次のバッチの進捗は前回結果を拾わず、候補一覧は重�
   try {
     const instance = manager(dir);
     await instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    const previous = await instance.readStillCandidates(dir, 'clip-1');
+    const previousPaths = new Set(previous.results.map(row => row.relativePath));
     await writeFile(join(dir, 'image-state'), 'delay');
     const second = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.filter(row =>
       row.route === route && row.args[0] !== 'models').length >= 2));
     const running = await instance.readStillCandidates(dir, 'clip-1');
-    assert.equal(running.running, true);
-    // A route from the new batch may finish before this read under load.
-    assert.ok(running.completed < 3);
+    assert.ok(running.running || running.completed === 3);
+    if (running.running) assert.ok(running.completed < 3);
     assert.equal(running.results.length, running.completed);
-    assert.ok(running.candidates.length >= 3);
+    assert.ok(running.results.every(row => !row.relativePath || !previousPaths.has(row.relativePath)));
+    assert.equal(running.candidates.length, 3 + running.results.filter(row => row.ok).length);
     await second;
     const done = await instance.readStillCandidates(dir, 'clip-1');
     assert.equal(done.candidates.length, 6);

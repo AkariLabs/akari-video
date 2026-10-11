@@ -8,13 +8,22 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
 import { plannedStillMeta, withNextVideoDraft } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
-import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
-import { timelineGapAt } from '../lib/common/timeline-gap.js';
-import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
+
+
+
 import { describeNextDraft } from '@akari-video/edit-store';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { insertItem, indexEditV2Items } = await import('../lib/common/edit-v2-mutations.js');
+const { timelineGapAt } = await import('../lib/common/timeline-gap.js');
+const { emptyFrameTransform } = await import('../lib/browser/inspector/frame-geometry.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

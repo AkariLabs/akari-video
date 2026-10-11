@@ -1,15 +1,27 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import * as fx from '../lib/browser/inspector/adjust-fx-fields.js';
-import * as adjust from '../lib/browser/inspector/adjust-fields.js';
-import { ACTIVE_ADJUST_SECTIONS } from '../lib/browser/inspector/tab-model.js';
-import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from '../lib/browser/inspector/look-presets.js';
-import { buildLutOptions } from '../lib/browser/inspector/lut-options.js';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
+
+
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const fx = await import('../lib/browser/inspector/adjust-fx-fields.js');
+const adjust = await import('../lib/browser/inspector/adjust-fields.js');
+const { ACTIVE_ADJUST_SECTIONS } = await import('../lib/browser/inspector/tab-model.js');
+const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { buildLutOptions } = await import('../lib/browser/inspector/lut-options.js');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+
 
 const { INSPECTOR_ADJUST_FX, normalizeInspectorAdjustFx, addInspectorAdjustFx,
     removeInspectorAdjustFx, moveInspectorAdjustFx, updateInspectorAdjustFxParam,

@@ -3,6 +3,12 @@ import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

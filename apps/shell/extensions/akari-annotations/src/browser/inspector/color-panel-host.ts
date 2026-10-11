@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     captionPathsFromEdit, collectDesignColors, ColorPanelOpenRequest, extractPalette, findEditItem, Paint, parseColorHistory,
     parsePaint, photoSourcesFromEdit, pushColorHistory, readItemPath, sameColorPanelTarget
@@ -159,7 +160,7 @@ export class ColorPanelHost {
                 if (options.final) void this.commit(session, paint);
             },
             onClose: close,
-            onBrandAdd: color => void this.updateBrand(BRAND_KIT_ADD_COLOR_COMMAND_ID, color, 'ブランドキットに入れました（どのプロジェクトでも使えます）'),
+            onBrandAdd: color => void this.updateBrand(BRAND_KIT_ADD_COLOR_COMMAND_ID, color, t('inspector.colorPanelHost.label.addedBrandKitAvailableEveryProject')),
             onBrandRemove: color => void this.updateBrand(BRAND_KIT_REMOVE_COLOR_COMMAND_ID, color),
             notice: message => this.deps.notice(message)
         });
@@ -192,7 +193,7 @@ export class ColorPanelHost {
                     if (restore !== undefined) resolved.preview?.(restore);
                     session.view.resetDraft();
                 }
-                this.deps.notice(result.message ?? '色を反映できませんでした。');
+                this.deps.notice(result.message ?? t('inspector.colorPanelHost.error.applyColor'));
             }
             current = next;
         }
@@ -202,12 +203,12 @@ export class ColorPanelHost {
     protected async updateBrand(command: string, color: string, done?: string): Promise<void> {
         try {
             const next = await this.deps.executeCommand<string[]>(command, color);
-            if (!Array.isArray(next)) throw new Error('ブランドキットが見つかりません');
+            if (!Array.isArray(next)) throw new Error(t('inspector.colorPanelHost.error.brandKitNotFound'));
             this.brand = next;
             if (done) this.deps.notice(done);
             this.updateView();
         } catch (error) {
-            this.deps.notice(`ブランドキットを保存できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            this.deps.notice(t('inspector.colorPanelHost.error.brandKitsCouldNotBeSaved', { error: error instanceof Error ? error.message : String(error) }));
         }
     }
 
@@ -307,7 +308,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('画像を読めませんでした'));
+        image.onerror = () => reject(new Error(t('inspector.colorPanelHost.error.readImage')));
         image.src = url;
     });
 }

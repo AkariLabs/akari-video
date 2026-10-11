@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { composeTransforms, evaluatedItemTransform, normalizeItemKeyframeGroup,
     relativeTransform, type ItemV2 } from '@akari-video/edit-store';
 import { replaceXYKeyframes } from '@akari-video/edit-store/lib/motion-keyframe-replace';
@@ -16,7 +17,7 @@ export function nestedMotionPath(item: ItemV2, ancestors: ItemV2[],
         }
         const result = relativeTransform(parent, point.transform);
         if (!result || !Number.isFinite(result.x) || !Number.isFinite(result.y)) {
-            throw new Error('親の変形を逆算できません');
+            throw new Error(t('inspector.nestedMotionPath.error.calculateInverseParentTransform'));
         }
         return { t: point.t, transform: { x: result.x, y: result.y } };
     });

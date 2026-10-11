@@ -1,4 +1,4 @@
-import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
 import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { findMember } from './helpers/widget-source.mjs';
@@ -6,11 +6,18 @@ import test from 'node:test';
 import ts from 'typescript';
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
 import { readInternalEdit, projectLegacyEdit } from '@akari-video/edit-store/lib/internal-model.js';
-import { updateItem } from '../lib/common/edit-v2-mutations.js';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { readCutFreeze } from '../lib/browser/inspector/freeze-fields.js';
+
+
+
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { updateItem } = await import('../lib/common/edit-v2-mutations.js');
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+const { readCutFreeze } = await import('../lib/browser/inspector/freeze-fields.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

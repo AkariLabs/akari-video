@@ -1,7 +1,13 @@
-import test from 'node:test';
+import test, { beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { setLanguage } from '@akari-video/i18n';
-import { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudPrice, readAloudPreviewPlan, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } from '../lib/common/read-aloud-model.js';
+setLanguage('ja');
+const { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudPrice, readAloudPreviewPlan, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } = await import('../lib/common/read-aloud-model.js');
+
+
+
+beforeEach(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 
 test('クラウドは鍵ありを先にし、初期 3 行と前回選択を表示する', () => {
     const ids = ['chatterbox', 'gemini-tts', 'fish-s2.1-pro', 'elevenlabs-v3', 'gemini-3.8-flash-tts'];

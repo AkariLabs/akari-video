@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface AnnotationResponse {
     summary: string;
     action: 'edited' | 'declined';
@@ -135,10 +136,10 @@ export function emptyReviewSource(): string {
 export function parseReview(source: string): { version: number; annotations: Annotation[]; warnings: string[] } {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object' || !Array.isArray(value.annotations)) {
-        throw new Error('レビューデータの形式を確認できません。');
+        throw new Error(t('annotationscommon.annotationStore.error.couldNotVerifyReviewDataFormat'));
     }
     if (Number.isInteger(value.version) && value.version > 0) {
-        throw new Error(`review.json の version ${value.version} は新しい形式です。スキル / アプリを更新してください。`);
+        throw new Error(t('annotationscommon.annotationStore.error.reviewJsonVersionUsesNewerFormatUpdate', { version: String(value.version) }));
     }
     const warnings: string[] = [];
     const annotations: Annotation[] = [];
@@ -149,7 +150,7 @@ export function parseReview(source: string): { version: number; annotations: Ann
             continue;
         }
         if (seenIds.has(annotation.id)) {
-            warnings.push(`注釈 ${annotation.id} が重複しているため、後の行は表示しません。`);
+            warnings.push(t('annotationscommon.annotationStore.warning.duplicateAnnotation', { id: annotation.id }));
             continue;
         }
         seenIds.add(annotation.id);
@@ -159,9 +160,9 @@ export function parseReview(source: string): { version: number; annotations: Ann
 }
 
 function normalizeAnnotation(value: any, warnings: string[], index: number): Annotation | undefined {
-    const label = `${index + 1} 番目の注釈`;
+    const label = t('annotationscommon.annotationStore.label.annotationOrdinal', { number: index + 1 });
     if (!value || typeof value !== 'object' || typeof value.id !== 'string' || !value.id) {
-        warnings.push(`${label}は id が不正なため表示しません。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidId', { label }));
         return undefined;
     }
     // sourceT は null を許容する（doc: / image: target のみ。読み込み側は劣化規約「無言で捨てない」に
@@ -173,18 +174,18 @@ function normalizeAnnotation(value: any, warnings: string[], index: number): Ann
         || typeof value.text !== 'string'
         || typeof value.status !== 'string' || !STATUSES.has(value.status)
         || typeof value.input !== 'string' || !INPUTS.has(value.input)) {
-        warnings.push(`注釈 ${value.id} は時刻・状態・内容のいずれかが不正なため表示しません。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidTimingStateContent', { id: value.id }));
         return undefined;
     }
     if (value.sourceT === null && !isDocOrImageTarget(normalizeOptionalString(value.target))) {
-        warnings.push(`注釈 ${value.id} は sourceT が null ですが target が doc: / image: 形式ではありません。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidSourceTarget', { id: value.id }));
     }
     if (value.poses != null) {
-        warnings.push(`注釈 ${value.id} の予約フィールド（実演キャプチャ）はこのバージョンでは無視します。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.reservedCaptureField', { id: value.id }));
     }
     const timelineT = typeof value.timelineT === 'number' && Number.isFinite(value.timelineT) ? value.timelineT : null;
     if (timelineT !== null) {
-        warnings.push(`注釈 ${value.id} の timelineT は非推奨です（timeline 位置は cuts[] から射影します）。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.deprecatedTimelineT', { id: value.id }));
     }
     const sourceRange = normalizeRange(value.sourceRange);
     const response = normalizeResponse(value.response);
@@ -244,7 +245,7 @@ export function normalizeTargetKind(value: any, id: string, warnings: string[]):
         return null;
     }
     if (typeof value !== 'string' || !TARGET_KINDS.has(value as AnnotationTargetKind)) {
-        warnings.push(`注釈 ${id} の targetKind が不正なため無視します。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidTargetKind', { id }));
         return null;
     }
     return value as AnnotationTargetKind;
@@ -262,7 +263,7 @@ export function normalizeRegion(value: any, id: string, warnings: string[]): Ann
             return { box: [x, y, w, h] };
         }
     }
-    warnings.push(`注釈 ${id} の region が不正なため無視します。`);
+    warnings.push(t('annotationscommon.annotationStore.warning.invalidRegion', { id }));
     return null;
 }
 
@@ -271,7 +272,7 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
         return null;
     }
     if (!Array.isArray(value)) {
-        warnings.push(`注釈 ${id} の strokes が不正なため無視します。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidStrokes', { id }));
         return null;
     }
     const strokes: AnnotationStroke[] = [];
@@ -280,7 +281,7 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
         if (normalized) {
             strokes.push(normalized);
         } else {
-            warnings.push(`注釈 ${id} の strokes に不正なストロークがあるため一部を無視します。`);
+            warnings.push(t('annotationscommon.annotationStore.warning.partialInvalidStrokes', { id }));
         }
     }
     return strokes.length > 0 ? strokes : null;
@@ -364,7 +365,7 @@ export function normalizeSessionRef(value: any, id: string, warnings: string[]):
         && typeof value.confidence === 'string' && SESSION_CONFIDENCES.has(value.confidence as AnnotationSessionConfidence)) {
         return { id: value.id, recRange, confidence: value.confidence as AnnotationSessionConfidence };
     }
-    warnings.push(`注釈 ${id} の session が不正なため無視します。`);
+    warnings.push(t('annotationscommon.annotationStore.warning.invalidSession', { id }));
     return null;
 }
 
@@ -373,13 +374,13 @@ export function normalizeRefs(value: any, id: string, warnings: string[]): Annot
         return null;
     }
     if (!Array.isArray(value)) {
-        warnings.push(`注釈 ${id} の refs が不正なため無視します。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidRefs', { id }));
         return null;
     }
     const refs: AnnotationRef[] = [];
     for (const ref of value) {
         if (!ref || typeof ref !== 'object') {
-            warnings.push(`注釈 ${id} の refs に不正な参照があるため一部を無視します。`);
+            warnings.push(t('annotationscommon.annotationStore.warning.partialInvalidRefs', { id }));
             continue;
         }
         const hasSrc = typeof ref.src === 'string' && ref.src.trim();
@@ -389,7 +390,7 @@ export function normalizeRefs(value: any, id: string, warnings: string[]): Annot
         } else if (hasPath && !('src' in ref)) {
             refs.push({ path: ref.path });
         } else {
-            warnings.push(`注釈 ${id} の refs は src / path のどちらか一方だけを持つ必要があるため一部を無視します。`);
+            warnings.push(t('annotationscommon.annotationStore.warning.invalidRefSource', { id }));
         }
     }
     return refs.length > 0 ? refs : null;
@@ -400,7 +401,7 @@ export function normalizeInsertPosition(value: any, id: string, warnings: string
         return null;
     }
     if (value !== 'before' && value !== 'after') {
-        warnings.push(`注釈 ${id} の insertPosition が不正なため無視します。`);
+        warnings.push(t('annotationscommon.annotationStore.warning.invalidInsertPosition', { id }));
         return null;
     }
     return value;
@@ -431,7 +432,7 @@ export function serializeAnnotationLine(annotation: Annotation): string {
 export function appendAnnotationLine(source: string, annotation: Annotation): string {
     const closing = /\n([ \t]*)\](\s*\}\s*\n?)$/.exec(source);
     if (!closing) {
-        throw new Error('review.json の形式を確認できません。');
+        throw new Error(t('annotationscommon.annotationStore.error.couldNotVerifyReviewJsonFormat'));
     }
     const indent = closing[1];
     const itemIndent = `${indent}  `;
@@ -473,14 +474,14 @@ function findAnnotationObjectSpan(source: string, annotationId: string): { start
         } else if (character === '}') {
             const start = stack.pop();
             if (start === undefined) {
-                throw new Error('review.json の括弧の対応を確認できません。');
+                throw new Error(t('annotationscommon.annotationStore.error.couldNotVerifyBracketsReviewJson'));
             }
             if (idPattern.test(source.slice(start, index + 1))) {
                 return { start, end: index };
             }
         }
     }
-    throw new Error(`注釈 ${annotationId} がレビューデータにありません。`);
+    throw new Error(t('annotationscommon.annotationStore.error.annotationNotFoundReviewData', { annotationId: String(annotationId) }));
 }
 
 function escapeForRegExp(value: string): string {
@@ -494,7 +495,7 @@ export function removeAnnotationLine(
     const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`, 'g');
     const occurrences = source.match(idPattern)?.length ?? 0;
     if (occurrences > 1) {
-        throw new Error(`注釈 ${annotationId} がレビューデータに複数あります。`);
+        throw new Error(t('annotationscommon.annotationStore.error.multipleEntriesAnnotationFoundReviewData', { annotationId: String(annotationId) }));
     }
     const { start, end } = findAnnotationObjectSpan(source, annotationId);
     const objectText = source.slice(start, end + 1);
@@ -503,10 +504,10 @@ export function removeAnnotationLine(
     try {
         removed = normalizeAnnotation(JSON.parse(objectText), warnings, 0);
     } catch {
-        throw new Error(`注釈 ${annotationId} を読み取れません。`);
+        throw new Error(t('annotationscommon.annotationStore.error.couldNotReadAnnotation', { annotationId: String(annotationId) }));
     }
     if (!removed) {
-        throw new Error(`注釈 ${annotationId} を読み取れません。`);
+        throw new Error(t('annotationscommon.annotationStore.error.couldNotReadAnnotation', { annotationId: String(annotationId) }));
     }
 
     const review = JSON.parse(source) as { annotations?: unknown[] };
@@ -531,14 +532,14 @@ export function updateStatusLine(source: string, annotationId: string, fromStatu
     const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`, 'g');
     const occurrences = source.match(idPattern)?.length ?? 0;
     if (occurrences > 1) {
-        throw new Error(`注釈 ${annotationId} がレビューデータに複数あります。`);
+        throw new Error(t('annotationscommon.annotationStore.error.multipleEntriesAnnotationFoundReviewData', { annotationId: String(annotationId) }));
     }
     const { start, end } = findAnnotationObjectSpan(source, annotationId);
     const objectText = source.slice(start, end + 1);
     const statusMatch = objectText.match(/"status"\s*:\s*"((?:\\.|[^"\\])*)"/);
     const currentStatus = statusMatch ? decodeJsonString(statusMatch[1]) : undefined;
     if (!currentStatus || !fromStatuses.includes(currentStatus)) {
-        throw new Error(`注釈 ${annotationId} は現在の状態（${currentStatus ?? '不明'}）から変更できません。`);
+        throw new Error(t('annotationscommon.annotationStore.error.annotationCannotBeChangedFromItsCurrent', { annotationId: String(annotationId), status: String(currentStatus ?? t('annotationscommon.annotationStore.status.unknown')) }));
     }
     const updatedObjectText = objectText.replace(
         /("status"\s*:\s*)"(?:\\.|[^"\\])*"/, (_match, prefix) => `${prefix}${JSON.stringify(toStatus)}`

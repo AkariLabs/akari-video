@@ -5,8 +5,15 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { NarrationCliManager } from '../lib/node/narration-cli.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { NarrationCliManager } = await import('../lib/node/narration-cli.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
+
+
 
 test('voice RPC は C1 の引数を渡し、有償操作は承認なしで spawn しない', async () => {
   const prior = process.env.AKARI_GENERATE_CLI;

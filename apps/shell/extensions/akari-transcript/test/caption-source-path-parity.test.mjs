@@ -3,8 +3,10 @@ globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-tex
 globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
 import { setLanguage } from '@akari-video/i18n';
 setLanguage('ja');
-process.on('exit', () => setLanguage(undefined));
-import test from 'node:test';
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+import test, { after as afterI18nTest } from 'node:test';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

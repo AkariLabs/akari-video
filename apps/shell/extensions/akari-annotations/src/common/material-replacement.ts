@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { EditV2Document, updateItem } from './edit-v2-mutations';
 
 type Row = Record<string, any>;
@@ -12,7 +13,7 @@ export function planReplacement({ actualDurationS, cutsDurationS }: { actualDura
     in: number; out: number; freeze: { at_sec: number; duration_sec: number } | null; mismatch_s: number; warn: boolean;
 } {
     if (!Number.isFinite(actualDurationS) || actualDurationS < 0 || !Number.isFinite(cutsDurationS) || cutsDurationS <= 0) {
-        throw new Error('差し替え尺は有限の正数である必要があります');
+        throw new Error(t('annotationscommon.materialReplacement.error.invalidDuration'));
     }
     const round = (value: number): number => Number(value.toFixed(6));
     const mismatch_s = round(Math.abs(actualDurationS - cutsDurationS));
@@ -62,11 +63,11 @@ export function replaceMaterial(doc: EditV2Document, options: {
 }): EditV2Document {
     const target = materialSwapTarget(doc, options.itemId);
     const found = locateSwapItem(doc, options.itemId);
-    if (!target || !found || (target.kind === 'audio') !== (options.kind === 'audio')) throw new Error('入れ替え対象ではありません。');
-    if (found.track.locked) throw new Error('トラックがロックされています。');
-    if (!options.relativePath) throw new Error('素材のパスがありません。');
+    if (!target || !found || (target.kind === 'audio') !== (options.kind === 'audio')) throw new Error(t('annotationscommon.materialReplacement.error.invalidTarget'));
+    if (found.track.locked) throw new Error(t('annotationscommon.materialReplacement.error.lockedTrack'));
+    if (!options.relativePath) throw new Error(t('annotationscommon.materialReplacement.error.missingPath'));
     const fps = Number((doc.output as Row)?.fps ?? 30);
-    if (!Number.isFinite(fps) || fps <= 0) throw new Error('fps が不正です。');
+    if (!Number.isFinite(fps) || fps <= 0) throw new Error(t('annotationscommon.materialReplacement.error.invalidFps'));
     const sources = [...(doc.sources as Row[] ?? [])];
     let source = sources.find(entry => entry.path === options.relativePath);
     if (!source) {
@@ -81,7 +82,7 @@ export function replaceMaterial(doc: EditV2Document, options: {
         Object.assign(patch.source, { out: found.item.duration / fps, mute: null, speed: null });
     } else {
         const actual = options.actualDurationS;
-        if (!Number.isFinite(actual) || actual! <= 0) throw new Error('素材の実尺を取得できません。');
+        if (!Number.isFinite(actual) || actual! <= 0) throw new Error(t('annotationscommon.materialReplacement.error.durationUnavailable'));
         if (options.kind === 'audio') {
             // グループ内の at は親相対。同じトラック全体を出力時刻で比べる。
             const starts: number[] = [];
@@ -95,7 +96,7 @@ export function replaceMaterial(doc: EditV2Document, options: {
             visit(found.track.items, 0);
             const next = Math.min(Infinity, ...starts);
             const frames = Math.min(Math.max(1, Math.floor(actual! * fps)), next - found.at);
-            if (frames <= 0) throw new Error('同じトラックの素材と重なります。');
+            if (frames <= 0) throw new Error(t('annotationscommon.materialReplacement.error.trackOverlap'));
             patch.duration = frames;
             patch.source.out = Math.min(actual!, frames / fps);
         } else {

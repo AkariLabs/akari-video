@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-    TIMELINE_ASPECT_PRESETS, isTimelineEditFileName, timelineSlugFromEditFileName,
-    timelineEditFileName, timelineCaptionsFileName, timelineReviewFileName,
-    slugifyTimelineName, uniqueTimelineSlug, estimateAspectFromOrientation,
-    timelineDisplayName, timelineWidgetId, sortTimelineEditFileNames, createTimelineEditContent
-} from '../lib/common/timeline-files.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { TIMELINE_ASPECT_PRESETS, isTimelineEditFileName, timelineSlugFromEditFileName, timelineEditFileName, timelineCaptionsFileName, timelineReviewFileName, slugifyTimelineName, uniqueTimelineSlug, estimateAspectFromOrientation, timelineDisplayName, timelineWidgetId, sortTimelineEditFileNames, createTimelineEditContent } = await import('../lib/common/timeline-files.js');
+
+
 
 test('only canonical and lowercase kebab infix edit files are discovered', () => {
     for (const name of ['edit.json', 'edit.a-b.json', 'edit.123.json', 'edit.backup.json']) {

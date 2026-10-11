@@ -5,14 +5,26 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { cutSnapshot, photoMaskFields } from './helpers/perspective-transition-fixture.mjs';
-import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
-import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
-import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
-import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
-import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { cutSnapshot, photoMaskFields } = await import('./helpers/perspective-transition-fixture.mjs');
+const { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { appendAiStillNotice, stillMismatchNotice } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { appendImageAiPanel } = await import('../lib/browser/inspector/image-ai-panel.js');
+const { isInspectorStillImage } = await import('../lib/browser/inspector/edit-target.js');
+const { CAPTION_IMAGE_EXTENSIONS } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+
+
+
+
+
+
+
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;
@@ -27,6 +39,7 @@ const method = name => widget.members.find(node => node.name?.getText(ast) === n
 const factory = name => ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(ast);
 let openedPhotoPanel;
 const dependencies = {
+  t,
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   LAYER_SECTIONS: () => [],

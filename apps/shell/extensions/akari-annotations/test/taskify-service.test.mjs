@@ -5,8 +5,15 @@ import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { AkariTaskifyServiceImpl } from '../lib/node/taskify-service.js';
-import { AkariTasksServiceImpl } from '../lib/node/akari-tasks-service.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariTaskifyServiceImpl } = await import('../lib/node/taskify-service.js');
+const { AkariTasksServiceImpl } = await import('../lib/node/akari-tasks-service.js');
+
+
+
 const fake = fileURLToPath(new URL('./fixtures/taskify/fake-cli.mjs', import.meta.url));
 const waitFor = async fn => { for (let i = 0; i < 200; i++) {
   if (await fn()) return; await new Promise(resolve => setTimeout(resolve, 10)); }

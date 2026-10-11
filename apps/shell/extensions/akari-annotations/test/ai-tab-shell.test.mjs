@@ -1,8 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
-import { tabsForKind } from '../lib/browser/inspector/tab-model.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiGenerationKindFor, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+
 
 const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', family: 'MiniMax H3', price: { by_resolution: { '768P': 0.1 } } }];
 const catalog = aiActionCatalog(models);

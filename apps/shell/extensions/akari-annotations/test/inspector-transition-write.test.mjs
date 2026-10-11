@@ -3,12 +3,19 @@ import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TRANSITION_VOCABULARY, cutOverlapFrames, areCutsAdjacent } from '@akari-video/edit-store';
-import {
-    transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest
-} from '../lib/browser/inspector/transition-fields.js';
-import { updateItem as updateV2Item } from '../lib/common/edit-v2-mutations.js';
-import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../lib/common/transition-duration.js';
-import { transitionFields, cutSnapshot, timelineMethod, timelineSource } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { transitionFields, cutSnapshot, timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
+const { transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest } = await import('../lib/browser/inspector/transition-fields.js');
+const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

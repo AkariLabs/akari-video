@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { createHash, randomUUID } from 'crypto';
@@ -14,20 +15,20 @@ const MAX_PNG_BYTES = 16 * 1024 * 1024;
 const memoId = (id: string): boolean => /^c-\d{4,}$/.test(id);
 const fsPath = (uri: string): string => {
     const parsed = new URI(uri);
-    if (parsed.scheme !== 'file') throw new Error('ファイルの場所が不正です。');
+    if (parsed.scheme !== 'file') throw new Error(t('annotationscommon.roughCanvasService.error.invalidFileLocation'));
     return resolve(parsed.path.fsPath());
 };
 export function decodeRoughCanvasPng(image: string): Buffer {
     if (typeof image !== 'string' || image.length > MAX_PNG_BYTES * 2
         || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) {
-        throw new Error('PNG のデータ形式が不正です。');
+        throw new Error(t('annotationscommon.roughCanvasService.error.invalidPngDataFormat'));
     }
     const bytes = Buffer.from(image.slice(PNG_PREFIX.length), 'base64');
     if (bytes.length > MAX_PNG_BYTES || bytes.length < 24
         || !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
         || bytes.toString('ascii', 12, 16) !== 'IHDR'
         || bytes.readUInt32BE(16) < 1 || bytes.readUInt32BE(20) < 1) {
-        throw new Error('PNG のヘッダまたはサイズが不正です。');
+        throw new Error(t('annotationscommon.roughCanvasService.error.invalidPngHeaderDimensions'));
     }
     return bytes;
 }
@@ -38,7 +39,7 @@ async function realDirectory(path: string, create = false): Promise<void> {
     }
     const info = await fs.lstat(path);
     if (!info.isDirectory() || info.isSymbolicLink()) {
-        throw new Error('保存先は実ディレクトリである必要があります。');
+        throw new Error(t('annotationscommon.roughCanvasService.error.destinationMustBeRealDirectory'));
     }
 }
 async function canvasRoot(projectRootUri: string): Promise<string> {
@@ -51,7 +52,7 @@ async function canvasRoot(projectRootUri: string): Promise<string> {
     return canvas;
 }
 async function existingDirectory(root: string, id: string): Promise<string> {
-    if (!memoId(id)) throw new Error('メモの番号が不正です。');
+    if (!memoId(id)) throw new Error(t('annotationscommon.roughCanvasService.error.invalidNoteId'));
     const path = join(root, id);
     await realDirectory(path);
     return path;
@@ -68,7 +69,7 @@ async function allocateDirectory(root: string): Promise<{ id: string; path: stri
         try { await fs.mkdir(path); await realDirectory(path); return { id, path }; }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; next++; }
     }
-    throw new Error('メモの採番上限に達しました。');
+    throw new Error(t('annotationscommon.roughCanvasService.error.noteIdLimitHasBeenReached'));
 }
 async function atomic(path: string, content: string | Buffer): Promise<void> {
     const temp = join(dirname(path), `.${randomUUID()}.tmp`);
@@ -83,14 +84,14 @@ export class AkariRoughCanvasServiceImpl implements AkariRoughCanvasService {
         if (!request?.projectRootUri || !request.aspect
             || !Number.isFinite(request.aspect.w) || request.aspect.w <= 0
             || !Number.isFinite(request.aspect.h) || request.aspect.h <= 0
-            || !request.subject || request.subject.doc !== 'edit.json') throw new Error('メモの内容が不正です。');
+            || !request.subject || request.subject.doc !== 'edit.json') throw new Error(t('annotationscommon.roughCanvasService.error.invalidNoteContent'));
         const check = validateInk(request.ink);
-        if (check.errors.length) throw new Error(`線のデータが不正です: ${check.errors.join(', ')}`);
+        if (check.errors.length) throw new Error(t('annotationscommon.roughCanvasService.error.invalidStrokeData', { errors: String(check.errors.join(', ')) }));
         const memo = typeof request.memo === 'string' ? request.memo.trim() : '';
         if (request.id) {
             const existing = await existingDirectory(await canvasRoot(request.projectRootUri), request.id);
             const manifest = JSON.parse(await fs.readFile(join(existing, 'canvas.json'), 'utf8')) as RoughCanvasManifest;
-            if (manifest.sealed) throw new Error('このメモは送信済みのため変更できません。');
+            if (manifest.sealed) throw new Error(t('annotationscommon.roughCanvasService.error.noteHasAlreadyBeenSentCannotBe'));
         }
         if (!request.ink.objects.length && !memo && !request.backdrop) return { id: null };
         const paper = decodeRoughCanvasPng(request.paperPng);
@@ -101,7 +102,7 @@ export class AkariRoughCanvasServiceImpl implements AkariRoughCanvasService {
         let previous: RoughCanvasManifest | undefined;
         if (request.id) {
             previous = JSON.parse(await fs.readFile(join(location.path, 'canvas.json'), 'utf8')) as RoughCanvasManifest;
-            if (previous.sealed) throw new Error('このメモは送信済みのため変更できません。');
+            if (previous.sealed) throw new Error(t('annotationscommon.roughCanvasService.error.noteHasAlreadyBeenSentCannotBe'));
         }
         const size: [number, number] = [paper.readUInt32BE(16), paper.readUInt32BE(20)];
         const manifest: Omit<RoughCanvasManifest, 'background'> & { background: { ref: string; hash: string } | null } = {
@@ -135,7 +136,7 @@ export class AkariRoughCanvasServiceImpl implements AkariRoughCanvasService {
     }
 
     async sealMemo(projectRootUri: string, id: string, exit: 'task' | 'send'): Promise<void> {
-        if (exit !== 'task' && exit !== 'send') throw new Error('出口が不正です。');
+        if (exit !== 'task' && exit !== 'send') throw new Error(t('annotationscommon.roughCanvasService.error.invalidExitAction'));
         const path = join(await existingDirectory(await canvasRoot(projectRootUri), id), 'canvas.json');
         const canvas = JSON.parse(await fs.readFile(path, 'utf8')) as RoughCanvasManifest;
         canvas.sealed = true;
@@ -154,7 +155,7 @@ export class AkariRoughCanvasServiceImpl implements AkariRoughCanvasService {
         } catch {
             const strokes = JSON.parse(await fs.readFile(join(path, 'strokes.json'), 'utf8')) as { strokes: [] };
             ink = inkFromStrokes(strokes.strokes, canvas.aspect);
-            warnings.push('線のデータを以前の形式から復元しました。');
+            warnings.push(t('annotationscommon.roughCanvasService.warning.restoredLegacyStrokes'));
         }
         const image = async (name: string): Promise<string | undefined> => {
             try { return `${PNG_PREFIX}${(await fs.readFile(join(path, name))).toString('base64')}`; }

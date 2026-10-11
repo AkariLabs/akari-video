@@ -11,11 +11,19 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { NarrationCliManager } from '../lib/node/narration-cli.js';
-import { aiNarrationSourcePath, placeAiNarration, planAiNarrationPlacement } from '../lib/common/ai-narration-placement.js';
-import { chooseAiNarrationVoice, initialAiNarrationState, narrationBatchConfirm,
-  narrationCandidateLabel, narrationRowEstimate, orderedNarrationEngines } from '../lib/browser/inspector/ai-narration-panel.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { NarrationCliManager } = await import('../lib/node/narration-cli.js');
+const { aiNarrationSourcePath, placeAiNarration, planAiNarrationPlacement } = await import('../lib/common/ai-narration-placement.js');
+const { chooseAiNarrationVoice, initialAiNarrationState, narrationBatchConfirm, narrationCandidateLabel, narrationRowEstimate, orderedNarrationEngines } = await import('../lib/browser/inspector/ai-narration-panel.js');
+
+
+
+
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

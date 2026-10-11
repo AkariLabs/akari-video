@@ -4,11 +4,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import store from '@akari-video/edit-store';
-import * as lengths from '../lib/common/still-cut-length.js';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
+
+
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource, readAllSourceText } from './helpers/widget-source.mjs';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const lengths = await import('../lib/common/still-cut-length.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;
@@ -129,7 +136,7 @@ test('現状記述: freeze 付き動画を縮めても freeze は残り、at_sec
     assert.notEqual(item.duration / 30, item.source.out + item.source.freeze.duration_sec);
 });
 const durationCode = between(inspector, "/\\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {", '...(0, transform_fields_1.cutTransitionFields)').trim().replace(/,$/, '');
-const durationField = snapshot => new Function('snapshot', 'requestWrite', 'formatDurationSeconds', `return (${durationCode});`)(snapshot, async request => request, String);
+const durationField = snapshot => new Function('i18n_1', 'snapshot', 'requestWrite', 'formatDurationSeconds', `return (${durationCode});`)({ t }, snapshot, async request => request, String);
 test('長さ欄 → cut-source-out → duration/source.out を同時更新・手入力は 0.1 秒精度', async () => {
     const snapshot = { sourcePath: 'frame.png', index: 0, outputStart: 1, outputEnd: 3 };
     const field = durationField(snapshot);
@@ -171,7 +178,7 @@ test('動画の尺は write のない読み取り専用・音声の尺も読み�
     assert.equal(field.write, undefined);
     assert.equal(field.inputKind, undefined);
     const audio = between(inspectorSource, 'function AUDIO_SECTIONS(', 'function ');
-    assert.match(audio, /name: 'audio-duration', label: '尺', getValue:/);
+    assert.match(audio, /name: 'audio-duration', label: translate\('inspector\.audioSections\.label\.duration'\), getValue:/);
 });
 test('undo は共通 mutation の 1 手、数値欄のスクラブ途中は onPreview のみ', () => {
     assert.equal(durationField({ sourcePath: 'frame.png', outputStart: 0, outputEnd: 2 }).liveField, undefined);

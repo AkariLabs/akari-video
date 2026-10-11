@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AUDIO_KEYFRAME_MIN_POINTS, AUDIO_KEYFRAME_MIN_POINTS_NOTICE, audioKeyframeWriteGuard } = await import('../lib/common/audio-keyframe-editor-geometry.js');
 
-import {
-  AUDIO_KEYFRAME_MIN_POINTS,
-  AUDIO_KEYFRAME_MIN_POINTS_NOTICE,
-  audioKeyframeWriteGuard,
-} from '../lib/common/audio-keyframe-editor-geometry.js';
+
+
 
 const dialog = readFileSync(new URL('../src/browser/akari-audio-keyframe-dialog.ts', import.meta.url), 'utf8');
 const widget = readSourceFile('widget').text;

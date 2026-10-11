@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type PlacedTextDestination =
     | { kind: 'track'; trackId: string }
     | { kind: 'new-track'; insertIndex: number }
@@ -53,9 +54,9 @@ export function planPlacedTextMove(input: {
             : destination.kind === 'track' || destination.kind === 'placed-text' || overlap
                 ? `${row!.top}px` : input.originalTop,
         destination,
-        ...(destination.kind === 'rejected' ? { reason: overlap ? '同じトラックの区間と重なります'
+        ...(destination.kind === 'rejected' ? { reason: overlap ? t('annotationscommon.placedTextDrag.reason.trackOverlap')
             : row?.lane === 'audio'
-            ? '音のトラックには置けません' : row?.lane === 'caption-bag'
-                ? '字幕の段には置けません' : 'ここには置けません' } : {})
+            ? t('annotationscommon.placedTextDrag.reason.audioTrack') : row?.lane === 'caption-bag'
+                ? t('annotationscommon.placedTextDrag.reason.captionTrack') : t('annotationscommon.placedTextDrag.reason.cannotPlace') } : {})
     };
 }

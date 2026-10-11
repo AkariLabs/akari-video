@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { CaptionTextStyle, CaptionTextStylePatch } from './caption-store';
 export { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
 
@@ -56,7 +57,7 @@ export function renderableCaptionFonts<T extends { id: string }>(fonts: readonly
 }
 
 export function captionFontRowDetail(tags: readonly string[]): string {
-    return `Aa Bb 123 · 同梱${tags.includes('japanese') ? '' : ' · 日本語は代わりの書体で表示'}`;
+    return t('annotationscommon.captionPanelState.font.rowDetail', { fallback: tags.includes('japanese') ? '' : t('annotationscommon.captionPanelState.font.japaneseFallback') });
 }
 
 /** Only verified, bundled font files get weight choices. Reference fonts have no known local axes. */

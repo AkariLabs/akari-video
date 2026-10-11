@@ -1,11 +1,19 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail } from '../lib/common/material-selected-event.js';
-import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail } = await import('../lib/common/material-selected-event.js');
+const { appendAiMaterialView } = await import('../lib/browser/inspector/ai-material-view.js');
+
 
 class Node {
   constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.attributes = new Map(); this.className = ''; this.textContent = ''; }

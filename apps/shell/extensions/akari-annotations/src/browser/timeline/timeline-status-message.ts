@@ -1,9 +1,10 @@
+import { t } from '@akari-video/i18n';
 import type { StatusBar, StatusBarAlignment } from '@theia/core/lib/browser/status-bar/status-bar';
 
 export const TIMELINE_MESSAGE_ID = 'akari-timeline-message';
 
 export function isTimelineWarning(text: string): boolean {
-    return /できません|できない|失敗|問題|課題|注意|警告|⚠|拒否|ロック中|見つかりません|置けません|残しました|重なるので/.test(text);
+    return /できません|できない|失敗|問題|課題|注意|警告|⚠|拒否|ロック中|見つかりません|置けません|残しました|重なるので|cannot|couldn.t|failed|error|warning|locked|not found|overlap/i.test(text);
 }
 
 export class TimelineStatusMessage {
@@ -56,7 +57,7 @@ export class TimelineStatusMessage {
             const { text, warning, onclick } = this.current;
             void this.bar.setElement(TIMELINE_MESSAGE_ID, {
                 text, alignment: 0 as StatusBarAlignment, priority: -1000,
-                name: 'タイムライン',
+                name: t('annotationscommon.timelineStatusMessage.label.timeline'),
                 className: warning ? 'akari-timeline-status-message akari-timeline-message-warning'
                     : 'akari-timeline-status-message',
                 ...(warning ? { color: 'var(--theia-editorWarning-foreground)' } : {}),

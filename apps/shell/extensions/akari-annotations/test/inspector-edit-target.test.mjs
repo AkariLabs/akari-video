@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
-import { readInspectorAdjustSnapshot } from '../lib/browser/inspector/adjust-fields.js';
-import { maskSourceOptionsForSources } from '../lib/browser/inspector/mask-fields.js';
-import { layerSnapshotChromaKey } from '../lib/browser/inspector/field-mappings.js';
-import { resolveTimelineClipName } from '../lib/browser/timeline-selection-model.js';
-import { timelineMethod } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+const { isInspectorStillImage } = await import('../lib/browser/inspector/edit-target.js');
+const { readInspectorAdjustSnapshot } = await import('../lib/browser/inspector/adjust-fields.js');
+const { maskSourceOptionsForSources } = await import('../lib/browser/inspector/mask-fields.js');
+const { layerSnapshotChromaKey } = await import('../lib/browser/inspector/field-mappings.js');
+const { resolveTimelineClipName } = await import('../lib/browser/timeline-selection-model.js');
+
 
 const treeItemSnapshot = timelineMethod('treeItemSnapshot', { readInspectorAdjustSnapshot, maskSourceOptionsForSources });
 const snapshotForSelection = timelineMethod('snapshotForSelection', {

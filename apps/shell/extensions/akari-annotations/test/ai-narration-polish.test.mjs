@@ -9,17 +9,26 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog } = await import('../lib/common/ai-action-catalog.js');
+const { aiNarrationNeedsChoice, aiNarrationSourcePath, planAiNarrationPlacement, placeAiNarration } = await import('../lib/common/ai-narration-placement.js');
+const { aiNarrationChoiceVisible, generateAiNarration } = await import('../lib/browser/inspector/ai-narration-panel.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { AkariEditHistoryService } = await import('../lib/browser/akari-edit-history-service.js');
 
-import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
 
-import { aiNarrationNeedsChoice, aiNarrationSourcePath, planAiNarrationPlacement,
-  placeAiNarration } from '../lib/common/ai-narration-placement.js';
 
-import { aiNarrationChoiceVisible, generateAiNarration } from '../lib/browser/inspector/ai-narration-panel.js';
 
-import * as mutations from '../lib/common/edit-v2-mutations.js';
 
-import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
+
+
+
+
+
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

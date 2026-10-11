@@ -2,9 +2,17 @@ import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-v
 import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
-import { timelineMethod, timelineSource } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { materialOverlapInsertIndex } = await import('../lib/common/material-drop-overlap.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

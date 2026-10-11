@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { setSfxFadeInSource } from "../lib/common/sfx-fade-store.js";
+
 import { readLegacyView } from './helpers/v2-fixture.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { setSfxFadeInSource } = await import('../lib/common/sfx-fade-store.js');
+
 
 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
 // 2026-08-18): audio.sfx[].fade_in/fade_out write-back. setSfxFadeInSource is a

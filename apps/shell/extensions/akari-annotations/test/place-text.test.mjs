@@ -8,16 +8,27 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
-import { centeredPreviewTextPlacement } from '../lib/common/preview-text-placement.js';
-import { canvasAtFrame, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
-import { placeTreeV2CaptionIntoCanvas } from '../lib/common/edit-v2-mutations.js';
-import { insertCaptionLine } from '../lib/common/caption-store.js';
-import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
-    supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+
+
+
+
+
+
 import { composeTransforms, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     resolveItemAnchors } from '@akari-video/edit-store';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { placeTextCaption, nextDaihonCaptionId } = await import('../lib/common/place-text.js');
+const { centeredPreviewTextPlacement } = await import('../lib/common/preview-text-placement.js');
+const { canvasAtFrame, canvasDropTargets } = await import('../lib/browser/canvas-drop-target.js');
+const { placeTreeV2CaptionIntoCanvas } = await import('../lib/common/edit-v2-mutations.js');
+const { insertCaptionLine } = await import('../lib/common/caption-store.js');
+const { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage, supportedMyStyleAttachPart } = await import('../lib/browser/my-style-look.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

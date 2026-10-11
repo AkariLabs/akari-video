@@ -1,4 +1,4 @@
-import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
 import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
@@ -7,13 +7,12 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
-import {
-  buildAudioMeasureCacheDir,
-  buildPackageModuleCandidates,
-  measureAudioForLevel,
-  measureAudioModuleInWorker,
-  oneLineReason
-} from '../lib/node/audio-level-resolver.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { buildAudioMeasureCacheDir, buildPackageModuleCandidates, measureAudioForLevel, measureAudioModuleInWorker, oneLineReason } = await import('../lib/node/audio-level-resolver.js');
+
 
 const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 setAnnotationLanguage('ja');
@@ -208,7 +207,7 @@ test('成功通知は gain・basis・role を 1 行で表示する', () => {
 });
 
 test('インスペクタは自動レベル actionLabel を音声 write bridge へ配線する', () => {
-  assert.match(inspectorSource, /actionLabel: '自動レベル'/u);
+  assert.match(inspectorSource, /actionLabel: translate\('inspector\.audioSections\.label\.autoLevel'\)/u);
   assert.match(inspectorSource, /kind: 'audio-auto-level', id: snapshot\.id, audioKind: snapshot\.audioKind/u);
   assert.match(widgetSource, /return this\.handleAudioAutoLevelWrite\(request\)/u);
 });

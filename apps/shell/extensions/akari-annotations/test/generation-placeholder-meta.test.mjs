@@ -9,9 +9,15 @@ import { join, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../lib/common/generation-sidecar.js';
+
 import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { finishPlaceholderGenerating, markPlaceholderGenerating } = await import('../lib/common/generation-sidecar.js');
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

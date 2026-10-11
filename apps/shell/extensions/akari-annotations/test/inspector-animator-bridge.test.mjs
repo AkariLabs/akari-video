@@ -2,14 +2,27 @@ import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-v
 import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { timelineMethod } from './helpers/perspective-transition-fixture.mjs';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
-import { readInspectorAdjustSnapshot } from '../lib/browser/inspector/adjust-fields.js';
-import { maskSourceOptionsForSources } from '../lib/browser/inspector/mask-fields.js';
-import { legacyTransformOpFor } from '../lib/browser/inspector/field-mappings.js';
-import { isCutFramingWriteRequest } from '../lib/browser/inspector/framing-fields.js';
-import { isCutFreezeWriteRequest } from '../lib/browser/inspector/freeze-fields.js';
-import { validateInspectorMotion } from '../lib/browser/inspector/motion-fields.js';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { readInspectorAdjustSnapshot } = await import('../lib/browser/inspector/adjust-fields.js');
+const { maskSourceOptionsForSources } = await import('../lib/browser/inspector/mask-fields.js');
+const { legacyTransformOpFor } = await import('../lib/browser/inspector/field-mappings.js');
+const { isCutFramingWriteRequest } = await import('../lib/browser/inspector/framing-fields.js');
+const { isCutFreezeWriteRequest } = await import('../lib/browser/inspector/freeze-fields.js');
+const { validateInspectorMotion } = await import('../lib/browser/inspector/motion-fields.js');
+
+
+
+
+
+
+
+
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;

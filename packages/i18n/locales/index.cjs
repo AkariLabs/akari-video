@@ -4,9 +4,12 @@
 module.exports = {
   ja: {
     ...require("./ja/annotations.json"),
+    ...require("./ja/annotationscommon.json"),
     ...require("./ja/common.json"),
     ...require("./ja/companion.json"),
     ...require("./ja/decision-log.json"),
+    ...require("./ja/inspector.json"),
+    ...require("./ja/lint.json"),
     ...require("./ja/partner.json"),
     ...require("./ja/preview.json"),
     ...require("./ja/project.json"),
@@ -26,9 +29,12 @@ module.exports = {
   },
   en: {
     ...require("./en/annotations.json"),
+    ...require("./en/annotationscommon.json"),
     ...require("./en/common.json"),
     ...require("./en/companion.json"),
     ...require("./en/decision-log.json"),
+    ...require("./en/inspector.json"),
+    ...require("./en/lint.json"),
     ...require("./en/partner.json"),
     ...require("./en/preview.json"),
     ...require("./en/project.json"),

@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { normalizeAudioKeyframes, setAudioDuckInSource, setAudioKeyframesInSource } = await import('../lib/common/audio-envelope-store.js');
+const { updateAudioItemEnvelope, updateAudioSfxPreferV2 } = await import('../lib/common/edit-v2-mutations.js');
 
-import {
-  normalizeAudioKeyframes,
-  setAudioDuckInSource,
-  setAudioKeyframesInSource
-} from '../lib/common/audio-envelope-store.js';
-import {
-  updateAudioItemEnvelope,
-  updateAudioSfxPreferV2
-} from '../lib/common/edit-v2-mutations.js';
+
+
+
 
 const source = `{
   "version": 0,

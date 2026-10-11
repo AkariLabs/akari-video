@@ -1,16 +1,28 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiNarrationSourcePath, planAiNarrationPlacement } from '../lib/common/ai-narration-placement.js';
-import { generateAiNarration } from '../lib/browser/inspector/ai-narration-panel.js';
-import { resolveAiTranscribeTarget } from '../lib/browser/inspector/ai-transcribe-panel.js';
-import { aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
+
+
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiNarrationSourcePath, planAiNarrationPlacement } = await import('../lib/common/ai-narration-placement.js');
+const { generateAiNarration } = await import('../lib/browser/inspector/ai-narration-panel.js');
+const { resolveAiTranscribeTarget } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+const { aiTargetKindFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { AkariEditHistoryService } = await import('../lib/browser/akari-edit-history-service.js');
+
 
 const engine = { id: 'voicevox', label: 'VOICEVOX', place: 'local',
   price: { usd_per_1000_chars: 0, verified: true },

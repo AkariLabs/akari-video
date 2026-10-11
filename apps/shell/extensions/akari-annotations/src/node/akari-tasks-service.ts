@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { promises as fs } from 'node:fs';
@@ -17,7 +18,7 @@ export const TASKIFY_IMPORT_TOKEN = Symbol('taskify-import');
 @injectable()
 export class AkariTasksServiceImpl implements AkariTasksService {
     async createProposal(request: CreateTaskRequest, token: symbol): Promise<Task> {
-        if (token !== TASKIFY_IMPORT_TOKEN) throw new Error('案は取り込み係からだけ追加できます。');
+        if (token !== TASKIFY_IMPORT_TOKEN) throw new Error(t('annotationscommon.akariTasksService.error.optionsCanOnlyBeAddedImporter'));
         return this.createEntry(request, true);
     }
     async list(request: ListTasksRequest): Promise<ListTasksResponse> {
@@ -45,13 +46,13 @@ export class AkariTasksServiceImpl implements AkariTasksService {
         return withTasksLock(tasksPath, async () => {
             const doc = await this.readForWrite(tasksPath);
             if (!request.task || typeof request.task.body !== 'string' || !request.task.body.trim()) {
-                throw new Error('タスクの本文が必要です。');
+                throw new Error(t('annotationscommon.akariTasksService.error.enterTaskBody'));
             }
             const source = request.task.source ?? 'annotation';
             const origin = request.task.origin as { kind?: string } | undefined;
             const proposal = source === 'proposal' && fromTaskifier && request.task.createdBy === 'ai'
                 && origin?.kind === 'rough-canvas' && request.task.needsConfirm === true && request.task.state === 'unsent';
-            if (!['annotation', 'lint', 'export'].includes(source) && !proposal) throw new Error('自由な指示の出どころが不正です。');
+            if (!['annotation', 'lint', 'export'].includes(source) && !proposal) throw new Error(t('annotationscommon.akariTasksService.error.invalidSourceFreeFormRequest'));
             if (proposal) {
                 const same = doc.tasks.find(task => {
                     const value = task.origin as { memo?: string; job?: string; ref?: string } | undefined;
@@ -61,10 +62,10 @@ export class AkariTasksServiceImpl implements AkariTasksService {
                 if (same) return same as Task;
             }
             if (source === 'annotation' && (request.task.ref != null || request.task.anchor != null)) {
-                throw new Error('自由な指示に注釈の参照は付けられません。');
+                throw new Error(t('annotationscommon.akariTasksService.error.freeFormRequestCannotReferenceAnnotation'));
             }
             const state = request.task.state ?? 'unsent';
-            if (!['unsent', 'sent', 'review', 'done'].includes(state)) throw new Error('タスクの状態が不正です。');
+            if (!['unsent', 'sent', 'review', 'done'].includes(state)) throw new Error(t('annotationscommon.akariTasksService.error.invalidTaskState'));
             const task: TaskRecord = {
                 ...request.task, id: nextTaskId(doc.tasks), source, state,
                 ref: source === 'annotation' ? null : request.task.ref ?? null,
@@ -73,7 +74,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
                 title: request.task.title ?? Array.from(request.task.body).slice(0, 40).join(''),
                 priority: request.task.priority ?? 'normal'
             };
-            if (task.risk === 'outbound' && task.gate === 'auto-ok') throw new Error('外部へ出るタスクを自動実行にできません。');
+            if (task.risk === 'outbound' && task.gate === 'auto-ok') throw new Error(t('annotationscommon.akariTasksService.error.tasksSentExternallyCannotRunAutomatically'));
             doc.tasks.push(task);
             await writeTasksFile(tasksPath, doc);
             return task as Task;
@@ -90,7 +91,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
             });
             const derived = deriveTasks(reviewText, doc);
             const current = derived.tasks.find(task => task.id === request.id);
-            if (!current) throw new Error('タスクが見つかりません。');
+            if (!current) throw new Error(t('annotationscommon.akariTasksService.error.taskNotFound'));
             const updated = applyTaskPatch(current, request.patch as Record<string, unknown>, request.actor);
             const index = doc.tasks.findIndex(task => task && task.id === request.id);
             if (index >= 0) doc.tasks[index] = {
@@ -115,7 +116,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
 
     async writeOutbox(request: WriteOutboxRequest): Promise<void> {
         if (!/^b-\d{4,}$/.test(request.batchId) || typeof request.markdown !== 'string') {
-            throw new Error('依頼文の番号または内容が不正です。');
+            throw new Error(t('annotationscommon.akariTasksService.error.invalidRequestNumberContent'));
         }
         const { tasksPath } = await this.paths(request.projectRootUri);
         const sidecar = resolve(tasksPath, '..');
@@ -129,7 +130,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
             const actual = await fs.realpath(directory);
             const rel = relative(root, actual);
             if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-                throw new Error('プロジェクト外の場所は使えません。');
+                throw new Error(t('annotationscommon.akariTasksService.error.locationsOutsideProjectCannotBeUsed'));
             }
         }
         const destination = join(outbox, `${request.batchId}.md`);
@@ -145,7 +146,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
     async nextBatchId(request: NextBatchIdRequest): Promise<string> {
         const { tasksPath } = await this.paths(request.projectRootUri);
         const read = await readTasksFile(tasksPath);
-        if (read.ok === false) throw new Error('tasks.json を読めません。');
+        if (read.ok === false) throw new Error(t('annotationscommon.akariTasksService.error.couldNotReadTasksJson'));
         const outbox = join(resolve(tasksPath, '..'), 'cache', 'outbox');
         const root = resolve(tasksPath, '..', '..');
         let names: string[] = [];
@@ -153,7 +154,7 @@ export class AkariTasksServiceImpl implements AkariTasksService {
             try {
                 const actual = await fs.realpath(directory);
                 const rel = relative(root, actual);
-                if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('プロジェクト外の場所は使えません。');
+                if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error(t('annotationscommon.akariTasksService.error.locationsOutsideProjectCannotBeUsed'));
             } catch (error) {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
             }
@@ -175,19 +176,19 @@ export class AkariTasksServiceImpl implements AkariTasksService {
     private async readForWrite(tasksPath: string): Promise<TasksDocument> {
         const read = await readTasksFile(tasksPath);
         if (read.ok === false) throw new Error(read.reason === 'newer'
-            ? 'tasks.json は新しい形式です。スキル / アプリを更新してください。'
-            : 'tasks.json が壊れています。上書きしません。');
+            ? t('annotationscommon.akariTasksService.error.tasksJsonUsesNewerFormatUpdateSkill')
+            : t('annotationscommon.akariTasksService.error.tasksJsonDamagedWillNotBeOverwritten'));
         return read.doc;
     }
 
     private async paths(projectRootUri: string): Promise<{ tasksPath: string; reviewPath: string }> {
-        if (typeof projectRootUri !== 'string' || !projectRootUri) throw new Error('プロジェクトの場所が必要です。');
+        if (typeof projectRootUri !== 'string' || !projectRootUri) throw new Error(t('annotationscommon.akariTasksService.error.projectLocationRequired'));
         const root = await fs.realpath(resolve(new URI(projectRootUri).path.fsPath()));
         const sidecar = join(root, '.akari');
         try {
             const actual = await fs.realpath(sidecar);
             const rel = relative(root, actual);
-            if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('プロジェクト外の場所は使えません。');
+            if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error(t('annotationscommon.akariTasksService.error.locationsOutsideProjectCannotBeUsed'));
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         }

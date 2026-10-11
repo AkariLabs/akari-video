@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface PreviewDuplicateRequest {
     itemId: string;
     transform: Record<string, number>;
@@ -52,5 +53,5 @@ export function duplicatePreviewItem(source: string, request: PreviewDuplicateRe
         }
         return `${JSON.stringify(doc, undefined, 2)}\n`;
     }
-    throw new Error(`複製する要素が見つかりません: ${request.itemId}`);
+    throw new Error(t('annotationscommon.previewDuplicate.error.itemDuplicateNotFound', { itemId: String(request.itemId) }));
 }

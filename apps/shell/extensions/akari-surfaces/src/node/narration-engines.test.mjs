@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import test, { after as afterI18nTest } from 'node:test';
 import { setLanguage } from '@akari-video/i18n';
 setLanguage('ja');
-afterI18nTest(() => setLanguage(undefined));
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
 const { NarrationCli } = await import("../../lib/node/narration-engines.js");
 
 

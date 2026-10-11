@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface CaptionStyleWrite {
     kind: string;
     id: string;
@@ -112,7 +113,7 @@ function replaceCueField(source: string, id: string, field: string, value: unkno
     const captions = /"captions"\s*:\s*\[/u.exec(source);
     const arrayStart = source.trimStart().startsWith('[') ? source.indexOf('[')
         : captions ? captions.index + captions[0].length - 1 : -1;
-    if (arrayStart < 0) throw new Error('captions 配列がありません。');
+    if (arrayStart < 0) throw new Error(t('annotationscommon.captionContextEdit.error.captionsArrayMissing'));
     const start = arrayStart + 1;
     const end = valueEnd(source, start - 1);
     let at = start;
@@ -130,7 +131,7 @@ function replaceCueField(source: string, id: string, field: string, value: unkno
             }
             const styleStart = at + locatedStyle.start;
             const styleEnd = at + locatedStyle.end;
-            if (source[styleStart] !== '{') throw new Error(`字幕 ${id} の text_style はオブジェクトではありません。`);
+            if (source[styleStart] !== '{') throw new Error(t('annotationscommon.captionContextEdit.error.captionHasInvalidTextStyleObject', { id: String(id) }));
             const style = source.slice(styleStart, styleEnd);
             const old = topLevelField(style, field);
             if (old) {
@@ -142,7 +143,7 @@ function replaceCueField(source: string, id: string, field: string, value: unkno
         }
         at = cueEnd;
     }
-    throw new Error(`字幕 ${id} がありません。`);
+    throw new Error(t('annotationscommon.captionContextEdit.error.captionNotFound', { id: String(id) }));
 }
 
 export async function applyCaptionContextField(id: string, field: string, value: unknown, targetIds: readonly string[], deps: {
