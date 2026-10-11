@@ -62,6 +62,9 @@ test('reads project files and falls through missing or malformed JSON', async ()
 import { captionLanguageDefaults } from '../src/index.mjs';
 
 test('caption defaults use the primary language and English fallback', () => {
+  assert.equal(captionLanguageDefaults('en').fontStack,
+    '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif');
+  assert.equal(captionLanguageDefaults('ja').fontStack, '"Noto Sans JP", sans-serif');
   assert.equal(captionLanguageDefaults('ja-JP').landscapeCharacters, 20);
   assert.equal(captionLanguageDefaults('en').landscapeCharacters, 42);
   assert.equal(captionLanguageDefaults('en-US').portraitCharacters, 24);

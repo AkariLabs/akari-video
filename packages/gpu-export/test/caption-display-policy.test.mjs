@@ -164,6 +164,18 @@ test("display_policy の読点字幕は書き出しでも 1 行で焼く", () =>
   assert.equal(captionLines(legacy.spriteManifest.captions[0].html), 2);
 });
 
+test('English captions use the bundled Latin face in GPU and OSR pages', () => {
+  const captions = { display_policy: { ...displayPolicy, locale: 'en' },
+    captions: [{ id: 'english', src: 'main', start: 0, end: 2, text: 'English captions' }] };
+  const gpu = gpuPage(captions);
+  const osr = buildOsrPage(buildArgs(captions));
+  for (const html of [gpu.spriteManifest.captions[0].html, osr.overlaySheetHtml]) {
+    assert.match(html, /font-family: "AKARI Noto Sans";[\s\S]*?\/caption-fonts\/noto-sans-alias\/NotoSans-Variable\.ttf/u);
+  }
+  assert.equal(gpu.spriteManifest.captions[0].vars['--caption-font-family'],
+    '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif');
+});
+
 test('karaoke token timings are identical in GPU, OSR, and the shared preview/render plan', () => {
   const words = ['あいう', 'えおか', 'きくけ', 'こさし'].map((text, index) => ({
     text, start: index * 0.5, end: (index + 1) * 0.5,

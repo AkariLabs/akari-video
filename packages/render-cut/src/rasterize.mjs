@@ -100,6 +100,10 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
     overlay.html.includes("akari-caption--single-line"),
   );
+  const hasLatinCaption = sheetOverlays.some((overlay) =>
+    overlay.vars?.['--caption-font-family']?.includes('"AKARI Noto Sans"')
+      || overlay.html.includes('font-family: "AKARI Noto Sans"'),
+  );
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index, edit.output.fps))
     .join("\n");
@@ -202,6 +206,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const runtimeReadyWait = blocks.map(block => block.readyWait).join("");
   const captionFontReadyWait = hasResolvedSingleLineCaption
     ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans JP"');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {\n        throw new Error('AKARI caption font did not load');\n      }`
+    : "";
+  const latinCaptionFontReadyWait = hasLatinCaption
+    ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans"', 'English captions');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans"', 'English captions')) {\n        throw new Error('AKARI English caption font did not load');\n      }`
     : "";
   return `<!doctype html>
 <html>
@@ -404,7 +411,7 @@ ${nodes}${slotRuntimeScripts}
       return { warnings };
     };${runtimeReadySetup}
     window.__akariReady = (async function() {
-      await document.fonts.ready;${captionFontReadyWait}
+      await document.fonts.ready;${captionFontReadyWait}${latinCaptionFontReadyWait}
       await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${runtimeReadyWait}
       await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
         video.readyState >= 2

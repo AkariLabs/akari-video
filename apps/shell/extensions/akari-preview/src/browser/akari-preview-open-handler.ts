@@ -137,7 +137,7 @@ import {
     CAPTION_FONT_LOAD_DESCRIPTOR,
     captionFontFaceCss
 } from '../common/caption-visual-contract';
-import { bundledCaptionFontFaceCss } from '../common/bundled-caption-fonts';
+import { bundledCaptionFontFaceCss, latinCaptionFontFaceCss } from '../common/bundled-caption-fonts';
 import { dispatchPhotoAnalysis } from '../common/photo-analysis-dispatch';
 import { isNestedPreviewLayer } from '../common/preview-nested-layer';
 import {
@@ -7908,6 +7908,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 ${this.inlineStyle(assets.motionVocabCss)}
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
+${latinCaptionFontFaceCss(assets.latinCaptionFontUrl)}
 ${bundledCaptionFontFaceCss(assets.bundledCaptionFontFaces ?? [])}
 ${materialRangeEnabled ? materialRangeWebviewStyle() : ''}
 :root {
@@ -8516,7 +8517,7 @@ ${previewSelectionHandlesStyle}
   </div>
 </div>
 <script>window.__akariPreview = ${initialState};</script>
-<script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
+<script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.load('600 82px "AKARI Noto Sans"', 'English captions'); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); if (!document.fonts.check('600 82px "AKARI Noto Sans"', 'English captions')) throw new Error('AKARI English caption font did not load'); return true; })();</script>
 <script>${webviewScriptText(hostAdapterScript())}</script>
 ${this.externalScriptTag(assets.threeJavaScriptUrl)}
 ${threeTextRuntimeScript}${this.externalScriptTag(assets.threeRuntimeJavaScriptUrl)}

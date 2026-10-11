@@ -136,6 +136,7 @@ async function previewResponse(urlPath) {
   else if (urlPath === manifest.registry) file = new URL('src/runtime-registry.js', packageRoot);
   else if (urlPath === '/__akari/fonts/zen-kaku-gothic-new-black.ttf') file = new URL('test-harness/fonts/ZenKakuGothicNew-Black.ttf', packageRoot);
   else if (urlPath === '/assets/fonts/akari-noto-sans-jp.ttf') file = new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url);
+  else if (urlPath === '/assets/fonts/akari-noto-sans.ttf') file = new URL('../../../assets/font/noto-sans/NotoSans-Variable.ttf', import.meta.url);
   for (const [i, entry] of manifest.runtimes.entries()) for (const [j, script] of entry.scripts.entries()) {
     if (urlPath === script.url) file = new URL(runtimes[i].scripts[j].path, packageRoot);
   }
