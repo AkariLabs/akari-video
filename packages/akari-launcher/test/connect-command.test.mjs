@@ -13,8 +13,35 @@ const canonical = path.resolve(here, '../../../apps/shell/extensions/akari-conne
 const mirror = path.resolve(here, '../src/connect/connectors.json');
 const extensionLib = path.resolve(here, '../../../apps/shell/extensions/akari-connect/lib/node/connect-state.js');
 
-test('CLI catalog mirrors the extension catalog', () => {
-  assert.deepEqual(JSON.parse(fs.readFileSync(mirror, 'utf8')), JSON.parse(fs.readFileSync(canonical, 'utf8')));
+test('CLI catalog mirrors only the two supported groups', () => {
+  const rows = JSON.parse(fs.readFileSync(mirror, 'utf8'));
+  assert.deepEqual(rows, JSON.parse(fs.readFileSync(canonical, 'utf8')));
+  assert.deepEqual([...new Set(rows.map(row => row.group))], ['AKARI の道具', '素材を作る']);
+  assert.deepEqual(rows.map(row => row.id), ['akari-video', '3d-recipes', 'fal', 'fish-audio', 'google-ai', 'elevenlabs', 'groq']);
+});
+
+test('plain list prints only the two groups and current status words', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-connect-list-'));
+  try {
+    const lines = [];
+    const result = await runConnectCommand(['list'], { home: root, env: { AKARI_HOME: path.join(root, '.akari') }, roots: [], platform: 'darwin', log: line => lines.push(line) });
+    assert.equal(result.exitCode, 0);
+    assert.deepEqual(lines.filter(line => !line.startsWith('  ')), ['AKARI の道具', '素材を作る']);
+    assert.ok(lines.some(line => line.includes('Blender が必要')));
+    assert.ok(lines.some(line => line.includes('鍵が必要')));
+    assert.ok(lines.some(line => line.includes('使える')));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('CLI sees a Blender command for 3D recipes', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-connect-blender-'));
+  try {
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'blender'), '', { mode: 0o755 });
+    const row = listConnectors({ env: { AKARI_HOME: path.join(root, '.akari'), PATH: bin }, home: root, platform: 'darwin' }).rows.find(item => item.id === '3d-recipes');
+    assert.equal(row.status, '使える');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('connect exec passes a fake key only through child env and redacts output', async () => {
@@ -132,6 +159,8 @@ test('CLI and extension agree on all connector statuses and ordering', { skip: !
     const require = createRequire(import.meta.url);
     const extension = require(extensionLib).connectSnapshot(options);
     const cli = listConnectors(options);
+    assert.deepEqual(cli.generationOrder.slice(0, 1), ['fish-audio']);
+    assert.equal(cli.rows.some(row => row.id === 'runway'), false);
     assert.deepEqual(cli.rows.map(({ id, status, enabled }) => ({ id, status, enabled })),
       extension.rows.map(({ id, status, enabled }) => ({ id, status, enabled })));
     assert.deepEqual(cli.rows.map(({ id, credentialSource }) => ({ id, credentialSource })),

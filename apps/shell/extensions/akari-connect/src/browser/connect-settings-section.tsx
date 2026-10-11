@@ -8,7 +8,11 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { ConnectService, ConnectSnapshot, ConnectorRow } from '../common/connect-protocol';
 import './connect-style';
 
-const groups = ['AKARI の道具', '素材を作る', '行き来する', '渡す'];
+const groups = ['AKARI の道具', '素材を作る'];
+const connectorIcon = (row: ConnectorRow): React.ReactElement =>
+    <span className="akari-connect-icon" style={{ background: row.background, color: row.color }}>
+        {row.logo ? <img src={row.logo} alt="" /> : row.initials || row.icon}
+    </span>;
 
 @injectable()
 export class ConnectSettingsSection implements SettingsSectionBodyContribution {
@@ -100,33 +104,33 @@ export class ConnectSettingsSection implements SettingsSectionBodyContribution {
     protected renderContent(): React.ReactElement {
         const snapshot = this.snapshot;
         const rows = snapshot?.rows ?? [];
-        const connected = rows.filter(row => row.status === 'つながった').length;
+        const available = rows.filter(row => row.status === '使える' && row.enabled).length;
         const selected = this.selected();
         const visible = (row: ConnectorRow): boolean =>
-            (this.filter === 'すべて' || this.filter === row.group || this.filter === 'つながっている' && row.status === 'つながった') &&
+            (this.filter === 'すべて' || this.filter === row.group || this.filter === '使える' && row.status === '使える' && row.enabled) &&
             `${row.name} ${row.description}`.toLocaleLowerCase().includes(this.search.toLocaleLowerCase());
         return <div className="akari-connect-view">
             <main className="akari-connect-main">
-                <header><p>チャットから使える道具とサービス。つないだものは、話しかけるだけで AKARI が使います。</p>
+                <header><p>AKARI で使える道具と素材のサービスを表示します。鍵を追加すると使えるようになります。</p>
                     <input aria-label="探す" placeholder="探す" value={this.search} onChange={event => { this.search = event.currentTarget.value; this.paint(); }} /></header>
-                <nav className="akari-connect-filters">{['すべて', 'つながっている', ...groups].map(filter =>
+                <nav className="akari-connect-filters">{['すべて', '使える', ...groups].map(filter =>
                     <button key={filter} data-connect-filter={filter} className={this.filter === filter ? 'active' : ''} onClick={() => { this.filter = filter; this.paint(); }}>
-                        {filter}{filter === 'つながっている' && <b>{connected}</b>}
+                        {filter}{filter === '使える' && <b>{available}</b>}
                     </button>)}</nav>
                 <div className="akari-connect-list">{groups.map(group => {
                     const matches = rows.filter(row => row.group === group && visible(row));
                     return matches.length > 0 && <section key={group}><h3>{group}</h3><div className="akari-connect-rows">
                         {matches.map(row => <button key={row.id} data-connect-id={row.id} className={`akari-connect-card ${this.selectedId === row.id ? 'selected' : ''}`}
-                            onClick={() => this.select(row.id)}><span className="akari-connect-icon">{row.icon}</span><span className="akari-connect-row-copy"><strong>{row.name}</strong><span>{row.description}</span></span><small data-status={row.status}>{row.status}</small></button>)}
+                            onClick={() => this.select(row.id)}>{connectorIcon(row)}<span className="akari-connect-row-copy"><strong>{row.name}</strong><span>{row.description}</span></span><small data-status={row.status}>{row.status}</small></button>)}
                     </div></section>;
-                })}</div>
+                })}{rows.length > 0 && !rows.some(visible) && <p>該当する道具やサービスはありません。</p>}</div>
             </main>
-            {selected && <aside className="akari-connect-detail" data-connect-detail={selected.id}><div className="akari-connect-detail-title"><span className="akari-connect-icon">{selected.icon}</span><div><h2>{selected.name}</h2><small data-status={selected.status}>{selected.status}</small></div><button onClick={() => this.select()} aria-label="閉じる">×</button></div>
-                <p>{selected.description}</p><div className="akari-connect-setting"><span>つなぎ方</span><strong>{selected.id === 'higgsfield' ? 'API key と secret を : でつないで貼ってください。' : selected.kind === 'key' ? 'API の鍵を追加します。' : selected.id === 'after-effects' ? '環境設定で「スクリプトによるファイルの書き込み」をオンにしてください。' : selected.kind === 'app' ? 'インストール済みのアプリを最初に使うときに確かめます。' : selected.kind === 'planned' ? '準備中です。' : selected.kind === 'browser' ? 'ブラウザでログインして使います。' : 'AKARI に含まれています。'}</strong></div>
+            {selected && <aside className="akari-connect-detail" data-connect-detail={selected.id}><div className="akari-connect-detail-title">{connectorIcon(selected)}<div><h2>{selected.name}</h2><small data-status={selected.status}>{selected.status}</small></div><button onClick={() => this.select()} aria-label="閉じる">×</button></div>
+                <p>{selected.description}</p><div className="akari-connect-setting"><span>使い方</span><strong>{selected.kind === 'key' ? 'API の鍵を追加します。' : selected.kind === 'blender-recipe' ? 'Blender を使って 3D 素材を作ります。' : selected.kind === 'planned' ? '準備中です。' : 'AKARI に含まれています。'}</strong></div>
                 {selected.maskedTail && <div className="akari-connect-setting"><span>登録済みの鍵</span><strong data-connect-masked-tail={selected.id}>••••{selected.maskedTail}</strong>
                     {selected.credentialSource === 'credentials.env' && <button onClick={() => void this.removeKey(selected)}>鍵を削除</button>}</div>}
                 {selected.kind === 'key' && <div className="akari-connect-key"><input type="password" data-connect-key-input={selected.id} aria-label="API の鍵" placeholder="API の鍵" value={this.pendingKey} onChange={event => { this.pendingKey = event.currentTarget.value; this.paint(); }} /><button data-connect-key-save={selected.id} disabled={!this.pendingKey} onClick={() => void this.saveKey(selected)}>鍵を追加</button><small>鍵はこのパソコンの資格情報ファイルに保存します。チャットには貼らないでください。</small></div>}
-                {selected.setupUrl && <button onClick={() => this.windows.openNewWindow(selected.setupUrl!, { external: true })}>{selected.kind === 'browser' ? 'ログイン ↗' : '手順を見る ↗'}</button>}
+                {selected.setupUrl && <button onClick={() => this.windows.openNewWindow(selected.setupUrl!, { external: true })}>手順を見る ↗</button>}
                 {selected.group === '素材を作る' && <div className="akari-connect-order"><span>使う順番</span><button onClick={() => void this.move(selected, -1)}>上へ</button><button onClick={() => void this.move(selected, 1)}>下へ</button></div>}
                 {selected.group === '素材を作る' && <label className="akari-connect-toggle">使う <input type="checkbox" checked={selected.enabled} onChange={() => void this.toggle(selected)} /></label>}
                 {selected.try && <button className="akari-connect-try" data-connect-try={selected.id} onClick={() => void this.tryInChat(selected)}>チャットで試す「{selected.try}」 →</button>}

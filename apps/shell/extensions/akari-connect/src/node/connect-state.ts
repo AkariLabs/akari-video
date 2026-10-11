@@ -10,6 +10,24 @@ export interface ConnectSettings { version: 1; enabled: Record<string, boolean>;
 export const DEFAULT_SETTINGS: ConnectSettings = { version: 1, enabled: {}, generationOrder: [], fallbackOnFailure: false };
 const entries = catalog as Connector[];
 const generationIds = entries.filter(entry => entry.group === '素材を作る').map(entry => entry.id);
+interface MakerMark { logo?: string; background?: string; color?: string; initials?: string; }
+
+export function readMakerMarks(starts: readonly string[] = [__dirname, process.cwd(), process.resourcesPath].filter((value): value is string => !!value)): Record<string, MakerMark> {
+    for (const start of starts) {
+        let directory = start;
+        for (;;) {
+            const candidate = path.resolve(directory, 'packages/schemas/ai-makers.json');
+            try {
+                const value: unknown = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+                if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, MakerMark>;
+            } catch { /* メーカー印が無ければ頭文字を使う。 */ }
+            const parent = path.dirname(directory);
+            if (parent === directory) break;
+            directory = parent;
+        }
+    }
+    return {};
+}
 
 export function connectorsPath(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
     return path.join(env.AKARI_HOME || path.join(home, '.akari'), 'connectors.json');
@@ -41,55 +59,27 @@ export function writeSettings(file: string, settings: ConnectSettings): void {
 }
 
 const macPatterns: Record<string, RegExp[]> = {
-    blender: [/^Blender(?: \d+(?:\.\d+)*)?\.app$/i],
-    photoshop: [/^Adobe Photoshop(?: \d{4})?$/i, /^Adobe Photoshop(?: \d{4})?\.app$/i],
-    'after-effects': [/^Adobe After Effects(?: \d{4})?$/i, /^Adobe After Effects(?: \d{4})?\.app$/i],
-    'ableton-live': [/^Ableton Live .+\.app$/i],
-    'davinci-resolve': [/^DaVinci Resolve$/i, /^DaVinci Resolve\.app$/i],
-    'final-cut-pro': [/^Final Cut Pro\.app$/i]
+    blender: [/^Blender(?: \d+(?:\.\d+)*)?\.app$/i]
 };
 const winPatterns: Record<string, RegExp[]> = {
-    blender: [/^Blender Foundation$/i, /^Blender(?: \d+)?$/i],
-    photoshop: [/^Adobe$/i, /^Adobe Photoshop/i],
-    'after-effects': [/^Adobe$/i, /^Adobe After Effects/i],
-    'ableton-live': [/^Ableton$/i, /^Ableton Live/i],
-    'davinci-resolve': [/^Blackmagic Design$/i, /^DaVinci Resolve$/i],
-    'final-cut-pro': []
-};
-const leafPatterns: Record<string, RegExp> = {
-    photoshop: /^Adobe Photoshop(?: \d{4})?\.app$/i,
-    'after-effects': /^Adobe After Effects(?: \d{4})?\.app$/i,
-    'davinci-resolve': /^DaVinci Resolve\.app$/i
+    blender: [/^Blender Foundation$/i, /^Blender(?: \d+)?$/i]
 };
 function directories(root: string): string[] {
     try { return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name); }
     catch { return []; }
 }
 export function detectApp(id: string, roots: readonly string[], platform: NodeJS.Platform = process.platform): boolean {
-    const patterns = platform === 'win32' ? winPatterns[id] : macPatterns[id];
-    if (!patterns?.length) return false;
-    for (const root of roots) for (const name of directories(root)) {
-        if (!patterns.some(pattern => pattern.test(name))) continue;
-        if (platform === 'win32') {
-            if (id === 'final-cut-pro') continue;
-            if (id === 'photoshop' && name.toLowerCase() === 'adobe') {
-                if (directories(path.join(root, name)).some(child => /^Adobe Photoshop/i.test(child))) return true;
-                continue;
-            }
-            if (id === 'after-effects' && name.toLowerCase() === 'adobe') {
-                if (directories(path.join(root, name)).some(child => /^Adobe After Effects/i.test(child))) return true;
-                continue;
-            }
-            return true;
-        }
-        const leaf = leafPatterns[id];
-        if (leaf && !name.endsWith('.app')) {
-            if (directories(path.join(root, name)).some(child => leaf.test(child))) return true;
-            continue;
-        }
-        return true;
-    }
-    return false;
+    if (id !== 'blender') return false;
+    const patterns = platform === 'win32' ? winPatterns.blender : macPatterns.blender;
+    return roots.some(root => directories(root).some(name => patterns.some(pattern => pattern.test(name))));
+}
+function detectBlenderCommand(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): boolean {
+    const executable = platform === 'win32' ? 'blender.exe' : 'blender';
+    const candidates = [env.BLENDER, ...(env.PATH || '').split(platform === 'win32' ? ';' : ':').map(directory => path.join(directory, executable))];
+    return candidates.some(candidate => {
+        if (!candidate) return false;
+        try { fs.accessSync(candidate, fs.constants.X_OK); return fs.statSync(candidate).isFile(); } catch { return false; }
+    });
 }
 export function appRoots(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir(), platform: NodeJS.Platform = process.platform): string[] {
     return platform === 'win32'
@@ -116,15 +106,13 @@ export function orderedGenerationIds(settings: ConnectSettings): string[] {
     return [...settings.generationOrder, ...generationIds.filter(id => !settings.generationOrder.includes(id))];
 }
 export function connectorStatus(entry: Connector, hasKey: boolean, detected: boolean): ConnectStatus {
-    if (entry.kind === 'built-in') return 'つながった';
+    if (entry.kind === 'built-in') return '使える';
     if (entry.kind === 'planned') return '準備中';
-    if (entry.kind === 'key') return hasKey ? 'つながった' : '準備が要る';
-    if (entry.kind === 'browser') return '見つかった';
-    if (entry.kind === 'blender-recipe') return detected ? '見つかった' : '準備が要る';
-    if (entry.id === 'after-effects' && detected) return '準備が要る';
-    return detected ? '見つかった' : '準備が要る';
+    if (entry.kind === 'key') return hasKey ? '使える' : '鍵が必要';
+    if (entry.kind === 'blender-recipe') return detected ? '使える' : 'Blender が必要';
+    return '準備中';
 }
-export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: string; roots?: string[]; platform?: NodeJS.Platform } = {}): ConnectSnapshot {
+export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: string; roots?: string[]; platform?: NodeJS.Platform; makerRoots?: string[] } = {}): ConnectSnapshot {
     const env = options.env ?? process.env;
     const home = options.home ?? os.homedir();
     const platform = options.platform ?? process.platform;
@@ -132,10 +120,18 @@ export function connectSnapshot(options: { env?: NodeJS.ProcessEnv; home?: strin
     const values = credentialValues(env, home);
     const settings = readSettings(connectorsPath(env, home));
     const order = orderedGenerationIds(settings);
+    const makers = readMakerMarks(options.makerRoots);
     const rows: ConnectorRow[] = entries.map(entry => {
-        const detected = entry.app ? detectApp(entry.app, roots, platform) : entry.kind === 'blender-recipe' ? detectApp('blender', roots, platform) : false;
+        const detected = entry.kind === 'blender-recipe' ? detectApp('blender', roots, platform) || (!options.roots && detectBlenderCommand(env, platform)) : false;
         const credential = entry.env ? values.get(entry.env) : undefined;
-        return { ...entry, status: connectorStatus(entry, !!credential, detected), enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
+        const mark = entry.maker ? makers[entry.maker] : undefined;
+        const visual = mark && typeof mark === 'object' ? {
+            logo: typeof mark.logo === 'string' ? mark.logo : undefined,
+            background: typeof mark.background === 'string' ? mark.background : undefined,
+            color: typeof mark.color === 'string' ? mark.color : undefined,
+            initials: typeof mark.initials === 'string' ? mark.initials : undefined
+        } : {};
+        return { ...entry, ...visual, status: connectorStatus(entry, !!credential, detected), enabled: entry.kind === 'built-in' || settings.enabled[entry.id] !== false,
             maskedTail: maskedTail(credential?.value), credentialSource: credential?.source ?? null, detected };
     });
     rows.sort((a, b) => a.group === '素材を作る' && b.group === '素材を作る' ? order.indexOf(a.id) - order.indexOf(b.id) : 0);

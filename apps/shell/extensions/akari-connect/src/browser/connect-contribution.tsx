@@ -1,7 +1,7 @@
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { ConnectService } from '../common/connect-protocol';
+import { ConnectService, ConnectorRow } from '../common/connect-protocol';
 
 export const CONNECT_OPEN: Command = { id: 'akari.connect.open', label: 'つなぐ' };
 
@@ -16,18 +16,25 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
     }
     onDidInitializeLayout(): void {
         let lastSignature = '';
-        let items: { id: string; icon: string; name: string }[] = [];
+        let items: Pick<ConnectorRow, 'id' | 'icon' | 'name' | 'logo' | 'background' | 'color' | 'initials'>[] = [];
         let requestId = 0;
         let mountQueued = false;
         const createStack = (): HTMLElement => {
             const stack = document.createElement('span');
             stack.className = 'akari-connect-stack';
-            stack.setAttribute('aria-label', `接続中: ${items.map(item => item.name).join('、')}`);
+            stack.setAttribute('aria-label', `使える: ${items.map(item => item.name).join('、')}`);
             for (const item of items.slice(0, 5)) {
                 const icon = document.createElement('span');
                 icon.className = 'akari-connect-stack-icon';
                 icon.title = item.name;
-                icon.textContent = item.icon;
+                if (item.background) icon.style.background = item.background;
+                if (item.color) icon.style.color = item.color;
+                if (item.logo) {
+                    const image = document.createElement('img');
+                    image.src = item.logo;
+                    image.alt = '';
+                    icon.appendChild(image);
+                } else icon.textContent = item.initials || item.icon;
                 stack.appendChild(icon);
             }
             if (items.length > 5) {
@@ -54,7 +61,7 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
                 host.className = 'akari-connect-rail-host';
                 tab.appendChild(host);
             }
-            const signature = items.map(row => `${row.id}:${row.icon}:${row.name}`).join('|');
+            const signature = JSON.stringify(items);
             if (signature !== lastSignature || !host.querySelector('.akari-connect-stack')) {
                 host.replaceChildren(createStack());
                 lastSignature = signature;
@@ -70,8 +77,9 @@ export class ConnectContribution implements CommandContribution, FrontendApplica
             try {
                 const snapshot = await this.service.list();
                 if (current !== requestId) return;
-                items = snapshot.rows.filter(row => row.status === 'つながった' && row.enabled)
-                    .map(row => ({ id: row.id, icon: row.icon, name: row.name }));
+                items = snapshot.rows.filter(row => row.status === '使える' && row.enabled)
+                    .map(row => ({ id: row.id, icon: row.icon, name: row.name, logo: row.logo,
+                        background: row.background, color: row.color, initials: row.initials }));
                 scheduleMount();
             } catch { /* レールは接続状態が読めなくても開ける。 */ }
         };
