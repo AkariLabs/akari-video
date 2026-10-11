@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-    SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
+    SETTINGS_SECTIONS, SETTINGS_PILLARS, settingsPillarForSection, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
     visibleSettingsSections,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
@@ -45,8 +45,8 @@ test('旧設定の品質・テーマ・開発者・通知と Store 接続は各�
     ]) { assert.equal(sectionForPreferenceKey(key), section); }
     const dialog = source('../browser/akari-settings-dialog.ts');
     assert.match(dialog, /this\.storeRow\.setAttribute\('data-akari-store-settings', 'true'\)/);
-    assert.match(dialog, /this\.connections\.append\([^;]*this\.providerList/s);
-    // AKARI Store は Akari アカウント節へ移した（2026-09-22）。接続と API キーの一覧には入れない。
+    assert.match(dialog, /findSettingsSectionBody\('connections'\)/);
+    // アカウントは一般、鍵のカードはつなぐにだけ置く。
     assert.doesNotMatch(dialog, /this\.providerList\.(?:replaceChildren|append)\([^;]*this\.storeRow/s);
     assert.doesNotMatch(dialog, /this\.connections\.append\([^;]*this\.storeRow/s);
     assert.match(dialog, /if \(id === 'account'\) \{\s*section\.append\(this\.storeRow\);/);
@@ -64,7 +64,7 @@ test('節指定はオブジェクトと文字列を受け付け、未知の値�
     }
 });
 
-test('節の順序・グループと DOM ID はナビの契約に一致する', () => {
+test('詳細ページの順序・グループと DOM ID を保つ', () => {
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.id),
         ['account', 'start', 'export', 'appearance', 'connections', 'ai-models', 'partner', 'transcribe', 'listening', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
@@ -77,7 +77,7 @@ test('節の順序・グループと DOM ID はナビの契約に一致する', 
     }
 });
 
-test('プレビュー off のナビだけ聞き取りを除き、on は既存の順を保つ', () => {
+test('プレビュー off の詳細ページだけ聞き取りを除き、on は既存の順を保つ', () => {
     assert.deepEqual(visibleSettingsSections(true), SETTINGS_SECTIONS);
     assert.deepEqual(visibleSettingsSections(false).map(section => section.id),
         SETTINGS_SECTIONS.filter(section => section.id !== 'listening').map(section => section.id));
@@ -102,7 +102,7 @@ test('設定値は有効値を保持し、不正値を既定へ正規化する',
 
 test('ホームの Store 設定は AKARI アカウント節を指定して設定ダイアログを開く', () => {
     const home = source('../browser/akari-home-widget.tsx');
-    const body = home.match(/protected async openStoreSettings\(\): Promise<void> \{([\s\S]*?)\n    \}/)?.[1].trim();
+    const body = home.match(/protected async openStoreSettings\(\): Promise<void> \{([\s\S]*?)\n {4}\}/)?.[1].trim();
     assert.equal(body, "await this.commands.executeCommand('akari.settings.open', { section: 'account' });");
 });
 
@@ -276,3 +276,22 @@ test('旧モード設定は未登録でも、エンジンと比較の設定は�
 });
 
 // 文字起こしのモード切替（カード）で比較・カットのフォームを置き換える DOM 検査は settings-dialog-refresh.test.mjs へ移した。
+
+test('六つの柱が旧節を重複なく収め、旧 id と柱 id を解決する', () => {
+    assert.deepEqual(SETTINGS_PILLARS.map(item => item.label),
+        ['一般', 'パートナー', 'つなぐ', '進め方と上限', '表示', 'データの場所']);
+    assert.deepEqual(SETTINGS_PILLARS.flatMap(item => item.sections).sort(), SETTINGS_SECTIONS.map(item => item.id).sort());
+    assert.deepEqual(SETTINGS_PILLARS.find(item => item.id === 'connect').sections,
+        ['connections', 'ai-models', 'narration', 'transcribe', 'listening', 'export']);
+    for (const pillar of SETTINGS_PILLARS) {
+        assert.equal(resolveSettingsSectionId(pillar.id), pillar.sections[0]);
+        for (const id of pillar.sections) {
+            assert.equal(resolveSettingsSectionId(id), id);
+            assert.equal(settingsPillarForSection(id), pillar.id);
+        }
+    }
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /for \(const pillar of SETTINGS_PILLARS\)/);
+    assert.match(dialog, /data-settings-detail/);
+    assert.match(dialog, /const detailIds = SETTINGS_PILLARS\.find\(item => item\.id === pillar\)!\.sections/);
+});

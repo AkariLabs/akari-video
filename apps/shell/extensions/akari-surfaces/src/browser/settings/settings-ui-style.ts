@@ -22,6 +22,11 @@ ${S} .akari-set-icon { width: 16px; height: 16px; flex: 0 0 16px; fill: none; st
 ${S} .akari-set-icon-sm { width: 13px; height: 13px; flex-basis: 13px; }
 
 ${S} .akari-set-nav { flex: 0 0 270px; max-width: 42%; overflow-y: auto; box-sizing: border-box; padding: 10px; display: flex; flex-direction: column; gap: 1px; background: var(--akari-bg); border-right: 1px solid var(--akari-line-inner); }
+${S} [data-akari-settings-section="connections"] details { margin-top: 20px; border-top: 1px solid var(--akari-line-inner); padding-top: 12px; }
+${S} [data-akari-settings-section="connections"] details > summary { cursor: pointer; color: var(--akari-muted); font-size: 12px; }
+${S} .akari-set-detail-nav { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 28px; border-bottom: 1px solid var(--akari-line-inner); }
+${S} .akari-set-detail-nav button { border: 1px solid var(--akari-line); border-radius: 7px; background: var(--akari-card); color: var(--akari-muted); padding: 6px 10px; cursor: pointer; }
+${S} .akari-set-detail-nav button[aria-current="page"] { color: var(--akari-ink); border-color: var(--akari-accent); }
 ${S} .akari-set-nav-title { font-weight: 600; font-size: 14px; padding: 4px 10px 12px; margin: 0; color: var(--akari-ink); }
 ${S} .akari-set-nav-group { font-size: 11px; color: var(--akari-faint); padding: 10px 10px 3px; margin: 0; font-weight: 400; }
 ${S} .akari-set-nav-group[hidden] { display: none; }

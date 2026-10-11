@@ -11,6 +11,7 @@ export const CONNECT_SERVICE_PATH = '/services/akari-connect';
 export interface ConnectService {
     list(): Promise<ConnectSnapshot>;
     setCredential(id: string, value: string): Promise<void>;
+    deleteCredential(id: string): Promise<void>;
     setEnabled(id: string, enabled: boolean): Promise<void>;
     setGenerationOrder(ids: string[]): Promise<void>;
     setFallbackOnFailure(enabled: boolean): Promise<void>;
