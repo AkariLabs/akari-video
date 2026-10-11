@@ -21,7 +21,7 @@ export function parseCaptionsApplyPreview(value: unknown): CaptionsApplyPreview 
 }
 
 export function captionsApplyPreviewLine(preview: CaptionsApplyPreview): string {
-    const protectedPart = preview.protected > 0 ? t('transcript.daihon.captionsButton.leadingManuallyEditedLinesProtectedWithCountLabel', { value1: preview.protected }) : '';
+    const protectedPart = preview.protected > 0 ? t('transcript.daihon.captionsButton.leadingManuallyEditedLinesProtectedWithCountLabel', { value1: preview.protected, n: preview.protected }) : '';
     return t('transcript.daihon.captionsButton.newChangedRemovedWithValuesLabel', { value1: preview.added, value2: preview.changed, value3: protectedPart, value4: preview.removed });
 }
 
@@ -46,11 +46,11 @@ export function captionsRetimeLine(movedWords: number, value?: unknown): string 
         ? summary.overlaps_left : 0;
     const clampedPart = clampedPairs >= 1 ? t('transcript.daihon.captionsButton.leadingResolvedOverlapsWithCountLabel', { value1: clampedPairs }) : '';
     const overlapsPart = overlapsLeft >= 1 ? t('transcript.daihon.captionsButton.leadingOverlapsRemainWithCountLabel', { value1: overlapsLeft }) : '';
-    return t('transcript.daihon.captionsButton.movedWordsWithValuesLabel', { value1: movedWords, value2: clampedPart, value3: overlapsPart });
+    return t('transcript.daihon.captionsButton.movedWordsWithValuesLabel', { value1: movedWords, n: movedWords, value2: clampedPart, value3: overlapsPart });
 }
 
 export function captionsRetimeHistoryLabel(movedWords: number): string {
-    return t('transcript.daihon.captionsButton.alignSpeechWordsWithCountLabel', { value1: movedWords });
+    return t('transcript.daihon.captionsButton.alignSpeechWordsWithCountLabel', { value1: movedWords, n: movedWords });
 }
 
 export function captionsApplyHistoryLabel(preview: CaptionsApplyPreview): string {

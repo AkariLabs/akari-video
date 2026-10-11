@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from './plural-display-count';
 import { t } from '@akari-video/i18n';
 import { insertTrack as insertV2Track } from './edit-v2-mutations';
 import { computeTrackAutoNames } from './derive-timeline-tracks';
@@ -46,13 +47,13 @@ export function planAiNarrationPlacement(tracks: readonly NarrationTrack[], item
     const empty = (row: NarrationTrack, excludeFrame: boolean): boolean => row.items.every(item =>
         excludeFrame && item.id === itemId || item.at + item.duration <= start || item.at >= start + durationFrames);
     const excess = Math.max(0, durationSeconds - frame.duration / fps);
-    const suffix = excess > 0 ? t('annotationscommon.aiNarrationPlacement.notice.exceedsFrame', { seconds: excess.toFixed(1) }) : '';
+    const suffix = excess > 0 ? t('annotationscommon.aiNarrationPlacement.notice.exceedsFrame', { seconds: excess.toFixed(1), n: pluralCountForDisplay(excess.toFixed(1)) }) : '';
     if (durationFrames <= frame.duration || empty(track, true)) return { mode: durationFrames <= frame.duration ? 'replace' : 'extend',
         trackId: track.id, at: start, durationFrames, label: t('annotationscommon.aiNarrationPlacement.notice.placed', { track: name(track.id), suffix }) };
     if (choice === 'shift' && aiNarrationNeedsChoice(tracks, itemId, durationSeconds, fps)) {
         const shiftFrames = durationFrames - frame.duration;
         return { mode: 'shift', trackId: track.id, at: start, durationFrames,
-            label: t('annotationscommon.aiNarrationPlacement.notice.shiftedAndPlaced', { seconds: (shiftFrames / fps).toFixed(1), track: name(track.id) }) };
+            label: t('annotationscommon.aiNarrationPlacement.notice.shiftedAndPlaced', { seconds: (shiftFrames / fps).toFixed(1), n: pluralCountForDisplay((shiftFrames / fps).toFixed(1)), track: name(track.id) }) };
     }
     for (let index = trackIndex - 1; index >= 0; index--) {
         const row = tracks[index];

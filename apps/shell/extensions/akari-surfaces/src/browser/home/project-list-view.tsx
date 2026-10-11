@@ -51,7 +51,7 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
             <button type='button' className='akari-os-link' data-akari-new-standalone='true' onClick={props.onNewStandalone}>{t('surfaces.projects.projectListViewCreateWithoutEnteringChannel.button')}</button>
         </div>
         <section>
-            <div className='akari-os-section-heading'><h3>{t('surfaces.projects.channelProjects.heading', { channel: props.channel })}</h3><small>{t('surfaces.projects.projectCount.label', { count: rows.length })}</small>
+            <div className='akari-os-section-heading'><h3>{t('surfaces.projects.channelProjects.heading', { channel: props.channel })}</h3><small>{t('surfaces.projects.projectCount.label', { count: rows.length, n: rows.length })}</small>
                 <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>{t('surfaces.projects.projectListViewOpenChannel.button')}</button>
                 <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>{t('surfaces.projects.projectListViewUpdate.button')}</button></div>
             {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} refreshToken={props.refreshToken} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>

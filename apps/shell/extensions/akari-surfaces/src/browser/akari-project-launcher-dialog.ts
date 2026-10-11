@@ -320,7 +320,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         }
         this.listSection.removeAttribute('data-akari-launcher-empty');
         const heading = document.createElement('p');
-        heading.textContent = t('surfaces.projects.listProject.label', { count: rows.length });
+        heading.textContent = t('surfaces.projects.listProject.label', { count: rows.length, n: rows.length });
         heading.setAttribute('role', 'status');
         Object.assign(heading.style, {
             margin: '0 0 9px', fontFamily: 'monospace', fontSize: '10.5px', letterSpacing: '0.12em',

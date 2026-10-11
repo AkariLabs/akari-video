@@ -56,7 +56,7 @@ export class AkariLintPane {
             this.lintCheckedAt = outcome.available ? Date.now() : undefined;
             if (notify) {
                 if (!outcome.available) this.host.messages.warn(t('project.editCheck.pane.editCheckIsUnavailableProjectMessage'));
-                else if (outcome.issueCount) this.host.messages.warn(t('project.editCheck.pane.editCheckIssueCountIssuesFoundMessage', { issueCount: outcome.issueCount }));
+                else if (outcome.issueCount) this.host.messages.warn(t('project.editCheck.pane.editCheckIssueCountIssuesFoundMessage', { issueCount: outcome.issueCount, n: outcome.issueCount }));
             }
         } catch (error) {
             if (notify) this.host.messages.error(t('project.editCheck.pane.couldNotCheckEditError', { value1: this.errorMessage(error) }));

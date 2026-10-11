@@ -21,12 +21,12 @@ export function summarizeLintFindings(findings: readonly EditLintFinding[]): {
 export function lintStatusLabel(running: boolean, count?: number): string {
     if (running) return t('project.editCheck.result.checkingStatus');
     if (count === undefined) return t('project.editCheck.result.checkNotRunAction');
-    return count === 0 ? t('project.editCheck.result.checkNoIssuesAction') : t('project.editCheck.result.checkCountIssuesAction', { count: count });
+    return count === 0 ? t('project.editCheck.result.checkNoIssuesAction') : t('project.editCheck.result.checkCountIssuesAction', { count: count, n: count });
 }
 
 export function lintPartnerPrompt(findings: readonly EditLintFinding[]): string {
     const ordered = summarizeLintFindings(findings).ordered;
-    return t('project.editCheck.result.editCheckLengthIssuesLabel', { length: ordered.length, value2: ordered.map(finding =>
+    return t('project.editCheck.result.editCheckLengthIssuesLabel', { length: ordered.length, n: ordered.length, value2: ordered.map(finding =>
         `- [${SEVERITY_LABEL[finding.severity]}] ${finding.message}${finding.path ? ` (${finding.path})` : ''}`
     ).join('\n') });
 }

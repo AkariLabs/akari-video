@@ -142,7 +142,7 @@ export function audioKeyframeFields(
             write: async (_snapshot, nextValue) => {
                 const seconds = Number(nextValue);
                 if (!Number.isFinite(seconds) || seconds < 0 || seconds > snapshot.duration) {
-                    return { ok: false, message: translate('inspector.audioSections.message.enterTFrom0Seconds', { duration: snapshot.duration }) };
+                    return { ok: false, message: translate('inspector.audioSections.message.enterTFrom0Seconds', { duration: snapshot.duration, n: snapshot.duration }) };
                 }
                 const t = keyframeRawTime(snapshot, seconds);
                 const duplicate = points.some((candidate, candidateIndex) => candidateIndex !== index

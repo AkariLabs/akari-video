@@ -10,6 +10,7 @@ import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTarg
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
+import { pluralCountForDisplay } from '../lib/common/plural-display-count.js';
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;
@@ -40,6 +41,7 @@ ${method('renderContent').replace('renderContent', 'render')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor, cutoutAvailabilityFor, photoToolAvailabilityFor,
+  pluralCountForDisplay,
   aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, isInspectorStillImage, CAPTION_IMAGE_EXTENSIONS, CAPTION_ZONE_HOVER_EVENT: '',
   photoMaskSectionsForAvailability: sections => sections,
   createSelectionHeader: () => new FakeNode('header'), layerAudioControls: new WeakMap(),

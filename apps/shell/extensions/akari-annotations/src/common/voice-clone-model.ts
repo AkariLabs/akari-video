@@ -104,7 +104,7 @@ export function voiceId(label: string, existing: readonly string[], fallback = '
 export function voiceCheckRows(check: VoiceCheckResult): Array<{ label: string; mark: '✓' | '!' | '✗'; detail: string }> {
     const { duration, level, noise, script } = check.checks;
     return [
-        { label: t('annotationscommon.voiceCloneModel.label.duration'), mark: duration.ok ? '✓' : '✗', detail: t('annotationscommon.voiceCloneModel.detail.seconds15120Seconds', { duration: duration.value_s }) },
+        { label: t('annotationscommon.voiceCloneModel.label.duration'), mark: duration.ok ? '✓' : '✗', detail: t('annotationscommon.voiceCloneModel.detail.seconds15120Seconds', { duration: duration.value_s, n: duration.value_s }) },
         { label: t('annotationscommon.voiceCloneModel.label.volume'), mark: level.ok ? '✓' : '✗', detail: t('annotationscommon.voiceCloneModel.detail.peakDbAverageDb', { peak: level.peak_db, average: level.mean_db }) },
         { label: t('annotationscommon.voiceCloneModel.label.backgroundNoise'), mark: noise.warn ? '!' : '✓', detail: t('annotationscommon.voiceCloneModel.detail.silenceDb', { noiseFloor: noise.floor_db }) },
         { label: t('annotationscommon.voiceCloneModel.label.matchesScript'), mark: script.ok === false ? '✗' : script.ok === 'unavailable' ? '!' : '✓',

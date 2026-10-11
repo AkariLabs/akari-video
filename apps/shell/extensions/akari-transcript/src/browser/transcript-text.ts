@@ -8,7 +8,9 @@ export function t(key: string, params: Record<string, string | number> = {}): st
     const count = params.n;
     const suffix = typeof count === 'number' && (catalog[`${key}_one`] || catalog[`${key}_other`])
         ? `_${new Intl.PluralRules(language).select(count)}` : '';
-    const text = catalog[key + suffix] ?? en[key + suffix] ?? catalog[key] ?? en[key] ?? key;
+    const pluralKey = key + suffix;
+    const fallback = suffix === '_one' ? `${key}_other` : pluralKey;
+    const text = catalog[pluralKey] ?? catalog[fallback] ?? en[pluralKey] ?? en[fallback] ?? catalog[key] ?? en[key] ?? key;
     return text.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (match, name) =>
         params[name] === undefined ? match : String(params[name]));
 }

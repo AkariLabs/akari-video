@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { currentTimelineEditUri, currentTimelineCaptionsUri } from './active-timeline';
@@ -904,7 +905,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const panel = document.createElement('section');
         panel.className = 'akari-inspector-generation-gap';
         const title = document.createElement('h3');
-        title.textContent = t('annotations.inspectorWidget.text.gapSeconds', { duration: (snapshot.endSeconds - snapshot.startSeconds).toFixed(1) });
+        title.textContent = t('annotations.inspectorWidget.text.gapSeconds', { duration: (snapshot.endSeconds - snapshot.startSeconds).toFixed(1), n: pluralCountForDisplay((snapshot.endSeconds - snapshot.startSeconds).toFixed(1)) });
         const range = document.createElement('p');
         range.textContent = t('annotations.inspectorWidget.text.seconds', { startTime: snapshot.startSeconds.toFixed(2), endTime: snapshot.endSeconds.toFixed(2) });
         const ends = document.createElement('div');
@@ -2377,7 +2378,7 @@ export class AkariInspectorWidget extends BaseWidget {
         panel.className = 'akari-generation-batch';
         panel.setAttribute('aria-label', t('annotations.inspectorWidget.text.multipleSelection'));
         const heading = document.createElement('h3');
-        heading.textContent = t('annotations.inspectorWidget.text.selectingItems', { count: items.length });
+        heading.textContent = t('annotations.inspectorWidget.text.selectingItems', { count: items.length, n: items.length });
         panel.appendChild(heading);
         const list = document.createElement('div');
         list.className = 'akari-generation-batch-list';
@@ -2404,7 +2405,7 @@ export class AkariInspectorWidget extends BaseWidget {
             name.title = `${row.name || row.itemId} (${row.itemId})`;
             const duration = document.createElement('span');
             duration.className = 'akari-generation-batch-duration';
-            duration.textContent = t('annotations.inspectorWidget.text.secondsAlternate', { duration: row.duration.toFixed(2) });
+            duration.textContent = t('annotations.inspectorWidget.text.secondsAlternate', { duration: row.duration.toFixed(2), n: pluralCountForDisplay(row.duration.toFixed(2)) });
             const badge = document.createElement('div');
             badge.className = 'akari-generation-batch-badge';
             const progress = run?.progress.get(row.itemId);
@@ -2457,7 +2458,7 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             const amount = batch.unknown ? t('annotations.inspectorWidget.text.partiallyUnavailableForQuotationEstimateablePortion', { amount: batch.total.toFixed(2) }) : t('annotations.inspectorWidget.text.total', { amount: batch.total.toFixed(2) });
             const approved = await new ConfirmDialog({ title: t('annotations.inspectorWidget.text.expenseApproval'),
-                msg: t('annotations.inspectorWidget.text.sendBooksForAsOfDoYou', { count: batch.count, amount: amount, date: batch.asOf }),
+                msg: t('annotations.inspectorWidget.text.sendBooksForAsOfDoYou', { count: batch.count, n: batch.count, amount: amount, date: batch.asOf }),
                 ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel') }).open();
             if (!approved) return;
             const run = { projectRootUri, stopped: false, active: true,
@@ -2962,7 +2963,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path) || path.startsWith('/')
             || path.split('/').includes('..')) { state.error = t('annotations.inspectorWidget.text.selectAnImageInYourProject'); this.render(); return; }
         if (state.references?.some(row => row.path === path)) return;
-        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = t('annotations.inspectorWidget.text.upToReferenceImages', { count: maxStillReferences }); this.render(); return; }
+        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = t('annotations.inspectorWidget.text.upToReferenceImages', { count: maxStillReferences, n: maxStillReferences }); this.render(); return; }
         try {
             const file = await this.fileService.readFile(root.resolve(path));
             const bytes = file.value.buffer;
@@ -3216,7 +3217,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const estimate = routes.includes('fal') ? state.falEstimate!.prices[input.quality] : 0;
         if (estimate > 0) {
             const approved = await new ConfirmDialog({ title: t('annotations.inspectorWidget.text.expenseApproval'),
-                msg: t('annotations.inspectorWidget.text.createPlansAtTheSameTimeTotal', { count: routes.length, estimate: estimate.toFixed(3), date: state.falEstimate!.asOf }),
+                msg: t('annotations.inspectorWidget.text.createPlansAtTheSameTimeTotal', { count: routes.length, n: routes.length, estimate: estimate.toFixed(3), date: state.falEstimate!.asOf }),
                 ok: t('annotations.inspectorWidget.text.approveTheCost'), cancel: t('annotations.inspectorWidget.text.cancel') }).open();
             if (!approved) return;
         }
@@ -3242,7 +3243,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (!route) continue;
                 if (row.getAttribute('data-akari-inspector-ai-progress-elapsed') === String(elapsed)) continue;
                 row.setAttribute('data-akari-inspector-ai-progress-elapsed', String(elapsed));
-                row.textContent = t('annotations.inspectorWidget.text.secondsVariant', { route: stillRouteLabel(route), elapsed: elapsed });
+                row.textContent = t('annotations.inspectorWidget.text.secondsVariant', { route: stillRouteLabel(route), elapsed: elapsed, n: elapsed });
             }
             if (state.polling || Date.now() - (state.lastPolledAt ?? 0) < 1000) return;
             state.lastPolledAt = Date.now();
@@ -4526,7 +4527,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                 });
                 return { ok: true, ...(result.skipped ? {
-                    message: t('annotations.inspectorWidget.text.itDoesNotApplyToTheLine', { count: result.skipped })
+                    message: t('annotations.inspectorWidget.text.itDoesNotApplyToTheLine', { count: result.skipped, n: result.skipped })
                 } : {}) };
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };

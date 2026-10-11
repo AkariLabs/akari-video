@@ -25,8 +25,8 @@ test('every static transcript key exists in matching catalogs', () => {
     walk(new URL('../src/', import.meta.url).pathname);
     assert.deepEqual(Object.keys(ja).sort(), Object.keys(en).sort());
     for (const key of keys) {
-        assert.ok(Object.hasOwn(ja, key), `Missing Japanese: ${key}`);
-        assert.ok(Object.hasOwn(en, key), `Missing English: ${key}`);
+        assert.ok(Object.hasOwn(ja, key) || Object.hasOwn(ja, `${key}_other`), `Missing Japanese: ${key}`);
+        assert.ok(Object.hasOwn(en, key) || Object.hasOwn(en, `${key}_other`), `Missing English: ${key}`);
     }
     for (const key of Object.keys(ja)) {
         const params = value => [...value.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]).sort();
@@ -40,6 +40,7 @@ test('transcript messages preserve Japanese and support English word order', () 
         assert.equal(t('transcript.editor.seek.done', { time: '0:12' }), '0:12 にプレビューをシークしました。');
         assert.equal(t('transcript.editor.title.label'), '文字起こし');
         assert.equal(t('transcript.daihon.editor.scriptLabel'), '台本');
+        assert.equal(t('transcript.editor.save.count', { n: 1 }), '1 行を保存しました');
         setLanguage('en');
         assert.equal(t('transcript.editor.seek.done', { time: '0:12' }), 'Preview seeked to 0:12.');
         assert.equal(t('transcript.editor.title.label'), 'Transcript');

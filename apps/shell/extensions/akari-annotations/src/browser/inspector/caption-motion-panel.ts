@@ -275,7 +275,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'akari-caption-motion-more';
-    more.textContent = state.all ? t('inspector.captionMotionPanel.label.seeOnlyRepresentatives') : t('inspector.captionMotionPanel.label.seeMoreAllSpecies', { count: CAPTION_TEXT_ANIMATIONS.length });
+    more.textContent = state.all ? t('inspector.captionMotionPanel.label.seeOnlyRepresentatives') : t('inspector.captionMotionPanel.label.seeMoreAllSpecies', { count: CAPTION_TEXT_ANIMATIONS.length, n: CAPTION_TEXT_ANIMATIONS.length });
     more.addEventListener('click', () => { state.all = !state.all; root.replaceWith(createCaptionMotionPanel(currentSnapshot, write, services)); });
     root.appendChild(more);
     const wordSection = document.createElement('div');

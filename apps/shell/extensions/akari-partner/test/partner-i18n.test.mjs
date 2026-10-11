@@ -12,6 +12,6 @@ test('partner panel labels follow UI language', () => {
         assert.equal(t('partner.partnerPanel.status.connectedStatus', { name: 'Codex' }), 'Codex 接続済み');
         setLanguage('en');
         assert.equal(t('partner.partnerPanel.status.connectedStatus', { name: 'Codex' }), 'Codex connected');
-        assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'Add a Partner');
+        assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'Add partner');
     } finally { setLanguage(undefined); }
 });

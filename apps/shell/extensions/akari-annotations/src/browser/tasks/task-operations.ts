@@ -51,7 +51,7 @@ export class TaskOperations {
         const eligible = selected.filter((task): task is Task => !!task && task.state === 'unsent'
             && task.needsConfirm !== true && !task.unknown);
         const skipped = unique.length - eligible.length;
-        if (skipped) this.ports.warn(t('annotationscommon.taskOperations.message.excludedFromTarget', { skipped: skipped }));
+        if (skipped) this.ports.warn(t('annotationscommon.taskOperations.message.excludedFromTarget', { skipped: skipped, n: skipped }));
         if (!eligible.length) return { sent: [], skipped, route: 'none' };
         let target: { form: 'cli' | 'extension' | 'none'; agent?: string; focusCommandId?: string };
         try { target = await this.ports.execute('akari.partner.deliveryTarget') as typeof target; }

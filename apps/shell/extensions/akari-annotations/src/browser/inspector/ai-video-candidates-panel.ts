@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import type { PreferredVideoRoutes, VideoBatchEstimate, VideoCandidate, VideoCandidateBatch } from '../../common/akari-annotations-protocol';
 import type { GenerationCatalogRow, GenerationDraft } from './generation-fields';
@@ -103,7 +104,7 @@ export function videoSelectionEstimate(estimate: VideoBatchEstimate | undefined,
     const unknown = models.filter(row => !row.error && row.estimateUsd === null).length;
     const invalid = !count || !estimate || models.length !== count || models.some(row => !!row.error);
     return { count, total, unknown, invalid,
-        label: t('inspector.aiVideoCandidatesPanel.batch.createLabel', { count,
+        label: t('inspector.aiVideoCandidatesPanel.batch.createLabel', { count, n: count,
             estimate: !estimate ? t('inspector.aiVideoCandidatesPanel.status.checkingEstimateShort') : t('inspector.aiVideoCandidatesPanel.estimate.estimate', { amount: total.toFixed(2), unknownNote: unknown ? t('inspector.aiVideoCandidatesPanel.estimate.unconfirmed', { unknown: unknown }) : '' }) }) };
 }
 
@@ -118,7 +119,7 @@ export function videoProgress(candidate: VideoCandidate | undefined, elapsed: nu
     if (candidate?.status === 'failed' || candidate && !candidate.ok && candidate.status !== 'generating')
         return { state: 'failed', label: t('inspector.aiVideoCandidatesPanel.label.failed', { reason: candidate.reason ?? t('inspector.aiVideoCandidatesPanel.error.generationFailed') }) };
     if (candidate?.status === 'done' || candidate?.ok) return { state: 'done', label: t('inspector.aiVideoCandidatesPanel.label.close') };
-    if (candidate?.queueStatus === 'IN_PROGRESS') return { state: 'running', label: t('inspector.aiVideoCandidatesPanel.label.rateSeconds', { seconds: Math.round(elapsed) }) };
+    if (candidate?.queueStatus === 'IN_PROGRESS') return { state: 'running', label: t('inspector.aiVideoCandidatesPanel.label.rateSeconds', { seconds: Math.round(elapsed), n: Math.round(elapsed) }) };
     if (candidate?.status === 'generating' && candidate.queueStatus === 'COMPLETED') {
         return { state: 'running', label: t('inspector.aiVideoCandidatesPanel.label.finishing') };
     }
@@ -129,9 +130,9 @@ export function videoCandidateDetail(candidate: VideoCandidate, name: string): s
     const parts = [name];
     if (Number.isFinite(candidate.durationSeconds)) {
         const duration = candidate.durationSeconds!;
-        parts.push(t('inspector.aiVideoCandidatesPanel.label.scaleSeconds', { seconds: Number.isInteger(duration) ? duration : duration.toFixed(1) }));
+        parts.push(t('inspector.aiVideoCandidatesPanel.label.scaleSeconds', { seconds: Number.isInteger(duration) ? duration : duration.toFixed(1), n: pluralCountForDisplay(Number.isInteger(duration) ? duration : duration.toFixed(1)) }));
     }
-    if (Number.isFinite(candidate.elapsedSeconds)) parts.push(t('inspector.aiVideoCandidatesPanel.action.createSeconds', { seconds: Math.round(candidate.elapsedSeconds!) }));
+    if (Number.isFinite(candidate.elapsedSeconds)) parts.push(t('inspector.aiVideoCandidatesPanel.action.createSeconds', { seconds: Math.round(candidate.elapsedSeconds!), n: Math.round(candidate.elapsedSeconds!) }));
     if (Number.isFinite(candidate.width) && Number.isFinite(candidate.height)) {
         parts.push(`${candidate.width}×${candidate.height}`);
     }
@@ -270,7 +271,7 @@ export function appendAiVideoCandidatesPanel(parent: HTMLElement, state: AiVideo
         .map(row => videoRoundedDuration(row, requested ?? NaN) ?? 0));
     if (requested !== undefined && videoOverhangSeconds(requested, longest) > 0) {
         const note = make('div', 'akari-inspector-ai-video-duration-note',
-            t('inspector.aiVideoCandidatesPanel.message.createSecondVideoSecondFrameSecondsFit', { frameSeconds: videoSecondsLabel(requested), videoSeconds: videoSecondsLabel(longest), fittedSeconds: videoSecondsLabel(requested) }));
+            t('inspector.aiVideoCandidatesPanel.message.createSecondVideoSecondFrameSecondsFit', { frameSeconds: videoSecondsLabel(requested), videoSeconds: videoSecondsLabel(longest), fittedSeconds: videoSecondsLabel(requested), n: requested }));
         note.setAttribute('data-akari-inspector-video-duration-note', 'true');
         note.style.cssText = 'font-size:11px;line-height:1.4;opacity:.82;margin:6px 0';
         panel.appendChild(note);

@@ -87,7 +87,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         Object.assign(this.contentNode.style, { padding: '0', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: 'calc(100vh - 80px)' });
         Object.assign(this.body.style, { padding: '16px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' });
         Object.assign(this.cards.style, { display: 'flex', flexDirection: 'column', gap: '10px' });
-        this.body.append(element('h2', this.batchRows.length > 1 ? t('annotationscommon.readAloudDialog.action.readLines', { count: this.batchRows.length })
+        this.body.append(element('h2', this.batchRows.length > 1 ? t('annotationscommon.readAloudDialog.action.readLines', { count: this.batchRows.length, n: this.batchRows.length })
             : target.captionId ? t('annotationscommon.readAloudDialog.action.readOneLine') : t('annotationscommon.readAloudDialog.action.narrateCustomText')));
         if (target.captionId && this.batchRows.length <= 1) {
             this.body.append(element('div', target.text), element('small', t('annotationscommon.readAloudDialog.message.keepCaptionEditReading')));
@@ -247,7 +247,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 (engine.place === 'cloud' ? cloudGroup : localGroup).append(card);
             }
             if (groups.hidden.length || this.cloudExpanded) {
-                const more = element('button', this.cloudExpanded ? t('annotationscommon.readAloudDialog.action.close') : t('annotationscommon.readAloudDialog.label.otherClouds', { count: groups.hidden.length }));
+                const more = element('button', this.cloudExpanded ? t('annotationscommon.readAloudDialog.action.close') : t('annotationscommon.readAloudDialog.label.otherClouds', { count: groups.hidden.length, n: groups.hidden.length }));
                 more.dataset.readAloudMoreCloud = 'true';
                 more.addEventListener('click', () => { this.cloudExpanded = !this.cloudExpanded; void this.refreshEngines(); });
                 cloudGroup.append(more);
@@ -526,7 +526,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                     const quote = batchNarrationEstimate(engine, retryRows.map(state => state.reading));
                     approved = await new ConfirmDialog({ title: t('annotationscommon.readAloudDialog.title.costApproval'),
                         msg: quote.usd === null ? t('annotationscommon.readAloudDialog.error.estimateUnavailableSendingWillIncurUsageCharges', { provider: readAloudProvider(engine) }) :
-                            t('annotationscommon.readAloudDialog.action.createLinesTotalDoAcceptCosts', { count: retryRows.length, amount: quote.usd.toFixed(3) }),
+                            t('annotationscommon.readAloudDialog.action.createLinesTotalDoAcceptCosts', { count: retryRows.length, n: retryRows.length, amount: quote.usd.toFixed(3) }),
                         ok: t('annotationscommon.readAloudDialog.label.costApproval'), cancel: t('annotationscommon.readAloudDialog.action.cancel') }).open();
                     if (!approved) return;
                 }
@@ -647,7 +647,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         const done = this.batchRows.filter(state => state.status === 'done').length;
         this.progress.textContent = `${done} / ${this.batchRows.length}`;
         this.progress.setAttribute('data-progress', `${done}/${this.batchRows.length}`);
-        this.placeButton.textContent = t('annotationscommon.readAloudDialog.text.put', { count: done });
+        this.placeButton.textContent = t('annotationscommon.readAloudDialog.text.put', { count: done, n: done });
         this.placeButton.disabled = done === 0 || this.running;
     }
 
@@ -669,7 +669,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             const quote = batchNarrationEstimate(engine, pending.map(state => state.reading));
             approved = await new ConfirmDialog({ title: t('annotationscommon.readAloudDialog.title.costApproval'),
                 msg: quote.usd === null ? t('annotationscommon.readAloudDialog.error.estimateUnavailableSendingWillIncurUsageCharges', { provider: readAloudProvider(engine) }) :
-                    t('annotationscommon.readAloudDialog.message.asReturnsLineWillAcceptCost', { amount: quote.usd.toFixed(3), asOf: engine.price?.as_of ?? t('annotationscommon.readAloudDialog.label.notConfirmed'), rows: pending.length }),
+                    t('annotationscommon.readAloudDialog.message.asReturnsLineWillAcceptCost', { amount: quote.usd.toFixed(3), asOf: engine.price?.as_of ?? t('annotationscommon.readAloudDialog.label.notConfirmed'), rows: pending.length, n: pending.length }),
                 ok: t('annotationscommon.readAloudDialog.label.costApproval'), cancel: t('annotationscommon.readAloudDialog.action.cancel') }).open();
             if (!approved) return;
         }
@@ -726,7 +726,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         const extended = placements.filter(item => item.extendEnd !== undefined).length;
         const overflow = placements.filter(item => (item.overflow ?? 0) > 0).length;
         const credits = [...new Set(placements.map(item => readAloudProvenanceLabel(item.result.provenance, this.profiles)))];
-        this.body.replaceChildren(element('h2', t('annotationscommon.readAloudDialog.label.placed')), element('div', t('annotationscommon.readAloudDialog.hint.placedRowsExtendedStillOverflowing', { placed: placements.length, extended: extended, overflow: overflow })),
+        this.body.replaceChildren(element('h2', t('annotationscommon.readAloudDialog.label.placed')), element('div', t('annotationscommon.readAloudDialog.hint.placedRowsExtendedStillOverflowing', { placed: placements.length, extended: extended, n: extended, overflow: overflow })),
             element('div', `provenance: ${credits.join(' / ')}`));
         this.foot.replaceChildren();
         const close = element('button', t('annotationscommon.readAloudDialog.action.close')); close.addEventListener('click', () => void this.accept()); this.foot.append(close);

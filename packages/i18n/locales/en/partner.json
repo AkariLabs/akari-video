@@ -95,7 +95,7 @@
   "partner.partnerPanel.notification.awaitingReviewLabel": "{value1} is awaiting review",
   "partner.partnerPanel.notification.finishedStatus": "{value1} is finished",
   "partner.partnerPanel.notification.partnerLabel": "Partner",
-  "partner.partnerPanel.onboarding.addPartnerAction": "Add a Partner",
+  "partner.partnerPanel.onboarding.addPartnerAction": "Add partner",
   "partner.partnerPanel.onboarding.chooseCliWorkspaceOfficialExtensionAddRightPanelMessage": "Choose a CLI, workspace, or official extension to add to the right panel.",
   "partner.partnerPanel.permission.askTimeAction": "Ask every time",
   "partner.partnerPanel.permission.startAllPermissionsAction": "Start with all permissions",

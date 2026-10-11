@@ -91,7 +91,7 @@ export function summarizeExportReasons(reasons: readonly ExportEngineReason[]): 
         groups.set(key, group);
     }
     return [...groups.values()].map(group => {
-        if (group.kind === 'caption') return t('shell.export.engineReason.captionCountReason', { value1: group.count, value2: group.label });
+        if (group.kind === 'caption') return t('shell.export.engineReason.captionCountReason', { value1: group.count, n: group.count, value2: group.label });
         if (group.kind === 'overlay') return t('shell.export.engineReason.overlayCountReason', { value1: group.count, value2: group.label });
         return group.label;
     });

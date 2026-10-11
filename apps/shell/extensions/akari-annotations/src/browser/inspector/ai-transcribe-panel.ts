@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import type { CommandService } from '@theia/core/lib/common';
 import type { TranscriptSummary } from '../../common/akari-annotations-protocol';
@@ -102,7 +103,7 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
     }
     const detail = document.createElement('p');
     detail.className = 'akari-inspector-ai-transcribe-detail';
-    detail.textContent = t('inspector.aiTranscribePanel.text.seconds', { name: target.name, seconds: target.duration.toFixed(1) });
+    detail.textContent = t('inspector.aiTranscribePanel.text.seconds', { name: target.name, seconds: target.duration.toFixed(1), n: pluralCountForDisplay(target.duration.toFixed(1)) });
     panel.appendChild(detail);
     const button = (label: string, action: () => void): HTMLButtonElement => {
         const element = document.createElement('button');
@@ -120,7 +121,7 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
     if (options.summary.state === 'done') {
         const heading = document.createElement('h4');
         heading.className = 'akari-inspector-ai-transcribe-status';
-        heading.textContent = t('inspector.aiTranscribePanel.status.transcribedLines', { count: options.summary.total });
+        heading.textContent = t('inspector.aiTranscribePanel.status.transcribedLines', { count: options.summary.total, n: options.summary.total });
         panel.appendChild(heading);
         const list = document.createElement('div');
         list.className = 'akari-inspector-ai-transcribe-list';

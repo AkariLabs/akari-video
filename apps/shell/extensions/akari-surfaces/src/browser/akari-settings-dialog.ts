@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../common/plural-display-count';
 import { deriveStoreLabBaseUrl } from 'akari-project/lib/common/asset-catalog-view';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -755,9 +756,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const card = groupCard(t('surfaces.settings.libraryStorageCardAssetStorage.label'),
             settingRow(t('surfaces.settings.libraryStorageCardCurrentLocation.label'), status?.root ?? t('surfaces.settings.libraryStorageCardConfirming.label'), open, change),
             settingRow(t('surfaces.settings.libraryStorageCardTotal.label'), usage ? formatLibraryBytes(usage.totalBytes) : t('surfaces.settings.libraryStorageCardConfirming.label')),
-            settingRow(t('surfaces.settings.libraryStorageCardLab.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.lab.bytes), labCount: usage.bySource.lab.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
-            settingRow(t('surfaces.settings.libraryStorageCardAssetSite.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.site.bytes), labCount: usage.bySource.site.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
-            settingRow(t('surfaces.settings.libraryStorageCardOwn.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.own.bytes), labCount: usage.bySource.own.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
+            settingRow(t('surfaces.settings.libraryStorageCardLab.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.lab.bytes), labCount: usage.bySource.lab.count, n: usage.bySource.lab.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
+            settingRow(t('surfaces.settings.libraryStorageCardAssetSite.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.site.bytes), labCount: usage.bySource.site.count, n: usage.bySource.site.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
+            settingRow(t('surfaces.settings.libraryStorageCardOwn.label'), usage ? t('surfaces.settings.libraryStorageCardPieces.message', { size: formatLibraryBytes(usage.bySource.own.bytes), labCount: usage.bySource.own.count, n: usage.bySource.own.count }) : t('surfaces.settings.libraryStorageCardConfirming.label')),
             settingRow(t('surfaces.settings.libraryStorageCardSomethingReplaced.label'), t('surfaces.settings.libraryStorageCardCheckListAssetsReceivedLabMoveThem.label'), clean));
         card.setAttribute('data-akari-library-usage', 'true');
         const moveCopy = status ? libraryMoveCopy(status.state, status.previous, status.cloud) : {};
@@ -1071,7 +1072,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const targets = this.libraryStatus?.usage.cleanup ?? [];
         if (!targets.length) { return; }
         const list = element('div');
-        list.append(element('p', t('surfaces.settings.clearLabLibraryMoveItemsReceivedLabTotalTrash.message', { count: targets.length, size: formatLibraryBytes(this.libraryStatus!.usage.cleanupBytes) })));
+        list.append(element('p', t('surfaces.settings.clearLabLibraryMoveItemsReceivedLabTotalTrash.message', { count: targets.length, n: targets.length, size: formatLibraryBytes(this.libraryStatus!.usage.cleanupBytes) })));
         const names = element('ul');
         Object.assign(names.style, { maxHeight: '260px', overflow: 'auto', paddingLeft: '22px' });
         for (const item of targets) { names.append(element('li', `${item.title}（${formatLibraryBytes(item.bytes)}）`)); }
@@ -1088,7 +1089,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 await this.files.delete(URI.fromFilePath(directory), { recursive: true, useTrash: true });
                 count++;
             }
-            this.notice.textContent = t('surfaces.settings.clearLabLibraryMovedItemsTrash.label', { count: count });
+            this.notice.textContent = t('surfaces.settings.clearLabLibraryMovedItemsTrash.label', { count: count, n: count });
             await this.refreshLibraryStatus();
         } catch { this.notice.textContent = t('surfaces.settings.clearLabLibraryCleanUpAssets.label'); }
     }
@@ -1353,7 +1354,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             Object.assign(row.style, { gridTemplateColumns: 'minmax(0, 1fr)', gap: '8px' });
             const control = row.querySelector<HTMLElement>('.akari-set-row-control');
             if (control) control.style.justifyContent = 'flex-start';
-            const detail = element('div', t('surfaces.settings.narrationSeconds.message', { avatar: voiceAvatarLabel(profile.avatar, this.voiceAvatars), date: profile.created_at?.slice(0, 10) ?? t('surfaces.settings.narrationDateUnknown.label'), duration: profile.duration_s?.toFixed(1) ?? '—' }));
+            const detail = element('div', t('surfaces.settings.narrationSeconds.message', { avatar: voiceAvatarLabel(profile.avatar, this.voiceAvatars), date: profile.created_at?.slice(0, 10) ?? t('surfaces.settings.narrationDateUnknown.label'), duration: profile.duration_s?.toFixed(1) ?? '—', n: pluralCountForDisplay(profile.duration_s?.toFixed(1) ?? '—') }));
             detail.className = 'akari-set-row-desc';
             const pills = element('div'); Object.assign(pills.style, { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' });
             for (const engine of profile.engines) {

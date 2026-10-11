@@ -13,9 +13,9 @@ const record = (value: unknown): Record<string, any> => value && typeof value ==
 const filled = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value : undefined;
 const amount = (value: unknown): string | undefined => typeof value === 'number' && Number.isFinite(value)
     ? String(value) : undefined;
-const seconds = (value: unknown): string | undefined => amount(value) ? t('inspector.generationProvenance.label.seconds', { seconds: amount(value) }) : undefined;
+const seconds = (value: unknown): string | undefined => amount(value) ? t('inspector.generationProvenance.label.seconds', { seconds: amount(value), n: amount(value) }) : undefined;
 const elapsedSeconds = (value: unknown): string | undefined => typeof value === 'number' && Number.isFinite(value)
-    ? value < 1 ? t('inspector.generationProvenance.label.lessThan1Second') : t('inspector.generationProvenance.label.seconds', { seconds: Math.round(value) }) : undefined;
+    ? value < 1 ? t('inspector.generationProvenance.label.lessThan1Second') : t('inspector.generationProvenance.label.seconds', { seconds: Math.round(value), n: Math.round(value) }) : undefined;
 const localDateTime = (value: string | undefined): string | undefined => {
     if (!value) return undefined;
     const date = new Date(value);

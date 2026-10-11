@@ -2311,7 +2311,7 @@ export class AkariHomeWidget extends ReactWidget {
                     primary: { label: t('surfaces.home.addAssets.button'), run: () => void this.openProgressStage('assets') },
                     secondary: { label: t('surfaces.home.projectHomeAskPartner.label'), run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } }
                 : { title: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomePlansAssetsAvailable.label') : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeMiddleEditing.label') : summary === t('surfaces.projects.projectHomeReview.label') ? t('surfaces.home.projectHomeConfirmation.label') : t('surfaces.home.projectHomeVideoExported.label'),
-                    body: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomeAssetItemsNextTierLineUp.message', { assetFiles: presence.assetFiles }) : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeContinueLeftOff.message') : summary === t('surfaces.projects.projectHomeReview.label') ? t('surfaces.home.projectHomeFixIssuesExport.message') : t('surfaces.home.projectHomePressPictureAbovePlay.message'),
+                    body: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomeAssetItemsNextTierLineUp.message', { assetFiles: presence.assetFiles, n: presence.assetFiles }) : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeContinueLeftOff.message') : summary === t('surfaces.projects.projectHomeReview.label') ? t('surfaces.home.projectHomeFixIssuesExport.message') : t('surfaces.home.projectHomePressPictureAbovePlay.message'),
                     primary: summary === t('surfaces.projects.projectHomeExported.label') ? undefined : { label: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomeGoEditing.label') : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeEditMore.label') : t('surfaces.home.projectHomeExport.label'),
                         run: () => void this.openProgressStage(summary === t('surfaces.projects.projectHomeReview.label') ? 'export' : 'edit') },
                     secondary: { label: t('surfaces.home.projectHomeOpenAiAgent.label'), run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } };
@@ -2335,7 +2335,7 @@ export class AkariHomeWidget extends ReactWidget {
                     <button type='button' data-akari-project-menu='true' aria-label={t('surfaces.home.projectHomeMenuProject.label')} onClick={() => { this.menuOpen = !this.menuOpen; this.historyOpen = false; this.update(); }}>⋯</button>
                 </span></div>
                     <p>{this.currentStats.duration && <span>{t('surfaces.home.projectDuration.label', { duration: this.currentStats.duration })}</span>}
-                        <span>{t('surfaces.home.projectAssets.label', { count: presence.assetFiles })}</span>
+                        <span>{t('surfaces.home.projectAssets.label', { count: presence.assetFiles, n: presence.assetFiles })}</span>
                         <span>{t('surfaces.home.projectLastUpdated.label', { date: current?.updatedAt ? formatDate(new Date(current.updatedAt)) : t('surfaces.home.projectHomeUnknown.label') })}</span></p>
                     {this.historyOpen && <div className='akari-os-popover akari-os-history'><h4>{t('surfaces.home.projectHistory.heading', { name })}</h4>
                         <ul>{this.historyEntries.map((entry, index) => <li key={index}><time>{entry.time ? formatDate(new Date(entry.time)) : t('surfaces.home.projectHomeNoDateTime.label')}</time><span>{entry.label}</span></li>)}</ul>
@@ -2365,7 +2365,7 @@ export class AkariHomeWidget extends ReactWidget {
                 <div className='actions'>{status.primary && <button type='button' className='theia-button main' onClick={status.primary.run}>{status.primary.label}</button>}
                     <button type='button' className='theia-button secondary' onClick={status.secondary.run}>{status.secondary.label}</button></div>
             </section>}
-            {channel && <section><div className='akari-os-other-heading'><h3>{channel} {t('surfaces.home.projectHomeOtherProjects.heading')}</h3><small>{t('surfaces.home.otherProjectCount.label', { count: others.length })}</small>
+            {channel && <section><div className='akari-os-other-heading'><h3>{channel} {t('surfaces.home.projectHomeOtherProjects.heading')}</h3><small>{t('surfaces.home.otherProjectCount.label', { count: others.length, n: others.length })}</small>
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>{t('surfaces.home.projectHomeGoProjectList.button')}</button></div>
                 <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
                     onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
@@ -2560,7 +2560,7 @@ export class AkariHomeWidget extends ReactWidget {
             return <HomeScrim kind='open-confirm' onClose={this.closeHomeDialog}><h3>{t('surfaces.home.homeDialogFolderYetAkariProject.heading')}</h3><p>{t('surfaces.home.homeDialogOpenAkariFileCreatedSingleProjectOutside.description')}</p><div className='akari-home-dialog-path'>{this.chosenFolder.path.fsPath()}</div>{(['channel', 'standalone'] as const).map(choice => <button type='button' key={choice} className='akari-home-choice' data-akari-open-choice={choice} data-selected={this.openChoice === choice} onClick={() => { this.openChoice = choice; this.update(); }}><b>{choice === 'channel' ? t('surfaces.home.homeDialogGetStartedChannel.label') : t('surfaces.home.homeDialogStartStandaloneProject.label')}</b><small>{choice === 'channel' ? t('surfaces.home.homeDialogCreateNewProjectRecommended.message', { channel: channel }) : t('surfaces.home.homeDialogAddChannelLater.label')}</small></button>)}<div className='akari-home-dialog-actions'><button type='button' className='theia-button secondary' onClick={() => { this.closeHomeDialog(); void this.chooseFolder(); }}>{t('surfaces.home.homeDialogChooseAnotherFolder.button')}</button><button type='button' className='theia-button main' onClick={() => void this.beginChosenFolder()}>{t('surfaces.home.homeDialogStart.button')}</button></div></HomeScrim>;
         }
         if (this.homeDialog === 'channels') {
-            return <HomeScrim kind='channel-switch' onClose={this.closeHomeDialog}><h3>{t('surfaces.home.homeDialogChannel.heading')}</h3><div className='akari-home-channel-list'>{this.channels.map(channel => <button type='button' key={channel} className='akari-home-channel-row' data-akari-channel={channel} onClick={() => this.chooseChannel(channel)}><b>{channel}</b><small>{t('surfaces.home.channelProjectCount.label', { count: this.creatorRootProjects.filter(project => project.channel === channel).length })}</small>{this.currentLocation?.kind === 'inside' && this.currentLocation.channel === channel && <span>✓</span>}</button>)}<div className='akari-home-channel-separator' /><button type='button' className='akari-home-channel-row' data-akari-create-channel='true' onClick={() => this.openNewChannelDialog()}>{t('surfaces.home.homeDialogCreateNewChannel.button')}</button></div></HomeScrim>;
+            return <HomeScrim kind='channel-switch' onClose={this.closeHomeDialog}><h3>{t('surfaces.home.homeDialogChannel.heading')}</h3><div className='akari-home-channel-list'>{this.channels.map(channel => <button type='button' key={channel} className='akari-home-channel-row' data-akari-channel={channel} onClick={() => this.chooseChannel(channel)}><b>{channel}</b><small>{t('surfaces.home.channelProjectCount.label', { count: this.creatorRootProjects.filter(project => project.channel === channel).length, n: this.creatorRootProjects.filter(project => project.channel === channel).length })}</small>{this.currentLocation?.kind === 'inside' && this.currentLocation.channel === channel && <span>✓</span>}</button>)}<div className='akari-home-channel-separator' /><button type='button' className='akari-home-channel-row' data-akari-create-channel='true' onClick={() => this.openNewChannelDialog()}>{t('surfaces.home.homeDialogCreateNewChannel.button')}</button></div></HomeScrim>;
         }
         if (this.homeDialog === 'channel-create') {
             return <HomeScrim kind='channel-create' onClose={this.closeHomeDialog}>
@@ -2964,7 +2964,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.importing = false;
         if (imported) {
             this.importedNotice = failed
-                ? t('surfaces.home.importSourcesItemsImportedItemsFailedProceedAnalysisPlan.message', { imported: imported, failed: failed })
+                ? t('surfaces.home.importSourcesItemsImportedItemsFailedProceedAnalysisPlan.message', { imported: imported, n: imported, failed: failed })
                 : t('surfaces.home.importSourcesAssetsImportedContinueAnalysisPlanning.message');
             this.messages.info(this.importedNotice);
             await this.refreshExplorer();
@@ -3272,7 +3272,7 @@ export class AkariHomeWidget extends ReactWidget {
                     disabled={this.projectRefreshing} onClick={() => void this.refreshProjectBrowser()}>
                     <span className={`codicon codicon-refresh${this.projectRefreshing ? ' codicon-modifier-spin' : ''}`} aria-hidden='true' />
                 </button>
-                <small role='status' style={{ marginLeft: 'auto', color: 'var(--theia-descriptionForeground)' }}>{t('surfaces.home.projectResultCount.label', { count: rows.length })}</small>
+                <small role='status' style={{ marginLeft: 'auto', color: 'var(--theia-descriptionForeground)' }}>{t('surfaces.home.projectResultCount.label', { count: rows.length, n: rows.length })}</small>
             </div>
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
                 {list && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px 40px', gap: 12, minWidth: 680, padding: '8px 12px', boxSizing: 'border-box', color: 'var(--theia-descriptionForeground)' }}>
@@ -3311,7 +3311,7 @@ export class AkariHomeWidget extends ReactWidget {
             {rows.length > this.projectVisibleCount && <button type='button' className='theia-button secondary' style={{ marginTop: 12 }}
                 data-akari-project-load-more='true'
                 onClick={() => { this.projectVisibleCount += HOME_PROJECT_PAGE_SIZE; this.update(); }}>
-                {t('surfaces.home.loadMoreProjects.button', { count: rows.length - this.projectVisibleCount })}</button>}
+                {t('surfaces.home.loadMoreProjects.button', { count: rows.length - this.projectVisibleCount, n: rows.length - this.projectVisibleCount })}</button>}
         </div>;
     }
 
@@ -3455,7 +3455,7 @@ export class AkariHomeWidget extends ReactWidget {
                                     <strong>{kit.id}</strong>
                                     <span>version: {kit.version ?? t('surfaces.home.kitCardUnknown.label')}</span>
                                     <span>{t('surfaces.home.kitSkills.label', { skills: kit.skills.length > 0 ? kit.skills.join(', ') : t('surfaces.home.kitCardNone.label') })}</span>
-                                    <span>{t('surfaces.home.kitAssetCount.label', { count: kit.assetCount })}</span>
+                                    <span>{t('surfaces.home.kitAssetCount.label', { count: kit.assetCount, n: kit.assetCount })}</span>
                                 </div>
                             ))}
                         </div>

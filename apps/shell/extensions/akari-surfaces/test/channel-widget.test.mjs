@@ -2,7 +2,7 @@ import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { assertCatalogCopy } from './i18n-source-copy.mjs';
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, t } from '@akari-video/i18n';
 setLanguage('ja');
 afterI18nTest(() => setLanguage(undefined));
 
@@ -24,8 +24,8 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /akari-channel-area akari-channel-projects/);
     assert.doesNotMatch(widget, /revealWidget\(RAIL_SKILLS_WIDGET_ID\)/);
     assert.match(widget, /<ChannelSkillsSheet\b/);
-    assert.match(widget, /t\('surfaces\.channel\.skillCount\.label', \{ count: this\.channelSkills\.length \}\)/);
-    assertCatalogCopy(widget, '個');
+    assert.match(widget, /t\('surfaces\.channel\.skillCount\.label', \{ count: this\.channelSkills\.length, n: this\.channelSkills\.length \}\)/);
+    assert.equal(t('surfaces.channel.skillCount.label', { count: 1, n: 1 }), '1 個');
     assert.match(widget, /<ChannelDesignWizard\b/);
     assert.match(widget, /<DesignMdForm\b/);
     assertCatalogCopy(widget, 'channel.md を書きました');

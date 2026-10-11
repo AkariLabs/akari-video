@@ -107,7 +107,7 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
             if (!confirmed) return;
             const result = await this.cleanService.clean(root.toString());
             void this.messages.info(result.cleaned
-                ? t('shell.menu.commands.deletedUnusedItemsText', { value1: formatBytes(result.bytes ?? 0), value2: result.count ?? 0 })
+                ? t('shell.menu.commands.deletedUnusedItemsText', { value1: formatBytes(result.bytes ?? 0), value2: result.count ?? 0, n: result.count ?? 0 })
                 : result.reason ?? t('shell.menu.commands.couldNotCleanUpError'));
         } catch (error) {
             void this.messages.info(t('shell.menu.commands.cleanUpFailedWithReasonError', { value1: String(error) }));
@@ -117,7 +117,7 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
     protected describeNothingToClean(inspection: ProjectCleanInspection): string {
         const held = inspection.undecided.filter(entry => entry.heldReason);
         if (!held.length) return t('shell.menu.commands.noUnusedDataDeletedText');
-        return t('shell.menu.commands.noUnusedDataDeletedItemsHeldBecauseText', { value1: held.length, value2: formatBytes(
+        return t('shell.menu.commands.noUnusedDataDeletedItemsHeldBecauseText', { value1: held.length, n: held.length, value2: formatBytes(
             held.reduce((sum, entry) => sum + entry.bytes, 0)
         ), value3: held[0].heldReason });
     }
@@ -126,7 +126,7 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
         const node = document.createElement('div');
         const lead = document.createElement('p');
         lead.style.margin = '0 0 8px';
-        lead.textContent = t('shell.menu.commands.deleteTheseItemsTotalOriginalFilesExportedVideosVerificationEvidenceMessage', { value1: inspection.disposable.length, value2: formatBytes(inspection.disposableBytes) });
+        lead.textContent = t('shell.menu.commands.deleteTheseItemsTotalOriginalFilesExportedVideosVerificationEvidenceMessage', { value1: inspection.disposable.length, n: inspection.disposable.length, value2: formatBytes(inspection.disposableBytes) });
         node.appendChild(lead);
         const list = document.createElement('ul');
         list.style.cssText = 'margin:0;padding-left:18px;max-height:240px;overflow:auto;font-size:0.9em';
@@ -140,7 +140,7 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
         if (held.length) {
             const note = document.createElement('p');
             note.style.cssText = 'margin:8px 0 0;opacity:0.75;font-size:0.9em';
-            note.textContent = t('shell.menu.commands.keepItemsTimeBecauseMessage', { value1: held.length, value2: formatBytes(held.reduce((sum, entry) => sum + entry.bytes, 0)), value3: held[0].heldReason });
+            note.textContent = t('shell.menu.commands.keepItemsTimeBecauseMessage', { value1: held.length, n: held.length, value2: formatBytes(held.reduce((sum, entry) => sum + entry.bytes, 0)), value3: held[0].heldReason });
             node.appendChild(note);
         }
         return node;

@@ -28,8 +28,8 @@ test('shell static translation keys exist in both catalogs', () => {
         for (const match of fs.readFileSync(filename, 'utf8').matchAll(/\bt\(['"]([^'"]+)['"]/g)) keys.add(match[1]);
     }
     for (const key of keys) {
-        assert.ok(Object.hasOwn(ja, key), `Missing ja key: ${key}`);
-        assert.ok(Object.hasOwn(en, key), `Missing en key: ${key}`);
+        assert.ok(Object.hasOwn(ja, key) || Object.hasOwn(ja, `${key}_other`), `Missing ja key: ${key}`);
+        assert.ok(Object.hasOwn(en, key) || Object.hasOwn(en, `${key}_other`), `Missing en key: ${key}`);
     }
     assert.ok(keys.size > 50, 'Expected all migrated UI keys');
 });
@@ -54,6 +54,7 @@ test('shell UI text follows selected language', () => {
         setLanguage('en');
         assert.equal(t('shell.export.progress.preparingStatus'), 'Preparing');
         setLanguage('ja');
+        assert.equal(t('shell.export.renderProgress.additionalReasons', { n: 1 }), '、他 1 件');
         assert.equal(t('shell.export.renderProgress.additionalReasons', { n: 2 }), '、他 2 件');
         setLanguage('en');
         assert.equal(t('shell.export.renderProgress.additionalReasons', { n: 2 }), ', 2 more');

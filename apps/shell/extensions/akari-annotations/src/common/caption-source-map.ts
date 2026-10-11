@@ -54,7 +54,7 @@ export function computeCaptionSourceMappingWarning(
     if (hiddenCount === 0) {
         return undefined;
     }
-    return t('annotationscommon.captionSourceMap.warning.hiddenCaptions', { count: hiddenCount });
+    return t('annotationscommon.captionSourceMap.warning.hiddenCaptions', { count: hiddenCount, n: hiddenCount });
 }
 
 /** 同じ射影不能状態の再読込・再描画で、同じ警告を繰り返さない。 */

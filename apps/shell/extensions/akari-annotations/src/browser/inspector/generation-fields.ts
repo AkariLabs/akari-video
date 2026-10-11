@@ -357,7 +357,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         const stats = validation?.references?.[slot];
         if (!stats) return t('inspector.generationFields.status.checkingLabel', { label: label });
         if (stats.max === null) notes.push(t('inspector.generationFields.label.upperLimitNotListedModelSide', { label: label }));
-        if (stats.max_seconds_total !== null) notes.push(t('inspector.generationFields.label.sec', { label: label, usedSeconds: stats.seconds_total, maxSeconds: stats.max_seconds_total }));
+        if (stats.max_seconds_total !== null) notes.push(t('inspector.generationFields.label.sec', { label: label, usedSeconds: stats.seconds_total, maxSeconds: stats.max_seconds_total, n: stats.max_seconds_total }));
         return `${label} ${stats.count}${stats.max === null ? '' : ` / ${stats.max}`}`;
     }).join(' · ');
     for (const { slot, label } of referenceKinds) if (entries.some(entry => entry.slot === slot && entry.unsupported)) {

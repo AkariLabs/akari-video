@@ -29,7 +29,7 @@ export interface GenerationChipDescription {
 export function generationChipLabel(badge: string, widthPx: number): string {
     const count = /^(?:候補|Candidates) (\d+)$/u.exec(badge)?.[1];
     const short = /^(?:\d+ 案作成中|Creating \d+ options) · (\d+\/\d+)$/u.exec(badge)?.[1]
-        ?? (count ? t('annotationscommon.generationSidecar.badge.candidates', { count }) : undefined)
+        ?? (count ? t('annotationscommon.generationSidecar.badge.candidates', { count, n: count }) : undefined)
         ?? /^(?:生成中|Generating) · (\d+ (?:秒|seconds))$/u.exec(badge)?.[1]
         ?? /^(?:生成中|Generating) (\d+%)$/u.exec(badge)?.[1];
     const shortLabel = short ? `✦ ${short}` : '✦';
@@ -85,11 +85,11 @@ export function describeGenerationChip(
     const completed = typeof meta?.job?.completed === 'number' ? meta.job.completed : 0;
     const candidates = typeof meta?.job?.candidates === 'number' ? meta.job.candidates : 0;
     if (state === 'generating' && meta?.job?.provider === 'compare' && routes.length) {
-        const badge = t('annotationscommon.generationSidecar.badge.compareGenerating', { count: routes.length, completed, total: routes.length });
+        const badge = t('annotationscommon.generationSidecar.badge.compareGenerating', { count: routes.length, n: routes.length, completed, total: routes.length });
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }
     if (state !== 'generating' && candidates > 0) {
-        const badge = t('annotationscommon.generationSidecar.badge.candidates', { count: candidates });
+        const badge = t('annotationscommon.generationSidecar.badge.candidates', { count: candidates, n: candidates });
         return { badge, className: 'akari-generation-planned', title: badge };
     }
     if (state === 'planned-video') {
@@ -109,7 +109,7 @@ export function describeGenerationChip(
     if (state === 'generating') {
         const startedMs = Date.parse(String(meta?.job?.started_at ?? ''));
         const elapsed = Number.isFinite(startedMs) ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : undefined;
-        const badge = progress === undefined ? elapsed === undefined ? t('annotationscommon.generationSidecar.badge.generating') : t('annotationscommon.generationSidecar.badge.generatingSeconds', { seconds: elapsed })
+        const badge = progress === undefined ? elapsed === undefined ? t('annotationscommon.generationSidecar.badge.generating') : t('annotationscommon.generationSidecar.badge.generatingSeconds', { seconds: elapsed, n: elapsed })
             : t('annotationscommon.generationSidecar.badge.generatingPercent', { percent: Math.round(progress) });
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }

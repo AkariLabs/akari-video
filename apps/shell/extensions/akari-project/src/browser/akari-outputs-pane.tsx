@@ -16,6 +16,7 @@ import { MaterialKind } from '../common/asset-group-media';
 import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
+import { formatOutputTimestamp } from '../common/output-timestamp';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
@@ -343,9 +344,7 @@ export class AkariOutputsPane {
     }
 
     protected formatOutputTimestamp(mtime: number): string {
-        const date = new Date(mtime);
-        const pad = (value: number) => value.toString().padStart(2, '0');
-        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        return formatOutputTimestamp(mtime);
     }
 
     protected formatFileSize(bytes: number): string {

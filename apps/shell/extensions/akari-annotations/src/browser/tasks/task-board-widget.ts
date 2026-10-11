@@ -36,7 +36,7 @@ const elapsedLabel = (value: unknown): string => {
     const then = typeof value === 'string' ? Date.parse(value) : NaN;
     if (!Number.isFinite(then)) return '';
     const minutes = Math.max(0, Math.floor((Date.now() - then) / 60_000));
-    return minutes < 1 ? t('annotationscommon.taskBoardWidget.label.justNow') : minutes < 60 ? t('annotationscommon.taskBoardWidget.label.minutesAgo', { minutes: minutes }) : minutes < 1440 ? t('annotationscommon.taskBoardWidget.label.hoursAgo', { hours: Math.floor(minutes / 60) }) : t('annotationscommon.taskBoardWidget.label.daysAgo', { days: Math.floor(minutes / 1440) });
+    return minutes < 1 ? t('annotationscommon.taskBoardWidget.label.justNow') : minutes < 60 ? t('annotationscommon.taskBoardWidget.label.minutesAgo', { minutes: minutes, n: minutes }) : minutes < 1440 ? t('annotationscommon.taskBoardWidget.label.hoursAgo', { hours: Math.floor(minutes / 60), n: Math.floor(minutes / 60) }) : t('annotationscommon.taskBoardWidget.label.daysAgo', { days: Math.floor(minutes / 1440) });
 };
 
 @injectable()

@@ -96,7 +96,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         });
         this.body.replaceChildren(); this.foot.replaceChildren();
         if (this.sourceNames.length) {
-            const chip = element('span', this.sourceNames.length === 1 ? this.sourceNames[0] : t('transcript.daihon.cutDialog.assetsWithCountLabel', { value1: this.sourceNames.length }));
+            const chip = element('span', this.sourceNames.length === 1 ? this.sourceNames[0] : t('transcript.daihon.cutDialog.assetsWithCountLabel', { value1: this.sourceNames.length, n: this.sourceNames.length }));
             chip.title = this.sourceNames.join('\n');
             chip.style.cssText = 'align-self:center;border:1px solid var(--akari-line, var(--theia-widget-border));border-radius:999px;padding:3px 9px;font-size:11px;color:var(--theia-descriptionForeground)';
             this.steps.append(chip);
@@ -201,7 +201,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         const selected = chosenCandidates(this.state, this.candidates);
         const seconds = selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
         this.body.append(element('p', t('transcript.daihon.cutDialog.cutShortenBySecWithValuesText', { value1: selected.length, value2: candidates.length, value3: seconds.toFixed(1) })));
-        const submit = button(t('transcript.daihon.cutDialog.cutLocationsWithCountAction', { value1: selected.length }), () => void this.confirm(), true);
+        const submit = button(t('transcript.daihon.cutDialog.cutLocationsWithCountAction', { value1: selected.length, n: selected.length }), () => void this.confirm(), true);
         submit.disabled = selected.length === 0 || this.busy;
         this.foot.append(button(t('transcript.daihon.cutDialog.backAction'), () => { this.state.step = 0; this.render(); }), element('span'), submit);
         this.foot.children[1].setAttribute('style', 'flex:1');
@@ -220,7 +220,7 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
             });
             this.notice.textContent = this.state.step === 2 ? ''
                 : this.appliedSummary?.refused
-                    ? t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })
+                    ? t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, n: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })
                     : t('transcript.daihon.cutDialog.noChangesMadeMessage');
         } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); }
         finally { this.busy = false; this.render(); }
@@ -231,9 +231,9 @@ export class AkariDaihonCutDialog extends AbstractDialog<void> {
         const seconds = this.appliedSummary?.seconds
             ?? selected.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0);
         const count = this.appliedSummary?.count ?? selected.length;
-        this.body.append(element('h3', t('transcript.daihon.cutDialog.cutLocationsWithCountText', { value1: count })));
+        this.body.append(element('h3', t('transcript.daihon.cutDialog.cutLocationsWithCountText', { value1: count, n: count })));
         if (this.appliedSummary?.refused) this.body.append(element('p',
-            t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })));
+            t('transcript.daihon.cutDialog.didNotCutLocationsWithValuesLabel', { value1: this.appliedSummary.refused, n: this.appliedSummary.refused, value2: this.appliedSummary.refusal ?? t('transcript.daihon.cutDialog.reasonReview') })));
         if (this.appliedSummary?.partial) this.body.append(element('p', t('transcript.daihon.cutDialog.onlyPortionsVideoCutText')));
         const metrics = element('div'); metrics.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0';
         for (const [value, label] of [[String(count), t('transcript.daihon.cutDialog.locationsCutLabel')], [t('transcript.daihon.cutDialog.secWithCountLabel', { value1: seconds.toFixed(1) }), t('transcript.daihon.cutDialog.timeRemovedLabel')],

@@ -136,7 +136,7 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
             added = result.added; saved = await saveNotes(result.file); }
         else { const result = applyPreparedRules(file, pack as typeof PREPARED_RULES[number]);
             added = result.added; saved = await saveNotes(result.file); }
-        if (saved) setMessage(t('surfaces.channel.applyAddedItemsRepaired.message', { packName: pack.name, added: added }));
+        if (saved) setMessage(t('surfaces.channel.applyAddedItemsRepaired.message', { packName: pack.name, added: added, n: added }));
         setMenu(false);
     };
     const packs = tab === 'words' ? PREPARED_WORDS : tab === 'infos' ? PREPARED_INFOS : PREPARED_RULES;
@@ -173,7 +173,7 @@ export function ChannelNotesSheet(props: { channel: string; dir: URI; files: Cha
             onClick={() => {
                 if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PRESET_NOTES);
                 else void apply(pack);
-            }}>{t('surfaces.channel.preparedPackCount.button', { name: pack.name, count: pack.entries.length })}</button>)}<hr />
+            }}>{t('surfaces.channel.preparedPackCount.button', { name: pack.name, count: pack.entries.length, n: pack.entries.length })}</button>)}<hr />
             <button type='button' onClick={props.onOpenPacks}>{t('surfaces.channel.channelNotesSheetMemoryPack.button')}</button></div>}
         {message && <p role='status'>{message}</p>}
         <div className='akari-notes-tabs' role='tablist' aria-label={t('surfaces.channel.channelNotesSheetDictionaryNotes.label')}>

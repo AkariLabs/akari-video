@@ -25,8 +25,8 @@ test('every static preview t key exists in both catalogs', () => {
         const source = readFileSync(path, 'utf8');
         for (const match of source.matchAll(/\bt\(\s*(['"])(preview\.[^'"]+)\1/g)) {
             count++;
-            assert.ok(Object.hasOwn(ja, match[2]), `${path}: missing Japanese ${match[2]}`);
-            assert.ok(Object.hasOwn(en, match[2]), `${path}: missing English ${match[2]}`);
+            assert.ok(Object.hasOwn(ja, match[2]) || Object.hasOwn(ja, `${match[2]}_other`), `${path}: missing Japanese ${match[2]}`);
+            assert.ok(Object.hasOwn(en, match[2]) || Object.hasOwn(en, `${match[2]}_other`), `${path}: missing English ${match[2]}`);
         }
     }
     assert.ok(count > 100, `expected broad preview coverage, found ${count}`);

@@ -31,8 +31,8 @@ test('all static project t() keys exist in both catalogs', () => {
     }
     assert.ok(keys.size > 500, `expected broad coverage, found ${keys.size} keys`);
     for (const key of keys) {
-        assert.ok(Object.hasOwn(ja, key), `missing ja key: ${key}`);
-        assert.ok(Object.hasOwn(en, key), `missing en key: ${key}`);
+        assert.ok(Object.hasOwn(ja, key) || Object.hasOwn(ja, `${key}_other`), `missing ja key: ${key}`);
+        assert.ok(Object.hasOwn(en, key) || Object.hasOwn(en, `${key}_other`), `missing en key: ${key}`);
     }
 });
 

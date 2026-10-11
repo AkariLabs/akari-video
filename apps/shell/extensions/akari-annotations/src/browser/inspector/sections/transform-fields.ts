@@ -186,7 +186,7 @@ export function cutFramingFields(
             write: async (_snapshot, value) => {
                 const t = Number(value);
                 return !Number.isFinite(t) || t < 0 || t > duration
-                    ? { ok: false, message: translate('inspector.transformFields.message.kfTimeShouldBeEnteredWithinRange', { duration: duration }) }
+                    ? { ok: false, message: translate('inspector.transformFields.message.kfTimeShouldBeEnteredWithinRange', { duration: duration, n: duration }) }
                     : replace(index, { t });
             }
         }, {

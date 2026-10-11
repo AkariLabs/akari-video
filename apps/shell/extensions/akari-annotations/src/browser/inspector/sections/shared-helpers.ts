@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../../../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { CAPTION_PANEL_FONTS } from '../../../common/caption-panel-catalog';
@@ -17,7 +18,7 @@ export function formatTimestamp(value: number): string {
 }
 
 export function formatDurationSeconds(value: number): string {
-    return t('inspector.sharedHelpers.label.seconds', { seconds: value.toFixed(2) });
+    return t('inspector.sharedHelpers.label.seconds', { seconds: value.toFixed(2), n: pluralCountForDisplay(value.toFixed(2)) });
 }
 
 export function formatDecimal1(value: number): string {

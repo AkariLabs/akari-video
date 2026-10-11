@@ -29,9 +29,9 @@ function lastRunLabel(time?: number): string {
     if (time === undefined) return t('project.editCheck.resultDialog.notRunYetLabel');
     const minutes = Math.max(0, Math.floor((Date.now() - time) / 60_000));
     if (minutes < 1) return t('project.editCheck.resultDialog.justNowLabel');
-    if (minutes < 60) return t('project.editCheck.resultDialog.minutesMinutesAgoLabel', { minutes: minutes });
+    if (minutes < 60) return t('project.editCheck.resultDialog.minutesMinutesAgoLabel', { minutes: minutes, n: minutes });
     const hours = Math.floor(minutes / 60);
-    return hours < 24 ? t('project.editCheck.resultDialog.hoursHoursAgoLabel', { hours: hours }) : t('project.editCheck.resultDialog.daysAgoLabel', { value1: Math.floor(hours / 24) });
+    return hours < 24 ? t('project.editCheck.resultDialog.hoursHoursAgoLabel', { hours: hours, n: hours }) : t('project.editCheck.resultDialog.daysAgoLabel', { value1: Math.floor(hours / 24) });
 }
 
 export interface LintResultsState {

@@ -713,14 +713,14 @@ export function MULTI_CAPTION_SECTIONS(
             id: 'content', label: t('inspector.captionSections.label.contentsMultiple'),
             fields: [
                 {
-                    name: 'caption-multi-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length })
+                    name: 'caption-multi-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length, n: snapshots.length })
                 }
             ]
         },
         ...styleCards,
         ...motion,
         { id: 'info', label: t('inspector.captionSections.label.info'), fields: [
-            { name: 'caption-multi-info-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length }) },
+            { name: 'caption-multi-info-count', label: t('inspector.captionSections.label.selection'), getValue: () => t('inspector.captionSections.label.items', { count: snapshots.length, n: snapshots.length }) },
             { name: 'caption-multi-info-kinds', label: t('inspector.captionSections.label.type'), getValue: () =>
                 t('inspector.captionSections.label.captionsTextOverlays', { captions: snapshots.length - placedCount, textOverlays: placedCount }) }
         ] }

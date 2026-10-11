@@ -455,7 +455,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const seconds = transcribed.reduce((sum, source) => sum + (source.duration ?? 0), 0);
             const hourly = clouds.reduce((sum, engine) => sum + engine.hourlyUsd, 0);
             const cost = transcribed.every(source => source.duration !== undefined)
-                ? t('transcript.captionPopup.dialog.assetsAboutMinAboutWithValuesLabel', { value1: transcribed.length, value2: Math.ceil(seconds / 60), value3: (seconds * hourly / 3600).toFixed(2) })
+                ? t('transcript.captionPopup.dialog.assetsAboutMinAboutWithValuesLabel', { value1: transcribed.length, n: transcribed.length, value2: Math.ceil(seconds / 60), value3: (seconds * hourly / 3600).toFixed(2) })
                 : t('transcript.captionPopup.dialog.perHourWithRateLabel', { value1: hourly.toFixed(2) });
             const note = el('p', t('transcript.captionPopup.dialog.cloudAudioCostConfirmation', { value1: clouds.map(engine => engine.label).join(t('transcript.shared.list.separator')), value2: cost }));
             note.style.cssText = 'padding:11px;border:1px solid var(--akari-warning);border-radius:7px;color:var(--akari-warning)';
@@ -554,12 +554,12 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const group = (label: string): HTMLElement => { const node = el('section'); node.style.margin = '13px 0'; node.append(el('strong', label)); return node; };
         const chars = group(t('transcript.captionPopup.dialog.charactersPerLineLabel'));
         const range = el('input'); range.type = 'range'; range.min = '5'; range.max = '28'; range.value = String(this.chars);
-        const value = el('span', t('transcript.captionPopup.dialog.leadingCharactersWithCountLabel', { value1: this.chars }));
-        range.oninput = () => { this.chars = Number(range.value); value.textContent = t('transcript.captionPopup.dialog.leadingCharactersWithCountText', { value1: this.chars }); this.updateExample(); };
+        const value = el('span', t('transcript.captionPopup.dialog.leadingCharactersWithCountLabel', { value1: this.chars, n: this.chars }));
+        range.oninput = () => { this.chars = Number(range.value); value.textContent = t('transcript.captionPopup.dialog.leadingCharactersWithCountText', { value1: this.chars, n: this.chars }); this.updateExample(); };
         chars.append(el('br'), range, value); this.body.append(chars);
         const lines = group(t('transcript.captionPopup.dialog.linesLabel'));
         for (const count of [1, 2] as const) {
-            const choice = plainButton(t('transcript.captionPopup.dialog.linesWithCountAction', { value1: count }), () => { this.lines = count; this.render(); });
+            const choice = plainButton(t('transcript.captionPopup.dialog.linesWithCountAction', { value1: count, n: count }), () => { this.lines = count; this.render(); });
             choice.style.marginRight = '8px'; choice.setAttribute('aria-pressed', String(this.lines === count));
             if (this.lines === count) choice.style.borderColor = 'var(--akari-accent)';
             lines.append(choice);
@@ -638,7 +638,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.step === 0) {
             const selected = this.selectedSources();
             const duration = selected.reduce((sum, source) => sum + (source.duration ?? 0), 0);
-            this.foot.append(el('span', t('transcript.captionPopup.dialog.assetsSelectedTotalWithValuesText', { value1: selected.length, value2: time(duration) })), spacer);
+            this.foot.append(el('span', t('transcript.captionPopup.dialog.assetsSelectedTotalWithValuesText', { value1: selected.length, n: selected.length, value2: time(duration) })), spacer);
             const next = button(t('transcript.captionPopup.dialog.nextAction'), () => { void (async () => {
                 next.disabled = true;
                 for (const source of this.sources.filter(candidate => candidate.status === 'voice'

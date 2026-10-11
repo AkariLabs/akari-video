@@ -103,7 +103,7 @@ function lintFindingCounts(status: QuickExportStatus): string {
         return severityCounts.join(t('shell.export.progress.separator'));
     }
     if (status.lintIssueCount !== undefined) {
-        return t('shell.export.progress.lintIssuesLabel', { value1: status.lintIssueCount });
+        return t('shell.export.progress.lintIssuesLabel', { value1: status.lintIssueCount, n: status.lintIssueCount });
     }
     return t('shell.export.progress.unknownCountLabel');
 }

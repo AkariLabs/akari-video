@@ -58,7 +58,7 @@ export class TimelineIssueChip {
         }
         if (remaining) {
             const more = this.doc.createElement('div');
-            more.textContent = t('annotationscommon.timelineIssueChip.label.remainingIssues', { remaining: remaining });
+            more.textContent = t('annotationscommon.timelineIssueChip.label.remainingIssues', { remaining: remaining, n: remaining });
             list.appendChild(more);
         }
         popup.appendChild(list);

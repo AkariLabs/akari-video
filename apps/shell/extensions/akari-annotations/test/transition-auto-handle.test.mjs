@@ -62,7 +62,7 @@ test('text commit は before/after 1 組を 1 history に積み、undo/redo が�
 
 test('クランプ・不能は日本語通知され、不能と layers 退避は警告バッジ導線を持つ', () => {
   assert.match(source, /t\('annotations\.timeline\.text\.transitionIsShortenedToSecondsNotEnoughMaterial'/u);
-  assert.equal(ja['annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial'], 'トランジションが {duration} 秒に短くなります（素材の余りが足りません）');
+  assert.equal(ja['annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial_other'], 'トランジションが {duration} 秒に短くなります（素材の余りが足りません）');
   assert.match(source, /t\('annotations\.timeline\.text\.thisTransitionDoesnTWorkThereIsNo'\)/u);
   assert.equal(ja['annotations.timeline.text.thisTransitionDoesnTWorkThereIsNo'], 'このトランジションは効きません: 素材に余りがありません。');
   assert.match(source, /t\('annotations\.timeline\.text\.thereIsNoMaterialLeftOverForGluing'\)/u);

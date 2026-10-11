@@ -55,10 +55,10 @@ export function computeProjectStages(p: ProjectPresence): ProjectStage[] {
     };
     const detail: Record<ProjectStageKey, string> = {
         plan: done.plan ? t('surfaces.projects.computeProjectStagesPlanAvailable.label') : t('surfaces.projects.computeProjectStagesYet.label'),
-        assets: done.assets ? t('surfaces.projects.computeProjectStagesItems.message', { assetFiles: p.assetFiles }) : t('surfaces.projects.computeProjectStagesYet.label'),
+        assets: done.assets ? t('surfaces.projects.computeProjectStagesItems.message', { assetFiles: p.assetFiles, n: p.assetFiles }) : t('surfaces.projects.computeProjectStagesYet.label'),
         edit: done.edit ? t('surfaces.projects.computeProjectStagesEdited.label') : t('surfaces.projects.computeProjectStagesYet.label'),
         check: done.check ? t('surfaces.projects.computeProjectStagesReportAvailable.label') : t('surfaces.projects.computeProjectStagesYet.label'),
-        export: done.export ? t('surfaces.projects.computeProjectStagesVideos.message', { exportFiles: p.exportFiles }) : t('surfaces.projects.computeProjectStagesYet.label')
+        export: done.export ? t('surfaces.projects.computeProjectStagesVideos.message', { exportFiles: p.exportFiles, n: p.exportFiles }) : t('surfaces.projects.computeProjectStagesYet.label')
     };
     return (Object.keys(PROJECT_STAGE_LABELS) as ProjectStageKey[]).map(key => ({
         key, label: PROJECT_STAGE_LABELS[key], done: done[key], detail: detail[key],

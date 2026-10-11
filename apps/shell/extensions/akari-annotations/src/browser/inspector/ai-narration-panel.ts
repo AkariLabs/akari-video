@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import { AkariAnnotationsService, type NarrationCandidate, type NarrationEngine, type NarrationVoice,
     type VoiceProfileSummary } from '../../common/akari-annotations-protocol';
@@ -40,7 +41,7 @@ export function narrationBatchConfirm(engines: readonly NarrationEngine[], readi
     const estimates = paid.map(engine => ({ engine, quote: narrationEstimate(engine, reading) }));
     const total = estimates.some(row => row.quote.usd === null) ? t('inspector.aiNarrationPanel.status.estimateUnavailable') :
         `$${estimates.reduce((sum, row) => sum + (row.quote.usd ?? 0), 0).toFixed(3)}`;
-    return { title: t('inspector.aiNarrationPanel.title.costApproval'), msg: t('inspector.aiNarrationPanel.message.totalCanUseCharactersReadWillAccept', { breakdown: estimates.map(row => `${row.engine.label}: ${row.quote.usd === null ? t('inspector.aiNarrationPanel.status.estimateUnavailable') : `$${row.quote.usd.toFixed(3)}`}`).join(' / '), amount: total, characters: reading.length }), ok: t('inspector.aiNarrationPanel.label.costApproval'), cancel: t('inspector.aiNarrationPanel.action.cancel') };
+    return { title: t('inspector.aiNarrationPanel.title.costApproval'), msg: t('inspector.aiNarrationPanel.message.totalCanUseCharactersReadWillAccept', { breakdown: estimates.map(row => `${row.engine.label}: ${row.quote.usd === null ? t('inspector.aiNarrationPanel.status.estimateUnavailable') : `$${row.quote.usd.toFixed(3)}`}`).join(' / '), amount: total, characters: reading.length, n: reading.length }), ok: t('inspector.aiNarrationPanel.label.costApproval'), cancel: t('inspector.aiNarrationPanel.action.cancel') };
 }
 
 export function narrationRowEstimate(engine: NarrationEngine, reading: string): string {
@@ -56,10 +57,10 @@ export function narrationCandidateLabel(candidate: NarrationCandidate, engines: 
     if (!candidate.ok) return [engineName, knownVoice].filter(Boolean).join(' · ');
     const parts = [engineName, knownVoice ?? candidate.voice].filter(Boolean);
     if (typeof candidate.durationSeconds === 'number' && Number.isFinite(candidate.durationSeconds)) {
-        parts.push(t('inspector.aiNarrationPanel.label.scaleSeconds', { seconds: candidate.durationSeconds.toFixed(1) }));
+        parts.push(t('inspector.aiNarrationPanel.label.scaleSeconds', { seconds: candidate.durationSeconds.toFixed(1), n: pluralCountForDisplay(candidate.durationSeconds.toFixed(1)) }));
     }
     if (typeof candidate.elapsedSeconds === 'number' && Number.isFinite(candidate.elapsedSeconds)) {
-        parts.push(t('inspector.aiNarrationPanel.label.createSeconds', { seconds: Math.round(candidate.elapsedSeconds) }));
+        parts.push(t('inspector.aiNarrationPanel.label.createSeconds', { seconds: Math.round(candidate.elapsedSeconds), n: Math.round(candidate.elapsedSeconds) }));
     }
     if (typeof candidate.costUsd === 'number' && Number.isFinite(candidate.costUsd)) {
         parts.push(`$${candidate.costUsd.toFixed(3)}`);
@@ -247,7 +248,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         }
     };
     updateChoice(); panel.append(choice);
-    const button = make('button', 'button', state.running ? t('inspector.aiNarrationPanel.status.generating') : state.error ? t('inspector.aiNarrationPanel.label.againSameInput') : t('inspector.aiNarrationPanel.label.makeProposal', { count: selected.length }));
+    const button = make('button', 'button', state.running ? t('inspector.aiNarrationPanel.status.generating') : state.error ? t('inspector.aiNarrationPanel.label.againSameInput') : t('inspector.aiNarrationPanel.label.makeProposal', { count: selected.length, n: selected.length }));
     button.type = 'button'; button.disabled = state.running || !state.script.trim() || !selected.length
         || selected.some(id => !state.voiceByEngine?.[id])
         || irodoriCustomVoiceMissing(selected.includes('irodori') ? 'irodori' : undefined, state.voiceByEngine?.irodori ?? '', state.style ?? '');
@@ -300,16 +301,16 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     button.addEventListener('click', () => void generateWithPerson()); panel.append(button);
     if (state.running) {
         const activeRoutes = state.runningRoutes ?? selected;
-        panel.append(make('p', 'progress', t('inspector.aiNarrationPanel.label.creatingOptions', { count: activeRoutes.length, completed: state.completed ?? 0, total: activeRoutes.length })));
+        panel.append(make('p', 'progress', t('inspector.aiNarrationPanel.label.creatingOptions', { count: activeRoutes.length, n: activeRoutes.length, completed: state.completed ?? 0, total: activeRoutes.length })));
         for (const id of activeRoutes) {
             const candidate = state.candidates?.find(row => row.route === id);
-            if (!candidate) panel.append(make('p', 'route-progress', t('inspector.aiNarrationPanel.label.seconds', { engine: engines.find(row => row.id === id)?.label ?? id, elapsedSeconds: Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000) })));
+            if (!candidate) panel.append(make('p', 'route-progress', t('inspector.aiNarrationPanel.label.seconds', { engine: engines.find(row => row.id === id)?.label ?? id, elapsedSeconds: Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000), n: Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000) })));
         }
         const cancel = make('button', 'button', t('inspector.aiNarrationPanel.action.cancel')); cancel.type = 'button';
         cancel.addEventListener('click', () => actions.cancel()); panel.append(cancel);
     }
     if (state.candidates?.length) {
-        panel.append(make('h4', 'heading', t('inspector.aiNarrationPanel.label.candidateCount', { count: state.candidates.filter(row => row.ok).length })));
+        panel.append(make('h4', 'heading', t('inspector.aiNarrationPanel.label.candidateCount', { count: state.candidates.filter(row => row.ok).length, n: state.candidates.filter(row => row.ok).length })));
         for (const candidate of state.candidates) {
             const row = make('div', 'candidate'); row.setAttribute('data-akari-narration-candidate', candidate.route);
             const controls = make('span', 'candidate-controls');

@@ -45,7 +45,7 @@ export class AkariNotificationsContribution extends NotificationsContribution {
 
     protected override getStatusBarItemTooltip(_count: number): string {
         const count = (this.manager as AkariNotificationManager).life.unreadCount;
-        return count ? t('theme.notifications.statusBarItemTooltipUnreadNotifications.message', { count: count }) : t('theme.notifications.statusBarItemTooltipNoNotifications.label');
+        return count ? t('theme.notifications.statusBarItemTooltipUnreadNotifications.message', { count: count, n: count }) : t('theme.notifications.statusBarItemTooltipNoNotifications.label');
     }
 
     protected override updateStatusBarItem(count = 0): void {

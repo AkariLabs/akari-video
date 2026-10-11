@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
@@ -6227,7 +6228,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return outcome.edit as unknown as EditV2Document;
             });
             if (!outcome) return;
-            if (outcome.blocked?.length) this.footer.textContent = t('annotations.timeline.text.couldNotBeCollectedBecauseItCollidedWith', { count: outcome.blocked.length });
+            if (outcome.blocked?.length) this.footer.textContent = t('annotations.timeline.text.couldNotBeCollectedBecauseItCollidedWith', { count: outcome.blocked.length, n: outcome.blocked.length });
             after?.(outcome);
             this.revealOutputPreview();
         } catch (error) {
@@ -6428,7 +6429,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const retained = this.multiSelection.filter(item => this.isTrackLocked(this.trackIdOfSelection(item)));
         const selected = this.multiSelection.filter(item => !this.isTrackLocked(this.trackIdOfSelection(item)));
         if (selected.length === 0) {
-            this.footer.textContent = t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length });
+            this.footer.textContent = t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length, n: retained.length });
             return;
         }
         if (typeof this.commitImmediateItemMutation === 'function'
@@ -6561,7 +6562,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selection = undefined;
             this.pushSelectionSnapshot();
             this.footer.textContent = retained.length > 0
-                ? t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length }) : t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
+                ? t('annotations.timeline.text.itemsWereLeftBecauseTheyWereLocked', { count: retained.length, n: retained.length }) : t('annotations.timeline.text.theSelectedItemHasBeenDeleted');
         } catch (error) {
             if (immediateCaptions) {
                 this.captions = captionsAtStart;
@@ -6953,7 +6954,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 if (resolved === undefined) {
                     durationSeconds = MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
-                    fallbackNote = t('annotations.timeline.text.sinceTheActualLengthCouldNotBeObtained', { duration: MATERIAL_INSERT_FALLBACK_DURATION_SECONDS });
+                    fallbackNote = t('annotations.timeline.text.sinceTheActualLengthCouldNotBeObtained', { duration: MATERIAL_INSERT_FALLBACK_DURATION_SECONDS, n: MATERIAL_INSERT_FALLBACK_DURATION_SECONDS });
                 } else {
                     durationSeconds = resolved;
                 }
@@ -9947,8 +9948,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? 0 : videoOverhangSeconds(frameSeconds, generatedSeconds ?? 0);
         if (!excess) return;
         const widthPx = clipWidth * excess / (segment.tlEnd - segment.tlStart);
-        const text = finished ? t('annotations.timeline.text.videoIsSeconds', { duration: videoSecondsLabel(generatedSeconds!) })
-            : t('annotations.timeline.text.createInSeconds', { duration: videoSecondsLabel(generatedSeconds!) });
+        const text = finished ? t('annotations.timeline.text.videoIsSeconds', { duration: videoSecondsLabel(generatedSeconds!), n: videoSecondsLabel(generatedSeconds!) })
+            : t('annotations.timeline.text.createInSeconds', { duration: videoSecondsLabel(generatedSeconds!), n: videoSecondsLabel(generatedSeconds!) });
         const labelWidthPx = Array.from(text).reduce((width, char) => width + (char.codePointAt(0)! < 0x80 ? char === ' ' ? 3 : 5 : 10), 0);
         const nextItemStartPx = (this.segments ?? [])
             .filter(next => next.index !== segment.index && next.track === segment.track
@@ -12748,7 +12749,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
         if (handle?.outcome === 'clamped') {
             const seconds = formatTransitionSeconds(handle.effectiveSeconds);
-            const message = t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial', { duration: seconds });
+            const message = t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial', { duration: seconds, n: seconds });
             this.showNotice(message);
             this.footer.textContent = message;
             this.messages.warn(message);
@@ -14395,7 +14396,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.commitEditMutation(t('annotations.timeline.text.deleteTrack'), doc => removeV2Track(doc, trackId));
             return;
         }
-        if (!window.confirm(t('annotations.timeline.text.thisTrackHasItemsDoYouWantTo', { count: count }))) {
+        if (!window.confirm(t('annotations.timeline.text.thisTrackHasItemsDoYouWantTo', { count: count, n: count }))) {
             return;
         }
         try {
@@ -14456,7 +14457,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         renderTimelineRangeOverlay(this.rangeStripOverlay, this.timelineRange, this.fps, percent, format, false);
         const range = completeTimelineRange(this.timelineRange);
         this.rangeDurationLabel.textContent = range
-            ? t('annotations.timeline.text.rangeSeconds', { duration: Number(((range.end - range.start) / this.fps).toFixed(2)) }) : '';
+            ? t('annotations.timeline.text.rangeSeconds', { duration: Number(((range.end - range.start) / this.fps).toFixed(2)), n: pluralCountForDisplay(Number(((range.end - range.start) / this.fps).toFixed(2))) }) : '';
     }
 
     protected selectClipTimelineRange(): void {
@@ -17069,7 +17070,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.setGhostRejected(state.ghost, rejected);
                 this.setGhostSnapped(state.ghost, snapped && !rejected);
                 this.setGhostDurationWarning(state.ghost, false);
-                this.updateDragFeedback(state, rejected ? t('annotations.timeline.text.cannotBeTrimmedBecauseTheyOverlap') : t('annotations.timeline.text.lengthSeconds', { duration: duration.toFixed(2) }));
+                this.updateDragFeedback(state, rejected ? t('annotations.timeline.text.cannotBeTrimmedBecauseTheyOverlap') : t('annotations.timeline.text.lengthSeconds', { duration: duration.toFixed(2), n: pluralCountForDisplay(duration.toFixed(2)) }));
                 this.updateGhostHeaderDuration(state.ghost, duration);
                 return { kind: 'cut-trim', index: state.index, edge: state.edge,
                     input: 0, output: duration, at, rejected };
@@ -17163,7 +17164,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.setGhostDurationWarning(state.ghost, durationUnavailable);
                 this.updateDragFeedback(state, rejected
                     ? t('annotations.timeline.text.cannotBeTrimmedBecauseTheyOverlap')
-                    : t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), warning: durationWarningSuffix }));
+                    : t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), n: pluralCountForDisplay(newDuration.toFixed(2)), warning: durationWarningSuffix }));
                 this.updateGhostHeaderDuration(state.ghost, newDuration);
                 return {
                     kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected, maxOutSeconds
@@ -17182,7 +17183,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped);
             this.setGhostDurationWarning(state.ghost, durationUnavailable);
             const newDuration = Math.max(0, output - input);
-            this.updateDragFeedback(state, t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), warning: durationWarningSuffix }));
+            this.updateDragFeedback(state, t('annotations.timeline.text.durationSeconds', { edge: state.edge === 'left' ? 'In' : 'Out', time: this.formatTimestamp(state.edge === 'left' ? input : output), duration: newDuration.toFixed(2), n: pluralCountForDisplay(newDuration.toFixed(2)), warning: durationWarningSuffix }));
             this.updateGhostHeaderDuration(state.ghost, newDuration);
             return {
                 kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected: false, maxOutSeconds
@@ -17210,7 +17211,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? t('annotations.timeline.text.unableToPlace')
-                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(at), duration: state.duration.toFixed(2) }));
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(at), duration: state.duration.toFixed(2), n: pluralCountForDisplay(state.duration.toFixed(2)) }));
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected, altKey: state.altKey,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -17442,7 +17443,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? t('annotations.timeline.text.unableToPlace')
-                : t('annotations.timeline.text.durationSecondsAlternate', { placement: insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(timeValue21), duration: itemDuration.toFixed(2) }));
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(timeValue21), duration: itemDuration.toFixed(2), n: pluralCountForDisplay(itemDuration.toFixed(2)) }));
             return {
                 kind: 'layer', id: state.id, t: timeValue21, duration: itemDuration, track, rejected, insertTrack,
                 targetTrackId, insertIndex
@@ -17536,7 +17537,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped);
             this.updateDragFeedback(state,
                 `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} `
-                + t('annotations.timeline.text.durationSecondsVariant3', { duration: (output - input).toFixed(2), warning: durationWarningSuffix })
+                + t('annotations.timeline.text.durationSecondsVariant3', { duration: (output - input).toFixed(2), n: pluralCountForDisplay((output - input).toFixed(2)), warning: durationWarningSuffix })
                 + this.sfxFadeFeedbackSuffix(sfx, output - input));
             return { kind: 'audio-trim', id: state.id, edge: state.edge, t: timeValue23, in: input, out: output };
         }
@@ -17600,7 +17601,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected ? t('annotations.timeline.text.unableToPlace')
-                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(start), duration: state.originalDuration.toFixed(2) }));
+                : t('annotations.timeline.text.durationSecondsAlternate', { placement: hit.insertIndex !== undefined ? t('annotations.timeline.placement.insertPrefix') : t('annotations.timeline.placement.placePrefix'), time: this.formatTimestamp(start), duration: state.originalDuration.toFixed(2), n: pluralCountForDisplay(state.originalDuration.toFixed(2)) }));
             return {
                 kind: 'overlay-move', id: state.id, start, track: hit.track, rejected,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -17616,7 +17617,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const end = snap.time;
         this.setGhostRange(state.ghost, state.originalStart, end);
         this.setGhostSnapped(state.ghost, snap.snapped);
-        this.updateDragFeedback(state, t('annotations.timeline.text.durationSecondsVariant4', { duration: (end - state.originalStart).toFixed(2) }));
+        this.updateDragFeedback(state, t('annotations.timeline.text.durationSecondsVariant4', { duration: (end - state.originalStart).toFixed(2), n: pluralCountForDisplay((end - state.originalStart).toFixed(2)) }));
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
     }
 
@@ -18563,7 +18564,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // OS 側が使えなくても、このタイムラインのコピーは成立させる。
         try { void navigator.clipboard?.writeText(serializeTimelineFragment(fragment)).catch(() => undefined); }
         catch { /* ブラウザの権限・安全なコンテキストに依存するためメモリへフォールバックする。 */ }
-        this.footer.textContent = t('annotations.timeline.text.itemsHaveBeenCopied', { count: fragment.items.length });
+        this.footer.textContent = t('annotations.timeline.text.itemsHaveBeenCopied', { count: fragment.items.length, n: fragment.items.length });
         return true;
     }
 
@@ -18644,8 +18645,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.commitTimelineSnapshot(before, after, label);
             this.hideNotice();
             this.footer.textContent = mode === 'duplicate'
-                ? t('annotations.timeline.clipboard.duplicated', { count: fragment.items.length })
-                : t('annotations.timeline.clipboard.pasted', { count: fragment.items.length });
+                ? t('annotations.timeline.clipboard.duplicated', { count: fragment.items.length, n: fragment.items.length })
+                : t('annotations.timeline.clipboard.pasted', { count: fragment.items.length, n: fragment.items.length });
         });
     }
 
@@ -19103,7 +19104,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 top: `${rect.top - overlay.top + (layout?.top ?? bandTop)}px`,
                 width: `${range.duration / fps * scale}px`, height: `${newTrackBand ? bandHeight : layout!.height}px`
             });
-            rectangle.textContent = t('annotations.timeline.text.seconds', { duration: (range.duration / fps).toFixed(1) });
+            rectangle.textContent = t('annotations.timeline.text.seconds', { duration: (range.duration / fps).toFixed(1), n: pluralCountForDisplay((range.duration / fps).toFixed(1)) });
         };
         const cleanup = (): void => {
             this.strip.removeEventListener('pointermove', update);

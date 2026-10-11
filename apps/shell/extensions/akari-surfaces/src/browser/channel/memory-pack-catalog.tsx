@@ -119,7 +119,7 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
             await props.files.writeWordBook(props.dir, result.book);
             await props.files.writePacks(props.dir, result.packs);
             setPeople(result.people); setBook(result.book); setPacks(result.packs); setConfirm(false);
-            notify(t('surfaces.channel.takeOutRemovedItems.message', { selectedName: selected.name, removed: result.removed }));
+            notify(t('surfaces.channel.takeOutRemovedItems.message', { selectedName: selected.name, removed: result.removed, n: result.removed }));
             props.onChanged?.();
         } catch { setError(t('surfaces.channel.takeOutRemovePackTryAgain.error')); }
         finally { setBusy(false); }

@@ -74,7 +74,7 @@ export class AkariExportDialog extends ReactDialog<void> {
             : view === 'done'
                 ? status.artifactPath ?? snapshot.outputName
                 : view === 'lint-failed'
-                    ? t('shell.exportDialog.window.lintIssuesLabel', { value1: status.lintIssueCount ?? 0 })
+                    ? t('shell.exportDialog.window.lintIssuesLabel', { value1: status.lintIssueCount ?? 0, n: status.lintIssueCount ?? 0 })
                     : view === 'failed'
                         ? t('shell.exportDialog.window.exportStoppedStatus')
                     : t('shell.exportDialog.window.editJsonOutputSettingsText', { value1: snapshot.projectLabel || t('shell.exportDialog.window.projectLabel') });
