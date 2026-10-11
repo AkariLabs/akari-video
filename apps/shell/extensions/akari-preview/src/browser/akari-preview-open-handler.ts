@@ -6906,7 +6906,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
-                if ((request.patch.transform || request.patch.xyKeyframes || request.patch.element) && request.patch.html === undefined) {
+                if ((request.patch.transform || request.patch.xyKeyframes || request.patch.element || request.patch.varsAt) && request.patch.html === undefined) {
                     await this.persistPreviewTransform(editUri, candidateText, write);
                 } else {
                     if (materializedDir) editTextToRestore = originalText;

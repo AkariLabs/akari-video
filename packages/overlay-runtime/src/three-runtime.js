@@ -2456,6 +2456,38 @@ window.akari.threeRuntime = (() => {
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
 
+  // Return the material pivot used by applyPoseKnobs in client pixels, without changing the scene.
+  function posePivotClient(canvas) {
+    let container = canvas;
+    while (container && !instances.has(container)) container = container.parentElement;
+    const instance = container && instances.get(container);
+    if (!instance?.poseGroup || instance.canvas !== canvas || !instance.contentReady) return null;
+    const { THREE } = window.AkariThree;
+    const center = new THREE.Vector3();
+    let total = 0;
+    for (const [node, local, weight] of instance.pose.anchors) {
+      center.addScaledVector(local.clone().applyMatrix4(node.matrixWorld), weight);
+      total += weight;
+    }
+    if (total > 0) center.multiplyScalar(1 / total);
+    else {
+      const box = new THREE.Box3().setFromObject(instance.model);
+      if (box.isEmpty()) center.setFromMatrixPosition(instance.model.matrixWorld);
+      else box.getCenter(center);
+    }
+    const projected = center.applyMatrix4(instance.camera.matrixWorldInverse)
+      .applyMatrix4(instance.camera.projectionMatrix);
+    if (![projected.x, projected.y].every(Number.isFinite)) return null;
+    const box = { left: (projected.x + 1) / 2, right: (projected.x + 1) / 2,
+      top: (1 - projected.y) / 2, bottom: (1 - projected.y) / 2 };
+    if (window.akari.interaction?.canvasClientBounds) {
+      const point = window.akari.interaction.canvasClientBounds(canvas, box);
+      return { x: point.left, y: point.top };
+    }
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.left + rect.width * box.left, y: rect.top + rect.height * box.top };
+  }
+
   function draw(instance, localSeconds) {
     // texts[] のみ（model 無し）のシーンでも描く必要があるため、readiness は instance.model の
     // 有無ではなく contentReady（model 読み込み + 全 texts sync() 完了）で判定する
@@ -3259,6 +3291,7 @@ window.akari.threeRuntime = (() => {
     canvasFor: resolveSceneCanvas,
     invalidateAssets,
     contentBounds,
+    posePivotClient,
     projectContentBounds,
     dispose,
     inspect,
