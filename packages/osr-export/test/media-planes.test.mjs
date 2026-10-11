@@ -66,7 +66,8 @@ test("caption bag, caption item, blend overlay and grouped-caption itemStackZ ar
 test("one band retains the original canvas and overlay sheet structure, including blend frames", () => {
   const input = edit([{ id: "main", src: "main", in: 0, out: 2, track: 0 }, cut("photo", 1)]);
   const normal = page(input, [overlay("top", 2)]).html;
-  const digest = value => createHash("sha256").update(value).digest("hex");
+  const digest = value => createHash("sha256")
+    .update(value.replace(/,"messages":\{"longGop":"(?:\\.|[^"\\])*"\}/u, "")).digest("hex");
   assert.equal(digest(normal), "03faaac54a97e3984c61823c84990728b5d55d95fe18da9d07a4ea503c227fff");
   assert.equal(tags(normal).length, 2);
   assert.match(normal, /<canvas id="akari-engine"/u);

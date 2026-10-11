@@ -38242,6 +38242,12 @@ var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
 var loopPresets = new Set(MOTION_LOOP_PRESETS);
 
 // src/frame-engine-client.ts
+function formatFrameEngineWarning(message, detail) {
+  if (detail?.code !== "long-gop") return message;
+  const messages = window.__AKARI_PREVIEW_MESSAGES__;
+  if (!messages?.longGop) return message;
+  return messages.longGop.replaceAll("{id}", String(detail.id)).replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+}
 var requestedUploadPath = new URLSearchParams(window.location.search).get("uploadPath") === "copyTo" ? "copyTo" : "direct";
 function percentile2(values, fraction = 0.5) {
   if (values.length === 0) return null;
@@ -38877,7 +38883,7 @@ var FrameEngineRuntime = class {
     const choice = this.sourceChoices.get(id);
     const pool = new ClipSessionPool(id, url, {
       codecSupport: choice?.support,
-      onWarning: (message) => this.showError(message, false),
+      onWarning: (message, detail) => this.showError(formatFrameEngineWarning(message, detail), false),
       onSoftwareFallbackDenied: (support) => {
         if (!(choice?.support?.hw || choice?.support?.any)) {
           this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);

@@ -44,6 +44,7 @@ import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 import { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from '../../overlay-runtime/src/fragment-source-write.mjs';
 import { resolveProjectAssetPathSync } from '../../asset-resolver/src/shell-reference-sync.mjs';
+import { renderPreviewIndex } from './preview-index.mjs';
 
 // The companion CLI carries the product version in both source and packaged layouts.
 const writerVersion = (() => {
@@ -126,7 +127,6 @@ const THREE_ROUTES = {
   // 書き出し（rasterize）は無改造で通るが、プレビューは打ち替え編集をするため
   // 再分割の実装が要る。three と同じ「リポ所有の固定ルート」で配る。
   // budoux は Apache-2.0（vendor/budoux-LICENSE.txt）。
-  // 契約: akari-video-internal contract-2026-08-15-telop-motion-grammar-v0
   '/budoux-ja-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/budoux-ja-bundle.js', import.meta.url)),
   '/text-split.js': fileURLToPath(new URL('../../overlay-runtime/src/text-split.js', import.meta.url)),
 };
@@ -984,7 +984,8 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (pathname === '/' || pathname === '/index.html') {
-    return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    return respond(res, 200, renderPreviewIndex(fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')),
+      'text/html; charset=utf-8');
   }
 
   // 3D ランタイム（リポ所有の固定ルート。断片が 3D を宣言した時だけ取りに来る）
