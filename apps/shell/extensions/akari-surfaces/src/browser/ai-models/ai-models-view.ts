@@ -337,7 +337,7 @@ export class AiModelsView {
         const byId = new Map(this.catalog.models.map(model => [model.id, model.name]));
         const defaultId = this.preferences.defaults[this.kind];
         const favoriteNames = (this.preferences.favorites[this.kind] || []).map(id => byId.get(id)).filter(Boolean);
-        const summary = t('surfaces.aiModels.resultsModelsDefaultFavorites.message', { kind: KIND_LABELS[this.kind], count: visible.length, defaultModel: defaultId ? byId.get(defaultId) || t('surfaces.aiModels.resultsUnconfirmed.label') : t('surfaces.aiModels.resultsNone.label'), favorites: favoriteNames.join(t('surfaces.aiModelsView.list.separator')) || t('surfaces.aiModels.resultsNone.label') });
+        const summary = t('surfaces.aiModels.resultsModelsDefaultFavorites.message', { kind: KIND_LABELS[this.kind], count: visible.length, n: visible.length, defaultModel: defaultId ? byId.get(defaultId) || t('surfaces.aiModels.resultsUnconfirmed.label') : t('surfaces.aiModels.resultsNone.label'), favorites: favoriteNames.join(t('surfaces.aiModelsView.list.separator')) || t('surfaces.aiModels.resultsNone.label') });
         host.append(node('p', 'akari-ai-summary', summary));
         const grid = node('div', 'akari-ai-grid');
         for (const model of visible) {
@@ -433,7 +433,7 @@ export class AiModelsView {
             const count = otherVariantCount(this.catalog!.models, model, this.showUnavailable);
             if (count && !this.query && !this.maker && !this.need && this.viaIncluded && this.viaApi && !this.showUnavailable) {
                 const expanded = this.expanded.has(model.group);
-                const toggle = button(expanded ? t('surfaces.aiModels.cardCloseOtherTypes.message', { count: count }) : t('surfaces.aiModels.cardOtherTypes.message', { count: count }), 'data-ai-model-variants', model.group, () => {
+                const toggle = button(expanded ? t('surfaces.aiModels.cardCloseOtherTypes.message', { count: count, n: count }) : t('surfaces.aiModels.cardOtherTypes.message', { count: count, n: count }), 'data-ai-model-variants', model.group, () => {
                     if (expanded) {
                         this.expanded.delete(model.group);
                     } else {

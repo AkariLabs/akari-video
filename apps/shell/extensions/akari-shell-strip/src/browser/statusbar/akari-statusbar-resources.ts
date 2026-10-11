@@ -293,7 +293,7 @@ export class AkariStatusbarResources implements FrontendApplicationContribution 
 
     protected renderResources(popup: HTMLElement): void {
         const header = this.element('header');
-        header.append(this.element('span', '', t('shell.statusBar.resources.resourcesLabel')), this.element('span', 'muted', t('shell.statusBar.resources.secondsLabel', { value1: this.options.intervalSec })));
+        header.append(this.element('span', '', t('shell.statusBar.resources.resourcesLabel')), this.element('span', 'muted', t('shell.statusBar.resources.secondsLabel', { value1: this.options.intervalSec, n: this.options.intervalSec })));
         popup.append(header);
         if (this.sample) for (const row of resourceRows(this.sample, this.options)) {
             const meter = this.element('div', 'meter');

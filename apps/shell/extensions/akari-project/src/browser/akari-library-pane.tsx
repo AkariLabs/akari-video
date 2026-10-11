@@ -333,7 +333,7 @@ export class AkariLibraryPane {
                         disabled={!candidates.length}
                         data-akari-catalog-pack-import
                         title={candidates.length
-                            ? t('project.library.pane.askAgentImportLengthFreeAssetsAction', { length: candidates.length })
+                            ? t('project.library.pane.askAgentImportLengthFreeAssetsAction', { length: candidates.length, n: candidates.length })
                             : t('project.library.pane.thereAreNoFreeAssetsImportMessage')}
                         style={{ fontSize: '0.78em', padding: '2px 8px', opacity: candidates.length ? 1 : 0.6 }}
                         onClick={() => void this.importCatalogPack(group)}

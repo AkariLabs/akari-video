@@ -433,8 +433,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
                     ? await this.placeImportedOnTimeline(results, options.clientX, options.clientY)
                     : 0;
                 this.messages.info(placed > 0
-                    ? t('project.workspace.command.addedImportedVideosTimelineMessage', { imported: imported })
-                    : t('project.workspace.command.importedImportedVideosAsAssetsMessage', { imported: imported })
+                    ? t('project.workspace.command.addedImportedVideosTimelineMessage', { imported: imported, n: imported })
+                    : t('project.workspace.command.importedImportedVideosAsAssetsMessage', { imported: imported, n: imported })
                         + t('project.workspace.command.addItTimelineRightClickAssetLabel'));
                 const navigator = await this.widgets.getOrCreateWidget('files') as any;
                 await navigator.model?.refresh?.();
@@ -442,7 +442,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             if (failed) {
                 const message = t('project.workspace.command.couldNotImportVideoDragItError');
                 if (imported) {
-                    this.messages.warn(t('project.workspace.command.failedVideosMessageLabel', { failed: failed, message: message }));
+                    this.messages.warn(t('project.workspace.command.failedVideosMessageLabel', { failed: failed, n: failed, message: message }));
                 } else {
                     this.messages.error(message);
                 }

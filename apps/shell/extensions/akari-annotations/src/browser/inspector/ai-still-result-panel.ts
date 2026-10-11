@@ -28,7 +28,7 @@ export function appendAiStillResultPanel(parent: HTMLElement, options: {
     const back = make('button', 'akari-inspector-ai-back', t('inspector.aiStillResultPanel.label.home'));
     back.type = 'button'; back.addEventListener('click', options.actions.home);
     header.append(back, make('strong', 'akari-inspector-ai-result-title', t('inspector.aiStillResultPanel.label.staticImageResults')),
-        make('span', 'akari-inspector-ai-result-count', options.running ? t('inspector.aiStillResultPanel.status.creating') : t('inspector.aiStillResultPanel.label.options', { count: successes.length })));
+        make('span', 'akari-inspector-ai-result-count', options.running ? t('inspector.aiStillResultPanel.status.creating') : t('inspector.aiStillResultPanel.label.options', { count: successes.length, n: successes.length })));
     root.appendChild(header);
     const prompt = make('div', 'akari-inspector-ai-result-prompt');
     prompt.setAttribute('data-akari-inspector-ai-result-prompt', 'true');

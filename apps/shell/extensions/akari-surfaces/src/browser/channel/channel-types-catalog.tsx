@@ -55,13 +55,13 @@ export function ChannelTypesCatalog(props: {
             </div>
             <div className='akari-channel-types-list'>
                 <p>{query.trim() ? t('surfaces.channel.channelTypesCatalogSample.message', { query: query, filteredCount: filtered.length })
-                    : t('surfaces.channel.channelTypesCatalogShowingResults.message', { field: field?.name ?? '', totalCount: field ? formatNumber(field.sampleCount) : 0, visibleCount: Math.min(visibleCount, filtered.length) })}</p>
+                    : t('surfaces.channel.channelTypesCatalogShowingResults.message', { field: field?.name ?? '', totalCount: field ? formatNumber(field.sampleCount) : 0, n: field?.sampleCount ?? 0, visibleCount: Math.min(visibleCount, filtered.length) })}</p>
                 {filtered.length ? filtered.slice(0, visibleCount).map(type => <button key={type.id} type='button'
                     className='akari-channel-types-card' data-akari-types-card={type.id}
                     aria-current={selectedId === type.id ? 'true' : undefined} onClick={() => chooseType(type)}>
                     <b>{type.tier === 'pro' ? '☆ ' : ''}{type.name}</b>
                     <span>{channelTypeSummary(type)}</span>
-                    <small>{type.derivedFrom ? t('surfaces.channel.typeUsageWithSource.label', { author: type.author, count: formatNumber(type.uses), source: type.derivedFrom }) : t('surfaces.channel.typeUsage.label', { author: type.author, count: formatNumber(type.uses) })}</small>
+                    <small>{type.derivedFrom ? t('surfaces.channel.typeUsageWithSource.label', { author: type.author, count: formatNumber(type.uses), n: type.uses, source: type.derivedFrom }) : t('surfaces.channel.typeUsage.label', { author: type.author, count: formatNumber(type.uses), n: type.uses })}</small>
                 </button>) : <p>{t('surfaces.channel.channelTypesCatalogFoundAlsoMakeOwn.message')}</p>}
                 {filtered.length > visibleCount && <button type='button' className='theia-button secondary'
                     onClick={() => setVisibleCount(count => count + 24)}>{t('surfaces.channel.channelTypesCatalogShowMore.button')}</button>}

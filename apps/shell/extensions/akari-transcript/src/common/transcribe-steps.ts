@@ -34,14 +34,14 @@ export function analysisTranscriptSummary(analysis: unknown): string | undefined
     const transcript = Array.isArray(value.transcript) ? value.transcript : undefined;
     const hasTranscript = !!transcript;
     if (!timestamp && !backend && !hasTranscript) return undefined;
-    return [timestamp, backend, ...(transcript ? [t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.length })] : [])].filter(Boolean).join(' · ');
+    return [timestamp, backend, ...(transcript ? [t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.length, n: transcript.length })] : [])].filter(Boolean).join(' · ');
 }
 
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
 export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>,
     alreadyTranscribed = false, fallback?: string): string[] {
     const lines = artifacts.transcripts.map(transcript =>
-        [transcript.generated_at, transcript.backend, t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.segments.length })].filter(Boolean).join(' · '));
+        [transcript.generated_at, transcript.backend, t('transcript.transcript.steps.linesWithCountLabel', { value1: transcript.segments.length, n: transcript.segments.length })].filter(Boolean).join(' · '));
     if (!lines.length && alreadyTranscribed) lines.push(fallback ?? t('transcript.transcript.steps.transcribedNoDateEngineLineCountRecordedLabel'));
     if (lines.length || artifacts.diff) lines.push(t('transcript.transcript.steps.comparisonPairsWithValueDescription', { value1: artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : t('transcript.transcript.steps.compareNone') }));
     return lines;

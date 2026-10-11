@@ -144,15 +144,15 @@ export function describeOverlay(
             const startedAt = Date.parse(String(job.started_at ?? ''));
             const elapsedSeconds = percent === undefined && eta === undefined && Number.isFinite(startedAt);
             const text = percent !== undefined && eta !== undefined
-                ? translate('preview.generationOverlay.status.generatingPercentEtaStatus', { percent, eta })
+                ? translate('preview.generationOverlay.status.generatingPercentEtaStatus', { percent, eta, n: eta })
                 : percent !== undefined
                     ? translate('preview.generationOverlay.status.generatingPercentStatus', { percent })
                     : eta !== undefined
-                        ? translate('preview.generationOverlay.status.generatingEtaStatus', { eta })
+                        ? translate('preview.generationOverlay.status.generatingEtaStatus', { eta, n: eta })
                         : (() => {
                             if (!elapsedSeconds) return translate('preview.generationOverlay.status.generatingStatus');
                             const seconds = Math.max(0, Math.floor(((options.nowMs ?? Date.now()) - startedAt) / 1000));
-                            return translate('preview.generationOverlay.status.generatingSecondsLabel', { seconds });
+                            return translate('preview.generationOverlay.status.generatingSecondsLabel', { seconds, n: seconds });
                         })();
             const firstFramePath = objectAt(value.inputs, 'first_frame').path;
             return {

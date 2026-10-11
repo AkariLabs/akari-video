@@ -177,7 +177,7 @@ export class AkariPreviewServerServiceImpl implements AkariPreviewServerService,
             await this.terminate(session);
             const stderrSummary = summarizeStderrTail(session.stderr);
             return this.fail(
-                t('shell.preview.server.previewServerDidNotStartWithinSecondsText', { value1: this.readyTimeoutMs / 1000 })
+                t('shell.preview.server.previewServerDidNotStartWithinSecondsText', { value1: this.readyTimeoutMs / 1000, n: this.readyTimeoutMs / 1000 })
                 + (stderrSummary ? `\n${stderrSummary}` : '')
             );
         }

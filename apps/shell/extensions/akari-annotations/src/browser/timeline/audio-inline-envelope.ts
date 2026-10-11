@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
 import { t } from '@akari-video/i18n';
 import {
     INLINE_AUDIO_SHAPES, INLINE_FADE_HANDLE_TOP_PX, inlineAddPoint, inlineAudioExpanded, inlineFadeCurve, inlineFadeSeconds,
@@ -184,7 +185,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
                 proposed = inlineFadeSeconds(rectX(next.clientX), width, duration, edge, fps);
                 handle.style.left = `${(edge === 'in' ? Math.max(12, proposed / duration * width)
                     : Math.min(width - 12, width - proposed / duration * width)) - 10}px`;
-                readout(root, t('annotationscommon.timelineAudioInlineEnvelope.label.seconds', { edge: edge === 'in' ? t('annotationscommon.timelineAudioInlineEnvelope.label.fade') : t('annotationscommon.timelineAudioInlineEnvelope.label.fadeOut'), seconds: proposed.toFixed(2) }), center, 19);
+                readout(root, t('annotationscommon.timelineAudioInlineEnvelope.label.seconds', { edge: edge === 'in' ? t('annotationscommon.timelineAudioInlineEnvelope.label.fade') : t('annotationscommon.timelineAudioInlineEnvelope.label.fadeOut'), seconds: proposed.toFixed(2), n: pluralCountForDisplay(proposed.toFixed(2)) }), center, 19);
             }, dragged => {
                 root.querySelector('[data-akari-audio-inline-readout]')?.remove();
                 if (dragged) commit(t('annotationscommon.timelineAudioInlineEnvelope.action.changeFade'), { [edge === 'in' ? 'fade_in' : 'fade_out']: proposed });

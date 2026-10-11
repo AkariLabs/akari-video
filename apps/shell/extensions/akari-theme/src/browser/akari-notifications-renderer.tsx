@@ -13,8 +13,8 @@ const CIRCUMFERENCE = 56.55;
 function relativeTime(at: number): string {
     const minutes = Math.max(0, Math.floor((Date.now() - at) / 60000));
     if (minutes < 1) return t('theme.notifications.relativeTimeNow.label');
-    if (minutes < 60) return t('theme.notifications.relativeTimeMinutesAgo.message', { minutes: minutes });
-    return t('theme.notifications.relativeTimeHoursAgo.message', { hours: Math.floor(minutes / 60) });
+    if (minutes < 60) return t('theme.notifications.relativeTimeMinutesAgo.message', { minutes: minutes, n: minutes });
+    return t('theme.notifications.relativeTimeHoursAgo.message', { hours: Math.floor(minutes / 60), n: Math.floor(minutes / 60) });
 }
 
 function NotificationRow({ notification, manager, contextMenuRenderer, toast }: {

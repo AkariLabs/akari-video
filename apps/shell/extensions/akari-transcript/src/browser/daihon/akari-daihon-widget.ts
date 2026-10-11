@@ -1727,7 +1727,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const lines = document.createElement('span');
         lines.className = 'akari-daihon-source-lines';
-        lines.textContent = t('transcript.daihon.editor.linesWithCountText', { value1: this.rows.length });
+        lines.textContent = t('transcript.daihon.editor.linesWithCountText', { value1: this.rows.length, n: this.rows.length });
         const grow = document.createElement('span'); grow.className = 'grow';
         const label = document.createElement('label');
         const check = document.createElement('input'); check.type = 'checkbox'; check.checked = this.showCutMarks;
@@ -1805,7 +1805,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 if (row && range) void this.insertPause(row, range.a);
             });
         } else if (this.selection.selected.length) {
-            title.textContent = t('transcript.daihon.editor.linesSelectedWithCountText', { value1: this.selection.selected.length }); bar.append(title);
+            title.textContent = t('transcript.daihon.editor.linesSelectedWithCountText', { value1: this.selection.selected.length, n: this.selection.selected.length }); bar.append(title);
             add(t('transcript.daihon.editor.narrationLabel'), () => this.readSelectedRowsAloud());
             const voiceRows = this.rows.filter(item => this.selection.selected.includes(item.id) && item.outStart !== null)
                 .sort((left, right) => left.outStart! - right.outStart!);
@@ -2221,7 +2221,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     }
                     const tag = makeButton('akari-daihon-placed-tag');
                     const suffix = range.first === 0 && range.last === this.rows.length - 1 ? t('transcript.daihon.editor.leadingEntireSelectionLabel')
-                        : range.last > range.first ? t('transcript.daihon.editor.leadingLinesWithCountLabel', { value1: range.last - range.first + 1 }) : '';
+                        : range.last > range.first ? t('transcript.daihon.editor.leadingLinesWithCountLabel', { value1: range.last - range.first + 1, n: range.last - range.first + 1 }) : '';
                     tag.textContent = `T ${range.text}${suffix}`;
                     if (lane !== undefined && lane >= shownLanes) {
                         const folded = document.createElement('span');
@@ -2282,7 +2282,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 } else { icon.className = 'akari-daihon-attachment-icon'; icon.textContent = '<>'; }
                 const name = document.createElement('span');
                 const suffix = range.first === 0 && range.last === this.rows.length - 1 ? t('transcript.daihon.editor.leadingEntireSelectionLabel')
-                    : range.last > range.first ? t('transcript.daihon.editor.leadingLinesWithCountLabel', { value1: range.last - range.first + 1 }) : '';
+                    : range.last > range.first ? t('transcript.daihon.editor.leadingLinesWithCountLabel', { value1: range.last - range.first + 1, n: range.last - range.first + 1 }) : '';
                 name.textContent = `${range.name}${suffix}`;
                 tag.append(icon, name);
                 if (lane !== undefined && lane >= shownLanes) {
@@ -3525,7 +3525,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const count = result.orderedIds.length;
             this.setSelection(clearSelection());
             await this.reload();
-            this.notify(t('transcript.daihon.editor.mergedLinesWithCountNotice', { value1: count }));
+            this.notify(t('transcript.daihon.editor.mergedLinesWithCountNotice', { value1: count, n: count }));
         } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
@@ -3730,7 +3730,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
             });
             if (allRows) {
-                this.notify(t('transcript.daihon.editor.updatedAllLinesSkippedWithValuesNotice', { value1: plan.targets.length, value2: timing === 'speech-tight' ? t('transcript.daihon.editor.timingSpeechTight') : t('transcript.daihon.editor.timingFull'), value3: plan.skipped.length }));
+                this.notify(t('transcript.daihon.editor.updatedAllLinesSkippedWithValuesNotice', { value1: plan.targets.length, n: plan.targets.length, value2: timing === 'speech-tight' ? t('transcript.daihon.editor.timingSpeechTight') : t('transcript.daihon.editor.timingFull'), value3: plan.skipped.length }));
             } else {
                 this.notify(t('transcript.daihon.editor.matchedLinesSpeechSkippedWithoutWordTimingWithValuesNotice', { value1: plan.targets.length, value2: plan.skipped.length }));
             }
@@ -3951,9 +3951,9 @@ export class AkariDaihonWidget extends BaseWidget {
             const outcome = assessCutOutcome(cutBefore, ranges);
             const refused = outcome?.refused ?? 0;
             const cutCount = outcome?.cutCount ?? entries.length;
-            this.showCutToast(entries.length === 1 ? t('transcript.daihon.editor.cutWithValueLabel', { value1: cutLabel }) : t('transcript.daihon.editor.cutItemsWithCountMessage', { value1: cutCount }),
+            this.showCutToast(entries.length === 1 ? t('transcript.daihon.editor.cutWithValueLabel', { value1: cutLabel }) : t('transcript.daihon.editor.cutItemsWithCountMessage', { value1: cutCount, n: cutCount }),
                 () => void this.historyService.undo());
-            if (refused) this.notify(t('transcript.daihon.editor.didNotCutLocationsWithValuesNotice', { value1: refused,
+            if (refused) this.notify(t('transcript.daihon.editor.didNotCutLocationsWithValuesNotice', { value1: refused, n: refused,
                 value2: outcome?.syncVideoMissing ? t('transcript.daihon.cutOutcome.syncedVideoMissingReason') : cutWarnings[0] ?? t('transcript.daihon.cutOutcome.reviewReason') }));
             if (outcome?.partial)
                 this.notify(t('transcript.daihon.editor.onlyPortionsVideoCutNotice'));
@@ -4535,9 +4535,9 @@ export class AkariDaihonWidget extends BaseWidget {
             if (changed === 0) {
                 this.notify(t('transcript.daihon.editor.noChangesChangedNotice'));
             } else if (presetId === null) {
-                this.notify(t('transcript.daihon.editor.removeTemplateLinesWithCountNotice', { value1: changed }));
+                this.notify(t('transcript.daihon.editor.removeTemplateLinesWithCountNotice', { value1: changed, n: changed }));
             } else {
-                this.notify(t('transcript.daihon.editor.appliedLinesWithValuesNotice', { value1: name, value2: selected ? t('transcript.daihon.editor.scopeSelected') : t('transcript.daihon.editor.scopeAll'), value3: changed }));
+                this.notify(t('transcript.daihon.editor.appliedLinesWithValuesNotice', { value1: name, value2: selected ? t('transcript.daihon.editor.scopeSelected') : t('transcript.daihon.editor.scopeAll'), value3: changed, n: changed }));
             }
         } catch (error) {
             this.notifyError(this.errorMessage(error));
@@ -4701,7 +4701,7 @@ export class AkariDaihonWidget extends BaseWidget {
         range.value = String(this.displayKnobs.maxLineUnits);
         const rangeValue = document.createElement('span');
         rangeValue.className = 'akari-daihon-displayvalue';
-        rangeValue.textContent = t('transcript.daihon.editor.charactersWithCountText', { value1: range.value });
+        rangeValue.textContent = t('transcript.daihon.editor.charactersWithCountText', { value1: range.value, n: range.value });
         const overflowCount = document.createElement('div');
         overflowCount.className = 'akari-daihon-displaynote';
         const updateOverflowCount = (): void => {
@@ -4711,7 +4711,7 @@ export class AkariDaihonWidget extends BaseWidget {
         range.addEventListener('input', event => {
             event.stopPropagation();
             const next = { ...this.displayKnobs, maxLineUnits: Number(range.value) };
-            rangeValue.textContent = t('transcript.daihon.editor.charactersWithCountText', { value1: range.value });
+            rangeValue.textContent = t('transcript.daihon.editor.charactersWithCountText', { value1: range.value, n: range.value });
             this.previewDisplayKnobs(next);
             updateOverflowCount();
         });
@@ -5555,11 +5555,11 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         const filtered = this.qcFilter || this.speakerFilter !== null || visibleSources.length < activeSources.length;
         this.sourceBand.title = this.speakerFilter !== null
-            ? t('transcript.daihon.editor.speakerLinesWithValuesLabel', { value1: speakerLabel(this.speakerFilter, this.speakerDictionary), value2: visible })
-            : filtered ? t('transcript.daihon.editor.linesWithValuesLabel', { value1: visible, value2: this.rows.length }) : t('transcript.daihon.editor.visibleLineCountLabel', { value1: this.rows.length });
+            ? t('transcript.daihon.editor.speakerLinesWithValuesLabel', { value1: speakerLabel(this.speakerFilter, this.speakerDictionary), value2: visible, n: visible })
+            : filtered ? t('transcript.daihon.editor.linesWithValuesLabel', { value1: visible, value2: this.rows.length, n: this.rows.length }) : t('transcript.daihon.editor.visibleLineCountLabel', { value1: this.rows.length, n: this.rows.length });
         const lines = this.sourceBand.querySelector<HTMLElement>('.akari-daihon-source-lines');
         if (lines) lines.textContent = filtered
-            ? t('transcript.daihon.editor.linesWithValuesLabel', { value1: visible, value2: this.rows.length }) : t('transcript.daihon.editor.sourceVisibleLineCountLabel', { value1: this.rows.length });
+            ? t('transcript.daihon.editor.linesWithValuesLabel', { value1: visible, value2: this.rows.length, n: this.rows.length }) : t('transcript.daihon.editor.sourceVisibleLineCountLabel', { value1: this.rows.length, n: this.rows.length });
     }
 
     protected word(text: string, index: number, rowId: string, preset?: string): HTMLSpanElement {

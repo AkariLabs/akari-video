@@ -1,3 +1,4 @@
+import { pluralCountForDisplay } from './plural-display-count';
 import { t } from '../browser/transcript-text';
 import type { DaihonRow } from './daihon-row-model';
 
@@ -29,7 +30,7 @@ export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue
     if (row.outStart === null) return [];
     const issues: DaihonQcIssue[] = [];
     if (typeof overflowUnits === 'number' && Number.isFinite(overflowUnits) && overflowUnits > 0) {
-        issues.push({ kind: 'overflow', label: t('transcript.daihon.qualityCheck.doesNotFitCharactersWithCountLabel', { value1: overflowUnits }) });
+        issues.push({ kind: 'overflow', label: t('transcript.daihon.qualityCheck.doesNotFitCharactersWithCountLabel', { value1: overflowUnits, n: overflowUnits }) });
     }
     if (row.unrecognized.length > 0) {
         const count = row.unrecognized.length;
@@ -38,7 +39,7 @@ export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue
     const duration = row.end - row.start;
     const cps = visibleLength(row.text) / Math.max(0.01, duration);
     if (cps > DAIHON_QC_THRESHOLDS.maxCharsPerSecond) {
-        issues.push({ kind: 'fast', label: t('transcript.daihon.qualityCheck.fastCharactersSecWithCountLabel', { value1: cps.toFixed(1) }) });
+        issues.push({ kind: 'fast', label: t('transcript.daihon.qualityCheck.fastCharactersSecWithCountLabel', { value1: cps.toFixed(1), n: pluralCountForDisplay(cps.toFixed(1)) }) });
     }
     if (duration < DAIHON_QC_THRESHOLDS.minDurationSec) {
         issues.push({ kind: 'short', label: t('transcript.daihon.qualityCheck.displayedLessThan0point6SecLabel') });

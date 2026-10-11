@@ -320,7 +320,7 @@ function CancelledLeftoverBanner(props: {
         >
             <span className='codicon codicon-trash' aria-hidden='true' />
             <span>
-                {t('shell.exportDialog.setup.temporaryFilesCanceledExportStatus').trimStart()}<b>{formatBytes(leftover.bytes)}</b> {t('shell.exportDialog.setup.remainLabel').trimEnd()}{leftover.entries.length > 1 && t('shell.exportDialog.setup.itemsLabel', { value1: leftover.entries.length })}
+                {t('shell.exportDialog.setup.temporaryFilesCanceledExportStatus').trimStart()}<b>{formatBytes(leftover.bytes)}</b> {t('shell.exportDialog.setup.remainLabel').trimEnd()}{leftover.entries.length > 1 && t('shell.exportDialog.setup.itemsLabel', { value1: leftover.entries.length, n: leftover.entries.length })}
             </span>
             <span style={{ marginLeft: 'auto' }} />
             <button

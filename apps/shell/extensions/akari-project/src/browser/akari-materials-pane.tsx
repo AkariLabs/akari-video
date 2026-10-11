@@ -741,14 +741,14 @@ export class AkariMaterialsPane {
         body.appendChild(list);
 
         const total = document.createElement('p');
-        total.textContent = t('project.materials.pane.totalLengthItemsMbLabel', { length: plan.planned.length, value2: (plan.bytes / 1024 / 1024).toFixed(2) })
-            + (plan.unknownSizeCount ? t('project.materials.pane.unknownSizeCountItemsUnknownSizeLabel', { unknownSizeCount: plan.unknownSizeCount }) : '');
+        total.textContent = t('project.materials.pane.totalLengthItemsMbLabel', { length: plan.planned.length, n: plan.planned.length, value2: (plan.bytes / 1024 / 1024).toFixed(2) })
+            + (plan.unknownSizeCount ? t('project.materials.pane.unknownSizeCountItemsUnknownSizeLabel', { unknownSizeCount: plan.unknownSizeCount, n: plan.unknownSizeCount }) : '');
         Object.assign(total.style, { margin: '0', opacity: '0.72' });
         body.appendChild(total);
 
         if (plan.restrictedCount) {
             const warning = document.createElement('p');
-            warning.textContent = t('project.materials.pane.includesRestrictedCountAssetsCannotBeRedistributedMessage', { restrictedCount: plan.restrictedCount });
+            warning.textContent = t('project.materials.pane.includesRestrictedCountAssetsCannotBeRedistributedMessage', { restrictedCount: plan.restrictedCount, n: plan.restrictedCount });
             Object.assign(warning.style, { margin: '0', color: 'var(--theia-editorWarning-foreground)' });
             body.appendChild(warning);
         }
@@ -776,7 +776,7 @@ export class AkariMaterialsPane {
             // 結果はパネルに貼り付けず、その場限りの通知で流す（2026-09-26 オーナー指示
             // 「3 件まとめましたが出続けるのが気になる」）。取りこぼしがあるときだけ、
             // 読み返せるようダイアログで残す。
-            this.host.messages.info(t('project.materials.pane.copiedLengthAssetsIntoProjectMessage', { length: result.materialized.length }));
+            this.host.messages.info(t('project.materials.pane.copiedLengthAssetsIntoProjectMessage', { length: result.materialized.length, n: result.materialized.length }));
             if (result.failures.length) {
                 await new ConfirmDialog({
                     title: t('project.materials.pane.assetsCouldNotBeCopiedLabel'),
@@ -959,7 +959,7 @@ export class AkariMaterialsPane {
         }
         const message = count === undefined
             ? t('project.materials.pane.couldNotCheckReferencesContinuingMayError')
-            : t('project.materials.pane.referencedCountPlacesEditJsonCaptionsMessage', { count: count })
+            : t('project.materials.pane.referencedCountPlacesEditJsonCaptionsMessage', { count: count, n: count })
                 + t('project.materials.pane.actionLabelMayBreakReferencesEditJsonMessage', { actionLabel: actionLabel });
         const confirmed = await new ConfirmDialog({
             title: t('project.materials.pane.actionLabelQuestion', { actionLabel: actionLabel }),
@@ -982,7 +982,7 @@ export class AkariMaterialsPane {
         }
         const count = countReferences(documents, relativePath, isDirectory);
         return count > 0
-            ? t('project.materials.pane.referencedCountPlacesEditJsonCaptionsJsonMessage', { count: count })
+            ? t('project.materials.pane.referencedCountPlacesEditJsonCaptionsJsonMessage', { count: count, n: count })
             : t('project.materials.pane.noReferencesWereFoundProjectDataError');
     }
 

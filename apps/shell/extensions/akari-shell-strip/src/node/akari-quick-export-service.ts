@@ -396,7 +396,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
         // 消し残しがあれば「まだ残っている分」を数え直して出し続ける（嘘の完了にしない）。
         this.updateStatus({ cancelledLeftover: await this.measureCancelledLeftover() });
         if (failures.length > 0) {
-            return { discarded: false, reason: t('shell.export.backend.couldNotDeleteTemporaryFilesItemsError', { value1: failures.length }) };
+            return { discarded: false, reason: t('shell.export.backend.couldNotDeleteTemporaryFilesItemsError', { value1: failures.length, n: failures.length }) };
         }
         return { discarded: true, bytes: removedBytes };
     }

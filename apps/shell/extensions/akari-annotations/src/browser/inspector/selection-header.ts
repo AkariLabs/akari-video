@@ -19,7 +19,7 @@ export function createSelectionHeader(
     let source: string | undefined;
     switch (snapshot.kind) {
         case 'multi': {
-            name = t('inspector.selectionHeader.label.selectPiece', { count: snapshot.count });
+            name = t('inspector.selectionHeader.label.selectPiece', { count: snapshot.count, n: snapshot.count });
             kind = t('inspector.selectionHeader.label.multipleSelection');
             const ranges = snapshot.items.flatMap(item => {
                 const from = item.outputStart;

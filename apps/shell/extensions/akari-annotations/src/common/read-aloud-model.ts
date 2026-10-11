@@ -218,7 +218,7 @@ export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): 
         confirm: {
             title: t('annotationscommon.readAloudModel.title.costApproval'),
             msg: quote.usd === null ? t('annotationscommon.readAloudModel.error.estimateUnavailableSendingWillIncurUsageCharges', { provider: readAloudProvider(engine) }) :
-                t('annotationscommon.readAloudModel.message.sendScriptCharactersAsApproveCost', { amount: quote.usd.toFixed(3), asOf: engine.price?.as_of ?? t('annotationscommon.readAloudModel.label.unverified'), provider: readAloudProvider(engine), characters: quote.chars }),
+                t('annotationscommon.readAloudModel.message.sendScriptCharactersAsApproveCost', { amount: quote.usd.toFixed(3), asOf: engine.price?.as_of ?? t('annotationscommon.readAloudModel.label.unverified'), provider: readAloudProvider(engine), characters: quote.chars, n: quote.chars }),
             ok: t('annotationscommon.readAloudModel.action.approveCost'), cancel: t('annotationscommon.readAloudModel.action.cancel')
         }
     };

@@ -118,7 +118,7 @@ export class StillGenerationManager {
         if (!cli) return { id: route, state: 'missing', detail: t('annotationscommon.stillGeneration.probe.cliMissing', { provider: label }) };
         const args = route === 'codex' ? ['login', 'status'] : ['models'];
         const timeoutMs = this.options.probeTimeoutMsByRoute?.[route] ?? this.options.probeTimeoutMs ?? IMAGE_PROBE_TIMEOUT_MS[route];
-        const timeoutDetail = t('annotationscommon.stillGeneration.probe.timedOut', { seconds: timeoutMs / 1000 });
+        const timeoutDetail = t('annotationscommon.stillGeneration.probe.timedOut', { seconds: timeoutMs / 1000, n: timeoutMs / 1000 });
         const inspect = (): Promise<{ code: number | null; output: string; stdout: string; timedOut: boolean }> =>
             new Promise(resolvePromise => {
             let output = '';
@@ -170,7 +170,7 @@ export class StillGenerationManager {
         const maxReferences = aiActionCatalog([]).find(action => action.id === 'still')!.routes.find(row => row.id === route)!
             .inputs!.reference_images!.max;
         if (!Array.isArray(request.references ?? []) || (request.references?.length ?? 0) > maxReferences) {
-            return { ok: false, reason: route === 'antigravity' ? t('annotationscommon.stillGeneration.reason.referencesUnsupported') : t('annotationscommon.stillGeneration.reason.referencesLimit', { route, count: maxReferences }) };
+            return { ok: false, reason: route === 'antigravity' ? t('annotationscommon.stillGeneration.reason.referencesUnsupported') : t('annotationscommon.stillGeneration.reason.referencesLimit', { route, count: maxReferences, n: maxReferences }) };
         }
         const root = await fs.realpath(projectRoot);
         const references: Array<{ path: string; sha256: string; absolutePath: string }> = [];

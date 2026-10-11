@@ -55,7 +55,7 @@ export function libraryMoveCopy(
     }
     if (state === 'done') return {};
     return {
-        ...(previous.count > 0 ? { transfer: t('surfaces.library.libraryMoveCopyMovePiecesApproximatelyNewLocation.message', { previousCount: previous.count, size: formatLibraryBytes(previous.bytes) }) } : {}),
+        ...(previous.count > 0 ? { transfer: t('surfaces.library.libraryMoveCopyMovePiecesApproximatelyNewLocation.message', { previousCount: previous.count, n: previous.count, size: formatLibraryBytes(previous.bytes) }) } : {}),
         ...(state === 'pending' ? { sync: previous.bytes > 0
             ? t('surfaces.library.libraryMoveCopyLocationSyncApproximatelySync.message', { cloud: cloud ?? t('surfaces.library.libraryMoveCopyCloud.label'), size: formatLibraryBytes(previous.bytes) })
             : t('surfaces.library.libraryMoveCopyLocationSyncInputAssetSynchronized.message', { cloud: cloud ?? t('surfaces.library.libraryMoveCopyCloud.label') }) } : {})

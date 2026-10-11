@@ -15,6 +15,7 @@ setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
 const lengths = await import('../lib/common/still-cut-length.js');
 const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { pluralCountForDisplay } = await import('../lib/common/plural-display-count.js');
 
 
 setAnnotationLanguage('ja');
@@ -37,7 +38,7 @@ function between(text, start, end, offset = 0) {
 }
 // Execute compiled production branches without loading Theia's DOM/DI runtime.
 const previewCode = between(widget, "if (state.kind === 'cut-trim') {", "if (state.kind === 'cut-move') {", widget.indexOf('updateDragPreview(state, clientX, clientY, allowGuide)'));
-const previewFn = new Function('state', 'delta', 'showGuide', 'still_cut_length_1', previewCode);
+const previewFn = new Function('state', 'delta', 'showGuide', 'still_cut_length_1', 'plural_display_count_1', previewCode);
 const commitCode = between(widget, "case 'cut-trim': {", "case 'cut-move': {");
 const commitFn = new Function('preview', 'still_cut_length_1', 'edit_v2_mutations_1', `const MINIMUM_ITEM_DURATION = 0.15; let mutate, label, message; switch (preview.kind) { ${commitCode} } return mutate;`);
 const patchCode = between(widget, "const input = request.kind === 'cut-source-in'", "label = (0, i18n_1.t)('annotations.timeline.text.changeMaterialRange');");
@@ -64,7 +65,7 @@ function fixture(path = 'frame.png', next = Infinity) {
     return { ctx, calls, cut };
 }
 function preview(ctx, delta, edge = 'right') {
-    return previewFn.call(ctx, { kind: 'cut-trim', index: 0, edge, originalIn: ctx.cuts[0].in, originalOut: ctx.cuts[0].out }, delta, false, lengths);
+    return previewFn.call(ctx, { kind: 'cut-trim', index: 0, edge, originalIn: ctx.cuts[0].in, originalOut: ctx.cuts[0].out }, delta, false, lengths, { pluralCountForDisplay });
 }
 function commit(ctx, value, freeze) {
     const doc = toV2Edit({ source: { path: 'source.mp4' }, cuts: [{ at: 1, in: 0, out: 2, ...(freeze ? { freeze } : {}) }] });

@@ -3,11 +3,11 @@ import type { UiLintFinding } from './lint-message-ja';
 import { withNewerVersionLintPrefix } from '@akari-video/edit-store';
 
 export function timelineIssueLabel(count: number): string {
-    return t('annotationscommon.timelineIssueChip.label.issues', { count });
+    return t('annotationscommon.timelineIssueChip.label.issues', { count, n: count });
 }
 
 export function timelineIssueHeading(count: number, savedVersion?: string): string {
-    return withNewerVersionLintPrefix(t('annotationscommon.timelineIssueChip.label.existingIssuesNoneAddedEdit', { count }), savedVersion);
+    return withNewerVersionLintPrefix(t('annotationscommon.timelineIssueChip.label.existingIssuesNoneAddedEdit', { count, n: count }), savedVersion);
 }
 
 export function timelineIssueLine(finding: UiLintFinding): string {

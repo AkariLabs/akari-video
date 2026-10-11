@@ -44,7 +44,7 @@ test('partner UI text follows selected language', () => {
         setLanguage('ja');
         assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'パートナーを追加');
         setLanguage('en');
-        assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'Add a Partner');
+        assert.equal(t('partner.partnerPanel.onboarding.addPartnerAction'), 'Add partner');
         setLanguage('ja');
         assert.equal(t('partner.partnerPanel.connectDialog.preparingCliStep'), '① CLI 準備中');
         setLanguage('en');

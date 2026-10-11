@@ -1171,7 +1171,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected reportLibraryImportResult(result: LibraryImportResult): void {
-        if (result.added.length) this.messages.info(t('project.library.shelf.importedLengthItemsMessage', { length: result.added.length }));
+        if (result.added.length) this.messages.info(t('project.library.shelf.importedLengthItemsMessage', { length: result.added.length, n: result.added.length }));
         for (const item of result.failures) this.messages.warn(`${item.path || ''}: ${item.reason}`);
     }
 
@@ -2067,7 +2067,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         if (rejectedCount) {
             this.messages.warn(
-                t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount })
+                t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount, n: rejectedCount })
             );
         }
     }
@@ -2129,12 +2129,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.loadMaterials();
                 // 成功時に何も出さないと、一覧の更新に気づかない限り「無反応」に見える
                 // （ホームの取り込みゾーンは以前から成功トーストを出している。ここだけ無言だった）。
-                this.messages.info(t('project.library.shelf.importedImportedItemsAsAssetsMessage', { imported: imported }));
+                this.messages.info(t('project.library.shelf.importedImportedItemsAsAssetsMessage', { imported: imported, n: imported }));
             }
             if (failed) {
                 const message = t('project.library.shelf.couldNotImportFilesDragThemError');
                 if (imported) {
-                    this.messages.warn(t('project.library.shelf.failedFilesMessageLabel', { failed: failed, message: message }));
+                    this.messages.warn(t('project.library.shelf.failedFilesMessageLabel', { failed: failed, n: failed, message: message }));
                 } else {
                     this.messages.error(message);
                 }
@@ -2634,7 +2634,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>{entry.label}</div>
                             <div style={{ fontSize: '0.68em', opacity: 0.65, paddingTop: '3px' }}>
                                 {this.assetCatalogItems.find(item => item.key === entry.itemKey)?.sourceKind === 'site' ? t('project.library.shelf.assetSiteLabel') : ''}
-                                {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? t('project.library.shelf.countItemsLabel', { count: entry.count }) : ''}
+                                {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? t('project.library.shelf.countItemsLabel', { count: entry.count, n: entry.count }) : ''}
                             </div>
                             {this.assetCatalogItems.some(item => item.key === entry.itemKey && this.isSiteSubscription(item)) &&
                                 <span data-akari-site-subscription style={{ fontSize: '0.68em' }}>{t('project.catalog.distribution.subscription')}</span>}

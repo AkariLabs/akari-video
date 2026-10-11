@@ -45,7 +45,7 @@ export interface CatalogPackImportItem {
  */
 export function composeCatalogPackImportPrompt(packTitle: string, items: readonly CatalogPackImportItem[]): string {
     const list = items.map(item => t('project.catalog.agentPrompt.idCategoryTitleLabel', { id: item.id, category: item.category, title: item.title })).join('、');
-    const summary = t('project.catalog.agentPrompt.packTitleLengthItemsListLabel', { packTitle: packTitle, length: items.length, list: list });
+    const summary = t('project.catalog.agentPrompt.packTitleLengthItemsListLabel', { packTitle: packTitle, length: items.length, n: items.length, list: list });
     return collapseToSingleLine(t('project.catalog.agentPrompt.aboutSummaryLabel', { value1: CATALOG_PACK_TARGET_KIND, summary: summary, value3: CATALOG_PACK_IMPORT_REQUEST }));
 }
 

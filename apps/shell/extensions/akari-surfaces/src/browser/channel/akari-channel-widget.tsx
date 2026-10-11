@@ -606,7 +606,7 @@ export class AkariChannelWidget extends ReactWidget {
                 {this.popoverOpen && <div className='akari-channel-popover' role='menu' aria-label={t('surfaces.channel.switchChannels.label')}>
                     {this.context.channels.map(name => <button key={name} type='button' className='akari-channel-row'
                         role='menuitemradio' aria-checked={channel === name} onClick={() => void this.chooseChannel(name)}>
-                        <span>{name}</span><small>{t('surfaces.channel.channelProjectCount.label', { count: this.context.projectsOf(name).length })}</small>
+                        <span>{name}</span><small>{t('surfaces.channel.channelProjectCount.label', { count: this.context.projectsOf(name).length, n: this.context.projectsOf(name).length })}</small>
                         <span className='akari-channel-check' aria-hidden='true'>{channel === name ? '✓' : ''}</span>
                     </button>)}
                     <hr />
@@ -624,13 +624,13 @@ export class AkariChannelWidget extends ReactWidget {
                         {{ channel: t('surfaces.channel.channelDesign.label'), design: t('surfaces.channel.design.label'), people: t('surfaces.channel.peopleThings.label'), notes: t('surfaces.channel.dictionaryNotes.label') }[kind]}
                     </button>
                     {kind === 'people' || kind === 'notes'
-                        ? <small>{kind === 'people' ? t('surfaces.channel.cases.message', { people: this.memoryCounts.people, packBadge: this.memoryCounts.packs > 0 ? ` · ☆${this.memoryCounts.packs}` : '' }) : t('surfaces.channel.items.message', { notes: this.memoryCounts.notes })}</small>
+                        ? <small>{kind === 'people' ? t('surfaces.channel.cases.message', { people: this.memoryCounts.people, n: this.memoryCounts.people, packBadge: this.memoryCounts.packs > 0 ? ` · ☆${this.memoryCounts.packs}` : '' }) : t('surfaces.channel.items.message', { notes: this.memoryCounts.notes })}</small>
                         : kind === 'design' && this.designBadge ? <small data-akari-design-badge>{this.designBadge}</small>
                         : this.channelDocFiles.has(kind) ? <small>{t('surfaces.channel.yes.label')}</small>
                         : <button type='button' className='akari-channel-create' onClick={() => void (kind === 'channel' ? this.openDesignSheet() : this.openDesignMdSheet())}>{t('surfaces.channel.make.button')}</button>}
                 </div>)}
                 <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' onClick={() => void this.openSkillsSheet()}>{t('surfaces.channel.skill.button')}</button>
-                    <small>{t('surfaces.channel.skillCount.label', { count: this.channelSkills.length })}</small></div>
+                    <small>{t('surfaces.channel.skillCount.label', { count: this.channelSkills.length, n: this.channelSkills.length })}</small></div>
                 <div className='akari-channel-helper-block' data-akari-helper-block>
                     <div className='akari-channel-section akari-channel-divider' aria-hidden='true' />
                     <div className='akari-channel-doc-row'><button type='button' className='akari-channel-row' data-akari-helper-row

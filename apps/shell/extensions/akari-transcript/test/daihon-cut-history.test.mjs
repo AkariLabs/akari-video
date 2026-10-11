@@ -179,8 +179,8 @@ test('同期映像がない区間のカット拒否理由を台本と範囲修�
       { rowId: row.id, range: { in: 1.2, out: 1.6, kind: 'row', captionId: 'mic', label: 'Line' } },
       { rowId: row.id, range: { in: 0.2, out: 0.6, kind: 'row', captionId: 'mic', label: 'Line' } }
     ], 'Cut selected lines');
-    assert.equal(english.toasts.at(-1), 'Cut 1 items.');
-    assert.deepEqual(english.notifications, ['Did not cut 1 locations (No synced video covers this range).']);
+    assert.equal(english.toasts.at(-1), 'Cut 1 item.');
+    assert.deepEqual(english.notifications, ['Did not cut 1 location (No synced video covers this range).']);
   } finally { setLanguage('ja'); }
 });
 

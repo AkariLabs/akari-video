@@ -183,9 +183,9 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
                         <button type='button' onClick={() => { setSelected([]); setConfirmIds([]); }}>{t('surfaces.channel.channelPeopleSheetStopChoosing.button')}</button></>
                         : <button type='button' disabled={!shown.length} onClick={() => setSelected(shown.map(entry => entry.id))}>{t('surfaces.channel.channelPeopleSheetSelectAll.button')}</button>}</div>
                     {confirmIds.length > 0 && <div className='akari-people-confirm'>
-                        <strong>{t('surfaces.channel.deletePeople.confirm', { count: confirmEntries.length })}</strong>
+                        <strong>{t('surfaces.channel.deletePeople.confirm', { count: confirmEntries.length, n: confirmEntries.length })}</strong>
                         <p>{summarizeNames(confirmEntries.map(entry => entry.name))}</p>
-                        <div><button type='button' disabled={busy} onClick={() => void deleteConfirmed()}>{t('surfaces.channel.deletePeople.button', { count: confirmEntries.length })}</button>
+                        <div><button type='button' disabled={busy} onClick={() => void deleteConfirmed()}>{t('surfaces.channel.deletePeople.button', { count: confirmEntries.length, n: confirmEntries.length })}</button>
                             <button type='button' onClick={() => setConfirmIds([])}>{t('surfaces.channel.channelPeopleSheetStop.button')}</button></div>
                     </div>}
                     {shown.length ? shown.map(entry => <div className='akari-people-row' key={entry.id}>

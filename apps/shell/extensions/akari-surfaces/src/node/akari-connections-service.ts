@@ -110,7 +110,7 @@ export function describeBalanceResponse(
     } else if (id === 'elevenlabs') {
         const data = record(body);
         if (data && number(data.character_limit) && number(data.character_count)) {
-            return { ok: true, display: t('surfaces.connections.describeBalanceResponseRemainingCreditsMonth.label', { count: formatNumber(Math.max(0, data.character_limit - data.character_count)) }) };
+            return { ok: true, display: t('surfaces.connections.describeBalanceResponseRemainingCreditsMonth.label', { count: formatNumber(Math.max(0, data.character_limit - data.character_count)), n: Math.max(0, data.character_limit - data.character_count) }) };
         }
     }
     return { ok: false, error: t('surfaces.connections.describeBalanceResponseUnableReadBalanceResponse.error') };

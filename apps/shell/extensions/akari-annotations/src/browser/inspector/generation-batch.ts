@@ -56,7 +56,7 @@ export function buildGenerationBatch(items: readonly GenerationBatchItem[]): {
     const unknown = targets.some(row => row.estimate === null);
     const asOf = [...new Set(targets.map(row => row.validation?.cost?.as_of ?? t('inspector.generationBatch.label.unknown')))].join(' / ') || t('inspector.generationBatch.label.unknown');
     return { rows, count: targets.length, total, unknown, asOf,
-        summary: t('inspector.generationBatch.summary.videosCreate', { count: targets.length, estimate: unknown ? t('inspector.generationBatch.error.someEstimatesUnavailableKnownCosts', { amount: total.toFixed(2) }) : t('inspector.generationBatch.label.total', { amount: total.toFixed(2) }) }) };
+        summary: t('inspector.generationBatch.summary.videosCreate', { count: targets.length, n: targets.length, estimate: unknown ? t('inspector.generationBatch.error.someEstimatesUnavailableKnownCosts', { amount: total.toFixed(2) }) : t('inspector.generationBatch.label.total', { amount: total.toFixed(2) }) }) };
 }
 
 export type GenerationBatchProgressCode = 'waiting' | 'generating' | 'done' | 'failed' | 'cancelled';

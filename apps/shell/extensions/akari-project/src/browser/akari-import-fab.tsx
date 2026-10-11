@@ -111,7 +111,7 @@ export function AkariImportFab(props: Props): React.ReactElement {
         const { accepted, rejectedCount } = classifySelectedFiles(selected);
         if (accepted.length) await props.importAssets(accepted);
         if (rejectedCount) props.messages.warn(
-            t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount })
+            t('project.materials.importButton.couldNotImportRejectedCountUnsupportedFilesError', { rejectedCount: rejectedCount, n: rejectedCount })
         );
     };
 

@@ -129,7 +129,7 @@ export function capabilityText(key: string, value: unknown, model?: AiModel): st
         const min = typeof duration.min === 'number' ? duration.min : values.length ? Math.min(...values) : null;
         const max = typeof duration.max === 'number' ? duration.max : values.length ? Math.max(...values) : null;
         if (min !== null && max !== null) {
-            return min === max ? t('surfaces.aiModels.durationSingle.message', { max: max }) : t('surfaces.aiModels.durationRange.message', { min: min, max: max });
+            return min === max ? t('surfaces.aiModels.durationSingle.message', { max: max, n: max }) : t('surfaces.aiModels.durationRange.message', { min: min, max: max, n: max });
         }
     }
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
@@ -295,7 +295,7 @@ export function radarAxes(model: AiModel): RadarAxis[] {
     add('cost', t('surfaces.aiModels.radarAxesCheapness.label'), cost === null ? null : 1 / (1 + cost * 10), 1, cost === null ? undefined : formatAiModelPrice(model));
     if (model.kind === 'image') {
         const speed = number(model.speed_s);
-        add('speed', t('surfaces.aiModels.radarAxesSpeed.label'), speed === null ? null : 1 / (1 + speed / 60), 1, speed === null ? undefined : t('surfaces.aiModels.radarAxesSeconds.message', { speed: speed }));
+        add('speed', t('surfaces.aiModels.radarAxesSpeed.label'), speed === null ? null : 1 / (1 + speed / 60), 1, speed === null ? undefined : t('surfaces.aiModels.radarAxesSeconds.message', { speed: speed, n: speed }));
         const refs = model.inputs.reference_images as {
             max?: unknown;
         } | undefined;

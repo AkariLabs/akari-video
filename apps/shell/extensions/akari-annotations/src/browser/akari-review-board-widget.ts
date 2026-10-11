@@ -305,7 +305,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
 
     protected renderSessionBand(): void {
         const sessions = pendingCompileSessions(this.reviewSessions);
-        this.sessionBandHeading.textContent = t('annotations.reviewBoardWidget.text.recordedSessionsUncompiled', { count: sessions.length });
+        this.sessionBandHeading.textContent = t('annotations.reviewBoardWidget.text.recordedSessionsUncompiled', { count: sessions.length, n: sessions.length });
         this.sessionBandHeading.setAttribute('data-board-sessions-count', String(sessions.length));
         this.sessionBand.style.display = sessions.length === 0 ? 'none' : 'block';
         this.sessionBandList.replaceChildren();

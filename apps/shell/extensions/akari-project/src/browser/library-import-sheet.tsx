@@ -328,7 +328,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
             <div ref={dialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label={t('project.library.shelf.importDeviceAction')} className='akari-import-sheet'
                 onKeyDown={event => sheetKeyDown(event, close)}>
-                <header><span className='akari-import-title'>{plan ? t('project.library.importSheet.importItemCountStatus', { count: count }) : t('project.library.shelf.importDeviceAction')}{plan && <span className='akari-import-subtitle'>{t('project.library.importSheet.filesWereGroupedTypeYouCanMessage')}</span>}</span>
+                <header><span className='akari-import-title'>{plan ? t('project.library.importSheet.importItemCountStatus', { count: count, n: count }) : t('project.library.shelf.importDeviceAction')}{plan && <span className='akari-import-subtitle'>{t('project.library.importSheet.filesWereGroupedTypeYouCanMessage')}</span>}</span>
                     {!plan && <button type='button' className='theia-button quiet small' disabled={busy === 'apply'} onClick={close}>{t('project.library.card.close')}</button>}</header>
                 <div className='akari-import-scroll'>
                     {busy === 'plan' && <p role='status'>{t('project.library.importSheet.checkingFilesStatus')}</p>}
@@ -361,7 +361,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                 </div>
                 {plan && <footer><button type='button' className='theia-button quiet' disabled={busy === 'apply'} onClick={close}>{t('project.library.card.close')}</button>
                     <button type='button' className='theia-button' disabled={!!busy || !count || (asSet && !title.trim())} onClick={() => void apply()}>
-                        {busy === 'apply' ? t('project.library.importSheet.importingStatus') : t('project.library.importSheet.importItemCountAction', { count: count })}</button></footer>}
+                        {busy === 'apply' ? t('project.library.importSheet.importingStatus') : t('project.library.importSheet.importItemCountAction', { count: count, n: count })}</button></footer>}
             </div>
         </div>}
         {hover && createPortal(<div role='tooltip' className='akari-import-hover' style={{ position: 'fixed', left: hover.left, top: hover.top,

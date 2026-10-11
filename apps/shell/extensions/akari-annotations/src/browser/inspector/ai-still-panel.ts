@@ -417,7 +417,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     const selectedCount = selected().length;
     const needsEstimate = selected().includes('fal');
     const estimate = needsEstimate ? state.falEstimate?.prices[state.quality ?? 'high'] : 0;
-    const submit = make('button', 'akari-inspector-ai-still-primary', t('inspector.aiStillPanel.action.createOptions', { count: selectedCount, estimate: estimate === undefined
+    const submit = make('button', 'akari-inspector-ai-still-primary', t('inspector.aiStillPanel.action.createOptions', { count: selectedCount, n: selectedCount, estimate: estimate === undefined
         ? state.falEstimateError ? t('inspector.aiStillPanel.status.estimateUnavailable') : t('inspector.aiStillPanel.status.checkingEstimateShort')
         : estimate ? t('inspector.aiStillPanel.estimate.amount', { amount: estimate.toFixed(3) }) : t('inspector.aiStillPanel.label.noExtraCharge') }));
     submit.type = 'button';
