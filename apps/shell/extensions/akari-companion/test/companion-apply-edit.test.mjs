@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import uriModule from '@theia/core/lib/common/uri.js';
 import { applyCompanionEdit } from '../lib/browser/companion-apply-edit.js';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const URI = uriModule.default ?? uriModule;
 

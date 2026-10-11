@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from '../../akari-annotations/test/helpers/inspector-source.mjs';
+
+setLanguage('ja');
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
 
 const readSource = relativePath => readFile(new URL(relativePath, import.meta.url), 'utf8');
 const stateSource = await readSource('../../akari-annotations/src/common/caption-panel-state.ts');

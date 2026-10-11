@@ -15,6 +15,8 @@ import { probeRaw, resolveTools, toPosix } from "../src/media/common.mjs";
 import { runSilenceDetect } from "../src/media/transcribe.mjs";
 import { UNRECOGNIZED_DEFAULTS } from "../src/media/unrecognized-spans.mjs";
 import { toolsText } from '../src/i18n.mjs';
+import { readContentLanguage } from "../../content-language/src/node.mjs";
+import { captionLanguageDefaults, normalizeLanguage } from "../../content-language/src/index.mjs";
 
 const { writeProjectFilesGuarded } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
 const usage = () => [
@@ -100,7 +102,14 @@ export async function runCaptionsCli(argv, options = {}) {
       return 0;
     }
     if (!Array.isArray(analysis.transcript) || !analysis.transcript.length) throw new Error(toolsText('tools.captions.error.noSpeech'));
-    const result = buildCaptionsFromTranscript(analysis.transcript, { ...parsed, src: source.id, sourceDurationSeconds: Number.isFinite(analysis.probe?.duration_s) ? analysis.probe.duration_s : null });
+    const { language } = await readContentLanguage(projectRoot, {
+      cliLang: parsed.lang ?? existing?.display_policy?.locale,
+    });
+    const defaults = captionLanguageDefaults(language);
+    const result = buildCaptionsFromTranscript(analysis.transcript, {
+      ...parsed, lang: language, maxCharacters: parsed.maxCharacters ?? defaults.landscapeCharacters,
+      src: source.id, sourceDurationSeconds: Number.isFinite(analysis.probe?.duration_s) ? analysis.probe.duration_s : null,
+    });
     const wordBook = { applied: 0 };
     if (!parsed.noWordBook) {
       const resolved = await resolveWordBook({ projectRoot, env: options.env ?? process.env, extraPath: parsed.wordBook });
@@ -113,6 +122,19 @@ export async function runCaptionsCli(argv, options = {}) {
     const root = {};
     for (const field of ["default_text_style", "display_policy", "emphasis_words"]) {
       if (existing && !Array.isArray(existing) && Object.hasOwn(existing, field)) root[field] = existing[field];
+    }
+    if (root.display_policy) {
+      if (normalizeLanguage(root.display_policy.locale) !== language) {
+        root.display_policy = { ...root.display_policy, locale: language };
+      }
+    } else if (language !== 'ja') {
+      root.display_policy = {
+        mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+        unit_metric: 'ascii-half-other-one-v1',
+        max_line_units: defaults.landscapeCharacters / 2,
+        minimum_fragment_duration_seconds: defaults.minimumSeconds,
+        locale: language,
+      };
     }
     const merged = mergeCaptionsForApply(records, result.captions, { force: parsed.force, src: source.id });
     root.captions = merged.captions;
@@ -134,7 +156,7 @@ export async function runCaptionsCli(argv, options = {}) {
 
 function parseOptions(argv) {
   const parsed = {};
-  const values = { "--source": "source", "--readout": "readoutSeconds", "--min-duration": "minDurationSeconds", "--max-chars": "maxCharacters", "--split": "splitMode", "--max-seconds": "maxSeconds", "--pause": "pauseSeconds", "--word-book": "wordBook" };
+  const values = { "--source": "source", "--lang": "lang", "--readout": "readoutSeconds", "--min-duration": "minDurationSeconds", "--max-chars": "maxCharacters", "--split": "splitMode", "--max-seconds": "maxSeconds", "--pause": "pauseSeconds", "--word-book": "wordBook" };
   const booleans = { "--no-word-book": "noWordBook", "--force": "force", "--dry-run": "dryRun", "--json": "json", "--retime": "retime" };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -142,7 +164,7 @@ function parseOptions(argv) {
     else if (Object.hasOwn(values, argument)) {
       const value = argv[++index];
       if (value === undefined || value.startsWith("--") || !value.trim()) throw new Error(toolsText('tools.captions.error.valueRequired', { option: argument }));
-      parsed[values[argument]] = ["--source", "--split", "--word-book"].includes(argument) ? value : Number(value);
+      parsed[values[argument]] = ["--source", "--lang", "--split", "--word-book"].includes(argument) ? value : Number(value);
     } else throw new Error(toolsText('tools.captions.error.unknownOption', { option: argument }));
   }
   return parsed;

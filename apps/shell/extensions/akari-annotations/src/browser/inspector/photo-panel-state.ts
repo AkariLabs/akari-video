@@ -1,8 +1,9 @@
+import { t } from '@akari-video/i18n';
 export interface PanelRegion { id: string; name?: string; [key: string]: unknown }
 
 export function regionDisplayName(region: PanelRegion, index: number): string {
     return typeof region.name === 'string' && region.name.trim()
-        ? region.name.trim() : region.id.startsWith('background-') ? '背景' : `エリア ${index + 1}`;
+        ? region.name.trim() : region.id.startsWith('background-') ? t('inspector.photoPanelState.label.background') : t('inspector.photoPanelState.label.areaWithValue', { index: index + 1 });
 }
 
 export function appendAdoptedRegion(regions: readonly PanelRegion[], region: PanelRegion): {
@@ -34,7 +35,7 @@ export function buildAdoptedPhotoRegion(
     const base = `${background ? 'background' : 'region'}-${hash.slice(0, 12)}`;
     let id = base;
     for (let suffix = 2; existingRegions.some(region => region.id === id); suffix += 1) id = `${base}-${suffix}`;
-    return { id, name: background ? '背景' : name?.trim() || 'エリア', maskRef,
+    return { id, name: background ? t('inspector.photoPanelState.label.background') : name?.trim() || t('inspector.photoPanelState.label.areaLabel'), maskRef,
         ...(photoAdoptionPolarity('region', background).regionInvert ? { invert: true as const } : {}), enabled: true };
 }
 

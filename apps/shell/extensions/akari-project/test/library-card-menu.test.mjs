@@ -1,11 +1,21 @@
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import {
     isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, libraryPresetInfoCard, premiumPromptText
 } from '../lib/common/library-card-menu.js';
 
 const asset = (extra = {}) => ({ origin: 'resolver', key: 'still/photo', id: 'photo', category: 'still', title: '夕暮れの海岸',
     tags: ['風景', '夕方', '海', '空', '旅行', '夏'], sourceKind: 'own', state: 'cached', price: 0, ...extra });
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
+
+test('library info card keeps the price row in English', () => {
+    setLanguage('en');
+    const info = libraryAssetInfoCard(asset({ state: 'locked', tier: 'pro' }), 'Still', false);
+    assert.equal(info.price.label, 'Pro · Locked');
+    assert.equal(info.actions[0].label, 'View Pro in Lab');
+});
 const ids = entries => entries.map(entry => entry.id);
 
 test('置ける素材: プレイヘッドに置く / 取り込むだけ / ★ / 情報を見る / Finder / ライブラリから消す', () => {

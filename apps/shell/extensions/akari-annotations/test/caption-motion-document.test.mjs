@@ -1,18 +1,35 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES, readCaptionMotionCue,
-    captionWordStyleWrite, readCaptionBagMotionContext, readOwnerMotion,
-    upsertCaptionEmphasis, upsertCaptionKaraoke } from '../lib/browser/inspector/caption-motion-document.js';
-import { captionMotionComboWrites } from '../lib/browser/inspector/caption-motion-cards.js';
-import { withCaptionMultiTargets } from '../lib/browser/inspector/caption-multi-targets.js';
-import { replaceMyStylePartsInSource } from '../lib/browser/my-style-look.js';
+
+
+
+
 import { parsePreviewCaptions } from '../../akari-preview/lib/browser/akari-preview-captions.js';
-import { CAPTION_BAG_MOTION_SECTION } from '../lib/browser/inspector/sections/caption-sections.js';
-import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
+
+
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES, readCaptionMotionCue, captionWordStyleWrite, readCaptionBagMotionContext, readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke } = await import('../lib/browser/inspector/caption-motion-document.js');
+const { captionMotionComboWrites } = await import('../lib/browser/inspector/caption-motion-cards.js');
+const { withCaptionMultiTargets } = await import('../lib/browser/inspector/caption-multi-targets.js');
+const { replaceMyStylePartsInSource } = await import('../lib/browser/my-style-look.js');
+const { CAPTION_BAG_MOTION_SECTION } = await import('../lib/browser/inspector/sections/caption-sections.js');
+const { AkariEditHistoryService } = await import('../lib/browser/akari-edit-history-service.js');
+
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const cue = { id: 'c-0001', start: 1, end: 3, text: 'とても良い', speaker: null, sourceRef: null,
     edited: false, src: 'main', words: [
@@ -218,21 +235,22 @@ test('編集パネルは語の表示と強調の保存先、カラオケ未終�
     assert.match(widget, /captionsSource = upsertCaptionEmphasis/u);
     assert.match(widget, /layerAudioService\.writeEditSnapshot\(/u);
     assert.match(panel, /kind: 'caption-style-color'/u);
-    assert.match(panel, /歌い終わった文字の色/u);
-    assert.match(panel, /1 文字ずつ/u);
-    assert.match(panel, /開始位置/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.text\.colorCharactersEndedSinging/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.label\.perCharacter/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.action\.startPosition/u);
     assert.match(panel, /#fb923c.*#ffd94a.*#f87171.*#4ade80.*#60a5fa/u);
     assert.match(panel, /button\.akari-caption-motion-swatch\{[^}]*width:22px;height:22px/u);
     assert.match(panel, /button\.akari-caption-motion-swatch\[aria-pressed=[^\]]+\]\{outline:2px solid/u);
     assert.match(panel, /swatch\.className = 'akari-caption-motion-swatch'/u);
-    assert.match(panel, /現在: 語ごとに色がじわっと変わります/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.text\.nowColorChangesWords/u);
     assert.match(panel, /setKaraoke\(\{ done_color: '#fb923c', fill: 'char' \}, true\)/u);
     assert.match(panel, /play\('karaoke', 'word-style'\)/u);
     assert.doesNotMatch(panel, /固定の黄色/u);
-    assert.match(panel, /語の時刻（words\[\]）がない字幕/u);
-    assert.match(panel, /語の時刻がない字幕では、カラオケ・ポップ・1 語ずつは動きません/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.error\.captionEmphasisRequiresWordTimingsWords/u);
+    assert.match(panel, /inspector\.captionMotionPanel\.text\.noTimeWordsNoKaraokePopOne/u);
     const timelineWidget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-    assert.match(timelineWidget, /request\.path === 'motion'[\s\S]*?raw\.source\?\.kind === 'captions'[\s\S]*?字幕の動きは各行の設定から変更/u);
+    assert.match(timelineWidget, /request\.path === 'motion'[\s\S]*?raw\.source\?\.kind === 'captions'[\s\S]*?t\('annotations\.timeline\.text\.pleaseChangeTheSubtitleMovementFromTheSettings'\)/u);
+    assert.equal(ja['annotations.timeline.text.pleaseChangeTheSubtitleMovementFromTheSettings'], '字幕の動きは各行の設定から変更してください。');
 });
 
 test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外部変更を拒否する', async () => {

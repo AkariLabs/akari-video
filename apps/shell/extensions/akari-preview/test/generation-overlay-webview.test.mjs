@@ -1,3 +1,10 @@
+import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
+const restorePreviewTestI18n = installPreviewTestI18n();
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+after(restorePreviewTestI18n);
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -39,7 +46,7 @@ test('reduced motion、exportLook、生成更新メッセージを webview HTML 
     assert.match(previewBootstrapMethod, /akari-preview-set-export-look/u);
     assert.match(previewBootstrapMethod, /akari-preview-generation-update/u);
     assert.match(previewBootstrapMethod, /updateGenerationOverlay\(outputTime\)/u);
-    assert.match(previewBootstrapMethod, /describeOverlayFn\(state, clip\.meta, String\(clip\.name \|\| clip\.id \|\| ''\), \{[^}]*clipDurationSec: clip\.end - clip\.start\s*\}, describeNextDraftV1\)/u);
+    assert.match(previewBootstrapMethod, /describeOverlayFn\(state, clip\.meta, String\(clip\.name \|\| clip\.id \|\| ''\), \{[^}]*clipDurationSec: clip\.end - clip\.start\s*\}, describeNextDraftV1, t\)/u);
     assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding, resolveGenerationStateV1\)/u);
 });
 
@@ -424,8 +431,9 @@ test('webview の全ラッパー呼び出しは minify された既定値に頼�
             if (Object.hasOwn(counts, name)) {
                 counts[name]++;
                 const state = name === 'resolveGenerationStateFn';
-                assert.equal(node.arguments.length, state ? 4 : 5);
-                assert.equal(node.arguments.at(-1).getText(update), state ? 'resolveGenerationStateV1' : 'describeNextDraftV1');
+                assert.equal(node.arguments.length, state ? 4 : 6);
+                assert.equal(node.arguments.at(-1).getText(update), state ? 'resolveGenerationStateV1' : 't');
+                if (!state) assert.equal(node.arguments.at(-2).getText(update), 'describeNextDraftV1');
             }
         }
         ts.forEachChild(node, visitCalls);
@@ -461,7 +469,7 @@ test('生成 overlay のレイアウトは実効倍率を使い、収まらな�
     const start = previewBootstrapMethod.indexOf('const updateGenerationOverlayLayout = () => {');
     const end = previewBootstrapMethod.indexOf('if (generationOverlay) window.akari.updateGenerationOverlayLayout =', start);
     assert.ok(start >= 0 && end > start);
-    const run = new Function('layersStage', 'generationOverlay', 'generationBand', 'generationTag', 'generationTagText',
+    const run = new Function('layersStage', 'generationOverlay', 'generationBand', 'generationTag', 'generationTagText', 'generationTagIsPlannedVideo',
         previewBootstrapMethod.slice(start, end) + '\nupdateGenerationOverlayLayout();');
     let screenWidth = 810;
     const stage = { offsetWidth: 1920, getBoundingClientRect: () => ({ width: screenWidth }) };
@@ -471,21 +479,23 @@ test('生成 overlay のレイアウトは実効倍率を使い、収まらな�
     const tag = { textContent: '', clientWidth: 300, get scrollWidth() { return this.textContent.length * 12; } };
     const full = '▶ 動画予定 · 最初→最後';
     for (screenWidth of [810, 400, 1920, 3840]) {
-        run(stage, overlay, band, tag, full);
+        run(stage, overlay, band, tag, full, true);
         assert.equal(Number(properties.get('--akari-gen-inv-scale')), 1920 / screenWidth);
         assert.equal(properties.get('--akari-gen-band-space'), '0px');
         assert.equal(tag.textContent, full);
     }
     tag.clientWidth = 100;
-    run(stage, overlay, band, tag, full);
+    run(stage, overlay, band, tag, full, true);
     assert.equal(tag.textContent, '▶ 動画予定');
+    run(stage, overlay, band, tag, full, false);
+    assert.equal(tag.textContent, full, 'only planned-video identity permits shortening');
     tag.clientWidth = 300;
     band.hidden = false;
-    run(stage, overlay, band, tag, full);
+    run(stage, overlay, band, tag, full, true);
     assert.equal(tag.textContent, full);
     assert.equal(properties.get('--akari-gen-band-space'), '26px');
     screenWidth = 0;
     properties.clear();
-    run(stage, overlay, band, tag, full);
+    run(stage, overlay, band, tag, full, true);
     assert.equal(properties.size, 0, '非表示寸法から Infinity を CSS に流さない');
 });

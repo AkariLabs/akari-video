@@ -2,6 +2,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { t } from '@akari-video/i18n';
+
+// Extracted source functions execute through new Function in tests.
+globalThis.t = t;
+globalThis.translate = t;
 
 export const INSPECTOR_SECTION_FILES = ['types.ts', 'shared-helpers.ts', 'transform-fields.ts', 'cut-sections.ts', 'photo-fields.ts', 'motion-sections.ts', 'layer-sections.ts', 'caption-sections.ts', 'audio-sections.ts', 'overlay-sections.ts', 'animator-section.ts', 'tree-item-sections.ts', 'adjust-sections.ts'];
 

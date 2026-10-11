@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    buildTimelineClipMenuItems,
-    resolveTimelineAnnotationTarget
-} from '../lib/common/timeline-context-menu-items.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { buildTimelineClipMenuItems, resolveTimelineAnnotationTarget } = await import('../lib/common/timeline-context-menu-items.js');
+
+
 
 function ids(kind, hasClipboard) {
     return buildTimelineClipMenuItems(kind, hasClipboard).map(item => item.id);

@@ -1,12 +1,13 @@
+import { t } from '../common/partner-text';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerInstallDisclosure } from '../common/akari-partner-protocol';
 
 export class AkariPartnerInstallDialog extends AbstractDialog<boolean> {
     constructor(disclosure: PartnerInstallDisclosure, protected readonly windows: WindowService) {
-        super({ title: `${disclosure.name} を導入しますか` });
+        super({ title: t('partner.partnerPanel.installDialog.installConfirmTitle', { value1: disclosure.name }) });
         const notice = document.createElement('p');
-        notice.textContent = 'AKARI Video の配布物ではなく、提供元のソフトです。';
+        notice.textContent = t('partner.partnerPanel.installDialog.softwareComesProviderNotPartAkariVideoMessage');
         Object.assign(notice.style, { fontWeight: '600', margin: '0 0 16px' });
         this.contentNode.appendChild(notice);
 
@@ -33,18 +34,18 @@ export class AkariPartnerInstallDialog extends AbstractDialog<boolean> {
             });
             return link;
         };
-        add('ソフト名', disclosure.name);
-        add('提供元', disclosure.provider);
-        add('取得元', externalLink(disclosure.sourceUrl, disclosure.sourceUrl));
-        add('入れる場所', disclosure.location);
-        add('環境変更', disclosure.environment);
+        add(t('partner.partnerPanel.installDialog.softwareLabel'), disclosure.name);
+        add(t('partner.partnerPanel.installDialog.providerLabel'), disclosure.provider);
+        add(t('partner.partnerPanel.installDialog.sourceLabel'), externalLink(disclosure.sourceUrl, disclosure.sourceUrl));
+        add(t('partner.partnerPanel.installDialog.installLocationAction'), disclosure.location);
+        add(t('partner.partnerPanel.installDialog.environmentChangesLabel'), disclosure.environment);
         if (disclosure.connectionNote) {
-            add('接続先', disclosure.connectionNote.replace(/^接続先:\s*/, ''));
+            add(t('partner.partnerPanel.installDialog.connectionDestinationLabel'), disclosure.connectionDetail ?? disclosure.connectionNote);
         }
-        add('利用条件', externalLink(disclosure.termsUrl, '提供元の利用規約・ライセンス'));
+        add(t('partner.partnerPanel.installDialog.termsLabel'), externalLink(disclosure.termsUrl, t('partner.partnerPanel.installDialog.providerTermsLicenseText')));
         this.contentNode.appendChild(details);
-        this.appendCloseButton('やめる');
-        this.appendAcceptButton('導入する');
+        this.appendCloseButton(t('partner.partnerPanel.installDialog.cancelAction'));
+        this.appendAcceptButton(t('partner.partnerPanel.installDialog.installAction'));
     }
 
     get value(): boolean { return true; }

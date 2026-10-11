@@ -9,6 +9,7 @@ import { BUNDLED_CAPTION_FONT_FACES, captionFontFaceCss, captionFontFaces, capti
 import { predictedDuration } from "./plan.mjs";
 import { decorateTypewriterHtml, isTypewriterOnlyAnimation, stripAnimationOnlyLookVars } from "./caption-typewriter.mjs";
 import { captionInkClipRecipe } from "./caption-ink-clip.mjs";
+import { captionLanguageDefaults, normalizeLanguage } from "../../content-language/src/index.mjs";
 
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
 // packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
@@ -93,10 +94,10 @@ export function applyCaptionRichLayers(html, style, output) {
   return close < 0 ? decorated : decorated.slice(0, close) + script + decorated.slice(close);
 }
 
-const DEFAULT_MAX_CHARACTERS = 20;
+const DEFAULT_MAX_CHARACTERS = captionLanguageDefaults('ja').landscapeCharacters;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
 // （オーナー裁定 2026-08-03: 縦は 5〜10 文字級のチャンクを大きく順送りで見せる）。
-const PORTRAIT_MAX_CHARACTERS = 10;
+const PORTRAIT_MAX_CHARACTERS = captionLanguageDefaults('ja').portraitCharacters;
 // 縦長の既定フォントサイズは出力幅比で決める（1080px 幅 → 65px）。
 const PORTRAIT_FONT_SIZE_RATIO = 0.06;
 const DEFAULT_FONT_SIZE_PX = 38;
@@ -241,6 +242,8 @@ const JUMBLE_MAX_OFFSET_EM = 0.1;
 const JUMBLE_MAX_SCALE_AMP = 0.12;
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
+  const language = normalizeLanguage(options.locale) ?? 'ja';
+  const languageDefaults = captionLanguageDefaults(language);
   const hasFamily = Boolean(options.defaultTextStyle?.font_family)
     || captions.some(cue => Boolean(cue?.text_style?.font_family));
   const fontFaceCss = hasFamily ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
@@ -303,7 +306,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
     const maximum = textStyle?.vertical && !textStyle?.max_characters ? Number.MAX_SAFE_INTEGER : textStyle?.max_characters
       ?? options.maxCharacters
-      ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
+      ?? (portrait ? languageDefaults.portraitCharacters : languageDefaults.landscapeCharacters);
     const textStyleVars = captionTextStyleVars(textStyle, output);
     const roundedStroke = caption.time_domain === 'output'
       ? roundedCaptionStrokeShadows(textStyleVars['--caption-stroke'], textStyleVars['--caption-text-shadow']) : null;
@@ -315,7 +318,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       && !textStyle?.vertical
       && style === null
       && allWords.length > 0
-      && splitCaptionLines(displayText, maximum).length > 1
+      && splitCaptionLines(displayText, maximum, false, language).length > 1
     ) {
       style = REVEAL_STYLE;
     }
@@ -385,6 +388,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         words.length > 0 && (style || hasEmphasis)
           ? renderStyledCaptionFragment(words, style, {
               maximum,
+              locale: language,
+              fontStack: languageDefaults.fontStack,
               baseFontSize,
               rangeStart: range.sourceStart,
               rangeEnd: range.sourceEnd,
@@ -408,6 +413,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
             })
           : renderCaptionFragment(displayText, {
               maximum,
+              locale: language,
+              fontStack: languageDefaults.fontStack,
               baseFontSize,
               textStyleActive: textStyle !== null,
               fontFaceCss,
@@ -920,7 +927,7 @@ export function renderCaptionFragment(text, options = {}) {
     : "";
   const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
-    ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
+    ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: var(--caption-font-weight, 700);
       font-style: var(--caption-font-style, normal);
@@ -928,7 +935,7 @@ export function renderCaptionFragment(text, options = {}) {
       letter-spacing: var(--caption-letter-spacing, normal);
       text-transform: var(--caption-text-transform, none);
       line-height: var(--caption-line-height, 1.42);`
-    : `      font-family: ${CAPTION_FONT_STACK};
+    : `      font-family: ${options.fontStack ?? CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;`;
@@ -942,7 +949,7 @@ export function renderCaptionFragment(text, options = {}) {
     ? `\n${options.captionAnimation.keyframesCss}`
     : "";
   const charText = captionCharRenderer(options.animator);
-  const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText));
+  const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText), options.locale);
   const markup = lines
     .map((line) => `<p class="akari-caption__line">${charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
       ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText ? charText(word) : escapeHtml(word)}</span>`).join("")
@@ -1094,7 +1101,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : "";
   const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
-    ? `      font-family: var(--caption-font-family, ${CAPTION_FONT_STACK});
+    ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: var(--caption-font-weight, 700);
       font-style: var(--caption-font-style, normal);
@@ -1102,7 +1109,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       letter-spacing: var(--caption-letter-spacing, normal);
       text-transform: var(--caption-text-transform, none);
       line-height: var(--caption-line-height, 1.42);`
-    : `      font-family: ${CAPTION_FONT_STACK};
+    : `      font-family: ${options.fontStack ?? CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;`;
@@ -1137,7 +1144,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const lines = options.vertical
     ? [useMappedLines ? renderTokens : words]
     : useMappedLines
-      ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
+      ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText), options.locale)
       : groupWordsIntoLines(words, maximum);
   const karaokeDisplay = options.displayText ?? words.map(word => word.text).join('');
   let karaokeCursor = 0;
@@ -1469,11 +1476,11 @@ function clipDisplayTokensToRange(tokens, rangeStart, rangeEnd) {
 // splitCaptionLines を唯一の優先順位（明示改行 → 句点 → 上限超過時は読点・空白・文節境界・文字上限）として使い、
 // その分割点が発話 word の中なら最寄りの word 境界へスナップする。通常は 20±2 字に収まり、
 // それを超える単一 word だけは表示完全性を優先して分割しない。
-function groupDisplayTokensIntoLines(tokens, maximum, graphemes = false) {
+function groupDisplayTokensIntoLines(tokens, maximum, graphemes = false, locale = 'ja') {
   if (tokens.length === 0) return [];
   const charactersOf = graphemes ? captionGraphemes : Array.from;
   const text = tokens.map((token) => token.text).join("");
-  const desiredLines = splitCaptionLines(text, maximum, graphemes);
+  const desiredLines = splitCaptionLines(text, maximum, graphemes, locale);
   const desiredBoundaries = [];
   let desiredOffset = 0;
   for (const line of desiredLines.slice(0, -1)) {
@@ -1887,8 +1894,11 @@ function captionPlainWords(text, words) {
   return result;
 }
 
-export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphemes = false) {
+export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphemes = false, locale = 'ja') {
   const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : DEFAULT_MAX_CHARACTERS;
+  if (normalizeLanguage(locale) !== 'ja' && normalizeLanguage(locale) !== 'zh') {
+    return String(text).split(/\r?\n/u).flatMap(value => splitSpaceDelimitedLines(value, limit));
+  }
   const explicit = String(text).split(/\r?\n/u);
   const lines = [];
   for (const value of explicit) {
@@ -1900,6 +1910,28 @@ export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphe
       lines.push(...splitAtNaturalBoundaries(segment, limit, graphemes));
     }
   }
+  return lines;
+}
+
+const ENGLISH_FUNCTION_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'of', 'to', 'in', 'on', 'at', 'with', 'by']);
+
+function splitSpaceDelimitedLines(value, limit) {
+  const words = value.trim().split(/\s+/u).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let current = [];
+  for (const word of words) {
+    if (current.length && [...current, word].join(' ').length > limit) {
+      const moved = [];
+      while (current.length > 1 && ENGLISH_FUNCTION_WORDS.has(current.at(-1).toLowerCase())) {
+        moved.unshift(current.pop());
+      }
+      lines.push(current.join(' '));
+      current = moved;
+    }
+    current.push(word);
+  }
+  if (current.length) lines.push(current.join(' '));
   return lines;
 }
 

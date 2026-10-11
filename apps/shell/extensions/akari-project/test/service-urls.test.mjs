@@ -17,7 +17,8 @@ function compile(source, fileName, imports = {}) {
     return exports;
 }
 const catalog = compile(readFileSync(new URL('../src/common/asset-catalog-view.ts', import.meta.url), 'utf8'), 'view.ts', {
-    './asset-mix-order': { mixOrder }
+    './asset-mix-order': { mixOrder },
+    './project-text': require('../lib/common/project-text.js')
 });
 const dialogSource = ts.createSourceFile('dialog.ts', readFileSync(new URL('../../akari-surfaces/src/browser/akari-settings-dialog.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const dialog = dialogSource.statements.find(node => ts.isClassDeclaration(node) && node.name.text === 'AkariSettingsDialog');

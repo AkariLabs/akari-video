@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { openPhotoEditPanel } from '../lib/browser/inspector/photo-edit-panel.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { openPhotoEditPanel } = await import('../lib/browser/inspector/photo-edit-panel.js');
+
+
 
 const reason = '背景透過は Mac でだけ使えます';
 

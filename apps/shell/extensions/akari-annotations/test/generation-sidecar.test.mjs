@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { describeGenerationChip, generationChipLabel, resolveGenerationState, sidecarPathFor } = await import('../lib/common/generation-sidecar.js');
 
-import {
-  describeGenerationChip, generationChipLabel, resolveGenerationState, sidecarPathFor
-} from '../lib/common/generation-sidecar.js';
+
+
 
 const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
 const cases = [

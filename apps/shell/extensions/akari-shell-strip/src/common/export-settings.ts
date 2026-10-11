@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { QuickExportCodec, QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
 
 export interface ExportSettings {
@@ -41,7 +42,7 @@ export interface ExportSettingSeat {
 }
 
 export interface OutputDescriptionLine {
-    readonly label: '形式' | '画素数' | '音' | '色';
+    readonly label: string;
     readonly value: string;
 }
 
@@ -58,52 +59,52 @@ export function containerForCodec(codec: QuickExportCodec): { ext: 'mp4' | 'mov'
 
 export const EXPORT_QUALITY_CHOICES: readonly ExportQualityChoice[] = Object.freeze([
     {
-        id: 'standard', label: '標準', recommended: true,
-        description: '投稿・共有にちょうどいい画質。ふつうはこれ。', crf: 23, hardwareMbps: 8
+        id: 'standard', get label() { return t('shell.export.settings.standardLabel'); }, recommended: true,
+        get description() { return t('shell.export.settings.goodQualityPostingSharingRecommendedMostUsesMessage'); }, crf: 23, hardwareMbps: 8
     },
     {
-        id: 'high', label: '高画質',
-        description: '納品・保存用。時間はかかるが最もきれい。', crf: 18, hardwareMbps: 12
+        id: 'high', get label() { return t('shell.export.settings.highQualityLabel'); },
+        get description() { return t('shell.export.settings.bestQualityDeliveryArchivingTakesLongerMessage'); }, crf: 18, hardwareMbps: 12
     },
     {
-        id: 'light', label: '軽量',
-        description: '確認用の下書き。すぐ出て軽い。', crf: 26, hardwareMbps: 5
+        id: 'light', get label() { return t('shell.export.settings.compactLabel'); },
+        get description() { return t('shell.export.settings.quickSmallDraftReviewMessage'); }, crf: 26, hardwareMbps: 5
     }
 ]);
 
 export const EXPORT_FORMAT_SEATS: readonly ExportSettingSeat[] = Object.freeze([
-    { id: 'h264', label: 'MP4 · H.264', description: 'SNS・Web・ふつうの納品', available: true, exit: 'GPU 直結' },
-    { id: 'hevc', label: 'MP4 · H.265（HEVC）', description: '容量ほぼ半分。X は非対応', available: true, exit: 'GPU 直結のまま', tooltip: 'H.265: GPU 直結のまま容量を約半分に。X は非対応です。' },
-    { id: 'prores422', label: 'MOV · ProRes 422 HQ', description: '制作会社・TV への納品マスター', available: true, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 422 HQ: 制作会社向けの高品質な納品形式。' },
-    { id: 'prores4444', label: 'MOV · ProRes 4444（透過）', description: '透過つきのテロップ素材', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 4444: 透過つきの動画を書き出します。近日' },
-    { id: 'vp9', label: 'WebM · VP9（透過）', description: 'Web で使う透過動画', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'WebM VP9: Web 向けの透過動画を書き出します。近日' },
-    { id: 'png', label: '連番 PNG', description: 'VFX・After Effects へ渡す', available: true, exit: 'OSR', tooltip: '連番 PNG: 1 コマずつ画像として書き出します。' }
+    { id: 'h264', label: 'MP4 · H.264', get description() { return t('shell.export.settings.socialMediaWebStandardDeliveryText'); }, available: true, get exit() { return t('shell.export.settings.directGpuPathText'); } },
+    { id: 'hevc', get label() { return t('shell.export.settings.mp4H265HevcText'); }, get description() { return t('shell.export.settings.aboutHalfFileSizeNotSupportedXMessage'); }, available: true, get exit() { return t('shell.export.settings.staysDirectGpuPathText'); }, get tooltip() { return t('shell.export.settings.h265AboutHalfFileSizeStayingDirectGpuPathMessage'); } },
+    { id: 'prores422', label: 'MOV · ProRes 422 HQ', get description() { return t('shell.export.settings.deliveryMasterProductionCompaniesTvText'); }, available: true, get exit() { return t('shell.export.settings.renderGpuPackageFfmpegText'); }, get tooltip() { return t('shell.export.settings.prores422HqHighQualityDeliveryFormatProductionCompaniesMessage'); } },
+    { id: 'prores4444', get label() { return t('shell.export.settings.movProres4444AlphaText'); }, get description() { return t('shell.export.settings.textOverlayAssetsTransparencyText'); }, available: false, get exit() { return t('shell.export.settings.renderGpuPackageFfmpegText'); }, get tooltip() { return t('shell.export.settings.prores4444ExportVideoTransparencyComingSoonMessage'); } },
+    { id: 'vp9', get label() { return t('shell.export.settings.webmVp9AlphaText'); }, get description() { return t('shell.export.settings.transparentVideoWebText'); }, available: false, get exit() { return t('shell.export.settings.renderGpuPackageFfmpegText'); }, get tooltip() { return t('shell.export.settings.webmVp9ExportTransparentVideoWebComingSoonMessage'); } },
+    { id: 'png', get label() { return t('shell.export.settings.pngSequenceLabel'); }, get description() { return t('shell.export.settings.vfxEffectsLabel'); }, available: true, exit: 'OSR', get tooltip() { return t('shell.export.settings.pngSequenceExportEachFrameImageMessage'); } }
 ]);
 
 export const EXPORT_RESOLUTION_SEATS: readonly ExportSettingSeat[] = Object.freeze([
-    { id: 'source', label: 'そのまま', description: 'edit.json の画素数を維持', available: true },
-    { id: '720p', label: '720p', description: '1280 × 720', available: true, tooltip: '画角を保ったまま短辺 720 px にします。' },
-    { id: '1440p', label: '1440p', description: '2560 × 1440', available: true, tooltip: '画角を保ったまま短辺 1440 px にします。' },
-    { id: '4k', label: '4K', description: '3840 × 2160', available: true, tooltip: '画角を保ったまま短辺 2160 px にします。' },
-    { id: 'custom', label: '自由指定', description: '幅から高さを自動計算', available: true, tooltip: '幅を指定し、画角を保って高さを計算します。' },
-    { id: 'unlock-aspect', label: '画角を外す', description: '余白または切り取りが必要', available: false, tooltip: '画角を外す: 幅と高さを別々に指定します。近日' }
+    { id: 'source', get label() { return t('shell.export.settings.keepCurrentAction'); }, get description() { return t('shell.export.settings.keepResolutionEditJsonText'); }, available: true },
+    { id: '720p', label: '720p', description: '1280 × 720', available: true, get tooltip() { return t('shell.export.settings.setShortSide720PxPreservingOrientationMessage'); } },
+    { id: '1440p', label: '1440p', description: '2560 × 1440', available: true, get tooltip() { return t('shell.export.settings.setShortSide1440PxPreservingOrientationMessage'); } },
+    { id: '4k', label: '4K', description: '3840 × 2160', available: true, get tooltip() { return t('shell.export.settings.setShortSide2160PxPreservingOrientationMessage'); } },
+    { id: 'custom', get label() { return t('shell.export.settings.customLabel'); }, get description() { return t('shell.export.settings.calculateHeightWidthText'); }, available: true, get tooltip() { return t('shell.export.settings.setWidthCalculateHeightPreservingOrientationMessage'); } },
+    { id: 'unlock-aspect', get label() { return t('shell.export.settings.unlockOrientationLabel'); }, get description() { return t('shell.export.settings.requiresPaddingCroppingStatus'); }, available: false, get tooltip() { return t('shell.export.settings.unlockOrientationSetWidthHeightSeparatelyComingSoonMessage'); } }
 ]);
 
 export const EXPORT_AUDIO_SEATS: readonly ExportSettingSeat[] = Object.freeze([
-    { id: 'aac', label: 'AAC 48 kHz', description: '映像配信の標準', available: true },
-    { id: 'lufs-14', label: '−14 LUFS', description: 'YouTube・配信向け', available: false, tooltip: 'ラウドネス −14 LUFS を画面から指定できるようになります。近日' },
-    { id: 'lufs-16', label: '−16 LUFS', description: 'Apple 系配信向け', available: false, tooltip: 'ラウドネス −16 LUFS を選べるようになります。近日' },
-    { id: 'lufs-23', label: '−23 LUFS', description: '放送向け', available: false, tooltip: 'ラウドネス −23 LUFS を選べるようになります。近日' },
-    { id: 'noise-reduction', label: 'ノイズ低減', description: '弱・強を選択', available: false, tooltip: 'ノイズ低減の強さを選べるようになります。近日' },
-    { id: 'bitrate', label: 'ビットレート', description: '128〜320 kbps', available: false, tooltip: '音声ビットレートを選べるようになります。近日' }
+    { id: 'aac', label: 'AAC 48 kHz', get description() { return t('shell.export.settings.streamingStandardLabel'); }, available: true },
+    { id: 'lufs-14', label: '−14 LUFS', get description() { return t('shell.export.settings.youtubeStreamingStatus'); }, available: false, get tooltip() { return t('shell.export.settings.choose14LufsLoudnessUiComingSoonMessage'); } },
+    { id: 'lufs-16', label: '−16 LUFS', get description() { return t('shell.export.settings.applePlatformStreamingStatus'); }, available: false, get tooltip() { return t('shell.export.settings.choose16LufsLoudnessComingSoonMessage'); } },
+    { id: 'lufs-23', label: '−23 LUFS', get description() { return t('shell.export.settings.broadcastLabel'); }, available: false, get tooltip() { return t('shell.export.settings.choose23LufsLoudnessComingSoonMessage'); } },
+    { id: 'noise-reduction', get label() { return t('shell.export.settings.noiseReductionLabel'); }, get description() { return t('shell.export.settings.chooseLowHighAction'); }, available: false, get tooltip() { return t('shell.export.settings.chooseNoiseReductionStrengthComingSoonMessage'); } },
+    { id: 'bitrate', get label() { return t('shell.export.settings.bitrateLabel'); }, description: t('shell.export.settings.value128320KbpsText'), available: false, get tooltip() { return t('shell.export.settings.chooseAudioBitrateComingSoonMessage'); } }
 ]);
 
 export const EXPORT_COLOR_SEATS: readonly ExportSettingSeat[] = Object.freeze([
-    { id: 'rec709', label: '8-bit · Rec.709 · tv', description: '現在の固定出力', available: true },
-    { id: '10bit', label: '10-bit', description: '階調を多く保持', available: false, tooltip: '10-bit: ProRes などの高精度形式で使えるようになります。近日' },
-    { id: 'full-range', label: 'フルレンジ', description: 'pc レンジ', available: false, tooltip: 'フルレンジ: pc レンジの映像を書き出せるようになります。近日' },
-    { id: 'hdr-hlg', label: 'HDR · HLG', description: 'Rec.2020 HLG', available: false, tooltip: 'HDR HLG: 広色域の配信向け出力です。近日' },
-    { id: 'hdr-pq', label: 'HDR · PQ', description: 'Rec.2020 PQ', available: false, tooltip: 'HDR PQ: 広色域のマスター向け出力です。近日' }
+    { id: 'rec709', label: '8-bit · Rec.709 · tv', get description() { return t('shell.export.settings.currentFixedOutputText'); }, available: true },
+    { id: '10bit', label: '10-bit', get description() { return t('shell.export.settings.preserveMoreTonalDetailText'); }, available: false, get tooltip() { return t('shell.export.settings.value10BitAvailableHighPrecisionFormatsSuchProresComingSoonMessage'); } },
+    { id: 'full-range', get label() { return t('shell.export.settings.fullRangeLabel'); }, get description() { return t('shell.export.settings.pcRangeLabel'); }, available: false, get tooltip() { return t('shell.export.settings.fullRangeExportVideoPcRangeComingSoonMessage'); } },
+    { id: 'hdr-hlg', label: 'HDR · HLG', description: 'Rec.2020 HLG', available: false, get tooltip() { return t('shell.export.settings.hdrHlgWideGamutOutputStreamingComingSoonMessage'); } },
+    { id: 'hdr-pq', label: 'HDR · PQ', description: 'Rec.2020 PQ', available: false, get tooltip() { return t('shell.export.settings.hdrPqWideGamutOutputMastersComingSoonMessage'); } }
 ]);
 
 export const EXPORT_SETTING_SEATS: readonly ExportSettingSeat[] = Object.freeze([
@@ -178,28 +179,28 @@ export function describeOutput(settings: ExportSettings, edit: unknown): readonl
     const width = finitePositive(outputRecord.width);
     const height = finitePositive(outputRecord.height);
     const sourceFps = finitePositive(outputRecord.fps);
-    const dimensions = width && height ? `${width} × ${height}` : 'edit.json のまま';
+    const dimensions = width && height ? `${width} × ${height}` : t('shell.export.settings.keepEditJsonSettingsText');
     const fps = settings.fps ?? sourceFps;
     const resolved = resolveOutputResolution({ width, height }, settings);
     const resolutionLabel: Readonly<Record<ExportResolution, string>> = {
-        native: 'そのまま', '720p': '720p', '1440p': '1440p', '4k': '4K', custom: '自由指定'
+        native: t('shell.export.settings.keepCurrentAction'), '720p': '720p', '1440p': '1440p', '4k': '4K', custom: t('shell.export.settings.customLabel')
     };
     const modeLabel: Readonly<Record<OutputScaleMode, string>> = {
-        up: '拡大', down: '縮小', none: 'そのまま'
+        up: t('shell.export.settings.upscaleLabel'), down: t('shell.export.settings.downscaleLabel'), none: t('shell.export.settings.keepCurrentAction')
     };
     const pixelValue = (settings.resolution ?? 'native') === 'native'
-        ? `そのまま（${dimensions}${fps ? ` · ${fps} fps` : ''}）`
-        : `${resolved.width} × ${resolved.height}（${resolutionLabel[settings.resolution]}・${modeLabel[resolved.mode]}${fps ? ` · ${fps} fps` : ''}）`;
+        ? t('shell.export.settings.keepCurrentDimensions', { value1: dimensions, value2: fps ? ` · ${fps} fps` : '' })
+        : t('shell.export.settings.resolutionDimensionsAndScale', { value1: resolved.width, value2: resolved.height, value3: resolutionLabel[settings.resolution], value4: modeLabel[resolved.mode], value5: fps ? ` · ${fps} fps` : '' });
     const formatValue: Readonly<Record<QuickExportCodec, string>> = {
         h264: 'MP4 · H.264 / AAC 48 kHz',
-        hevc: 'MP4 · H.265（HEVC） / AAC 48 kHz',
+        hevc: t('shell.export.settings.mp4H265HevcAac48KhzText'),
         prores422: 'MOV · ProRes 422 HQ / PCM 48 kHz',
-        png: '連番 PNG / WAV 48 kHz'
+        png: t('shell.export.settings.pngSequenceWav48KhzText')
     };
     return [
-        { label: '形式', value: formatValue[settings.codec] },
-        { label: '画素数', value: pixelValue },
-        { label: '音', value: `${settings.codec === 'h264' || settings.codec === 'hevc' ? 'AAC' : settings.codec === 'png' ? 'WAV' : 'PCM'} 48 kHz · ラウドネス −14 LUFS（既定）` },
-        { label: '色', value: settings.codec === 'prores422' ? '10-bit · Rec.709' : '8-bit · Rec.709' }
+        { get label() { return t('shell.export.settings.formatLabel'); }, value: formatValue[settings.codec] },
+        { get label() { return t('shell.export.settings.resolutionLabel'); }, value: pixelValue },
+        { get label() { return t('shell.export.settings.audioLabel'); }, value: t('shell.export.settings.value48Khz14LufsLoudnessDefaultText', { value1: settings.codec === 'h264' || settings.codec === 'hevc' ? 'AAC' : settings.codec === 'png' ? 'WAV' : 'PCM' }) },
+        { get label() { return t('shell.export.settings.colorLabel'); }, value: settings.codec === 'prores422' ? '10-bit · Rec.709' : '8-bit · Rec.709' }
     ];
 }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getLanguage, t } from "./i18n.mjs";
 
 function tableCells(line) {
   const text = line.trim();
@@ -12,7 +13,7 @@ function tableCells(line) {
 export function parseDecisionLogRows(text) {
   return text.split(/\r?\n/u).flatMap((line) => {
     const cells = tableCells(line);
-    if (!cells || cells.includes("日時") || cells.every((cell) => /^:?-{3,}:?$/u.test(cell))) return [];
+    if (!cells || cells.includes("日時") || cells.includes("Time") || cells.every((cell) => /^:?-{3,}:?$/u.test(cell))) return [];
     return [{ line, cells }];
   });
 }
@@ -59,7 +60,7 @@ async function readOptional(path) {
 }
 
 // dryRun shares all reads and classification with the append path.
-export async function settleDecisionLog({ projectRoot, actor = "machine:render-cut", now = new Date(), dryRun = false }) {
+export async function settleDecisionLog({ projectRoot, actor = "machine:render-cut", now = new Date(), dryRun = false, lang = getLanguage() }) {
   const path = join(projectRoot, "decision-log.md");
   const text = await readOptional(path);
   if (text === undefined) return { settled: 0 };
@@ -76,20 +77,21 @@ export async function settleDecisionLog({ projectRoot, actor = "machine:render-c
   });
   const results = [];
   const lines = [];
-  if (/[|\r\n]/u.test(actor)) throw new Error("actor に縦棒・改行は使えません");
+  if (/[|\r\n]/u.test(actor)) throw new Error(t("decision-log.settle.actor.invalid", {}, lang));
+  const headingLanguage = /^\|\s*Time\s*\|\s*category\s*\|\s*subject\s*\|/mu.test(text) ? "en" : /^\|\s*日時\s*\|\s*category\s*\|\s*subject\s*\|/mu.test(text) ? "ja" : lang;
   for (const proposal of proposals) {
     const { subject, sha, cells } = proposal;
     if (settled.has(subject)) continue;
     const current = ids.get(subject);
-    const result = current === undefined ? "消えた" : !sha || createHash("sha256").update(current).digest("hex").slice(0, 8) === sha ? "残った" : "直した";
+    const result = current === undefined ? t("decision-log.settle.result.disappeared", {}, headingLanguage) : !sha || createHash("sha256").update(current).digest("hex").slice(0, 8) === sha ? t("decision-log.settle.result.remained", {}, headingLanguage) : t("decision-log.settle.result.changed", {}, headingLanguage);
     results.push({ subject, result });
-    lines.push(`| ${now.toISOString()} | result | ${subject} | ${result} | 書き出し時に帳面と edit.json / captions.json を照合 | ${actor} | ${cells.at(-1)} |`);
+    lines.push(`| ${now.toISOString()} | result | ${subject} | ${result} | ${t("decision-log.settle.reason.export", {}, headingLanguage)} | ${actor} | ${cells.at(-1)} |`);
     settled.add(subject);
   }
   if (!dryRun && lines.length) {
     let suffix = text.endsWith("\n") || !text.length ? "" : "\n";
     const lastLine = text.replace(/\r?\n$/u, "").split(/\r?\n/u).at(-1);
-    if (!tableCells(lastLine)) suffix += "\n| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |\n|---|---|---|---|---|---|---|\n";
+    if (!tableCells(lastLine)) suffix += `\n${t("decision-log.table.header.columns", {}, headingLanguage)}\n|---|---|---|---|---|---|---|\n`;
     await appendFile(path, `${suffix}${lines.join("\n")}\n`, "utf8");
   }
   return { settled: results.length, results };

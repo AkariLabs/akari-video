@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { composeAgentContextPacket, composeMaterialAskAgentPrompt, composeOutputAskAgentPrompt } from '../lib/common/agent-context-packet.js';

@@ -1,14 +1,24 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTargetKindFor, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
-import { initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
-import { appendAiTranscribePanel, resolveAiTranscribeTarget } from '../lib/browser/inspector/ai-transcribe-panel.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiTargetKindFor, appendAiTiles } = await import('../lib/browser/inspector/ai-tiles.js');
+const { initialTabFor, tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const { appendAiTranscribePanel, resolveAiTranscribeTarget } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 
 const catalog = aiActionCatalog([]);
 const transcribe = catalog.find(row => row.id === 'transcribe');

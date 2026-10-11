@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -10,6 +10,11 @@ import { deflateRawSync, gzipSync } from 'node:zlib';
 import { bootstrapRunner, partnerInstallDisclosure } from '../../lib/node/bootstrap-runner.js';
 import { spawnBootstrapProcess } from '../../lib/node/bootstrap-process.js';
 import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
+import { catalogMessages } from '../../lib/common/partner-text.js';
+import { setLanguage } from '@akari-video/i18n';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const VERSION = '0.149.1';
 const TAG = `rust-v${VERSION}`;
@@ -151,7 +156,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         sourceLines.push(`const originalSpawn = require('child_process').spawn;`);
         sourceLines.push(`require('child_process').spawn = (...args) => { require('fs').appendFileSync(${JSON.stringify(mock.spawnLogPath)}, String(args[0]) + '\\n'); return originalSpawn(...args); };`);
     }
-    sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`);
+    sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()}, ${JSON.stringify(catalogMessages())})`);
     const source = sourceLines.join('\n');
     const env = {
         ...process.env,

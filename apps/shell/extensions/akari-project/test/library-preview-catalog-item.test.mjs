@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -17,7 +18,7 @@ class URI {
     toString() { return this.value; }
 }
 
-const previewCatalogItem = vm.runInContext(`({ ${method} }).previewCatalogItem`, vm.createContext({ URI }));
+const previewCatalogItem = vm.runInContext(`({ ${method} }).previewCatalogItem`, vm.createContext({ URI, t: globalThis.t }));
 
 test('cached overlay opens local fragment; uncached overlay shows acquisition guidance', async () => {
     const opened = [];

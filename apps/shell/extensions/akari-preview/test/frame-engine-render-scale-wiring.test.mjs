@@ -1,10 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan } from '../lib/common/frame-engine-render-scale.js';
 
+const require = createRequire(import.meta.url);
 const compiled = readHandlerCompiled();
 const frontend = readFileSync(new URL('../lib/browser/akari-preview-frontend-module.js', import.meta.url), 'utf8');
 const bootstrapStart = compiled.lastIndexOf('function frameEngineBootstrapScript()');
@@ -20,7 +26,9 @@ test('host gives the environment priority, parses invalid values and passes the 
   assert.match(compiled, /initialPlaybackRate = 1, frameEngineRenderScaleMode = 'auto'/u);
   assert.match(compiled, /frameEngineSourceMode,\s*frameEngineRenderScaleMode,\s*frameEngineForceSoftware,/u);
   assert.match(frontend, /'akari.preview.renderScale':\s*\{\s*type: 'string',\s*enum: \['auto', '1', '0.5', '0.25'\],\s*default: 'auto'/u);
-  assert.match(frontend, /プレビュー専用。書き出しと画像の位置・大きさには影響しません/u);
+  assert.match(frontend, /preview\.previewSettings\.description\.renderScaleEdgeCompositionAutoMatchesDisplaySizeDescription/u);
+  assert.match(require('../lib/common/preview-text.js').t('preview.previewSettings.description.renderScaleEdgeCompositionAutoMatchesDisplaySizeDescription'),
+    /プレビュー専用。書き出しと画像の位置・大きさには影響しません/u);
 });
 
 test('webview injects all four compiled pure functions and shares one renderOutput', () => {

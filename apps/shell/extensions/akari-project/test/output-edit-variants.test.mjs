@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readSourceFile, findMember, findTopLevelVariable } from './helpers/role-buckets-source.mjs';
 import { createRequire } from 'node:module';

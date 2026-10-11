@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -25,7 +26,7 @@ function compileDeclarations(relative, names, jsx = false) {
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }),
     Fragment: 'fragment', Children: { toArray: value => value }, isValidElement: item => !!item?.props,
     useState: initial => [initial, () => {}], useRef: () => ({ current: null }), useEffect: () => {} };
-const context = vm.createContext({ exports: {}, React, libraryHoverPreview, LIBRARY_HOVER_DESCRIPTION_ID: 'preview',
+const context = vm.createContext({ exports: {}, React, libraryHoverPreview, t: globalThis.t, LIBRARY_HOVER_DESCRIPTION_ID: 'preview',
     AKARI_RADIUS: { panel: 6, chip: 4 }, AKARI_SURFACE: { raised: 'raised', card: 'card', elevated: 'elevated' },
     AKARI_BORDER: { ghost: 'ghost', hairline: 'line', edge: 'edge' }, AKARI_INK: 'ink', AKARI_FAINT: 'faint',
     ACCENT_LIGHT: 'accent', PremiumCrownBadge: () => null, AssetStateMark: () => null,
@@ -146,7 +147,7 @@ test('小窓は一つだけで、移動・Esc・離脱・ドラッグ・Tab に�
     let refIndex = 0;
     const hooks = { ...React, useState: () => [active, value => { active = value; }],
         useRef: () => refs[refIndex++], useEffect(callback) { if (!mounted) { callback(); mounted = true; } } };
-    const ui = vm.createContext({ exports: {}, React: hooks, createPortal: tree => tree,
+    const ui = vm.createContext({ exports: {}, React: hooks, createPortal: tree => tree, t: globalThis.t,
         libraryHoverPreview, LIBRARY_HOVER_DELAY_MS, LIBRARY_HOVER_DESCRIPTION_ID: 'preview',
         hoverPopupPosition: () => ({ left: 120, top: 10 }), Element: FakeElement, document, window,
         setTimeout(callback) { const id = timers.size + 1; timers.set(id, callback); return id; },

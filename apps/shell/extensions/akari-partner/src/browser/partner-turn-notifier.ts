@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { DisposableCollection } from '@theia/core';
@@ -118,8 +119,8 @@ export class PartnerTurnNotifier implements FrontendApplicationContribution {
         }
         const agent = this.agentLabel(terminal);
         const title = kind === 'bell'
-            ? `${agent} が確認を待っています`
-            : `${agent} の処理が終わりました`;
+            ? t('partner.partnerPanel.notification.awaitingReviewLabel', { value1: agent })
+            : t('partner.partnerPanel.notification.finishedStatus', { value1: agent });
         try {
             const notification = new Notification(title, {
                 body: this.projectLabel(),
@@ -140,7 +141,7 @@ export class PartnerTurnNotifier implements FrontendApplicationContribution {
             options?: { attributes?: Record<string, string | null> };
         }).options?.attributes ?? undefined;
         const agent = attributes?.['akari.partner'] ?? undefined;
-        return (agent && AGENT_LABELS[agent]) || agent || terminal.title.label || 'パートナー';
+        return (agent && AGENT_LABELS[agent]) || agent || terminal.title.label || t('partner.partnerPanel.notification.partnerLabel');
     }
 
     protected projectLabel(): string {

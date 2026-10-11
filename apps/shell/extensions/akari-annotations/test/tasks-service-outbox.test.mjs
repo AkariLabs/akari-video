@@ -4,7 +4,13 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { AkariTasksServiceImpl } from '../lib/node/akari-tasks-service.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariTasksServiceImpl } = await import('../lib/node/akari-tasks-service.js');
+
+
 
 async function fixture(fn) {
   const root = await fs.mkdtemp(join(tmpdir(), 'akari-outbox-'));

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { CAPTION_EFFECT_SPECS, type CaptionEffectCardId } from './caption-style-effects';
 
 /** The renderer is injectable so cache behavior is checked without a browser. */
@@ -37,7 +38,7 @@ export const captionEffectImage = createCaptionEffectImageCache(id => {
         ctx.fillRect(x, y, size, size);
     }
     const spec = CAPTION_EFFECT_SPECS[id];
-    const text = 'Abc あいう';
+    const text = t('inspector.captionEffectImages.label.abcAi');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 43px sans-serif';

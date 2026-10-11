@@ -4,8 +4,15 @@
 // あわせて部品（ドロップダウン・カード・スイッチ）の操作が設定値へ届くことを小さな擬似 DOM で確かめる。
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import { createRequire } from 'node:module';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+// akari-shell-strip の文言は packages/i18n を相対パスで読む別の実体なので、環境変数でも日本語に固定する
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = 'ja';
+afterI18nTest(() => { setLanguage(undefined); if (previousAkariLang === undefined) delete process.env.AKARI_LANG; else process.env.AKARI_LANG = previousAkariLang; });
+
 
 const require = createRequire(import.meta.url);
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');

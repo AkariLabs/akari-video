@@ -1,8 +1,15 @@
-import { after } from 'node:test';
-import { setLanguage } from '../../i18n/index.mjs';
+import { after } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
 
-setLanguage('ja');
-after(() => setLanguage(undefined));
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = "ja";
+setLanguage("ja");
+after(() => {
+  setLanguage(undefined);
+  if (previousAkariLang === undefined) delete process.env.AKARI_LANG;
+  else process.env.AKARI_LANG = previousAkariLang;
+});
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
@@ -112,11 +119,10 @@ function styleRootForCase(item, caption = styleParity.caption) {
   return root;
 }
 
-test("INTAKE_ROOT_FIELDS matches linted intake.schema.json properties", () => {
-  assert.ok(Object.hasOwn(intakeSchema.properties, "language"));
+test("INTAKE_ROOT_FIELDS matches intake.schema.json properties", () => {
   assert.deepEqual(
     new Set(INTAKE_ROOT_FIELDS),
-    new Set(Object.keys(intakeSchema.properties).filter(field => field !== "language")),
+    new Set(Object.keys(intakeSchema.properties)),
   );
 });
 

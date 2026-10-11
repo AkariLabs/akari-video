@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { emptyReviewSource, appendAnnotationLine, parseReview, removeAnnotationLine, updateStatusLine, isDocOrImageTarget } = await import('../lib/common/annotation-store.js');
 
-import {
-  emptyReviewSource,
-  appendAnnotationLine,
-  parseReview,
-  removeAnnotationLine,
-  updateStatusLine,
-  isDocOrImageTarget,
-} from "../lib/common/annotation-store.js";
+
+
 
 function baseAnnotation(overrides = {}) {
   return {

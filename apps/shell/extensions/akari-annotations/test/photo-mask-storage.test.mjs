@@ -3,7 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { savePhotoMask } from '../lib/node/photo-mask-storage.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { savePhotoMask } = await import('../lib/node/photo-mask-storage.js');
+
+
 
 test('a missing Vision helper fails softly without changing the project', async () => {
   const root = await mkdtemp(join(tmpdir(), 'photo-mask-test-'));

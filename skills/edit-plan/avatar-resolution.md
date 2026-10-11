@@ -94,20 +94,20 @@ Treat `persona/persona.md` (full persona), if present, as L2 too. Otherwise the 
 Append every rendition choice, whether reached through chat or automatically, with evidence in `decision-log.md` ([report-guide.md#decision_log](report-guide.md#decision_log)). Use the same granularity and file as asset selections in [expression-selection.md](expression-selection.md#evidence-record), adding one row in the `rendition` category:
 
 ```text
-<avatar id> @ <timeline 秒> | category: rendition | subject: <avatar id>/<選んだ rendition id> |
-決定: <採用した rendition id> | 理由: <1 文> | 決定者: human|ai-auto | checkpoint: <関連チェックポイント>
+<avatar id> @ <timeline seconds> | category: rendition | subject: <avatar id>/<selected rendition id> |
+Decision: <selected rendition id> | Reason: <one sentence> | Decided by: human|ai-auto | Related checkpoint: <checkpoint>
 ```
 
 - **Write one row for auto-selection and rejection too**; neither decide nor drop silently, as in expression-selection.md's evidence rule.
-- **For auto-selection (the `決定者`/decider value ai-auto), the `理由`/reason cell must name in one sentence which §3a filters applied.** For example, required lip sync plus picture-in-picture leaves only one bust-up, lip-sync-capable rendition. Do not write a vague reason such as "judged from context" without filter names; evidence must be auditable later.
-- For a chat decision (`決定者`/decider human), summarize the human's answer and confirmed choice in the `理由`/reason cell.
+- **For auto-selection (decider value `ai-auto`), the reason cell must name in one sentence which §3a filters applied.** For example, required lip sync plus picture-in-picture leaves only one bust-up, lip-sync-capable rendition. Do not write a vague reason such as "judged from context" without filter names; evidence must be auditable later.
+- For a chat decision (decider value `human`), summarize the human's answer and confirmed choice in the reason cell.
 - Implementation and automation of recording are in S2 scope. This leaf defines only what must be recorded.
 
 ### 6a. Propose promotion to `default_rendition` (added in S2)
 
 If the same rendition was selected for the same avatar in the **latest three consecutive** `decision-log.md` rows with category `rendition` and `subject: <avatar id>/*` (no intervening choice of another rendition), **propose** promotion to `default_rendition` in chat. Deciders may be human or ai-auto. Do not write it on your own; write only after approval (internal contract §7-3).
 
-1. **Detect**: Extract only `rendition` rows whose `subject` begins `<avatar id>/` from `decision-log.md` in time order. Starting at the end, check whether the `決定` (decision) column contains the same rendition id for three consecutive rows; if so, it qualifies for a promotion proposal.
+1. **Detect**: Extract only `rendition` rows whose `subject` begins `<avatar id>/` from `decision-log.md` in time order. Starting at the end, check whether the decision column contains the same rendition id for three consecutive rows; if so, it qualifies for a promotion proposal.
 2. **Compose the proposal** in chat, following report-guide.md's recommendation + reason + explicit-answer format:
 
    ```

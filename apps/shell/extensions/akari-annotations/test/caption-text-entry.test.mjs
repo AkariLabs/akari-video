@@ -1,9 +1,15 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readHandlerSource } from '../../akari-preview/test/helpers/handler-source.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { captionEditFocusWithinMarkedWidget } = await import('../lib/common/caption-edit-focus.js');
+
 
 const inspector = readInspectorSource();
 const contextBar = readFileSync(new URL('../src/browser/context-bar-controller.ts', import.meta.url), 'utf8');
@@ -21,7 +27,7 @@ test('forwarded iframe keys are ignored by the context bar while caption edit ow
 });
 
 test('caption textarea keeps original newlines on blur and saves added newlines', async () => {
-    assert.match(inspector, /name: 'caption-text', label: 'テキスト', inputKind: 'caption-text'/);
+    assert.match(inspector, /name: 'caption-text', label: t\('inspector\.captionSections\.label\.text'\), inputKind: 'caption-text'/);
     assert.match(inspector, /field\.inputKind === 'caption-text'\) \{\s*const textarea = document\.createElement\('textarea'\)/);
     assert.match(inspector, /textarea\.rows = 2;\s*textarea\.value = editValue;/);
     assert.match(inspector, /textarea\.addEventListener\('input', fit\)/);

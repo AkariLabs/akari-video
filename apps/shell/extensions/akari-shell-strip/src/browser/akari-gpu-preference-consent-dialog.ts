@@ -1,17 +1,18 @@
+import { t } from '../common/shell-text';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 
 export class AkariGpuPreferenceConsentDialog extends AbstractDialog<boolean> {
     constructor() {
-        super({ title: '書き出し時の GPU 設定を許可しますか' });
+        super({ title: t('shell.exportDialog.gpuConsent.allowGpuSettingsExportMessage') });
         this.contentNode.setAttribute('data-akari-gpu-preference-consent', 'true');
         const explanation = document.createElement('p');
-        explanation.textContent = '書き出しを速くするため、書き出しの間だけ Windows の「グラフィックスの設定」で AKARI Video に高性能 GPU を割り当てます。終わったら元に戻します。';
+        explanation.textContent = t('shell.exportDialog.gpuConsent.speedUpExportAkariVideoUseHighPerformanceGpuWindowsMessage');
         this.contentNode.appendChild(explanation);
-        this.appendButton('許可しない', false).addEventListener('click', () => {
+        this.appendButton(t('shell.exportDialog.gpuConsent.declineAction'), false).addEventListener('click', () => {
             this.resolve?.(false);
             this.close();
         });
-        this.appendAcceptButton('許可する');
+        this.appendAcceptButton(t('shell.exportDialog.gpuConsent.allowAction'));
     }
 
     get value(): boolean { return true; }

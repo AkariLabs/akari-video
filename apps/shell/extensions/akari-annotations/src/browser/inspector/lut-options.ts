@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { INSPECTOR_LUT_PRESET_IDS } from './adjust-fields';
 
 // Display names from the bundled LUT catalog (presets/luts/index.jsonl); ids stay on disk.
@@ -9,11 +10,11 @@ const BUNDLED_LUT_NAMES: Readonly<Record<string, string>> = {
 };
 
 export function lutOptionLabel(value: string | undefined): string {
-    return value?.startsWith('assets/luts/') ? `${value.slice('assets/luts/'.length)}（プロジェクト）`
-        : value ? BUNDLED_LUT_NAMES[value] ?? value : 'なし';
+    return value?.startsWith('assets/luts/') ? t('inspector.lutOptions.label.project', { filename: value.slice('assets/luts/'.length) })
+        : value ? BUNDLED_LUT_NAMES[value] ?? value : t('inspector.lutOptions.label.none');
 }
 
 export function buildLutOptions(projectRefs: readonly string[]): { label: string; value: string | null }[] {
-    return [{ label: 'なし', value: null }, ...[...INSPECTOR_LUT_PRESET_IDS, ...projectRefs]
+    return [{ label: t('inspector.lutOptions.label.none'), value: null }, ...[...INSPECTOR_LUT_PRESET_IDS, ...projectRefs]
         .map(value => ({ label: lutOptionLabel(value), value }))];
 }

@@ -1,20 +1,44 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { memberText, findTopLevelFunction } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
-import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
-import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
-import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
-import { timelineApplyTarget } from '../lib/browser/library-apply-plan.js';
-import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
-import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
-import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
-import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from '../lib/browser/timeline/canvas-row-drop.js';
-import { shouldShowTimelineGhost } from '../lib/common/timeline-visibility.js';
+
+
+
+
+
+
+
+
+
+
+
 import { pendingAssetFetches } from 'akari-preview/lib/common/pending-asset-fetch.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { materialOverlapInsertIndex } = await import('../lib/common/material-drop-overlap.js');
+const { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } = await import('../lib/common/timeline-material-insert.js');
+const { hitTestTimelineTrackDrop } = await import('../lib/common/timeline-track-drop.js');
+const { libraryAssetGhostPayload } = await import('../lib/browser/library-drop-model.js');
+const { timelineApplyTarget } = await import('../lib/browser/library-apply-plan.js');
+const { topVisualTarget } = await import('../lib/browser/preview-material-placement.js');
+const { probePreviewMediaDimensions } = await import('../lib/browser/preview-media-dimensions.js');
+const { canvasAtFrame, canvasDropDuration, canvasDropTargets } = await import('../lib/browser/canvas-drop-target.js');
+const { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } = await import('../lib/browser/timeline/canvas-row-drop.js');
+const { shouldShowTimelineGhost } = await import('../lib/common/timeline-visibility.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 globalThis.document = { documentElement: { dataset: { akariTimelineHidden: 'false' } } };
 

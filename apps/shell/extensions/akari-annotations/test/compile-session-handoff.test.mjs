@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import {
-    compileClipboardFailureFooter,
-    compileClipboardFailureNotice,
-    compileCopiedMessage,
-    planCompileHandoff,
-    sessionSortKey
-} from '../lib/common/compile-session-handoff.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { compileClipboardFailureFooter, compileClipboardFailureNotice, compileCopiedMessage, planCompileHandoff, sessionSortKey } = await import('../lib/common/compile-session-handoff.js');
+
+
 
 const sessions = [
     { id: 's-0001', startedAt: '2026-09-12T01:00:00.000Z' },

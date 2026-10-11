@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 /**
  * `.akari/render.json`（render-cut スキルが書く。本拡張は書き込まない）を
  * 寛容リーダーで読み、進捗表示用の最小状態へ変換する純関数。
@@ -23,7 +24,7 @@ export type RenderProgressState =
     | { readonly kind: 'failed'; readonly label: string; readonly engine?: RenderProgressEngine }
     | { readonly kind: 'unknown'; readonly label: string; readonly engine?: RenderProgressEngine };
 
-export const RENDER_PROGRESS_UNKNOWN_LABEL = '進捗不明（書き出し中）';
+export const RENDER_PROGRESS_UNKNOWN_LABEL = t('shell.export.renderProgress.progressUnknownExportingStatus');
 
 // phase 文字列の実測値は "verified"（PASS 完了時）の1つしか確認できていない
 // （SKILL.md は状態遷移の途中値を明文化していない）。途中値は推測にとどまる
@@ -113,34 +114,34 @@ function engineName(value: unknown): RenderProgressEngine['name'] | undefined {
 
 function doneLabel(engine: RenderProgressEngine | undefined): string {
     if (!engine) {
-        return '書き出し完了';
+        return t('shell.export.renderProgress.exportCompleteStatus');
     }
     if (engine.name === 'gpu') {
-        return '書き出し完了（GPU）';
+        return t('shell.export.renderProgress.exportCompleteGpuStatus');
     }
     if (engine.name === 'osr' && engine.ineligible?.length) {
         const first = formatIneligible(engine.ineligible[0]);
         const remainder = engine.ineligible.length - 1;
-        return `書き出し完了（OSR — GPU 不適格: ${first}${remainder > 0 ? `、他 ${remainder} 件` : ''}）`;
+        return t('shell.export.renderProgress.exportCompleteOsrGpuIneligibleStatus', { value1: first, value2: remainder > 0 ? t('shell.export.renderProgress.additionalReasons', { n: remainder }) : '' });
     }
     if (engine.name === 'osr' && engine.fallbackReason) {
-        return `書き出し完了（OSR — GPU 実行体なし: ${engine.fallbackReason}）`;
+        return t('shell.export.renderProgress.exportCompleteOsrNoGpuExecutableStatus', { value1: engine.fallbackReason });
     }
     if (engine.name === 'osr') {
-        return '書き出し完了（OSR）';
+        return t('shell.export.renderProgress.exportCompleteOsrStatus');
     }
-    return `書き出し完了（${engine.name}）`;
+    return t('shell.export.renderProgress.exportCompleteWithArtifactStatus', { value1: engine.name });
 }
 
 function inProgressLabel(phase: string | undefined, engine: RenderProgressEngine | undefined): string {
-    const base = phase ? `書き出し中（${phase}）` : '書き出し中';
+    const base = phase ? t('shell.export.renderProgress.exportingPhaseStatus', { value1: phase }) : t('shell.export.renderProgress.exportingStatus');
     if (engine?.name === 'gpu') {
-        return `${base}（GPU で書き出し中）`;
+        return t('shell.export.renderProgress.exportingGpuLabel', { value1: base });
     }
     if (engine?.name === 'osr') {
-        return `${base}（OSR で書き出し中）`;
+        return t('shell.export.renderProgress.exportingOsrLabel', { value1: base });
     }
-    return engine ? `${base}（${engine.name} で書き出し中）` : base;
+    return engine ? t('shell.export.renderProgress.exportingWithEngineStatus', { value1: base, value2: engine.name }) : base;
 }
 
 function formatIneligible(entry: string): string {
@@ -180,8 +181,8 @@ function describeFailure(verify: Record<string, unknown> | undefined): string {
         ?.filter(isRecord)
         .find(finding => finding.severity === 'error' && typeof finding.message === 'string')?.message;
     return typeof errorMessage === 'string' && errorMessage.trim()
-        ? `書き出しに失敗しました: ${errorMessage}`
-        : '書き出しに失敗しました';
+        ? t('shell.export.renderProgress.exportFailedWithReasonError', { value1: errorMessage })
+        : t('shell.export.renderProgress.exportFailedError');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

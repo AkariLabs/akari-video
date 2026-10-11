@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { PreviewFrameColor, PreviewFrameExpectations } from './preview-frame-check';
 
 /** Tracks a host-initiated capture until the webview starts it and the PNG is saved. */
@@ -10,7 +11,7 @@ export class PreviewFrameCapturePending<Widget> {
     begin(token: string, widget: Widget, pageId: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => this.reject(token, widget, pageId,
-                new Error('コマの撮影開始がタイムアウトしました')), 5000);
+                new Error(t('preview.frameCapture.status.frameCaptureStartTimedOutError'))), 5000);
             this.entries.set(token, { widget, pageId, started: false, timer, resolve, reject });
         });
     }
@@ -29,7 +30,7 @@ export class PreviewFrameCapturePending<Widget> {
         this.entries.delete(token);
         clearTimeout(entry.timer);
         if (path) entry.resolve(path);
-        else entry.reject(new Error('コマを保存できませんでした'));
+        else entry.reject(new Error(t('preview.frameCapture.status.couldNotSaveFrameError')));
     }
 
     reject(token: string, widget: Widget, pageId: string, error: Error): void {
@@ -227,7 +228,7 @@ export function installPreviewFrameCapture(environment: {
             if (!(width > 0 && height > 0) || box.x < 0 || box.y < 0
                 || box.right > window.innerWidth || box.bottom > window.innerHeight
                 || x < 0 || y < 0 || x + width > window.parent.innerWidth || y + height > window.parent.innerHeight) {
-                throw new Error('プレビュー全体を表示してから保存してください');
+                throw new Error(t('preview.frameCapture.status.showEntirePreviewSavingAction'));
             }
             // visibility:hidden preserves transport layout, so measure the same button AFTER capture CSS.
             const playBox = document.getElementById('play-toggle')?.getBoundingClientRect();

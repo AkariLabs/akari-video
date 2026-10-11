@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 
 import {
   LINT_CHECK_JA,
@@ -7,8 +8,12 @@ import {
   formatLintFailureForUi,
   japaneseLintSummary,
   japaneseLintWarningSummary,
+  lintSummary,
   lintCheckFromError
 } from '../lib/common/lint-message-ja.js';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 test('output-domain 総尺超過の警告 check は日本語辞書にある', () => {
   assert.match(
@@ -69,4 +74,25 @@ test('pass 時の warning 要約対象は transition の 2 check だけに固定
     severity: 'warning', check: 'captions.output-domain-exceeds-duration'
   }]), undefined);
   assert.match(LINT_CHECK_JA['cuts.transition-out.layer-evacuated'], /PiP 経路へ退避/u);
+});
+
+test('all known lint checks and detail label are translated in English', () => {
+  setLanguage('en');
+  try {
+    const checks = [
+      'cuts.track-transition-unsupported', 'cuts.transition-out.non-adjacent',
+      'cuts.transition-out.zero-overlap', 'cuts.transition-out.layer-evacuated',
+      'captions.overlap', 'captions.output-domain-exceeds-duration',
+      'cuts.track-overlap', 'references.files', 'overlays.timeline', 'audio.sfx.timeline'
+    ];
+    for (const check of checks) {
+      const message = lintSummary([`[${check}] original detail`]);
+      assert.ok(message, check);
+      assert.doesNotMatch(message, /[\u3040-\u30ff\u3400-\u9fff]/u, check);
+      assert.equal(message, LINT_CHECK_JA[check]);
+    }
+    assert.match(formatLintFailureForUi('Validation failed', ['[captions.overlap] detail']), / Details: /u);
+    assert.match(formatLintFailureForUi('保存後の検証で問題が見つかりました', ['[captions.overlap] detail']),
+      /^Validation found problems after saving:/u);
+  } finally { setLanguage('ja'); }
 });

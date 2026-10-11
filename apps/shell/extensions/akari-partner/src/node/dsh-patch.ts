@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { createHash } from 'crypto';
 import * as path from 'path';
 
@@ -5,6 +6,7 @@ export type DeepSeekProvider = 'deepseek-official' | 'opencode-go';
 export interface DeepSeekConnection {
     provider: DeepSeekProvider;
     note: string;
+    detail: string;
     guidance?: string;
     secret?: { OPENCODE_GO_API_KEY: string };
 }
@@ -15,7 +17,8 @@ export function detectDeepSeekConnection(input: {
     readFile: (file: string) => string;
 }): DeepSeekConnection {
     if (input.env.DEEPSEEK_API_KEY?.trim()) {
-        return { provider: 'deepseek-official', note: '接続先: DeepSeek 公式 API（DEEPSEEK_API_KEY を使います）' };
+        return { provider: 'deepseek-official', note: t('partner.partnerSetup.deepSeekPatch.destinationOfficialDeepseekApiUsesDeepseekApiKeyText'),
+            detail: t('partner.partnerSetup.deepSeekPatch.officialApiDetail') };
     }
     try {
         const auth = JSON.parse(input.readFile(path.join(input.homeDir, '.local', 'share', 'opencode', 'auth.json')));
@@ -23,15 +26,17 @@ export function detectDeepSeekConnection(input: {
         if (typeof key === 'string' && key.trim()) {
             return {
                 provider: 'opencode-go',
-                note: '接続先: OpenCode Go（opencode の契約を使います）',
+                note: t('partner.partnerSetup.deepSeekPatch.destinationOpencodeGoUsesOpencodeCredentialsText'),
+                detail: t('partner.partnerSetup.deepSeekPatch.openCodeGoDetail'),
                 secret: { OPENCODE_GO_API_KEY: key }
             };
         }
     } catch { /* Optional local credential. */ }
     return {
         provider: 'deepseek-official',
-        note: '接続先: 未設定（DeepSeek の鍵か OpenCode Go のログインがあれば自動で使います）',
-        guidance: '右上の Settings → Models で DeepSeek の鍵を入れるか、opencode で OpenCode Go にログインすると自動で使われます'
+        note: t('partner.partnerSetup.deepSeekPatch.automaticConnectionNotConfiguredNote'),
+        detail: t('partner.partnerSetup.deepSeekPatch.notConfiguredDetail'),
+        guidance: t('partner.partnerSetup.deepSeekPatch.addDeepseekKeySettingsModelsSignOpencodeGoOpencodeUseText')
     };
 }
 

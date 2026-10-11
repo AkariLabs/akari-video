@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 // サムネイルは 16:9。名前は枠の外に置く。
 
 import type { MaterialMetaEntry } from './akari-project-protocol';
@@ -30,7 +31,7 @@ export interface MaterialCardLayoutOptions {
 export function materialCardLayout(entry: MaterialCardLayoutEntry, options: MaterialCardLayoutOptions = {}) {
     const kindLabel = entry.assetGroupCategory
         || (/\.html?$/i.test(entry.name ?? '') ? 'HTML'
-            : { video: '動画', audio: '音声', image: '画像', other: '素材' }[entry.kind]);
+            : { video: t('project.library.shelf.videoLabel'), audio: t('project.library.shelf.audioMediaLabel'), image: t('project.library.shelf.imageLabel'), other: t('project.catalog.purchase.asset') }[entry.kind]);
     return {
         aspectRatio: '16 / 9' as const,
         objectFit: 'contain' as const,

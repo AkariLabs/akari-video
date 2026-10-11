@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     addCurvePoint, removeCurvePoint, moveCurvePoint, curvePathD,
     addHuePoint, removeHuePoint, moveHuePoint, huePathD,
@@ -25,10 +26,10 @@ function writer(root: HTMLElement, write: AdjustEditorWrite): AdjustEditorWrite 
     return async (path, value) => {
         try {
             const result = await write(path, value);
-            notice.textContent = result.ok ? '' : result.message ?? '調整を保存できませんでした。';
+            notice.textContent = result.ok ? '' : result.message ?? t('inspector.adjustEditors.error.couldNotSaveAdjustments');
             return result;
         } catch (error) {
-            notice.textContent = error instanceof Error ? error.message : '調整を保存できませんでした。';
+            notice.textContent = error instanceof Error ? error.message : t('inspector.adjustEditors.error.couldNotSaveAdjustments');
             return { ok: false, message: notice.textContent };
         }
     };
@@ -77,12 +78,12 @@ function buildPointEditor<T extends AdjustCurvePointV1 | AdjustHuePointV1>(optio
     const buttons: HTMLButtonElement[] = [];
     const paint = (): void => {
         line.setAttribute('d', options.pathD(points, 180, 140));
-        svg.setAttribute('aria-label', `${options.channels.find(ch => ch.key === active)!.label} カーブエディタ`);
+        svg.setAttribute('aria-label', t('inspector.adjustEditors.label.commandLineEditor', { label: options.channels.find(ch => ch.key === active)!.label }));
         points.forEach((p, i) => {
             const [x, y] = options.xy(p);
             handles.children[i].setAttribute('cx', String(x * 180));
             handles.children[i].setAttribute('cy', String((1 - y) * 140));
-            handles.children[i].setAttribute('aria-label', `制御点 ${i + 1}: ${x.toFixed(3)}, ${y.toFixed(3)}（右クリックで削除）`);
+            handles.children[i].setAttribute('aria-label', t('inspector.adjustEditors.label.controlPointRemoveRightClick', { index: i + 1, x: x.toFixed(3), y: y.toFixed(3) }));
         });
     };
     const save = async (next: T[] | null): Promise<void> => {
@@ -134,7 +135,7 @@ function buildPointEditor<T extends AdjustCurvePointV1 | AdjustHuePointV1>(optio
         chip.type = 'button';
         chip.className = `akari-adjust-preview-channel akari-adjust-preview-channel-${ch.label.toLowerCase()}`;
         chip.textContent = ch.label;
-        chip.title = 'ダブルクリックでチャンネルをリセット';
+        chip.title = t('inspector.adjustEditors.title.doubleClickResetChannel');
         chip.addEventListener('click', () => {
             if (busy || drag) return;
             active = ch.key;
@@ -209,8 +210,8 @@ export function buildColorWheelEditor(snapshot: InspectorAdjustSnapshot, write: 
         const heading = element('span', 'akari-adjust-preview-wheel-label');
         heading.textContent = label;
         const ring = element('div', 'akari-adjust-preview-wheel');
-        ring.title = 'ドラッグで色シフト / ダブルクリックでリセット';
-        ring.setAttribute('aria-label', `${label} カラーホイール`);
+        ring.title = t('inspector.adjustEditors.title.dragShiftColorDoubleClickReset');
+        ring.setAttribute('aria-label', t('inspector.adjustEditors.label.colorWheel', { label: label }));
         const handle = element('span', 'akari-adjust-preview-wheel-center');
         ring.appendChild(handle);
         const luminance = element('div', 'akari-adjust-editor-luminance');
@@ -243,7 +244,7 @@ export function buildColorWheelEditor(snapshot: InspectorAdjustSnapshot, write: 
         };
         const renderLuma = (): void => {
             const field = createNumberField({
-                name: `adjust-wheel-${key}-luma`, label: `${label} 輝度`, value: display().luma,
+                name: `adjust-wheel-${key}-luma`, label: t('inspector.adjustEditors.label.brightness', { label: label }), value: display().luma,
                 step: range / 100, min: -range, max: range, displayScale: 100 / range,
                 displayPrecision: 0, onCommit: changeLuma
             });
@@ -251,7 +252,7 @@ export function buildColorWheelEditor(snapshot: InspectorAdjustSnapshot, write: 
             const reset = document.createElement('button');
             reset.type = 'button';
             reset.textContent = '↺';
-            reset.title = `${label} 輝度のみリセット`;
+            reset.title = t('inspector.adjustEditors.title.resetOnlyBrightness', { label: label });
             reset.addEventListener('click', () => void changeLuma(0));
             field.addEventListener('dblclick', () => void changeLuma(0));
             luminance.replaceChildren(field, reset);

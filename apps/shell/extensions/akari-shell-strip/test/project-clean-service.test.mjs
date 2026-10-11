@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 

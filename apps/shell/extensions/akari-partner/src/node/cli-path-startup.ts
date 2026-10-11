@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { ILogger } from '@theia/core';
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import { inject, injectable, named } from '@theia/core/shared/inversify';
@@ -52,7 +53,7 @@ export class CliPathStartupContribution implements BackendApplicationContributio
             }
         }).catch(error => {
             const message = error instanceof Error ? error.message : String(error);
-            void this.logger.warn(`[akari CLI] 起動時の自動配備に失敗しました: ${message}`);
+            void this.logger.warn(t('partner.partnerSetup.cliPath.akariCliAutomaticProvisioningStartupFailedError', { value1: message }));
         });
     }
 }

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     findMatchingBracket,
     splitTopLevelElements,
@@ -22,7 +23,7 @@ const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 function appendNumberProperty(source: string, property: string, value: number): string {
     const closeIndex = source.lastIndexOf('}');
     if (closeIndex < 0) {
-        throw new Error('音声クリップのオブジェクトを特定できません。');
+        throw new Error(t('annotationscommon.sfxFadeStore.error.couldNotIdentifyAudioClipItem'));
     }
     const beforeClose = source.slice(0, closeIndex);
     const trailingWhitespace = beforeClose.match(/\s*$/)?.[0] ?? '';
@@ -42,7 +43,7 @@ function replacePropertyValue(source: string, property: string, value: number, l
     const pattern = new RegExp(`("${property}"\\s*:\\s*)${JSON_NUMBER}`, 'g');
     const matches = [...source.matchAll(pattern)];
     if (matches.length !== 1) {
-        throw new Error(`${label} の ${property} を特定できません。`);
+        throw new Error(t('annotationscommon.sfxFadeStore.error.couldNotIdentify', { label: String(label), property: String(property) }));
     }
     return source.replace(pattern, (_match, prefix: string) => `${prefix}${JSON.stringify(value)}`);
 }
@@ -51,7 +52,7 @@ function removeObjectProperty(source: string, property: string): string {
     const openIndex = source.indexOf('{');
     const closeIndex = openIndex >= 0 ? findMatchingBracket(source, openIndex) : -1;
     if (openIndex < 0 || closeIndex < 0) {
-        throw new Error('音声クリップのオブジェクトを特定できません。');
+        throw new Error(t('annotationscommon.sfxFadeStore.error.couldNotIdentifyAudioClipItem'));
     }
     const inner = source.slice(openIndex + 1, closeIndex);
     const elements = splitTopLevelElements(inner);
@@ -80,18 +81,18 @@ export function setSfxFadeInSource(
     updates: { fadeIn?: number | null; fadeOut?: number | null }
 ): string {
     if (updates.fadeIn === undefined && updates.fadeOut === undefined) {
-        throw new Error('変更する fade フィールドを指定してください。');
+        throw new Error(t('annotationscommon.sfxFadeStore.error.selectFadeFieldChange'));
     }
     if (updates.fadeIn !== undefined && updates.fadeIn !== null
         && (!Number.isFinite(updates.fadeIn) || updates.fadeIn < 0)) {
-        throw new Error('fade_in は 0 以上で指定してください。');
+        throw new Error(t('annotationscommon.sfxFadeStore.error.fadeMustBe0Greater'));
     }
     if (updates.fadeOut !== undefined && updates.fadeOut !== null
         && (!Number.isFinite(updates.fadeOut) || updates.fadeOut < 0)) {
-        throw new Error('fade_out は 0 以上で指定してください。');
+        throw new Error(t('annotationscommon.sfxFadeStore.error.fadeOutMustBe0Greater'));
     }
-    const label = `音声クリップ ${sfxIndex + 1}`;
-    return updateArrayElementByIndex(source, 'sfx', sfxIndex, '音声クリップ', element => {
+    const label = t('annotationscommon.sfxFadeStore.field.audioClipNumber', { number: sfxIndex + 1 });
+    return updateArrayElementByIndex(source, 'sfx', sfxIndex, t('annotationscommon.sfxFadeStore.field.audioClip'), element => {
         let next = element;
         const apply = (property: string, value: number | null | undefined): void => {
             if (value === undefined) {

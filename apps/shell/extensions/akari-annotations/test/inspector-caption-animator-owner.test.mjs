@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { animatorSection, timelineMethod } from './helpers/perspective-transition-fixture.mjs';
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { animatorSection, timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+
+
 
 const captionAnimatorOwner = timelineMethod('captionAnimatorOwner', {});
 const animator = (id = 'a1') => ({

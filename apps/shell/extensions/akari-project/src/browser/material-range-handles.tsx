@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { clampMaterialRange, materialRangeLabel, MaterialRange } from '../common/material-range';
 
@@ -76,7 +77,7 @@ export function MaterialRangeHandles({ durationSeconds, range, onChange }: Props
             background: '#ffb47a', padding: '2px 5px', borderRadius: '3px', whiteSpace: 'nowrap',
             pointerEvents: 'auto', zIndex: 4 }}>
             {materialRangeLabel(current, width < 240)}
-            <button type='button' title='範囲をなしに戻す' onClick={event => { event.stopPropagation(); onChange(null); }}
+            <button type='button' title={t('project.materials.rangeHandle.clearRangeAction')} onClick={event => { event.stopPropagation(); onChange(null); }}
                 style={{ marginLeft: '4px', border: 0, padding: 0, background: 'transparent', cursor: 'pointer' }}>×</button>
         </div>
     </div>;

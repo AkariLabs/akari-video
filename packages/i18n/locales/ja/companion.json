@@ -1,0 +1,19 @@
+{
+  "companion.companion.onStartShowHide.label": "{label}を表示/非表示",
+  "companion.companion.onStartResetPosition.label": "{label}を既定の位置へ戻す",
+  "companion.companion.togglePanelStartAkariVibe.label": "AKARI バイブを起動できませんでした",
+  "companion.companion.dataSharingNotice.description": "話した指示と編集中のプロジェクトの構成（字幕の文字は先頭 20 文字まで）を、あなたの OpenRouter キーとともに AKARI のサーバー経由で送ります",
+  "companion.companion.connectExternalControlPanelComputer.description": "同じ機械で動く外部の操作盤（コンパニオン）とつなぐ",
+  "companion.companion.guardedRewriteCannotUndoEditBecauseContentHasChanged.label": "ほかの変更が入ったため、この変更は元に戻せません",
+  "companion.companion.mountHideAkariVibe.label": "AKARI バイブをしまう",
+  "companion.companion.mountResizeAkariVibe.label": "AKARI バイブの横幅を変える",
+  "companion.companion.akariVibe.label": "AKARI バイブ",
+  "companion.companion.startingAkariVibe.label": "AKARI バイブを起動しています…",
+  "companion.settings.validateSettingValueSettingAllowed.label": "許可されていない設定です",
+  "companion.settings.validateSettingValueEnterSize.label": "大きさは 60〜200 の数値にしてください",
+  "companion.settings.validateSettingValueInvalidThemeValue.label": "テーマの値が正しくありません",
+  "companion.settings.validateSettingValueTrueFalseValueRequired.label": "真偽値が必要です",
+  "companion.settings.validateSettingValueInvalidDisplayValue.label": "表示の値が正しくありません",
+  "companion.companion.guardedRewriteCurrentContentHasChanged.label": "現在の内容が変更されています",
+  "companion.settings.registerCommandsSettingAllowed.label": "許可されていない設定です"
+}

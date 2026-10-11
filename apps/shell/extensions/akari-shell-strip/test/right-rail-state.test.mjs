@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 // 右レールの状態の純ロジック（src/browser/right-rail-state.ts）を、試作
 // （内部リポ planning/notes-2026-09-22-right-rail-prototype.html 2 版）の drop(k, where) / クリック / × / 境目の
 // 規則どおりに動くか表駆動で確かめる（task 2026-09-22-right-rail-regroup）。Theia / Lumino は使わない。

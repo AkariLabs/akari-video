@@ -1,3 +1,4 @@
+import { t } from '../transcript-text';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -21,10 +22,10 @@ import { analysisTranscriptSummary, popupCanNavigate, popupInitialSourceIds, tra
     TranscribeConnectionStatus, TranscribeToolStatus } from '../../common/transcribe-steps';
 
 export const TRANSCRIBE_ENGINE_CARDS = [
-    { id: 'speech-analyzer', label: 'SpeechAnalyzer', place: 'このパソコン', hourlyUsd: 0, facts: '速い・送信なし' },
-    { id: 'whisper-cpp', label: 'Whisper · large-v3-turbo', place: 'このパソコン', hourlyUsd: 0, facts: '句読点に強い・送信なし' },
-    { id: 'cloud:scribe', label: 'ElevenLabs Scribe', place: 'クラウド', hourlyUsd: .40, facts: 'フィラーまで拾う' },
-    { id: 'cloud:groq', label: 'Groq Whisper', place: 'クラウド', hourlyUsd: .04, facts: '速い' }
+    { id: 'speech-analyzer', label: 'SpeechAnalyzer', place: t('transcript.captionPopup.dialog.computerDescription'), hourlyUsd: 0, facts: t('transcript.captionPopup.dialog.fastNoUploadDescription') },
+    { id: 'whisper-cpp', label: 'Whisper · large-v3-turbo', place: t('transcript.captionPopup.dialog.computerDescription'), hourlyUsd: 0, facts: t('transcript.captionPopup.dialog.goodPunctuationNoUploadDescription') },
+    { id: 'cloud:scribe', label: 'ElevenLabs Scribe', place: t('transcript.captionPopup.dialog.cloudDescription'), hourlyUsd: .40, facts: t('transcript.captionPopup.dialog.capturesFillerWordsDescription') },
+    { id: 'cloud:groq', label: 'Groq Whisper', place: t('transcript.captionPopup.dialog.cloudDescription'), hourlyUsd: .04, facts: t('transcript.captionPopup.dialog.fastDescription') }
 ];
 
 interface PopupSource {
@@ -142,7 +143,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         protected readonly listen: (start: number, end: number, sourcePath: string) => Promise<void>,
         protected readonly messages: MessageService,
         protected readonly probeHasAudio: (uri: string) => Promise<boolean | undefined>) {
-        super({ title: '字幕を作る' });
+        super({ title: t('transcript.captionPopup.dialog.createCaptionsTooltip') });
         this.node.dataset.akariTranscribeDialog = 'true';
         this.node.dataset.akariTranscribeMode = 'popup';
         const frame = this.contentNode.parentElement!;
@@ -212,7 +213,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const eligibility = captionSourceEligibility(source, { projectRoot: this.root.toString() });
                 return { ...source, name: source.path.replace(/\\/gu, '/').split('/').pop() || source.path,
                     status: eligibility.status, reason: eligibility.status === 'excluded'
-                        ? eligibility.reason : 'タイムラインにまだ置いていない素材',
+                        ? eligibility.reason : t('transcript.captionPopup.dialog.assetsNotYetTimelineLabel'),
                     hasTranscript: states[source.path] === 'done', unlisted: eligibility.status !== 'excluded' };
             }
             const analysisUri = this.root.resolve(`.akari/sidecars/${source.path}.analysis/analysis.json`);
@@ -288,7 +289,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const meta = el('span', source.duration === undefined ? '—:—' : time(source.duration));
         meta.style.cssText = 'color:var(--akari-muted);text-align:right;white-space:nowrap';
         if (source.hasTranscript) {
-            const chip = el('small', `起こし済み ${source.summary?.split(' · ')[0] ?? ''}`);
+            const chip = el('small', t('transcript.captionPopup.dialog.transcribedWithValueLabel', { value1: source.summary?.split(' · ')[0] ?? '' }));
             chip.style.cssText = 'display:block;margin-top:5px;padding:3px 6px;border-radius:10px;background:color-mix(in srgb, var(--akari-success) 16%, transparent);color:var(--akari-success)';
             meta.append(chip);
         }
@@ -297,11 +298,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             row.style.flexWrap = 'wrap';
             const syncRow = el('div');
             syncRow.style.cssText = 'flex:0 0 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-left:87px;box-sizing:border-box';
-            const syncLabel = el('small', '一緒に切る映像');
+            const syncLabel = el('small', t('transcript.captionPopup.dialog.videoCutTogetherLabel'));
             syncLabel.style.color = 'var(--akari-muted)';
             const sync = el('select');
-            sync.setAttribute('aria-label', `${source.name} をこの映像と同期`);
-            for (const [id, label] of [['', 'なし'], ...[...this.videoSourceIds].map(id =>
+            sync.setAttribute('aria-label', t('transcript.captionPopup.dialog.syncVideoWithAssetAriaLabel', { value1: source.name }));
+            for (const [id, label] of [['', t('transcript.captionPopup.dialog.noneLabel')], ...[...this.videoSourceIds].map(id =>
                 [id, this.sources.find(candidate => candidate.id === id)?.name ?? id])]) {
                 const option = el('option', label); option.value = id; sync.append(option);
             }
@@ -313,7 +314,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 if (sync.value) this.syncChoice.set(source.id, sync.value);
                 else this.syncChoice.delete(source.id);
             };
-            const hint = el('small', '組にしたあと、タイムラインで声をずらして口と合わせてください。合わせた位置のまま一緒に切れます。');
+            const hint = el('small', t('transcript.captionPopup.dialog.syncAudioToVideoInstruction'));
             hint.style.color = 'var(--akari-muted)';
             syncRow.append(syncLabel, sync, hint);
             row.append(syncRow);
@@ -331,7 +332,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const after = `${JSON.stringify(next, null, 2)}\n`;
             if (before !== after) {
                 await this.files.writeFile(editUri, BinaryBuffer.fromString(after));
-                daihonHistoryService()?.push({ label: videoSource ? '映像と同期' : '同期を解除',
+                daihonHistoryService()?.push({ label: videoSource ? t('transcript.captionPopup.dialog.syncVideoLabel') : t('transcript.captionPopup.dialog.removeSyncLabel'),
                     undo: async () => void await this.files.writeFile(editUri, BinaryBuffer.fromString(before)),
                     redo: async () => void await this.files.writeFile(editUri, BinaryBuffer.fromString(after)) });
             }
@@ -339,17 +340,17 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             else this.syncChoice.delete(audioSource);
             return true;
         } catch (error) {
-            this.notice.textContent = `同期を保存できません: ${error instanceof Error ? error.message : String(error)}`;
+            this.notice.textContent = t('transcript.captionPopup.dialog.couldNotSaveSyncWithDetailError', { value1: error instanceof Error ? error.message : String(error) });
             this.render();
             return false;
         }
     }
 
     protected renderSources(): void {
-        this.body.append(el('h3', 'どの素材の声を字幕にしますか'),
-            el('p', 'タイムラインに置いた素材のうち、声が入っていそうなものだけ並べています。'));
+        this.body.append(el('h3', t('transcript.captionPopup.dialog.whichAssetVoiceShouldBecomeCaptionsText')),
+            el('p', t('transcript.captionPopup.dialog.onlyAssetsTimelineMayContainSpeechShownMessage')));
         if (this.unsupportedTimeline) {
-            const reason = el('p', 'このタイムラインには、まだ字幕を作れません（メインのタイムラインで作ってください）');
+            const reason = el('p', t('transcript.captionPopup.dialog.captionsCannotCreatedTimelineYetUseMainTimelineMessage'));
             reason.setAttribute('role', 'alert'); reason.style.color = 'var(--akari-warning)'; this.body.append(reason);
         }
         const voice = this.sources.filter(source => source.status === 'voice');
@@ -358,7 +359,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (others.length) {
             const more = el('details'); more.open = this.showMore;
             more.ontoggle = () => { this.showMore = more.open; };
-            more.append(el('summary', `ほかの素材 ${others.length} 件（BGM ${others.filter(source => source.status === 'bgm').length} · 対象外 ${others.filter(source => source.status === 'excluded').length}）`));
+            more.append(el('summary', t('transcript.captionPopup.dialog.otherAssetsBgmExcludedWithValuesText', { value1: others.length, value2: others.filter(source => source.status === 'bgm').length, value3: others.filter(source => source.status === 'excluded').length })));
             for (const source of others) more.append(this.sourceCard(source));
             this.body.append(more);
         }
@@ -390,9 +391,9 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected renderMethod(): void {
         const selected = this.selectedSources();
         if (selected.some(source => source.hasTranscript)) {
-            this.body.append(el('h3', '起こし済みの素材があります'));
-            for (const [value, label, detail] of [[true, '前回の起こしを使う', `${selected.find(source => source.hasTranscript)?.summary ?? '起こし済み'}。すぐ終わる`],
-                [false, '起こし直す', '手で直した行は守り、それ以外を新しい結果にする']] as const) {
+            this.body.append(el('h3', t('transcript.captionPopup.dialog.someAssetsAlreadyTranscribedText')));
+            for (const [value, label, detail] of [[true, t('transcript.captionPopup.dialog.usePreviousTranscriptDescription'), t('transcript.captionPopup.dialog.willFinishQuicklyWithValueDescription', { value1: selected.find(source => source.hasTranscript)?.summary ?? t('transcript.captionPopup.dialog.statusTranscribed') })],
+                [false, t('transcript.captionPopup.dialog.transcribeAgainLabel'), t('transcript.captionPopup.dialog.keepManuallyEditedLinesReplaceRestNewResultMessage')]] as const) {
                 const row = el('label'); row.style.cssText = 'display:block;padding:8px';
                 const radio = el('input'); radio.type = 'radio'; radio.name = 'reuse'; radio.checked = this.reuse === value;
                 radio.onchange = () => { this.reuse = value; this.invalidateRun(); this.render(); };
@@ -403,19 +404,19 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             }
         }
         if (!this.needsTranscription()) {
-            const note = el('small', '前回の起こしを使うので、エンジンは使いません');
+            const note = el('small', t('transcript.captionPopup.dialog.previousTranscriptWillUsedSoNoEngineNeededMessage'));
             note.style.cssText = 'display:block;margin:10px 0;color:var(--akari-muted)'; this.body.append(note);
         }
-        this.body.append(el('h3', 'どのエンジンで起こしますか'), el('p', '迷ったら「おまかせ」のまま次へ。'));
-        const engines = [{ id: 'auto', label: 'おまかせ', facts: 'この機械で使えるものから選ぶ', place: 'ローカル優先', hourlyUsd: 0 }, ...TRANSCRIBE_ENGINE_CARDS];
+        this.body.append(el('h3', t('transcript.captionPopup.dialog.whichEngineShouldTranscribeText')), el('p', t('transcript.captionPopup.dialog.ifUnsureLeaveAutoSelectedContinueText')));
+        const engines = [{ id: 'auto', label: t('transcript.captionPopup.dialog.autoDescription'), facts: t('transcript.captionPopup.dialog.chooseAvailableEngineComputerDescription'), place: t('transcript.captionPopup.dialog.preferLocalDescription'), hourlyUsd: 0 }, ...TRANSCRIBE_ENGINE_CARDS];
         const grid = el('div');
         Object.assign(grid.style, { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px' });
         for (const engine of engines) {
             const autoReady = TRANSCRIBE_ENGINE_CARDS.some(card => card.hourlyUsd === 0
                 && transcribeEngineAvailability(card.id, this.tools, this.connections).state === 'available');
             const available = engine.id === 'auto' ? autoReady
-                ? { state: 'available', label: '使える' }
-                : { state: 'needs', label: '準備が要る（ローカルのエンジンがありません）' }
+                ? { state: 'available', label: t('transcript.captionPopup.dialog.availableLabel') }
+                : { state: 'needs', label: t('transcript.captionPopup.dialog.setupRequiredNoLocalEngineFoundLabel') }
                 : transcribeEngineAvailability(engine.id, this.tools, this.connections);
             const disabled = engine.id !== 'auto' && (!this.availabilityLoaded || available.state !== 'available');
             const row = el('label');
@@ -433,11 +434,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             };
             const name = el('strong', ` ${engine.label}`);
             if (engine.id === 'auto') {
-                const badge = el('small', 'おすすめ'); badge.style.cssText = 'margin-left:8px;color:var(--akari-warning)'; name.append(badge);
+                const badge = el('small', t('transcript.captionPopup.dialog.recommendedText')); badge.style.cssText = 'margin-left:8px;color:var(--akari-warning)'; name.append(badge);
             }
             const detail = el('small', `${engine.facts} · ${engine.place}`);
             detail.style.cssText = 'display:block;margin:4px 0 0 22px;color:var(--akari-muted)';
-            const badge = el('small', this.availabilityLoaded ? available.label : '確認中…');
+            const badge = el('small', this.availabilityLoaded ? available.label : t('transcript.captionPopup.dialog.ongoingCheckingLabel'));
             badge.style.cssText = `display:inline-block;margin:7px 0 0 22px;padding:3px 7px;border-radius:10px;${disabled || available.state !== 'available'
                 ? 'background:var(--akari-elevated);color:var(--akari-muted)'
                 : 'background:color-mix(in srgb, var(--akari-success) 16%, transparent);color:var(--akari-success)'}`;
@@ -446,7 +447,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         }
         this.body.append(grid);
         if (this.needsTranscription() && this.availabilityLoaded && !this.enginesReady()) {
-            this.body.append(el('p', '使えるエンジンを選んでください。'));
+            this.body.append(el('p', t('transcript.captionPopup.dialog.chooseAvailableEngineText')));
         }
         const clouds = this.needsTranscription() ? this.selectedClouds() : [];
         if (clouds.length) {
@@ -454,16 +455,16 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             const seconds = transcribed.reduce((sum, source) => sum + (source.duration ?? 0), 0);
             const hourly = clouds.reduce((sum, engine) => sum + engine.hourlyUsd, 0);
             const cost = transcribed.every(source => source.duration !== undefined)
-                ? `${transcribed.length} 本 · 約 ${Math.ceil(seconds / 60)} 分で、約 $${(seconds * hourly / 3600).toFixed(2)}`
-                : `1 時間あたり $${hourly.toFixed(2)}`;
-            const note = el('p', `音声を ${clouds.map(engine => engine.label).join('・')} に送ります。${cost} です。ここで確かめたので、あとで別の確認は出しません。`);
+                ? t('transcript.captionPopup.dialog.assetsAboutMinAboutWithValuesLabel', { value1: transcribed.length, value2: Math.ceil(seconds / 60), value3: (seconds * hourly / 3600).toFixed(2) })
+                : t('transcript.captionPopup.dialog.perHourWithRateLabel', { value1: hourly.toFixed(2) });
+            const note = el('p', t('transcript.captionPopup.dialog.cloudAudioCostConfirmation', { value1: clouds.map(engine => engine.label).join(t('transcript.shared.list.separator')), value2: cost }));
             note.style.cssText = 'padding:11px;border:1px solid var(--akari-warning);border-radius:7px;color:var(--akari-warning)';
             note.dataset.akariCloudCost = cost;
             this.body.append(note);
         }
         const details = el('details'); details.open = this.showDetails;
         details.ontoggle = () => { this.showDetails = details.open; };
-        details.append(el('summary', '詳しく'));
+        details.append(el('summary', t('transcript.captionPopup.dialog.detailsDescription')));
         const compare = el('label'); compare.style.cssText = 'display:block;padding:10px';
         const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = this.compare;
         toggle.onchange = () => {
@@ -471,17 +472,17 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             if (this.compare && this.backend !== 'auto') this.compareSet.add(this.backend);
             this.invalidateRun(); this.render();
         };
-        compare.append(toggle, ' 2 つ以上のエンジンで起こして比べる'); details.append(compare);
+        compare.append(toggle, t('transcript.captionPopup.dialog.leadingCompareResultsFromTwoMoreEnginesDescription')); details.append(compare);
         this.body.append(details);
     }
 
     protected renderProgress(): void {
-        this.body.append(el('h3', '起こしています'));
-        this.body.append(el('p', 'このポップアップを閉じても続きます。終わったら右下に知らせが出ます。'));
+        this.body.append(el('h3', t('transcript.captionPopup.dialog.transcribingText')));
+        this.body.append(el('p', t('transcript.captionPopup.dialog.backgroundTranscriptionNotice')));
         for (const source of this.selectedSources()) {
             const row = el('div'); row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--akari-line-inner)';
             const done = this.completedSources.has(source.id);
-            const label = el('div', `${source.name} · ${done ? '完了' : source === this.currentSource ? this.progressText() : '待機中'}`);
+            const label = el('div', `${source.name} · ${done ? t('transcript.captionPopup.dialog.statusComplete') : source === this.currentSource ? this.progressText() : t('transcript.captionPopup.dialog.statusWaiting')}`);
             if (source === this.currentSource) label.dataset.akariTranscribeProgress = 'true';
             const bar = el('progress'); bar.max = 1;
             if (done) bar.value = 1;
@@ -497,7 +498,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const column = el('section');
                 column.style.cssText = 'padding:10px;border:1px solid var(--akari-line);border-radius:8px;min-width:0';
                 column.append(el('strong', TRANSCRIBE_ENGINE_CARDS.find(engine => engine.id === backend)?.label ?? backend),
-                    el('p', this.engineProgress.get(backend) ?? '待機中'));
+                    el('p', this.engineProgress.get(backend) ?? t('transcript.captionPopup.dialog.waitingLabel')));
                 const transcript = this.artifacts.transcripts.find(item => item.backend === backend.replace(/:/g, '-'));
                 for (const line of transcript?.segments.slice(-4) ?? []) column.append(el('p', line.text));
                 columns.append(column);
@@ -510,8 +511,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     }
 
     protected renderFinish(): void {
-        this.body.append(el('h3', '仕上げ'));
-        if (this.finished) this.body.append(el('p', `カット候補 ${this.cutCandidateCount} 件 · この段階では切っていません。`));
+        this.body.append(el('h3', t('transcript.captionPopup.dialog.finishText')));
+        if (this.finished) this.body.append(el('p', t('transcript.captionPopup.dialog.cutCandidatesNothingHasBeenCutYetWithCountText', { value1: this.cutCandidateCount })));
         if (this.notice.textContent) {
             const error = el('p', this.notice.textContent);
             error.setAttribute('role', 'alert'); error.style.color = 'var(--akari-warning)';
@@ -520,8 +521,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.preview) {
             const metrics = el('div');
             metrics.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0 18px';
-            for (const [label, count] of [['新しい行', this.preview.added], ['変わる行', this.preview.changed],
-                ['手で直した行（守る）', this.preview.protected], ['消える行', this.preview.removed]] as const) {
+            for (const [label, count] of [[t('transcript.captionPopup.dialog.newLinesLabel'), this.preview.added], [t('transcript.captionPopup.dialog.changedLinesLabel'), this.preview.changed],
+                [t('transcript.captionPopup.dialog.manuallyEditedLinesProtectedLabel'), this.preview.protected], [t('transcript.captionPopup.dialog.removedLinesLabel'), this.preview.removed]] as const) {
                 const tile = el('div'); tile.style.cssText = 'padding:12px;background:var(--akari-card);border:1px solid var(--akari-line);border-radius:8px';
                 const number = el('strong', String(count)); number.style.cssText = 'display:block;font-size:25px;color:var(--akari-warning)';
                 const caption = el('small', label); caption.style.color = 'var(--akari-muted)';
@@ -529,17 +530,17 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             }
             this.body.append(metrics);
         } else if (this.selectedSources().some(source => source.unlisted)) {
-            this.body.append(el('p', 'タイムラインにない素材の差分は、配置後に計算します。'));
+            this.body.append(el('p', t('transcript.captionPopup.dialog.unplacedAssetDiffDeferredNotice')));
         }
         if (this.artifacts.diff) {
             const diff = this.artifacts.diff;
-            this.body.append(el('p', `差分 ${diff.items.length} 件 · 一致 ${Math.round(diff.agreement * 100)}%`));
+            this.body.append(el('p', t('transcript.captionPopup.dialog.differencesAgreementWithValuesText', { value1: diff.items.length, value2: Math.round(diff.agreement * 100) })));
             const table = el('table'); table.style.width = '100%';
-            const header = el('tr'); ['時刻', ...diff.engines, '確認'].forEach(label => header.append(el('th', label))); table.append(header);
+            const header = el('tr'); [t('transcript.captionPopup.dialog.timeText'), ...diff.engines, t('transcript.captionPopup.dialog.reviewText')].forEach(label => header.append(el('th', label))); table.append(header);
             for (const item of diff.items) {
                 const row = el('tr'); row.append(el('td', `${item.start.toFixed(1)}–${item.end.toFixed(1)}`));
                 for (const engine of diff.engines) row.append(el('td', item.texts[engine] || '—'));
-                const listen = el('td'); listen.append(plainButton('▶ 聞く', () => {
+                const listen = el('td'); listen.append(plainButton(t('transcript.captionPopup.dialog.playListenAction'), () => {
                     void this.listen(item.start, item.end, this.currentSource?.path ?? this.selectedSources()[0]?.path ?? '')
                         .catch(error => { this.notice.textContent = String(error); });
                 }));
@@ -549,45 +550,45 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             this.body.append(table);
         }
         if (this.applied) return;
-        this.body.append(el('h3', '字幕の形'));
+        this.body.append(el('h3', t('transcript.captionPopup.dialog.captionFormatText')));
         const group = (label: string): HTMLElement => { const node = el('section'); node.style.margin = '13px 0'; node.append(el('strong', label)); return node; };
-        const chars = group('1 行の文字数');
+        const chars = group(t('transcript.captionPopup.dialog.charactersPerLineLabel'));
         const range = el('input'); range.type = 'range'; range.min = '5'; range.max = '28'; range.value = String(this.chars);
-        const value = el('span', ` ${this.chars} 字`);
-        range.oninput = () => { this.chars = Number(range.value); value.textContent = ` ${this.chars} 字`; this.updateExample(); };
+        const value = el('span', t('transcript.captionPopup.dialog.leadingCharactersWithCountLabel', { value1: this.chars }));
+        range.oninput = () => { this.chars = Number(range.value); value.textContent = t('transcript.captionPopup.dialog.leadingCharactersWithCountText', { value1: this.chars }); this.updateExample(); };
         chars.append(el('br'), range, value); this.body.append(chars);
-        const lines = group('行数');
+        const lines = group(t('transcript.captionPopup.dialog.linesLabel'));
         for (const count of [1, 2] as const) {
-            const choice = plainButton(`${count} 行`, () => { this.lines = count; this.render(); });
+            const choice = plainButton(t('transcript.captionPopup.dialog.linesWithCountAction', { value1: count }), () => { this.lines = count; this.render(); });
             choice.style.marginRight = '8px'; choice.setAttribute('aria-pressed', String(this.lines === count));
             if (this.lines === count) choice.style.borderColor = 'var(--akari-accent)';
             lines.append(choice);
         }
         this.body.append(lines);
-        const timing = group('表示タイミング');
-        for (const [key, label] of [['full', '余韻あり'], ['speech-tight', '発話ぴったり']] as const) {
+        const timing = group(t('transcript.captionPopup.dialog.displayTimingLabel'));
+        for (const [key, label] of [['full', t('transcript.captionPopup.dialog.tailLabel')], ['speech-tight', t('transcript.captionPopup.dialog.matchSpeechLabel')]] as const) {
             const choice = plainButton(label, () => { this.timing = key; this.render(); });
             choice.style.marginRight = '8px'; choice.setAttribute('aria-pressed', String(this.timing === key));
             if (this.timing === key) choice.style.borderColor = 'var(--akari-accent)';
             timing.append(choice);
         }
         this.body.append(timing);
-        const karaoke = group('カラオケ表示');
+        const karaoke = group(t('transcript.captionPopup.dialog.karaokeDisplayLabel'));
         const karaokeLabel = el('label');
         karaokeLabel.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer';
         const karaokeToggle = el('input'); karaokeToggle.type = 'checkbox'; karaokeToggle.checked = this.karaoke;
         karaokeToggle.onchange = () => { this.karaoke = karaokeToggle.checked; this.updateExample(); };
-        karaokeLabel.append(karaokeToggle, el('span', '読み上げに合わせて文字の色が変わる'));
-        karaoke.append(karaokeLabel, el('small', '行ごとの ⚙ でも切り替えられます。'));
+        karaokeLabel.append(karaokeToggle, el('span', t('transcript.captionPopup.dialog.textColorChangesSpeechText')));
+        karaoke.append(karaokeLabel, el('small', t('transcript.captionPopup.dialog.canAlsoChangeEachLineSettingsText')));
         this.body.append(karaoke);
         const example = el('p'); example.dataset.akariCaptionExample = 'true';
         example.style.cssText = 'max-width:420px;padding:14px;background:var(--akari-card);border-radius:8px;line-height:1.6';
         this.body.append(example); this.updateExample();
-        const afterNote = el('small', 'あとから台本の「表示 ▾」で変えられます。');
+        const afterNote = el('small', t('transcript.captionPopup.dialog.dropdownCanChangeLaterUnderDisplayScriptMessage'));
         afterNote.style.color = 'var(--akari-muted)'; this.body.append(afterNote);
         if (this.preview?.protected) {
-            const force = group('手で直した行');
-            for (const [value, label] of [[false, '守る（おすすめ）'], [true, '上書きする']] as const) {
+            const force = group(t('transcript.captionPopup.dialog.manuallyEditedLinesLabel'));
+            for (const [value, label] of [[false, t('transcript.captionPopup.dialog.protectRecommendedLabel')], [true, t('transcript.captionPopup.dialog.overwriteLabel')]] as const) {
                 const choice = el('label'); choice.style.marginRight = '16px';
                 const radio = el('input'); radio.type = 'radio'; radio.name = 'force'; radio.checked = this.force === value;
                 radio.onchange = () => { this.force = value; };
@@ -618,7 +619,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.isDisposed) return;
         this.node.dataset.step = String(this.step + 1);
         this.steps.replaceChildren(); this.body.replaceChildren(); this.foot.replaceChildren();
-        ['素材', '起こし方', '起こす', '仕上げ'].forEach((name, index) => {
+        [t('transcript.captionPopup.dialog.assetsLabel'), t('transcript.captionPopup.dialog.transcriptionMethodLabel'), t('transcript.captionPopup.dialog.transcribeLabel'), t('transcript.captionPopup.dialog.finishLabel')].forEach((name, index) => {
             const control = plainButton(`${index < this.step ? '✓' : index + 1} ${name}`, () => {
                 if (popupCanNavigate(index, this.reached, this.running)) { this.step = index as 0 | 1 | 2 | 3; this.render(); }
             }, !popupCanNavigate(index, this.reached, this.running));
@@ -637,8 +638,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.step === 0) {
             const selected = this.selectedSources();
             const duration = selected.reduce((sum, source) => sum + (source.duration ?? 0), 0);
-            this.foot.append(el('span', `${selected.length} 本を選択 · 計 ${time(duration)}`), spacer);
-            const next = button('次へ', () => { void (async () => {
+            this.foot.append(el('span', t('transcript.captionPopup.dialog.assetsSelectedTotalWithValuesText', { value1: selected.length, value2: time(duration) })), spacer);
+            const next = button(t('transcript.captionPopup.dialog.nextAction'), () => { void (async () => {
                 next.disabled = true;
                 for (const source of this.sources.filter(candidate => candidate.status === 'voice'
                     && !isCaptionVideo(candidate) && this.videoSourceIds.size)) {
@@ -651,27 +652,27 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 !selected.length || this.unsupportedTimeline);
             next.dataset.primary = 'true'; next.className = 'theia-button'; this.foot.append(next);
         } else if (this.step === 1) {
-            this.foot.append(button('戻る', () => { this.step = 0; this.render(); }), spacer);
-            const start = button('起こす', () => void this.start(), !this.selected.size || this.unsupportedTimeline
+            this.foot.append(button(t('transcript.captionPopup.dialog.backAction'), () => { this.step = 0; this.render(); }), spacer);
+            const start = button(t('transcript.captionPopup.dialog.transcribeAction'), () => void this.start(), !this.selected.size || this.unsupportedTimeline
                 || !this.enginesReady());
             start.dataset.primary = 'true'; start.className = 'theia-button'; this.foot.append(start);
         } else if (this.step === 2) {
-            this.foot.append(el('span', this.finished ? '起こしが終わりました' : '起こし中…'), spacer);
-            if (this.running) this.foot.append(button('中止', () => void this.cancel()));
+            this.foot.append(el('span', this.finished ? t('transcript.captionPopup.dialog.transcriptionCompleteText') : t('transcript.captionPopup.dialog.ongoingTranscribingText')), spacer);
+            if (this.running) this.foot.append(button(t('transcript.captionPopup.dialog.cancelAction'), () => void this.cancel()));
             else if (this.finished) {
-                const next = button('仕上げへ', () => { this.step = 3; this.reached = 3; this.render(); });
+                const next = button(t('transcript.captionPopup.dialog.goFinishAction'), () => { this.step = 3; this.reached = 3; this.render(); });
                 next.dataset.primary = 'true'; next.className = 'theia-button'; this.foot.append(next);
-            } else this.foot.append(button('起こし方へ戻る', () => { this.step = 1; this.render(); }));
+            } else this.foot.append(button(t('transcript.captionPopup.dialog.backTranscriptionMethodAction'), () => { this.step = 1; this.render(); }));
         } else if (this.applied) {
-            this.foot.append(el('span', '台本に反映しました · ⌘Z で元に戻せる'), spacer);
-            if (this.cutCandidateCount > 0) this.foot.append(button('カットを整える…', () => {
+            this.foot.append(el('span', t('transcript.captionPopup.dialog.appliedScriptUndoText')), spacer);
+            if (this.cutCandidateCount > 0) this.foot.append(button(t('transcript.captionPopup.dialog.ongoingRefineCutsAction'), () => {
                 this.close(); void this.commands.executeCommand('akari.cuts.open');
             }));
-            this.foot.append(button('台本を見る', () => { void this.commands.executeCommand('akari.daihon.open'); this.close(); }));
+            this.foot.append(button(t('transcript.captionPopup.dialog.viewScriptAction'), () => { void this.commands.executeCommand('akari.daihon.open'); this.close(); }));
         } else {
-            this.foot.append(button('戻る', () => { this.step = 2; this.render(); }), spacer);
+            this.foot.append(button(t('transcript.captionPopup.dialog.backAction'), () => { this.step = 2; this.render(); }), spacer);
             const unlisted = this.selectedSources().filter(source => source.unlisted);
-            const apply = button(unlisted.length ? 'タイムラインに置いて差分を確認' : '台本に反映',
+            const apply = button(unlisted.length ? t('transcript.captionPopup.dialog.placeTimelineReviewDifferencesAction') : t('transcript.captionPopup.dialog.applyScriptAction'),
                 () => { if (unlisted.length) void this.prepareUnlisted(); else void this.apply(); },
                 !this.finished || this.unsupportedTimeline || unlisted.some(source => this.unregisteredPlacements.has(source.path))
                     || !unlisted.length && !this.preview);
@@ -698,7 +699,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 this.render();
                 this.progressTimer = setInterval(() => {
                     const progress = this.body.querySelector<HTMLElement>('[data-akari-transcribe-progress]');
-                    if (progress) progress.textContent = `${this.currentSource?.name ?? '準備中'} · ${this.progressText()}`;
+                    if (progress) progress.textContent = `${this.currentSource?.name ?? t('transcript.captionPopup.dialog.statusPreparing')} · ${this.progressText()}`;
                     void this.pollProgress();
                 }, 1000);
                 if (this.sourceNeedsTranscription(source)) {
@@ -715,14 +716,14 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 await this.refreshPreview();
                 this.cutCandidateCount = this.countCutCandidates(await this.transcribedCutRows());
                 this.finished = true; this.step = 3; this.reached = 3;
-                if (this.isDisposed) void this.messages.info('起こしが終わりました（まだ台本には入っていません）', '仕上げを開く')
-                    .then(action => { if (action === '仕上げを開く') void this.reopenFinish().catch(error => {
+                if (this.isDisposed) void this.messages.info(t('transcript.captionPopup.dialog.transcriptionCompleteNotYetAddedScriptNotice'), t('transcript.captionPopup.dialog.openFinishNotice'))
+                    .then(action => { if (action) void this.reopenFinish().catch(error => {
                         void this.messages.error(String(error), { timeout: 0 });
                     }); });
             }
         } catch (error) {
             this.notice.textContent = error instanceof Error ? error.message : String(error);
-            if (this.isDisposed && !this.cancelled) void this.messages.error(`字幕を作れません: ${this.notice.textContent}`, { timeout: 0 });
+            if (this.isDisposed && !this.cancelled) void this.messages.error(t('transcript.captionPopup.dialog.couldNotCreateCaptionsWithDetailError', { value1: this.notice.textContent }), { timeout: 0 });
         }
         finally {
             clearInterval(this.progressTimer); this.progressTimer = undefined;
@@ -762,7 +763,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                     || event.id < this.eventFloor || this.seenEvents.has(event.id)) continue;
                 this.seenEvents.add(event.id);
                 if (event.backend) this.engineProgress.set(event.backend,
-                    event.status === 'completed' ? '完了' : event.status === 'failed' ? '失敗' : '起こし中');
+                    event.status === 'completed' ? t('transcript.captionPopup.dialog.completeLabel') : event.status === 'failed' ? t('transcript.captionPopup.dialog.failedLabel') : t('transcript.captionPopup.dialog.transcribingLabel'));
                 if (event.error) this.notice.textContent = event.error;
             }
             if (!this.isDisposed && this.step === 2) this.render();
@@ -811,7 +812,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const id = edit.sources?.find(item => normalizedCaptionPath(item.path) === normalizedCaptionPath(source.path))?.id;
                 if (!id) {
                     this.unregisteredPlacements.add(source.path);
-                    throw new Error('台本の素材一覧に登録されませんでした。タイムラインに置いた素材は残っています。');
+                    throw new Error(t('transcript.captionPopup.dialog.couldNotAddAssetScriptListAssetRemainsTimelineError'));
                 }
                 this.selected.delete(source.id); this.selected.add(id);
                 const artifacts = this.artifactsBySource.get(source.id);
@@ -819,7 +820,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 source.id = id; source.unlisted = false; source.reason = undefined;
             }
             await this.refreshPreview();
-            if (!this.preview) throw new Error('差分を確認できませんでした。タイムラインに置いた素材は残っています。');
+            if (!this.preview) throw new Error(t('transcript.captionPopup.dialog.couldNotReviewDifferencesAssetRemainsTimelineError'));
             this.render();
         } catch (error) { this.notice.textContent = error instanceof Error ? error.message : String(error); this.render(); }
     }
@@ -828,12 +829,12 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (!this.finished || this.applied || !this.editUri || this.unsupportedTimeline) return;
         if (this.selectedSources().some(source => source.unlisted)) {
             this.notice.textContent = this.selectedSources().some(source => this.unregisteredPlacements.has(source.path))
-                ? '台本の素材一覧に登録されませんでした。タイムラインに置いた素材は残っています。'
-                : 'タイムラインにない素材の差分を先に確認してください。';
+                ? t('transcript.captionPopup.dialog.couldNotAddAssetScriptListAssetRemainsTimelineError')
+                : t('transcript.captionPopup.dialog.reviewDifferencesAssetsNotTimelineFirstMessage');
             this.render(); return;
         }
         if (!this.preview) {
-            this.notice.textContent = '差分を確認できませんでした。台本への反映を止めました。';
+            this.notice.textContent = t('transcript.captionPopup.dialog.couldNotReviewDifferencesApplyingScriptStoppedError');
             this.render(); return;
         }
         this.notice.textContent = '';
@@ -845,11 +846,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const result = await this.service.buildCaptions({ projectRoot: this.root.toString(), editUri: this.editUri.toString(),
                     source: source.id, force: this.force });
                 if (result.needsForce) {
-                    this.notice.textContent = '手で直した行を上書きする場合は「上書きする」を選んでください。';
+                    this.notice.textContent = t('transcript.captionPopup.dialog.selectOverwriteReplaceManuallyEditedLinesText');
                     this.render(); return;
                 }
                 const afterSource = (await this.files.readFile(captionsUri)).value.toString();
-                this.recordCaptionsHistory(captionsUri, before, afterSource, `台本へ反映 · ${source.name}`);
+                this.recordCaptionsHistory(captionsUri, before, afterSource, t('transcript.captionPopup.dialog.applyScriptWithValueLabel', { value1: source.name }));
                 before = afterSource;
             }
             const raw = JSON.parse((await this.files.readFile(captionsUri)).value.toString()) as {
@@ -877,16 +878,16 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 });
             }
             const after = (await this.files.readFile(captionsUri)).value.toString();
-            this.recordCaptionsHistory(captionsUri, before, after, '字幕の形を設定');
+            this.recordCaptionsHistory(captionsUri, before, after, t('transcript.captionPopup.dialog.setCaptionFormatLabel'));
             const parsed = parseCaptions(after);
             this.cutCandidateCount = this.countCutCandidates(parsed.captions as DaihonCaptionLike[]);
             this.applied = true; this.render();
-            if (this.isDisposed) void this.messages.info('字幕ができました', '台本を開く').then(action => {
-                if (action === '台本を開く') void this.commands.executeCommand('akari.daihon.open');
+            if (this.isDisposed) void this.messages.info(t('transcript.captionPopup.dialog.captionsCreatedNotice'), t('transcript.captionPopup.dialog.openScriptNotice')).then(action => {
+                if (action) void this.commands.executeCommand('akari.daihon.open');
             });
         } catch (error) {
             this.notice.textContent = error instanceof Error ? error.message : String(error); this.render();
-            if (this.isDisposed) void this.messages.error(`台本に反映できません: ${this.notice.textContent}`, { timeout: 0 });
+            if (this.isDisposed) void this.messages.error(t('transcript.captionPopup.dialog.couldNotApplyScriptWithDetailError', { value1: this.notice.textContent }), { timeout: 0 });
         }
     }
 
@@ -901,6 +902,6 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected async cancel(): Promise<void> {
         this.cancelled = true;
         if (this.currentSource) await this.service.cancelTranscribe({ projectRoot: this.root.toString(), relativePath: this.currentSource.path });
-        this.notice.textContent = '文字起こしを中止しました';
+        this.notice.textContent = t('transcript.captionPopup.dialog.transcriptionCanceledText');
     }
 }

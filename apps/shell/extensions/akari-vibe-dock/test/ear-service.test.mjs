@@ -1,3 +1,6 @@
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

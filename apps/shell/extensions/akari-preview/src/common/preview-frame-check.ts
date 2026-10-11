@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { PreviewFrameRect } from './preview-frame-capture';
 
 export type PreviewFrameColor = [number, number, number];
@@ -92,7 +93,7 @@ export function inspectPreviewFrame(pixels: Uint8Array, width: number, height: n
     return { ok: reasons.length === 0, reasons };
 }
 
-export const PREVIEW_FRAME_CAPTURE_FAILURE = 'コマを保存できませんでした。もう一度押してください';
+export const PREVIEW_FRAME_CAPTURE_FAILURE = () => t('preview.frameCapture.status.couldNotSaveFrameTryAgainError');
 
 /** attempt restores editor chrome but keeps the first freeze until this whole operation ends. */
 export async function runPreviewFrameCaptureAttempts<T>(options: {
@@ -110,6 +111,6 @@ export async function runPreviewFrameCaptureAttempts<T>(options: {
         await options.save(frame);
         return true;
     }
-    options.notify(PREVIEW_FRAME_CAPTURE_FAILURE);
+    options.notify(PREVIEW_FRAME_CAPTURE_FAILURE());
     return false;
 }

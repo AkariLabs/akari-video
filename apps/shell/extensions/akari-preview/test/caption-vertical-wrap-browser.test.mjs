@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import { launchBrowser } from '../../../../../packages/overlay-runtime/test-harness/fixtures/browser.mjs';
 import { captionWrapHeightDrag } from '../lib/common/caption-plate-handles.js';
 import { captionOrientedFrame } from '../lib/common/caption-edit-geometry.js';
 import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
 import { captionTextStyleVars, renderCaptionFragment, renderResolvedSingleLineCaption } from '../../../../../packages/render-cut/src/captions.mjs';
+
+const require = createRequire(import.meta.url);
+const previewJa = require('../../../../../packages/i18n/locales/ja/preview.json');
 
 const output = { width: 1920, height: 1080 };
 const text = '今日は天気が良いので散歩';
@@ -136,7 +140,7 @@ test('vertical grips are hollow hit targets and dragging holds the first column 
       + 'pointer-events:auto}</style>';
     await page.setContent(handleCss + '<div id="stage">'
       + htmlFor([text], 75) + '<div id="caption-select-box"></div></div>');
-    await page.evaluate(({ selectionSource, dragSource, heightSource, frameSource, positionSource }) => {
+    await page.evaluate(({ selectionSource, dragSource, heightSource, frameSource, positionSource, previewJa }) => {
       window.__writes = [];
       window.akari = { engine: { captionWrite: async (_id, patch) => { window.__writes.push(patch); } },
         showWriteError: error => { throw error; } };
@@ -170,12 +174,13 @@ test('vertical grips are hollow hit targets and dragging holds the first column 
         'const captionOrientedFrameFn=(' + frameSource + ');',
         'const captionWrapPositionFn=(' + positionSource + ');'
       ].join('\n');
-      new Function('window', 'document', prelude + '\n' + selectionSource + '\n'
+      const t = key => previewJa[key] ?? key;
+      new Function('window', 'document', 't', prelude + '\n' + selectionSource + '\n'
         + dragSource + '\napplyCaptionSelectionAttrs();'
         + "stage.addEventListener('pointerdown',event=>{const h=event.target.closest('.akari-caption-handle');"
-        + "if(h)beginCaptionHandleDrag(event,h,captions[0],'c1')});")(window, document);
+        + "if(h)beginCaptionHandleDrag(event,h,captions[0],'c1')});")(window, document, t);
     }, { selectionSource, dragSource, heightSource: captionWrapHeightDrag.toString(),
-      frameSource: captionOrientedFrame.toString(), positionSource: captionWrapPosition.toString() });
+      frameSource: captionOrientedFrame.toString(), positionSource: captionWrapPosition.toString(), previewJa });
     const grips = await page.evaluate(() => {
       const inspect = kind => {
         const node = document.querySelector('[data-h="' + kind + '"]');

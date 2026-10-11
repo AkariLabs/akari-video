@@ -1,10 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, nextCopyId
-} from '../lib/common/timeline-clipboard.js';
-import { indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
-import { parseCaptions } from '../lib/common/caption-store.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, nextCopyId } = await import('../lib/common/timeline-clipboard.js');
+const { indexEditV2Items } = await import('../lib/common/edit-v2-mutations.js');
+const { parseCaptions } = await import('../lib/common/caption-store.js');
+
+
+
+
 
 const visual = (id, at, duration) => ({ id, at, duration, source: { kind: 'media', src: 'src', in: 0, out: duration / 30 } });
 const selections = [

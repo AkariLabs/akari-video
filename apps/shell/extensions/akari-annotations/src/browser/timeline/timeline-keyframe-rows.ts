@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export const DEFAULT_KEYFRAME_PROPERTIES = [
     'transform.x', 'transform.scale', 'transform.rotate', 'opacity'
 ] as const;
@@ -46,15 +47,15 @@ export interface KeyframeItemLike {
 }
 
 const LABELS: Record<KeyframeProperty, string> = {
-    'transform.x': '位置',
+    'transform.x': t('annotationscommon.timelineKeyframeRows.label.position'),
     'transform.y': 'Y',
-    'transform.scale': '大きさ',
-    'transform.scaleX': '幅',
-    'transform.scaleY': '高さ',
-    'transform.rotate': '回転',
-    opacity: '不透明度',
-    crop: 'クロップ',
-    perspective: 'パース'
+    'transform.scale': t('annotationscommon.timelineKeyframeRows.label.size'),
+    'transform.scaleX': t('annotationscommon.timelineKeyframeRows.label.width'),
+    'transform.scaleY': t('annotationscommon.timelineKeyframeRows.label.height'),
+    'transform.rotate': t('annotationscommon.timelineKeyframeRows.label.rotation'),
+    opacity: t('annotationscommon.timelineKeyframeRows.label.opacity'),
+    crop: t('annotationscommon.timelineKeyframeRows.label.crop'),
+    perspective: t('annotationscommon.timelineKeyframeRows.label.parse')
 };
 
 export function deriveTimelineKeyframeRows(

@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export interface DaihonWordRange { row: string; a: number; b: number }
 export interface DaihonWordRow { id: string; words: readonly { text: string; start: number; end: number }[] }
 export interface DaihonSelectedWord { row: string; index: number; text: string; start: number; end: number }
@@ -84,6 +85,6 @@ export function wordRangeSummary(rows: readonly DaihonWordRow[], ranges: readonl
         text: ranges.map(range => {
             const row = byId.get(range.row);
             return row ? row.words.slice(range.a, range.b + 1).map(word => word.text).join('') : '';
-        }).filter(Boolean).join('・')
+        }).filter(Boolean).join(t('transcript.daihon.wordSelection.leadingMiddleDotTrailingLabel'))
     };
 }

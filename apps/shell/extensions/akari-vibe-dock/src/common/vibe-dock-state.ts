@@ -1,3 +1,4 @@
+import { t } from '../browser/vibe-text';
 import { Disposable, Emitter, Event } from '@theia/core/lib/common';
 import { PointedTarget, VibeDockJob } from './vibe-dock-tab';
 
@@ -19,9 +20,9 @@ export interface LayoutStorage {
 
 export const LAYOUT_KEY = 'akari.vibeDock.layout';
 export const MARK_PRESENTATION: Record<MarkState, { shape: string; line: string; tooltip: string }> = {
-    idle: { shape: 'outline', line: '止まっています', tooltip: '止まっています' },
-    listening: { shape: 'pulse', line: '聞いています', tooltip: '聞いています' },
-    acting: { shape: 'inner-dot', line: 'Jev が動かしています', tooltip: 'Jev が動かしています' }
+    idle: { shape: 'outline', line: t('vibe.dock.state.stoppedLabel'), tooltip: t('vibe.dock.state.stoppedLabel') },
+    listening: { shape: 'pulse', line: t('vibe.dock.state.listeningLabel'), tooltip: t('vibe.dock.state.listeningLabel') },
+    acting: { shape: 'inner-dot', line: t('vibe.dock.state.jevControllingScreenLabel'), tooltip: t('vibe.dock.state.jevControllingScreenLabel') }
 };
 export function widthMode(width: number): 'full' | 'compact' | 'tiny' {
     return width < 240 ? 'tiny' : width < 320 ? 'compact' : 'full';
@@ -132,14 +133,14 @@ export class VibeDockState {
             .filter(job => job.state === 'blocked' || job.state === 'failed')
             .sort((a, b) => (this.jobOrders.get(b.id) ?? 0) - (this.jobOrders.get(a.id) ?? 0))[0];
         if (blocked) entries.push([this.jobOrders.get(blocked.id) ?? 0, {
-            line: [blocked.label, blocked.reason].filter(Boolean).join('・'),
+            line: [blocked.label, blocked.reason].filter(Boolean).join(t('vibe.dock.state.leadingMiddleDotTrailingLabel')),
             tone: blocked.state === 'failed' ? 'error' : 'warn', source: 'job', action: blocked.action
         }]);
         else {
             const running = [...this.jobs.values()].filter(job => job.state === 'running').length;
             const queued = [...this.jobs.values()].filter(job => job.state === 'queued').length;
             if (running || queued) entries.push([Math.max(...this.jobOrders.values()), {
-                line: [running ? `${running} 件進めています` : '', queued ? `${queued} 件待ち` : ''].filter(Boolean).join('・'),
+                line: [running ? t('vibe.dock.state.processingWithCountLabel', { value1: running }) : '', queued ? t('vibe.dock.state.waitingWithCountLabel', { value1: queued }) : ''].filter(Boolean).join(t('vibe.dock.state.leadingMiddleDotTrailingLabel')),
                 tone: 'info', source: 'job'
             }]);
         }

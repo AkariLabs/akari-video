@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { materialDropDecision } from '../lib/common/timeline-material-insert.js';
-import { isTrackLocked, lockedTrackMessage } from '../lib/common/track-lock-guard.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { materialDropDecision } = await import('../lib/common/timeline-material-insert.js');
+const { isTrackLocked, lockedTrackMessage } = await import('../lib/common/track-lock-guard.js');
+
+
+
 
 // task 2026-09-08-timeline-file-drop 指示15。
 // addMaterialAtPoint（Finder → タイムライン帯のドロップ）は placeMaterialAtPoint 経由で

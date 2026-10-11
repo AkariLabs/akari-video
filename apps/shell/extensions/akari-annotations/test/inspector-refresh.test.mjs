@@ -1,10 +1,17 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
-import { createNumberField, createKeyframeSeat } from '../lib/browser/inspector/number-field.js';
-import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
+
+
 import { withInspectorDom } from './helpers/inspector-dom.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { createNumberField, createKeyframeSeat } = await import('../lib/browser/inspector/number-field.js');
+const { createSelectionHeader } = await import('../lib/browser/inspector/selection-header.js');
+
 
 const widget = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');

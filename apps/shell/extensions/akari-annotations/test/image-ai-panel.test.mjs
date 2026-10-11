@@ -1,6 +1,12 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { appendImageAiPanel } = await import('../lib/browser/inspector/image-ai-panel.js');
+
 
 class FakeNode {
     constructor(tag) { this.tag = tag; this.children = []; this.textContent = ''; this.listeners = new Map(); this.isConnected = true; }
