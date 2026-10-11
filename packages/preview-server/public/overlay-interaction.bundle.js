@@ -5762,6 +5762,15 @@
         const style = getComputedStyle(element);
         return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0;
       };
+      if (requestedKind === "video" || requestedKind === "image") {
+        const scenes = [...document.querySelectorAll("[data-overlay-id]")].filter((element) => visible(element) && element.querySelector("script[data-akari-3d-scene]")).sort((a, b) => Number(b.style.zIndex || 0) - Number(a.style.zIndex || 0));
+        for (const scene of scenes) {
+          const canvas = scene.querySelector("canvas");
+          const rect = canvas && (window.akari.threeRuntime?.contentBounds?.(canvas) ?? canvas.getBoundingClientRect());
+          if (rect && contains(rect)) return { kind: "item", id: scene.dataset.overlayId, rect };
+        }
+        return null;
+      }
       const captions = [...document.querySelectorAll(".caption-row-plate[data-caption-key]")].reverse();
       for (const plate of requestedKind === "lut" ? [] : captions) {
         if (!visible(plate)) continue;

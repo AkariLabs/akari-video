@@ -20,17 +20,20 @@ test('仮枠は出力幅の 4/10 で縦横比を保つ', () => {
         { width: 768, height: 576 });
 });
 
-test('同じ 3D ドロップを複数の出力層が受けても一言は 1 回', async () => {
+test('同じ 3D ドロップを複数の出力層が受けても配置は 1 回', async () => {
     const session = { kind: 'scene3d', category: 'scene3d', key: 'scene3d/phone' };
     const geometry = { rect: { x: 0, y: 0, width: 100, height: 100 }, time: 3,
         output: { width: 1280, height: 720 } };
-    const notices = [];
+    const calls = [];
     const receiver = () => ({ active: session, dragSession: session, geometry,
         pendingGeometryRequests: new Set(),
         fullscreen: () => false, editUri: () => 'file:///edit.json',
         queryGeometry: async () => geometry,
         clear() { this.active = undefined; },
-        messages: { info: message => notices.push(message) } });
+        commands: { executeCommand: async (id, request) => {
+            calls.push([id, request]);
+            return id === 'akari.timeline.addOverlayAtOutputPoint' ? 'overlay-1' : undefined;
+        } } });
     const event = { clientX: 50, clientY: 50,
         dataTransfer: { getData: () => JSON.stringify(session) },
         preventDefault() {}, stopPropagation() {} };
@@ -40,7 +43,12 @@ test('同じ 3D ドロップを複数の出力層が受けても一言は 1 回'
         PreviewLibraryDrop.prototype.drop.call(first, event),
         PreviewLibraryDrop.prototype.drop.call(second, event)
     ]);
-    assert.deepEqual(notices, ['3D は近日対応します。']);
+    assert.equal(calls.filter(([id]) => id === 'akari.timeline.addOverlayAtOutputPoint').length, 1);
+    assert.deepEqual(calls.filter(([id]) => id === 'akari.timeline.focusItem'), [
+        ['akari.timeline.focusItem', { itemId: 'overlay-1', reveal: true, pulse: true }]
+    ]);
+    assert.ok(calls.findIndex(([id]) => id === 'akari.timeline.focusItem')
+        > calls.findIndex(([id]) => id === 'akari.preview.seekOutput'));
 });
 
 test('オーバーレイは落下点とキャンバス内外の指定を配置コマンドへ渡す', async () => {
@@ -66,4 +74,26 @@ test('オーバーレイは落下点とキャンバス内外の指定を配置�
         { key: payload.key, t: 3, center: { x: 320, y: 360 }, editUri: 'file:///edit.json', outsideCanvas: true }
     ]);
     assert.equal(calls.filter(([id]) => id === 'akari.preview.seekOutput').length, 2);
+});
+
+test('素材がドラッグ中に 3D に当たれば待たずに画面へ適用する', async () => {
+    const payload = { kind: 'video', relativePath: 'assets/video/sample.mp4' };
+    const geometry = { rect: { x: 0, y: 0, width: 100, height: 100 }, time: 3,
+        output: { width: 1280, height: 720 } };
+    const calls = [];
+    const receiver = { active: { ...payload, source: 'material' }, geometry,
+        hoverHit: { kind: 'item', id: 'item-1' }, pendingGeometryRequests: new Set(),
+        fullscreen: () => false, editUri: () => 'file:///edit.json', queryGeometry: async () => geometry,
+        queryHit: () => assert.fail('落下時に当たり判定を待たない'),
+        clear() { this.active = undefined; },
+        commands: { executeCommand: async (id, request) => { calls.push([id, request]); } } };
+    const event = { clientX: 50, clientY: 50, altKey: false,
+        dataTransfer: { getData: type => type === 'application/x-akari-material' ? JSON.stringify(payload) : '' },
+        preventDefault() {}, stopPropagation() {} };
+    await PreviewLibraryDrop.prototype.drop.call(receiver, event);
+    assert.deepEqual(calls, [['akari.timeline.applyLibraryItem', {
+        payload: { ...payload, source: 'material', category: 'video', in: undefined, out: undefined },
+        target: { kind: 'item', id: 'item-1' },
+        editUri: 'file:///edit.json'
+    }]]);
 });
