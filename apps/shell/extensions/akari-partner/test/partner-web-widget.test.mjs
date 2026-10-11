@@ -1,8 +1,15 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { resolvePartnerWebTheme } from '../lib/common/partner-web-theme.js';
+
+const require = createRequire(import.meta.url);
 
 const source = readFileSync(new URL('../lib/browser/akari-partner-web-widget.js', import.meta.url), 'utf8');
 const noopDecorator = () => () => undefined;
@@ -51,6 +58,7 @@ function harness() {
         '@theia/core/lib/browser/theming': { ThemeService: Symbol('theme') },
         '../common/akari-partner-protocol': { AkariPartnerServer: Symbol('server') },
         '../common/partner-web-theme': { resolvePartnerWebTheme },
+        '../common/partner-text': require('../lib/common/partner-text.js'),
         './partner-catalog': { PARTNER_AGENT_LABELS: { deepseek: 'DeepSeek Harness' },
             PARTNER_CLI_ICON_CLASSES: { deepseek: 'codicon' } },
         '../electron-common/electron-api': {}

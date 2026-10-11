@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 export interface CaptionSourcePathRuleResult {
     status: 'voice' | 'excluded';
     reason?: string;
@@ -30,11 +31,11 @@ function relativeToProject(path: string, projectRoot?: string): string | undefin
 export function captionSourcePathRule(path: string, projectRoot?: string): CaptionSourcePathRuleResult {
     const extension = normalize(path).match(/\.([a-z0-9]+)$/u)?.[1] ?? '';
     if (relativeToProject(path, projectRoot)?.startsWith('exports/')) {
-        return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
+        return { status: 'excluded', reason: t('project.captions.sourceGuard.isExportedVideoTranscribeSourceAssetMessage') };
     }
-    if (CAPTION_IMAGE_EXTENSIONS.has(extension)) return { status: 'excluded', reason: '画像には音声がありません' };
+    if (CAPTION_IMAGE_EXTENSIONS.has(extension)) return { status: 'excluded', reason: t('project.captions.sourceGuard.imagesHaveNoAudioMessage') };
     if (!CAPTION_VIDEO_EXTENSIONS.has(extension) && !CAPTION_AUDIO_EXTENSIONS.has(extension)) {
-        return { status: 'excluded', reason: '音声・動画のファイルではありません' };
+        return { status: 'excluded', reason: t('project.captions.sourceGuard.isNotAudioVideoFileMessage') };
     }
     return { status: 'voice' };
 }

@@ -1,3 +1,6 @@
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isVibePreviewEnabled, VIBE_PREVIEW_KEY } from '../lib/common/vibe-preview.js';

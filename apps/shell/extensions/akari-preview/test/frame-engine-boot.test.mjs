@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,8 +9,11 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
 
 const here = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const previewJa = require('../../../../../packages/i18n/locales/ja/preview.json');
 const extensionRoot = resolve(here, '..');
 const compiledHandler = readHandlerCompiled();
 
@@ -119,8 +126,9 @@ function executeWatchdog({ error, rejection, engine = {}, root = null, engineErr
     nodes.set('preview-message', { id: 'preview-message', parentElement: parent });
     if (root) nodes.set('frame-engine-preview', root);
     if (engineErrorText) nodes.set('frame-engine-error', { textContent: engineErrorText });
+    nodes.set('akari-preview-text', { textContent: JSON.stringify(previewJa) });
     const document = {
-        documentElement: { dataset: {} },
+        documentElement: { dataset: {}, lang: 'ja' },
         getElementById: id => nodes.get(id) ?? null,
         createElement: () => ({
             dataset: {},
@@ -145,10 +153,12 @@ function executeWatchdog({ error, rejection, engine = {}, root = null, engineErr
 }
 
 test('frame-engine scripts は watchdog、bundle、bootstrap の順で注入する', () => {
-    assert.match(
-        compiledHandler,
-        /\? `<script>\$\{\(0, preview_script_frame_engine_watchdog_1\.frameEngineWatchdogScript\)\(\)\}<\/script>\\n\$\{this\.externalScriptTag\(assets\.frameEngineJavaScriptUrl\)\}\\n<script>\$\{\(0, preview_script_frame_engine_bootstrap_1\.frameEngineBootstrapScript\)\(\)\}<\/script>\\n`\s*: '';/u
-    );
+    const start = compiledHandler.indexOf('const frameEngineScripts =');
+    const watch = compiledHandler.indexOf('frameEngineWatchdogScript)()', start);
+    const bundle = compiledHandler.indexOf('this.externalScriptTag(assets.frameEngineJavaScriptUrl)', start);
+    const bootstrap = compiledHandler.indexOf('frameEngineBootstrapScript)()', start);
+    assert.ok(start >= 0 && start < watch && watch < bundle && bundle < bootstrap);
+    assert.match(compiledHandler.slice(start, bootstrap), /preview_text_1\.webviewScriptText/u);
 });
 
 test('frame-engine flag off では watchdog を含む注入全体が空文字になる', () => {
@@ -190,7 +200,8 @@ test('watchdog は boot 失敗を捕捉し、見える fallback カードを作�
     assert.match(watchdog, /addEventListener\('unhandledrejection', recordRejection, true\)/u);
     assert.match(watchdog, /frame-engine-boot-error/u);
     assert.match(watchdog, /data\.frameEngineBootFailure|dataset\.frameEngineBootFailure/u);
-    assert.match(watchdog, /旧経路で開き直す/u);
+    assert.match(watchdog, /preview\.frameEngine\.watchdog\.reopenLegacyPreviewAction/u);
+    assert.equal(previewJa['preview.frameEngine.watchdog.reopenLegacyPreviewAction'], '旧経路で開き直す');
     assert.match(watchdog, /target\.length >= 5/u);
 });
 

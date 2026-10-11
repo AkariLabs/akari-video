@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection } from '@theia/core/lib/common';
@@ -39,10 +40,10 @@ export interface OutputEntry {
 
 /** 下段のグループ見出しと表示順。中身が空のグループは見出しごと描画しない。 */
 const OUTPUT_GROUPS: ReadonlyArray<{ readonly kind: OutputEntryKind; readonly label: string }> = [
-    { kind: 'data', label: '編集データ' },
-    { kind: 'plan', label: '企画・メモ' },
-    { kind: 'export', label: '書き出し' },
-    { kind: 'report', label: 'レポート' }
+    { kind: 'data', label: t('project.workspace.outputs.editDataLabel') },
+    { kind: 'plan', label: t('project.workspace.outputs.planningNotesLabel') },
+    { kind: 'export', label: t('project.workspace.outputs.exportsLabel') },
+    { kind: 'report', label: t('project.workspace.outputs.reportsLabel') }
 ];
 
 export interface OutputsPaneHost {
@@ -396,12 +397,12 @@ export class AkariOutputsPane {
                     justifyContent: 'space-between',
                     padding: '8px 10px 4px'
                 }}>
-                    <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>できたもの</span>
+                    <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>{t('project.workspace.outputs.outputsLabel')}</span>
                     <button
                         type='button'
                         className='theia-button quiet small icon'
-                        title='できたものを更新'
-                        aria-label='できたものを更新'
+                        title={t('project.workspace.outputs.refreshOutputsAction')}
+                        aria-label={t('project.workspace.outputs.refreshOutputsAction')}
                         data-akari-outputs-refresh
                         onClick={() => void this.loadOutputs()}
                     >
@@ -417,13 +418,13 @@ export class AkariOutputsPane {
 
     protected renderOutputsBody(): React.ReactNode {
         if (!this.host.workflow.workspaceRoot) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.materials.pane.openProjectAction')}</p>;
         }
         if (this.outputsLoading && !this.outputsLoadedOnce) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.library.pane.loadingStatus')}</p>;
         }
         if (!this.outputs.length) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>まだありません — 編集したり書き出したりするとここに並びます</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>{t('project.workspace.outputs.nothingHereYetEditedExportedFilesMessage')}</p>;
         }
         return (
             <div
@@ -582,7 +583,7 @@ export class AkariOutputsPane {
      */
     protected async askAgentAboutOutput(entry: OutputEntry): Promise<void> {
         const request = await this.host.quickInputService.input({
-            placeHolder: 'このファイルについて何を頼みますか'
+            placeHolder: t('project.workspace.outputs.whatWouldYouLikeAskAboutQuestion')
         });
         if (!request || !request.trim()) {
             return;

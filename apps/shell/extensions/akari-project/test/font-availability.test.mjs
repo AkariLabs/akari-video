@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';

@@ -1,5 +1,9 @@
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
+
+before(() => setLanguage('ja'));
+after(() => setLanguage(undefined));
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);

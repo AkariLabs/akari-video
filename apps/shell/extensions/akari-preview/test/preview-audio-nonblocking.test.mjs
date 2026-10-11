@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';

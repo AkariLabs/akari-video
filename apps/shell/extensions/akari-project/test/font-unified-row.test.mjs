@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -19,7 +20,7 @@ assert.ok(declaration);
 const compiled = ts.transpileModule(declaration.getText(ast), {
     compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS }
 }).outputText;
-const context = vm.createContext({ exports: {}, React, libraryFontLabel, fontPreviewPath, LibraryDotsButton,
+const context = vm.createContext({ exports: {}, React, libraryFontLabel, fontPreviewPath, LibraryDotsButton, t: globalThis.t,
     AKARI_RADIUS: { panel: 6 }, AKARI_SURFACE: { raised: 'raised' }, AKARI_INK: 'ink', AKARI_BORDER: { ghost: 'ghost' } });
 vm.runInContext(compiled, context);
 const { LibraryTextFontRow } = context.exports;

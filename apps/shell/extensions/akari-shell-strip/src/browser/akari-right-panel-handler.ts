@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { DockLayout, DockPanel, TabBar, Title, Widget } from '@theia/core/shared/@lumino/widgets';
 import { BoxPanel, Panel, SplitPanel } from '@theia/core/shared/@lumino/widgets';
@@ -57,6 +58,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
     protected separatorFrame = 0;
     protected readonly paneTabBars = new Set<TabBar<Widget>>();
     protected readonly decoratedPaneTabBars = new WeakSet<TabBar<Widget>>();
+    protected readonly namedPartnerTitles = new WeakSet<Title<Widget>>();
     protected pointerTab: Title<Widget> | undefined;
 
     protected readonly onDidStartPanelDragEmitter = new Emitter<Widget>();
@@ -271,7 +273,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         });
         const close = document.createElement('div');
         close.className = 'akari-rail-pane-close';
-        close.title = 'この段を閉じて 1 面に戻す';
+        close.title = t('shell.rightRail.panel.closeSectionReturnPanelText');
         close.setAttribute('role', 'button');
         close.innerHTML = RIGHT_RAIL_CLOSE_ICON_SVG;
         close.addEventListener('pointerdown', event => event.stopPropagation());
@@ -569,8 +571,8 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         if (modeMenu && !modeMenu.querySelector('.akari-mode-rail-name')) {
             const name = document.createElement('span');
             name.className = 'akari-mode-rail-name';
-            name.setAttribute('data-akari-rail-name', 'モード');
-            name.textContent = 'モード';
+            name.setAttribute('data-akari-rail-name', t('shell.rightRail.panel.modeLabel'));
+            name.textContent = t('shell.rightRail.panel.modeLabel');
             name.style.cssText = 'display:block;text-align:center;font-size:8px;line-height:12px;white-space:nowrap';
             modeMenu.appendChild(name);
         }
@@ -587,16 +589,17 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             const id = this.tabBar.titles[index]?.owner.id;
             if (id) tab.setAttribute('data-akari-rail-id', id);
             const title = this.tabBar.titles[index];
-            if (id === 'akari-partner-onboarding' && title && title.label !== 'パートナー') {
-                title.label = 'パートナー';
+            if (id === 'akari-partner-onboarding' && title && !this.namedPartnerTitles.has(title)) {
+                title.label = t('shell.rightRail.panel.partnerLabel');
+                this.namedPartnerTitles.add(title);
             }
             const label = tab.querySelector<HTMLElement>('.lm-TabBar-tabLabel');
             if (label) {
-                const name = id === 'akari-partner-onboarding' ? 'パートナー'
-                    : id === 'akari-daihon-widget' ? '台本'
-                    : id === 'akari-review-panel-widget' ? '注釈'
-                    : id === 'akari-inspector-widget' ? 'インスペクター'
-                    : id === 'akari-audio-meter-widget' ? '音声'
+                const name = id === 'akari-partner-onboarding' ? t('shell.rightRail.panel.partnerLabel')
+                    : id === 'akari-daihon-widget' ? t('shell.rightRail.panel.scriptLabel')
+                    : id === 'akari-review-panel-widget' ? t('shell.rightRail.panel.annotationsLabel')
+                    : id === 'akari-inspector-widget' ? t('shell.rightRail.panel.inspectorLabel')
+                    : id === 'akari-audio-meter-widget' ? t('shell.rightRail.panel.audioLabel')
                     : id && (id.startsWith('terminal-') || id === 'akari-partner-web')
                         ? railNameForPartner(id, title?.label || '', title?.caption)
                     : this.tabBar.titles[index]?.label || '';

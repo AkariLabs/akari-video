@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -29,7 +35,8 @@ test('cut range opening is guarded by a valid range and otherwise explains the p
   const branch = method.slice(method.indexOf("case 'cutRange':"), method.indexOf('if (target.speaker'));
   assert.match(branch, /if \(validWordRange && row\)/u);
   assert.match(branch, /if \(reason\) \{ this.notify\(reason\); success = false; \}/u);
-  assert.match(branch, /else \{\s*this.notify\('カット範囲エディタは語の範囲を選ぶと開けます。'\)/u);
+  assert.match(branch, /else \{\s*this.notify\(t\('transcript\.daihon\.editor\.selectWordRangeOpenCutRangeEditorNotice'\)\)/u);
+  assert.equal(globalThis.t('transcript.daihon.editor.selectWordRangeOpenCutRangeEditorNotice'), 'カット範囲エディタは語の範囲を選ぶと開けます。');
   assert.match(branch, /success = false/u);
   assert.equal([...branch.matchAll(/this\.openCutRangeEditor\w*\(/gu)].length, 1);
 });

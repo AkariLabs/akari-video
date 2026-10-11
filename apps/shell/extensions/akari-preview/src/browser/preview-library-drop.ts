@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { explorerMaterial, nearestOutputPoint, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
@@ -158,9 +159,9 @@ export class PreviewLibraryDrop {
                         : payload.kind === 'shape' ? '◇' : '▣';
                 card.appendChild(icon);
             }
-            const defaultName = payload.kind === 'text' ? 'テキスト'
-                : payload.kind === 'textstyle' || payload.kind === 'mystyle' ? 'テキストスタイル'
-                    : payload.kind === 'shape' ? '図形' : '素材';
+            const defaultName = payload.kind === 'text' ? t('preview.libraryDrop.overlay.textLabel')
+                : payload.kind === 'textstyle' || payload.kind === 'mystyle' ? t('preview.libraryDrop.overlay.textStyleLabel')
+                    : payload.kind === 'shape' ? t('preview.libraryDrop.overlay.shapeLabel') : t('preview.libraryDrop.overlay.assetsLabel');
             card.appendChild(document.createTextNode(payload.relativePath?.split('/').pop()
                 || payload.title || payload.name || defaultName));
             document.body.appendChild(card);
@@ -488,11 +489,11 @@ export class PreviewLibraryDrop {
                 const note = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 note.setAttribute('width', '18'); note.setAttribute('height', '18'); note.setAttribute('viewBox', '0 0 24 24');
                 note.innerHTML = '<path d="M9 18V5l11-2v13M9 18c0 3-6 4-6 1s6-4 6-1Zm11-2c0 3-6 4-6 1s6-4 6-1Z" fill="none" stroke="currentColor" stroke-width="2"/>';
-                ghost.append(note, document.createTextNode(' 時刻に置く'));
+                ghost.append(note, document.createTextNode(t('preview.libraryDrop.overlay.placeTimeSuffix')));
             } else ghost.append(document.createTextNode(applying
-                ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
-                : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
-                    : shape ? shape.name ?? '図形' : payload.title ?? payload.name ?? '素材'));
+                ? (payload.kind === 'lut' ? t('preview.libraryDrop.overlay.applyScreenAction') : t('preview.libraryDrop.overlay.applyTextAction'))
+                : transition ? t('preview.libraryDrop.overlay.dropCutBoundaryLabel') : text ? t('preview.libraryDrop.overlay.addTextAction')
+                    : shape ? shape.name ?? t('preview.libraryDrop.overlay.shapeLabel') : payload.title ?? payload.name ?? t('preview.libraryDrop.overlay.assetsLabel')));
         }
         /*
          * 秒数と行き先の但し書きは、絵が出ているときは出さない（オーナー指示）。
@@ -508,12 +509,12 @@ export class PreviewLibraryDrop {
             label.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:3px 7px;border-radius:4px;background:var(--theia-editorHoverWidget-background,#242424)';
             const target = !audio && canvasAtFrame(geometry.canvases,
                 Math.round(geometry.time * geometry.fps), this.outside);
-            const hint = target ? `${canvasDropLabel(geometry.canvases, target)} に入ります` : '';
+            const hint = target ? t('preview.libraryDrop.notification.goesInsideLabel', { name: canvasDropLabel(geometry.canvases, target) }) : '';
             const end = duration && target
                 ? Math.min(geometry.time + duration, (target.at + target.duration) / geometry.fps)
                 : geometry.time + (duration || 0);
             label.dataset.akariCanvasDropHint = hint ? 'true' : 'false';
-            label.textContent = `${stamp(geometry.time)} → ${duration ? stamp(end) : '実尺'}`
+            label.textContent = t('preview.libraryDrop.notification.toLabel', { start: stamp(geometry.time), end: duration ? stamp(end) : t('preview.audioPreview.controls.fullDurationLabel') })
                 + (hint ? ` · ${hint}` : '');
             ghost.appendChild(label);
         }
@@ -607,13 +608,13 @@ export class PreviewLibraryDrop {
         }
         if (payload.outsideProject) {
             this.clear();
-            this.messages.warn('プロジェクトの中のファイルだけ置けます');
+            this.messages.warn(t('preview.libraryDrop.overlay.onlyFilesProjectPlaced'));
             return;
         }
         if (payload.locked) {
             this.clear();
             try { await this.commands.executeCommand('akari.library.showPremiumPrompt', { key: payload.key }); }
-            catch { this.messages.warn('この素材を使うには購入が必要です。'); }
+            catch { this.messages.warn(t('preview.libraryDrop.overlay.purchaseRequiredUseAsset')); }
             return;
         }
         if (APPLY_KINDS.has(payload.kind)) {
@@ -633,7 +634,7 @@ export class PreviewLibraryDrop {
         }
         this.clear();
         if (payload.kind === 'transition') {
-            this.messages.info('トランジションはタイムラインのカットの境目に落としてください。');
+            this.messages.info(t('preview.libraryDrop.overlay.dropTransitionCutBoundaryTimeline'));
             return;
         }
         const editUri = this.editUri();
@@ -717,7 +718,7 @@ export class PreviewLibraryDrop {
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
             if (!claimScene3dDrop(dragSession)) return;
-            this.messages.info('3D は近日対応します。');
+            this.messages.info(t('preview.libraryDrop.overlay.threedSupportComingSoon'));
             return;
         }
         if (overlayKind === 'overlay') {
@@ -781,7 +782,7 @@ export class PreviewLibraryDrop {
                 editUri, time: geometry.time, waitForReady: true
             });
         } catch {
-            this.messages.warn('再生位置を戻せませんでした。');
+            this.messages.warn(t('preview.libraryDrop.overlay.couldNotRestorePlaybackPositionError'));
         }
         } catch (error) {
             keepGhost = false;
@@ -815,13 +816,13 @@ export class PreviewLibraryDrop {
         }
         if (!material?.relativePath) {
             const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
-            const reason = recordedReason || '理由は通知を確認してください';
+            const reason = recordedReason || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
             this.showFetchFailure?.(displayPlan, geometry, point, payload, thumb, reason, () => {
                 this.hideFetchFailure?.(relativePath);
                 void this.placeAfterFetch(plan, payload, geometry, point, editUri, outsideCanvas);
             });
             this.hideFetchOverlay(relativePath);
-            this.messages.warn('この素材は取り寄せできませんでした。');
+            this.messages.warn(t('preview.libraryDrop.overlay.couldNotDownloadAssetError'));
             return { keepGhost: false };
         }
         this.hideFetchOverlay(relativePath);
@@ -896,11 +897,11 @@ export class PreviewLibraryDrop {
             const material = fetched.material;
             if (material === undefined) {
                 resolverAlreadyNotified = true;
-                throw new Error('取り寄せできませんでした');
+                throw new Error(t('preview.libraryDrop.overlay.downloadFailedError'));
             }
-            if (!material.relativePath) throw new Error('取り寄せできませんでした');
+            if (!material.relativePath) throw new Error(t('preview.libraryDrop.overlay.downloadFailedError'));
             if (!placedId && material.relativePath === plan.relativePath) {
-                throw new Error('素材をタイムラインに配置できませんでした');
+                throw new Error(t('preview.libraryDrop.overlay.couldNotPlaceAssetTimelineError'));
             }
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
@@ -915,12 +916,12 @@ export class PreviewLibraryDrop {
                     ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
                     editUri, outsideCanvas, ...(!outsideCanvas ? { canvasAware: true } : {})
                 });
-                if (!placedId) throw new Error('素材をタイムラインに配置できませんでした');
+                if (!placedId) throw new Error(t('preview.libraryDrop.overlay.couldNotPlaceAssetTimelineError'));
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
-            const reason = recordedReason || errorMessage || '理由は通知を確認してください';
+            const reason = recordedReason || errorMessage || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
             this.showFetchFailure?.(plan, geometry, point, payload, thumb, reason, () => {
                 this.hideFetchFailure?.(plan.relativePath);
                 void this.placeThenFetch(plan, payload, geometry, point, editUri, outsideCanvas);
@@ -930,7 +931,7 @@ export class PreviewLibraryDrop {
                 await this.commands.executeCommand('akari.timeline.removePlacedMaterial', { editUri, itemId: placedId })
                     .catch(() => undefined);
             }
-            if (!resolverAlreadyNotified) this.messages.warn(`この素材は取り寄せできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            if (!resolverAlreadyNotified) this.messages.warn(t('preview.libraryDrop.notification.couldNotDownloadAssetError', { reason: error instanceof Error ? error.message : String(error) }));
             return;
         } finally {
             endWaiting();
@@ -1008,8 +1009,8 @@ export class PreviewLibraryDrop {
         const spinner = document.createElement('span');
         spinner.className = 'codicon codicon-loading codicon-modifier-spin';
         spinner.setAttribute('aria-hidden', 'true');
-        status.append(spinner, document.createTextNode(width >= 120 ? 'ダウンロード中' : ''));
-        status.title = `${title ?? '素材'}をダウンロード中`;
+        status.append(spinner, document.createTextNode(width >= 120 ? t('preview.libraryDrop.overlay.downloadingLabel') : ''));
+        status.title = t('preview.libraryDrop.notification.downloadingLabel', { name: title ?? t('preview.libraryDrop.overlay.assetsLabel') });
         overlay.append(veil, status);
         document.body.appendChild(overlay);
         (this.fetchOverlays ??= new Map()).set(plan.relativePath, overlay);
@@ -1064,15 +1065,15 @@ export class PreviewLibraryDrop {
         const veil = document.createElement('div');
         Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'rgba(40,0,0,.55)' });
         const label = document.createElement('div');
-        label.textContent = '⚠ 取り寄せできませんでした';
+        label.textContent = t('preview.libraryDrop.overlay.downloadFailedWarning');
         label.style.position = 'relative';
         const explanation = document.createElement('div');
-        explanation.textContent = summarizeFetchFailure(reason) || '理由は通知を確認してください';
+        explanation.textContent = summarizeFetchFailure(reason) || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
         explanation.style.position = 'relative';
         const actions = document.createElement('div');
         actions.style.position = 'relative';
         const retryButton = document.createElement('button');
-        retryButton.textContent = 'もう一度';
+        retryButton.textContent = t('preview.libraryDrop.overlay.tryAgainAction');
         retryButton.style.pointerEvents = 'auto';
         retryButton.addEventListener('click', () => retry());
         const closeButton = document.createElement('button');
@@ -1104,7 +1105,7 @@ export class PreviewLibraryDrop {
             border: '1px solid var(--theia-focusBorder)', background: 'var(--theia-editorHoverWidget-background)',
             color: 'var(--theia-foreground)', fontSize: '13px' });
         prompt.append(document.createTextNode(payload.kind === 'lut'
-            ? '写真や映像の上に落としてください。' : '文字の上に落としてください。'));
+            ? t('preview.libraryDrop.overlay.dropPhotoVideoLabel') : t('preview.libraryDrop.overlay.dropTextLabel')));
         this.closePrompt?.();
         this.prompt = prompt;
         document.body.appendChild(prompt);

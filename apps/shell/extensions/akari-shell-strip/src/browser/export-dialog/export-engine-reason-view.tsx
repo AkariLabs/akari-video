@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { exportEngineReasonCopyText, exportEngineSummary, japaneseExportReason, lintRefusalSummary, summarizeExportReasons } from '../../common/export-engine-reason';
 import { QuickExportStatus } from '../../common/quick-export-protocol';
@@ -24,17 +25,16 @@ export function ExportEngineReasonView(props: {
     };
     if (status.phase === 'lint-failed' || status.exportRefusal?.code === 'lint-not-pass') {
         const message = lintRefusalSummary(status.lintFindings ?? [])
-            ?? status.exportRefusal?.message ?? 'Lint の問題を確認してください';
+            ?? status.exportRefusal?.message ?? t('shell.exportDialog.engineReason.reviewLintIssuesText');
         return <div className='akari-export-engine-reason akari-export-refused'>
-            <div>書き出せませんでした: {message}</div>
-            <div className='akari-export-fix'>書き出す前に直すものがあります — <button type='button' className='btn' disabled={!props.openLint} onClick={props.openLint}>Lint を開く</button></div>
+            <div>{t('shell.exportDialog.engineReason.couldNotExportError')}{message}</div>
+            <div className='akari-export-fix'>{t('shell.exportDialog.engineReason.fixTheseExportingAction')}<button type='button' className='btn' disabled={!props.openLint} onClick={props.openLint}>{t('shell.exportDialog.engineReason.openLintAction')}</button></div>
         </div>;
     }
     if (status.phase === 'failed') {
-        const message = status.exportRefusal?.message ?? status.failureSummary ?? '書き出しのログを確認してください';
+        const message = status.exportRefusal?.message ?? status.failureSummary ?? t('shell.exportDialog.engineReason.checkExportLogAction');
         return <div className='akari-export-engine-reason akari-export-refused'>
-            書き出せませんでした: {message}。設定と入力を確認して、もう一度書き出してください。
-        </div>;
+            {t('shell.exportDialog.engineReason.exportFailedInlinePrefix').trimStart()}{message}{t('shell.exportDialog.engineReason.checkSettingsInputsExportAgainMessage').trimEnd()}</div>;
     }
     const event = status.exportEngine;
     if (!event) return null;
@@ -43,11 +43,11 @@ export function ExportEngineReasonView(props: {
         {reasons.length > 0
             ? <details><summary>{exportEngineSummary(event)}</summary>
                 {props.onCopy && <button type='button' className='btn akari-export-engine-reason-copy' onClick={() => void copyReasons()}>
-                    {copied ? 'コピーしました' : 'コピー'}
+                    {copied ? t('shell.exportDialog.engineReason.copiedStatus') : t('shell.exportDialog.engineReason.copyAction')}
                 </button>}
                 <ul className='akari-export-engine-reason-list'>
                     {event.reasons.map((reason, index) => <li key={`${reason.id}-${index}`}>
-                        {reason.kind === 'caption' ? '字幕' : reason.kind === 'overlay' ? 'オーバーレイ' : reason.kind} {reason.id}: {japaneseExportReason(reason.reason)}（{reason.reason}）
+                        {reason.kind === 'caption' ? t('shell.exportDialog.engineReason.captionsLabel') : reason.kind === 'overlay' ? t('shell.exportDialog.engineReason.overlaysLabel') : reason.kind} {reason.id}: {japaneseExportReason(reason.reason)}（{reason.reason}）
                     </li>)}
                 </ul>
             </details>

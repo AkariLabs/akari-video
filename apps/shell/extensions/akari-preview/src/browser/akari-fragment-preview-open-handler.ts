@@ -1,3 +1,5 @@
+import { t } from '../common/preview-text';
+import { getLanguage } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -68,7 +70,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.fragmentPreview';
-        widget.title.label = '素材プレビュー';
+        widget.title.label = t('preview.audioPreview.window.assetPreviewLabel');
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-symbol-misc';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
@@ -113,7 +115,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
             if (!widget.isDisposed) {
-                widget.setHTML(this.messageHtml('断片プレビューを読み込めませんでした。'));
+                widget.setHTML(this.messageHtml(t('preview.fragmentPreview.window.couldNotLoadFragmentPreviewError')));
             }
             this.renders.delete(widget);
         }
@@ -128,7 +130,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
     }
 
     protected messageHtml(message: string): string {
-        return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="${getLanguage()}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>:root{color-scheme:dark;font-family:system-ui,sans-serif}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#111;color:#eee}
@@ -156,7 +158,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
         const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
         const scripts = [assets.threeJavaScriptUrl, assets.threeTextJavaScriptUrl,
             assets.threeRuntimeJavaScriptUrl, assets.runtimeJavaScriptUrl];
-        return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+        return `<!doctype html><html lang="${getLanguage()}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 ${assets.motionVocabCss}
@@ -179,11 +181,11 @@ background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparen
 #error{margin:auto;padding:32px;text-align:center;line-height:1.7}
 </style></head><body>
 <div id="viewport"><div class="akari-material-chip">${this.escapeHtml(filename)}</div><div id="canvas" data-background="checker"><div id="overlay-stage"></div></div></div>
-<div id="controls"><button id="play" type="button" disabled>再生</button>
-<input id="seek" aria-label="再生位置" type="range" min="0" max="${duration}" step="0.01" value="0" disabled>
-<output id="time">0.00 / 5.00 s</output><label>背景 <select id="background">
-<option value="checker">市松</option><option value="white">白</option><option value="black">黒</option>
-</select></label></div><details id="knobs" hidden><summary>色・サイズを調整</summary><div id="knob-fields"></div></details><p id="error" role="alert" hidden></p>
+<div id="controls"><button id="play" type="button" disabled>${t('preview.previewWindow.transport.playAction')}</button>
+<input id="seek" aria-label="${t('preview.previewWindow.transport.seekLabel')}" type="range" min="0" max="${duration}" step="0.01" value="0" disabled>
+<output id="time">0.00 / 5.00 s</output><label>${t('preview.previewWindow.controls.backgroundPrefix')}<select id="background">
+<option value="checker">${t('preview.previewWindow.controls.checkerboardLabel')}</option><option value="white">${t('preview.previewWindow.controls.whiteLabel')}</option><option value="black">${t('preview.previewWindow.controls.blackLabel')}</option>
+</select></label></div><details id="knobs" hidden><summary>${t('preview.previewWindow.controls.adjustColorSizeLabel')}</summary><div id="knob-fields"></div></details><p id="error" role="alert" hidden></p>
 ${scripts.map(url => `<script src="${this.escapeHtml(url)}"></script>`).join('')}
 <script>
 (async()=>{
@@ -221,10 +223,10 @@ ${scripts.map(url => `<script src="${this.escapeHtml(url)}"></script>`).join('')
  const observer=new ResizeObserver(fit);observer.observe(viewport);fit();
  document.getElementById('background').addEventListener('change',event=>{canvas.dataset.background=event.target.value;});
  let runtime,playing=false,t=0,last=0,raf=0;
- const stop=()=>{playing=false;cancelAnimationFrame(raf);play.textContent='再生';};
+ const stop=()=>{playing=false;cancelAnimationFrame(raf);play.textContent='${t('preview.previewWindow.transport.playAction')}';};
  const fail=error=>{
    stop();play.disabled=true;seek.disabled=true;viewport.hidden=true;document.getElementById('controls').hidden=true;
-   const message=document.getElementById('error');message.hidden=false;message.textContent='断片プレビューを読み込めませんでした。';
+   const message=document.getElementById('error');message.hidden=false;message.textContent=${JSON.stringify(t('preview.fragmentPreview.status.couldNotLoadFragmentPreviewError'))};
    console.error(error);
  };
  window.addEventListener('pagehide',()=>{stop();observer.disconnect();runtime?.unmount();});
@@ -241,7 +243,7 @@ ${scripts.map(url => `<script src="${this.escapeHtml(url)}"></script>`).join('')
    };
    play.addEventListener('click',()=>{
      if(playing){stop();return;}
-     playing=true;play.textContent='一時停止';last=performance.now();raf=requestAnimationFrame(step);
+     playing=true;play.textContent=${JSON.stringify(t('preview.fragmentPreview.status.pauseAction'))};last=performance.now();raf=requestAnimationFrame(step);
    });
    seek.addEventListener('input',()=>{t=Number(seek.value);last=performance.now();try{draw();}catch(error){fail(error);}});
    draw();play.disabled=false;seek.disabled=false;

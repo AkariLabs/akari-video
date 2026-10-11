@@ -105,6 +105,7 @@ function harness(existing) {
         '@theia/core/electron-shared/electron': electron,
         '@theia/core/shared/inversify': { injectable: () => target => target },
         '../electron-common/electron-api': { CHANNEL_PARTNER_WEB: 'AkariPartnerWeb' },
+        '../common/partner-text': require('../lib/common/partner-text.js'),
         '../electron-common/partner-web-url': require('../lib/electron-common/partner-web-url.js')
     };
     vm.runInNewContext(source, {

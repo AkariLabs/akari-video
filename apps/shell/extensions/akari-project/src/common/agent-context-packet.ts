@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { formatDurationBadge } from './analysis-summary';
 
 /**
@@ -29,7 +30,7 @@ export function composeAgentContextPacket(
     const [primary, ...rest] = fields;
     const detail = rest.map(renderField).join('・');
     const suffix = detail ? `（${detail}）` : '';
-    return `【${targetKind}】${renderField(primary)}${suffix}について: ${collapseToSingleLine(request)}`;
+    return t('project.agent.contextPacket.targetKindAboutSuffixLabel', { targetKind: targetKind, value2: renderField(primary), suffix: suffix, value4: collapseToSingleLine(request) });
 }
 
 function renderField(field: AgentContextField): string {
@@ -51,10 +52,10 @@ export interface MaterialAgentContext {
     analysisRelativePath?: string;
 }
 
-const MATERIAL_TARGET_KIND = '素材';
-const DURATION_UNKNOWN_LABEL = '尺不明';
-const ANALYZED_LABEL = '分析済み';
-const NOT_ANALYZED_LABEL = '未分析';
+const MATERIAL_TARGET_KIND = t('project.catalog.purchase.asset');
+const DURATION_UNKNOWN_LABEL = t('project.agent.contextPacket.durationUnknownLabel');
+const ANALYZED_LABEL = t('project.materials.pane.analyzedLabel');
+const NOT_ANALYZED_LABEL = t('project.agent.contextPacket.notAnalyzedLabel');
 
 /**
  * 素材カード「エージェントに頼む」の v0 唯一の呼び出し元。必須要素:
@@ -65,7 +66,7 @@ export function composeMaterialAskAgentPrompt(context: MaterialAgentContext, req
     const fields: AgentContextField[] = [
         { value: context.relativePath },
         context.analyzed
-            ? { label: '尺', value: formatDurationBadge(context.durationSeconds ?? 0) }
+            ? { label: t('project.materials.inspector.durationLabel'), value: formatDurationBadge(context.durationSeconds ?? 0) }
             : { value: DURATION_UNKNOWN_LABEL },
         { value: context.analyzed ? ANALYZED_LABEL : NOT_ANALYZED_LABEL }
     ];
@@ -81,7 +82,7 @@ export interface OutputAgentContext {
     relativePath: string;
 }
 
-const OUTPUT_TARGET_KIND = '書き出し済みの成果物';
+const OUTPUT_TARGET_KIND = t('project.agent.contextPacket.exportedOutputLabel');
 
 /**
  * 「できたもの」書き出し行（export）の「エージェントに頼む」の唯一の呼び出し元

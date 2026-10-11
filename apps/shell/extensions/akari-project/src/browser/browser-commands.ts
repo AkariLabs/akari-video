@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -10,10 +11,10 @@ const previewEnabled = (): boolean => {
     try { return window.localStorage.getItem(VIBE_PREVIEW_KEY) === '1'; } catch { return false; }
 };
 
-export const BROWSER_SEARCH: Command = { id: BROWSER_COMMAND_IDS.search, label: 'ブラウザで検索' };
-export const BROWSER_PICK_MODE: Command = { id: BROWSER_COMMAND_IDS.pickMode, label: 'ブラウザの選ぶモード' };
-export const BROWSER_CLOSE: Command = { id: BROWSER_COMMAND_IDS.close, label: 'ブラウザを閉じる' };
-export const BROWSER_OPEN: Command = { id: BROWSER_COMMAND_IDS.open, label: 'ブラウザで URL を開く' };
+export const BROWSER_SEARCH: Command = { id: BROWSER_COMMAND_IDS.search, label: t('project.web.command.searchBrowserAction') };
+export const BROWSER_PICK_MODE: Command = { id: BROWSER_COMMAND_IDS.pickMode, label: t('project.web.command.browserSelectionModeLabel') };
+export const BROWSER_CLOSE: Command = { id: BROWSER_COMMAND_IDS.close, label: t('project.web.command.closeBrowserAction') };
+export const BROWSER_OPEN: Command = { id: BROWSER_COMMAND_IDS.open, label: t('project.web.command.openUrlBrowserAction') };
 
 @injectable()
 export class BrowserCommands implements CommandContribution {
@@ -43,8 +44,8 @@ export class BrowserCommands implements CommandContribution {
             const widget = await this.activate();
             const result = await widget.search(engine, query);
             return result === 'ok' ? { ok: true } : { ok: false, code: result,
-                message: result === 'empty-query' ? '検索語を入力してください' : '検索サイトを開けません' };
-        } catch { return { ok: false, code: 'navigation-failed', message: '検索サイトを開けません' }; }
+                message: result === 'empty-query' ? t('project.web.assetSite.enterSearchTermAction') : t('project.web.assetSite.couldNotOpenSearchSiteError') };
+        } catch { return { ok: false, code: 'navigation-failed', message: t('project.web.assetSite.couldNotOpenSearchSiteError') }; }
     }
 
     private async open(args: unknown): Promise<BrowserCommandResult> {
@@ -52,15 +53,15 @@ export class BrowserCommands implements CommandContribution {
         if (!valid.ok) return valid;
         try {
             const config = await window.electronAkariProject.assetSite.browserConfig();
-            if (!config) return { ok: false, code: 'unavailable', message: 'ブラウザを開けません' };
+            if (!config) return { ok: false, code: 'unavailable', message: t('project.web.command.couldNotOpenBrowserError') };
             const url = (args as { url: string }).url;
             if (!navigationAllowed(url, OPEN_WEB_POLICY, Boolean(config.testHttp)))
-                return { ok: false, code: 'invalid-url', message: 'このアドレスは開けません' };
+                return { ok: false, code: 'invalid-url', message: t('project.web.assetSite.cannotOpenAddressError') };
             const widget = await this.activate();
-            if (!await widget.ensureBrowser()) return { ok: false, code: 'unavailable', message: 'ブラウザを開けません' };
+            if (!await widget.ensureBrowser()) return { ok: false, code: 'unavailable', message: t('project.web.command.couldNotOpenBrowserError') };
             await widget.openBrowserUrl(url); return { ok: true };
         }
-        catch { return { ok: false, code: 'navigation-failed', message: 'このアドレスは開けません' }; }
+        catch { return { ok: false, code: 'navigation-failed', message: t('project.web.assetSite.cannotOpenAddressError') }; }
     }
 
     private async pickMode(args: unknown): Promise<BrowserCommandResult> {
@@ -68,17 +69,17 @@ export class BrowserCommands implements CommandContribution {
         if (!valid.ok) return valid;
         try {
             const widget = await this.widgets.getWidget<AssetSiteWidget>(AssetSiteWidget.ID);
-            if (!widget?.isBrowser) return { ok: false, code: 'no-browser', message: 'ブラウザが開いていません' };
+            if (!widget?.isBrowser) return { ok: false, code: 'no-browser', message: t('project.web.command.browserIsNotOpenMessage') };
             await widget.setPickMode((args as { on: boolean }).on);
             return { ok: true };
-        } catch { return { ok: false, code: 'operation-failed', message: '操作できませんでした' }; }
+        } catch { return { ok: false, code: 'operation-failed', message: t('project.web.command.couldNotCompleteActionError') }; }
     }
 
     private async close(args: unknown): Promise<BrowserCommandResult> {
         const valid = validateBrowserArgs(BROWSER_CLOSE.id, args);
         if (!valid.ok) return valid;
         const widget = await this.widgets.getWidget<AssetSiteWidget>(AssetSiteWidget.ID);
-        if (!widget?.isBrowser) return { ok: false, code: 'no-browser', message: 'ブラウザが開いていません' };
+        if (!widget?.isBrowser) return { ok: false, code: 'no-browser', message: t('project.web.command.browserIsNotOpenMessage') };
         await window.electronAkariProject.assetSite.close().catch(() => undefined);
         widget.close();
         return { ok: true };

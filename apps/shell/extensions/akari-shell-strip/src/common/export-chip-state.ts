@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 import { QuickExportPhase } from './quick-export-protocol';
 import { QuickExportStage, QuickExportVerifyCheck } from './quick-export-progress';
 import { quickExportStageLabel } from './quick-export-ui';
@@ -33,7 +34,7 @@ export function computeExportChipState(
         return {
             kind: 'running',
             stageLabel: quickExportStageLabel(status.progressStage, status.progressVerifyCheck)
-                ?? (status.phase === 'linting' ? 'lint 確認中' : '準備'),
+                ?? (status.phase === 'linting' ? t('shell.export.chip.checkingLintLabel') : t('shell.export.chip.preparingStatus')),
             percent: Math.min(100, Math.max(0, Math.round(status.progressPercent ?? 0))),
             remainingMs: status.progressRemainingMs,
             outputName: snapshot.outputName
@@ -48,7 +49,7 @@ export function computeExportChipState(
             return {
                 kind: 'finished',
                 outcome: 'done',
-                line: `書き出し完了 · ${snapshot.outputName}`,
+                line: t('shell.export.chip.exportCompleteStatus', { value1: snapshot.outputName }),
                 outputName: snapshot.outputName
             };
         }
@@ -56,14 +57,14 @@ export function computeExportChipState(
             return {
                 kind: 'finished',
                 outcome: 'failed',
-                line: '書き出しに失敗しました',
+                line: t('shell.export.chip.exportFailedError'),
                 outputName: snapshot.outputName
             };
         }
         return {
             kind: 'finished',
             outcome: 'lint-failed',
-            line: 'lint NG で止まりました',
+            line: t('shell.export.chip.stoppedLintStatus'),
             outputName: snapshot.outputName
         };
     }

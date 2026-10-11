@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 import type { BarItem, ContextBarState } from './context-bar-view';
 
 export const CAPTION_TOOL_KEYS = ['group', 'snap', 'clamp', 'reset'] as const;
@@ -73,10 +74,10 @@ export function captionBarItems(state: ContextBarState): BarItem[] {
     if (state.kind !== 'caption' || !state.selectedId) return [];
     const style = (state.item?.textStyle ?? {}) as Record<string, any>;
     const labels: Record<string, string> = {
-        captionFont: 'フォント', captionSize: 'サイズ', captionTextColor: '文字の色', captionBold: '太字',
-        captionItalic: '斜体', captionUnderline: '下線', captionStrike: '取り消し線', captionCase: '大文字小文字',
-        captionAlign: '配置', captionBullet: '箇条書き', captionSpacing: '間隔', captionVertical: '縦書き',
-        captionOpacity: '透明度', captionEffect: 'エフェクト', captionAnimation: 'アニメーション', captionStyle: 'スタイル'
+        captionFont: t('preview.contextBar.toolbar.fontLabel'), captionSize: t('preview.captionPopup.toolbar.sizeLabel'), captionTextColor: t('preview.contextBar.toolbar.textColorLabel'), captionBold: t('preview.contextBar.toolbar.boldLabel'),
+        captionItalic: t('preview.contextBar.toolbar.italicLabel'), captionUnderline: t('preview.contextBar.toolbar.underlineLabel'), captionStrike: t('preview.contextBar.toolbar.strikethroughLabel'), captionCase: t('preview.contextBar.toolbar.letterCaseLabel'),
+        captionAlign: t('preview.contextBar.toolbar.alignmentLabel'), captionBullet: t('preview.contextBar.toolbar.bulletsLabel'), captionSpacing: t('preview.contextBar.toolbar.spacingLabel'), captionVertical: t('preview.contextBar.toolbar.verticalTextLabel'),
+        captionOpacity: t('preview.contextBar.toolbar.captionOpacityLabel'), captionEffect: t('preview.contextBar.toolbar.effectLabel'), captionAnimation: t('preview.contextBar.toolbar.animationLabel'), captionStyle: t('preview.contextBar.toolbar.styleLabel')
     };
     return CAPTION_BAR_ORDER.map(key => ({ key, label: labels[key], kind: CAPTION_MINI_WINDOWS.has(key) ? 'window' : 'action',
         ...(key === 'captionTextColor' ? { paint: style.color ?? '#ffffff' } : {}) } as BarItem));

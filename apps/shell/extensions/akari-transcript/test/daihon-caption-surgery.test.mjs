@@ -1,3 +1,9 @@
+import { createRequire as createI18nRequire } from 'node:module';
+globalThis.t = createI18nRequire(import.meta.url)('../lib/browser/transcript-text.js').t;
+globalThis.assessCutOutcome = createI18nRequire(import.meta.url)('../lib/common/daihon-cut-outcome.js').assessCutOutcome;
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import assert from 'node:assert/strict'; import test from 'node:test';
 import { readAllSourceText } from './helpers/daihon-source.mjs';
 import {
@@ -44,6 +50,7 @@ test('appends properties at sibling indentation and leaves the closing brace on 
 test('／自身が自動・手置き共通メニューを開き、行クリックと分離される', async () => {
   const source = readAllSourceText();
   assert.match(source, /INTERACTIVE_SELECTOR[^;]+\.akari-daihon-slash/u);
-  assert.match(source, /✕ ここの区切りをやめる/u);
+  assert.match(source, /t\('transcript\.daihon\.editor\.removeRemoveBreakAction'\)/u);
+  assert.equal(globalThis.t('transcript.daihon.editor.removeRemoveBreakAction'), '✕ ここの区切りをやめる');
   assert.match(source, /freezeAndRemoveCaptionBoundary/u);
 });

@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { ContainerModule, inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
@@ -8,8 +9,8 @@ import { isVibePreviewEnabled } from '../common/vibe-preview';
 
 const HISTORY_KEY = 'akari.listening.history';
 const schema: PreferenceSchema = { properties: {
-    [HISTORY_KEY]: { type: 'boolean', default: false, scope: PreferenceScope.User, description: '聞き取り履歴を残す' },
-    'akari.listening.showCorrections': { type: 'boolean', default: true, scope: PreferenceScope.User, description: '直した語を帯に薄く示す' }
+    [HISTORY_KEY]: { type: 'boolean', default: false, scope: PreferenceScope.User, description: t('vibe.dictionary.command.saveListeningHistoryDescription') },
+    'akari.listening.showCorrections': { type: 'boolean', default: true, scope: PreferenceScope.User, description: t('vibe.dictionary.command.showCorrectedWordsSubtlyStripDescription') }
 } };
 
 @injectable()
@@ -21,7 +22,7 @@ export class VoiceDictionaryFrontendContribution implements CommandContribution,
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
 
     registerCommands(commands: CommandRegistry): void {
-        commands.registerCommand({ id: 'akari.voiceDictionary.open', label: '声の辞書を開く' }, {
+        commands.registerCommand({ id: 'akari.voiceDictionary.open', label: t('vibe.dictionary.command.openVoiceDictionaryAction') }, {
             execute: () => isVibePreviewEnabled(window.localStorage) && new VoiceDictionaryDialog(this.service, this.preferences).open(),
             isEnabled: () => isVibePreviewEnabled(window.localStorage),
             isVisible: () => isVibePreviewEnabled(window.localStorage)

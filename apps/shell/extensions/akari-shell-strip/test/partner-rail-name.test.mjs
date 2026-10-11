@@ -1,3 +1,7 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -25,4 +29,13 @@ test('カタログの CLI と Web の名前はすべて表示できる', () => {
         assert.ok(name, entry.name);
         assert.doesNotMatch(name, /CLI|Harness/, entry.name);
     }
+});
+
+test('right rail derives the same agent name with English UI labels', () => {
+    try {
+        setLanguage('en');
+        assert.equal(railNameForPartner('terminal-2', 'Chat · Codex CLI', 'Codex CLI'), 'Codex');
+        assert.equal(railNameForPartner('akari-partner-web', 'Chat (DeepSeek)', 'DeepSeek Harness'), 'DeepSeek');
+        assert.equal(railNameForPartner('akari-partner-onboarding', 'Add a Partner'), 'Partner');
+    } finally { setLanguage('ja'); }
 });
