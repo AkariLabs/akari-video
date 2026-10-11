@@ -66,6 +66,7 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
     const whisperCalls = [];
     const fullCalls = [];
     const cuts = [];
+    const backendLogs = [];
     let silenceCalls = 0;
     const spawn = (command, args) => {
       if (command === "fixture-ffprobe") return { status: 0, stdout: JSON.stringify({ format: { duration: "30" }, streams: [{ codec_type: "audio" }] }), stderr: "" };
@@ -89,9 +90,9 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
     };
     const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
       whisperBin: "fixture-whisper", whisperModel: "ggml-base.bin", unrecognized: false, snap: false,
-      silencesRunner: async () => { silenceCalls += 1; return []; }, stderr: () => {},
+      silencesRunner: async () => { silenceCalls += 1; return []; }, stderr: (message) => backendLogs.push(message),
     });
-    return { result, whisperCalls, fullCalls, cuts, silenceCalls };
+    return { result, whisperCalls, fullCalls, cuts, silenceCalls, backendLogs };
   };
   const initial = [segment(0, 2000, "前"), segment(8000, 10000, "中"), segment(16000, 30000, "後")];
   const sameLanguage = await run([segment(0, 1000, "前")], "ja", [[segment(1200, 3200, "幻聴")]]);
@@ -107,6 +108,7 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
   const lowProbability = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "en", 0.93);
   assert.equal(lowProbability.fullCalls.length, 1);
   assert.deepEqual(lowProbability.result.segments.map(({ text }) => text), ["前"]);
+  assert.ok(lowProbability.backendLogs.some((line) => /言語切替区間 1（\d+\.\d{2}〜\d+\.\d{2} 秒）: 判定した言語=en, p=0\.930, 1 回目の言語=ja, 起こし直さない（p が 0\.95 未満）/u.test(line)));
 
   const missingProbability = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "en", null);
   assert.equal(missingProbability.fullCalls.length, 1);
@@ -133,6 +135,7 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
   const rejected = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "ja");
   assert.equal(rejected.fullCalls.length, 2);
   assert.deepEqual(rejected.result.segments.map(({ text }) => text), ["前"]);
+  assert.ok(rejected.backendLogs.some((line) => line.includes("起こし直した言語=ja は 1 回目の言語と同じため差し込みません")));
 
   const withoutGaps = await run([segment(0, 30000, "全体")], "en");
   assert.equal(withoutGaps.whisperCalls.length, 1);

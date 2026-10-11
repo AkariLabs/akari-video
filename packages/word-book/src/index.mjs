@@ -202,7 +202,7 @@ export function scanRecord(record, matcher, options = {}) {
   return findPlans(tokens, matcher, false).map((plan) => ({
     surface: plan.candidate.surface,
     kind: plan.candidate.kind,
-    matched: plan.tokens.map((token) => token.text).join(""),
+    matched: plan.tokens.map((token) => token.text).join("").trimStart(),
     index: plan.tokens[0]?.index ?? plan.start,
   }));
 }

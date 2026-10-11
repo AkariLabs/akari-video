@@ -1421,13 +1421,9 @@ export class AkariDaihonWidget extends BaseWidget {
         if (extras?.hasDisplayFragments) {
             const manual = extras.displayFragments;
             const valid = Array.isArray(manual) && manual.length >= 1 && manual.length <= 6
-                && manual.every(fragment => fragment.length > 0 && fragment.trim() === fragment
+                && manual.every(fragment => fragment.trim().length > 0
                     && fragment.normalize() === fragment && measureCaptionUnits(fragment) <= policy.max_line_units)
-                && manual.reduce((remaining, fragment, index) => {
-                    const start = index ? /^\s*/u.exec(remaining)?.[0].length ?? 0 : 0;
-                    return remaining.slice(start).startsWith(fragment)
-                        ? remaining.slice(start + fragment.length) : '\0';
-                }, caption.text) === '';
+                && manual.join('') === caption.text;
             if (valid) displayFragments = manual;
             else this.captionOverflowUnitsById.set(caption.id, policy.max_line_units);
         } else {

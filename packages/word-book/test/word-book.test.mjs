@@ -137,6 +137,18 @@ test("scanRecord は term を置換せず列挙する", () => {
   assert.deepEqual(scanRecord({ text: "あかりビデオ", words: [{ start: 0, end: 1, text: "あかりビデオ" }] }, matcher()), [{ surface: "AKARI Video", kind: "term", matched: "あかりビデオ", index: 0 }]);
 });
 
+test("scanRecord は語頭の空白を matched から除く", () => {
+  const built = buildMatcher([{ kind: "term", surface: "Claude", variants: ["clode"] }]);
+  for (const [word, expected] of [[" Claude", "Claude"], [" clode", "clode"]]) {
+    const record = { text: `I use${word}`, words: [
+      { start: 0, end: 0.3, text: "I" },
+      { start: 0.3, end: 0.6, text: " use" },
+      { start: 0.6, end: 1, text: word },
+    ] };
+    assert.equal(scanRecord(record, built)[0].matched, expected);
+  }
+});
+
 test("loadWordBookFile は ENOENT を null として返す", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "word-book-load-"));
   assert.deepEqual(await loadWordBookFile(path.join(root, "missing.json")), { ok: true, book: null });

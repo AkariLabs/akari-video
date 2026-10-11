@@ -469,11 +469,18 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
             "-ss", String(cutStart), "-i", inputPath, "-t", String(cutEnd - cutStart),
             "-map", "0:a:0", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", gapPath], options);
           const detectedLanguage = detectWhisperLanguage(gapPath, gapDirectory, backendInfo, options);
+          const decision = !detectedLanguage ? "判定できない"
+            : detectedLanguage.language === first.language ? "起こし直さない（1 回目と同じ言語）"
+            : detectedLanguage.probability < LANGUAGE_GAP_MIN_DETECT_PROBABILITY
+              ? `起こし直さない（p が ${LANGUAGE_GAP_MIN_DETECT_PROBABILITY.toFixed(2)} 未満）` : "起こし直す";
+          writeBackendLog(options, `言語切替区間 ${index + 1}（${gap.start.toFixed(2)}〜${gap.end.toFixed(2)} 秒）: 判定した言語=${detectedLanguage?.language ?? "不明"}, p=${detectedLanguage ? detectedLanguage.probability.toFixed(3) : "不明"}, 1 回目の言語=${first.language}, ${decision}`);
           if (!detectedLanguage || detectedLanguage.language === first.language
             || detectedLanguage.probability < LANGUAGE_GAP_MIN_DETECT_PROBABILITY) continue;
           const recovered = runWhisper(gapPath, gapDirectory, backendInfo, "auto", options);
           if (recovered.language && recovered.language !== first.language) {
             first.segments = insertRecoveredSegments(first.segments, recovered.segments, gap, cutStart);
+          } else if (recovered.language === first.language) {
+            writeBackendLog(options, `言語切替区間 ${index + 1}（${gap.start.toFixed(2)}〜${gap.end.toFixed(2)} 秒）: 起こし直した言語=${recovered.language} は 1 回目の言語と同じため差し込みません`);
           }
         } catch (error) {
           writeBackendLog(options, `言語切替区間 ${index + 1} の起こし直しに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
