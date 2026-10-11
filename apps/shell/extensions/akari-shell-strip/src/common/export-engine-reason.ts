@@ -50,6 +50,7 @@ const OVERLAY_LABELS: Readonly<Record<string, string>> = {
     'animation-timing': 'アニメーション時刻',
     'advanced-css': '高度な CSS 表現',
     'item-keyframes': 'アイテムのキーフレーム',
+    'three-item-keyframes': '3D のキーフレーム',
     'vgpu-invalid-declaration': 'GPU シーンの宣言が無効',
     'three-or-canvas-runtime(data-akari-3d-scene)': '3D シーンの併用'
 };
