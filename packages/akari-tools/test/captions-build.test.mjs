@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCaptionsFromTranscript as build } from "../src/captions/build.mjs";
+import { buildCaptionsFromTranscript as build, captionLength } from "../src/captions/build.mjs";
 
 const segment = (start, end, text = "字幕") => ({ start, end, text, words: [{ start, end, text }] });
 
@@ -49,6 +49,17 @@ test("missing and empty words use segment boundaries without splitting", () => {
   }
 });
 
+test("本文と語が一致しなくても字幕の words を残す", () => {
+  const words = [{ start: 0, end: 1, text: "別の語" }];
+  const [caption] = build([{ start: 0, end: 1, text: "字幕本文", words }],
+    { splitMode: "none", maxCharacters: 0 }).captions;
+  assert.equal(caption.text, "字幕本文");
+  assert.deepEqual(caption.words, words);
+  const [withoutWords] = build([{ start: 0, end: 1, text: "字幕本文" }],
+    { splitMode: "none", maxCharacters: 0 }).captions;
+  assert.equal(Object.hasOwn(withoutWords, "words"), false);
+});
+
 test("25 characters in eight words split greedily at ten characters", () => {
   const words = ["あいう", "えおか", "きくけ", "こさし", "すせそ", "たちつ", "てとな", "にぬねの"]
     .map((text, index) => ({ text, start: index * 2, end: index * 2 + 1 }));
@@ -64,11 +75,61 @@ test("25 characters in eight words split greedily at ten characters", () => {
   }
 });
 
-test("splitting counts Unicode code points and preserves spaces in English", () => {
+test("英語の半角を半字として数え、語間の空白を保つ", () => {
   const words = ["hello", "world", "again"].map((text, i) => ({ text, start: i * 2, end: i * 2 + 1 }));
-  assert.deepEqual(build([{ start: 0, end: 5, text: "hello world again", words }], { splitMode: "none", maxCharacters: 11 }).captions.map((c) => c.text), ["hello world", "again"]);
+  const captions = build([{ start: 0, end: 5, text: "hello world again", words }], { splitMode: "none", maxCharacters: 6 }).captions;
+  assert.deepEqual(captions.map((cue) => cue.text), ["hello world", "again"]);
+  for (const cue of captions) assert.equal(cue.words.map((word) => word.text).join(""), cue.text);
+  assert.equal(captionLength("ABC 12,。"), 4.5);
   const large = segment(0, 2, "😀😀😀😀");
   assert.equal(build([large], { maxCharacters: 3 }).captions[0].text, large.text);
+});
+
+test("英語の行を分けた後の先頭語から空白を除く", () => {
+  const words = ["When", " the", " score", " is", " high", ",", " we", " win"]
+    .map((text, index) => ({ text, start: index * 0.3, end: index * 0.3 + 0.2 }));
+  const text = words.map((word) => word.text).join("");
+  const captions = build([{ start: 0, end: 3, text, words }], { splitMode: "none", maxCharacters: 6 }).captions;
+  assert.ok(captions.length > 1);
+  for (const cue of captions) {
+    assert.doesNotMatch(cue.text, /^\s/u);
+    assert.doesNotMatch(cue.words[0].text, /^\s/u);
+    assert.equal(cue.words.map((word) => word.text).join(""), cue.text);
+  }
+  assert.match(captions.map((cue) => cue.text).join(" "), /When the score/u);
+});
+
+test("空白の無い英語語列だけに必要な一字を補う", () => {
+  const words = ["When", "the", "score", ",", "is", "high"]
+    .map((text, index) => ({ text, start: index, end: index + 0.5 }));
+  const cue = build([{ start: 0, end: 6, text: "Whenthescore,ishigh", words }], { splitMode: "none", maxCharacters: 0 }).captions[0];
+  assert.equal(cue.text, "When the score, is high");
+  assert.equal(cue.words.map((word) => word.text).join(""), cue.text);
+  const japanese = build([{ start: 0, end: 2, text: "今日は", words: [
+    { text: "今日", start: 0, end: 1 }, { text: "は", start: 1, end: 2 },
+  ] }], { splitMode: "none", maxCharacters: 0 }).captions[0];
+  assert.equal(japanese.text, "今日は");
+});
+
+test("数字の区切りを保ち、本文の英語の空白を優先する", () => {
+  for (const value of ["3.5", "1,000", "10:30"]) {
+    const words = value.match(/\d+|[.,:]/gu).map((text, index) => ({ text, start: index, end: index + 0.5 }));
+    const cue = build([{ start: 0, end: words.length, text: value, words }],
+      { splitMode: "none", maxCharacters: 0 }).captions[0];
+    assert.equal(cue.text, value);
+    assert.equal(cue.words.map((word) => word.text).join(""), value);
+    assert.equal(cue.words, words);
+  }
+  const surfaces = ["Hello", "world", "again"];
+  const words = surfaces.map((text, index) => ({ text, start: index, end: index + 0.5 }));
+  const spaced = build([{ start: 0, end: 3, text: "Hello  world again", words }],
+    { splitMode: "none", maxCharacters: 0 }).captions[0];
+  assert.equal(spaced.text, "Hello  world again");
+  assert.deepEqual(spaced.words.map((word) => word.text), ["Hello", "  world", " again"]);
+  const joined = build([{ start: 0, end: 3, text: "Helloworldagain", words }],
+    { splitMode: "none", maxCharacters: 0 }).captions[0];
+  assert.equal(joined.text, "Hello world again");
+  assert.deepEqual(joined.words.map((word) => word.text), ["Hello", " world", " again"]);
 });
 
 test("empty text is dropped and warned about; original indexes remain stable", () => {

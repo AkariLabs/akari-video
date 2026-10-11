@@ -42,8 +42,8 @@ for (const rejectsDtw of [false, true]) {
       whisperCalls.push(args);
       if (rejectsDtw && whisperCalls.length === 1) return { status: 1, stdout: "", stderr: "unknown argument: -dtw" };
       const prefix = args[args.indexOf("-of") + 1];
-      writeFileSync(`${prefix}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 1000 }, text: "語",
-        tokens: [{ offsets: { from: 0, to: 1000 }, text: "語" }] }] }));
+      writeFileSync(`${prefix}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 30000 }, text: "語",
+        tokens: [{ offsets: { from: 0, to: 30000 }, text: "語" }] }] }));
       return { status: 0, stdout: "", stderr: "" };
     };
     const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
@@ -57,6 +57,56 @@ for (const rejectsDtw of [false, true]) {
     assert.equal(result.timing_snap.dtw, !rejectsDtw);
   });
 }
+
+test("whisper は抜けごとに切り出して起こし直し、抜けが無ければ一度だけ実行する", async (t) => {
+  const segment = (from, to, text) => ({ offsets: { from, to }, text,
+    tokens: [{ offsets: { from, to }, text }] });
+  const run = async (initial, recovered) => {
+    const f = await fixture(t, []);
+    const whisperCalls = [];
+    const cuts = [];
+    let silenceCalls = 0;
+    const spawn = (command, args) => {
+      if (command === "fixture-ffprobe") return { status: 0, stdout: JSON.stringify({ format: { duration: "30" }, streams: [{ codec_type: "audio" }] }), stderr: "" };
+      if (command === "fixture-ffmpeg") {
+        if (args.includes("-ss") && args[args.indexOf("-i") + 1] !== path.join(f.project, f.target)) cuts.push(args);
+        return { status: 0, stdout: "", stderr: "" };
+      }
+      whisperCalls.push(args);
+      const prefix = args[args.indexOf("-of") + 1];
+      writeFileSync(`${prefix}.json`, JSON.stringify({ transcription: whisperCalls.length === 1 ? initial : recovered[whisperCalls.length - 2] }));
+      return { status: 0, stdout: "", stderr: "" };
+    };
+    const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
+      whisperBin: "fixture-whisper", whisperModel: "ggml-base.bin", unrecognized: false, snap: false,
+      silencesRunner: async () => { silenceCalls += 1; return []; }, stderr: () => {},
+    });
+    return { result, whisperCalls, cuts, silenceCalls };
+  };
+  const withGaps = await run([segment(0, 2000, "前"), segment(8000, 10000, "中"), segment(16000, 30000, "後")], [
+    [segment(1200, 3200, "Hello")], [segment(1200, 3200, "world")],
+  ]);
+  assert.equal(withGaps.silenceCalls, 1);
+  assert.equal(withGaps.whisperCalls.length, 3);
+  assert.equal(withGaps.cuts.length, 2);
+  assert.deepEqual(withGaps.result.segments.map(({ start, text }) => [start, text]),
+    [[0, "前"], [3, "Hello"], [8, "中"], [11, "world"], [16, "後"]]);
+  for (const args of withGaps.whisperCalls.slice(1)) {
+    assert.equal(args[args.indexOf("-l") + 1], "auto");
+    assert.equal(path.basename(args[args.indexOf("-f") + 1]), "input.wav");
+  }
+  assert.notEqual(withGaps.whisperCalls[1][withGaps.whisperCalls[1].indexOf("-f") + 1],
+    withGaps.whisperCalls[2][withGaps.whisperCalls[2].indexOf("-f") + 1]);
+
+  const withoutGaps = await run([segment(0, 30000, "全体")], []);
+  assert.equal(withoutGaps.whisperCalls.length, 1);
+  assert.equal(withoutGaps.silenceCalls, 0);
+  assert.equal(withoutGaps.cuts.length, 0);
+  const empty = await run([], []);
+  assert.equal(empty.whisperCalls.length, 1);
+  assert.equal(empty.silenceCalls, 1);
+  assert.equal(empty.cuts.length, 0);
+});
 
 test("全 backend 共通で既定吸着し、snap/timingSnap false は吸着を飛ばす", async (t) => {
   const f = await fixture(t, []);

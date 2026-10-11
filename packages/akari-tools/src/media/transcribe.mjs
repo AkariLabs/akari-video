@@ -24,6 +24,12 @@ import {
 import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
+  detectLanguageGaps,
+  insertRecoveredSegments,
+  LANGUAGE_GAP_MAX_RETRIES,
+  LANGUAGE_GAP_PADDING_SECONDS,
+} from "./language-gaps.mjs";
+import {
   clampAdjacentSegments,
   detectSpeechChunks,
   snapSegmentsToWords,
@@ -297,11 +303,21 @@ async function applyResolvedWordBook(result, target, options) {
     if (!layer.error) continue;
     writeWordBookLog(options, `単語帳: ${layer.scope} を読めません（${layer.error.message}）`);
   }
-  const applied = applyWordBook(result.segments, buildMatcher(resolved.entries), { mode: "transcript" });
+  const segments = result.segments.map((segment) => segment.words?.length
+    ? { ...segment, words: segment.words.map((word) => ({ ...word, text: word.text.trimStart() })) }
+    : segment);
+  const applied = applyWordBook(segments, buildMatcher(resolved.entries), { mode: "transcript" });
   if (applied.stats.replaced > 0) {
     writeWordBookLog(options, `単語帳: ${applied.stats.replaced} 語を置換（layers: ${resolved.layers.map((layer) => layer.scope).join(", ")}）`);
   }
-  return { ...result, segments: applied.records };
+  return { ...result, segments: applied.records.map((segment) => {
+    if (!segment.words) return segment;
+    const words = alignWordsToText(segment.words, segment.text);
+    if (words) return { ...segment, words };
+    const withoutWords = { ...segment };
+    delete withoutWords.words;
+    return withoutWords;
+  }) };
 }
 
 function writeWordBookLog(options, message) {
@@ -433,7 +449,42 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
       "-t", String(range.out - range.in), "-map", "0:a:0", ...codecArgs, inputPath,
     ], options);
     if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, options);
-    if (backendInfo.name === "whisper-cpp") return runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
+    if (backendInfo.name === "whisper-cpp") {
+      const first = runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
+      if (lang !== "auto") return first;
+      const relativeRange = { in: 0, out: range.out - range.in };
+      if (detectLanguageGaps(first.segments, [], relativeRange).length === 0) return first;
+      let silences;
+      try {
+        const runner = options.silencesRunner ?? runSilenceDetect;
+        const detected = await runner({ inputPath, range: relativeRange, ffmpeg,
+          silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb,
+          silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options });
+        silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+      } catch (error) {
+        writeBackendLog(options, `言語切替の無音検出に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+        return first;
+      }
+      const gaps = detectLanguageGaps(first.segments, silences, relativeRange).slice(0, LANGUAGE_GAP_MAX_RETRIES);
+      for (const [index, gap] of gaps.entries()) {
+        const cutStart = Math.max(0, gap.start - LANGUAGE_GAP_PADDING_SECONDS);
+        const cutEnd = Math.min(relativeRange.out, gap.end + LANGUAGE_GAP_PADDING_SECONDS);
+        if (cutStart <= 0 && cutEnd >= relativeRange.out) continue;
+        const gapDirectory = path.join(temporaryDirectory, `gap-${index}`);
+        const gapPath = path.join(gapDirectory, "input.wav");
+        try {
+          await mkdir(gapDirectory);
+          runChecked(ffmpeg, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-ss", String(cutStart), "-i", inputPath, "-t", String(cutEnd - cutStart),
+            "-map", "0:a:0", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", gapPath], options);
+          const recovered = runWhisper(gapPath, gapDirectory, backendInfo, "auto", options);
+          first.segments = insertRecoveredSegments(first.segments, recovered.segments, gap, cutStart);
+        } catch (error) {
+          writeBackendLog(options, `言語切替区間 ${index + 1} の起こし直しに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      return first;
+    }
     if (options.cloudRunner) return await options.cloudRunner({ inputPath, projectRoot: target.projectRoot, connectionId: backendInfo.connectionId, range });
     return runCloud(inputPath, target.projectRoot, backendInfo.connectionId, range, options);
   } finally {
@@ -525,8 +576,12 @@ export function normalizeWhisperJson(value) {
         continue;
       }
       if (markerKind === "control") continue;
-      const text = String(token.text ?? "").replace(/\uFFFD/g, "").trim();
+      const text = String(token.text ?? "").replace(/\uFFFD/g, "");
       if (!text || !Number.isFinite(wordStart) || !Number.isFinite(wordEnd)) continue;
+      if (!text.trim()) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
+        continue;
+      }
       if (wordEnd <= wordStart) {
         // 連続する 0 長・負長トークンは、最初の from と文字順を保持する。
         pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
@@ -536,17 +591,57 @@ export function normalizeWhisperJson(value) {
       pending = null;
     }
     if (pending && words.length) words.at(-1).text += pending.text;
-    const text = String(segment.text ?? "").replace(/\uFFFD/g, "").trim();
-    const useWords = words.length && words.every((word) => word.end > word.start)
-      && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "");
+    normalizeWordSpaces(words);
+    const text = normalizeCjkSpaces(String(segment.text ?? "").replace(/\uFFFD/g, "")).trim();
+    const aligned = words.length && words.every((word) => word.end > word.start)
+      ? alignWordsToText(words, text) : null;
     return {
       start,
       end,
       text,
-      ...(useWords ? { words } : {}),
+      ...(aligned ? { words: aligned } : {}),
       ...(markers.length ? { markers } : {}),
     };
   });
+}
+
+function normalizeCjkSpaces(value) {
+  return value.replace(/([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu, "$1");
+}
+
+function normalizeWordSpaces(words) {
+  for (const [index, word] of words.entries()) {
+    word.text = normalizeCjkSpaces(word.text);
+    if (index === 0) word.text = word.text.trimStart();
+    else if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(words[index - 1].text)
+      && /^\s+[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(word.text)) {
+      word.text = word.text.trimStart();
+    }
+  }
+  if (words.length) words.at(-1).text = words.at(-1).text.trimEnd();
+}
+
+function alignWordsToText(words, text) {
+  if (words.map((word) => word.text).join("") === text) return words;
+  if (words.map((word) => word.text).join("").replace(/\s/gu, "") !== text.replace(/\s/gu, "")) return null;
+  let cursor = 0;
+  const aligned = [];
+  for (const word of words) {
+    const surface = word.text.replace(/\s/gu, "");
+    if (!surface) return null;
+    const position = text.slice(cursor).search(/\S/u) + cursor;
+    if (position < cursor) return null;
+    let end = position;
+    for (const char of surface) {
+      while (/\s/u.test(text[end] ?? "")) end += 1;
+      if (!text.startsWith(char, end)) return null;
+      end += char.length;
+    }
+    aligned.push({ ...word, text: text.slice(cursor, end) });
+    cursor = end;
+  }
+  if (aligned.length) aligned.at(-1).text += text.slice(cursor);
+  return aligned;
 }
 
 function normalizeSegments(segments, range) {
@@ -567,8 +662,12 @@ function normalizeSegments(segments, range) {
       if (!Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) continue;
       const wordStart = clampWordTime(Number(word.start));
       const wordEnd = clampWordTime(Number(word.end));
-      const wordText = String(word.text ?? "").replace(/\uFFFD/g, "").trim();
+      const wordText = String(word.text ?? "").replace(/\uFFFD/g, "");
       if (!wordText) continue;
+      if (!wordText.trim()) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
+        continue;
+      }
       if (wordEnd <= wordStart) {
         pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
         continue;
@@ -577,9 +676,10 @@ function normalizeSegments(segments, range) {
       pending = null;
     }
     if (pending && words.length) words.at(-1).text += pending.text;
-    if (words.length && words.every((word) => word.end > word.start)
-        && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "")) {
-      normalized.words = words;
+    normalizeWordSpaces(words);
+    if (words.length && words.every((word) => word.end > word.start)) {
+      const aligned = alignWordsToText(words, text);
+      if (aligned) normalized.words = aligned;
     }
     const markers = (segment.markers ?? []).flatMap((marker) => {
       const markerStart = Number(marker.start) + offset;
@@ -725,6 +825,6 @@ function safeCacheName(value) {
 }
 
 function cacheIdentity({ sha256, range, backend, lang, cacheDirectory }) {
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}`;
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === "whisper-cpp" ? "-mixed-v2" : ""}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }
