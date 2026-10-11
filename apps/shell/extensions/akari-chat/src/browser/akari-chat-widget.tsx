@@ -22,6 +22,7 @@ import { EarSession } from 'akari-vibe-dock/lib/browser/ear-session';
 import { AkariEarFrontend } from 'akari-vibe-dock/lib/common/ear-frontend';
 import { AkariLamp, ChatIcon, ChatIconName } from './chat-icons';
 import { isChatDropTarget } from './chat-drop-target';
+import { hasChatDropData, readChatDropData, shouldPrefetchLibraryCatalog } from './chat-drop-data';
 import { renderMarkdown } from './markdown';
 import { installChatStyle } from './chat-style';
 import { markChatLastUsed } from './chat-last-used';
@@ -159,6 +160,12 @@ export class AkariChatWidget extends ReactWidget {
     private readonly outbox: Outgoing[] = [];
     private popup?: 'history' | 'model' | 'attach' | 'create' | 'permission' | 'activity' | 'context';
     private history: ChatHistoryEntry[] = [];
+    private historyLoading = false;
+    private historyError?: string;
+    private historyRequest = 0;
+    private pendingLibraryDrops = 0;
+    private catalogCache?: { preferenceRoot?: string; until: number;
+        request: ReturnType<AkariProjectService['getAssetCatalogView']> };
     private usedTokens = 0;
     private contextWindow = 0;
     private error?: ErrorEvent;
@@ -206,6 +213,8 @@ export class AkariChatWidget extends ReactWidget {
         this.title.iconClass = 'akari-chat-rail-icon';
         this.title.closable = true;
         installChatStyle();
+        window.addEventListener('dragstart', this.onWindowDragStart);
+        window.addEventListener('akari.library.dragStart', this.onLibraryDragStart);
         window.addEventListener('dragover', this.onWindowDragOver, true);
         window.addEventListener('drop', this.onWindowDrop, true);
         window.addEventListener('dragleave', this.onWindowDragLeave, true);
@@ -213,6 +222,8 @@ export class AkariChatWidget extends ReactWidget {
         window.addEventListener('keydown', this.onWindowKeyDown, true);
         document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
         this.toDispose.push({ dispose: () => {
+            window.removeEventListener('dragstart', this.onWindowDragStart);
+            window.removeEventListener('akari.library.dragStart', this.onLibraryDragStart);
             window.removeEventListener('dragover', this.onWindowDragOver, true);
             window.removeEventListener('drop', this.onWindowDrop, true);
             window.removeEventListener('dragleave', this.onWindowDragLeave, true);
@@ -269,6 +280,12 @@ export class AkariChatWidget extends ReactWidget {
         this.agentsReady = this.refreshAgents();
         void this.refreshConnect();
         this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
+            this.historyRequest++;
+            this.history = [];
+            this.historyError = undefined;
+            this.historyLoading = false;
+            if (this.popup === 'history') void this.loadHistory();
+            this.update();
             if (!this.chatId && !this.userActed) void this.restoreOrStart();
         }));
     }
@@ -845,13 +862,27 @@ export class AkariChatWidget extends ReactWidget {
     private async showHistory(): Promise<void> {
         this.popup = this.popup === 'history' ? undefined : 'history';
         this.renamingHistoryId = undefined;
-        if (this.popup) {
-            const cwd = await this.cwd();
-            if (cwd) {
-                this.history = await this.chat.listHistory(cwd);
-            }
-        }
+        if (this.popup) await this.loadHistory();
         this.update();
+    }
+
+    private async loadHistory(): Promise<void> {
+        const request = ++this.historyRequest;
+        this.historyLoading = true;
+        this.historyError = undefined;
+        this.update();
+        try {
+            await this.workspace.ready;
+            const cwd = await this.cwd();
+            if (!cwd) throw new Error('先にプロジェクトを開いてください');
+            const history = await this.chat.listHistory(cwd);
+            if (request === this.historyRequest) this.history = history;
+        } catch (error) {
+            if (request === this.historyRequest) this.historyError = `履歴を読み込めませんでした: ${String(error)}`;
+        } finally {
+            if (request === this.historyRequest) this.historyLoading = false;
+            this.update();
+        }
     }
 
     async resumeLast(): Promise<void> {
@@ -960,7 +991,7 @@ export class AkariChatWidget extends ReactWidget {
         this.popup = undefined;
         this.model = model;
         this.chosenModels.set(this.selectedAgent, model);
-        this.recentModels.set(this.selectedAgent, [model, ...(this.recentModels.get(this.selectedAgent) || []).filter(id => id !== model)].slice(0, 5));
+        this.recentModels.set(this.selectedAgent, [model, ...(this.recentModels.get(this.selectedAgent) || []).filter(id => id !== model)].slice(0, 3));
         this.update();
         if (this.chatId) {
             try { await this.chat.setModel(this.chatId, model); }
@@ -1008,12 +1039,15 @@ export class AkariChatWidget extends ReactWidget {
             this.messages.warn('先にプロジェクトを開いてください');
             return;
         }
-        let path = sourcePath;
-        const outside = !sourcePath.startsWith(cwd + '/') && sourcePath !== cwd;
+        let resolved: { path: string; inside: boolean; relative: string };
+        try { resolved = await this.chat.resolveAttachmentPath(cwd, sourcePath); }
+        catch (error) { this.messages.error(String(error)); return; }
+        let path = resolved.path;
+        const outside = !resolved.inside;
         if (outside && MEDIA_EXTENSION.test(label)) {
             try {
                 const root = (await this.workspace.roots)[0].resource;
-                const result = await this.project.recordDroppedAssets(root.toString(), [{ name: label, sourcePath }]);
+                const result = await this.project.recordDroppedAssets(root.toString(), [{ name: label, sourcePath: resolved.path }]);
                 if (!result[0]?.success || !result[0].assetPath) {
                     this.messages.error('素材を取り込めませんでした');
                     return;
@@ -1024,10 +1058,10 @@ export class AkariChatWidget extends ReactWidget {
                 return;
             }
         } else if (outside) {
-            try { path = await this.chat.importAttachment(cwd, sourcePath); }
+            try { path = await this.chat.importAttachment(cwd, resolved.path); }
             catch (error) { this.messages.error(String(error)); return; }
         } else if (!outside) {
-            path = sourcePath.slice(cwd.length + 1);
+            path = resolved.relative;
         }
         this.attachments.push({ kind: 'file', path, label });
         this.update();
@@ -1154,11 +1188,28 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
     }
 
+    private prefetchLibraryCatalog(): void {
+        void this.catalogForDrop().catch(() => undefined);
+    }
+
+    private readonly onWindowDragStart = (event: DragEvent): void => {
+        if (shouldPrefetchLibraryCatalog(Array.from(event.dataTransfer?.types ?? []))) {
+            this.prefetchLibraryCatalog();
+        }
+    };
+
+    private readonly onLibraryDragStart = (event: Event): void => {
+        if (shouldPrefetchLibraryCatalog([], (event as CustomEvent<unknown>).detail)) {
+            this.prefetchLibraryCatalog();
+        }
+    };
+
     private readonly onWindowDragOver = (event: DragEvent): void => {
         if (!isChatDropTarget(event.target)) {
             this.setDragActive(false);
             return;
         }
+        if (!event.dataTransfer || !hasChatDropData(Array.from(event.dataTransfer.types))) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         if (event.dataTransfer) {
@@ -1220,71 +1271,71 @@ export class AkariChatWidget extends ReactWidget {
         this.update();
     };
 
-    private droppedUris(transfer: DataTransfer): string[] {
-        const values = [
-            transfer.getData('text/uri-list'),
-            transfer.getData('application/vnd.code.uri-list'),
-            transfer.getData('tree-node'),
-            transfer.getData('text/plain'),
-            transfer.getData('selected-tree-nodes')
-        ];
-        const paths = new Set<string>();
-        const accept = (value: unknown): void => {
-            if (typeof value === 'string') {
-                if (value.startsWith('file:')) {
-                    try {
-                        paths.add(new URI(value).path.fsPath());
-                    } catch {
-                        // Ignore a malformed file URI.
-                    }
-                    return;
-                }
-                if (value.startsWith('[') || value.startsWith('{') || value.startsWith('"')) {
-                    try {
-                        accept(JSON.parse(value));
-                    } catch {
-                        // This is not a serialized tree node.
-                    }
-                }
-                return;
-            }
-            if (Array.isArray(value)) {
-                for (const item of value) {
-                    accept(item);
-                }
-                return;
-            }
-            if (value && typeof value === 'object') {
-                const node = value as { uri?: unknown; resource?: unknown; id?: unknown };
-                accept(node.uri || node.resource || node.id);
-            }
-        };
-        for (const value of values) {
-            for (const line of value.split(/\r?\n/)) {
-                accept(line);
-            }
+    private async catalogForDrop(): ReturnType<AkariProjectService['getAssetCatalogView']> {
+        const preferenceRoot = this.preferences.get<string>('akari.catalog.root');
+        const cached = this.catalogCache;
+        if (cached && cached.preferenceRoot === preferenceRoot && cached.until > Date.now()) return cached.request;
+        const request = this.project.getAssetCatalogView(preferenceRoot, 'automatic');
+        this.catalogCache = { preferenceRoot, until: Date.now() + 60_000, request };
+        try { return await request; }
+        catch (error) {
+            if (this.catalogCache?.request === request) this.catalogCache = undefined;
+            throw error;
         }
-        return [...paths];
     }
 
     private async receiveDrop(transfer: DataTransfer): Promise<void> {
-        const paths = new Map<string, string>();
-        for (const file of Array.from(transfer.files)) {
-            const path = this.resolveFile(file);
-            if (path) {
-                paths.set(path, file.name);
-            }
+        const libraryData = transfer.getData('application/x-akari-library-item');
+        if (libraryData) { this.pendingLibraryDrops++; this.update(); }
+        try { await this.collectDrop(transfer, libraryData); }
+        finally {
+            if (libraryData) { this.pendingLibraryDrops--; this.update(); }
         }
-        for (const path of this.droppedUris(transfer)) {
-            if (!paths.has(path)) {
-                paths.set(path, new URI(path).path.base);
-            }
+    }
+
+    private async collectDrop(transfer: DataTransfer, libraryData: string): Promise<void> {
+        const cwd = await this.cwd();
+        if (!cwd) { this.messages.warn('先にプロジェクトを開いてください'); return; }
+        const types = ['application/x-akari-material', 'application/x-akari-library-item',
+            'theia-editor-dnd', 'text/uri-list', 'application/vnd.code.uri-list',
+            'tree-node', 'selected-tree-nodes', 'text/plain'];
+        const data = Object.fromEntries(types.map(type => [type, type === 'application/x-akari-library-item'
+            ? libraryData : transfer.getData(type)]));
+        const files = Array.from(transfer.files).map(file => ({ path: this.resolveFile(file) || '', label: file.name }));
+        const dropped = readChatDropData(data, files, cwd);
+        let catalog: Awaited<ReturnType<AkariProjectService['getAssetCatalogView']>> | undefined;
+        let references: Awaited<ReturnType<AkariProjectService['listProjectAssetReferences']>> | undefined;
+        let lookupError: unknown;
+        if (dropped.libraryKeys.length) {
+            try { catalog = await this.catalogForDrop(); }
+            catch (error) { lookupError = error; }
         }
-        if (paths.size === 0) {
+        for (const key of dropped.libraryKeys) {
+            try {
+                const item = catalog?.items.find(candidate => candidate.key === key);
+                if (item?.libraryDir && item.mediaFile) {
+                    dropped.paths.push({ path: `${item.libraryDir}/${item.mediaFile}`, label: item.title });
+                    continue;
+                }
+                if (!references) {
+                    const root = (await this.workspace.roots)[0].resource;
+                    references = await this.project.listProjectAssetReferences(root.toString());
+                }
+                const reference = references.find(candidate => `${candidate.category}/${candidate.id}` === key);
+                const media = reference?.files.find(file => /\.(mp4|mov|webm|mp3|wav|png|jpe?g|webp|svg|html|glb|gltf)$/i.test(file.name));
+                if (!media) { dropped.unsupported = true; continue; }
+                const path = media.path.startsWith('/') ? media.path : `${reference!.libraryDir || cwd}/${media.path}`;
+                dropped.paths.push({ path, label: reference?.title || media.name });
+            } catch (error) { lookupError = error; dropped.unsupported = true; }
+        }
+        if (dropped.unsupported) this.messages.warn(lookupError
+            ? `この項目はチャットに添付できません: ${String(lookupError)}` : 'この項目はチャットに添付できません');
+        if (dropped.paths.length === 0) {
+            if (dropped.unsupported) return;
             this.messages.warn('ファイルの場所を読み取れませんでした。＋ から選び直してください。');
             return;
         }
-        for (const [path, label] of paths) {
+        for (const { path, label } of dropped.paths) {
             await this.addPath(path, label);
         }
     }
@@ -1520,15 +1571,18 @@ export class AkariChatWidget extends ReactWidget {
             {item.event.options.map((option, optionIndex) => <button
                 key={optionIndex}
                 data-ask-option={optionIndex + 1}
+                title={`${optionIndex + 1}. ${option.label}${option.description ? ` — ${option.description}` : ''}`}
                 onClick={() => this.answer(optionIndex)}
-            >{optionIndex + 1}. {option.label} <small>{option.description}</small></button>)}
+            ><span className='akari-chat-ask-number'>{optionIndex + 1}.</span><span className='akari-chat-ask-copy'>
+                <span>{option.label}</span><small>{option.description || '\u00a0'}</small>
+            </span></button>)}
             <small>ほかの答えは入力欄へ</small>
         </div>;
     }
 
     private renderAttachment(item: ChatAttachment, key: number, remove?: () => void): React.ReactNode {
         if (item.kind === 'file') return <span key={key} className='akari-chat-chip' data-chat-attachment={item.path}>
-            <ChatIcon name='file' size={14} />{item.label}
+            <ChatIcon name='file' size={14} /><span className='akari-chat-chip-label'>{item.label}</span>
             {remove && <button className='akari-chat-plain' data-chat-attachment-remove={key} onClick={remove}>×</button>}
         </span>;
         const mark = item.review;
@@ -1561,7 +1615,9 @@ export class AkariChatWidget extends ReactWidget {
             return null;
         }
         return <div className='akari-chat-pop akari-chat-history' data-chat-history>
-            {this.history.length ? this.history.map(entry => {
+            {this.historyLoading ? <span className='akari-chat-history-empty'>読み込み中…</span>
+                : this.historyError ? <span className='akari-chat-history-empty' role='alert'>{this.historyError}</span>
+                : this.history.length ? this.history.map(entry => {
                 const agent = this.agents.find(candidate => candidate.id === entry.agent);
                 const name = agent?.name || entry.agent;
                 const current = this.chatId === entry.id;
@@ -1688,6 +1744,8 @@ export class AkariChatWidget extends ReactWidget {
                 {choices.frequent.length > 0 && <strong>よく使う</strong>}
                 {choices.frequent.map(model => <button key={`frequent-${model.id}`} data-chat-model={model.id}
                     onClick={() => void this.switchModel(model.id)}>{model.label}</button>)}
+                {choices.frequent.length > 0 && choices.matches.length > 0 &&
+                    <strong className='akari-chat-model-all'>すべて</strong>}
                 {!models.length && !this.starting && <small>既定</small>}
                 {choices.matches.map(model => <button
                     key={model.id}
@@ -1705,7 +1763,8 @@ export class AkariChatWidget extends ReactWidget {
                         data-chat-effort={effort}
                         className={this.effort === effort ? 'selected' : undefined}
                         onClick={() => void this.switchEffort(effort)}
-                    >{EFFORT_LABELS[effort] || effort}{this.effort === effort && <ChatIcon name='check' size={12} />}</button>)}
+                        aria-pressed={this.effort === effort}
+                    >{EFFORT_LABELS[effort] || effort}</button>)}
                 </div>}
                 {this.actualModel && <small>実行中のモデル: {this.actualModel}</small>}
                 </>}
@@ -1745,8 +1804,6 @@ export class AkariChatWidget extends ReactWidget {
             }}
         >
             <div className='akari-chat-head'>
-                <AkariLamp size={18} />
-                <strong>AKARI</strong>
                 <button
                     className='akari-chat-plain'
                     data-chat-agent-button
@@ -1755,7 +1812,7 @@ export class AkariChatWidget extends ReactWidget {
                         if (!this.chatId) void this.ensureChat();
                         this.update();
                     }}
-                ><AgentIcon id={this.selectedAgent} name={agent?.name} /> {agent?.name || 'Claude Code'} <ChatIcon name='down' size={13} /></button>
+                ><AgentIcon id={this.selectedAgent} name={agent?.name} /> <span>{agent?.name || 'Claude Code'}</span> <ChatIcon name='down' size={13} /></button>
                 <span className='akari-chat-spacer' />
                 <button className='akari-chat-plain' data-chat-new title='新しいチャット' onClick={() => void this.newChat()}>
                     <ChatIcon name='plus' size={18} />
@@ -1838,6 +1895,9 @@ export class AkariChatWidget extends ReactWidget {
                     {running.map(tool => <div className='akari-chat-activity-row' key={tool.id} title={tool.title}>
                         <ChatIcon name={TOOL_ICONS[tool.kind]} size={14} /><span>{tool.title}</span>
                     </div>)}
+                </div>}
+                {this.pendingLibraryDrops > 0 && <div className='akari-chat-drop-pending' data-chat-drop-pending role='status'>
+                    準備中…
                 </div>}
                 {this.attachments.length > 0 && <div className='akari-chat-attachments'>
                     {this.attachments.map((item, index) => this.renderAttachment(item, index, () => {

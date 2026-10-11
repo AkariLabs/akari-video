@@ -82,7 +82,7 @@ test('Claude exposes models before init and records a slash skill tool row', asy
         service.setClient({ onEvent: (_id, event) => events.push(event) });
         await service.setDefaults('claude', { model: 'haiku' });
         const started = await service.start({ agent: 'claude', cwd: root });
-        assert.deepEqual(started.capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku']);
+        assert.deepEqual(started.capabilities.models.map(model => model.id), ['opus', 'sonnet', 'haiku', 'fable']);
         assert.equal(started.capabilities.currentModel, 'haiku');
         const sent = service.send(started.chatId, '/edit-lint check', []);
         opening.resolve();

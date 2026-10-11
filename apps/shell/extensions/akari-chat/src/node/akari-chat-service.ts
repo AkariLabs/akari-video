@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { basename, dirname, extname, isAbsolute, join } from 'path';
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'path';
 import { injectable } from '@theia/core/shared/inversify';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent } from '../common/chat-events';
@@ -9,7 +9,7 @@ import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../com
 import { chatAdapters } from './adapters';
 import { claudeConfiguredModel, claudeInitialCapabilities } from './adapters/claude-stream-json';
 import type { ChatAdapterSession } from './adapters/adapter';
-import { addHistory, readHistory, titleFromText, updateHistory, writeHistory, renameHistory, removeHistory } from './history';
+import { addHistory, readHistory, readHistoryForWrite, titleFromText, updateHistory, writeHistory, renameHistory, removeHistory } from './history';
 import { appendTranscript, loadTranscript, readDefaults, writeDefaults, type ChatDefaults } from './chat-storage';
 
 type ActiveChat = {
@@ -45,9 +45,10 @@ export class AkariChatServiceImpl implements AkariChatService {
     private defaultsTail: Promise<void> = Promise.resolve();
 
     private async changeHistory(cwd: string, change: (history: Awaited<ReturnType<typeof readHistory>>) => ReturnType<typeof addHistory>): Promise<void> {
+        cwd = await fs.realpath(cwd);
         const previous = this.historyTails.get(cwd) || Promise.resolve();
         const next = previous.catch(() => undefined).then(async () => {
-            await writeHistory(cwd, change(await readHistory(cwd)));
+            await writeHistory(cwd, change(await readHistoryForWrite(cwd)));
         });
         this.historyTails.set(cwd, next);
         try { await next; } finally { if (this.historyTails.get(cwd) === next) this.historyTails.delete(cwd); }
@@ -387,6 +388,14 @@ export class AkariChatServiceImpl implements AkariChatService {
         await fs.mkdir(join(cwd, 'assets'), { recursive: true });
         await fs.copyFile(sourcePath, join(cwd, relative));
         return relative;
+    }
+
+    async resolveAttachmentPath(cwd: string, sourcePath: string): Promise<{ path: string; inside: boolean; relative: string }> {
+        cwd = await this.validCwd(cwd);
+        await this.validSourcePath(sourcePath);
+        const actual = await fs.realpath(sourcePath);
+        const within = relative(cwd, actual);
+        return { path: actual, inside: within !== '..' && !within.startsWith(`..${sep}`) && !isAbsolute(within), relative: within };
     }
 
     async resume(cwd: string, historyId: string, token?: string, permission?: ChatAdapterPermission) {
