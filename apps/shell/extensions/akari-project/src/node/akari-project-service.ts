@@ -22,7 +22,7 @@ import {
     AkariProjectService,
     TranscribeArtifactRequest, TranscribeArtifacts, MaterialTranscriptEvent,
     CancelTranscribeRequest,
-    TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
+    TranscribeMaterialRequest, TranscribeOptions, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
     EntitledProduct,
@@ -96,6 +96,36 @@ import {
     hasGeneratedMediaExtension,
     PROJECT_GITIGNORE
 } from 'akari-video/src/history-policy.mjs';
+
+export function filterIdentifyPeople(source: string, ids: ReadonlySet<string>): string {
+    const root = JSON.parse(source) as Record<string, unknown>;
+    if (!Array.isArray(root.entries)) throw new Error('人物の一覧が不正です');
+    root.entries = root.entries.filter((entry: unknown) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const row = entry as Record<string, unknown>;
+        return (row.kind === 'person' || row.kind === 'avatar') && typeof row.id === 'string' && ids.has(row.id);
+    });
+    return `${JSON.stringify(root, null, 2)}\n`;
+}
+
+export function transcribeSpeakerArgs(relativePath: string, backend: string, request: TranscribeOptions,
+    peopleFile?: string): string[] {
+    if (request.speakers !== undefined && !['auto', '1', '2', '3', '4'].includes(request.speakers)) {
+        throw new Error('文字起こしの話者の指定が不正です');
+    }
+    return ['transcribe', relativePath, ...(backend === 'auto' ? [] : ['--backend', backend]),
+        ...(request.diarize || request.identify ? ['--diarize'] : []),
+        ...(request.speakers && request.speakers !== 'auto' ? ['--speakers', request.speakers] : []),
+        ...(request.identify ? ['--identify'] : []), ...(peopleFile ? ['--people', peopleFile] : [])];
+}
+
+export function identifyPersonIds(people: readonly string[] | undefined, channel?: string): string[] | undefined {
+    return people?.map(id => {
+        const bare = channel ? id.replace(`${channel}/`, '') : id;
+        if (!/^[A-Za-z0-9_.-]+$/u.test(bare)) throw new Error('文字起こしの人物の指定が不正です');
+        return bare;
+    });
+}
 
 export function normalizeEntitledProducts(value: unknown): EntitledProduct[] {
     if (!Array.isArray(value)) { return []; }
@@ -1558,7 +1588,11 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         if (backends.some(backend => !/^(auto|speech-analyzer|whisper-cpp|cloud:[A-Za-z0-9_-]+)$/.test(backend))) {
             throw new Error('文字起こしエンジンが不正です');
         }
+        transcribeSpeakerArgs(target.relativePath, backends[0], request);
+        const channelMatch = /^(.*[\\/]channels[\\/][^\\/]+)[\\/]videos[\\/][^\\/]+[\\/]?$/u.exec(target.root);
+        const selectedPeople = identifyPersonIds(request.people, channelMatch ? basename(channelMatch[1]) : undefined);
         this.transcriptions.add(target.path);
+        let peopleFile: string | undefined;
         const trackChild = (child: ChildProcess): void => {
             const children = this.transcribeChildren.get(target.path) ?? new Set<ChildProcess>();
             children.add(child);
@@ -1582,16 +1616,23 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const failures: string[] = [];
         let cancelled = false;
         try {
+            if (request.identify && selectedPeople && channelMatch) {
+                const channelRoot = channelMatch[1];
+                const source = await fs.readFile(join(channelRoot, 'people.json'), 'utf8');
+                peopleFile = join(channelRoot, `.people-identify-${process.pid}-${Date.now()}.json`);
+                await fs.writeFile(peopleFile, filterIdentifyPeople(source, new Set(selectedPeople)), 'utf8');
+            }
             const cli = await this.findMediaTool('media');
-            const results = await Promise.all(backends.map(async backend => {
+            const results = await Promise.all(backends.map(async (backend, index) => {
                 const started = Date.now();
                 await publish('running', 'transcribing', backend);
                 try {
                     // media.mjs has no --approved option. Its runCloud delegates to the existing
                     // transcribe-cloud.mjs --send --approved path; gate entry here, before spawn.
                     if (backend.startsWith('cloud:') && request.approved !== true) throw new Error('音声送信の承認がありません');
-                    const result = await this.runNodeScript(cli, ['transcribe', target.relativePath,
-                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root, trackChild);
+                    const result = await this.runNodeScript(cli,
+                        transcribeSpeakerArgs(target.relativePath, backend, index === 0 ? request : {}, index === 0 ? peopleFile : undefined),
+                        target.root, trackChild);
                     if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
                     if (backends.length > 1) await publish('completed', 'completed', backend, undefined, (Date.now() - started) / 1000);
                     return { backend, stdout: result.stdout };
@@ -1631,6 +1672,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         } catch (error) {
             failures.push(error instanceof Error ? error.message : String(error));
         } finally {
+            if (peopleFile) await fs.rm(peopleFile, { force: true }).catch(() => undefined);
             cancelled = this.transcribeCancelled.has(target.path);
             await publish(cancelled ? 'cancelled' : failures.length ? 'failed' : 'completed', 'completed', undefined,
                 cancelled ? undefined : failures.join(' / ') || undefined);

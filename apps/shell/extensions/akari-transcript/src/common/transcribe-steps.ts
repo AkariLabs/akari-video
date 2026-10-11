@@ -1,5 +1,11 @@
 import type { TranscribeArtifacts } from 'akari-project/lib/common/akari-project-protocol';
 import { normalizedCaptionPath } from './caption-source-eligibility';
+export { channelPeopleLocation, mergeSpeakerDictionary, orderChannelPeople, parseChannelPeople } from './channel-people-reader';
+export type { ChannelPerson } from './channel-people-reader';
+export { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided, mergeVoicesDecided,
+    parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady, voiceGateBlocks,
+    VOICE_ENGINE_DOWNLOAD_MB, SPEAKER_COLORS } from './caption-popup-speakers';
+export type { SpeakerCount, SpeakerReviewRow } from './caption-popup-speakers';
 
 export function popupInitialSourceIds(sources: readonly { id: string; path: string; status: string }[],
     initialPath: string | undefined, captionSourceIds: readonly string[]): string[] {
