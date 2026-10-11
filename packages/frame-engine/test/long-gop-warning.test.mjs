@@ -13,7 +13,10 @@
 // 索引（keyframeTimesUs）は全ソースで既に作っているので、最大間隔の算出に追加の読み取りは
 // 要らない。ここではその算出と、閾値超過で警告が出ることを固定する。
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -21,7 +24,9 @@ import {
     describeIndexParseFailure,
     LONG_GOP_WARNING_SECONDS,
     maxKeyframeIntervalSeconds,
+    RangeMp4Source,
 } from '../dist/index.js';
+import { t as translate } from '../../i18n/index.mjs';
 
 // KeyframeIndex のうち、最大間隔の算出が読むものだけを持つ最小形。
 function indexOf(keyframeSeconds, { durationSec, lastFrameStartSec } = {}) {
@@ -90,8 +95,45 @@ test('RangeMp4Source は索引を作った直後に閾値超過を onWarning へ
     assert.match(prepare, /const gopSeconds = maxKeyframeIntervalSeconds\(keyframes\);/u);
     assert.match(prepare, /gopSeconds !== undefined && gopSeconds > LONG_GOP_WARNING_SECONDS/u);
     assert.match(prepare, /this\.options\.onWarning\?\.\(/u);
+    assert.match(prepare, /\{ code: 'long-gop', id: this\.id, gopSeconds \}/u);
     // 直し方（GOP 1 秒以下へ焼き直す）を案内に含める。edit-lint の文面と同じ ffmpeg 引数。
     assert.match(prepare, /-g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0/u);
+});
+
+test('long-GOP MP4 emits a compatible Japanese message and structured values for both locales', async context => {
+    if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) return context.skip('ffmpeg is required');
+    const directory = mkdtempSync(path.join(tmpdir(), 'akari-long-gop-'));
+    context.after(() => rmSync(directory, { recursive: true, force: true }));
+    const file = path.join(directory, 'long.mp4');
+    execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
+        '-i', 'testsrc2=size=96x64:rate=5', '-frames:v', '20', '-an', '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0',
+        '-bf', '0', '-movflags', '+faststart', file]);
+    const bytes = readFileSync(file);
+    const warnings = [];
+    const source = new RangeMp4Source('clip', 'long.mp4', {
+        fetchImpl: async (_url, init = {}) => {
+            const match = new Headers(init.headers).get('range')?.match(/^bytes=(\d+)-(\d+)$/u);
+            assert.ok(match);
+            const start = Number(match[1]);
+            const end = Math.min(Number(match[2]) + 1, bytes.length);
+            return new Response(bytes.subarray(start, end), { status: 206, headers: {
+                'content-length': String(end - start),
+                'content-range': `bytes ${start}-${end - 1}/${bytes.length}`,
+            } });
+        },
+        onWarning: (message, detail) => warnings.push({ message, detail }),
+    });
+    try { await source.prepare(); } finally { source.destroy(); }
+    assert.equal(warnings.length, 1);
+    const { message, detail } = warnings[0];
+    assert.equal(detail.code, 'long-gop');
+    assert.equal(detail.id, 'clip');
+    assert.ok(detail.gopSeconds > 2);
+    const params = { id: detail.id, gopSeconds: detail.gopSeconds.toFixed(3) };
+    assert.equal(message, translate('render.frameEngine.warning.longGop', params, 'ja'));
+    assert.doesNotMatch(translate('render.frameEngine.warning.longGop', params, 'en'),
+        /[\u3040-\u30ff\u3400-\u9fff]/u);
 });
 
 test('索引の構築自体は警告の有無で変わらない（判定は読むだけ）', () => {

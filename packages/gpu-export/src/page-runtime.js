@@ -48,7 +48,12 @@
     while (encoder.encodeQueueSize > limit) await yieldMacrotask();
   }
 
-  function warn(message) {
+  function warn(message, detail) {
+    if (detail?.code === "long-gop" && pageConfig.messages?.longGop) {
+      message = pageConfig.messages.longGop
+        .replaceAll("{id}", String(detail.id))
+        .replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+    }
     warnings.push(String(message));
     console.warn("[akari-gpu]", message);
   }

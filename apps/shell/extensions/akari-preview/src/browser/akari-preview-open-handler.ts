@@ -1,5 +1,5 @@
 import { scriptDictionary, t, webviewScriptText } from '../common/preview-text';
-import { getLanguage } from '@akari-video/i18n';
+import { getLanguage, t as renderT } from '@akari-video/i18n';
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
@@ -7891,7 +7891,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             pause: t('preview.previewWindow.status.pauseAction'),
             videoError: t('preview.previewWindow.status.videoError'),
             transcoding: t('preview.previewWindow.status.transcodingError'),
-            ...Object.fromEntries(scriptKeys.map(key => [key, t(key)]))
+            ...Object.fromEntries(scriptKeys.map(key => [key, t(key)])),
+            'render.frameEngine.warning.longGop': renderT('render.frameEngine.warning.longGop')
         });
         return `<!doctype html>
 <html lang="${getLanguage()}">

@@ -111,5 +111,6 @@
   "render.gpu.diagnostics.cause": " (cause: {cause})",
   "render.gpu.error.skippedLayers": "GPU run skipped {count} layer draw(s); output with missing layers was rejected (run.json frameEngineMetrics.skippedLayers)",
   "render.gpu.warning.silentCarrier": "gpu-export: The audio source has no audio stream, so a silent carrier track was added: {source}",
-  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d children overlap on screen, and their depth order differs from DOM order. GPU occlusion follows DOM order, so the image will differ from OSR. Avoid overlapping these children or export with --engine osr"
+  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d children overlap on screen, and their depth order differs from DOM order. GPU occlusion follows DOM order, so the image will differ from OSR. Avoid overlapping these children or export with --engine osr",
+  "render.frameEngine.warning.longGop": "{id}: The maximum keyframe interval is {gopSeconds} seconds, so seeking and cut changes will be slow. Prepare a lightweight version with a GOP of 1 second or less (ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>)"
 }

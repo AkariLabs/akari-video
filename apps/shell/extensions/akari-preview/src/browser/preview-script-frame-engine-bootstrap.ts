@@ -343,7 +343,9 @@ export function frameEngineBootstrapScript(): string {
                 const createVideoSource = (id, url) => {
                     const pool = new engine.ClipSessionPool(id, url, {
                         codecSupport: sourceSupports.get(id) || null,
-                        onWarning: message => showError(message, false),
+                        onWarning: (message, detail) => showError(detail?.code === 'long-gop'
+                            ? t('render.frameEngine.warning.longGop', { id: detail.id, gopSeconds: Number(detail.gopSeconds).toFixed(3) })
+                            : message, false),
                         onSoftwareFallbackDenied: support => {
                             const known = sourceSupports.get(id);
                             if (!(known && (known.hw || known.any))) {

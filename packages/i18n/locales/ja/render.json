@@ -111,5 +111,6 @@
   "render.gpu.diagnostics.cause": "（原因: {cause}）",
   "render.gpu.error.skippedLayers": "GPU run skipped {count} layer draw(s); 層の欠けた出力は採用しません（run.json の frameEngineMetrics.skippedLayers）",
   "render.gpu.warning.silentCarrier": "gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: {source}",
-  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください"
+  "render.gpu.warning.preserve3dOrder": "WARN overlay {id}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください",
+  "render.frameEngine.warning.longGop": "{id}: 最大キーフレーム間隔が {gopSeconds} 秒のため、シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）"
 }
