@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { moveTreeV2PlacedCaption } from '../lib/common/edit-v2-mutations.js';
-import { planPlacedTextMove, startsPlacedTextVerticalDrag } from '../lib/common/placed-text-drag.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { moveTreeV2PlacedCaption } = await import('../lib/common/edit-v2-mutations.js');
+const { planPlacedTextMove, startsPlacedTextVerticalDrag } = await import('../lib/common/placed-text-drag.js');
+
+
+
 
 const caption = { id: 'c1', at: 30, duration: 60 };
 const initial = () => ({ version: 2, output: { width: 1920, height: 1080, fps: 30 },

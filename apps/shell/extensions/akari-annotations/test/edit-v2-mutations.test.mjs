@@ -8,35 +8,13 @@ import { applyCutRanges, buildTimelineMap, projectLegacyEdit, readInternalEdit,
   restoreCutRange } from '@akari-video/edit-store';
 import { buildDaihonRows } from '../../akari-transcript/lib/common/daihon-row-model.js';
 import { deriveDaihonCutSpans } from '../../akari-transcript/lib/common/daihon-cut-spans.js';
-import {
-  findAudioItemIdByRole,
-  indexEditV2Items,
-  insertItem,
-  insertAudioSfx,
-  insertAudioSfxPreferV2,
-  insertTrack,
-  moveItem,
-  moveAudioSfx,
-  moveAudioSfxPreferV2,
-  moveItemToNewTrack,
-  prepareV2KeyframeDistribution,
-  removeItem,
-  removeAudioNarrationPreferV2,
-  removeAudioSfx,
-  removeAudioSfxPreferV2,
-  removeTrack,
-  renameTrack,
-  reorderTracks,
-  setTrackFlag,
-  setV2Keyframe,
-  splitItem,
-  stringifyEditV2,
-  updateAudioSfx,
-  updateAudioSfxPreferV2,
-  updateAudioNarrationGainPreferV2,
-  updateTreeV2Item,
-  updateItem
-} from '../lib/common/edit-v2-mutations.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { findAudioItemIdByRole, indexEditV2Items, insertItem, insertAudioSfx, insertAudioSfxPreferV2, insertTrack, moveItem, moveAudioSfx, moveAudioSfxPreferV2, moveItemToNewTrack, prepareV2KeyframeDistribution, removeItem, removeAudioNarrationPreferV2, removeAudioSfx, removeAudioSfxPreferV2, removeTrack, renameTrack, reorderTracks, setTrackFlag, setV2Keyframe, splitItem, stringifyEditV2, updateAudioSfx, updateAudioSfxPreferV2, updateAudioNarrationGainPreferV2, updateTreeV2Item, updateItem } = await import('../lib/common/edit-v2-mutations.js');
+
+
 
 const fixturePath = new URL('../../../../../packages/edit-store/test/fixtures/edit-v2.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));

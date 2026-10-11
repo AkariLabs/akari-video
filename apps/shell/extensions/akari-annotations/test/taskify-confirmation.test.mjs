@@ -4,6 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+
+
 
 const require = createRequire(import.meta.url);
 
@@ -11,8 +17,8 @@ test('first-use task confirmation is inline, dismissible, and closes when paper 
   const source = await readFile(fileURLToPath(new URL('../src/browser/rough-canvas/rough-canvas-popup.ts', import.meta.url)), 'utf8');
   assert.doesNotMatch(source, /window\.(?:confirm|alert)\s*\(/);
   assert.match(source, /this\.confirm\.append\(message, actions\)/);
-  assert.match(source, /this\.button\('続ける', 'secondary small'/);
-  assert.match(source, /this\.button\('やめる', 'quiet small'/);
+  assert.match(source, /this\.button\(t\('annotationscommon\.roughCanvasPopup\.button\.contactUs'\), 'secondary small'/);
+  assert.match(source, /this\.button\(t\('annotationscommon\.roughCanvasPopup\.button\.cancel'\), 'quiet small'/);
   assert.match(source, /this\.memo\.addEventListener\('input', .*this\.closeTaskConfirmation\(\)/);
   assert.match(source, /this\.layer\.onChange\(doc => .*this\.closeTaskConfirmation\(\)/);
 });
@@ -26,7 +32,7 @@ test('task packet follows backdrop add and clear without Electron', async () => 
   const compiled = ts.transpileModule(source.slice(start, end), {
     compilerOptions: { module: ts.ModuleKind.CommonJS }
   }).outputText;
-  const scope = { exports: {} };
+  const scope = { exports: {}, t };
   vm.runInNewContext(compiled, scope);
   const presentation = scope.exports.taskBackdropPresentation;
   let preferred = true;

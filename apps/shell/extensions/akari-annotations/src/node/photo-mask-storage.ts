@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { tmpdir, release } from 'os';
@@ -15,13 +16,13 @@ export async function commitPhotoMask(projectRoot: string, input: string, png: B
     expectedInputSha256?: string): Promise<PhotoMaskResult> {
     const root = await fs.realpath(projectRoot);
     const inputSha256 = createHash('sha256').update(await fs.readFile(input)).digest('hex');
-    if (expectedInputSha256 && inputSha256 !== expectedInputSha256) return { ok: false, message: '処理中に写真が変わりました' };
+    if (expectedInputSha256 && inputSha256 !== expectedInputSha256) return { ok: false, message: t('annotationscommon.photoMaskStorage.feedback.photoChanged') };
     if (png.length < 33 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-        || png[24] !== 8 || png[25] !== 0) throw new Error('8bit グレーの PNG を作れませんでした');
+        || png[24] !== 8 || png[25] !== 0) throw new Error(t('annotationscommon.photoMaskStorage.error.couldNotCreate8BitGrayscalePng'));
     const folder = resolve(root, 'assets', 'masks');
     for (const directory of [resolve(root, 'assets'), folder]) {
         await fs.mkdir(directory, { recursive: true });
-        if (!(await fs.realpath(directory)).startsWith(root + sep)) throw new Error('プロジェクト外には保存できません');
+        if (!(await fs.realpath(directory)).startsWith(root + sep)) throw new Error(t('annotationscommon.photoMaskStorage.error.cannotSaveOutsideProject'));
     }
     const hash = createHash('sha256').update(png).digest('hex');
     const destination = join(folder, `${hash}.png`);
@@ -38,7 +39,7 @@ export async function commitPhotoMask(projectRoot: string, input: string, png: B
 
 export async function savePhotoMask(projectRoot: string, input: string, helper: string | undefined): Promise<PhotoMaskResult> {
     if (!helper || !await fs.stat(helper).then(stat => stat.isFile()).catch(() => false)) {
-        return { ok: false, message: '背景を消す準備ができていません' };
+        return { ok: false, message: t('annotationscommon.photoMaskStorage.feedback.notReady') };
     }
     const root = await fs.realpath(projectRoot);
     const inputBefore = await fs.readFile(input);
@@ -51,10 +52,10 @@ export async function savePhotoMask(projectRoot: string, input: string, helper: 
         const details = JSON.parse(stdout.trim()) as { request: string; width: number; height: number };
         const png = await fs.readFile(output);
         if (png.length < 33 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-            || png[24] !== 8 || png[25] !== 0) throw new Error('8bit グレーの PNG を作れませんでした');
+            || png[24] !== 8 || png[25] !== 0) throw new Error(t('annotationscommon.photoMaskStorage.error.couldNotCreate8BitGrayscalePng'));
         const inputAfter = await fs.readFile(input);
         if (createHash('sha256').update(inputAfter).digest('hex') !== inputSha256) {
-            throw new Error('処理中に写真が変わりました');
+            throw new Error(t('annotationscommon.photoMaskStorage.error.photoChangedDuringProcessing'));
         }
         const hash = createHash('sha256').update(png).digest('hex');
         const name = `${hash}.png`;

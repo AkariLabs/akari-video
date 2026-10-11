@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface CutFreeze {
     at_sec: number;
     duration_sec: number;
@@ -80,14 +81,14 @@ export function updateCutFreeze(
     const duration = Math.max(0, finiteNumber(playbackDurationSeconds) ? playbackDurationSeconds : 0);
     const freeze = readCutFreeze(current);
     if (request.kind === 'cut-freeze-at') {
-        if (!freeze) throw new Error('先に静止尺を設定してください。');
-        if (!finiteNumber(request.value)) throw new Error('静止時刻は有限数で指定してください。');
+        if (!freeze) throw new Error(t('inspector.freezeFields.error.setFreezeDurationFirst'));
+        if (!finiteNumber(request.value)) throw new Error(t('inspector.freezeFields.error.invalidFreezeTime'));
         return { ...freeze, at_sec: clamp(request.value, 0, duration) };
     }
 
     if (request.value === null || request.value === 0) return null;
     if (!finiteNumber(request.value) || request.value < 0) {
-        throw new Error('静止尺は 0 以上の有限数で指定してください。');
+        throw new Error(t('inspector.freezeFields.error.invalidFreezeDuration'));
     }
     const at = freeze?.at_sec
         ?? (finiteNumber(displayedAtSeconds) ? displayedAtSeconds : 0);

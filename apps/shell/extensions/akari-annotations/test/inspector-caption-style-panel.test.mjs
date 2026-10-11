@@ -1,21 +1,26 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model.js';
-import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
+
+
+
 import { parseCaptions } from '@akari-video/edit-store';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
-import { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } from '../lib/browser/inspector/caption-multi-targets.js';
-import {
-    CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
-    captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch,
-    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
-    captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField,
-    captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch
-} from '../lib/browser/inspector/caption-style-effects.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+const { filterInspectorSoloSections } = await import('../lib/browser/inspector/solo-model.js');
+const { captionRunRows } = await import('../lib/browser/inspector/caption-run-rows.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+const { captionMultiTargets, commonCaptionAnimation, withCaptionMultiTargets } = await import('../lib/browser/inspector/caption-multi-targets.js');
+const { CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX, captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch, captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch, captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField, captionEffectCard, captionEffectAdjustmentKeys, captionEffectAdjustmentValue, captionEffectAdjustmentPatch } = await import('../lib/browser/inspector/caption-style-effects.js');
+
 
 const source = readInspectorSource();
 const css = readFileSync(new URL('../src/browser/style/inspector-widget-style.ts', import.meta.url), 'utf8');
@@ -227,7 +232,7 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
             ['caption-position-x', '%'], ['caption-position-y', '%']
         ]) assert.equal(field(sections, name)?.unit, unit);
     }
-    assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);
+    assert.match(source, /inspector\.captionSections\.text\.setCornerRadiusItsMaximumCapsuleShaped/u);
     assert.match(source, /valueGroup\.append\(number, unit, defaultNote\)/u);
     assert.match(css, /\.akari-caption-slider-value\s*\{[^}]*display: inline-flex;[^}]*white-space: nowrap;/u);
 });

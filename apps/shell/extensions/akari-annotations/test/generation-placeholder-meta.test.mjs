@@ -7,9 +7,15 @@ import { join, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../lib/common/generation-sidecar.js';
+
 import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { finishPlaceholderGenerating, markPlaceholderGenerating } = await import('../lib/common/generation-sidecar.js');
+
 
 const source = readFileSync(new URL('../src/node/akari-annotations-service.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('service.ts', source, ts.ScriptTarget.Latest, true);
@@ -57,7 +63,8 @@ test('ナレーションの枠 meta は開始中だけ generating、成功・失
       const pending = service.generateNarration(request(root));
       let generating;
       for (let i = 0; i < 100; i++) {
-        generating = JSON.parse(await readFile(oldPath, 'utf8'));
+        try { generating = JSON.parse(await readFile(oldPath, 'utf8')); }
+        catch { await new Promise(resolveDelay => setTimeout(resolveDelay, 10)); continue; }
         if (generating.status === 'generating') break;
         await new Promise(resolveDelay => setTimeout(resolveDelay, 10));
       }

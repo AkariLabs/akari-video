@@ -9,11 +9,20 @@ import ts from 'typescript';
 import postcss from 'postcss';
 import { readAllSourceText, readSourceFile, findMember, findTopLevelFunction } from './helpers/widget-source.mjs';
 
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { describeGenerationChip, generationChipLabel, resolveGenerationState } from '../lib/common/generation-sidecar.js';
-import { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } from '../lib/browser/inspector/ai-video-candidates-panel.js';
+
+
+
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter, beforeEach } from 'node:test';
+setLanguage('ja');
+beforeEach(() => setLanguage('ja'));
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+const { describeGenerationChip, generationChipLabel, resolveGenerationState } = await import('../lib/common/generation-sidecar.js');
+const { videoOverhangSeconds, videoRoundedDuration, videoSecondsLabel } = await import('../lib/browser/inspector/ai-video-candidates-panel.js');
+
 
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = readAllSourceText();

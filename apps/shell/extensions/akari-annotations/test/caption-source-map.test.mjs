@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { computeCaptionSourceMappingWarning, readCaptionSourceMap, resolveCaptionSourceForMapping, shouldNotifyCaptionSourceMappingWarning } = await import('../lib/common/caption-source-map.js');
 
-import {
-  computeCaptionSourceMappingWarning,
-  readCaptionSourceMap,
-  resolveCaptionSourceForMapping,
-  shouldNotifyCaptionSourceMappingWarning,
-} from "../lib/common/caption-source-map.js";
+
+
 
 test("captions.json の配列ルートと object ルートから id ごとの src を読む", () => {
   const arraySources = readCaptionSourceMap(JSON.stringify([

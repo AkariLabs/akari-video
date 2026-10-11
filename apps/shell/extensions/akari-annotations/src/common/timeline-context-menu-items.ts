@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * タイムラインのクリップ右クリックメニューの項目構成を組み立てる純関数
  * (task 2026-08-10-timeline-clip-menu 指示2)。DOM に一切依存しないため node --test で検証できる。
@@ -73,33 +74,33 @@ export function buildTimelineClipMenuItems(
 ): TimelineClipMenuItem[] {
     const items: TimelineClipMenuItem[] = [];
     if (audio.copyable !== false) {
-        items.push({ id: 'copy', label: 'コピー' }, { id: 'cut', label: '切り取り' });
+        items.push({ id: 'copy', label: t('annotationscommon.timelineContextMenuItems.label.copy') }, { id: 'cut', label: t('annotationscommon.timelineContextMenuItems.label.cutOut') });
     }
-    items.push({ id: 'paste', label: '貼り付け', ...(!hasClipboard ? { disabled: true } : {}) });
-    if (audio.copyable !== false) items.push({ id: 'duplicate', label: '複製' });
+    items.push({ id: 'paste', label: t('annotationscommon.timelineContextMenuItems.label.paste'), ...(!hasClipboard ? { disabled: true } : {}) });
+    if (audio.copyable !== false) items.push({ id: 'duplicate', label: t('annotationscommon.timelineContextMenuItems.label.duplicate') });
     if (tree.canSplit ?? SPLIT_CAPABLE_KINDS.has(kind)) {
-        items.push({ id: 'split', label: '分割' });
-        items.push({ id: 'split-at-playhead', label: '再生ヘッドで分割 (⌘B)' });
+        items.push({ id: 'split', label: t('annotationscommon.timelineContextMenuItems.label.split') });
+        items.push({ id: 'split-at-playhead', label: t('annotationscommon.timelineContextMenuItems.label.splitPlaybackHeadB') });
     }
-    if (tree.canDetach) items.push({ id: 'detach', label: 'キャンバスから出す' });
-    if (tree.canGroup) items.push({ id: 'group', label: 'キャンバスにする' });
-    if (tree.canUngroup) items.push({ id: 'ungroup', label: 'キャンバスをほどく' });
+    if (tree.canDetach) items.push({ id: 'detach', label: t('annotationscommon.timelineContextMenuItems.label.getOutCanvas') });
+    if (tree.canGroup) items.push({ id: 'group', label: t('annotationscommon.timelineContextMenuItems.label.makeCanvas') });
+    if (tree.canUngroup) items.push({ id: 'ungroup', label: t('annotationscommon.timelineContextMenuItems.label.canvas') });
     if (tree.canToggleCollapse) {
-        items.push({ id: 'toggle-collapse', label: tree.collapsed ? '展開' : '折りたたむ' });
+        items.push({ id: 'toggle-collapse', label: tree.collapsed ? t('annotationscommon.timelineContextMenuItems.label.expand') : t('annotationscommon.timelineContextMenuItems.label.folded') });
     }
-    if (tree.hasParent) items.push({ id: 'select-parent', label: '親を選択' });
+    if (tree.hasParent) items.push({ id: 'select-parent', label: t('annotationscommon.timelineContextMenuItems.label.selectParent') });
     if (kind === 'cut' && audio.split) items.push({
-        id: 'split-audio', label: '音声を分離',
+        id: 'split-audio', label: t('annotationscommon.timelineContextMenuItems.label.isolateVoice'),
         ...(audio.split.ok === false ? { disabled: true, disabledReason: audio.split.message } : {})
     });
-    if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: 'リンクを解除' });
-    if (kind === 'audio' && audio.syncVideo) items.push({ id: 'sync-video', label: '映像と同期させる…' });
-    if (kind === 'audio' && audio.narrationRedo) items.push({ id: 'narrate-redo', label: '作り直す…' });
-    if (kind === 'caption') items.push({ id: 'narrate', label: '音声を作る…' });
-    items.push({ id: 'annotate', label: '注釈…' });
-    items.push({ id: 'ripple-delete', label: '詰めて消す (⇧Delete)', danger: true });
-    items.push({ id: 'lift-delete', label: '隙間を残して消す (Delete)', danger: true });
-    items.push({ id: 'delete', label: '削除', danger: true });
+    if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: t('annotationscommon.timelineContextMenuItems.label.unlink') });
+    if (kind === 'audio' && audio.syncVideo) items.push({ id: 'sync-video', label: t('annotationscommon.timelineContextMenuItems.label.syncVideo') });
+    if (kind === 'audio' && audio.narrationRedo) items.push({ id: 'narrate-redo', label: t('annotationscommon.timelineContextMenuItems.label.regenerate') });
+    if (kind === 'caption') items.push({ id: 'narrate', label: t('annotationscommon.timelineContextMenuItems.label.makeAudio') });
+    items.push({ id: 'annotate', label: t('annotationscommon.timelineContextMenuItems.label.annotation') });
+    items.push({ id: 'ripple-delete', label: t('annotationscommon.timelineContextMenuItems.label.rippleDeleteDelete'), danger: true });
+    items.push({ id: 'lift-delete', label: t('annotationscommon.timelineContextMenuItems.label.leaveGapDelete'), danger: true });
+    items.push({ id: 'delete', label: t('annotationscommon.timelineContextMenuItems.label.delete'), danger: true });
     return items;
 }
 

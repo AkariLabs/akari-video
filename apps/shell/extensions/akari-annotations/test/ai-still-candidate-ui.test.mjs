@@ -1,11 +1,18 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import './timeline-harness-dependencies.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { appendAiStillPanel, firstSuccessfulStillCandidate, placeStillInEdit, savedStillInput, stillRouteAvailability, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
-import { appendAiStillResultPanel } from '../lib/browser/inspector/ai-still-result-panel.js';
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { appendAiStillPanel, firstSuccessfulStillCandidate, placeStillInEdit, savedStillInput, stillRouteAvailability, stillRouteLabel } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { appendAiStillResultPanel } = await import('../lib/browser/inspector/ai-still-result-panel.js');
+
 
 const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);

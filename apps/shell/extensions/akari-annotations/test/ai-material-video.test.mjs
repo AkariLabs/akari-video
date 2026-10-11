@@ -9,12 +9,21 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
-import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.js';
-import { aiActionCatalog, aiActionPlacement } from '../lib/common/ai-action-catalog.js';
-import { GenerationCliManager } from '../lib/node/generation-cli.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+
+
+
 import { doneStillMeta, inspectPng, withNextVideoDraft } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 import { makeReference } from '../../../../../packages/generate/src/cli/media-ref.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { appendAiMaterialView } = await import('../lib/browser/inspector/ai-material-view.js');
+const { aiActionCatalog, aiActionPlacement } = await import('../lib/common/ai-action-catalog.js');
+const { GenerationCliManager } = await import('../lib/node/generation-cli.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 
 class Node {
   constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.attrs = new Map(); this.textContent = ''; this.className = ''; }

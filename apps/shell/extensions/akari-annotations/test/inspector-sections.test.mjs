@@ -4,10 +4,25 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
-import { layerSections, itemSections, cutSections, overlaySections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
-import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
-import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { audioSections, audioSnapshot, fxSections } = await import('./helpers/audio-clip-fx-fixture.mjs');
+const { layerSections, itemSections, cutSections, overlaySections, visualSnapshot, cutSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { AUDIO_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/audio-preview.js');
+const { keyframeRowPropertyOf, keyframeValueAt } = await import('../lib/browser/timeline/timeline-keyframe-rows.js');
+const { composeInspectorSections, InspectorSectionState } = await import('../lib/browser/inspector/section-model.js');
+const { clampNumber, createNumberField, createKeyframeSeat, INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, numericStep } = await import('../lib/browser/inspector/number-field.js');
+const { knobControlKind, parseInspectorKnobs } = await import('../lib/browser/inspector/knob-resolver.js');
+const { NudgeCommitSession, planAdjacentVisualTrackMove } = await import('../lib/browser/inspector/keyboard-shortcuts.js');
+const { chromaControlValue, layerSnapshotChromaKey, legacyTransformOpFor, telopParamControlKind } = await import('../lib/browser/inspector/field-mappings.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+
+
+
 
 const motionRows = sections => ['in', 'out', 'loop'].flatMap(slot =>
   sections.find(section => section.id === `motion:${slot}`).fields);
@@ -147,32 +162,12 @@ test('調整タブの A/B ボタンはイージング節より前に追加し、
   assert.ok(render.indexOf('this.appendSection(keyframeSection') < render.indexOf('ADJUST_SECTIONS(rowSnapshot'));
 });
 
-import {
-  composeInspectorSections,
-  InspectorSectionState
-} from '../lib/browser/inspector/section-model.js';
-import {
-  clampNumber,
-  createNumberField,
-  createKeyframeSeat,
-  INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
-  numericStep
-} from '../lib/browser/inspector/number-field.js';
-import {
-  knobControlKind,
-  parseInspectorKnobs
-} from '../lib/browser/inspector/knob-resolver.js';
-import {
-  NudgeCommitSession,
-  planAdjacentVisualTrackMove
-} from '../lib/browser/inspector/keyboard-shortcuts.js';
-import {
-  chromaControlValue,
-  layerSnapshotChromaKey,
-  legacyTransformOpFor,
-  telopParamControlKind
-} from '../lib/browser/inspector/field-mappings.js';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
+
+
+
+
+
+
 
 test('キャンバス欄と図形の外観欄は映像タブに一度ずつ置く', () => {
   const canvas = visualSnapshot('item', { itemKind: 'group', sourceKind: 'group',
@@ -412,7 +407,7 @@ test('cut の動画タブだけにフレーミングがクロップの直後へ�
   assert.equal(assignSectionToTab('cut', 'framing'), 'video');
 
   const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
-  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'/u);
+  assert.match(cutFactory, /id: 'framing', label: t\('inspector\.cutSections\.label\.framing'\)/u);
   assert.match(cutFactory, /cutFramingFields\(snapshot, requestWrite\)/u);
   for (const [start, end] of [
     ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
@@ -432,7 +427,7 @@ test('cut の動画タブだけにフリーズがフレーミングの直後へ�
   assert.equal(assignSectionToTab('cut', 'freeze'), 'video');
 
   const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
-  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'[\s\S]{0,180}id: 'freeze', label: 'フリーズ'/u);
+  assert.match(cutFactory, /id: 'framing', label: t\('inspector\.cutSections\.label\.framing'\)[\s\S]{0,180}id: 'freeze', label: t\('inspector\.cutSections\.label\.freeze'\)/u);
   assert.match(cutFactory, /cutFreezeFields\(snapshot, requestWrite\)/u);
   for (const [start, end] of [
     ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
@@ -465,13 +460,13 @@ test('イージング節は外観の直後に入り、KF 席から disabled 属�
 test('木 item snapshot がインスペクターへ時間・変形・外観を渡す', () => {
   assert.match(widgetSource, /this\.treeItemSnapshot\(treeSelection, raw\)/u);
   assert.match(inspectorWidgetSource, /case 'item':\s+sections = TREE_ITEM_SECTIONS/u);
-  assert.match(inspectorWidgetSource, /id: 'transform', label: '変形'/u);
+  assert.match(inspectorWidgetSource, /id: 'transform', label: t\('inspector\./u);
 });
 
 test('音声タブ末尾のマスターは cut と audio アイテムの両方へ出る', () => {
   const masterFactory = sourceBetween('function AUDIO_MASTER_SECTION(', 'function OVERLAY_SECTIONS(');
-  assert.match(masterFactory, /label: 'マスター（書き出し全体）'/u);
-  assert.match(masterFactory, /プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）/u);
+  assert.match(masterFactory, /label: translate\('inspector\.audioSections\.label\.masterEntireExport'\)/u);
+  assert.match(masterFactory, /inspector\.audioSections\.message\.appliesEntireProjectPreviewUnavailableRunsDuring/u);
   assert.equal((masterFactory.match(/name: 'audio-master-/gu) ?? []).length, 4);
 
   const render = sourceBetween('protected render(): void', 'protected tabSourceHint(');
@@ -716,7 +711,7 @@ test('cut / layer / overlay / item の変形節は拡縮・回転を既定 field
     assert.match(transformFields, /name: 'transform-scale'/u);
     assert.match(transformFields, /name: 'transform-rotate'/u);
     assert.doesNotMatch(source, /const optionalFields/u);
-    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\(\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
+    assert.match(source, /\{ id: 'transform', label: t\('inspector\.[^']+'\), fields: (?:transformFields|\(\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
   }
 });
 
@@ -857,7 +852,7 @@ test('前後移動は重なり時も拒否せず新しい段を通知し、legac
 
 test('BGM と音声クリップは共通のフェード・ダッキング節と固定既定値を使う', () => {
   assert.match(inspectorWidgetSource, /const AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.3, duckRelease: 0\.8 \}/u);
-  assert.equal((inspectorWidgetSource.match(/label: 'フェード・ダッキング'/gu) ?? []).length, 2);
+  assert.equal((inspectorWidgetSource.match(/label: translate\('inspector\.audioSections\.section\.fadesDucking'\)/gu) ?? []).length, 2);
   assert.match(inspectorWidgetSource, /function duckingFields\(/u);
   assert.match(inspectorWidgetSource, /'audio-duck-preset'[\s\S]{0,300}options: \['-3', '-6', '-12'\]/u);
 });
@@ -918,14 +913,14 @@ test('ダッキング数値 UI は契約範囲と step を固定する', () => {
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckDb, -40, 0, 0\.5, 'dB'/u);
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckAttack, 0, 2, 0\.01, 's'/u);
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckRelease, 0, 5, 0\.05, 's'/u);
-  assert.match(inspectorWidgetSource, /gain_db は -60〜12 の範囲/u);
+  assert.match(inspectorWidgetSource, /inspector\.audioSections\.message\.enterGainDbFrom6012/u);
 });
 
 test('音量キーフレーム節は追加・時刻・gain・easing・削除を配列 write へ戻す', () => {
-  assert.match(inspectorWidgetSource, /id: 'audio:keyframes', label: '音量キーフレーム'/u);
-  assert.match(inspectorWidgetSource, /actionLabel: '再生ヘッド位置に追加'/u);
+  assert.match(inspectorWidgetSource, /id: 'audio:keyframes', label: translate\('inspector\.audioSections\.label\.volumeKeyframes'\)/u);
+  assert.match(inspectorWidgetSource, /actionLabel: translate\('inspector\.audioSections\.action\.addPlayhead'\)/u);
   assert.match(inspectorWidgetSource, /AUDIO_KEYFRAME_EASING_OPTIONS = \['linear', 'hold', 'ease-in-out'\]/u);
-  assert.match(inspectorWidgetSource, /actionLabel: '削除'/u);
+  assert.match(inspectorWidgetSource, /actionLabel: translate\('inspector\.audioSections\.action\.delete'\)/u);
   const requestStart = inspectorWidgetSource.indexOf("kind: 'audio-keyframes'");
   const requestBlock = inspectorWidgetSource.slice(requestStart, requestStart + 420);
   assert.match(requestBlock, /gain_db: point\.gain_db \?\? 0/u);

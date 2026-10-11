@@ -5,7 +5,7 @@ const call = { args, cwd: process.cwd(), tmpdir: process.env.TMPDIR, stdinEnded:
   files: await import('node:fs/promises').then(fs => fs.readdir(process.cwd())) };
 await Promise.race([new Promise(resolve => {
   process.stdin.on('end', () => { call.stdinEnded = true; resolve(); }); process.stdin.resume();
-}), new Promise(resolve => setTimeout(resolve, 100))]);
+}), new Promise(resolve => setTimeout(resolve, 1000))]);
 await writeFile(process.env.FAKE_TASKIFY_CALL, JSON.stringify(call));
 const stateFile = process.env.FAKE_TASKIFY_STATE;
 let count = 0;

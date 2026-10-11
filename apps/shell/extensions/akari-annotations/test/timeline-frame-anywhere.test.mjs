@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { frameDrawDestination, nextFrameTrackNumber } from '../lib/common/timeline-frame-draw.js';
-import { describeGenerationChip } from '../lib/common/generation-sidecar.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { frameDrawDestination, nextFrameTrackNumber } = await import('../lib/common/timeline-frame-draw.js');
+const { describeGenerationChip } = await import('../lib/common/generation-sidecar.js');
+
+
+
 
 const layouts = [{ id: 'v1', top: 80, height: 40 }, { id: 'a1', top: 124, height: 40 }];
 const tracks = [{ id: 'a1', lane: 'audio' }, { id: 'v1', lane: 'visual' }];

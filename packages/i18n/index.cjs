@@ -70,4 +70,10 @@ function formatCurrency(amountUsd, { yenRate = 150, yenAmount, yenOnly = false, 
 }
 function compareText(a, b, options) { return String(a).localeCompare(String(b), intlLocale(), options); }
 
+Object.assign(ja, require('./locales/ja/inspector.json'));
+Object.assign(en, require('./locales/en/inspector.json'));
+Object.assign(ja, require('./locales/ja/annotationscommon.json'));
+Object.assign(en, require('./locales/en/annotationscommon.json'));
+Object.assign(ja, require('./locales/ja/lint.json'));
+Object.assign(en, require('./locales/en/lint.json'));
 module.exports = { t, getLanguage, setLanguage, normalizeLanguage, formatDate, formatNumber, formatCurrency, compareText };

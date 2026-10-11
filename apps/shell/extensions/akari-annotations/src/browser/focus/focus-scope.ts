@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { childRow, parentRow, TimelineTreeRow } from '../timeline/timeline-tree-model';
 
 export interface FocusScopeState {
@@ -9,7 +10,7 @@ export interface FocusScopeState {
 export type TimelineDoubleClickAction = 'focus' | 'trimmer';
 
 export function initialFocusScope(rows: readonly TimelineTreeRow[]): FocusScopeState {
-    return { rootId: null, breadcrumbs: ['全体'], span: spanOfRows(rows) };
+    return { rootId: null, breadcrumbs: [t('annotationscommon.focusScope.label.overall')], span: spanOfRows(rows) };
 }
 
 export function enterFocusScope(
@@ -17,7 +18,7 @@ export function enterFocusScope(
     targetId: string
 ): FocusScopeState {
     const target = rows.find(row => row.id === targetId);
-    if (!target) throw new Error(`フォーカス対象が見つかりません: ${targetId}`);
+    if (!target) throw new Error(t('annotationscommon.focusScope.error.focusedTargetsNotFound', { targetId: targetId }));
     const lineage: TimelineTreeRow[] = [];
     let cursor: TimelineTreeRow | undefined = target;
     while (cursor) {
@@ -26,7 +27,7 @@ export function enterFocusScope(
     }
     return {
         rootId: target.id,
-        breadcrumbs: ['全体', ...lineage.map(row => row.label)],
+        breadcrumbs: [t('annotationscommon.focusScope.label.overall'), ...lineage.map(row => row.label)],
         span: { at: target.at, duration: target.duration }
     };
 }

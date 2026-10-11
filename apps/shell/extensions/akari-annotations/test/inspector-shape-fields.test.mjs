@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  enableShapeStroke, shapeControlGroups, shapeHasStraightCorner, shapeNumber, shapeOptionLabel, shapeOptionValue, swapShapeEnds
-} from '../lib/browser/inspector/shape-fields.js';
-import { itemSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { itemSections, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { enableShapeStroke, shapeControlGroups, shapeHasStraightCorner, shapeNumber, shapeOptionLabel, shapeOptionValue, swapShapeEnds } = await import('../lib/browser/inspector/shape-fields.js');
+
 
 test('gradient fill uses a meaningful color field and retains the none choice', () => {
   const gradient = { type: 'linear', angle: 45, stops: [

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { audioFadeProgress, easingProgress, readEditV2, type AudioFadeShape } from '@akari-video/edit-store';
 
 export type { AudioFadeShape };
@@ -9,10 +10,10 @@ export type InlineAudioPatch = Partial<{
 }>;
 
 export const INLINE_AUDIO_SHAPES: readonly { value: AudioFadeShape; label: string }[] = [
-    { value: 'linear', label: '直線' },
-    { value: 'equal_power', label: '等パワー' },
-    { value: 's_curve', label: 'S 字' },
-    { value: 'slow', label: 'ゆっくり' }
+    { value: 'linear', label: t('annotationscommon.audioInlineEnvelope.shape.linear') },
+    { value: 'equal_power', label: t('annotationscommon.audioInlineEnvelope.shape.equalPower') },
+    { value: 's_curve', label: t('annotationscommon.audioInlineEnvelope.shape.sCurve') },
+    { value: 'slow', label: t('annotationscommon.audioInlineEnvelope.shape.slow') }
 ];
 
 /** Dot centre lies on the clip's top edge, above the kind badge's text. */
@@ -127,7 +128,7 @@ export function patchInlineAudioItem<T extends { tracks?: Array<{ items?: Array<
         if (patch.keyframes?.length === 0) delete item.keyframes;
         return next;
     }
-    throw new Error('音声クリップが見つかりません。');
+    throw new Error(t('annotationscommon.audioInlineEnvelope.error.audioClipNotFound'));
 }
 
 /** Preflight the entire patched document through the active v2 reader. */
@@ -142,7 +143,7 @@ export function canPersistAudioFadeShape(
     }
 }
 
-export const AUDIO_FADE_SHAPE_UNAVAILABLE = 'この版ではフェードの形をまだ保存できません';
+export const AUDIO_FADE_SHAPE_UNAVAILABLE = t('annotationscommon.audioInlineEnvelope.error.fadeShapeUnavailable');
 
 export function patchInlineAudioItemForWrite<
     T extends { tracks?: Array<{ items?: Array<{ id: string; [key: string]: unknown }> }> }

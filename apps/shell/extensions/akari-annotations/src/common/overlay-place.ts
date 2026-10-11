@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { EditV2Document, indexEditV2Items, insertItem, insertTrack, insertTreeV2ItemIntoCanvas } from './edit-v2-mutations';
 import { topVisualTarget } from '../browser/preview-material-placement';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../browser/canvas-drop-target';
@@ -97,7 +98,7 @@ export function buildOverlayItem(options: { id: string; at: number; duration: nu
     const { width, height } = options.output;
     const center = options.center ?? { x: width / 2, y: height / 2 };
     const transform = overlayTransformForBox(options.output, center, overlayBoxOrOutput(options.output, options.box));
-    if (!transform) throw new Error('オーバーレイの大きさを測れませんでした');
+    if (!transform) throw new Error(t('annotationscommon.overlayPlace.error.couldNotMeasureOverlaySize'));
     return { id: options.id, at: Math.max(0, Math.round(options.at)), duration: Math.max(1, Math.round(options.duration)),
         transform,
         source: { kind: 'html', path: options.path, vars: options.vars } };

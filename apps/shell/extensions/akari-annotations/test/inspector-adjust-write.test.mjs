@@ -1,23 +1,22 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  createInspectorAdjustWriteRequest,
-  formatInspectorAdjustValue,
-  INSPECTOR_ADJUST_BASIC_FIELDS,
-  INSPECTOR_LUT_PRESET_IDS,
-  inspectorAdjustDisplayValue,
-  inspectorAdjustInternalValue,
-  isInspectorAdjustIdentity,
-  readInspectorAdjustSnapshot,
-  updateInspectorAdjust
-} from '../lib/browser/inspector/adjust-fields.js';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
-import { IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS } from '../lib/browser/inspector/adjust-editor-model.js';
+
+
+
+
 import { readEditV2 } from '@akari-video/edit-store';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { createInspectorAdjustWriteRequest, formatInspectorAdjustValue, INSPECTOR_ADJUST_BASIC_FIELDS, INSPECTOR_LUT_PRESET_IDS, inspectorAdjustDisplayValue, inspectorAdjustInternalValue, isInspectorAdjustIdentity, readInspectorAdjustSnapshot, updateInspectorAdjust } = await import('../lib/browser/inspector/adjust-fields.js');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS } = await import('../lib/browser/inspector/adjust-editor-model.js');
+
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();

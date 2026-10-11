@@ -1,3 +1,4 @@
+import { setLanguage } from '@akari-video/i18n';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -7,14 +8,22 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { selectGenerationSidecarForSource } from '@akari-video/edit-store';
-import * as fields from '../lib/browser/inspector/generation-fields.js';
-import { generationDraftFromDone } from '../lib/browser/inspector/generation-provenance.js';
-import { describeGenerationChip, generationChipLabel } from '../lib/common/generation-sidecar.js';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+
+
+
+
 import { validateInputs } from '../../../../../packages/generate/src/validate-inputs.mjs';
 import { runVideoCommand } from '../../../../../packages/generate/src/cli/video.mjs';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readSourceFile, findMember } from './helpers/widget-source.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const fields = await import('../lib/browser/inspector/generation-fields.js');
+const { generationDraftFromDone } = await import('../lib/browser/inspector/generation-provenance.js');
+const { describeGenerationChip, generationChipLabel } = await import('../lib/common/generation-sidecar.js');
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
 const catalog = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url))).models.filter(row => row.kind === 'video');
 const h3 = catalog.find(row => row.id === 'fal:h3-i2v');
 const actions = Object.fromEntries(['update', 'generate', 'resume', 'retry', 'copyAdjacent', 'finalQuality'].map(key => [key, async () => ({ ok: true })]));

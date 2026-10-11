@@ -1,10 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readAllSourceText, findMember } from './helpers/widget-source.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
-import { audioSections } from './helpers/audio-clip-fx-fixture.mjs';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { audioSections } = await import('./helpers/audio-clip-fx-fixture.mjs');
+
 
 const require = createRequire(import.meta.url);
 const kernel = require('@akari-video/edit-store');

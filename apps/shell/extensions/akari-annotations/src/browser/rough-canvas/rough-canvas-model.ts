@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { RoughCanvasSubject } from '../../common/rough-canvas-protocol';
 
 export function popupBounds(viewportWidth: number, viewportHeight: number, previewWidth: number | undefined,
@@ -37,5 +38,5 @@ export function formatRoughCanvasPacket(id: string, subject: RoughCanvasSubject,
     return [`【メモ】${id}（${details.join(' / ')}）について:`,
         ...(memo?.trim() ? [`話した言葉: 「${memo.trim()}」`] : []),
         `紙: review/canvas/${id}/paper.png（線: review/canvas/${id}/ink.json）`,
-        'このメモに対応してください。'].join('\n');
+        t('annotationscommon.roughCanvasModel.message.note')].join('\n');
 }

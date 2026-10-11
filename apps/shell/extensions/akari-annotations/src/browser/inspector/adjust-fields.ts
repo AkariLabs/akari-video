@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     AdjustCurvePointV1, AdjustHuePointV1, AdjustWheelKey,
     IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS, INSPECTOR_CURVE_CHANNELS,
@@ -63,22 +64,22 @@ export interface InspectorAdjustSnapshot {
 
 export const INSPECTOR_ADJUST_BASIC_FIELDS: readonly InspectorAdjustBasicField[] = [
     {
-        key: 'exposure', label: '露出', minimum: -3, maximum: 3,
+        key: 'exposure', label: t('inspector.adjustFields.label.exposure'), minimum: -3, maximum: 3,
         scrubStep: 0.01, unit: 'EV', displayPrecision: 2
     },
-    { key: 'contrast', label: 'コントラスト', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'highlights', label: 'ハイライト', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'shadows', label: 'シャドウ', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'blacks', label: '黒レベル', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'whites', label: '白レベル', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'contrast', label: t('inspector.adjustFields.label.contrast'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'highlights', label: t('inspector.adjustFields.label.highlights'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'shadows', label: t('inspector.adjustFields.label.shadows'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'blacks', label: t('inspector.adjustFields.label.blackLevel'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'whites', label: t('inspector.adjustFields.label.whiteLevel'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
     {
-        key: 'temperature', label: '色温度', minimum: -1, maximum: 1,
+        key: 'temperature', label: t('inspector.adjustFields.label.colorTemperature'), minimum: -1, maximum: 1,
         scrubStep: 0.01, unit: 'K', displayScale: 3500, displayOffset: 6500,
         displayPrecision: 0
     },
-    { key: 'tint', label: 'ティント', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'vibrance', label: 'バイブランス', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
-    { key: 'saturation', label: '彩度', minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 }
+    { key: 'tint', label: t('inspector.adjustFields.label.tint'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'vibrance', label: t('inspector.adjustFields.label.vibrance'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 },
+    { key: 'saturation', label: t('inspector.adjustFields.label.saturation'), minimum: -1, maximum: 1, scrubStep: 0.01, displayScale: 100 }
 ];
 
 export const INSPECTOR_LUT_PRESET_IDS = [
@@ -182,7 +183,7 @@ function assertBasicValue(key: InspectorAdjustBasicKey, value: unknown): asserts
     const field = BASIC_FIELD_BY_KEY.get(key)!;
     if (typeof value !== 'number' || !Number.isFinite(value)
         || value < field.minimum || value > field.maximum) {
-        throw new Error(`${field.label}は ${field.minimum}〜${field.maximum} の範囲で入力してください。`);
+        throw new Error(t('inspector.adjustFields.error.shouldBeEnteredRangeFrom', { label: field.label, minimum: field.minimum, maximum: field.maximum }));
     }
 }
 
@@ -233,20 +234,20 @@ function validPointKeys<X extends string, Y extends string>(value: unknown, x: X
 
 function updatePointChannel(next: Record<string, unknown>, section: 'curves' | 'hue', key: string, value: InspectorAdjustValue): void {
     const channels = section === 'curves' ? INSPECTOR_CURVE_CHANNELS : INSPECTOR_HUE_CHANNELS;
-    if (!channels.some(ch => ch.key === key)) throw new Error(`未対応のカーブです: ${key}`);
+    if (!channels.some(ch => ch.key === key)) throw new Error(t('inspector.adjustFields.error.unsupportedCurve', { key: key }));
     const values = { ...record(next[section]) };
     if (value === null) delete values[key];
     else {
         const x = section === 'curves' ? 'in' : 'hue';
         const y = section === 'curves' ? 'out' : 'value';
         if (!validPointKeys(value, x, y) || value.length < (section === 'curves' ? 2 : 1) || value.length > 16) {
-            throw new Error('カーブの点数・キー・数値が不正です。');
+            throw new Error(t('inspector.adjustFields.error.numberPointsKeysNumbersAlphabetIncorrect'));
         }
         const points = section === 'curves'
             ? sortCurvePoints((value as unknown as AdjustCurvePointV1[]).map(clampCurvePoint))
             : sortHuePoints((value as unknown as AdjustHuePointV1[]).map(clampHuePoint));
         const axes = points.map(p => 'in' in p ? p.in : p.hue);
-        if (axes.some((v, i) => i > 0 && v <= axes[i - 1])) throw new Error('カーブの横軸は狭義単調増加にしてください。');
+        if (axes.some((v, i) => i > 0 && v <= axes[i - 1])) throw new Error(t('inspector.adjustFields.error.increaseLateralAxesSpindle'));
         const identity = section === 'curves'
             ? isCurveChannelIdentity(points as AdjustCurvePointV1[])
             : isHueChannelIdentity(points as AdjustHuePointV1[]);
@@ -258,22 +259,22 @@ function updatePointChannel(next: Record<string, unknown>, section: 'curves' | '
 }
 
 function updateWheel(next: Record<string, unknown>, key: string, channel: string | undefined, value: InspectorAdjustValue): void {
-    if (!INSPECTOR_ADJUST_WHEELS.some(w => w.key === key)) throw new Error(`未対応のホイールです: ${key}`);
+    if (!INSPECTOR_ADJUST_WHEELS.some(w => w.key === key)) throw new Error(t('inspector.adjustFields.error.unsupportedWheel', { key: key }));
     const wheels = { ...record(next.wheels) };
     const wheel = { ...record(wheels[key]) };
     if (!channel && value === null) delete wheels[key];
     else {
         if (!channel && (value === null || typeof value !== 'object' || Array.isArray(value))) {
-            throw new Error('ホイールは RGB オブジェクトで指定してください。');
+            throw new Error(t('inspector.adjustFields.error.specifyWheelRgbObject'));
         }
         const updates = channel ? { [channel]: value } : record(value);
         const range = wheelRange(key as AdjustWheelKey);
         for (const [ch, v] of Object.entries(updates)) {
-            if (!['r', 'g', 'b'].includes(ch)) throw new Error(`未対応のホイールチャンネルです: ${ch}`);
+            if (!['r', 'g', 'b'].includes(ch)) throw new Error(t('inspector.adjustFields.error.unsupportedWheelChannel', { channel: ch }));
             if (v === null || v === 0) delete wheel[ch];
             else {
                 if (typeof v !== 'number' || !Number.isFinite(v) || Math.abs(v) > range) {
-                    throw new Error(`ホイールは ${-range}〜${range} の範囲で入力してください。`);
+                    throw new Error(t('inspector.adjustFields.error.enterWheelRangeFrom', { minimum: -range, maximum: range }));
                 }
                 wheel[ch] = v;
             }
@@ -296,13 +297,13 @@ export function updateInspectorAdjust(
     if (path === 'adjust') {
         const assertObject = (v: unknown): void => {
             if (v === null || typeof v !== 'object' || Array.isArray(v)) {
-                throw new Error('ルックは基本補正とホイールのオブジェクトで指定してください。');
+                throw new Error(t('inspector.adjustFields.error.specifyLookBasicCorrectionWheelObject'));
             }
         };
         if (value !== null) assertObject(value);
         const replacement = record(value);
         if (Object.keys(replacement).some(key => !['basic', 'wheels'].includes(key))) {
-            throw new Error('ルックに未対応のキーがあります。');
+            throw new Error(t('inspector.adjustFields.error.thereKeyNotSupportedLook'));
         }
         delete next.basic;
         delete next.wheels;
@@ -310,7 +311,7 @@ export function updateInspectorAdjust(
             assertObject(replacement.basic);
             const basic: Record<string, number> = {};
             for (const [key, v] of Object.entries(record(replacement.basic))) {
-                if (!BASIC_FIELD_BY_KEY.has(key as InspectorAdjustBasicKey)) throw new Error(`未対応の基本補正です: ${key}`);
+                if (!BASIC_FIELD_BY_KEY.has(key as InspectorAdjustBasicKey)) throw new Error(t('inspector.adjustFields.error.unsupportedBasicCorrection', { key: key }));
                 assertBasicValue(key as InspectorAdjustBasicKey, v);
                 if (v !== 0) basic[key] = v;
             }
@@ -321,13 +322,13 @@ export function updateInspectorAdjust(
             for (const [key, wheel] of Object.entries(record(replacement.wheels))) {
                 assertObject(wheel);
                 if (Object.values(record(wheel)).some(v => typeof v !== 'number' || !Number.isFinite(v))) {
-                    throw new Error('ホイールの RGB は有限数で指定してください。');
+                    throw new Error(t('inspector.adjustFields.error.specifyRgbWheelLimitedNumber'));
                 }
                 updateWheel(next, key, undefined, wheel as InspectorAdjustValue);
             }
         }
     } else if (path === 'adjust.fx') {
-        if (value !== null && !Array.isArray(value)) throw new Error('効果は配列で指定してください。');
+        if (value !== null && !Array.isArray(value)) throw new Error(t('inspector.adjustFields.error.specifyEffectArray'));
         const fx = normalizeInspectorAdjustFx(value);
         if (fx.length) next.fx = fx;
         else delete next.fx;
@@ -339,7 +340,7 @@ export function updateInspectorAdjust(
         updateWheel(next, key, channel, value);
     } else if (path.startsWith('adjust.basic.')) {
         const key = path.slice('adjust.basic.'.length) as InspectorAdjustBasicKey;
-        if (!BASIC_FIELD_BY_KEY.has(key)) throw new Error(`未対応の基本補正です: ${key}`);
+        if (!BASIC_FIELD_BY_KEY.has(key)) throw new Error(t('inspector.adjustFields.error.unsupportedBasicCorrection', { key: key }));
         const basic = { ...record(next.basic) };
         if (value === null || value === 0) {
             delete basic[key];
@@ -353,30 +354,30 @@ export function updateInspectorAdjust(
         if (value === null || value === '') {
             delete next.lut;
         } else {
-            if (typeof value !== 'string') throw new Error('LUT はプリセット id で指定してください。');
+            if (typeof value !== 'string') throw new Error(t('inspector.adjustFields.error.specifyLutPresetId'));
             next.lut = { ...record(next.lut), lut: value };
         }
     } else if (path === 'adjust.lut.intensity') {
         const lut = { ...record(next.lut) };
         if (typeof lut.lut !== 'string' || lut.lut.length === 0) {
-            throw new Error('LUT を選択してから強度を変更してください。');
+            throw new Error(t('inspector.adjustFields.error.selectLutChangeIntensity'));
         }
         if (value === null || value === 1) {
             delete lut.intensity;
         } else {
             if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
-                throw new Error('LUT 強度は 0〜100% の範囲で入力してください。');
+                throw new Error(t('inspector.adjustFields.error.lutIntensity0100'));
             }
             lut.intensity = value;
         }
         next.lut = lut;
     } else {
         const key = path.slice('adjust.sections.'.length) as InspectorAdjustSectionKey;
-        if (!['basic', 'lut', 'curves', 'wheels', 'hue', 'fx'].includes(key)) throw new Error(`未対応の調整セクションです: ${key}`);
+        if (!['basic', 'lut', 'curves', 'wheels', 'hue', 'fx'].includes(key)) throw new Error(t('inspector.adjustFields.error.unsupportedAdjustmentSection', { key: key }));
         const sections = { ...record(next.sections) };
         if (value === null || value === true) delete sections[key];
         else if (value === false) sections[key] = false;
-        else throw new Error('調整セクションは boolean で指定してください。');
+        else throw new Error(t('inspector.adjustFields.error.specifyAdjustmentSectionBoolean'));
         if (hasOwnKeys(sections)) next.sections = sections;
         else delete next.sections;
     }
