@@ -150,6 +150,7 @@ export interface TimelineTreeItemSelection {
 }
 
 export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
+    source?: import('@akari-video/edit-store').ItemV2['source'];
     shape?: string;
     shapeParams?: Record<string, unknown>;
     outputWidth?: number;

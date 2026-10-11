@@ -62,6 +62,7 @@ import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { isCurrentPhotoResponse } from './inspector/photo-response-state';
 import { buildAdoptedPhotoRegion, photoAdoptionPolarity } from './inspector/photo-panel-state';
 import { writeNestedPreviewLayer } from './inspector/nested-preview-layer';
+import { treeItemOutputStart } from './inspector/tree-item-output-start';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
@@ -286,7 +287,9 @@ import {
     removeV2KeyframePoint,
     setV2Keyframe,
     activateV2ItemTransformKeyframe,
+    activateV2ItemRotation3dKeyframe,
     writeV2ItemTransformAt,
+    writeV2ItemVarsAt,
     writeV2ItemOpacityAt,
     setV2SegmentEasing,
     ungroupTreeV2Item,
@@ -5874,6 +5877,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
         return {
             ...selection,
+            ...(raw.source?.kind === 'html' ? { source: raw.source } : {}),
             ...(selection.parentId && this.rawKeyframeItem(selection.parentId)?.motion
                 ? { canvasMotion: true } : {}),
             ...(raw.source?.kind === 'media' ? {
@@ -5886,7 +5890,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
                     /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))
             } : {}),
-            outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
+            outputStart: row?.at ?? (this.editDocument
+                ? treeItemOutputStart(this.editDocument, selection.id, Number(raw.at) || 0, this.fps)
+                : (Number(raw.at) || 0) / this.fps),
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
             ...(raw.source?.kind !== 'html' && raw.motion && typeof raw.motion === 'object' && !Array.isArray(raw.motion)
@@ -10872,6 +10878,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     id: row.id,
                     duration: typeof raw.duration === 'number' ? raw.duration : Math.round(row.duration * this.fps),
                     keyframes: raw.keyframes,
+                    source: raw.source,
                     crop: raw.crop,
                     perspective: raw.perspective
                 }, [...requested]));
@@ -13126,6 +13133,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected staticKeyframeValue(raw: Record<string, any> | undefined, property: KeyframeProperty): unknown {
+        if (property === 'rotation3d') return Object.fromEntries(
+            ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z'].map(name =>
+                [name, Number.parseFloat(String(raw?.source?.vars?.[name] ?? 0)) || 0]));
         if (property.startsWith('transform.')) {
             const key = property.substring('transform.'.length);
             return raw?.transform?.[key] ?? (key.startsWith('scale') ? raw?.transform?.scale ?? 1 : 0);
@@ -13152,7 +13162,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (typeof target.easing === 'string') return target.easing;
         if (target.easing && typeof target.easing === 'object' && !Array.isArray(target.easing)) {
             const easing = target.easing as Record<string, unknown>;
-            const value = easing[property] ?? (property.startsWith('transform.') ? easing.transform : undefined);
+            const value = easing[property] ?? (property === 'rotation3d'
+                ? easing['vars.--akari-3d-rot-x'] : property.startsWith('transform.') ? easing.transform : undefined);
             if (typeof value === 'string') return value;
         }
         return 'linear';
@@ -13263,6 +13274,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if ('x' in transform || 'y' in transform) result.push('transform.x');
         if ('scale' in transform || 'scaleX' in transform || 'scaleY' in transform) result.push('transform.scale');
         if ('rotate' in transform) result.push('transform.rotate');
+        if (point.vars && typeof point.vars === 'object' && !Array.isArray(point.vars)
+            && ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z']
+                .some(name => name in (point.vars as Record<string, unknown>))) result.push('rotation3d');
         for (const key of ['opacity', 'crop', 'perspective'] as const) if (key in point) result.push(key);
         return result;
     }
@@ -13390,6 +13404,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return { ok: true };
             }
             if (request.action === 'write') {
+                if (property === 'rotation3d') {
+                    const axis = request.property.split('.')[1];
+                    if (!['x', 'y', 'z'].includes(axis) || typeof request.value !== 'number'
+                        || !Number.isFinite(request.value)) throw new Error('3D 回転の値が不正です。');
+                    await this.commitEditMutation('3D 回転を変更', doc => writeV2ItemVarsAt(doc, {
+                        itemId, t, values: { [`--akari-3d-rot-${axis}`]: request.value! },
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    return { ok: true };
+                }
                 if (property.startsWith('transform.')) {
                     const field = property.substring('transform.'.length) as TransformField;
                     if (typeof request.value !== 'number' || !Number.isFinite(request.value)) {
@@ -13421,7 +13445,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
                 await this.removeSelectedKeyframes(false);
             } else {
-                if (property.startsWith('transform.')) {
+                if (property === 'rotation3d') {
+                    await this.commitEditMutation('3D 回転にキーフレームを打つ', doc =>
+                        activateV2ItemRotation3dKeyframe(doc, { itemId, t,
+                            ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {}) }));
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId, property, times: [t],
+                        easing: this.segmentEasingAt(itemId, property, t)
+                    };
+                } else if (property.startsWith('transform.')) {
                     await this.commitEditMutation('キーフレームを打つ', doc => activateV2ItemTransformKeyframe(doc, {
                         itemId, t, field: property.substring('transform.'.length) as TransformField,
                         ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
