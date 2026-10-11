@@ -19,6 +19,7 @@ export interface VoicesSidecar {
     decided: Record<string, string>;
     requested?: number | 'auto';
     fallback?: boolean;
+    shortSpeakers?: string[];
 }
 export interface SpeakerReviewRow {
     id: string;
@@ -27,6 +28,7 @@ export interface SpeakerReviewRow {
     firstSpan?: { start: number; end: number };
     suggestion?: SpeakerSuggestion;
     decided?: string;
+    shortNote?: string;
 }
 
 export const VOICE_ENGINE_DOWNLOAD_MB = 160; // 実測（取得する npm 包とモデル 3 つの合計）。
@@ -39,6 +41,10 @@ export function voiceInstallFailure(result: { outcome?: string; message?: string
 export function speakerFallbackMessage(voices: VoicesSidecar | undefined, used: number): string | undefined {
     return voices?.fallback === true && typeof voices.requested === 'number'
         ? `指定の ${voices.requested} 人には分けられなかったので、声から見た ${used} 人で分けました` : undefined;
+}
+
+export function speakerShortNote(voices: VoicesSidecar | undefined, id: string): string | undefined {
+    return voices?.shortSpeakers?.includes(id) ? '声がごく短い（3 秒未満）' : undefined;
 }
 
 export function captionPopupStepNames(split: boolean): string[] {
@@ -98,7 +104,9 @@ export function parseVoicesSidecar(source: string): VoicesSidecar | undefined {
         const decided = root.decided && typeof root.decided === 'object' ? root.decided as Record<string, string> : {};
         return { speakers, decided,
             ...(typeof root.requested === 'number' || root.requested === 'auto' ? { requested: root.requested as number | 'auto' } : {}),
-            ...(typeof root.fallback === 'boolean' ? { fallback: root.fallback } : {}) };
+            ...(typeof root.fallback === 'boolean' ? { fallback: root.fallback } : {}),
+            ...(Array.isArray(root.shortSpeakers) && root.shortSpeakers.every(id => typeof id === 'string')
+                ? { shortSpeakers: root.shortSpeakers as string[] } : {}) };
     } catch { return undefined; }
 }
 
@@ -107,7 +115,8 @@ export function speakerReviewRows(voices: VoicesSidecar | undefined, analysis: u
     const tracks = root.tracks && typeof root.tracks === 'object' ? root.tracks as Record<string, unknown> : {};
     const rows = new Map<string, SpeakerReviewRow>();
     for (const [id, speaker] of Object.entries(voices?.speakers ?? {})) {
-        rows.set(id, { id, seconds: speaker.seconds, suggestion: speaker.suggestion, decided: voices?.decided[id] });
+        rows.set(id, { id, seconds: speaker.seconds, suggestion: speaker.suggestion, decided: voices?.decided[id],
+            shortNote: speakerShortNote(voices, id) });
     }
     for (const track of Array.isArray(tracks.speakers) ? tracks.speakers : []) {
         if (!track || typeof track.id !== 'string' || !Array.isArray(track.spans)) continue;
@@ -119,6 +128,7 @@ export function speakerReviewRows(voices: VoicesSidecar | undefined, analysis: u
         const existing: SpeakerReviewRow = rows.get(track.id) ?? { id: track.id,
             seconds: spans.reduce((sum: number, span: { start: number; end: number }) => sum + span.end - span.start, 0) };
         existing.firstSpan = spans[0];
+        existing.shortNote = speakerShortNote(voices, track.id);
         rows.set(track.id, existing);
     }
     for (const line of Array.isArray(root.transcript) ? root.transcript : []) {

@@ -11,6 +11,7 @@ import {
   channelPeopleForProject, readChannelPeople, loadCentroids, buildVoicesFile, writeVoicesFile,
   readVoicesFile, setDecided, writeSpeakerEntry, readSpeakerDictionary, dictionaryPathFor,
   MIN_SPEAKER_SECONDS, MIN_SPEAKER_SHARE, isAudioBufferLimit, AUDIO_TOO_LONG_MESSAGE,
+  shortSpeakerIds,
 } from '../src/index.mjs';
 
 const lane = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.tmp-lane');
@@ -87,6 +88,7 @@ test('埋め込みと声の側ファイルの往復、決定の保持', t => {
   setDecided(file, 'A', 'c/p');
   const next = buildVoicesFile({ previous: readVoicesFile(file), speakers: { A: { seconds: 4, embedding } } });
   assert.deepEqual(next.decided, { A: 'c/p' });
+  assert.equal(Object.hasOwn(buildVoicesFile({ speakers: {}, shortSpeakers: [] }), 'shortSpeakers'), false);
   setDecided(file, 'A', null);
   assert.deepEqual(readVoicesFile(file).decided, {});
 });
@@ -184,6 +186,21 @@ test('短い外れ値を人数指定に採用せず、自動結果へ戻す', as
   const rejectedShare = await diarizeToCount(async (_samples, { numClusters }) => numClusters === -1 ? auto : lowShare,
     new Float32Array(1), 3);
   assert.equal(rejectedShare.fallback, true);
+});
+
+test('自動結果が指定人数なら短い話者がいても fallback にしない', async () => {
+  const auto = [{ start: 0, end: 97.1, speaker: 8 }, { start: 97.1, end: 100, speaker: 4 }];
+  const calls = [];
+  const result = await diarizeToCount(async (_samples, { numClusters }) => {
+    calls.push(numClusters);
+    return numClusters === -1 ? auto : [{ start: 0, end: 100, speaker: 8 }];
+  }, new Float32Array(1), 2);
+  assert.deepEqual(calls, [-1, 2, 3, 4]);
+  assert.deepEqual([result.used, result.fallback, result.turns], [2, false, auto]);
+  assert.deepEqual(shortSpeakerIds(auto), [4]);
+  assert.deepEqual(shortSpeakerIds([
+    { start: 0, end: 97, speaker: 'A' }, { start: 97, end: 100, speaker: 'B' },
+  ]), []);
 });
 
 test('長い音声のバッファ上限だけを専用の案内にする', () => {

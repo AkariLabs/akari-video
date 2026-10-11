@@ -97,6 +97,36 @@ import {
     PROJECT_GITIGNORE
 } from 'akari-video/src/history-policy.mjs';
 
+export const VOICES_READ_DENY = ['Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)'] as const;
+
+const DEFAULT_AGENT_SETTINGS = {
+    permissions: {
+        allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)',
+            'Edit(./.akari/events/**)', 'Edit(./.akari/intake.json)'],
+        deny: ['Edit(/assets/**)', ...VOICES_READ_DENY]
+    }
+};
+
+export function ensureVoicesReadDenied(settingsText: string | undefined): { changed: boolean; text?: string; error?: string } {
+    if (settingsText === undefined) return { changed: true, text: `${JSON.stringify(DEFAULT_AGENT_SETTINGS, null, 2)}\n` };
+    let value: unknown;
+    try { value = JSON.parse(settingsText); } catch { return { changed: false, error: '設定が JSON として読めません' }; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { changed: false, error: '設定の最上位がオブジェクトではありません' };
+    const settings = value as Record<string, unknown>;
+    const permissions = settings.permissions;
+    if (permissions !== undefined && (!permissions || typeof permissions !== 'object' || Array.isArray(permissions))) {
+        return { changed: false, error: 'permissions がオブジェクトではありません' };
+    }
+    const rules = (permissions ?? {}) as Record<string, unknown>;
+    if (rules.deny !== undefined && !Array.isArray(rules.deny)) return { changed: false, error: 'deny が配列ではありません' };
+    const deny = (rules.deny ?? []) as unknown[];
+    const missing = VOICES_READ_DENY.filter(rule => !deny.includes(rule));
+    if (!missing.length) return { changed: false };
+    settings.permissions = rules;
+    rules.deny = [...deny, ...missing];
+    return { changed: true, text: `${JSON.stringify(settings, null, 2)}\n` };
+}
+
 export function filterIdentifyPeople(source: string, ids: ReadonlySet<string>): string {
     const root = JSON.parse(source) as Record<string, unknown>;
     if (!Array.isArray(root.entries)) throw new Error('人物の一覧が不正です');
@@ -1372,6 +1402,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             return;
         }
         await this.ensureRuntimeDirectories(root);
+        await this.ensureProjectAgentSettings(root);
         await this.ensureGitInitialized(root);
         await this.migrateHistoryPolicy(root);
         const eventsDirectory = join(root, '.akari', 'events');
@@ -2727,11 +2758,42 @@ process.stdout.write(JSON.stringify(found));
         }
         try {
             await this.runGit(root, ['init']);
+            await this.ensureHistoryIgnore(root);
             await this.runGit(root, ['add', '-A', '--', '.']);
             await this.commitIfChanged(root, 'プロジェクトを開始');
         } catch (error) {
             console.warn('[akari-project] deferred git init failed:', error);
         }
+    }
+
+    protected async ensureProjectAgentSettings(root: string): Promise<void> {
+        const file = join(root, '.claude', 'settings.json');
+        try {
+            const current = await fs.readFile(file, 'utf8').catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+                throw error;
+            });
+            const outcome = ensureVoicesReadDenied(current);
+            if (outcome.error) { console.warn('[akari-project] 設定を更新できません:', outcome.error); return; }
+            if (!outcome.changed || outcome.text === undefined) return;
+            await fs.mkdir(dirname(file), { recursive: true });
+            const temporary = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+            try {
+                await fs.writeFile(temporary, outcome.text, 'utf8');
+                await fs.rename(temporary, file);
+            } finally { await fs.rm(temporary, { force: true }); }
+        } catch (error) { console.warn('[akari-project] 設定を更新できません:', error); }
+    }
+
+    protected async ensureHistoryIgnore(root: string): Promise<boolean> {
+        const file = join(root, '.gitignore');
+        const current = await fs.readFile(file, 'utf8').catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        const outcome = applyHistoryPolicy(current);
+        if (outcome.changed) await fs.writeFile(file, outcome.text, 'utf8');
+        return outcome.changed;
     }
 
     /**
@@ -2751,18 +2813,9 @@ process.stdout.write(JSON.stringify(found));
             return;
         }
         try {
-            const gitignorePath = join(root, '.gitignore');
-            const current = await fs.readFile(gitignorePath, 'utf8').catch(error => {
-                if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-                    return undefined;
-                }
-                throw error;
-            });
-            const outcome = applyHistoryPolicy(current);
-            if (!outcome.changed) {
+            if (!(await this.ensureHistoryIgnore(root))) {
                 return;
             }
-            await fs.writeFile(gitignorePath, outcome.text, 'utf8');
             await this.runGit(root, ['add', '--', '.gitignore']);
             const untracked = await this.untrackNewlyIgnoredFiles(root);
             await this.commitIfChanged(root, untracked
@@ -3041,12 +3094,7 @@ process.stdout.write(JSON.stringify(found));
             '.gitignore': PROJECT_GITIGNORE,
             'CLAUDE.md': FALLBACK_CLAUDE_GUIDANCE,
             'AGENTS.md': FALLBACK_AGENT_GUIDANCE,
-            '.claude/settings.json': JSON.stringify({
-                permissions: {
-                    allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                    deny: ['Edit(/assets/**)', 'Read(./.akari/sidecars/**/voices.json)']
-                }
-            }, null, 2) + '\n',
+            '.claude/settings.json': ensureVoicesReadDenied(undefined).text!,
             '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
             '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
             'edit.json': JSON.stringify(FALLBACK_EDIT_JSON, null, 2) + '\n',
@@ -3109,6 +3157,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `assets/` は元動画と音声を置く素材の場所です。原本は書き換えたり削除したりしません。',
     '- `planning/` は企画やレポート、`exports/` は完成した動画を置く場所です。',
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
+    '- `.akari/sidecars/**/voices.json`（声の特徴量・個人識別符号）は読まず、外へ送りません。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
     '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',

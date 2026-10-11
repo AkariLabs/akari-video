@@ -68,8 +68,9 @@ test("分離は記録へ話者を付け、側ファイルと分離キャッシ�
   const second = await transcribeMedia(f.target, { ...f.options, diarize: true });
   assert.equal(f.calls.diarize, 1);
   assert.deepEqual(first.speakers, { requested: "auto", fallback: false,
-    count: 2, ids: ["A", "B"], seconds: { A: 1, B: 1 } });
+    count: 2, ids: ["A", "B"], seconds: { A: 1, B: 1 }, shortSpeakers: ["A", "B"] });
   assert.deepEqual(second.segments.map(s => s.speaker), ["A", "B"]);
+  assert.deepEqual(second.speakers.shortSpeakers, ["A", "B"]);
   const analysis = await json(path.join(f.directory, "analysis.json"));
   assert.equal(Object.hasOwn(analysis, "speakers"), false);
   assert.deepEqual(analysis.transcript.map(s => s.speaker), ["A", "B"]);
@@ -82,6 +83,9 @@ test("分離は記録へ話者を付け、側ファイルと分離キャッシ�
   assert.equal(Buffer.from(voices.speakers.A.embedding, "base64").length, 1024);
   assert.deepEqual(voices.decided, { A: "demo/p1" });
   assert.deepEqual([voices.requested, voices.fallback], ["auto", false]);
+  assert.deepEqual(voices.shortSpeakers, ["A", "B"]);
+  const [cacheName] = await readdir(path.join(f.project, ".akari", "cache", "diarize"));
+  assert.deepEqual((await json(path.join(f.project, ".akari", "cache", "diarize", cacheName))).turns.map(turn => turn.speaker), ["A", "B"]);
   assert.equal(Object.hasOwn((await json(path.join(f.directory, "transcripts", "speech-analyzer.json"))).segments[0], "speaker"), false);
   assert.equal((await readdir(path.join(f.project, ".akari", "cache", "diarize"))).length, 1);
 });

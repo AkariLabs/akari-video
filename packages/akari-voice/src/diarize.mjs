@@ -2,11 +2,16 @@ export const DIARIZE_THRESHOLD = 0.5;
 export const MIN_SPEAKER_SECONDS = 3;
 export const MIN_SPEAKER_SHARE = 0.03;
 
-export function hasSubstantialSpeakers(turns) {
+export function shortSpeakerIds(turns) {
   const totals = new Map();
   for (const turn of turns) totals.set(turn.speaker, (totals.get(turn.speaker) || 0) + Math.max(0, turn.end - turn.start));
   const all = [...totals.values()].reduce((sum, seconds) => sum + seconds, 0);
-  return all > 0 && [...totals.values()].every(seconds => seconds >= MIN_SPEAKER_SECONDS && seconds / all >= MIN_SPEAKER_SHARE);
+  return [...totals].filter(([, seconds]) => !(all > 0) || seconds < MIN_SPEAKER_SECONDS || seconds / all < MIN_SPEAKER_SHARE)
+    .map(([id]) => id);
+}
+
+export function hasSubstantialSpeakers(turns) {
+  return turns.length > 0 && shortSpeakerIds(turns).length === 0;
 }
 
 export function speakerLabel(index) {
@@ -82,6 +87,7 @@ export async function diarizeToCount(diarize, samples, speakers, threshold = DIA
     const result = await run(numClusters);
     if (result.used === count && hasSubstantialSpeakers(result.turns)) return { turns: result.turns, requested: count, used: count, fallback: false };
   }
+  if (auto.used === count) return { turns: auto.turns, requested: count, used: count, fallback: false };
   return { turns: auto.turns, requested: count, used: auto.used, fallback: true };
 }
 

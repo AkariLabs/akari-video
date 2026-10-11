@@ -10,6 +10,7 @@
     ],
     "deny": [
       "Edit(/assets/**)",
+      "Read(/.akari/sidecars/**/voices.json)",
       "Read(./.akari/sidecars/**/voices.json)"
     ]
   }

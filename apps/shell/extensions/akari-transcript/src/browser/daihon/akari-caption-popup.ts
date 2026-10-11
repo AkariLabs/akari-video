@@ -732,6 +732,11 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 const info = el('span'); info.style.flex = '1'; info.append(el('strong', decision || row.decided ? `${name}に決めました` : name));
                 const detail = el('small', `${Math.floor(row.seconds / 60)} 分 ${Math.round(row.seconds % 60)} 秒${row.firstLine ? ` · 「${row.firstLine}」` : ''}`);
                 detail.style.cssText = 'display:block;color:var(--akari-muted)'; info.append(detail);
+                if (row.shortNote) {
+                    const note = el('small', row.shortNote);
+                    note.style.cssText = 'display:block;color:var(--akari-muted)';
+                    info.append(note);
+                }
                 const score = el('small', !this.identify || !suggestion ? '照らしていません'
                     : suggestion.level === 'none' ? '近い人なし'
                         : suggestion.name ? `${suggestion.name} ${suggestion.score.toFixed(2)}` : '近い人なし');

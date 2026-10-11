@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { analysisHasSpeakers, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided,
     mergeVoicesDecided, parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, voiceEngineReady,
-    voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage } from '../lib/common/caption-popup-speakers.js';
+    voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage, speakerShortNote } from '../lib/common/caption-popup-speakers.js';
 
 test('ordinary transcription keeps four steps and adds no options', () => {
     assert.deepEqual(captionPopupStepNames(false), ['素材', '起こし方', '起こす', '仕上げ']);
@@ -73,6 +73,16 @@ test('sidecar parsing drops embedding and review uses spans and first speech', (
     assert.equal(rows[0].firstLine, 'こんにちは');
     assert.equal(rows[0].seconds, 12);
     assert.equal(speakerReviewRows(undefined, { tracks: { speakers: [{ id: 'B', spans: [[1, 3], { start: 5, end: 8 }] }] } })[0].seconds, 5);
+});
+
+test('短い話者の ID を読み、該当する行だけに文字の注記を付ける', () => {
+    const voices = parseVoicesSidecar(JSON.stringify({ schema: 'akari.voices/0',
+        speakers: { A: { seconds: 10 }, B: { seconds: 2.9 } }, shortSpeakers: ['B'] }));
+    assert.deepEqual(voices.shortSpeakers, ['B']);
+    assert.equal(speakerShortNote(voices, 'A'), undefined);
+    assert.equal(speakerShortNote(voices, 'B'), '声がごく短い（3 秒未満）');
+    assert.deepEqual(speakerReviewRows(voices, {}).map(row => row.shortNote), [undefined, '声がごく短い（3 秒未満）']);
+    assert.equal(parseVoicesSidecar(JSON.stringify({ schema: 'akari.voices/0', speakers: {}, shortSpeakers: [2] })).shortSpeakers, undefined);
 });
 
 test('deciding a person preserves other sidecar keys and name only makes no change', () => {

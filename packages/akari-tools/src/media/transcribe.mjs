@@ -129,7 +129,7 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
     : path.join(os.tmpdir(), "akari-diarize-cache");
   const fixedCount = api.clusterCountFor(speakers);
   const key = createHash("sha256").update(JSON.stringify([sha256, range.in, range.out, speakers, voice.version,
-    ...([2, 3].includes(fixedCount) ? ["count-v3"] : [])])).digest("hex");
+    ...([2, 3].includes(fixedCount) ? ["count-v4"] : [])])).digest("hex");
   const cachePath = path.join(cacheDirectory, `${key}.json`);
   const decode = options.voiceDecode ?? ((file, start, duration) => api.decodeAudio16k({ ffmpeg, file, start, duration }));
   const readStarted = performance.now();
@@ -191,15 +191,16 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
   }
   const seconds = api.speakerSeconds(turns);
   const ids = Object.keys(seconds);
+  const shortSpeakers = api.shortSpeakerIds(turns);
   const speakerInfo = { requested: countResult.requested, fallback: countResult.fallback,
-    count: ids.length, ids, seconds };
+    count: ids.length, ids, seconds, ...(shortSpeakers.length ? { shortSpeakers } : {}) };
   if (target.projectRoot && target.projectRelative) {
     const file = api.voicesPathFor(target.projectRoot, target.projectRelative);
     const entries = Object.fromEntries(ids.filter(id => embeddings[id]?.length === 256).map(id => [id, {
       seconds: seconds[id], embedding: embeddings[id], suggestion: identify?.suggestions[id],
     }]));
     api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries,
-      requested: countResult.requested, fallback: countResult.fallback }));
+      requested: countResult.requested, fallback: countResult.fallback, shortSpeakers }));
     if (!options.noRecord) await updateAnalysisTranscript(target, (before, analysis) => {
       analysis.tracks ??= { speakers: [], faces: [], person_matte: null };
       const oldTracks = Array.isArray(analysis.tracks.speakers) ? analysis.tracks.speakers : [];
