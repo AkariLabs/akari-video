@@ -28,6 +28,13 @@ import {
 import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
+  detectLanguageGaps,
+  insertRecoveredSegments,
+  LANGUAGE_GAP_MAX_RETRIES,
+  LANGUAGE_GAP_MIN_DETECT_PROBABILITY,
+  LANGUAGE_GAP_PADDING_SECONDS,
+} from "./language-gaps.mjs";
+import {
   clampAdjacentSegments,
   detectSpeechChunks,
   snapSegmentsToWords,
@@ -52,11 +59,20 @@ const knownLanguage = (tag) => {
 export const speechLocaleForLanguage = (lang) => SPEECH_LOCALES[normalizeLanguage(lang)] ?? null;
 export const WHISPER_FILLER_PROMPT = "Um, uh, erm, uhm, hmm, like, you know, I mean, sort of, kind of.";
 
-export async function resolveTranscribeLanguage(projectRoot, explicitLang) {
-  if (explicitLang !== undefined && explicitLang !== "auto") return normalizeLanguage(explicitLang) ?? explicitLang;
-  if (!projectRoot) return "auto";
+async function transcribeLanguageSelection(projectRoot, explicitLang) {
+  if (explicitLang !== undefined && explicitLang !== "auto") {
+    return { language: normalizeLanguage(explicitLang) ?? explicitLang, retryLanguageGaps: false };
+  }
+  if (!projectRoot) return { language: "auto", retryLanguageGaps: true };
   const resolved = await readContentLanguage(projectRoot);
-  return resolved.source === "intake" ? resolved.language : "auto";
+  if (resolved.source === "intake") {
+    return { language: resolved.language, retryLanguageGaps: true };
+  }
+  return { language: "auto", retryLanguageGaps: true };
+}
+
+export async function resolveTranscribeLanguage(projectRoot, explicitLang) {
+  return (await transcribeLanguageSelection(projectRoot, explicitLang)).language;
 }
 
 function transcriptLanguage(lang, backend) {
@@ -90,12 +106,12 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
   const range = normalizeRange(options.in, options.out, duration, options.uiLanguage);
-  const lang = await resolveTranscribeLanguage(target.projectRoot, options.lang);
+  const { language: lang, retryLanguageGaps } = await transcribeLanguageSelection(target.projectRoot, options.lang);
   const sha256 = await sha256File(target.inputPath);
   // 配布版に声のエンジンがまだ無い場合も、通常の文字起こしは読み込めるようにする。
   const voice = options.diarize || options.identify || options.people || options.speakers !== undefined
     ? await prepareVoice(options) : null;
-  const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
+  const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, retryLanguageGaps, sha256, options });
   const silenceDetection = await detectTranscribeSilences(asrResult.segments, target.inputPath, range, ffmpeg, options);
   // 未認識は ASR cache と独立した派生値。hit / miss とも現在の設定で付与する。
   const withUnrecognized = {
@@ -258,14 +274,14 @@ async function attachVoice(result, { target, range, sha256, ffmpeg, options, voi
 }
 
 // ASR 層は normalizeSegments 直後の結果を保存し、markers を含む根拠を保持する。
-async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options }) {
+async function transcribeAsr({ target, ffmpeg, value, range, lang, retryLanguageGaps, sha256, options }) {
   let backendInfo = await selectBackend(options.backend, target, { ...options, lang });
   let backend = backendInfo.name;
   const cacheDirectory = target.projectRoot
     ? path.join(target.projectRoot, ".akari", "cache", "transcribe")
     : path.join(os.tmpdir(), "akari-transcribe-cache");
   await mkdir(cacheDirectory, { recursive: true });
-  let { key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt: options.whisperPrompt });
+  let { key, cachePath } = cacheIdentity({ sha256, range, backend, lang, retryLanguageGaps, cacheDirectory, whisperPrompt: options.whisperPrompt });
 
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
@@ -277,7 +293,7 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, optio
     try {
       segments = options.backendRunner
         ? await options.backendRunner({ backend, inputPath: target.inputPath, range, lang, target })
-        : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
+        : await runBackend({ backendInfo, ffmpeg, target, range, lang, retryLanguageGaps, options });
     } catch (error) {
       const unsupportedLocale = /Unsupported SpeechTranscriber locale/.test(error instanceof Error ? error.message : String(error));
       const fallback = backend === "speech-analyzer" && (options.backend === undefined || unsupportedLocale)
@@ -287,14 +303,14 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, optio
       writeBackendLog(options, toolsText('tools.transcribe.warning.speechFallback', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage));
       backendInfo = { name: "whisper-cpp", ...fallback };
       backend = backendInfo.name;
-      ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt: options.whisperPrompt }));
+      ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, retryLanguageGaps, cacheDirectory, whisperPrompt: options.whisperPrompt }));
       if (existsSync(cachePath)) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
         return { ...cached, cache: { hit: true, key } };
       }
       segments = options.backendRunner
         ? await options.backendRunner({ backend, inputPath: target.inputPath, range, lang, target })
-        : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
+        : await runBackend({ backendInfo, ffmpeg, target, range, lang, retryLanguageGaps, options });
     }
   }
   const backendOutput = segments;
@@ -457,7 +473,7 @@ function validateCloudBackend(requested, target) {
   return { name: requested, connectionId: id };
 }
 
-async function runBackend({ backendInfo, ffmpeg, target, range, lang, options }) {
+async function runBackend({ backendInfo, ffmpeg, target, range, lang, retryLanguageGaps, options }) {
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "akari-transcribe-"));
   try {
     const cloud = backendInfo.name.startsWith("cloud:");
@@ -471,7 +487,65 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
       "-t", String(range.out - range.in), "-map", "0:a:0", ...codecArgs, inputPath,
     ], options);
     if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, lang, options);
-    if (backendInfo.name === "whisper-cpp") return runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
+    if (backendInfo.name === "whisper-cpp") {
+      const first = runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
+      if (!retryLanguageGaps || !first.language) return first;
+      const relativeRange = { in: 0, out: range.out - range.in };
+      if (detectLanguageGaps(first.segments, [], relativeRange).length === 0) return first;
+      let silences;
+      try {
+        const runner = options.silencesRunner ?? runSilenceDetect;
+        const detected = await runner({ inputPath, range: relativeRange, ffmpeg,
+          silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb,
+          silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options });
+        silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+      } catch (error) {
+        writeBackendLog(options, toolsText('tools.transcribe.languageGap.silenceFailed', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage));
+        return first;
+      }
+      const gaps = detectLanguageGaps(first.segments, silences, relativeRange).slice(0, LANGUAGE_GAP_MAX_RETRIES);
+      for (const [index, gap] of gaps.entries()) {
+        const cutStart = Math.max(0, gap.start - LANGUAGE_GAP_PADDING_SECONDS);
+        const cutEnd = Math.min(relativeRange.out, gap.end + LANGUAGE_GAP_PADDING_SECONDS);
+        if (cutStart <= 0 && cutEnd >= relativeRange.out) continue;
+        const gapDirectory = path.join(temporaryDirectory, `gap-${index}`);
+        const gapPath = path.join(gapDirectory, "input.wav");
+        try {
+          await mkdir(gapDirectory);
+          runChecked(ffmpeg, ["-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-ss", String(cutStart), "-i", inputPath, "-t", String(cutEnd - cutStart),
+            "-map", "0:a:0", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", gapPath], options);
+          const detectedLanguage = detectWhisperLanguage(gapPath, gapDirectory, backendInfo, options);
+          const decision = !detectedLanguage ? toolsText('tools.transcribe.languageGap.undetermined', {}, options.uiLanguage)
+            : detectedLanguage.language === first.language ? toolsText('tools.transcribe.languageGap.sameLanguage', {}, options.uiLanguage)
+            : detectedLanguage.probability < LANGUAGE_GAP_MIN_DETECT_PROBABILITY
+              ? toolsText('tools.transcribe.languageGap.lowProbability', { threshold: LANGUAGE_GAP_MIN_DETECT_PROBABILITY.toFixed(2) }, options.uiLanguage)
+              : toolsText('tools.transcribe.languageGap.retry', {}, options.uiLanguage);
+          const unknown = toolsText('tools.transcribe.languageGap.unknown', {}, options.uiLanguage);
+          writeBackendLog(options, toolsText('tools.transcribe.languageGap.detected', {
+            index: index + 1, start: gap.start.toFixed(2), end: gap.end.toFixed(2),
+            language: detectedLanguage?.language ?? unknown,
+            probability: detectedLanguage ? detectedLanguage.probability.toFixed(3) : unknown,
+            firstLanguage: first.language, decision,
+          }, options.uiLanguage));
+          if (!detectedLanguage || detectedLanguage.language === first.language
+            || detectedLanguage.probability < LANGUAGE_GAP_MIN_DETECT_PROBABILITY) continue;
+          const recovered = runWhisper(gapPath, gapDirectory, backendInfo, "auto", options);
+          if (recovered.language && recovered.language !== first.language) {
+            first.segments = insertRecoveredSegments(first.segments, recovered.segments, gap, cutStart);
+          } else if (recovered.language === first.language) {
+            writeBackendLog(options, toolsText('tools.transcribe.languageGap.recoveredSame', {
+              index: index + 1, start: gap.start.toFixed(2), end: gap.end.toFixed(2), language: recovered.language,
+            }, options.uiLanguage));
+          }
+        } catch (error) {
+          writeBackendLog(options, toolsText('tools.transcribe.languageGap.retryFailed', {
+            index: index + 1, message: error instanceof Error ? error.message : String(error),
+          }, options.uiLanguage));
+        }
+      }
+      return first;
+    }
     if (options.cloudRunner) return await options.cloudRunner({ inputPath, projectRoot: target.projectRoot, connectionId: backendInfo.connectionId, range });
     return runCloud(inputPath, target.projectRoot, backendInfo.connectionId, range, options);
   } finally {
@@ -527,13 +601,27 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   }
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
   if (!jsonPath) throw new Error(toolsText('tools.transcribe.error.jsonMissing', {}, options.uiLanguage));
-  return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8")), lang), dtw };
+  const output = JSON.parse(readFileSync(jsonPath, "utf8"));
+  return { segments: normalizeWhisperJson(output, lang), language: output.result?.language, dtw };
 }
 
 export function whisperArguments(model, input, lang, output, options = {}) {
   return ["-m", model, "-f", input, "-l", lang, "-oj", "-ojf", "-of", output,
     ...(typeof options.whisperPrompt === 'string' && options.whisperPrompt ? ["--prompt", options.whisperPrompt]
       : lang === "en" && options.whisperPrompt === true ? ["--prompt", WHISPER_FILLER_PROMPT] : [])];
+}
+
+function detectWhisperLanguage(wavPath, temporaryDirectory, backendInfo, options) {
+  const prefix = path.join(temporaryDirectory, "language-detect");
+  const result = runChecked(backendInfo.bin, ["-m", backendInfo.model, "-f", wavPath, "-l", "auto", "-dl", "-oj", "-of", prefix], options);
+  const detected = result.stderr?.match(/auto-detected language:\s*([a-z]{2,3})\s*\(p\s*=\s*([0-9.]+)\)/iu);
+  if (!detected) return null;
+  const probability = Number(detected[2]);
+  if (!Number.isFinite(probability)) return null;
+  const jsonPath = `${prefix}.json`;
+  const jsonLanguage = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, "utf8")).result?.language : null;
+  const language = typeof jsonLanguage === "string" && jsonLanguage ? jsonLanguage : detected[1];
+  return { language, probability };
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
@@ -576,8 +664,12 @@ export function normalizeWhisperJson(value, language = "ja") {
         continue;
       }
       if (markerKind === "control") continue;
-      const text = String(token.text ?? "").replace(/\uFFFD/g, "").trim();
+      const text = String(token.text ?? "").replace(/\uFFFD/g, "");
       if (!text || !Number.isFinite(wordStart) || !Number.isFinite(wordEnd)) continue;
+      if (!text.trim()) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
+        continue;
+      }
       if (wordEnd <= wordStart) {
         // 連続する 0 長・負長トークンは、最初の from と文字順を保持する。
         pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
@@ -588,15 +680,15 @@ export function normalizeWhisperJson(value, language = "ja") {
       }
       if (pending && words.length) words.at(-1).text += pending.text;
     }
-    const text = String(segment.text ?? "").replace(/\uFFFD/g, "").trim();
-    const useWords = words.length && words.every((word) => word.end > word.start)
-      && (spacedWords ? words.map((word) => word.text).join(" ").replace(/\s+/gu, " ").trim() === text.replace(/\s+/gu, " ").trim()
-        : words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, ""));
+    normalizeWordSpaces(words);
+    const text = normalizeCjkSpaces(String(segment.text ?? "").replace(/\uFFFD/g, "")).trim();
+    const aligned = words.length && words.every((word) => word.end > word.start)
+      ? alignWordsToText(words, text) : null;
     return {
       start,
       end,
       text,
-      ...(useWords ? { words } : {}),
+      ...(aligned ? { words: aligned } : {}),
       ...(markers.length ? { markers } : {}),
     };
   });
@@ -660,6 +752,45 @@ function normalizeSpacedWhisperWords(segment, markers, segmentStart, segmentEnd)
   return words;
 }
 
+function normalizeCjkSpaces(value) {
+  return value.replace(/([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu, "$1");
+}
+
+function normalizeWordSpaces(words) {
+  for (const [index, word] of words.entries()) {
+    word.text = normalizeCjkSpaces(word.text);
+    if (index === 0) word.text = word.text.trimStart();
+    else if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(words[index - 1].text)
+      && /^\s+[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(word.text)) {
+      word.text = word.text.trimStart();
+    }
+  }
+  if (words.length) words.at(-1).text = words.at(-1).text.trimEnd();
+}
+
+function alignWordsToText(words, text) {
+  if (words.map((word) => word.text).join("") === text) return words;
+  if (words.map((word) => word.text).join("").replace(/\s/gu, "") !== text.replace(/\s/gu, "")) return null;
+  let cursor = 0;
+  const aligned = [];
+  for (const word of words) {
+    const surface = word.text.replace(/\s/gu, "");
+    if (!surface) return null;
+    const position = text.slice(cursor).search(/\S/u) + cursor;
+    if (position < cursor) return null;
+    let end = position;
+    for (const char of surface) {
+      while (/\s/u.test(text[end] ?? "")) end += 1;
+      if (!text.startsWith(char, end)) return null;
+      end += char.length;
+    }
+    aligned.push({ ...word, text: text.slice(cursor, end) });
+    cursor = end;
+  }
+  if (aligned.length) aligned.at(-1).text += text.slice(cursor);
+  return aligned;
+}
+
 function normalizeSegments(segments, range) {
   const offset = range.in;
   return (Array.isArray(segments) ? segments : []).flatMap((segment) => {
@@ -678,8 +809,12 @@ function normalizeSegments(segments, range) {
       if (!Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) continue;
       const wordStart = clampWordTime(Number(word.start));
       const wordEnd = clampWordTime(Number(word.end));
-      const wordText = String(word.text ?? "").replace(/\uFFFD/g, "").trim();
+      const wordText = String(word.text ?? "").replace(/\uFFFD/g, "");
       if (!wordText) continue;
+      if (!wordText.trim()) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
+        continue;
+      }
       if (wordEnd <= wordStart) {
         pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
         continue;
@@ -688,9 +823,10 @@ function normalizeSegments(segments, range) {
       pending = null;
     }
     if (pending && words.length) words.at(-1).text += pending.text;
-    if (words.length && words.every((word) => word.end > word.start)
-        && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "")) {
-      normalized.words = words;
+    normalizeWordSpaces(words);
+    if (words.length && words.every((word) => word.end > word.start)) {
+      const aligned = alignWordsToText(words, text);
+      if (aligned) normalized.words = aligned;
     }
     const markers = (segment.markers ?? []).flatMap((marker) => {
       const markerStart = Number(marker.start) + offset;
@@ -849,11 +985,12 @@ function safeCacheName(value) {
   return value.replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
-function cacheIdentity({ sha256, range, backend, lang, cacheDirectory, whisperPrompt }) {
+function cacheIdentity({ sha256, range, backend, lang, retryLanguageGaps, cacheDirectory, whisperPrompt }) {
   const promptKey = typeof whisperPrompt === 'string' && whisperPrompt ? `-prompt-${createHash('sha256').update(whisperPrompt).digest('hex').slice(0, 12)}` : lang === 'en' && whisperPrompt === true ? '-filler-prompt' : '';
   const normalized = knownLanguage(lang);
   const wordKey = backend === 'whisper-cpp' && normalized && !['ja', 'zh'].includes(normalized) ? '-words3' : '';
-  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? promptKey : ''}${wordKey}`;
+  const gapKey = retryLanguageGaps && lang !== 'auto' ? '-intake-gaps-v1' : '';
+  const key = `${sha256}-${formatNumber(range.in)}-${formatNumber(range.out)}-${backend}-${lang}${backend === 'whisper-cpp' ? `-mixed-v3${gapKey}${promptKey}${wordKey}` : ''}`;
   return { key, cachePath: path.join(cacheDirectory, `${safeCacheName(key)}.json`) };
 }
 

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildCaptionsFromTranscript as build } from "../src/captions/build.mjs";
 import { readFileSync } from 'node:fs';
+import { captionLength } from "../src/captions/build.mjs";
 
 const segment = (start, end, text = "字幕") => ({ start, end, text, words: [{ start, end, text }] });
 
@@ -55,6 +56,17 @@ test("missing and empty words use segment boundaries without splitting", () => {
   }
 });
 
+test("本文と語が一致しなくても字幕の words を残す", () => {
+  const words = [{ start: 0, end: 1, text: "別の語" }];
+  const [caption] = build([{ start: 0, end: 1, text: "字幕本文", words }],
+    { splitMode: "none", maxCharacters: 0 }).captions;
+  assert.equal(caption.text, "字幕本文");
+  assert.deepEqual(caption.words, words);
+  const [withoutWords] = build([{ start: 0, end: 1, text: "字幕本文" }],
+    { splitMode: "none", maxCharacters: 0 }).captions;
+  assert.equal(Object.hasOwn(withoutWords, "words"), false);
+});
+
 test("25 characters in eight words split greedily at ten characters", () => {
   const words = ["あいう", "えおか", "きくけ", "こさし", "すせそ", "たちつ", "てとな", "にぬねの"]
     .map((text, index) => ({ text, start: index * 2, end: index * 2 + 1 }));
@@ -70,11 +82,56 @@ test("25 characters in eight words split greedily at ten characters", () => {
   }
 });
 
-test("splitting counts Unicode code points and preserves spaces in English", () => {
+test("英語の半角を半字として数え、語間の空白を保つ", () => {
   const words = ["hello", "world", "again"].map((text, i) => ({ text, start: i * 2, end: i * 2 + 1 }));
-  assert.deepEqual(build([{ start: 0, end: 5, text: "hello world again", words }], { splitMode: "none", maxCharacters: 11 }).captions.map((c) => c.text), ["hello world", "again"]);
+  const captions = build([{ start: 0, end: 5, text: "hello world again", words }], { splitMode: "none", maxCharacters: 6 }).captions;
+  assert.deepEqual(captions.map((cue) => cue.text), ["hello world", "again"]);
+  for (const cue of captions) assert.equal(cue.words.map((word) => word.text).join(""), cue.text);
+  assert.equal(captionLength("ABC 12,。"), 4.5);
+  assert.equal(captionLength("ｶﾅ"), 2);
   const large = segment(0, 2, "😀😀😀😀");
   assert.equal(build([large], { maxCharacters: 3 }).captions[0].text, large.text);
+});
+
+test("英語の行を分けた後の先頭語から空白を除く", () => {
+  const words = ["When", " the", " score", " is", " high", ",", " we", " win"]
+    .map((text, index) => ({ text, start: index * 0.3, end: index * 0.3 + 0.2 }));
+  const text = words.map((word) => word.text).join("");
+  const captions = build([{ start: 0, end: 3, text, words }], { splitMode: "none", maxCharacters: 6 }).captions;
+  assert.ok(captions.length > 1);
+  for (const cue of captions) {
+    assert.doesNotMatch(cue.text, /^\s/u);
+    assert.doesNotMatch(cue.words[0].text, /^\s/u);
+    assert.equal(cue.words.map((word) => word.text).join(""), cue.text);
+  }
+  assert.match(captions.map((cue) => cue.text).join(" "), /When the score/u);
+});
+
+test("本文に無い空白を字幕に足さない", () => {
+  for (const surfaces of [["AK", "ARI", "の"], ["29", "800", "円"], ["GPT", "4"], ["すごい!", "AIが"]]) {
+    const text = surfaces.join("");
+    const words = surfaces.map((word, index) => ({ text: word, start: index, end: index + 0.5 }));
+    const cue = build([{ start: 0, end: 3, text, words }], { splitMode: "none", maxCharacters: 0 }).captions[0];
+    assert.equal(cue.text, text);
+    assert.equal(cue.words.map((word) => word.text).join(""), text);
+  }
+});
+
+test("数字の区切りを保ち、本文の英語の空白を優先する", () => {
+  for (const value of ["3.5", "1,000", "10:30"]) {
+    const words = value.match(/\d+|[.,:]/gu).map((text, index) => ({ text, start: index, end: index + 0.5 }));
+    const cue = build([{ start: 0, end: words.length, text: value, words }],
+      { splitMode: "none", maxCharacters: 0 }).captions[0];
+    assert.equal(cue.text, value);
+    assert.equal(cue.words.map((word) => word.text).join(""), value);
+    assert.equal(cue.words, words);
+  }
+  const surfaces = ["Hello", "world", "again"];
+  const words = surfaces.map((text, index) => ({ text, start: index, end: index + 0.5 }));
+  const spaced = build([{ start: 0, end: 3, text: "Hello  world again", words }],
+    { splitMode: "none", maxCharacters: 0 }).captions[0];
+  assert.equal(spaced.text, "Hello  world again");
+  assert.deepEqual(spaced.words.map((word) => word.text), ["Hello", "  world", " again"]);
 });
 
 test("empty text is dropped and warned about; original indexes remain stable", () => {
@@ -235,7 +292,8 @@ test('English transcript restores spaces from segment text despite joined transc
   assert.equal(captions.filter(cue => /[a-z]{12,}/iu.test(cue.text)).length, 0);
   assert.equal(captions.filter(cue => /^[,.?!;:]/u.test(cue.text)).length, 0);
   assert.equal(captions.filter(cue => /(?:^|\s)(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by|from|before)$/iu.test(cue.text)).length, 0);
-  assert.deepEqual(captions.flatMap(cue => cue.words), transcript.flatMap(segment => segment.words));
+  assert.deepEqual(captions.flatMap(cue => cue.words).map(({ start, end, text }) => ({ start, end, text: text.replace(/\s/gu, '') })),
+    transcript.flatMap(segment => segment.words).map(({ start, end, text }) => ({ start, end, text: text.replace(/\s/gu, '') })));
   assert.ok(captions.some(cue => cue.text.includes('let me')));
   assert.ok(captions.some(cue => cue.text.includes('I learned')));
 });
@@ -246,7 +304,9 @@ test('English character splitting carries function words into the next cue witho
   const segment = { start: 0, end: 1.1, text: 'We walked to the recording room', words };
   const captions = build([segment], { lang: 'en', maxCharacters: 19, maxSeconds: 0, pauseSeconds: 1 }).captions;
   assert.deepEqual(captions.map(cue => cue.text), ['We walked', 'to the recording', 'room']);
-  assert.deepEqual(captions.flatMap(cue => cue.words), words);
+  assert.deepEqual(captions.flatMap(cue => cue.words).map(({ start, end }) => ({ start, end })),
+    words.map(({ start, end }) => ({ start, end })));
+  for (const cue of captions) assert.equal(cue.words.map(word => word.text).join(''), cue.text);
 });
 
 test('English transcriber words with prefixed punctuation attach marks to the previous cue', () => {
@@ -259,7 +319,8 @@ test('English transcriber words with prefixed punctuation attach marks to the pr
     lang: 'en', maxCharacters: 6, maxSeconds: 0, pauseSeconds: 1,
   }).captions;
   assert.deepEqual(captions.map(cue => cue.text), ['Hello,', 'where', 'next']);
-  assert.deepEqual(captions.flatMap(cue => cue.words), words);
+  assert.deepEqual(captions.flatMap(cue => cue.words).map(({ start, end }) => ({ start, end })),
+    words.map(({ start, end }) => ({ start, end })));
 });
 
 test('a genuine pause still separates English cues at the original word times', () => {

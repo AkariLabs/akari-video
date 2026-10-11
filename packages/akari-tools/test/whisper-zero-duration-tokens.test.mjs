@@ -61,9 +61,14 @@ test("連結不一致や併合先なしは words も追加の不整合フラグ�
   }
 });
 
-test("一致比較では空白を除き、句読点は落とさない", () => {
-  const tokens = [{ text: " hello", start: 0, end: 1 }, { text: "world!", start: 1, end: 2 }];
-  assert.equal(joined(normalizeTokens("hello \n world!", tokens)), "helloworld!");
+test("英語の空白を含めて照合し、句読点も落とさない", () => {
+  const tokens = [{ text: " hello", start: 0, end: 1 }, { text: " world!", start: 1, end: 2 }];
+  const segment = normalizeTokens("hello world!", tokens);
+  assert.deepEqual(segment.words.map((word) => word.text), ["hello", " world!"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
+  const withoutSpaces = normalizeTokens("helloworld!", tokens);
+  assert.deepEqual(withoutSpaces.words.map((word) => word.text), ["hello", "world!"]);
+  assert.equal(withoutSpaces.words.map((word) => word.text).join(""), withoutSpaces.text);
   assert.equal(Object.hasOwn(normalizeTokens("hello world", tokens), "words"), false);
 });
 
@@ -78,18 +83,18 @@ test("English Whisper tokens keep word spaces and attach punctuation and contrac
   const [english] = normalizeWhisperJson(input, "en");
   assert.deepEqual(english.words, [
     { start: 0.1, end: 0.3, text: "let" },
-    { start: 0.4, end: 0.7, text: "me's," },
-    { start: 0.9, end: 1.2, text: "go" },
+    { start: 0.4, end: 0.7, text: " me's," },
+    { start: 0.9, end: 1.2, text: " go" },
   ]);
-  assert.equal(english.words.map((word) => word.text).join(" "), english.text);
+  assert.equal(english.words.map((word) => word.text).join(""), english.text);
   assert.equal(/letme|me's,go/u.test(english.text), false);
   // The Japanese path must retain its original token-by-token assembly.
   assert.deepEqual(normalizeWhisperJson(input, "ja")[0].words, [
     { start: 0.1, end: 0.3, text: "let" },
-    { start: 0.4, end: 0.6, text: "me" },
+    { start: 0.4, end: 0.6, text: " me" },
     { start: 0.6, end: 0.7, text: "'s" },
     { start: 0.7, end: 0.75, text: "," },
-    { start: 0.9, end: 1.2, text: "go" },
+    { start: 0.9, end: 1.2, text: " go" },
   ]);
 });
 
@@ -99,16 +104,22 @@ test("Whisper's zero-length English tokens keep every word and the Japanese path
   const joined = segments.map((segment) => {
     assert.ok(segment.words?.length > 0);
     assert.ok(segment.words.every((word) => word.end > word.start));
-    const text = segment.words.map((word) => word.text).join(" ");
+    const text = segment.words.map((word) => word.text).join("");
     assert.equal(text.replace(/\s+/gu, " ").trim(), segment.text.replace(/\s+/gu, " ").trim());
     return text;
   }).join(" ");
   assert.doesNotMatch(joined, /letme|alittle|yourmouth|liketohear|Heyeveryone|'swhat|Okay,seeyou/u);
-  assert.deepEqual(segments[0].words.filter((word) => ["let", "me"].includes(word.text)).map((word) => word.text), ["let", "me"]);
-  assert.deepEqual(segments[2].words.filter((word) => ["Okay,", "see", "you"].includes(word.text)).map((word) => word.text), ["Okay,", "see", "you"]);
-  assert.deepEqual(segments[3].words.at(-1), { start: 9.825, end: 10, text: "I?" });
+  assert.deepEqual(segments[0].words.filter((word) => ["let", "me"].includes(word.text.trim())).map((word) => word.text.trim()), ["let", "me"]);
+  assert.deepEqual(segments[2].words.filter((word) => ["Okay,", "see", "you"].includes(word.text.trim())).map((word) => word.text.trim()), ["Okay,", "see", "you"]);
+  assert.deepEqual(segments[3].words.at(-1), { start: 9.825, end: 10, text: " I?" });
   assert.deepEqual(segments[4].words, [{ start: 11, end: 11.1, text: "Bye." }]);
-  assert.deepEqual(normalizeWhisperJson(spacedRaw, "ja"), legacySpacedJa);
+  const japanesePath = normalizeWhisperJson(spacedRaw, "ja");
+  assert.deepEqual(japanesePath.map(({ start, end, text }) => ({ start, end, text })),
+    legacySpacedJa.map(({ start, end, text }) => ({ start, end, text })));
+  assert.deepEqual(japanesePath.map(segment => segment.words?.map(({ start, end }) => ({ start, end }))),
+    legacySpacedJa.map(segment => segment.words?.map(({ start, end }) => ({ start, end }))));
+  assert.deepEqual(japanesePath.map(segment => segment.words?.map(word => word.text).join('').replace(/\s/gu, '')),
+    legacySpacedJa.map(segment => segment.words?.map(word => word.text).join('').replace(/\s/gu, '')));
 });
 
 test("punctuation-only Whisper tokens keep text without extending the preceding word", () => {
@@ -122,7 +133,7 @@ test("punctuation-only Whisper tokens keep text without extending the preceding 
   }] }, "en");
   assert.deepEqual(segment.words, [
     { start: 0.1, end: 0.3, text: "Hello," },
-    { start: 0.6, end: 0.8, text: "world." },
+    { start: 0.6, end: 0.8, text: " world." },
   ]);
 });
 
@@ -156,8 +167,8 @@ test("Whisper auto detection and regional English tags group space-delimited wor
   ] }] };
   const expected = [
     { start: 0.1, end: 0.3, text: "let" },
-    { start: 0.4, end: 0.6, text: "me" },
-    { start: 0.7, end: 1, text: "go" },
+    { start: 0.4, end: 0.6, text: " me" },
+    { start: 0.7, end: 1, text: " go" },
   ];
   for (const [raw, language] of [
     [{ ...input, result: { language: "en" } }, "auto"],
@@ -167,8 +178,31 @@ test("Whisper auto detection and regional English tags group space-delimited wor
   ]) {
     const [segment] = normalizeWhisperJson(raw, language);
     assert.deepEqual(segment.words, expected);
-    assert.equal(segment.words.map((word) => word.text).join(" "), segment.text);
+    assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
   }
+});
+
+test("英語のゼロ長トークンを空白ごと次の語へ併合する", () => {
+  const segment = normalizeTokens("When the score is high,", [
+    { text: " When", start: 0, end: 0.4 },
+    { text: " the", start: 0.5, end: 0.5 },
+    { text: " score", start: 0.6, end: 1 },
+    { text: " is", start: 1.1, end: 1.3 },
+    { text: " high", start: 1.4, end: 1.8 },
+    { text: ",", start: 1.8, end: 2 },
+  ]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["When", " the score", " is", " high", ","]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
+});
+
+test("日本語の行頭と全角文字間に紛れた空白を除く", () => {
+  const segment = normalizeTokens("今日は晴れ", [
+    { text: " 今日", start: 0, end: 0.5 },
+    { text: " は", start: 0.5, end: 1 },
+    { text: " 晴れ", start: 1, end: 2 },
+  ]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["今日", "は", "晴れ"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
 });
 
 async function normalizeThroughTranscribe(t, segments) {
@@ -201,6 +235,16 @@ test("normalizeSegments も途中の負長語を次へ併合する", async (t) =
     { text: "う", start: 1.5, end: 2 },
   ] }]);
   assert.deepEqual(segment.words, [{ start: 5, end: 5.5, text: "あ" }, { start: 6, end: 7, text: "いう" }]);
+});
+
+test("別バックエンドの英語語列も本文の空白に合わせる", async (t) => {
+  const [segment] = await normalizeThroughTranscribe(t, [{ start: 0, end: 3, text: "When the score", words: [
+    { text: "When", start: 0, end: 0.5 },
+    { text: "the", start: 0.5, end: 1 },
+    { text: "score", start: 1, end: 2 },
+  ] }]);
+  assert.deepEqual(segment.words.map((word) => word.text), ["When", " the", " score"]);
+  assert.equal(segment.words.map((word) => word.text).join(""), segment.text);
 });
 
 test("normalizeSegments の不一致・全語範囲外は本文だけを返す", async (t) => {

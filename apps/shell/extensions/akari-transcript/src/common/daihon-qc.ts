@@ -23,7 +23,7 @@ function visibleText(text: string): string {
 }
 
 export function visibleLength(text: string): number {
-    return text.replace(/[\s\p{P}]/gu, '').length;
+    return Array.from(visibleText(text)).reduce((units, char) => units + (char.codePointAt(0)! <= 0x7f ? 0.5 : 1), 0);
 }
 
 export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue[] {

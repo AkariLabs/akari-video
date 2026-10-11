@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
+import { setLanguage } from "../../i18n/index.mjs";
 
 import { runSpeakersCli } from "../bin/speakers.mjs";
+
+setLanguage("ja");
+after(() => setLanguage(undefined));
 
 const temporaryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.tmp-lane");
 const json = async file => JSON.parse(await readFile(file, "utf8"));

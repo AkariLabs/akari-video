@@ -3,7 +3,10 @@ import { toolsText } from '../i18n.mjs';
 import { captionLanguageDefaults, normalizeLanguage } from "../../../content-language/src/index.mjs";
 
 const roundTime = (value) => Math.round(value * 1000) / 1000;
-const length = (text) => Array.from(text).length;
+export const captionLength = (text) => Array.from(text).reduce((count, char) =>
+  count + (/[\x00-\x7f]/u.test(char) ? 0.5 : 1), 0);
+const measuredLength = (text, lang) => ['ja', 'zh'].includes(normalizeLanguage(lang))
+  ? captionLength(text) : Array.from(text).length;
 
 export function buildCaptionsFromTranscript(segments, {
   src, lang = 'ja', readoutSeconds = 0.3, minDurationSeconds = captionLanguageDefaults(lang).minimumSeconds,
@@ -24,25 +27,29 @@ export function buildCaptionsFromTranscript(segments, {
   const sorted = segments.map((segment, index) => ({ segment, index }))
     .sort((a, b) => a.segment.start - b.segment.start || a.index - b.index);
   for (const { segment, index } of sorted) {
-    const text = segment.text.trim();
+    const originalText = segment.text.trim();
+    const alignedWords = segment.words?.length ? alignCaptionWords(originalText, segment.words) : null;
+    const words = alignedWords ?? segment.words;
+    const text = originalText;
     if (!text) {
       warnings.push(toolsText('tools.captions.warning.emptyText', { index }));
       continue;
     }
-    let pieces = [{ text, words: segment.words }];
+    let pieces = [{ text, words }];
     if (splitMode === "phrase") {
-      if (segment.words?.length) pieces = splitPhrases(text, segment.words, { maxCharacters, maxSeconds, pauseSeconds, lang });
+      if (words?.length) pieces = splitPhrases(text, words, { maxCharacters, maxSeconds, pauseSeconds, lang });
       else {
         pieces = splitProportionally(text, segment);
         warnings.push(toolsText('tools.captions.warning.wordsMissing', { index }));
       }
-    } else if (maxCharacters && length(text) > maxCharacters) {
-      if (!segment.words?.length) warnings.push(toolsText('tools.captions.warning.splitSkipped', { index }));
-      else pieces = splitWords(text, segment.words, maxCharacters, lang);
+    } else if (maxCharacters && measuredLength(text, lang) > maxCharacters) {
+      if (!words?.length) warnings.push(toolsText('tools.captions.warning.splitSkipped', { index }));
+      else pieces = splitWords(text, words, maxCharacters, lang);
     }
     for (const piece of pieces) {
       const start = piece.words?.length ? piece.words[0].start : piece.start ?? segment.start;
       const lastEnd = piece.words?.length ? piece.words.at(-1).end : piece.end ?? segment.end;
+      const captionWords = piece.words?.length ? alignCaptionWords(piece.text, piece.words) : null;
       if (!Number.isFinite(start) || !Number.isFinite(lastEnd) || start < 0 || lastEnd < start) {
         throw new Error(toolsText('tools.captions.error.invalidTiming', { index }));
       }
@@ -54,7 +61,7 @@ export function buildCaptionsFromTranscript(segments, {
         speaker: typeof segment.speaker === "string" && segment.speaker.length > 0 ? segment.speaker : null,
         sourceRef: { segment: index }, edited: false,
         ...(src !== undefined ? { src } : {}),
-        ...(piece.words !== undefined ? { words: piece.words } : {}),
+        ...(piece.words !== undefined ? { words: captionWords ?? piece.words } : {}),
         ...(segment.unrecognized !== undefined ? { unrecognized: segment.unrecognized } : {}),
       });
     }
@@ -94,6 +101,29 @@ export function buildCaptionsFromTranscript(segments, {
     else delete caption.unrecognized;
   }
   return { captions, warnings };
+}
+
+function alignCaptionWords(text, words) {
+  if (words.map((word) => word.text).join("") === text) return words;
+  if (words.map((word) => word.text).join("").replace(/\s/gu, "") !== text.replace(/\s/gu, "")) return null;
+  let cursor = 0;
+  const aligned = [];
+  for (const word of words) {
+    const surface = String(word.text ?? "").replace(/\s/gu, "");
+    if (!surface) return null;
+    const position = text.slice(cursor).search(/\S/u) + cursor;
+    if (position < cursor) return null;
+    let end = position;
+    for (const char of surface) {
+      while (/\s/u.test(text[end] ?? "")) end += 1;
+      if (!text.startsWith(char, end)) return null;
+      end += char.length;
+    }
+    aligned.push({ ...word, text: text.slice(cursor, end) });
+    cursor = end;
+  }
+  if (aligned.length) aligned.at(-1).text += text.slice(cursor);
+  return aligned;
 }
 
 function transcriptTokens(text, words, lang) {
@@ -179,7 +209,7 @@ function splitWords(text, words, maxCharacters, lang) {
   let piece = { text: "", words: [] };
   for (let index = 0; index < words.length; index += 1) {
     const candidate = piece.text + tokens[index];
-    if (piece.words.length && length(candidate.trim()) > maxCharacters) {
+    if (piece.words.length && measuredLength(candidate.trim(), lang) > maxCharacters) {
       pieces.push({ ...piece, text: piece.text.trim() });
       piece = { text: "", words: [] };
     }
@@ -252,7 +282,7 @@ function splitPhrases(text, words, { maxCharacters, maxSeconds, pauseSeconds, la
     while (pending.length) {
       const candidate = pending.map((item) => item.text).join("") + token.text;
       const seconds = token.words.at(-1).end - pending[0].words[0].start;
-      const overCharacters = maxCharacters && length(candidate.trim()) > maxCharacters;
+      const overCharacters = maxCharacters && measuredLength(candidate.trim(), lang) > maxCharacters;
       const overSeconds = maxSeconds && seconds > maxSeconds;
       if (!overCharacters && !overSeconds) break;
       const boundary = pending.findLastIndex((item) => softBoundary(item.text));
@@ -277,9 +307,9 @@ function splitProportionally(text, segment) {
   const pieces = [];
   let consumed = 0;
   for (const fragment of fragments) {
-    const start = segment.start + (segment.end - segment.start) * consumed / length(text);
-    consumed += length(fragment);
-    const end = segment.start + (segment.end - segment.start) * consumed / length(text);
+    const start = segment.start + (segment.end - segment.start) * consumed / captionLength(text);
+    consumed += captionLength(fragment);
+    const end = segment.start + (segment.end - segment.start) * consumed / captionLength(text);
     if (!fragment.trim() || (punctuationOnly(fragment) && pieces.length)) {
       if (pieces.length) {
         pieces.at(-1).text += fragment.trim();

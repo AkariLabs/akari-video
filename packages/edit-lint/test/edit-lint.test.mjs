@@ -1014,6 +1014,36 @@ test("captions-words-valid fixture (words[] + style: karaoke, id c-0001) passes 
   });
 });
 
+test("captions speaker accepts null or a non-empty string", () => {
+  const base = {
+    id: "c-0001", start: 0, end: 2, time_domain: "output", text: "字幕",
+    speaker: null, sourceRef: null, edited: false,
+  };
+  for (const [speaker, expected] of [
+    [null, []],
+    ["A", []],
+    ["", ["speaker must be null or a non-empty string"]],
+    [1, ["speaker must be null or a non-empty string"]],
+  ]) {
+    const findings = [];
+    validateCaptions([{ ...base, speaker }], { cuts: [] }, null, findings, {
+      projectRoot: packageRoot, captionsPath: join(packageRoot, "captions.json"),
+    }, 10);
+    assert.deepEqual(findings.filter(finding => finding.check === "captions.schema"
+      && finding.message.includes("speaker")).map(finding => finding.message), expected,
+    `speaker: ${JSON.stringify(speaker)}`);
+  }
+  const { speaker: _speaker, ...missingSpeaker } = base;
+  const findings = [];
+  validateCaptions([missingSpeaker], { cuts: [] }, null, findings, {
+    projectRoot: packageRoot, captionsPath: join(packageRoot, "captions.json"),
+  }, 10);
+  assert.ok(findings.some(finding => finding.check === "captions.schema"
+    && finding.message === "speaker is required"));
+  assert.ok(findings.some(finding => finding.check === "captions.schema"
+    && finding.message === "speaker must be null or a non-empty string"));
+});
+
 test("karaoke / pop の語時刻なしは警告し、語時刻ありは警告しない", async () => {
   const base = { ...styleParity.caption, start: 5, end: 7 };
   for (const style of ["karaoke", "pop"]) {

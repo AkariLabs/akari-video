@@ -184,7 +184,7 @@ test("transcribe cache は単語帳適用前の生 segments を保存する", as
   assert.equal(result.segments[0].text, "AKARI Video");
   const cached = JSON.parse(readFileSync(path.join(project, ".akari", "cache", "transcribe", `${result.cache.key}.json`), "utf8"));
   assert.equal(cached.segments[0].text, "あかり ビデオ");
-  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", "ビデオ"]);
+  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", " ビデオ"]);
 });
 
 test("wordBook: false は単語帳を適用せず生出力を記録する", async () => {
