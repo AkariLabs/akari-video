@@ -77,3 +77,35 @@ test('synchronous project language reader follows the asynchronous precedence', 
   assert.deepEqual(readContentLanguageSync(root, { cliLang: 'ja-JP' }),
     { language: 'ja', source: 'cli' });
 });
+
+test('selects the longest transcript across root and asset sidecars with stable ties', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'content-language-sidecars-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const assets = join(root, '.akari', 'sidecars', 'assets');
+  const putAnalysis = async (relative, analysis) => {
+    const directory = join(assets, relative);
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, 'analysis.json'), JSON.stringify(analysis));
+  };
+
+  await writeFile(join(root, 'analysis.json'), JSON.stringify({ transcript_language: 'ja', transcript: [{ text: '短い' }] }));
+  await putAnalysis('a.mp4.analysis', { transcript_language: 'en-US', transcript: [{ text: 'The longest transcript' }] });
+  await putAnalysis('b.mp4.analysis', { transcript_language: 'fr', transcript: [{ text: 'The longest transcript' }] });
+  await putAnalysis('nested/c.mp4.analysis', { transcript_language: 'de', transcript: [{ text: 'brief' }] });
+  await putAnalysis('z.mp4.analysis', { transcript_language: 'invalid tag', transcript: [{ text: 'This invalid language has more text than any other transcript' }] });
+  assert.deepEqual(await readContentLanguage(root), { language: 'en', source: 'transcript' });
+  assert.deepEqual(readContentLanguageSync(root), { language: 'en', source: 'transcript' });
+
+  await writeFile(join(root, 'analysis.json'), JSON.stringify({ transcript_language: 'ja', transcript: [{ text: 'The longest transcript' }] }));
+  assert.deepEqual(await readContentLanguage(root), { language: 'ja', source: 'transcript' });
+  await writeFile(join(root, 'analysis.json'), JSON.stringify({ transcript_language: 'ja', transcript: [{ text: '短い' }] }));
+
+  await putAnalysis('b.mp4.analysis', { transcript_language: 'fr', transcript: [{ text: 'A longer transcript than the first one' }] });
+  assert.deepEqual(await readContentLanguage(root), { language: 'fr', source: 'transcript' });
+  assert.deepEqual(readContentLanguageSync(root), { language: 'fr', source: 'transcript' });
+
+  await mkdir(join(root, '.akari'), { recursive: true });
+  await writeFile(join(root, '.akari', 'intake.json'), JSON.stringify({ language: 'ko' }));
+  assert.deepEqual(await readContentLanguage(root), { language: 'ko', source: 'intake' });
+  assert.deepEqual(readContentLanguageSync(root, { cliLang: 'ja-JP' }), { language: 'ja', source: 'cli' });
+});

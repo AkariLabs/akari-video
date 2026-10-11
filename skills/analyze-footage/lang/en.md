@@ -2,7 +2,7 @@
 
 ## Select English explicitly
 
-Resolve the work's content language before transcription. For English footage, pass `--lang en`; do not rely on automatic language detection. While the default SpeechAnalyzer path remains fixed to Japanese, select the supported `--backend whisper-cpp` option with `akari media transcribe`. If that local backend is unavailable, report the limitation. A configured cloud backend still requires the normal decision-card approval before any audio is sent externally.
+Resolve the work's content language before transcription. For English footage, pass `--lang en`; do not rely on automatic language detection. The default SpeechAnalyzer path uses an English locale when supported and can transcribe English, including audible "um" and "uh." If that local backend is unavailable, whisper.cpp may be used; report the limitation if no local backend is available. A configured cloud backend still requires the normal decision-card approval before any audio is sent externally.
 
 ## Recognize candidates in context
 
@@ -16,6 +16,6 @@ A repeated fragment such as "I, I" or "that's, that's" may be an edit candidate 
 
 ## Recover evidence Whisper may omit
 
-Whisper may suppress "um" and "uh" and collapse repeated words even when the rest of the transcript is accurate. Compare word-timestamp gaps with waveform regions that still show speech, then listen to the original audio around each candidate. A timestamp gap tells you where to check; it is not itself proof of a filler. If an independently verified backend exposes an initial prompt, a short verbatim example containing hesitations, repeated words, and a restart can encourage their transcription. The current `akari media transcribe` CLI has **no initial-prompt option**, so do not invent or pass one.
+Whisper may suppress "um" and "uh" and collapse repeated words even when the rest of the transcript is accurate. When using whisper.cpp, pass `--keep-fillers` for the default English filler prompt, or `--whisper-prompt <text>` for a custom initial prompt. When the work's language is English and whisper.cpp is available, `akari media transcribe-cuts --filler on` regenerates an English whisper transcript with the filler prompt before producing candidates. Compare word-timestamp gaps with waveform regions that still show speech, then listen to the original audio around each candidate. A timestamp gap tells you where to check; it is not itself proof of a filler.
 
 When verbatim coverage is necessary, use a separately verified verbatim ASR backend under the project's normal approval rules, or inspect the audio manually. Check each resulting event against the source recording. If only a cleaned transcript is available, report the limit on filler recall rather than fabricating missing words or event boundaries.
