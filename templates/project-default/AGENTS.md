@@ -11,6 +11,7 @@
 - `exports/` は完成した動画を書き出す場所。
 - `.akari/sidecars/` は素材の分析結果、`.akari/events/` は作業の節目の記録を置く場所。
 - 素材の分析結果は `.akari/sidecars/<assets 以下の相対パス>.meta.json` に保存する。
+- `.akari/sidecars/**/voices.json`（声の特徴量・個人識別符号）は読まない・外へ送らない。
 - レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
   1 件ずつ新しく追加する。すでにある記録は書き換えたり削除したりしない。
 - `.akari/intake.json` の `status` が `submitted` なら `tasks` / `target` / `autonomy` に

@@ -63,6 +63,8 @@ const HISTORY_BLOCK_BODY = [
     '',
     '# 素材の分析結果は作り直すのに手間がかかるので、変更履歴に残します。',
     '!.akari/sidecars/**',
+    '# 声の特徴量（個人識別符号）は履歴に入れない',
+    '.akari/sidecars/**/voices.json',
     '',
     '# パソコンが作る一時ファイル。',
     '.DS_Store',

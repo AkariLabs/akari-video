@@ -1,4 +1,5 @@
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -13,7 +14,7 @@ import {
   runChecked,
   sha256File,
 } from "./common.mjs";
-import { recordEngineTranscript, recordObservation } from "./record.mjs";
+import { recordEngineTranscript, recordObservation, updateAnalysisTranscript } from "./record.mjs";
 import {
   classifyWhisperMarker,
   detectUnrecognizedSpans,
@@ -67,6 +68,9 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const range = normalizeRange(options.in, options.out, duration);
   const lang = options.lang ?? "auto";
   const sha256 = await sha256File(target.inputPath);
+  // 配布版に声のエンジンがまだ無い場合も、通常の文字起こしは読み込めるようにする。
+  const voice = options.diarize || options.identify || options.people || options.speakers !== undefined
+    ? await prepareVoice(options) : null;
   const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
   const silenceDetection = await detectTranscribeSilences(asrResult.segments, target.inputPath, range, ffmpeg, options);
   // 未認識は ASR cache と独立した派生値。hit / miss とも現在の設定で付与する。
@@ -78,7 +82,153 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const result = await applyResolvedWordBook(rawResult, target, options);
   const recordedResult = result.cache.hit ? { ...result, generated_at: generatedAt(options) } : result;
   await recordTranscribe(target, recordedResult, options.in === undefined && options.out === undefined ? undefined : range, result.backend, lang, options.noRecord, rawResult, started);
-  return result;
+  if (!voice) return result;
+  return attachVoice(result, { target, range, sha256, ffmpeg, options, voice });
+}
+
+async function prepareVoice(options) {
+  const voice = await import("../../../akari-voice/src/index.mjs");
+  const status = options.voiceEngine?.status ?? voice.voiceEngineStatus({ home: voice.resolveVoiceHome({ env: options.env ?? process.env }) });
+  if ((typeof status === "string" ? status : status?.status) !== "ready") {
+    throw Object.assign(new Error(voice.VOICE_MISSING_MESSAGE), { exitCode: 2 });
+  }
+  if (options.voiceEngine) return { api: voice, engine: options.voiceEngine,
+    canIdentify: (typeof status === "string" ? options.voiceEngine.canIdentify : status.canIdentify) !== false,
+    version: options.voiceEngine.version ?? voice.VOICE_ENGINE_VERSION };
+  const runtime = voice.loadVoiceRuntime(status);
+  const embeddingModel = path.join(status.modelsDir, "wespeaker_en_voxceleb_resnet34_LM.onnx");
+  const diarizers = new Map();
+  const embedder = status.canIdentify ? await voice.createEmbedder(runtime, embeddingModel) : null;
+  return {
+    api: voice,
+    canIdentify: status.canIdentify,
+    version: voice.voiceEngineVersion(status.manifest),
+    engine: {
+      diarize(samples, { numClusters, threshold }) {
+        if (!diarizers.has(numClusters)) diarizers.set(numClusters, voice.createDiarizer(runtime, {
+          segmentationModel: path.join(status.modelsDir, "pyannote-segmentation-3.0.onnx"),
+          embeddingModel, numClusters, threshold,
+        }));
+        return diarizers.get(numClusters).process(samples);
+      },
+      embed: (samples, mean) => embedder?.embed(samples, mean),
+    },
+  };
+}
+
+function voiceLog(options, message) {
+  (options.stderr ?? ((line) => process.stderr.write(`${line}\n`)))(message.replace(/[\r\n]+/g, " "));
+}
+
+async function attachVoice(result, { target, range, sha256, ffmpeg, options, voice }) {
+  const started = performance.now();
+  const { api, engine, canIdentify } = voice;
+  const speakers = options.speakers ?? "auto";
+  const cacheDirectory = target.projectRoot
+    ? path.join(target.projectRoot, ".akari", "cache", "diarize")
+    : path.join(os.tmpdir(), "akari-diarize-cache");
+  const fixedCount = api.clusterCountFor(speakers);
+  const key = createHash("sha256").update(JSON.stringify([sha256, range.in, range.out, speakers, voice.version,
+    ...([2, 3].includes(fixedCount) ? ["count-v4"] : [])])).digest("hex");
+  const cachePath = path.join(cacheDirectory, `${key}.json`);
+  const decode = options.voiceDecode ?? ((file, start, duration) => api.decodeAudio16k({ ffmpeg, file, start, duration }));
+  const readStarted = performance.now();
+  const samples = await decode(target.inputPath, range.in, range.out - range.in);
+  const readSeconds = (performance.now() - readStarted) / 1000;
+  let turns;
+  let countResult;
+  if (existsSync(cachePath)) {
+    const cached = JSON.parse(await readFile(cachePath, "utf8"));
+    turns = cached.turns;
+    countResult = cached.countResult ?? { requested: speakers === "auto" ? "auto" : Number(speakers), fallback: false };
+  }
+  else {
+    countResult = await api.diarizeToCount(engine.diarize.bind(engine), samples, speakers, api.DIARIZE_THRESHOLD);
+    turns = api.relabelTurns(countResult.turns).map(turn => ({ ...turn, start: formatNumber(turn.start + range.in), end: formatNumber(turn.end + range.in) }));
+    await mkdir(cacheDirectory, { recursive: true });
+    await writeFile(cachePath, `${JSON.stringify({ turns, countResult: {
+      requested: countResult.requested, used: countResult.used, fallback: countResult.fallback,
+    } }, null, 2)}\n`, "utf8");
+  }
+  if (countResult?.fallback) voiceLog(options, api.diarizeCountFallbackMessage(countResult.requested, countResult.used));
+  let embeddings = {};
+  if (!canIdentify && (options.identify || options.people)) voiceLog(options, api.VOICE_IDENTIFY_UNAVAILABLE_MESSAGE);
+  if (canIdentify) try {
+    embeddings = await api.embedSpeakers({ embedder: { embed: (audio, mean) => engine.embed(audio, mean) }, samples, turns, offsetSeconds: range.in });
+  } catch (error) {
+    voiceLog(options, `話者の特徴量: ${error.message}`);
+  }
+  let identify;
+  if (options.identify && canIdentify) {
+    const located = options.people
+      ? { peoplePath: path.resolve(options.cwd ?? process.cwd(), options.people), channel: path.basename(path.dirname(path.resolve(options.cwd ?? process.cwd(), options.people))) }
+      : api.channelPeopleForProject(target.projectRoot ?? "");
+    if (!located || !existsSync(located.peoplePath)) voiceLog(options, "話者の照合: 人物の一覧（people.json）が見つからないので照らしません");
+    else {
+      const found = await api.loadCentroids({
+        ...located, embedder: { embed: (audio, mean) => engine.embed(audio, mean) },
+        decode: (file) => decode(file),
+      });
+      for (const warning of found.warnings) voiceLog(options, `話者の照合: ${warning}`);
+      if (!found.centroids.length) {
+        voiceLog(options, "話者の照合: 声の見本がある人物がいないので照らしません");
+        identify = { compared: [], suggestions: {} };
+      } else {
+        let suggestions = Object.fromEntries(Object.entries(embeddings).map(([id, vector]) => [id, api.suggestFor(vector, found.centroids) ?? { score: 0, level: "none" }]));
+        if (speakers === "auto" || speakers === 4 || speakers === "4") {
+          const mapping = api.bundleBySuggestion(suggestions);
+          if (Object.keys(mapping).length) {
+            turns = api.mergeSpeakers(turns, mapping);
+            try {
+              embeddings = await api.embedSpeakers({ embedder: { embed: (audio, mean) => engine.embed(audio, mean) }, samples, turns, offsetSeconds: range.in });
+              suggestions = Object.fromEntries(Object.entries(embeddings).map(([id, vector]) => [id, api.suggestFor(vector, found.centroids) ?? { score: 0, level: "none" }]));
+            } catch (error) { voiceLog(options, `話者の特徴量: ${error.message}`); embeddings = {}; suggestions = {}; }
+          }
+        }
+        identify = { compared: found.compared, suggestions };
+      }
+    }
+  }
+  const seconds = api.speakerSeconds(turns);
+  const ids = Object.keys(seconds);
+  const shortSpeakers = api.shortSpeakerIds(turns);
+  const speakerInfo = { requested: countResult.requested, fallback: countResult.fallback,
+    count: ids.length, ids, seconds, ...(shortSpeakers.length ? { shortSpeakers } : {}) };
+  if (target.projectRoot && target.projectRelative) {
+    const file = api.voicesPathFor(target.projectRoot, target.projectRelative);
+    const entries = Object.fromEntries(ids.filter(id => embeddings[id]?.length === 256).map(id => [id, {
+      seconds: seconds[id], embedding: embeddings[id], suggestion: identify?.suggestions[id],
+    }]));
+    api.writeVoicesFile(file, api.buildVoicesFile({ previous: api.readVoicesFile(file), speakers: entries,
+      requested: countResult.requested, fallback: countResult.fallback, shortSpeakers }));
+    if (!options.noRecord) await updateAnalysisTranscript(target, (before, analysis) => {
+      analysis.tracks ??= { speakers: [], faces: [], person_matte: null };
+      const oldTracks = Array.isArray(analysis.tracks.speakers) ? analysis.tracks.speakers : [];
+      const outside = oldTracks.flatMap(track => track.spans.flatMap(([start, end]) => {
+        const spans = [];
+        if (start < range.in) spans.push([start, Math.min(end, range.in)]);
+        if (end > range.out) spans.push([Math.max(start, range.out), end]);
+        return spans.filter(([from, to]) => to > from).map(span => ({ id: track.id, span }));
+      }));
+      const combined = new Map();
+      for (const { id, span } of outside) {
+        if (!combined.has(id)) combined.set(id, []);
+        combined.get(id).push(span);
+      }
+      for (const track of api.speakerTracks(turns)) {
+        if (!combined.has(track.id)) combined.set(track.id, []);
+        combined.get(track.id).push(...track.spans);
+      }
+      analysis.tracks.speakers = [...combined].map(([id, spans]) => ({ id, spans: spans.sort((a, b) => a[0] - b[0]) }));
+      return before.map(segment => segment.start >= range.in && segment.end <= range.out
+        ? api.assignSpeakers([segment], turns)[0] : segment);
+    });
+  }
+  voiceLog(options, `話者の分離: ${ids.length} 人・${((performance.now() - started) / 1000).toFixed(1)} 秒（読み込み ${readSeconds.toFixed(1)} 秒）`);
+  return { ...result, segments: api.assignSpeakers(result.segments, turns), speakers: {
+    ...speakerInfo,
+    ...(identify ? { identify } : {}),
+  } };
 }
 
 // ASR 層は normalizeSegments 直後の結果を保存し、markers を含む根拠を保持する。

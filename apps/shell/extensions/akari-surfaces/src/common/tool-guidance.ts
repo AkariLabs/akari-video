@@ -70,6 +70,12 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         sizeLabel: '約 1.5GB',
         note: '利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。'
     },
+    voice: {
+        name: '話者を分ける（声のエンジン）', badge: 'アドバンス',
+        purpose: '素材の話者を分けて、誰の声かを提案するのに使います。声はこのパソコンの中だけで処理します。',
+        sizeLabel: '約 160MB',
+        note: 'モデルの WeSpeaker は CC BY 4.0、pyannote・Silero は MIT、sherpa-onnx は Apache-2.0、ONNX Runtime は MIT です。'
+    },
     blender: {
         name: 'Blender CLI', badge: 'アドバンス', purpose: '高度な 3D 素材の事前レンダーに使います。',
         sizeLabel: '約 700MB'

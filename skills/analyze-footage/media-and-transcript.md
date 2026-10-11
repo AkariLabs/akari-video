@@ -43,6 +43,23 @@ akari media transcribe "$SOURCE" --in 120 --out 180 --lang ja
 
 3 層 backend の選択順、キャッシュ、`segments[]` の形、no speech、失敗時の扱いは [`akari media` 契約 §2.5](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) に委ねる。スキル側で backend の実行ファイル・モデル・入力音声を探索または変換しない。
 
+### 話者を分ける（頼まれたとき・2 人以上の声がありそうなときだけ）
+
+`.akari/sidecars/**/voices.json`（声の特徴量 = 個人識別符号）は読まない・外へ送らない。
+
+既定は旗なしで文字起こしし、話者を分けない。話者分離を聞くのは、依頼されたとき、または対談・インタビュー・掛け合いなど 2 人以上の声がありそうなときだけ。1 人の語りでは聞かない。聞くのは「何人ですか（わからなければ自動）」という人数だけで、`--diarize --speakers <n|auto>` を指定する。
+
+Intel Mac では話者を分けられるが、声の照合はできない。`--identify` を指定しても分離結果を使い、照合は飛ばす。
+
+```bash
+akari media transcribe "$SOURCE" --diarize --speakers 2
+akari media transcribe "$SOURCE" --diarize --speakers auto --identify
+akari speakers set "$SOURCE" A --person channel/p-123
+akari speakers list "$SOURCE"
+```
+
+`--identify` で照らすのは、チャンネルの人物に同意済み（`self` / `subject`）の声の見本がある人だけ。結果は提案で、名前を決めるのは人である。`strong` でも確認してから `akari speakers set` で書く。`maybe` は候補として並べて確認し、`none` には名前を付けない。声のエンジンが無く exit 2 になったときは話者を推測せず、案内文どおり `akari tools install voice` かアプリの「字幕を作る」からの準備を案内して止まる。旗、出力、保存先は[話者分離の契約](../../docs/contract-2026-10-11-speaker-split-v0.md)に従う。
+
 ### 承認制クラウド
 
 - 既定で外部へ音声を送らない。
@@ -82,3 +99,5 @@ L0 / L1 は原本から観察し、`proxy.mp4` を作らない。L2 で画像を
 - backend の raw 出力へ独自変換を加え、契約済み `segments[]` を作り直す。
 - クラウド接続が登録済みというだけで承認なしに送信する。
 - backend 不可を隠すために transcript を推測する。
+- 1 人の語りで話者分離を聞く。
+- 照合の提案を確かめずに話者辞書へ名前を書く。

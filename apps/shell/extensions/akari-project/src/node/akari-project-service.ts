@@ -22,7 +22,7 @@ import {
     AkariProjectService,
     TranscribeArtifactRequest, TranscribeArtifacts, MaterialTranscriptEvent,
     CancelTranscribeRequest,
-    TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
+    TranscribeMaterialRequest, TranscribeOptions, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
     EntitledProduct,
@@ -97,6 +97,66 @@ import {
     PROJECT_GITIGNORE
 } from 'akari-video/src/history-policy.mjs';
 
+export const VOICES_READ_DENY = ['Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)'] as const;
+
+const DEFAULT_AGENT_SETTINGS = {
+    permissions: {
+        allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)',
+            'Edit(./.akari/events/**)', 'Edit(./.akari/intake.json)'],
+        deny: ['Edit(/assets/**)', ...VOICES_READ_DENY]
+    }
+};
+
+export function ensureVoicesReadDenied(settingsText: string | undefined): { changed: boolean; text?: string; error?: string } {
+    if (settingsText === undefined) return { changed: true, text: `${JSON.stringify(DEFAULT_AGENT_SETTINGS, null, 2)}\n` };
+    let value: unknown;
+    try { value = JSON.parse(settingsText); } catch { return { changed: false, error: '設定が JSON として読めません' }; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { changed: false, error: '設定の最上位がオブジェクトではありません' };
+    const settings = value as Record<string, unknown>;
+    const permissions = settings.permissions;
+    if (permissions !== undefined && (!permissions || typeof permissions !== 'object' || Array.isArray(permissions))) {
+        return { changed: false, error: 'permissions がオブジェクトではありません' };
+    }
+    const rules = (permissions ?? {}) as Record<string, unknown>;
+    if (rules.deny !== undefined && !Array.isArray(rules.deny)) return { changed: false, error: 'deny が配列ではありません' };
+    const deny = (rules.deny ?? []) as unknown[];
+    const missing = VOICES_READ_DENY.filter(rule => !deny.includes(rule));
+    if (!missing.length) return { changed: false };
+    settings.permissions = rules;
+    rules.deny = [...deny, ...missing];
+    return { changed: true, text: `${JSON.stringify(settings, null, 2)}\n` };
+}
+
+export function filterIdentifyPeople(source: string, ids: ReadonlySet<string>): string {
+    const root = JSON.parse(source) as Record<string, unknown>;
+    if (!Array.isArray(root.entries)) throw new Error('人物の一覧が不正です');
+    root.entries = root.entries.filter((entry: unknown) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const row = entry as Record<string, unknown>;
+        return (row.kind === 'person' || row.kind === 'avatar') && typeof row.id === 'string' && ids.has(row.id);
+    });
+    return `${JSON.stringify(root, null, 2)}\n`;
+}
+
+export function transcribeSpeakerArgs(relativePath: string, backend: string, request: TranscribeOptions,
+    peopleFile?: string): string[] {
+    if (request.speakers !== undefined && !['auto', '1', '2', '3', '4'].includes(request.speakers)) {
+        throw new Error('文字起こしの話者の指定が不正です');
+    }
+    return ['transcribe', relativePath, ...(backend === 'auto' ? [] : ['--backend', backend]),
+        ...(request.diarize || request.identify ? ['--diarize'] : []),
+        ...(request.speakers && request.speakers !== 'auto' ? ['--speakers', request.speakers] : []),
+        ...(request.identify ? ['--identify'] : []), ...(peopleFile ? ['--people', peopleFile] : [])];
+}
+
+export function identifyPersonIds(people: readonly string[] | undefined, channel?: string): string[] | undefined {
+    return people?.map(id => {
+        const bare = channel ? id.replace(`${channel}/`, '') : id;
+        if (!/^[A-Za-z0-9_.-]+$/u.test(bare)) throw new Error('文字起こしの人物の指定が不正です');
+        return bare;
+    });
+}
+
 export function normalizeEntitledProducts(value: unknown): EntitledProduct[] {
     if (!Array.isArray(value)) { return []; }
     return value.flatMap(entry => {
@@ -117,6 +177,56 @@ const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg']);
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+
+// Windows の省電力抑制（EcoQoS）で、アプリから起こした重い CLI（文字起こし・話者分離）が遅くなる。
+// 子プロセスの抑制だけを外す（管理者権限は要らない）。
+export function powerThrottlingOffArgs(pid: number): string[] {
+    if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('プロセス ID は正の整数で指定してください');
+    const script = `Add-Type -TypeDefinition '
+using System;
+using System.Runtime.InteropServices;
+public static class AkariPowerThrottling {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ProcessPowerThrottlingState {
+        public uint Version;
+        public uint ControlMask;
+        public uint StateMask;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint access, bool inheritHandle, int processId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessInformation(IntPtr process, int informationClass,
+        ref ProcessPowerThrottlingState state, uint size);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseHandle(IntPtr process);
+    public static bool Release(int pid) {
+        IntPtr process = OpenProcess(0x0200, false, pid);
+        if (process == IntPtr.Zero) return false;
+        try {
+            var state = new ProcessPowerThrottlingState { Version = 1, ControlMask = 1, StateMask = 0 };
+            return SetProcessInformation(process, 4, ref state,
+                (uint)Marshal.SizeOf(typeof(ProcessPowerThrottlingState)));
+        } finally {
+            CloseHandle(process);
+        }
+    }
+}
+'; if (-not [AkariPowerThrottling]::Release(${pid})) { exit 1 }`;
+    return ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script];
+}
+
+export function releaseProcessPowerThrottling(pid: number, spawnImpl = spawn): void {
+    if (process.platform !== 'win32') return;
+    try {
+        const helper = spawnImpl('powershell.exe', powerThrottlingOffArgs(pid), { windowsHide: true, stdio: 'ignore' });
+        const timer = setTimeout(() => { try { helper.kill(); } catch { /* Best effort only. */ } }, 20_000);
+        timer.unref();
+        helper.once('error', () => clearTimeout(timer));
+        helper.once('close', () => clearTimeout(timer));
+    } catch { /* Transcription continues if the helper cannot start. */ }
+}
 
 function classifyDroppedAssetExtension(name: string): DroppedAssetKind | undefined {
     const ext = extname(name).toLowerCase();
@@ -1292,6 +1402,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
             return;
         }
         await this.ensureRuntimeDirectories(root);
+        await this.ensureProjectAgentSettings(root);
         await this.ensureGitInitialized(root);
         await this.migrateHistoryPolicy(root);
         const eventsDirectory = join(root, '.akari', 'events');
@@ -1554,11 +1665,18 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const target = await this.materialTarget(request.projectRoot, request.relativePath);
         if (this.transcriptions.has(target.path)) throw new Error('この素材は文字起こしを実行中です');
         const selected = [...new Set(request.compareSet ?? [])];
+        if ((request.diarize || request.identify) && selected.length >= 2) {
+            throw new Error('話者を分けるときはエンジンを比較できません');
+        }
         const backends = selected.length ? selected : [request.backend ?? 'auto'];
         if (backends.some(backend => !/^(auto|speech-analyzer|whisper-cpp|cloud:[A-Za-z0-9_-]+)$/.test(backend))) {
             throw new Error('文字起こしエンジンが不正です');
         }
+        transcribeSpeakerArgs(target.relativePath, backends[0], request);
+        const channelMatch = /^(.*[\\/]channels[\\/][^\\/]+)[\\/]videos[\\/][^\\/]+[\\/]?$/u.exec(target.root);
+        const selectedPeople = identifyPersonIds(request.people, channelMatch ? basename(channelMatch[1]) : undefined);
         this.transcriptions.add(target.path);
+        let peopleFile: string | undefined;
         const trackChild = (child: ChildProcess): void => {
             const children = this.transcribeChildren.get(target.path) ?? new Set<ChildProcess>();
             children.add(child);
@@ -1582,16 +1700,23 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const failures: string[] = [];
         let cancelled = false;
         try {
+            if (request.identify && selectedPeople && channelMatch) {
+                const channelRoot = channelMatch[1];
+                const source = await fs.readFile(join(channelRoot, 'people.json'), 'utf8');
+                peopleFile = join(channelRoot, `.people-identify-${process.pid}-${Date.now()}.json`);
+                await fs.writeFile(peopleFile, filterIdentifyPeople(source, new Set(selectedPeople)), 'utf8');
+            }
             const cli = await this.findMediaTool('media');
-            const results = await Promise.all(backends.map(async backend => {
+            const results = await Promise.all(backends.map(async (backend, index) => {
                 const started = Date.now();
                 await publish('running', 'transcribing', backend);
                 try {
                     // media.mjs has no --approved option. Its runCloud delegates to the existing
                     // transcribe-cloud.mjs --send --approved path; gate entry here, before spawn.
                     if (backend.startsWith('cloud:') && request.approved !== true) throw new Error('音声送信の承認がありません');
-                    const result = await this.runNodeScript(cli, ['transcribe', target.relativePath,
-                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root, trackChild);
+                    const result = await this.runNodeScript(cli,
+                        transcribeSpeakerArgs(target.relativePath, backend, index === 0 ? request : {}, index === 0 ? peopleFile : undefined),
+                        target.root, trackChild, { releasePowerThrottling: true });
                     if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
                     if (backends.length > 1) await publish('completed', 'completed', backend, undefined, (Date.now() - started) / 1000);
                     return { backend, stdout: result.stdout };
@@ -1631,6 +1756,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         } catch (error) {
             failures.push(error instanceof Error ? error.message : String(error));
         } finally {
+            if (peopleFile) await fs.rm(peopleFile, { force: true }).catch(() => undefined);
             cancelled = this.transcribeCancelled.has(target.path);
             await publish(cancelled ? 'cancelled' : failures.length ? 'failed' : 'completed', 'completed', undefined,
                 cancelled ? undefined : failures.join(' / ') || undefined);
@@ -1835,7 +1961,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * 開発時の素の node プロセスでは無害に無視される。
      */
     protected async runNodeScript(scriptPath: string, args: string[], cwd?: string,
-        onSpawn?: (child: ChildProcess) => void): Promise<{ code: number; stdout: string; stderr: string }> {
+        onSpawn?: (child: ChildProcess) => void, options: { releasePowerThrottling?: boolean } = {}): Promise<{ code: number; stdout: string; stderr: string }> {
         const mediaBinEnv = await this.mediaBinEnv();
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
@@ -1844,6 +1970,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             onSpawn?.(child);
+            if (options.releasePowerThrottling && child.pid) releaseProcessPowerThrottling(child.pid);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', chunk => stdout += chunk.toString());
@@ -2631,11 +2758,42 @@ process.stdout.write(JSON.stringify(found));
         }
         try {
             await this.runGit(root, ['init']);
+            await this.ensureHistoryIgnore(root);
             await this.runGit(root, ['add', '-A', '--', '.']);
             await this.commitIfChanged(root, 'プロジェクトを開始');
         } catch (error) {
             console.warn('[akari-project] deferred git init failed:', error);
         }
+    }
+
+    protected async ensureProjectAgentSettings(root: string): Promise<void> {
+        const file = join(root, '.claude', 'settings.json');
+        try {
+            const current = await fs.readFile(file, 'utf8').catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+                throw error;
+            });
+            const outcome = ensureVoicesReadDenied(current);
+            if (outcome.error) { console.warn('[akari-project] 設定を更新できません:', outcome.error); return; }
+            if (!outcome.changed || outcome.text === undefined) return;
+            await fs.mkdir(dirname(file), { recursive: true });
+            const temporary = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+            try {
+                await fs.writeFile(temporary, outcome.text, 'utf8');
+                await fs.rename(temporary, file);
+            } finally { await fs.rm(temporary, { force: true }); }
+        } catch (error) { console.warn('[akari-project] 設定を更新できません:', error); }
+    }
+
+    protected async ensureHistoryIgnore(root: string): Promise<boolean> {
+        const file = join(root, '.gitignore');
+        const current = await fs.readFile(file, 'utf8').catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        const outcome = applyHistoryPolicy(current);
+        if (outcome.changed) await fs.writeFile(file, outcome.text, 'utf8');
+        return outcome.changed;
     }
 
     /**
@@ -2655,18 +2813,9 @@ process.stdout.write(JSON.stringify(found));
             return;
         }
         try {
-            const gitignorePath = join(root, '.gitignore');
-            const current = await fs.readFile(gitignorePath, 'utf8').catch(error => {
-                if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-                    return undefined;
-                }
-                throw error;
-            });
-            const outcome = applyHistoryPolicy(current);
-            if (!outcome.changed) {
+            if (!(await this.ensureHistoryIgnore(root))) {
                 return;
             }
-            await fs.writeFile(gitignorePath, outcome.text, 'utf8');
             await this.runGit(root, ['add', '--', '.gitignore']);
             const untracked = await this.untrackNewlyIgnoredFiles(root);
             await this.commitIfChanged(root, untracked
@@ -2945,12 +3094,7 @@ process.stdout.write(JSON.stringify(found));
             '.gitignore': PROJECT_GITIGNORE,
             'CLAUDE.md': FALLBACK_CLAUDE_GUIDANCE,
             'AGENTS.md': FALLBACK_AGENT_GUIDANCE,
-            '.claude/settings.json': JSON.stringify({
-                permissions: {
-                    allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                    deny: ['Edit(/assets/**)']
-                }
-            }, null, 2) + '\n',
+            '.claude/settings.json': ensureVoicesReadDenied(undefined).text!,
             '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
             '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
             'edit.json': JSON.stringify(FALLBACK_EDIT_JSON, null, 2) + '\n',
@@ -3013,6 +3157,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `assets/` は元動画と音声を置く素材の場所です。原本は書き換えたり削除したりしません。',
     '- `planning/` は企画やレポート、`exports/` は完成した動画を置く場所です。',
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
+    '- `.akari/sidecars/**/voices.json`（声の特徴量・個人識別符号）は読まず、外へ送りません。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
     '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',

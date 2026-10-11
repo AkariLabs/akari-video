@@ -18,7 +18,11 @@ import { collectDaihonCutCandidates } from '../../common/daihon-cut-candidates';
 import { buildDaihonRows, type DaihonCaptionLike } from '../../common/daihon-row-model';
 import { parseCaptions } from '../caption-store';
 import { analysisTranscriptSummary, popupCanNavigate, popupInitialSourceIds, transcribeEngineAvailability,
-    TranscribeConnectionStatus, TranscribeToolStatus } from '../../common/transcribe-steps';
+    TranscribeConnectionStatus, TranscribeToolStatus, channelPeopleLocation, ChannelPerson, mergeSpeakerDictionary,
+    orderChannelPeople, parseChannelPeople, captionPopupStepNames, channelPersonVoiceSampleCount, clearVoicesDecided, mergeVoicesDecided,
+    analysisHasSpeakers, parseVoicesSidecar, speakerReviewRows, speakerTranscribeOptions, SpeakerCount, SpeakerReviewRow,
+    voiceEngineReady, voiceGateBlocks, voiceInstallFailure, speakerFallbackMessage,
+    VOICE_ENGINE_DOWNLOAD_MB, SPEAKER_COLORS } from '../../common/transcribe-steps';
 
 export const TRANSCRIBE_ENGINE_CARDS = [
     { id: 'speech-analyzer', label: 'SpeechAnalyzer', place: 'このパソコン', hourlyUsd: 0, facts: '速い・送信なし' },
@@ -29,7 +33,7 @@ export const TRANSCRIBE_ENGINE_CARDS = [
 
 interface PopupSource {
     id: string; path: string; name: string; status: 'voice' | 'bgm' | 'excluded'; reason?: string;
-    duration?: number; summary?: string; hasTranscript: boolean; unlisted?: boolean;
+    duration?: number; summary?: string; hasTranscript: boolean; hasSpeakers?: boolean; unlisted?: boolean;
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] => {
@@ -72,8 +76,20 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected syncChoice = new Map<string, string>();
     protected initialSyncChoice = new Map<string, string>();
     protected selected = new Set<string>();
-    protected step: 0 | 1 | 2 | 3 = 0;
+    protected step = 0;
     protected reached = 0;
+    protected split = false;
+    protected speakerCount: SpeakerCount = 'auto';
+    protected identify = false;
+    protected excludedPeople = new Set<string>();
+    protected people: ChannelPerson[] = [];
+    protected peopleSource = '';
+    protected installingVoice = false;
+    protected voiceInstallError = '';
+    protected speakerRows = new Map<string, SpeakerReviewRow[]>();
+    protected speakerFallbacks = new Map<string, string>();
+    protected speakerDictionary: Record<string, { name: string; person?: string }> = {};
+    protected expandedSpeaker = '';
     protected backend = 'auto';
     protected compare = false;
     protected compareSet = new Set<string>();
@@ -164,12 +180,32 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         const preferredCompare = this.preferences.get<unknown>('akari.transcribe.compareSet', []);
         this.compareSet = new Set(Array.isArray(preferredCompare) ? preferredCompare.filter((id): id is string => typeof id === 'string') : []);
         this.autoCuts = this.preferences.get<boolean>('akari.transcribe.autoCuts', true) !== false;
+        this.restoreSpeakerChoice();
         this.ready = this.initialize().catch(error => { this.notice.textContent = String(error); });
         this.render();
     }
 
     get wasCancelled(): boolean { return this.cancelled; }
     get value(): void { return undefined; }
+    protected get speakerStorageKey(): string { return `akari.transcribe.speakers:${this.root.toString()}`; }
+    protected restoreSpeakerChoice(): void {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(this.speakerStorageKey) ?? '{}');
+            this.split = stored.split === true;
+            this.speakerCount = ['auto', '1', '2', '3', '4'].includes(stored.count) ? stored.count : 'auto';
+            this.identify = stored.identify === true;
+            this.excludedPeople = new Set(Array.isArray(stored.excluded)
+                ? stored.excluded.filter((id: unknown): id is string => typeof id === 'string') : []);
+        } catch { /* A broken saved choice falls back to the defaults. */ }
+        if (!channelPeopleLocation(this.root.toString())) this.identify = false;
+    }
+    protected saveSpeakerChoice(): void {
+        try {
+            window.localStorage.setItem(this.speakerStorageKey, JSON.stringify({ split: this.split,
+                count: this.speakerCount, identify: this.identify, excluded: [...this.excludedPeople] }));
+        } catch { /* Storage can be unavailable. */ }
+    }
+    protected finishStep(): number { return this.split ? 4 : 3; }
     protected invalidateRun(): void {
         this.finished = false;
         this.applied = false;
@@ -184,6 +220,14 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     }
 
     protected async initialize(): Promise<void> {
+        const location = channelPeopleLocation(this.root.toString());
+        if (location) {
+            try {
+                this.peopleSource = (await this.files.readFile(new URI(location.peopleUri))).value.toString();
+                this.people = orderChannelPeople(parseChannelPeople(this.peopleSource));
+                if (!this.people.some(person => person.hasVoiceSample)) this.identify = false;
+            } catch { this.identify = false; }
+        }
         this.editUri = currentTimelineEditUri(this.root);
         this.unsupportedTimeline = !/(?:^|\/)edit\.json$/u.test(this.editUri.toString());
         const edit = JSON.parse((await this.files.readFile(this.editUri)).value.toString()) as {
@@ -208,16 +252,18 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         }
         const states = await this.service.transcriptStates({ projectRoot: this.root.toString(), relativePaths: rawSources.map(source => source.path) });
         this.sources = await Promise.all(rawSources.map(async source => {
+            const analysisUri = this.root.resolve(`.akari/sidecars/${source.path}.analysis/analysis.json`);
+            let analysis: { probe?: { duration_s?: number; streams?: Array<{ codec_type?: string }> };
+                transcript?: unknown[]; tracks?: { speakers?: unknown } } = {};
+            try { analysis = JSON.parse((await this.files.readFile(analysisUri)).value.toString()); } catch { /* New material. */ }
             if (source.id === '__requested_material__') {
                 const eligibility = captionSourceEligibility(source, { projectRoot: this.root.toString() });
                 return { ...source, name: source.path.replace(/\\/gu, '/').split('/').pop() || source.path,
                     status: eligibility.status, reason: eligibility.status === 'excluded'
                         ? eligibility.reason : 'タイムラインにまだ置いていない素材',
-                    hasTranscript: states[source.path] === 'done', unlisted: eligibility.status !== 'excluded' };
+                    hasTranscript: states[source.path] === 'done' || Array.isArray(analysis.transcript),
+                    hasSpeakers: analysisHasSpeakers(analysis), unlisted: eligibility.status !== 'excluded' };
             }
-            const analysisUri = this.root.resolve(`.akari/sidecars/${source.path}.analysis/analysis.json`);
-            let analysis: { probe?: { duration_s?: number; streams?: Array<{ codec_type?: string }> }; transcript?: unknown[] } = {};
-            try { analysis = JSON.parse((await this.files.readFile(analysisUri)).value.toString()); } catch { /* New material. */ }
             const hasAudio = isCaptionVideo(source)
                 ? Array.isArray(analysis.probe?.streams)
                     ? analysis.probe!.streams!.some(stream => stream.codec_type === 'audio')
@@ -228,7 +274,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             return { ...source, name: source.path.replace(/\\/gu, '/').split('/').pop() || source.path,
                 status: eligibility.status, reason: eligibility.reason,
                 duration: analysis.probe?.duration_s, summary: analysisTranscriptSummary(analysis),
-                hasTranscript: states[source.path] === 'done' || Array.isArray(analysis.transcript) };
+                hasTranscript: states[source.path] === 'done' || Array.isArray(analysis.transcript),
+                hasSpeakers: analysisHasSpeakers(analysis) };
         }));
         let captionSources: string[] = [];
         try {
@@ -256,6 +303,10 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                     && transcribeEngineAvailability(id, this.tools, this.connections).state === 'available';
             if (!available(this.backend)) this.backend = 'auto';
             this.compareSet = new Set([...this.compareSet].filter(available));
+            if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                this.identify = false;
+                this.saveSpeakerChoice();
+            }
             if (!this.isDisposed) this.render();
         });
     }
@@ -368,9 +419,16 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     protected selectedSources(): PopupSource[] { return this.sources.filter(source => this.selected.has(source.id)); }
     protected selectedSource(): PopupSource | undefined { return this.selectedSources()[0]; }
     protected sourceNeedsTranscription(source: PopupSource): boolean {
-        return !source.hasTranscript || !this.reuse || this.compare;
+        return this.split && !source.hasSpeakers || !source.hasTranscript || !this.reuse || this.compare;
     }
     protected needsTranscription(): boolean { return this.selectedSources().some(source => this.sourceNeedsTranscription(source)); }
+    protected diarizeNeeded(): boolean {
+        return this.split && this.selectedSources().some(source => this.sourceNeedsTranscription(source));
+    }
+    protected voiceGateBlocks(): boolean {
+        return voiceGateBlocks({ split: this.split, needsRun: this.diarizeNeeded(),
+            availabilityLoaded: this.availabilityLoaded, engineReady: voiceEngineReady(this.tools) });
+    }
     protected enginesReady(): boolean {
         if (!this.needsTranscription()) return true;
         if (!this.availabilityLoaded) return false;
@@ -445,6 +503,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             grid.append(row);
         }
         this.body.append(grid);
+        this.renderSpeakerMethod();
         if (this.needsTranscription() && this.availabilityLoaded && !this.enginesReady()) {
             this.body.append(el('p', '使えるエンジンを選んでください。'));
         }
@@ -465,14 +524,113 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         details.ontoggle = () => { this.showDetails = details.open; };
         details.append(el('summary', '詳しく'));
         const compare = el('label'); compare.style.cssText = 'display:block;padding:10px';
-        const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = this.compare;
+        const toggle = el('input'); toggle.type = 'checkbox'; toggle.checked = this.compare; toggle.disabled = this.split;
         toggle.onchange = () => {
             this.compare = toggle.checked;
             if (this.compare && this.backend !== 'auto') this.compareSet.add(this.backend);
             this.invalidateRun(); this.render();
         };
-        compare.append(toggle, ' 2 つ以上のエンジンで起こして比べる'); details.append(compare);
+        compare.append(toggle, ' 2 つ以上のエンジンで起こして比べる');
+        if (this.split) compare.append(el('small', ' 話者を分けるときは比較できません。'));
+        details.append(compare);
         this.body.append(details);
+    }
+
+    protected renderSpeakerMethod(): void {
+        const section = el('section'); section.style.cssText = 'margin:18px 0;padding-top:12px;border-top:1px solid var(--akari-line-inner)';
+        section.append(el('h3', '話者を分けますか'), el('p', '対談やインタビューなら分けると台本が読みやすくなります。1 人の語りなら分けなくて大丈夫です。'));
+        const choices = el('div'); choices.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px';
+        for (const [value, title, detail] of [[false, '分けない', 'ふつうの文字起こし。いちばん速い'],
+            [true, '話者を分ける', '誰がいつ話したかを分けて起こす。この機械の中だけで行います']] as const) {
+            const card = el('label');
+            card.style.cssText = `display:block;padding:11px 13px;border:1px solid ${this.split === value ? 'var(--akari-accent)' : 'var(--akari-line)'};border-radius:9px;background:${this.split === value ? 'var(--akari-elevated)' : 'var(--akari-card)'}`;
+            const radio = el('input'); radio.type = 'radio'; radio.name = 'speaker-split'; radio.checked = this.split === value;
+            radio.onchange = () => { this.split = value; if (value) { this.voiceInstallError = ''; this.compare = false; }
+                this.saveSpeakerChoice(); this.invalidateRun(); this.render(); };
+            const name = el('strong', ` ${title}`);
+            if (value) { const tag = el('small', 'アドバンス'); tag.style.cssText = 'margin-left:8px;color:var(--akari-warning)'; name.append(tag); }
+            const small = el('small', detail); small.style.cssText = 'display:block;margin:4px 0 0 22px;color:var(--akari-muted)';
+            card.append(radio, name, small); choices.append(card);
+        }
+        section.append(choices);
+        if (this.split) {
+            section.append(el('h3', '何人で話していますか'));
+            const counts = el('div'); counts.style.cssText = 'display:flex;flex-wrap:wrap;gap:7px';
+            for (const [value, label] of [['auto', 'わからない'], ['1', '1 人'], ['2', '2 人'], ['3', '3 人'], ['4', '4 人以上']] as const) {
+                const choice = plainButton(label, () => { this.speakerCount = value; this.saveSpeakerChoice(); this.invalidateRun(); this.render(); });
+                choice.setAttribute('aria-pressed', String(this.speakerCount === value));
+                if (this.speakerCount === value) { choice.style.borderColor = 'var(--akari-accent)'; choice.style.background = 'var(--akari-elevated)'; }
+                counts.append(choice);
+            }
+            section.append(counts, el('p', this.speakerCount === 'auto'
+                ? '人数はこちらで見当をつけます。分かっていれば選ぶと当たりやすくなります。'
+                : `${this.speakerCount === '4' ? '4 人以上' : `${this.speakerCount} 人`}として分けます。`));
+            const location = channelPeopleLocation(this.root.toString());
+            if (location) {
+                section.append(el('h3', '誰の声かも当てますか'));
+                const hasVoices = this.people.some(person => person.hasVoiceSample);
+                for (const [value, title, detail] of [[true, '人とモノの声と照らす', '声を登録した人だけと比べて、名前を提案します'],
+                    [false, '照らさない', '話者 A・B のまま。名前はあとで付けられます']] as const) {
+                    const row = el('label'); row.style.cssText = 'display:block;padding:8px';
+                    const radio = el('input'); radio.type = 'radio'; radio.name = 'speaker-identify'; radio.checked = this.identify === value;
+                    radio.disabled = value && (!hasVoices || this.tools.find(tool => tool.id === 'voice')?.canIdentify === false);
+                    radio.onchange = () => { this.identify = value; this.saveSpeakerChoice(); this.invalidateRun(); this.render(); };
+                    const caption = el('span', ` ${title}`); const sub = el('small', detail);
+                    sub.style.cssText = 'display:block;margin-left:23px;color:var(--akari-muted)'; caption.append(sub);
+                    row.append(radio, caption); section.append(row);
+                }
+                if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                    section.append(el('p', 'この Mac では声の照合はできません（分けることはできます）'));
+                }
+                if (this.identify && hasVoices) {
+                    for (const person of this.people) {
+                        const row = el('label'); row.style.cssText = `display:flex;align-items:center;gap:9px;padding:8px;opacity:${person.hasVoiceSample ? '1' : '.5'}`;
+                        const check = el('input'); check.type = 'checkbox'; check.checked = person.hasVoiceSample && !this.excludedPeople.has(person.id);
+                        check.disabled = !person.hasVoiceSample;
+                        check.onchange = () => { if (check.checked) this.excludedPeople.delete(person.id); else this.excludedPeople.add(person.id);
+                            this.saveSpeakerChoice(); this.render(); };
+                        const face = el('span', person.name[0] ?? '・');
+                        face.style.cssText = 'display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--akari-elevated)';
+                        const status = el('small', person.hasVoiceSample
+                            ? `声のサンプル ${channelPersonVoiceSampleCount(this.peopleSource, person.id)} 本` : '声なし · 照らせません');
+                        status.style.cssText = 'margin-left:auto;color:var(--akari-muted)';
+                        row.append(check, face, el('span', person.name), status); section.append(row);
+                    }
+                    section.append(el('small', '声のサンプルは『人とモノ』の人物の詳細で足せます（本人の声か、本人の同意を得た声だけ）。'));
+                }
+            }
+            if (this.voiceGateBlocks()) {
+                const warning = el('div'); warning.style.cssText = 'padding:11px;border:1px solid var(--akari-warning);border-radius:7px;color:var(--akari-warning);margin-top:12px';
+                warning.append(el('span', `話者を分けるには準備が要ります（約 ${VOICE_ENGINE_DOWNLOAD_MB} MB を取得します）`));
+                if (this.installingVoice) { warning.append(el('span', ' 準備しています…'), el('progress')); }
+                else warning.append(button(this.voiceInstallError ? 'もう一度' : '準備する', () => void this.installVoice()));
+                section.append(warning);
+            }
+        }
+        if (this.voiceInstallError) {
+            const warning = el('p', this.voiceInstallError);
+            warning.style.cssText = 'padding:11px;border:1px solid var(--akari-warning);border-radius:7px;color:var(--akari-warning)';
+            section.append(warning);
+        }
+        this.body.append(section);
+    }
+
+    protected async installVoice(): Promise<void> {
+        this.installingVoice = true; this.voiceInstallError = ''; this.render();
+        try {
+            const result = await this.commands.executeCommand<{ outcome?: string; message?: string } | undefined>('akari.tools.install', 'voice');
+            const failure = voiceInstallFailure(result);
+            if (failure) throw new Error(failure);
+            const status = await this.commands.executeCommand<{ tools: TranscribeToolStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-new-project');
+            this.tools = status?.tools ?? [];
+            if (this.tools.find(tool => tool.id === 'voice')?.canIdentify === false) {
+                this.identify = false;
+                this.saveSpeakerChoice();
+            }
+            if (!voiceEngineReady(this.tools)) throw new Error('声のエンジンが見つかりません');
+        } catch (error) {
+            this.voiceInstallError = error instanceof Error ? error.message : '準備できませんでした';
+        } finally { this.installingVoice = false; this.render(); }
     }
 
     protected renderProgress(): void {
@@ -487,8 +645,26 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             if (done) bar.value = 1;
             else if (source !== this.currentSource) bar.value = 0;
             bar.style.cssText = 'width:100%;height:8px;accent-color:var(--akari-accent)';
-            row.append(label, bar); this.body.append(row);
+            row.append(label);
+            if (!this.split) row.append(bar);
+            this.body.append(row);
+            if (this.split) {
+                const stages = [['文字起こし', true],
+                    [`話者を分ける（${this.speakerCount === 'auto' ? '人数はおまかせ' : this.speakerCount === '4' ? '4 人以上' : `${this.speakerCount} 人`}）`, false],
+                    ...(this.identify ? [[`声を照らす（${this.people.filter(person => person.hasVoiceSample && !this.excludedPeople.has(person.id)).length} 人と比べる）`, false] as const] : [])] as const;
+                for (const [stage] of stages) {
+                    const caption = el('small', stage); caption.style.cssText = 'display:block;margin:7px 0 2px';
+                    const stageBar = el('progress'); stageBar.max = 1;
+                    if (done) stageBar.value = 1;
+                    else if (source !== this.currentSource) stageBar.value = 0;
+                    stageBar.style.cssText = 'width:100%;height:7px;accent-color:var(--akari-accent)';
+                    row.append(caption, stageBar);
+                }
+            }
         }
+        if (this.split) this.body.append(el('p', this.speakerCount === 'auto'
+            ? '話者を分けると、そのぶん時間がかかります（目安は音声の長さの 2 割）。'
+            : '話者を分けると、そのぶん時間がかかります（目安は音声の長さの 2 割〜1 倍）。'));
         if (this.currentSource) {
             const backends = this.compare ? [...this.compareSet] : [this.backend];
             const columns = el('div');
@@ -507,6 +683,126 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     }
     protected progressText(): string {
         return `${time((Date.now() - this.progressStart) / 1000)} / ${this.currentSource?.duration === undefined ? '—:—' : time(this.currentSource.duration)}`;
+    }
+
+    protected async loadSpeakerReview(): Promise<void> {
+        this.speakerRows.clear();
+        this.speakerFallbacks.clear();
+        for (const source of this.selectedSources()) {
+            const folder = this.root.resolve(`.akari/sidecars/${source.path}.analysis`);
+            const voices = await this.files.readFile(folder.resolve('voices.json'))
+                .then(file => parseVoicesSidecar(file.value.toString()), () => undefined);
+            const analysis = await this.files.readFile(folder.resolve('analysis.json'))
+                .then(file => { try { return JSON.parse(file.value.toString()) as unknown; } catch { return undefined; } }, () => undefined);
+            this.speakerRows.set(source.id, speakerReviewRows(voices, analysis));
+            const fallback = speakerFallbackMessage(voices, this.speakerRows.get(source.id)?.length ?? 0);
+            if (fallback) this.speakerFallbacks.set(source.id, fallback);
+        }
+        try {
+            const raw = JSON.parse((await this.files.readFile(this.root.resolve('.akari/dictionary.json'))).value.toString()) as {
+                speakers?: Record<string, { name: string; person?: string }> };
+            this.speakerDictionary = raw.speakers ?? {};
+        } catch { this.speakerDictionary = {}; }
+    }
+
+    protected renderSpeakerReview(): void {
+        this.body.append(el('h3', '話者を確かめる'), el('p', this.identify
+            ? '声の近さから名前を提案しています。決めるのはあなたです。'
+            : '名前を付けておくと、台本と字幕に名前で出ます。'));
+        const location = channelPeopleLocation(this.root.toString());
+        for (const source of this.selectedSources()) {
+            this.body.append(el('h4', source.name));
+            const fallback = this.speakerFallbacks.get(source.id);
+            if (fallback) this.body.append(el('p', fallback));
+            const rows = this.speakerRows.get(source.id) ?? [];
+            if (!rows.length) {
+                this.body.append(el('p', '話者の情報が見つかりませんでした。台本パネルの話者の札で名前を付けられます。'));
+                continue;
+            }
+            for (const row of rows) {
+                const key = `${source.id}:${row.id}`;
+                const card = el('section'); card.style.cssText = 'padding:12px;margin:9px 0;border:1px solid var(--akari-line);border-radius:9px;background:var(--akari-card)';
+                const top = el('div'); top.style.cssText = 'display:flex;align-items:center;gap:10px';
+                const chip = el('span', row.id); chip.style.cssText = `display:grid;place-items:center;min-width:28px;height:28px;border-radius:7px;background:${SPEAKER_COLORS[Math.max(0, row.id.charCodeAt(0) - 65) % SPEAKER_COLORS.length]};color:white`;
+                const decision = this.speakerDictionary[row.id];
+                const suggestion = row.suggestion;
+                const name = decision?.name ?? (row.decided ? this.people.find(person => `${location?.channel}/${person.id}` === row.decided)?.name : undefined)
+                    ?? (this.identify && suggestion?.name && suggestion.level === 'strong' ? `${suggestion.name}？`
+                        : this.identify && suggestion?.name && suggestion.level === 'maybe' ? `${suggestion.name}かも` : `話者 ${row.id}`);
+                const info = el('span'); info.style.flex = '1'; info.append(el('strong', decision || row.decided ? `${name}に決めました` : name));
+                const detail = el('small', `${Math.floor(row.seconds / 60)} 分 ${Math.round(row.seconds % 60)} 秒${row.firstLine ? ` · 「${row.firstLine}」` : ''}`);
+                detail.style.cssText = 'display:block;color:var(--akari-muted)'; info.append(detail);
+                if (row.shortNote) {
+                    const note = el('small', row.shortNote);
+                    note.style.cssText = 'display:block;color:var(--akari-muted)';
+                    info.append(note);
+                }
+                const score = el('small', !this.identify || !suggestion ? '照らしていません'
+                    : suggestion.level === 'none' ? '近い人なし'
+                        : suggestion.name ? `${suggestion.name} ${suggestion.score.toFixed(2)}` : '近い人なし');
+                const scoreColor = this.identify && suggestion?.level === 'strong' ? 'var(--akari-success)'
+                    : this.identify && suggestion?.level === 'maybe' ? 'var(--akari-warning)' : 'var(--akari-muted)';
+                score.style.cssText = `padding:3px 7px;border-radius:9px;background:color-mix(in srgb, ${scoreColor} 14%, var(--akari-elevated));color:${scoreColor}`;
+                top.append(chip, info, score); card.append(top);
+                const actions = el('div'); actions.style.cssText = 'display:flex;gap:7px;flex-wrap:wrap;margin-top:10px';
+                if (!decision && !row.decided && this.identify && suggestion?.person && suggestion.name && suggestion.level !== 'none') {
+                    const accept = button(`${suggestion.name}にする`, () => void this.decideSpeaker(source, row.id,
+                        { name: suggestion.name!, person: suggestion.person }));
+                    if (suggestion.level === 'strong') accept.className = 'theia-button';
+                    actions.append(accept);
+                }
+                const other = button(decision || row.decided || this.identify && (suggestion?.level === 'strong' || suggestion?.level === 'maybe')
+                    ? '別の人' : '人物をつなぐ…', () => { this.expandedSpeaker = this.expandedSpeaker === key ? '' : key; this.render(); });
+                actions.append(other);
+                if (row.firstSpan) actions.append(button('▶ 聞く', () => void this.listen(row.firstSpan!.start,
+                    row.firstSpan!.end, source.path).catch(error => { this.notice.textContent = String(error); })));
+                card.append(actions);
+                if (this.expandedSpeaker === key) {
+                    const picker = el('div'); picker.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px';
+                    for (const person of this.people) picker.append(button(person.name, () => void this.decideSpeaker(source, row.id,
+                        { name: person.name, person: `${location!.channel}/${person.id}` })));
+                    const input = el('input'); input.type = 'text'; input.placeholder = '名前だけ付ける'; input.setAttribute('aria-label', '名前だけ付ける');
+                    const save = () => { if (input.value.trim()) void this.decideSpeaker(source, row.id, { name: input.value.trim() }); };
+                    input.onkeydown = event => { if (event.key === 'Enter') save(); };
+                    picker.append(input, button('名前だけ付ける', save)); card.append(picker);
+                    if (decision || row.decided) picker.append(button('つなぎを外す', () => void this.clearSpeakerDecision(source, row.id)));
+                }
+                this.body.append(card);
+            }
+        }
+        this.body.append(el('p', '近さ 0.60 以上は「強い一致」、0.45〜0.60 は「候補」、それ未満は名前を出しません。あとから台本パネルの話者の札でも直せます。'));
+    }
+
+    protected async decideSpeaker(source: PopupSource, id: string, value: { name: string; person?: string }): Promise<void> {
+        try {
+            const folder = this.root.resolve('.akari');
+            const dictionary = folder.resolve('dictionary.json');
+            const previous = await this.files.readFile(dictionary).then(file => file.value.toString(), () => '');
+            if (!await this.files.exists(folder)) await this.files.createFolder(folder);
+            await this.files.writeFile(dictionary, BinaryBuffer.fromString(mergeSpeakerDictionary(previous, id, value)));
+            const voices = this.root.resolve(`.akari/sidecars/${source.path}.analysis/voices.json`);
+            if (value.person && await this.files.exists(voices)) {
+                const raw = (await this.files.readFile(voices)).value.toString();
+                await this.files.writeFile(voices, BinaryBuffer.fromString(mergeVoicesDecided(raw, id, value.person)));
+            }
+            this.expandedSpeaker = '';
+            await this.loadSpeakerReview(); this.render();
+        } catch (error) { this.notice.textContent = String(error); }
+    }
+
+    protected async clearSpeakerDecision(source: PopupSource, id: string): Promise<void> {
+        try {
+            const dictionary = this.root.resolve('.akari/dictionary.json');
+            const previous = await this.files.readFile(dictionary).then(file => file.value.toString(), () => '');
+            await this.files.writeFile(dictionary, BinaryBuffer.fromString(mergeSpeakerDictionary(previous, id, undefined)));
+            const voices = this.root.resolve(`.akari/sidecars/${source.path}.analysis/voices.json`);
+            if (await this.files.exists(voices)) {
+                const raw = (await this.files.readFile(voices)).value.toString();
+                await this.files.writeFile(voices, BinaryBuffer.fromString(clearVoicesDecided(raw, id)));
+            }
+            this.expandedSpeaker = '';
+            await this.loadSpeakerReview(); this.render();
+        } catch (error) { this.notice.textContent = String(error); }
     }
 
     protected renderFinish(): void {
@@ -618,9 +914,9 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.isDisposed) return;
         this.node.dataset.step = String(this.step + 1);
         this.steps.replaceChildren(); this.body.replaceChildren(); this.foot.replaceChildren();
-        ['素材', '起こし方', '起こす', '仕上げ'].forEach((name, index) => {
+        captionPopupStepNames(this.split).forEach((name, index) => {
             const control = plainButton(`${index < this.step ? '✓' : index + 1} ${name}`, () => {
-                if (popupCanNavigate(index, this.reached, this.running)) { this.step = index as 0 | 1 | 2 | 3; this.render(); }
+                if (popupCanNavigate(index, this.reached, this.running)) { this.step = index; this.render(); }
             }, !popupCanNavigate(index, this.reached, this.running));
             Object.assign(control.style, { flex: '1', height: 'auto', marginLeft: '0', border: 'none',
                 borderBottom: index === this.step ? '2px solid var(--akari-accent)' : '2px solid transparent',
@@ -632,6 +928,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         if (this.step === 0) this.renderSources();
         else if (this.step === 1) this.renderMethod();
         else if (this.step === 2) this.renderProgress();
+        else if (this.split && this.step === 3) this.renderSpeakerReview();
         else this.renderFinish();
         const spacer = el('span'); spacer.style.flex = '1';
         if (this.step === 0) {
@@ -653,15 +950,20 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         } else if (this.step === 1) {
             this.foot.append(button('戻る', () => { this.step = 0; this.render(); }), spacer);
             const start = button('起こす', () => void this.start(), !this.selected.size || this.unsupportedTimeline
-                || !this.enginesReady());
+                || !this.enginesReady() || this.voiceGateBlocks());
             start.dataset.primary = 'true'; start.className = 'theia-button'; this.foot.append(start);
         } else if (this.step === 2) {
             this.foot.append(el('span', this.finished ? '起こしが終わりました' : '起こし中…'), spacer);
             if (this.running) this.foot.append(button('中止', () => void this.cancel()));
             else if (this.finished) {
-                const next = button('仕上げへ', () => { this.step = 3; this.reached = 3; this.render(); });
+                const next = button(this.split ? '話者を確かめる' : '仕上げへ', () => {
+                    this.step = 3; this.reached = 3; this.render(); });
                 next.dataset.primary = 'true'; next.className = 'theia-button'; this.foot.append(next);
             } else this.foot.append(button('起こし方へ戻る', () => { this.step = 1; this.render(); }));
+        } else if (this.split && this.step === 3) {
+            this.foot.append(button('戻る', () => { this.step = 2; this.render(); }), spacer);
+            const next = button('仕上げへ', () => { this.step = 4; this.reached = 4; this.render(); });
+            next.dataset['primary'] = 'true'; next.className = 'theia-button'; this.foot.append(next);
         } else if (this.applied) {
             this.foot.append(el('span', '台本に反映しました · ⌘Z で元に戻せる'), spacer);
             if (this.cutCandidateCount > 0) this.foot.append(button('カットを整える…', () => {
@@ -669,7 +971,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
             }));
             this.foot.append(button('台本を見る', () => { void this.commands.executeCommand('akari.daihon.open'); this.close(); }));
         } else {
-            this.foot.append(button('戻る', () => { this.step = 2; this.render(); }), spacer);
+            this.foot.append(button('戻る', () => { this.step = this.split ? 3 : 2; this.render(); }), spacer);
             const unlisted = this.selectedSources().filter(source => source.unlisted);
             const apply = button(unlisted.length ? 'タイムラインに置いて差分を確認' : '台本に反映',
                 () => { if (unlisted.length) void this.prepareUnlisted(); else void this.apply(); },
@@ -680,14 +982,22 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
     }
 
     protected async start(): Promise<void> {
-        if (this.running || this.unsupportedTimeline || !this.selectedSource() || !this.enginesReady()) return;
+        if (this.running || this.unsupportedTimeline || !this.selectedSource() || !this.enginesReady()
+            || this.voiceGateBlocks()) return;
         await this.ready;
         this.running = true; this.finished = false; this.cancelled = false;
         this.completedSources.clear();
         this.step = 2; this.reached = 2; this.notice.textContent = '';
         this.render();
+        const location = channelPeopleLocation(this.root.toString());
+        const included = this.people.filter(person => person.hasVoiceSample && !this.excludedPeople.has(person.id));
         const options = { backend: this.backend, compareSet: this.compare ? [...this.compareSet] : [],
-            approved: this.needsTranscription() && this.selectedClouds().length > 0, autoCuts: this.autoCuts };
+            approved: this.needsTranscription() && this.selectedClouds().length > 0, autoCuts: this.autoCuts,
+            ...speakerTranscribeOptions({ split: this.split, count: this.speakerCount,
+                identify: this.split && !!location && this.identify && this.tools.find(tool => tool.id === 'voice')?.canIdentify !== false,
+                people: this.split && this.identify && this.tools.find(tool => tool.id === 'voice')?.canIdentify !== false
+                    && this.people.some(person => person.hasVoiceSample && this.excludedPeople.has(person.id))
+                    ? included.map(person => person.id) : undefined }) };
         try {
             for (const source of this.selectedSources()) {
                 if (this.cancelled) break;
@@ -712,6 +1022,7 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
                 clearInterval(this.progressTimer); this.progressTimer = undefined;
             }
             if (!this.cancelled) {
+                if (this.split) await this.loadSpeakerReview();
                 await this.refreshPreview();
                 this.cutCandidateCount = this.countCutCandidates(await this.transcribedCutRows());
                 this.finished = true; this.step = 3; this.reached = 3;
@@ -745,7 +1056,8 @@ export class AkariTranscribeDialog extends AbstractDialog<void> {
         dialog.artifacts = this.artifacts;
         dialog.cutCandidateCount = this.cutCandidateCount;
         await dialog.refreshPreview();
-        dialog.finished = true; dialog.step = 3; dialog.reached = 3;
+        if (dialog.split) await dialog.loadSpeakerReview();
+        dialog.finished = true; dialog.step = dialog.finishStep(); dialog.reached = dialog.finishStep();
         dialog.render();
         void dialog.open();
     }

@@ -19,7 +19,7 @@ const usage = [
   "使い方: akari media <subcommand> <target> [options]",
   "",
   "サブコマンド:",
-  ...commands.map((command) => command === "transcribe" ? "  transcribe <target> [--no-snap]" : `  ${command}`),
+  ...commands.map((command) => command === "transcribe" ? "  transcribe <target> [--no-snap] [--diarize] [--speakers auto|1|2|3|4] [--identify] [--people <people.json>]" : `  ${command}`),
   "  transcribe-diff <target> [--engines a,b,c]",
   "  transcribe-cuts <target> [--basis b] [--filler on] [--redo on] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
 ].join("\n");
@@ -103,6 +103,15 @@ function parseOptions(subcommand, argv) {
       options.snap = false;
       continue;
     }
+    if (subcommand === "transcribe" && argument === "--diarize") {
+      options.diarize = true;
+      continue;
+    }
+    if (subcommand === "transcribe" && argument === "--identify") {
+      options.identify = true;
+      options.diarize = true;
+      continue;
+    }
     if (subcommand === "grab" && argument === "-t") {
       options.times ??= [];
       let consumed = 0;
@@ -159,6 +168,8 @@ function allowedValueOptions(subcommand) {
     "--backend": ["backend", String],
     "--lang": ["lang", String],
     "--word-book": ["wordBookPath", String],
+    "--speakers": ["speakers", speakerCountValue],
+    "--people": ["people", String],
     "--unrecognized-min-gap": ["unrecognizedMinGap", numberValue],
     "--unrecognized-min-voiced": ["unrecognizedMinVoiced", numberValue],
   };
@@ -197,6 +208,12 @@ function integerValue(value, label) {
   return parsed;
 }
 
+function speakerCountValue(value) {
+  if (value === "auto") return value;
+  if (/^[1-4]$/.test(value)) return Number(value);
+  throw new Error("--speakers は auto または 1〜4 で指定してください");
+}
+
 function numberValue(value, label) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new Error(`${label} は数値で指定してください`);
@@ -204,6 +221,10 @@ function numberValue(value, label) {
 }
 
 function validateOptionCombinations(subcommand, options) {
+  if (subcommand === "transcribe") {
+    if (options.speakers !== undefined) options.diarize = true;
+    if (options.people !== undefined) { options.identify = true; options.diarize = true; }
+  }
   if (subcommand === "filmstrip" && options.every !== undefined && (options.count !== undefined || options.scenes !== undefined)) {
     throw new Error("--every は --count / --scenes と併用できません");
   }

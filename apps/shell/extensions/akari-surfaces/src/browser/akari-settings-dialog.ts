@@ -111,7 +111,7 @@ const ENCODER_SHORT_LABELS: Record<ExportEncoder, string> = {
     auto: '自動', videotoolbox: 'GPU', nvenc: 'NVENC', qsv: 'QSV', amf: 'AMF', mf: 'Media Foundation', x264: 'CPU'
 };
 const TOOL_ICONS: Record<AkariToolId, SettingsIconName> = {
-    ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
+    ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', voice: 'mic', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
 };
 const STORAGE_COLORS: Record<string, string> = {
     cache: 'var(--theia-akariTheme-placedTextBlue)',
@@ -2295,6 +2295,14 @@ export class AkariSettingsCommandContribution implements CommandContribution {
                 if (path === '/services/akari-surfaces-new-project') { return this.tools.checkTools(); }
                 if (path === '/services/akari-surfaces-connections') { return this.connections.listConnections(); }
                 throw new Error('Unknown status service');
+            }
+        });
+        commands.registerCommand({ id: 'akari.tools.install' }, {
+            execute: (id: unknown) => {
+                if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(TOOL_ICONS, id)) {
+                    throw new Error('不明な道具です');
+                }
+                return this.tools.installTool(id as AkariToolId);
             }
         });
         commands.registerCommand({ id: 'akari.settings.open', label: 'AKARI Video の設定' }, {

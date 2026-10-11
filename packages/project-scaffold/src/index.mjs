@@ -21,6 +21,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `assets/` は元動画と音声を置く素材の場所です。原本は書き換えたり削除したりしません。',
     '- `planning/` は企画やレポート、`exports/` は完成した動画を置く場所です。',
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
+    '- `.akari/sidecars/**/voices.json`（声の特徴量・個人識別符号）は読まず、外へ送りません。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
     '- Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
@@ -164,7 +165,7 @@ export async function writeFallbackTemplate(destinationDir) {
         '.claude/settings.json': JSON.stringify({
             permissions: {
                 allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                deny: ['Edit(./assets/**)']
+                deny: ['Edit(./assets/**)', 'Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)']
             }
         }, null, 2) + '\n',
         '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
