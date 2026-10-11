@@ -88,6 +88,36 @@ function textCandidates(segments, options) {
   return candidates;
 }
 
+function expandEnglishSpeechCuts(candidates, segments, silences, duration) {
+  const words = segments.flatMap((segment) => segment.words ?? [])
+    .filter((word) => Number.isFinite(word.start) && Number.isFinite(word.end) && word.end > word.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  if (!words.length) return;
+  const quiet = silences.filter((span) => Number.isFinite(span.start) && Number.isFinite(span.end) && span.end > span.start)
+    .sort((a, b) => a.start - b.start);
+  for (const candidate of candidates) {
+    if (candidate.kind !== "filler" && candidate.kind !== "redo") continue;
+    if (candidate.timing === "estimated") continue;
+    // Keep the identifier tied to the recognized occurrence when its proposed cut grows.
+    candidate.id = `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
+    const first = words.findIndex((word) => overlap(word, candidate));
+    const last = words.findLastIndex((word) => overlap(word, candidate));
+    if (first < 0) continue;
+    const previous = words[first - 1];
+    const next = words[last + 1];
+    const left = previous?.end ?? 0;
+    const right = next?.start ?? duration;
+    const adjacent = (previous && candidate.start - left <= 0.005) || (next && right - candidate.end <= 0.005);
+    if (left >= right) { if (adjacent) candidate.adjacent = true; continue; }
+    const before = [...quiet].reverse().find((span) => span.start >= left && span.end <= candidate.start);
+    const after = quiet.find((span) => span.start >= candidate.end && span.end <= right);
+    const start = Math.max(left, before ? (before.start + before.end) / 2 : (previous ? left : candidate.start));
+    const end = Math.min(right, after ? (after.start + after.end) / 2 : (next ? right : candidate.end));
+    if (end > start) { candidate.start = formatNumber(start); candidate.end = formatNumber(end); }
+    if (adjacent) candidate.adjacent = true;
+  }
+}
+
 export function unionUnrecognized(transcripts) {
   const spans = transcripts.flatMap((transcript) => transcript.segments.flatMap((segment) => segment.unrecognized ?? []))
     .map((span) => ({ ...span })).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -143,8 +173,9 @@ export async function transcribeCutsMedia(argument, options = {}) {
   if (!basis) throw new Error(toolsText('tools.transcribeCuts.error.basisMissing', { requested }));
   const { ffmpeg, ffprobe } = resolveTools(options);
   let detected;
+  let duration;
   try {
-    const { duration } = probeRaw(target.inputPath, ffprobe, options);
+    ({ duration } = probeRaw(target.inputPath, ffprobe, options));
     detected = await (options.silencesRunner ?? runSilenceDetect)({
       inputPath: target.inputPath, range: { in: 0, out: duration }, ffmpeg,
       silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb, silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options,
@@ -153,7 +184,9 @@ export async function transcribeCutsMedia(argument, options = {}) {
     throw Object.assign(new Error(toolsText('tools.transcribeCuts.error.sourceUnreadable', { message: error.message })), { exitCode: 2 });
   }
   const candidates = textCandidates(basis.segments, { filler, redo, language });
-  for (const silence of Array.isArray(detected) ? detected : detected?.silences ?? []) {
+  const silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+  if (language === "en") expandEnglishSpeechCuts(candidates, basis.segments, silences, duration);
+  for (const silence of silences) {
     const duration = formatNumber(silence.end - silence.start);
     if (!Number.isFinite(duration) || duration < silenceMin || duration <= silenceKeep) continue;
     const belowBreak = duration < silenceBreak;
@@ -168,7 +201,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
   // A sub-tenth-second duplicate occupies the same stable id; retain its union.
   const byId = new Map();
   for (const candidate of candidates) {
-    const id = `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
+    const id = candidate.id ?? `${candidate.kind}-${(Math.round(candidate.start * 10) / 10).toFixed(1)}`;
     const previous = byId.get(id);
     if (previous) {
       previous.end = Math.max(previous.end, candidate.end);

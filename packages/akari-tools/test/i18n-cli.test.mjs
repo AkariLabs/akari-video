@@ -58,9 +58,9 @@ test('media transcribe flags select the default or custom whisper prompt', async
     backendRunner: async () => [{ start: 0, end: 1, text: 'Um' }],
     unrecognized: false, noRecord: true, stdout: (line) => output.push(JSON.parse(line)) };
   assert.equal(await runMediaCli(['transcribe', f.target, '--backend', 'whisper-cpp', '--lang', 'en', '--keep-fillers'], options), 0);
-  assert.match(output.at(-1).cache.key, /-filler-prompt$/u);
+  assert.match(output.at(-1).cache.key, /-filler-prompt-words2$/u);
   assert.equal(await runMediaCli(['transcribe', f.target, '--backend', 'whisper-cpp', '--lang', 'en', '--whisper-prompt', 'Keep ums'], options), 0);
-  assert.match(output.at(-1).cache.key, /-prompt-[a-f0-9]{12}$/u);
+  assert.match(output.at(-1).cache.key, /-prompt-[a-f0-9]{12}-words2$/u);
 });
 
 test('English content language keeps a Japanese missing-model error under Japanese UI', async (t) => {

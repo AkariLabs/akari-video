@@ -46,6 +46,65 @@ test("フィラー候補は SA の文字 words と whisper の語 words で件�
   assert.deepEqual(results[0].spans, [[1, 1.5], [2.25, 3], [3.75, 4.25]]);
 });
 
+test("English filler and redo cuts extend to detected quiet or neighboring words and mark adjacency", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  const file = path.join(f.directory, "transcripts/whisper-cpp.json");
+  const data = await json(file);
+  data.transcript_language = "en";
+  data.segments = [{ start: 1, end: 4, text: "We um can go. I I will.", words: [
+    { text: "We", start: 1, end: 1.2 },
+    { text: "um", start: 1.4, end: 1.55 },
+    { text: "can", start: 1.9, end: 2.2 },
+    { text: "go.", start: 2.3, end: 2.5 },
+    { text: "I", start: 3, end: 3.2 },
+    { text: "I", start: 3.2, end: 3.4 },
+    { text: "will.", start: 3.5, end: 3.8 },
+  ] }];
+  await putJson(file, data);
+  const silences = [{ start: 1.23, end: 1.32 }, { start: 1.65, end: 1.8 }];
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", redo: "on", whisperAvailable: false,
+    silencesRunner: async () => silences });
+  const speech = (await readCuts(f)).candidates.filter((candidate) => ["filler", "redo"].includes(candidate.kind));
+  assert.deepEqual(speech.map(({ id, kind, start, end, adjacent }) => ({ id, kind, start, end, adjacent })), [
+    { id: "filler-1.4", kind: "filler", start: 1.275, end: 1.725, adjacent: undefined },
+    { id: "redo-3.0", kind: "redo", start: 2.5, end: 3.2, adjacent: true },
+  ]);
+  assert.equal(speech[0].start, (silences[0].start + silences[0].end) / 2);
+  assert.equal(speech[0].end, (silences[1].start + silences[1].end) / 2);
+  assert.ok(speech[0].start >= data.segments[0].words[0].end);
+  assert.ok(speech[0].end <= data.segments[0].words[2].start);
+  assert.equal(speech[1].start, data.segments[0].words[3].end);
+  assert.equal(speech[1].end, data.segments[0].words[5].start);
+  assert.ok(speech[1].start >= data.segments[0].words[3].end);
+  assert.ok(speech[1].end <= data.segments[0].words[5].start);
+});
+
+test("Japanese candidate intervals remain unchanged when silence touches them", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", silencesRunner: async () => [
+    { start: 0.1, end: 0.4 }, { start: 0.9, end: 1.1 },
+  ] });
+  const first = (await readCuts(f)).candidates.find((candidate) => candidate.kind === "filler");
+  assert.deepEqual([first.start, first.end, first.adjacent], [0.4, 0.9, undefined]);
+});
+
+test("An English filler touching words on both sides stays within the maximal safe interval", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  const file = path.join(f.directory, "transcripts/whisper-cpp.json");
+  const data = await json(file);
+  data.transcript_language = "en";
+  data.segments = [{ start: 1, end: 2, text: "We uh go", words: [
+    { text: "We", start: 1, end: 1.4 },
+    { text: "uh", start: 1.4, end: 1.55 },
+    { text: "go", start: 1.55, end: 2 },
+  ] }];
+  await putJson(file, data);
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", whisperAvailable: false,
+    silencesRunner: async () => [] });
+  const [candidate] = (await readCuts(f)).candidates.filter((row) => row.kind === "filler");
+  assert.deepEqual([candidate.start, candidate.end, candidate.adjacent], [1.4, 1.55, true]);
+});
+
 test("連続同一フィラーの塊は言い直しに譲り、離れた同一・連続する別語彙は残す", async (t) => {
   const f = await fixture(t, ["speech-analyzer"]);
   const file = path.join(f.directory, "transcripts/speech-analyzer.json");
