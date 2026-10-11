@@ -68,7 +68,7 @@ process.stdin.on('data', chunk => {
             }
             continue;
         }
-        console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5' }));
+        console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5', slash_commands: ['edit-lint', 'help'], skills: ['edit-lint'] }));
         if (mode === 'hold-turn' || mode === 'interrupt-result') continue;
         console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 }, modelUsage: { 'claude-haiku-5-5': { contextWindow: 1000000 } } }));
         if (mode === 'exit') setTimeout(() => process.exit(0), 5);
@@ -91,6 +91,30 @@ async function withTempDirectory(prefix, run) {
 function userText(message) {
     return message.message.content.find(part => part.type === 'text').text;
 }
+
+test('Claude lists initialized skills and restarts immediately with resume on model change', async () => {
+    await withTempDirectory('akari-chat-immediate-', async cwd => {
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto', resume: 'session-fixed' });
+        try {
+            await session.send('hello', []);
+            assert.deepEqual(await session.listCommands(), [
+                { name: 'edit-lint', kind: 'skill' }, { name: 'help', kind: 'command' }
+            ]);
+            await session.setModel('haiku');
+            for (let attempt = 0; attempt < 500; attempt++) {
+                const lines = (await readFile(join(cwd, 'args.jsonl'), 'utf8')).trim().split('\n');
+                if (lines.length >= 2) {
+                    const args = JSON.parse(lines.at(-1));
+                    assert.deepEqual(args.slice(args.indexOf('--resume'), args.indexOf('--resume') + 2), ['--resume', 'session-fixed']);
+                    assert.deepEqual(args.slice(args.indexOf('--model'), args.indexOf('--model') + 2), ['--model', 'haiku']);
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+            assert.fail('Claude did not restart after model change');
+        } finally { await session.close(); }
+    });
+});
 
 test('measured Claude manual permission request answers through control_response', async () => {
     await withTempDirectory('akari-chat-permission-', async cwd => {

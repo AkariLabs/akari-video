@@ -53,8 +53,10 @@ test('prompt streams messages, thought, plan, tools, permission and finish', asy
         assert.deepEqual(events.filter(event => event.type === 'tool' && event.id === 'tool-1').map(event => event.status), ['running', 'done']);
         assert.equal(events.find(event => event.type === 'tool' && event.id === 'tool-1').detail.path, 'inside.txt');
         assert.ok(events.some(event => event.type === 'tool' && event.kind === 'think' && event.status === 'done'));
+        assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text), ['考え中']);
         assert.ok(events.some(event => event.type === 'tool' && event.title === '計画'));
         assert.equal((await session.capabilities()).compact, true);
+        assert.deepEqual(await session.listCommands(), [{ name: 'compact', description: undefined, kind: 'command' }]);
         assert.deepEqual(events.at(-1), { type: 'turn.end', ok: true });
         const received = await packets(cwd);
         assert.equal(received.find(packet => packet.method === 'session/request_permission'), undefined);
@@ -63,6 +65,32 @@ test('prompt streams messages, thought, plan, tools, permission and finish', asy
         await session.setModel('large');
         assert.equal((await packets(cwd)).at(-1).params.value, 'large');
     });
+});
+
+test('available commands identify project skills and thought chunks stream', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'akari-acp-commands-'));
+    try {
+        await mkdir(join(cwd, '.claude', 'skills', 'edit-lint'), { recursive: true });
+        await mkdir(join(cwd, '.opencode', 'skills', 'local'), { recursive: true });
+        await writeFile(join(cwd, '.claude', 'skills', 'edit-lint', 'SKILL.md'),
+            '---\nname: edit-lint\ndescription: Skill description\n---\n');
+        await writeFile(join(cwd, '.opencode', 'skills', 'local', 'SKILL.md'),
+            '---\nname: local\ndescription: Local description\n---\n');
+        const session = new AcpSession(acpAgents[0], undefined, { cwd, permission: 'auto' });
+        const events = [];
+        session.onEvent(event => events.push(event));
+        session.handleUpdate({ sessionUpdate: 'available_commands_update', availableCommands: [
+            { name: 'edit-lint', description: 'ACP description' }, { name: 'local' }, { name: 'help', description: 'Help' }
+        ] });
+        assert.deepEqual(await session.listCommands(), [
+            { name: 'edit-lint', description: 'ACP description', kind: 'skill' },
+            { name: 'local', description: 'Local description', kind: 'skill' },
+            { name: 'help', description: 'Help', kind: 'command' }
+        ]);
+        session.handleUpdate({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: '考え' } });
+        session.handleUpdate({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: '中' } });
+        assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text), ['考え', '中']);
+    } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
 test('all permission prefers allow_always', async () => {

@@ -156,9 +156,14 @@ export class ClaudeStreamParser {
     private flushText(block: StreamBlock, final: boolean): void {
         const remaining = block.text.slice(block.flushed);
         const marker = remaining.indexOf('```akari-ask');
-        const safeLength = marker >= 0
-            ? marker
-            : final ? remaining.length : Math.max(0, remaining.length - 12);
+        let suffix = 0;
+        if (!final && marker < 0) {
+            const fence = '```akari-ask';
+            for (let length = 1; length < fence.length; length++) {
+                if (remaining.endsWith(fence.slice(0, length))) suffix = length;
+            }
+        }
+        const safeLength = marker >= 0 ? marker : remaining.length - suffix;
         this.emitVisible(block, remaining.slice(0, safeLength));
         block.flushed += safeLength;
         if (!final) {
@@ -325,9 +330,12 @@ export class ClaudeStreamParser {
                 return;
             }
             if (event.delta?.type === 'text_delta' || event.delta?.type === 'thinking_delta') {
-                block.text += event.delta.text || event.delta.thinking || '';
+                const delta = event.delta.text || event.delta.thinking || '';
+                block.text += delta;
                 if (block.type === 'text') {
                     this.flushText(block, false);
+                } else if (block.type === 'thinking' && delta) {
+                    this.emit({ type: 'thinking.delta', id: block.id, text: delta });
                 }
             }
             if (event.delta?.type === 'input_json_delta') {

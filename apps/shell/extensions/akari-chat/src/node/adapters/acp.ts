@@ -6,6 +6,7 @@ import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../
 import type { ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
+import { projectSkills } from './project-skills';
 import { describeAttachments } from '../../common/chat-attachments';
 import { findAcpExecutable, AcpAgentDefinition, AcpDetectionEnvironment } from './acp-agents';
 
@@ -109,7 +110,7 @@ export class AcpSession implements ChatAdapterSession {
     private thoughtId = '';
     private thoughtText = '';
     private planId = '';
-    private commands: string[] = [];
+    private commands: Array<{ name: string; description?: string; kind: 'command' }> = [];
     private agentCapabilities: JsonObject = {};
     private sessionCapabilities: JsonObject = {};
     private configOptions: ConfigOption[] = [];
@@ -341,7 +342,7 @@ export class AcpSession implements ChatAdapterSession {
             currentModel: this.model || undefined,
             efforts: effortConfig?.options?.map(option => option.value),
             images: Boolean(object(this.agentCapabilities.promptCapabilities).image),
-            interrupt: true, clear: true, compact: this.commands.includes('compact'),
+            interrupt: true, clear: true, compact: this.commands.some(item => item.name === 'compact'),
             resume: Boolean(this.agentCapabilities.loadSession), ask: true
         };
     }
@@ -448,6 +449,7 @@ export class AcpSession implements ChatAdapterSession {
             const text = string(object(update.content).text);
             if (!this.thoughtId) { this.thoughtId = `acp-thought-${++this.sequence}`; }
             this.thoughtText += text;
+            if (text) this.emit({ type: 'thinking.delta', id: this.thoughtId, text });
             this.emit({ type: 'tool', id: this.thoughtId, kind: 'think', title: '考えています', status: 'running', detail: { text: this.thoughtText } });
         } else if (type === 'tool_call' || type === 'tool_call_update') {
             this.toolUpdate(update);
@@ -457,7 +459,10 @@ export class AcpSession implements ChatAdapterSession {
             this.emit({ type: 'tool', id: this.planId, kind: 'other', title: '計画', status: 'done',
                 detail: { text: entries.map(item => `- [${string(item.status)}] ${string(item.content)}`).join('\n') } });
         } else if (type === 'available_commands_update') {
-            this.commands = Array.isArray(update.availableCommands) ? update.availableCommands.map(item => string(object(item).name)) : [];
+            this.commands = Array.isArray(update.availableCommands) ? update.availableCommands.map(item => ({
+                name: string(object(item).name), description: string(object(item).description) || undefined,
+                kind: 'command' as const
+            })).filter(item => item.name) : [];
         } else if (type === 'config_option_update') {
             if (Array.isArray(update.configOptions)) {
                 this.configOptions = update.configOptions.map(item => object(item) as ConfigOption);
@@ -563,12 +568,27 @@ export class AcpSession implements ChatAdapterSession {
         const config = this.configOptions.find(item => item.category === 'model');
         if (config) { await this.request('session/set_config_option', { sessionId: this.ref, configId: config.id, value: model }, 60000); }
         else if (this.models.length) { await this.request('session/set_model', { sessionId: this.ref, modelId: model }, 60000); }
+        else throw new Error('この相手はモデル切替に対応していません');
         this.model = model;
+    }
+
+    async listCommands() {
+        const skills = new Map((await projectSkills(this.opts.cwd,
+            ['.claude/skills', '.agents/skills', '.opencode/skills', '.codex/skills', '.cursor/skills']))
+            .map(item => [item.name, item]));
+        return this.commands.map(command => {
+            const name = command.name.replace(/^\//, '');
+            const skill = skills.get(name);
+            return { name, description: command.description || skill?.description,
+                kind: skill ? 'skill' as const : 'command' as const };
+        });
     }
 
     async setEffort(effort: string): Promise<void> {
         const config = this.configOptions.find(item => ['thought_level', 'effort'].includes(item.category || ''));
         if (config) { await this.request('session/set_config_option', { sessionId: this.ref, configId: config.id, value: effort }, 60000); }
+        else if (this.modes.some(mode => mode.id === effort)) { await this.setMode(effort); }
+        else throw new Error('この相手は深さの切替に対応していません');
     }
 
     async setMode(modeId: string): Promise<void> {
@@ -583,7 +603,7 @@ export class AcpSession implements ChatAdapterSession {
     }
 
     async compact(): Promise<void> {
-        if (this.commands.includes('compact')) { await this.send('/compact', []); }
+        if (this.commands.some(item => item.name === 'compact')) { await this.send('/compact', []); }
     }
 
     async close(): Promise<void> {

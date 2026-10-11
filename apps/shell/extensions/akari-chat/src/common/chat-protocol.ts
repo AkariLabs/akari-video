@@ -22,6 +22,7 @@ export interface AkariChatClient {
 export interface AkariChatService {
     setClient(client: AkariChatClient): void;
     listAgents(): Promise<ChatAgentInfo[]>;
+    refreshAgents(): Promise<ChatAgentInfo[]>;
     start(options: {
         agent: string;
         cwd: string;
@@ -39,6 +40,11 @@ export interface AkariChatService {
     clear(chatId: string): Promise<void>;
     compact(chatId: string): Promise<void>;
     close(chatId: string): Promise<void>;
+    listCommands(chatId: string): Promise<{ name: string; description?: string; kind: 'skill' | 'command' }[]>;
+    contextInfo(chatId: string): Promise<{ usedTokens?: number; contextWindow?: number; model?: string; canCompact: boolean }>;
+    getDefaults(agent: string): Promise<{ model?: string; effort?: string }>;
+    setDefaults(agent: string, d: { model?: string; effort?: string }): Promise<void>;
+    loadTranscript(cwd: string, historyId: string): Promise<{ at: string; event: ChatEvent }[]>;
     listHistory(cwd: string): Promise<ChatHistoryEntry[]>;
     resume(cwd: string, historyId: string, token?: string, permission?: ChatAdapterPermission): ReturnType<AkariChatService['start']>;
     renameHistory(cwd: string, historyId: string, title: string): Promise<void>;

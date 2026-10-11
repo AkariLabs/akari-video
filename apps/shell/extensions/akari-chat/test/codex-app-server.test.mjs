@@ -49,6 +49,7 @@ process.stdin.on('data', chunk => {
         {id:'model-two',model:'model-two',displayName:'Model Two',description:'Test',hidden:false,supportedReasoningEfforts:[{reasoningEffort:'high',description:''}]}
       ],nextCursor:null});
     }
+    else if (msg.method === 'skills/list') reply(msg.id,{data:[{cwd:process.cwd(),skills:[{name:'edit-lint',description:'Check edit'}]}]});
     else if (msg.method === 'thread/start') { active = 'thread-'+(++threadNumber); reply(msg.id,{thread:{id:active},model:msg.params.model||'model-one'}); }
     else if (msg.method === 'thread/resume') { active = msg.params.threadId; reply(msg.id,{thread:{id:active},model:'model-one'}); }
     else if (msg.method === 'turn/start') {
@@ -103,6 +104,19 @@ test('Codex fixture converts message, thinking, command, write, ask, usage and e
     assert.equal(events.find(event => event.type === 'ask').question, '続けますか？');
     assert.deepEqual(events.find(event => event.type === 'usage'), { type: 'usage', usedTokens: 12, contextWindow: 128000 });
     assert.deepEqual(events.at(-1), { type: 'turn.end', ok: true });
+});
+
+test('Codex lists app-server skills and streams reasoning deltas', async () => {
+    await withTemp(async cwd => {
+        const session = await new CodexAppServerAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        try {
+            assert.deepEqual(await session.listCommands(), [{ name: 'edit-lint', description: 'Check edit', kind: 'skill' }]);
+            const events = [];
+            const parser = new CodexNotificationParser(cwd, event => events.push(event));
+            parser.accept({ method: 'item/reasoning/textDelta', params: { itemId: 'r1', delta: '考えています' } });
+            assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text), ['考えています']);
+        } finally { await session.close(); }
+    });
 });
 
 test('Codex auth fixture emits the login error and failed turn', async () => {
@@ -312,9 +326,9 @@ test('foreign model and effort are omitted, while a valid model refreshes the se
         try {
             await session.send('first', []);
             await session.setModel('model-two');
-            await session.setEffort('low');
+            await assert.rejects(session.setEffort('low'), /深さ/);
             await session.send('second', []);
-            await session.setModel('sonnet');
+            await assert.rejects(session.setModel('sonnet'), /モデル/);
             await session.send('third', []);
             const rows = await received(cwd);
             const thread = rows.find(row => row.method === 'thread/start');
@@ -325,7 +339,7 @@ test('foreign model and effort are omitted, while a valid model refreshes the se
             assert.equal(Object.hasOwn(turns[0].params, 'effort'), false);
             assert.equal(turns[1].params.model, 'model-two');
             assert.equal(Object.hasOwn(turns[1].params, 'effort'), false);
-            assert.equal(Object.hasOwn(turns[2].params, 'model'), false);
+            assert.equal(turns[2].params.model, 'model-two');
             assert.deepEqual(events.filter(event => event.type === 'session').map(event => event.model),
                 ['model-one', 'model-two']);
             const modelUpdate = events.findIndex(event => event.type === 'session' && event.model === 'model-two');

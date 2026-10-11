@@ -1,6 +1,11 @@
 export type ToolKind = 'think' | 'read' | 'write' | 'command' | 'search' | 'skill' | 'web' | 'other';
 
 export type ChatEvent =
+    | { type: 'ready' }
+    | { type: 'capabilities'; capabilities: import('./chat-agent').ChatCapabilities }
+    | { type: 'model'; model?: string; effort?: string }
+    | { type: 'thinking.delta'; id: string; text: string }
+    | { type: 'user'; text: string; attachments: import('./chat-attachments').ChatAttachment[] }
     | { type: 'session'; sessionId: string; agent: string; model?: string; cwd: string }
     | { type: 'message.start'; id: string; role: 'assistant' }
     | { type: 'message.delta'; id: string; text: string }
