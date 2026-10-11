@@ -33927,7 +33927,8 @@ var RangeMp4Source = class _RangeMp4Source {
     const gopSeconds = maxKeyframeIntervalSeconds(keyframes);
     if (gopSeconds !== void 0 && gopSeconds > LONG_GOP_WARNING_SECONDS) {
       this.options.onWarning?.(
-        `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`
+        `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`,
+        { code: "long-gop", id: this.id, gopSeconds }
       );
     }
     this.prepared = { table, keyframes, totalBytes: opened.totalBytes };

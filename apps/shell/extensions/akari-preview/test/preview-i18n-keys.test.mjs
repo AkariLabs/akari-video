@@ -87,3 +87,11 @@ test('the sole update action is selected independently of its translated label',
         assert.equal(t('preview.outputPreview.window.checkUpdatesAction'), 'Check for updates');
     } finally { setLanguage(undefined); }
 });
+
+test('long-GOP warning is injected from render catalog and translated in the frame-engine preview', () => {
+    const handler = readFileSync(join(src, 'browser/akari-preview-open-handler.ts'), 'utf8');
+    const bootstrap = readFileSync(join(src, 'browser/preview-script-frame-engine-bootstrap.ts'), 'utf8');
+    assert.match(handler, /'render\.frameEngine\.warning\.longGop': renderT\('render\.frameEngine\.warning\.longGop'\)/);
+    assert.match(bootstrap, /detail\?\.code === 'long-gop'/);
+    assert.match(bootstrap, /t\('render\.frameEngine\.warning\.longGop'/);
+});

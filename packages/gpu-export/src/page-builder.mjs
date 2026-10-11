@@ -238,7 +238,7 @@ export function buildGpuPage({
     adjustLutCubeTexts,
     spriteManifest,
     eligibility: effectiveEligibility,
-    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder") },
+    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder"), longGop: t("render.frameEngine.warning.longGop") },
   };
   if (interleaved) {
     const spriteZ = Object.fromEntries([...stackZByOverlay]);
