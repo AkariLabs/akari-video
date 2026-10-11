@@ -201,9 +201,9 @@ export class AkariChatWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariChatWidget.ID;
-        this.title.label = 'AKARI チャット';
-        this.title.caption = 'AKARI チャット';
-        this.title.iconClass = 'codicon codicon-comment-discussion';
+        this.title.label = 'AKARI';
+        this.title.caption = 'AKARI';
+        this.title.iconClass = 'akari-chat-rail-icon';
         this.title.closable = true;
         installChatStyle();
         window.addEventListener('dragover', this.onWindowDragOver, true);
@@ -1746,7 +1746,7 @@ export class AkariChatWidget extends ReactWidget {
         >
             <div className='akari-chat-head'>
                 <AkariLamp size={18} />
-                <strong>AKARI チャット</strong>
+                <strong>AKARI</strong>
                 <button
                     className='akari-chat-plain'
                     data-chat-agent-button

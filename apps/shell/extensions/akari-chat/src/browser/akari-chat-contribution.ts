@@ -7,9 +7,9 @@ import { AkariChatWidget } from './akari-chat-widget';
 import { markChatLastUsed } from './chat-last-used';
 
 export const ChatCommands = {
-    OPEN: { id: 'akari.chat.open', label: 'AKARI チャットを開く' } as Command,
-    PREFILL: { id: 'akari.chat.prefill', label: 'AKARI チャットに入力' } as Command,
-    ATTACH: { id: 'akari.chat.attach', label: 'AKARI チャットに添付' } as Command
+    OPEN: { id: 'akari.chat.open', label: 'AKARI を開く' } as Command,
+    PREFILL: { id: 'akari.chat.prefill', label: 'AKARI に入力' } as Command,
+    ATTACH: { id: 'akari.chat.attach', label: 'AKARI に添付' } as Command
 };
 
 @injectable()
