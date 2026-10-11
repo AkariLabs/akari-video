@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
-import { isScene3dPath, scene3dMotionOptions, scene3dOwnedKnobVars, scene3dPlacementVars, scene3dScreenKnobs,
+import { isScene3dPath, scene3dMotionOptions, scene3dOwnedKnobVars, scene3dPlacementVars, scene3dScreenTextureVar,
     scene3dScreenVars, SCENE3D_ROTATION_VARS } from '../lib/common/scene3d-item.js';
 
 const require = createRequire(import.meta.url);
@@ -29,16 +29,25 @@ test('scene3d の断片パスを見分ける', () => {
     assert.equal(isScene3dPath(undefined), false);
 });
 
-test('画面のツマミ: -screen-src の media と custom を持つ -screen-preset', () => {
-    assert.deepEqual(scene3dScreenKnobs(phone), { src: '--phone-demo-screen-src', preset: '--phone-demo-screen-preset' });
-    assert.deepEqual(scene3dScreenVars(phone, 'assets\\clips\\demo.mp4'),
-        { '--phone-demo-screen-preset': 'custom', '--phone-demo-screen-src': 'assets/clips/demo.mp4' });
-    const noPreset = { knobs: [{ cssVar: '--x-screen-src', type: 'media' }, { cssVar: '--x-screen-preset', type: 'dropdown', options: ['home'] }] };
-    assert.deepEqual(scene3dScreenVars(noPreset, 'a.mp4'), { '--x-screen-src': 'a.mp4' });
-    assert.equal(scene3dScreenKnobs({ knobs: [{ cssVar: '--logo-src', type: 'media' }] }), undefined);
-    assert.equal(scene3dScreenVars(phone, '../outside.mp4'), undefined);
-    assert.equal(scene3dScreenVars(phone, 'C:/abs.mp4'), undefined);
-    assert.deepEqual([...scene3dOwnedKnobVars(phone)], ['--phone-demo-screen-src', '--phone-demo-screen-preset']);
+const fragment = (overrides, extra = '') => `<div class="phone">${extra}<canvas></canvas>
+<script type="application/json" data-akari-3d-scene>${JSON.stringify({ model: 'model.glb', materialOverrides: overrides })}</script></div>`;
+
+test('画面の差し替え先は断片の宣言の Screen マテリアルの textureVar（mask は除く）', () => {
+    const html = fragment({
+        LogoMat: { texture: 'logo.svg', textureVar: '--logo-src', target: 'mask' },
+        ScreenMaterial: { texture: 'placeholder.png', textureVar: '--akari-screen-src' },
+    });
+    assert.equal(scene3dScreenTextureVar(html), '--akari-screen-src');
+    assert.equal(scene3dScreenTextureVar(fragment({ ScreenGlass: { texture: 'a.png', textureVar: '--screen' } })), '--screen');
+    assert.equal(scene3dScreenTextureVar(fragment({ ScreenMaterial: { texture: 'a.png' } })), undefined);
+    assert.equal(scene3dScreenTextureVar(fragment({ LogoMat: { texture: 'a.svg', textureVar: '--logo', target: 'mask' } })), undefined);
+    assert.equal(scene3dScreenTextureVar('<!-- <script type="application/json" data-akari-3d-scene>{}</script> -->'), undefined);
+    assert.equal(scene3dScreenTextureVar(undefined), undefined);
+    assert.deepEqual(scene3dScreenVars('--akari-screen-src', 'assets\\clips\\demo.mp4'), { '--akari-screen-src': 'assets/clips/demo.mp4' });
+    assert.equal(scene3dScreenVars('--akari-screen-src', '../outside.mp4'), undefined);
+    assert.equal(scene3dScreenVars('--akari-screen-src', 'C:/abs.mp4'), undefined);
+    assert.equal(scene3dScreenVars(undefined, 'a.mp4'), undefined);
+    assert.deepEqual([...scene3dOwnedKnobVars(phone)], ['--phone-demo-screen-preset', '--phone-demo-screen-src']);
 });
 
 test('動きの選択肢: 先頭は止める・重複と名前なしを除く', () => {

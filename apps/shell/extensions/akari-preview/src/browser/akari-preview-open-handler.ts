@@ -107,6 +107,7 @@ import {
     THREE_SCENE_KEYS,
     hasThreeDimensionalTextOverlay,
     resolveThreeSceneDescriptorAssets,
+    ThreeSceneAssetOrigin,
     threeSceneDeclarations
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder, resolvePreviewItemStackOrder } from '../common/caption-track-order';
@@ -5584,7 +5585,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ? overlayHtml.get(rawHtml) ?? ''
                     : rawHtml;
                 return this.resolveThreeSceneAssets(
-                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream, this.stringRecord(value?.vars)
+                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream, this.stringRecord(value?.vars),
+                    rawHtml && !rawHtml.trimStart().startsWith('<') ? rawHtml : undefined
                 );
             }));
             projectedOverlays.forEach((value, index) => {
@@ -6506,7 +6508,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assetUris: URI[],
         unsupportedGltfWarnings: string[],
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>,
-        overlayVars: Record<string, string> = {}
+        overlayVars: Record<string, string> = {},
+        fragmentPath?: string
     ): Promise<string> {
         if (threeSceneDeclarations(html).length === 0) {
             return html;
@@ -6525,13 +6528,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             console.warn('[akari-preview] 3D overlay には data-akari-3d-scene 宣言が 1 個必要です');
             return document.body.innerHTML;
         }
+        // 断片に書かれたパスは断片のフォルダ基準で探し、無ければ従来どおりプロジェクト基準（後方互換）。
+        // source.vars から来たパスはプロジェクト基準（内部契約 2026-10-11-3d-place §4）
+        const fragmentDir = (fragmentPath ?? '').replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+        const locateAsset = async (relativePath: string, origin: ThreeSceneAssetOrigin): Promise<URI> => {
+            const normalized = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+            if (origin === 'fragment' && fragmentDir) {
+                const local = await this.resolveEditAssetUri(`${fragmentDir}/${normalized}`, editUri);
+                if (await this.fileService.exists(local).catch(() => false)) return local;
+            }
+            return this.resolveEditAssetUri(normalized, editUri);
+        };
         for (const declaration of Array.from(declarations)) {
             try {
-                const resolveAsset = async (relativePath: string, field: string): Promise<string> => {
+                let modelUri: URI | undefined;
+                const resolveAsset = async (relativePath: string, field: string, origin: ThreeSceneAssetOrigin): Promise<string> => {
                     if (relativePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(relativePath)) {
                         throw new TypeError(`${field} に絶対パスや URL は指定できません`);
                     }
-                    const assetUri = await this.resolveEditAssetUri(relativePath, editUri);
+                    const assetUri = await locateAsset(relativePath, origin);
+                    if (field === 'data-akari-3d-scene.model') modelUri = assetUri;
                     const key = assetUri.toString();
                     if (ensureAssetStream) {
                         return (await ensureAssetStream(key, assetUri)).url;
@@ -6556,7 +6572,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (resolved.modelPath) {
                     try {
                         const unsupported = detectUnsupportedGltfExtensions(
-                            await this.readGltfHeaderBytes(await this.resolveEditAssetUri(resolved.modelPath, editUri))
+                            await this.readGltfHeaderBytes(modelUri ?? await this.resolveEditAssetUri(resolved.modelPath, editUri))
                         );
                         if (unsupported.length > 0) {
                             unsupportedGltfWarnings.push(

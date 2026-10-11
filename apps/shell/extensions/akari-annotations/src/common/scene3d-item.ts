@@ -30,13 +30,6 @@ export interface Scene3dMeta {
     motion_presets?: unknown;
 }
 
-export interface Scene3dScreenKnobs {
-    /** 画面に映す画像・動画のツマミ（type: media・cssVar が -screen-src で終わる）。 */
-    src: string;
-    /** 画面の中身のプリセット（dropdown・-screen-preset で終わり、options に custom を含む）。 */
-    preset?: string;
-}
-
 const knobsOf = (meta: Scene3dMeta | undefined): Scene3dKnob[] =>
     Array.isArray(meta?.knobs) ? meta!.knobs.filter((knob): knob is Scene3dKnob => !!knob && typeof knob === 'object') : [];
 
@@ -45,23 +38,37 @@ export function isScene3dPath(path: string | undefined): boolean {
     return typeof path === 'string' && /(^|\/)scene3d\//u.test(path.replace(/\\/gu, '/'));
 }
 
-/** §4 の順で画面のツマミを探す。無ければ undefined（「この 3D には画面がありません」）。 */
-export function scene3dScreenKnobs(meta: Scene3dMeta | undefined): Scene3dScreenKnobs | undefined {
-    const knobs = knobsOf(meta);
-    const src = knobs.find(knob => knob.type === 'media' && typeof knob.cssVar === 'string'
-        && knob.cssVar.endsWith('-screen-src'))?.cssVar;
-    if (!src) return undefined;
-    const preset = knobs.find(knob => knob.type === 'dropdown' && typeof knob.cssVar === 'string'
-        && knob.cssVar.endsWith('-screen-preset') && Array.isArray(knob.options) && knob.options.includes('custom'))?.cssVar;
-    return preset ? { src, preset } : { src };
+/**
+ * 画面の差し替え先（§4）。断片の 3D 宣言の materialOverrides のうち、名前に Screen を含み textureVar を持つもの
+ * （ロゴなどの mask は除く）の textureVar。プレビューと書き出しのホストは、この変数の値を item の source.vars から
+ * 取ってプロジェクト基準のパスとして画面に貼る。見つからなければ undefined（「この 3D には画面がありません」）。
+ */
+export function scene3dScreenTextureVar(fragmentHtml: string | undefined): string | undefined {
+    if (typeof fragmentHtml !== 'string') return undefined;
+    const html = fragmentHtml.replace(/<!--[\s\S]*?-->/gu, '');
+    const scripts = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu;
+    for (const match of html.matchAll(scripts)) {
+        if (!/data-akari-3d-scene/u.test(match[1]) || !/application\/json/u.test(match[1])) continue;
+        let descriptor: unknown;
+        try { descriptor = JSON.parse(match[2]); } catch { continue; }
+        const overrides = (descriptor as { materialOverrides?: unknown } | null)?.materialOverrides;
+        if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) continue;
+        const candidates = Object.entries(overrides as Record<string, unknown>)
+            .filter(([name, value]) => /screen/iu.test(name) && !!value && typeof value === 'object'
+                && typeof (value as { textureVar?: unknown }).textureVar === 'string'
+                && (value as { target?: unknown }).target !== 'mask')
+            .sort(([left], [right]) => Number(right === 'ScreenMaterial') - Number(left === 'ScreenMaterial'));
+        const found = candidates[0]?.[1] as { textureVar: string } | undefined;
+        if (found && /^--[A-Za-z_][A-Za-z0-9_-]*$/u.test(found.textureVar)) return found.textureVar;
+    }
+    return undefined;
 }
 
-/** 画面に入れるときに source.vars へまとめて書く値（src とプリセット custom を一度に）。 */
-export function scene3dScreenVars(meta: Scene3dMeta | undefined, projectRelativePath: string): Record<string, string> | undefined {
-    const knobs = scene3dScreenKnobs(meta);
+/** 画面に入れるときに source.vars へ書く値（プロジェクト基準の相対パス）。絶対パス・.. は拒否して undefined。 */
+export function scene3dScreenVars(screenVar: string | undefined, projectRelativePath: string): Record<string, string> | undefined {
     const path = projectRelativePath.replace(/\\/gu, '/');
-    if (!knobs || !path || path.startsWith('/') || /^[a-z]:/iu.test(path) || path.split('/').includes('..')) return undefined;
-    return knobs.preset ? { [knobs.preset]: 'custom', [knobs.src]: path } : { [knobs.src]: path };
+    if (!screenVar || !path || path.startsWith('/') || /^[a-z]:/iu.test(path) || path.split('/').includes('..')) return undefined;
+    return { [screenVar]: path };
 }
 
 /** インスペクタの「動き」の選択肢。先頭は止める。値は --akari-3d-clip に入れる。 */
@@ -77,10 +84,14 @@ export function scene3dMotionOptions(meta: Scene3dMeta | undefined): { value: st
     return options;
 }
 
-/** ツマミの自動セクションから外すもの（3D セクションが受け持つ画面ツマミ）。 */
+/**
+ * ツマミの自動セクションから外すもの。素材の「画面の中身」系ツマミ（-screen-src / -screen-preset）は断片の CSS の
+ * 中で画面の変数へつなぐ作りで、アプリのホストは CSS を評価せずに画面を決めるため効かない。3D セクションの
+ * 「画面の中身」が代わりに受け持つ。
+ */
 export function scene3dOwnedKnobVars(meta: Scene3dMeta | undefined): Set<string> {
-    const knobs = scene3dScreenKnobs(meta);
-    return new Set(knobs ? [knobs.src, ...(knobs.preset ? [knobs.preset] : [])] : []);
+    return new Set(knobsOf(meta).map(knob => knob.cssVar)
+        .filter((name): name is string => typeof name === 'string' && /-screen-(?:src|preset)$/u.test(name)));
 }
 
 /** ライブラリから置いた直後の vars: 既定ツマミ + 静止（動きは後からインスペクタで選ぶ）。回転は書かない（0 扱い）。 */
