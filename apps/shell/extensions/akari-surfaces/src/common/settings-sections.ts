@@ -103,6 +103,7 @@ export function isSettingsSectionVisible(id: SettingsSectionId, selected: Settin
 
 // スキーマは browser/akari-preferences.ts が所有。純関数側は文字列ミラー。
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+export const AKARI_PREVIEW_SCRUB_AUDIO = 'akari.preview.scrubAudio';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY = 'akari.timeline.trackRippleDisplay';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
@@ -159,7 +160,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     listening: ['akari.listening.engine', 'akari.vibe.mode'],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
-    quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY],
+    quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS, AKARI_TIMELINE_TRACK_RIPPLE_DISPLAY, AKARI_PREVIEW_SCRUB_AUDIO],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
     shortcuts: [],

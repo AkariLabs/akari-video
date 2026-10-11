@@ -6826,7 +6826,7 @@ export function previewBootstrapScript(): string {
                 window.akari.scrubAudio = scrubAudio;
                 return scrubAudio;
             };
-            let scrubAudioEnabled = initial.scrubAudioEnabled !== false;
+            let scrubAudioEnabled = initial.scrubAudioEnabled === true;
             const scrubSrcForSegment = segment => {
                 if (!segment || segment.kind !== 'src' || isStillSegment(segment)) return null;
                 const cutsTrackMuted = allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track);

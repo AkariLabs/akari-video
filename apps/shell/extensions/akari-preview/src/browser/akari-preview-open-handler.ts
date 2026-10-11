@@ -882,7 +882,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
             if (event.preferenceName === 'akari.preview.scrubAudio') {
                 // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
-                const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true) !== false;
+                const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', false) === true;
                 for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
                     if (widget.isAttached) {
                         widget.sendMessage({ type: 'akari-preview-set-scrub-audio', enabled });
@@ -4735,7 +4735,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             || frameEngineForceSoftwareOverride === 'true';
         const frameEngineRenderScaleMode = parseRenderScaleMode(frameEngineRenderScaleOverride
             ?? this.preferences.get<string>('akari.preview.renderScale', 'auto'));
-        const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true);
+        const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', false) === true;
         const exportLook = this.preferences.get<boolean>('akari.preview.exportLook', false) === true;
         // setHTML はページを作り直すので、ページ側の段（スクリプト読込以降）はやり直しになる。
         diagnostics?.restartPageStages();
@@ -7661,7 +7661,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineReadyTimeoutMs?: number,
         initialPlaybackRate = 1,
         frameEngineRenderScaleMode: RenderScaleMode = 'auto',
-        scrubAudioEnabled = true,
+        scrubAudioEnabled = false,
         exportLook = false,
         // 診断用の頁文脈（不具合メモ 第11・12項）。Console に出る Webview ID を
         // ページ自身にも持たせ、診断カードとログの id を突き合わせられるようにする。
