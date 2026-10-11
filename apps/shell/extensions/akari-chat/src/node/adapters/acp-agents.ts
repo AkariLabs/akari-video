@@ -74,6 +74,7 @@ export async function findAcpExecutable(agent: AcpAgentDefinition, environment: 
 export async function acpVersion(executable: string): Promise<string | undefined> {
     return new Promise(resolve => {
         const child = spawn(executable, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], shell: false });
+        child.stdout.setEncoding('utf8');
         let output = '';
         let settled = false;
         const finish = (value?: string): void => {
@@ -83,7 +84,7 @@ export async function acpVersion(executable: string): Promise<string | undefined
             resolve(value);
         };
         const timeout = setTimeout(() => { child.kill(); finish(); }, 10000);
-        child.stdout.on('data', chunk => { output = (output + String(chunk)).slice(0, 4096); });
+        child.stdout.on('data', chunk => { output = (output + chunk).slice(0, 4096); });
         child.on('error', () => finish());
         child.on('close', () => finish(output.trim().split(/\r?\n/)[0] || undefined));
     });

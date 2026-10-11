@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -14,6 +14,7 @@ const { markChatLastUsed } = require('../lib/browser/chat-last-used.js');
 
 async function withService(run, adapterStart) {
     const cwd = await mkdtemp(join(tmpdir(), 'akari-chat-service-'));
+    await mkdir(join(cwd, '.akari'));
     const original = chatAdapters.splice(0);
     chatAdapters.push({
         info: async () => ({ id: 'fake', name: 'Fake', installed: true, transport: 'acp' }),
@@ -32,8 +33,14 @@ async function withService(run, adapterStart) {
             };
         })
     });
-    try { await run(new AkariChatServiceImpl(), cwd); }
-    finally { chatAdapters.splice(0, chatAdapters.length, ...original); await rm(cwd, { recursive: true, force: true }); }
+    const service = new AkariChatServiceImpl();
+    try { await run(service, cwd); }
+    finally {
+        await service.dispose();
+        await Promise.allSettled([...service.transcriptTails.values()]);
+        chatAdapters.splice(0, chatAdapters.length, ...original);
+        await rm(cwd, { recursive: true, force: true });
+    }
 }
 
 test('empty starts leave no history; concurrent first sends and events retain every row', async () => {

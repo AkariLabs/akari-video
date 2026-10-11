@@ -454,12 +454,14 @@ class CodexSession implements ChatAdapterSession {
         const child = spawn(this.executable, ['app-server', '--stdio'], {
             cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
         });
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
         this.child = child;
         this.stderr = '';
         let buffer = '';
         child.stdout.on('data', chunk => {
             if (this.child !== child) { return; }
-            buffer += String(chunk);
+            buffer += chunk;
             let end: number;
             while ((end = buffer.indexOf('\n')) >= 0) {
                 const line = buffer.slice(0, end).trim();
@@ -469,7 +471,7 @@ class CodexSession implements ChatAdapterSession {
             }
         });
         child.stderr.on('data', chunk => {
-            if (this.child === child) { this.stderr = (this.stderr + String(chunk)).slice(-4000); }
+            if (this.child === child) { this.stderr = (this.stderr + chunk).slice(-4000); }
         });
         child.stdin.on('error', error => {
             if (this.child === child) { this.fail(`Codex に送れませんでした: ${error.message}`); }

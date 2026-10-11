@@ -231,6 +231,7 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
         if (this.models) return this.models;
         this.models = await new Promise(resolve => {
             const child = spawn(executable, ['models'], { cwd, stdio: ['ignore', 'pipe', 'ignore'], shell: false });
+            child.stdout.setEncoding('utf8');
             let output = '';
             let settled = false;
             const finish = (models: ChatCapabilities['models']): void => {
@@ -240,7 +241,7 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
                 resolve(models);
             };
             const timeout = setTimeout(() => { child.kill(); finish([]); }, 10000);
-            child.stdout.on('data', chunk => { output = (output + String(chunk)).slice(0, 100000); });
+            child.stdout.on('data', chunk => { output = (output + chunk).slice(0, 100000); });
             child.on('error', () => finish([]));
             child.on('close', code => finish(code === 0 ? parseAgyModels(output) : []));
         });
@@ -331,6 +332,8 @@ class AgySession implements ChatAdapterSession {
         const child = spawn(this.executable, agyArgs(this.opts, this.ref), {
             cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
         });
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
         this.child = child;
         this.parser = new AgyStreamParser(this.opts.cwd, event => this.publish(event));
         this.restart = false;
@@ -339,7 +342,7 @@ class AgySession implements ChatAdapterSession {
         let buffer = '';
         child.stdout.on('data', chunk => {
             if (this.child !== child) return;
-            buffer += String(chunk);
+            buffer += chunk;
             let end: number;
             while ((end = buffer.indexOf('\n')) >= 0) {
                 const line = buffer.slice(0, end).trim();
@@ -348,7 +351,7 @@ class AgySession implements ChatAdapterSession {
                 try { this.parser.accept(JSON.parse(line)); } catch { /* Keep parsing later lines. */ }
             }
         });
-        child.stderr.on('data', chunk => { if (this.child === child) this.stderr = (this.stderr + String(chunk)).slice(-4000); });
+        child.stderr.on('data', chunk => { if (this.child === child) this.stderr = (this.stderr + chunk).slice(-4000); });
         child.stdin.on('error', error => this.failTurn(child, `agy に送れませんでした: ${error.message}`));
         child.on('error', error => {
             if (!this.pending && !this.closed) this.publish({ type: 'error', kind: 'crashed', message: `agy を起動できませんでした: ${error.message}` });

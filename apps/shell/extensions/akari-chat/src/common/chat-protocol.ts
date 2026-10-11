@@ -53,6 +53,7 @@ export interface AkariChatService {
     clear(chatId: string): Promise<void>;
     compact(chatId: string): Promise<void>;
     close(chatId: string): Promise<void>;
+    closeAll(): Promise<void>;
     listCommands(chatId: string): Promise<ChatCommand[]>;
     contextInfo(chatId: string): Promise<ChatContextInfo>;
     getDefaults(agent: string): Promise<{ model?: string; effort?: string }>;

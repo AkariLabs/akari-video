@@ -1,4 +1,13 @@
 import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt } from '../common/chat-review-attachments';
+import type { ChatAttachment } from '../common/chat-review-attachments';
+
+export function reviewThumbnailEviction(attachments: readonly ChatAttachment[], limit = 50): number {
+    const size = (item: ChatAttachment): number => new TextEncoder().encode(JSON.stringify(item)).byteLength;
+    const oversized = attachments.findIndex(item => item.kind === 'review' && !!item.review.thumbnail && size(item) > 64 * 1024);
+    if (oversized >= 0) return oversized;
+    const withImage = attachments.map((item, index) => item.kind === 'review' && item.review.thumbnail ? index : -1).filter(index => index >= 0);
+    return withImage.length > limit ? withImage[0] : -1;
+}
 
 export function previewChatReviewScript(): string {
     return `(() => {
@@ -8,6 +17,7 @@ export function previewChatReviewScript(): string {
         const boxFromPoints = (${reviewBoxFromPoints.toString()});
         const captionLabelsAt = (${reviewCaptionLabelsAt.toString()});
         const elementsAt = (${reviewElementsAt.toString()});
+        const thumbnailEviction = (${reviewThumbnailEviction.toString()});
         const stage = document.getElementById('preview-stage');
         const transport = document.querySelector('.transport');
         const seek = document.getElementById('seek');
@@ -27,6 +37,30 @@ export function previewChatReviewScript(): string {
         let claimedPointerId = null;
         let suppressReviewClick = false;
         let rangeStart = null;
+        let trimTail = Promise.resolve();
+        const waitForState = predicate => new Promise(resolve => {
+            const timer = setTimeout(() => { stateWaiters.delete(done); resolve(false); }, 5000);
+            const done = () => { if (predicate()) { clearTimeout(timer); stateWaiters.delete(done); resolve(true); } };
+            stateWaiters.add(done);
+        });
+        const stateWaiters = new Set();
+        const trim = limit => {
+            trimTail = trimTail.catch(() => undefined).then(async () => {
+                for (let attempt = 0; attempt < 100; attempt++) {
+                    const index = thumbnailEviction(marks, limit);
+                    if (index < 0) break;
+                    const old = marks[index];
+                    const count = marks.length;
+                    const removed = waitForState(() => marks.length < count);
+                    post({ type: 'akari-preview-chat-review-remove', index });
+                    if (!await removed) break;
+                    const added = waitForState(() => marks.length >= count);
+                    post({ type: 'akari-preview-chat-review-add', review: { ...old.review, thumbnail: undefined } });
+                    if (!await added) break;
+                }
+            });
+            return trimTail;
+        };
         const root = document.createElement('div');
         root.id = 'review-chat-layer';
         root.innerHTML = '<svg data-review-ink viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div data-review-marks></div><div data-review-hint hidden></div><div data-review-note hidden><div class="review-what">ここにあるもの <div data-review-elements></div></div><textarea data-review-memo placeholder="変更したい内容を入力" rows="3"></textarea><div class="review-note-actions"><button type="button" data-review-later>あとで</button><button type="button" data-review-add>追加</button></div></div>';
@@ -273,7 +307,16 @@ export function previewChatReviewScript(): string {
         }, true);
         const saveDraft = () => {
             if (!draft || !memo.value.trim()) { memo.focus(); return; }
-            post({ type: 'akari-preview-chat-review-add', review: { ...draft, text: memo.value.trim() } });
+            const review = { ...draft, text: memo.value.trim() };
+            const candidate = { kind: 'review', label: review.sourceLabel + ' ' + review.time.toFixed(1) + '秒', review };
+            if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) review.thumbnail = undefined;
+            if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) {
+                memo.setCustomValidity('メモが長すぎます。短くしてください');
+                memo.reportValidity();
+                return;
+            }
+            memo.setCustomValidity('');
+            void trim(review.thumbnail ? 49 : 50).then(() => post({ type: 'akari-preview-chat-review-add', review }));
             draft = null; rangeStart = null; tool = null; render();
         };
         root.querySelector('[data-review-add]').addEventListener('click', saveDraft);
@@ -298,6 +341,7 @@ export function previewChatReviewScript(): string {
         window.addEventListener('message', event => {
             if (event.data?.type !== 'akari-preview-chat-review-state') return;
             marks = Array.isArray(event.data.attachments) ? event.data.attachments : [];
+            for (const done of [...stateWaiters]) done();
             if (marks.length === 0) trayOpen = false;
             render();
         });

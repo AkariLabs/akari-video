@@ -23,6 +23,7 @@ async function withFake(run, agentId = 'fake') {
     const previousAdapters = chatAdapters.splice(0);
     process.env.HOME = join(root, 'home');
     await mkdir(process.env.HOME);
+    await mkdir(join(root, '.akari'));
     const opening = deferred();
     const events = new Set();
     const received = [];

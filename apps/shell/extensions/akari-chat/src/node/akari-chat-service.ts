@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
-import { basename, extname, isAbsolute, join } from 'path';
+import { basename, dirname, extname, isAbsolute, join } from 'path';
 import { injectable } from '@theia/core/shared/inversify';
 import type { ChatAttachment } from '../common/chat-attachments';
 import type { ChatEvent } from '../common/chat-events';
@@ -17,6 +17,7 @@ type ActiveChat = {
     cwd: string;
     session?: ChatAdapterSession;
     ready: Promise<ChatAdapterSession>;
+    controller: AbortController;
     sendTail: Promise<void>;
     titleSet: boolean;
     model?: string;
@@ -33,6 +34,8 @@ const EMPTY_CAPABILITIES: ChatCapabilities = {
 @injectable()
 export class AkariChatServiceImpl implements AkariChatService {
     private client?: AkariChatClient;
+    private disposed = false;
+    private closeGeneration = 0;
     private readonly sessions = new Map<string, ActiveChat>();
     private readonly historyTails = new Map<string, Promise<void>>();
     private readonly transcriptTails = new Map<string, Promise<void>>();
@@ -51,6 +54,45 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     setClient(client: AkariChatClient): void { this.client = client; }
+
+    private async validCwd(cwd: string): Promise<string> {
+        if (typeof cwd !== 'string' || !isAbsolute(cwd)) throw new Error('作業フォルダが正しくありません');
+        const canonical = await fs.realpath(cwd);
+        const info = await fs.stat(canonical);
+        if (!info.isDirectory()) throw new Error('作業フォルダが正しくありません');
+        if ((await fs.stat(join(canonical, '.akari')).catch(() => undefined))?.isDirectory()) return canonical;
+        for (let ancestor = canonical; ; ancestor = dirname(ancestor)) {
+            const manifest = await fs.readFile(join(ancestor, '.akari', 'root.json'), 'utf8').catch(() => undefined);
+            if (manifest !== undefined) {
+                try {
+                    if (JSON.parse(manifest)?.schema === 'creator-root/v1') return canonical;
+                } catch { /* Continue searching ancestors. */ }
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+        }
+        throw new Error('AKARI プロジェクトか作業場のフォルダを選んでください');
+    }
+
+    private async validSourcePath(sourcePath: string): Promise<void> {
+        if (typeof sourcePath !== 'string' || !isAbsolute(sourcePath)) throw new Error('ファイルの場所を読めません');
+        await fs.lstat(sourcePath);
+        if (!(await fs.stat(sourcePath)).isFile()) throw new Error('通常のファイルを選んでください');
+    }
+
+    async closeAll(): Promise<void> {
+        this.closeGeneration++;
+        for (const current of this.sessions.values()) current.controller.abort();
+        const ids = [...this.sessions.keys()];
+        await Promise.allSettled(ids.map(id => this.close(id)));
+    }
+
+    async dispose(): Promise<void> {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.client = undefined;
+        await this.closeAll();
+    }
 
     listAgents(): Promise<ChatAgentInfo[]> {
         if (!this.agentCache) this.agentCache = Promise.all(chatAdapters.map(adapter => adapter.info()));
@@ -109,6 +151,7 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async loadTranscript(cwd: string, historyId: string) {
+        cwd = await this.validCwd(cwd);
         const current = this.sessions.get(historyId);
         if (current?.cwd === cwd) this.flushTranscript(historyId, current);
         await this.transcriptTails.get(historyId);
@@ -135,6 +178,9 @@ export class AkariChatServiceImpl implements AkariChatService {
         agent: string; cwd: string; resume?: string; model?: string; effort?: string;
         permission?: ChatAdapterPermission; token?: string;
     }): Promise<{ chatId: string; capabilities: ChatCapabilities; error?: { kind: Extract<ChatEvent, { type: 'error' }>['kind']; message: string } }> {
+        if (this.disposed) throw new Error('接続が閉じました');
+        const generation = this.closeGeneration;
+        options = { ...options, cwd: await this.validCwd(options.cwd) };
         if (options.token && this.cancelledStarts.delete(options.token)) throw new Error('start-cancelled');
         const agents = await this.listAgents();
         const info = agents.find(item => item.id === options.agent);
@@ -145,11 +191,13 @@ export class AkariChatServiceImpl implements AkariChatService {
         const model = options.model ?? defaults.model ??
             (options.agent === 'claude' ? await claudeConfiguredModel() : undefined);
         const effort = options.effort ?? defaults.effort;
+        const existing = options.resume ? (await readHistory(options.cwd)).sessions.find(entry =>
+            entry.sessionRef === options.resume && entry.agent === options.agent) : undefined;
+        if (this.disposed || generation !== this.closeGeneration) throw new Error('接続が閉じました');
+        if (options.token && this.cancelledStarts.delete(options.token)) throw new Error('start-cancelled');
         const controller = new AbortController();
         const startEntry = { controller, chatId: undefined as string | undefined };
         if (options.token) this.starts.set(options.token, startEntry);
-        const existing = options.resume ? (await readHistory(options.cwd)).sessions.find(entry =>
-            entry.sessionRef === options.resume && entry.agent === options.agent) : undefined;
         if (controller.signal.aborted) {
             if (options.token) this.starts.delete(options.token);
             throw new Error('start-cancelled');
@@ -196,7 +244,7 @@ export class AkariChatServiceImpl implements AkariChatService {
             return failed;
         }).finally(() => { if (options.token) this.starts.delete(options.token); });
         const capabilities = options.agent === 'claude' ? claudeInitialCapabilities(model) : EMPTY_CAPABILITIES;
-        this.sessions.set(chatId, { agent: options.agent, cwd: options.cwd, ready, sendTail: Promise.resolve(),
+        this.sessions.set(chatId, { agent: options.agent, cwd: options.cwd, ready, controller, sendTail: Promise.resolve(),
             titleSet: !!options.resume, model, effort, capabilities });
         return { chatId, capabilities, ...(initialError ? { error: initialError } : {}) };
     }
@@ -232,6 +280,12 @@ export class AkariChatServiceImpl implements AkariChatService {
         const next = current.sendTail.then(async () => {
             const session = await current.ready;
             if (this.sessions.get(chatId) !== current) throw new Error('会話が見つかりません');
+            if (session.initialError && !session.sessionRef) {
+                this.emit(chatId, { type: 'error', kind: session.initialError.kind,
+                    message: `${session.initialError.message}。会話を閉じて、起動をやり直してください。` });
+                this.emit(chatId, { type: 'turn.end', ok: false, reason: session.initialError.kind });
+                return;
+            }
             this.record(chatId, { type: 'user', text, attachments });
             const skill = current.agent === 'claude' ? /^\/([\w:-]+)(?=\s|$)/.exec(text)?.[1] : undefined;
             const commands = skill ? await session.listCommands?.().catch(() => []) : undefined;
@@ -295,19 +349,23 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async listHistory(cwd: string): Promise<ChatHistoryEntry[]> {
+        cwd = await this.validCwd(cwd);
         await this.historyTails.get(cwd);
         return (await readHistory(cwd)).sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     }
 
     async renameHistory(cwd: string, historyId: string, title: string): Promise<void> {
+        cwd = await this.validCwd(cwd);
         await this.changeHistory(cwd, history => renameHistory(history, historyId, title));
     }
 
     async removeHistory(cwd: string, historyId: string): Promise<void> {
+        cwd = await this.validCwd(cwd);
         await this.changeHistory(cwd, history => removeHistory(history, historyId));
     }
 
     async saveScreenRecording(cwd: string, data: string): Promise<string> {
+        cwd = await this.validCwd(cwd);
         const match = /^data:video\/(mp4|webm);base64,/.exec(data);
         if (!match) throw new Error('録画の形式を読めません');
         const bytes = Buffer.from(data.slice(match[0].length), 'base64');
@@ -319,7 +377,8 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async importAttachment(cwd: string, sourcePath: string): Promise<string> {
-        if (!isAbsolute(sourcePath)) throw new Error('ファイルの場所を読めません');
+        cwd = await this.validCwd(cwd);
+        await this.validSourcePath(sourcePath);
         const info = await fs.stat(sourcePath);
         if (!info.isFile() || info.size > 500 * 1024 * 1024) throw new Error('ファイルを取り込めません');
         const original = basename(sourcePath);
@@ -331,10 +390,13 @@ export class AkariChatServiceImpl implements AkariChatService {
     }
 
     async resume(cwd: string, historyId: string, token?: string, permission?: ChatAdapterPermission) {
+        const generation = this.closeGeneration;
+        cwd = await this.validCwd(cwd);
         const entry = (await this.listHistory(cwd)).find(item => item.id === historyId);
         if (!entry?.sessionRef) {
             throw new Error('この会話は開けません');
         }
+        if (this.disposed || generation !== this.closeGeneration) throw new Error('接続が閉じました');
         return this.start({ cwd, agent: entry.agent, resume: entry.sessionRef, model: entry.model, token, permission });
     }
 

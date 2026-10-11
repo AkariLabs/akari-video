@@ -332,6 +332,8 @@ class ClaudeSession implements ChatAdapterSession {
             stdio: ['pipe', 'pipe', 'pipe'],
             shell: false
         });
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
         this.child = child;
         this.restart = false;
         this.interrupted = false;
@@ -342,7 +344,7 @@ class ClaudeSession implements ChatAdapterSession {
             if (this.child !== child) {
                 return;
             }
-            buffer += String(data);
+            buffer += data;
             let end: number;
             while ((end = buffer.indexOf('\n')) >= 0) {
                 const line = buffer.slice(0, end);
@@ -369,7 +371,7 @@ class ClaudeSession implements ChatAdapterSession {
         });
         child.stderr.on('data', data => {
             if (this.child === child) {
-                this.stderr = (this.stderr + String(data)).slice(-4000);
+                this.stderr = (this.stderr + data).slice(-4000);
             }
         });
         child.stdin.on('close', () => {

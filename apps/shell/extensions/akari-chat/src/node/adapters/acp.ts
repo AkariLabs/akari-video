@@ -1,6 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { constants } from 'fs';
-import { access, lstat, readFile, realpath, writeFile } from 'fs/promises';
+import { access, lstat, open, readFile, realpath } from 'fs/promises';
 import { extname, isAbsolute, relative, resolve, sep } from 'path';
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import type { ChatAttachment } from '../../common/chat-attachments';
@@ -151,8 +151,10 @@ export class AcpSession implements ChatAdapterSession {
                 cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
             });
             this.child = child;
-            child.stdout.on('data', data => this.receive(String(data)));
-            child.stderr.on('data', data => { this.stderr = (this.stderr + String(data)).slice(-2000); });
+            child.stdout.setEncoding('utf8');
+            child.stderr.setEncoding('utf8');
+            child.stdout.on('data', data => this.receive(data));
+            child.stderr.on('data', data => { this.stderr = (this.stderr + data).slice(-2000); });
             child.on('error', error => this.processEnded(error.message));
             child.on('close', code => this.processEnded(`ACP エージェントが終了しました (${code})`));
             child.stdin.on('error', error => this.processEnded(error.message));
@@ -307,7 +309,14 @@ export class AcpSession implements ChatAdapterSession {
                     const lines = content.split('\n');
                     this.reply(id, { content: lines.slice(line - 1, Number.isFinite(limit) && limit >= 0 ? line - 1 + limit : undefined).join('\n') });
                 } else {
-                    await writeFile(path, string(params.content), 'utf8');
+                    const parent = await realpath(resolve(path, '..'));
+                    if (!within(await realpath(this.opts.cwd), parent)) throw new Error('プロジェクト外のパスは使えません');
+                    const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o666);
+                    try {
+                        if (!(await file.stat()).isFile()) throw new Error('通常のファイルにのみ書き込めます');
+                        await file.truncate(0);
+                        await file.writeFile(string(params.content), 'utf8');
+                    } finally { await file.close(); }
                     this.reply(id, null);
                 }
                 return;

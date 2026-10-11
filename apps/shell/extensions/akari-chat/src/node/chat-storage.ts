@@ -36,7 +36,9 @@ function transcriptPath(cwd: string, historyId: string): string {
 export async function appendTranscript(cwd: string, historyId: string, event: ChatEvent): Promise<void> {
     const target = transcriptPath(cwd, historyId);
     await fs.mkdir(join(cwd, '.akari', 'chat', 'transcripts'), { recursive: true });
-    await fs.appendFile(target, JSON.stringify({ at: new Date().toISOString(), event }) + '\n');
+    const stored = event.type === 'user' ? { ...event, attachments: event.attachments.map(item =>
+        item.kind === 'review' ? { ...item, review: { ...item.review, thumbnail: undefined } } : item) } : event;
+    await fs.appendFile(target, JSON.stringify({ at: new Date().toISOString(), event: stored }) + '\n');
 }
 
 export async function loadTranscript(cwd: string, historyId: string): Promise<TranscriptRow[]> {
