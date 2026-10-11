@@ -1477,8 +1477,8 @@
         rotation3dFrame?.setAttribute("hidden", "");
         return;
       }
-      const radius = activeRotation3d?.radius ?? Math.min(rect.width, rect.height) * 0.45;
-      if (!(radius > 12)) {
+      const radius = activeRotation3d?.radius ?? Math.min(220, Math.max(36, Math.max(rect.width, rect.height) * 0.32));
+      if (!Number.isFinite(radius)) {
         rotation3dFrame?.setAttribute("hidden", "");
         return;
       }
@@ -1878,7 +1878,7 @@
       }
     }
     function focusElement(element, { notify = true } = {}) {
-      if (!canFocusElement(selectedOverlay)) element = null;
+      if (!elementSelectionEnabled(selectedOverlay) || isRotation3dItem(selectedOverlay)) element = null;
       const root = fragmentRoot(selectedOverlay);
       if (element && !selectableElement(root, element, stage?.getBoundingClientRect(), selectionOptions(root))) element = null;
       const ref = element && elementAddress(root, element);
@@ -4901,11 +4901,14 @@
         if (activeDrag === drag) onPointerMove(event, true);
       }, 96);
     }
-    function onPointerMove(event, settled = false) {
+    function onWindowPointerMove(event) {
       if (activeRotation3d && event.pointerId === activeRotation3d.pointerId) {
         updateRotation3d(event);
         return;
       }
+      onPointerMove(event);
+    }
+    function onPointerMove(event, settled = false) {
       if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
         const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
         if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
@@ -5605,7 +5608,7 @@
           return;
         }
       }
-      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && canFocusElement(selectedOverlay) && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
+      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && elementSelectionEnabled(selectedOverlay) && !isRotation3dItem(selectedOverlay) && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
         const root = fragmentRoot(selectedOverlay);
         const first = firstSelectableElement(root, stage?.getBoundingClientRect(), selectionOptions(root));
         if (first) {
@@ -6048,7 +6051,7 @@
         }
       }).observe(stage, { childList: true });
     }
-    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointermove", onWindowPointerMove, true);
     window.addEventListener("pointerup", onPointerUp, true);
     window.addEventListener("pointercancel", onPointerCancel, true);
     window.addEventListener("keydown", onKeyDown, true);

@@ -1704,8 +1704,11 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       rotation3dFrame?.setAttribute('hidden', '');
       return;
     }
-    const radius = activeRotation3d?.radius ?? Math.min(rect.width, rect.height) * .45;
-    if (!(radius > 12)) {
+    // 内容枠は向きで変わる（真横のスマホは幅が 20px 程度）。短辺基準だとリングが消えて戻せなくなるので、
+    // 向きでほぼ変わらない長辺を基準にし、下限・上限を付ける
+    const radius = activeRotation3d?.radius
+      ?? Math.min(220, Math.max(36, Math.max(rect.width, rect.height) * .32));
+    if (!Number.isFinite(radius)) {
       rotation3dFrame?.setAttribute('hidden', '');
       return;
     }
@@ -2117,7 +2120,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     }
   }
   function focusElement(element, { notify = true } = {}) {
-    if (!canFocusElement(selectedOverlay)) element = null;
+    if (!elementSelectionEnabled(selectedOverlay) || isRotation3dItem(selectedOverlay)) element = null;
     const root = fragmentRoot(selectedOverlay);
     if (element && !selectableElement(root, element, stage?.getBoundingClientRect(), selectionOptions(root))) element = null;
     const ref = element && elementAddress(root, element);
@@ -4813,11 +4816,15 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     }, 96);
   }
 
-  function onPointerMove(event, settled = false) {
+  function onWindowPointerMove(event) {
     if (activeRotation3d && event.pointerId === activeRotation3d.pointerId) {
       updateRotation3d(event);
       return;
     }
+    onPointerMove(event);
+  }
+
+  function onPointerMove(event, settled = false) {
     if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
       const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
       if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
@@ -5580,7 +5587,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       }
     }
     if (event.key === 'Enter' && !event.shiftKey && !activeEdit && !selectedElementFocus()
-      && selectedOverlay && canFocusElement(selectedOverlay)
+      && selectedOverlay && elementSelectionEnabled(selectedOverlay) && !isRotation3dItem(selectedOverlay)
       && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
       const root = fragmentRoot(selectedOverlay);
       const first = firstSelectableElement(root, stage?.getBoundingClientRect(), selectionOptions(root));
@@ -6080,7 +6087,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     }).observe(stage, { childList: true });
   }
 
-  window.addEventListener("pointermove", onPointerMove, true);
+  window.addEventListener("pointermove", onWindowPointerMove, true);
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerCancel, true);
   window.addEventListener("keydown", onKeyDown, true);
