@@ -359,7 +359,7 @@ test('同じ枠の三手段を同時に候補化し、進捗と edit 不変、�
   const dir = await workspace();
   try {
     await writeFile(join(dir, 'image-state'), 'delay');
-    const instance = manager(dir);
+    const instance = manager(dir, { FAKE_CODEX_DELAY_MS: '5000' });
     const editBefore = await readFile(join(dir, 'edit.json'));
     const pending = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.some(row =>
@@ -510,20 +510,21 @@ test('バッチ実行中の読み口は最初の完了を残りの実行中に�
 test('次のバッチの進捗は前回結果を拾わず、候補一覧は重複なく新しい順', async () => {
   const dir = await workspace();
   try {
-    const instance = manager(dir);
+    const env = { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`,
+      FAKE_IMAGE_STATE_FILE: join(dir, 'image-state'), FAKE_IMAGE_LOG: join(dir, 'calls.jsonl'),
+      AKARI_CODEX_BIN: join(bin, 'codex'), AKARI_AGY_BIN: join(bin, 'agy'), AKARI_GROK_BIN: join(bin, 'grok') };
+    const instance = new StillGenerationManager(findAsset, { env });
     await instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
-    const previous = await instance.readStillCandidates(dir, 'clip-1');
-    const previousPaths = new Set(previous.results.map(row => row.relativePath));
     await writeFile(join(dir, 'image-state'), 'delay');
+    env.FAKE_CODEX_DELAY_MS = '5000';
     const second = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.filter(row =>
       row.route === route && row.args[0] !== 'models').length >= 2));
     const running = await instance.readStillCandidates(dir, 'clip-1');
-    assert.ok(running.running || running.completed === 3);
-    if (running.running) assert.ok(running.completed < 3);
-    assert.equal(running.results.length, running.completed);
-    assert.ok(running.results.every(row => !row.relativePath || !previousPaths.has(row.relativePath)));
-    assert.equal(running.candidates.length, 3 + running.results.filter(row => row.ok).length);
+    assert.equal(running.running, true);
+    assert.equal(running.completed, 0);
+    assert.deepEqual(running.results, []);
+    assert.equal(running.candidates.length, 3);
     await second;
     const done = await instance.readStillCandidates(dir, 'clip-1');
     assert.equal(done.candidates.length, 6);

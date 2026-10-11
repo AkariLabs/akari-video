@@ -1,5 +1,5 @@
 import { after as afterI18n } from 'node:test';
-import { setLanguage } from '@akari-video/i18n';
+import { setLanguage, t } from '@akari-video/i18n';
 setLanguage('ja');
 afterI18n(() => setLanguage(undefined));
 import { test } from 'node:test';
@@ -12,7 +12,8 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('home command remains available without a home rail tab', () => {
     const command = read('../../akari-surfaces/src/browser/akari-home-command-contribution.ts');
-    assert.match(command, /OPEN:\s*\{\s*id:\s*'akari\.home\.open',\s*label:\s*'ホームを開く'/);
+    assert.match(command, /OPEN:\s*\{\s*id:\s*'akari\.home\.open',\s*label:\s*t\('surfaces\.home\.openHome\.label'\)/);
+    assert.equal(t('surfaces.home.openHome.label'), 'ホームを開く');
     assert.match(command, /registerCommand\(AkariHomeCommands\.OPEN,\s*\{\s*execute:\s*async \(\) => \{ await this\.revealHome\(\); \}/);
     const module = read('../src/browser/akari-shell-strip-frontend-module.ts');
     assert.doesNotMatch(module, /AkariHomeOpenerContribution/);
@@ -39,7 +40,8 @@ test('left rail suppresses Theia hover and uses the material caption', () => {
     assert.match(tip, /pointer-events: none/);
     assert.match(tip, /getElementById\('akari-left-rail-tip'\)/);
     assert.doesNotMatch(tip, /setTimeout/);
-    assert.match(material, /this\.title\.caption = /);
+    assert.match(material, /this\.title\.caption = t\('project\.library\.shelf\.assetsProjectLibraryLabel'\)/);
+    assert.equal(t('project.library.shelf.assetsProjectLibraryLabel'), '素材（プロジェクト / ライブラリ）');
 });
 
 test('left tip keeps one chip and one position when its tab element is recreated', () => {
