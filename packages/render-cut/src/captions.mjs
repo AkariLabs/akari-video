@@ -134,6 +134,7 @@ const CAPTION_DEFAULT_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 const CAPTION_FONT_FACE_CSS = BUNDLED_CAPTION_FONT_FACES
+  .filter(font => font.id !== 'noto-sans')
   .map(font => `@font-face {
       font-family: "${font.family}";
       src: url("${pathToFileURL(resolve(CAPTION_FONT_DIR, font.id, font.file)).href}") format("${font.variable ? "truetype-variations" : "truetype"}");
@@ -246,7 +247,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const languageDefaults = captionLanguageDefaults(language);
   const hasFamily = Boolean(options.defaultTextStyle?.font_family)
     || captions.some(cue => Boolean(cue?.text_style?.font_family));
-  const fontFaceCss = hasFamily ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
+  const fontFaceCss = hasFamily || language !== 'ja'
+    ? activeCaptionFontFaceCss(options.fontFaces ?? captionFontFaces()) : CAPTION_FONT_FACE_CSS;
   // output（edit.output の {width,height}）が縦長なら、行を短く・文字を大きくする既定へ切り替える。
   // 明示指定（maxCharacters / text_style.size_px）は常に既定より優先。
   const output = options.output;
@@ -925,7 +927,8 @@ export function renderCaptionFragment(text, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive || options.fontStack?.includes('"AKARI Noto Sans"')
+    ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
     ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);
@@ -1099,7 +1102,8 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
     : "";
-  const fontFaceCss = options.textStyleActive ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
+  const fontFaceCss = options.textStyleActive || options.fontStack?.includes('"AKARI Noto Sans"')
+    ? options.fontFaceCss ?? CAPTION_FONT_FACE_CSS : CAPTION_DEFAULT_FONT_FACE_CSS;
   const typographyCss = options.textStyleActive
     ? `      font-family: var(--caption-font-family, ${options.fontStack ?? CAPTION_FONT_STACK});
       font-size: var(--caption-font-size, ${baseFontSize}px);

@@ -68,6 +68,7 @@ export function captionFontWeights(id: string): readonly number[] {
         'dotgothic16': [400],
         'klee-one': [400],
         'mplus-rounded-1c': [500, 800, 900],
+        'noto-sans': [100, 200, 300, 400, 500, 600, 700, 800, 900],
         'noto-sans-jp': [100, 200, 300, 400, 500, 600, 700, 800, 900],
         'noto-serif-jp': [200, 300, 400, 500, 600, 700, 800, 900],
         'shippori-mincho': [400],

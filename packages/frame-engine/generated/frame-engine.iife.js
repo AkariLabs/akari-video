@@ -3384,7 +3384,7 @@ ${indent}`);
           portraitCharacters: 24,
           charactersPerSecond: 17,
           minimumSeconds: 1,
-          fontStack: '"Noto Sans JP", "AKARI Noto Sans JP", sans-serif'
+          fontStack: '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif'
         }
       };
     }

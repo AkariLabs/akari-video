@@ -7325,7 +7325,7 @@ export function previewBootstrapScript(): string {
             const captionLanguageDefaults = {
                 ja: { landscapeCharacters: 20, portraitCharacters: 10 },
                 en: { landscapeCharacters: 42, portraitCharacters: 24,
-                    fontStack: '"Noto Sans JP", "AKARI Noto Sans JP", sans-serif' }
+                    fontStack: '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif' }
             };
             const captionLocale = caption => caption?.displayPolicy?.locale || caption?.display_policy?.locale
                 || caption?.locale || summary?.displayPolicy?.locale || summary?.display_policy?.locale

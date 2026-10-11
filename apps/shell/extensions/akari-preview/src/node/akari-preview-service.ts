@@ -441,6 +441,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected bundledCaptionFontBuffers?: Map<string, Buffer>;
+    protected latinCaptionFontBuffer?: Buffer;
     protected readonly bundledCaptionFontWarnings = new Set<string>();
     protected libraryCaptionFontWarningReported = false;
     protected frameEngineSource: Buffer | null | undefined;
@@ -610,6 +611,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
+            latinCaptionFontUrl: url('caption-latin-font.ttf', this.readLatinCaptionFontBuffer(), 'font/ttf'),
             bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.flatMap(face => {
                 const body = fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`);
                 return body ? [{ ...face, url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`, body, 'font/ttf') }] : [];
@@ -654,6 +656,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
         if (buffers.size > 0) this.bundledCaptionFontBuffers = buffers;
         return buffers;
+    }
+
+    protected readLatinCaptionFontBuffer(): Buffer {
+        this.latinCaptionFontBuffer ??= readFileSync(this.findFontAssetPath(
+            join('assets', 'font', 'noto-sans', 'NotoSans-Variable.ttf')));
+        return this.latinCaptionFontBuffer;
     }
 
     protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
