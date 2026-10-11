@@ -82,3 +82,29 @@ test("プロジェクトの外へ出るパスは断片基準でもプロジェ�
     html: sceneHtml({ model: "../../../../outside.glb" }), htmlPath: "assets/scene3d/demo/fragment.html",
   }));
 });
+
+test("書き出し前の入力の収集も、3D の断片基準のパスを先に探し、無ければプロジェクト基準で探す", async (t) => {
+  const { enumerateDeclaredRenderInputs } = await import("../src/render-inputs.mjs");
+  const projectRoot = await mkdtemp(join(tmpdir(), "akari-three-fragment-inputs-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  const assetDir = join(projectRoot, "assets", "scene3d", "demo");
+  await mkdir(assetDir, { recursive: true });
+  await mkdir(join(projectRoot, "models"), { recursive: true });
+  await writeFile(join(assetDir, "model.glb"), "fragment-model");
+  await writeFile(join(assetDir, "placeholder.png"), "fragment-placeholder");
+  await writeFile(join(projectRoot, "models", "legacy.glb"), "project-model");
+  await writeFile(join(assetDir, "fragment.html"), sceneHtml({ model: "model.glb",
+    materialOverrides: { ScreenMaterial: { texture: "placeholder.png", textureVar: "--akari-screen-src" } } }));
+  await mkdir(join(projectRoot, "overlays"), { recursive: true });
+  await writeFile(join(projectRoot, "overlays", "legacy.html"), sceneHtml({ model: "models/legacy.glb" }));
+  const edit = { overlays: [
+    { id: "phone", html: "assets/scene3d/demo/fragment.html" },
+    { id: "legacy", html: "overlays/legacy.html" },
+  ] };
+  await writeFile(join(projectRoot, "edit.json"), JSON.stringify(edit));
+  const inputs = await enumerateDeclaredRenderInputs({ projectRoot, edit });
+  const pathOf = (role) => inputs.find((entry) => entry.role === role)?.path?.replaceAll("\\", "/");
+  assert.equal(pathOf("overlay:phone:model"), "assets/scene3d/demo/model.glb");
+  assert.equal(pathOf("overlay:phone:texture:ScreenMaterial"), "assets/scene3d/demo/placeholder.png");
+  assert.equal(pathOf("overlay:legacy:model"), "models/legacy.glb");
+});

@@ -1142,6 +1142,7 @@ function watchedOverlayPaths() {
       const html = fs.readFileSync(path.resolve(projectRoot, htmlPath), 'utf8');
       for (const reference of extractRuntimeAssetReferences(html, htmlPath, String(overlay.id))) {
         add(reference.path, overlay.id);
+        if (reference.fallbackPath !== undefined) add(reference.fallbackPath, overlay.id);
       }
     } catch { /* 断片が未作成でも、作成イベントを受けて次回読み直す。 */ }
   }
