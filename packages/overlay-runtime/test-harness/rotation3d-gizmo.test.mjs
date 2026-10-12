@@ -10,12 +10,12 @@ assert.ok(begin >= 0 && end > begin);
 const { rotation3dHitTest, rotation3dValues, rotation3dChanged } = vm.runInNewContext(
   `${source.slice(begin, end)}; ({ rotation3dHitTest, rotation3dValues, rotation3dChanged })`);
 
-test('screen fixed rings and inner area identify the intended axes', () => {
+test('screen fixed rings identify axes while their interior remains available for item hits', () => {
   assert.equal(rotation3dHitTest(70, 70, 100), 'z');
   assert.equal(rotation3dHitTest(0, 32, 100), 'y');
   assert.equal(rotation3dHitTest(32, 0, 100), 'x');
-  assert.equal(rotation3dHitTest(0, 0, 100), 'xy');
-  assert.equal(rotation3dHitTest(60, 50, 100), 'xy');
+  assert.equal(rotation3dHitTest(0, 0, 100), null);
+  assert.equal(rotation3dHitTest(60, 50, 100), null);
   assert.equal(rotation3dHitTest(100, 100, 100), null);
 });
 
@@ -25,8 +25,6 @@ test('one radius of horizontal or vertical drag changes its Euler component by 9
     { x: 4, y: 98, z: 12 });
   assert.deepEqual({ ...rotation3dValues(start, 'x', { x: 0, y: 0 }, { x: 0, y: 100 }, 100, false) },
     { x: 94, y: 8, z: 12 });
-  assert.deepEqual({ ...rotation3dValues(start, 'xy', { x: 0, y: 0 }, { x: 100, y: 100 }, 100, false) },
-    { x: 94, y: 98, z: 12 });
 });
 
 test('Z follows pointer angle, Shift snaps to 15 degrees, and tiny changes do not write', () => {

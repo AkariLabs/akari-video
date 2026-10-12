@@ -2401,6 +2401,7 @@ export function previewBootstrapScript(): string {
                 if (event.data?.type !== 'akari-preview-context-menu-rect') return;
                 hostMenuRect = event.data.rect;
                 updateFloatingMenuRect();
+                window.akari.previewInteractionMenuRects = [hostMenuRect, floatingBarRect].filter(Boolean);
                 updateLayerSelectBox();
                 updateCutSelectBox();
             });
@@ -2408,6 +2409,7 @@ export function previewBootstrapScript(): string {
                 if (event.data?.type !== 'akari-preview-context-bar-rect') return;
                 floatingBarRect = event.data.rect;
                 updateFloatingMenuRect();
+                window.akari.previewInteractionMenuRects = [hostMenuRect, floatingBarRect].filter(Boolean);
                 updateLayerSelectBox();
                 updateCutSelectBox();
             });
