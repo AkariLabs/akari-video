@@ -38,3 +38,20 @@ test('wraps array root without changing the captions array bytes', async () => {
     const after = await readFile(data.captionsPath, 'utf8'); assert.ok(after.includes(before)); assert.equal(JSON.parse(after).emphasis_words.length, 1);
   } finally { await rm(data.root, { recursive: true, force: true }); }
 });
+
+test('素材のない旧強調は別のプリセットで上書きされ一件だけ残る', async () => {
+  for (const removeOld of [true, false]) {
+    const data = await fixture(); try {
+      const service = new AkariAnnotationsServiceImpl();
+      const first = await service.setEmphasisWords({ ...data.request,
+        upserts: [{ t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+      await service.setEmphasisWords({ ...data.request,
+        upserts: [{ src: 'camera-a', t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'bold' }],
+        removeIds: removeOld ? first.ids : [] });
+      const records = JSON.parse(await readFile(data.captionsPath, 'utf8')).emphasis_words;
+      assert.equal(records.length, 1);
+      assert.equal(records[0].src, 'camera-a');
+      assert.equal(records[0].style_preset, 'bold');
+    } finally { await rm(data.root, { recursive: true, force: true }); }
+  }
+});

@@ -78,6 +78,7 @@ import {
 } from '@akari-video/edit-store';
 import type { EditV2, GenerationMetaV1, InternalEdit } from '@akari-video/edit-store';
 import type { PreviewItemWriteCommand } from '@akari-video/edit-store';
+import { normalizePreviewEmphasisWords } from './preview-emphasis-words';
 import {
     describePreviewWebviewRole,
     guardedKeyHandler,
@@ -5144,7 +5145,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
-            ));
+            ), {
+                width: this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width),
+                height: this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height)
+            });
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
             const trackIdByItemId = new Map<string, string>();
@@ -6091,7 +6095,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 emphasisWords: this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                     loadedCaptions.emphasisWords,
                     legacyEmphasisWords
-                ))
+                ), EMPTY_SUMMARY.output)
             };
         }
     }
@@ -8887,52 +8891,8 @@ body { display: grid; place-items: center; padding: 32px; }
         return Object.fromEntries(Object.entries(objectRecord(value)).map(([key, item]) => [key, String(item)]));
     }
 
-    protected normalizeEmphasisWords(value: unknown): EditSummaryEmphasisWord[] {
-        if (value === undefined) {
-            return [];
-        }
-        if (!Array.isArray(value)) {
-            console.warn('[akari-preview] emphasis_words を無視しました（配列ではありません）');
-            return [];
-        }
-        const seenIds = new Set<string>();
-        const normalized: EditSummaryEmphasisWord[] = [];
-        for (const [index, item] of value.entries()) {
-            const candidate = item && typeof item === 'object' && !Array.isArray(item)
-                ? item as Record<string, unknown>
-                : undefined;
-            const valid = candidate !== undefined
-                && typeof candidate.id === 'string'
-                && /^e-\d{4}$/u.test(candidate.id)
-                && !seenIds.has(candidate.id)
-                && typeof candidate.t_start === 'number'
-                && Number.isFinite(candidate.t_start)
-                && candidate.t_start >= 0
-                && typeof candidate.t_end === 'number'
-                && Number.isFinite(candidate.t_end)
-                && candidate.t_end > candidate.t_start
-                && typeof candidate.word === 'string'
-                && /\S/u.test(candidate.word)
-                && typeof candidate.emotion === 'string'
-                && /\S/u.test(candidate.emotion)
-                && (candidate.src === undefined || (typeof candidate.src === 'string' && /\S/u.test(candidate.src)))
-                && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string');
-            if (!valid || !candidate) {
-                console.warn(`[akari-preview] emphasis_words[${index}] を無視しました（要素が不正です）`);
-                continue;
-            }
-            seenIds.add(candidate.id as string);
-            normalized.push({
-                id: candidate.id as string,
-                ...(candidate.src !== undefined ? { src: candidate.src as string } : {}),
-                t_start: candidate.t_start as number,
-                t_end: candidate.t_end as number,
-                word: candidate.word as string,
-                emotion: candidate.emotion as string,
-                ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {})
-            });
-        }
-        return normalized;
+    protected normalizeEmphasisWords(value: unknown, output?: { width: number; height: number }): EditSummaryEmphasisWord[] {
+        return normalizePreviewEmphasisWords(value, output);
     }
 
     protected finiteNumber(value: unknown, fallback: number): number {

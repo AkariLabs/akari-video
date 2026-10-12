@@ -34,25 +34,6 @@ const CAPTION_ZONES = new Set([
   "bottom",
   "bottom-right",
 ]);
-const CAPTION_FIELDS = new Set([
-  "id",
-  "start",
-  "end",
-  "text",
-  "speaker",
-  "sourceRef",
-  "edited",
-  "src",
-  "time_domain",
-  "words",
-  "unrecognized",
-  "style",
-  "display_text",
-  "display_fragments",
-  "display_timing",
-  "style_preset",
-  "text_style",
-]);
 const REQUIRED_CAPTION_FIELDS = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
 const usage = "使い方: node packages/schemas/bin/validate-captions.mjs <captions.json>";
 const captionsArgument = process.argv[2];
@@ -88,6 +69,12 @@ if (schema.$id !== "urn:akari-video:schema:captions:v0") {
   fail("captions.schema.json の $id が v0 契約と一致しません");
   finish();
 }
+const captionFields = schema.$defs?.captionRecord?.properties;
+if (!captionFields || typeof captionFields !== "object" || Array.isArray(captionFields)) {
+  fail("captions.schema.json の captionRecord.properties がありません");
+  finish();
+}
+const CAPTION_FIELDS = new Set(Object.keys(captionFields));
 
 let root;
 try {
