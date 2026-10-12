@@ -114,9 +114,9 @@ test('IME の Process / keyCode 229 は既定動作を止めず編集欄へ移�
 });
 
 test('編集の取消・確定後は選択を維持し、BODY に落ちたフォーカスを行リストへ戻す', () => {
-    const editEnd = transcript.slice(transcript.indexOf('protected async finishEdit('),
+    const editEnd = transcript.slice(transcript.indexOf('protected finishEdit('),
         transcript.indexOf('protected replaceRenderedRow('));
-    assert.match(editEnd, /finally \{[\s\S]*this\.restoreRowsFocusAfterEdit\(\)/);
+    assert.match(editEnd, /this\.editing = undefined;[\s\S]*this\.restoreRowsFocusAfterEdit\(\)/);
     assert.match(transcript, /document\.activeElement === document\.body\) this\.focusRows\(\)/);
     assert.match(transcript, /action === 'cancel'[\s\S]*?state\.cancelled = true;\s*input\.blur\(\);\s*void this\.finishEdit\(state\)/);
 });
