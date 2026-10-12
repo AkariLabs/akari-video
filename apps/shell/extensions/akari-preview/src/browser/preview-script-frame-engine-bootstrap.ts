@@ -41,6 +41,8 @@ export function frameEngineBootstrapScript(): string {
 
             // v2 items keep absolute placement on every track, including the first video above HTML.
             // Legacy sequential cuts (and freeze mapping) still use their sequential adapter.
+            // A frozen v2 base cut keeps absolute placement only after a real gap; adjacent
+            // frozen cuts stay sequential so their hold and transition extend the timeline.
             // summary.cuts は表示用の派生配置を含む。最下段（renderTrack が最小）の visual トラックは
             // 逐次 cuts へ戻すことで freeze による尺の伸長と transition の重なりを frame-engine 自身に
             // 再計算させる。上段の visual トラックの cut は at / track（= renderTrack）を保持して絶対配置する。
@@ -75,6 +77,7 @@ export function frameEngineBootstrapScript(): string {
                     .map(cut => cut.renderTrack)
                     .filter(track => Number.isInteger(track) && track >= 0);
                 const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
+                const cursorByTrack = new Map();
                 return summaryCuts.map((cut, index) => {
                     const {
                         at: _derivedAt,
@@ -84,12 +87,26 @@ export function frameEngineBootstrapScript(): string {
                         ...sequential
                     } = cut;
                     const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
-                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze))
+                    const trackKey = Number.isInteger(cut.renderTrack) && cut.renderTrack >= 0
+                        ? cut.renderTrack : baseRenderTrack;
+                    const cursor = cursorByTrack.get(trackKey) ?? 0;
+                    const hasValidAt = Number.isFinite(cut.at) && cut.at >= 0;
+                    const frozenGap = Number(value.editVersion) === 2 && !upperTrack && !!cut.freeze
+                        && hasValidAt && Number(cut.at) > cursor + 1e-6;
+                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze) || frozenGap)
                         ? {
                             track: cut.renderTrack,
-                            ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
+                            ...(hasValidAt ? { at: Number(cut.at) } : {})
                         }
                         : {};
+                    const at = placement.at ?? cursor;
+                    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+                    const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
+                        ? cut.freeze.duration_sec : 0;
+                    const transition = cut.transition_out || cut.transitionOut;
+                    const overlap = Number.isFinite(transition?.duration) && transition.duration > 0
+                        ? transition.duration : 0;
+                    cursorByTrack.set(trackKey, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
                     return resolveSummaryItemAdjust({
                         ...sequential,
                         ...placement,

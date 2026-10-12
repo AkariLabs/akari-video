@@ -6,12 +6,14 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { ExecutionError, messageOf, parseJson } from "./errors.mjs";
 import { blankFramesFromLuma, scanBlankFrames, scanBlankFramesStreaming } from "./verify-blank.mjs";
 import { judgeAudioLevel, judgeMotion, measureAudioLevel } from "./verify-declared.mjs";
+import { verifyLeadingGap } from "./verify-leading-gap.mjs";
 
 export function verifyArtifact({
   outputPath,
   plan,
   inputs = [],
   edit = null,
+  projectRoot = null,
   ffprobeCommand = resolveFfprobe(),
   ffmpegCommand = resolveFfmpeg(),
   spawnSyncImpl = spawnSync,
@@ -150,6 +152,13 @@ export function verifyArtifact({
     measurement: audioMeasurement,
   });
   if (audioLevel.finding) findings.push(audioLevel.finding);
+
+  const leadingGapStarted = performance.now();
+  notifyVerifyCheck(onCheck, "leading-gap-sync", "start");
+  const leadingGap = verifyLeadingGap({ outputPath, edit, inputs, projectRoot, ffmpegCommand, spawnSyncImpl });
+  notifyVerifyCheck(onCheck, "leading-gap-sync", leadingGap ? "end" : "skipped");
+  reportTiming(onTiming, "verify_leading_gap_sync", leadingGapStarted);
+  if (leadingGap) findings.push(leadingGap);
 
   const motionStarted = performance.now();
   notifyVerifyCheck(onCheck, "motion", "start");
