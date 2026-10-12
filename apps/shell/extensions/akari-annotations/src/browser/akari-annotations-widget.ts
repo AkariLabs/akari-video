@@ -5684,7 +5684,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
             const inGroup = this.multiSelection.some(item => selectedCaptionId(item) === captionId);
             const currentCaptionId = this.selection ? selectedCaptionId(this.selection) : undefined;
-            if (!inGroup && currentCaptionId !== captionId) {
+            // 同じ字幕の item 選択を保つのはキーフレームの画面（フォーカス中）だけ。それ以外では字幕の選択へ
+            // 切り替える。常に保つと、T で置いた文字をプレビューで選んでも上の文字の帯が出なかった。
+            const keepFocusedItem = this.focusScope?.rootId != null && currentCaptionId === captionId;
+            if (!inGroup && !keepFocusedItem
+                && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
