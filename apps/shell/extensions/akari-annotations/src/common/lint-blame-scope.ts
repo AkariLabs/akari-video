@@ -16,7 +16,8 @@ export function splitLintBlame(
     const split: LintBlameSplit = { own: [], foreign: [] };
     for (const finding of findings) {
         const findingFile = finding.path?.split('#', 1)[0];
-        if (!findingFile || writtenFileSet.has(findingFile)) {
+        // 書いたファイル内でも、保存前から有った指摘（例: 既存字幕のカット切れ）は今回の編集のせいではない。
+        if (!finding.preexisting && (!findingFile || writtenFileSet.has(findingFile))) {
             split.own.push(finding);
         } else {
             split.foreign.push(finding);
