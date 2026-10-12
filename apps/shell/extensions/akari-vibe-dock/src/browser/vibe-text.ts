@@ -1,5 +1,7 @@
 import { getLanguage } from '@akari-video/i18n';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const ja: Record<string, string> = require('../../../../../../packages/i18n/locales/ja/vibe.json');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const en: Record<string, string> = require('../../../../../../packages/i18n/locales/en/vibe.json');
 
 export function t(key: string, params: Record<string, string | number> = {}): string {

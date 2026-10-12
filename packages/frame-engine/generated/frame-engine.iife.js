@@ -32,9 +32,9 @@ var AkariFrameEngine = (() => {
   ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transition-vocabulary.js
+  // packages/edit-store/lib/transition-vocabulary.js
   var require_transition_vocabulary = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transition-vocabulary.js"(exports) {
+    "packages/edit-store/lib/transition-vocabulary.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
@@ -79,9 +79,9 @@ var AkariFrameEngine = (() => {
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-store.js
+  // packages/edit-store/lib/edit-store.js
   var require_edit_store = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-store.js"(exports) {
+    "packages/edit-store/lib/edit-store.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.findMatchingBracket = findMatchingBracket;
@@ -1291,9 +1291,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-runs.js
+  // packages/edit-store/lib/caption-runs.js
   var require_caption_runs = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-runs.js"(exports) {
+    "packages/edit-store/lib/caption-runs.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.captionGraphemes = captionGraphemes;
@@ -1608,9 +1608,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-words-rederive.js
+  // packages/edit-store/lib/caption-words-rederive.js
   var require_caption_words_rederive = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-words-rederive.js"(exports) {
+    "packages/edit-store/lib/caption-words-rederive.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.KARAOKE_MIN_WORD_MATCH_RATIO = void 0;
@@ -2096,9 +2096,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-style-preset.js
+  // packages/edit-store/lib/caption-style-preset.js
   var require_caption_style_preset = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-style-preset.js"(exports) {
+    "packages/edit-store/lib/caption-style-preset.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.mergePresetTextStyle = mergePresetTextStyle;
@@ -2179,9 +2179,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generated/textstyle-catalog.js
+  // packages/edit-store/lib/generated/textstyle-catalog.js
   var require_textstyle_catalog = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
+    "packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TEXTSTYLE_CATALOG = void 0;
@@ -2900,9 +2900,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/textstyle-catalog-merge.js
+  // packages/edit-store/lib/textstyle-catalog-merge.js
   var require_textstyle_catalog_merge = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/textstyle-catalog-merge.js"(exports) {
+    "packages/edit-store/lib/textstyle-catalog-merge.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.registerLibraryTextstylePresets = registerLibraryTextstylePresets;
@@ -2933,9 +2933,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-adjacency.js
+  // packages/edit-store/lib/cut-adjacency.js
   var require_cut_adjacency = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-adjacency.js"(exports) {
+    "packages/edit-store/lib/cut-adjacency.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
@@ -2976,9 +2976,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/timeline-map.js
+  // packages/edit-store/lib/timeline-map.js
   var require_timeline_map = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/timeline-map.js"(exports) {
+    "packages/edit-store/lib/timeline-map.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
@@ -3215,9 +3215,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-timeline.js
+  // packages/edit-store/lib/caption-timeline.js
   var require_caption_timeline = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-timeline.js"(exports) {
+    "packages/edit-store/lib/caption-timeline.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildCaptionTimelineSegments = buildCaptionTimelineSegments;
@@ -3368,9 +3368,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/content-language/src/caption-defaults.json
+  // packages/content-language/src/caption-defaults.json
   var require_caption_defaults = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/content-language/src/caption-defaults.json"(exports, module) {
+    "packages/content-language/src/caption-defaults.json"(exports, module) {
       module.exports = {
         ja: {
           landscapeCharacters: 20,
@@ -3390,9 +3390,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-display.js
+  // packages/edit-store/lib/caption-display.js
   var require_caption_display = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-display.js"(exports) {
+    "packages/edit-store/lib/caption-display.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
@@ -5846,9 +5846,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-store.js
+  // packages/edit-store/lib/caption-store.js
   var require_caption_store = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-store.js"(exports) {
+    "packages/edit-store/lib/caption-store.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CAPTION_ZONES = void 0;
@@ -7629,9 +7629,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-sample-text.js
+  // packages/edit-store/lib/caption-sample-text.js
   var require_caption_sample_text = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-sample-text.js"(exports) {
+    "packages/edit-store/lib/caption-sample-text.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CAPTION_SAMPLE_TEXT = void 0;
@@ -7639,9 +7639,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-window.js
+  // packages/edit-store/lib/caption-window.js
   var require_caption_window = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-window.js"(exports) {
+    "packages/edit-store/lib/caption-window.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.captionSpeechWindow = captionSpeechWindow;
@@ -7790,9 +7790,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-clock.js
+  // packages/edit-store/lib/caption-clock.js
   var require_caption_clock = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/caption-clock.js"(exports) {
+    "packages/edit-store/lib/caption-clock.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildCaptionTimelineSegments = void 0;
@@ -7900,9 +7900,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generation-meta.js
+  // packages/edit-store/lib/generation-meta.js
   var require_generation_meta = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generation-meta.js"(exports) {
+    "packages/edit-store/lib/generation-meta.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.GENERATION_META_KINDS = void 0;
@@ -7992,9 +7992,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-geometry.js
+  // packages/edit-store/lib/shape-geometry.js
   var require_shape_geometry = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-geometry.js"(exports) {
+    "packages/edit-store/lib/shape-geometry.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.parseShapePath = parseShapePath;
@@ -8186,9 +8186,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-source-validation.js
+  // packages/edit-store/lib/shape-source-validation.js
   var require_shape_source_validation = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-source-validation.js"(exports) {
+    "packages/edit-store/lib/shape-source-validation.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.validateShapeSource = validateShapeSource;
@@ -8388,9 +8388,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-v2.js
+  // packages/edit-store/lib/edit-v2.js
   var require_edit_v2 = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-v2.js"(exports) {
+    "packages/edit-store/lib/edit-v2.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.removeSourceFromSyncGroups = removeSourceFromSyncGroups;
@@ -9506,9 +9506,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/empty-edit-v2.js
+  // packages/edit-store/lib/empty-edit-v2.js
   var require_empty_edit_v2 = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/empty-edit-v2.js"(exports) {
+    "packages/edit-store/lib/empty-edit-v2.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.createEmptyEditV2 = createEmptyEditV2;
@@ -9528,9 +9528,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transform.js
+  // packages/edit-store/lib/transform.js
   var require_transform = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transform.js"(exports) {
+    "packages/edit-store/lib/transform.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.effectiveScale = effectiveScale;
@@ -9553,9 +9553,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transform-keyframe-edit.js
+  // packages/edit-store/lib/transform-keyframe-edit.js
   var require_transform_keyframe_edit = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transform-keyframe-edit.js"(exports) {
+    "packages/edit-store/lib/transform-keyframe-edit.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.evaluatedItemTransform = evaluatedItemTransform;
@@ -9912,9 +9912,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/overlay-runtime/src/item-motion.js
+  // packages/overlay-runtime/src/item-motion.js
   var require_item_motion = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/overlay-runtime/src/item-motion.js"(exports, module) {
+    "packages/overlay-runtime/src/item-motion.js"(exports, module) {
       (function(root, factory) {
         const api = factory();
         if (typeof module === "object" && module.exports) module.exports = api;
@@ -10163,9 +10163,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/motion-keyframe-replace.js
+  // packages/edit-store/lib/motion-keyframe-replace.js
   var require_motion_keyframe_replace = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/motion-keyframe-replace.js"(exports) {
+    "packages/edit-store/lib/motion-keyframe-replace.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.replaceXYKeyframes = replaceXYKeyframes;
@@ -10201,9 +10201,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-v2-item-write.js
+  // packages/edit-store/lib/edit-v2-item-write.js
   var require_edit_v2_item_write = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/edit-v2-item-write.js"(exports) {
+    "packages/edit-store/lib/edit-v2-item-write.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
@@ -10620,9 +10620,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/item-anchor.js
+  // packages/edit-store/lib/item-anchor.js
   var require_item_anchor = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/item-anchor.js"(exports) {
+    "packages/edit-store/lib/item-anchor.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.toAnchorCaptions = toAnchorCaptions;
@@ -10799,9 +10799,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/tree-ops.js
+  // packages/edit-store/lib/tree-ops.js
   var require_tree_ops = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/tree-ops.js"(exports) {
+    "packages/edit-store/lib/tree-ops.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.attachEditHelpers = attachEditHelpers;
@@ -11689,9 +11689,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/migrate/error.js
+  // packages/edit-store/lib/migrate/error.js
   var require_error = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/migrate/error.js"(exports) {
+    "packages/edit-store/lib/migrate/error.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.LegacyEditVersionError = void 0;
@@ -11706,9 +11706,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/audio-ownership.js
+  // packages/edit-store/lib/audio-ownership.js
   var require_audio_ownership = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/audio-ownership.js"(exports) {
+    "packages/edit-store/lib/audio-ownership.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.isAudioItemAudible = isAudioItemAudible2;
@@ -11726,9 +11726,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-bubble.js
+  // packages/edit-store/lib/shape-bubble.js
   var require_shape_bubble = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-bubble.js"(exports) {
+    "packages/edit-store/lib/shape-bubble.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.bubblePath = bubblePath;
@@ -12075,9 +12075,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-markup-v1.js
+  // packages/edit-store/lib/shape-markup-v1.js
   var require_shape_markup_v1 = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-markup-v1.js"(exports) {
+    "packages/edit-store/lib/shape-markup-v1.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.shapeMarkupV1 = shapeMarkupV1;
@@ -12306,9 +12306,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-markup.js
+  // packages/edit-store/lib/shape-markup.js
   var require_shape_markup = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-markup.js"(exports) {
+    "packages/edit-store/lib/shape-markup.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.shapeMarkup = shapeMarkup;
@@ -12383,9 +12383,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/group-flatten.js
+  // packages/edit-store/lib/group-flatten.js
   var require_group_flatten = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/group-flatten.js"(exports) {
+    "packages/edit-store/lib/group-flatten.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.flattenGroupDescendants = flattenGroupDescendants;
@@ -12493,9 +12493,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/internal-model.js
+  // packages/edit-store/lib/internal-model.js
   var require_internal_model = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/internal-model.js"(exports) {
+    "packages/edit-store/lib/internal-model.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.readInternalEdit = readInternalEdit;
@@ -13680,9 +13680,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/legacy-audio-view.js
+  // packages/edit-store/lib/legacy-audio-view.js
   var require_legacy_audio_view = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/legacy-audio-view.js"(exports) {
+    "packages/edit-store/lib/legacy-audio-view.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.projectLegacyAudioView = projectLegacyAudioView;
@@ -13757,9 +13757,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/retime.js
+  // packages/edit-store/lib/retime.js
   var require_retime = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/retime.js"(exports) {
+    "packages/edit-store/lib/retime.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.retime = retime;
@@ -13842,9 +13842,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-order.js
+  // packages/edit-store/lib/track-order.js
   var require_track_order = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-order.js"(exports) {
+    "packages/edit-store/lib/track-order.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.deriveVisualTrackOrder = deriveVisualTrackOrder;
@@ -13895,9 +13895,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-z.js
+  // packages/edit-store/lib/track-z.js
   var require_track_z = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-z.js"(exports) {
+    "packages/edit-store/lib/track-z.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.collectTrackZByItemId = collectTrackZByItemId;
@@ -13944,9 +13944,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/media-planes.js
+  // packages/edit-store/lib/media-planes.js
   var require_media_planes = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/media-planes.js"(exports) {
+    "packages/edit-store/lib/media-planes.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.partitionPreviewMediaPlanes = partitionPreviewMediaPlanes;
@@ -14020,9 +14020,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-transition-compatibility.js
+  // packages/edit-store/lib/track-transition-compatibility.js
   var require_track_transition_compatibility = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/track-transition-compatibility.js"(exports) {
+    "packages/edit-store/lib/track-transition-compatibility.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.usesDefaultCompatibilityTrackOrder = usesDefaultCompatibilityTrackOrder;
@@ -14091,9 +14091,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transition-visual.js
+  // packages/edit-store/lib/transition-visual.js
   var require_transition_visual = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/transition-visual.js"(exports) {
+    "packages/edit-store/lib/transition-visual.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.computeTransitionVisual = computeTransitionVisual;
@@ -14237,9 +14237,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/envelope.js
+  // packages/edit-store/lib/envelope.js
   var require_envelope = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/envelope.js"(exports) {
+    "packages/edit-store/lib/envelope.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
@@ -14622,9 +14622,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/ducking.js
+  // packages/edit-store/lib/ducking.js
   var require_ducking = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/ducking.js"(exports) {
+    "packages/edit-store/lib/ducking.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.STATIC_DUCK_GAIN_DB = void 0;
@@ -14641,9 +14641,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/audio-schedule.js
+  // packages/edit-store/lib/audio-schedule.js
   var require_audio_schedule = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/audio-schedule.js"(exports) {
+    "packages/edit-store/lib/audio-schedule.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildWebAudioSchedule = buildWebAudioSchedule2;
@@ -15287,9 +15287,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-audio-split-ops.js
+  // packages/edit-store/lib/cut-audio-split-ops.js
   var require_cut_audio_split_ops = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-audio-split-ops.js"(exports) {
+    "packages/edit-store/lib/cut-audio-split-ops.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.canSplitCutAudio = canSplitCutAudio;
@@ -15487,9 +15487,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generated/edit-v2-keys.js
+  // packages/edit-store/lib/generated/edit-v2-keys.js
   var require_edit_v2_keys = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
+    "packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
@@ -15769,9 +15769,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/canonical.js
+  // packages/edit-store/lib/canonical.js
   var require_canonical = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/canonical.js"(exports) {
+    "packages/edit-store/lib/canonical.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.serializeEdit = serializeEdit;
@@ -16029,9 +16029,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-preset.js
+  // packages/edit-store/lib/shape-preset.js
   var require_shape_preset = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/shape-preset.js"(exports) {
+    "packages/edit-store/lib/shape-preset.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.shapeSourceFromPreset = shapeSourceFromPreset;
@@ -16060,9 +16060,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/ripple.js
+  // packages/edit-store/lib/ripple.js
   var require_ripple = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/ripple.js"(exports) {
+    "packages/edit-store/lib/ripple.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.resolveTrackRippleMode = resolveTrackRippleMode;
@@ -16495,9 +16495,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-ranges.js
+  // packages/edit-store/lib/cut-ranges.js
   var require_cut_ranges = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/cut-ranges.js"(exports) {
+    "packages/edit-store/lib/cut-ranges.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.detectEditVersion = detectEditVersion;
@@ -18104,9 +18104,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/adjust-css-approx.js
+  // packages/edit-store/lib/adjust-css-approx.js
   var require_adjust_css_approx = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/adjust-css-approx.js"(exports) {
+    "packages/edit-store/lib/adjust-css-approx.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.adjustBasicToCssApprox = adjustBasicToCssApprox;
@@ -18136,9 +18136,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/migrate/legacy-parse.js
+  // packages/edit-store/lib/migrate/legacy-parse.js
   var require_legacy_parse = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
+    "packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.parseEdit = parseEdit;
@@ -18612,9 +18612,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/adjust-css-visual.js
+  // packages/edit-store/lib/adjust-css-visual.js
   var require_adjust_css_visual = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/adjust-css-visual.js"(exports) {
+    "packages/edit-store/lib/adjust-css-visual.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.computeAdjustCssVisual = computeAdjustCssVisual;
@@ -18681,9 +18681,9 @@ ${indent}`);
     }
   });
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/index.js
+  // packages/edit-store/lib/index.js
   var require_lib = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/packages/edit-store/lib/index.js"(exports) {
+    "packages/edit-store/lib/index.js"(exports) {
       "use strict";
       var __createBinding = exports && exports.__createBinding || (Object.create ? function(o2, m2, k2, k22) {
         if (k22 === void 0) k22 = k2;
@@ -18813,260 +18813,9 @@ ${indent}`);
     }
   });
 
-  // packages/overlay-runtime/src/item-motion.js
-  var require_item_motion2 = __commonJS({
-    "packages/overlay-runtime/src/item-motion.js"(exports, module) {
-      (function(root, factory) {
-        const api = factory();
-        if (typeof module === "object" && module.exports) module.exports = api;
-        if (root) {
-          root.akari = root.akari || {};
-          root.akari.itemMotion = api;
-        }
-      })(typeof window === "undefined" ? null : window, function() {
-        const number2 = (v2, fallback) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : fallback;
-        const clamp6 = (v2) => Math.max(0, Math.min(1, v2));
-        const axes = ["x", "y", "scale", "scaleX", "scaleY", "rotate", "opacity"];
-        const read = (point, axis) => axis === "opacity" ? point.opacity : axis === "scaleX" || axis === "scaleY" ? point.transform?.[axis] ?? point.transform?.scale : point.transform?.[axis];
-        function ease2(name, value) {
-          const u2 = clamp6(value);
-          if (name === "hold") return u2 < 1 ? 0 : 1;
-          if (u2 === 0 || u2 === 1) return u2;
-          const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
-          if (polynomial) {
-            const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
-            if (polynomial[1] === "in") return u2 ** power;
-            if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
-            return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
-          }
-          if (name === "ease-in-out" || name === "in-out-cubic") return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
-          if (name === "in-expo") return 2 ** (10 * u2 - 10);
-          if (name === "out-expo") return 1 - 2 ** (-10 * u2);
-          if (name === "in-out-expo") return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
-          const back = 1.70158;
-          if (name === "in-back") return (back + 1) * u2 ** 3 - back * u2 ** 2;
-          if (name === "out-back") return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
-          if (name === "in-out-back") {
-            const c = back * 1.525;
-            return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
-          }
-          if (name === "out-bounce") {
-            const n2 = 7.5625, d2 = 2.75;
-            if (u2 < 1 / d2) return n2 * u2 * u2;
-            if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
-            if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
-            return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
-          }
-          if (name === "out-elastic") return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
-          const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
-          if (bezier) {
-            const [x1, y1, x22, y2] = bezier.slice(1).map(Number);
-            if ([x1, y1, x22, y2].every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
-              const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
-              let low = 0, high = 1;
-              for (let i2 = 0; i2 < 48; i2++) {
-                const t = (low + high) / 2;
-                if (coordinate(t, x1, x22) < u2) low = t;
-                else high = t;
-              }
-              return coordinate((low + high) / 2, y1, y2);
-            }
-          }
-          return u2;
-        }
-        function keyframeValue(item, axis, localSeconds, fallback) {
-          const fps = number2(item.fps, 30);
-          const t = item.keyframeUnit === "seconds" ? localSeconds : localSeconds * fps;
-          const points = (Array.isArray(item.keyframes) ? item.keyframes : []).filter((p2) => p2 && Number.isFinite(p2.t) && Number.isFinite(read(p2, axis))).slice().sort((a, b) => a.t - b.t);
-          if (!points.length) return fallback;
-          if (t <= points[0].t) return read(points[0], axis);
-          const last = points[points.length - 1];
-          if (t >= last.t) return read(last, axis);
-          for (let i2 = 1; i2 < points.length; i2++) {
-            const b = points[i2], a = points[i2 - 1];
-            if (t > b.t) continue;
-            const names = b.easing;
-            const name = typeof names === "string" ? names : names?.[axis] ?? names?.transform?.[axis] ?? names?.transform;
-            const u2 = ease2(name, (t - a.t) / (b.t - a.t || 1));
-            return read(a, axis) + (read(b, axis) - read(a, axis)) * u2;
-          }
-          return fallback;
-        }
-        function base(item, localSeconds) {
-          const statics = item.transform ?? {};
-          const result = {};
-          for (const axis of axes) {
-            const fallback = axis === "opacity" ? number2(item.opacity, 1) : number2(statics[axis], axis.startsWith("scale") ? number2(statics.scale, 1) : 0);
-            result[axis] = keyframeValue(item, axis, localSeconds, fallback);
-          }
-          for (const axis of ["scaleX", "scaleY"]) {
-            if (statics[axis] === void 0 && !(Array.isArray(item.keyframes) ? item.keyframes : []).some((point) => Number.isFinite(point?.transform?.[axis]))) {
-              result[axis] = result.scale;
-            }
-          }
-          return result;
-        }
-        function effect(motion2, localSeconds, duration, fps) {
-          const result = { dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 };
-          if (!motion2 || duration <= 0) return result;
-          for (const seat of ["in", "out"]) {
-            const spec = motion2[seat];
-            const span = number2(spec?.duration, 0) / fps;
-            if (!spec || !Number.isFinite(span) || span <= 0) continue;
-            const progress = seat === "in" ? localSeconds / span : 1 - (duration - localSeconds) / span;
-            const hidden = seat === "in" ? 1 - ease2(spec.ease, progress) : ease2(spec.ease, progress);
-            const amount = number2(spec.amount, { scale: 0.2, pop: 0.25, zoom: 0.55, twirl: 200 }[spec.preset] ?? 40);
-            switch (spec.preset) {
-              case "fade":
-                result.opacity *= clamp6(1 - hidden);
-                break;
-              case "slide-up":
-                result.dy += hidden * amount;
-                break;
-              case "slide-down":
-                result.dy -= hidden * amount;
-                break;
-              case "slide-left":
-                result.dx += hidden * amount;
-                break;
-              case "slide-right":
-                result.dx -= hidden * amount;
-                break;
-              case "scale":
-                result.scale *= 1 - hidden * amount;
-                break;
-              case "pop":
-                result.scale *= Math.max(0.01, 1 - hidden * (1 - amount));
-                result.opacity *= clamp6(1 - hidden);
-                break;
-              case "zoom":
-                result.scale *= 1 + hidden * amount;
-                result.opacity *= clamp6(1 - hidden);
-                break;
-              case "twirl":
-                result.rotate -= hidden * amount;
-                result.scale *= 1 - hidden * 0.65;
-                result.opacity *= clamp6(1 - hidden);
-                break;
-              case "wipe": {
-                const width = clamp6(1 - hidden);
-                result.reveal = { x: 0, y: 0, w: Math.min(result.reveal?.w ?? 1, width), h: 1 };
-                break;
-              }
-            }
-          }
-          const loop = motion2.loop;
-          const period = number2(loop?.period, 0) / fps;
-          if (loop && Number.isFinite(period) && period > 0) {
-            const phase = ease2(loop.ease, (localSeconds % period + period) % period / period);
-            if (loop.preset === "pulse") result.scale *= 1 + number2(loop.amount, 0.05) * Math.sin(2 * Math.PI * phase);
-            if (loop.preset === "float") result.dy += number2(loop.amount, 6) * Math.sin(2 * Math.PI * phase);
-            if (loop.preset === "spin") result.rotate += 360 * phase * number2(loop.amount, 1);
-            if (loop.preset === "blink") result.opacity *= clamp6(1 - number2(loop.amount, 0.75) * (phase > 0.55 ? 1 : 0));
-            if (loop.preset === "jiggle") {
-              const strength = number2(loop.amount, 1);
-              result.dx += Math.sin(18 * Math.PI * phase) * 4 * strength;
-              result.rotate += Math.sin(12 * Math.PI * phase) * 2.5 * strength;
-            }
-          }
-          return result;
-        }
-        function compose(parent, child) {
-          const angle = parent.rotate * Math.PI / 180;
-          const cos = Math.cos(angle), sin = Math.sin(angle);
-          const scale = parent.scale;
-          const a = parent.reveal, b = child.reveal;
-          const reveal = a && b ? (() => {
-            const x3 = Math.max(a.x, b.x), y2 = Math.max(a.y, b.y);
-            return {
-              x: x3,
-              y: y2,
-              w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
-              h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
-            };
-          })() : a ?? b;
-          return {
-            ...child,
-            x: parent.x + scale * (cos * child.x - sin * child.y),
-            y: parent.y + scale * (sin * child.x + cos * child.y),
-            scale: scale * child.scale,
-            scaleX: parent.scaleX * child.scaleX,
-            scaleY: parent.scaleY * child.scaleY,
-            rotate: parent.rotate + child.rotate,
-            opacity: parent.opacity * child.opacity,
-            ...reveal ? { reveal } : {}
-          };
-        }
-        function local(item, t) {
-          const localSeconds = t - number2(item.at, 0);
-          const value = base(item, localSeconds);
-          const fx = effect(item.motion, localSeconds, number2(item.duration, 0), number2(item.fps, 30));
-          return {
-            x: value.x + fx.dx,
-            y: value.y + fx.dy,
-            scale: value.scale * fx.scale,
-            scaleX: value.scaleX * fx.scale,
-            scaleY: value.scaleY * fx.scale,
-            rotate: value.rotate + fx.rotate,
-            opacity: value.opacity * fx.opacity,
-            ...fx.reveal ? { reveal: fx.reveal } : {}
-          };
-        }
-        function evaluateItemMotion3(item, t, parentChain = []) {
-          let value = local(item, t);
-          for (const parent of parentChain) value = compose(local(parent, t), value);
-          return { ...value, opacity: clamp6(value.opacity) };
-        }
-        function evaluateOverlayMotion(record2, t, fps) {
-          const item = record2.motionSource ? { ...record2.motionSource, fps } : {
-            at: number2(record2.start, 0),
-            duration: number2(record2.duration, 0),
-            fps,
-            keyframeUnit: record2.keyframeUnit ?? "frames",
-            transform: record2.transform,
-            opacity: record2.opacity,
-            keyframes: record2.keyframes,
-            motion: record2.motion
-          };
-          const parents = (record2.motionParents ?? []).map((parent) => ({ ...parent, fps }));
-          return evaluateItemMotion3(item, t, parents);
-        }
-        function motionRevealCss(state) {
-          const box2 = state.reveal;
-          return box2 ? "inset(" + box2.y * 100 + "% " + (1 - box2.x - box2.w) * 100 + "% " + (1 - box2.y - box2.h) * 100 + "% " + box2.x * 100 + "%)" : "";
-        }
-        function invertItemMotionPosition(item, t, parentChain, finalX, finalY) {
-          let x3 = finalX, y2 = finalY;
-          for (const parent of [...parentChain].reverse()) {
-            const p2 = local(parent, t), angle = -p2.rotate * Math.PI / 180;
-            const dx = x3 - p2.x, dy = y2 - p2.y, scale = p2.scale;
-            if (!Number.isFinite(scale) || Math.abs(scale) < Number.EPSILON) {
-              throw new Error("\u89AA\u306E\u62E1\u7E2E\u3092\u9006\u7B97\u3067\u304D\u307E\u305B\u3093");
-            }
-            x3 = (Math.cos(angle) * dx - Math.sin(angle) * dy) / scale;
-            y2 = (Math.sin(angle) * dx + Math.cos(angle) * dy) / scale;
-          }
-          const fx = effect(item.motion, t - number2(item.at, 0), number2(item.duration, 0), number2(item.fps, 30));
-          return { x: x3 - fx.dx, y: y2 - fx.dy };
-        }
-        function dragItemMotionPosition(item, t, parentChain, visibleStart, dx, dy) {
-          const visible = { x: visibleStart.x + dx, y: visibleStart.y + dy };
-          return { visible, base: invertItemMotionPosition(item, t, parentChain, visible.x, visible.y) };
-        }
-        return Object.freeze({
-          evaluateItemMotion: evaluateItemMotion3,
-          evaluateOverlayMotion,
-          motionRevealCss,
-          invertItemMotionPosition,
-          dragItemMotionPosition
-        });
-      });
-    }
-  });
-
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/@webav/mp4box.js/dist/mp4box.all.js
+  // node_modules/@webav/mp4box.js/dist/mp4box.all.js
   var require_mp4box_all = __commonJS({
-    "../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
+    "node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
       var Log = /* @__PURE__ */ function() {
         var start = /* @__PURE__ */ new Date();
         var LOG_LEVEL_ERROR = 4;
@@ -30101,7 +29850,7 @@ void main() {
   }
 
   // packages/frame-engine/src/timeline/plan.ts
-  var import_item_motion = __toESM(require_item_motion2(), 1);
+  var import_item_motion = __toESM(require_item_motion(), 1);
   var { evaluateItemMotion } = import_item_motion.default;
   function regionMaskSource(sources, reference) {
     const known = sources.get(reference);
@@ -30823,7 +30572,7 @@ void main() {
   // packages/frame-engine/vendor/av-cliper/av-cliper.js
   var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/@webav/internal-utils/dist/internal-utils.js
+  // node_modules/@webav/internal-utils/dist/internal-utils.js
   var import_mp4box = __toESM(require_mp4box_all(), 1);
   var L = () => {
     let e, t = 16.6;
@@ -30930,7 +30679,7 @@ void main() {
     }
   })();
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/wave-resampler/lib/interpolator.js
+  // node_modules/wave-resampler/lib/interpolator.js
   var Interpolator = class {
     /**
      * @param {number} scaleFrom the length of the original array.
@@ -31042,7 +30791,7 @@ void main() {
     return Math.sin(Math.PI * x3) / (Math.PI * x3);
   }
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/wave-resampler/lib/fir-lpf.js
+  // node_modules/wave-resampler/lib/fir-lpf.js
   var FIRLPF = class {
     /**
      * @param {number} order The order of the filter.
@@ -31102,7 +30851,7 @@ void main() {
     }
   };
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/wave-resampler/lib/butterworth-lpf.js
+  // node_modules/wave-resampler/lib/butterworth-lpf.js
   var ButterworthLPF = class {
     /**
      * @param {number} order The order of the filter.
@@ -31183,7 +30932,7 @@ void main() {
     }
   };
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/wave-resampler/index.js
+  // node_modules/wave-resampler/index.js
   var DEFAULT_LPF_USE = {
     "point": false,
     "linear": false,
@@ -31273,7 +31022,7 @@ void main() {
     resample_(samples, newSamples, interpolator);
   }
 
-  // ../../../../../../../Users/ryoma/_edit/30_products/akari-video-wt/i18n-latin-font/node_modules/opfs-tools/dist/opfs-tools.js
+  // node_modules/opfs-tools/dist/opfs-tools.js
   var z2 = (r) => {
     throw TypeError(r);
   };
@@ -41122,7 +40871,7 @@ caused by: ${cause.stack}`;
   }
 
   // packages/frame-engine/src/timeline/item-motion.ts
-  var import_item_motion2 = __toESM(require_item_motion2(), 1);
+  var import_item_motion2 = __toESM(require_item_motion(), 1);
   var { evaluateItemMotion: evaluateItemMotion2 } = import_item_motion2.default;
   var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"];
   var MOTION_LOOP_PRESETS = ["pulse", "float", "spin", "blink", "jiggle"];
