@@ -1,6 +1,5 @@
 import { readHandlerCompiled } from './helpers/handler-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -73,7 +72,7 @@ test('notifications during the presence refresh wait for its summary and do not 
     host.queueCaptionsUpdate(widget);
     await widget.akariPreviewCaptionsUpdate;
     host.queueCaptionsUpdate(widget);
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(refreshes.length, 1);
     assert.equal(messages.length, 0);
     finishRefresh();
@@ -101,6 +100,26 @@ test('empty captions, existing caption tracks, raw previews and disposed widgets
         assert.equal(messages.length, disposed ? 0 : 1);
         assert.deepEqual(errors, []);
     }
+});
+
+test('cue text, paint, runs and emphasis arrive together as a caption-only update', async () => {
+    const changed = { ...cue, text: 'これ、AIと対話する',
+        textStyle: { color: '#facc15', weight: 900, italic: true, background: { opacity: 0 } },
+        runs: [{ from: 3, to: 8, role: 'emphasis', style: { color: '#FB923C', font_weight: 900 } }] };
+    const emphasisWords = [{ id: 'e-0001', t_start: 0.2, t_end: 0.8,
+        word: '対話', emotion: 'emphasis', style_preset: 'emphasis-red' }];
+    const { host, widget, messages, refreshes } = setup([], 't-captions-implied');
+    widget.akariPreviewModelSnapshot = { captions: [], emphasisWords: [] };
+    host.loadPreviewCaptions = async () => ({ captions: [changed], emphasisWords });
+    host.normalizeEmphasisWords = value => value;
+    host.queueCaptionsUpdate(widget);
+    await widget.akariPreviewCaptionsUpdate;
+    assert.equal(refreshes.length, 0);
+    assert.equal(messages[0].type, 'akari-preview-captions-update');
+    assert.equal(messages[0].captions[0].textStyle.color, '#facc15');
+    assert.equal(messages[0].captions[0].runs[0].style.font_weight, 900);
+    assert.deepEqual(messages[0].emphasisWords, emphasisWords);
+    assert.equal(widget.akariPreviewModelSnapshot.captions[0].text, changed.text);
 });
 
 test('caption plate uses auto for missing tracks and preserves the shared z-order for string track IDs', () => {

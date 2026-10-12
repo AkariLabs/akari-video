@@ -114,14 +114,27 @@ function captionHarness() {
     };
     const settle = async index => {
         resolveWrites[index]();
-        await new Promise(resolve => setImmediate(resolve));
+        await new Promise(resolve => setTimeout(resolve, 0));
     };
     return { context, plates, writes, events, saved, grab, tap, settle,
         receive: captions => context.receive({ type: 'akari-preview-captions-update', captions }),
+        selected: () => selected,
         posted,
         deliverPosted: () => { for (const message of posted.splice(0)) context.receive(message); },
         renders: () => renders };
 }
+
+test('字幕の太さ更新後も選択を保ち、上部の帯の次の操作へ進める', () => {
+    const h = captionHarness();
+    h.receive([{ id: 'A', textStyle: { weight: 400 } },
+        { id: 'B', textStyle: { weight: 700 } }]);
+    assert.equal(h.selected(), 'A');
+    assert.equal(h.renders(), 1);
+    h.receive([{ id: 'A', textStyle: { weight: 400, italic: true } },
+        { id: 'B', textStyle: { weight: 700 } }]);
+    assert.equal(h.selected(), 'A');
+    assert.equal(h.renders(), 2);
+});
 
 test('(a) A を 3 連続で掴み直し、保存前の画面位置を出発点にする', async () => {
     const h = captionHarness();

@@ -5549,10 +5549,14 @@ export class AkariInspectorWidget extends BaseWidget {
             input = textInput;
         }
 
+        let submittedValue = editValue;
         const commit = async (): Promise<void> => {
-            await commitValue(input.value, () => {
+            const value = input.value;
+            if (value === submittedValue) return;
+            const ok = await commitValue(value, () => {
                 input.value = editValue;
             });
+            if (ok) submittedValue = value;
         };
 
         if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
@@ -5561,7 +5565,16 @@ export class AkariInspectorWidget extends BaseWidget {
                 void commit();
             });
         } else {
+            let captionTextTimer: ReturnType<typeof setTimeout> | undefined;
+            if (field.inputKind === 'caption-text') {
+                input.addEventListener('input', event => {
+                    if ((event as InputEvent).isComposing) return;
+                    if (captionTextTimer !== undefined) clearTimeout(captionTextTimer);
+                    captionTextTimer = setTimeout(() => { captionTextTimer = undefined; void commit(); }, 180);
+                });
+            }
             input.addEventListener('blur', () => {
+                if (captionTextTimer !== undefined) clearTimeout(captionTextTimer);
                 void commit();
             });
             input.addEventListener('keydown', event => {

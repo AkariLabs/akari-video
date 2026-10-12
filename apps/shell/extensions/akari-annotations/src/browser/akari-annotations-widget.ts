@@ -222,6 +222,7 @@ import {
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
 import { captionMotionOriginalAnimation } from './inspector/caption-motion-cards';
 import { commitCaptionStyleBatch } from './inspector/caption-style-batch';
+import { captionPaintOnlyChange } from '../common/caption-paint-only-change';
 import { withCaptionSelectionDomain, type CaptionMotionDelta } from './inspector/caption-multi-targets';
 import { withCaptionPreviewFailure } from './inspector/caption-preview-write';
 import { effectiveMyStyleMotion, myStyleSaveParts, myStyleApplyNotice, placedMyStyleTextStyle, placedMyStyleMotion,
@@ -3755,29 +3756,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const applyStyles = async (
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>,
                         source?: string
-                    ): Promise<void> => {
+                    ): Promise<boolean> => {
                         if (!location.editUri) throw new Error('edit.json がありません。');
+                        let beforeSource = source;
+                        let afterSource = source ?? '';
                         await commitCaptionStyleBatch(styles, source,
-                            async () => (await this.fileService.readFile(location.captionsUri)).value.toString(),
-                            captionsSource => this.annotationsService.writeEditSnapshot({
-                                editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
-                            }));
+                            async () => {
+                                const content = (await this.fileService.readFile(location.captionsUri)).value.toString();
+                                beforeSource ??= content;
+                                return content;
+                            },
+                            async captionsSource => {
+                                afterSource = captionsSource;
+                                await this.annotationsService.writeEditSnapshot({
+                                    editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
+                                });
+                            });
+                        return captionPaintOnlyChange(beforeSource, afterSource);
                     };
-                    await applyStyles(nextStyles, captionsSource);
+                    const paintOnly = await applyStyles(nextStyles, captionsSource);
                     const feedback = request.kind === 'caption-style-font-family'
                         ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
                         label: feedback?.history ?? '字幕のスタイルを変更',
                         undo: async () => {
-                            await applyStyles(originalStyles);
-                            await this.reloadCaptions();
+                            const changedPaintOnly = await applyStyles(originalStyles);
+                            if (changedPaintOnly) await this.reloadCaptionStyles();
+                            else await this.reloadCaptions();
                         },
                         redo: async () => {
-                            await applyStyles(nextStyles);
-                            await this.reloadCaptions();
+                            const changedPaintOnly = await applyStyles(nextStyles);
+                            if (changedPaintOnly) await this.reloadCaptionStyles();
+                            else await this.reloadCaptions();
                         }
                     });
-                    await this.reloadCaptions();
+                    if (paintOnly) await this.reloadCaptionStyles();
+                    else await this.reloadCaptions();
                     this.hideNotice();
                     this.footer.textContent = feedback?.footer ?? '字幕のスタイルを更新しました。';
                     return { ok: true };
@@ -10426,7 +10440,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         if (shouldReloadCaptions(this.lastAppliedCaptionsSource, nextSource)) {
-            await this.reloadCaptionsFromSource(nextSource);
+            await this.reloadCaptionsFromSource(nextSource,
+                captionPaintOnlyChange(this.lastAppliedCaptionsSource, nextSource));
         }
     }
 
@@ -10435,7 +10450,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.reloadCaptionsFromSource();
     }
 
-    protected async reloadCaptionsFromSource(source?: string): Promise<void> {
+    /** Style edits retain the cue layout and only need the current caption and inspector state. */
+    protected async reloadCaptionStyles(): Promise<void> {
+        await this.reloadCaptionsFromSource(undefined, true);
+    }
+
+    protected async reloadCaptionsFromSource(source?: string, styleOnly = false): Promise<void> {
         const generation = ++this.captionReloadGeneration;
         if (this.location) {
             try {
@@ -10466,6 +10486,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.captionReloadGeneration) return;
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
+        if (styleOnly) return;
         await renderAroundCaptionDisplayReload(
             () => this.reloadResolvedCaptionDisplay(),
             () => this.renderStrip(),

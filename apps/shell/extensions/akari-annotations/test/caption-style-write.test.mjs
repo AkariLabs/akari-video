@@ -5,6 +5,7 @@ import * as captionStyleEffects from '../lib/browser/inspector/caption-style-eff
 import * as myStyleLook from '../lib/browser/my-style-look.js';
 import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
+import { captionPaintOnlyChange } from '../lib/common/caption-paint-only-change.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
@@ -15,7 +16,8 @@ assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
 const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
 const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
-  'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', ...storeAliases, `return (async function () {
+  'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', 'caption_paint_only_change_1',
+  ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -69,7 +71,8 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
     annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); },
       writeEditSnapshot: async entry => { writes.push(entry); } },
     pushHistory: entry => { history.push(entry); },
-    reloadCaptions: async () => {}, reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
+    reloadCaptions: async () => {}, reloadCaptionStyles: async () => {},
+    reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
@@ -79,7 +82,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
         calls.push(...styles.map(entry => ({ captionId: entry.id, textStyle: entry.style })));
         return commitCaptionStyleBatch(styles, input, read, write);
       }
-    }, ...storeAliases.map(() => editStore)); }
+    }, { captionPaintOnlyChange }, ...storeAliases.map(() => editStore)); }
   catch (error) { result = { ok: false, message: error.message }; }
   assert.equal(result.ok, expectOk, result.message);
   assert.equal(history.length, expectOk ? 1 : 0);

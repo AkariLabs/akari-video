@@ -25,6 +25,7 @@ test('caption textarea keeps original newlines on blur and saves added newlines'
     assert.match(inspector, /field\.inputKind === 'caption-text'\) \{\s*const textarea = document\.createElement\('textarea'\)/);
     assert.match(inspector, /textarea\.rows = 2;\s*textarea\.value = editValue;/);
     assert.match(inspector, /textarea\.addEventListener\('input', fit\)/);
+    assert.match(inspector, /captionTextTimer = setTimeout\(\(\) => \{ captionTextTimer = undefined; void commit\(\); \}, 180\)/);
     assert.match(inspector, /key === 'Enter' && \(navigator\.platform\.includes\('Mac'\) \? keyboard\.metaKey : keyboard\.ctrlKey\)/);
     assert.match(inspector, /key === 'Escape'\) \{\s*event\.preventDefault\(\);\s*input\.value = editValue;\s*input\.blur\(\)/);
     const start = inspector.indexOf('const commitValue = async (nextValue: string');
