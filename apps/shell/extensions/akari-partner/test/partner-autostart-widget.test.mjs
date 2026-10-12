@@ -71,7 +71,8 @@ test('ワークスペースの bypass 指定があっても CLI は User 既定�
         } },
         terminalService: { async newTerminal(options) { assert.deepEqual(options.shellArgs, ['--approve-for-me']); return terminal; } },
         setProgress() {}, setComplete() {}, setFailure: (_entry, _status, detail) => assert.fail(detail),
-        ensureCliProvisioned: async () => {}, attachTerminal: async () => {}, rememberPartnerStart: async () => {}
+        ensureCliProvisioned: async () => {}, attachTerminal: async () => {}, rememberPartnerStart: async () => {},
+        noticeCliUpdate: async () => {}
     };
     widget.partnerPermissionMode = method('partnerPermissionMode', {
         normalizePartnerPermissionMode, PARTNER_PERMISSION_PREFERENCE: 'akari.partner.permissionMode'

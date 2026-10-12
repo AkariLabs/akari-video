@@ -124,6 +124,7 @@ function makeDialog(values = {}, extra = {}) {
     Object.assign(dialog, {
         notice: new FakeNode('p'), preferenceWrites: Promise.resolve(), localPreferenceWrites: new Set(), compareDraft: [], compareEnabled: false,
         transcribe: new FakeNode('section'), sections: new Map(), isDisposed: false,
+        partnerFreshness: {}, partnerUpdateNote: {}, partnerUpdating: new Set(),
         preferences: {
             get(key, fallback) { return key in values ? values[key] : fallback; },
             inspect(key) { return { globalValue: key in values ? values[key] : undefined }; },
