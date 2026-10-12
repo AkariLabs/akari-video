@@ -10,3 +10,8 @@ test('covering ids require matching optional src and overlap', () => assert.deep
   { id: 'e-0001', t_start: 1, t_end: 2, word: 'a', emotion: 'neutral' },
   { id: 'e-0002', src: 'x', t_start: 1, t_end: 2, word: 'b', emotion: 'neutral' }
 ], [{ t_start: 1.5, t_end: 3 }]), ['e-0001']));
+
+test('台本の強調 upsert は素材の目印を保持する', () => {
+  assert.deepEqual(planEmphasisUpserts([{ src: 'camera-a', t_start: 1, t_end: 2, word: '語' }], 'neon'),
+    [{ src: 'camera-a', t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon' }]);
+});

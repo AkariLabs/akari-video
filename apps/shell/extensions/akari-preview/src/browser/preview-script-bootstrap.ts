@@ -7443,6 +7443,10 @@ export function previewBootstrapScript(): string {
                 && emphasis.t_start < word.end
                 && (word.text === emphasis.word || emphasis.word.includes(word.text))
             );
+            const presetCaptionTokenCss = '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}';
+            const presetStyleAttribute = vars => escapeCaptionHtml(Object.entries(vars)
+                .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
+                .map(([name, value]) => name + ':' + value + ';').join(''));
             const resolveEmphasisStyle = emphasis => {
                 if (emphasis.style_hint === 'one-char-bang'
                     || emphasis.style_hint === 'size-pulse'
@@ -7466,6 +7470,13 @@ export function previewBootstrapScript(): string {
             };
             const renderEmphasisCaptionToken = (word, rangeStart, emphasis, renderChars = null) => {
                 const renderText = renderChars || escapeCaptionHtml;
+                if (emphasis._presetStyleVars) {
+                    return '<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--preset" data-emphasis-id="'
+                        + escapeCaptionHtml(emphasis.id) + '" data-emphasis-preset="'
+                        + escapeCaptionHtml(emphasis.style_preset) + '" style="'
+                        + presetStyleAttribute(emphasis._presetStyleVars) + '">'
+                        + renderText(word.text) + '</span>';
+                }
                 const style = resolveEmphasisStyle(emphasis);
                 const overlapStart = Math.max(word.start, emphasis.t_start);
                 const overlapEnd = Math.min(word.end, emphasis.t_end);
@@ -7844,6 +7855,7 @@ export function previewBootstrapScript(): string {
                     + revealWordCss
                     + revealCss
                     + emphasisCss
+                    + (hasEmphasis ? presetCaptionTokenCss : '')
                     + captionTextAnimationKeyframesCss(captionAnimation)
                     + captionContextCss(caption, blockMode)
                     + '</style><div class="akari-caption__plate"'
@@ -7891,7 +7903,7 @@ export function previewBootstrapScript(): string {
                             + resolvedRunPlateCss
                             + resolvedFrameCss
                             + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
-                            + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
+                            + presetCaptionTokenCss
                             + (caption.style === 'karaoke' ? '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}' : '')
                             + captionContextCss(caption, false, true)
                             + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})

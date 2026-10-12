@@ -5043,7 +5043,8 @@ export class AkariDaihonWidget extends BaseWidget {
         return this.wordRanges.flatMap(range => {
             const row = this.rows.find(candidate => candidate.id === range.row);
             const selected = row?.words?.slice(range.a, range.b + 1);
-            return row && selected?.length ? [{ row, t_start: selected[0].start,
+            const src = row ? this.sourceIdForRow(row) : undefined;
+            return row && selected?.length ? [{ row, ...(src ? { src } : {}), t_start: selected[0].start,
                 t_end: selected[selected.length - 1].end, word: selected.map(value => value.text).join('') }] : [];
         });
     }
