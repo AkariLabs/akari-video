@@ -3262,9 +3262,10 @@
             ? threeCanvasPlacement(canvas, container, config.width, config.height)
             : null;
           const item = threeItemsById.get(value.id);
-          const hasMotion = Array.isArray(item?.keyframes) || item?.motion
-            || item?.motionSource?.motion || Array.isArray(item?.motionSource?.keyframes)
-            || item?.motionParents?.some((parent) => parent?.motion || Array.isArray(parent?.keyframes));
+          // 毎コマの変形と 3D の向きを描画に入れるのはキーを持つ 3D（自分か祖先）だけ。動きのプリセットだけの 3D は
+          // 従来どおり登場・退場の経路（sampled / composite）に任せ、挙動を変えない
+          const hasMotion = Array.isArray(item?.keyframes) || Array.isArray(item?.motionSource?.keyframes)
+            || item?.motionParents?.some((parent) => Array.isArray(parent?.keyframes));
           threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor,
             draw, motionItem: hasMotion ? item : null });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
