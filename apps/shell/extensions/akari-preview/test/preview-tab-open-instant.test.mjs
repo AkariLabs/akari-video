@@ -1,3 +1,7 @@
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
@@ -5,6 +9,7 @@ import { readHandlerCompiled } from './helpers/handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 const placeholder = require('../lib/common/preview-placeholder.js');
+const previewText = require('../lib/common/preview-text.js');
 const source = readHandlerCompiled();
 function method(name) {
     const start = source.search(new RegExp(`    (?:async )?${name}\\(`, 'u'));
@@ -29,11 +34,11 @@ const methods = [
     'configurePreview', 'discardFailedPlaceholder', 'discardPreviewWidget',
     'armPlaceholderPreviewTimeout', 'removePlaceholderPreview', 'showMessageCard'
 ].map(method).join('\n');
-const Handler = new Function('uri_1', 'webview_1', 'preview_placeholder_1', 'preview_host_constants_1',
+const Handler = new Function('uri_1', 'webview_1', 'preview_placeholder_1', 'preview_host_constants_1', 'preview_text_1',
     'window', 'CustomEvent', 'PreviewLibraryDrop', 'document', 'setTimeout', 'clearTimeout',
     `return class { ${methods} }`)(
     { default: URI }, { WebviewWidget: { FACTORY_ID: 'webview' } }, placeholder,
-    { PREVIEW_OPEN_ATTEMPTS: 2 }, { dispatchEvent() {}, requestAnimationFrame(callback) { callback(); } },
+    { PREVIEW_OPEN_ATTEMPTS: 2 }, previewText, { dispatchEvent() {}, requestAnimationFrame(callback) { callback(); } },
     class {}, class {}, { createElement: () => new Element() },
     (callback, milliseconds) => ({ callback, milliseconds, cleared: false }),
     timer => { timer.cleared = true; }

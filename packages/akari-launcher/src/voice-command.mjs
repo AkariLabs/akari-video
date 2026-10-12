@@ -1,3 +1,4 @@
+import { cliText } from './i18n.mjs';
 // 本人の録音を正本として保存し、生成エンジンの写しを管理する。
 import fs from 'node:fs';
 import os from 'node:os';
@@ -75,7 +76,7 @@ class VoiceError extends Error {
   constructor(message, result = {}, exitCode = 2) { super(message); this.result = result; this.exitCode = exitCode; }
 }
 function requireId(value, flag) {
-  if (!ID.test(value ?? '')) throw new VoiceError(`${flag} は英小文字・数字・ハイフンで指定してください`);
+  if (!ID.test(value ?? '')) throw new VoiceError(cliText('cli.voice.error.idFormat', { flag }));
   return value;
 }
 function home(env) { return path.resolve(resolveAkariHome(env)); }
@@ -124,7 +125,7 @@ export function resolveVoiceProfile(id, env = process.env) {
   }
   const dir = path.join(legacyRoot(env), id), file = path.join(dir, 'meta.json');
   if (fs.existsSync(file)) return { dir, meta: normalizeMeta(readJson(file), true), legacy: true };
-  throw new VoiceError(`声プロファイルが見つかりません: ${id}`);
+  throw new VoiceError(cliText('cli.voice.error.profileMissing', { id }));
 }
 export function listProfiles(env, avatar) {
   const items = [];
@@ -178,9 +179,9 @@ function profileSummary(meta, id, avatar, legacy, env) {
 function audioLevels(audio, runtime) {
   if (runtime.measureAudio) return runtime.measureAudio(audio);
   const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-i', audio, '-ac', '1', '-ar', '16000', '-f', 's16le', 'pipe:1'], { maxBuffer: 16 * 1024 * 1024 });
-  if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : `音声を測定できません: ${result.stderr?.toString().slice(0, 200)}`);
+  if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? cliText('cli.voice.error.ffmpegMissing') : cliText('cli.voice.error.measureFailed', { message: result.stderr?.toString().slice(0, 200) }));
   const pcm = result.stdout, count = Math.floor(pcm.length / 2);
-  if (!count) throw new VoiceError('音声が空です');
+  if (!count) throw new VoiceError(cliText('cli.voice.error.emptyAudio'));
   let peak = 0, sum = 0, floor = Infinity, windowSum = 0, windowCount = 0;
   for (let i = 0; i < count; i++) {
     const sample = pcm.readInt16LE(i * 2) / 32768;
@@ -196,12 +197,12 @@ async function verifyScript(audio, script, backend, runtime) {
   const { verifyNarrationAudio } = await import('./narration-command.mjs');
   const { code, result: value } = await verifyNarrationAudio(audio, VOICE_SCRIPTS[script], backend, runtime.verifyRuntime);
   if (code === 3) return { status: 'unavailable' };
-  if (code) throw new VoiceError(value.error || '原稿照合に失敗しました');
+  if (code) throw new VoiceError(value.error || cliText('cli.voice.error.scriptVerificationFailed'));
   return { score: value.score, verdict: value.verdict, backend: value.backend };
 }
 export async function checkVoiceRecording({ audio, script, backend = 'auto' }, runtime = {}) {
-  if (!VOICE_SCRIPTS[script]) throw new VoiceError('原稿の種類が不明です');
-  if (!['auto', 'speechanalyzer', 'whisper'].includes(backend)) throw new VoiceError('聞き取り backend が不明です');
+  if (!VOICE_SCRIPTS[script]) throw new VoiceError(cliText('cli.voice.error.scriptUnknown'));
+  if (!['auto', 'speechanalyzer', 'whisper'].includes(backend)) throw new VoiceError(cliText('cli.voice.error.transcriberUnknown'));
   const level = await audioLevels(audio, runtime);
   const durationOk = level.duration_s >= (script === 'consent-gemini' ? 2 : script === 'extended-v1' ? 45 : 15) &&
     level.duration_s <= (script === 'consent-gemini' ? 60 : script === 'extended-v1' ? 180 : 120);
@@ -212,9 +213,9 @@ export async function checkVoiceRecording({ audio, script, backend = 'auto' }, r
     { score: verification.score, verdict: verification.verdict, backend: verification.backend,
       ok: verification.score >= (script === 'consent-gemini' ? 0.8 : 0.7) };
   const reasons = [];
-  if (!durationOk) reasons.push('録音の長さが範囲外です');
-  if (!levelOk) reasons.push('録音の音量が範囲外です');
-  if (scriptCheck.ok === false) reasons.push(`原稿との一致率が ${script === 'consent-gemini' ? 80 : 70}% 未満です`);
+  if (!durationOk) reasons.push(cliText('cli.voice.check.durationOutOfRange'));
+  if (!levelOk) reasons.push(cliText('cli.voice.check.levelOutOfRange'));
+  if (scriptCheck.ok === false) reasons.push(cliText('cli.voice.check.scriptScoreLow', { percent: script === 'consent-gemini' ? 80 : 70 }));
   return { checks: { duration: { value_s: Number(level.duration_s.toFixed(3)), ok: durationOk },
     level: { peak_db: level.peak_db, mean_db: level.mean_db, ok: levelOk },
     noise: { floor_db: level.floor_db, ok: noiseOk, warn: !noiseOk }, script: scriptCheck },
@@ -224,7 +225,7 @@ function ffmpegConvert(source, destination, runtime, sampleRate = 48000, maxDura
   if (runtime.convertAudio) return runtime.convertAudio(source, destination, maxDurationS, sampleRate);
   const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-y', '-i', source,
     ...(maxDurationS === null ? [] : ['-t', String(maxDurationS)]), '-ac', '1', '-ar', String(sampleRate), '-c:a', 'pcm_s16le', destination]);
-  if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を wav に変換できません');
+  if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? cliText('cli.voice.error.ffmpegMissing') : cliText('cli.voice.error.wavConversionFailed'));
 }
 function addDefaultVoice(voiceDir, id) {
   const file = path.join(voiceDir, 'voice.json');
@@ -233,22 +234,22 @@ function addDefaultVoice(voiceDir, id) {
 }
 function endpoint(value, env) {
   let url;
-  try { url = new URL(value ?? env.AKARI_IRODORI_URL ?? IRODORI_DEFAULT_URL); } catch { throw new VoiceError('彩サーバー URL が不正です'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new VoiceError('彩サーバー URL が不正です');
+  try { url = new URL(value ?? env.AKARI_IRODORI_URL ?? IRODORI_DEFAULT_URL); } catch { throw new VoiceError(cliText('cli.voice.error.irodoriUrl')); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new VoiceError(cliText('cli.voice.error.irodoriUrl'));
   return { base: `${url.origin}${url.pathname.replace(/\/+$/, '')}`, server: `${url.hostname}:${url.port || (url.protocol === 'https:' ? '443' : '80')}` };
 }
 export function readFalKey(env = process.env) {
   if (env.FAL_KEY) return env.FAL_KEY;
-  if (typeof readCreatorCredentials !== 'function') throw new VoiceError('作業場の鍵読み取りモジュールが見つかりません');
+  if (typeof readCreatorCredentials !== 'function') throw new VoiceError(cliText('cli.voice.error.credentialReaderMissing'));
   try { return readCreatorCredentials(env).values.get('FAL_KEY') || null; }
-  catch { throw new VoiceError('credentials.env を読めません'); }
+  catch { throw new VoiceError(cliText('cli.voice.error.credentialsUnreadable')); }
 }
 export function readProviderKey(name, env = process.env) {
-  if (!['FISH_AUDIO_API_KEY', 'GEMINI_API_KEY'].includes(name)) throw new VoiceError('鍵の種類が不正です');
+  if (!['FISH_AUDIO_API_KEY', 'GEMINI_API_KEY'].includes(name)) throw new VoiceError(cliText('cli.voice.error.keyTypeInvalid'));
   if (env[name]) return env[name];
-  if (typeof readCreatorCredentials !== 'function') throw new VoiceError('作業場の鍵読み取りモジュールが見つかりません');
+  if (typeof readCreatorCredentials !== 'function') throw new VoiceError(cliText('cli.voice.error.credentialReaderMissing'));
   try { return readCreatorCredentials(env).values.get(name) || null; }
-  catch { throw new VoiceError('credentials.env を読めません'); }
+  catch { throw new VoiceError(cliText('cli.voice.error.credentialsUnreadable')); }
 }
 function durationFromWav(buffer) {
   if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') return null;
@@ -266,25 +267,25 @@ function parse(args) {
     rename: ['profile', 'label'], extend: ['profile', 'audio', 'script', 'backend'],
     copy: ['profile', 'engine', 'consent-audio', 'irodori-url', 'yes'], try: ['profile', 'engine', 'text', 'reading', 'irodori-url', 'yes'],
     profiles: ['avatar'], delete: ['profile', 'keep-server', 'irodori-url'], 'migrate-legacy': ['profile', 'avatar'] };
-  if (!Object.hasOwn(allowed, sub)) throw new VoiceError('不明な voice サブコマンドです');
+  if (!Object.hasOwn(allowed, sub)) throw new VoiceError(cliText('cli.voice.error.unknownCommand'));
   const flags = new Set(['consent-self', 'consent-cloud', 'yes', 'keep-server']);
   const options = {};
   for (let i = 1; i < args.length; i++) {
     const token = args[i];
     if (token === '--json') continue;
     const name = token.startsWith('--') ? token.slice(2) : '';
-    if (!allowed[sub].includes(name)) throw new VoiceError(`不明な引数です: ${token}`);
+    if (!allowed[sub].includes(name)) throw new VoiceError(cliText('cli.voice.error.unknownArgument', { token }));
     if (flags.has(name)) options[name] = true;
-    else { if (!args[i + 1] || args[i + 1].startsWith('--')) throw new VoiceError(`${token} の値がありません`); options[name] = args[++i]; }
+    else { if (!args[i + 1] || args[i + 1].startsWith('--')) throw new VoiceError(cliText('cli.voice.error.valueMissing', { token })); options[name] = args[++i]; }
   }
   return { sub, options };
 }
-function need(options, ...names) { for (const name of names) if (!options[name]) throw new VoiceError(`--${name} が必要です`); }
+function need(options, ...names) { for (const name of names) if (!options[name]) throw new VoiceError(cliText('cli.voice.error.requiredFlag', { name })); }
 function safeReference(record) {
   const name = record.meta.reference?.file;
-  if (!name || path.basename(name) !== name) throw new VoiceError('録音ファイル名が不正です');
+  if (!name || path.basename(name) !== name) throw new VoiceError(cliText('cli.voice.error.recordingFilename'));
   const file = path.join(record.dir, name);
-  if (!fs.existsSync(file)) throw new VoiceError('正本の録音が見つかりません');
+  if (!fs.existsSync(file)) throw new VoiceError(cliText('cli.voice.error.originalMissing'));
   return file;
 }
 async function execute(sub, o, runtime, env) {
@@ -296,11 +297,11 @@ async function execute(sub, o, runtime, env) {
   if (sub === 'check') { need(o, 'audio', 'script'); return checkVoiceRecording(o, runtime); }
   if (sub === 'create') {
     need(o, 'avatar', 'id', 'label', 'audio', 'script'); requireId(o.avatar, '--avatar'); requireId(o.id, '--id');
-    if (!o['consent-self']) throw new VoiceError('本人の声への同意（--consent-self）が必要です');
+    if (!o['consent-self']) throw new VoiceError(cliText('cli.voice.error.selfConsentRequired'));
     const checked = await checkVoiceRecording(o, runtime);
-    if (!checked.pass) throw new VoiceError('録音のチェックに合格していません', { check: checked, reasons: checked.reasons });
+    if (!checked.pass) throw new VoiceError(cliText('cli.voice.error.recordingCheckFailed'), { check: checked, reasons: checked.reasons });
     const dir = profileDir(env, o.avatar, o.id), voiceDir = path.dirname(dir);
-    if (fs.existsSync(dir)) throw new VoiceError('同じ声 ID が既にあります');
+    if (fs.existsSync(dir)) throw new VoiceError(cliText('cli.voice.error.idExists'));
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); fs.chmodSync(dir, 0o700);
     const recording = path.join(dir, 'ref-recording.wav');
     try {
@@ -321,12 +322,12 @@ async function execute(sub, o, runtime, env) {
   if (sub === 'migrate-legacy') {
     need(o, 'profile', 'avatar'); requireId(o.avatar, '--avatar'); requireId(o.profile, '--profile');
     const oldDir = path.join(legacyRoot(env), o.profile), oldFile = path.join(oldDir, 'meta.json');
-    if (!fs.existsSync(oldFile)) throw new VoiceError('旧形式の声が見つかりません');
+    if (!fs.existsSync(oldFile)) throw new VoiceError(cliText('cli.voice.error.legacyVoiceMissing'));
     const raw = readJson(oldFile), meta = normalizeMeta(raw, true);
     const oldName = fs.readdirSync(oldDir).find(name => /^ref-recording\.[a-z0-9]+$/i.test(name));
-    if (!oldName) throw new VoiceError('旧録音ファイルが見つかりません');
+    if (!oldName) throw new VoiceError(cliText('cli.voice.error.legacyRecordingMissing'));
     const dir = profileDir(env, o.avatar, o.profile);
-    if (fs.existsSync(dir)) throw new VoiceError('移行先の声が既にあります');
+    if (fs.existsSync(dir)) throw new VoiceError(cliText('cli.voice.error.destinationExists'));
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     try {
       fs.copyFileSync(path.join(oldDir, oldName), path.join(dir, oldName)); fs.chmodSync(path.join(dir, oldName), 0o600);
@@ -347,28 +348,28 @@ async function execute(sub, o, runtime, env) {
   const record = resolveVoiceProfile(o.profile, env);
   if (sub === 'rename') {
     need(o, 'label');
-    if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
+    if (record.legacy) throw new VoiceError(cliText('cli.voice.error.legacyMigrateFirst'));
     const label = o.label.trim();
-    if (!label) throw new VoiceError('表示名を指定してください');
-    if (record.meta.version !== 2 || record.meta.profile !== o.profile) throw new VoiceError('声の記録が不正です');
+    if (!label) throw new VoiceError(cliText('cli.voice.error.labelRequired'));
+    if (record.meta.version !== 2 || record.meta.profile !== o.profile) throw new VoiceError(cliText('cli.voice.error.recordInvalid'));
     writePrivateJsonAtomic(path.join(record.dir, 'meta.json'), { ...record.meta, label });
     return { status: 'ok', profile: o.profile, label };
   }
   if (sub === 'extend') {
     need(o, 'audio', 'script');
-    if (o.script !== 'extended-v1') throw new VoiceError('追加原稿は extended-v1 を指定してください');
-    if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
+    if (o.script !== 'extended-v1') throw new VoiceError(cliText('cli.voice.error.extendedScriptRequired'));
+    if (record.legacy) throw new VoiceError(cliText('cli.voice.error.legacyMigrateFirst'));
     if (record.meta.version !== 2 || record.meta.profile !== o.profile || record.meta.reference?.script_version !== 'quick-v1') {
-      throw new VoiceError('追加できる quick-v1 の正本がありません');
+      throw new VoiceError(cliText('cli.voice.error.quickRecordingMissing'));
     }
     const recording = safeReference(record);
-    if (path.basename(recording) !== 'ref-recording.wav') throw new VoiceError('正本は wav である必要があります');
+    if (path.basename(recording) !== 'ref-recording.wav') throw new VoiceError(cliText('cli.voice.error.wavRequired'));
     const original = fs.readFileSync(recording);
     if (record.meta.reference.sha256 && crypto.createHash('sha256').update(original).digest('hex') !== record.meta.reference.sha256) {
-      throw new VoiceError('正本の録音が保存時から変わっています');
+      throw new VoiceError(cliText('cli.voice.error.originalChanged'));
     }
     const checked = await checkVoiceRecording(o, runtime);
-    if (!checked.pass) throw new VoiceError('追加録音のチェックに合格していません', { check: checked, reasons: checked.reasons });
+    if (!checked.pass) throw new VoiceError(cliText('cli.voice.error.extraRecordingCheckFailed'), { check: checked, reasons: checked.reasons });
     const staged = path.join(record.dir, `.ref-recording-${crypto.randomUUID()}.wav`);
     const previous = path.join(record.dir, 'ref-recording.prev.wav');
     try {
@@ -376,7 +377,7 @@ async function execute(sub, o, runtime, env) {
       else {
         const result = spawnSync(resolveMediaCommand('ffmpeg'), ['-v', 'error', '-y', '-i', recording, '-i', o.audio,
           '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', staged]);
-        if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を連結できません');
+        if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? cliText('cli.voice.error.ffmpegMissing') : cliText('cli.voice.error.joinFailed'));
       }
       fs.chmodSync(staged, 0o600);
       const text = `${VOICE_SCRIPTS['quick-v1']}${VOICE_SCRIPTS['extended-v1']}`;
@@ -388,9 +389,9 @@ async function execute(sub, o, runtime, env) {
         verification = result.code === 3 ? { status: 'unavailable' } : result.code ? { status: 'error' } : result.result;
       }
       if (verification.status === 'error' || verification.status === 'unavailable' && checked.checks.script.ok !== 'unavailable') {
-        throw new VoiceError('連結後の原稿照合ができません');
+        throw new VoiceError(cliText('cli.voice.error.joinVerificationFailed'));
       }
-      if (verification.score !== undefined && verification.score < 0.7) throw new VoiceError('連結後の原稿一致率が 70% 未満です');
+      if (verification.score !== undefined && verification.score < 0.7) throw new VoiceError(cliText('cli.voice.error.joinScoreLow'));
       const level = audioLevels(staged, runtime);
       const bytes = fs.readFileSync(staged);
       const nextMeta = { ...record.meta, reference_text: text,
@@ -405,27 +406,27 @@ async function execute(sub, o, runtime, env) {
       catch (error) { fs.writeFileSync(recording, original, { mode: 0o600 }); throw error; }
       return { status: 'ok', profile: o.profile, duration_s: nextMeta.reference.duration_s,
         ...(verification.score !== undefined ? { score: verification.score } : {}),
-        warnings: Object.keys(nextMeta.engines).length ? ['写しが古くなりました。akari voice copy で写しを作り直してください'] : [] };
+        warnings: Object.keys(nextMeta.engines).length ? [cliText('cli.voice.warning.copyStale')] : [] };
     } finally { fs.rmSync(staged, { force: true }); }
   }
   if (sub === 'copy') {
-    need(o, 'engine'); if (!['irodori', 'fal-qwen3', 'minimax-2.6-hd', 'gemini-3.8-flash-tts'].includes(o.engine)) throw new VoiceError('作り手が不明です');
-    if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
-    if (record.meta.consent?.self_voice !== true) throw new VoiceError('本人の声への同意記録がありません');
+    need(o, 'engine'); if (!['irodori', 'fal-qwen3', 'minimax-2.6-hd', 'gemini-3.8-flash-tts'].includes(o.engine)) throw new VoiceError(cliText('cli.voice.error.providerUnknown'));
+    if (record.legacy) throw new VoiceError(cliText('cli.voice.error.legacyMigrateFirst'));
+    if (record.meta.consent?.self_voice !== true) throw new VoiceError(cliText('cli.voice.error.selfConsentMissing'));
     const recording = safeReference(record);
     if (record.meta.reference?.sha256 && crypto.createHash('sha256').update(fs.readFileSync(recording)).digest('hex') !== record.meta.reference.sha256) {
-      throw new VoiceError('正本の録音が保存時から変わっています');
+      throw new VoiceError(cliText('cli.voice.error.originalChanged'));
     }
     if (o.engine === 'gemini-3.8-flash-tts') {
-      if (record.meta.consent?.cloud_upload !== true) throw new VoiceError('クラウド送信への同意がありません');
-      if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
+      if (record.meta.consent?.cloud_upload !== true) throw new VoiceError(cliText('cli.voice.error.cloudConsentMissing'));
+      if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError(cliText('cli.voice.error.localScoreLow'));
       need(o, 'consent-audio');
-      if (!(record.meta.reference?.duration_s >= 10)) throw new VoiceError('Gemini の正本録音は 10 秒以上が必要です');
+      if (!(record.meta.reference?.duration_s >= 10)) throw new VoiceError(cliText('cli.voice.error.geminiDuration'));
       const checked = await checkVoiceRecording({ audio: o['consent-audio'], script: 'consent-gemini' }, runtime);
-      if (checked.checks.script.ok !== true || !checked.pass) throw new VoiceError('同意録音の照合に合格していません', { check: checked });
-      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: null, reason: '見積不可' });
+      if (checked.checks.script.ok !== true || !checked.pass) throw new VoiceError(cliText('cli.voice.error.consentVerificationFailed'), { check: checked });
+      if (!o.yes) throw new VoiceError(cliText('cli.voice.error.paidApprovalRequired'), { status: 'needs_approval', estimate_usd: null, reason: cliText('cli.voice.error.costUnknown') });
       const key = runtime.geminiKey ?? readProviderKey('GEMINI_API_KEY', env);
-      if (!key) throw new VoiceError('GEMINI_API_KEY が未設定です');
+      if (!key) throw new VoiceError(cliText('cli.voice.error.geminiKeyMissing'));
       const consentFile = path.join(record.dir, 'consent-gemini.wav');
       const sourceFile = path.join(record.dir, `.gemini-source-${crypto.randomUUID()}.wav`);
       try {
@@ -437,23 +438,23 @@ async function execute(sub, o, runtime, env) {
           body: JSON.stringify({ store: true, voice: { model: 'gemini-3.8-flash-tts', type: 'replicated', display_name: record.meta.label ?? o.profile,
             replicated: { source_audio: { mime_type: 'audio/wav', data: source.toString('base64') },
               consent_audio: { mime_type: 'audio/wav', data: consent.toString('base64') } } } }) });
-        if (!response.ok) throw new VoiceError(`Google API が HTTP ${response.status} を返しました`);
+        if (!response.ok) throw new VoiceError(cliText('cli.voice.error.googleHttp', { status: response.status }));
         const result = await response.json();
-        if (!/^voice_[A-Za-z0-9_-]+$/.test(result?.id ?? '')) throw new VoiceError('Google API の応答に voice_ ID がありません');
+        if (!/^voice_[A-Za-z0-9_-]+$/.test(result?.id ?? '')) throw new VoiceError(cliText('cli.voice.error.googleVoiceIdMissing'));
         record.meta.engines[o.engine] = { voice_id: result.id, created_at: now,
           source_duration_s: Math.min(record.meta.reference.duration_s, 30),
           consent: { file: 'consent-gemini.wav', text: VOICE_SCRIPTS['consent-gemini'],
             verification: { score: checked.checks.script.score, backend: checked.checks.script.backend }, at: now } };
       } finally { fs.rmSync(sourceFile, { force: true }); }
     } else if (o.engine === 'fal-qwen3' || o.engine === 'minimax-2.6-hd') {
-      if (record.meta.consent?.cloud_upload !== true) throw new VoiceError('クラウド送信への同意がありません');
-      if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
-      if (o.engine === 'minimax-2.6-hd' && !(record.meta.reference?.duration_s >= 10)) throw new VoiceError('MiniMax の参照音声は 10 秒以上必要です');
-      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval',
+      if (record.meta.consent?.cloud_upload !== true) throw new VoiceError(cliText('cli.voice.error.cloudConsentMissing'));
+      if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError(cliText('cli.voice.error.localScoreLow'));
+      if (o.engine === 'minimax-2.6-hd' && !(record.meta.reference?.duration_s >= 10)) throw new VoiceError(cliText('cli.voice.error.minimaxDuration'));
+      if (!o.yes) throw new VoiceError(cliText('cli.voice.error.paidApprovalRequired'), { status: 'needs_approval',
         estimate_usd: o.engine === 'fal-qwen3' ? CLONE_ESTIMATE_USD : null,
-        ...(o.engine === 'minimax-2.6-hd' ? { reason: '見積不可' } : {}) });
+        ...(o.engine === 'minimax-2.6-hd' ? { reason: cliText('cli.voice.error.costUnknown') } : {}) });
       const key = runtime.falKey ?? readFalKey(env);
-      if (!key) throw new VoiceError('FAL_KEY が未設定です');
+      if (!key) throw new VoiceError(cliText('cli.voice.error.falKeyMissing'));
       const data = fs.readFileSync(recording);
       let audioUrl;
       try { audioUrl = o.engine === 'minimax-2.6-hd' ? referenceDataUri(data) : `data:audio/wav;base64,${data.toString('base64')}`; }
@@ -461,50 +462,50 @@ async function execute(sub, o, runtime, env) {
       const response = await fetchImpl(o.engine === 'fal-qwen3' ? FAL_CLONE_URL : 'https://fal.run/fal-ai/minimax/voice-clone', {
         method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(o.engine === 'fal-qwen3' ? { audio_url: audioUrl, reference_text: record.meta.reference_text } : { audio_url: audioUrl }) });
-      if (!response.ok) throw new VoiceError(`fal API が HTTP ${response.status} を返しました`);
+      if (!response.ok) throw new VoiceError(cliText('cli.voice.error.falHttp', { status: response.status }));
       const result = await response.json();
       if (o.engine === 'fal-qwen3') {
         const embedding_source_url = result?.speaker_embedding?.url;
-        if (!embedding_source_url) throw new VoiceError('fal API の応答に speaker_embedding.url がありません');
+        if (!embedding_source_url) throw new VoiceError(cliText('cli.voice.error.embeddingMissing'));
         record.meta.engines['fal-qwen3'] = { embedding_source_url, created_at: now };
       } else {
-        if (!result?.custom_voice_id) throw new VoiceError('fal API の応答に custom_voice_id がありません');
+        if (!result?.custom_voice_id) throw new VoiceError(cliText('cli.voice.error.customVoiceIdMissing'));
         record.meta.engines['minimax-2.6-hd'] = { custom_voice_id: result.custom_voice_id, created_at: now };
       }
     } else {
       const target = endpoint(o['irodori-url'], env), form = new FormData();
       form.set('voice_id', `akari-${o.profile}`); form.set('file', new Blob([fs.readFileSync(recording)], { type: 'audio/wav' }), path.basename(recording));
       const response = await fetchImpl(`${target.base}/v1/audio/voices`, { method: 'POST', body: form });
-      if (!response.ok) throw new VoiceError(`彩サーバーが HTTP ${response.status} を返しました`);
+      if (!response.ok) throw new VoiceError(cliText('cli.voice.error.irodoriHttp', { status: response.status }));
       record.meta.engines.irodori = { server: target.server, voice_id: `akari-${o.profile}`, registered_at: now };
     }
     writePrivateJson(path.join(record.dir, 'meta.json'), record.meta);
     return { status: 'ok', profile: o.profile, engine: o.engine, copy: record.meta.engines[o.engine] };
   }
   if (sub === 'try') {
-    need(o, 'engine', 'text'); if (!['irodori', 'fal-qwen3'].includes(o.engine)) throw new VoiceError('作り手が不明です');
+    need(o, 'engine', 'text'); if (!['irodori', 'fal-qwen3'].includes(o.engine)) throw new VoiceError(cliText('cli.voice.error.providerUnknown'));
     const copy = record.meta.engines?.[o.engine];
-    if (!copy) throw new VoiceError('この声には指定した作り手の写しがありません。akari voice copy で作ってください');
+    if (!copy) throw new VoiceError(cliText('cli.voice.error.copyMissing'));
     let buffer, ext;
     if (o.engine === 'irodori') {
       const target = endpoint(o['irodori-url'] ?? env.AKARI_IRODORI_URL ?? `http://${copy.server}`, env);
       const response = await fetchImpl(`${target.base}/v1/audio/speech`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'irodori-tts', input: o.reading ?? o.text, voice: copy.voice_id, response_format: 'wav', speed: 1 }) });
-      if (!response.ok) throw new VoiceError(`彩サーバーが HTTP ${response.status} を返しました`);
+      if (!response.ok) throw new VoiceError(cliText('cli.voice.error.irodoriHttp', { status: response.status }));
       buffer = Buffer.from(await response.arrayBuffer()); ext = 'wav';
-      if (durationFromWav(buffer) === null) throw new VoiceError('彩サーバーの応答が wav ではありません');
+      if (durationFromWav(buffer) === null) throw new VoiceError(cliText('cli.voice.error.irodoriWavMissing'));
     } else {
       const estimate = Number(((o.reading ?? o.text).length * 0.09 / 1000).toFixed(6));
-      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: estimate });
+      if (!o.yes) throw new VoiceError(cliText('cli.voice.error.paidApprovalRequired'), { status: 'needs_approval', estimate_usd: estimate });
       const key = runtime.falKey ?? readFalKey(env);
-      if (!key) throw new VoiceError('FAL_KEY が未設定です');
+      if (!key) throw new VoiceError(cliText('cli.voice.error.falKeyMissing'));
       const response = await fetchImpl(FAL_TTS_URL, { method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: o.reading ?? o.text, language: 'Japanese', speaker_voice_embedding_file_url: copy.embedding_source_url,
           reference_text: record.meta.reference_text, max_new_tokens: 2048 }) });
-      if (!response.ok) throw new VoiceError(`fal API が HTTP ${response.status} を返しました`);
+      if (!response.ok) throw new VoiceError(cliText('cli.voice.error.falHttp', { status: response.status }));
       const url = (await response.json())?.audio?.url;
-      if (!url) throw new VoiceError('fal API の応答に audio.url がありません');
-      const audio = await fetchImpl(url); if (!audio.ok) throw new VoiceError('生成音声を取得できません');
+      if (!url) throw new VoiceError(cliText('cli.voice.error.falAudioMissing'));
+      const audio = await fetchImpl(url); if (!audio.ok) throw new VoiceError(cliText('cli.voice.error.audioFetchFailed'));
       buffer = Buffer.from(await audio.arrayBuffer()); ext = 'mp3';
     }
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-voice-try-'));
@@ -514,31 +515,31 @@ async function execute(sub, o, runtime, env) {
     return { path: file, duration_s: duration, engine: o.engine };
   }
   if (sub === 'delete') {
-    if (record.legacy) throw new VoiceError('旧形式の声は削除できません');
+    if (record.legacy) throw new VoiceError(cliText('cli.voice.error.legacyDelete'));
     const warnings = [];
     const copy = record.meta.engines?.irodori;
     if (copy && !o['keep-server']) {
       const target = endpoint(o['irodori-url'] ?? env.AKARI_IRODORI_URL ?? `http://${copy.server}`, env);
       try {
         const response = await fetchImpl(`${target.base}/v1/audio/voices/${encodeURIComponent(copy.voice_id)}`, { method: 'DELETE' });
-        if (!response.ok) warnings.push(`彩サーバーから削除できませんでした（HTTP ${response.status}）`);
-      } catch { warnings.push('彩サーバーから削除できませんでした'); }
+        if (!response.ok) warnings.push(cliText('cli.voice.warning.irodoriDeleteHttp', { status: response.status }));
+      } catch { warnings.push(cliText('cli.voice.warning.irodoriDeleteFailed')); }
     }
-    if (record.meta.engines?.['fal-qwen3']) warnings.push('fal 側の声は残ります');
-    if (record.meta.engines?.['gemini-3.8-flash-tts']) warnings.push('Google 側の声は残ります');
+    if (record.meta.engines?.['fal-qwen3']) warnings.push(cliText('cli.voice.warning.falVoiceRemains'));
+    if (record.meta.engines?.['gemini-3.8-flash-tts']) warnings.push(cliText('cli.voice.warning.googleVoiceRemains'));
     fs.rmSync(record.dir, { recursive: true });
     const voiceFile = path.join(path.dirname(record.dir), 'voice.json');
     if (fs.existsSync(voiceFile)) { const config = readJson(voiceFile); if (config.default_profile === o.profile) { delete config.default_profile; writePrivateJson(voiceFile, config); } }
     return { status: 'ok', profile: o.profile, warnings };
   }
-  throw new VoiceError('不明な voice サブコマンドです');
+  throw new VoiceError(cliText('cli.voice.error.unknownCommand'));
 }
 export async function runVoiceCommand(args, commandOptions = {}) {
   const log = commandOptions.log ?? console.log;
   const logError = commandOptions.logError ?? console.error;
   const env = commandOptions.env ?? process.env;
   if (!args.length || args.includes('--help') || args.includes('-h')) {
-    log('使い方: akari voice <scripts|check|create|rename|extend|copy|try|profiles|delete|migrate-legacy> [options] --json');
+    log(cliText('cli.voice.help.usage'));
     return { exitCode: 0 };
   }
   try {
@@ -546,7 +547,7 @@ export async function runVoiceCommand(args, commandOptions = {}) {
     const value = await execute(sub, options, commandOptions, env);
     log(JSON.stringify(value)); return { exitCode: 0 };
   } catch (error) {
-    const message = error instanceof VoiceError ? error.message : `声を操作できません: ${error?.message ?? error}`;
+    const message = error instanceof VoiceError ? error.message : cliText('cli.voice.error.operationFailed', { message: error?.message ?? error });
     logError(message); log(JSON.stringify({ error: message, ...(error instanceof VoiceError ? error.result : {}) }));
     return { exitCode: error instanceof VoiceError ? error.exitCode : 1 };
   }

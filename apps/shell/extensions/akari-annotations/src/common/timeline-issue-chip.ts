@@ -1,17 +1,18 @@
+import { t } from '@akari-video/i18n';
 import type { UiLintFinding } from './lint-message-ja';
 import { withNewerVersionLintPrefix } from '@akari-video/edit-store';
 
 export function timelineIssueLabel(count: number): string {
-    return `⚠ 課題 ${count}`;
+    return t('annotationscommon.timelineIssueChip.label.issues', { count, n: count });
 }
 
 export function timelineIssueHeading(count: number, savedVersion?: string): string {
-    return withNewerVersionLintPrefix(`保存前からある課題 ${count} 件（この編集で増えたものではありません）`, savedVersion);
+    return withNewerVersionLintPrefix(t('annotationscommon.timelineIssueChip.label.existingIssuesNoneAddedEdit', { count, n: count }), savedVersion);
 }
 
 export function timelineIssueLine(finding: UiLintFinding): string {
     return [finding.severity ?? 'error', finding.check ?? 'edit-lint',
-        finding.message ?? '不明なエラー', finding.path ?? '—'].join(' · ');
+        finding.message ?? t('annotationscommon.timelineIssueChip.label.unknownErrors'), finding.path ?? '—'].join(' · ');
 }
 
 export function timelineIssueRows(findings: readonly UiLintFinding[], limit = 10): { rows: string[]; remaining: number } {

@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 // 不具合メモ第22項（2026-09-18）: 書き出し後検査が映像を繰り返し走査していた問題。
 // 88 分 4K の実測では verify 段だけで約 63 分（うち signalstats の全フレーム走査が約 57 分）。
 //

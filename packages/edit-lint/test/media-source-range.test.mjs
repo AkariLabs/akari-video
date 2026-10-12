@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -45,6 +50,7 @@ esac
 async function makeProject(edit, assets) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-source-range-"));
   await mkdir(join(root, "assets"), { recursive: true });
+  await mkdir(join(root, ".akari"), { recursive: true });
   for (const name of assets) await writeFile(join(root, "assets", name), "fixture", "utf8");
   await writeFile(join(root, "edit.json"), `${JSON.stringify(edit, null, 2)}\n`, "utf8");
   return root;
@@ -53,7 +59,7 @@ async function makeProject(edit, assets) {
 function run(project, env) {
   return spawnSync(process.execPath, [cliPath, project, "--json", "--media"], {
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, AKARI_LANG: 'ja', ...env },
   });
 }
 

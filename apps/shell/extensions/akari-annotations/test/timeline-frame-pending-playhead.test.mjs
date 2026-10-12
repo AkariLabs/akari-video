@@ -1,9 +1,18 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import * as frameDraw from '../lib/common/timeline-frame-draw.js';
 import { insertTrack, insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
 import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
+import { pluralCountForDisplay } from '../lib/common/plural-display-count.js';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
 const section = (start, end) => source.slice(source.indexOf(`    ${start}(`), source.indexOf(`    ${end}(`, source.indexOf(`    ${start}(`)));
@@ -29,7 +38,7 @@ class FakeElement {
 
 const Widget = new Function('Element', 'document', 'window', 'requestAnimationFrame', 'cancelAnimationFrame',
   'timeline_frame_draw_1', 'timeline_snap_1', 'SNAP_THRESHOLD_PX', 'edit_v2_mutations_1',
-  'frame_geometry_1', 'akari_annotations_commands_2', `return class {
+  'frame_geometry_1', 'akari_annotations_commands_2', 'plural_display_count_1', `return class {
     ${section('onPlayheadHandlePointerDown', 'panViewBy')}
     ${section('beginFrameDraw', 'gapSnapshot')}
     ${section('async commitEmptyFrame', 'frameToolSelectionTarget')}
@@ -38,7 +47,7 @@ const Widget = new Function('Element', 'document', 'window', 'requestAnimationFr
   callback => { const id = ++frameId; frames.set(id, callback); return id; }, id => frames.delete(id),
   frameDraw, { snapThresholdSecondsFor: () => 0 }, 8,
   { insertTrack, insertItem, indexEditV2Items }, { emptyFrameTransform },
-  { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
+  { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' }, { pluralCountForDisplay });
 
 function fixture(service = {}) {
   const uri = { toString: () => 'file:///project' };

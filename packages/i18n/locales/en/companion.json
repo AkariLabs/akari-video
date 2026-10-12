@@ -1,0 +1,19 @@
+{
+  "companion.companion.onStartShowHide.label": "Show or hide {label}",
+  "companion.companion.onStartResetPosition.label": "Reset {label} position",
+  "companion.companion.togglePanelStartAkariVibe.label": "Could not start AKARI Vibe.",
+  "companion.companion.dataSharingNotice.description": "Your request and project structure (including up to 20 characters of captions) will be sent to AKARI’s server with your OpenRouter key.",
+  "companion.companion.connectExternalControlPanelComputer.description": "Connect to an external control panel on this computer.",
+  "companion.companion.guardedRewriteCannotUndoEditBecauseContentHasChanged.label": "Cannot undo this edit because the content has changed.",
+  "companion.companion.mountHideAkariVibe.label": "Hide AKARI Vibe",
+  "companion.companion.mountResizeAkariVibe.label": "Resize AKARI Vibe",
+  "companion.companion.akariVibe.label": "AKARI Vibe",
+  "companion.companion.startingAkariVibe.label": "Starting AKARI Vibe…",
+  "companion.settings.validateSettingValueSettingAllowed.label": "This setting is not allowed.",
+  "companion.settings.validateSettingValueEnterSize.label": "Enter a size from 60 to 200.",
+  "companion.settings.validateSettingValueInvalidThemeValue.label": "Invalid theme value.",
+  "companion.settings.validateSettingValueTrueFalseValueRequired.label": "A true or false value is required.",
+  "companion.settings.validateSettingValueInvalidDisplayValue.label": "Invalid display value.",
+  "companion.companion.guardedRewriteCurrentContentHasChanged.label": "The current content has changed.",
+  "companion.settings.registerCommandsSettingAllowed.label": "This setting is not allowed."
+}

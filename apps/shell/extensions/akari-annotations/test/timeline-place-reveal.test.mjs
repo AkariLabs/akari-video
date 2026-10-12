@@ -1,16 +1,35 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 import ts from 'typescript';
-import * as mutations from '../lib/common/edit-v2-mutations.js';
-import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
-import { nearestTimelineViewStart } from '../lib/common/selection-reveal.js';
-import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
-import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
-import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
-  parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../lib/common/overlay-place.js';
-import { timelineMethod } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { materialOverlapInsertIndex } = await import('../lib/common/material-drop-overlap.js');
+const { nearestTimelineViewStart } = await import('../lib/common/selection-reveal.js');
+const { topVisualTarget } = await import('../lib/browser/preview-material-placement.js');
+const { canvasAtFrame, canvasDropDuration, canvasDropTargets } = await import('../lib/browser/canvas-drop-target.js');
+const { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars, parseOverlayPlaceRequest, resolveThenWriteOverlay } = await import('../lib/common/overlay-place.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const section = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
@@ -107,6 +126,7 @@ test('addOverlayAtOutputPoint focuses the created id and seeks only when outside
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
   }).outputText;
   const method = runInContext(`${code}\nHandler.prototype.addOverlayAtOutputPoint`, createContext({
+    t: annotationT, i18n_1: annotationI18n,
     parseOverlayPlaceRequest, resolveThenWriteOverlay, nextOverlayItemId, buildOverlayItem,
     insertOverlayItem, overlayDefaultVars, isUsableOverlayBox,
     overlayBoxWithinDelay: async measurement => measurement,

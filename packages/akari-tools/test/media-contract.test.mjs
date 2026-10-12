@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
@@ -179,7 +184,7 @@ test("transcribe cache は単語帳適用前の生 segments を保存する", as
   assert.equal(result.segments[0].text, "AKARI Video");
   const cached = JSON.parse(readFileSync(path.join(project, ".akari", "cache", "transcribe", `${result.cache.key}.json`), "utf8"));
   assert.equal(cached.segments[0].text, "あかり ビデオ");
-  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", "ビデオ"]);
+  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", " ビデオ"]);
 });
 
 test("wordBook: false は単語帳を適用せず生出力を記録する", async () => {
@@ -225,14 +230,14 @@ test("transcribe CLI の --no-snap は吸着監査情報と raw 語時刻を付�
   };
   const stdout = [];
   assert.equal(await runMediaCli([
-    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-no-record", "--no-snap", "--no-record",
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "ja", "--no-snap", "--no-record",
   ], { ...common, stdout: (line) => stdout.push(line) }), 0);
   const result = JSON.parse(stdout[0]);
   assert.equal(Object.hasOwn(result, "timing_snap"), false);
   assert.ok(result.segments.flatMap((segment) => segment.words).every((word) => !Object.hasOwn(word, "raw_start") && !Object.hasOwn(word, "raw_end")));
 
   assert.equal(await runMediaCli([
-    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-recorded", "--no-snap",
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "en", "--no-snap",
   ], { ...common, stdout: () => {} }), 0);
   const transcriptPath = path.join(project, ".akari", "sidecars", "assets", "source.wav.analysis", "transcripts", "speech-analyzer.json");
   const transcript = JSON.parse(readFileSync(transcriptPath, "utf8"));

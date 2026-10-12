@@ -3368,6 +3368,28 @@ ${indent}`);
     }
   });
 
+  // packages/content-language/src/caption-defaults.json
+  var require_caption_defaults = __commonJS({
+    "packages/content-language/src/caption-defaults.json"(exports, module) {
+      module.exports = {
+        ja: {
+          landscapeCharacters: 20,
+          portraitCharacters: 10,
+          charactersPerSecond: null,
+          minimumSeconds: 1,
+          fontStack: '"Noto Sans JP", sans-serif'
+        },
+        en: {
+          landscapeCharacters: 42,
+          portraitCharacters: 24,
+          charactersPerSecond: 17,
+          minimumSeconds: 1,
+          fontStack: '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif'
+        }
+      };
+    }
+  });
+
   // packages/edit-store/lib/caption-display.js
   var require_caption_display = __commonJS({
     "packages/edit-store/lib/caption-display.js"(exports) {
@@ -3412,6 +3434,8 @@ ${indent}`);
       var textstyle_catalog_1 = require_textstyle_catalog();
       var caption_runs_1 = require_caption_runs();
       var caption_timeline_1 = require_caption_timeline();
+      var CAPTION_LANGUAGE_DEFAULTS = require_caption_defaults();
+      var captionDefaultsFor = (locale) => CAPTION_LANGUAGE_DEFAULTS[locale.split("-")[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -3806,7 +3830,10 @@ ${indent}`);
             const karaokeEligible = (sourceCaption.style ?? policy.word_style) === "karaoke" && karaokeEligibleByCaption.has(occurrence.caption_input_index);
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
             const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some((word) => !word.untimed));
-            const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            let cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            if (policy.locale.split("-")[0].toLowerCase() !== "ja" && !cueStyleVars?.["--caption-font-family"]) {
+              (cueStyleVars ??= {})["--caption-font-family"] = captionDefaultsFor(policy.locale).fontStack;
+            }
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns) ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd) : void 0;
             displayCues.push({
@@ -4864,7 +4891,7 @@ ${indent}`);
           }
           candidates.push({
             fragments: [first, second],
-            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
+            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints, policy.locale),
             boundary
           });
         }
@@ -4897,7 +4924,14 @@ ${indent}`);
             return [];
           if (remaining === 0)
             return void 0;
-          const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+          const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).sort((left, right) => {
+            if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
+              const penalty = (end) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(text.slice(start, end)) ? 1 : 0;
+              if (penalty(left) !== penalty(right))
+                return penalty(left) - penalty(right);
+            }
+            return right - left;
+          });
           for (const end of candidates) {
             const rest = visit(end, remaining - 1);
             if (rest)
@@ -4919,8 +4953,8 @@ ${indent}`);
         if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
           return [text];
         const Segmenter = Intl.Segmenter;
-        const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : Array.from(text);
-        const tokens = segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits));
+        const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
+        const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja ? segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits)) : segments;
         const result = [];
         let current = "";
         for (let index = 0; index < tokens.length; index++) {
@@ -4956,7 +4990,7 @@ ${indent}`);
           chunks.push(current);
         return chunks;
       }
-      function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
+      function captionBreakScore(first, second, firstUnits, secondUnits, hints, locale = "ja") {
         let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
         if ((hints?.preferred_second_starts ?? []).some((value) => second.startsWith(value)))
           score += 34;
@@ -4970,6 +5004,8 @@ ${indent}`);
           score -= 100;
         if (/^[はがをにでとのもへや]/u.test(second))
           score -= 28;
+        if (captionDefaultsFor(locale) !== CAPTION_LANGUAGE_DEFAULTS.ja && /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(first))
+          score -= 100;
         if (/[（「『【]/u.test(first.slice(-1)))
           score -= 80;
         return score;
@@ -34371,7 +34407,8 @@ caused by: ${cause.stack}`;
       const gopSeconds = maxKeyframeIntervalSeconds(keyframes);
       if (gopSeconds !== void 0 && gopSeconds > LONG_GOP_WARNING_SECONDS) {
         this.options.onWarning?.(
-          `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`
+          `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`,
+          { code: "long-gop", id: this.id, gopSeconds }
         );
       }
       this.prepared = { table, keyframes, totalBytes: opened.totalBytes };

@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { findMember } from './helpers/role-buckets-source.mjs';
@@ -5,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 const require = createRequire(import.meta.url);
+const projectJa = require('../../../../../packages/i18n/locales/ja/project.json');
 const URI = require('@theia/core/lib/common/uri').default;
 const methods = ['handleDrop', 'pickLibraryImport', 'finishLibraryImport', 'reportLibraryImportResult',
     // 検索欄は非制御なので、絞り込みを触る処理は必ず入力欄へ書き戻す（IME のため）。
@@ -110,13 +112,17 @@ const descendants = (node, predicate) => {
 };
 test('追加メニューは 5 行の名前と説明を持つ', () => {
     const source = sheetSource.getFullText();
-    const menu = source.slice(source.indexOf("role='menu' aria-label='ライブラリに追加'"), source.indexOf("{checkOpen &&"));
+    const menu = source.slice(source.indexOf("role='menu'"), source.indexOf("{checkOpen &&"));
+    assert.equal(globalThis.t('project.library.importSheet.addLibraryAction'), 'ライブラリに追加');
     assert.equal((menu.match(/role='menuitem'/g) ?? []).length, 5);
     for (const label of ['ローカルから取り込む', '素材サイトでさがす', 'URL を貼って入れる', '素材の置き場を変える…', 'ライブラリを点検',
         'この Mac のファイルやフォルダ', 'このパソコンのファイルやフォルダ', 'Lab と、無料で使える配布サイト', '配布ページの URL から取り込む']) {
-        assert.ok(menu.includes(label), label);
+        const keys = Object.keys(projectJa).filter(key => projectJa[key] === label);
+        assert.ok(keys.some(key => menu.includes(`t('${key}')`)), label);
+        assert.ok(keys.some(key => globalThis.t(key) === label), label);
     }
-    assert.match(menu, /akari-import-soon'>今後/);
+    assert.match(menu, /akari-import-soon'>\{t\('project\.library\.importSheet\.comingLaterLabel'\)\}/);
+    assert.equal(globalThis.t('project.library.importSheet.comingLaterLabel'), '今後');
 });
 test('各シートの主ボタンは 1 つ以下で、タブは選択状態を持つ', () => {
     for (const marker of ['data-akari-local-import-sheet', 'data-akari-site-sheet', 'data-akari-library-check-sheet']) {

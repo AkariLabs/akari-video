@@ -1,6 +1,12 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generationDraftFromDone, generationProvenance } from '../lib/browser/inspector/generation-provenance.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { generationDraftFromDone, generationProvenance } = await import('../lib/browser/inspector/generation-provenance.js');
+
 
 const video = {
   kind: 'video', status: 'done', model: { id: 'fal:h3-i2v', as_of: '2026-09-12' },

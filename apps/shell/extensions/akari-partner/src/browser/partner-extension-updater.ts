@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
@@ -62,7 +63,7 @@ export class PartnerExtensionUpdater {
         const latest = availability.latestVersion!;
         const versions = { installedVersion: installed, latestVersion: latest };
         try {
-            progress?.('拡張を更新しています…', `${installed} → ${latest}`);
+            progress?.(t('partner.partnerPanel.extensionUpdater.updatingExtensionLabel'), `${installed} → ${latest}`);
             await this.pluginServer.install(VSCodeExtensionUri.fromId(entry.extensionId).toString());
             const newId = PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: latest });
             let deployed = false;
@@ -77,10 +78,10 @@ export class PartnerExtensionUpdater {
                 }
             }
             if (!deployed) {
-                return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備を確認できませんでした' };
+                return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: t('partner.partnerPanel.extensionUpdater.couldNotVerifyNewVersionError') };
             }
         } catch {
-            return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: '新版の配備に失敗しました' };
+            return { ...versions, kind: 'failed', reason: 'install-failed', needsReload: false, detail: t('partner.partnerPanel.extensionUpdater.couldNotProvisionNewVersionError') };
         }
         let reason: ExtensionUpdateOutcome['reason'] = 'newer-available';
         let detail = formatExtensionUpdateNotice(entry.name, installed, latest);
@@ -88,7 +89,7 @@ export class PartnerExtensionUpdater {
             await this.pluginServer.uninstall(PluginIdentifiers.idAndVersionToVersionedId({ id: entry.extensionId as PluginIdentifiers.UnversionedId, version: installed }));
         } catch {
             reason = 'uninstall-failed';
-            detail += '。旧版の撤去に失敗しました（次回起動では新版が優先されます）';
+            detail += t('partner.partnerPanel.extensionUpdater.couldNotRemovePreviousVersionNewVersionTakesPriorityNextError');
         }
         console.info('[akari-partner] extension updated', { id: entry.extensionId, from: installed, to: latest });
         return { ...versions, kind: 'updated', reason, needsReload: true, detail };
@@ -99,10 +100,10 @@ export class PartnerExtensionUpdater {
         try {
             ext = await this.extensionsModel.resolve(entry.extensionId);
         } catch {
-            return { kind: 'skipped', reason: 'registry-unavailable', needsReload: false, detail: '拡張の情報を取得できませんでした' };
+            return { kind: 'skipped', reason: 'registry-unavailable', needsReload: false, detail: t('partner.partnerPanel.extensionUpdater.couldNotGetExtensionInformationError') };
         }
         if (!ext.installed) {
-            return { kind: 'skipped', reason: 'not-installed', needsReload: false, detail: '拡張は未インストールです' };
+            return { kind: 'skipped', reason: 'not-installed', needsReload: false, detail: t('partner.partnerPanel.extensionUpdater.extensionNotInstalledStatus') };
         }
         const installed = ext.installedVersion;
         let latest: string | undefined;
@@ -119,11 +120,11 @@ export class PartnerExtensionUpdater {
         const versions = { installedVersion: installed, latestVersion: latest };
         if (decision.action === 'none') {
             const details: Record<ExtensionFreshnessReason, string> = {
-                'not-installed': '拡張は未インストールです',
-                'registry-unavailable': '最新の拡張情報を取得できませんでした',
-                'unparsable': '拡張のバージョンを比較できませんでした',
-                'up-to-date': '拡張は最新です',
-                'newer-available': '拡張の更新があります'
+                'not-installed': t('partner.partnerPanel.extensionUpdater.extensionNotInstalledStatus'),
+                'registry-unavailable': t('partner.partnerPanel.extensionUpdater.couldNotGetLatestExtensionInformationError'),
+                'unparsable': t('partner.partnerPanel.extensionUpdater.couldNotCompareExtensionVersionsError'),
+                'up-to-date': t('partner.partnerPanel.extensionUpdater.extensionUpDateText'),
+                'newer-available': t('partner.partnerPanel.extensionUpdater.extensionUpdateAvailableText')
             };
             return { ...versions, kind: decision.reason === 'up-to-date' ? 'up-to-date' : 'skipped',
                 reason: decision.reason, needsReload: false, detail: details[decision.reason] };
@@ -162,17 +163,20 @@ export class PartnerExtensionUpdater {
             }
         }
         if (available.length) {
-            const notices = available.map(({ entry, latestVersion }) => `${entry.name} の新しい版 ${latestVersion} があります`);
-            const choice = await this.messageService.info(notices.join('\n'), '今すぐ更新', '後で');
-            if (choice === '今すぐ更新') {
+            const notices = available.map(({ entry, latestVersion }) => t('partner.partnerPanel.extensionUpdater.newVersionAvailableText', { value1: entry.name, value2: latestVersion }));
+            const updateAction = t('partner.partnerPanel.extensionUpdater.updateAction');
+            const laterAction = t('partner.partnerPanel.extensionUpdater.laterLabel');
+            const choice = await this.messageService.info(notices.join('\n'), updateAction, laterAction);
+            if (choice === updateAction) {
                 const updated: string[] = [];
                 for (const { entry } of available) {
                     const outcome = await this.checkAndUpdate(entry);
                     if (outcome.kind === 'updated') updated.push(outcome.detail);
                 }
                 if (updated.length) {
-                    const reload = await this.messageService.info(updated.join('\n'), '今すぐ再読み込み', '後で');
-                    if (reload === '今すぐ再読み込み') this.windowService.reload();
+                    const reloadAction = t('partner.partnerPanel.extensionUpdater.reloadAction');
+                    const reload = await this.messageService.info(updated.join('\n'), reloadAction, laterAction);
+                    if (reload === reloadAction) this.windowService.reload();
                 }
             }
         }

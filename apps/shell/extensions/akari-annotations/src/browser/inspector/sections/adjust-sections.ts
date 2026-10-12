@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult } from '../../timeline-selection-model';
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from '../adjust-editors';
@@ -19,7 +20,7 @@ export function ADJUST_SECTIONS(
     const basicEnabled = adjust.sections.basic;
     const lutEnabled = adjust.sections.lut;
     const fxEnabled = adjust.sections.fx;
-    const disabledTitle = 'セクションがオフのため変更できません。';
+    const disabledTitle = t('inspector.adjustSections.error.sectionsOffCannotBeChanged');
     const editorWrite = (section: 'curves' | 'wheels' | 'hue'): AdjustEditorWrite => async (path, value) =>
         adjust.sections[section]
             ? requestWrite(createInspectorAdjustWriteRequest(itemId, path, value))
@@ -54,17 +55,17 @@ export function ADJUST_SECTIONS(
             null
         ))
     }));
-    const lookName = (): string => INSPECTOR_LOOK_PRESETS.find(preset => preset.id === matchLookPreset(adjust))?.name ?? 'カスタム';
+    const lookName = (): string => INSPECTOR_LOOK_PRESETS.find(preset => preset.id === matchLookPreset(adjust))?.name ?? t('inspector.adjustSections.label.custom');
     basicFields.unshift({
-        name: 'adjust-look', label: 'ルック', inputKind: 'select',
-        options: ['カスタム', ...INSPECTOR_LOOK_PRESETS.map(preset => preset.name)],
+        name: 'adjust-look', label: t('inspector.adjustSections.label.look'), inputKind: 'select',
+        options: [t('inspector.adjustSections.label.custom'), ...INSPECTOR_LOOK_PRESETS.map(preset => preset.name)],
         keyframeDisabled: true, disabled: !basicEnabled, title: basicEnabled ? undefined : disabledTitle,
         getValue: lookName, getEditValue: lookName,
         write: async (_snapshot, value) => {
             if (!basicEnabled) return { ok: false, message: disabledTitle };
-            if (value === 'カスタム') return { ok: true };
+            if (value === t('inspector.adjustSections.label.custom')) return { ok: true };
             const preset = INSPECTOR_LOOK_PRESETS.find(candidate => candidate.name === value);
-            if (!preset) return { ok: false, message: '一覧からルックを選択してください。' };
+            if (!preset) return { ok: false, message: t('inspector.adjustSections.message.selectLookFromList') };
             return requestWrite(createInspectorAdjustWriteRequest(itemId, 'adjust', {
                 basic: preset.adjust.basic, wheels: preset.adjust.wheels
             }));
@@ -74,7 +75,7 @@ export function ADJUST_SECTIONS(
     const lutId = lutOptions.find(option => option.value === (adjust.lut?.lut ?? null))?.label ?? adjust.lut!.lut;
     const lutFields: InspectorFieldDef[] = [{
         name: 'adjust-lut-preset',
-        label: 'プリセット',
+        label: t('inspector.adjustSections.label.preset'),
         getValue: () => lutId,
         getEditValue: () => lutId,
         inputKind: 'select',
@@ -85,7 +86,7 @@ export function ADJUST_SECTIONS(
             if (!lutEnabled) return { ok: false, message: disabledTitle };
             const option = lutOptions.find(candidate => candidate.label === value);
             if (!option) {
-                return { ok: false, message: '一覧から LUT プリセットを選択してください。' };
+                return { ok: false, message: t('inspector.adjustSections.message.selectLutPresetFromList') };
             }
             return requestWrite(createInspectorAdjustWriteRequest(
                 itemId,
@@ -100,7 +101,7 @@ export function ADJUST_SECTIONS(
         ))
     }, {
         name: 'adjust-lut-intensity',
-        label: '強度',
+        label: t('inspector.adjustSections.label.strength'),
         getValue: () => `${Math.round((adjust.lut?.intensity ?? 1) * 100)}%`,
         getEditValue: () => String(adjust.lut?.intensity ?? 1),
         inputKind: 'scrub-number',
@@ -112,14 +113,14 @@ export function ADJUST_SECTIONS(
         keyframeDisabled: true,
         disabled: !lutEnabled || !adjust.lut,
         title: !lutEnabled ? disabledTitle
-            : !adjust.lut ? 'LUT を選択すると変更できます。' : undefined,
+            : !adjust.lut ? t('inspector.adjustSections.message.canChangeLut') : undefined,
         write: async (_snapshot, value) => lutEnabled && adjust.lut
             ? requestWrite(createInspectorAdjustWriteRequest(
                 itemId,
                 'adjust.lut.intensity',
                 Number(value)
             ))
-            : { ok: false, message: !lutEnabled ? disabledTitle : 'LUT を選択してください。' },
+            : { ok: false, message: !lutEnabled ? disabledTitle : t('inspector.adjustSections.action.selectLut') },
         reset: () => requestWrite(createInspectorAdjustWriteRequest(
             itemId,
             'adjust.lut.intensity',
@@ -127,8 +128,8 @@ export function ADJUST_SECTIONS(
         ))
     }];
     lutFields.push({
-        name: 'adjust-lut-import', label: '読み込み', getValue: () => '',
-        actionLabel: 'LUT を読み込む…', keyframeDisabled: true, disabled: !lutEnabled,
+        name: 'adjust-lut-import', label: t('inspector.adjustSections.label.loading'), getValue: () => '',
+        actionLabel: t('inspector.adjustSections.action.readLut'), keyframeDisabled: true, disabled: !lutEnabled,
         title: lutEnabled ? undefined : disabledTitle,
         action: async () => lutEnabled && adjustLutOptions.importLut
             ? adjustLutOptions.importLut() : { ok: false, message: disabledTitle }
@@ -138,19 +139,19 @@ export function ADJUST_SECTIONS(
         try {
             return await requestWrite(createInspectorAdjustWriteRequest(itemId, 'adjust.fx', update()));
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : '効果を変更できませんでした。' };
+            return { ok: false, message: error instanceof Error ? error.message : t('inspector.adjustSections.error.changeEffect') };
         }
     };
     const fxFields: InspectorFieldDef[] = [{
-        name: 'adjust-fx-add', label: '効果を追加', inputKind: 'select',
-        options: ['選択…', ...INSPECTOR_ADJUST_FX.map(effect => effect.label)],
-        getValue: () => '選択…', getEditValue: () => '選択…',
+        name: 'adjust-fx-add', label: t('inspector.adjustSections.label.addEffect'), inputKind: 'select',
+        options: [t('inspector.adjustSections.action.select'), ...INSPECTOR_ADJUST_FX.map(effect => effect.label)],
+        getValue: () => t('inspector.adjustSections.action.select'), getEditValue: () => t('inspector.adjustSections.action.select'),
         keyframeDisabled: true, disabled: !fxEnabled, title: fxEnabled ? undefined : disabledTitle,
         write: async (_snapshot, value) => {
             if (!fxEnabled) return { ok: false, message: disabledTitle };
-            if (value === '選択…') return { ok: true };
+            if (value === t('inspector.adjustSections.action.select')) return { ok: true };
             const effect = INSPECTOR_ADJUST_FX.find(candidate => candidate.label === value);
-            if (!effect) return { ok: false, message: '一覧から効果を選択してください。' };
+            if (!effect) return { ok: false, message: t('inspector.adjustSections.message.selectEffectFromList') };
             return writeFx(() => addInspectorAdjustFx(adjust.fx, effect.id));
         }
     }];
@@ -160,13 +161,13 @@ export function ADJUST_SECTIONS(
             name: `adjust-fx-${effect.id}`, label: definition.label, getValue: () => '',
             keyframeDisabled: true, disabled: !fxEnabled, title: fxEnabled ? undefined : disabledTitle,
             actions: [{
-                name: 'up', label: '↑', title: `${definition.label}を上へ`, disabled: index === 0,
+                name: 'up', label: '↑', title: t('inspector.adjustSections.title.moveUp', { label: definition.label }), disabled: index === 0,
                 action: () => writeFx(() => moveInspectorAdjustFx(adjust.fx, index, -1))
             }, {
-                name: 'down', label: '↓', title: `${definition.label}を下へ`, disabled: index === adjust.fx.length - 1,
+                name: 'down', label: '↓', title: t('inspector.adjustSections.title.moveDown', { label: definition.label }), disabled: index === adjust.fx.length - 1,
                 action: () => writeFx(() => moveInspectorAdjustFx(adjust.fx, index, 1))
             }, {
-                name: 'remove', label: '削除', title: `${definition.label}を削除`,
+                name: 'remove', label: t('inspector.adjustSections.label.delete'), title: t('inspector.adjustSections.title.remove', { label: definition.label }),
                 action: () => writeFx(() => removeInspectorAdjustFx(adjust.fx, index))
             }]
         });
@@ -193,7 +194,7 @@ export function ADJUST_SECTIONS(
         fields: basicFields,
         enable: {
             name: 'adjust-basic-enabled',
-            label: '基本補正を有効化',
+            label: t('inspector.adjustSections.label.enableBasicCorrection'),
             checked: basicEnabled,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId,
@@ -208,7 +209,7 @@ export function ADJUST_SECTIONS(
         body: () => buildRgbCurveEditor(adjust, editorWrite('curves')),
         enable: {
             name: 'adjust-curves-enabled',
-            label: 'RGB カーブを有効化',
+            label: t('inspector.adjustSections.label.enableRgbRgb'),
             checked: adjust.sections.curves,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId, 'adjust.sections.curves', enabled ? null : false
@@ -221,7 +222,7 @@ export function ADJUST_SECTIONS(
         body: () => buildColorWheelEditor(adjust, editorWrite('wheels')),
         enable: {
             name: 'adjust-wheels-enabled',
-            label: 'カラーホイールを有効化',
+            label: t('inspector.adjustSections.label.enableColorWheel'),
             checked: adjust.sections.wheels,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId, 'adjust.sections.wheels', enabled ? null : false
@@ -234,7 +235,7 @@ export function ADJUST_SECTIONS(
         body: () => buildHueCurveEditor(adjust, editorWrite('hue')),
         enable: {
             name: 'adjust-hue-enabled',
-            label: 'Hue カーブを有効化',
+            label: t('inspector.adjustSections.label.enableHue'),
             checked: adjust.sections.hue,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId, 'adjust.sections.hue', enabled ? null : false
@@ -246,7 +247,7 @@ export function ADJUST_SECTIONS(
         fields: lutFields,
         enable: {
             name: 'adjust-lut-enabled',
-            label: 'LUT を有効化',
+            label: t('inspector.adjustSections.label.enableLut'),
             checked: lutEnabled,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId,
@@ -259,7 +260,7 @@ export function ADJUST_SECTIONS(
         label: ACTIVE_ADJUST_SECTIONS[5],
         fields: fxFields,
         enable: {
-            name: 'adjust-fx-enabled', label: 'エフェクトを有効化', checked: fxEnabled,
+            name: 'adjust-fx-enabled', label: t('inspector.adjustSections.label.enableEffects'), checked: fxEnabled,
             write: enabled => requestWrite(createInspectorAdjustWriteRequest(
                 itemId, 'adjust.sections.fx', enabled ? null : false
             ))

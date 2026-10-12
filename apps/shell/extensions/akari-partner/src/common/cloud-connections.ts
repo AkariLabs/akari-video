@@ -1,3 +1,4 @@
+import { t } from './partner-text';
 /**
  * プロジェクト内 `.akari/connections.json` の `akari-cloud` プロバイダを
  * 「接続済み（doctor.status = ok）」に倒すための純ロジック。
@@ -15,7 +16,7 @@ export const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 export const CLOUD_PROVIDER_ID = 'akari-cloud';
 
 /** doctor.detail の文言（既存の実装から不変で引き継ぐ）。 */
-export const CLOUD_CONNECTED_DETAIL = 'AI パートナーの接続を確認しました（ローカル CLI 接続の成立で判定、v0）。';
+export const CLOUD_CONNECTED_DETAIL = t('partner.cloud.connection.aiPartnerConnectionConfirmedBasedLocalCliConnectionV0Message');
 
 export interface CloudDoctorEntry {
     last_checked: string;
@@ -47,7 +48,7 @@ function createCloudDoctor(nowIso: string): CloudDoctorEntry {
     return {
         last_checked: nowIso,
         status: 'ok',
-        detail: CLOUD_CONNECTED_DETAIL
+        detail: t('partner.cloud.connection.aiPartnerConnectionConfirmedBasedLocalCliConnectionV0Message')
     };
 }
 
@@ -68,11 +69,11 @@ function createCloudProviderEntry(doctor: CloudDoctorEntry): Record<string, unkn
             allowed: []
         },
         notes: {
-            description: 'Akari Cloud のログイン認証で生成機能を利用する接続。工程 42 の生成で使う。',
-            workflows: ['42 AI 生成素材'],
-            billing: 'Akari Cloud の契約と各生成機能の料金に従う。有償操作は事前承認が必要。',
-            quota: '契約プランの利用上限。doctor では照会しない。',
-            scopes: ['生成機能'],
+            description: t('partner.cloud.connection.connectAkariCloudLoginUseGenerationFeaturesUsedStage42Message'),
+            workflows: [t('partner.cloud.connection.value42AiGeneratedAssetsText')],
+            billing: t('partner.cloud.connection.subjectAkariCloudPlanFeaturePricingPaidActionsRequirePriorMessage'),
+            quota: t('partner.cloud.connection.planUsageLimitsNotCheckedDoctorMessage'),
+            scopes: [t('partner.cloud.connection.generationFeaturesLabel')],
             setup_url: null
         },
         doctor

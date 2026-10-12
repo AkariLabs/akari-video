@@ -2,13 +2,13 @@ import { readInspectorSource } from './helpers/inspector-source.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import {
-    addGradientStop, alphaOf, applyGradientStyle, captionPathsFromEdit, collectDesignColors, DEFAULT_GRADIENT_COLLAPSED,
-    DEFAULT_GRADIENTS, DEFAULT_SOLID_COLLAPSED, DEFAULT_SOLID_COLORS, extractPalette, findEditItem, GRADIENT_STYLES,
-    gradientFrom, gradientStyleIndex, historyRow, hexToHsv, hsvToHex, itemPathPatch, normalizeHex, paintToCss,
-    parseColorHistory, parseColorPanelOpenRequest, parsePaint, photoSourcesFromEdit, pushColorHistory, readItemPath,
-    removeGradientStop, samePaint, searchColors, setGradientStopColor, withAlpha
-} from '../lib/browser/inspector/color-model.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { addGradientStop, alphaOf, applyGradientStyle, captionPathsFromEdit, collectDesignColors, DEFAULT_GRADIENT_COLLAPSED, DEFAULT_GRADIENTS, DEFAULT_SOLID_COLLAPSED, DEFAULT_SOLID_COLORS, extractPalette, findEditItem, GRADIENT_STYLES, gradientFrom, gradientStyleIndex, historyRow, hexToHsv, hsvToHex, itemPathPatch, normalizeHex, paintToCss, parseColorHistory, parseColorPanelOpenRequest, parsePaint, photoSourcesFromEdit, pushColorHistory, readItemPath, removeGradientStop, samePaint, searchColors, setGradientStopColor, withAlpha } = await import('../lib/browser/inspector/color-model.js');
+
+
 
 test('色番号: 3 / 6 / 8 桁を大文字の #RRGGBB(AA) にそろえ、不透明の FF は落とす', () => {
     assert.equal(normalizeHex('#abc'), '#AABBCC');

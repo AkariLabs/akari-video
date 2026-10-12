@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export interface CaptionSource {
     id: string;
     path: string;
@@ -48,20 +49,20 @@ export function captionSourceEligibility(source: CaptionSource, evidence: Captio
     const path = normalizedCaptionPath(source.path);
     const extension = path.match(/\.([a-z0-9]+)$/u)?.[1] ?? '';
     if (projectRelativePath(source.path, evidence.projectRoot)?.startsWith('exports/')) {
-        return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
+        return { status: 'excluded', reason: t('transcript.captions.sourceEligibility.exportedVideoUseSourceAssetsReason') };
     }
     if (CAPTION_IMAGE_EXTENSIONS.has(extension) || evidence.kind === 'image' || evidence.kind === 'still') {
-        return { status: 'excluded', reason: '画像には音声がありません' };
+        return { status: 'excluded', reason: t('transcript.captions.sourceEligibility.imagesHaveNoAudioMessage') };
     }
     const isVideo = isCaptionVideo(source, evidence);
     const isAudio = CAPTION_AUDIO_EXTENSIONS.has(extension) || evidence.kind === 'audio' || source.kind === 'audio';
     if (!isVideo && !isAudio) {
-        return { status: 'excluded', reason: '音声・動画のファイルではありません' };
+        return { status: 'excluded', reason: t('transcript.captions.sourceEligibility.notAudioVideoFileMessage') };
     }
     if (isVideo && evidence.hasAudio === false) {
-        return { status: 'excluded', reason: '音声トラックが入っていません' };
+        return { status: 'excluded', reason: t('transcript.captions.sourceEligibility.thereNoAudioTrackMessage') };
     }
-    if (evidence.isBgm) return { status: 'bgm', reason: 'BGM として置いた音です' };
+    if (evidence.isBgm) return { status: 'bgm', reason: t('transcript.captions.sourceEligibility.audioPlacedAsBgmMessage') };
     return { status: 'voice' };
 }
 

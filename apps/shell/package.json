@@ -139,6 +139,11 @@
     ],
     "extraResources": [
       {
+        "from": "../../packages/i18n",
+        "to": "packages/i18n",
+        "filter": ["package.json", "index.cjs", "index.mjs", "index.d.ts", "locales/**/*"]
+      },
+      {
         "from": "resources/onboarding-sample",
         "to": "onboarding-sample"
       },
@@ -175,6 +180,7 @@
         "filter": [
           "package.json",
           "render-analysis-report.mjs",
+          "report-i18n.mjs",
           "template.html"
         ]
       },
@@ -210,10 +216,20 @@
           "bin/finger-frame/**/*",
           "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
+          "bin/speakers.mjs",
+          "bin/tools.mjs",
           "bin/probe-frame.mjs",
           "bin/render-when-idle.mjs",
           "bin/word-book.mjs",
           "bin/world.mjs",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/akari-voice",
+        "to": "packages/akari-voice",
+        "filter": [
+          "package.json",
           "src/**/*"
         ]
       },
@@ -359,6 +375,14 @@
       {
         "from": "../../packages/edit-store/lib",
         "to": "packages/edit-store/lib"
+      },
+      {
+        "from": "../../packages/content-language",
+        "to": "packages/content-language",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
       },
       {
         "from": "../../packages/schemas",

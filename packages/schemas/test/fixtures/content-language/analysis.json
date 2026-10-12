@@ -1,0 +1,9 @@
+{
+  "version": 0,
+  "source": "source.mp4",
+  "transcript": [],
+  "transcript_language": "en-US",
+  "keyframes": [],
+  "events": [],
+  "tracks": { "speakers": [], "faces": [], "person_matte": null }
+}

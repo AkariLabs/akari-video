@@ -275,9 +275,13 @@ async function loadCaptionApiPayload() {
 let captionFontsReady = false;
 window.__akariCaptionFontReady = (async () => {
   await document.fonts.load('600 82px "AKARI Noto Sans JP"');
+  await document.fonts.load('600 82px "AKARI Noto Sans"', 'English captions');
   await document.fonts.ready;
   if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {
     throw new Error('AKARI caption font did not load');
+  }
+  if (!document.fonts.check('600 82px "AKARI Noto Sans"', 'English captions')) {
+    throw new Error('AKARI English caption font did not load');
   }
   return true;
 })();

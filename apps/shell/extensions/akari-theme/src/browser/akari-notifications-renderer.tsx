@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import * as DOMPurify from '@theia/core/shared/dompurify';
 import { codicon, ContextMenuRenderer } from '@theia/core/lib/browser';
@@ -11,9 +12,9 @@ const CIRCUMFERENCE = 56.55;
 
 function relativeTime(at: number): string {
     const minutes = Math.max(0, Math.floor((Date.now() - at) / 60000));
-    if (minutes < 1) return 'たった今';
-    if (minutes < 60) return `${minutes} 分前`;
-    return `${Math.floor(minutes / 60)} 時間前`;
+    if (minutes < 1) return t('theme.notifications.relativeTimeNow.label');
+    if (minutes < 60) return t('theme.notifications.relativeTimeMinutesAgo.message', { minutes: minutes, n: minutes });
+    return t('theme.notifications.relativeTimeHoursAgo.message', { hours: Math.floor(minutes / 60), n: Math.floor(minutes / 60) });
 }
 
 function NotificationRow({ notification, manager, contextMenuRenderer, toast }: {
@@ -147,9 +148,9 @@ function NotificationRow({ notification, manager, contextMenuRenderer, toast }: 
                     <div className='theia-notification-actions'>
                         {!toast && <span className='akari-notification-time'>{relativeTime(manager.timestamp(messageId))}</span>}
                         {expandable && <button className={`akari-notification-expand ${codicon('chevron-down', true)}`}
-                            type='button' aria-label={collapsed ? '展開' : '折りたたむ'}
+                            type='button' aria-label={collapsed ? t('theme.notifications.notificationRowExpand.label') : t('theme.notifications.notificationRowCollapse.label')}
                             onClick={() => manager.toggleExpansion(messageId)} />}
-                        {toast ? !isProgress && <button className='akari-notification-close' type='button' aria-label='閉じる'
+                        {toast ? !isProgress && <button className='akari-notification-close' type='button' aria-label={t('theme.notifications.notificationRowClose.label')}
                             data-message-id={messageId} onClick={() => fade()}>
                             {fraction !== undefined && <svg className='akari-notification-ring' viewBox='0 0 22 22' aria-hidden='true'>
                                 <circle className='akari-ring-bg' cx='11' cy='11' r='9' />
@@ -158,7 +159,7 @@ function NotificationRow({ notification, manager, contextMenuRenderer, toast }: 
                             </svg>}
                             <span aria-hidden='true'>×</span>
                         </button> : !isProgress && <button className='akari-notification-close' type='button'
-                            aria-label='閉じる' onClick={() => manager.clear(messageId)}>×</button>}
+                            aria-label={t('theme.notifications.notificationRowClose.label')} onClick={() => manager.clear(messageId)}>×</button>}
                     </div>
                 </div>
             </div>
@@ -209,11 +210,11 @@ function NotificationSurface({ manager, contextMenuRenderer, silent }: {
         </div>
         <div className={`theia-notifications-container theia-notification-center ${centerOpen ? 'open' : 'closed'}`}>
             <div className='theia-notification-center-header'>
-                <span className='theia-notification-center-header-title'>通知</span>
+                <span className='theia-notification-center-header-title'>{t('theme.notifications.notificationSurfaceNotifications.label')}</span>
                 <div className='theia-notification-center-header-actions'>
-                    <button className='akari-notification-clear' type='button' onClick={() => manager.clearAll()}>すべて消す</button>
+                    <button className='akari-notification-clear' type='button' onClick={() => manager.clearAll()}>{t('theme.notifications.notificationSurfaceClearAll.button')}</button>
                     <button className={`akari-notification-hide ${codicon('chevron-down', true)}`} type='button'
-                        aria-label='通知を閉じる' onClick={() => manager.hideCenter()} />
+                        aria-label={t('theme.notifications.notificationSurfaceCloseNotification.label')} onClick={() => manager.hideCenter()} />
                 </div>
             </div>
             <div className='theia-notification-list-scroll-container'>
@@ -222,7 +223,7 @@ function NotificationSurface({ manager, contextMenuRenderer, silent }: {
                         {snapshot.notifications.length ? snapshot.notifications.slice().reverse().map(notification =>
                             <NotificationRow key={`${notification.messageId}-${manager.version(notification.messageId)}`} notification={notification} manager={manager}
                                 contextMenuRenderer={contextMenuRenderer} toast={false} />)
-                            : <div className='akari-notification-empty'>新しい通知はありません</div>}
+                            : <div className='akari-notification-empty'>{t('theme.notifications.notificationSurfaceNoNewNotifications.label')}</div>}
                     </div>
                 </div>
             </div>

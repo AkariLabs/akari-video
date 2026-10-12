@@ -31,7 +31,8 @@ export function parseChannelPeople(source: string): ChannelPerson[] {
                 ? row.voice as Record<string, unknown> : {};
             return [{ id: row.id, name: row.name, kind: row.kind,
                 hasVoiceSample: Array.isArray(voice.samples) && voice.samples.some(sample => sample
-                    && typeof sample === 'object' && typeof sample.file === 'string' && !!sample.file),
+                    && typeof sample === 'object' && typeof sample.file === 'string' && !!sample.file
+                    && ['self', 'subject'].includes(sample.consent)),
                 ...(typeof voice.profile === 'string' && voice.profile ? { voiceProfile: voice.profile } : {}) }];
         });
     } catch { return []; }

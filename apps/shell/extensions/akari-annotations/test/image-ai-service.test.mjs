@@ -5,9 +5,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { ImageAiService, FalImageAiProvider, IMAGE_AI_MODELS } from '../lib/node/image-ai-service.js';
-import { imageAiBindingMatches } from '../lib/common/image-ai-binding.js';
-import { replaceMaterial } from '../lib/common/material-replacement.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { ImageAiService, FalImageAiProvider, IMAGE_AI_MODELS } = await import('../lib/node/image-ai-service.js');
+const { imageAiBindingMatches } = await import('../lib/common/image-ai-binding.js');
+const { replaceMaterial } = await import('../lib/common/material-replacement.js');
+
+
+
+
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const image = Buffer.alloc(24);

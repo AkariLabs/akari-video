@@ -9,7 +9,12 @@
   const lookahead = new Map();
   const images = new Map();
 
-  function warn(message) {
+  function warn(message, detail) {
+    if (detail?.code === "long-gop" && config.messages?.longGop) {
+      message = config.messages.longGop
+        .replaceAll("{id}", String(detail.id))
+        .replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+    }
     warnings.push(String(message));
     console.warn("[akari-osr]", message);
   }

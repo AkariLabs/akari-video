@@ -1,6 +1,11 @@
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget } from '../lib/browser/library-apply-plan.js';
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 const caption = { kind: 'caption', id: 'caption-1' };
 const cut = { kind: 'cut', id: 'cut-1' };

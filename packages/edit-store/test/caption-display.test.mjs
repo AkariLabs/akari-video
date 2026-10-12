@@ -398,14 +398,14 @@ test('joinCaptionLines preserves source slices and foldCaptionLines is greedy an
   assert.equal(joinCaptionLines(['日本', '語字幕'], 'ja-JP'), '日本語字幕');
   assert.equal(joinCaptionLines(['alpha ', 'beta'], 'en'), 'alpha beta');
   assert.deepEqual(foldCaptionLines('alpha beta', 3, 2, 'en'), ['alpha ', 'beta']);
-  assert.deepEqual(foldCaptionLines('abcdefghi', 1, 2, 'en'), ['ab', 'cdefghi']);
+  assert.deepEqual(foldCaptionLines('abcdefghi', 1, 2, 'en'), ['abcdefghi']);
 });
 
 test('foldCaptionLines falls back to greedy code points when Intl.Segmenter is unavailable', () => {
   const descriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
   try {
     Object.defineProperty(Intl, 'Segmenter', { ...descriptor, value: undefined });
-    assert.deepEqual(foldCaptionLines('abcdef', 1.5, 2, 'en'), ['abc', 'def']);
+    assert.deepEqual(foldCaptionLines('abcdef', 1.5, 2, 'en'), ['abcdef']);
   } finally {
     Object.defineProperty(Intl, 'Segmenter', descriptor);
   }
@@ -455,6 +455,12 @@ test('automatic splitting extends to three and six fragments at word boundaries'
   assert.deepEqual(splitCaptionFragments('aa bb cc', englishPolicy(1.5)).fragments, ['aa ', 'bb ', 'cc']);
   assert.deepEqual(splitCaptionFragments('aa bb cc dd ee ff', englishPolicy(1.5)).fragments,
     ['aa ', 'bb ', 'cc ', 'dd ', 'ee ', 'ff']);
+});
+
+test('English automatic fragments keep function words with the next phrase', () => {
+  const fragments = splitCaptionFragments('We walked to the recording room before sunrise', englishPolicy(10)).fragments;
+  assert.equal(fragments.join(''), 'We walked to the recording room before sunrise');
+  assert.ok(fragments.every(fragment => !/\b(?:to|the)\s*$/iu.test(fragment)));
 });
 
 test('自動分割境界は Latin・数字の連続と Segmenter 語の内側を拒否する', () => {

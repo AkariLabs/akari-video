@@ -1,3 +1,5 @@
+import { t } from './vibe-text';
+import { formatDate } from '@akari-video/i18n';
 import { inject, injectable, named } from '@theia/core/shared/inversify';
 import { ContributionProvider, Disposable, Emitter, Event, MessageService } from '@theia/core/lib/common';
 import { CommandService } from '@theia/core/lib/common/command';
@@ -18,7 +20,7 @@ export const VibeDockTabContributionSymbol = Symbol('VibeDockTabContribution');
 @injectable()
 export class NowVibeDockTab implements VibeDockTabContribution {
     readonly id = 'now';
-    readonly label = 'いま';
+    readonly label = t('vibe.dock.tabs.nowLabel');
     readonly icon = 'now';
     readonly order = 0;
     @inject(VibeDockState) protected readonly state!: VibeDockState;
@@ -43,8 +45,8 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         this.partial = '';
         if (!utterance.text.trim()) { this.paintView?.(); return; }
         const pointed = this.state.consumePointed();
-        const entry = { text: utterance.text, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-            kind: 'メモ', target: pointed?.target, utterance: {
+        const entry = { text: utterance.text, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
+            kind: t('vibe.dock.tabs.noteLabel'), target: pointed?.target, utterance: {
                 raw: utterance.raw, text: utterance.text, applied: [...utterance.applied]
             }, taskState: 'pending' as const, saveState: undefined as 'no-project' | 'failed' | undefined, subdued };
         this.entries.push(entry);
@@ -65,8 +67,8 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     clearPartial(): void { this.partial = ''; this.paintView?.(); }
     acceptAction(label: string, kind: '操作' | 'タスク', entryId: string, undo?: () => void): void {
         this.partial = '';
-        this.entries.push({ text: label, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-            kind, entryId, undo });
+        this.entries.push({ text: label, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
+            kind: kind === '操作' ? t('vibe.dock.tabs.actionLabel') : t('vibe.dock.tabs.taskLabel'), entryId, undo });
         if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
         this.paintView?.();
     }
@@ -81,7 +83,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
     /** 作成が実際に成功した後だけ、全タブ共通の状況行へ知らせる。 */
     showTaskCreated(): void {
         this.taskNotice?.dispose();
-        const notice = this.state.status.set('タスクにしました。', 'info');
+        const notice = this.state.status.set(t('vibe.dock.tabs.createdTaskMessage'), 'info');
         this.taskNotice = notice;
         setTimeout(() => { if (this.taskNotice === notice) this.taskNotice = undefined; notice.dispose(); }, 4000);
     }
@@ -96,7 +98,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
             if (!this.entries.length && !this.partial) {
                 const empty = document.createElement('div');
                 empty.className = 'akari-vibe-utt akari-vibe-empty';
-                empty.textContent = '（明かりをつけると、ここに話したことが流れます）';
+                empty.textContent = t('vibe.dock.tabs.turnLightSeeWhatSayHereText');
                 stream.append(empty);
             }
             for (const entry of this.entries) {
@@ -131,7 +133,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
                     const action = document.createElement('button');
                     action.className = 'theia-button quiet small';
                     action.type = 'button';
-                    action.textContent = entry.taskState === 'done' ? 'タスクにした' : 'タスクにする';
+                    action.textContent = entry.taskState === 'done' ? t('vibe.dock.tabs.taskCreatedText') : t('vibe.dock.tabs.createTaskText');
                     action.disabled = entry.taskState !== 'pending';
                     action.addEventListener('click', () => {
                         if (entry.taskState !== 'pending') return;
@@ -139,13 +141,13 @@ export class NowVibeDockTab implements VibeDockTabContribution {
                         void this.commands.executeCommand<{ id: string }>('akari.tasks.create', {
                             text: entry.utterance!.text, via: 'voice', ...(entry.target ? { target: `ui:${entry.target}` } : {})
                         }).then(created => {
-                            if (!created?.id) throw new Error('タスクを作成できませんでした');
+                            if (!created?.id) throw new Error(t('vibe.dock.tabs.couldNotCreateTaskError'));
                             entry.taskState = 'done';
                             this.showTaskCreated();
                             this.paintView?.();
                         }).catch(error => {
                             entry.taskState = 'pending';
-                            this.messages.error(`タスクを作れませんでした: ${String(error)}`);
+                            this.messages.error(t('vibe.dock.tabs.couldNotCreateTaskWithDetailError', { value1: String(error) }));
                             this.paintView?.();
                         });
                     });
@@ -154,7 +156,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
                     if (entry.saveState) {
                         const note = document.createElement('small');
                         note.className = 'akari-vibe-save-note';
-                        note.textContent = entry.saveState === 'no-project' ? 'プロジェクトを開くと残せます' : '保存できませんでした';
+                        note.textContent = entry.saveState === 'no-project' ? t('vibe.dock.tabs.openProjectSaveText') : t('vibe.dock.tabs.couldNotSaveError');
                         card.append(note);
                     }
                 } else {
@@ -163,7 +165,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
                         const undo = document.createElement('button');
                         undo.className = 'theia-button quiet small';
                         undo.type = 'button';
-                        undo.textContent = '戻す';
+                        undo.textContent = t('vibe.dock.tabs.undoText');
                         undo.addEventListener('click', () => entry.undo?.());
                         card.append(undo);
                     }
@@ -183,15 +185,15 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         typein.className = 'akari-vibe-typein';
         const input = document.createElement('input');
         input.className = 'theia-input';
-        input.placeholder = '打ってもいい。Enter でタスクにする';
-        input.setAttribute('aria-label', 'タスクの内容');
+        input.placeholder = t('vibe.dock.tabs.canTypeTooPressEnterCreateTaskPlaceholder');
+        input.setAttribute('aria-label', t('vibe.dock.tabs.taskContentAriaLabel'));
         const submit = (mode: 'task' | 'send'): void => {
             if (!input.value.trim()) return;
             const text = input.value;
             const target = this.state.pointedTarget?.target;
             this.state.submitInstruction(text, mode);
-            this.entries.push({ text, at: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-                kind: mode === 'task' ? 'タスク' : 'すぐ', target });
+            this.entries.push({ text, at: formatDate(new Date(), { kind: 'time', options: { hour: '2-digit', minute: '2-digit' } }),
+                kind: mode === 'task' ? t('vibe.dock.tabs.taskLabel') : t('vibe.dock.tabs.immediatelyLabel'), target });
             if (this.entries.length > 200) this.entries.splice(0, this.entries.length - 200);
             paint();
             input.value = '';
@@ -201,15 +203,15 @@ export class NowVibeDockTab implements VibeDockTabContribution {
         });
         const task = document.createElement('button');
         task.className = 'theia-button secondary small';
-        task.textContent = 'タスク';
-        task.title = 'タスクにする';
-        task.setAttribute('aria-label', 'タスクにする');
+        task.textContent = t('vibe.dock.tabs.taskText');
+        task.title = t('vibe.dock.tabs.createTaskTooltip');
+        task.setAttribute('aria-label', t('vibe.dock.tabs.createTaskAriaLabel'));
         task.addEventListener('click', () => submit('task'));
         const send = document.createElement('button');
         send.className = 'theia-button quiet small';
-        send.textContent = 'すぐ';
-        send.title = 'すぐ頼む';
-        send.setAttribute('aria-label', 'すぐ頼む');
+        send.textContent = t('vibe.dock.tabs.immediatelyText');
+        send.title = t('vibe.dock.tabs.askNowTooltip');
+        send.setAttribute('aria-label', t('vibe.dock.tabs.askNowAriaLabel'));
         send.addEventListener('click', () => submit('send'));
         typein.append(input, task, send);
         root.append(stream, typein);
@@ -221,7 +223,7 @@ export class NowVibeDockTab implements VibeDockTabContribution {
 @injectable()
 export class SettingsVibeDockTab implements VibeDockTabContribution {
     readonly id = 'settings';
-    readonly label = '設定';
+    readonly label = t('vibe.dock.tabs.settingsLabel');
     readonly icon = 'settings';
     readonly order = 100;
     @inject(CommandService) protected readonly commands!: CommandService;
@@ -234,7 +236,7 @@ export class SettingsVibeDockTab implements VibeDockTabContribution {
         let capabilities: EarCapabilities = { engines: [] };
         let mic: EarStatus['mic'] = lastKnownListeningMic;
         const summary = document.createElement('div');
-        summary.setAttribute('aria-label', '設定の要約');
+        summary.setAttribute('aria-label', t('vibe.dock.tabs.settingsSummaryAriaLabel'));
         host.append(summary);
         let dictionaryCount: number | undefined;
         const row = (label: string, value: string, command: string): HTMLElement => {
@@ -260,11 +262,11 @@ export class SettingsVibeDockTab implements VibeDockTabContribution {
                 liveAvailable: capabilities.engines.some(value => value.id === 'speechanalyzer-live' && value.available)
             });
             summary.replaceChildren(
-                row(`聞き取り: ${engineLabel}`, '›', 'akari.settings.open'),
-                row('Jev で画面を動かす', VIBE_MODE_LABELS[mode.mode], 'akari.settings.open'),
-                row('辞書', dictionaryCount === undefined ? '…' : String(dictionaryCount), 'akari.voiceDictionary.open')
+                row(t('vibe.dock.tabs.listeningWithValueLabel', { value1: engineLabel }), '›', 'akari.settings.open'),
+                row(t('vibe.dock.tabs.controlScreenJevLabel'), VIBE_MODE_LABELS[mode.mode], 'akari.settings.open'),
+                row(t('vibe.dock.tabs.dictionaryLabel'), dictionaryCount === undefined ? '…' : String(dictionaryCount), 'akari.voiceDictionary.open')
             );
-            summary.title = `マイク: ${mic === 'ok' ? '許可あり' : mic === 'denied' ? '許可なし' : '未確認'}`;
+            summary.title = t('vibe.dock.tabs.microphoneWithValueTooltip', { value1: mic === 'ok' ? t('vibe.dock.tabs.microphoneAllowed') : mic === 'denied' ? t('vibe.dock.tabs.microphoneDenied') : t('vibe.dock.tabs.microphoneUnchecked') });
         };
         paint();
         const statusSubscription = this.ear.onStatus(status => {

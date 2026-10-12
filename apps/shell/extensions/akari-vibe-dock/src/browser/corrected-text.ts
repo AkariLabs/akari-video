@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { buildCorrectedSegments, CorrectedApplied } from '../common/corrected-text-model';
 
 export function ensureCorrectedTextStyles(): void {
@@ -23,7 +24,7 @@ export function renderCorrectedText(host: HTMLElement,
         const item = segment.applied;
         const wrapper = document.createElement('span');
         wrapper.className = 'akari-corrected-word';
-        wrapper.title = `聞こえたまま: ${item.from}`;
+        wrapper.title = t('vibe.listening.corrections.asHeardWithOriginalTooltip', { value1: item.from });
         wrapper.tabIndex = 0;
         wrapper.append(document.createTextNode(segment.text));
         const controls = document.createElement('span');
@@ -32,7 +33,7 @@ export function renderCorrectedText(host: HTMLElement,
         const revert = document.createElement('button');
         revert.className = 'theia-button secondary';
         revert.type = 'button';
-        revert.textContent = '元に戻す';
+        revert.textContent = t('vibe.listening.corrections.undoText');
         revert.onclick = () => {
             const range = item.range!;
             utterance.text = utterance.text.slice(0, range[0]) + item.from + utterance.text.slice(range[1]);
@@ -47,7 +48,7 @@ export function renderCorrectedText(host: HTMLElement,
         const open = document.createElement('button');
         open.className = 'theia-button quiet';
         open.type = 'button';
-        open.textContent = 'この項目を開く';
+        open.textContent = t('vibe.listening.corrections.openItemText');
         open.onclick = () => actions.onOpen(item.id);
         controls.append(revert, open);
         wrapper.onmouseenter = () => { controls.hidden = false; };

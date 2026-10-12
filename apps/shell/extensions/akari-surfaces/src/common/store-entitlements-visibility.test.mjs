@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import {
-    STORE_RECONNECT_REQUIRED_MESSAGE,
-    storeReconnectRequired
-} from '../../lib/common/store-entitlements-visibility.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { STORE_RECONNECT_REQUIRED_MESSAGE, storeReconnectRequired } = await import("../../lib/common/store-entitlements-visibility.js");
+
 
 test('storeReconnectRequired: 保存済み資格情報 + unauthorized のときだけ再接続が必要', () => {
     assert.equal(storeReconnectRequired(true, 'unauthorized'), true);

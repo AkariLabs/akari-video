@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { AkariToolCheckResult, AkariToolId, AkariToolInstallResult } from './akari-new-project-protocol';
 
 /**
@@ -11,13 +12,14 @@ export interface ToolSelectionSnapshot {
     unavailableIds: ReadonlySet<AkariToolId>;
 }
 
-export const TOOL_INSTALL_NOTICE = 'Windows では winget、Mac では Homebrew で導入します。導入すると各ソフトの利用規約に同意したことになります。';
+export const TOOL_INSTALL_NOTICE = t('surfaces.tools.installWingetWindowsHomebrewMacInstallingSoftware.description');
 
 export const TOOL_PROVIDERS: Record<AkariToolId, { provider: string; termsUrl: string }> = {
-    ffmpeg: { provider: 'FFmpeg 開発チーム', termsUrl: 'https://ffmpeg.org/legal.html' },
-    whisper: { provider: 'ggml 開発チーム', termsUrl: 'https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE' },
-    'yt-dlp': { provider: 'yt-dlp 開発チーム', termsUrl: 'https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE' },
+    ffmpeg: { provider: t('surfaces.tools.ffmpegDevelopmentTeam.label'), termsUrl: 'https://ffmpeg.org/legal.html' },
+    whisper: { provider: t('surfaces.tools.ggmlDevelopmentTeam.label'), termsUrl: 'https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE' },
+    'yt-dlp': { provider: t('surfaces.tools.ytDlpDevelopmentTeam.label'), termsUrl: 'https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE' },
     voicevox: { provider: 'VOICEVOX', termsUrl: 'https://voicevox.hiroshiba.jp/term/' },
+    voice: { provider: t('surfaces.tools.voice.provider.label'), termsUrl: 'https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE' },
     blender: { provider: 'Blender Foundation', termsUrl: 'https://www.blender.org/about/license/' },
     'xcode-clt': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' },
     'speech-analyzer': { provider: 'Apple', termsUrl: 'https://www.apple.com/legal/sla/' }
@@ -56,7 +58,7 @@ export function filterInstallableSelection(
 
 /** 「インストール中: FFmpeg (1/3)…」形式の進捗表示文字列。 */
 export function formatInstallProgressLabel(toolName: string, index: number, total: number): string {
-    return `インストール中: ${toolName} (${index}/${total})…`;
+    return t('surfaces.tools.installing.message', { toolName: toolName, index: index, total: total });
 }
 
 /** 導入結果をそのまま表示できる 1 行へ寄せる。 */
@@ -66,13 +68,13 @@ export function describeToolInstallOutcome(result: AkariToolInstallResult, toolN
     }
     switch (result.outcome) {
         case 'installed':
-            return `${toolName} を導入しました。`;
+            return t('surfaces.tools.introduced.message', { toolName: toolName });
         case 'external-installer-opened':
-            return `${toolName} のインストーラーを開きました。完了したら再チェックしてください。`;
+            return t('surfaces.tools.openedInstallerCheckAgainInstallationFinishes.message', { toolName: toolName });
         case 'skipped':
-            return `${toolName} は手動で入れる必要があります。`;
+            return t('surfaces.tools.mustEnteredManually.message', { toolName: toolName });
         case 'failed':
-            return `${toolName} の導入に失敗しました。もう一度お試しください。`;
+            return t('surfaces.tools.installTryAgain.message', { toolName: toolName });
     }
 }
 

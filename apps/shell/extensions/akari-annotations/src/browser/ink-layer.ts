@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import {
     addObject, deleteObject, decimatePoints, duplicateObject, hitTest, INK_PALETTE, InkAspect, InkDocument,
     InkObject, InkPoint, moveObject, nextId, setColor as recolor, setText as rewriteText, strokeWidthForPaperHeight
@@ -210,7 +211,7 @@ export class InkLayer {
     private startText(at: InkPoint): void {
         this.finishText();
         const input = document.createElement('input');
-        input.type = 'text'; input.setAttribute('aria-label', '文字');
+        input.type = 'text'; input.setAttribute('aria-label', t('annotations.inkLayer.text.characters'));
         input.style.position = 'absolute'; input.style.left = `${at[0] * 100}%`; input.style.top = `${at[1] * 100}%`;
         input.style.color = this.color; input.style.background = 'var(--akari-editor-background)';
         input.style.borderColor = 'var(--akari-accent)'; input.style.fontSize = `${0.045 * this.surface.clientHeight}px`;

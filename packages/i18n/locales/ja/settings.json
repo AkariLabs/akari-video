@@ -1,0 +1,6 @@
+{
+  "settings.appearance.language.auto": "自動（OS に合わせる）",
+  "settings.appearance.language.ja": "日本語",
+  "settings.appearance.language.en": "English",
+  "settings.appearance.language.hint": "切り替えるとウィンドウを再読み込みします"
+}

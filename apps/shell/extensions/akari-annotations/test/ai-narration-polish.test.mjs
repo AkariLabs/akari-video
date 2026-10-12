@@ -1,3 +1,5 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readCompiledSource } from './helpers/widget-source.mjs';
 import './timeline-harness-dependencies.mjs';
@@ -7,17 +9,32 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog } = await import('../lib/common/ai-action-catalog.js');
+const { aiNarrationNeedsChoice, aiNarrationSourcePath, planAiNarrationPlacement, placeAiNarration } = await import('../lib/common/ai-narration-placement.js');
+const { aiNarrationChoiceVisible, generateAiNarration } = await import('../lib/browser/inspector/ai-narration-panel.js');
+const mutations = await import('../lib/common/edit-v2-mutations.js');
+const { AkariEditHistoryService } = await import('../lib/browser/akari-edit-history-service.js');
 
-import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
 
-import { aiNarrationNeedsChoice, aiNarrationSourcePath, planAiNarrationPlacement,
-  placeAiNarration } from '../lib/common/ai-narration-placement.js';
 
-import { aiNarrationChoiceVisible, generateAiNarration } from '../lib/browser/inspector/ai-narration-panel.js';
 
-import * as mutations from '../lib/common/edit-v2-mutations.js';
 
-import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
+
+
+
+
+
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const engine = { id: 'voicevox', label: 'VOICEVOX', place: 'local',
   price: { usd_per_1000_chars: 0, verified: true },

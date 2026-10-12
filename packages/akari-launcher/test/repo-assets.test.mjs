@@ -20,7 +20,9 @@ const ASSET_MARKERS = {
   eyeBarScript: ['packages', 'akari-tools', 'bin', 'eye-bar.mjs'],
   decisionLogScript: ['packages', 'akari-tools', 'bin', 'decision-log.mjs'],
   captionsScript: ['packages', 'akari-tools', 'bin', 'captions.mjs'],
-  mediaScript: ['packages', 'akari-tools', 'bin', 'media.mjs']
+  mediaScript: ['packages', 'akari-tools', 'bin', 'media.mjs'],
+  speakersScript: ['packages', 'akari-tools', 'bin', 'speakers.mjs'],
+  toolsScript: ['packages', 'akari-tools', 'bin', 'tools.mjs']
 };
 
 async function withRoots(run) {

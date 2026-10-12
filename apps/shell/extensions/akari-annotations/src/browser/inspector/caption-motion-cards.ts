@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { CaptionAnimation, CaptionTextStylePatch } from '../../common/caption-store';
 import type { InspectorWriteRequest } from '../timeline-selection-model';
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
@@ -5,12 +6,12 @@ import { MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
     MOTION_PRESET_LABELS, type InspectorMotionSlot } from './motion-fields';
 
 export const CAPTION_MOTION_COMBOS = [
-    { id: 'simple', label: 'シンプル', in: 'fade', out: 'fade' },
-    { id: 'smart', label: 'スマート', in: 'slide-up', loop: 'float', out: 'slide-up' },
-    { id: 'fun', label: 'ファン', in: 'pop', loop: 'pulse', out: 'pop' },
-    { id: 'corp', label: 'コーポレート', in: 'wipe', out: 'wipe' },
-    { id: 'relax', label: 'リラックス', in: 'fade', loop: 'float', out: 'fade' },
-    { id: 'typewriter', label: 'タイプライター', in: 'typewriter', out: 'fade' }
+    { id: 'simple', label: t('inspector.captionMotionCards.label.simple'), in: 'fade', out: 'fade' },
+    { id: 'smart', label: t('inspector.captionMotionCards.label.smart'), in: 'slide-up', loop: 'float', out: 'slide-up' },
+    { id: 'fun', label: t('inspector.captionMotionCards.label.fan'), in: 'pop', loop: 'pulse', out: 'pop' },
+    { id: 'corp', label: t('inspector.captionMotionCards.label.corporate'), in: 'wipe', out: 'wipe' },
+    { id: 'relax', label: t('inspector.captionMotionCards.label.relax'), in: 'fade', loop: 'float', out: 'fade' },
+    { id: 'typewriter', label: t('inspector.captionMotionCards.label.typewriter'), in: 'typewriter', out: 'fade' }
 ] as const;
 
 export const presetToAnimation: Record<string, string> = {

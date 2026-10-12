@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation, SaveCanvasRequest, SaveCanvasResult } from '../common/akari-annotations-protocol';
@@ -28,18 +29,18 @@ export interface ReviewSessionBadge {
 
 export function reviewSessionBadge(session: ReviewSessionSummaryLike): ReviewSessionBadge {
     if (session.orphaned === true) {
-        return { key: 'orphaned', label: '未完了' };
+        return { key: 'orphaned', label: t('annotations.reviewModel.text.incomplete') };
     }
     if (session.status === 'transcribed') {
-        return { key: 'transcribed', label: '文字起こし済み' };
+        return { key: 'transcribed', label: t('annotations.reviewModel.text.transcribed') };
     }
     if (session.status === 'compiled') {
-        return { key: 'compiled', label: 'コンパイル済み' };
+        return { key: 'compiled', label: t('annotations.reviewModel.text.compiled') };
     }
     return {
         key: 'recorded',
-        label: '録音済み',
-        hint: 'まだチケットになっていません — コンパイルでチケット化'
+        label: t('annotations.reviewModel.text.alreadyRecorded'),
+        hint: t('annotations.reviewModel.text.notYetATicketCompiledIntoA')
     };
 }
 
@@ -179,7 +180,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -205,7 +206,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -232,7 +233,7 @@ export class ReviewModel {
     async addDocAnnotation(text: string, selection: DocBlockSelection): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -260,7 +261,7 @@ export class ReviewModel {
     ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -287,7 +288,7 @@ export class ReviewModel {
     async addUiAnnotation(text: string, sourceT: number, uiTarget: string): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -312,7 +313,7 @@ export class ReviewModel {
     async saveCanvas(request: Omit<SaveCanvasRequest, 'projectRootUri'>): Promise<SaveCanvasResult> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         return this.annotationsService.saveCanvas({ ...request, projectRootUri: location.root.toString() });
     }
@@ -320,7 +321,7 @@ export class ReviewModel {
     async resolveAnnotation(annotationId: string): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.resolveAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -336,7 +337,7 @@ export class ReviewModel {
     async deleteAnnotation(annotationId: string): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.deleteAnnotation({
             reviewUri: location.reviewUri.toString(),
@@ -350,7 +351,7 @@ export class ReviewModel {
     async restoreAnnotation(annotation: Annotation): Promise<Annotation> {
         const location = this._location;
         if (!location) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotations.reviewModel.text.unableToIdentifyProject'));
         }
         const result = await this.annotationsService.restoreAnnotation({
             reviewUri: location.reviewUri.toString(),

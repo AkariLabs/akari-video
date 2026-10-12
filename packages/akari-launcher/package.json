@@ -34,6 +34,9 @@
   "engines": {
     "node": ">=20"
   },
+  "devDependencies": {
+    "@akari-video/content-language": "0.0.0"
+  },
   "scripts": {
     "prepack": "node scripts/prepack.mjs",
     "postpack": "node scripts/prepack.mjs clean",

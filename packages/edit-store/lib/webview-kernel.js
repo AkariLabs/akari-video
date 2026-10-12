@@ -4,6 +4,9 @@ var AkariEditKernel = (() => {
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function __require() {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -17,6 +20,28 @@ var AkariEditKernel = (() => {
     return to;
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // ../content-language/src/caption-defaults.json
+  var require_caption_defaults = __commonJS({
+    "../content-language/src/caption-defaults.json"(exports, module) {
+      module.exports = {
+        ja: {
+          landscapeCharacters: 20,
+          portraitCharacters: 10,
+          charactersPerSecond: null,
+          minimumSeconds: 1,
+          fontStack: '"Noto Sans JP", sans-serif'
+        },
+        en: {
+          landscapeCharacters: 42,
+          portraitCharacters: 24,
+          charactersPerSecond: 17,
+          minimumSeconds: 1,
+          fontStack: '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif'
+        }
+      };
+    }
+  });
 
   // src/webview-kernel.ts
   var webview_kernel_exports = {};
@@ -1439,6 +1464,7 @@ var AkariEditKernel = (() => {
   }
 
   // src/caption-display.ts
+  var CAPTION_LANGUAGE_DEFAULTS = require_caption_defaults();
   var CAPTION_ALIGN_VALUES = /* @__PURE__ */ new Set(["left", "center", "right"]);
   var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
   var CAPTION_TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);

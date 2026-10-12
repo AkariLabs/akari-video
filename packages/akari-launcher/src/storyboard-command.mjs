@@ -1,13 +1,14 @@
 import { spawnSync } from "node:child_process";
 
 import { resolveLauncherAssets } from "./repo-assets.mjs";
+import { cliText } from './i18n.mjs';
 
-const USAGE = "使い方: akari storyboard <projectDir> [--no-capture] [--captures <dir>] [--out <dir>]";
+const usage = () => cliText('cli.storyboard.help.usage');
 
 export async function runStoryboardCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
   if (args.includes("--help")) {
-    log(USAGE);
+    log(usage());
     return { exitCode: 0 };
   }
 
@@ -15,7 +16,7 @@ export async function runStoryboardCommand(args, options = {}) {
   const assets = options.assets ?? resolveLauncherAssets();
   const spawn = options.spawn ?? spawnSync;
   if (!assets.storyboardScript) {
-    logError("akari storyboard の実行スクリプトが見つかりません。完全な AKARI Video を再導入してください:");
+    logError(cliText('cli.storyboard.error.scriptMissing'));
     logError("  npm install -g akari-video");
     return { exitCode: 2 };
   }

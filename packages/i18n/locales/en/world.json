@@ -1,0 +1,22 @@
+{
+  "world.map.openMap.label": "Open map",
+  "world.map.showNextPreview.label": "Show next to preview",
+  "world.map.subscribeToWidgetInvalidStopMovementArguments.message": "Invalid stop movement arguments.",
+  "world.map.overviewGeneratingWorldOverview.error": "Generating world overview…",
+  "world.map.overviewFindAkariWorldCli.error": "Could not find the akari world CLI.",
+  "world.map.overviewReadAkariWorldOverviewResult.error": "Could not read the akari world overview result: {error}",
+  "world.map.moveStopInvalidStopId.message": "Invalid stop ID.",
+  "world.map.moveStopCMustArrayTwoThreeFiniteNumbers.message": "C must be an array of two or three finite numbers.",
+  "world.map.moveStopStopMoving.message": "Stop {stopId} is moving.",
+  "world.map.moveStopFindAkariWorldCli.message": "Could not find the akari world CLI.",
+  "world.map.moveStopReadAkariWorldMoveStopResult.label": "Could not read the akari world move-stop result: {error}",
+  "world.map.title.label": "Map",
+  "world.map.openWorldMap.label": "World map",
+  "world.map.subscribeToWidgetFindProjectRoot.message": "Could not find the project root.",
+  "world.map.subscribeToWidgetMoveStop.message": "Could not move the stop.",
+  "world.map.overviewAkariWorldOverviewReturnedNoResultExit.label": "Akari world overview returned no result (exit {exitCode}).",
+  "world.map.overviewMissingOutputField.label": "Missing output field.",
+  "world.map.moveStopAkariWorldMoveStopReturnedNoResult.label": "Akari world move-stop returned no result (exit {exitCode}).",
+  "world.map.moveStopMissingOkField.label": "Missing ok field.",
+  "world.worldCli.exit.unknown": "Unknown"
+}

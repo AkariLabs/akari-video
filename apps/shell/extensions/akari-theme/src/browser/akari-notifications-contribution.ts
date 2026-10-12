@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { injectable } from '@theia/core/shared/inversify';
 import { MenuModelRegistry } from '@theia/core';
 import { FrontendApplication, StatusBarAlignment } from '@theia/core/lib/browser';
@@ -19,7 +20,7 @@ export class AkariNotificationsContribution extends NotificationsContribution {
     override registerMenus(menus: MenuModelRegistry): void {
         menus.registerMenuAction([...NOTIFICATION_CONTEXT_MENU, '_copy'], {
             commandId: NotificationsCommands.COPY_MESSAGE.id,
-            label: 'メッセージをコピー'
+            label: t('theme.notifications.registerMenusCopyMessage.label')
         });
     }
 
@@ -44,7 +45,7 @@ export class AkariNotificationsContribution extends NotificationsContribution {
 
     protected override getStatusBarItemTooltip(_count: number): string {
         const count = (this.manager as AkariNotificationManager).life.unreadCount;
-        return count ? `未読の通知 ${count} 件` : '通知はありません';
+        return count ? t('theme.notifications.statusBarItemTooltipUnreadNotifications.message', { count: count, n: count }) : t('theme.notifications.statusBarItemTooltipNoNotifications.label');
     }
 
     protected override updateStatusBarItem(count = 0): void {

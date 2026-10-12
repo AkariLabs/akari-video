@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 const JSON_PARSE_MESSAGE = /(?:\bJSON\b|Unexpected (?:token|end)|Expected (?:property|double-quoted|','|':')|position \d+|line \d+ column \d+)/iu;
 const STACK_FRAGMENT = /\s+at\s+(?:[^()\s]+\s*)?\([^\r\n()]+:\d+:\d+\)\s*$/u;
 const MAX_SUMMARY_LENGTH = 160;
@@ -20,10 +21,10 @@ export const summarizePreviewError = (error: unknown): string => {
         .trim();
 
     if (isJsonParseError && summary) {
-        summary = `edit.json を JSON として読めません（${summary}）`;
+        summary = t('preview.outputPreview.errors.couldNotParseEditJsonJsonError', { p1: (summary) });
     }
     if (!summary || summary === '[object Object]') {
-        return '原因不明のエラーです。';
+        return t('preview.outputPreview.errors.unknownErrorOccurredError');
     }
     return summary.length > MAX_SUMMARY_LENGTH
         ? `${summary.slice(0, MAX_SUMMARY_LENGTH - 1)}…`

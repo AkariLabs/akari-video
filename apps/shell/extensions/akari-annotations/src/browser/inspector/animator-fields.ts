@@ -1,20 +1,21 @@
+import { t } from '@akari-video/i18n';
 import { MOTION_EASES } from './motion-fields';
 
 export const INSPECTOR_ANIMATOR_BASES = [
-    { id: 'chars', label: '文字' }, { id: 'words', label: '単語' }, { id: 'lines', label: '行' },
-    { id: 'segments', label: '文節', title: 'v1 では words と同じ扱いです' }
+    { id: 'chars', label: t('inspector.animatorFields.label.textOverlay') }, { id: 'words', label: t('inspector.animatorFields.label.words') }, { id: 'lines', label: t('inspector.animatorFields.label.line') },
+    { id: 'segments', label: t('inspector.animatorFields.label.phrase'), title: t('inspector.animatorFields.title.v1SameAsWords') }
 ] as const;
 export const INSPECTOR_ANIMATOR_SHAPES = [
-    { id: 'ramp', label: '上り' }, { id: 'ramp-down', label: '下り' },
-    { id: 'triangle', label: '三角' }, { id: 'round', label: '丸' },
-    { id: 'smooth', label: 'なめらか' }, { id: 'square', label: '矩形' }
+    { id: 'ramp', label: t('inspector.animatorFields.label.rise') }, { id: 'ramp-down', label: t('inspector.animatorFields.label.fall') },
+    { id: 'triangle', label: t('inspector.animatorFields.label.triangle') }, { id: 'round', label: t('inspector.animatorFields.label.round') },
+    { id: 'smooth', label: t('inspector.animatorFields.label.smooth') }, { id: 'square', label: t('inspector.animatorFields.label.rectangle') }
 ] as const;
 export const INSPECTOR_ANIMATOR_MAX_ITEMS = 8;
 export const expandedAnimatorFields = new Set<string>();
 export const INSPECTOR_ANIMATOR_TEMPLATES = [
-    { id: 'sequential', label: '順に出る', shape: 'ramp', fields: ['end', 'offset'] },
-    { id: 'wave', label: '波打つ', shape: 'round', fields: ['amount.y', 'offset'] },
-    { id: 'random', label: 'ランダムに揺れる', shape: 'square', fields: ['amount.rotate', 'offset', 'randomize.seed'] }
+    { id: 'sequential', label: t('inspector.animatorFields.label.contactUs'), shape: 'ramp', fields: ['end', 'offset'] },
+    { id: 'wave', label: t('inspector.animatorFields.label.wavePunching'), shape: 'round', fields: ['amount.y', 'offset'] },
+    { id: 'random', label: t('inspector.animatorFields.label.randomlyKing'), shape: 'square', fields: ['amount.rotate', 'offset', 'randomize.seed'] }
 ] as const;
 export type InspectorAnimatorBasis = typeof INSPECTOR_ANIMATOR_BASES[number]['id'];
 export type InspectorAnimatorShape = typeof INSPECTOR_ANIMATOR_SHAPES[number]['id'];
@@ -45,17 +46,17 @@ export interface InspectorAnimatorNumberField {
     title?: string;
 }
 export const INSPECTOR_ANIMATOR_NUMBER_FIELDS: readonly InspectorAnimatorNumberField[] = [
-    { key: 'start', label: '範囲 始', min: 0, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
-    { key: 'end', label: '範囲 終', min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
-    { key: 'offset', label: 'オフセット', min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
-    { key: 'amount.x', label: '量 X', default: 0, step: 1, unit: 'px', displayScale: 1 },
-    { key: 'amount.y', label: '量 Y', default: 0, step: 1, unit: 'px', displayScale: 1 },
-    { key: 'amount.scale', label: '量 拡縮', default: 0, step: 0.01, unit: '%', displayScale: 100 },
-    { key: 'amount.rotate', label: '量 回転', default: 0, step: 1, unit: '°', displayScale: 1 },
-    { key: 'amount.opacity', label: '量 不透明度', min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
-    { key: 'amount.letterSpacing', label: '量 字間', default: 0, step: 1, unit: 'px', displayScale: 1, title: 'gpu 出口では v1 未対応' },
-    { key: 'amount.blur', label: '量 ぼかし', default: 0, step: 1, unit: 'px', displayScale: 1, title: 'gpu 出口では v1 未対応' },
-    { key: 'randomize.seed', label: 'ランダム seed', default: null, step: 1, unit: '', displayScale: 1, integer: true }
+    { key: 'start', label: t('inspector.animatorFields.label.rangeFirst'), min: 0, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
+    { key: 'end', label: t('inspector.animatorFields.label.rangeEnd'), min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
+    { key: 'offset', label: t('inspector.animatorFields.label.offset'), min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
+    { key: 'amount.x', label: t('inspector.animatorFields.label.quantityX'), default: 0, step: 1, unit: 'px', displayScale: 1 },
+    { key: 'amount.y', label: t('inspector.animatorFields.label.yAmount'), default: 0, step: 1, unit: 'px', displayScale: 1 },
+    { key: 'amount.scale', label: t('inspector.animatorFields.label.volumeExpansion'), default: 0, step: 0.01, unit: '%', displayScale: 100 },
+    { key: 'amount.rotate', label: t('inspector.animatorFields.label.quantityRotation'), default: 0, step: 1, unit: '°', displayScale: 1 },
+    { key: 'amount.opacity', label: t('inspector.animatorFields.label.quantityOpacity'), min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 },
+    { key: 'amount.letterSpacing', label: t('inspector.animatorFields.label.letterSpacingAmount'), default: 0, step: 1, unit: 'px', displayScale: 1, title: t('inspector.animatorFields.title.gpuV1UnsupportedExit') },
+    { key: 'amount.blur', label: t('inspector.animatorFields.label.blurAmount'), default: 0, step: 1, unit: 'px', displayScale: 1, title: t('inspector.animatorFields.title.gpuV1UnsupportedExit') },
+    { key: 'randomize.seed', label: t('inspector.animatorFields.label.randomSeed'), default: null, step: 1, unit: '', displayScale: 1, integer: true }
 ];
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -119,7 +120,7 @@ export function nextAnimatorId(list: readonly InspectorAnimator[]): string {
 }
 
 export function addInspectorAnimator(list: readonly InspectorAnimator[]): InspectorAnimator[] {
-    if (list.length >= INSPECTOR_ANIMATOR_MAX_ITEMS) throw new Error('アニメーターは 8 本までです。');
+    if (list.length >= INSPECTOR_ANIMATOR_MAX_ITEMS) throw new Error(t('inspector.animatorFields.error.up8Animators'));
     const next = normalizeInspectorAnimators(list);
     return [...next, { id: nextAnimatorId(list), basis: 'chars', shape: 'ramp', start: 0, end: 0.3, offset: 0, amount: {} }];
 }
@@ -127,7 +128,7 @@ export function addInspectorAnimator(list: readonly InspectorAnimator[]): Inspec
 export function addInspectorAnimatorTemplate(list: readonly InspectorAnimator[],
     templateId: typeof INSPECTOR_ANIMATOR_TEMPLATES[number]['id']): InspectorAnimator[] {
     const template = INSPECTOR_ANIMATOR_TEMPLATES.find(item => item.id === templateId);
-    if (!template) throw new Error('ひな形を選択してください。');
+    if (!template) throw new Error(t('inspector.animatorFields.error.selectTemplate'));
     const result = addInspectorAnimator(list);
     const last = result[result.length - 1];
     if (template.id === 'sequential') {
@@ -146,7 +147,7 @@ export function inspectorAnimatorTemplateFor(animator: InspectorAnimator): typeo
 }
 
 function assertIndex(list: readonly InspectorAnimator[], index: number): void {
-    if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('アニメーターを選択してください。');
+    if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error(t('inspector.animatorFields.error.selectAnimator'));
 }
 
 export function removeInspectorAnimator(list: readonly InspectorAnimator[], index: number): InspectorAnimator[] {
@@ -159,7 +160,7 @@ export function removeInspectorAnimator(list: readonly InspectorAnimator[], inde
 export function moveInspectorAnimator(list: readonly InspectorAnimator[], index: number, delta: number): InspectorAnimator[] {
     const next = normalizeInspectorAnimators(list);
     assertIndex(next, index);
-    if (delta !== -1 && delta !== 1) throw new Error('アニメーターは上か下へ移動してください。');
+    if (delta !== -1 && delta !== 1) throw new Error(t('inspector.animatorFields.error.placeAnimatorTopBottom'));
     const destination = index + delta;
     if (destination >= 0 && destination < next.length) [next[index], next[destination]] = [next[destination], next[index]];
     return next;
@@ -173,24 +174,24 @@ export function updateInspectorAnimator(
     const entry = next[index];
     if (key === 'basis') {
         const option = INSPECTOR_ANIMATOR_BASES.find(candidate => candidate.id === (value ?? 'chars'));
-        if (!option) throw new Error('一覧から単位を選択してください。');
+        if (!option) throw new Error(t('inspector.animatorFields.error.selectUnitFromList'));
         entry.basis = option.id;
     } else if (key === 'shape') {
         const option = INSPECTOR_ANIMATOR_SHAPES.find(candidate => candidate.id === (value ?? 'ramp'));
-        if (!option) throw new Error('一覧から形を選択してください。');
+        if (!option) throw new Error(t('inspector.animatorFields.error.selectFormFromList'));
         entry.shape = option.id;
     } else if (key === 'ease') {
         const ease = MOTION_EASES.find(candidate => candidate === (value ?? 'linear'));
-        if (!ease) throw new Error('一覧からイージングを選択してください。');
+        if (!ease) throw new Error(t('inspector.animatorFields.error.selectEasing'));
         if (ease === 'linear') delete entry.ease;
         else entry.ease = ease;
     } else {
         const field = INSPECTOR_ANIMATOR_NUMBER_FIELDS.find(candidate => candidate.key === key);
-        if (!field) throw new Error('このアニメーターに未対応のパラメータです。');
+        if (!field) throw new Error(t('inspector.animatorFields.error.parameterNotSupportedAnimator'));
         if (value !== null && !validNumber(value, field)) {
-            const range = field.min === undefined || field.max === undefined ? '有限数'
+            const range = field.min === undefined || field.max === undefined ? t('inspector.animatorFields.label.number')
                 : `${field.min * field.displayScale}〜${field.max * field.displayScale}`;
-            throw new Error(`${field.label}は ${range} ${field.unit} の範囲${field.integer ? 'の整数' : ''}で入力してください。`);
+            throw new Error(t('inspector.animatorFields.error.enterWithin', { label: field.label, range: range, unit: field.unit, integerNote: field.integer ? t('inspector.animatorFields.unit.integerSuffix') : '' }));
         }
         const number = value === null ? field.default : value as number;
         if (key === 'randomize.seed') {

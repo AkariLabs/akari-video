@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { CaptionTextStyle, CaptionTextStylePatch } from '../../common/caption-store';
 import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 
@@ -6,38 +7,38 @@ export type CaptionEffectCardId = typeof CAPTION_EFFECT_GROUPS[number]['items'][
 
 // 既存の text_style フィールドだけで描ける見本。グループ順は試作 v2 と同じ。
 export const CAPTION_EFFECT_GROUPS = [
-    { label: '影', items: [
-        { id: 'sh-soft', label: 'ソフトシャドウ' }, { id: 'sh-hard', label: 'ハードシャドウ' },
-        { id: 'sh-long', label: 'ロングシャドウ' }, { id: 'sh-diag', label: '斜め下シャドウ' },
-        { id: 'sh-raised', label: '浮き出し' }, { id: 'sh-inset', label: 'くぼみ風' }
+    { label: t('inspector.captionStyleEffects.label.shadow'), items: [
+        { id: 'sh-soft', label: t('inspector.captionStyleEffects.label.softDow') }, { id: 'sh-hard', label: t('inspector.captionStyleEffects.label.hardDow') },
+        { id: 'sh-long', label: t('inspector.captionStyleEffects.label.longDow') }, { id: 'sh-diag', label: t('inspector.captionStyleEffects.label.shadowUnderDiagonal') },
+        { id: 'sh-raised', label: t('inspector.captionStyleEffects.label.emboss') }, { id: 'sh-inset', label: t('inspector.captionStyleEffects.label.inset') }
     ] },
-    { label: '光', items: [
-        { id: 'gl-white', label: '光彩 白' }, { id: 'gl-color', label: '光彩 橙' },
-        { id: 'neon-blue', label: 'ネオン 青' }, { id: 'neon-pink', label: 'ネオン ピンク' },
-        { id: 'neon-green', label: 'ネオン 緑' }, { id: 'neon-yellow', label: 'ネオン 黄' }
+    { label: t('inspector.captionStyleEffects.label.light'), items: [
+        { id: 'gl-white', label: t('inspector.captionStyleEffects.label.whiteGlow') }, { id: 'gl-color', label: t('inspector.captionStyleEffects.label.orangeGlow') },
+        { id: 'neon-blue', label: t('inspector.captionStyleEffects.label.neonBlue') }, { id: 'neon-pink', label: t('inspector.captionStyleEffects.label.neonPink') },
+        { id: 'neon-green', label: t('inspector.captionStyleEffects.label.neonGreen') }, { id: 'neon-yellow', label: t('inspector.captionStyleEffects.label.neonYellow') }
     ] },
-    { label: '縁', items: [
-        { id: 'ol-thin', label: '袋文字 細' }, { id: 'ol-thick', label: '袋文字 太' },
-        { id: 'ol-color', label: '袋文字 色違い' },
-        { id: 'ol-double-black', label: '二重縁 黒 + 白' },
-        { id: 'ol-double-color', label: '二重縁 白 + 色' }
+    { label: t('inspector.captionStyleEffects.label.edge'), items: [
+        { id: 'ol-thin', label: t('inspector.captionStyleEffects.label.thinOutlineText') }, { id: 'ol-thick', label: t('inspector.captionStyleEffects.label.heavyOutline') },
+        { id: 'ol-color', label: t('inspector.captionStyleEffects.label.multicolorOutlineText') },
+        { id: 'ol-double-black', label: t('inspector.captionStyleEffects.label.doubleRimBlackWhite') },
+        { id: 'ol-double-color', label: t('inspector.captionStyleEffects.label.doubleRimWhiteColor') }
     ] },
-    { label: '塗り', items: [
-        { id: 'fill-sunset', label: 'グラデ 夕焼け' },
-        { id: 'fill-ocean', label: 'グラデ 海' },
-        { id: 'fill-rainbow', label: 'グラデ 虹' }
+    { label: t('inspector.captionStyleEffects.label.fill'), items: [
+        { id: 'fill-sunset', label: t('inspector.captionStyleEffects.label.gradeSunset') },
+        { id: 'fill-ocean', label: t('inspector.captionStyleEffects.label.gradeSea') },
+        { id: 'fill-rainbow', label: t('inspector.captionStyleEffects.label.gradeRainbow') }
     ] },
-    { label: '立体', items: [
-        { id: 'ex-gold', label: '3D 金' }, { id: 'ex-silver', label: '3D 銀灰' }
+    { label: t('inspector.captionStyleEffects.label.threeDimensional'), items: [
+        { id: 'ex-gold', label: t('inspector.captionStyleEffects.label.threeDimensionalGold') }, { id: 'ex-silver', label: t('inspector.captionStyleEffects.label.threeDimensionalSilverAsh') }
     ] },
-    { label: '帯', items: [
-        { id: 'bg-band', label: '座布団 帯' }, { id: 'bg-round', label: '座布団 角丸' },
-        { id: 'bg-trans', label: '座布団 半透明' }
+    { label: t('inspector.captionStyleEffects.label.band'), items: [
+        { id: 'bg-band', label: t('inspector.captionStyleEffects.label.bedding') }, { id: 'bg-round', label: t('inspector.captionStyleEffects.label.roundedTextBackground') },
+        { id: 'bg-trans', label: t('inspector.captionStyleEffects.label.translucentBedding') }
     ] },
-    { label: '組み合わせ', items: [
-        { id: 'combo-neon-shadow', label: 'ネオン + 影' },
-        { id: 'combo-outline-shadow', label: '袋文字 + 影' },
-        { id: 'combo-band-outline', label: '座布団 + 袋文字' }
+    { label: t('inspector.captionStyleEffects.label.combination'), items: [
+        { id: 'combo-neon-shadow', label: t('inspector.captionStyleEffects.label.neonDow') },
+        { id: 'combo-outline-shadow', label: t('inspector.captionStyleEffects.label.outlineTextShadow') },
+        { id: 'combo-band-outline', label: t('inspector.captionStyleEffects.label.textBackgroundOutline') }
     ] }
 ] as const;
 
@@ -113,8 +114,8 @@ export function captionEffectAdjustmentPatch(style: CaptionTextStyle, path: stri
     const [part, key] = path.split('.') as ['shadow' | 'glow' | 'stroke' | 'strokeInner' | 'fillGradient' | 'extrude' | 'background', string];
     const colorField = key.startsWith('color');
     const value = colorField ? input : Number(input);
-    if (colorField && !/^#[0-9a-f]{6}$/iu.test(input)) throw new Error('色は #RRGGBB で入力してください。');
-    if (!colorField && (!Number.isFinite(value) || Number(value) < 0)) throw new Error('0 以上の数値を入力してください。');
+    if (colorField && !/^#[0-9a-f]{6}$/iu.test(input)) throw new Error(t('inspector.captionStyleEffects.error.rrggbb'));
+    if (!colorField && (!Number.isFinite(value) || Number(value) < 0)) throw new Error(t('inspector.captionStyleEffects.error.enterNumber0More'));
     if (part === 'shadow') return { shadow: { color: style.shadow?.color ?? '#000000', [key]: value } };
     if (part === 'glow') return { glow: { color: style.glow?.color ?? '#ffffff', [key]: value } };
     if (part === 'stroke') return { stroke: { [key]: value } };
@@ -260,7 +261,7 @@ function captionCueFromSource(source: string, captionId: string): Record<string,
     const captions = Array.isArray(root) ? root : record(root)?.captions;
     const cue = Array.isArray(captions)
         ? captions.map(record).find(entry => entry?.id === captionId) : undefined;
-    if (!cue) throw new Error(`字幕 ${captionId} が字幕データにありません。`);
+    if (!cue) throw new Error(t('inspector.captionStyleEffects.error.subtitleNotSubtitleData', { captionId: captionId }));
     return cue;
 }
 

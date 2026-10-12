@@ -1,6 +1,16 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const source = readAllSourceText();
 
@@ -11,7 +21,8 @@ test('宣言前ガードは edit.json 書き込みより先に return する', (
   const guard = method.indexOf('if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined');
   const adjacency = method.indexOf('this.nonAdjacentTransitionTarget(cutIndex) !== undefined', guard);
   const noWriteReturn = method.indexOf('return { ok: false, message };', guard);
-  const write = method.indexOf("commitEditMutation('トランジションを変更'");
+  const write = method.indexOf("commitEditMutation(t('annotations.timeline.text.changeTransition')");
+  assert.equal(ja['annotations.timeline.text.changeTransition'], 'トランジションを変更');
   assert.ok(guard >= 0 && adjacency > guard && noWriteReturn > adjacency && write > noWriteReturn, method);
 });
 
@@ -37,8 +48,10 @@ test('非隣接の宣言済み transition_out はクリップ警告へ統合さ�
   const methods = source.slice(start, end);
   assert.match(methods, /this\.declaredTransitionAdjacencyWarnings/);
   assert.match(methods, /this\.zeroOverlapTransitionIndexes\.has\(cutIndex\)/);
-  assert.match(source, /このトランジションは次のクリップとの間にすき間があるため書き出されません。/);
-  assert.match(source, /すき間を詰めるか、トランジションを削除してください。/);
+  assert.match(source, /t\('annotations\.timeline\.text\.thisTransitionWillNotBeExportedBecauseThere'\)/);
+  assert.match(source, /t\('annotations\.timeline\.text\.pleaseCloseTheGapOrRemoveTheTransition'\)/);
+  assert.equal(ja['annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere'], 'このトランジションは次のクリップとの間にすき間があるため書き出されません。');
+  assert.equal(ja['annotations.timeline.text.pleaseCloseTheGapOrRemoveTheTransition'], 'すき間を詰めるか、トランジションを削除してください。');
 });
 
 test('非隣接判定は同一トラックの後続 cut がある場合だけ共有カーネルへ委ねる', () => {

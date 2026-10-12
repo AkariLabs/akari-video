@@ -66,6 +66,7 @@
 | ファイル | 内容 |
 |---|---|
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | agent-native アーキテクチャの思想の正本（サンドイッチ 3 層・編集モデル・MVP マイルストーン） |
+| [contract-2026-10-11-ui-i18n.md](./contract-2026-10-11-ui-i18n.md) | UI 文言カタログ、言語選択、書式と日本語直書きの増加防止 |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約） |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | 作業場（CreatorRoot）契約 — プロジェクトの上の階層。3 つの場所・所有権 4 層・初回起動動線・可搬性 |
@@ -75,6 +76,7 @@
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | 生成 v0（仮枠クリップ・9 入力スロット・サイドカー meta・能力カタログ・状態・動画予定・差し替え・費用承認・コマ保存） |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | ワールドマップ v0（スキーマ・カメラ関数・描画 3 層・CLI akari world・俯瞰 HTML・制作フロー） |
+| [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | 作品の言語の保存先・解決順・正規化・言語パックの代用規則 |
 
 ### edit.json（編集のセーブデータ）
 
@@ -100,6 +102,7 @@
 | [contract-2026-10-07-material-ranges-v0.md](./contract-2026-10-07-material-ranges-v0.md) | 素材の非破壊 in / out 範囲の保存・帯のつまみ・タイムライン配置（英語） |
 | [contract-2026-10-07-tasks-v0.md](./contract-2026-10-07-tasks-v0.md) | タスク契約 v0 |
 | [contract-2026-10-10-channel-people-design-v0.md](./contract-2026-10-10-channel-people-design-v0.md) | チャンネルの人物記録・ローカルの写真と声・話者のつながり・デザイン素材のデータ契約 |
+| [contract-2026-10-11-speaker-split-v0.md](./contract-2026-10-11-speaker-split-v0.md) | 選択制の話者分離・ローカルの声の照合提案・人による話者の確定 |
 | [contract-2026-10-02-fragment-font-subset-v0.md](./contract-2026-10-02-fragment-font-subset-v0.md) | 断片の `@font-face` 書体の字形検査（`edit-lint` `overlays.fragment-font-glyphs`）は実装済み。書き出し時の自動部分化とキャッシュの掃除は予定。 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |

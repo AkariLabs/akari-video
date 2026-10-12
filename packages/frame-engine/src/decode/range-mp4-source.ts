@@ -121,7 +121,7 @@ export interface RangeMp4SourceOptions {
   prefetch?: boolean;
   prefetchAheadFrames?: number;
   prefetchBudgetBytes?: number;
-  onWarning?: (message: string) => void;
+  onWarning?: (message: string, detail?: { code: 'long-gop'; id: string; gopSeconds: number }) => void;
   onCodecSupport?: (support: CodecSupport) => void;
   onSoftwareFallbackDenied?: (support: CodecSupport) => void;
 }
@@ -732,7 +732,8 @@ export class RangeMp4Source {
       this.options.onWarning?.(
         `${this.id}: 最大キーフレーム間隔が ${gopSeconds.toFixed(3)} 秒のため、`
         + 'シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください'
-        + '（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）'
+        + '（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）',
+        { code: 'long-gop', id: this.id, gopSeconds }
       );
     }
     this.prepared = { table, keyframes, totalBytes: opened.totalBytes };

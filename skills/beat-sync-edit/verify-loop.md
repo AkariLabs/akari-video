@@ -1,12 +1,12 @@
-# 検証ループ
 
-**フルレンダーは検証手段ではない。** 1 周 40 分の道具で絵を確かめようとすると、
-1 日で 10 回しか試せない。数秒のミニプロジェクトなら 1 周 40 秒で、同じことが 60 倍試せる。
 
-## 1. ミニ検証プロジェクト（既定の検証手段）
+# Verification loop
 
-疑わしい断片**だけ**を入れた数秒のプロジェクトを作り、**本番レンダラーで焼いて**目視する。
+**Never use a full render as the verification method.** At 40 minutes per iteration, you can test only about ten times a day. A mini-project lasting a few seconds takes about 40 seconds per iteration and allows 60 times as many checks.
 
+## 1. Render a short verification project by default
+
+Create a project lasting only a few seconds and containing just the suspect fragment. Render it with the production renderer, then inspect the result visually.
 ```sh
 mkdir -p .akari/work/mini/{assets,overlays}
 cp overlays/<疑わしい断片>.html .akari/work/mini/overlays/
@@ -17,63 +17,50 @@ node packages/edit-lint/bin/edit-lint.mjs .akari/work/mini
 node packages/render-cut/bin/render-cut.mjs .akari/work/mini
 ffmpeg -ss 1.6 -i .akari/work/mini/exports/*.mp4 -frames:v 1 -y check.png
 ```
+- **Use the production renderer**: previews and Blender do not match runtime output.
+- **Always** decide 3D pose, texture orientation, and color through this path.
+- To compare two ideas, place them side by side in one frame so a single render answers the question.
 
-- **本番レンダラーで焼く**のが要点。プレビューや Blender の見え方はランタイムと一致しない
-- 3D の姿勢・テクスチャの向き・色は、**必ずこの経路で**確定させる
-- 比較したい案が 2 つあるなら、**左右に並べて 1 枚で撮る**（1 回のレンダーで判定できる）
+## 2. Probe individual frames for a faster check
 
-## 2. 単発フレームプローブ（さらに速い）
-
-レンダーを起動せず、本番と同じシートから任意時刻を 1 枚だけ撮る:
-
+Capture frames at selected times from the same sheet used in production without starting a full render:
 ```sh
 akari internal beat-sync-probe-frame <project> 6.5 45.5 103.2
 # → <project>/.akari/probe/t-<秒>.png（アルファ保持）
 ```
+Two observed pitfalls matter here:
 
-**注意 2 点**（どちらも実測で踏んだ）:
+1. Use Chrome arguments **identical** to those in `packages/render-cut/src/rasterize.mjs`, including `--enable-unsafe-swiftshader`. Without that flag, a 3D sheet capture can take minutes or time out.
+2. Preserve alpha in the screenshot with `omitBackground: true`, then composite it on black for inspection. Otherwise a white background can make the result appear entirely white.
 
-1. Chrome 引数は `--enable-unsafe-swiftshader` を含め、`packages/render-cut/src/rasterize.mjs` と
-   **完全に同じにする**。これが無いと 3D シートのスクショが数分〜タイムアウトする
-2. スクショはアルファを保持する（`omitBackground: true`）。確認時に黒で合成する。
-   省略すると白背景で潰れて「真っ白」に見える
+## 3. Run the full render
 
-## 3. レンダー運用
-
-長尺のレンダーは**マシンの状態に左右される**。同時に別の重い処理が走っていると、
-1 フレームあたりの既定タイムアウト（60 秒）に引っかかって**レンダー全体が落ちる**。
-
+Long renders depend on machine load. Another heavy process can push a frame beyond the default 60-second timeout and fail the entire render.
 ```sh
 RENDER_CUT_CAPTURE_TIMEOUT_MS=300000 \
   node packages/render-cut/bin/render-cut.mjs <project>
 ```
+- Set `RENDER_CUT_CAPTURE_TIMEOUT_MS` to allow five minutes per frame.
+- On a busy machine, wait until it is free with `akari internal beat-sync-render-when-idle <project>`; waiting is faster than restarting a failed render. On Windows, load cannot be measured by this helper, so it starts the render without waiting.
+- Monitor progress by comparing the number of files under `<project>/.akari/render-tmp/*/frames` with the expected frame count.
 
-- `RENDER_CUT_CAPTURE_TIMEOUT_MS` で 1 フレームのタイムアウトを延ばす（5 分を既定に）
-- マシンが混んでいるなら**空くまで待ってから焼く**
-  （`akari internal beat-sync-render-when-idle <project>`）。
-  待つほうが、落ちて焼き直すより速い
-  Windows では負荷を測れないため待機せずにレンダーを始める
-- 進捗は `<project>/.akari/render-tmp/*/frames` のファイル数で見る（対 総フレーム数）
+## 4. Inspect the export
 
-## 4. 検収
+**A `PASS` log entry alone does not establish completion.** Check all three:
 
-**ログの `PASS` を完了の根拠にしない。** 次の 3 点を必ず確認する:
-
-1. **実体**: `exports/` にファイルがあり、`ffprobe` の尺・解像度・fps・音声ストリームが想定どおり
-2. **絵**: 見せ場ごとにフレームを抜いて目視（コンタクトシートにまとめると速い）
-3. **音**: `ffmpeg -af ebur128=peak=true` で **-14 LUFS 前後・ピーク 0dB 以下**が SNS 適正圏
-
+1. **File:** Confirm the export exists in `exports/`; use `ffprobe` to check duration, resolution, frame rate, and audio streams.
+2. **Picture:** Extract and view frames around every highlight. A contact sheet can make this faster.
+3. **Sound:** Measure with `ffmpeg -af ebur128=peak=true`. Around −14 LUFS with peaks no higher than 0 dB is the appropriate range for social media.
 ```sh
 ffmpeg -i out.mp4 -af ebur128=peak=true -f null - 2>&1 | tail -12 | grep -E "^\s+(I|LRA|Peak):"
 ```
+**Check motion at three or more consecutive times.** A single still can conceal a static or reversed animation.
 
-**モーションは連続 3 点以上**で確認する。静止画 1 枚では「動いていない」「向きが逆」を見逃す。
+## 5. Apply review feedback
 
-## 5. レビュー反映
+Fix the relevant part of the generator and rerun it. Do not edit `edit.json` or generated HTML directly.
 
-指摘は**生成器の 1 箇所を直して再実行**する。`edit.json` や生成済み HTML を直接触らない。
-
-- 指摘を**そのままの言葉で**記録に残す（後から「なぜこうしたか」が読める）
-- 1 ラウンドの指摘はまとめて反映してから焼く（1 件ずつ焼くと時間が溶ける）
-- 反映後は**指摘された箇所 + 変更が波及しうる箇所**の両方を検収する（回帰確認）
-- 直せなかった項目は、そう明記して報告する（黙って落とさない）
+- Preserve the reviewer's wording in the record so the reason for the change remains clear.
+- Apply all feedback from one round before rendering again; rendering after every individual fix wastes time.
+- Inspect both the requested locations and any other locations the changes could affect.
+- State explicitly which items could not be fixed; never silently drop them.

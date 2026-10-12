@@ -156,3 +156,11 @@ test('雛形ファイルと定数が drift していない（npm 配布では .g
     const template = await readFile(path.join(REPO_ROOT, 'templates', 'project-default', '.gitignore'), 'utf8');
     assert.equal(template, PROJECT_GITIGNORE);
 });
+
+test('声の特徴量の除外行は sidecars の再許可より後に置く', async () => {
+    const template = await readFile(path.join(REPO_ROOT, 'templates', 'project-default', '.gitignore'), 'utf8');
+    for (const body of [PROJECT_GITIGNORE, template]) {
+        const lines = body.split('\n');
+        assert.ok(lines.indexOf('.akari/sidecars/**/voices.json') > lines.indexOf('!.akari/sidecars/**'));
+    }
+});

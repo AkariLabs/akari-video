@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import {
-    computeDownloadPercent,
-    formatBytes,
-    formatDownloadProgressLabel,
-    summarizeCommandInstallPhase
-} from '../../lib/common/tool-install-progress.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { computeDownloadPercent, formatBytes, formatDownloadProgressLabel, summarizeCommandInstallPhase } = await import("../../lib/common/tool-install-progress.js");
+
 
 test('formatBytes: 1MB 以上は整数MBに丸める', () => {
     assert.equal(formatBytes(12 * 1024 * 1024), '12MB');

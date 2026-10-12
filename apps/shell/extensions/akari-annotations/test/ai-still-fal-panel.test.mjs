@@ -1,8 +1,16 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
-import { appendAiStillPanel, imageRouteBadgeText, stillRouteGroups } from '../lib/browser/inspector/ai-still-panel.js';
-import { stillMakerBadge } from '../lib/browser/inspector/maker-badge.js';
+
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { aiActionCatalog } = await import('../lib/common/ai-action-catalog.js');
+const { appendAiStillPanel, imageRouteBadgeText, stillRouteGroups } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { stillMakerBadge } = await import('../lib/browser/inspector/maker-badge.js');
+
 
 class Node {
   constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.style = {}; this.textContent = ''; }

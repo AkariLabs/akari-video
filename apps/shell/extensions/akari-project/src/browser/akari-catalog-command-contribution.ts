@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import type { MaterialSwapRequest } from '../common/material-swap-candidates';
 import { RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -43,7 +44,7 @@ import {
 export const AkariCatalogCommands = {
     OPEN_CATALOG: {
         id: 'akari.catalog.open',
-        label: 'カタログを開く'
+        label: t('project.catalog.command.openCatalogAction')
     } as Command,
     LIST_CATEGORIES: {
         id: 'akari.catalog.listCategories'

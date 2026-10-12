@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { createCaptionHoverPreview } from '../../common/caption-hover-preview';
 import { CAPTION_PANEL_FONTS } from '../../common/caption-panel-catalog';
 import { filterCaptionPanelFonts } from '../../common/caption-font-label';
@@ -42,8 +43,8 @@ export interface CaptionPanelActions {
 }
 
 const TAG_LABELS: Record<string, string> = {
-    japanese: '日本語', handwriting: '手書き', mincho: '明朝', gothic: 'ゴシック',
-    rounded: '丸', display: '見出し', emphasis: '太い', pixel: 'ドット'
+    japanese: t('inspector.captionPanels.label.english'), handwriting: t('inspector.captionPanels.label.handwriting'), mincho: t('inspector.captionPanels.label.serif'), gothic: t('inspector.captionPanels.label.sansSerif'),
+    rounded: t('inspector.captionPanels.label.round'), display: t('inspector.captionPanels.label.heading'), emphasis: t('inspector.captionPanels.label.bold'), pixel: t('inspector.captionPanels.label.dot')
 };
 
 export const CAPTION_PANEL_CSS = `
@@ -178,18 +179,18 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
     root.setAttribute('data-akari-caption-panel', panel);
     const head = document.createElement('div');
     head.className = 'akari-caption-panel-head';
-    head.append(button(document, '← 戻る', actions.close), button(document, '×', actions.close));
+    head.append(button(document, t('inspector.captionPanels.label.back'), actions.close), button(document, '×', actions.close));
     root.append(head);
     const switcher = document.createElement('div');
     switcher.className = 'akari-caption-panel-switch';
     switcher.setAttribute('data-akari-caption-panel-switch', panel);
     for (const target of ['font', 'style'] as const) {
-        const control = button(document, target === 'font' ? 'フォント' : 'スタイル', () => actions.switchTo(target));
+        const control = button(document, target === 'font' ? t('inspector.captionPanels.label.font') : t('inspector.captionPanels.label.style'), () => actions.switchTo(target));
         control.setAttribute('aria-selected', String(target === panel));
         if (target === 'style' && !allowStyle) {
             control.disabled = true;
             control.setAttribute('aria-disabled', 'true');
-            control.title = '複数選択では使えません';
+            control.title = t('inspector.captionPanels.title.multipleSelectionsCannotBeUsed');
         }
         switcher.append(control);
     }
@@ -198,7 +199,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
         const search = document.createElement('div');
         search.className = 'akari-caption-search';
         const input = document.createElement('input');
-        input.type = 'search'; input.placeholder = 'フォントを検索'; input.value = state.query;
+        input.type = 'search'; input.placeholder = t('inspector.captionPanels.placeholder.searchFonts'); input.value = state.query;
         input.setAttribute('data-akari-font-search', '');
         input.addEventListener('input', () => {
             state.query = input.value;
@@ -233,12 +234,12 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
-        if (recent.children.length) root.append(heading(document, '最近使ったフォント'), recent);
+        if (recent.children.length) root.append(heading(document, t('inspector.captionPanels.heading.recentFonts')), recent);
         const visible = filterCaptionPanelFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
             state.query, state.filters);
-        const title = heading(document, `フォント一覧（${visible.length}件）`);
+        const title = heading(document, t('inspector.captionPanels.label.fontList', { count: visible.length }));
         const add = button(document, '＋', actions.openLibrary, ['data-akari-font-add', '']);
-        add.setAttribute('aria-label', 'ライブラリから探す'); title.append(add); root.append(title);
+        add.setAttribute('aria-label', t('inspector.captionPanels.label.searchLibrary')); title.append(add); root.append(title);
         const list = document.createElement('div'); list.className = 'akari-caption-font-list';
         for (const font of visible) {
             const family = fontFaces.get(font.id) ?? catalogAvailability[font.id]?.family ?? font.family;
@@ -252,7 +253,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             chevron.className = 'akari-caption-font-chevron';
             chevron.disabled = weights.length <= 1;
             chevron.setAttribute('aria-expanded', String(state.expandedFont === font.id && weights.length > 1));
-            chevron.setAttribute('aria-label', `${font.title}の太さを${state.expandedFont === font.id ? '閉じる' : '開く'}`);
+            chevron.setAttribute('aria-label', t('inspector.captionPanels.label.weight', { fontName: font.title, action: state.expandedFont === font.id ? t('inspector.captionPanels.label.close') : t('inspector.captionPanels.label.open') }));
             row.append(chevron);
             const face = button(document, '', () => {
                 actions.confirm(); actions.font(family, undefined, font.id);
@@ -267,13 +268,13 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
             detail.textContent = captionFontRowDetail(font.tags);
             const status = document.createElement('span'); status.className = 'akari-caption-font-status';
-            status.textContent = '使える';
+            status.textContent = t('inspector.captionPanels.text.available');
             faceText.append(name, english, detail); face.append(faceText, status);
             row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
                 const weightList = document.createElement('div'); weightList.className = 'akari-caption-font-weights';
                 for (const weight of weights) {
-                    const choice = button(document, `${weight}  Aa あいう`, () => {
+                    const choice = button(document, t('inspector.captionPanels.label.aaAi', { weight: weight }), () => {
                         actions.confirm(); actions.font(family, weight, font.id);
                     },
                         ['data-akari-font-weight', String(weight)]);
@@ -290,7 +291,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const value = item.parts.find(part => part.kind === 'look')?.text_style;
             return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
         };
-        root.append(heading(document, '最近使ったスタイル'));
+        root.append(heading(document, t('inspector.captionPanels.label.recentStyles')));
         const recent = document.createElement('div'); recent.className = 'akari-caption-recent';
         for (const id of state.recentStyles) {
             const item = presets.find(style => style.id === id);
@@ -304,16 +305,16 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
                 }), captionPanelTextStyle(myStyleLook(mine)), actions));
             }
         }
-        root.append(recent, heading(document, 'テキストスタイル'));
+        root.append(recent, heading(document, t('inspector.captionPanels.label.textStyle')));
         const presetGrid = document.createElement('div'); presetGrid.className = 'akari-caption-style-grid';
         for (const item of presets) presetGrid.append(sampleCard(document, item.id, item.name,
             item.style, () => actions.style(item.style, item.id), actions, currentSize));
         root.append(presetGrid);
-        root.append(heading(document, 'マイスタイル'));
+        root.append(heading(document, t('inspector.captionPanels.label.myStyle')));
         const mine = document.createElement('div'); mine.className = 'akari-caption-style-grid';
         for (const item of myStyles) mine.append(sampleCard(document, `mystyle/${item.id}`, item.name,
             myStyleLook(item), () => actions.style(myStyleLook(item), `mystyle/${item.id}`), actions, currentSize));
-        root.append(mine, button(document, '＋ 今のスタイルをマイスタイルに保存', actions.save));
+        root.append(mine, button(document, t('inspector.captionPanels.label.saveCurrentStyleMyStyle'), actions.save));
     }
     root.addEventListener('keydown', event => {
         if (event.key === 'Escape') { event.preventDefault(); actions.escape(); return; }

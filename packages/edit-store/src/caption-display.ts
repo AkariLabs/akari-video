@@ -3,6 +3,11 @@ import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 import { sliceCaptionRuns, type CaptionRun } from './caption-runs';
 import { buildCaptionTimelineSegments } from './caption-timeline';
 import type { EditCut } from './edit-store';
+const CAPTION_LANGUAGE_DEFAULTS = require('../../content-language/src/caption-defaults.json') as Record<string, {
+    landscapeCharacters: number; portraitCharacters: number; charactersPerSecond: number | null;
+    minimumSeconds: number; fontStack: string;
+}>;
+const captionDefaultsFor = (locale: string) => CAPTION_LANGUAGE_DEFAULTS[locale.split('-')[0].toLowerCase()] ?? CAPTION_LANGUAGE_DEFAULTS.en;
 
 /**
  * Caption display policy v1.  This is the single pure implementation used by
@@ -544,7 +549,11 @@ export function resolveCaptionDisplay(
                 karaokeEligible
             );
             const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some(word => !word.untimed));
-            const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            let cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            if (policy.locale.split('-')[0].toLowerCase() !== 'ja'
+                && !cueStyleVars?.['--caption-font-family']) {
+                (cueStyleVars ??= {})['--caption-font-family'] = captionDefaultsFor(policy.locale).fontStack;
+            }
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns)
                 ? sliceCaptionRuns(projectedCaptions[occurrence.caption_input_index].displayText,
@@ -1661,7 +1670,7 @@ export function splitCaptionFragments(
         }
         candidates.push({
             fragments: [first, second],
-            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
+            score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints, policy.locale),
             boundary
         });
     }
@@ -1707,7 +1716,15 @@ function splitCaptionFragmentsAtBoundaries(
         const candidates = ends.filter(end => end > start
             && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units
             && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans))
-            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? []))
+            .sort((left, right) => {
+                if (captionDefaultsFor(policy.locale) !== CAPTION_LANGUAGE_DEFAULTS.ja) {
+                    const penalty = (end: number) => /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu
+                        .test(text.slice(start, end)) ? 1 : 0;
+                    if (penalty(left) !== penalty(right)) return penalty(left) - penalty(right);
+                }
+                return right - left;
+            });
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);
             if (rest) return [text.slice(start, end), ...rest];
@@ -1734,8 +1751,11 @@ export function foldCaptionLines(
     const Segmenter = (Intl as any).Segmenter;
     const segments: string[] = typeof Segmenter === 'function'
         ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(segment => segment.segment)
-        : Array.from(text);
-    const tokens = segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits));
+        : captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja
+            ? Array.from(text) : text.match(/\S+\s*|\s+/gu) ?? [text];
+    const tokens = captionDefaultsFor(locale) === CAPTION_LANGUAGE_DEFAULTS.ja
+        ? segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits))
+        : segments;
     const result: string[] = [];
     let current = '';
     for (let index = 0; index < tokens.length; index++) {
@@ -1770,7 +1790,7 @@ function splitCaptionUnitChunks(text: string, maxLineUnits: number): string[] {
     return chunks;
 }
 
-function captionBreakScore(first: string, second: string, firstUnits: number, secondUnits: number, hints?: CaptionBreakHints): number {
+function captionBreakScore(first: string, second: string, firstUnits: number, secondUnits: number, hints?: CaptionBreakHints, locale = 'ja'): number {
     let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
     if ((hints?.preferred_second_starts ?? []).some(value => second.startsWith(value))) score += 34;
     if ((hints?.preferred_first_ends ?? []).some(value => first.endsWith(value))) score += 28;
@@ -1778,6 +1798,8 @@ function captionBreakScore(first: string, second: string, firstUnits: number, se
     if (/^[、。！？!?）」』】]/u.test(second)) score -= 100;
     if (/[（「『【]$/u.test(first)) score -= 100;
     if (/^[はがをにでとのもへや]/u.test(second)) score -= 28;
+    if (captionDefaultsFor(locale) !== CAPTION_LANGUAGE_DEFAULTS.ja
+        && /\b(?:a|an|the|and|or|but|for|of|to|in|on|at|with|by)\s*$/iu.test(first)) score -= 100;
     // .at() は ES2022。tsconfig の lib は ES2021 なので slice で等価に書く
     // （クリーンな checkout で tsc -b が落ち、preview-server の pretest ごと止まっていた。
     //  既存ツリーでは .tsbuildinfo に隠れて再現しなかった）

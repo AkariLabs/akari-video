@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { chmod, readFile, readdir, writeFile } from "node:fs/promises";
@@ -22,7 +27,7 @@ test("transcribe の成功時は生 sidecar を保存、cache hit でも旧版�
   const file = path.join(f.directory, "transcripts/speech-analyzer.json");
   const before = await readFile(file, "utf8");
   const raw = JSON.parse(before);
-  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
+  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap", "transcript_language"]);
   assert.deepEqual(raw.source, { path: f.target, range: { in: 0, out: 30 } });
   assert.equal(raw.version, 1);
   assert.equal(raw.cost_usd, null);
@@ -88,6 +93,27 @@ test("機械の生は単語帳適用前、analysis は従来どおり適用後�
   assert.equal(raw.segments[0].start, 5);
   assert.deepEqual(raw.source.range, { in: 5, out: 7 });
   assert.deepEqual((await json(path.join(f.directory, "analysis.json"))).transcript.map((segment) => segment.text), ["残す", "AKARI Video"]);
+});
+
+test("transcribe の単語帳置換は英語の語間の空白を保つ", async (t) => {
+  const f = await fixture(t, []);
+  const wordBookPath = path.join(f.project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [
+    { kind: "term", surface: "AKARI Video", variants: ["akari video"] },
+    { kind: "term", surface: "Claude", variants: ["clode"] },
+  ] });
+  const wordTexts = ["I", " use", " akari", " video", " and", " clode", " today"];
+  const result = await transcribeMedia(f.target, { ...speechOptions(f),
+    wordBookPath, snap: false, noRecord: true, stderr: () => {},
+    backendRunner: async () => [{ start: 0, end: 1.4,
+      text: "I use akari video and clode today",
+      words: wordTexts.map((text, index) => ({ start: index * 0.2, end: (index + 1) * 0.2, text })),
+    }],
+  });
+  const [line] = result.segments;
+  assert.equal(line.text, "I use AKARI Video and Claude today");
+  assert.deepEqual(line.words.map((word) => word.text), ["I", " use", " AKARI Video", " and", " Claude", " today"]);
+  assert.equal(line.words.map((word) => word.text).join(""), line.text);
 });
 
 test("クラウドの見積が戻れば流用し、無ければ null。ローカルは cost を記録しない", async (t) => {

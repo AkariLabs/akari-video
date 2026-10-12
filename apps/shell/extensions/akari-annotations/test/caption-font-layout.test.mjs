@@ -1,7 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { CAPTION_PANEL_CSS, createCaptionPanel } from '../lib/browser/inspector/caption-panels.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { CAPTION_PANEL_CSS, createCaptionPanel } = await import('../lib/browser/inspector/caption-panels.js');
+
 
 const source = readFileSync(new URL('../src/browser/inspector/caption-panels.ts', import.meta.url), 'utf8');
 
@@ -22,7 +28,7 @@ test('フォント名と太さのボタンは内容に合わせて高くなり�
 });
 
 test('最近使える書体が無ければ最近使ったフォントの見出しも作らない', () => {
-    assert.match(source, /if \(recent\.children\.length\) root\.append\(heading\(document, '最近使ったフォント'\), recent\)/u);
+    assert.match(source, /if \(recent\.children\.length\) root\.append\(heading\(document, t\('inspector\.captionPanels\.heading\.recentFonts'\)\), recent\)/u);
     const nodes = [];
     const document = { createElement(tagName) {
         const node = { tagName, children: [], attributes: {}, style: { setProperty() {} }, textContent: '',

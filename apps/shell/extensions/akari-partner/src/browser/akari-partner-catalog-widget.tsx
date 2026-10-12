@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -21,8 +22,8 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariPartnerCatalogWidget.ID;
-        this.title.label = 'パートナー / 拡張';
-        this.title.caption = 'キュレーション済みパートナー';
+        this.title.label = t('partner.partnerPanel.catalog.partnerExtensionsLabel');
+        this.title.caption = t('partner.partnerPanel.catalog.curatedPartnersLabel');
         this.title.iconClass = 'codicon codicon-extensions';
         this.title.closable = false;
         this.update();
@@ -44,10 +45,9 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
 
         return (
             <div style={{ padding: 14 }} data-akari-catalog-count={groups.length}>
-                <h3 style={{ margin: '2px 0 6px' }}>🧩 パートナー</h3>
+                <h3 style={{ margin: '2px 0 6px' }}>{t('partner.partnerPanel.catalog.partnersLabel')}</h3>
                 <p style={{ opacity: 0.68, fontSize: 12, lineHeight: 1.45, margin: '0 0 14px' }}>
-                    AKARI が確認した公式パートナーのみを表示しています。
-                </p>
+                    {t('partner.partnerPanel.catalog.officialPartnersReviewedAkariShownMessage').trim()}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {groups.map(group => {
                         const cliEntry = group.entries.find(entry => entry.form === 'cli' || entry.form === 'web');
@@ -58,16 +58,16 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
                                     <span className={PARTNER_CLI_ICON_CLASSES[group.agent]} aria-hidden='true' />
                                     <strong>{PARTNER_AGENT_LABELS[group.agent]}</strong>
                                 </span>
-                                {group.entries.some(entry => entry.recommended) && <span style={badgeStyle}>推奨</span>}
+                                {group.entries.some(entry => entry.recommended) && <span style={badgeStyle}>{t('partner.partnerPanel.catalog.recommendedStatus')}</span>}
                             </div>
                             <div style={slotsStyle}>
-                                {cliEntry && this.renderSlot(cliEntry.form === 'web' ? '作業画面' : 'CLI', cliEntry)}
-                                {extensionEntry && this.renderSlot('拡張機能', extensionEntry)}
+                                {cliEntry && this.renderSlot(cliEntry.form === 'web' ? t('partner.partnerPanel.catalog.workspacesLabel') : 'CLI', cliEntry)}
+                                {extensionEntry && this.renderSlot(t('partner.partnerPanel.catalog.extensionsLabel'), extensionEntry)}
                             </div>
                         </section>;
                     })}
                 </div>
-                <p style={{ opacity: 0.52, fontSize: 11, marginTop: 14 }}>固定カタログ・検索なし</p>
+                <p style={{ opacity: 0.52, fontSize: 11, marginTop: 14 }}>{t('partner.partnerPanel.catalog.fixedCatalogNoSearchText')}</p>
             </div>
         );
     }
@@ -81,11 +81,9 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
             <code style={{ display: 'block', marginTop: 5, opacity: 0.72, fontSize: 11 }}>{entry.id}</code>
             <p style={{ margin: '8px 0', opacity: 0.76, fontSize: 12, lineHeight: 1.4 }}>{entry.description}</p>
             {verifiesBinary && <div style={{ fontSize: 11, color: 'var(--theia-list-warningForeground, #cca700)', marginBottom: 8 }}>
-                導入時にプラットフォーム用バイナリを検証
-            </div>}
+                {t('partner.partnerPanel.catalog.verifyPlatformBinaryInstallationText').trim()}</div>}
             <button className='theia-button secondary' onClick={() => this.onboarding.begin(entry)}>
-                セットアップ
-            </button>
+                {t('partner.partnerPanel.catalog.setupLabel').trim()}</button>
         </div>;
     }
 }

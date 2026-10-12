@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { t } from "../../i18n/index.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -133,7 +134,8 @@ export function buildOsrPage({
     cubeText: lutCubeText,
     intensity: Number(edit?.output?.look?.intensity ?? 1),
   };
-  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts };
+  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts,
+    messages: { longGop: t("render.frameEngine.warning.longGop") } };
   if (Object.keys(captionAnimators).length) config.captionAnimators = captionAnimators;
   if (multipleBands) config.mediaPlaneSummary = mediaPlaneSummary;
   const pageHeight = height + (stampRow ? 1 : 0);

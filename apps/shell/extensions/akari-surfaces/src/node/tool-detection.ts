@@ -1,4 +1,6 @@
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { inspectVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { execFile } from 'child_process';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { homedir } from 'os';
@@ -21,6 +23,7 @@ export interface ToolDetectionOptions {
     arch?: string;
     env?: NodeJS.ProcessEnv;
     homeDir?: string;
+    voiceHome?: string;
     now?: () => Date;
     runCommand?: (command: string, args: string[], env: NodeJS.ProcessEnv) => Promise<CommandResult>;
     pathExists?: (path: string) => Promise<boolean>;
@@ -39,7 +42,7 @@ export interface ToolDetectionOptions {
 }
 
 interface ExecutableSpec {
-    id: Exclude<AkariToolId, 'voicevox' | 'xcode-clt' | 'speech-analyzer'>;
+    id: Exclude<AkariToolId, 'voicevox' | 'voice' | 'xcode-clt' | 'speech-analyzer'>;
     tier: AkariToolTier;
     envNames: string[];
     commands: (platform: NodeJS.Platform) => string[];
@@ -82,7 +85,7 @@ export async function defaultRunCommand(
     env: NodeJS.ProcessEnv
 ): Promise<CommandResult> {
     return new Promise(resolve => {
-        execFile(command, args, { env, timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+        execFile(command, args, { env: childProcessEnv(env), timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
             resolve({
                 ok: !error,
                 stdout,
@@ -109,6 +112,15 @@ export async function detectTools(options: ToolDetectionOptions = {}): Promise<A
     }
     // VOICEVOX の run は起動すると常駐エンジンになるため、存在確認だけに留める。
     tools.splice(4, 0, await detectVoicevox(platform, homeDir, env, pathExists, options.fetchImpl ?? fetch));
+    const voiceHome = options.voiceHome ?? resolveVoiceHome({ env, homeDir });
+    const voiceState = await inspectVoiceEngine({ voiceHome, platform, arch });
+    tools.splice(5, 0, {
+        id: 'voice', tier: 'advanced', available: voiceState.state === 'ready',
+        ...(voiceState.state === 'ready' ? { canIdentify: !(platform === 'darwin' && arch === 'x64') } : {}),
+        ...(voiceState.state === 'ready' ? { version: 'sherpa-onnx 1.13.8', executable: voiceHome } : {}),
+        ...(voiceState.state === 'unsupported' ? { unsupported: true } : {}),
+        ...(voiceState.state !== 'ready' && voiceState.state !== 'unsupported' ? { needs: voiceState.needs } : {})
+    });
     if (platform === 'darwin') {
         tools.push(await detectCommandLineTools(env, runCommand));
     }
@@ -278,7 +290,7 @@ async function attachWhisperModelState(
         ...whisper,
         available: whisper.available && modelAvailable,
         model: { available: modelAvailable, path: modelPath },
-        needs: [...(!whisper.available ? ['本体が無い'] : []), ...(!modelAvailable ? ['モデルが無い'] : [])]
+        needs: [...(!whisper.available ? [t('surfaces.tools.attachWhisperModelStateNoMainBody.label')] : []), ...(!modelAvailable ? [t('surfaces.tools.attachWhisperModelStateNoModel.label')] : [])]
     };
 }
 
@@ -344,12 +356,12 @@ async function detectSpeechAnalyzer(platform: NodeJS.Platform, repoRoot: string,
             if (!result.ok) { break; }
             const value = JSON.parse(result.stdout);
             if (value.available === true) { return { ...base, available: true }; }
-            const reason = String(value.reason ?? 'SpeechAnalyzer の利用条件を確認してください');
+            const reason = String(value.reason ?? t('surfaces.tools.detectSpeechAnalyzerCheckSpeechanalyzerTerms.label'));
             if (/macOS.*26 未満/.test(reason)) { return { ...base, unsupported: true, needs: [reason] }; }
-            return { ...base, needs: [/swiftc/.test(reason) ? 'Command Line Tools が無い' : reason] };
+            return { ...base, needs: [/swiftc/.test(reason) ? t('surfaces.tools.detectSpeechAnalyzerMissingCommandLineTools.label') : reason] };
         } catch { break; }
     }
-    return { ...base, needs: ['SpeechAnalyzer の利用可否を確認できませんでした'] };
+    return { ...base, needs: [t('surfaces.tools.detectSpeechAnalyzerUnableCheckAvailabilitySpeechanalyzer.label')] };
 }
 
 async function defaultPathExists(path: string): Promise<boolean> {

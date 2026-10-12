@@ -1,3 +1,5 @@
+import { t } from '@akari-video/i18n';
+
 /**
  * 3D モックアップ（scene3d 素材の three 断片）を置く・画面を差し替える・動きを選ぶための共有の純関数。
  * ライブラリからの配置（タイムライン / プレビュー）とインスペクタの「3D」セクションが同じ規則を使う。
@@ -75,7 +77,7 @@ export function scene3dScreenVars(screenVar: string | undefined, projectRelative
 export function scene3dMotionOptions(meta: Scene3dMeta | undefined): { value: string; label: string }[] {
     const presets = Array.isArray(meta?.motion_presets) ? meta!.motion_presets as Scene3dMotionPreset[] : [];
     const seen = new Set<string>([SCENE3D_CLIP_NONE]);
-    const options = [{ value: SCENE3D_CLIP_NONE, label: 'なし（止める）' }];
+    const options = [{ value: SCENE3D_CLIP_NONE, label: t('annotationscommon.scene3dItem.label.motionNone') }];
     for (const preset of presets) {
         if (!preset || typeof preset.clip !== 'string' || !preset.clip || seen.has(preset.clip)) continue;
         seen.add(preset.clip);

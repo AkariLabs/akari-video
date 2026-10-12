@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import type { ImageRouteState, StillCandidate, StillCandidateBatch } from '../../common/akari-annotations-protocol';
 import { nearestStillAspect, stillCroppedNotice, stillRouteLabel, type StillAspect } from './ai-still-panel';
 import { stillMakerBadge } from './maker-badge';
@@ -24,14 +25,14 @@ export function appendAiStillResultPanel(parent: HTMLElement, options: {
     const successes = results.filter(row => row.ok && row.relativePath);
     const failures = results.filter(row => !row.ok);
     const header = make('div', 'akari-inspector-ai-result-header');
-    const back = make('button', 'akari-inspector-ai-back', '← ホーム');
+    const back = make('button', 'akari-inspector-ai-back', t('inspector.aiStillResultPanel.label.home'));
     back.type = 'button'; back.addEventListener('click', options.actions.home);
-    header.append(back, make('strong', 'akari-inspector-ai-result-title', '静止画の結果'),
-        make('span', 'akari-inspector-ai-result-count', options.running ? '作成中' : `${successes.length} 案`));
+    header.append(back, make('strong', 'akari-inspector-ai-result-title', t('inspector.aiStillResultPanel.label.staticImageResults')),
+        make('span', 'akari-inspector-ai-result-count', options.running ? t('inspector.aiStillResultPanel.status.creating') : t('inspector.aiStillResultPanel.label.options', { count: successes.length, n: successes.length })));
     root.appendChild(header);
     const prompt = make('div', 'akari-inspector-ai-result-prompt');
     prompt.setAttribute('data-akari-inspector-ai-result-prompt', 'true');
-    prompt.append(make('span', 'akari-inspector-ai-result-label', '入れた指示文'),
+    prompt.append(make('span', 'akari-inspector-ai-result-label', t('inspector.aiStillResultPanel.label.inputInstruction')),
         make('p', '', `${options.prompt} · ${options.aspect}`));
     root.appendChild(prompt);
     const grid = make('div', 'akari-inspector-ai-result-grid');
@@ -42,10 +43,10 @@ export function appendAiStillResultPanel(parent: HTMLElement, options: {
         card.setAttribute('data-akari-inspector-ai-result-candidate', row.relativePath!);
         if (row.relativePath === options.inFramePath) card.setAttribute('data-akari-inspector-ai-result-in-frame', 'true');
         const image = make('img', 'akari-inspector-ai-result-image');
-        image.alt = `${stillRouteLabel(row.route)} の案`;
+        image.alt = t('inspector.aiStillResultPanel.label.option', { route: stillRouteLabel(row.route) });
         if (row.thumbnail) image.src = row.thumbnail;
         card.append(image, make('span', 'akari-inspector-ai-result-meta',
-            `${stillRouteLabel(row.route)} · ${Math.round(row.elapsedSeconds ?? 0)} 秒 · ${row.width ?? '?'}×${row.height ?? '?'}${row.costUsd ? ` · $${row.costUsd.toFixed(3)}` : ''}`));
+            t('inspector.aiStillResultPanel.hint.sec', { route: stillRouteLabel(row.route), elapsedSeconds: Math.round(row.elapsedSeconds ?? 0), width: row.width ?? '?', height: row.height ?? '?', costNote: row.costUsd ? ` · $${row.costUsd.toFixed(3)}` : '' })));
         const maker = row.route === 'codex' || row.route === 'fal' ? 'openai'
             : row.route === 'antigravity' ? 'google' : 'xai';
         card.appendChild(stillMakerBadge(maker));
@@ -55,7 +56,7 @@ export function appendAiStillResultPanel(parent: HTMLElement, options: {
             notice.setAttribute('data-akari-inspector-ai-cropped', 'true');
             card.appendChild(notice);
         }
-        if (row.relativePath === options.inFramePath) card.appendChild(make('span', 'akari-inspector-ai-result-in-frame', '枠に入っています'));
+        if (row.relativePath === options.inFramePath) card.appendChild(make('span', 'akari-inspector-ai-result-in-frame', t('inspector.aiStillResultPanel.label.enterFrame')));
         card.addEventListener('click', () => options.actions.select(row));
         grid.appendChild(card);
     };
@@ -72,28 +73,28 @@ export function appendAiStillResultPanel(parent: HTMLElement, options: {
     } else for (const row of successes) candidate(row);
     root.appendChild(grid);
     if (options.running) {
-        root.appendChild(make('p', 'akari-inspector-ai-result-note', 'できた順に、ここへ絵が入ります。'));
-        const cancel = make('button', 'akari-inspector-ai-still-secondary', 'キャンセル');
+        root.appendChild(make('p', 'akari-inspector-ai-result-note', t('inspector.aiStillResultPanel.message.orderPaintingWillSeePictureHere')));
+        const cancel = make('button', 'akari-inspector-ai-still-secondary', t('inspector.aiStillResultPanel.action.cancel'));
         cancel.type = 'button'; cancel.setAttribute('data-akari-inspector-ai-cancel', 'true');
         cancel.addEventListener('click', options.actions.cancel);
         root.appendChild(cancel);
     } else {
         for (const row of failures) {
-            const failed = make('p', 'akari-inspector-ai-result-failed', `${stillRouteLabel(row.route)} · 失敗 · ${row.reason ?? '生成できませんでした。'}`);
+            const failed = make('p', 'akari-inspector-ai-result-failed', t('inspector.aiStillResultPanel.error.failure', { engine: stillRouteLabel(row.route), reason: row.reason ?? t('inspector.aiStillResultPanel.error.generationFailed') }));
             failed.setAttribute('data-akari-inspector-ai-result-failed', row.route);
             root.appendChild(failed);
         }
         root.appendChild(make('p', 'akari-inspector-ai-result-note', successes.length === 1
-            ? '枠に入れました。' : successes.length > 1
-                ? '押した案が枠に入ります。ほかの案は素材に残っています。' : 'まだ何も作っていません。'));
+            ? t('inspector.aiStillResultPanel.message.placedFrame') : successes.length > 1
+                ? t('inspector.aiStillResultPanel.message.selectedOptionPlacedFrameOtherOptionsRemain') : t('inspector.aiStillResultPanel.message.nothingHasBeenCreatedYet')));
     }
     if (options.error) root.appendChild(make('p', 'akari-inspector-ai-still-error', options.error));
     const footer = make('div', 'akari-inspector-ai-result-footer');
-    const redo = make('button', 'akari-inspector-ai-still-secondary', '指示を変えてやり直す');
+    const redo = make('button', 'akari-inspector-ai-still-secondary', t('inspector.aiStillResultPanel.action.changeInstructionsTryAgain'));
     redo.type = 'button'; redo.disabled = options.running;
     redo.setAttribute('data-akari-inspector-ai-result-redo', 'true');
     redo.addEventListener('click', options.actions.redo);
-    const video = make('button', 'akari-inspector-ai-still-primary', 'この絵を動画にする →');
+    const video = make('button', 'akari-inspector-ai-still-primary', t('inspector.aiStillResultPanel.action.makePictureVideo'));
     video.type = 'button'; video.disabled = !options.inFramePath || options.running;
     video.setAttribute('data-akari-inspector-ai-result-to-video', 'true');
     video.addEventListener('click', options.actions.toVideo);

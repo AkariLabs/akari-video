@@ -1,3 +1,4 @@
+import { t } from './transcript-text';
 import {
     insertCaptionLine,
     parseCaptions as parseCaptionRecords,
@@ -78,7 +79,7 @@ export { replaceCaptionLine } from '@akari-video/edit-store/lib/caption-line-ops
 
 export function replaceCaptionDisplayTextLine(source: string, captionId: string, text: string): string {
     if (!captionId) {
-        throw new Error('字幕の識別情報がありません。');
+        throw new Error(t('transcript.captions.store.captionIdMissingError'));
     }
     const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
     let matches = 0;
@@ -89,7 +90,7 @@ export function replaceCaptionDisplayTextLine(source: string, captionId: string,
         }
         matches++;
         if (!/"display_text"\s*:\s*"(?:\\.|[^"\\])*"/.test(line)) {
-            throw new Error(`字幕 ${captionId} に整文（display_text）がありません。`);
+            throw new Error(t('transcript.captions.store.captionHasNoCleanedTextDisplayTextWithIdError', { value1: captionId }));
         }
         return line.replace(
             /("display_text"\s*:\s*)"(?:\\.|[^"\\])*"/,
@@ -98,8 +99,8 @@ export function replaceCaptionDisplayTextLine(source: string, captionId: string,
     }).join('');
     if (matches !== 1) {
         throw new Error(matches === 0
-            ? `字幕 ${captionId} が字幕データにありません。`
-            : `字幕 ${captionId} が字幕データに複数あります。`);
+            ? t('transcript.captions.store.captionMissingFromCaptionDataWithIdMessage', { value1: captionId })
+            : t('transcript.captions.store.captionAppearsMoreThanOnceCaptionDataWithIdMessage', { value1: captionId }));
     }
     return updated;
 }
@@ -112,7 +113,7 @@ export function replaceCaptionDisplayTextLine(source: string, captionId: string,
  */
 export function removeCaptionWordsLine(source: string, captionId: string): string {
     if (!captionId) {
-        throw new Error('字幕の識別情報がありません。');
+        throw new Error(t('transcript.captions.store.captionIdMissingError'));
     }
     const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
     let matches = 0;
@@ -125,7 +126,7 @@ export function removeCaptionWordsLine(source: string, captionId: string): strin
         const openIndex = line.indexOf('{');
         const closeIndex = line.lastIndexOf('}');
         if (openIndex < 0 || closeIndex < openIndex) {
-            throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
+            throw new Error(t('transcript.captions.store.couldNotVerifySingleLineFormatCaptionWithDetailError', { value1: captionId }));
         }
         const record = JSON.parse(line.slice(openIndex, closeIndex + 1)) as Record<string, unknown>;
         if (record.words === undefined) {
@@ -136,8 +137,8 @@ export function removeCaptionWordsLine(source: string, captionId: string): strin
     }).join('');
     if (matches !== 1) {
         throw new Error(matches === 0
-            ? `字幕 ${captionId} が字幕データにありません。`
-            : `字幕 ${captionId} が字幕データに複数あります。`);
+            ? t('transcript.captions.store.captionMissingFromCaptionDataWithIdMessage', { value1: captionId })
+            : t('transcript.captions.store.captionAppearsMoreThanOnceCaptionDataWithIdMessage', { value1: captionId }));
     }
     return updated;
 }
@@ -167,11 +168,11 @@ export interface CaptionLineOpsOptions {
     displayTextIds?: ReadonlySet<string>;
 }
 
-const EMPTY_LINE_NOTICE = '空の行は字幕になりません。文字を入れると保存します。';
-const SPLIT_TOO_SHORT_NOTICE = 'この行は短すぎて分割できません。';
-const INSERT_NO_GAP_NOTICE = 'ここには字幕を追加できません（前後に隙間がありません）。';
-const MERGE_STYLE_LOST_NOTICE = '結合したため 2 行目以降のスタイル指定は失われました。';
-const UNREADABLE_RECORD_NOTICE = 'この行の字幕データを解釈できないため、この操作は保存しません。';
+const EMPTY_LINE_NOTICE = t('transcript.captions.store.emptyLineNotCaptionEnterTextSaveMessage');
+const SPLIT_TOO_SHORT_NOTICE = t('transcript.captions.store.lineTooShortSplitMessage');
+const INSERT_NO_GAP_NOTICE = t('transcript.captions.store.cannotInsertCaptionHereNoGapBeforeAfterError');
+const MERGE_STYLE_LOST_NOTICE = t('transcript.captions.store.stylesLinesAfterFirstLostWhenMergingMessage');
+const UNREADABLE_RECORD_NOTICE = t('transcript.captions.store.editNotSavedBecauseLineCaptionDataCouldNotParsedMessage');
 
 /**
  * diffCaptionLines が返した操作列を captions.json 本文へ適用する
@@ -409,7 +410,7 @@ function extractCaptionRecords(value: unknown): { records: unknown[]; shape: Cap
             }
         };
     }
-    throw new Error('字幕データの形式を確認できません。');
+    throw new Error(t('transcript.captions.store.couldNotVerifyCaptionDataFormatError'));
 }
 
 export function parseCaptions(source: string): {
@@ -424,11 +425,11 @@ export function parseCaptions(source: string): {
     for (let index = 0; index < records.length; index++) {
         const caption = normalizeCaption(records[index]);
         if (!caption) {
-            warnings.push(`${index + 1} 番目の字幕は時刻または内容が不正なため表示しません。`);
+            warnings.push(t('transcript.captions.store.captionHasInvalidTimeContentWillNotShownWithIdMessage', { value1: index + 1 }));
             continue;
         }
         if (seenIds.has(caption.id)) {
-            warnings.push(`字幕 ${caption.id} が重複しているため、後の行は表示しません。`);
+            warnings.push(t('transcript.captions.store.captionDuplicatedSoLaterLineWillNotShownWithIdMessage', { value1: caption.id }));
             continue;
         }
         seenIds.add(caption.id);
@@ -440,7 +441,7 @@ export function parseCaptions(source: string): {
 export function regenerateCaptions(analysisSource: string, existingSource?: string): RegenerationResult {
     const analysis = JSON.parse(analysisSource);
     if (!Array.isArray(analysis?.transcript)) {
-        throw new Error('文字起こしの内容がありません。');
+        throw new Error(t('transcript.captions.store.transcriptContentMissingError'));
     }
 
     const warnings: string[] = [];
@@ -450,7 +451,7 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
         if (segment) {
             segments.set(index, segment);
         } else {
-            warnings.push(`${index + 1} 番目の文字起こしは時刻または内容が不正なため使いません。`);
+            warnings.push(t('transcript.captions.store.invalidTranscriptLineSkippedWarning', { value1: index + 1 }));
         }
     }
 
@@ -463,13 +464,13 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
         } catch (error) {
             throw error instanceof SyntaxError
                 ? error
-                : new Error('既存の字幕データの形式を確認できません。');
+                : new Error(t('transcript.captions.store.couldNotVerifyExistingCaptionDataFormatError'));
         }
         for (let index = 0; index < records.length; index++) {
             const value = records[index];
             const caption = normalizeCaptionForRegeneration(value);
             if (!caption) {
-                warnings.push(`既存の ${index + 1} 番目の字幕は時刻または内容が不正なため使いません。`);
+                warnings.push(t('transcript.captions.store.invalidExistingCaptionSkippedWarning', { value1: index + 1 }));
                 continue;
             }
             existing.push(caption);
@@ -543,7 +544,7 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
 
     for (const caption of [...bySegment.values(), ...unpaired]) {
         if (caption.sourceRef !== null) {
-            warnings.push(`字幕 ${caption.id} の元の文字起こしが見つからないため、ID と内容を保持しました。`);
+            warnings.push(t('transcript.captions.store.missingSourceTranscriptCaptionRetainedWarning', { value1: caption.id }));
         }
         captions.push({ ...caption, sourceRef: null });
     }

@@ -1,0 +1,16 @@
+{
+  "ja": {
+    "landscapeCharacters": 20,
+    "portraitCharacters": 10,
+    "charactersPerSecond": null,
+    "minimumSeconds": 1,
+    "fontStack": "\"Noto Sans JP\", sans-serif"
+  },
+  "en": {
+    "landscapeCharacters": 42,
+    "portraitCharacters": 24,
+    "charactersPerSecond": 17,
+    "minimumSeconds": 1,
+    "fontStack": "\"AKARI Noto Sans\", \"Noto Sans\", \"AKARI Noto Sans JP\", sans-serif"
+  }
+}

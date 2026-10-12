@@ -1,18 +1,28 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite,
-    captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail,
-    renderableCaptionFonts, CAPTION_FONT_FAMILY } from '../lib/common/caption-panel-state.js';
-import { CAPTION_PANEL_FONTS } from '../lib/common/caption-panel-catalog.js';
-import { filterCaptionPanelFonts } from '../lib/common/caption-font-label.js';
-import { captionRevealDestination } from '../lib/common/caption-reveal-destination.js';
-import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
-import { createCaptionPanel, CAPTION_PANEL_STYLES } from '../lib/browser/inspector/caption-panels.js';
-import { updateCaptionTextStyleInSource } from '../lib/common/caption-store.js';
+
+
+
+
+
+
+
 import { createRequire } from 'node:module';
 import { appendLibraryTextstyleShowcaseItems, parsePresetShowcaseJsonl } from '../../akari-project/lib/common/preset-showcase.js';
 import { libraryTextStyleSample } from '../../akari-preview/lib/common/textstyle-sample.js';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail, renderableCaptionFonts, CAPTION_FONT_FAMILY } = await import('../lib/common/caption-panel-state.js');
+const { CAPTION_PANEL_FONTS } = await import('../lib/common/caption-panel-catalog.js');
+const { filterCaptionPanelFonts } = await import('../lib/common/caption-font-label.js');
+const { captionRevealDestination } = await import('../lib/common/caption-reveal-destination.js');
+const { assignSectionToTab } = await import('../lib/browser/inspector/tab-model.js');
+const { createCaptionPanel, CAPTION_PANEL_STYLES } = await import('../lib/browser/inspector/caption-panels.js');
+const { updateCaptionTextStyleInSource } = await import('../lib/common/caption-store.js');
+
 
 const require = createRequire(import.meta.url);
 const { CAPTION_SAMPLE_TEXT } = require('../../../../../packages/edit-store/lib/index.js');

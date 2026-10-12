@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult, TimelineLayerSelection } from '../../timeline-selection-model';
 import { composeInspectorSections } from '../section-model';
@@ -28,7 +29,7 @@ export function LAYER_SECTIONS(
     const cropFields = CROP_FIELDS(snapshot, 'layer', requestWrite);
     const maskFields = MASK_FIELDS(snapshot, requestWrite);
     const perspectiveSection = {
-        id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
+        id: 'perspective', label: t('inspector.layerSections.label.fourCornerPerspective'), collapsedByDefault: true,
         fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
     };
     const transformFields: InspectorFieldDef<TimelineLayerSelection>[] = [
@@ -45,14 +46,14 @@ export function LAYER_SECTIONS(
             reset: () => requestWrite({ kind: 'layer-transform-y', id: snapshot.id, value: null })
         },
         {
-            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            name: 'transform-scale', label: t('inspector.layerSections.label.scale'), unit: '%', removable: true,
             getValue: () => String((snapshot.transform?.scale ?? 1) * 100), getEditValue: () => String((snapshot.transform?.scale ?? 1) * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
             write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100 }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
         },
         {
-            name: 'transform-rotate', label: '回転', unit: '°', removable: true,
+            name: 'transform-rotate', label: t('inspector.layerSections.label.rotation'), unit: '°', removable: true,
             getValue: () => String(snapshot.transform?.rotate ?? 0), getEditValue: () => String(snapshot.transform?.rotate ?? 0),
             inputKind: 'scrub-number', scrubStep: 0.1, liveField: 'rotate',
             write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: Number(value) }),
@@ -80,43 +81,43 @@ export function LAYER_SECTIONS(
         });
     return composeInspectorSections([
         {
-            id: 'time', label: '時間', fields: [
-                { name: 'output-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-                { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
+            id: 'time', label: t('inspector.layerSections.label.time'), fields: [
+                { name: 'output-start', label: t('inspector.layerSections.label.outputPosition'), getValue: () => formatTimestamp(snapshot.outputStart) },
+                { name: 'duration', label: t('inspector.layerSections.label.duration'), getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields },
-        { id: 'crop', label: 'クロップ', fields: cropFields },
+        { id: 'transform', label: t('inspector.layerSections.label.transform'), fields: transformFields },
+        { id: 'crop', label: t('inspector.layerSections.label.crop'), fields: cropFields },
         perspectiveSection,
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
         ...MOTION_SECTIONS(snapshot, requestWrite),
-        ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
+        ...(generation ? [{ id: GENERATION_SECTION_ID, label: t('inspector.layerSections.label.generate'), fields: generation }] : []),
         {
-            id: 'appearance', label: '外観', fields: [
+            id: 'appearance', label: t('inspector.layerSections.label.appearance'), fields: [
                 {
-                    name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
+                    name: 'opacity', label: t('inspector.layerSections.label.opacity'), unit: '%', displayScale: 100,
                     getValue: () => String(snapshot.opacity ?? 1),
                     getEditValue: () => String(snapshot.opacity ?? 1),
                     inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: 1,
                     liveField: 'opacity',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return { ok: false, message: '不透明度は 0〜100% の範囲で入力してください。' };
+                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return { ok: false, message: t('inspector.layerSections.message.enterOpacityRangeFrom0100') };
                         return requestWrite({ kind: 'layer-opacity', id: snapshot.id, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'layer-opacity', id: snapshot.id, value: null })
                 },
                 {
-                    name: 'blend', label: 'ブレンドモード',
+                    name: 'blend', label: t('inspector.layerSections.label.blendMode'),
                     getValue: () => snapshot.blend ?? 'normal',
                     getEditValue: () => snapshot.blend ?? 'normal',
                     inputKind: 'select', options: LAYER_BLEND_OPTIONS,
                     write: async (_snapshot, nextValue) =>
                         requestWrite({ kind: 'layer-blend', id: snapshot.id, value: nextValue })
                 },
-                { name: 'chroma-color', label: 'クロマキー色', getValue: () => orDash(snapshot.chromaKey?.color, value => value) },
+                { name: 'chroma-color', label: t('inspector.layerSections.label.chromaKeyColor'), getValue: () => orDash(snapshot.chromaKey?.color, value => value) },
                 {
-                    name: 'chroma-similarity', label: '類似度', unit: '%', displayScale: 100,
+                    name: 'chroma-similarity', label: t('inspector.layerSections.label.similarity'), unit: '%', displayScale: 100,
                     getValue: () => chromaSimilarity === undefined ? '—' : String(chromaSimilarity),
                     ...(chromaSimilarity === undefined ? {} : {
                         getEditValue: () => String(chromaSimilarity),
@@ -132,7 +133,7 @@ export function LAYER_SECTIONS(
                     })
                 },
                 {
-                    name: 'chroma-blend', label: '境界ぼかし', unit: '%', displayScale: 100,
+                    name: 'chroma-blend', label: t('inspector.layerSections.label.feather'), unit: '%', displayScale: 100,
                     getValue: () => chromaBlend === undefined ? '—' : String(chromaBlend),
                     ...(chromaBlend === undefined ? {} : {
                         getEditValue: () => String(chromaBlend),
@@ -152,39 +153,39 @@ export function LAYER_SECTIONS(
                     ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])
             ]
         },
-        ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
+        ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: t('inspector.layerSections.label.voice'), fields: [
             {
-                name: 'layer-audio', label: '音声', inputKind: 'select' as const,
-                options: ['鳴らす', 'ミュート'], disabled: !layerAudio || layerAudio.detached, keyframeDisabled: true,
-                getValue: () => layerAudio?.audio === false ? 'ミュート' : '鳴らす',
-                getEditValue: () => layerAudio?.audio === false ? 'ミュート' : '鳴らす',
+                name: 'layer-audio', label: t('inspector.layerSections.label.voice'), inputKind: 'select' as const,
+                options: [t('inspector.layerSections.action.play'), t('inspector.layerSections.label.mute')], disabled: !layerAudio || layerAudio.detached, keyframeDisabled: true,
+                getValue: () => layerAudio?.audio === false ? t('inspector.layerSections.label.mute') : t('inspector.layerSections.action.play'),
+                getEditValue: () => layerAudio?.audio === false ? t('inspector.layerSections.label.mute') : t('inspector.layerSections.action.play'),
                 write: async (_snapshot: TimelineLayerSelection, value: string) => layerAudio
-                    ? layerAudio.write('audio', value === '鳴らす') : { ok: false, message: '音声設定を読み込み中です。' }
+                    ? layerAudio.write('audio', value === t('inspector.layerSections.action.play')) : { ok: false, message: t('inspector.layerSections.message.audioSettingsBeingRead') }
             },
             {
-                name: 'layer-gain-db', label: '音量', unit: 'dB', inputKind: 'scrub-number' as const,
+                name: 'layer-gain-db', label: t('inspector.layerSections.label.volume'), unit: 'dB', inputKind: 'scrub-number' as const,
                 scrubStep: 0.5, min: -60, max: 12, disabled: !layerAudio, keyframeDisabled: true,
                 getValue: () => String(layerAudio?.gain_db ?? 0),
                 getEditValue: () => String(layerAudio?.gain_db ?? 0),
                 write: async (_snapshot: TimelineLayerSelection, value: string) => {
                     const gain = Number(value);
                     if (!Number.isFinite(gain) || gain < -60 || gain > 12) {
-                        return { ok: false, message: '音量は -60〜12 dB の範囲で入力してください。' };
+                        return { ok: false, message: t('inspector.layerSections.message.inputVolumeRangeFrom6012Db') };
                     }
                     return layerAudio ? layerAudio.write('gain_db', gain)
-                        : { ok: false, message: '音声設定を読み込み中です。' };
+                        : { ok: false, message: t('inspector.layerSections.message.audioSettingsBeingRead') };
                 }
             }
         ] }] : []),
-        ...(telopFields.length > 0 ? [{ id: 'telop', label: 'テキスト', fields: telopFields }] : []),
+        ...(telopFields.length > 0 ? [{ id: 'telop', label: t('inspector.layerSections.label.text'), fields: telopFields }] : []),
         {
-            id: 'info', label: '情報', collapsedByDefault: true,
+            id: 'info', label: t('inspector.layerSections.label.info'), collapsedByDefault: true,
             fields: [
                 { name: 'src', label: 'src', getValue: () => snapshot.src ?? '—' },
                 { name: 'kind', label: 'kind', getValue: () => snapshot.layerKind },
                 { name: 'preset', label: 'preset', getValue: () => snapshot.preset ?? '—' },
-                { name: 'track', label: 'トラック', getValue: () => snapshot.trackName },
-                { name: 'clip', label: 'クリップ', getValue: () => snapshot.clipName }
+                { name: 'track', label: t('inspector.layerSections.label.track'), getValue: () => snapshot.trackName },
+                { name: 'clip', label: t('inspector.layerSections.label.clip'), getValue: () => snapshot.clipName }
             ]
         }
     ]);

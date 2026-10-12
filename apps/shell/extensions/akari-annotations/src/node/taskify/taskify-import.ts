@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { TASKIFY_IMPORT_TOKEN, type AkariTasksServiceImpl } from '../akari-tasks-service';
 import URI from '@theia/core/lib/common/uri';
 import { join } from 'node:path';
@@ -8,7 +9,7 @@ export async function importTaskifyResult(service: AkariTasksServiceImpl, reques
     projectRootUri: string; memoId: string; jobId: string; paperPath: string; result: ValidatedResult
 }): Promise<number> {
     const read = await readTasksFile(join(new URI(request.projectRootUri).path.fsPath(), '.akari', 'tasks.json'));
-    if (!read.ok) throw new Error('tasks.json を読めません。');
+    if (!read.ok) throw new Error(t('annotationscommon.taskifyImport.error.couldNotReadTasksJson'));
     const existing = read.doc.tasks;
     let count = 0;
     for (const item of request.result.tasks) {

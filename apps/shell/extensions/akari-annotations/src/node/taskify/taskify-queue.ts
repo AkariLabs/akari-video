@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
@@ -47,7 +48,7 @@ export class TaskifyQueue {
         this.notify(); this.pump();
     }
     async enqueue(job: TaskifyJob): Promise<void> {
-        if (this.list().filter(j => j.state === 'queued').length >= 10) throw new Error('混み合っています。あとで試してください。');
+        if (this.list().filter(j => j.state === 'queued').length >= 10) throw new Error(t('annotationscommon.taskifyQueue.error.queueBusyTryAgainLater'));
         this.jobs.set(job.jobId, job); await this.save(job); this.notify(); this.pump();
     }
     async cancel(id: string): Promise<void> {

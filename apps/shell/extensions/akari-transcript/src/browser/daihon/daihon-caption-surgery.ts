@@ -1,10 +1,15 @@
+import { t } from '../transcript-text';
 import { splitTopLevelElements } from '@akari-video/edit-store';
 
 export function fragmentBoundaries(words: readonly { text: string }[], fragments: readonly string[] | undefined): number[] {
     if (!fragments?.length) return [];
     const offsets = new Map<number, number>();
     let offset = 0;
-    words.forEach((word, index) => { offsets.set(offset, index); offset += word.text.length; });
+    words.forEach((word, index) => {
+        offsets.set(offset, index);
+        offsets.set(offset + (/^\s*/u.exec(word.text)?.[0].length ?? 0), index);
+        offset += word.text.length;
+    });
     const result: number[] = [];
     let total = 0;
     for (const fragment of fragments.slice(0, -1)) {
@@ -34,7 +39,16 @@ export function toggleFragmentBoundaryAtOffset(
         fragmentCursor += fragment.length;
         if (fragmentCursor > 0 && fragmentCursor < text.length) offsets.add(fragmentCursor);
     }
-    if (offsets.has(at)) offsets.delete(at); else offsets.add(at);
+    let runStart = at;
+    let runEnd = at;
+    if (/\s/u.test(text[at]) || /\s/u.test(text[at - 1])) {
+        if (!/\s/u.test(text[at])) runStart--;
+        while (runStart > 0 && /\s/u.test(text[runStart - 1])) runStart--;
+        runEnd = runStart;
+        while (runEnd < text.length && /\s/u.test(text[runEnd])) runEnd++;
+    }
+    const existing = [...offsets].find(offset => offset >= runStart && offset <= runEnd);
+    if (existing !== undefined) offsets.delete(existing); else offsets.add(runEnd);
     const sorted = [...offsets].filter(offset => offset > 0 && offset < text.length).sort((a, b) => a - b);
     if (!sorted.length) return [];
     let cursor = 0;
@@ -71,7 +85,7 @@ function rootArrayBounds(source: string): { start: number; end: number } | undef
 export function setCaptionDisplayFragmentsInSource(source: string, captionId: string,
     fragments: readonly string[]): string {
     const bounds = rootArrayBounds(source);
-    if (!bounds) throw new Error('captions 配列が見つかりません。');
+    if (!bounds) throw new Error(t('transcript.daihon.captionSurgery.captionsArrayNotFoundError'));
     const inner = source.slice(bounds.start + 1, bounds.end);
     const elements = splitTopLevelElements(inner);
     for (const element of elements) {
@@ -85,7 +99,7 @@ export function setCaptionDisplayFragmentsInSource(source: string, captionId: st
         const end = bounds.start + 1 + element.end;
         return source.slice(0, start) + updated + source.slice(end);
     }
-    throw new Error(`字幕が見つかりません: ${captionId}`);
+    throw new Error(t('transcript.daihon.captionSurgery.captionNotFoundWithValueError', { value1: captionId }));
 }
 
 function setObjectProperty(raw: string, key: string, jsonValue: string | null): string {

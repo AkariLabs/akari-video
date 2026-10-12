@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
@@ -14,7 +15,7 @@ import { resolveDeliveryTarget } from '../common/delivery-target';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
-const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「パートナーを追加」パネルから接続してください';
+const PARTNER_NOT_CONNECTED_MESSAGE = t('partner.navigation.commands.noPartnerConnectedConnectAddPartnerPanelRightStatus');
 
 export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
     return currentWidth === undefined || currentWidth > windowWidth * 0.4
@@ -42,15 +43,15 @@ export function partnerPanelWidth(windowWidth: number, currentWidth: number | un
 export const AkariPartnerCommands = {
     OPEN: {
         id: 'akari.partner.open',
-        label: 'パートナーを開く'
+        label: t('partner.navigation.commands.openPartnerAction')
     } as Command,
     BEGIN_ONBOARDING: {
         id: 'akari.partner.beginOnboarding',
-        label: 'AI パートナーに接続する'
+        label: t('partner.navigation.commands.connectAiPartnerAction')
     } as Command,
     SEND_TO_PARTNER: {
         id: 'akari.partner.send',
-        label: 'パートナーにメッセージを送る'
+        label: t('partner.navigation.commands.sendMessagePartnerAction')
     } as Command,
     /**
      * 輸入リスト④（素材カード「エージェントに頼む」）向けの注入コマンド。
@@ -61,11 +62,11 @@ export const AkariPartnerCommands = {
      */
     INJECT_PROMPT: {
         id: 'akari.partner.injectPrompt',
-        label: '文脈パケットをパートナーへ送る'
+        label: t('partner.navigation.commands.sendContextPacketPartnerText')
     } as Command,
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
-    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: 'パートナーの入力欄に書く' } as Command
+    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: t('partner.navigation.commands.typeInPartnerInputAction') } as Command
 };
 
 @injectable()

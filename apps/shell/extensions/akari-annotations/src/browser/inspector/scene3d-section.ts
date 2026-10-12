@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { evaluatedItemVar, type ItemV2 } from '@akari-video/edit-store';
 import { scene3dMotionOptions, SCENE3D_CLIP_VAR, SCENE3D_ROTATION_VARS,
     type Scene3dMeta } from '../../common/scene3d-item';
@@ -33,8 +34,8 @@ export function scene3dSection(snapshot: TimelineOverlaySelection,
         drop.setAttribute('data-akari-scene3d-screen-drop', snapshot.id);
         const label = document.createElement('label');
         label.textContent = context.screenVar
-            ? `画面の中身: ${String(vars[context.screenVar] ?? '未設定')}（選択または素材をドロップ）`
-            : 'この 3D には画面がありません';
+            ? t('inspector.scene3dSection.label.screenContent', { value: String(vars[context.screenVar] ?? t('inspector.scene3dSection.label.unset')) })
+            : t('inspector.scene3dSection.label.noScreen');
         if (context.screenVar) {
             label.tabIndex = 0;
             label.addEventListener('click', () => void context.pickScreen?.());
@@ -69,7 +70,7 @@ export function scene3dSection(snapshot: TimelineOverlaySelection,
     return {
         id: 'scene3d', label: '3D', fields: [
             ...SCENE3D_ROTATION_VARS.map((name, index) => ({
-                name: `rotation3d-${'xyz'[index]}`, label: `回転 ${'XYZ'[index]}`, unit: '°',
+                name: `rotation3d-${'xyz'[index]}`, label: t('inspector.scene3dSection.label.rotationAxis', { axis: 'XYZ'[index] }), unit: '°',
                 getValue: () => evaluated(name),
                 getEditValue: () => evaluated(name),
                 inputKind: 'scrub-number' as const, scrubStep: 0.1,
@@ -78,7 +79,7 @@ export function scene3dSection(snapshot: TimelineOverlaySelection,
                 })
             })),
             {
-                name: 'scene3d-motion', label: '動き', inputKind: 'select',
+                name: 'scene3d-motion', label: t('inspector.scene3dSection.label.motion'), inputKind: 'select',
                 options: options.map(option => option.value),
                 optionLabels: Object.fromEntries(options.map(option => [option.value, option.label])),
                 getValue: () => clip, getEditValue: () => clip,

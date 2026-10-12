@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandService } from '@theia/core/lib/common/command';
 import { Disposable } from '@theia/core/lib/common';
@@ -122,7 +123,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
     protected async executeConfirmed(pending: Pending): Promise<JevRouteResult> {
         let result: JevRouteResult;
         try { result = await this.execute(pending.plan, pending.utterance); }
-        catch { this.say('操作できませんでした', 'warn'); result = { outcome: 'memo' }; }
+        catch { this.say(t('vibe.jev.runner.couldNotPerformActionError'), 'warn'); result = { outcome: 'memo' }; }
         if (result.outcome !== 'memo') return result;
         this.now.acceptUtterance(pending.utterance, this.playback.time);
         return { outcome: 'handled', label: pending.plan.label };
@@ -142,7 +143,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
                 const confirmed = this.clearPending(false)!;
                 return this.executeConfirmed(confirmed);
             }
-            if (reply?.kind === 'no') { this.clearPending(true); this.say('見送りました'); return { outcome: 'handled', label: '見送りました' }; }
+            if (reply?.kind === 'no') { this.clearPending(true); this.say(t('vibe.jev.runner.skippedLabel')); return { outcome: 'handled', label: t('vibe.jev.runner.skippedLabel') }; }
             this.clearPending(true);
         }
         if (this.paperOpen && utterance.kind !== 'command') return { outcome: 'pass' };
@@ -174,7 +175,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
         if (matched.kind !== 'plan') return { outcome: 'memo' };
         const plan = matched.plan;
         if (this.hand.busy(plan.surface)) {
-            this.say('手で操作中のため見送りました');
+            this.say(t('vibe.jev.runner.skippedBecauseControllingScreenManuallyMessage'));
             return { outcome: 'memo' };
         }
         const now = Date.now();
@@ -185,9 +186,9 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
         if (plan.actionId === 'browser.search') {
             let seen = false;
             try { seen = localStorage.getItem(CONFIRM_KEY) === '1'; } catch { /* 確認する */ }
-            if (!seen) return this.confirm(plan, utterance, '検索の言葉がウェブの検索サービスに送られます。続けますか');
+            if (!seen) return this.confirm(plan, utterance, t('vibe.jev.runner.searchTermsWillSentWebSearchServiceContinueMessage'));
         }
-        if (plan.actionId === 'roughCanvas.submit') return this.confirm(plan, utterance, 'この内容を送りますか');
+        if (plan.actionId === 'roughCanvas.submit') return this.confirm(plan, utterance, t('vibe.jev.runner.sendContentMessage'));
         if (plan.replace) return this.replace(plan, utterance);
         return this.execute(plan, utterance);
     }
@@ -206,13 +207,13 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
     }
     protected confirm(plan: JevPlan, utterance: EarUtterance, line: string): JevRouteResult {
         const status = this.dock.status.set(line, 'warn', 'jev', [
-            { label: 'はい', run: () => { const pending = this.clearPending(false); if (pending) {
+            { label: t('vibe.jev.runner.yesLabel'), run: () => { const pending = this.clearPending(false); if (pending) {
                 void this.executeConfirmed(pending);
             } } },
-            { label: 'いいえ', run: () => { this.clearPending(true); this.say('見送りました'); } }
+            { label: t('vibe.jev.runner.noLabel'), run: () => { this.clearPending(true); this.say(t('vibe.jev.runner.skippedLabel')); } }
         ]);
         if (this.dock.layout === 'closed') this.dock.setLayout('open');
-        const timer = setTimeout(() => { this.clearPending(true); this.say('確認がなかったため見送りました'); }, 8000);
+        const timer = setTimeout(() => { this.clearPending(true); this.say(t('vibe.jev.runner.skippedBecauseConfirmationNotGivenMessage')); }, 8000);
         this.pending = { plan, utterance, status, timer };
         return { outcome: 'handled', label: line };
     }
@@ -269,7 +270,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
         if (['B3', 'B4', 'B4.pause'].includes(plan.actionId) && !this.playback.editUri) return { outcome: 'memo' };
         const before = await this.snapshot();
         if (['A1', 'A2', 'A3', 'A4', 'A5', 'A7', 'A8'].includes(plan.actionId) && !before) {
-            this.say('画面の状態を読めませんでした', 'warn');
+            this.say(t('vibe.jev.runner.couldNotReadScreenStateError'), 'warn');
             return { outcome: 'memo' };
         }
         if (plan.actionId === 'A7' && before?.materials.query) {
@@ -277,7 +278,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
         }
         const inverse = this.inverse(plan, before, undefined);
         let attempted = 0;
-        let failureLine = '操作できませんでした';
+        let failureLine = t('vibe.jev.runner.couldNotPerformActionError');
         const previousMark = this.dock.mark;
         this.dock.setMark('acting');
         try {
@@ -286,7 +287,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
                 attempted++;
                 result = await this.commands.executeCommand(step.commandId, step.args);
                 if (result && typeof result === 'object' && (result as { matched?: boolean }).matched === false) {
-                    failureLine = '見つかりませんでした';
+                    failureLine = t('vibe.jev.runner.notFoundMessage');
                     throw new Error(failureLine);
                 }
                 if (result && typeof result === 'object' && (result as { ok?: boolean }).ok === false) {
@@ -295,7 +296,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
                     throw new Error(failureLine);
                 }
                 // catalog.open の boolean はカテゴリ/カードの指定が有効かを示す。検索結果 0 件でも true。
-                if (result === false && step.commandId === 'akari.catalog.open') failureLine = '見つかりませんでした';
+                if (result === false && step.commandId === 'akari.catalog.open') failureLine = t('vibe.jev.runner.notFoundMessage');
                 if (result === false || result === 'mismatched-asset') throw new Error(failureLine);
             }
             if (plan.actionId === 'browser.search') {
@@ -313,8 +314,8 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             this.actionTimes.push(entry.at);
             this.lastAction = { key: `${plan.actionId}:${JSON.stringify(plan.value)}`, at: entry.at };
             const undo = undoSteps.length ? () => { void this.undoEntry(entry); } : undefined;
-            this.now.acceptAction(`やりました: ${plan.label}`, '操作', entry.id, undo);
-            this.say(`やりました: ${plan.label}`, 'info', undo ? [{ label: '戻す', run: undo }] : undefined);
+            this.now.acceptAction(t('vibe.jev.runner.doneWithValueLabel', { value1: plan.label }), '操作', entry.id, undo);
+            this.say(t('vibe.jev.runner.doneWithValueLabel', { value1: plan.label }), 'info', undo ? [{ label: t('vibe.jev.runner.undoLabel'), run: undo }] : undefined);
             return { outcome: 'handled', label: plan.label, entryId: entry.id };
         } catch {
             // 失敗を返す前に画面を変更し得るため、失敗したステップも含めて事前状態へ戻す。
@@ -343,7 +344,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
                 const board = await this.commands.executeCommand<{ rows?: Array<{ id: string; state: string }> }>('akari.tasks.nextRows');
                 const taskId = entry.inverse[0].args.id;
                 if (!board?.rows?.some(row => row.id === taskId && row.state === 'unsent')) {
-                    this.say('もう始まっています', 'warn');
+                    this.say(t('vibe.jev.runner.alreadyStartedMessage'), 'warn');
                     return { undone: false, stopped: false };
                 }
             }
@@ -351,7 +352,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             entry.undone = true;
             this.latestUndone = entry;
             this.now.markActionUndone(entry.id);
-            this.say(changed ? '手で変えた後なので、変える前の状態に戻しました' : '元に戻しました');
+            this.say(changed ? t('vibe.jev.runner.screenChangedManuallySoRestoredPreviousStateMessage') : t('vibe.jev.runner.undoneMessage'));
             const at = Date.now();
             this.undoTimes.push(at);
             this.undoStreak++;
@@ -359,16 +360,16 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             const stopped = this.undoStreak >= 3 || this.undoTimes.length >= 3;
             if (stopped) {
                 await this.preferences.set(VIBE_MODE_KEY, 'off', PreferenceScope.User);
-                this.say('Jev を止めました。続けるときは設定の聞き取りから', 'warn', undefined, 0);
+                this.say(t('vibe.jev.runner.jevStoppedResumeOpenListeningSettingsMessage'), 'warn', undefined, 0);
             }
             return { undone: true, stopped };
-        } catch { this.say('元に戻せませんでした', 'warn'); return { undone: false, stopped: false }; }
+        } catch { this.say(t('vibe.jev.runner.couldNotUndoError'), 'warn'); return { undone: false, stopped: false }; }
     }
     protected async undo(wrong: boolean): Promise<JevRouteResult> {
         const entry = [...this.ledger].reverse().find(item => !item.undone && item.inverse.length);
-        if (!entry) { this.say('戻せる操作がありません'); return { outcome: 'memo' }; }
+        if (!entry) { this.say(t('vibe.jev.runner.noActionsUndoMessage')); return { outcome: 'memo' }; }
         const result = await this.undoEntry(entry);
-        if (wrong && result.undone && !result.stopped) this.say('もう一度言ってください', 'warn');
+        if (wrong && result.undone && !result.stopped) this.say(t('vibe.jev.runner.pleaseSayAgainMessage'), 'warn');
         return { outcome: result.undone ? 'handled' : 'memo', entryId: entry.id };
     }
     protected async redo(): Promise<JevRouteResult> {
@@ -379,7 +380,7 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             entry.undone = false;
             this.latestUndone = undefined;
             this.now.markActionRedone(entry.id);
-            this.say(`やりました: ${entry.label}`);
+            this.say(t('vibe.jev.runner.doneWithValueLabel', { value1: entry.label }));
             return { outcome: 'handled', entryId: entry.id };
         } catch { return { outcome: 'memo' }; }
     }
@@ -390,12 +391,12 @@ export class JevLocalRunner implements JevUtteranceRouter, FrontendApplicationCo
             if (!created?.id) return { outcome: 'memo' };
             const id = `jev-${++this.sequence}`;
             const entry: LedgerEntry = { id, at: Date.now(), utterance: utterance.text, planId: 'task-seed',
-                label: 'タスクの種', commands: [], inverse: [{ commandId: 'akari.tasks.dismiss', args: { id: created.id } }],
+                label: t('vibe.jev.runner.taskDraftLabel'), commands: [], inverse: [{ commandId: 'akari.tasks.dismiss', args: { id: created.id } }],
                 tier: 3, undone: false };
             this.ledger.push(entry);
             if (this.ledger.length > 20) this.ledger.shift();
-            this.now.acceptAction(`タスクにしました: ${utterance.text}`, 'タスク', id, () => { void this.undoEntry(entry); });
-            this.say('タスクにしました（自動では実行しません）');
+            this.now.acceptAction(t('vibe.jev.runner.createdTaskWithValueLabel', { value1: utterance.text }), 'タスク', id, () => { void this.undoEntry(entry); });
+            this.say(t('vibe.jev.runner.taskCreatedWillNotRunAutomaticallyMessage'));
             return { outcome: 'handled', entryId: id };
         } catch { return { outcome: 'memo' }; }
     }

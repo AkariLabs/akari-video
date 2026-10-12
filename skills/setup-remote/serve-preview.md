@@ -1,54 +1,55 @@
-# プレビューサーバーの tailnet 限定公開
+# Expose the preview server only within the tailnet
 
-## 1. プレビューサーバーの起動確認
+## 1. Check that the preview server is running
 
-- doctor の `preview.listening` が false なら起動する: `./akari.sh --preview`
-  （または `npx akari-video --preview`）。既定ポート 4567
-- doctor 再実行で `preview.listening: true` を確認
+- If doctor's `preview.listening` is false, start it with `./akari.sh --preview`
+  (or `npx akari-video --preview`). Default port: 4567.
+- Rerun doctor and verify `preview.listening: true`.
 
-## 2. serve 設定（承認必須 — ハードルール 4）
+## 2. Configure serve (approval required — hard rule 4)
 
-実行前に、コマンド・効果・解除方法の 3 点セットを提示して承認を得る:
+Before execution, present all 3 items — command, effect, and how to undo it — and obtain approval:
 
 ```
 tailscale serve --bg 4567
 ```
 
-- 効果: `https://<マシン名>.<tailnet 名>.ts.net` → `localhost:4567` の転送。
-  **tailnet 内のデバイスだけが到達できる**（公開インターネットには出ない。funnel とは別物 —
-  funnel はハードルール 1 により扱わない）
-- 解除: `tailscale serve reset`（serve 設定の全解除）
-- 旧 CLI では `serve` の構文が異なることがある。エラーになる場合は `tailscale version` を確認し、
-  公式 serve ドキュメントの当該版の構文に合わせる（それでも対象はプレビューサーバーのみ —
-  ハードルール 2）
+- Effect: `https://<マシン名>.<tailnet 名>.ts.net` → `localhost:4567` forwarding
+  (the existing placeholders mean machine name and tailnet name).
+  **Only devices within the tailnet can reach it**; it is not exposed to the public internet.
+  This differs from funnel, which hard rule 1 excludes.
+- Undo: `tailscale serve reset` (remove all serve settings).
+- Older CLIs may use different `serve` syntax. If it errors, check `tailscale version` and use the syntax
+  for that version in the official serve documentation. The target is still only the preview server — hard rule 2.
 
-## 3. URL の確定と閲覧確認
+## 3. Establish the URL and check viewing
 
-- doctor 再実行 → `serve.configured: true` と `serveUrl` を確認
-- スマホ（Tailscale オン）で `serveUrl` を開いてもらい、プレビューが表示されることを確認
-- 開けない場合の切り分け順:
-  1. スマホ側の Tailscale がオンか（最頻出の原因）
-  2. **TLS ハンドシェイクで止まる場合は証明書**。管理コンソールで HTTPS Certificates が
-     有効か確認する。有効なのに失敗するなら `tailscale cert <dnsName>` を単体実行して
-     ACME のエラー本文を読む（発行が invalid なら tailnet 側の問題で、serve の設定ミスではない）
-  3. マシンがスリープしていないか（寝ると tailnet から消える）
+- Rerun doctor → verify `serve.configured: true` and `serveUrl`.
+- Ask the user to open `serveUrl` on the phone (Tailscale on) and verify that the preview appears.
+- If it cannot open, troubleshoot in this order:
+  1. Is phone-side Tailscale on? (Most frequent cause.)
+  2. **If it stalls at the TLS handshake, check certificates.** Verify HTTPS Certificates is enabled in the admin console.
+     If enabled but still failing, run `tailscale cert <dnsName>` on its own and read the ACME error body.
+     An invalid issuance is a tailnet issue, not a serve configuration mistake.
+  3. Is the machine asleep? (Sleeping removes it from the tailnet.)
 
-## 4. 承認レポートを serve する（必要なとき）
+## 4. Serve approval reports (when needed)
 
-承認ゲートをスマホで回す場合は、decision-cards レポートヘルパーも serve する。
-**許可リストはプレビューサーバーとこのヘルパーの 2 件だけ**（ハードルール 2）。
+If approval gates will run on the phone, also serve the decision-cards report helper.
+**The allowlist contains only these 2 services: the preview server and this helper** (hard rule 2).
 
-1. ヘルパーを起動する（`<port>` は空きポート。標準出力に `HELPER: http://localhost:<port>/`）:
+1. Start the helper (`<port>` is an available port; stdout prints `HELPER: http://localhost:<port>/`):
    ```
    node packages/decision-cards/report-helper.mjs <report.html のパス> --port <port>
    ```
-2. serve 設定（承認必須 — ハードルール 4）。コマンド・効果・解除方法を提示して承認を得る:
+2. Configure serve (approval required — hard rule 4). Present the command, effect, and undo method; obtain approval:
    ```
    tailscale serve --bg --https=8443 <port>
    ```
-   - 効果: `https://<マシン名>.<tailnet 名>.ts.net:8443` → `localhost:<port>`。tailnet 内限定
-   - 外部ポートを 8443 に固定するため、ヘルパーの内部ポートが起動ごとに変わっても
-     **チャットに貼った URL は死なない**
-   - 解除: `tailscale serve --https=8443 off`（プレビュー側は残る）
-3. スマホで開き、カードを 1 つ操作 → `<report.html>.decisions.json` が実際に更新されることを
-   Mac 側で確認する。**表示できただけで完了と言わない**（ハードルール 6）
+   - Effect: `https://<マシン名>.<tailnet 名>.ts.net:8443` → `localhost:<port>`, tailnet-only
+     (the existing placeholders mean machine name and tailnet name).
+   - Fixing the external port at 8443 means **the URL pasted in chat remains valid** even if the helper's internal
+     port changes between launches.
+   - Undo: `tailscale serve --https=8443 off` (leaves the preview service running).
+3. Open it on the phone and operate 1 card → verify on the Mac that `<report.html>.decisions.json` actually updates.
+   **Do not claim completion just because it displays** (hard rule 6).

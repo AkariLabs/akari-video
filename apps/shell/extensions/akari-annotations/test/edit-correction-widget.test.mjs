@@ -1,16 +1,37 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
-import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
-import { editCorrectionVisible } from '../lib/browser/inspector/edit-correction-visibility.js';
-import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
-import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
-import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
+
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { cutSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { editCorrectionVisible } = await import('../lib/browser/inspector/edit-correction-visibility.js');
+const { appendAiStillNotice, stillMismatchNotice } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { isInspectorStillImage } = await import('../lib/browser/inspector/edit-target.js');
+const { CAPTION_IMAGE_EXTENSIONS } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+
+
+
+
+
+
+
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 class FakeNode {
   constructor(tag = 'div') {
@@ -31,6 +52,7 @@ const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.n
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);
 const factory = name => ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(ast);
 const dependencies = {
+  t,
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: () => [], LAYER_SECTIONS: () => [], TREE_ITEM_SECTIONS: () => [],
   layerAudioControls: new WeakMap(), tabsForKind, initialTabFor, assignSectionToTab,

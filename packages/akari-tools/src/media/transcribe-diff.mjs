@@ -1,9 +1,12 @@
 import { accessSync, constants } from "node:fs";
+import { toolsText } from '../i18n.mjs';
 import { readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readContentLanguage } from "../../../content-language/src/node.mjs";
+import { normalizeLanguage } from "../../../content-language/src/index.mjs";
 import { formatNumber, generatedAt, resolveTarget } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
-import { comparisonText, isFiller } from "./filler-lexicon.mjs";
+import { comparisonText, fillerPackLanguage, findFillerSpans, isFiller } from "./filler-lexicon.mjs";
 
 export function comparisonTarget(argument, options) {
   let target;
@@ -11,35 +14,35 @@ export function comparisonTarget(argument, options) {
     target = resolveTarget(argument, options);
     accessSync(target.inputPath, constants.R_OK);
   } catch (error) {
-    throw Object.assign(new Error(`素材を読めません: ${error.message}`), { exitCode: 2 });
+    throw Object.assign(new Error(toolsText('tools.transcribeDiff.error.sourceUnreadable', { message: error.message })), { exitCode: 2 });
   }
-  if (!transcriptsDirForTarget(target)) throw new Error("プロジェクト内の素材を指定してください");
+  if (!transcriptsDirForTarget(target)) throw new Error(toolsText('tools.transcribeDiff.error.projectSourceRequired'));
   return target;
 }
 
 export async function readJson(file) {
   try { return JSON.parse(await readFile(file, "utf8")); }
-  catch (error) { throw new Error(`JSON を読めません: ${file}（${error.code ?? "形式不正"}）`); }
+  catch (error) { throw new Error(toolsText('tools.transcribeDiff.error.jsonUnreadable', { file, code: error.code ?? toolsText('tools.transcribeDiff.error.invalidFormat') })); }
 }
 
 export async function readEngineTranscripts(target, engines) {
   const directory = transcriptsDirForTarget(target);
   let files;
   try { files = await readdir(directory); }
-  catch { throw new Error("transcripts が見つかりません。先に文字起こしを実行してください"); }
+  catch { throw new Error(toolsText('tools.transcribeDiff.error.transcriptsMissing')); }
   const available = files.filter((file) => /^[A-Za-z0-9_-]+\.json$/.test(file)).sort();
   const names = engines === undefined ? available.map((file) => file.slice(0, -5))
     : (Array.isArray(engines) ? engines : String(engines).split(",")).map((name) => name.trim().replace(/:/g, "-"));
   if (!names.length || names.some((name) => !/^[A-Za-z0-9_-]+$/.test(name)) || new Set(names).size !== names.length) {
-    throw new Error("比較するエンジンを重複なく指定してください");
+    throw new Error(toolsText('tools.transcribeDiff.error.enginesInvalid'));
   }
   const transcripts = [];
   for (const name of names) {
-    if (!available.includes(`${name}.json`)) throw new Error(`エンジンの文字起こしがありません: ${name}`);
+    if (!available.includes(`${name}.json`)) throw new Error(toolsText('tools.transcribeDiff.error.engineMissing', { name }));
     const transcript = await readJson(path.join(directory, `${name}.json`));
     if (transcript?.version !== 1 || transcript.backend?.replace(/:/g, "-") !== name
       || !Array.isArray(transcript.segments) || transcript.segments.some((segment) => !validSegment(segment))) {
-      throw new Error(`文字起こしの形式が不正です: ${name}`);
+      throw new Error(toolsText('tools.transcribeDiff.error.transcriptInvalid', { name }));
     }
     transcripts.push({ ...transcript, backend: name, segments: [...transcript.segments].sort((a, b) => a.start - b.start || a.end - b.end) });
   }
@@ -191,10 +194,11 @@ export function compareTranscripts(transcripts, options = {}) {
       const texts = Object.fromEntries(engines.map((engine, i) => [engine, selections[i].map((char) => char.char).join("")]));
       const timing = characterTiming(selections.flat());
       const overlaps = unrecognized.some((span) => span.start < timing.end && span.end > timing.start);
-      const values = Object.values(texts).map(comparisonText);
-      const filler = values.includes("") && values.filter(Boolean).every(isFiller) && new Set(values.filter(Boolean)).size === 1;
+      const values = Object.values(texts).map((text) => options.language === "en" ? text.trim().toLowerCase().replace(/^[,.;!?\s]+|[,.;!?\s]+$/g, "") : comparisonText(text));
+      const filler = values.includes("") && values.filter(Boolean).every((value) => isFiller(value, options.language)) && new Set(values.filter(Boolean)).size === 1;
       const item = { ...timing, kind: overlaps ? "unrecognized" : filler ? "filler" : "word", texts };
       if (overlaps) item.overlaps_unrecognized = true;
+      else if (filler && options.language === "en") item.confidence = findFillerSpans(values.find(Boolean), "en")[0]?.confidence ?? "low";
       else if (!filler) {
         // Punctuation/spacing differences cannot split votes for the same reading.
         const votes = new Map();
@@ -220,9 +224,12 @@ export function compareTranscripts(transcripts, options = {}) {
 export async function transcribeDiffMedia(argument, options = {}) {
   const target = comparisonTarget(argument, options);
   const transcripts = await readEngineTranscripts(target, options.engines);
+  const resolvedLanguage = await readContentLanguage(target.projectRoot);
+  const language = fillerPackLanguage(resolvedLanguage.source === "intake" ? resolvedLanguage.language
+    : normalizeLanguage(transcripts[0]?.transcript_language) ?? "ja");
   const engines = transcripts.map((transcript) => transcript.backend);
-  if (engines.length === 1) return { engines, skipped: "比較対象なし" };
-  const result = compareTranscripts(transcripts, options);
+  if (engines.length === 1) return { engines, skipped: toolsText('tools.transcribeDiff.status.noComparison') };
+  const result = compareTranscripts(transcripts, { ...options, language });
   await writeSidecar(target, "diff.json", result);
   const by_kind = { word: 0, filler: 0, unrecognized: 0 };
   result.items.forEach((item) => { by_kind[item.kind] += 1; });

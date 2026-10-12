@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { t } = require('../lib/common/preview-text.js');
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('preview.ts', source, ts.ScriptTarget.Latest, true);
@@ -20,7 +24,7 @@ const URI = class {
     resolve(name) { return new URI(`${this.value}/${name}`); }
 };
 const measure = runInContext(`${compiled}\nHandler.prototype.measureOverlayBox`,
-    createContext({ URI, Date, Map, JSON, Math, Promise, setTimeout, clearTimeout, setInterval, clearInterval }));
+    createContext({ t, URI, Date, Map, JSON, Math, Promise, setTimeout, clearTimeout, setInterval, clearInterval }));
 
 test('プレビューが開かない場合も枠測定は 1 秒で返す', async () => {
     const host = { overlayMeasureCache: new Map(), openOutputPreviews: new Map(),

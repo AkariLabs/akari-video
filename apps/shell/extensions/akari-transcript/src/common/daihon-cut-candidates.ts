@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 import type { TimelineSegment } from '@akari-video/edit-store';
 import type { TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
 import type { DaihonRow } from './daihon-row-model';
@@ -68,7 +69,7 @@ export function collectDaihonCutCandidates(rows: readonly DaihonRow[], options: 
             typeof segment.in === 'number' && typeof segment.out === 'number' &&
             segment.in <= start && end <= segment.out)) continue;
         candidates.push({ id: `silence:${row.id}:${next.id}`, kind: 'silence', start, end,
-            text: `無音 ${gap.span.toFixed(2)} 秒`, rowId: row.id, sourceId: sourceOf(row) });
+            text: t('transcript.daihon.cutCandidates.silenceSecWithCountLabel', { value1: gap.span.toFixed(2) }), rowId: row.id, sourceId: sourceOf(row) });
     }
     for (const source of options.sources ?? []) {
         for (const cut of source.cuts?.candidates ?? []) {

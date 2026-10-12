@@ -1,3 +1,5 @@
+import { setLanguage } from '@akari-video/i18n';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -5,6 +7,9 @@ import {
     reviewSessionBadge,
     sessionIdForAnnotation
 } from '../lib/browser/review-model.js';
+
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 test('状態バッジをライフサイクルへ写像し orphaned を優先する', () => {
     assert.deepEqual(reviewSessionBadge({ id: 's-1', startedAt: '', status: 'recorded' }), {

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { isScene3dItem, type ItemV2 } from '@akari-video/edit-store';
 import { InspectorWriteRequest, InspectorWriteResult, LivePreviewRequest, LivePreviewTarget, TimelineOverlaySelection, TimelineTreeItemSnapshot } from '../../timeline-selection-model';
@@ -37,7 +38,7 @@ export function TREE_ITEM_SECTIONS(
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const maskFields = MASK_FIELDS(snapshot, requestWrite);
     const perspectiveSection = {
-        id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
+        id: 'perspective', label: t('inspector.treeItemSections.label.fourCornerPerspective'), collapsedByDefault: true,
         fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
     };
     const transformFields: InspectorFieldDef<TimelineTreeItemSnapshot>[] = [
@@ -56,7 +57,7 @@ export function TREE_ITEM_SECTIONS(
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
         },
         {
-            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            name: 'transform-scale', label: t('inspector.treeItemSections.label.scale'), unit: '%', removable: true,
             getValue: () => String(overallScale() * 100), getEditValue: () => String(overallScale() * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
             write: async (_snapshot, value) => requestWrite({
@@ -64,7 +65,7 @@ export function TREE_ITEM_SECTIONS(
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
         },
         ...(['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineTreeItemSnapshot> => ({
-            name: `transform-${axis}`, label: index === 0 ? '幅' : '高さ', unit: '%', removable: true,
+            name: `transform-${axis}`, label: index === 0 ? t('inspector.treeItemSections.label.width') : t('inspector.treeItemSections.label.height'), unit: '%', removable: true,
             getValue: () => String(axisScale(axis) * 100), getEditValue: () => String(axisScale(axis) * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: axis,
             write: async (_snapshot, value) => requestWrite({
@@ -73,7 +74,7 @@ export function TREE_ITEM_SECTIONS(
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
         })),
         ...(!scene3dItem || number('rotate', 0) !== 0 ? [{
-            name: 'transform-rotate', label: '回転', unit: '°', removable: true,
+            name: 'transform-rotate', label: t('inspector.treeItemSections.label.rotation'), unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
             inputKind: 'scrub-number' as const, scrubStep: 0.1, liveField: 'rotate' as const,
             write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
@@ -112,13 +113,13 @@ export function TREE_ITEM_SECTIONS(
             getValue: () => field.value, getEditValue: () => field.value,
             write: async (_snapshot, value) => {
                 const key = field.key.endsWith('Mode') ? field.key.slice(0, -4) : field.key;
-                const next = field.key.endsWith('Mode') ? value === 'なし' ? 'none'
+                const next = field.key.endsWith('Mode') ? value === t('inspector.treeItemSections.label.none') ? 'none'
                     : key === 'fill' ? snapshot.shape === 'bubble' ? '#ffffff' : '#a6a6a6' : '#000000'
                     : field.kind === 'number' ? snapshot.shape === 'line' && key === 'strokeWidth'
                         ? Math.max(1, shapeNumber(key, value) ?? 1) : shapeNumber(key, value)
                         : field.kind === 'select' ? shapeOptionValue(key, value) : value;
-                if (next === undefined) return { ok: false, message: '値を選び直してください。' };
-                if (field.key === 'strokeMode' && value === '色'
+                if (next === undefined) return { ok: false, message: t('inspector.treeItemSections.message.selectValue') };
+                if (field.key === 'strokeMode' && value === t('inspector.treeItemSections.label.color')
                     && !(Number(snapshot.shapeParams?.strokeWidth ?? 0) > 0)) {
                     return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params',
                         value: enableShapeStroke(snapshot.shapeParams ?? {}) });
@@ -128,59 +129,59 @@ export function TREE_ITEM_SECTIONS(
         }));
     const shapeAppearance = shapeFields('appearance');
     if (snapshot.shape === 'line' || snapshot.shape === 'arrow') shapeAppearance.push({
-        name: 'shape-swap-ends', label: '始点と終点', getValue: () => '', actionLabel: '入れ替え',
+        name: 'shape-swap-ends', label: t('inspector.treeItemSections.label.firstLast'), getValue: () => '', actionLabel: t('inspector.treeItemSections.action.replace'),
         action: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params',
             value: swapShapeEnds(snapshot.shapeParams ?? {}) })
     });
     const shapeBubble = shapeFields('bubble');
     if (snapshot.shape === 'bubble') shapeBubble.push({
-        name: 'shape-next-seed', label: '形の変化', getValue: () => '', actionLabel: '別の形にする',
+        name: 'shape-next-seed', label: t('inspector.treeItemSections.label.shapeChange'), getValue: () => '', actionLabel: t('inspector.treeItemSections.action.makeDifferentShapes'),
         action: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params.seed',
             value: Number(snapshot.shapeParams?.seed ?? 0) + 1 })
     });
     return composeInspectorSections([
-        ...(snapshot.itemKind === 'group' ? [{ id: 'canvas', label: 'キャンバス', fields: [
-            { name: 'canvas-name', label: '名前', inputKind: 'text' as const,
+        ...(snapshot.itemKind === 'group' ? [{ id: 'canvas', label: t('inspector.treeItemSections.label.canvas'), fields: [
+            { name: 'canvas-name', label: t('inspector.treeItemSections.label.name'), inputKind: 'text' as const,
                 getValue: () => snapshot.clipName, getEditValue: () => snapshot.clipName,
                 write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
                     kind: 'item-field', id: snapshot.id, path: 'name', value
                 }) },
-            { name: 'canvas-intent', label: '意図', inputKind: 'text' as const,
+            { name: 'canvas-intent', label: t('inspector.treeItemSections.label.intent'), inputKind: 'text' as const,
                 getValue: () => snapshot.canvas?.intent ?? '', getEditValue: () => snapshot.canvas?.intent ?? '',
                 write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
                     kind: 'item-field', id: snapshot.id, path: 'source.canvas.intent', value
                 }) },
-            { name: 'canvas-duration', label: '尺', inputKind: 'number' as const, min: 0.01, unit: '秒',
+            { name: 'canvas-duration', label: t('inspector.treeItemSections.label.duration'), inputKind: 'number' as const, min: 0.01, unit: t('inspector.treeItemSections.unit.seconds'),
                 getValue: () => String(snapshot.duration), getEditValue: () => String(snapshot.duration),
                 write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
                     kind: 'item-field', id: snapshot.id, path: 'duration', value: Number(value)
                 }) },
-            { name: 'canvas-background-mode', label: '背景', inputKind: 'select' as const,
-                options: ['なし', '色'],
-                getValue: () => snapshot.canvas?.background?.type === 'color' ? '色' : 'なし',
+            { name: 'canvas-background-mode', label: t('inspector.treeItemSections.label.background'), inputKind: 'select' as const,
+                options: [t('inspector.treeItemSections.label.none'), t('inspector.treeItemSections.label.color')],
+                getValue: () => snapshot.canvas?.background?.type === 'color' ? t('inspector.treeItemSections.label.color') : t('inspector.treeItemSections.label.none'),
                 write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
                     kind: 'item-field', id: snapshot.id, path: 'source.canvas.background',
-                    value: value === '色' ? { type: 'color', color: snapshot.canvas?.background?.color ?? '#142644' } : { type: 'none' }
+                    value: value === t('inspector.treeItemSections.label.color') ? { type: 'color', color: snapshot.canvas?.background?.color ?? '#142644' } : { type: 'none' }
                 }) },
             ...(snapshot.canvas?.background?.type === 'color' ? [{ name: 'canvas-background-color',
-                label: '背景色', inputKind: 'color' as const,
+                label: t('inspector.treeItemSections.label.backgroundColor'), inputKind: 'color' as const,
                 getValue: () => snapshot.canvas?.background?.color ?? '#142644',
                 getEditValue: () => snapshot.canvas?.background?.color ?? '#142644',
                 write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => /^#[0-9a-fA-F]{6}$/u.test(value)
                     ? requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.canvas.background',
                         value: { type: 'color', color: value } })
-                    : { ok: false, message: '色は #RRGGBB で入力してください。' } }] : [])
+                    : { ok: false, message: t('inspector.treeItemSections.message.rrggbb') } }] : [])
         ] }] : []),
-        { id: 'time', label: '時間', fields: [
-            { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-            { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
+        { id: 'time', label: t('inspector.treeItemSections.label.time'), fields: [
+            { name: 'item-start', label: t('inspector.treeItemSections.label.outputPosition'), getValue: () => formatTimestamp(snapshot.outputStart) },
+            { name: 'item-duration', label: t('inspector.treeItemSections.label.duration'), getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
-        { id: 'transform', label: '変形', fields: (['group', 'bag'].includes(snapshot.itemKind)
+        { id: 'transform', label: t('inspector.treeItemSections.label.transform'), fields: (['group', 'bag'].includes(snapshot.itemKind)
             ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
             : transformFields).map(field => ({ ...field,
                 markers: itemMotionMarks(snapshot, `transform.${field.name?.slice('transform-'.length)}`) })) },
         ...(scene3dItem ? [scene3dSection(scene3dSnapshot, requestWrite, scene3d)] : []),
-        { id: 'crop', label: 'クロップ', fields: cropFields.map(field => ({ ...field,
+        { id: 'crop', label: t('inspector.treeItemSections.label.crop'), fields: cropFields.map(field => ({ ...field,
             markers: itemMotionMarks(snapshot, 'crop') })) },
         perspectiveSection,
         ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [] : [
@@ -188,10 +189,10 @@ export function TREE_ITEM_SECTIONS(
             ...MOTION_SECTIONS(snapshot, requestWrite)
         ]),
         ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [
-            ANIMATOR_SECTION(snapshot.id, 'アニメーター', snapshot.animator, requestWrite)
+            ANIMATOR_SECTION(snapshot.id, t('inspector.treeItemSections.label.animator'), snapshot.animator, requestWrite)
         ] : []),
-        { id: 'appearance', label: '外観', fields: [{
-            name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
+        { id: 'appearance', label: t('inspector.treeItemSections.label.appearance'), fields: [{
+            name: 'opacity', label: t('inspector.treeItemSections.label.opacity'), unit: '%', displayScale: 100,
             markers: itemMotionMarks(snapshot, 'opacity'),
             getValue: () => String(opacity), getEditValue: () => String(opacity),
             inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: 1, liveField: 'opacity',
@@ -201,11 +202,11 @@ export function TREE_ITEM_SECTIONS(
         }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : []),
         ...(snapshot.photo ? [...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
             ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])] },
-        ...(shapeBubble.length ? [{ id: 'bubble', label: '吹き出し', fields: shapeBubble }] : []),
-        { id: 'info', label: '情報', collapsedByDefault: true, fields: [
-            { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
-            { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },
-            { name: 'item-clip', label: 'クリップ', getValue: () => snapshot.clipName }
+        ...(shapeBubble.length ? [{ id: 'bubble', label: t('inspector.treeItemSections.label.speechBubble'), fields: shapeBubble }] : []),
+        { id: 'info', label: t('inspector.treeItemSections.label.info'), collapsedByDefault: true, fields: [
+            { name: 'item-kind', label: t('inspector.treeItemSections.label.type'), getValue: () => snapshot.sourceKind === 'group' ? t('inspector.treeItemSections.label.canvas') : snapshot.sourceKind },
+            { name: 'item-track', label: t('inspector.treeItemSections.label.track'), getValue: () => snapshot.trackName },
+            { name: 'item-clip', label: t('inspector.treeItemSections.label.clip'), getValue: () => snapshot.clipName }
         ] }
     ]);
 }

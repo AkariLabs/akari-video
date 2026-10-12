@@ -3,13 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import { setLanguage } from '@akari-video/i18n';
+
+const require = createRequire(import.meta.url);
+setLanguage('ja');
+test.after(() => setLanguage(undefined));
 
 function load(relativePath) {
     const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
     const exports = {};
-    new Function('exports', ts.transpileModule(source, {
+    new Function('exports', 'require', ts.transpileModule(source, {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 }
-    }).outputText)(exports);
+    }).outputText)(exports, require);
     return exports;
 }
 
@@ -17,7 +22,6 @@ const { nextShuttleRate, advanceShuttle, shuttleCancelEffect } = load('../src/co
 const { timelineEditPoints, adjacentEditPoint } = load('../src/common/timeline-edit-points.ts');
 const { AKARI_SHORTCUTS } = load('../src/browser/akari-shortcuts.ts');
 const { AKARI_SHORTCUT_ORDER, shortcutGroup } = load('../../akari-surfaces/src/common/shortcuts-settings.ts');
-const require = createRequire(import.meta.url);
 const { TimelineShuttleController } = require('../lib/browser/timeline/timeline-shuttle-controller.js');
 const { TimelinePlayheadFollow } = require('../lib/browser/timeline/timeline-playhead-follow.js');
 

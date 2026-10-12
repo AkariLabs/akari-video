@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -36,14 +37,14 @@ function spawn(command, args) {
   }
 }
 
-function runHelper(helperBin, inputPath) {
+function runHelper(helperBin, inputPath, locale) {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "akari-speech-analyzer-output-"));
   const helperOutputPath = path.join(temporaryDirectory, "stdout.json");
   const helperFd = fs.openSync(helperOutputPath, "w");
   let helperResult = {};
   let helperError = null;
   try {
-    helperResult = spawnSync(helperBin, [inputPath], { stdio: ["ignore", helperFd, "pipe"], encoding: "utf8" });
+    helperResult = spawnSync(helperBin, [inputPath, ...(locale ? [locale] : [])], { stdio: ["ignore", helperFd, "pipe"], encoding: "utf8" });
   } catch (error) {
     helperError = error;
   } finally {
@@ -110,7 +111,7 @@ function checkAvailability() {
 }
 
 function parseArguments(argv) {
-  const result = { check: false, input: null, helperBin: defaultHelperBin, output: null };
+  const result = { check: false, input: null, helperBin: defaultHelperBin, output: null, locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--check") {
@@ -120,6 +121,11 @@ function parseArguments(argv) {
       if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
       if (argument === "--input") result.input = path.resolve(value);
       else result.helperBin = path.resolve(value);
+      index += 1;
+    } else if (argument === "--locale") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
+      result.locale = value;
       index += 1;
     } else if (argument === "--output") {
       const value = argv[index + 1];
@@ -133,23 +139,46 @@ function parseArguments(argv) {
   return result;
 }
 
-function needsBuild(helperBin) {
-  const sourceStat = fs.statSync(helperSource);
+function managedHelperBin(helperBin) {
+  const cacheBin = path.join(os.tmpdir(), "akari-speech-analyzer", "speechanalyzer-helper");
+  if (helperBin !== defaultHelperBin && helperBin !== cacheBin) return { path: helperBin, managed: false };
+  const hash = createHash("sha256").update(fs.readFileSync(helperSource)).digest("hex").slice(0, 16);
+  return { path: `${helperBin}-${hash}`, managed: true };
+}
+
+function needsBuild(helperBin, managed) {
+  if (!managed) {
+    const sourceStat = fs.statSync(helperSource);
+    try {
+      return fs.statSync(helperBin).mtimeMs < sourceStat.mtimeMs;
+    } catch (error) {
+      if (error?.code === "ENOENT") return true;
+      throw error;
+    }
+  }
   try {
-    return fs.statSync(helperBin).mtimeMs < sourceStat.mtimeMs;
+    fs.accessSync(helperBin, fs.constants.X_OK);
+    return false;
   } catch (error) {
-    if (error?.code === "ENOENT") return true;
+    if (error?.code === "ENOENT" || error?.code === "EACCES") return true;
     throw error;
   }
 }
 
-function buildHelper(helperBin) {
-  if (!needsBuild(helperBin)) return null;
-  const result = spawn("swiftc", ["-O", "-parse-as-library", helperSource, "-o", helperBin]);
-  if (result.error || result.status !== 0) {
-    return summarize(result.stderr, result.error?.code === "ENOENT" ? "swiftc が PATH 上にありません" : "終了コードが 0 ではありません");
+function buildHelper(helperBin, managed) {
+  if (!needsBuild(helperBin, managed)) return null;
+  if (managed) fs.mkdirSync(path.dirname(helperBin), { recursive: true });
+  const outputPath = managed ? `${helperBin}.tmp-${process.pid}-${randomUUID()}` : helperBin;
+  try {
+    const result = spawn("swiftc", ["-O", "-parse-as-library", helperSource, "-o", outputPath]);
+    if (result.error || result.status !== 0) {
+      return summarize(result.stderr, result.error?.code === "ENOENT" ? "swiftc が PATH 上にありません" : "終了コードが 0 ではありません");
+    }
+    if (managed) fs.renameSync(outputPath, helperBin);
+    return null;
+  } finally {
+    if (managed) fs.rmSync(outputPath, { force: true });
   }
-  return null;
 }
 
 function validTimedItem(value) {
@@ -207,7 +236,9 @@ function main() {
   }
 
   try {
-    const buildError = buildHelper(options.helperBin);
+    const helper = managedHelperBin(options.helperBin);
+    options.helperBin = helper.path;
+    const buildError = buildHelper(helper.path, helper.managed);
     if (buildError) {
       printJson({ backend: "speechanalyzer", available: false, reason: `swiftc build failed: ${buildError}` });
       process.exitCode = 1;
@@ -219,7 +250,7 @@ function main() {
     return;
   }
 
-  const helperResult = runHelper(options.helperBin, options.input);
+  const helperResult = runHelper(options.helperBin, options.input, options.locale);
 
   let helperJson = null;
   try {
@@ -241,7 +272,7 @@ function main() {
   if (normalized.droppedSegments > 0 || normalized.droppedWords > 0) {
     process.stderr.write(`SpeechAnalyzer の無効時刻を除外: segments=${normalized.droppedSegments}, words=${normalized.droppedWords}\n`);
   }
-  writeJson(options.output, { backend: "speechanalyzer", available: true, segments: normalized.segments });
+  writeJson(options.output, { backend: "speechanalyzer", available: true, locale: helperJson.locale ?? options.locale ?? "ja-JP", segments: normalized.segments });
 }
 
 main();

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { createInspectorIcon } from './icons';
 import {
     addGradientStop, alphaOf, applyGradientStyle, DEFAULT_GRADIENT_COLLAPSED, DEFAULT_GRADIENTS, DEFAULT_SOLID_COLLAPSED,
@@ -280,8 +281,8 @@ export class ColorPanelView {
         const head = el('div', 'akari-color-head');
         const back = el('button', 'akari-color-back');
         back.type = 'button';
-        back.title = '戻る';
-        back.setAttribute('aria-label', '戻る');
+        back.title = t('inspector.colorPanel.title.back');
+        back.setAttribute('aria-label', t('inspector.colorPanel.title.back'));
         back.dataset.cpAction = 'close';
         back.appendChild(createInspectorIcon('left'));
         const title = el('h3', undefined, ctx.title);
@@ -290,8 +291,8 @@ export class ColorPanelView {
 
         const search = el('input', 'akari-color-search');
         search.type = 'text';
-        search.placeholder = '「青」または「#00c4cc」で検索';
-        search.setAttribute('aria-label', '色を検索');
+        search.placeholder = t('inspector.colorPanel.placeholder.searchBlue00C4Cc');
+        search.setAttribute('aria-label', t('inspector.colorPanel.label.colorSearch'));
         search.dataset.cpInput = 'search';
         search.spellcheck = false;
         search.value = this.state.query;
@@ -347,13 +348,13 @@ export class ColorPanelView {
 
     protected renderSearch(root: HTMLElement, current: Paint | undefined): void {
         const result = searchColors(this.state.query);
-        root.appendChild(el('div', 'akari-color-sub', result.exact ? 'この色' : '見つかった色'));
+        root.appendChild(el('div', 'akari-color-sub', result.exact ? t('inspector.colorPanel.label.color') : t('inspector.colorPanel.label.foundColors')));
         const grid = this.grid();
         if (result.exact) grid.appendChild(this.dot(result.exact, current));
         for (const hit of result.hits) grid.appendChild(this.dot(hit.color, current, hit.names.split(/\s+/u)[0]));
         root.appendChild(grid);
         if (!result.exact && result.hits.length === 0) {
-            root.appendChild(el('div', 'akari-color-empty', '見つかりません（色の名前か #RRGGBB で）'));
+            root.appendChild(el('div', 'akari-color-empty', t('inspector.colorPanel.error.notFoundColorNameRrggbb')));
         }
     }
 
@@ -363,35 +364,35 @@ export class ColorPanelView {
         const rainbow = el('button', 'akari-color-dot is-rainbow');
         rainbow.type = 'button';
         rainbow.dataset.cpAction = 'picker';
-        rainbow.title = ctx.allowGradient ? '好きな色を選ぶ（単色 / グラデーション）' : '好きな色を選ぶ';
+        rainbow.title = ctx.allowGradient ? t('inspector.colorPanel.action.chooseFavoriteColorSingleColorGradation') : t('inspector.colorPanel.action.chooseFavoriteColor');
         rainbow.setAttribute('aria-label', rainbow.title);
         rainbow.setAttribute('aria-expanded', String(this.state.pickerOpen));
         if (this.state.pickerOpen) rainbow.classList.add('is-current');
         top.appendChild(rainbow);
         top.appendChild(this.eyedropperButton('akari-color-dot is-tool'));
-        if (ctx.allowTransparent) top.appendChild(this.dot(TRANSPARENT_PAINT, current, '透明（塗りなし）'));
+        if (ctx.allowTransparent) top.appendChild(this.dot(TRANSPARENT_PAINT, current, t('inspector.colorPanel.label.transparentWithoutCoating')));
         for (const entry of historyRow(ctx.history, current, ctx.allowGradient)) {
-            top.appendChild(this.dot(entry, current, `${paintLabel(entry)}（履歴）`));
+            top.appendChild(this.dot(entry, current, t('inspector.colorPanel.label.history', { color: paintLabel(entry) })));
         }
         root.appendChild(top);
         if (this.state.pickerOpen) root.appendChild(this.renderPicker(ctx, current));
 
         const design = ctx.designColors.filter(paint => ctx.allowGradient || !isGradientPaint(paint));
         if (design.length) {
-            root.appendChild(el('div', 'akari-color-sub', 'このデザインの色'));
+            root.appendChild(el('div', 'akari-color-sub', t('inspector.colorPanel.label.colorDesign')));
             const grid = this.grid();
             for (const paint of design) grid.appendChild(this.dot(paint, current));
             root.appendChild(grid);
         }
 
-        root.appendChild(this.section('ブランドキット', { text: this.state.brandEditing ? '完了' : '編集', name: 'brand-edit' }));
+        root.appendChild(this.section(t('inspector.colorPanel.label.brandKit'), { text: this.state.brandEditing ? t('inspector.colorPanel.action.close') : t('inspector.colorPanel.action.edit'), name: 'brand-edit' }));
         if (ctx.brandColors.length) {
             const grid = this.grid();
             for (const color of ctx.brandColors) {
                 const dot = this.dot(color, current);
                 if (this.state.brandEditing) {
                     dot.dataset.cpBrandRemove = color;
-                    dot.title = `${color} をブランドキットから外す`;
+                    dot.title = t('inspector.colorPanel.title.removeFromBrandKit', { color: color });
                     dot.setAttribute('aria-label', dot.title);
                     const remove = el('span', 'akari-color-remove');
                     remove.innerHTML = REMOVE_SVG;
@@ -401,16 +402,16 @@ export class ColorPanelView {
             }
             root.appendChild(grid);
         } else if (this.state.brandEditing) {
-            root.appendChild(el('div', 'akari-color-empty', 'ブランドカラーはまだありません'));
+            root.appendChild(el('div', 'akari-color-empty', t('inspector.colorPanel.label.noBrandColor')));
         }
-        const add = el('button', 'akari-color-wide', '＋ ブランドカラーを追加');
+        const add = el('button', 'akari-color-wide', t('inspector.colorPanel.label.addBrandColor'));
         add.type = 'button';
         add.dataset.cpAction = 'brand-add';
-        add.title = '今の色をブランドキットに入れる（どのプロジェクトでも使えます）';
+        add.title = t('inspector.colorPanel.title.addColorBrandKitAnyProjectCan');
         root.appendChild(add);
 
         if (ctx.photos.length) {
-            root.appendChild(this.section('写真の色'));
+            root.appendChild(this.section(t('inspector.colorPanel.label.colorPhoto')));
             for (const photo of ctx.photos) {
                 const row = el('div', 'akari-color-grid akari-color-photo');
                 row.title = photo.label;
@@ -427,8 +428,8 @@ export class ColorPanelView {
             }
         }
 
-        root.appendChild(this.section('デフォルトの単色', {
-            text: this.state.showAllSolids ? 'たたむ' : 'すべて表示', name: 'all-solids'
+        root.appendChild(this.section(t('inspector.colorPanel.label.defaultSingleColor'), {
+            text: this.state.showAllSolids ? t('inspector.colorPanel.label.collapse') : t('inspector.colorPanel.action.viewAll'), name: 'all-solids'
         }));
         const solids = this.grid();
         const solidList = this.state.showAllSolids ? DEFAULT_SOLID_COLORS : DEFAULT_SOLID_COLORS.slice(0, DEFAULT_SOLID_COLLAPSED);
@@ -436,8 +437,8 @@ export class ColorPanelView {
         root.appendChild(solids);
 
         if (ctx.allowGradient) {
-            root.appendChild(this.section('デフォルトのグラデーション', {
-                text: this.state.showAllGradients ? 'たたむ' : 'すべて表示', name: 'all-gradients'
+            root.appendChild(this.section(t('inspector.colorPanel.label.defaultGradient'), {
+                text: this.state.showAllGradients ? t('inspector.colorPanel.label.collapse') : t('inspector.colorPanel.action.viewAll'), name: 'all-gradients'
             }));
             const gradients = this.grid();
             const gradientList = this.state.showAllGradients ? DEFAULT_GRADIENTS : DEFAULT_GRADIENTS.slice(0, DEFAULT_GRADIENT_COLLAPSED);
@@ -450,8 +451,8 @@ export class ColorPanelView {
         const button = el('button', className);
         button.type = 'button';
         button.dataset.cpAction = 'eyedropper';
-        button.title = 'スポイト（画面から色を拾う）';
-        button.setAttribute('aria-label', 'スポイト');
+        button.title = t('inspector.colorPanel.title.eyedropperPickFromScreen');
+        button.setAttribute('aria-label', t('inspector.colorPanel.label.eyedropper'));
         button.innerHTML = EYEDROPPER_SVG;
         return button;
     }
@@ -466,7 +467,7 @@ export class ColorPanelView {
         const sv = el('div', 'akari-color-sv');
         sv.dataset.cpDrag = 'sv';
         sv.style.background = `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pure})`;
-        sv.setAttribute('aria-label', '鮮やかさと明るさ');
+        sv.setAttribute('aria-label', t('inspector.colorPanel.label.freshnessBrightness'));
         const svKnob = el('span', 'akari-color-knob');
         svKnob.style.left = `${hsv.s * 100}%`;
         svKnob.style.top = `${(1 - hsv.v) * 100}%`;
@@ -474,7 +475,7 @@ export class ColorPanelView {
         sv.appendChild(svKnob);
         const hue = el('div', 'akari-color-hue');
         hue.dataset.cpDrag = 'hue';
-        hue.setAttribute('aria-label', '色相');
+        hue.setAttribute('aria-label', t('inspector.colorPanel.label.colorPhase'));
         const hueKnob = el('span', 'akari-color-knob');
         hueKnob.style.left = `${hsv.h / 360 * 100}%`;
         hueKnob.style.background = pure;
@@ -483,7 +484,7 @@ export class ColorPanelView {
         if (alpha !== undefined) {
             const bar = el('div', 'akari-color-alpha');
             bar.dataset.cpDrag = 'alpha';
-            bar.setAttribute('aria-label', '透明度');
+            bar.setAttribute('aria-label', t('inspector.colorPanel.label.opacity'));
             const fill = el('b');
             fill.style.background = `linear-gradient(90deg, transparent, ${hex})`;
             const knob = el('span', 'akari-color-knob');
@@ -503,7 +504,7 @@ export class ColorPanelView {
         input.value = opaqueHex(color);
         input.spellcheck = false;
         input.dataset.cpInput = 'hex';
-        input.setAttribute('aria-label', '色番号');
+        input.setAttribute('aria-label', t('inspector.colorPanel.label.colorNumber'));
         label.append(chip, input);
         if (withPercent) {
             const pct = el('input', 'akari-color-pct');
@@ -511,7 +512,7 @@ export class ColorPanelView {
             pct.inputMode = 'numeric';
             pct.value = String(Math.round(alphaOf(color) * 100));
             pct.dataset.cpInput = 'alpha';
-            pct.setAttribute('aria-label', '透明度（%）');
+            pct.setAttribute('aria-label', t('inspector.colorPanel.label.transparency'));
             label.append(pct, el('span', undefined, '%'));
         }
         return label;
@@ -531,7 +532,7 @@ export class ColorPanelView {
         if (ctx.allowGradient) {
             const tabs = el('div', 'akari-color-tabs');
             tabs.setAttribute('role', 'tablist');
-            for (const [id, label] of [['solid', '単色'], ['gradient', 'グラデーション']] as const) {
+            for (const [id, label] of [['solid', t('inspector.colorPanel.label.solidColor')], ['gradient', t('inspector.colorPanel.label.gradation')]] as const) {
                 const button = el('button', id === tab ? 'is-active' : undefined, label);
                 button.type = 'button';
                 button.setAttribute('role', 'tab');
@@ -551,14 +552,14 @@ export class ColorPanelView {
         }
         const parsed = parsePaint(current);
         const gradient = gradientFrom(parsed);
-        box.appendChild(el('div', 'akari-color-label', 'グラデーションカラー'));
+        box.appendChild(el('div', 'akari-color-label', t('inspector.colorPanel.label.gradientColor')));
         const stops = el('div', 'akari-color-stops');
         gradient.stops.forEach((stop, index) => {
             const button = el('button', 'akari-color-dot');
             button.type = 'button';
             button.dataset.cpStop = String(index);
             button.style.background = swatchBackground(stop.color);
-            button.title = `${index + 1} 色目を直す`;
+            button.title = t('inspector.colorPanel.title.returnColor', { index: index + 1 });
             button.setAttribute('aria-label', button.title);
             if (this.state.stop === index) button.classList.add('is-selected');
             stops.appendChild(button);
@@ -567,12 +568,12 @@ export class ColorPanelView {
             const add = el('button', 'akari-color-dot is-rainbow');
             add.type = 'button';
             add.dataset.cpAddStop = '';
-            add.title = '色を足す';
-            add.setAttribute('aria-label', '色を足す');
+            add.title = t('inspector.colorPanel.title.footColor');
+            add.setAttribute('aria-label', t('inspector.colorPanel.title.footColor'));
             stops.appendChild(add);
         }
         box.appendChild(stops);
-        box.appendChild(el('div', 'akari-color-label', 'スタイル'));
+        box.appendChild(el('div', 'akari-color-label', t('inspector.colorPanel.label.styleStyle')));
         const styles = el('div', 'akari-color-styles');
         const activeStyle = isGradientPaint(parsed) ? gradientStyleIndex(parsed) : -1;
         GRADIENT_STYLES.forEach((style, index) => {
@@ -580,7 +581,7 @@ export class ColorPanelView {
             button.type = 'button';
             button.dataset.cpStyle = String(index);
             button.title = style.label;
-            button.setAttribute('aria-label', `スタイル: ${style.label}`);
+            button.setAttribute('aria-label', t('inspector.colorPanel.label.styleWithValue', { styleName: style.label }));
             button.setAttribute('aria-pressed', String(index === activeStyle));
             button.style.background = swatchBackground(applyGradientStyle(gradient, index));
             styles.appendChild(button);
@@ -595,8 +596,8 @@ export class ColorPanelView {
             const trash = el('button', 'akari-color-square');
             trash.type = 'button';
             trash.dataset.cpAction = 'remove-stop';
-            trash.title = parsed.stops.length <= GRADIENT_MIN_STOPS ? '2 色のときは外せません' : 'この色を外す';
-            trash.setAttribute('aria-label', 'この色を外す');
+            trash.title = parsed.stops.length <= GRADIENT_MIN_STOPS ? t('inspector.colorPanel.label.minimumTwoColors') : t('inspector.colorPanel.action.removeColor');
+            trash.setAttribute('aria-label', t('inspector.colorPanel.action.removeColor'));
             trash.disabled = parsed.stops.length <= GRADIENT_MIN_STOPS;
             trash.innerHTML = TRASH_SVG;
             row.append(trash, this.hexField(color, true), this.eyedropperButton('akari-color-square'));
@@ -678,7 +679,7 @@ export class ColorPanelView {
             case 'brand-add': {
                 const parsed = parsePaint(current);
                 if (typeof parsed === 'string' && parsed !== TRANSPARENT_PAINT) ctx.onBrandAdd(parsed);
-                else ctx.notice('ブランドキットに入れられるのは単色です。単色を選んでから押してください。');
+                else ctx.notice(t('inspector.colorPanel.message.colorSingleSelectColorPress'));
                 return;
             }
             case 'all-solids':
@@ -700,7 +701,7 @@ export class ColorPanelView {
         const Dropper = (window as unknown as { EyeDropper?: new () => { open(): Promise<{ sRGBHex: string }> } }).EyeDropper;
         if (!ctx) return;
         if (!Dropper) {
-            ctx.notice('この環境ではスポイトが使えません。');
+            ctx.notice(t('inspector.colorPanel.message.environmentCanNotUseSyringes'));
             return;
         }
         let picked: string | undefined;
@@ -740,7 +741,7 @@ export class ColorPanelView {
         if (input.dataset.cpInput === 'hex') {
             const color = normalizeHex(input.value);
             if (!color) {
-                this.ctx.notice('色番号は #RRGGBB で入力してください。');
+                this.ctx.notice(t('inspector.colorPanel.message.enterColorNumberRrggbb'));
                 this.render();
                 return;
             }
@@ -826,8 +827,8 @@ export function createColorRowSwatch(value: Paint, label: string, open: () => vo
     button.dataset.akariColorOpen = '';
     const parsed = parsePaint(value);
     button.style.background = parsed === undefined ? 'var(--akari-card)' : swatchBackground(parsed);
-    button.title = `${label}を選ぶ`;
-    button.setAttribute('aria-label', `${label}を選ぶ（色パネル）`);
+    button.title = t('inspector.colorPanel.title.selectColor', { label: label });
+    button.setAttribute('aria-label', t('inspector.colorPanel.action.selectColorPanel', { label: label }));
     if (parsed === undefined) button.classList.add('is-mixed');
     button.addEventListener('click', event => {
         event.preventDefault();

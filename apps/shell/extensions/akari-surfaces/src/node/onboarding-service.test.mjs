@@ -1,4 +1,5 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,6 +7,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AkariOnboardingServiceImpl } from '../../lib/node/onboarding-service.js';
 import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions } from '../../lib/onboarding/model.js';
+setLanguage('ja');
+after(() => setLanguage(undefined));
 
 const sampleName = 'サンプル動画.mp4';
 const segments = [{ start: 0, end: 1, text: 'こんにちは' }];

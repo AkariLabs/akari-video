@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { existsSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
@@ -61,12 +62,12 @@ export async function rewritePreviewFragmentAssets(
             streams.push({ ...stream, uri });
             urls.set(reference.path, stream.url);
         } catch {
-            warnings.push(`overlay:${overlayId} fragment ${htmlPath} の参照 "${reference.raw}" が見つからない、または配信できない`);
+            warnings.push(t('preview.fragmentPreview.validation.referenceOverlayFragmentNotFoundCannotServedError', { p1: (overlayId), p2: (htmlPath), p3: (reference.raw) }));
             urls.set(reference.path, `about:invalid#${encodeURIComponent(reference.path)}`);
         }
     }
     for (const reference of fragment.extractAbsoluteFragmentAssetReferences(html, htmlPath)) {
-        warnings.push(`overlay:${overlayId} fragment ${htmlPath} の参照 "${reference.raw}": 断片からの相対パスで書く`);
+        warnings.push(t('preview.fragmentPreview.validation.referenceOverlayFragmentMustUsePathRelativeFragmentError', { p1: (overlayId), p2: (htmlPath), p3: (reference.raw) }));
     }
     return {
         html: fragment.rewriteFragmentAssetUrls(html, { htmlPath, urlPrefix: '/', resolveUrl: reference => urls.get(reference.path) }),

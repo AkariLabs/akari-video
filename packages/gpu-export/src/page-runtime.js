@@ -48,7 +48,12 @@
     while (encoder.encodeQueueSize > limit) await yieldMacrotask();
   }
 
-  function warn(message) {
+  function warn(message, detail) {
+    if (detail?.code === "long-gop" && pageConfig.messages?.longGop) {
+      message = pageConfig.messages.longGop
+        .replaceAll("{id}", String(detail.id))
+        .replaceAll("{gopSeconds}", Number(detail.gopSeconds).toFixed(3));
+    }
     warnings.push(String(message));
     console.warn("[akari-gpu]", message);
   }
@@ -2757,7 +2762,9 @@
           }
           if (!state.warned) {
             state.warned = true;
-            const message = `WARN overlay ${state.overlayId}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください`;
+            const template = pageConfig.messages?.preserve3dOrder
+              ?? "WARN overlay {id}: preserve-3d children overlap on screen, and their depth order differs from DOM order. GPU occlusion follows DOM order, so the image will differ from OSR. Avoid overlapping these children or export with --engine osr";
+            const message = template.replace("{id}", state.overlayId);
             try { await bridge?.log?.(message); } catch {}
             console.warn(message);
           }

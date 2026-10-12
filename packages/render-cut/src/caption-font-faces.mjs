@@ -50,8 +50,10 @@ export function libraryCaptionFontFaces(env = process.env) {
 export function captionFontFaces(env = process.env, bundledRoot = BUNDLED_FONT_ROOT) {
   const bundled = BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face, path: join(bundledRoot, face.id, face.file), key: `${face.id}/${face.file}` }));
   const notoSans = bundled.find(face => face.id === 'noto-sans-jp');
+  const latinNotoSans = bundled.find(face => face.id === 'noto-sans');
   return [
     ...bundled,
+    { ...latinNotoSans, family: 'AKARI Noto Sans', key: `noto-sans-alias/${latinNotoSans.file}` },
     // The caption panel persists this product alias; it uses the same variable font.
     { ...notoSans, family: 'AKARI Noto Sans JP', key: `noto-sans-jp-alias/${notoSans.file}` },
     ...libraryCaptionFontFaces(env),

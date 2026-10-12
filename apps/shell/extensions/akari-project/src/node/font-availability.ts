@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { createHash, randomUUID } from 'crypto';
 import { execFile } from 'child_process';
 import { constants, promises as fs } from 'fs';
@@ -384,12 +385,12 @@ export async function readFontManifest(catalogRoot: string): Promise<FontManifes
 async function verifiedBytes(url: string, bytes: number, sha256: string, timeoutMs = 60000): Promise<Buffer> {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' || parsed.hostname !== 'raw.githubusercontent.com'
-        || !/^\/google\/fonts\/[a-f0-9]{40}\/ofl\//.test(parsed.pathname)) throw new Error('取得先を確認できません。');
+        || !/^\/google\/fonts\/[a-f0-9]{40}\/ofl\//.test(parsed.pathname)) throw new Error(t('project.library.fontDownload.couldNotVerifyDownloadSourceError'));
     const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) throw new Error(`フォントを取得できませんでした (${response.status})。`);
+    if (!response.ok) throw new Error(t('project.library.fontDownload.couldNotDownloadFontStatusError', { status: response.status }));
     const data = Buffer.from(await response.arrayBuffer());
     if (data.length !== bytes || createHash('sha256').update(data).digest('hex') !== sha256)
-        throw new Error('取得したフォントの検証に失敗しました。');
+        throw new Error(t('project.library.fontDownload.couldNotVerifyDownloadedFontError'));
     return data;
 }
 
@@ -406,16 +407,16 @@ export function downloadFont(id: string, title: string, aliases: string[], manif
 
 async function downloadFontOnce(id: string, title: string, aliases: string[], manifest: FontManifest,
     root: string | undefined, timeoutMs: number): Promise<void> {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('フォント ID が不正です。');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error(t('project.workspace.service.invalidFontIdError'));
     const entry = manifest.fonts[id];
-    if (!entry) throw new Error('この書体は配布元から入手してください。');
+    if (!entry) throw new Error(t('project.workspace.service.getFontItsSourceMessage'));
     const [font, license] = await Promise.all([
         verifiedBytes(entry.url, entry.bytes, entry.sha256, timeoutMs),
         entry.ofl.url ? verifiedBytes(entry.ofl.url, entry.ofl.bytes, entry.ofl.sha256, timeoutMs)
             : Promise.resolve(Buffer.from(entry.ofl.text ?? '', 'utf8'))
     ]);
     if (license.length !== entry.ofl.bytes || createHash('sha256').update(license).digest('hex') !== entry.ofl.sha256)
-        throw new Error('ライセンスの検証に失敗しました。');
+        throw new Error(t('project.library.fontDownload.couldNotVerifyLicenseError'));
     const parent = join(root ?? await fontLibraryRoot(), 'font');
     await fs.mkdir(parent, { recursive: true });
     const temp = join(parent, `.${id}-${randomUUID()}`);

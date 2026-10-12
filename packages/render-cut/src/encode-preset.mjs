@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { renderText } from './i18n.mjs';
 
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 
@@ -170,8 +171,7 @@ export function resolveEncodingPolicy({
         ? "forced-fixed-bitrate"
         : "videotoolbox-quality-mode-unavailable";
       warn(
-        `[encode] videotoolbox の品質モード（-q:v）が使えないため固定ビットレート（${videotoolboxBitrateForCodec(effectiveQuality.value, codec)}）へ切り替えました`
-        + `（quality=${effectiveQuality.value} codec=${codec}）`,
+        renderText('render.encode.warning.fixedBitrate', { bitrate: videotoolboxBitrateForCodec(effectiveQuality.value, codec), quality: effectiveQuality.value, codec }),
       );
     }
   }

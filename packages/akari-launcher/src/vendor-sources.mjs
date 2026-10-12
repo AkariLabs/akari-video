@@ -14,6 +14,7 @@ export const VENDOR_SOURCES = [
   'presets/textanim',
   'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
+  'packages/i18n',
   // schemas の frame-scene 検証器が参照する schema 定義だけを同梱する。
   'packages/frame-scene/src/schema.mjs',
   // schemas の asset / kit 検証は runtimes.mjs を実行し、runtime 宣言は src の
@@ -23,6 +24,8 @@ export const VENDOR_SOURCES = [
   'packages/overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf',
   // edit-lint と world-map validator が参照する実行時閉包。
   'packages/render-cut/src/fragment-assets.mjs',
+  // The selected render-cut helpers read the render catalog through this sibling module.
+  'packages/render-cut/src/i18n.mjs',
   'packages/render-cut/src/render-inputs.mjs',
   'packages/render-cut/src/caption-font.mjs',
   'packages/render-cut/src/html-scan.mjs',
@@ -32,10 +35,22 @@ export const VENDOR_SOURCES = [
   'packages/word-book/src/index.mjs',
   'packages/akari-tools/src/world/invariants.mjs',
   'packages/akari-tools/src/world/normalize.mjs',
-  'packages/project-scaffold',
+  'packages/akari-tools/src/decision-log/i18n.mjs',
+  'packages/akari-tools/bin/speakers.mjs',
+  'packages/akari-tools/bin/tools.mjs',
+  'packages/akari-tools/src/common/main-module.mjs',
+  'packages/akari-tools/src/media/common.mjs',
+  'packages/akari-tools/src/i18n.mjs',
+  'packages/akari-tools/package.json',
+  'packages/akari-voice/src',
+  'packages/akari-voice/package.json',
+  // テストは実行時に不要で、分析レポートのテスト専用モジュールを参照するため除外する。
+  'packages/project-scaffold/src/index.mjs',
+  'packages/project-scaffold/package.json',
   // analysis-report は package.json / README.md を capability source として既に収集する。
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
   'packages/analysis-report/render-analysis-report.mjs',
+  'packages/analysis-report/report-i18n.mjs',
   'packages/analysis-report/template.html',
   // decision-log-report も package.json / README.md は capability source として収集する。
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
@@ -44,6 +59,8 @@ export const VENDOR_SOURCES = [
   'packages/edit-lint/bin',
   'packages/edit-lint/src',
   'packages/edit-store/lib',
+  // 作品言語の共有解決関数。後続の CLI とスキルが同じ実装を参照する。
+  'packages/content-language',
   // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
   // 動的 import）が機能するよう同梱する。未同梱の場合は repo-assets.mjs 側で
   // creatorRootModulePath が null になり、現行動作へフォールバックする。

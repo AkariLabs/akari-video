@@ -1,10 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  AUDIO_ITEM_PREVIEW_SECTIONS,
-  AUDIO_PREVIEW_SECTIONS
-} from '../lib/browser/inspector/audio-preview.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AUDIO_ITEM_PREVIEW_SECTIONS, AUDIO_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/audio-preview.js');
+
 
 class FakeElement {
   constructor(tagName) {

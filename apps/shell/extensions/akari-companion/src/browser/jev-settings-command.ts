@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
@@ -11,7 +12,7 @@ export class JevSettingsCommand implements CommandContribution {
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand({ id: 'akari.settings.setByVoice' }, {
             execute: async ({ key, value }: { key: string; value: unknown }) => {
-                if (!isJevSettingKey(key)) throw new Error('許可されていない設定です');
+                if (!isJevSettingKey(key)) throw new Error(t('companion.settings.registerCommandsSettingAllowed.label'));
                 const validated = value === null ? null : validateSettingValue(key, value);
                 if (validated && !validated.ok) throw new Error(validated.reason);
                 const realKeys = JEV_SETTING_REAL_KEYS[key];

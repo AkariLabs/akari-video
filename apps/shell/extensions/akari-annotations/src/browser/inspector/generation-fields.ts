@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { describeNextDraft, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { videoSecondsLabel } from './ai-video-candidates-panel';
 
@@ -153,12 +154,12 @@ export function generationToggleDraft(row: GenerationCatalogRow, output: Record<
 
 /** UI labels never become provider prompt text. */
 export const GENERATION_CAMERA_MOVES = [
-    { label: '寄る', bracket: '[Push in]', prose: 'The camera pushes in.' },
-    { label: '引く', bracket: '[Pull out]', prose: 'The camera pulls out.' },
-    { label: '左へ振る', bracket: '[Pan left]', prose: 'The camera pans left.' },
-    { label: '右へ振る', bracket: '[Pan right]', prose: 'The camera pans right.' },
-    { label: '追いかける', bracket: '[Tracking shot]', prose: 'The camera tracks the subject.' },
-    { label: '固定', bracket: '[Static shot]', prose: 'The camera stays static.' }
+    { label: t('inspector.generationFields.label.zoom'), bracket: '[Push in]', prose: 'The camera pushes in.' },
+    { label: t('inspector.generationFields.label.zoomOut'), bracket: '[Pull out]', prose: 'The camera pulls out.' },
+    { label: t('inspector.generationFields.label.turnLeft'), bracket: '[Pan left]', prose: 'The camera pans left.' },
+    { label: t('inspector.generationFields.label.goRight'), bracket: '[Pan right]', prose: 'The camera pans right.' },
+    { label: t('inspector.generationFields.label.follow'), bracket: '[Tracking shot]', prose: 'The camera tracks the subject.' },
+    { label: t('inspector.generationFields.label.fixed'), bracket: '[Static shot]', prose: 'The camera stays static.' }
 ] as const;
 
 export function generationCameraValue(label: string, notation: string): Record<string, unknown> | null {
@@ -178,7 +179,7 @@ export function generationVariety(draft: GenerationDraft): string {
     const description = describeNextDraft({ next: {
         kind: 'video', status: 'planned', model: { id: draft.modelId }, inputs: draft.inputs, output: draft.output
     } } as GenerationMetaV1);
-    return { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' }[description!.variety];
+    return { prompt: t('inspector.generationFields.label.promptOnly'), first: t('inspector.generationFields.label.fromImage'), 'first-last': t('inspector.generationFields.label.firstLastSequence'), references: t('inspector.generationFields.label.fromReference') }[description!.variety];
 }
 
 const refs = (value: unknown): GenerationReference[] => Array.isArray(value)
@@ -186,9 +187,9 @@ const refs = (value: unknown): GenerationReference[] => Array.isArray(value)
         && typeof (entry as GenerationReference).path === 'string') : [];
 
 const referenceKinds = [
-    { slot: 'reference_images', label: '画像', kind: 'image' },
-    { slot: 'reference_videos', label: '動画', kind: 'video' },
-    { slot: 'reference_audios', label: '音声', kind: 'audio' }
+    { slot: 'reference_images', label: t('inspector.generationFields.label.image'), kind: 'image' },
+    { slot: 'reference_videos', label: t('inspector.generationFields.label.video'), kind: 'video' },
+    { slot: 'reference_audios', label: t('inspector.generationFields.label.voice'), kind: 'audio' }
 ] as const;
 
 function modelSide(row: GenerationCatalogRow): 'frames' | 'references' | undefined {
@@ -266,7 +267,7 @@ const pricePerSecond = (row: GenerationCatalogRow): number | null => {
 
 export function generationFactLabel(row: GenerationCatalogRow): string {
     const price = pricePerSecond(row);
-    return `${row.family ?? row.id} · ${price === null ? '見積不可' : `$${price}/秒`} · as_of ${row.as_of ?? '不明'}（${row.id}）`;
+    return `${row.family ?? row.id} · ${price === null ? t('inspector.generationFields.label.noQuote') : t('inspector.generationFields.price.perSecond', { pricePerSecond: price })} · as_of ${row.as_of ?? t('inspector.generationFields.label.unknown')}（${row.id}）`;
 }
 
 export const generationFields = Object.assign(function generationFields<TSnapshot>({
@@ -281,28 +282,28 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     const byLabel = new Map(videoRows.map(row => [generationFactLabel(row), row.id]));
     const selectedLabel = generationFactLabel(catalogRow);
     const fields: GenerationFieldDef<TSnapshot>[] = defaults.compareMode ? [] : [{
-        name: 'generation-model', label: 'モデル', inputKind: 'select', options: labels,
+        name: 'generation-model', label: t('inspector.generationFields.label.model'), inputKind: 'select', options: labels,
         optionTitles: Object.fromEntries(videoRows.map(row => [generationFactLabel(row), row.id])),
         getValue: () => selectedLabel, getEditValue: () => selectedLabel,
         className: 'akari-inspector-generation-facts',
         write: (_snapshot, value) => actions.update('modelId', byLabel.get(value) ?? value)
     }];
     if (doneVideo && !defaults.finalQuality) fields.unshift({
-        name: 'generation-current-video', label: '今の動画:', getValue: () => {
+        name: 'generation-current-video', label: t('inspector.generationFields.label.nowVideos'), getValue: () => {
             const meta = defaults.doneMeta as { model?: { id?: string }; provenance?: { created_at?: string };
                 job?: { started_at?: string } };
             const model = defaults.catalog.find(row => row.id === meta.model?.id);
-            return `${model?.family ?? meta.model?.id ?? '不明'} · ${meta.provenance?.created_at ?? meta.job?.started_at ?? '日時不明'}`;
+            return `${model?.family ?? meta.model?.id ?? t('inspector.generationFields.label.unknown')} · ${meta.provenance?.created_at ?? meta.job?.started_at ?? t('inspector.generationFields.label.unknownDate')}`;
         }
     });
     fields.push({
-        name: 'prompt', label: '指示文（prompt）', inputKind: 'text',
+        name: 'prompt', label: t('inspector.generationFields.label.scriptPrompt'), inputKind: 'text',
         getValue: () => String(inputs.prompt ?? ''), getEditValue: () => String(inputs.prompt ?? ''),
         write: (_snapshot, value) => actions.update('inputs.prompt', value || null)
     });
 
     if (catalogRow.inputs.negative_prompt === true) fields.push({
-        name: 'negative-prompt', label: '入れたくないもの（negative prompt）', generationDetail: true, inputKind: 'text',
+        name: 'negative-prompt', label: t('inspector.generationFields.label.negativePrompt'), generationDetail: true, inputKind: 'text',
         getValue: () => String(inputs.negative_prompt ?? ''), getEditValue: () => String(inputs.negative_prompt ?? ''),
         write: (_snapshot, value) => actions.update('inputs.negative_prompt', value || null)
     });
@@ -311,14 +312,14 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     const locked = ['generating', 'stale'].includes(defaults.state ?? '');
     if (pair) {
         fields.push({ name: 'generation-mode', label: '', generationButtons: true, generationMode: true,
-            disabled: locked, options: ['最初 / 最後', '参照'],
-            getValue: () => side === 'references' ? '参照' : '最初 / 最後',
-            write: (_snapshot, value) => actions.update('inputs.frames_or_refs', value === '参照' ? 'references' : 'frames') });
+            disabled: locked, options: [t('inspector.generationFields.label.firstLastPair'), t('inspector.generationFields.label.reference')],
+            getValue: () => side === 'references' ? t('inspector.generationFields.label.reference') : t('inspector.generationFields.label.firstLastPair'),
+            write: (_snapshot, value) => actions.update('inputs.frames_or_refs', value === t('inspector.generationFields.label.reference') ? 'references' : 'frames') });
         fields.push({ name: 'generation-mode-note', label: '',
-            getValue: () => `${catalogRow.family} は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。` });
+            getValue: () => t('inspector.generationFields.message.notAvailableSameTimeEvenIfSwitch', { modelFamily: catalogRow.family }) });
     }
     for (const [slot, name, label] of [
-        ['first_frame', 'first-frame', '最初の絵'], ['last_frame', 'last_frame', '最後の絵']
+        ['first_frame', 'first-frame', t('inspector.generationFields.label.firstPicture')], ['last_frame', 'last_frame', t('inspector.generationFields.label.lastPicture')]
     ] as const) {
         if (catalogRow.inputs[slot] === 'none' || (pair && side === 'references')) continue;
         const reference = inputs[slot] as GenerationReference | null;
@@ -329,18 +330,18 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
                 action: () => actions.update(`inputs.${slot}`, { path: image }) });
         };
         if (slot === 'first_frame') {
-            addShortcut('current', 'このクリップの絵', defaults.currentImage);
-            addShortcut('previous', '前のクリップの最後のコマ', defaults.previousImage);
-        } else addShortcut('next', '次のクリップの最初', defaults.nextImage);
-        if (path) shortcuts.push({ name: 'remove', label: '外す', title: `${label}を外す`,
+            addShortcut('current', t('inspector.generationFields.label.picturesClip'), defaults.currentImage);
+            addShortcut('previous', t('inspector.generationFields.label.lastCommasPreviousClip'), defaults.previousImage);
+        } else addShortcut('next', t('inspector.generationFields.label.firstFollowingClip'), defaults.nextImage);
+        if (path) shortcuts.push({ name: 'remove', label: t('inspector.generationFields.label.remove'), title: t('inspector.generationFields.title.remove', { label: label }),
             action: () => actions.update(`inputs.${slot}`, null) });
         fields.push({ name, label, generationFrame: true, getValue: () => path,
             generationThumbnail: path && defaults.thumbnail ? () => defaults.thumbnail!(path) : undefined,
             actions: shortcuts });
     }
-    fields.push({ name: 'generation-variety', label: '種類', getValue: () => generationVariety(draft) });
+    fields.push({ name: 'generation-variety', label: t('inspector.generationFields.label.type'), getValue: () => generationVariety(draft) });
     fields.push({ name: 'generation-material-note', label: '',
-        getValue: () => '送る絵は素材のまま（色・サイズは送りません）' });
+        getValue: () => t('inspector.generationFields.action.sendOriginalAssetImageWithoutColorSize') });
     rememberReferences(inputs);
     const entries = referenceKinds.flatMap(({ slot, label }) => refs(inputs[slot]).map((reference, index) => ({
         slot, reference, index, badge: `@${label}${index + 1}`, unsupported: catalogRow.inputs[slot]?.max === 0
@@ -350,21 +351,21 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         max: validation?.references?.[kind.slot] ? validation.references[kind.slot]!.max : catalogRow.inputs[kind.slot]?.max ?? null }));
     const notes: string[] = [];
     if (side === 'references' && kinds.length > 0 && kinds.every(({ slot }) => !catalogRow.inputs[slot]?.tag)) {
-        notes.push('このモデルの参照の送り方はまだ用意されていません。送ると止まります。');
+        notes.push(t('inspector.generationFields.message.waySendReferencesModelNotYetAvailable'));
     }
     const counter = kinds.map(({ slot, label }) => {
         const stats = validation?.references?.[slot];
-        if (!stats) return `${label} 確認中`;
-        if (stats.max === null) notes.push(`${label}: 上限はモデル側に記載なし`);
-        if (stats.max_seconds_total !== null) notes.push(`${label} ${stats.seconds_total} / ${stats.max_seconds_total} 秒`);
+        if (!stats) return t('inspector.generationFields.status.checkingLabel', { label: label });
+        if (stats.max === null) notes.push(t('inspector.generationFields.label.upperLimitNotListedModelSide', { label: label }));
+        if (stats.max_seconds_total !== null) notes.push(t('inspector.generationFields.label.sec', { label: label, usedSeconds: stats.seconds_total, maxSeconds: stats.max_seconds_total, n: stats.max_seconds_total }));
         return `${label} ${stats.count}${stats.max === null ? '' : ` / ${stats.max}`}`;
     }).join(' · ');
     for (const { slot, label } of referenceKinds) if (entries.some(entry => entry.slot === slot && entry.unsupported)) {
-        notes.push(`このモデルは${label}の参照を使えません。送るときは外します（中身は残す）。`);
-        if (validation?.send_side !== 'frames') notes.push('入力エラーを解消するまで送信できません。');
+        notes.push(t('inspector.generationFields.message.modelCanNotUseReferenceWillBe', { label: label }));
+        if (validation?.send_side !== 'frames') notes.push(t('inspector.generationFields.error.resolveInputErrorsBeforeSending'));
     }
     if ((!pair || side === 'references') && (kinds.length || entries.length)) fields.push({
-        name: 'generation-references', label: '参照', disabled: locked, getValue: () => '',
+        name: 'generation-references', label: t('inspector.generationFields.label.reference'), disabled: locked, getValue: () => '',
         generationReferences: { entries, kinds, counter, notes },
         write: (_snapshot, value) => {
             const { slot, index } = JSON.parse(value) as { slot: GenerationReferenceSlot; index: number };
@@ -372,17 +373,17 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         }
     });
     if (catalogRow.inputs.camera) fields.push({
-        name: 'camera', label: 'カメラの動き', generationButtons: true,
-        options: ['なし', ...GENERATION_CAMERA_MOVES.map(move => move.label)],
+        name: 'camera', label: t('inspector.generationFields.label.cameraMovement'), generationButtons: true,
+        options: [t('inspector.generationFields.label.none'), ...GENERATION_CAMERA_MOVES.map(move => move.label)],
         getValue: () => GENERATION_CAMERA_MOVES.find(move =>
             move.bracket === (inputs.camera as { value?: string })?.value
-            || move.prose === (inputs.camera as { value?: string })?.value)?.label ?? 'なし',
+            || move.prose === (inputs.camera as { value?: string })?.value)?.label ?? t('inspector.generationFields.label.none'),
         write: (_snapshot, value) => actions.update('inputs.camera', generationCameraValue(value, catalogRow.inputs.camera!))
     });
-    fields.push({ name: 'seed', label: 'シード（seed）', inputKind: 'text', generationDetail: true,
+    fields.push({ name: 'seed', label: t('inspector.generationFields.label.seed'), inputKind: 'text', generationDetail: true,
         getValue: () => String(inputs.seed ?? ''),
         write: (_snapshot, value) => value.trim() && !Number.isInteger(Number(value))
-            ? Promise.resolve({ ok: false, message: 'シードは整数で指定してください。' })
+            ? Promise.resolve({ ok: false, message: t('inspector.generationFields.message.specifySeedInteger') })
             : actions.update('inputs.seed', value.trim() ? Number(value) : null)
     });
     const rounded = validation?.rounded?.duration_s;
@@ -393,13 +394,13 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         ? { from: duration, to: normalizedDuration } : undefined;
     const durationChange = rounded ?? normalizedChanged;
     fields.push({
-        name: 'generation-duration', label: '長さ',
-        getValue: () => durationChange ? `${videoSecondsLabel(durationChange.from)} 秒 → ${videoSecondsLabel(durationChange.to)} 秒`
-            : `${videoSecondsLabel(duration)} 秒（cuts）`,
+        name: 'generation-duration', label: t('inspector.generationFields.label.length'),
+        getValue: () => durationChange ? t('inspector.generationFields.label.secondsSeconds', { fromSeconds: videoSecondsLabel(durationChange.from), toSeconds: videoSecondsLabel(durationChange.to) })
+            : t('inspector.generationFields.label.secCuts', { duration: videoSecondsLabel(duration) }),
         className: durationChange ? 'akari-inspector-generation-warning' : undefined
     });
     if (catalogRow.resolutions?.length) fields.push({
-        name: 'generation-resolution', label: '解像度', inputKind: 'select', options: catalogRow.resolutions,
+        name: 'generation-resolution', label: t('inspector.generationFields.label.resolution'), inputKind: 'select', options: catalogRow.resolutions,
         disabled: defaults.cheapDraft === true || locked,
         getValue: () => String(output.resolution ?? catalogRow.resolutions![0]),
         getEditValue: () => String(output.resolution ?? catalogRow.resolutions![0]),
@@ -407,62 +408,62 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     });
     const quality = generationDraftQuality(catalogRow);
     if (quality && !defaults.finalQuality) fields.push({
-        name: 'generation-cheap-draft', label: `下書き（安い・$${quality.unitPrice}/秒）· あとで本番の画質にできる`,
+        name: 'generation-cheap-draft', label: t('inspector.generationFields.label.draftLowerCost', { pricePerSecond: quality.unitPrice }),
         generationCheckbox: true, disabled: locked,
         getValue: () => String(defaults.cheapDraft === true),
         write: (_snapshot, value) => actions.update('cheapDraft', value === 'true')
     });
     if (catalogRow.audio_out === true) fields.push({
-        name: 'generation-audio', label: '音声', inputKind: 'boolean-select',
+        name: 'generation-audio', label: t('inspector.generationFields.label.voice'), inputKind: 'boolean-select',
         getValue: () => String(output.audio_out !== false), getEditValue: () => String(output.audio_out !== false),
         write: (_snapshot, value) => actions.update('output.audio_out', value === 'true')
     });
     if (catalogRow.audio_out === 'always') fields.push({
-        name: 'generation-audio-always', label: '音声', disabled: true,
-        getValue: () => '常に付く'
+        name: 'generation-audio-always', label: t('inspector.generationFields.label.voice'), disabled: true,
+        getValue: () => t('inspector.generationFields.label.alwaysStick')
     });
 
     const estimate = validation?.cost?.estimate_usd;
     if (!defaults.compareMode) fields.push({
-        name: 'generation-estimate', label: '見積', className: 'akari-inspector-generation-estimate',
+        name: 'generation-estimate', label: t('inspector.generationFields.label.estimate'), className: 'akari-inspector-generation-estimate',
         getValue: () => typeof estimate === 'number'
-            ? `$${estimate.toFixed(2)}（as_of ${validation?.cost?.as_of ?? catalogRow.as_of ?? '不明'}）`
-            : '見積不可（明示確認で実行）'
+            ? `$${estimate.toFixed(2)}（as_of ${validation?.cost?.as_of ?? catalogRow.as_of ?? t('inspector.generationFields.label.unknown')}）`
+            : t('inspector.generationFields.status.estimateUnavailableConfirmContinue')
     });
     const error = validation?.messages?.find(message => message.level === 'error');
     const notice = error ?? validation?.messages?.find(message => message.level === 'warn')
         ?? validation?.messages?.find(message => message.level === 'info');
     if (notice) fields.push({
-        name: 'generation-message', label: notice.level === 'error' ? 'エラー' : '注記',
+        name: 'generation-message', label: notice.level === 'error' ? t('inspector.generationFields.label.error') : t('inspector.generationFields.label.note'),
         className: notice.level === 'error' ? 'akari-inspector-generation-error' : 'akari-inspector-generation-note',
         getValue: () => notice.text
     });
 
     const state = defaults.state;
     const generating = state === 'generating';
-    const runLabel = generating ? '生成中…（タイムラインとプレビューに進捗）'
-        : doneVideo ? '作り直す' : '動画にする';
+    const runLabel = generating ? t('inspector.generationFields.status.generatingTimelinePreview')
+        : doneVideo ? t('inspector.generationFields.label.regenerate') : t('inspector.generationFields.label.videos');
     const actionRows: Array<NonNullable<GenerationFieldDef<TSnapshot>['actions']>[number]> = [{
-        name: 'copy-adjacent', label: '隣から取る', title: '隣の映像 item の下書きを写す',
+        name: 'copy-adjacent', label: t('inspector.generationFields.label.takeFromNextDoor'), title: t('inspector.generationFields.title.copyImageItemUnderwritingNext'),
         action: actions.copyAdjacent
     }, ...defaults.compareMode ? [] : [{
         name: 'generate', label: runLabel, title: runLabel,
         disabled: generating || validation?.ok === false || (defaults.finalQuality === true
             && (!quality || Number(catalogRow.price?.by_resolution?.[String(output.resolution)]) <= quality.unitPrice)), action: actions.generate
     }]];
-    if (!defaults.compareMode && state === 'stale') actionRows.push({ name: 'resume', label: '再取得', title: '生成結果を再取得', action: actions.resume });
-    if (!defaults.compareMode && (state === 'failed' || state === 'stale')) actionRows.push({ name: 'retry', label: '同じ入力でもう一度', title: '同じ入力でもう一度', action: actions.retry });
+    if (!defaults.compareMode && state === 'stale') actionRows.push({ name: 'resume', label: t('inspector.generationFields.label.reAcquire'), title: t('inspector.generationFields.title.reAcquiresResult'), action: actions.resume });
+    if (!defaults.compareMode && (state === 'failed' || state === 'stale')) actionRows.push({ name: 'retry', label: t('inspector.generationFields.label.againSameInput'), title: t('inspector.generationFields.label.againSameInput'), action: actions.retry });
     if (doneVideo && canFinalize && !defaults.finalQuality && !defaults.compareMode && actions.finalQuality) actionRows.push({
-        name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
+        name: 'final-quality', label: t('inspector.generationFields.label.makeBestPictureQuality'), title: t('inspector.generationFields.label.makeBestPictureQuality'),
         action: actions.finalQuality
     });
     if (doneVideo && canFinalize && !defaults.finalQuality && !defaults.compareMode) fields.push({
         name: 'generation-final-note', label: '',
-        getValue: () => '同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）'
+        getValue: () => t('inspector.generationFields.label.createHighQualityImageAgainSameInput')
     });
     if (defaults.finalQuality) fields.push({ name: 'generation-final-note', label: '',
-        getValue: () => '解像度を選んでください。同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）' });
-    fields.push({ name: 'generation-actions', label: '操作', getValue: () => '', actions: actionRows });
+        getValue: () => t('inspector.generationFields.label.chooseResolutionCreateHighResolutionAgainSame') });
+    fields.push({ name: 'generation-actions', label: t('inspector.generationFields.label.action'), getValue: () => '', actions: actionRows });
     const details = fields.filter(field => field.generationDetail);
     const visible = fields.filter(field => !field.generationDetail);
     visible.splice(visible.findIndex(field => field.name === 'generation-estimate'), 0, ...details);

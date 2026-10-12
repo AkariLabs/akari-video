@@ -51,18 +51,23 @@ struct SpeechAnalyzerHelper {
                 throw NSError(domain: "SpeechAnalyzerHelper", code: 1,
                               userInfo: [NSLocalizedDescriptionKey: "macOS 26 or later is required"])
             }
-            guard CommandLine.arguments.count == 2 else {
+            guard (2...3).contains(CommandLine.arguments.count) else {
                 throw NSError(domain: "SpeechAnalyzerHelper", code: 2,
-                              userInfo: [NSLocalizedDescriptionKey: "usage: speechanalyzer-helper INPUT_AUDIO"])
+                              userInfo: [NSLocalizedDescriptionKey: "usage: speechanalyzer-helper INPUT_AUDIO [LOCALE]"])
             }
 
             let inputPath = CommandLine.arguments[1]
-            let locale = Locale(identifier: "ja-JP")
+            let locale = Locale(identifier: CommandLine.arguments.count == 3 ? CommandLine.arguments[2] : "ja-JP")
             guard SpeechTranscriber.isAvailable else {
                 throw NSError(domain: "SpeechAnalyzerHelper", code: 3,
                               userInfo: [NSLocalizedDescriptionKey: "SpeechTranscriber is unavailable"])
             }
-            let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: locale) ?? locale
+            let equivalent = await SpeechTranscriber.supportedLocale(equivalentTo: locale)
+            if CommandLine.arguments.count == 3 && equivalent == nil {
+                throw NSError(domain: "SpeechAnalyzerHelper", code: 4,
+                              userInfo: [NSLocalizedDescriptionKey: "Unsupported SpeechTranscriber locale: \(locale.identifier)"])
+            }
+            let supportedLocale = equivalent ?? locale
 
             let transcriber = SpeechTranscriber(
                 locale: supportedLocale,

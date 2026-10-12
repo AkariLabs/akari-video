@@ -1,14 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  enterFocusScope,
-  exitFocusScope,
-  focusScopeAtBreadcrumb,
-  initialFocusScope,
-  rowsInFocusScope,
-  timelineDoubleClickAction,
-} from '../lib/browser/focus/focus-scope.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { enterFocusScope, exitFocusScope, focusScopeAtBreadcrumb, initialFocusScope, rowsInFocusScope, timelineDoubleClickAction } = await import('../lib/browser/focus/focus-scope.js');
+
 
 const rows = [
   { id: 'g', label: 'フック', itemKind: 'group', sourceKind: 'group', trackId: 'v1', depth: 0, hasChildren: true, collapsed: false, at: 10, duration: 70, ticks: [] },

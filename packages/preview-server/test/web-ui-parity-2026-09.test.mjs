@@ -31,6 +31,13 @@ test('字幕フォント: 登録名 "AKARI Noto Sans JP" を先頭に置く（in
   assert.match(rule, /font-family:var\(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif\);/u);
 });
 
+test('English caption font has a fixed asset route and an AKARI family face', () => {
+  assert.match(index, /@font-face \{ font-family: "AKARI Noto Sans"; src: url\("\/assets\/fonts\/akari-noto-sans\.ttf"\)/u);
+  assert.match(server, /LATIN_CAPTION_FONT_PATH = fileURLToPath\(new URL\('\.\.\/\.\.\/\.\.\/assets\/font\/noto-sans\/NotoSans-Variable\.ttf'/u);
+  assert.match(server, /pathname === LATIN_CAPTION_FONT_ROUTE/u);
+  assert.match(app, /document\.fonts\.load\('600 82px "AKARI Noto Sans"', 'English captions'\)/u);
+});
+
 test('slot-params: ルートで配信し、index.html が app.js より先に読み、mount が renderTextSlots を通す', () => {
   assert.match(server, /'\/slot-params\.js': fileURLToPath\(new URL\('\.\.\/\.\.\/overlay-runtime\/src\/slot-params\.js'/u);
   const slotAt = index.indexOf('<script src="/slot-params.js"></script>');

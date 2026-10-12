@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { deriveToolRowState, describeToolAvailabilityLabel, shouldShowToolNote, SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE, TOOL_UI } from '../../lib/common/tool-guidance.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { deriveToolRowState, describeToolAvailabilityLabel, shouldShowToolNote, SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE, TOOL_UI } = await import("../../lib/common/tool-guidance.js");
+
 
 test('SpeechAnalyzer の準備案内は利用可能なら隠し、未準備なら表示する', () => {
     assert.equal(shouldShowToolNote({ id: 'speech-analyzer', available: true }), false);

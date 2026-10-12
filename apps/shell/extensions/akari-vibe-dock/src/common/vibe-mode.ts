@@ -1,3 +1,4 @@
+import { t } from '../browser/vibe-text';
 import type { EarEngineId } from './ear-protocol';
 
 export const VIBE_MODE_KEY = 'akari.vibe.mode';
@@ -6,17 +7,17 @@ export type VibeMode = 'off' | 'screen' | 'full';
 export type ListeningEngine = 'auto' | EarEngineId;
 
 export const VIBE_MODE_LABELS: Record<VibeMode, string> = {
-    off: 'メモのみ', screen: '画面を動かす', full: '画面も編集も'
+    off: t('vibe.listening.mode.notesOnlyLabel'), screen: t('vibe.listening.mode.controlScreenLabel'), full: t('vibe.listening.mode.controlScreenEditingLabel')
 };
 export const VIBE_MODE_DESCRIPTIONS: Record<VibeMode, string> = {
-    off: '話したことを「いま」にメモとして残します。何も実行しません',
-    screen: 'フィルターや検索など、画面の状態だけを声で動かします。編集はしません',
-    full: 'フィルターや検索など、画面の状態を声で動かします。編集はまだこの入口から動きません'
+    off: t('vibe.listening.mode.saveWhatSayAsNoteNowNothingRunsAutomaticallyMessage'),
+    screen: t('vibe.listening.mode.screenControlWithoutEditingDescription'),
+    full: t('vibe.listening.mode.controlScreenByVoiceEditingComingSoonDescription')
 };
 export const EAR_ENGINE_LABELS: Record<ListeningEngine, string> = {
-    auto: 'おまかせ',
-    'speechanalyzer-live': 'ライブ文字起こし',
-    'record-then-transcribe': '録音して文字起こし'
+    auto: t('vibe.listening.mode.autoLabel'),
+    'speechanalyzer-live': t('vibe.listening.mode.liveTranscriptionLabel'),
+    'record-then-transcribe': t('vibe.listening.mode.recordTranscribeLabel')
 };
 
 interface GlobalPreferences {
@@ -41,10 +42,10 @@ export function effectiveVibeMode(options: {
     mode: VibeMode; companionEnabled: boolean; liveAvailable: boolean;
 }): { mode: VibeMode; locked: boolean; reason?: string } {
     if (!options.companionEnabled) {
-        return { mode: 'off', locked: true, reason: 'AKARI バイブとのつながりがオフです' };
+        return { mode: 'off', locked: true, reason: t('vibe.listening.mode.akariVibeDisconnectedMessage') };
     }
     if (!options.liveAvailable) {
-        return { mode: 'off', locked: true, reason: 'この Mac / この PC はライブの文字起こしに未対応のため、メモのみです' };
+        return { mode: 'off', locked: true, reason: t('vibe.listening.mode.liveTranscriptionNotSupportedMacPcSoOnlyNotesAvailableMessage') };
     }
     return { mode: options.mode, locked: false };
 }

@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
-import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AkariAnnotationsServiceImpl } = await import('../lib/node/akari-annotations-service.js');
+
+
 
 test('LUT import validates inputs, preserves bytes and never overwrites', async () => {
   const root = await mkdtemp(join(tmpdir(), 'adjust-luts-'));
