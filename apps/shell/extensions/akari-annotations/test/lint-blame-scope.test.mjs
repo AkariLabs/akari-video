@@ -76,3 +76,12 @@ test('既存 intake 指摘だけの実機再現ケースは own 0 件、foreign 
   assert.equal(result.own.length, 0);
   assert.deepEqual(result.foreign, findings);
 });
+
+test('書いたファイル内でも、保存前から有った指摘は今回の保存に帰属しない', () => {
+  const preexisting = { severity: 'error', check: 'captions.cut-visibility', path: 'captions.json#[4]', preexisting: true };
+  const fresh = { severity: 'error', check: 'captions.overlap', path: 'captions.json#[0]' };
+  assert.deepEqual(splitLintBlame([preexisting, fresh], ['captions.json']), {
+    own: [fresh],
+    foreign: [preexisting]
+  });
+});

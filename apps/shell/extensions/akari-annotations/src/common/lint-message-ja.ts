@@ -5,6 +5,7 @@ export interface UiLintFinding {
     severity?: string;
     message?: string;
     path?: string;
+    preexisting?: boolean;
 }
 
 /** UI で短く案内する高頻度 check だけを持つ。詳細ログの英語本文は置き換えない。 */
@@ -14,6 +15,7 @@ const LINT_CHECK_KEYS: Readonly<Record<string, string>> = Object.freeze({
     'cuts.transition-out.zero-overlap': 'lint.check.cuts.transitionOutZeroOverlap',
     'cuts.transition-out.layer-evacuated': 'lint.check.cuts.transitionOutLayerEvacuated',
     'captions.overlap': 'lint.check.captions.overlap',
+    'captions.cut-visibility': 'lint.check.captions.cutVisibility',
     'captions.output-domain-exceeds-duration': 'lint.check.captions.outputDomainExceedsDuration',
     'cuts.track-overlap': 'lint.check.cuts.trackOverlap',
     'references.files': 'lint.check.references.files',

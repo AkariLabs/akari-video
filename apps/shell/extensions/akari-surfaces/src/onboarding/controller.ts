@@ -822,7 +822,17 @@ export class OnboardingController {
         } else rings.replaceChildren();
         const example = this.root.querySelector<HTMLElement>('.ao-example-preview');
         const output = rectOf('output');
-        if (example && output) {
+        // 見本の動画はプレビュー枠に重ねる。枠が見つからない・窓のほぼ全部を占める（プロジェクトが
+        // 開いていない、配置が崩れている）ときは出さない。出すと窓いっぱいで勝手に再生して見えていた。
+        const exampleFits = !!output && output.width > 0 && output.height > 0
+            && output.width <= innerWidth * 0.85 && output.height <= innerHeight * 0.85;
+        if (example) {
+            example.style.display = exampleFits ? '' : 'none';
+            const exampleVideo = example.querySelector('video');
+            if (exampleVideo && !exampleFits && !exampleVideo.paused) exampleVideo.pause();
+            else if (exampleVideo && exampleFits && exampleVideo.paused && exampleVideo.src) void exampleVideo.play().catch(() => undefined);
+        }
+        if (example && output && exampleFits) {
             Object.assign(example.style, { left: `${output.x + 8}px`, top: `${output.y + 38}px`, width: `${Math.max(0, output.width - 16)}px`, height: `${Math.max(0, output.height - 54)}px` });
             const video = example.querySelector('video');
             const caption = example.querySelector<HTMLElement>('.ao-example-caption');

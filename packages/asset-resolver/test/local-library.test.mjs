@@ -185,3 +185,19 @@ test('cached Lab items retain remote preview and file descriptors', async t => {
   assert.deepEqual(item.files, remote.files);
   assert.ok(item.libraryDir);
 });
+
+test('downloaded catalog audio without meta.json keeps the catalog tags and title (sfx stays out of BGM)', async t => {
+  const { env, catalog, catalogPath } = fixture(t);
+  catalog.items.push({ id: 'sfx-x', category: 'audio', title: 'ベルの効果音', tags: ['bell', 'sfx'],
+    license: { spdx: 'CC0-1.0' }, version: 1, tier: 'free', files: [{ name: 'sfx-x.mp3', key: 'audio/sfx-x/v1/sfx-x.mp3', bytes: 5 }] });
+  writeFileSync(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`);
+  // AKARI Sounds の取り寄せは音源ファイルだけで meta.json を持たない。
+  const dir = path.join(env.AKARI_LIBRARY_ROOT, 'audio', 'sfx-x');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'sfx-x.mp3'), 'sound');
+  const item = (await composeState({ env })).items.find(row => row.id === 'sfx-x');
+  assert.equal(item.state, 'cached');
+  assert.ok(item.tags.includes('sfx'));
+  assert.equal(item.title, 'ベルの効果音');
+  assert.equal(Object.hasOwn(item, 'metaOk'), false);
+});

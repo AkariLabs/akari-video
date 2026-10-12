@@ -50,6 +50,7 @@ At 30fps, this example plays source seconds 48.0–64.0 starting at output secon
 ### Handling still assets (2026-08-12)
 
 - **Put stills directly on a visual track as media clips.** Use one item per image; do not concatenate with ffmpeg. Use `at` / `duration` / `transform` / `crop` / `perspective` / `keyframes` as for other visual clips.
+- **Library `still` assets are images by default (2026-10-12).** Place the single image directly in the asset folder (not `preview.png`, e.g. `bg.png`) as a media clip via `sources[]`. Use the asset's `fragment.html` (an HTML overlay) only when the user asks for one of its knobs (hue, brightness, vignette, …) or when the folder has no single image.
 
 ### Timing basis for overlaid media clips
 

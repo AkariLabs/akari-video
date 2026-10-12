@@ -4642,7 +4642,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             });
         }
-        const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
+        // 組み直しのたびに出していた「再読込しました」の通知は出さない。文字を置く・打つなど
+        // 自分の保存でも組み直しが起き、毎回出て邪魔だった（オーナー指摘 2026-10-12）。
+        // 読み込み失敗のカード（reloadFailedError）は別経路で残る。
+        const reloadNotice = false;
         const onboardingReplayWrite = typeof document !== 'undefined'
             && document.body?.classList?.contains('akari-onboarding-chat-active')
             && !!document.querySelector('#akari-onboarding-v1[data-akari-onboarding-step="work"]');
