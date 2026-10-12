@@ -30,14 +30,14 @@ export const projectHomeCss = `
 .akari-os-start-card:hover,.akari-os-template-card:hover:not(:disabled){border-color:var(--theia-focusBorder);background:var(--theia-list-hoverBackground)}
 .akari-os-start-card b{font-size:15px}.akari-os-start-card span,.akari-os-template-card small{font-size:12px;color:var(--theia-descriptionForeground);line-height:1.6}
 .akari-os-template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.akari-os-template-card b{font-size:14px}.akari-os-template-card:disabled{opacity:.6;cursor:default}
-.akari-os-status{background:var(--theia-editorWidget-background);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
-.akari-os-status .label{font-size:10.5px;font-weight:800;color:var(--theia-focusBorder)}
-.akari-os-status h4{margin:2px 0 0;font-size:15px}.akari-os-status p{margin:4px 0 0;font-size:12px;color:var(--theia-descriptionForeground)}
-.akari-os-status .actions{display:flex;gap:8px;flex-wrap:wrap}
 .akari-os-other-heading{display:flex;gap:10px;align-items:baseline;margin-bottom:8px;min-width:0;white-space:nowrap}.akari-os-other-heading h3{margin:0;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.akari-os-other-heading small{color:var(--theia-descriptionForeground);flex:0 0 auto}
 .akari-os-other-heading button{margin-left:auto;border:0;background:none;color:var(--theia-textLink-foreground);cursor:pointer;flex:0 0 auto;white-space:nowrap}
 .akari-os-other-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
 .akari-os-other-grid>*{min-width:0}
+.akari-os-new-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;border:1px dashed var(--theia-widget-border, rgba(127,127,127,.4));border-radius:10px;background:transparent;color:var(--theia-foreground);cursor:pointer;font:inherit}
+.akari-os-new-card:hover:not(:disabled){border-color:var(--theia-focusBorder);color:var(--theia-focusBorder)}
+.akari-os-new-card:disabled{opacity:.6;cursor:default}
+.akari-os-new-card .codicon{font-size:20px}
 .akari-os-popover{position:absolute;right:0;top:32px;z-index:10;background:var(--theia-editorWidget-background);border:1px solid var(--theia-widget-border);border-radius:10px;box-shadow:0 15px 40px rgba(0,0,0,.3);padding:8px;min-width:245px;max-width:340px}
 .akari-os-popover button{display:block;width:100%;text-align:left;padding:7px 9px;border:0;background:none;color:var(--theia-foreground);border-radius:6px;cursor:pointer}
 .akari-os-popover button:hover{background:var(--theia-list-hoverBackground)}
@@ -47,5 +47,5 @@ export const projectHomeCss = `
 .akari-os-choice:hover{border-color:var(--theia-focusBorder)}.akari-os-choice small{display:block;color:var(--theia-descriptionForeground);margin-top:3px}
 .akari-os-warn{background:var(--theia-inputValidation-warningBackground);border:1px solid var(--theia-inputValidation-warningBorder);padding:10px;border-radius:8px;margin-bottom:12px;font-size:12px}
 @container (max-width:700px){.akari-os-start-grid{grid-template-columns:1fr}}
-@container (max-width:480px){.akari-os-phead{grid-template-columns:1fr}.akari-os-status{grid-template-columns:1fr}.akari-os-template-grid{grid-template-columns:1fr}}
+@container (max-width:480px){.akari-os-phead{grid-template-columns:1fr}.akari-os-template-grid{grid-template-columns:1fr}}
 `;

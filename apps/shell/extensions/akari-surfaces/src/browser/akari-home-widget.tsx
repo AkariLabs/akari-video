@@ -141,6 +141,8 @@ const INTAKE_RELATIVE_PATH = '.akari/intake.json';
 // プロジェクト直下の `.akari/` とは無関係。
 const AKARI_HOME_SUBDIR = '.akari';
 const UPDATE_CACHE_FILENAME = 'update-check.json';
+/** プロジェクトのホームの下段に並べる過去のプロジェクトの数。残りは「プロジェクト一覧へ」。 */
+const PROJECT_HOME_RECENT_LIMIT = 12;
 // アプリ単位の「パートナー接続済み」マーカー。akari-partner の node バックエンドが
 // 接続成立時に書く（ファイル契約のみで結合する — 拡張間の import 依存は増やさない）。
 const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
@@ -2354,20 +2356,11 @@ export class AkariHomeWidget extends ReactWidget {
         const rows = this.buildProjectRows();
         const current = rows.find(row => row.current);
         const name = current?.name ?? root.path.base;
-        const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined;
-        const others = channel ? rows.filter(row => row.channel === channel && !row.current) : [];
+        // ホームの下段は「過去のプロジェクト」と「新しい動画」（2026-10-12 オーナー指摘: 「いまの状態」の
+        // カードはいらない・単体のプロジェクトだと一覧も新規の導線も出なかった）。チャンネル横断・新しい順。
+        const others = rows.filter(row => !row.current).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
         const presence = this.progress.presence ?? EMPTY_PRESENCE;
         const summary = stageSummary(presence);
-        const status: { title: string; body: string; primary?: { label: string; run: () => void }; secondary: { label: string; run: () => void } } =
-            summary === t('surfaces.projects.projectHomeAssetsAdded.label') && presence.assetFiles === 0
-                ? { title: t('surfaces.home.projectHomePlanningComplete.title'), body: t('surfaces.home.projectHomeAddAssetsNextAddVideosPhotosAudio.message'),
-                    primary: { label: t('surfaces.home.addAssets.button'), run: () => void this.openProgressStage('assets') },
-                    secondary: { label: t('surfaces.home.projectHomeAskPartner.label'), run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } }
-                : { title: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomePlansAssetsAvailable.label') : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeMiddleEditing.label') : summary === t('surfaces.projects.projectHomeReview.label') ? t('surfaces.home.projectHomeConfirmation.label') : t('surfaces.home.projectHomeVideoExported.label'),
-                    body: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomeAssetItemsNextTierLineUp.message', { assetFiles: presence.assetFiles, n: presence.assetFiles }) : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeContinueLeftOff.message') : summary === t('surfaces.projects.projectHomeReview.label') ? t('surfaces.home.projectHomeFixIssuesExport.message') : t('surfaces.home.projectHomePressPictureAbovePlay.message'),
-                    primary: summary === t('surfaces.projects.projectHomeExported.label') ? undefined : { label: summary === t('surfaces.projects.projectHomeAssetsAdded.label') ? t('surfaces.home.projectHomeGoEditing.label') : summary === t('surfaces.projects.projectHomeEditing.label') ? t('surfaces.home.projectHomeEditMore.label') : t('surfaces.home.projectHomeExport.label'),
-                        run: () => void this.openProgressStage(summary === t('surfaces.projects.projectHomeReview.label') ? 'export' : 'edit') },
-                    secondary: { label: t('surfaces.home.projectHomeOpenAiAgent.label'), run: () => void this.runAvailableCommand(AKARI_COMMANDS.partnerOpen) } };
         return <div className='akari-os-project-home'>
             <div className='akari-os-phead'>
                 {this.latestExport ? <div className='akari-os-poster'><video src={this.latestExport.toString()} controls preload='metadata' /></div>
@@ -2414,16 +2407,19 @@ export class AkariHomeWidget extends ReactWidget {
                     <button type='button' className='akari-os-start-card' data-akari-start='templates' onClick={() => void this.openTemplateSheet()}><b>{t('surfaces.home.projectHomeTemplate.label')}</b><span>{t('surfaces.home.projectHomeChannelsTemplateIncludesFrameCaptionsPlanTemplate.message')}</span></button>
                     <button type='button' className='akari-os-start-card' data-akari-start='materials' onClick={() => void this.startFromMaterials()}><b>{t('surfaces.home.startFromAssets.button')}</b><span>{t('surfaces.home.projectHomeIncludeVideosPhotosAudioPartnerLookContents.message')}</span></button>
                     <button type='button' className='akari-os-start-card' data-akari-start='talk' onClick={() => void this.startByTalking()}><b>{t('surfaces.home.projectHomeTalk.label')}</b><span>{t('surfaces.home.projectHomeTellAiPartnerWantMakePlanVideo.message')}</span></button>
-                </div></section> : <section className='akari-os-status'><div><span className='label'>{t('surfaces.home.projectHomeCurrentState.label')}</span><h4>{status.title}</h4><p>{status.body}</p></div>
-                <div className='actions'>{status.primary && <button type='button' className='theia-button main' onClick={status.primary.run}>{status.primary.label}</button>}
-                    <button type='button' className='theia-button secondary' onClick={status.secondary.run}>{status.secondary.label}</button></div>
-            </section>}
-            {channel && <section><div className='akari-os-other-heading'><h3>{channel} {t('surfaces.home.projectHomeOtherProjects.heading')}</h3><small>{t('surfaces.home.otherProjectCount.label', { count: others.length, n: others.length })}</small>
+                </div></section> : undefined}
+            <section data-akari-recent-projects='true'><div className='akari-os-other-heading'><h3>{t('surfaces.home.projectBrowserRecentProjects.heading')}</h3>
+                {others.length > 0 && <small>{t('surfaces.home.otherProjectCount.label', { count: others.length, n: others.length })}</small>}
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>{t('surfaces.home.projectHomeGoProjectList.button')}</button></div>
-                <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
+                <div className='akari-os-other-grid'>
+                    <button type='button' className='akari-os-new-card' data-akari-new-project='true' disabled={this.startingNewProject}
+                        onClick={event => { this.newProjectOriginRect = event.currentTarget.getBoundingClientRect(); void this.startNewProject(); }}>
+                        <span className={`codicon ${this.startingNewProject ? 'codicon-loading codicon-modifier-spin' : 'codicon-add'}`} aria-hidden='true' />
+                        <b>{this.startingNewProject ? t('surfaces.home.projectBrowserCreating.label') : t('surfaces.home.projectBrowserNewVideo.label')}</b></button>
+                    {others.slice(0, PROJECT_HOME_RECENT_LIMIT).map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
                     onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
                     onContextMenu={(item, x, y) => this.openProjectContextMenu(item, x, y)}
-                    readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>}
+                    readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>
         </div>;
     }
 
