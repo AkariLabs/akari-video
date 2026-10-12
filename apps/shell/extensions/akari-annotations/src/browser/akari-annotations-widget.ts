@@ -6057,11 +6057,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.photoMaskAvailability.then(available => {
             if (!available || this.preparingPhotoSources.has(source.videoUri)) return;
             this.preparingPhotoSources.add(source.videoUri);
-            this.showNotice(t('annotations.timeline.text.preparingForPhotosTheFirstTimeWeGet'));
-            void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
-                if (!result.ok) this.showNotice(result.message ?? t('annotations.timeline.text.notReadyToEraseBackground'));
-                else this.hideNotice();
-            }).catch(() => this.showNotice(t('annotations.timeline.text.notReadyToEraseBackground')));
+            // 選んだだけの写真の下準備（背景透過のモデルを温める）は黙って行う。失敗を黄色い帯で出すと、
+            // 背景透過を頼んでいないのに移動のたびに「背景透過を実行できませんでした」が出ていた
+            // （オーナー指摘 2026-10-12）。失敗は背景透過を実際に使ったとき（clickPhoto 側）に案内する。
+            void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).catch(() => undefined);
         });
     }
 

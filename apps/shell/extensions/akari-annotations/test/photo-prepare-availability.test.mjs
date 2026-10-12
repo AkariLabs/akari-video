@@ -102,7 +102,7 @@ test('availability RPC requires macOS and an existing helper', async () => {
   assert.deepEqual(await availabilityMethod('darwin', 'helper'), { available: true });
 });
 
-test('available photo helper keeps selection preparation and notices', async () => {
+test('available photo helper prepares selected photos silently', async () => {
   const state = selection(true);
   prepareSelectedPhoto.call(state.context, 'first');
   prepareSelectedPhoto.call(state.context, 'second');
@@ -111,8 +111,20 @@ test('available photo helper keeps selection preparation and notices', async () 
   assert.deepEqual(state.calls, [
     { sourceUri: 'file:///first.jpg' }, { sourceUri: 'file:///second.png' }
   ]);
-  assert.equal(state.notices.filter(message => message.startsWith('写真の準備をしています')).length, 2);
-  assert.equal(state.notices.filter(message => message === 'hidden').length, 2);
+  assert.deepEqual(state.notices, []);
+});
+
+test('a failed warm-up on selection shows no background-removal warning', async () => {
+  const state = selection(true);
+  state.context.annotationsService.photoPrepare = async request => {
+    state.calls.push(request); return { ok: false, message: '背景透過を実行できませんでした' };
+  };
+  prepareSelectedPhoto.call(state.context, 'first');
+  await tick(); await tick();
+  prepareSelectedPhoto.call(state.context, 'first');
+  await tick();
+  assert.deepEqual(state.calls, [{ sourceUri: 'file:///first.jpg' }]);
+  assert.deepEqual(state.notices, []);
 });
 
 test('cutout is disabled with its reason while eraser remains available', () => {
