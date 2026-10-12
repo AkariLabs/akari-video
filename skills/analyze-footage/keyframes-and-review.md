@@ -4,7 +4,7 @@
 
 ## Principles
 
-Read this file only when L2 is explicitly requested. Use `akari media filmstrip|grab` to generate candidates, then inspect the actual images before recording findings. The [`akari media` contract §1.1 / §2.2 / §2.3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) governs commands and image limits.
+Read this file only when L2 is explicitly requested. Use `akari media filmstrip|grab` to generate candidates, then inspect the actual images before recording findings. The [`akari media` contract §1.1 / §2.2 / §2.3](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md) governs commands and image limits.
 
 ## 1. Scan the source coarsely
 

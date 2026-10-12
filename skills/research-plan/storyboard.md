@@ -64,7 +64,7 @@ Do not write `structure.confirmed` or `structure.confirmed_at` until the `struct
 
 ## 5. Receive revisions to `structure-confirm` (plan-comments.json)
 
-Before presenting the `structure-confirm` card again, check for `<plan-dir>/plan-comments.json` **before interpreting chat replies**. The [plan-comments contract](../../docs/contract-2026-07-25-plan-comments-v0.md) defines its lifecycle and format.
+Before presenting the `structure-confirm` card again, check for `<plan-dir>/plan-comments.json` **before interpreting chat replies**. The [plan-comments contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-plan-comments-v0.md) defines its lifecycle and format.
 
 - If `plan-comments.json` has `pass: "structure"`, revise **only** the entries in `structure.shots[]` named by `comments[].target_kind: "shot"`; `target_id` is the array index. Leave unnamed chapters and shots unchanged.
 - After revising, **delete `plan-comments.json`** before presenting the updated `structure-confirm` card.

@@ -71,7 +71,7 @@ Follow this table for additional TTS connections. Humans issue keys; never put v
 
 The `memory` array in `.akari/connections.json` declares external reference-memory connections distinct from
 generation providers. Canonical source:
-[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md) (Japanese).
+[contract-2026-07-25-memory-connection-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-memory-connection-v0.md) (Japanese).
 They are read-only, without credentials or billing; this skill centrally manages them in the same registry as `providers`.
 
 - **Add**: Add 1 entry to `memory`, minimally `{ "name": "<kebab-case>", "root": "<ローカルパス>" }`

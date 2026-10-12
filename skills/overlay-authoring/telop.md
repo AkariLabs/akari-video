@@ -55,7 +55,7 @@ This is a persistent program / segment label in the upper left or right of a bro
 
 ## Text slots (data-akari-slot)
 
-Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write with Edit on matching lines or the edit-store script API.
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write with Edit on matching lines or the edit-store script API.
 
 Use slots to share one HTML file across items while putting each item's text in `edit.json`.
 
@@ -85,7 +85,7 @@ Use slots to share one HTML file across items while putting each item's text in 
 
 Actual display and warnings can differ due to `src` fallbacks or fonts in another fragment. The check does not track `unicode-range`, `source.text` substitutions in component items, or combining-character composition.
 
-Automatic font subsetting at export is only planned. Until it exists, continue using the current manually subsetted fonts; then manual resubsetting will no longer be needed. See the [fragment-font contract](../../docs/contract-2026-10-02-fragment-font-subset-v0.md).
+Automatic font subsetting at export is only planned. Until it exists, continue using the current manually subsetted fonts; then manual resubsetting will no longer be needed. See the [fragment-font contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-02-fragment-font-subset-v0.md).
 
 ## Animation
 

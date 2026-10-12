@@ -84,11 +84,11 @@ Reuse the meta.json v0 contract, scope hierarchy (`local` / `shared` / `user` / 
 
 - Internal research: `research/2026-07-22-free-sfx-bgm-sources.md` (internal repository; per-source terms,
   automation suitability, and primary information for 52 candidates).
-- Public contract: [`docs/contract-2026-07-13-asset-library.md`](../../docs/contract-2026-07-13-asset-library.md),
+- Public contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md),
   Catalog and acquisition skills / Asset scope hierarchy sections (Japanese).
 - Existing implementation pattern (node:http helper + static HTML):
-  [`packages/decision-cards/`](../../packages/decision-cards/README.md),
-  [`packages/intake-form/`](../../packages/intake-form/README.md).
+  [`packages/decision-cards/`](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/README.md),
+  [`packages/intake-form/`](https://github.com/AkariLabs/akari-video/blob/main/packages/intake-form/README.md).
 - Prior drop-folder semi-automated acquisition:
   [`../generate-narration/voice-profile-setup.md`](../generate-narration/voice-profile-setup.md)
   (mtime-based collection; this skill uses filename matching, but shares the “user acquires, agent collects later” design).

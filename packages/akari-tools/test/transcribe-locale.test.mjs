@@ -65,6 +65,21 @@ test("runtime unsupported SpeechTranscriber locale falls back to whisper", async
   assert.deepEqual(seen, ["speech-analyzer", "whisper-cpp"]);
 });
 
+test("helper が資産 unsupported を報告した場合も whisper にフォールバックする", async (t) => {
+  const f = await fixture(t, []);
+  const seen = [];
+  await transcribeMedia(f.target, { ...f.options, backend: "speech-analyzer", lang: "ja", speechAnalyzerAvailable: true,
+    whisperBin: "fixture-whisper", whisperModel: "fixture-model", unrecognized: false,
+    backendRunner: async ({ backend }) => {
+      seen.push(backend);
+      if (backend === "speech-analyzer") {
+        throw new Error("Unsupported SpeechTranscriber locale: ja-JP (this macOS does not provide a SpeechAnalyzer model for ja-JP; asset status: unsupported, before: unsupported)");
+      }
+      return [{ start: 0, end: 1, text: "こんにちは" }];
+    }, stderr: () => {} });
+  assert.deepEqual(seen, ["speech-analyzer", "whisper-cpp"]);
+});
+
 test("English whisper prompt is opt-in and does not affect Japanese arguments", () => {
   const base = whisperArguments("model", "input", "en", "output");
   assert.equal(base.includes("--prompt"), false);

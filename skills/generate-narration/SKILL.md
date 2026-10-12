@@ -7,9 +7,9 @@ description: Generate narration from a script with VOICEVOX, Gemini TTS, Fish Au
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md. Pass the work's content language to the TTS engine when its locale interface is available.
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md. Pass the work's content language to the TTS engine when its locale interface is available.
 
-Read only the relevant lines of `edit.json` and `captions.json` by id, following [the edit.json access guide](../../docs/guides/edit-json-access.md). Write through the Edit operation or the edit-store script API.
+Read only the relevant lines of `edit.json` and `captions.json` by id, following [the edit.json access guide](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write through the Edit operation or the edit-store script API.
 
 # FORBIDDEN-level hard rules
 
@@ -36,7 +36,7 @@ Read only the leaf for the current step.
 
 ## References
 
-- Narration data contract: [docs/contract-2026-07-20-edit-json-v1-narration.md](../../docs/contract-2026-07-20-edit-json-v1-narration.md)
-- Audio contract for BGM, SFX, and ducking: [docs/contract-2026-07-14-edit-json-v1-audio.md](../../docs/contract-2026-07-14-edit-json-v1-audio.md)
+- Narration data contract: [docs/contract-2026-07-20-edit-json-v1-narration.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md)
+- Audio contract for BGM, SFX, and ducking: [docs/contract-2026-07-14-edit-json-v1-audio.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md)
 - Connections, doctor checks, and cost approval (read only; do not edit it): [manage-connections](../manage-connections/SKILL.md)
 - Existing cloud-transcription implementation: [transcribe-cloud.mjs](../analyze-footage/bin/transcribe-cloud.mjs)

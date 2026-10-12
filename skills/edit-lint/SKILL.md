@@ -22,7 +22,7 @@ description: Check edit.json and optional analysis.json / captions.json / media 
 7. **Default execution without `--media` does not decode media**, preserving speed for startup/CI use.
 8. **Never put inspection keyframes, QA outputs, or ad-hoc temporary verification scripts directly in the project root.**
    Put the former in `.akari/reports/`, the latter in `.akari/work/`
-   ([project-structure-v0 contract](../../docs/contract-2026-07-25-project-structure-v0.md) §1, Japanese).
+   ([project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) §1, Japanese).
    Within `.akari/work/`, use `tmp/` for disposable files and `keep/` for irreplaceable ones.
 
 ## Procedure
@@ -50,7 +50,7 @@ Users with only desktop app (a) have no `~/.akari/app`.
 Node resolution: `AKARI_NODE_BIN` → PATH node (20+) → bundled Electron as node with
 `ELECTRON_RUN_AS_NODE=1`. Below, `node` means the resolved executable and `<edit-lint>` the resolved script path.
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read matching lines only ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read matching lines only ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 Write through relevant-line Edit or edit-store's script API.
 
 1. Immediately after saving edit.json, run:
@@ -122,19 +122,19 @@ Record reasons in `skipped[]`, without warnings. Declarations are optional; this
 Inspect edit.json fields defined by these public contracts. Do not infer checks for undeclared fields.
 Contracted checks (structure, unique IDs, ranges, reference consistency) are already implemented.
 
-- [edit.json v0](../../docs/contract-2026-07-13-m1-m4.md) (Japanese)
-- [Multi-source `sources[]` / `cuts[].src`](../../docs/contract-2026-07-18-edit-json-v1-sources.md) (Japanese)
+- [edit.json v0](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md) (Japanese)
+- [Multi-source `sources[]` / `cuts[].src`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-18-edit-json-v1-sources.md) (Japanese)
   — required `version: 1` form, mutual exclusion of `source`/`sources[]`, unique `sources[].id`, consistent `cuts[].src` references
-- [Narration `audio.narration[]`](../../docs/contract-2026-07-20-edit-json-v1-narration.md) (Japanese)
+- [Narration `audio.narration[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md) (Japanese)
   — ID form/uniqueness, `t` timeline coordinates, `gain_db` range, provenance/credit
-- [Highlight markers `beats[]`](../../docs/contract-2026-07-22-edit-json-v1-beats.md) (Japanese)
+- [Highlight markers `beats[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md) (Japanese)
   — id, `t` (source seconds), `kind`, `strength`, consistent `src` references (`src` is v1 only)
-- [Direction declarations `direction`](../../docs/contract-2026-07-23-edit-json-v1-direction.md) (Japanese)
+- [Direction declarations `direction`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-direction.md) (Japanese)
   — required `preset`, `intensity` range, `overrides` type
-- [Word-level direction `emphasis_words[]`](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) (Japanese)
+- [Word-level direction `emphasis_words[]`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) (Japanese)
   — ID form/uniqueness, `t_end > t_start` (source seconds), consistent `src` references (`src` is v1 only)
-- [Captions and cut editing](../../docs/notes-2026-07-14-captions-and-cut-editing.md) (Japanese)
-- [QA lint direction](../../docs/notes-2026-07-16-qa-lint-and-transcript-ui.md) (Japanese)
+- [Captions and cut editing](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md) (Japanese)
+- [QA lint direction](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-16-qa-lint-and-transcript-ui.md) (Japanese)
 - Canonical field-level engine compatibility:
-  [`packages/schemas/engine-capabilities.json`](../../packages/schemas/engine-capabilities.json).
+  [`packages/schemas/engine-capabilities.json`](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/engine-capabilities.json).
   `--engine gpu|osr|auto` checks `ignored` / `partial` / missing compatibility-table entries.

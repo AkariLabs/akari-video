@@ -54,5 +54,5 @@ If the whole chart only needs to move as a unit, the track + fill design using `
 
 ## Basis
 
-- Timing, single root, CSS variables, and compositor contracts: `CLAUDE.md` and `docs/contract-2026-07-13-m1-m4.md`
+- Timing, single root, CSS variables, and compositor contracts: `CLAUDE.md` and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md`
 - Static fallback limitation: `scripts/render-overlays.mjs`

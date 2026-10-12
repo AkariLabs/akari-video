@@ -25,7 +25,7 @@ A **one-way export** demonstrating that AKARI Video's saved-data SSOT (edit.json
 
 **The reverse direction (bringing NLE edits back into edit.json) is unsupported.** It is outside scope.
 
-Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). This skill does not write them. If another stage must write them, use Edit on the matching lines or the edit-store script API.
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). This skill does not write them. If another stage must write them, use Edit on the matching lines or the edit-store script API.
 
 ## Hard rules
 
@@ -53,7 +53,7 @@ Do not read all of `edit.json` or `captions.json`; grep by ID and read only the 
 
 ## What transfers and what does not (contract summary)
 
-Canonical source: [contract-2026-08-01-export-nle-beta.md](../../docs/contract-2026-08-01-export-nle-beta.md)
+Canonical source: [contract-2026-08-01-export-nle-beta.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-01-export-nle-beta.md)
 
 - **Transfers**: `tracks[].items[]` media (interpret `tracks[]` array order as bottom-to-top z order; convert integer-frame `at` / `duration` to NLE time; preserve source `in` / `out`, speed, transform, and opacity; use stable `item.id` for the NLE clip name; carry blend into FCPXML and warn for xmeml), transition_out (dissolve directly, fade-black/white approximated by cross dissolve), pre-baked html / telop (alpha MOV, etc., as ordinary media clips), narration / sfx / bgm (place from the `tracks[]` audio lane or `edit.audio.*`, with gain; expand bgm loops and fades), and captions.json (as plain-text SRT).
 - **Does not transfer** (report in dropped[]): ducking, audio.master (loudnorm / denoise), output.look (LUT), chroma_key, and caption styling (karaoke treatment and background plate).

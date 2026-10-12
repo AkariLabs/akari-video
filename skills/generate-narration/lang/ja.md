@@ -9,12 +9,12 @@
 TTS（どのエンジンでも）に渡すのは表示原稿そのものではなく、読み上げ用に前処理した
 **読み原稿**である。表示原稿と読み原稿は非可逆な変換関係にあるため、両方を独立フィールドとして
 `edit.json` に保存する（ハードルール 3、契約
-[docs/contract-2026-07-20-edit-json-v1-narration.md](../../docs/contract-2026-07-20-edit-json-v1-narration.md) §5）。
+[docs/contract-2026-07-20-edit-json-v1-narration.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md) §5）。
 
 - `script`: 人間が読む正本。字幕連携などの元テキストとしてもそのまま使える表示原稿
 - `reading`: 前処理後、実際に TTS へ渡した文字列
 
-読み原稿には読み方・話し方の指示（「明るく読んでください：」等）を書かない。抑揚は句読点・語順・かな化で作り、話し方は `--style`（対応エンジンのみ・API の別フィールド）で渡す（[engines.md](engines.md) の「読み方の指示を本文に混ぜない」）。
+読み原稿には読み方・話し方の指示（「明るく読んでください：」等）を書かない。抑揚は句読点・語順・かな化で作り、話し方は `--style`（対応エンジンのみ・API の別フィールド）で渡す（[engines.md](../engines.md) の「読み方の指示を本文に混ぜない」）。
 
 ## 変換対象
 

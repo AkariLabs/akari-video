@@ -2,11 +2,11 @@
 
 > **v2 note**: edit.json v2 has an exact top level and rejects `beats`. Use the derivation rules below to record highlight candidates and evidence in the decision record, not v2 `edit.json`. `beats` was retired in v2 and removed from consumer code; do not restore it.
 
-Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
 
 ## Principle
 
-`beats[]` (called **highlight markers** in user-facing language) is analysis recording **source-specific facts** about where highlights occur, not the edit's placement results. The authoritative structure and validation duties are in the [edit.json v1 highlight-marker contract](../../docs/contract-2026-07-22-edit-json-v1-beats.md): `id` matches `^b-\d{4}$` and is unique in the file; `t` is source seconds; `kind` has five examples but no forced enum; `strength` is `[0, 1]`; `basis` is optional; `src` exists only in v1. This leaf specifies **what to write** there by deriving beats from validated `analysis.json`.
+`beats[]` (called **highlight markers** in user-facing language) is analysis recording **source-specific facts** about where highlights occur, not the edit's placement results. The authoritative structure and validation duties are in the [edit.json v1 highlight-marker contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md): `id` matches `^b-\d{4}$` and is unique in the file; `t` is source seconds; `kind` has five examples but no forced enum; `strength` is `[0, 1]`; `basis` is optional; `src` exists only in v1. This leaf specifies **what to write** there by deriving beats from validated `analysis.json`.
 
 - **Input** is validated `analysis.json` `events` (`hook` / `chapter` / `highlight`) and `transcript`.
 - **Do not invent unsupported highlights.** Every recorded beat must point to a corresponding analysis event or utterance. Do not record a candidate that cannot.
@@ -24,7 +24,7 @@ Transcript became a `punchline` source after dogfooding showed that **assets wit
 
 ### Reconcile with the schema (normalization)
 
-`strength` is continuous over `[0, 1]`, while corresponding fields in [analysis.schema.json](../../packages/schemas/analysis.schema.json) are integers from 1 to 5. "Value" in the table above means the value after the following deterministic normalization. Do not invent weights; use only these formulas.
+`strength` is continuous over `[0, 1]`, while corresponding fields in [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) are integers from 1 to 5. "Value" in the table above means the value after the following deterministic normalization. Do not invent weights; use only these formulas.
 
 | Original value | Normalization | Example |
 |---|---|---|

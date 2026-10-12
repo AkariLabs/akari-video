@@ -4,7 +4,7 @@
 
 Separate per-asset observation from editing decisions across assets. Each analysis covers only its own asset; only the integration agent compares thumbnails, direction, cuts, and asset plans.
 
-Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
 
 ## 1. Fix inputs and output location
 
@@ -65,7 +65,7 @@ Do not invent `analysis.json`. Use a "research → script → generation plan" m
 
 ## 3. Validate each analysis.json
 
-Validate against [analysis.schema.json](../../packages/schemas/analysis.schema.json) with a Draft 2020-12-capable validator. Do not install a validator over the network without permission. Also check:
+Validate against [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) with a Draft 2020-12-capable validator. Do not install a validator over the network without permission. Also check:
 
 - `source` and every keyframe path resolve.
 - Every interval has `end > start`, with times within source duration.
@@ -96,7 +96,7 @@ Append approval details and revisions for every checkpoint to `decision-log.md` 
 
 ## 6. Output-location details
 
-Place ad hoc validation scripts and temporary comparisons or experimental outputs for integrated decisions under `.akari/work/`, not directly in the project root or `<plan-dir>/` ([project-structure-v0 contract](../../docs/contract-2026-07-25-project-structure-v0.md) §1). Put disposable intermediates in `.akari/work/tmp/`; put plans, generators, hand-edited files, and other irreplaceable work in `.akari/work/keep/`. Formal output locations for `decision-log.md`, `edit.json`, `overlays/`, etc. (§1) remain unchanged. Originals of generated stills and similar assets go in `<project>/assets/generated/` (2026-08-12 revision; see §1).
+Place ad hoc validation scripts and temporary comparisons or experimental outputs for integrated decisions under `.akari/work/`, not directly in the project root or `<plan-dir>/` ([project-structure-v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) §1). Put disposable intermediates in `.akari/work/tmp/`; put plans, generators, hand-edited files, and other irreplaceable work in `.akari/work/keep/`. Formal output locations for `decision-log.md`, `edit.json`, `overlays/`, etc. (§1) remain unchanged. Originals of generated stills and similar assets go in `<project>/assets/generated/` (2026-08-12 revision; see §1).
 
 ## Common mistakes
 

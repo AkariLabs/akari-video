@@ -1,6 +1,6 @@
 # Reading-text preparation (display script → spoken text)
 
-Pass the prepared **spoken text** to TTS and keep the display script separately in `edit.json` (hard rule 3; [narration data contract](../../docs/contract-2026-07-20-edit-json-v1-narration.md) §5). The two fields can differ, so neither can be reconstructed reliably from the other.
+Pass the prepared **spoken text** to TTS and keep the display script separately in `edit.json` (hard rule 3; [narration data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md) §5). The two fields can differ, so neither can be reconstructed reliably from the other.
 
 - `script`: The text shown to people and available for subtitle linking.
 - `reading`: The exact text sent to the speech engine.

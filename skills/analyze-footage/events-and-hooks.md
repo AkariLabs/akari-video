@@ -20,7 +20,7 @@ Some transcription backends normalize away fillers. Prefer a backend transcript 
 
 ## Identify highlights: important statements
 
-This section follows the [M5 contract addendum (2026-07-14)](../../docs/contract-2026-07-13-m5-analysis-report.md). A hook supports a short opening or excerpt; a highlight captures an important statement useful to broader editorial decisions. The same interval may be both when it serves both purposes.
+This section follows the [M5 contract addendum (2026-07-14)](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m5-analysis-report.md). A hook supports a short opening or excerpt; a highlight captures an important statement useful to broader editorial decisions. The same interval may be both when it serves both purposes.
 
 - Write `quote` **faithfully to the actual transcript**. Do not summarize, paraphrase, or invent words. Formatting is limited to adding punctuation.
 - In `reason`, explain why the statement matters and name the evidence category, such as "states a release date (decision)" or "quantifies an implementation result (number/result)."
@@ -67,11 +67,11 @@ These are **unvalidated starting thresholds**, not official platform success cri
 
 Rank candidates by total score; break ties using `hook`, then `self_contained`, then `density`. This ranking rule also requires validation and is not an absolute measure of quality.
 
-The scale comes from the [M5 analysis.json v0 contract](../../docs/contract-2026-07-13-m5-analysis-report.md).
+The scale comes from the [M5 analysis.json v0 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m5-analysis-report.md).
 
 ## Supply evidence for highlight extraction
 
-Later work in [edit-plan's beats.md](../edit-plan/beats.md) derives highlight markers in `edit.json` `beats[]` from the `hook`, `chapter`, and `highlight` events and hook scores recorded here; see the [data contract](../../docs/contract-2026-07-22-edit-json-v1-beats.md). Keep the extraction method above and meet these two additional quality conditions:
+Later work in [edit-plan's beats.md](../edit-plan/beats.md) derives highlight markers in `edit.json` `beats[]` from the `hook`, `chapter`, and `highlight` events and hook scores recorded here; see the [data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md). Keep the extraction method above and meet these two additional quality conditions:
 
 - **Do not emit an unscored highlight.** If `importance` is absent, later stages cannot determine its strength and will use a default. When a statement is important enough to guide an edit, assign an integer from 1 to 5; omit candidates too weak to assess.
 - **Use source seconds for event time.** The event's `t` and any interval `start` / `end` refer to the uncut source. Beat markers persist source-time anchors, so mixing in timeline seconds creates errors later stages cannot detect.

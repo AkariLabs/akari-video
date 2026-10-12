@@ -220,7 +220,7 @@ Otherwise finish current-stack tasks at L0+L1, matching actual practice.
 
 Mapping/procedures are inferred from private internal task records (`akari-video-internal`) report.md/task.md.
 Those internal records do not belong in this repository, consistent with
-`docs/design-2026-07-13-agent-native-architecture.md` §3. Executable verification procedures (commands, observation
+`https://github.com/AkariLabs/akari-video/blob/main/docs/design-2026-07-13-agent-native-architecture.md` §3. Executable verification procedures (commands, observation
 subjects, pitfalls) are already provided in L0/L1 above. Below only identifies source tasks, all private:
 
 - preview-streaming (2026-07-16): L1 reproduction, 836MB real media, nested-webview access.

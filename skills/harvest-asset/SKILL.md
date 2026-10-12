@@ -67,7 +67,7 @@ Before final placement, automatically extract:
 - `author`: Use known project/git information. Confirm `tier` (`free` / `pro`) with the owner; do not guess.
   Do not write legacy `price` in new metadata.
 
-Align `meta.json` with v1 of `packages/schemas/asset-meta.schema.json` and `docs/contract-2026-10-04-asset-tier-v1.md`;
+Align `meta.json` with v1 of `packages/schemas/asset-meta.schema.json` and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md`;
 use the official `when_to_use` key. Treat request wording `when_use` as meaning that key.
 
 ## 3. Ask only the 5 items requiring human judgment
@@ -157,5 +157,5 @@ If script or schema is absent, do not treat it as success; retain this unchanged
 
 ## Sources
 
-- Admission criteria, schema, structure, harvesting: `docs/contract-2026-07-13-asset-library.md`
+- Admission criteria, schema, structure, harvesting: `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md`
 - Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)

@@ -28,7 +28,7 @@ Otherwise return to A. B's output **always includes an opaque background**. The 
 
 # Contract
 
-Canonical source: [`docs/contract-2026-07-14-3d-bake-recipe.md`](../../docs/contract-2026-07-14-3d-bake-recipe.md).
+Canonical source: [`docs/contract-2026-07-14-3d-bake-recipe.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-3d-bake-recipe.md).
 Recipe = SSOT (scene.py + parameters + asset references); baked output = reproducible cache.
 Treat the baked MP4 as an ordinary edit.json clip (no engine or viewer changes).
 
@@ -45,7 +45,7 @@ If unavailable, suggest `brew install --cask blender` and stop; do not run it wi
 
 # 2. scene.py authoring contract
 
-Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](../../assets/scene3d/vintage-camera-turntable/scene.py)
+Reference implementation: [`assets/scene3d/vintage-camera-turntable/scene.py`](https://github.com/AkariLabs/akari-video/blob/main/assets/scene3d/vintage-camera-turntable/scene.py)
 
 - **Self-contained**: The recipe directory must work when copied alone into a project. Do not import other files from this repository. Resolve assets relative to `os.path.dirname(os.path.abspath(__file__))`.
 - **Argument contract** (parse after `--` with argparse): `--out <path>.mp4` / `--profile draft|final` / `--fps N` / `--frame-start N` / `--frame-end N` / `--set key=value` (repeatable).

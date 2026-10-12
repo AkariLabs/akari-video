@@ -7,7 +7,7 @@ description: Run the headless video planning and research workflow from ideas th
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
 
 > The bundled v0 skill is provisional. Move it to reference distribution when both the skill catalog and setup installation mechanism exist. The bundle, including its leaf files, contains only text and no binary assets.
 
@@ -22,7 +22,7 @@ Read lang/<content-language>.md for language-specific rules (content language: -
 7. **Keep a complete free-only route.** If paid tools are unavailable, finish with explicitly limited evidence rather than stopping.
 8. **Accept revision through chat and `plan-comments.json`.** Before presenting an approval checkpoint again, first read `<plan-dir>/plan-comments.json` if it exists; see [storyboard.md](storyboard.md) §5.
 9. **Recall recipes before ideation.** Before [ideate.md](ideate.md), check `~/.akari/recipes/` for a recipe marked `workflow: "research"`, using the recall procedure in [edit-plan/recipe.md](../edit-plan/recipe.md). Present any match as a sourced suggestion; it cannot override the request or skip required research, including the platform review in rule 5.
-10. **Read a declared memory connection at the same starting point.** If `.akari/connections.json` declares `memory` ([memory connection contract](../../docs/contract-2026-07-25-memory-connection-v0.md)), begin with `entry` (default `INDEX.md`), read only the permitted `include`/`exclude` scope, and record consulted paths as sources in `research-plan.json` `sources[]`. Never ingest the whole tree. With no declaration, continue without error.
+10. **Read a declared memory connection at the same starting point.** If `.akari/connections.json` declares `memory` ([memory connection contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-memory-connection-v0.md)), begin with `entry` (default `INDEX.md`), read only the permitted `include`/`exclude` scope, and record consulted paths as sources in `research-plan.json` `sources[]`. Never ingest the whole tree. With no declaration, continue without error.
 
 ## Execution order and leaf files
 
@@ -38,7 +38,7 @@ Read only the leaf needed for the current stage; do not run later stages ahead o
 
 ## Report and approval gates
 
-Reuse [edit-plan](../edit-plan/SKILL.md)'s decision-card mechanism. Render with `node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> <research-plan-report.html>` and present with `node packages/decision-cards/report-helper.mjs <レポートパス>`. Follow [report-template.html](../../packages/decision-cards/report-template.html) for CSP, self-contained delivery, and accessibility. The storyboard has read-only card and structure views. Keep the card data attributes, the `全部おまかせ` ("leave everything to me") choice, the required summary view, and append-only `decision_log` behavior consistent with [edit-plan/report-guide.md](../edit-plan/report-guide.md), including `byDefault`, `completedAt`, polling, and explicit chat approval if the helper fails.
+Reuse [edit-plan](../edit-plan/SKILL.md)'s decision-card mechanism. Render with `node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> <research-plan-report.html>` and present with `node packages/decision-cards/report-helper.mjs <レポートパス>`. Follow [report-template.html](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/report-template.html) for CSP, self-contained delivery, and accessibility. The storyboard has read-only card and structure views. Keep the card data attributes, the `全部おまかせ` ("leave everything to me") choice, the required summary view, and append-only `decision_log` behavior consistent with [edit-plan/report-guide.md](../edit-plan/report-guide.md), including `byDefault`, `completedAt`, polling, and explicit chat approval if the helper fails.
 
 The report must contain exactly these five surfaces; never omit an empty one—state the reason:
 

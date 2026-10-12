@@ -4,11 +4,11 @@ The library defaults to workspace `library/`; without a workspace use legacy `~/
 
 > **v2 note**: edit.json v2 has an exact top level and rejects `beats` / `direction`. Read highlight candidates and intensity from the decision record; do not write these keys to v2 `edit.json`. Both were retired in v2 and removed from consumer code; do not restore them. Output only effects placed in `tracks[].items[]`.
 
-Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
 
 These rules turn approved `beats[]` highlight markers into sound and motion at highlights using only existing `edit.json` vocabulary. [beats.md](beats.md) defines how to **derive and record** highlights; this leaf defines how to **consume** them.
 
-The [edit.json v1 highlight-marker contract](../../docs/contract-2026-07-22-edit-json-v1-beats.md) §6 explicitly leaves actual triggered effects outside its scope for a separate consumer contract. This leaf is v0 of that consumer rule and follows the two invariants the contract imposes on consumers: source-second anchors and degradation behavior.
+The [edit.json v1 highlight-marker contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md) §6 explicitly leaves actual triggered effects outside its scope for a separate consumer contract. This leaf is v0 of that consumer rule and follows the two invariants the contract imposes on consumers: source-second anchors and degradation behavior.
 
 ## v0 scope (owner-approved; do not expand here)
 
@@ -155,7 +155,7 @@ Apply them as follows:
 
 ## SFX trigger rules
 
-- Append `{ path, t: <射影後 timeline 秒>, gain_db }` to `audio.sfx[]`. **Default `gain_db` is the guideline table's standard row** (§`gain_db` guidance: **-6** for default preset and `i=50`). `audio.sfx[].t` is **timeline seconds** ([audio contract](../../docs/contract-2026-07-14-edit-json-v1-audio.md) §1); `gain_db` clamps to `[-60, 12]`.
+- Append `{ path, t: <射影後 timeline 秒>, gain_db }` to `audio.sfx[]`. **Default `gain_db` is the guideline table's standard row** (§`gain_db` guidance: **-6** for default preset and `i=50`). `audio.sfx[].t` is **timeline seconds** ([audio contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md) §1); `gain_db` clamps to `[-60, 12]`.
 - **Near-simultaneous limit**: at most one SFX within ±0.5 seconds of a time; prefer higher `strength`. This window does not depend on `intensity`.
 - **Density guardrail**: apply maximum per 60 seconds and minimum same-kind interval in post-projection timeline seconds (§Density guardrail; default 2 / 20 seconds).
 - **Attach SFX only to beats with `strength` at least the strength gate** (0.8 at default preset and `i=50`). Lower beats remain **silent highlights**. Do not remove them from beats; omitting SFX is an effect decision, not a judgment that the highlight vanished.

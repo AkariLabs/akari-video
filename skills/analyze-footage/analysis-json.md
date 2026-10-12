@@ -8,7 +8,7 @@
 
 ## Principles
 
-Use [packages/schemas/analysis.schema.json](../../packages/schemas/analysis.schema.json) as the sole structural definition. Unknown fields are prohibited at the top level and within objects. Do not add working notes, confidence scores, degraded-result reasons, or generator metadata as extra fields.
+Use [packages/schemas/analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) as the sole structural definition. Unknown fields are prohibited at the top level and within objects. Do not add working notes, confidence scores, degraded-result reasons, or generator metadata as extra fields.
 
 ## Minimum valid form
 
@@ -118,12 +118,12 @@ Track shape:
 }
 ```
 
-Set `person_matte` only after generation and verification; otherwise use `null`. Matte generation is optional and `null` is the default; see [person-matte.md](person-matte.md). A generated matte requires `path` and `fps`; `quality`, `generated_at`, and `tool` are optional. Resolve its relative path from the directory containing `analysis.json`, using `/` as the separator. The [person-matte data contract](../../docs/contract-2026-07-23-analysis-person-matte.md) is authoritative.
+Set `person_matte` only after generation and verification; otherwise use `null`. Matte generation is optional and `null` is the default; see [person-matte.md](person-matte.md). A generated matte requires `path` and `fps`; `quality`, `generated_at`, and `tool` are optional. Resolve its relative path from the directory containing `analysis.json`, using `/` as the separator. The [person-matte data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-analysis-person-matte.md) is authoritative.
 
 The legacy single-path string (`"mattes/person-alpha.mov"`) may be read as shorthand for `{ "path": ... }`, but must not be written in new data. Each face's speaker ID must exist in `tracks.speakers[].id`.
 `tracks.speakers` also receives `{ id, spans }` from speaker intervals when `--diarize` is selected. Do not store embeddings here either.
 
-Unlike person_matte, `tracks.face_landmarks` and `tracks.hand_pose` are optional keys: omit them entirely when not generated instead of writing `null`. The agent does not assemble these tracks here. `vision-tracks.mjs`, described in [vision-tracks.md](vision-tracks.md), reads and updates the finalized analysis.json directly. Follow the [vision-track data contract](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md).
+Unlike person_matte, `tracks.face_landmarks` and `tracks.hand_pose` are optional keys: omit them entirely when not generated instead of writing `null`. The agent does not assemble these tracks here. `vision-tracks.mjs`, described in [vision-tracks.md](vision-tracks.md), reads and updates the finalized analysis.json directly. Follow the [vision-track data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md).
 
 ## Semantic constraints beyond the schema
 

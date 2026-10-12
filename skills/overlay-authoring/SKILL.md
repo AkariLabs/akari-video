@@ -9,10 +9,10 @@ description: Author and review AKARI Video overlay HTML, captions, tables and ch
 
 Never create or accept a video overlay that violates any rule below. These rules always outrank the detailed leaves.
 
-Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)).
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 For writes, use Edit on the matching lines or the edit-store script API.
 
-Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
 
 1. **Never hardcode adjustable values.** Expose human-adjustable position, scale, font size, color, spacing, and content through CSS variables. Use nonreserved names such as `--font-size`, `--color`, and `--block-left`. Reference them as `var(--name, fallback)` so they inherit from `edit.json.overlays[].vars`. Do not redefine the same variables on the fragment root: doing so blocks overrides from the outer vars.
    **`--x` / `--y` / `--scale` / `--rotate` are runtime-reserved variables** (`renderOverlayNode` in `packages/render-cut/src/rasterize.mjs` always sets them inline on `.akari-overlay-container`. Values come from `overlays[].transform`; `role==="background"` forces identity values). **Neither reference these four variables (`var(--x, ...)`) nor redefine them for your own use inside a fragment.** Inheritance prevents the fallback and causes specified values to be ignored, pulling every overlay toward the origin (0,0; scale 1; rotate 0). This was observed in `overlay-css-var-collision` on 2026-08-17; edit-lint passes and rendering succeeds, so it can escape notice until visual inspection. Define nonreserved position, scale, and rotation knobs such as `--block-left` / `--block-scale`.
@@ -38,7 +38,7 @@ This is not a FORBIDDEN-level hard rule (the image survives if it is ignored), b
 - An SVG is selectable as one picture; its internal `rect` or `text` is not individually selectable. Build a chart whose individual bars or labels need direct editing with div + CSS. Use SVG for icons, logos, curves, and other pictures that can move as a unit.
 - When splitting a text effect into one `span` per character, the whole heading remains one selection unless each `span` has a class. Add those classes only when character-level editing is intended.
 - Set finished bar or box dimensions with `width` / `height` (px), and arrange neighbors with flex / grid. Changing a box then reflows its neighbors. Never create finished dimensions with `transform: scale()`. Animate entry with `transform` ending at natural size (for example `scaleY(0)` → `scaleY(1)`) and `opacity`, while final dimensions depend only on `width` / `height`.
-- Use a name tag (`data-akari-part`) when an element needs its own time and motion and must appear as a timeline row. A class marks an element whose position, rotation, or box is sufficient to edit. See [object-tree contract §§1.3–1.4](../../docs/contract-2026-08-30-edit-json-v2-object-tree-v0.md) for name tags.
+- Use a name tag (`data-akari-part`) when an element needs its own time and motion and must appear as a timeline row. A class marks an element whose position, rotation, or box is sufficient to edit. See [object-tree contract §§1.3–1.4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-30-edit-json-v2-object-tree-v0.md) for name tags.
 - A general role name such as `bar` is fine for a class (addresses are counted inside the fragment). Keep CSS selectors scoped under a fragment-specific root as before (for example `.sales-chart .bar`).
 
 Element overrides use `translate` / `rotate` / `width` / `height` and never touch child `transform`, so the outer-container geometry in [motion.md](motion.md) can coexist with child motion transforms.
@@ -59,4 +59,4 @@ Read only the decision area needed.
 
 An HTML sheet for a still thumbnail is not a video overlay and needs no timing data attributes. It must still use CSS variables, a single root, local assets, and deterministic screenshots.
 
-An overlay's library `meta.json` must declare asset contract v1 `tier`, for example `"tier": "free"` with `"license": { "spdx": "CC0-1.0", ... }`. Use `"tier": "pro"` for Pro and never specify `CC0-1.0` in `license.spdx`. Confirm the tier with the creator ([asset tier contract](../../docs/contract-2026-10-04-asset-tier-v1.md)).
+An overlay's library `meta.json` must declare asset contract v1 `tier`, for example `"tier": "free"` with `"license": { "spdx": "CC0-1.0", ... }`. Use `"tier": "pro"` for Pro and never specify `CC0-1.0` in `license.spdx`. Confirm the tier with the creator ([asset tier contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md)).

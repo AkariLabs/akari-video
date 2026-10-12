@@ -1,14 +1,14 @@
 # Derive word-level emphasis (emphasis_words)
 
-> **v2 note**: edit.json v2 has an exact top level and rejects `emphasis_words`. Write `emphasis_words[]` at the object root of `captions.json`, not in v2 `edit.json`. See the [captions.json v0 word-level emphasis contract](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md).
+> **v2 note**: edit.json v2 has an exact top level and rejects `emphasis_words`. Write `emphasis_words[]` at the object root of `captions.json`, not in v2 `edit.json`. See the [captions.json v0 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-23-captions-emphasis-words-v0.md).
 
-Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
 
 ## Principle
 
-`emphasis_words[]` (user-facing **word-level emphasis**) is analysis recording which source words receive emphasis. The authoritative structure and validation duties are in the [captions.json v0 word-level emphasis contract](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md); record shape and selection rules continue the [edit.json v1 word-level emphasis contract](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md): `id` is unique within the file and matches `^e-\d{4}$`; `t_start` / `t_end` are source seconds with `t_end > t_start`; `word` is the transcript's actual spelling; `emotion` has six examples but no forced enum; `style_hint` is an optional suggestion; `src` is optional. This leaf defines **which words to choose** from validated `analysis.json` word times.
+`emphasis_words[]` (user-facing **word-level emphasis**) is analysis recording which source words receive emphasis. The authoritative structure and validation duties are in the [captions.json v0 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-23-captions-emphasis-words-v0.md); record shape and selection rules continue the [edit.json v1 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-emphasis-words.md): `id` is unique within the file and matches `^e-\d{4}$`; `t_start` / `t_end` are source seconds with `t_end > t_start`; `word` is the transcript's actual spelling; `emotion` has six examples but no forced enum; `style_hint` is an optional suggestion; `src` is optional. This leaf defines **which words to choose** from validated `analysis.json` word times.
 
-- **Input** is validated `analysis.json` `transcript[].words` ([analysis.schema.json](../../packages/schemas/analysis.schema.json) `$defs/word` = `start` / `end` / `text`).
+- **Input** is validated `analysis.json` `transcript[].words` ([analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) `$defs/word` = `start` / `end` / `text`).
 - **Do not invent unsupported emphasis.** Each written word must refer to one actual `words` element. Do not write a candidate that cannot, following [beats.md](beats.md)'s evidence rule.
 - **Word-level emphasis is the first-choice means for a moment of emotion or assertion** ([expression-selection.md](expression-selection.md)'s meaning-to-means table). Do not highlight words in a scene where this means was not selected.
 
