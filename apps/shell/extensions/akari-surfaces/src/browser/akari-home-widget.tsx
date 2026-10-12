@@ -1368,15 +1368,15 @@ export class AkariHomeWidget extends ReactWidget {
         // 初回ガイドは自分でプロジェクトを開いて先へ進む。「ここで開く / 新しいウィンドウ」の問いは
         // ガイドの覆いの裏に出て答えられず、プロジェクトが開かないままプレビューだけが窓いっぱいに
         // 開いていた（135dc86ea のホーム 2 モード化からの回帰）。問わずにこの窓で開く。
+        // パートナーが作業中のときだけは、ガイドの招待の画面で取った同意（busyConfirmed）が要る。
         if (request.reason === 'onboarding') {
+            if (this.isPartnerBusy() && !busyConfirmed) throw new Error('Guide project switch requires partner consent');
             await this.commitOpenProject(request, false, true);
             return;
         }
         const busy = this.isPartnerBusy();
-        if (request.reason === 'onboarding' && busy && !busyConfirmed) throw new Error('Guide project switch requires partner consent');
         const ask = !this.preferences.get<boolean>(AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, false);
-        if ((request.reason === 'onboarding' && busyConfirmed)
-            || decideOpenFlow({ ask, busy, reason: request.reason, hasOrigin: !!request.originRect, reducedMotion: false }) === 'direct') {
+        if (decideOpenFlow({ ask, busy, reason: request.reason, hasOrigin: !!request.originRect, reducedMotion: false }) === 'direct') {
             await this.commitOpenProject(request, false, busyConfirmed);
             return;
         }
