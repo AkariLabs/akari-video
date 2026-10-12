@@ -40,6 +40,7 @@ test('cut mark OFF/ON recreates unchanged row DOM and restores the existing cut 
     closeCutRangeEditor() {}, rowGapsForRows: () => [],
     createRow() { created++; return { root: makeRoot(this.showCutMarks), words: [] }; },
     renderWordSelection() {}, setSelection() {}, updateSourceBand() {}, updateQcSummary() {}, applyQcFilter() {},
+    renderSourceGroups() {},
     renderCutCells() { cutCellVisible = true; }, renderPlacedText() {}
   });
   harness.renderRows([row]);

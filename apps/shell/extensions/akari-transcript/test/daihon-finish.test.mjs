@@ -341,6 +341,7 @@ test('外部 cutRange は声の素材の行で失敗を返し、エディタ直�
     elements: new Map([[row.id, { root: { scrollIntoView() {} } }]]),
     speakerFilter: null, qcFilter: false, wordRanges: [],
     applyQcFilter() {}, setSelection() {}, renderWordSelection() {}, openWordBar() {},
+    revealSourceGroupForRow() {},
     audioOnlyCutReason: () => reason, notify: message => notices.push(message),
     openCutRangeEditorForSelection: () => assert.fail('声の素材でエディタを開かない') });
   assert.equal(await widget.focusTarget({ captionId: row.id, wordRange: { from: 0, to: 0 }, open: 'cutRange' }), false);
