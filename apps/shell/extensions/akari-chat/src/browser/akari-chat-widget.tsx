@@ -321,7 +321,7 @@ export class AkariChatWidget extends ReactWidget {
 
     private readonly refreshConnect = async (): Promise<void> => {
         try {
-            this.connected = (await this.connect.list()).rows.filter(row => row.status === 'つながった' && row.enabled);
+            this.connected = (await this.connect.list()).rows.filter(row => row.status === '使える' && row.enabled);
             this.update();
         } catch { this.connected = []; }
     };
