@@ -48,8 +48,8 @@ test("unsupported SpeechAnalyzer locale selects whisper and reports a missing mo
     backendRunner: async ({ backend, lang }) => { seen.push([backend, lang]); return [{ start: 0, end: 1, text: "hello" }]; } };
   await transcribeMedia(f.target, options);
   assert.deepEqual(seen, [["whisper-cpp", "xx"]]);
-  await assert.rejects(transcribeMedia(f.target, { ...options, whisperBin: undefined, whisperModel: undefined, whisperAvailable: false }),
-    /SpeechAnalyzer does not support xx, and no whisper\.cpp model is available/);
+  await assert.rejects(transcribeMedia(f.target, { ...options, whisperBin: undefined, whisperModel: undefined, whisperAvailable: false, uiLanguage: "en" }),
+    /SpeechAnalyzer does not support xx[\s\S]*akari tools install whisper/);
 });
 
 test("runtime unsupported SpeechTranscriber locale falls back to whisper", async (t) => {

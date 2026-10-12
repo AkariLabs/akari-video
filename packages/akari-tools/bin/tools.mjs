@@ -6,6 +6,10 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { isMainModule } from '../src/common/main-module.mjs';
+import { whisperModelCandidates, isWhisperModelExcluded } from '../src/media/whisper-model-candidates.mjs';
+import { WHISPER_MODEL, installWhisperModel } from '../src/media/whisper-model.mjs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const modelPins = [
     { file: 'wespeaker_en_voxceleb_resnet34_LM.onnx', url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx', sha256: 'e9848563da86f263117134dfd7ad63c92355b37de492b55e325400c9d9c39012', bytes: 26530550, license: 'CC-BY-4.0' },
@@ -275,13 +279,14 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
 }
 
 export async function runToolsCli(argv, { env = process.env, homeDir = homedir(), stdout = process.stdout, stderr = process.stderr,
-    fetchImpl = fetch, statfs = fs.statfs, platform = process.platform, arch = process.arch, pins = VOICE_ENGINE_PINS } = {}) {
-    const usage = toolsText('tools.voice.cli.usage');
+    fetchImpl = fetch, statfs = fs.statfs, platform = process.platform, arch = process.arch, pins = VOICE_ENGINE_PINS, whisperModel = WHISPER_MODEL } = {}) {
+    const usage = toolsText('tools.whisper.cli.usage');
     if (argv.includes('--help')) { stdout.write(`${usage}\n`); return 0; }
     const [verb, subject, ...rest] = argv;
-    if (!['install', 'status'].includes(verb) || subject !== 'voice' || rest.some(value => value !== '--json')) {
+    if (!['install', 'status'].includes(verb) || !['voice', 'whisper'].includes(subject) || rest.some(value => value !== '--json')) {
         stderr.write(`${usage}\n`); return 2;
     }
+    if (subject === 'whisper') return runWhisperCli(verb, rest.includes('--json'), { env, homeDir, stdout, stderr, fetchImpl, whisperModel });
     const voiceHome = resolveVoiceHome({ env, homeDir });
     const json = rest.includes('--json');
     if (verb === 'status') {
@@ -296,6 +301,24 @@ export async function runToolsCli(argv, { env = process.env, homeDir = homedir()
     } });
     const ok = result.outcome === 'installed' || result.outcome === 'unchanged';
     stdout.write(`${json ? JSON.stringify({ ok, outcome: result.outcome, message: result.message, voiceHome, fetched: result.fetched }) : result.message}\n`);
+    return ok ? 0 : 1;
+}
+
+async function runWhisperCli(verb, json, { env, homeDir, stdout, stderr, fetchImpl, whisperModel }) {
+    if (verb === 'status') {
+        const model = whisperModelCandidates({ env, homeDir, repoRoot: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'), bin: '' })
+            .find(candidate => existsSync(candidate) && !isWhisperModelExcluded(candidate));
+        stdout.write(`${json ? JSON.stringify({ state: model ? 'ready' : 'missing', model: model ?? null }) : model ? toolsText('tools.whisper.cli.statusReady', { path: model }) : toolsText('tools.whisper.cli.statusMissing')}\n`);
+        return model ? 0 : 1;
+    }
+    let lastStep = -1;
+    const result = await installWhisperModel({ homeDir, fetchImpl, model: whisperModel, onProgress: ({ downloadedBytes, totalBytes }) => {
+        if (!totalBytes) return;
+        const step = Math.min(10, Math.floor(downloadedBytes / totalBytes * 10));
+        if (step > lastStep) { lastStep = step; stderr.write(`${toolsText('tools.whisper.cli.downloading')} ${step * 10}%\n`); }
+    } });
+    const ok = result.outcome === 'installed' || result.outcome === 'unchanged';
+    stdout.write(`${json ? JSON.stringify({ ok, outcome: result.outcome, message: result.message, path: result.path }) : result.message}\n`);
     return ok ? 0 : 1;
 }
 

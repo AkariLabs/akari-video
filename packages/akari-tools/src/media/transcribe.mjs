@@ -25,7 +25,7 @@ import {
   UNRECOGNIZED_ALGO_VERSION,
   UNRECOGNIZED_DEFAULTS,
 } from "./unrecognized-spans.mjs";
-import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
+import { whisperModelCandidates, whisperModelLocations, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
   detectLanguageGaps,
@@ -298,7 +298,7 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, retryLanguage
       const unsupportedLocale = /Unsupported SpeechTranscriber locale/.test(error instanceof Error ? error.message : String(error));
       const fallback = backend === "speech-analyzer" && (options.backend === undefined || unsupportedLocale)
         ? resolveWhisper({ ...options, lang }) : null;
-      if (unsupportedLocale && !fallback) throw new Error(`SpeechAnalyzer does not support ${lang}, and no whisper.cpp model is available.`, { cause: error });
+      if (backend === "speech-analyzer" && !fallback && (options.backend === undefined || unsupportedLocale)) throw whisperUnavailableError(error, { lang, unsupportedLocale, options });
       if (!fallback) throw error;
       writeBackendLog(options, toolsText('tools.transcribe.warning.speechFallback', { message: error instanceof Error ? error.message : String(error) }, options.uiLanguage));
       backendInfo = { name: "whisper-cpp", ...fallback };
@@ -370,7 +370,7 @@ async function selectBackend(requested, target, options) {
   if (requested === "speech-analyzer") {
     if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) {
       const whisper = resolveWhisper(options);
-      if (!whisper) throw new Error(`SpeechAnalyzer does not support ${options.lang}, and no whisper.cpp model is available.`);
+      if (!whisper) throw whisperUnavailableError(null, { lang: options.lang, unsupportedLocale: true, options });
       return { name: "whisper-cpp", ...whisper };
     }
     const availability = speechAnalyzerAvailability(options);
@@ -379,7 +379,7 @@ async function selectBackend(requested, target, options) {
   }
   if (requested === "whisper-cpp") {
     const whisper = resolveWhisper(options);
-    if (!whisper) throw new Error(toolsText('tools.transcribe.error.whisperMissing', {}, options.uiLanguage));
+    if (!whisper) throw new Error(`${toolsText('tools.transcribe.error.whisperMissing', {}, options.uiLanguage)}\n${whisperHint(options)}`);
     return { name: requested, ...whisper };
   }
   const availability = speechAnalyzerAvailability(options);
@@ -389,8 +389,8 @@ async function selectBackend(requested, target, options) {
     writeBackendLog(options, toolsText('tools.transcribe.warning.speechUnavailable', { reason: availability.reason }, options.uiLanguage));
     return { name: "whisper-cpp", ...whisper };
   }
-  if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) throw new Error(`SpeechAnalyzer does not support ${options.lang}, and no whisper.cpp model is available.`);
-  throw new Error(toolsText('tools.transcribe.error.noLocalBackend', {}, options.uiLanguage));
+  if (options.lang !== "auto" && normalizeLanguage(options.lang) && !speechLocaleForLanguage(options.lang)) throw whisperUnavailableError(null, { lang: options.lang, unsupportedLocale: true, options });
+  throw new Error(`${toolsText('tools.transcribe.error.noLocalBackend', {}, options.uiLanguage)}\n${whisperHint(options)}`);
 }
 
 export function speechAnalyzerAvailable(options = {}) {
@@ -428,6 +428,14 @@ function speechAnalyzerAvailability(options) {
 export function resolveWhisper(options = {}) {
   if (options.whisperAvailable === false) return null;
   if (options.whisperBin && options.whisperModel) return { bin: options.whisperBin, model: options.whisperModel };
+  const bin = findWhisperBin();
+  if (!bin) return null;
+  const modelCandidates = whisperModelCandidates({ env: process.env, homeDir: os.homedir(), repoRoot, bin });
+  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate, options.lang));
+  return model ? { bin, model } : null;
+}
+
+function findWhisperBin() {
   const binCandidates = [
     process.env.AKARI_WHISPER_BIN,
     process.env.WHISPER_CPP_BIN,
@@ -438,11 +446,25 @@ export function resolveWhisper(options = {}) {
     path.join(repoRoot, "whisper.cpp", "build", "bin", process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli"),
     path.resolve(repoRoot, "..", "whisper.cpp", "build", "bin", process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli"),
   ].filter(Boolean);
-  const bin = binCandidates.find(executableFile);
-  if (!bin) return null;
-  const modelCandidates = whisperModelCandidates({ env: process.env, homeDir: os.homedir(), repoRoot, bin });
-  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate, options.lang));
-  return model ? { bin, model } : null;
+  return binCandidates.find(executableFile) ?? null;
+}
+
+// SpeechAnalyzer が失敗し whisper.cpp にも逃げられないとき、元の理由を残したまま次の一手を示す。
+// 元のエラー（helper の JSON など）は末尾の 1 行にそのまま入れ、cause にも付ける。
+function whisperUnavailableError(error, { lang, unsupportedLocale, options }) {
+  const language = options.uiLanguage;
+  const head = toolsText(unsupportedLocale ? 'tools.transcribe.error.whisperFallback.localeUnsupported' : 'tools.transcribe.error.whisperFallback.speechFailed', { lang }, language);
+  const reason = error ? toolsText('tools.transcribe.error.whisperFallback.reason', { reason: error instanceof Error ? error.message : String(error) }, language) : null;
+  const message = [head, whisperHint(options), reason].filter(Boolean).join("\n");
+  return Object.assign(new Error(message, error ? { cause: error } : undefined), { code: "WHISPER_UNAVAILABLE" });
+}
+
+// whisper.cpp が使えない理由（実行ファイルなし / モデルなし）と、探した場所・直し方。
+function whisperHint(options) {
+  const binMissing = options.whisperAvailable !== false && !findWhisperBin();
+  const locations = whisperModelLocations({ env: process.env, homeDir: os.homedir(), repoRoot, bin: "" })
+    .map((location) => `  ${location.path}`).join("\n");
+  return toolsText(binMissing ? 'tools.transcribe.error.whisperFallback.noBin' : 'tools.transcribe.error.whisperFallback.noModel', { locations }, options.uiLanguage);
 }
 
 function executableFile(candidate) {
