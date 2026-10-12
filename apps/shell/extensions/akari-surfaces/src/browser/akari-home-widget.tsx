@@ -84,6 +84,7 @@ import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
+import { coalesceLoads } from './home/coalesce-load';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
 import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
 import { projectContextMenuItems } from './home/project-context-menu';
@@ -1172,7 +1173,19 @@ export class AkariHomeWidget extends ReactWidget {
      * 未知 schema・channels/videos ディレクトリ不在）書き込み・修復はせず、
      * 一覧なしのフォールバック表示に倒す（読み取り専用の不変原則）。
      */
-    protected async loadCreatorRootProjects(): Promise<void> {
+    /**
+     * 作業場の全プロジェクトの intake などを読み直す。数百件あると数十秒かかるうえ、ホームを
+     * 出すたび・一覧を開くたびに呼ばれる。重ねて走らせるとファイルの読み込みが詰まり、新しい動画の
+     * 作成（スキルのコピー）まで数分待たされて「作成しています…」から進まなかった（2026-10-12）。
+     * 走っている間の依頼は、終わったあとの 1 回にまとめる。
+     */
+    protected loadCreatorRootProjects(): Promise<void> {
+        return this.coalescedCreatorRootLoad();
+    }
+
+    protected readonly coalescedCreatorRootLoad = coalesceLoads(() => this.readCreatorRootProjects());
+
+    protected async readCreatorRootProjects(): Promise<void> {
         const rootUri = await this.resolveCreatorRootDir();
         if (!rootUri) {
             this.creatorRootAvailable = false;
@@ -1254,8 +1267,11 @@ export class AkariHomeWidget extends ReactWidget {
      */
     /** キャッシュ生成で更新順が変わらないよう、編集データ・進め方・ルートの日時を見る。 */
     protected async readProjectDetails(uri: URI): Promise<ProjectDetails> {
+        // resolveMetadata は付けない。付けるとフォルダの子を 1 件ずつ stat し（1 件あたり 15 回前後）、
+        // 一覧の全件読み直しが数百件 × 十数回のファイル操作になって詰まっていた。付けなくても
+        // 対象そのものの mtime は返る（子は readdir 1 回）。
         const stat = async (resource: URI) => {
-            try { return await this.fileService.resolve(resource, { resolveMetadata: true }); }
+            try { return await this.fileService.resolve(resource); }
             catch (error) { return toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND ? null : undefined; }
         };
         const [folder, edit, intake] = await Promise.all([stat(uri), stat(uri.resolve('edit.json')), stat(uri.resolve(INTAKE_RELATIVE_PATH))]);
@@ -1589,13 +1605,16 @@ export class AkariHomeWidget extends ReactWidget {
             };
             await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
                 BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
-            await this.loadCreatorRootProjects();
+            // 一覧の読み直しは待たない。全プロジェクトの intake などを読み直すので、数百件あると
+            // 数分かかり、そのあいだ「作成しています…」のまま「開きますか」が出なかった。
+            // 開く側は一覧に無ければ intake.json から名前を読む。
+            void this.loadCreatorRootProjects();
+            // 開き方は既存のプロジェクトと同じ「開きますか」（この画面 / 新しいウィンドウ）で選ぶ。
+            // d94d036c1 で問いを飛ばして「この画面で開く」に決め打ちしていたが、オーナー指摘
+            // （2026-10-12「ワンクッションあったポップアップがなくなった」）で戻す。
+            // 「次からは聞かない」を選んだ人には従来どおり問わない。
             await this.commands.executeCommand(AKARI_COMMANDS.openProject,
                 { uri: destination.toString(), reason: 'new-project', originRect });
-            if (this.openPrompt?.request.uri === destination.toString()
-                && this.openPrompt.request.reason === 'new-project') {
-                await this.chooseOpen('here');
-            }
         } catch (error) {
             this.reportNewProjectError(error);
         } finally {

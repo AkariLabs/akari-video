@@ -75,3 +75,12 @@ test('設定のショートカットに Windows 用の表記がある', () => {
     assert.match(settings, /Ctrl\+F/);
     assert.match(settings, /OS\.type\(\) === OS\.Type\.OSX/);
 });
+
+test('新しい動画も「開きますか」の問いを出す — 問いを飛ばして「この画面」に決め打ちしない（2026-10-12 オーナー指摘）', () => {
+    const body = widget.match(/protected async createAndOpenProject\(destination: URI, originRect\?: DOMRect\): Promise<void> \{([\s\S]*?)\n    \}\n/)?.[1];
+    assert.ok(body, 'createAndOpenProject の本体');
+    assert.match(body, /reason: 'new-project'/);
+    assert.doesNotMatch(body, /chooseOpen\(/);
+    // 一覧の全件読み直しを待ってから開かない（数百件で数分止まった）
+    assert.doesNotMatch(body, /await this\.loadCreatorRootProjects\(\)/);
+});
