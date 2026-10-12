@@ -110,6 +110,10 @@ export class OnboardingController {
     protected inputCutouts: GuideRect[] = [];
     protected layoutBeforeGuide?: GuideLayout;
     protected switchWarningShown = false;
+    protected switchWarningEverShown = false;
+    protected switchWarningCopy = '';
+    protected partnerAlive = false;
+    protected inviteWatchTimer?: number;
     protected switchConsentGiven = false;
 
     constructor(
@@ -128,7 +132,8 @@ export class OnboardingController {
         protected readonly restoreLayout: (layout: GuideLayout) => void,
         protected readonly exportPhase: () => string,
         protected readonly exportFailureVersion: () => number,
-        protected readonly resetExport: () => void
+        protected readonly resetExport: () => void,
+        protected readonly hasLivePartner: () => Promise<boolean> = async () => false
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -219,6 +224,12 @@ export class OnboardingController {
         this.exportFailed = false;
         this.exportSubmissionFailureVersion = undefined;
         this.materialPreviewClickAt = 0;
+        if (this.inviteWatchTimer) window.clearTimeout(this.inviteWatchTimer);
+        this.inviteWatchTimer = undefined;
+        this.switchWarningShown = false;
+        this.switchWarningEverShown = false;
+        this.switchWarningCopy = '';
+        this.partnerAlive = false;
         if (this.placeFrame) cancelAnimationFrame(this.placeFrame);
         if (this.fogFrame) cancelAnimationFrame(this.fogFrame);
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
@@ -369,6 +380,15 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        if (this.inviteWatchTimer) window.clearTimeout(this.inviteWatchTimer);
+        this.inviteWatchTimer = undefined;
+        if (this.state.step === 'invite') void this.refreshInviteWarning(serial);
+        else {
+            this.switchWarningShown = false;
+            this.switchWarningEverShown = false;
+            this.switchWarningCopy = '';
+            this.partnerAlive = false;
+        }
         this.materialPreviewClickAt = 0;
         void this.ensureStepLayout(serial);
         this.partnerRevealAttempts = 0;
@@ -380,6 +400,30 @@ export class OnboardingController {
         this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected currentSwitchWarning(): string | undefined {
+        const busyWarning = this.switchWarning();
+        if (busyWarning) {
+            this.switchWarningCopy = busyWarning;
+            return busyWarning;
+        }
+        return this.switchWarningEverShown && this.partnerAlive ? this.switchWarningCopy : undefined;
+    }
+
+    protected async refreshInviteWarning(serial: number): Promise<void> {
+        if (!this.root || this.state.step !== 'invite' || serial !== this.stepSerial) return;
+        try {
+            const alive = await this.hasLivePartner();
+            if (!this.root || this.state.step !== 'invite' || serial !== this.stepSerial) return;
+            this.partnerAlive = alive;
+            const warningVisible = !!this.currentSwitchWarning();
+            if (!this.busy && warningVisible !== this.switchWarningShown) this.render();
+        } catch { /* Keep the last observed state and retry while the invite is visible. */ }
+        finally {
+            if (this.root && this.state.step === 'invite' && serial === this.stepSerial)
+                this.inviteWatchTimer = window.setTimeout(() => void this.refreshInviteWarning(serial), 500);
+        }
     }
 
     protected async ensureStepLayout(serial: number, attempt = 0): Promise<void> {
@@ -566,8 +610,11 @@ export class OnboardingController {
         if (this.state.step === 'welcome') return t('surfaces.onboarding.takeoverWelcomeAkariVideoNext.message', { brand: brand });
         if (this.state.step === 'first') return t('surfaces.onboarding.takeoverFirstTimeAkariVideoFirstTimeHave.description');
         if (this.state.step === 'invite') {
-            const warning = this.switchWarning();
-            this.switchWarningShown = !!warning;
+            const warning = this.currentSwitchWarning();
+            if (!this.busy) {
+                this.switchWarningShown = !!warning;
+                if (warning) this.switchWarningEverShown = true;
+            }
             return inviteMarkup(this.busy, esc(this.prepareError), warning ? esc(warning) : '');
         }
         return t('surfaces.onboarding.done.markup');
@@ -1136,9 +1183,9 @@ export class OnboardingController {
         else if (action === 'no' || action === 'later') { await this.service.returnToHome(); this.closeVisual(); }
         else if (action === 'start') {
             if (this.busy) return;
-            const warning = this.switchWarning();
+            const warning = this.currentSwitchWarning();
             if (warning && !this.switchWarningShown) { this.render(); return; }
-            this.switchConsentGiven = !!warning;
+            this.switchConsentGiven = this.switchWarningShown;
             await this.prepare();
         }
         else if (action === 'import') await this.importSample();
@@ -1177,7 +1224,7 @@ export class OnboardingController {
             await this.service.save(this.state);
             await this.service.importSample(prepared.projectUri, prepared.sample.sourcePath);
             await this.service.writeExample(prepared.projectUri, prepared.sample.sourcePath, prepared.sample.segments, prepared.sample.segments.length, true);
-            if (this.switchWarning() && !this.switchConsentGiven) {
+            if (this.currentSwitchWarning() && !this.switchConsentGiven) {
                 this.busy = false;
                 this.render();
                 return;

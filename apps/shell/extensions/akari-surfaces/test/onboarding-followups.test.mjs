@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { OnboardingController } = require('../lib/onboarding/controller.js');
 const { guideInputCutouts, pointInGuideCutouts } = require('../lib/onboarding/guide-ui-model.js');
-const { stopPartnerTerminals } = require('../../akari-partner/lib/browser/partner-terminal-shutdown.js');
+const { activePartnerTerminals, stopPartnerTerminals } = require('../../akari-partner/lib/browser/partner-terminal-shutdown.js');
 const { switchGuideProject, isGuidePartnerStopError } = require('../lib/onboarding/guide-switch-error.js');
 const homeSource = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
 const guideSource = readFileSync(new URL('../src/onboarding/controller.ts', import.meta.url), 'utf8');
@@ -230,6 +230,16 @@ test('only active partner terminals are stopped, and switching waits for exit', 
     }, 200);
     events.push('switch');
     assert.deepEqual(events, ['close:17', 'exit', 'switch']);
+});
+
+test('partner liveness uses the same active-terminal filter as shutdown', () => {
+    const live = { kind: 'akari-partner', terminalId: 7, isDisposed: false, exitStatus: undefined };
+    const exited = { ...live, terminalId: 8, exitStatus: { code: 0 } };
+    const disposed = { ...live, terminalId: 9, isDisposed: true };
+    const unstarted = { ...live, terminalId: -1 };
+    const ordinary = { ...live, kind: 'user' };
+    assert.deepEqual(activePartnerTerminals([live, exited, disposed, unstarted, ordinary]), [live]);
+    assert.match(homeSource, /executeCommand<boolean>\('akari\.partner\.hasLiveForGuide'\)/);
 });
 
 test('guide switch invokes partner shutdown after consent even when busy turns false, before opening', async () => {

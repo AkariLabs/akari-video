@@ -13,7 +13,7 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
-import { stopPartnerTerminals } from './partner-terminal-shutdown';
+import { activePartnerTerminals, stopPartnerTerminals } from './partner-terminal-shutdown';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
@@ -69,6 +69,7 @@ export const AkariPartnerCommands = {
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
     STOP_FOR_GUIDE: { id: 'akari.partner.stopForGuide' } as Command,
+    HAS_LIVE_FOR_GUIDE: { id: 'akari.partner.hasLiveForGuide' } as Command,
     TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: t('partner.navigation.commands.typeInPartnerInputAction') } as Command
 };
 
@@ -138,6 +139,9 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         });
         registry.registerCommand(AkariPartnerCommands.STOP_FOR_GUIDE, {
             execute: () => stopPartnerTerminals(this.terminals.all, id => this.terminalServer.close(id))
+        });
+        registry.registerCommand(AkariPartnerCommands.HAS_LIVE_FOR_GUIDE, {
+            execute: () => activePartnerTerminals(this.terminals.all).length > 0
         });
         registry.registerCommand(AkariPartnerCommands.TYPE_PROMPT, {
             execute: async (text: unknown): Promise<'typed' | 'no-partner' | 'unsupported'> => {

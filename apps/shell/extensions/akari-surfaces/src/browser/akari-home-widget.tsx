@@ -706,7 +706,8 @@ export class AkariHomeWidget extends ReactWidget {
             },
             () => this.exportSession.snapshot.status.phase,
             () => this.exportSession.failureVersion,
-            () => this.exportSession.resetToSetup()
+            () => this.exportSession.resetToSetup(),
+            async () => this.commands.executeCommand<boolean>('akari.partner.hasLiveForGuide')
         );
         try { await this.firstVideoGuide.open(state); }
         catch (error) {
