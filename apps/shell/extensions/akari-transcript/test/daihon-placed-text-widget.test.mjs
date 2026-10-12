@@ -835,11 +835,11 @@ test('行の選択は操作バーを出し、見た目を押した後のドッ�
     instance.openRowDock('template');
     assert.equal(editor.children[0], actionBar);
     assert.equal(editor.children[1], grip);
-    assert.equal(title.textContent, '発話1');
+    assert.equal(title.textContent, '行: 発話1');
     assert.equal(hint.hidden, false);
     instance.dockTab = 'time';
     instance.setSelection({ selected: ['r1', 'r2', 'r3'], anchorId: 'r1' }, false);
-    assert.equal(title.textContent, '3 行を選択中');
+    assert.equal(title.textContent, '行: 3 行を選択中');
     assert.equal(instance.dockTab, 'time');
     assert.equal(actionBar.children[0].textContent, '3 行を選択中');
     instance.dismissDock();
@@ -875,7 +875,7 @@ test('語と候補を選ぶと下部バーの操作が切り替わる', () => {
   try {
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent),
-      ['「語」', '✎ 直す', '✦ 強調', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
+      ['単語「語」を選択中', '✎ 直す', '✦ 強調', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
     instance.candidateBar = { title: 'フィラー「えー」', actions: [{ label: '字幕からだけ消す（音声はそのまま）', run() {} }] };
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent), ['フィラー「えー」', '字幕からだけ消す（音声はそのまま）', '✕']);

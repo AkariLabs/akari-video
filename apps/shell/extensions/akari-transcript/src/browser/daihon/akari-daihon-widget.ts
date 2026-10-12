@@ -59,7 +59,7 @@ import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { selectionScrollTop } from './selection-reveal';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
 import { shouldUseKaraokeWords } from '../../common/karaoke-words';
-import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
+import { changedWordPresetRowIds, planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
 import {
     buildDaihonRows,
     type DaihonCaptionLike,
@@ -118,7 +118,8 @@ import {
     type DaihonSilenceSpan
 } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
-import { clampDockHeight, dockActions, dockLookState, dockTabs, lookPatch, readDockHeight, rowDockTitle,
+import { clampDockHeight, dockActions, dockLookState, dockTabs, isDaihonCompositionStart,
+    isPrintableDaihonKey, lookPatch, readDockHeight, rowDockTitle, selectedDaihonEdit, wordSelectionHeading,
     shouldCloseDockOnEscape, shouldRefreshLookDock, type DockKind, type DockLookState, type DockTab, type LookField } from '../../common/daihon-dock';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
@@ -153,7 +154,7 @@ import { activeDaihonFragment } from '../../common/daihon-fragment-highlight';
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
 } from './daihon-speaker-chips';
-import { groupTokensIntoWords, type DaihonWordUnit } from '../../common/daihon-word-units';
+import { groupTokensIntoWords, selectableCaptionWords, type DaihonWordUnit } from '../../common/daihon-word-units';
 import {
     DAIHON_GEAR_ANIM_PRESETS,
     gearSpeechTrimSeconds,
@@ -615,6 +616,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected captionRecordings = new Map<string, CaptionRecording[]>();
     protected readonly captionOverflowUnitsById = new Map<string, number>();
     protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
+    protected renderedWordPresetByRowId = new Map<string, (string | undefined)[]>();
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
     protected wordUnit: 'word' | 'token' = 'word';
     protected showBreaks = true;
@@ -767,6 +769,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.addEventListener('mousedown', event => this.handleRowButtonMouseDown(event), { capture: true });
         this.rowsNode.addEventListener('pointerdown', event => this.handleWordPointerDown(event), { capture: true });
         this.rowsNode.addEventListener('pointermove', event => this.handleWordPointerMove(event));
+        const selectedTyping = (event: KeyboardEvent): void => this.handleSelectedTyping(event);
+        window.addEventListener('keydown', selectedTyping, true);
+        this.toDispose.push({ dispose: () => window.removeEventListener('keydown', selectedTyping, true) });
         // The annotations keybinding contribution mirrors this event name without a package dependency.
         const rowShortcut = (event: Event): void => {
             if (!this.rowsNode.contains(document.activeElement)) return;
@@ -817,6 +822,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.node.addEventListener('click', event => {
             const target = event.target as Element;
             if (target === this.rowsNode || target === this.node) this.closeDock();
+            if (target.closest('button') && (this.actionBar.contains(target) || this.placedEditor.contains(target))) {
+                queueMicrotask(() => { if (!this.editing) this.focusRows(); });
+            }
         });
         const dockEscape = (event: KeyboardEvent): void => this.handleDockEscape(event);
         document.addEventListener('keydown', dockEscape);
@@ -1429,9 +1437,10 @@ export class AkariDaihonWidget extends BaseWidget {
         } else {
             displayFragments = this.automaticDisplayFragments(caption.id, caption.text, policy);
         }
+        const selectable = selectableCaptionWords(caption.text, caption.start, caption.end, caption.words);
         const units = this.wordUnit === 'word'
-            ? groupTokensIntoWords(caption.text, caption.words)
-            : caption.words?.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index })) ?? [];
+            ? groupTokensIntoWords(caption.text, selectable)
+            : selectable.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }));
         if (units.length) this.wordUnitsByRowId.set(caption.id, units);
         return {
             id: caption.id,
@@ -1443,7 +1452,7 @@ export class AkariDaihonWidget extends BaseWidget {
             ...(caption.src ? { src: caption.src } : {}),
             style: caption.style ?? null,
             edited: caption.edited,
-            ...(caption.words ? { words: units.map(({ text, start, end }) => ({ text, start, end })) } : {}),
+            ...(units.length ? { words: units.map(({ text, start, end }) => ({ text, start, end })) } : {}),
             ...(displayFragments ? { displayFragments } : {}),
             ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
             ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {}),
@@ -1528,9 +1537,9 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         const result = new Map<string, (string | undefined)[]>();
         for (const caption of captions) {
-            if (caption.timeDomain === 'output' || !caption.words?.length) continue;
-            if (caption.words.map(word => word.text).join('') !== (caption.displayText ?? caption.text)) continue;
-            const presets = caption.words.map(word => candidates.find(emphasis => {
+            if (caption.timeDomain === 'output') continue;
+            const words = caption.words ?? [];
+            const presets = words.map(word => candidates.find(emphasis => {
                 const sourceMatches = !(emphasis.src && caption.src) || emphasis.src === caption.src;
                 return sourceMatches
                     && Math.min(word.end, emphasis.t_end) - Math.max(word.start, emphasis.t_start) > 0.000001;
@@ -1784,7 +1793,9 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
-            title.textContent = `「${summary.text.slice(0, 10)}」`; bar.append(title);
+            title.textContent = wordSelectionHeading(summary.text, bar.clientWidth > 480 ? 7 : 4);
+            title.title = summary.text;
+            bar.append(title);
             add('✎ 直す', () => {
                 const row = this.rows.find(item => item.id === this.wordRanges[0]?.row);
                 if (row) this.startEdit(row);
@@ -1940,10 +1951,11 @@ export class AkariDaihonWidget extends BaseWidget {
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
+        const changedPresets = new Set(changedWordPresetRowIds(this.renderedWordPresetByRowId, this.wordPresetByRowId));
         const sourceSetChanged = previousActiveSourceIds.join('\0') !== this.activeSourceIds.join('\0');
         const previousRows = new Map(this.rows.map(row => [row.id, row]));
         for (const row of next) {
-            if ((sourceSetChanged || previousRows.get(row.id)?.src !== row.src
+            if ((sourceSetChanged || changedPresets.has(row.id) || previousRows.get(row.id)?.src !== row.src
                 || previousDuplicates.get(row.id) !== this.duplicateRowIds.get(row.id))
                 && !plan.create.some(candidate => candidate.id === row.id)
                 && !plan.update.some(candidate => candidate.id === row.id)) plan.update.push(row);
@@ -1980,6 +1992,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             this.elements.set(row.id, elements);
         }
+        this.renderedWordPresetByRowId = new Map([...this.wordPresetByRowId].map(([id, presets]) => [id, [...presets]]));
         let anchor: ChildNode | null = null;
         for (let index = plan.order.length - 1; index >= 0; index--) {
             const node = this.elements.get(plan.order[index])?.root;
@@ -2521,8 +2534,11 @@ export class AkariDaihonWidget extends BaseWidget {
         const placed = kind === 'placed' ? this.placedRanges().find(item => item.captionId === ids[0]) : undefined;
         const row = this.rows.find(item => item.id === ids[0]);
         this.dockTitle.textContent = kind === 'placed' ? `T ${placed?.text ?? ''}`
-            : rowDockTitle(ids.length, row?.text ?? '');
+            : this.wordRanges?.length ? `単語「${wordRangeSummary(this.selectionRows(), this.wordRanges).text.slice(0, 16)}」を選択中`
+                : `行: ${rowDockTitle(ids.length, row?.text ?? '')}`;
         this.dockSelectionHint.hidden = kind !== 'row';
+        this.dockSelectionHint.textContent = this.wordRanges?.length ? '単語を選択中 / Shift=範囲 / ⌘=追加'
+            : '行を選択中 / Shift=範囲 / ⌘=追加';
         this.dockTabsNode.replaceChildren();
         const labels: Record<DockTab, string> = { text: '文字', template: 'テンプレ', look: '見た目',
             anim: 'アニメ', emphasis: '強調', time: '時刻' };
@@ -2530,7 +2546,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const button = document.createElement('button'); button.type = 'button';
             button.dataset.dockTab = tab; button.textContent = labels[tab];
             button.classList.toggle('active', this.dockTab === tab);
-            button.addEventListener('click', () => { this.dockTab = tab; this.renderDock(); });
+            button.addEventListener('click', () => { this.dockTab = tab; this.renderDock(); this.focusRows(); });
             this.dockTabsNode.appendChild(button);
         }
         this.dockBody.replaceChildren();
@@ -4171,8 +4187,10 @@ export class AkariDaihonWidget extends BaseWidget {
         const close = this.cutRangeButton('✕', () => this.closeCutRangeEditor());
         foot.append(intact, tightened, apply, close);
         root.append(heading, wave, ticks, foot);
+        this.closeDock();
         rowElement.after(root);
         this.cutRangeEditor = { root, window: viewWindow, playhead };
+        requestAnimationFrame(() => { if (root.isConnected) root.scrollIntoView({ block: 'center', behavior: 'auto' }); });
 
         let peaks: number[] | undefined;
         let waveformStatus: 'loading' | 'ready' | 'unavailable' = 'loading';
@@ -4989,6 +5007,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected handleWordPointerDown(event: PointerEvent): void {
         const hit = this.wordHit(event);
         if (event.button !== 0 || event.detail >= 2 || !hit) return;
+        event.preventDefault();
         event.stopPropagation();
         const add = event.metaKey || event.ctrlKey;
         if (event.shiftKey) this.wordRanges = extendWordRange(this.wordRanges, hit, this.rowOrder());
@@ -4997,7 +5016,9 @@ export class AkariDaihonWidget extends BaseWidget {
         } else if (add) this.wordRanges = addWordRange(this.wordRanges, { row: hit.row, a: hit.index, b: hit.index }, this.rowOrder());
         else this.wordRanges = [{ row: hit.row, a: hit.index, b: hit.index }];
         this.wordDrag = { row: hit.row, a: hit.index, b: hit.index, moved: false, add: add || event.shiftKey };
+        this.setSelection({ selected: [hit.row], anchorId: hit.row });
         this.renderWordSelection();
+        this.focusRows();
     }
 
     protected handleWordPointerMove(event: PointerEvent): void {
@@ -5018,6 +5039,34 @@ export class AkariDaihonWidget extends BaseWidget {
             this.elements.get(range.row)?.words[index]?.classList.add('wordsel');
         }
         this.renderActionBar();
+        if (this.dockKind === 'row' && this.dockTab === 'emphasis') this.renderDock();
+    }
+
+    protected focusRows(): void {
+        if (this.selection?.selected.length || this.wordRanges?.length) this.rowsNode?.focus?.({ preventScroll: true });
+    }
+
+    protected handleSelectedTyping(event: KeyboardEvent): void {
+        const compositionStart = isDaihonCompositionStart(event.key, event.keyCode);
+        if ((!compositionStart && !isPrintableDaihonKey(event.key, event.isComposing,
+            event.altKey, event.ctrlKey, event.metaKey))
+            || this.editing || (!this.wordRanges.length && !this.selection.selected.length)) return;
+        const target = event.target;
+        if (!(target instanceof Element) || !this.node.contains(target)
+            || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+        const range = this.wordRanges[0];
+        const row = this.rows.find(item => item.id === (range?.row ?? this.selection.selected[0]));
+        if (!row) return;
+        if (!compositionStart) event.preventDefault();
+        event.stopPropagation();
+        this.startEdit(row);
+        const input = this.editing?.input;
+        if (!input) return;
+        const edit = selectedDaihonEdit(row.text, row.words,
+            this.wordRanges.length === 1 ? range : undefined,
+            compositionStart ? undefined : event.key);
+        input.value = edit.value;
+        input.setSelectionRange(edit.start, edit.end);
     }
 
     protected selectionRows(): Array<{ id: string; words: readonly { text: string; start: number; end: number }[] }> {
@@ -5043,7 +5092,7 @@ export class AkariDaihonWidget extends BaseWidget {
         return this.wordRanges.flatMap(range => {
             const row = this.rows.find(candidate => candidate.id === range.row);
             const selected = row?.words?.slice(range.a, range.b + 1);
-            return row && selected?.length ? [{ row, t_start: selected[0].start,
+            return row && selected?.length ? [{ row, src: this.sourceIdForRow(row), t_start: selected[0].start,
                 t_end: selected[selected.length - 1].end, word: selected.map(value => value.text).join('') }] : [];
         });
     }
@@ -5094,6 +5143,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     })), presetId),
                     removeIds: emphasisIdsCovering(readEmphasisWords(source), spans) });
             });
+            await this.reload();
             const preset = TEXTSTYLE_CATALOG[presetId];
             this.notify(`「${spans.map(span => span.word).join('・')}」に ${preset?.name ?? presetId}（${spans.length} 範囲）`);
             this.openWordBar();
@@ -5108,6 +5158,7 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.withHistory('語の強調を外す', async () => {
             await this.annotationsService.setEmphasisWords({ captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), upserts: [], removeIds: ids });
         });
+        await this.reload();
         this.notify('強調を外しました');
     }
 
@@ -5748,9 +5799,11 @@ export class AkariDaihonWidget extends BaseWidget {
         input.addEventListener('keydown', event => {
             if (event.key === 'Enter') {
                 event.preventDefault();
+                event.stopPropagation();
                 input.blur();
             } else if (event.key === 'Escape') {
                 event.preventDefault();
+                event.stopPropagation();
                 state.cancelled = true;
                 input.blur();
             }
@@ -5760,24 +5813,33 @@ export class AkariDaihonWidget extends BaseWidget {
         input.select();
     }
 
+    protected restoreRowsFocusAfterEdit(): void {
+        queueMicrotask(() => {
+            if (document.activeElement === document.body) this.focusRows();
+        });
+    }
+
     protected async finishEdit(state: EditingState): Promise<void> {
         if (state.committing || this.editing !== state) return;
         state.committing = true;
         const row = this.rows.find(candidate => candidate.id === state.id);
         if (!row) {
             this.editing = undefined;
+            this.restoreRowsFocusAfterEdit();
             return;
         }
         const value = state.input.value;
         if (state.cancelled || value === state.original) {
             this.editing = undefined;
             this.replaceRenderedRow(row);
+            this.restoreRowsFocusAfterEdit();
             return;
         }
         if (!value.trim()) {
             this.notifyError('字幕のテキストは空にできません。');
             this.editing = undefined;
             this.replaceRenderedRow(row);
+            this.restoreRowsFocusAfterEdit();
             return;
         }
         const elements = this.elements.get(row.id);
@@ -5793,10 +5855,12 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             this.editing = undefined;
             await this.reload();
+            this.restoreRowsFocusAfterEdit();
             this.notify('字幕を更新しました。');
         } catch (error) {
             this.editing = undefined;
             this.replaceRenderedRow(row);
+            this.restoreRowsFocusAfterEdit();
             this.notifyError(this.errorMessage(error));
         }
     }

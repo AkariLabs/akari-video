@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
-const { planDaihonUpdate } = require('../lib/common/daihon-reconcile.js');
+const { changedWordPresetRowIds, planDaihonUpdate } = require('../lib/common/daihon-reconcile.js');
 const { rowSourceIds, duplicateSpeechPairs } = require('../lib/common/daihon-source-badges.js');
 const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
 const start = source.indexOf('    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {');
@@ -14,9 +14,10 @@ const method = source.slice(start, source.indexOf('    protected placedRanges(',
 const compiled = ts.transpileModule(`class RenderHarness { ${method} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022 }
 }).outputText;
-const RenderHarness = new Function('planDaihonUpdate', 'speakerColorMap', 'normalizeWordRanges', 'pruneSelection',
-  'rowSourceIds', 'duplicateSpeechPairs', `${compiled}; return RenderHarness;`)(
-  planDaihonUpdate, () => new Map(), ranges => ranges, selection => selection, rowSourceIds, duplicateSpeechPairs);
+const RenderHarness = new Function('planDaihonUpdate', 'changedWordPresetRowIds', 'speakerColorMap',
+  'normalizeWordRanges', 'pruneSelection', 'rowSourceIds', 'duplicateSpeechPairs', `${compiled}; return RenderHarness;`)(
+  planDaihonUpdate, changedWordPresetRowIds, () => new Map(), ranges => ranges,
+  selection => selection, rowSourceIds, duplicateSpeechPairs);
 
 test('cut mark OFF/ON recreates unchanged row DOM and restores the existing cut cell', () => {
   assert.match(source, /this\.renderRows\(buildDaihonRows\(this\.daihonCaptionsForDisplay\(\), this\.segments\), true\)/);
@@ -34,6 +35,7 @@ test('cut mark OFF/ON recreates unchanged row DOM and restores the existing cut 
   };
   harness.elements = new Map([['a', { root: harness.rowsNode.current }]]);
   Object.assign(harness, { rows: [row], showCutMarks: true, speakerFilter: null, wordRanges: [], selection: {},
+    wordPresetByRowId: new Map(), renderedWordPresetByRowId: new Map(),
     editSources: [], activeSourceIds: [], duplicateRowIds: new Map(), displaySourceIdForRow: () => undefined,
     closeCutRangeEditor() {}, rowGapsForRows: () => [],
     createRow() { created++; return { root: makeRoot(this.showCutMarks), words: [] }; },

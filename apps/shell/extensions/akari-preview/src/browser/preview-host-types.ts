@@ -373,6 +373,7 @@ export interface EditSummaryEmphasisWord {
     word: string;
     emotion: string;
     style_hint?: string;
+    style_preset?: string;
 }
 
 export interface EditSummaryTrackState {

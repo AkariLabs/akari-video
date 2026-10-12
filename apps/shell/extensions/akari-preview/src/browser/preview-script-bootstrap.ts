@@ -1,5 +1,6 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
+import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
     type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
@@ -320,7 +321,7 @@ export function previewBootstrapScript(): string {
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
             const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
-            const emphasisWords = Array.isArray(initial.emphasisWords) ? initial.emphasisWords : [];
+            let emphasisWords = Array.isArray(initial.emphasisWords) ? initial.emphasisWords : [];
             let hiddenTracks = new Set(Array.isArray(initial.hiddenTracks) ? initial.hiddenTracks : []);
             const initialHiddenTracksByScope = initial.hiddenTracksByScope || {};
             const initialMutedTracksByScope = initial.mutedTracksByScope || {};
@@ -601,7 +602,7 @@ export function previewBootstrapScript(): string {
                 if (captionGestureCount || !pendingCaptionUpdate) return;
                 const next = pendingCaptionUpdate;
                 pendingCaptionUpdate = null;
-                window.postMessage?.({ type: 'akari-preview-captions-update', captions: next }, '*');
+                window.postMessage?.(next, '*');
             };
             const captionPositionOverrides = new Map();
             const latestCaptionMove = new Map();
@@ -7438,6 +7439,7 @@ export function previewBootstrapScript(): string {
                         + formatCaptionSeconds(duration) + 's">' + lineMarkup + '</div>';
                 }).join('');
             };
+            const emphasisPresets = ${JSON.stringify(TEXTSTYLE_CATALOG)};
             const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
                 emphasis.t_end > word.start
                 && emphasis.t_start < word.end
@@ -7467,6 +7469,9 @@ export function previewBootstrapScript(): string {
             const renderEmphasisCaptionToken = (word, rangeStart, emphasis, renderChars = null) => {
                 const renderText = renderChars || escapeCaptionHtml;
                 const style = resolveEmphasisStyle(emphasis);
+                const preset = emphasisPresets[emphasis.style_preset]?.style || null;
+                const presetCss = preset ? (typeof preset.color === 'string' ? 'color:' + preset.color + ';' : '')
+                    + (typeof preset.weight === 'number' ? 'font-weight:' + preset.weight + ';' : '') : '';
                 const overlapStart = Math.max(word.start, emphasis.t_start);
                 const overlapEnd = Math.min(word.end, emphasis.t_end);
                 const delay = Math.max(0, overlapStart - rangeStart);
@@ -7484,17 +7489,17 @@ export function previewBootstrapScript(): string {
                         + formatCaptionSeconds(Math.max(0.01, characterDuration)) + 's">'
                         + renderText(character) + '</span>'
                     ).join('');
-                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '">'
+                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '" style="' + presetCss + '">'
                         + markup + '</span>';
                 }
                 if (style === 'size-pulse') {
                     return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
                         + '" style="--akari-emphasis-delay: ' + formatCaptionSeconds(delay)
-                        + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's">'
+                        + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's;' + presetCss + '">'
                         + renderText(word.text) + '</span>';
                 }
                 return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
-                    + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
+                    + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ');' + presetCss + '">'
                     + renderText(word.text) + '</span>';
             };
             const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0, ignoreEmphasis = false, measuredTimeline = false) => {
@@ -11383,10 +11388,13 @@ export function previewBootstrapScript(): string {
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
                     if (captionGestureCount) {
-                        pendingCaptionUpdate = Array.isArray(message.captions) ? message.captions : [];
+                        pendingCaptionUpdate = { type: 'akari-preview-captions-update',
+                            captions: Array.isArray(message.captions) ? message.captions : [],
+                            emphasisWords: message.emphasisWords };
                         return;
                     }
                     const nextCaptions = Array.isArray(message.captions) ? message.captions : [];
+                    if (Array.isArray(message.emphasisWords)) emphasisWords = message.emphasisWords;
                     clearLiveOverride();
                     captionStylePreview.captionsUpdated(nextCaptions);
                     captions = protectCaptionUpdate(nextCaptions);

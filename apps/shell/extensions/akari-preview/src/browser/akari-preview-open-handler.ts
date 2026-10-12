@@ -4082,8 +4082,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 )
             );
             const nextCaptions = buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal);
-            if (widget.akariPreviewModelSnapshot) widget.akariPreviewModelSnapshot.captions = nextCaptions;
-            widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions });
+            const emphasisWords = loaded.emphasisWords === undefined ? [] : this.normalizeEmphasisWords(loaded.emphasisWords);
+            if (widget.akariPreviewModelSnapshot) {
+                widget.akariPreviewModelSnapshot.captions = nextCaptions;
+                widget.akariPreviewModelSnapshot.emphasisWords = emphasisWords;
+            }
+            widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
@@ -8812,7 +8816,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 && typeof candidate.emotion === 'string'
                 && /\S/u.test(candidate.emotion)
                 && (candidate.src === undefined || (typeof candidate.src === 'string' && /\S/u.test(candidate.src)))
-                && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string');
+                && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string')
+                && (candidate.style_preset === undefined || typeof candidate.style_preset === 'string');
             if (!valid || !candidate) {
                 console.warn(`[akari-preview] emphasis_words[${index}] を無視しました（要素が不正です）`);
                 continue;
@@ -8825,7 +8830,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 t_end: candidate.t_end as number,
                 word: candidate.word as string,
                 emotion: candidate.emotion as string,
-                ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {})
+                ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {}),
+                ...(candidate.style_preset !== undefined ? { style_preset: candidate.style_preset as string } : {})
             });
         }
         return normalized;
