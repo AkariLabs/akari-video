@@ -15,6 +15,7 @@ const icons = require('../lib/browser/right-rail-icons.js');
 const style = require('../lib/browser/right-rail-style.js');
 const gesture = require('../lib/browser/right-rail-drag-gesture.js');
 const shellJa = require('../../../../../packages/i18n/locales/ja/shell.json');
+const annotationsJa = require('../../../../../packages/i18n/locales/ja/annotations.json');
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const WIDGETS = {
@@ -25,7 +26,8 @@ const WIDGETS = {
 };
 
 test('右の主要ラベルは短い日本語になる', () => {
-    assert.match(read(WIDGETS.inspector), /this\.title\.label = 'インスペクター'/);
+    assert.match(read(WIDGETS.inspector), /this\.title\.label = t\('annotations\.inspectorWidget\.text\.inspector'\)/);
+    assert.equal(annotationsJa['annotations.inspectorWidget.text.inspector'], 'インスペクター');
     assert.match(read('../../akari-partner/src/browser/akari-partner-widget.tsx'), /t\('partner\.partnerPanel\.terminal\.chatLabel'\)/);
     assert.match(read('../../akari-partner/src/browser/akari-partner-web-widget.tsx'), /t\('partner\.partnerPanel\.webWidget\.chatDeepseekLabel'\)/);
 });

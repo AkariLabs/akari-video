@@ -145,17 +145,18 @@ test('doctor adapter exceptions and reflected secrets cannot leak', async t => {
 });
 
 test('doctor is import-safe with extra argv and retains CLI usage / exit codes', () => {
-    const loaded = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(doctorUrl.href)}); console.log(Object.keys(m.adapters).sort().join(','));`, 'extra', 'arguments'], { encoding: 'utf8' });
+    const env = { ...process.env, AKARI_LANG: 'ja' };
+    const loaded = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(doctorUrl.href)}); console.log(Object.keys(m.adapters).sort().join(','));`, 'extra', 'arguments'], { encoding: 'utf8', env });
     assert.equal(loaded.status, 0, loaded.stderr);
     assert.equal(loaded.stdout.trim(), 'elevenlabs,fal,fish-audio,google-ai,groq,openrouter,replicate');
     assert.equal(loaded.stderr, '');
     for (const flag of ['--help', '-h']) {
-        const help = spawnSync(process.execPath, [fileURLToPath(doctorUrl), flag], { encoding: 'utf8' });
+        const help = spawnSync(process.execPath, [fileURLToPath(doctorUrl), flag], { encoding: 'utf8', env });
         assert.equal(help.status, 0);
         assert.match(help.stdout, /^使い方:/);
         assert.equal(help.stderr, '');
     }
-    const bad = spawnSync(process.execPath, [fileURLToPath(doctorUrl), '--help', 'extra'], { encoding: 'utf8' });
+    const bad = spawnSync(process.execPath, [fileURLToPath(doctorUrl), '--help', 'extra'], { encoding: 'utf8', env });
     assert.equal(bad.status, 2);
     assert.equal(bad.stdout, '');
     assert.match(bad.stderr, /^使い方:/);

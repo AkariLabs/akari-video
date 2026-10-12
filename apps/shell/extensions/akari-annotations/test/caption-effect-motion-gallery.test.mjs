@@ -2,7 +2,10 @@ import { readHandlerSource } from '../../akari-preview/test/helpers/handler-sour
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { sliceFrom } from '../../akari-project/test/helpers/role-buckets-source.mjs';
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
 import { readFileSync } from 'node:fs';
 import { CAPTION_EFFECT_GROUPS, CAPTION_EFFECT_SPECS, captionEffectAdjustmentKeys,
     captionEffectAdjustmentPatch, captionEffectFromStyle, captionEffectPatch,

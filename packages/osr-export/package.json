@@ -12,7 +12,7 @@
     "check:frame-engine-drift": "node ../../scripts/gen-frame-engine-bundles.mjs --check",
     "build-fixture": "node scripts/build-fixture.mjs",
     "assert-no-intermediates": "node scripts/assert-no-intermediates.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --import ../../scripts/ci/default-test-language.mjs --test test/*.test.mjs",
     "ci:required": "npm test",
     "ci:fixture": "node scripts/build-fixture.mjs"
   },

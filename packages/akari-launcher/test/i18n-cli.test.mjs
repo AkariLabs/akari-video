@@ -17,7 +17,12 @@ test('English launcher help, diagnosis, version, and delegated help contain no J
     const result = spawnSync(process.execPath, [entry, ...args], {
       encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'en' }, timeout: 30_000,
     });
-    assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+    if (args[0] === 'doctor') {
+      assert.match(result.stdout, /^Verdict: (?:ok|degraded|broken)$/mu);
+      assert.equal(result.status, /^Verdict: broken$/mu.test(result.stdout) ? 1 : 0, `doctor: ${result.stderr}`);
+    } else {
+      assert.equal(result.status, 0, `${args.join(' ')}: ${result.stderr}`);
+    }
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, japanese, args.join(' '));
   }
 });

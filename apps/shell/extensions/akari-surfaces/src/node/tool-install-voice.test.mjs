@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, open, readFile, readdir, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
 import { gzipSync } from 'node:zlib';
 import {
     VOICE_ENGINE_PINS, expectedVoiceManifest, inspectVoiceEngine, installVoiceEngine,

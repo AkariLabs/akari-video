@@ -97,8 +97,12 @@ export function childEnv(env = process.env, execPath = process.execPath) {
   const same = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
   const already = current.split(path.delimiter)
     .some(entry => entry && same(path.resolve(entry), nodeDir));
-  if (already) return env;
-  return { ...env, [pathKey]: current ? `${current}${path.delimiter}${nodeDir}` : nodeDir };
+  if (already && env.AKARI_LANG !== undefined) return env;
+  return {
+    ...env,
+    ...(already ? {} : { [pathKey]: current ? `${current}${path.delimiter}${nodeDir}` : nodeDir }),
+    ...(env.AKARI_LANG === undefined ? { AKARI_LANG: 'ja' } : {})
+  };
 }
 
 const CHILD_ENV = childEnv();

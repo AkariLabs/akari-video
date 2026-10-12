@@ -1,4 +1,7 @@
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, rmdir } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';

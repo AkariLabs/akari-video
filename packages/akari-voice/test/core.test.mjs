@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { t as voiceText } from '../../i18n/index.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -67,7 +68,7 @@ test('分離結果の並べ替え、発話への割り当て、集計', () => {
   assert.deepEqual(mergeSpeakers(turns, { B: 'A' }).map(turn => turn.speaker), ['A', 'A', 'A']);
   assert.equal(clusterCountFor('auto'), -1); assert.equal(clusterCountFor(4), -1);
   for (const n of [1, 2, 3]) assert.equal(clusterCountFor(n), n);
-  assert.throws(() => clusterCountFor(5), /話者数/);
+  assert.throws(() => clusterCountFor(5), error => error.message === voiceText('tools.voice.engine.error.invalidSpeakerCount'));
 });
 
 test('照合の境界、提案、同一人物の束ね', () => {
@@ -208,7 +209,7 @@ test('長い音声のバッファ上限だけを専用の案内にする', () =>
   assert.equal(isAudioBufferLimit({ code: 'ENOBUFS' }), true);
   assert.equal(isAudioBufferLimit({ message: 'stdout maxBuffer length exceeded' }), true);
   assert.equal(isAudioBufferLimit({ code: 'ENOENT', message: 'not found' }), false);
-  assert.match(AUDIO_TOO_LONG_MESSAGE, /約 2 時間/);
+  assert.equal(AUDIO_TOO_LONG_MESSAGE, voiceText('tools.voice.engine.error.audioTooLong'));
 });
 
 test('チャンネルの位置と同意のある見本だけを読む', t => {
@@ -247,5 +248,5 @@ test('チャンネル外の見本は拒み、重心を作らない', async t => 
   const result = await loadCentroids({ peoplePath, channel: 'c', embedder: { embed: () => { throw new Error('呼ばれない'); } },
     decode: () => { throw new Error('呼ばれない'); } });
   assert.deepEqual(result.compared, []);
-  assert.match(result.warnings[0], /チャンネル外の見本/);
+  assert.equal(result.warnings[0], `p: ${voiceText('tools.voice.engine.error.sampleOutsideChannel')}`);
 });

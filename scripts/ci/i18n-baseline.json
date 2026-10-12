@@ -39,7 +39,7 @@
   "apps/shell/extensions/akari-partner/src/node/akari-partner-server.ts": 2,
   "apps/shell/extensions/akari-preview/src/browser/akari-font-specimen-open-handler.ts": 1,
   "apps/shell/extensions/akari-preview/src/browser/akari-preview-captions.ts": 2,
-  "apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts": 34,
+  "apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts": 32,
   "apps/shell/extensions/akari-preview/src/browser/preview-diagnostics.ts": 3,
   "apps/shell/extensions/akari-preview/src/browser/preview-library-drop.ts": 2,
   "apps/shell/extensions/akari-preview/src/browser/preview-script-bootstrap.ts": 5,
