@@ -57,7 +57,7 @@ import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotation
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { daihonCaptionEditKey } from '../../common/daihon-caption-edit-key';
 import { DaihonCaptionEditSession, seedDaihonCaptionEdit } from '../../common/daihon-caption-edit-session';
-import { DaihonCaptionEditQueue, DaihonCaptionInput, decideDaihonCaptionEdit,
+import { DaihonCaptionEditQueue, DaihonCaptionInput, DaihonReloadQueue, decideDaihonCaptionEdit,
     shouldReloadDaihonChanges } from '../../common/daihon-caption-edit-queue';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
@@ -700,6 +700,8 @@ export class AkariDaihonWidget extends BaseWidget {
     }, event => this.updateUnsavedNotice(event), error => {
         console.warn('[akari-daihon] 字幕の保存に失敗しました。', error);
     });
+    protected readonly reloadQueue = new DaihonReloadQueue<boolean>(() => this.reload(),
+        () => !this.editing && !this.captionEditQueue.hasPendingVisibleWrite());
     protected selection: DaihonSelection = EMPTY_SELECTION;
     protected altAll = false;
     protected rowDrag: RowDragState | undefined;
@@ -1207,7 +1209,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 [change.resource.toString()], this.captionsUri?.toString() ?? '', false));
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const relevant = meaningful.some(change => change.resource.toString() === this.editUri?.toString()
-                || change.resource.toString() === this.captionsUri?.toString()
+                || (change.resource.toString() === this.captionsUri?.toString()
+                    && !this.captionEditQueue.hasOwnedCaptionChange())
                 || change.resource.toString() === dictionaryUri?.toString()
                 || change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
             if (meaningful.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
@@ -1240,9 +1243,16 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected queueReload(): void {
-        this.reloadTail = this.reloadTail.then(() => this.reload()).catch(error => {
+        void this.requestReload();
+    }
+
+    protected requestReload(): Promise<boolean> {
+        const result = this.reloadQueue.request().then(success => success, error => {
             this.showDaihonReadError('台本を更新できません', error);
+            return false;
         });
+        this.reloadTail = result.then(() => undefined);
+        return result;
     }
 
     protected showDaihonReadError(message: string, error: unknown): void {
@@ -1368,8 +1378,8 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected async reload(): Promise<void> {
-        if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
+    protected async reload(): Promise<boolean> {
+        if (this.wordDrag) { this.reloadPendingAfterDrag = true; return false; }
         if (this.rootUri) await this.locateProject(this.rootUri);
         this.restoreSourceGroupState();
         this.playbackRowInitialized = false;
@@ -1422,7 +1432,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.renderRows([]);
             this.showEmpty();
             this.clearDaihonReadError();
-            return;
+            return true;
         }
         try {
             if (editReadError) throw editReadError;
@@ -1447,7 +1457,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.renderRows([]);
                 this.showEmpty('まだ字幕がありません。字幕を作成するとここに表示されます');
                 this.clearDaihonReadError();
-                return;
+                return true;
             }
             this.missingCaptionsUri = undefined;
             const { source: captionsSource, parsed, root: captionsRoot } = captionsRead;
@@ -1504,17 +1514,19 @@ export class AkariDaihonWidget extends BaseWidget {
             this.refreshDockLook();
             this.clearDaihonReadError();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
+            return true;
         } catch (error) {
             this.captionRecordings = new Map();
-            if (isMissingDaihonFile(error)) {
-                this.missingCaptionsUri = undefined;
+            const missing = isMissingDaihonFile(error);
+            this.missingCaptionsUri = undefined;
+            if (missing) {
                 this.renderRows([]);
                 this.showEmpty();
                 this.clearDaihonReadError();
             } else {
-                this.missingCaptionsUri = undefined;
                 this.showDaihonReadError('台本を読み取れません', error);
             }
+            return missing;
         }
     }
 
@@ -6087,7 +6099,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const captionsFile = this.captionsUri;
         const captionsUri = this.captionsUri.toString();
         const projectRootUri = this.rootUri.toString();
-        const before = this.captionEditQueue.read(() => this.readText(captionsFile));
+        const before = this.captionEditQueue.readUntimed(() => this.readText(captionsFile));
         void before.catch(error => console.warn('[akari-daihon] 字幕を読み取れませんでした。', error));
         const session = new DaihonCaptionInput(row.text, value => {
             void this.captionEditQueue.write(row.id, value, async () => {
@@ -6154,58 +6166,59 @@ export class AkariDaihonWidget extends BaseWidget {
             await this.captionEditQueue.read(async () => {
                 await this.annotationsService.writeEditSnapshot({ editUri, projectRootUri,
                     captionsUri, captionsSource: source });
-                await this.reload();
             });
+            await this.requestReload();
         };
         if (decision.committed) {
             const saving = this.captionEditQueue.write(row.id, value, async attempt => {
-                const before = await state.before!.catch(() => undefined);
                 if (attempt.abandoned) return;
                 await this.setCaptionFieldsWithNotice({ captionsUri, projectRootUri, captionId: row.id, text: value },
                     () => !attempt.abandoned);
-                if (attempt.abandoned) return;
-                if (before !== undefined) {
+            }, true, async () => {
+                try {
+                    const before = await state.before!.catch(() => undefined);
+                    if (before === undefined) return;
                     const after = await this.readText(captionsFile);
-                    if (attempt.abandoned) return;
                     if (before !== after) this.historyService.push({ label: '字幕のテキストを変更',
                         undo: () => restore(before), redo: () => restore(after) });
+                } catch (error) {
+                    console.warn('[akari-daihon] 保存後の履歴を記録できませんでした。', error);
                 }
-            }, true);
+            });
             const revision = this.captionEditQueue.revisionFor(row.id);
             void saving.then(() => this.notify('字幕を更新しました。'))
                 .catch(() => undefined);
-            void this.captionEditQueue.after(async () => {
-                try { await saving; } catch { return; }
-                await this.reload();
-                if (this.captionEditQueue.clearSavedOverride(row.id, revision)) {
+            void saving.then(async () => {
+                if (await this.requestReload() && this.captionEditQueue.clearSavedOverride(row.id, revision)) {
                     this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments, this.editFps));
                 }
-            }).catch(error => this.notifyError(this.errorMessage(error)));
+            }, () => { this.reloadQueue.resume(); });
         } else {
+            let restoreSource: string | undefined;
+            let needsDraftRestore = false;
             const saving = this.captionEditQueue.write(row.id, state.original, async attempt => {
-                const before = await state.before!.catch(() => undefined);
                 if (attempt.abandoned) return;
-                if (before !== undefined) {
-                    const current = await this.readText(captionsFile);
-                    if (attempt.abandoned) return;
-                    if (current !== before) {
-                        await this.annotationsService.writeEditSnapshot({ editUri, projectRootUri,
-                            captionsUri, captionsSource: before });
-                    }
-                } else {
+                if (restoreSource !== undefined) {
+                    await this.annotationsService.writeEditSnapshot({ editUri, projectRootUri,
+                        captionsUri, captionsSource: restoreSource });
+                } else if (needsDraftRestore) {
                     await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
                         captionId: row.id, text: state.original, draft: true });
                 }
-            }, true);
+            }, true, undefined, async () => {
+                restoreSource = undefined;
+                needsDraftRestore = false;
+                const before = await state.before!.catch(() => undefined);
+                if (before === undefined) needsDraftRestore = true;
+                else if (await this.readText(captionsFile) !== before) restoreSource = before;
+            });
             const revision = this.captionEditQueue.revisionFor(row.id);
             void saving.catch(() => undefined);
-            void this.captionEditQueue.after(async () => {
-                try { await saving; } catch { return; }
-                await this.reload();
-                if (this.captionEditQueue.clearSavedOverride(row.id, revision)) {
+            void saving.then(async () => {
+                if (await this.requestReload() && this.captionEditQueue.clearSavedOverride(row.id, revision)) {
                     this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments, this.editFps));
                 }
-            }).catch(error => this.notifyError(this.errorMessage(error)));
+            }, () => { this.reloadQueue.resume(); });
         }
     }
 

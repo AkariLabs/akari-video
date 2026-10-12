@@ -94,11 +94,16 @@ for (const cancel of [false, true]) {
             session: { close() {} } };
         const uri = { toString: () => 'file:///captions.json' };
         const widget = { editing: state, rows: [row], captionsUri: uri, rootUri: uri, editUri: uri,
-            captionEditQueue: { write(id, value, operation) {
-                pending.push(operation);
+            captionEditQueue: { write(id, value, operation, visible, afterWrite, beforeWrite) {
+                pending.push(async attempt => {
+                    await beforeWrite?.();
+                    await operation(attempt);
+                    if (!attempt.abandoned) await afterWrite?.();
+                });
                 return Promise.resolve();
             }, after(operation) { return operation(); }, get() { return undefined; },
             revisionFor() { return 1; }, clearSavedOverride() { return false; } },
+            reloadQueue: { resume() {} }, async requestReload() { return true; },
             elements: new Map([['c', { root: { contains: candidate => candidate === input && editorPresent } }]]),
             annotationsService: { async writeEditSnapshot() { source = '元'; writes++; } },
             async readText() { return source; }, async reload() {},
@@ -141,3 +146,22 @@ for (const cancel of [false, true]) {
         assert.equal(notices, cancel ? 0 : 1);
     });
 }
+
+test('再読込が失敗しても確定した行の上書きを外さない', async () => {
+    const finishEdit = finishMethod();
+    const row = { id: 'c', text: '元' };
+    const state = { id: 'c', original: '元', input: { value: '新' }, cancelled: false,
+        lifecycle: new DaihonCaptionEditSession(), before: Promise.resolve('元'),
+        session: { close() {} } };
+    const uri = { toString: () => 'file:///captions.json' };
+    let clears = 0;
+    const widget = { editing: state, rows: [row], captionsUri: uri, rootUri: uri, editUri: uri,
+        captionEditQueue: { write() { return Promise.resolve(); }, revisionFor() { return 1; },
+            clearSavedOverride() { clears++; return true; } },
+        async requestReload() { return false; },
+        replaceRenderedRow() {}, restoreRowsFocusAfterEdit() {}, notify() {}, notifyError() {} };
+    finishEdit.call(widget, state);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(row.text, '新');
+    assert.equal(clears, 0);
+});

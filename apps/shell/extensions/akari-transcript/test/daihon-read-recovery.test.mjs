@@ -80,10 +80,14 @@ function fixture(readCaptions, readEdit = () => edit) {
   return { instance, notices, empty, waits, renders };
 }
 
+const { DaihonReloadQueue } = require('../lib/common/daihon-caption-edit-queue.js');
+
 function watchChanges(run) {
   let onChange;
   const root = uri('');
   Object.assign(run.instance, {
+    captionEditQueue: { hasOwnedCaptionChange: () => false, hasPendingVisibleWrite: () => false },
+    reloadQueue: new DaihonReloadQueue(() => run.instance.reload(), () => true),
     preferences: { get: () => undefined }, updateAttachmentModeButtons() {},
     workspaceService: { ready: Promise.resolve(), roots: Promise.resolve([{ resource: root }]) },
     locateProject() { this.editUri = editUri; this.captionsUri = captionsUri; },

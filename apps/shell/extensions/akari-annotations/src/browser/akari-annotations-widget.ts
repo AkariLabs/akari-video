@@ -8433,7 +8433,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     notification.pass,
                     notification.errors,
                     notification.findings,
-                    notification.writtenFiles
+                    notification.writtenFiles,
+                    notification.existingFindingKeys,
+                    notification.findingKeys
                 );
             }
         }));
@@ -8520,7 +8522,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         pass: boolean,
         errors: readonly string[],
         findings: readonly UiLintFinding[] = [],
-        writtenFiles?: readonly string[]
+        writtenFiles?: readonly string[],
+        existingFindingKeys: readonly string[] = [],
+        findingKeys: readonly string[] = []
     ): void {
         const lintSavedVersion = !pass ? this.pendingLintNewerVersion : undefined;
         this.pendingLintNewerVersion = undefined;
@@ -8538,7 +8542,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
-        const scope = writtenFiles === undefined ? undefined : splitLintBlame(findings, writtenFiles);
+        const scope = writtenFiles === undefined ? undefined
+            : splitLintBlame(findings, writtenFiles, existingFindingKeys, findingKeys);
         const ownErrors = scope?.own.filter(finding => finding.severity === 'error') ?? [];
         const foreignErrors = scope?.foreign.filter(finding => finding.severity === 'error') ?? [];
         if (ownErrors.length === 0 && foreignErrors.length > 0) {
