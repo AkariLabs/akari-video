@@ -3,11 +3,16 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 import ts from 'typescript';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
 import { parseLibraryDragPayload } from '../lib/browser/library-drop-model.js';
 import { buildOverlayItem, parseOverlayPlaceRequest } from '../lib/common/overlay-place.js';
 import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
 import { isScene3dPath, scene3dPlacementVars, scene3dScreenTextureVar, scene3dScreenVars,
     SCENE3D_MAX_SCREEN_BYTES } from '../lib/common/scene3d-item.js';
+
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
 
 test('3D のドラッグ payload と配置要求を検証する', () => {
     const payload = { kind: 'scene3d', category: 'scene3d', id: 'sample', key: 'scene3d/sample', title: '3D' };
@@ -27,7 +32,7 @@ test('動画のドロップは画面 var を 1 回だけ書き、画面の無い
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;
     const method = runInContext(`${code}\nHandler.prototype.applyScene3dScreen`, createContext({
-        scene3dScreenVars, scene3dScreenTextureVar, isScene3dPath,
+        t, scene3dScreenVars, scene3dScreenTextureVar, isScene3dPath,
         SCENE3D_MAX_SCREEN_BYTES, updateTreeV2Item, JSON
     }));
     const path = 'assets/scene3d/sample/fragment.html';
@@ -70,7 +75,7 @@ test('キャンバスの子の 3D 画面を 1 回の編集で更新する', asyn
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;
     const method = runInContext(`${code}\nHandler.prototype.applyScene3dScreen`, createContext({
-        scene3dScreenVars, scene3dScreenTextureVar, isScene3dPath,
+        t, scene3dScreenVars, scene3dScreenTextureVar, isScene3dPath,
         SCENE3D_MAX_SCREEN_BYTES, updateTreeV2Item, JSON
     }));
     const path = 'assets/scene3d/sample/fragment.html';

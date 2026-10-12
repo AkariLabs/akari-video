@@ -5508,16 +5508,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
         const raw = this.rawKeyframeItem(itemId);
         if (!row || !raw) return { ok: false };
-        const t = Math.max(0, Math.min(raw.duration, Math.round((this.playheadT - row.at) * this.fps)));
+        const frame = Math.max(0, Math.min(raw.duration, Math.round((this.playheadT - row.at) * this.fps)));
         try {
             await this.commitEditMutation(t('annotations.timeline.text.addPreviewKeyframes'), doc => {
                 let next = doc;
                 for (const [index, group] of pending.groups.entries()) {
                     const hydratedPoints = index === 0 ? this.hydratedKeyframes(itemId) : undefined;
                     next = group === 'rotation3d'
-                        ? activateV2ItemRotation3dKeyframe(next, { itemId, t,
+                        ? activateV2ItemRotation3dKeyframe(next, { itemId, t: frame,
                             ...(hydratedPoints ? { hydratedPoints } : {}) })
-                        : activateV2ItemTransformKeyframe(next, { itemId, t,
+                        : activateV2ItemTransformKeyframe(next, { itemId, t: frame,
                             field: ({ position: 'x', size: 'scale', rotation: 'rotate' } as const)[group],
                             ...(hydratedPoints ? { hydratedPoints } : {}) });
                 }
