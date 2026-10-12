@@ -161,6 +161,9 @@ export function zipEntries(entries: Record<string, string>): Buffer {
     return Buffer.concat([...local, ...central, footer]);
 }
 
+/** `--version` の待ち時間。表示は先に「確認中」なので、読めないより待つ方を選ぶ。 */
+const PARTNER_VERSION_TIMEOUT_MS = 12_000;
+
 // 最新版の問い合わせは 1 時間キャッシュ。失敗しても throw せず「不明」を返す。
 const latestPartnerVersion = createLatestVersionLookup({
     fetchImpl: (url, init) => fetch(url, init)
@@ -210,7 +213,9 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                 let output = '';
                 let timedOut = false;
                 let spawnFailed = false;
-                const timeout = setTimeout(() => { timedOut = true; child.kill(); resolve(undefined); }, 4000);
+                // 全 CLI を同時に起こすので、負荷の高い起動直後は node / bun 製の CLI（opencode・Command Code）が
+                // 4 秒を超えて「—」になり、版が読めず更新ボタンも出なかった（実機 2026-10-12: 単独 1 秒・同時 3.7 秒）。
+                const timeout = setTimeout(() => { timedOut = true; child.kill(); resolve(undefined); }, PARTNER_VERSION_TIMEOUT_MS);
                 const collect = (chunk: Buffer): void => { if (output.length < 500) { output += chunk.toString('utf8'); } };
                 child.stdout.on('data', collect); child.stderr.on('data', collect);
                 child.on('error', () => { spawnFailed = true; clearTimeout(timeout); resolve(undefined); });
