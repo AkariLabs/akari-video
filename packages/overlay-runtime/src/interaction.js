@@ -4675,7 +4675,13 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       // drag moves the set. A stationary click collapses it in onClick.
       const keepSet = selectedIds.length > 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey
         && next.scopeId === scopeId && selectedIds.includes(next.selectId);
-      if (!keepSet && !selectScopedHit(hit, event)) return;
+      if (!keepSet && !selectScopedHit(hit, event)) {
+        if (floorScopeId !== null && next.selectId !== null
+          && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) {
+          window.akari.reportOverlaySelection?.(next.selectId, null);
+        }
+        return;
+      }
       if (collectiveSelection()) { beginGroupDrag(event, hit); return; }
       if (!selectedOverlay || (window.akari.capabilities?.elementSelection === true
         ? selectedId !== hit.dataset.overlayId : selectedOverlay !== hit)) return;

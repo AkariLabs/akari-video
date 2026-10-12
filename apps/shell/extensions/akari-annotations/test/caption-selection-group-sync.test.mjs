@@ -120,3 +120,20 @@ test('preview click recognizes a caption tree item in a mixed group without clea
   assert.equal(widget.multiSelection.length, 2);
   assert.deepEqual(events, []);
 });
+
+test('フォーカス中の字幕 item はプレビューから同じ字幕が返っても選択を保つ', () => {
+  const events = [];
+  const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
+  Object.assign(widget, {
+    captions: [{ id: 'a' }], multiSelection: [],
+    selection: { kind: 'item', id: 'caption-item', itemKind: 'caption' },
+    selectionModel: { selectedCaptionIds: ['a'] },
+    canHandlePlaybackTick: () => true,
+    rawKeyframeItem: () => ({ source: { kind: 'caption', id: 'a' } }),
+    applySelection() { throw new Error('字幕 item の選択が外れた'); },
+    revealPreviewSelection() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.handleCaptionSelection('/edit.json', 'a');
+  assert.equal(widget.selection.id, 'caption-item');
+});

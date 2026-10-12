@@ -59,7 +59,7 @@ import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
 import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWriteBatch,
     selectGenerationSidecarForSource, setCaptionTimingLine, setSourceSyncGroup,
-    type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
+    type ItemV2, type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { isCurrentPhotoResponse } from './inspector/photo-response-state';
 import { buildAdoptedPhotoRegion, photoAdoptionPolarity } from './inspector/photo-panel-state';
@@ -444,14 +444,18 @@ import {
     focusScopeAtBreadcrumb,
     FocusScopeState,
     initialFocusScope,
+    isPreviewSelectionEscapeEcho,
     rowsInFocusScope,
+    selectionLeavesFocus,
     timelineDoubleClickAction
 } from './focus/focus-scope';
+import { groupsWithoutKeys, type PreviewKeyframeGroup } from './focus/preview-keyframe-prompt';
 import {
     aggregateKeyframeDiamonds,
     deriveTimelineKeyframeRows,
     keyframeValueAt,
     keyframeRowPropertyOf,
+    keyframeDiamondSeekTime,
     KeyframeProperty,
     TimelineKeyframePropertyRow
 } from './timeline/timeline-keyframe-rows';
@@ -1320,6 +1324,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected timelineTreeRows: TimelineTreeRow[] = [];
     protected expandedTimelineTreeRows: TimelineTreeRow[] = [];
     protected focusScope: FocusScopeState = { rootId: null, breadcrumbs: ['全体'], span: { at: 0, duration: 0 } };
+    protected pendingPreviewKeyframes: { itemId: string; groups: PreviewKeyframeGroup[] } | undefined;
+    protected lastBlankPreviewPointerAt = 0;
+    protected lastPublishedPreviewSelectionAt = 0;
     protected lastTreeClick: { id: string; time: number; x: number; y: number } | undefined;
     protected readonly keyframeRowsByItem = new Map<string, TimelineKeyframePropertyRow[]>();
     protected readonly extraKeyframeProperties = new Map<string, Set<KeyframeProperty>>();
@@ -1677,6 +1684,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return true;
                     }
                     if (!Array.isArray(command) && command.kind === 'mixed-move') {
+                        this.setPendingPreviewKeyframes(undefined);
                         await this.commitEditMutation('複数の素材を移動', doc => {
                             if (!command.writes.length) return doc;
                             const result = resolvePreviewItemWriteBatch(JSON.stringify(doc), command.writes);
@@ -1685,6 +1693,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }, { captions: command.captions });
                         return true;
                     }
+                    this.setPendingPreviewKeyframes(undefined);
+                    const promptCommand = !Array.isArray(command) && command.kind !== 'duplicate'
+                        ? command : undefined;
+                    const promptItemId = promptCommand?.itemId;
+                    const promptItem = promptItemId && promptItemId === this.focusScope.rootId
+                        ? this.rawV2Item(promptItemId) as ItemV2 | undefined : undefined;
+                    const promptRow = promptItem
+                        ? this.expandedTimelineTreeRows.find(row => row.id === promptItemId) : undefined;
+                    const promptSeconds = promptCommand?.playheadSeconds;
+                    const promptFrame = promptItem && promptRow && typeof promptSeconds === 'number'
+                        && Number.isFinite(promptSeconds)
+                        ? Math.max(0, Math.min(promptItem.duration,
+                            Math.round(promptSeconds * this.fps) - Math.round(promptRow.at * this.fps))) : 0;
+                    const prompt = promptItem && promptCommand
+                        ? groupsWithoutKeys(promptItem, promptCommand.patch, promptFrame) : [];
                     const applyPreviewWrite = (doc: EditV2Document): EditV2Document => {
                         if (!Array.isArray(command) && command.kind === 'layer') {
                             const nested = writeNestedPreviewLayer(doc, command);
@@ -1712,6 +1735,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     } else {
                         await this.commitEditMutation('プレビューで変形を変更', doc => applyPreviewWrite(doc));
                     }
+                    if (promptItemId && prompt.length && this.focusScope.rootId === promptItemId) {
+                        this.setPendingPreviewKeyframes({ itemId: promptItemId, groups: prompt });
+                    }
                     return true;
                 }
             }));
@@ -1724,6 +1750,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         window.addEventListener('akari.preview.mixedSelected', onPreviewMixedSelected);
         this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.preview.mixedSelected', onPreviewMixedSelected)));
+        const onPreviewUserInput = (event: Event): void => {
+            if ((event as CustomEvent<{ blankPreview?: boolean }>).detail?.blankPreview) {
+                this.lastBlankPreviewPointerAt = Date.now();
+            }
+        };
+        window.addEventListener('akari.contextBar.userInput', onPreviewUserInput);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener('akari.contextBar.userInput', onPreviewUserInput)));
         this.toDispose.push(this.contextKeys.onDidChange(event => {
             if (event.affects(new Set(['akari.worldMap']))) {
                 void this.reloadWorldMap().then(() => this.renderStrip());
@@ -2373,6 +2406,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const timelineOwnsFocus = isWebviewKeydown || !!focusedElement && this.node.contains(focusedElement);
             const focusOutsideTimeline = !!focusedElement && focusedElement !== document.body
                 && !timelineOwnsFocus;
+            if (event.key === 'Escape' && this.shouldIgnorePreviewSelectionEscape?.(isWebviewKeydown, event.keyCode)) return;
             if (event.key === 'Escape' && focusOutsideTimeline) return;
             const hadMarqueeRange = event.key === 'Escape'
                 && (this.canvasRange !== undefined || this.selectionMarquee?.style.display === 'block');
@@ -2978,6 +3012,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
+        if (this.selectionKey(this.selection) !== this.selectionKey(selection)) this.setPendingPreviewKeyframes?.(undefined);
+        this.exitFocusUnlessSelected?.(selection);
         if (!this.preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
         const seekTime = selection && directSingle && notifyPreview
             ? previewSelectionSeekTime({ range: this.focusRangeFor(selection), playhead: this.playheadT,
@@ -3016,6 +3052,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
+        if (this.focusScope?.rootId) this.lastPublishedPreviewSelectionAt = Date.now();
         this.previewBagSelection = undefined;
         let target: { kind: 'cut' | 'caption'; id: string } | null = null;
         let overlayId: string | null = null;
@@ -3086,6 +3123,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (group.length > 1) window.dispatchEvent(new CustomEvent('akari.timeline.groupSelectionChanged', {
             detail: { editUri, selection: group }
         }));
+    }
+
+    protected shouldIgnorePreviewSelectionEscape(isWebviewKeydown: boolean, keyCode: number): boolean {
+        return isPreviewSelectionEscapeEcho('Escape', isWebviewKeydown, this.focusScope.rootId,
+            Date.now(), this.lastPublishedPreviewSelectionAt, keyCode);
     }
 
     protected applyPreviewMixedSelection(selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>): void {
@@ -3175,17 +3217,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected enterTreeItem(row: TimelineTreeRow): void {
-        if (timelineDoubleClickAction(row.itemKind, row.sourceKind) === 'trimmer') {
-            const index = this.cutItemIds.indexOf(row.id);
-            if (index >= 0) this.toggleTrimmerMode(index);
+        const cutIndex = this.cutItemIds.indexOf(row.id);
+        if (timelineDoubleClickAction(row.itemKind, row.sourceKind, cutIndex >= 0) === 'trimmer') {
+            this.toggleTrimmerMode(cutIndex);
             return;
         }
         this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, row.id));
     }
 
     protected applyFocusScope(scope: FocusScopeState): void {
+        if (this.focusScope.rootId !== scope.rootId) {
+            this.setPendingPreviewKeyframes(undefined);
+            this.lastBlankPreviewPointerAt = 0;
+        }
         this.focusScope = scope;
         this.dispatchPreviewEvent('akari.timeline.selectionFloor', { scopeId: scope.rootId });
+        if (scope.rootId !== null) this.lastPublishedPreviewSelectionAt = Date.now();
+        if (scope.rootId) {
+            const root = this.expandedTimelineTreeRows.find(row => row.id === scope.rootId);
+            if (root) this.applySelection(this.selectionForTreeRow(root));
+        }
         if (scope.rootId === null) {
             this.viewStart = 0;
             this.viewDuration = undefined;
@@ -3220,6 +3271,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             breadcrumbs.appendChild(button);
         });
         this.toolbar.insertBefore(breadcrumbs, this.zoomHud);
+    }
+
+    protected exitFocusUnlessSelected(selection: TimelineSelection): void {
+        const selectedId = selection?.kind === 'cut' ? this.cutItemId(selection.index)
+            : selection?.kind === 'caption'
+                ? this.expandedTimelineTreeRows.find(row => this.rawKeyframeItem(row.id)?.source?.id === selection.id)?.id
+                    ?? selection.id
+                : selection && 'id' in selection ? selection.id : null;
+        if (selectionLeavesFocus(this.expandedTimelineTreeRows, this.focusScope.rootId, selectedId ?? null)) {
+            this.applyFocusScope(initialFocusScope(this.expandedTimelineTreeRows));
+        }
     }
 
     /** クリップ dblclick によるソーストリマーモードの開始/終了トグル（R6 契約 §1 裁定 3）。 */
@@ -5299,14 +5361,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.canHandlePlaybackTick(editUri)) {
             return;
         }
+        const focusedRootId = this.focusScope.rootId;
         if (overlayId === null) {
+            if (this.focusScope.rootId !== null && Date.now() - this.lastBlankPreviewPointerAt < 750) {
+                this.applySelection(undefined, false);
+                return;
+            }
+            if (this.focusScope.rootId !== null) {
+                if (this.selection) this.publishPrimaryPreviewSelection(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'overlay' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('overlay:')))) {
                 this.applySelection(undefined, false);
             }
             return;
         }
-        let treeRow = this.timelineTreeRows.find(row => row.id === overlayId);
+        let treeRow = (this.focusScope.rootId === null ? this.timelineTreeRows : this.expandedTimelineTreeRows)
+            .find(row => row.id === overlayId);
         if (!treeRow) {
             const scopedRows = this.focusScope.rootId === null ? this.expandedTimelineTreeRows
                 : rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope);
@@ -5321,13 +5393,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         if (treeRow) {
+            const outsideFocus = this.focusScope.rootId !== null
+                && selectionLeavesFocus(this.expandedTimelineTreeRows, this.focusScope.rootId, treeRow.id);
             this.applySelection({
                 kind: 'item', id: treeRow.id, itemKind: treeRow.itemKind,
                 parentId: treeRow.parentId, trackId: treeRow.trackId
-            }, false);
+            }, outsideFocus);
             this.revealPreviewSelection();
         } else if (this.overlays.some(overlay => overlay.id === overlayId)) {
             this.applySelection({ kind: 'overlay', id: overlayId }, false);
+            if (focusedRootId !== null
+                && selectionLeavesFocus(this.expandedTimelineTreeRows, focusedRootId, overlayId)) {
+                this.publishPrimaryPreviewSelection({ kind: 'overlay', id: overlayId });
+            }
             this.revealPreviewSelection();
         }
     }
@@ -5409,7 +5487,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const caption = selectedCaptionId ? this.captions.find(item => item.id === selectedCaptionId) : undefined;
         return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
             playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path,
+            pendingKeyframeGroups: selectedId === this.pendingPreviewKeyframes?.itemId
+                ? this.pendingPreviewKeyframes.groups : [],
             caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {} } : undefined };
+    }
+
+    protected setPendingPreviewKeyframes(value: { itemId: string; groups: PreviewKeyframeGroup[] } | undefined): void {
+        if (!this.pendingPreviewKeyframes && !value) return;
+        this.pendingPreviewKeyframes = value;
+        window.dispatchEvent(new CustomEvent('akari.contextBar.refresh'));
+    }
+
+    async commitPendingPreviewKeyframes(itemId: string): Promise<{ ok: boolean; message?: string }> {
+        const pending = this.pendingPreviewKeyframes;
+        if (!pending || pending.itemId !== itemId || this.focusScope.rootId !== itemId) return { ok: false };
+        const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
+        const raw = this.rawKeyframeItem(itemId);
+        if (!row || !raw) return { ok: false };
+        const t = Math.max(0, Math.min(raw.duration, Math.round((this.playheadT - row.at) * this.fps)));
+        try {
+            await this.commitEditMutation('プレビューの変形にキーフレームを打つ', doc => {
+                let next = doc;
+                for (const [index, group] of pending.groups.entries()) {
+                    const hydratedPoints = index === 0 ? this.hydratedKeyframes(itemId) : undefined;
+                    next = group === 'rotation3d'
+                        ? activateV2ItemRotation3dKeyframe(next, { itemId, t,
+                            ...(hydratedPoints ? { hydratedPoints } : {}) })
+                        : activateV2ItemTransformKeyframe(next, { itemId, t,
+                            field: ({ position: 'x', size: 'scale', rotation: 'rotate' } as const)[group],
+                            ...(hydratedPoints ? { hydratedPoints } : {}) });
+                }
+                return next;
+            });
+            this.setPendingPreviewKeyframes(undefined);
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: this.errorMessage(error) };
+        }
     }
 
     async applyContextCaptionPreset(id: string, presetId: string, targetIds: readonly string[]): Promise<{ ok: boolean }> {
@@ -5485,6 +5599,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (layerId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'layer' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('layer:')))) {
                 this.applySelection(undefined, false);
@@ -5508,6 +5627,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (cutId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.selection?.kind === 'cut' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('cut:')))) {
                 this.applySelection(undefined, false);
@@ -5527,6 +5651,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (captionId === null) {
+            if (this.focusScope?.rootId !== null && this.focusScope?.rootId !== undefined
+                && Date.now() - this.lastBlankPreviewPointerAt >= 750) {
+                if (this.selection) this.publishPrimaryPreviewSelection?.(this.selection);
+                return;
+            }
             if (this.multiSelection.some(item => item.kind === 'caption'
                 || this.selectionRenderKeys(item).some(key => key.startsWith('caption:')))
                 || this.selection?.kind === 'caption' || (this.selection?.kind === 'item'
@@ -5550,7 +5679,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     raw?.source?.kind === 'caption' ? raw.source.id : undefined);
             };
             const inGroup = this.multiSelection.some(item => selectedCaptionId(item) === captionId);
-            if (!inGroup && (this.selection?.kind !== 'caption' || this.selection.id !== captionId)) {
+            const currentCaptionId = this.selection ? selectedCaptionId(this.selection) : undefined;
+            if (!inGroup && currentCaptionId !== captionId) {
                 this.applySelection({ kind: 'caption', id: captionId }, false);
                 this.selectionModel.selectedCaptionIds = [captionId];
                 this.applyCaptionStateClasses();
@@ -13078,6 +13208,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (created) for (const diamond of propertyRow.diamonds) {
                 const marker = document.createElement('button');
+                let dragged = false;
                 marker.type = 'button';
                 marker.textContent = '◆';
                 marker.dataset.akariKeyframeT = String(diamond.t);
@@ -13096,7 +13227,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 marker.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.applySelection(this.selectionForTreeRow(row), true, true);
+                    if (dragged) { dragged = false; return; }
+                    this.applySelection(this.selectionForTreeRow(row), true, false);
+                    this.seekTimelineTransport(keyframeDiamondSeekTime(row.at, diamond.t, this.fps));
                     const current = this.selectionModel.keyframeSelection;
                     const times = event.shiftKey && current?.itemId === row.id
                         && current.property === propertyRow.property
@@ -13111,6 +13244,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 marker.addEventListener('pointerdown', event => {
                     if (event.button !== 0) return;
+                    dragged = false;
                     event.stopPropagation();
                     const startX = event.clientX;
                     marker.setPointerCapture(event.pointerId);
@@ -13118,6 +13252,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         marker.removeEventListener('pointerup', finish);
                         marker.removeEventListener('pointercancel', finish);
                         if (Math.abs(up.clientX - startX) < 2) return;
+                        dragged = true;
                         const delta = Math.round((up.clientX - startX) / Math.max(1, this.strip.clientWidth)
                             * this.visibleDuration() * this.fps);
                         const toT = Math.max(0, Math.min(durationFrames, diamond.t + delta));
@@ -19724,7 +19859,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (event.clientX < rect.left || event.clientX > rect.right) return;
         this.hoverSeek.style.display = 'none';
         const time = this.timeAtClientX(event.clientX);
-        this.applySelection(undefined);
+        if (!this.focusScope?.rootId || !(event.target instanceof Node && this.rulerBar.contains(event.target))) {
+            this.applySelection(undefined);
+        }
         this.selectTimeAtClientX(event.clientX, time);
     }
 
@@ -19904,6 +20041,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     // 丸められ 0 秒などへ誤着地しうる（バグ⑳）。タイムライン widget 自身が出力秒を握っている
     // クリック/ドラッグ/矢印キー操作は往復変換を経由せずここで直接その出力秒を渡す
     protected async requestSeek(time: number, options?: { domain?: 'source' | 'output' }): Promise<void> {
+        this.setPendingPreviewKeyframes(undefined);
         if (!this.location?.editUri) {
             this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。edit.json が見つかりません。`;
             return;

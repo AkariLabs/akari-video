@@ -18,6 +18,10 @@ export function keyframeRowPropertyOf(property: KeyframeSeatProperty): KeyframeP
     return property as KeyframeProperty;
 }
 
+export function keyframeDiamondSeekTime(itemAt: number, frame: number, fps: number): number {
+    return itemAt + frame / fps;
+}
+
 export interface TimelinePropertyDiamond {
     t: number;
     endpoint: boolean;

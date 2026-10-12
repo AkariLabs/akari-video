@@ -4763,7 +4763,12 @@
           { deep: Boolean(event.metaKey || event.ctrlKey) }
         );
         const keepSet = selectedIds.length > 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey && next.scopeId === scopeId && selectedIds.includes(next.selectId);
-        if (!keepSet && !selectScopedHit(hit, event)) return;
+        if (!keepSet && !selectScopedHit(hit, event)) {
+          if (floorScopeId !== null && next.selectId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) {
+            window.akari.reportOverlaySelection?.(next.selectId, null);
+          }
+          return;
+        }
         if (collectiveSelection()) {
           beginGroupDrag(event, hit);
           return;
