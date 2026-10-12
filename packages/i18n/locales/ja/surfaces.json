@@ -2224,5 +2224,9 @@
   "surfaces.tools.voice.name.label": "話者を分ける（声のエンジン）",
   "surfaces.tools.voice.provider.label": "k2-fsa（sherpa-onnx）",
   "surfaces.tools.voice.purpose.message": "素材の話者を分けて、誰の声かを提案するのに使います。声はこのパソコンの中だけで処理します。",
-  "surfaces.tools.voice.size.label": "約 160MB"
+  "surfaces.tools.voice.size.label": "約 160MB",
+  "surfaces.projects.contextMenuOpenProject.action": "プロジェクトを開く",
+  "surfaces.projects.contextMenuCopyPath.action": "パスをコピー",
+  "surfaces.projects.pathCopied.message": "プロジェクトのパスをコピーしました。",
+  "surfaces.projects.couldNotCopyPath.message": "パスをコピーできませんでした。"
 }

@@ -85,6 +85,8 @@ import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels'
 import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
 import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
+import { projectContextMenuItems } from './home/project-context-menu';
+import { openAkariContextMenu } from 'akari-project/lib/browser/akari-context-menu';
 import { resolveListChannel } from './home/project-list-channel';
 import { projectHomeCss } from './home/project-home-style';
 import { animateProjectOpen } from './home/open-motion';
@@ -724,7 +726,7 @@ export class AkariHomeWidget extends ReactWidget {
      * （`openFirstRunSetupDialog` と同じ流儀）。一覧・新規作成・開くの実処理はすべて props 経由で
      * 既存実装（`buildProjectRows` / `startNewProject` / `openCreatorRootProject`）へ委ねる。
      */
-    openProjectLauncher = async (): Promise<void> => {
+    openProjectLauncher = async (options?: { channel?: string }): Promise<void> => {
         if (this.projectLauncherDialog && this.projectLauncherDialogClosed) {
             this.projectLauncherDialog.activate();
             return this.projectLauncherDialogClosed;
@@ -743,6 +745,8 @@ export class AkariHomeWidget extends ReactWidget {
             rows: this.buildProjectRows(),
             onStartNewProject: this.startNewProject,
             onOpenProject: this.openCreatorRootProject,
+            onProjectContextMenu: (row, x, y) => this.openProjectContextMenu(row, x, y, () => dialog.close()),
+            ...(options?.channel ? { initialChannel: options.channel } : {}),
             loadThumbnails: this.loadProjectCardThumbnails,
             onRefresh: async () => {
                 await this.loadCreatorRootProjects();
@@ -2210,7 +2214,20 @@ export class AkariHomeWidget extends ReactWidget {
             onNewStandalone={() => void this.chooseStandaloneFolder()}
             onOpenChannel={() => void this.shell.revealWidget(RAIL_CHANNEL_WIDGET_ID)}
             onOpen={(row, rect) => this.openCreatorRootProject(row.uri, rect)}
+            onContextMenu={(row, x, y) => this.openProjectContextMenu(row, x, y)}
             readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />;
+    }
+
+    /** プロジェクトの右クリック: 開く・パスをコピー（オーナー要望 2026-10-12）。afterOpen は一覧のポップアップを閉じる。 */
+    protected openProjectContextMenu(row: ProjectListRow, x: number, y: number, afterOpen?: () => void): void {
+        openAkariContextMenu({ x, y, items: projectContextMenuItems(row), onSelect: id => {
+            if (id === 'open') { this.openCreatorRootProject(row.uri); afterOpen?.(); return; }
+            if (id === 'copy-path') {
+                void navigator.clipboard.writeText(row.uri.path.fsPath())
+                    .then(() => this.messages.info(t('surfaces.projects.pathCopied.message')))
+                    .catch(() => this.messages.warn(t('surfaces.projects.couldNotCopyPath.message')));
+            }
+        } });
     }
 
     protected async runAvailableCommand(id: string, ...args: unknown[]): Promise<void> {
@@ -2396,6 +2413,7 @@ export class AkariHomeWidget extends ReactWidget {
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>{t('surfaces.home.projectHomeGoProjectList.button')}</button></div>
                 <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
                     onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
+                    onContextMenu={(item, x, y) => this.openProjectContextMenu(item, x, y)}
                     readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>}
         </div>;
     }

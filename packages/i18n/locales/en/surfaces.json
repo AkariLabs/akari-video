@@ -2224,5 +2224,9 @@
   "surfaces.tools.voice.name.label": "Speaker separation (voice engine)",
   "surfaces.tools.voice.provider.label": "k2-fsa (sherpa-onnx)",
   "surfaces.tools.voice.purpose.message": "Separates speakers in footage and suggests who spoke. Voices are processed only on this computer.",
-  "surfaces.tools.voice.size.label": "About 160 MB"
+  "surfaces.tools.voice.size.label": "About 160 MB",
+  "surfaces.projects.contextMenuOpenProject.action": "Open project",
+  "surfaces.projects.contextMenuCopyPath.action": "Copy path",
+  "surfaces.projects.pathCopied.message": "Copied the project path.",
+  "surfaces.projects.couldNotCopyPath.message": "Could not copy the path."
 }

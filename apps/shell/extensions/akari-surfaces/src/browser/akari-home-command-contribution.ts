@@ -16,7 +16,6 @@ import {
 } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { AkariHomeWidget } from './akari-home-widget';
-import { AkariProjectListWidget } from './akari-project-list-widget';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { AKARI_COMMANDS } from 'akari-shell-strip/lib/common/rail-ids';
 import { OpenOriginRect } from './home/open-motion';
@@ -100,9 +99,9 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 const home = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
                 home.setListChannelOverride(request?.channel);
                 if (this.scope.scope === 'channel') { await this.revealHome(); return; }
-                const list = await this.widgetManager.getOrCreateWidget<AkariProjectListWidget>(AkariProjectListWidget.ID);
-                if (!list.isAttached) this.shell.addWidget(list, { area: 'main' });
-                await this.shell.activateWidget(list.id);
+                // プロジェクトの中では一覧を中央のタブにせず、専用のポップアップで出す（135dc86ea でタブに
+                // 変わったのを戻す。オーナー指摘 2026-10-12「タブにしないで、ポップアップがよかった」）。
+                await home.openProjectLauncher(request?.channel ? { channel: request.channel } : undefined);
             }
         });
         registry.registerCommand({ id: AKARI_COMMANDS.closeProject, label: t('surfaces.home.registerCommandsCloseProject.label') }, {
