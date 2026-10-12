@@ -36,10 +36,12 @@ test('カタログの順序と対象ごとの押下可否', () => {
   for (const target of ['empty-frame', 'still']) {
     assert.equal(describeAiTiles(catalog, target)[0].tiles[0].enabled, true);
   }
-  for (const target of ['video', 'generated-video']) {
-    assert.deepEqual(describeAiTiles(catalog, target)[0].tiles[0], {
-      id: 'still', label: '静止画', image: 'still', enabled: false, reason: '空の枠か静止画で使えます'
-    });
+  assert.deepEqual(describeAiTiles(catalog, 'generated-video')[0].tiles[0], {
+    id: 'still', label: '静止画', image: 'still', enabled: false, reason: '空の枠か静止画で使えます'
+  });
+  // ふつうの動画・画像には「作る」を出さない（仮枠のときだけ）
+  for (const target of ['video', 'image']) {
+    assert.equal(describeAiTiles(catalog, target).some(group => group.group === 'make'), false);
   }
 });
 

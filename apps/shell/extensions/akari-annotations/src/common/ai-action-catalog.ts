@@ -47,7 +47,9 @@ export function aiActionPlacement(action: AiAction, target: AiTargetKind): AiAct
 export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngines?: readonly NarrationEngine[]): AiAction[] {
     return [{
         id: 'still', group: 'make', label: t('annotationscommon.aiActionCatalog.still.label'), image: 'still',
-        visibleFor: ['empty-frame', 'still', 'video', 'image', 'generated-video', 'gap'],
+        // 「作る」は仮枠（と仮枠から作った生成物・空き）のときだけ出す。ふつうの画像・動画のクリップで
+        // 「静止画 / 動画を作る」が出ても意味が分からない（オーナー裁定 2026-10-12）。
+        visibleFor: ['empty-frame', 'still', 'generated-video', 'gap'],
         accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: t('annotationscommon.aiActionCatalog.still.disabledReason'), output: 'image', placement: 'replace',
         routes: [{ id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
@@ -56,7 +58,7 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
             { id: 'fal', modelId: 'fal:gpt-image-2.5-flare', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }]
     }, {
         id: 'video', group: 'make', label: t('annotationscommon.aiActionCatalog.video.label'), image: 'video',
-        visibleFor: ['still', 'empty-frame', 'video', 'image', 'generated-video', 'gap', 'material-image'],
+        visibleFor: ['still', 'empty-frame', 'generated-video', 'gap', 'material-image'],
         accepts: ['still', 'empty-frame', 'generated-video', 'gap', 'material-image'],
         reasonWhenDisabled: t('annotationscommon.aiActionCatalog.video.disabledReason'), output: 'video', placement: 'replace',
         placementFor: { 'material-image': 'new-material' },
