@@ -58,6 +58,11 @@ export function windowButtons(os: 'mac' | 'windows' | 'other', maximized: boolea
     return os === 'windows' ? [t('surfaces.titleBar.windowButtonsMinimize.label'), maximized ? t('surfaces.titleBar.windowButtonsUndo.label') : t('surfaces.titleBar.windowButtonsMaximize.label'), t('surfaces.titleBar.windowButtonsClose.label')] : [];
 }
 
+/** ファイル・編集・ヘルプを帯に描くか。Mac は OS のメニューバーにあるので描かない。 */
+export function showsMenuInTitleBar(os: 'mac' | 'windows' | 'other'): boolean {
+    return os !== 'mac';
+}
+
 export function titleBarGeometry(os: 'mac' | 'windows' | 'other', fullScreen: boolean): { height: number; leadingSpace: number; opacity: number } {
     return os === 'mac'
         ? { height: fullScreen ? 30 : 40, leadingSpace: fullScreen ? 0 : 78, opacity: fullScreen ? 0.88 : 1 }

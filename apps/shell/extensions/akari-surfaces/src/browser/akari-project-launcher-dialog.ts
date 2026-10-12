@@ -32,6 +32,10 @@ export interface AkariProjectLauncherDialogProps extends DialogProps {
      * `AkariProjectService.resolveProjectCardThumbnails` へ委ね、ここは受け取って貼るだけ。
      */
     loadThumbnails: (uri: URI) => Promise<string[]>;
+    /** カード・行の右クリック（パスをコピー・開く）。 */
+    onProjectContextMenu?: (row: ProjectListRow, x: number, y: number) => void;
+    /** 最初に選んでおくチャンネルの絞り込み（チャンネルの画面から開いたとき）。 */
+    initialChannel?: string;
 }
 
 // カード格子。`min(目標幅, calc(33.333% - gap 調整))` は素材／カタログ面
@@ -64,6 +68,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
 
     constructor(protected readonly props: AkariProjectLauncherDialogProps) {
         super(props);
+        this.channel = props.initialChannel;
         this.buildDom();
     }
 
@@ -284,6 +289,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         project.append(thumbnail, name);
         button.append(project, channel, date, status);
         button.addEventListener('click', () => { this.props.onOpenProject(row.uri, button.getBoundingClientRect()); this.close(); });
+        this.listenProjectContextMenu(card, row);
         card.appendChild(button);
         return card;
     }
@@ -423,8 +429,17 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
                 this.close();
             });
         }
+        this.listenProjectContextMenu(card, row);
         card.appendChild(button);
         return card;
+    }
+
+    protected listenProjectContextMenu(card: HTMLElement, row: ProjectListRow): void {
+        if (!this.props.onProjectContextMenu) return;
+        card.addEventListener('contextmenu', event => {
+            event.preventDefault();
+            this.props.onProjectContextMenu?.(row, event.clientX, event.clientY);
+        });
     }
 
     /**
