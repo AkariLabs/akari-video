@@ -7765,6 +7765,7 @@ export function previewBootstrapScript(): string {
                 const textStyleActive = Boolean(caption.textStyle
                     && Object.keys(caption.textStyle).length > 0);
                 const hasEmphasis = caption.words.some(word => findMatchingEmphasis(word));
+                const hasPresetEmphasis = caption.words.some(word => Boolean(findMatchingEmphasis(word)?._presetStyleVars));
                 // reveal（行単位の順送り）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
                 // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
                 const reveal = style === 'reveal'
@@ -7855,7 +7856,7 @@ export function previewBootstrapScript(): string {
                     + revealWordCss
                     + revealCss
                     + emphasisCss
-                    + (hasEmphasis ? presetCaptionTokenCss : '')
+                    + (hasPresetEmphasis ? presetCaptionTokenCss : '')
                     + captionTextAnimationKeyframesCss(captionAnimation)
                     + captionContextCss(caption, blockMode)
                     + '</style><div class="akari-caption__plate"'

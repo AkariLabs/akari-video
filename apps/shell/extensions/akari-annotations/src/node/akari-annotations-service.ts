@@ -2345,7 +2345,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const used = new Set(existing.flatMap(record => typeof record.id === 'string' ? [record.id] : []));
         const ids: string[] = [];
         const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
-            (left.src ?? null) === (right.src ?? null) && typeof left.t_start === 'number' && typeof left.t_end === 'number'
+            (left.src === undefined || left.src === right.src)
+            && typeof left.t_start === 'number' && typeof left.t_end === 'number'
             && Math.abs(left.t_start - right.t_start) <= 1e-6 && Math.abs(left.t_end - right.t_end) <= 1e-6
             && left.word === right.word;
         for (const upsert of request.upserts) {

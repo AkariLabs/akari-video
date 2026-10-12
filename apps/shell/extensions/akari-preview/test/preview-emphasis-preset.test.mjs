@@ -42,3 +42,14 @@ test('通常プレビューは解決済みのネオンを語に当て、未知�
     fallback.tick(0.5);
     assert.match(fallback.plate.innerHTML, /akari-caption__tok--color-accent/u);
 });
+
+test('プリセットのない強調だけでは語プリセット CSS を追加しない', () => {
+    const cue = { id: 'c-0001', start: 0, end: 2, text: '最高', style: 'pop',
+        words: [{ text: '最高', start: 0, end: 1 }] };
+    const [word] = normalizePreviewEmphasisWords([{ ...emphasis, style_preset: undefined }], output);
+    assert.equal(word._presetStyleVars, undefined);
+    const view = harness({ cues: [cue], emphasisWords: [word], output });
+    view.tick(0.5);
+    assert.match(view.plate.innerHTML, /akari-caption__tok--color-accent/u);
+    assert.doesNotMatch(view.plate.innerHTML, /\.akari-caption__tok--preset\{/u);
+});

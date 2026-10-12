@@ -15,3 +15,25 @@ test('台本の強調 upsert は素材の目印を保持する', () => {
   assert.deepEqual(planEmphasisUpserts([{ src: 'camera-a', t_start: 1, t_end: 2, word: '語' }], 'neon'),
     [{ src: 'camera-a', t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon' }]);
 });
+
+test('素材付きの選択範囲は素材のない旧強調も覆う', () => {
+  const existing = [
+    { id: 'e-0001', t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon' },
+    { id: 'e-0002', src: 'camera-b', t_start: 1, t_end: 2, word: '語', emotion: 'neutral' }
+  ];
+  assert.deepEqual(emphasisIdsCovering(existing, [{ src: 'camera-a', t_start: 1.5, t_end: 2.5 }]), ['e-0001']);
+});
+
+test('別の語プリセットを当てるとき旧強調が削除対象に入る', () => {
+  const existing = [{ id: 'e-0001', t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon' }];
+  const spans = [{ src: 'camera-a', t_start: 1, t_end: 2, word: '語' }];
+  assert.deepEqual(emphasisIdsCovering(existing, spans), ['e-0001']);
+  assert.deepEqual(planEmphasisUpserts(spans, 'bold'),
+    [{ src: 'camera-a', t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'bold' }]);
+});
+
+test('強調を外すとき素材のない旧強調が削除対象に入る', () => {
+  const source = '{"emphasis_words":[{"id":"e-0001","t_start":1,"t_end":2,"word":"語","emotion":"neutral"}]}';
+  assert.deepEqual(emphasisIdsCovering(readEmphasisWords(source),
+    [{ src: 'camera-a', t_start: 1, t_end: 2 }]), ['e-0001']);
+});
