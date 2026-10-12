@@ -16,6 +16,7 @@ import { groupChatLines } from './chat-model';
 import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
     guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
 import { EXPORT_ONBOARDING_TARGET } from 'akari-shell-strip/lib/common/rail-ids';
+import { isGuidePartnerStopError } from './guide-switch-error';
 
 interface CoachSpec {
     key?: string;
@@ -76,7 +77,10 @@ export class OnboardingController {
     protected timers: number[] = [];
     protected exportPoll?: number;
     protected exportFinishing = false;
+    protected exportFailed = false;
+    protected exportSubmissionFailureVersion?: number;
     protected exportInertObserver?: MutationObserver;
+    protected materialPreviewClickAt = 0;
     protected placeFrame?: number;
     protected lastRects = '';
     protected fogFrom: DOMRect[] = [];
@@ -121,7 +125,10 @@ export class OnboardingController {
         protected readonly switchWarning: () => string | undefined,
         protected readonly ensureLayout: (targets: string[]) => Promise<void>,
         protected readonly readLayout: () => GuideLayout,
-        protected readonly restoreLayout: (layout: GuideLayout) => void
+        protected readonly restoreLayout: (layout: GuideLayout) => void,
+        protected readonly exportPhase: () => string,
+        protected readonly exportFailureVersion: () => number,
+        protected readonly resetExport: () => void
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -166,6 +173,7 @@ export class OnboardingController {
             document.addEventListener(type, this.guardPointer, true);
         window.addEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.addEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
+        window.addEventListener('akari.export.phaseChanged', this.handleExportPhase as EventListener);
         if (this.state.projectUri) {
             try {
                 const prepared = await this.service.prepare();
@@ -187,6 +195,7 @@ export class OnboardingController {
         if (this.state.step === 'prompt' && this.state.sub === 0) this.startPromptTypewriter();
         if (this.state.step === 'work') void this.startWork();
         if (this.state.step === 'export' && this.state.sub === 2) this.beginExportPoll();
+        this.updateExportPhase(this.exportPhase());
     }
 
     protected closeVisual(): void {
@@ -207,6 +216,9 @@ export class OnboardingController {
         if (this.exportPoll) window.clearInterval(this.exportPoll);
         this.exportInertObserver?.disconnect();
         this.exportInertObserver = undefined;
+        this.exportFailed = false;
+        this.exportSubmissionFailureVersion = undefined;
+        this.materialPreviewClickAt = 0;
         if (this.placeFrame) cancelAnimationFrame(this.placeFrame);
         if (this.fogFrame) cancelAnimationFrame(this.fogFrame);
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
@@ -226,6 +238,7 @@ export class OnboardingController {
         document.removeEventListener('drop', this.handleDrop, true);
         document.removeEventListener('dragover', this.handleDragOver, true);
         window.removeEventListener('keydown', this.handleKeyDown, true);
+        window.removeEventListener('akari.export.phaseChanged', this.handleExportPhase as EventListener);
         for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
             document.removeEventListener(type, this.guardPointer, true);
         window.removeEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
@@ -338,8 +351,16 @@ export class OnboardingController {
         await this.service.save(next);
         if (!this.root) return;
         this.state = next;
+        if (this.state.step === 'export') {
+            if (sub !== 2) {
+                this.exportFailed = false;
+                this.exportSubmissionFailureVersion = this.exportFailureVersion();
+            }
+        }
         this.render();
         this.enterStep();
+        if (this.state.step === 'export' && sub === 2)
+            this.updateExportPhase(this.exportPhase());
     }
 
     protected enterStep(): void {
@@ -348,6 +369,7 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        this.materialPreviewClickAt = 0;
         void this.ensureStepLayout(serial);
         this.partnerRevealAttempts = 0;
         if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
@@ -363,20 +385,29 @@ export class OnboardingController {
     protected async ensureStepLayout(serial: number, attempt = 0): Promise<void> {
         const spec = this.coach();
         const targets = [...(spec?.holes ?? []), ...(spec?.clear ?? []), ...(spec?.rings ?? [])];
-        if (!guideRequiredPanels(targets).length) return;
-        await this.ensureLayout(targets);
+        const materialPreview = this.state.step === 'matpreview' && this.state.sub === 1;
+        if (!guideRequiredPanels(targets).length && !materialPreview) return;
+        await this.ensureLayout(materialPreview ? [...targets, 'sample-card'] : targets);
         if (!this.root || serial !== this.stepSerial) return;
+        if (materialPreview && !document.querySelector('[data-akari-onboarding-target="material-preview"]')) {
+            const sampleCard = document.querySelector<HTMLElement>('[data-akari-onboarding-target="sample-card"]');
+            const openCard = sampleCard?.querySelector<HTMLElement>('[data-akari-ui^="asset:"]');
+            if (openCard?.getClientRects().length && Date.now() - this.materialPreviewClickAt >= 3000) {
+                this.materialPreviewClickAt = Date.now();
+                openCard.click();
+            }
+        }
         this.placeCoach();
-        const missing = targets.filter(target => ['assets', 'sample-card', 'export-result', 'timeline'].includes(target))
+        const missing = targets.filter(target => ['assets', 'sample-card', 'export-result', 'timeline', 'material-preview'].includes(target))
             .some(target => {
                 const element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${target}"]`);
                 const rect = element?.getBoundingClientRect();
                 return !rect || rect.width <= 0 || rect.height <= 0 || getComputedStyle(element!).visibility === 'hidden';
             });
-        if (missing && attempt < 3) {
+        if (missing && attempt < (materialPreview ? 30 : 3)) {
             this.timers.push(window.setTimeout(() => {
                 if (this.root && serial === this.stepSerial) void this.ensureStepLayout(serial, attempt + 1);
-            }, 200 + attempt * 350));
+            }, materialPreview ? 1000 : 200 + attempt * 350));
         }
     }
 
@@ -599,7 +630,14 @@ export class OnboardingController {
                 ? { ...DAIHON_GUIDE_COPY[0], clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left' }
                 : sub === 1 ? { ...DAIHON_GUIDE_COPY[1], clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top' }
                 : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
-            case 'export': return ([
+            case 'export': return this.exportFailed && sub === 2
+                ? { title: t('surfaces.onboarding.coachExportFailed.title'), clear: ['export-dialog'],
+                    body: t('surfaces.onboarding.coachExportFailed.description'),
+                    buttons: [
+                        [t('surfaces.onboarding.coachExportRetry.label'), 'export-retry', true],
+                        [t('surfaces.onboarding.coachExportSkip.label'), 'export-skip', false]
+                    ] }
+                : ([
                 { title: t('surfaces.onboarding.coachExportSelectExportLeftColumn.title'), clear: [EXPORT_ONBOARDING_TARGET], rings: [EXPORT_ONBOARDING_TARGET], bounce: true, body: t('surfaces.onboarding.coachClickExportLeftColumnPressEditData.description') },
                 { title: t('surfaces.onboarding.coachExportStandard.title'), clear: ['export-dialog'], rings: ['export-submit'], bounce: true, place: 'top', body: t('surfaces.onboarding.coachChangeImageQualitySaveDestination.description') },
                 { title: t('surfaces.onboarding.coachExporting.title'), noDim: true, rings: ['export-progress'], place: 'bottom', body: t('surfaces.onboarding.coachProgressDisplayedBottomRightOkayContinueWorking.description') },
@@ -692,7 +730,7 @@ export class OnboardingController {
             }
         } else exampleHost.replaceChildren();
         const coachHost = this.root.querySelector<HTMLElement>('.ao-coach-host')!;
-        const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}` : '';
+        const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}:${this.exportFailed ? 'failed' : ''}` : '';
         if (key !== this.coachKey) {
             if (this.bounceTimer) window.clearTimeout(this.bounceTimer);
             this.bounceTimer = undefined;
@@ -736,7 +774,8 @@ export class OnboardingController {
         const choices = spec.choices?.map(([answer, label, note]) => `<button data-ao="answer" data-answer="${answer}"><span class="ao-choice-icon">${icon[answer]}</span><span>${label}${note ? `<small>${note}</small>` : ''}</span></button>`).join('') ?? '';
         const count = onboardingCount(this.state.step);
         const eyebrow = this.state.step.startsWith('tour') ? t('surfaces.onboarding.coachMarkupGetKnowScreen.label') : count ? `STEP ${count.current} / ${count.total}` : '';
-        const back = previousGuidePosition(this.state) && !spec.minimal ? t('surfaces.onboarding.coachMarkupBack.label') : '';
+        const back = previousGuidePosition(this.state) && !spec.minimal && !(this.state.step === 'export' && this.state.sub === 2 && this.exportFailed)
+            ? t('surfaces.onboarding.coachMarkupBack.label') : '';
         return `<div class="ao-coach ${spec.wide ? 'wide' : ''} ${spec.narrow ? 'narrow' : ''} ${spec.minimal ? 'minimal' : ''}" role="dialog" aria-live="polite">${eyebrow && !spec.minimal ? `<div class="ao-count">${eyebrow}</div>` : ''}<h3>${spec.title}</h3><div class="ao-body">${spec.body}</div>${choices ? `<div class="ao-choices">${choices}</div>` : ''}${spec.link ? `<button class="ao-link" data-ao="${spec.link[0]}">${spec.link[1]}</button>` : ''}${back || actions ? `<div class="ao-actions">${back}${actions}</div>` : ''}</div>`;
     }
 
@@ -810,7 +849,8 @@ export class OnboardingController {
                 }
             }
             let element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${name}"]`);
-            if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]') ?? undefined;
+            if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]')
+                ?? document.querySelector<HTMLElement>('.akari-export-dialog-host [role="dialog"]') ?? undefined;
             const rect = element?.getBoundingClientRect();
             return rect && rect.width > 0 && rect.height > 0 && element && getComputedStyle(element).display !== 'none'
                 && getComputedStyle(element).visibility === 'visible' ? rect : undefined;
@@ -1038,6 +1078,17 @@ export class OnboardingController {
         const action = element.dataset.ao;
         if (action !== 'idle-close' && action !== 'close-guide') this.noteInteraction();
         if (action === 'idle-close' || action === 'close-guide') return this.close();
+        if (action === 'export-retry' && this.state.step === 'export' && this.exportFailed) {
+            await this.setSub(1);
+            this.resetExport();
+            if (!this.exportDialogIsOpen()) this.pressExportRailTab();
+            return;
+        }
+        if (action === 'export-skip' && this.state.step === 'export' && this.exportFailed) {
+            document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-close"]')?.click();
+            await this.go('done');
+            return;
+        }
         if (action === 'retry-transition') {
             const retry = this.transitionFailure?.retry;
             if (retry) await retry();
@@ -1138,9 +1189,15 @@ export class OnboardingController {
             if (this.transitionFailure) { this.busy = false; return; }
             await this.showOutput(prepared.projectUri);
         } catch (error) {
-            this.prepareError = error instanceof Error && /network|fetch|ECONN|ENOTFOUND|timeout|ETIMEDOUT/i.test(error.message)
-                ? t('surfaces.onboarding.prepareDownloadSampleAssetCheckInternetConnection.message')
-                : t('surfaces.onboarding.prepareSampleAssetCheckDestinationFreeSpace.message');
+            if (isGuidePartnerStopError(error)) {
+                await this.service.save(this.state).catch(saveError =>
+                    console.warn('[akari-onboarding] invite resume point could not be restored:', saveError));
+            }
+            this.prepareError = isGuidePartnerStopError(error)
+                ? t('surfaces.onboarding.preparePartnerStopFailed.message')
+                : error instanceof Error && /network|fetch|ECONN|ENOTFOUND|timeout|ETIMEDOUT/i.test(error.message)
+                    ? t('surfaces.onboarding.prepareDownloadSampleAssetCheckInternetConnection.message')
+                    : t('surfaces.onboarding.prepareSampleAssetCheckDestinationFreeSpace.message');
             this.busy = false;
             this.render();
         }
@@ -1228,7 +1285,10 @@ export class OnboardingController {
         else if (this.state.step === 'daihon' && name === 'daihon-first-row' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'export') {
             const expected = [EXPORT_ONBOARDING_TARGET, 'export-submit'][this.state.sub];
-            if (name === expected) void this.setSub(this.state.sub + 1);
+            if (name === expected) {
+                if (name === 'export-submit') this.exportSubmissionFailureVersion = this.exportFailureVersion();
+                void this.setSub(this.state.sub + 1);
+            }
             else this.nudge();
         } else if (!['drag', 'play', 'caption', 'matpreview'].includes(this.state.step)) this.nudge();
     };
@@ -1353,9 +1413,9 @@ export class OnboardingController {
     protected beginExportPoll(): void {
         if (this.exportPoll) window.clearInterval(this.exportPoll);
         this.exportPoll = window.setInterval(() => {
-            if (this.state.step !== 'export' || this.state.sub !== 2 || !this.state.projectUri || this.exportFinishing) return;
+            if (this.state.step !== 'export' || this.state.sub !== 2 || !this.state.projectUri || this.exportFinishing || this.exportFailed) return;
             void this.service.hasExport(this.state.projectUri).then(async found => {
-                if (!found || this.state.step !== 'export' || this.state.sub !== 2 || this.exportFinishing) return;
+                if (!found || this.state.step !== 'export' || this.state.sub !== 2 || this.exportFinishing || this.exportFailed) return;
                 const dialog = document.querySelector<HTMLElement>('.akari-export-dialog-host');
                 if (dialog && !dialog.querySelector('.result .fnm')) return;
                 this.exportFinishing = true;
@@ -1367,6 +1427,22 @@ export class OnboardingController {
                 } finally { this.exportFinishing = false; }
             });
         }, 1000);
+    }
+
+    protected handleExportPhase = (event: CustomEvent<{ phase: string; failureVersion: number }>): void => {
+        this.updateExportPhase(event.detail?.phase, event.detail?.failureVersion);
+    };
+
+    protected updateExportPhase(phase: string, failureVersion = this.exportFailureVersion()): void {
+        if (!this.root || this.state.step !== 'export' || this.state.sub !== 2) return;
+        if (phase === 'failed' && !this.exportFailed
+            && (this.exportSubmissionFailureVersion === undefined || failureVersion > this.exportSubmissionFailureVersion)) {
+            this.exportFailed = true;
+            this.render();
+        } else if ((phase === 'linting' || phase === 'rendering') && this.exportFailed) {
+            this.exportFailed = false;
+            this.render();
+        }
     }
 
 }

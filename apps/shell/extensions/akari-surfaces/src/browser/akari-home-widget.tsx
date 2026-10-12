@@ -78,6 +78,7 @@ import { runAutomaticNetworkCheck } from '../common/automatic-network-check';
 import { AkariSettingsMaintenanceService } from '../common/settings-maintenance-protocol';
 import { AkariOnboardingService } from '../onboarding/protocol';
 import { OnboardingController } from '../onboarding/controller';
+import { switchGuideProject } from '../onboarding/guide-switch-error';
 import { guideRequiredPanels } from '../onboarding/guide-ui-model';
 import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
@@ -102,6 +103,7 @@ import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, Pro
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import { AkariKitsService } from '../common/akari-kits-protocol';
 import { OPEN_EXPORT_DIALOG } from 'akari-shell-strip/lib/browser/akari-export-toolbar-contribution';
+import { AkariExportSessionService } from 'akari-shell-strip/lib/browser/akari-export-session-service';
 import { buildKitCardModel, KitCardModel, KIT_LAB_URL } from '../common/kit-card-model';
 import {
     AKARI_BORDER,
@@ -349,6 +351,8 @@ export class AkariHomeWidget extends ReactWidget {
     protected firstRunSetupDialogClosed: Promise<void> | undefined;
     @inject(AkariOnboardingService)
     protected readonly onboardingService!: AkariOnboardingService;
+    @inject(AkariExportSessionService)
+    protected readonly exportSession!: AkariExportSessionService;
     protected firstVideoGuide: OnboardingController | undefined;
     protected readonly guideAnnouncementToast = new GuideAnnouncementToast();
     protected guideAnnouncementPending = false;
@@ -699,7 +703,10 @@ export class AkariHomeWidget extends ReactWidget {
                     if (layout[area]) this.shell.expandPanel(area);
                     else void this.shell.collapsePanel(area);
                 }
-            }
+            },
+            () => this.exportSession.snapshot.status.phase,
+            () => this.exportSession.failureVersion,
+            () => this.exportSession.resetToSetup()
         );
         try { await this.firstVideoGuide.open(state); }
         catch (error) {
@@ -1370,8 +1377,9 @@ export class AkariHomeWidget extends ReactWidget {
         // 開いていた（135dc86ea のホーム 2 モード化からの回帰）。問わずにこの窓で開く。
         // パートナーが作業中のときだけは、ガイドの招待の画面で取った同意（busyConfirmed）が要る。
         if (request.reason === 'onboarding') {
-            if (this.isPartnerBusy() && !busyConfirmed) throw new Error('Guide project switch requires partner consent');
-            await this.commitOpenProject(request, false, true);
+            await switchGuideProject(this.isPartnerBusy(), busyConfirmed,
+                async () => { await this.commands.executeCommand('akari.partner.stopForGuide'); },
+                () => this.commitOpenProject(request, false, true));
             return;
         }
         const busy = this.isPartnerBusy();
