@@ -64,6 +64,6 @@ The server saves **`<ライブラリ>/declarations.json`** (normally `<ライブ
 
 ## References
 
-- Contract: [`docs/contract-2026-07-14-edit-json-v1-audio.md`](../../docs/contract-2026-07-14-edit-json-v1-audio.md); `audio.bgm.in` is the start offset within the BGM file.
+- Contract: [`docs/contract-2026-07-14-edit-json-v1-audio.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-14-edit-json-v1-audio.md); `audio.bgm.in` is the start offset within the BGM file.
 - Server: `packages/audio-library-setup/declare-server.mjs`, `declare-template.html`, and `bin/declare-helper.mjs`. It binds locally, has no external npm dependency, and writes state atomically like `gallery-server.mjs`.
 - Consumer: `bin/suggest-bgm.mjs`, which uses declared BPM, priority, and chorus cue.

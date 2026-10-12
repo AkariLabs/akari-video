@@ -8,7 +8,7 @@ Target only catalog entries explicitly approved in [starter-pack.md](starter-pac
 
 This acquisition procedure is for **external** catalog entries with `source.url`. **akari-r2** entries with
 `source.image` lack `acquisition` and `license_at_source`; use AKARI's asset acquisition route instead.
-Determine `source` type under the [asset tier contract v1](../../docs/contract-2026-10-04-asset-tier-v1.md) (Japanese).
+Determine `source` type under the [asset tier contract v1](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md) (Japanese).
 
 ## Resolver acquisition references (2026-10-05)
 
@@ -123,6 +123,6 @@ category (such as font) whose directory does not yet exist under `assets/`.
 
 ## Sources
 
-- Contract: [`docs/contract-2026-07-13-asset-library.md`](../../docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
+- Contract: [`docs/contract-2026-07-13-asset-library.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-asset-library.md), Catalog and acquisition skills section (Japanese)
 - Asset harvesting and meta.json v0 discipline: [../harvest-asset/SKILL.md](../harvest-asset/SKILL.md)
 - Authoring hard rules: [../overlay-authoring/SKILL.md](../overlay-authoring/SKILL.md)

@@ -38,6 +38,6 @@ Read only the file for the current step; do not read later steps in advance.
 
 ## References
 
-- Generation contract: [contract-2026-09-13-generation-v0.md](../../docs/contract-2026-09-13-generation-v0.md)
+- Generation contract: [contract-2026-09-13-generation-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-09-13-generation-v0.md)
 - Connection, model permission, and doctor: [manage-connections](../manage-connections/SKILL.md)
 - Cost presentation format: [edit-plan approvals and generation](../edit-plan/approvals-and-generation.md)

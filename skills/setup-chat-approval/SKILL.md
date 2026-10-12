@@ -35,7 +35,7 @@ If not configured, complete that first (notifications work without a URL, but pr
 
 ## Sources
 
-- Contract: [`docs/contract-2026-08-12-chat-approval-v0.md`](../../docs/contract-2026-08-12-chat-approval-v0.md) (Japanese)
-- Bridge implementation: [`packages/chat-bridge/`](../../packages/chat-bridge/)
-- Sole implementation that writes `decisions.json`: [`packages/decision-cards/report-helper.mjs`](../../packages/decision-cards/report-helper.mjs)
+- Contract: [`docs/contract-2026-08-12-chat-approval-v0.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-12-chat-approval-v0.md) (Japanese)
+- Bridge implementation: [`packages/chat-bridge/`](https://github.com/AkariLabs/akari-video/tree/main/packages/chat-bridge)
+- Sole implementation that writes `decisions.json`: [`packages/decision-cards/report-helper.mjs`](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/report-helper.mjs)
 - Connection registry and credential discipline: [`skills/manage-connections/SKILL.md`](../manage-connections/SKILL.md)

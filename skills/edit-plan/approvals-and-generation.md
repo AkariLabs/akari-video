@@ -82,7 +82,7 @@ To send an approved image to i2v, verify all three: approval of that image, asse
 
 ## Receive revisions through plan-comments.json
 
-Before preparing a revised Checkpoint 2 or 3 presentation, check for `<plan-dir>/plan-comments.json` (**read this file before interpreting the chat response**). It follows the same convention as `structure-confirm` in `research-plan/storyboard.md`; the canonical contract is [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md).
+Before preparing a revised Checkpoint 2 or 3 presentation, check for `<plan-dir>/plan-comments.json` (**read this file before interpreting the chat response**). It follows the same convention as `structure-confirm` in `research-plan/storyboard.md`; the canonical contract is [contract-2026-07-25-plan-comments-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-plan-comments-v0.md).
 
 - If `plan-comments.json` has `pass: "scaffold"`, treat it as a Checkpoint 2 (asset-plan) revision and revise **only** clips named by `comments[].target_kind: "clip"` (`target_id` is an edit.json v2 item id). The old `target_kind: "slot"` is retired.
 - If `plan-comments.json` has `pass: "final"`, treat it as a Checkpoint 3 (execution) revision and revise **only** clips named by `comments[].target_kind: "cut"` (`target_id` is a v2 item id).

@@ -71,7 +71,7 @@ Use existing cloud approval conventions only if the human explicitly specifies t
 
 ## Capture time selection
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 This workflow does not write them. Other writing stages use relevant-line Edit or edit-store's script API.
 
 Capture times are **timeline seconds**, never source seconds. Fix the output directory beneath this critique report.

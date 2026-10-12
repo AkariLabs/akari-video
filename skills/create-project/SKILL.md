@@ -52,7 +52,7 @@ finished example**, which is separate from the 2 template resolution choices (ha
 **project container**; a worked example is not a container.
 
 - Short explainer (vertical 3-panel layout, VOICEVOX narration, progressively revealed diagram cards):
-  [`templates/kaisetsu-short/`](../../templates/kaisetsu-short/README.ja.md) (Japanese).
+  [`templates/kaisetsu-short/`](https://github.com/AkariLabs/akari-video/blob/main/templates/kaisetsu-short/README.ja.md) (Japanese).
 - Duplicate the entire directory and replace `sample-project/` with your own script JSON.
   To check it first, use the bundled sample (audio is included, so VOICEVOX is unnecessary):
 
@@ -63,7 +63,7 @@ finished example**, which is separate from the 2 template resolution choices (ha
 - **Do not pass a worked example to `--template`.** It lacks container structure such as `.akari/`,
   so resolving it as a template produces an incomplete project. If a container is needed, create it normally
   with `templates/project-default/`, then duplicate the worked example and bring in its contents.
-- See [`templates/INDEX.md`](../../templates/INDEX.md) for the 2 template types (containers / worked examples).
+- See [`templates/INDEX.md`](https://github.com/AkariLabs/akari-video/blob/main/templates/INDEX.md) for the 2 template types (containers / worked examples).
 
 ## intake.json (saved workflow form)
 

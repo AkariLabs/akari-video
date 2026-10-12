@@ -2,7 +2,7 @@
 
 ## Authoritative contract
 
-The [`akari media` inspection contract v0 §1–§4](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) governs invocation, stdout, output artifacts, ledger updates, and analysis levels. In brief: **observe through `akari media`, make judgments in this skill, and append results to the project's analysis.json**.
+The [`akari media` inspection contract v0 §1–§4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md) governs invocation, stdout, output artifacts, ledger updates, and analysis levels. In brief: **observe through `akari media`, make judgments in this skill, and append results to the project's analysis.json**.
 
 ## L0: probe
 
@@ -43,7 +43,7 @@ akari media transcribe "$SOURCE" --in 120 --out 180 --lang ja
 
 Pass --lang for the work's content language on every transcription call. SpeechAnalyzer receives a matching locale when supported; otherwise the local backend may fall back to whisper.cpp. The command above is a Japanese-language example. Read the relevant language pack for transcription and filler guidance.
 
-The [`akari media` contract §2.5](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) defines the three-layer backend choice, caching, `segments[]` format, no-speech result, and error handling. This skill does not discover backend executables or models or convert input audio itself.
+The [`akari media` contract §2.5](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md) defines the three-layer backend choice, caching, `segments[]` format, no-speech result, and error handling. This skill does not discover backend executables or models or convert input audio itself.
 
 ### Separate speakers (only when requested or multiple voices are likely)
 
@@ -60,7 +60,7 @@ akari speakers set "$SOURCE" A --person channel/p-123
 akari speakers list "$SOURCE"
 ```
 
-With `--identify`, compare only against consented (`self` or `subject`) voice samples for channel people. The result is a suggestion; a person decides the name. Confirm even a `strong` match before writing it with `akari speakers set`. Show `maybe` as a candidate for review and leave `none` unnamed. If the voice engine is missing and the command exits 2, do not guess speakers. Stop and guide the user to `akari tools install voice` or preparation in the app's caption creation flow. Follow the [speaker separation contract](../../docs/contract-2026-10-11-speaker-split-v0.md) for flags, output, and destinations.
+With `--identify`, compare only against consented (`self` or `subject`) voice samples for channel people. The result is a suggestion; a person decides the name. Confirm even a `strong` match before writing it with `akari speakers set`. Show `maybe` as a candidate for review and leave `none` unnamed. If the voice engine is missing and the command exits 2, do not guess speakers. Stop and guide the user to `akari tools install voice` or preparation in the app's caption creation flow. Follow the [speaker separation contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-speaker-split-v0.md) for flags, output, and destinations.
 
 
 ### Cloud use requires approval

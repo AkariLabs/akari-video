@@ -15,7 +15,7 @@
 
 ## Principles
 
-Generate vision tracks **only for selected footage and intervals** that will use positions of eyes, fingertips, or body joints—for example, eye-bar, finger-frame, or pose-skeleton effects. By default, omit the `tracks.face_landmarks`, `tracks.hand_pose`, and `tracks.body_pose_3d` keys entirely. An ungenerated vision track has no key; this differs from person_matte, whose required key has a null value. Follow the [vision-track data contract](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md).
+Generate vision tracks **only for selected footage and intervals** that will use positions of eyes, fingertips, or body joints—for example, eye-bar, finger-frame, or pose-skeleton effects. By default, omit the `tracks.face_landmarks`, `tracks.hand_pose`, and `tracks.body_pose_3d` keys entirely. An ungenerated vision track has no key; this differs from person_matte, whose required key has a null value. Follow the [vision-track data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md).
 **Keep analysis pull-driven** as required by contract §0 principle 1. If only facial data is needed, request `--kinds face` and do not generate hand or 3D body-pose tracks. The `node bin/...` commands below are the public L3 sidecar-generator interface; each generator handles its own decoding and validation rather than exposing the media backend directly to this skill.
 
 ## Decide whether to execute first
@@ -153,9 +153,9 @@ Record the Chrome version, CPU seconds, wall seconds, `elapsed_seconds / 12`, de
 
 ## Use tracks for an eye bar
 
-Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines, following [the edit.json access guide](../../docs/guides/edit-json-access.md). Write with the Edit operation or edit-store script API for those lines.
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only the matching lines, following [the edit.json access guide](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write with the Edit operation or edit-store script API for those lines.
 
-Generating `face_landmarks` alone does not add a visual effect. The separate deterministic converter `packages/akari-tools/bin/eye-bar.mjs`, also available as `akari internal eye-bar`, draws a criminal-style black eye bar. It is outside this skill; see the [vision-track contract §4](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md). Divide responsibilities as follows:
+Generating `face_landmarks` alone does not add a visual effect. The separate deterministic converter `packages/akari-tools/bin/eye-bar.mjs`, also available as `akari internal eye-bar`, draws a criminal-style black eye bar. It is outside this skill; see the [vision-track contract §4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md). Divide responsibilities as follows:
 
 - **This skill (vision-tracks.mjs):** Detect eye positions in footage and record them as factual track data.
 - **eye-bar.mjs**: Calculate the black bar's position, angle, and size from the track, then add `layers[].keyframes` to `edit.json`. This consumes analysis data to create a visual effect.
@@ -195,7 +195,7 @@ If tools are unavailable or generation fails, omit the `tracks.face_landmarks`, 
 
 ## Use tracks for finger-frame
 
-This CLI deterministically maps `tracks.hand_pose` (the `thumb_tip` and `index_tip` on both hands, four points total) to a perspective four-corner pin in `layers[].keyframes`. It is the second consumer in §4 of the [vision-track contract](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md). That contract allocates conversion responsibilities; it does not add a new three-surface implementation under §0 principle 3.
+This CLI deterministically maps `tracks.hand_pose` (the `thumb_tip` and `index_tip` on both hands, four points total) to a perspective four-corner pin in `layers[].keyframes`. It is the second consumer in §4 of the [vision-track contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-analysis-vision-tracks-v0.md). That contract allocates conversion responsibilities; it does not add a new three-surface implementation under §0 principle 3.
 
 ```bash
 akari internal vision-finger-frame <project> \

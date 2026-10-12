@@ -12,11 +12,11 @@ Therefore, do not report moving-person text-behind-person as deterministic, WYSI
 - Precompose text-behind-person externally into a video asset.
 - Wait for video sync in the v1 runtime and verify both preview and export.
 
-Basis: `docs/notes-2026-07-13-edit-json-v1.md` §4, `ui/overlay-runtime.js`, `scripts/render-overlays.mjs`
+Basis: `https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-13-edit-json-v1.md` §4, `ui/overlay-runtime.js`, `scripts/render-overlays.mjs`
 
 ## Matte reference contract
 
-Fix a convention for referencing a person matte (alpha-bearing person video) from a fragment. The data contract is [docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md), and generation instructions are in [skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md). This section specifies **only the consuming side** (fragment authoring).
+Fix a convention for referencing a person matte (alpha-bearing person video) from a fragment. The data contract is [docs/contract-2026-07-23-analysis-person-matte.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-analysis-person-matte.md), and generation instructions are in [skills/analyze-footage/person-matte.md](../analyze-footage/person-matte.md). This section specifies **only the consuming side** (fragment authoring).
 
 ### 1. Source and copying rules
 

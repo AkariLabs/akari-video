@@ -20,12 +20,12 @@ Rewatch only locations pass 2 determines are necessary.
 
 Separate the fact layer (analysis.json) and interpretation layer (interpretation.json) so incorrect context leaves
 facts intact and only the inexpensive interpretation layer needs regeneration. There is 1 `interpretation.json`
-per project, following v0 of [interpretation.schema.json](../../packages/schemas/interpretation.schema.json).
+per project, following v0 of [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
 Add no unknown fields. Omit optional keys entirely when valueless; do not use `null`.
 
 ## Context to read (surrounding project context)
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 This leaf does not write. In other stages that write, Edit relevant lines or use edit-store's script API.
 
 Pass-2 inputs are not limited to analysis.json files gathered in `collect.md`. **If the project is within a known
@@ -117,6 +117,6 @@ For self-contained footage (e.g., presenter explains all history/intent), finish
 ## arc is internal data (hidden from reports)
 
 `arc[]` is required in interpretation.json (`minItems: 1`) but excluded from
-[analysis-report](../../packages/analysis-report/README.md) display (2026-07-22 revision).
+[analysis-report](https://github.com/AkariLabs/akari-video/blob/main/packages/analysis-report/README.md) display (2026-07-22 revision).
 Arc is an editing proposal, not pre-dialogue analysis: it supplies seeds for the AI's chat proposals and interview questions.
 Do not lower pass 2 effort because it is hidden from the report; apply the same mandatory-evidence discipline.

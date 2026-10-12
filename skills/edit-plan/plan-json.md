@@ -1,12 +1,12 @@
 # plan.json — Confirm a provisional timeline with no media
 
-Canonical contract: [contract-2026-07-20-plan-json-v0.md](../../docs/contract-2026-07-20-plan-json-v0.md).
+Canonical contract: [contract-2026-07-20-plan-json-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-plan-json-v0.md).
 Read this leaf only from the "No media" branch of [workflow.md](workflow.md) §2. When recorded footage exists, do not create plan.json; proceed from integrated analysis to presenting the direction in chat as before (one pipeline that can skip steps according to confidence; provisional slots help only when the direction is uncertain).
 
 ## 1. Develop the direction through questions
 
 - Ask one multiple-choice (ABC) question at a time to settle purpose, duration, tone, and structural beats. One question must represent one decision; do not blur answers with compound questions.
-- Use the existing [decision-cards](../../packages/decision-cards/) dialogue surface unchanged: create the separate pair `<plan-dir>/plan-dialogue.html` + `<plan-dir>/plan-dialogue.html.decisions.json` and present it with `node packages/decision-cards/report-helper.mjs`. If the helper is unavailable, substitute explicit chat approval and record that substitution (the same fallback as the Checkpoints in [approvals-and-generation.md](approvals-and-generation.md)).
+- Use the existing [decision-cards](https://github.com/AkariLabs/akari-video/tree/main/packages/decision-cards) dialogue surface unchanged: create the separate pair `<plan-dir>/plan-dialogue.html` + `<plan-dir>/plan-dialogue.html.decisions.json` and present it with `node packages/decision-cards/report-helper.mjs`. If the helper is unavailable, substitute explicit chat approval and record that substitution (the same fallback as the Checkpoints in [approvals-and-generation.md](approvals-and-generation.md)).
 - Keep this decisions.json exclusive to plan-dialogue and separate from the `decision-log.md` decision record. Do not mix them: decisions.json holds raw dialogue data; decision-log.md summarizes settled decisions.
 
 ## 2. Write plan.json

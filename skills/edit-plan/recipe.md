@@ -1,7 +1,7 @@
 # recipe.md — Freeze recipes and remember preferences
 
-Canonical contract: [contract-2026-07-25-recipe-v0.md](../../docs/contract-2026-07-25-recipe-v0.md).
-Schema: [recipe.schema.json](../../packages/schemas/recipe.schema.json).
+Canonical contract: [contract-2026-07-25-recipe-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-recipe-v0.md).
+Schema: [recipe.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/recipe.schema.json).
 Validation CLI: `node packages/schemas/bin/validate-recipe.mjs <path>`.
 
 This leaf has two independent procedures: **recall** (read before direction setting in [workflow.md](workflow.md)) and **freeze** (read during completion after execution approval). Do not learn or apply automatically. This file contract records only confirmed values and presents them with provenance (contract §0).

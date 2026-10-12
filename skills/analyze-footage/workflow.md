@@ -4,7 +4,7 @@
 
 ## Principles
 
-Treat the source footage as evidence and `analysis.json` as an appendable ledger. Use automated observation to suggest candidates; do not fill in facts you cannot confirm. A missing key means "unobserved," not necessarily "absent." The authoritative input, output, and update rules are in the [`akari media` contract §1 / §3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md).
+Treat the source footage as evidence and `analysis.json` as an appendable ledger. Use automated observation to suggest candidates; do not fill in facts you cannot confirm. A missing key means "unobserved," not necessarily "absent." The authoritative input, output, and update rules are in the [`akari media` contract §1 / §3](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-29-media-inspect-cli-v0.md).
 
 ## 1. Confirm the source and requested level
 
@@ -12,7 +12,7 @@ Check the following first.
 
 - The input is a readable regular file.
 - `akari media probe <target>` returns JSON on exit 0 and `duration_s` is a finite positive number.
-- The authoritative [analysis.schema.json](../../packages/schemas/analysis.schema.json) is readable.
+- The authoritative [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) is readable.
 - The source's absolute path is distinguished from the relative path stored in JSON.
 - The highest level requested by the user or a later skill, from L0 to L3, has been identified. Default to L0 + L1 if none is stated.
 

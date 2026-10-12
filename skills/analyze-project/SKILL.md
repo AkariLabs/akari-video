@@ -7,7 +7,7 @@ description: Read project assets (analysis.json) together with surrounding conte
 
 > **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 In other stages that need writes, Edit the relevant lines or use edit-store's script API.
 
 ## Hard rules
@@ -25,7 +25,7 @@ In other stages that need writes, Edit the relevant lines or use edit-store's sc
   Field validation (internal multiasset-dogfood run, 2026-07-22) confirmed cases where analysis.json alone
   could not establish asset provenance (orphan/unclear, etc.) confidently.
 - **Include `memory` connections when reading surrounding project context.** If `.akari/connections.json`
-  declares `memory` ([contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md), Japanese),
+  declares `memory` ([contract-2026-07-25-memory-connection-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-memory-connection-v0.md), Japanese),
   start at `entry` (default `INDEX.md`) and read only the `include`/`exclude` scope.
   Record referenced file paths as sources in `interpretation.json`'s `inputs.context`. Full-text ingestion is forbidden.
   Do nothing if undeclared; this is not an error.
@@ -39,7 +39,7 @@ In other stages that need writes, Edit the relevant lines or use edit-store's sc
   If so, end interviewing. Send later questions to post-edit refinement (`edit-plan`).
 - **Do not display arc in the report.** Keep it as schema data in `interpretation.json` (source of interview
   questions and seeds for AI proposals during dialogue). Removal from display was settled in the 2026-07-22 revision.
-- Do not add helper fields absent from [interpretation.schema.json](../../packages/schemas/interpretation.schema.json).
+- Do not add helper fields absent from [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
   Finalize only JSON that passes `validate-interpretation.mjs`.
 - **No decision UI in reports** (choices, knobs, or finalize buttons). Decide direction in chat.
   The AI proposes with evidence instead of asking “What should we do?”

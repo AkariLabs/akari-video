@@ -69,7 +69,7 @@ produce warnings. Exclude only damaged elements and degrade to the existing no-s
 
 ## UI event resolution
 
-Bundle `events.jsonl` `ui.click` / `ui.tab` / `ui.panel` (`docs/contract-2026-08-11-review-session-ui-events.md`
+Bundle `events.jsonl` `ui.click` / `ui.tab` / `ui.panel` (`https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-11-review-session-ui-events.md`
 §1–§2) into a recT-ordered trace. Apply this additional stage **last** to the reference obtained from the existing
 4 stages (stopped utterance > stroke pair > rewind playback > playing utterance). Do not change their meanings or priority.
 

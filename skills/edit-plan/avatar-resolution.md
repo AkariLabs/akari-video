@@ -2,7 +2,7 @@
 
 ## Principle
 
-Read avatar data in stages, as with CLAUDE.md / SKILL.md. **Do not read every avatar's full data for an insertion request such as "add Ryoma."** Routine insertion decisions use L0 (index) → L1 (AVATAR.md) only. Read L2 (`persona/` `voice/` `renditions/*/rendition.json`) only at the stages named under "Conditions for deeper L2 reading" below. The [avatar registry contract](../../docs/contract-2026-07-26-avatar-registry-v0.md) defines the data shape; this leaf defines **how to read it and ask questions** during insertion.
+Read avatar data in stages, as with CLAUDE.md / SKILL.md. **Do not read every avatar's full data for an insertion request such as "add Ryoma."** Routine insertion decisions use L0 (index) → L1 (AVATAR.md) only. Read L2 (`persona/` `voice/` `renditions/*/rendition.json`) only at the stages named under "Conditions for deeper L2 reading" below. The [avatar registry contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) defines the data shape; this leaf defines **how to read it and ask questions** during insertion.
 
 ## Trigger
 
@@ -12,7 +12,7 @@ Use when chat asks to insert a person, character, or avatar (for example, "add R
 
 ### 1. L0 — Resolve the ID from INDEX
 
-Read `avatars/INDEX.md` in this order and look for a one-line card matching the request (nearest first among the four scope layers; [contract](../../docs/contract-2026-07-26-avatar-registry-v0.md) §1):
+Read `avatars/INDEX.md` in this order and look for a one-line card matching the request (nearest first among the four scope layers; [contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) §1):
 
 1. Project `.akari/avatars/INDEX.md`.
 2. `~/.akari/avatars/INDEX.md` (personal scope, usually holding real-person avatars).
@@ -174,7 +174,7 @@ Presentation template (show in chat as a low-pressure suggestion, never forcing 
 2. Create `avatar.json`:
    - `rights`: `{"subject": "third_party", "consent": "terms:https://zunko.jp/con_ongen_kiyaku.html", "credit_required": true, "distribution": "private"}`
    - `voice`: `{"lane": "voicevox", "ref": "speaker:<id>(<名前>/ノーマル)", "credit": "VOICEVOX:<名前>"}`
-   - `renditions`: `[]` (voice-only, covered by the S2 schema relaxation in [docs/contract-2026-07-26-avatar-registry-v0.md](../../docs/contract-2026-07-26-avatar-registry-v0.md) §13).
+   - `renditions`: `[]` (voice-only, covered by the S2 schema relaxation in [docs/contract-2026-07-26-avatar-registry-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-26-avatar-registry-v0.md) §13).
    - `default_rendition`: `null`
 3. Create `AVATAR.md`: cite official character settings with source URLs and **do not embellish them**. Keep personality and traits as cited. Mark details not supported by sources, such as fine speech-style details, as "primary source unverified; owner confirmation needed." Add **one line stating the character choice itself is provisional pending owner ratification**.
 4. Create `voice/voice.json` with `lane: "voicevox"`, `speaker id`, and `credit` (same as `avatar.json` `voice`, with L2 detail).

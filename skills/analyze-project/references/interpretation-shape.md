@@ -1,8 +1,8 @@
 # interpretation.json shape (quick reference)
 
-Canonical source: [interpretation.schema.json](../../../packages/schemas/interpretation.schema.json).
+Canonical source: [interpretation.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/interpretation.schema.json).
 Do not duplicate it here (prevents drift). Read the example
-[packages/schemas/test/fixtures/interpretation/valid/interpretation.json](../../../packages/schemas/test/fixtures/interpretation/valid/interpretation.json)
+[packages/schemas/test/fixtures/interpretation/valid/interpretation.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/test/fixtures/interpretation/valid/interpretation.json)
 (2 assets, relations, 3 flag types, open_questions with 1 open + 1 answered).
 
 ## Minimal skeleton

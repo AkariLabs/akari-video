@@ -79,11 +79,28 @@ struct SpeechAnalyzerHelper {
             let statusBefore = await AssetInventory.status(forModules: modules)
             let installStart = ContinuousClock.now
             if statusBefore != .installed {
-                guard let request = try await AssetInventory.assetInstallationRequest(supporting: modules) else {
-                    throw NSError(domain: "SpeechAnalyzerHelper", code: 5,
-                                  userInfo: [NSLocalizedDescriptionKey: "Speech model installation request unavailable"])
+                if let request = try await AssetInventory.assetInstallationRequest(supporting: modules) {
+                    try await request.downloadAndInstall()
+                } else {
+                    // 要求が nil のときは「入れる必要がない（導入済み）」「この OS にモデルが無い」
+                    // 「他で導入中」の区別がつかないため、状態を取り直して理由を分ける。
+                    let statusRetry = await AssetInventory.status(forModules: modules)
+                    let localeId = supportedLocale.identifier
+                    switch statusRetry {
+                    case .installed:
+                        break
+                    case .unsupported:
+                        // 文言の先頭は JS 側の whisper フォールバック判定（Unsupported SpeechTranscriber locale）と揃える
+                        throw NSError(domain: "SpeechAnalyzerHelper", code: 6,
+                                      userInfo: [NSLocalizedDescriptionKey: "Unsupported SpeechTranscriber locale: \(localeId) (this macOS does not provide a SpeechAnalyzer model for \(localeId); asset status: unsupported, before: \(statusName(statusBefore)))"])
+                    case .downloading:
+                        throw NSError(domain: "SpeechAnalyzerHelper", code: 7,
+                                      userInfo: [NSLocalizedDescriptionKey: "The speech model for \(localeId) is still downloading; try again later (asset status: downloading, before: \(statusName(statusBefore)))"])
+                    default:
+                        throw NSError(domain: "SpeechAnalyzerHelper", code: 5,
+                                      userInfo: [NSLocalizedDescriptionKey: "Speech model installation request unavailable for \(localeId) (asset status: \(statusName(statusRetry)), before: \(statusName(statusBefore)))"])
+                    }
                 }
-                try await request.downloadAndInstall()
             }
             let installDuration = ContinuousClock.now - installStart
             let installationSeconds = Double(installDuration.components.seconds)

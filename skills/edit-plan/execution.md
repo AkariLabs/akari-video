@@ -1,12 +1,12 @@
 # Execute after approval
 
-Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](../../docs/guides/edit-json-access.md)). Write with a targeted edit or the edit-store script API.
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write with a targeted edit or the edit-store script API.
 
 > **edit.json v2**: The top level is exact; no fields other than `version` / `output` / `sources` / `tracks` / `audio` / `captions` / `thumbnail` are allowed. `beats` / `emphasis_words` / `direction` were retired in v2; put them in the decision record, not `edit.json`. Consumer code has also removed them; do not restore them.
 
 ## Principle
 
-Read this file after explicit Checkpoint 3 approval for `autonomy: collaborative`; for other autonomy modes, read it before writing edit.json. Translate the approved manifest faithfully into `edit.json` and authoring rules under the [M1–M4 contract](../../docs/contract-2026-07-13-m1-m4.md) by targeted edit or edit-store script API. Do not invent fields for an unrepresentable plan. Only fields defined in the public contract may be used ([SKILL.md](SKILL.md) hard rule).
+Read this file after explicit Checkpoint 3 approval for `autonomy: collaborative`; for other autonomy modes, read it before writing edit.json. Translate the approved manifest faithfully into `edit.json` and authoring rules under the [M1–M4 contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-13-m1-m4.md) by targeted edit or edit-store script API. Do not invent fields for an unrepresentable plan. Only fields defined in the public contract may be used ([SKILL.md](SKILL.md) hard rule).
 
 A cut candidate report is not execution approval. Do not copy `decision:"REVIEW_REQUIRED"` candidates directly into cuts; use only those explicitly accepted or rejected by the human for this report and appended to the append-only decision log. If final-edit fps is not 30, speed is not 1, track is not 0, or a timeline `at` is added, invalidate the report's pause-frame proposal, recalculate, and review again. Do not change `edit.json` before Checkpoint 3.
 
@@ -54,7 +54,7 @@ At 30fps, this example plays source seconds 48.0–64.0 starting at output secon
 
 ### Timing basis for overlaid media clips
 
-For cutout people, B-roll, and other media overlaid on another visual track, **a drift of a dozen or more frames is easy to introduce**. The canonical rules are `docs/contract-2026-08-02-preview-parity.md` §2.4 and `docs/contract-2026-07-22-render-basics.md` §2-3.
+For cutout people, B-roll, and other media overlaid on another visual track, **a drift of a dozen or more frames is easy to introduce**. The canonical rules are `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-02-preview-parity.md` §2.4 and `https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-render-basics.md` §2-3.
 
 - A media clip declares its source interval with `source.in` / `source.out` and output interval with `at` / `duration`. **Do not trim by guessing** that, for example, because a panel appears earlier the source must contain preroll. Guessing shifts the source beginning earlier and exhausts the source at the end when `duration` is shortened, leaving a moment where the overlay disappears and only the underlying video remains.
 - If a source was pre-cut, **always leave its provenance (original / in / out / speed / fps) beside it**. Otherwise the next editor must guess what time its beginning represents and may repeat the same error.
@@ -113,7 +113,7 @@ Record the selected 0.5s breathing room (0.25s at the start / 0.25s at the end) 
 
 ## 3. Create overlay HTML
 
-First read [overlay-authoring](../overlay-authoring/SKILL.md), then only the needed leaves. If unavailable, read the [CLAUDE.md authoring rules](../../CLAUDE.md) and append the fallback to `decision-log.md`.
+First read [overlay-authoring](../overlay-authoring/SKILL.md), then only the needed leaves. If unavailable, read the [CLAUDE.md authoring rules](https://github.com/AkariLabs/akari-video/blob/main/CLAUDE.md) and append the fallback to `decision-log.md`.
 
 - Give the fragment exactly one root element.
 - Make adjustable values CSS variables such as `--x`, `--y`, `--scale`, `--font-size`, and `--color`.

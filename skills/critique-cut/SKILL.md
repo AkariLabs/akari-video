@@ -29,7 +29,7 @@ Read [workflow.md](workflow.md) for derivation, prior-observation checks, time s
 
 ## Execution order
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 This skill does not write them. Other writing stages use relevant-line Edit or edit-store's script API.
 
 1. Read the version line with `grep -n '"version"' edit.json`, distinguish v0/v1/v2, and grep target IDs for

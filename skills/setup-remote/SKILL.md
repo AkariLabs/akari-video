@@ -35,6 +35,6 @@ Read only the file for the current stage, without reading ahead. Do not proceed 
 
 ## Sources
 
-- Contract: [`docs/contract-2026-08-02-setup-remote-v0.md`](../../docs/contract-2026-08-02-setup-remote-v0.md) (Japanese)
-- Workspace, `inbox/`, and secret separation principles: [`docs/contract-2026-08-02-creator-root-v1.md`](../../docs/contract-2026-08-02-creator-root-v1.md) (Japanese)
-- Approval report files (`.akari/reports/`): [`docs/contract-2026-07-25-project-structure-v0.md`](../../docs/contract-2026-07-25-project-structure-v0.md) (Japanese)
+- Contract: [`docs/contract-2026-08-02-setup-remote-v0.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-02-setup-remote-v0.md) (Japanese)
+- Workspace, `inbox/`, and secret separation principles: [`docs/contract-2026-08-02-creator-root-v1.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-02-creator-root-v1.md) (Japanese)
+- Approval report files (`.akari/reports/`): [`docs/contract-2026-07-25-project-structure-v0.md`](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md) (Japanese)

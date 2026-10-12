@@ -9,7 +9,7 @@ description: Generate a beat-synced video timeline and overlays from a track who
 
 Never proceed in a way that violates any of the following. These rules always take precedence over the detailed leaves.
 
-Do not read all of `edit.json` or `captions.json`; grep by id and read only the matching lines, as described in [How to read edit.json](../../docs/guides/edit-json-access.md). Write through the Edit operation or edit-store script API; this skill uses the generator for that work.
+Do not read all of `edit.json` or `captions.json`; grep by id and read only the matching lines, as described in [How to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md). Write through the Edit operation or edit-store script API; this skill uses the generator for that work.
 
 1. **Never enter times by hand.** Calculate every cut, overlay, and SFX time from the beat positions derived from the declaration's BPM, downbeat, accent hits, or sections. A hand-entered time such as "about 12 seconds" immediately falls out of sync with the music.
 2. **Never edit `edit.json` by hand.** The generator (`gen-timeline.mjs`) is the sole assembler. Correct the generator and rerun it so the change survives regeneration.

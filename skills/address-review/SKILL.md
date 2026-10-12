@@ -22,7 +22,7 @@ Canonical source: private internal contracts (`akari-video-internal`): review-an
    Include only when their IDs are explicitly specified through `--ids`. `[要確認]` is a question for the owner,
    not something the agent may independently interpret and process.
 4. **Pass edit-lint after implementing edit.json changes, before respond**: Caption instructions follow the
-   caption contract ([Captions and cut editing](../../docs/notes-2026-07-14-captions-and-cut-editing.md), Japanese:
+   caption contract ([Captions and cut editing](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md), Japanese:
    gap principle, actual speech intervals, minimum 1.0s). Run `respond` only after
    `node packages/edit-lint/bin/edit-lint.mjs <project> --media` PASS; never mark addressed before PASS.
 5. **The agent judges interpretation/implementation; bin handles only mechanical listing/state transitions.**
@@ -42,7 +42,7 @@ Canonical source: private internal contracts (`akari-video-internal`): review-an
    `strokes` (with sessionRef). `--all-open` automatically skips `[要確認]` annotations (machine confirmation marker)
    and includes skipped IDs/count in output.
 
-Do not Read all of `edit.json` / `captions.json`; grep by ID and read matching lines only ([Reading edit.json](../../docs/guides/edit-json-access.md)).
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read matching lines only ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
 Write through relevant-line Edit or edit-store's script API.
 
 2. Read each ticket's `text` instructions (including source seconds/target) and decide the response.

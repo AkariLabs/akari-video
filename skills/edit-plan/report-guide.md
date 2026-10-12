@@ -28,7 +28,7 @@ The report's facts, asset interpretations, objective relationships, interview le
 
 For thumbnail ideas, cut intensity, caption policy, chapter inclusion, and opening hook, present **a recommendation + alternatives + the benefits, drawbacks, and losses of each + the reason for recommending one** in chat, grounded in the analysis report, and obtain an explicit human answer. Do not ask only "What would you like?"; make a recommendation and request approval, revision, or rejection. Follow the report-writing section of the language pack (see SKILL.md).
 
-**Keep the boundary between decision level and operation level** previously used on cards: do not list word-level cut accept/reject choices or caption segments in chat or reports. Those belong in the app viewer. This boundary is an invariant in the addendum to [notes-2026-07-14](../../docs/notes-2026-07-14-captions-and-cut-editing.md).
+**Keep the boundary between decision level and operation level** previously used on cards: do not list word-level cut accept/reject choices or caption segments in chat or reports. Those belong in the app viewer. This boundary is an invariant in the addendum to [notes-2026-07-14](https://github.com/AkariLabs/akari-video/blob/main/docs/notes-2026-07-14-captions-and-cut-editing.md).
 
 Treat chat presentation and response as Checkpoint 1 (direction) under [approvals-and-generation.md](approvals-and-generation.md), and append the settled outcome to `decision-log.md` under the [decision_log](#decision_log) convention.
 
@@ -78,7 +78,7 @@ Each slot must state **one** of the following three choices. The `3` comes from 
 2. **Generate if absent**: Show prompt, generation method, generated still preview, and provenance. For video B-roll, first create only a still.
 3. **Do not use**: Do not fill the slot artificially; explain why it was rejected.
 
-**The automated suggestion CLI is the default starting point for "propose if available" BGM** (introduced 2026-08-03; the default BGM source is the first-party AKARI Sounds library, [catalog/audio/INDEX.md](../../catalog/audio/INDEX.md)):
+**The automated suggestion CLI is the default starting point for "propose if available" BGM** (introduced 2026-08-03; the default BGM source is the first-party AKARI Sounds library, [catalog/audio/INDEX.md](https://github.com/AkariLabs/akari-video/blob/main/catalog/audio/INDEX.md)):
 
 ```sh
 node packages/audio-library-setup/bin/suggest-bgm.mjs --from-decision-log <プロジェクト>/decision-log.md [--json]
@@ -154,7 +154,7 @@ This is the generic card mechanism for multiple-choice dialogue. **edit-plan mus
 
 ### Card data attributes
 
-Follow [report-template.html](../../packages/decision-cards/report-template.html) for the card DOM. The runtime (JS injected by the helper) interprets only these data attributes to build the UI. Do not hard-code card types.
+Follow [report-template.html](https://github.com/AkariLabs/akari-video/blob/main/packages/decision-cards/report-template.html) for the card DOM. The runtime (JS injected by the helper) interprets only these data attributes to build the UI. Do not hard-code card types.
 
 | Attribute | Element | Meaning |
 |---|---|---|

@@ -14,7 +14,7 @@
 
 ## Principles
 
-Generate a matte only for footage selected for a person-based effect, such as text behind a person. The default analysis produces no matte and records `null` in `tracks.person_matte`. Follow the [person-matte data contract](../../docs/contract-2026-07-23-analysis-person-matte.md).
+Generate a matte only for footage selected for a person-based effect, such as text behind a person. The default analysis produces no matte and records `null` in `tracks.person_matte`. Follow the [person-matte data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-analysis-person-matte.md).
 The `$PERSON_MATTE_BIN/...` commands below are the public L3 sidecar-generator interface. They are not direct media-backend calls from this skill; the generator handles decoding and validation internally.
 
 ## Decide whether to execute first
