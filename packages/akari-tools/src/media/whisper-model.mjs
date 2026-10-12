@@ -3,7 +3,9 @@ import { createReadStream, createWriteStream, existsSync, statSync } from "node:
 import { mkdir, rename, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { toolsText } from "../i18n.mjs";
+// アプリの backend（esbuild の cjs 出力）にも束ねられるので、top-level await を含む ../i18n.mjs ではなく
+// bin/tools.mjs と同じ i18n の本体から引く。
+import { t as toolsText } from "../../../i18n/index.mjs";
 
 /**
  * 認識モデルの既定（アプリの初回セットアップ / 設定 → 道具 と同じもの）。

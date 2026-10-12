@@ -104,3 +104,9 @@ test("SpeechAnalyzer failure without whisper explains how to get a model and kee
   });
   await assert.rejects(transcribeMedia(f.target, { ...options, uiLanguage: "en" }), /Fix \(any one\)[\s\S]*akari tools install whisper/);
 });
+
+test('whisper-model.mjs はアプリの backend（cjs）に束ねられるので top-level await を持つ i18n を引かない', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../src/media/whisper-model.mjs', import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /from ["']\.\.\/i18n\.mjs["']/);
+});
