@@ -10,6 +10,7 @@ import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { AkariDaihonCutDialog } from './akari-daihon-cut-dialog';
+import { isMissingDaihonFile, retryDaihonRead } from './daihon-read-retry';
 import { collectDaihonCutCandidates, handEditedLines, type DaihonCutCandidate, type DaihonCutSource } from '../../common/daihon-cut-candidates';
 import { cutCandidateContext } from '../../common/daihon-cut-context';
 import { isCaptionVideo, selectCaptionSources, type CaptionSource } from '../../common/caption-source-eligibility';
@@ -713,6 +714,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected speakerColors = new Map<string, string>();
     protected configured = false;
     protected reloadTail = Promise.resolve();
+    protected missingCaptionsUri: string | undefined;
+    protected daihonReadError: HTMLDivElement | undefined;
     protected rowGaps: DaihonRowGap[] = [];
     protected cutSpans: DaihonCutSpan[] = [];
     protected cutEditSource = '';
@@ -1171,7 +1174,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     showError(error: unknown): void {
-        this.notifyError(`台本を読み取れません: ${this.errorMessage(error)}`);
+        this.showDaihonReadError('台本を読み取れません', error);
     }
 
     async configure(): Promise<void> {
@@ -1196,7 +1199,6 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.rootUri = root;
         await this.locateProject(root);
-        await this.reload();
         this.toDispose.push(onActiveTimelineEditUriChange(() => this.queueReload()));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const paths = event.changes.map(change => change.resource.toString());
@@ -1221,6 +1223,9 @@ export class AkariDaihonWidget extends BaseWidget {
         } catch (error) {
             console.warn('[akari-daihon] file watching is unavailable', error);
         }
+        const initial = this.reload();
+        this.reloadTail = initial.catch(() => undefined);
+        await initial;
     }
 
     protected override onAfterAttach(message: Message): void {
@@ -1236,8 +1241,24 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected queueReload(): void {
         this.reloadTail = this.reloadTail.then(() => this.reload()).catch(error => {
-            this.notifyError(`台本を更新できません: ${this.errorMessage(error)}`);
+            this.showDaihonReadError('台本を更新できません', error);
         });
+    }
+
+    protected showDaihonReadError(message: string, error: unknown): void {
+        console.warn('[akari-daihon] 台本の読み込みに失敗しました。', error);
+        this.pendingUndoAt = 0;
+        this.clearDaihonReadError();
+        this.daihonReadError = this.showToast(`${message}。ファイルの内容を確認してください。`, true);
+    }
+
+    protected clearDaihonReadError(): void {
+        const toast = this.daihonReadError;
+        this.daihonReadError = undefined;
+        if (!toast) return;
+        const stack = toast.parentElement;
+        toast.remove();
+        if (stack && stack.childElementCount === 0) stack.remove();
     }
 
     protected async locateProject(root: URI): Promise<void> {
@@ -1356,7 +1377,18 @@ export class AkariDaihonWidget extends BaseWidget {
         this.closeCutRangeEditor();
         this.cutCandidates = [];
         this.updateCutsButton();
-        const editForSources = this.editUri ? JSON.parse(await this.readText(this.editUri).catch(() => '{}')) : {};
+        let editSource = '';
+        let editReadError: unknown;
+        if (this.editUri) {
+            try {
+                editSource = await retryDaihonRead(async () => {
+                    const source = await this.readText(this.editUri!);
+                    JSON.parse(source);
+                    return source;
+                }, ms => this.waitForDaihonReadRetry(ms));
+            } catch (error) { editReadError = error; }
+        }
+        const editForSources = editSource ? JSON.parse(editSource) : {};
         this.syncedSourceIds = new Set((Array.isArray(editForSources.sync_groups) ? editForSources.sync_groups : [])
             .flatMap((group: { members?: Array<{ source?: string }> }) =>
                 Array.isArray(group.members) ? group.members.map(member => member.source).filter((id): id is string => typeof id === 'string') : []));
@@ -1384,20 +1416,43 @@ export class AkariDaihonWidget extends BaseWidget {
             this.notifyError(this.errorMessage(error));
         });
         if (!this.editUri || !this.captionsUri) {
+            this.missingCaptionsUri = undefined;
             this.captionRecordings = new Map();
             this.segments = [];
             this.renderRows([]);
             this.showEmpty();
+            this.clearDaihonReadError();
             return;
         }
         try {
-            const [editSource, captionsSource, dictionarySource] = await Promise.all([
-                this.readText(this.editUri), this.readText(this.captionsUri),
+            if (editReadError) throw editReadError;
+            const [captionsRead, dictionarySource] = await Promise.all([
+                retryDaihonRead(async () => {
+                    const source = await this.readText(this.captionsUri!);
+                    return { source, parsed: parseCaptions(source), root: JSON.parse(source) as unknown };
+                }, ms => this.waitForDaihonReadRetry(ms), error => {
+                    const missing = isMissingDaihonFile(error);
+                    if (!missing) this.missingCaptionsUri = undefined;
+                    return !missing || this.missingCaptionsUri !== this.captionsUri?.toString();
+                }).catch(error => {
+                    if (isMissingDaihonFile(error)) return undefined;
+                    throw error;
+                }),
                 this.readText(this.editUri.parent.resolve('.akari/dictionary.json')).catch(() => '')
             ]);
+            if (!captionsRead) {
+                this.missingCaptionsUri = this.captionsUri.toString();
+                this.captionRecordings = new Map();
+                this.segments = [];
+                this.renderRows([]);
+                this.showEmpty('まだ字幕がありません。字幕を作成するとここに表示されます');
+                this.clearDaihonReadError();
+                return;
+            }
+            this.missingCaptionsUri = undefined;
+            const { source: captionsSource, parsed, root: captionsRoot } = captionsRead;
             this.speakerDictionary = parseSpeakerDictionary(dictionarySource);
-            const parsed = parseCaptions(captionsSource);
-            this.captionsRoot = JSON.parse(captionsSource) as unknown;
+            this.captionsRoot = captionsRoot;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
             const shape = readCaptionShape(this.captionsRoot);
             this.displayKnobs = { ...this.displayKnobs, maxLineUnits: shape.chars, lines: shape.lines };
@@ -1447,10 +1502,19 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
+            this.clearDaihonReadError();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
             this.captionRecordings = new Map();
-            this.notifyError(`台本を読み取れません: ${this.errorMessage(error)}`);
+            if (isMissingDaihonFile(error)) {
+                this.missingCaptionsUri = undefined;
+                this.renderRows([]);
+                this.showEmpty();
+                this.clearDaihonReadError();
+            } else {
+                this.missingCaptionsUri = undefined;
+                this.showDaihonReadError('台本を読み取れません', error);
+            }
         }
     }
 
@@ -6153,7 +6217,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.renderPlacedText();
     }
 
-    protected showEmpty(): void {
+    protected showEmpty(message = 'edit.json のあるプロジェクトを開くと字幕がここに並びます'): void {
         this.closePop();
         this.placedSelection = undefined;
         this.placedEditor.hidden = true;
@@ -6175,7 +6239,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.elements.clear();
         const empty = document.createElement('div');
         empty.className = 'akari-daihon-empty';
-        empty.textContent = 'edit.json のあるプロジェクトを開くと字幕がここに並びます';
+        empty.textContent = message;
         this.rowsNode.appendChild(empty);
     }
 
@@ -6233,6 +6297,10 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async readText(uri: URI): Promise<string> {
         return (await this.fileService.readFile(uri)).value.toString();
+    }
+
+    protected waitForDaihonReadRetry(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     protected errorMessage(error: unknown): string {
