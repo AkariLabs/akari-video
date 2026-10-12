@@ -75,3 +75,23 @@ export function groupTokensIntoWords(
     }
     return tokenFrom === words.length ? result : tokenUnits(words);
 }
+
+export function selectableCaptionWords(text: string, start: number, end: number,
+    words: readonly DaihonWordToken[] | null | undefined, locale = 'ja'): DaihonWordToken[] {
+    if (words?.length && words.map(word => word.text).join('') === text) return [...words];
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+    let parts: string[];
+    try {
+        const Segmenter = (globalThis.Intl as typeof Intl & { Segmenter?: WordSegmenterConstructor }).Segmenter;
+        parts = Segmenter ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(part => part.segment)
+            : Array.from(text);
+    } catch { parts = Array.from(text); }
+    if (parts.join('') !== text || parts.length < 2) parts = Array.from(text);
+    let offset = 0;
+    return parts.map(part => {
+        const from = offset;
+        offset += part.length;
+        return { text: part, start: start + (end - start) * from / text.length,
+            end: start + (end - start) * offset / text.length };
+    });
+}
