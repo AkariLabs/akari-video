@@ -456,6 +456,7 @@ export type AudioMasterWriteRequest = Extract<
  */
 export type InspectorWriteRequest = InspectorWriteOperation & {
     targets?: readonly TimelineSelectionTarget[];
+    phase?: 'draft' | 'commit' | 'cancel';
 };
 
 export interface InspectorWriteResult {

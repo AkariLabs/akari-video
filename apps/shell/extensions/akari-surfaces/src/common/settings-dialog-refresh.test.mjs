@@ -412,14 +412,14 @@ test('外観: テーマはプレビュー付きのカードで選び、ダーク
 
 test('パートナー権限はふるまいカードに 3 択で表示し、既定 auto と保存を扱う', async () => {
     const { SECTION_PREFERENCE_KEYS, AKARI_PARTNER_PERMISSION_MODE } = require('../../lib/common/settings-sections.js');
-    assert.deepEqual(SECTION_PREFERENCE_KEYS.partner, ['akari.partner.reopenLast', 'akari.partner.permissionMode']);
+    assert.deepEqual(SECTION_PREFERENCE_KEYS.partner, ['akari.partner.reopenLast', 'akari.chat.experimental.enabled', 'akari.partner.permissionMode']);
     const page = new FakeNode('section');
     const { dialog, writes } = makeDialog({}, { sections: new Map([['partner', page]]) });
     dialog.renderSection('partner');
     const behavior = find(page, node => node.getAttribute('data-akari-settings-group') === 'ふるまい');
     assert.ok(behavior);
     assert.deepEqual(all(behavior).filter(node => node.className === 'akari-set-row-label').map(node => node.textContent),
-        ['起動したら前回のパートナーを開く', 'パートナーの権限']);
+        ['起動したら前回のパートナーを開く', 'AKARI チャット（お試し）を表示する', 'パートナーの権限']);
     assert.match(behavior.textContent, /Copilot・Antigravity・Command Code/);
     const menu = find(behavior, node => node.getAttribute('data-akari-dropdown') === 'パートナーの権限');
     const choices = all(menu).filter(node => node.getAttribute('role') === 'option');

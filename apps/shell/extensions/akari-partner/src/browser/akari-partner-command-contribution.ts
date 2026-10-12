@@ -12,6 +12,8 @@ import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
 import { insertReviewText, partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { CHAT_ENABLED_PREFERENCE, visibleReviewKind } from './partner-chat-visibility';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
@@ -96,6 +98,9 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     @inject(PartnerActivityService)
     protected readonly activity!: PartnerActivityService;
 
+    @inject(PreferenceService)
+    protected readonly preferences!: PreferenceService;
+
     protected liveTerminal() {
         return this.terminals.all.find(terminal => terminal.kind === PartnerTerminal.KIND &&
             !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0);
@@ -108,20 +113,23 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         if (current && !current.isDisposed && current.isAttached) {
             const widget = current as ReviewWidget;
             const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
-            if (partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG)) {
+            const target = partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+            if (target && visibleReviewKind(target.kind, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))) {
                 this.lastReviewWidgetId = widget.id;
                 return widget;
             }
         }
-        return this.shell.widgets.find(widget => widget.id === this.lastReviewWidgetId && widget.isAttached && !widget.isDisposed) as
-            ReviewWidget | undefined;
+        return this.shell.widgets.find(widget => widget.id === this.lastReviewWidgetId && widget.isAttached && !widget.isDisposed
+            && (widget.id !== 'akari-chat-widget' || this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false))) as ReviewWidget | undefined
+            ?? this.liveTerminal() as ReviewWidget | undefined;
     }
 
     protected reviewTarget(): PartnerReviewTarget | undefined {
         const widget = this.currentReviewWidget();
         if (!widget) return undefined;
         const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
-        return partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+        const target = partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+        return target && visibleReviewKind(target.kind, this.preferences.get<boolean>(CHAT_ENABLED_PREFERENCE, false)) ? target : undefined;
     }
 
     registerCommands(registry: CommandRegistry): void {

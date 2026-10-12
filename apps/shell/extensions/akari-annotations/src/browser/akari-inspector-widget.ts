@@ -2,6 +2,7 @@ import URI from '@theia/core/lib/common/uri';
 import { currentTimelineEditUri, currentTimelineCaptionsUri } from './active-timeline';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { AkariPreviewService, type OverlayRuntimeAssetUrls } from 'akari-preview/lib/common/akari-preview-protocol';
+import { LiveCaptionEdit } from 'akari-preview/lib/common/live-caption-edit';
 import { createCaptionPanel, CAPTION_PANEL_CSS,
     type CaptionPanelMyStyle, type CaptionPanelPreset, type CaptionPanelViewState } from './inspector/caption-panels';
 import { CAPTION_DEFAULT_SIZE_PX, TEXTSTYLE_SHOWCASE_COMMAND_ID } from 'akari-preview/lib/common/textstyle-sample';
@@ -134,6 +135,9 @@ import { ADJUST_SECTIONS } from './inspector/sections/adjust-sections';
  */
 @injectable()
 export class AkariInspectorWidget extends BaseWidget {
+    protected captionTextInput?: HTMLTextAreaElement;
+    protected captionTextSelectionKey?: string;
+    protected captionTextClose?: (cancel: boolean) => Promise<void>;
     @inject(AkariPreviewService)
     @optional()
     protected readonly captionPreviewService?: import('akari-preview/lib/common/akari-preview-protocol').AkariPreviewService;
@@ -1021,6 +1025,10 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected render(): void {
+        if (this.captionTextInput?.isConnected && document.activeElement === this.captionTextInput) {
+            if (this.captionTextSelectionKey === this.viewSelectionKey()) return;
+            void this.captionTextClose?.(false);
+        }
         if (this.previewedVideoCandidate && (this.aiView !== 'video'
             || shouldClearVideoCandidatePreview(this.previewedVideoCandidate.itemId,
                 this.generationIdentity?.(this.model.snapshot)?.itemId))) {
@@ -5559,39 +5567,66 @@ export class AkariInspectorWidget extends BaseWidget {
             if (ok) submittedValue = value;
         };
 
-        if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
+        if (field.inputKind === 'caption-text') {
+            const textarea = input as HTMLTextAreaElement;
+            const session = new LiveCaptionEdit(editValue, async value => {
+                const result = await write(snapshot, value, 'draft');
+                if (!result.ok) throw new Error(result.message ?? '字幕を保存できませんでした。');
+            });
+            let closing = false;
+            this.captionTextInput = textarea;
+            this.captionTextSelectionKey = this.viewSelectionKey();
+            const close = async (cancel: boolean): Promise<void> => {
+                if (closing) return;
+                closing = true;
+                try {
+                    if (cancel || !textarea.value.trim()) {
+                        await session.cancel();
+                        await write(snapshot, editValue, 'cancel');
+                        if (!cancel) this.showFieldNotice('字幕のテキストは空にできません。');
+                    } else {
+                        await session.finish(textarea.value);
+                        await write(snapshot, textarea.value !== editValue ? textarea.value : editValue,
+                            textarea.value !== editValue ? 'commit' : 'cancel');
+                    }
+                } catch (error) {
+                    this.showFieldNotice(error instanceof Error ? error.message : String(error));
+                } finally {
+                    if (this.captionTextInput === textarea) this.captionTextInput = undefined;
+                    if (this.captionTextClose === close) this.captionTextClose = undefined;
+                    this.render();
+                }
+            };
+            this.captionTextClose = close;
+            textarea.addEventListener('compositionstart', () => { if (!closing) session.compositionStart(); });
+            textarea.addEventListener('compositionend', () => { if (!closing) session.compositionEnd(textarea.value); });
+            textarea.addEventListener('input', event => {
+                if (!closing) session.input(textarea.value, (event as InputEvent).isComposing);
+            });
+            textarea.addEventListener('blur', () => { void close(false); });
+            textarea.addEventListener('keydown', event => {
+                if (event.isComposing || event.keyCode === 229) return;
+                if (event.key === 'Escape') {
+                    event.preventDefault(); event.stopPropagation();
+                    void close(true);
+                } else if (event.key === 'Enter' && (navigator.platform.includes('Mac') ? event.metaKey : event.ctrlKey)) {
+                    event.preventDefault(); event.stopPropagation();
+                    void close(false);
+                }
+            });
+        } else if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             input.addEventListener('change', () => {
                 field.liveSelect?.(input.value);
                 void commit();
             });
         } else {
-            let captionTextTimer: ReturnType<typeof setTimeout> | undefined;
-            if (field.inputKind === 'caption-text') {
-                input.addEventListener('input', event => {
-                    if ((event as InputEvent).isComposing) return;
-                    if (captionTextTimer !== undefined) clearTimeout(captionTextTimer);
-                    captionTextTimer = setTimeout(() => { captionTextTimer = undefined; void commit(); }, 180);
-                });
-            }
             input.addEventListener('blur', () => {
-                if (captionTextTimer !== undefined) clearTimeout(captionTextTimer);
                 void commit();
             });
             input.addEventListener('keydown', event => {
                 const keyboard = event as KeyboardEvent;
                 if (keyboard.isComposing || keyboard.keyCode === 229) return;
                 const key = keyboard.key;
-                if (field.inputKind === 'caption-text') {
-                    if (key === 'Enter' && (navigator.platform.includes('Mac') ? keyboard.metaKey : keyboard.ctrlKey)) {
-                        event.preventDefault();
-                        input.blur();
-                    } else if (key === 'Escape') {
-                        event.preventDefault();
-                        input.value = editValue;
-                        input.blur();
-                    }
-                    return;
-                }
                 if (key === 'Enter') {
                     event.preventDefault();
                     (input as HTMLInputElement).blur();

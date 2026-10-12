@@ -157,7 +157,7 @@ test('inline text save keeps the host rederived word timings', async () => {
         captionRows: new Map(), renderCaption() {},
         captionEditorValueFn: value => value,
         activeCaptionEdit: { element: { innerText: 'new', lastChild: null },
-            originalText: 'old', captionId: 'A' },
+            originalText: 'old', captionId: 'A', session: { finish: async () => true } },
         captions: [{ id: 'A', text: 'old', words: [{ text: 'old', start: 0, end: 0.4 }] }]
     });
     vm.runInContext(`${commit}\nglobalThis.commit = commitCaptionEdit;

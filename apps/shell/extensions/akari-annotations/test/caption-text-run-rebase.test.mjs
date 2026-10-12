@@ -38,6 +38,17 @@ test('変更前後の文字に掛かった run は移動・分割して残す', 
     assert.deepEqual(grapheme.runs.map(item => [item.from, item.to]), [[3, 4]]);
 });
 
+test('途中保存を重ねても変更範囲外の run は伸びない', () => {
+    let source = JSON.stringify({ captions: [{ id: 'c', text: '前後', display_text: '前後',
+        runs: [{ from: 0, to: 1, style: { color: '#ffffff' } }] }] });
+    for (const text of ['前A後', '前AB後', '前ABC後']) {
+        const next = JSON.parse(source);
+        next.captions[0].text = next.captions[0].display_text = text;
+        source = preserveRunsOutsideTextReplacement(source, JSON.stringify(next), 'c').source;
+    }
+    assert.deepEqual(JSON.parse(source).captions[0].runs.map(run => [run.from, run.to]), [[0, 1]]);
+});
+
 test('台本とインスペクターが使う保存サービスに同じ規則を適用する', () => {
     const service = readFileSync(new URL('../src/node/akari-annotations-service.ts', import.meta.url), 'utf8');
     assert.match(service, /setCaptionFields\(request: SetCaptionFieldsRequest\)[\s\S]*?preserveRunsOutsideTextReplacement\(source, result\.source, request\.captionId\)/u);

@@ -59,7 +59,7 @@ import {
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
     normalizeExportEncoder, normalizeExportCodec, normalizeExportFps, isValidIrodoriUrl
 } from '../common/settings-sections';
-import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
+import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, AKARI_CHAT_EXPERIMENTAL_ENABLED, AKARI_PARTNER_PERMISSION_MODE, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { normalizePartnerPermissionMode } from 'akari-partner/lib/common/partner-permissions';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
@@ -807,6 +807,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }, { small: true }))),
         groupCard('ふるまい', this.preferenceSwitch(AKARI_PARTNER_REOPEN, '起動したら前回のパートナーを開く', true,
             'プロジェクトを開くと前回のパートナーを開きます。タブを閉じたプロジェクトでは次回は開きません'),
+        this.preferenceSwitch(AKARI_CHAT_EXPERIMENTAL_ENABLED, 'AKARI チャット（お試し）を表示する', false,
+            '開発中の機能です。動作が不安定なことがあります'),
         settingRow('パートナーの権限', '自動モードが無いツール（Copilot・Antigravity・Command Code など）は、自動でもすべて許可で起動します',
             dropdown({ label: 'パートナーの権限', options: [
                 { value: 'auto', label: '自動（おすすめ）' },
@@ -2392,6 +2394,8 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             [STATUS_BAR_KEYS.intervalSec]: { type: 'number', enum: [1, 3, 10], default: 3 },
             [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
             [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
+            [AKARI_CHAT_EXPERIMENTAL_ENABLED]: { type: 'boolean', default: false,
+                description: '開発中の機能です。動作が不安定なことがあります' },
             [AKARI_PARTNER_PERMISSION_MODE]: { type: 'string', enum: ['auto', 'ask', 'bypass'], default: 'auto', scope: PreferenceScope.User },
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },

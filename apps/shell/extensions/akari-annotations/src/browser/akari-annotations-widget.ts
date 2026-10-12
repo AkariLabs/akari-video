@@ -1278,6 +1278,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
+    protected readonly captionTextSessions = new Map<string, { before: string }>();
     protected lastAppliedCaptionsSource: string | undefined;
     protected captionDisplayCuesBySource = new Map<string, CaptionDisplayCueLike[]>();
     protected captionDisplayReloadGeneration = 0;
@@ -3545,6 +3546,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'caption-speaker': {
                     const captionsUri = location.captionsUri.toString();
                     const projectRootUri = location.root.toString();
+                    if (request.kind === 'caption-text' && request.phase) {
+                        const read = async (): Promise<string> => (await this.fileService.readFile(location.captionsUri)).value.toString();
+                        const key = `${captionsUri}\0${request.id}`;
+                        if (request.phase === 'draft') {
+                            if (!request.value.trim()) return { ok: true };
+                            if (!this.captionTextSessions.has(key)) this.captionTextSessions.set(key, { before: await read() });
+                            await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
+                                captionId: request.id, text: request.value, draft: true });
+                            await this.reloadCaptionsFromSource(undefined, true);
+                            return { ok: true };
+                        }
+                        const session = this.captionTextSessions.get(key);
+                        this.captionTextSessions.delete(key);
+                        if (request.phase === 'cancel' && !session) return { ok: true };
+                        if (session) {
+                            const restore = async (captionsSource: string): Promise<void> => {
+                                await this.annotationsService.writeEditSnapshot({ editUri: location.editUri.toString(),
+                                    projectRootUri, captionsUri, captionsSource });
+                                await this.reloadCaptions();
+                            };
+                            if (request.phase === 'cancel') {
+                                await restore(session.before);
+                                return { ok: true };
+                            }
+                            await this.annotationsService.setCaptionFields({
+                                captionsUri, projectRootUri, captionId: request.id, text: request.value });
+                            const after = await read();
+                            if (after !== session.before) this.pushHistory({ label: '字幕のテキストを変更',
+                                undo: () => restore(session.before), redo: () => restore(after) });
+                            await this.reloadCaptions();
+                            this.hideNotice();
+                            this.footer.textContent = '字幕を更新しました。';
+                            return { ok: true };
+                        }
+                    }
                     const caption = this.captions.find(candidate => candidate.id === request.id);
                     if (!caption) {
                         throw new Error(`字幕 ${request.id} が見つかりません。`);
