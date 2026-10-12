@@ -347,7 +347,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         return `${process.platform}-${process.arch}`;
     }
 
-    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false): Promise<PartnerBootstrapOutcome> {
+    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent = false, forceReinstall = false): Promise<PartnerBootstrapOutcome> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
         const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()}, ${JSON.stringify(catalogMessages())})`;
@@ -356,6 +356,8 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
             ...process.env,
             ELECTRON_RUN_AS_NODE: '1',
             ...(installConsent ? { AKARI_PARTNER_INSTALL_CONSENT: '1' } : { AKARI_PARTNER_INSTALL_CONSENT: '0' }),
+            // 設定画面の更新ボタン専用。通常の接続では立てない（既存環境変数の逃げ道はそのまま引き継ぐ）。
+            ...(forceReinstall ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {}),
             // Read by bootstrap-runner.ts's claude-branch plugin wiring step
             // (task/2026-07-25-partner-plugin-autowire). Omitted when no
             // workspace is open so the runner treats wiring as skippable.

@@ -539,6 +539,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 if ('consentRequired' in bootstrap) throw new Error(t('partner.partnerPanel.widget.installationRequiresConsentText'));
             }
             this.executablePath = bootstrap.executablePath;
+            void this.noticeCliUpdate(entry);
             this.setProgress(entry, t('partner.partnerPanel.widget.preparingCliLabel'), bootstrap.executablePath);
             await this.ensureCliProvisioned(entry);
             const permissionMode = this.partnerPermissionMode();
@@ -602,6 +603,7 @@ export class AkariPartnerWidget extends ReactWidget {
                 }
             }
             this.executablePath = bootstrap.executablePath;
+            void this.noticeCliUpdate(entry);
             this.setProgress(entry,
                 bootstrap.reused ? t('partner.partnerPanel.widget.foundInstalledCliText') : t('partner.partnerPanel.widget.downloadedInstalledCliText'),
                 bootstrap.executablePath
@@ -1250,6 +1252,23 @@ export class AkariPartnerWidget extends ReactWidget {
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 50));
+        }
+    }
+
+    /** セッション中 1 回だけ、更新のある CLI を知らせる。設定の表示と同じ判定を command 越しに借り、失敗しても何も起こさない。 */
+    protected readonly cliUpdateNoticed = new Set<string>();
+    protected async noticeCliUpdate(entry: PartnerCatalogEntry): Promise<void> {
+        if (this.cliUpdateNoticed.has(entry.agent)) return;
+        this.cliUpdateNoticed.add(entry.agent);
+        try {
+            const status = await this.commandService.executeCommand<{ installedVersion: string; latestVersion: string } | undefined>('akari.partner.cliUpdateStatus', entry.agent);
+            if (!status) return;
+            const open = t('partner.partnerPanel.cliUpdate.openSettingsAction');
+            const choice = await this.messageService.info(t('partner.partnerPanel.cliUpdate.availableText',
+                { value1: entry.name, value2: status.latestVersion, value3: status.installedVersion }), open, t('partner.partnerPanel.extensionUpdater.laterLabel'));
+            if (choice === open) await this.commandService.executeCommand('akari.settings.open', { section: 'partner' });
+        } catch (error) {
+            console.warn('[akari-partner] CLI update notice skipped:', String(error).replace(/[\r\n]+/g, ' '));
         }
     }
 

@@ -75,6 +75,8 @@
   "partner.partnerPanel.extensionUpdater.extensionNotInstalledStatus": "Extension is not installed",
   "partner.partnerPanel.extensionUpdater.extensionUpdateAvailableText": "An extension update is available",
   "partner.partnerPanel.extensionUpdater.extensionUpDateText": "Extension is up to date",
+  "partner.partnerPanel.cliUpdate.availableText": "A new version of {value1} is available: {value2} (current {value3})",
+  "partner.partnerPanel.cliUpdate.openSettingsAction": "Update in Settings",
   "partner.partnerPanel.extensionUpdater.laterLabel": "Later",
   "partner.partnerPanel.extensionUpdater.newVersionAvailableText": "A new version of {value1} is available: {value2}",
   "partner.partnerPanel.extensionUpdater.reloadAction": "Reload Now",

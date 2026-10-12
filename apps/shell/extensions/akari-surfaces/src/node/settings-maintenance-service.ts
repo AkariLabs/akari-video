@@ -1,17 +1,19 @@
 import { t, childProcessEnv } from '@akari-video/i18n';
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, optional } from '@theia/core/shared/inversify';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { constants, existsSync } from 'fs';
 import { pathToFileURL } from 'url';
-import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceService, PartnerDetail, PartnerFreshness, PartnerUpdateResult, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
 import { AKARI_APP_ICON } from '../browser/settings/app-icon';
 import { resolveUpdateChannel } from '../common/shell-update-applier';
 import { partnerCliCandidates } from 'akari-partner/lib/node/partner-cli-candidates';
 import { buildPrivateNodePathEnv } from 'akari-partner/lib/node/cli-provisioner';
 import { resolveAkariHomeDir } from 'akari-partner/lib/node/partner-connection-writer';
+import { AkariPartnerServer, PartnerAgentId } from 'akari-partner/lib/common/akari-partner-protocol';
+import { createLatestVersionLookup, decidePartnerCliUpdate, extractCliVersion, isAppManagedCliPath, PARTNER_LATEST_SOURCES } from 'akari-partner/lib/common/partner-cli-freshness';
 import rawPartnerCatalog = require('akari-partner/lib/common/partner-catalog.json');
 
 const CLI_AGENTS = rawPartnerCatalog.filter(entry => entry.form === 'cli').map(entry => entry.agent as string);
@@ -159,8 +161,15 @@ export function zipEntries(entries: Record<string, string>): Buffer {
     return Buffer.concat([...local, ...central, footer]);
 }
 
+// 最新版の問い合わせは 1 時間キャッシュ。失敗しても throw せず「不明」を返す。
+const latestPartnerVersion = createLatestVersionLookup({
+    fetchImpl: (url, init) => fetch(url, init)
+});
+
 @injectable()
 export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMaintenanceService {
+    @inject(AkariPartnerServer) @optional() protected readonly partnerServer?: AkariPartnerServer;
+    protected readonly updating = new Set<string>();
     async getUpdateSettings(): Promise<{ channel: 'stable' | 'prerelease'; autoCheck: boolean }> {
         try {
             const value = JSON.parse(await fs.readFile(path.join(home(), 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
@@ -211,9 +220,44 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                     resolve(output.split(/\r?\n/)[0]?.replace(/[\\/].*$/, '').slice(0, 80) || undefined);
                 });
             });
-            result[id] = { installed: true, version, detail: version || '—' };
+            result[id] = { installed: true, version, detail: version || '—',
+                managedByApp: isAppManagedCliPath(executable, { homeDir: os.homedir(), platform: process.platform, env: process.env }) };
         }));
         return result;
+    }
+    async partnerFreshness(details: Record<string, PartnerDetail>): Promise<Record<string, PartnerFreshness>> {
+        const result: Record<string, PartnerFreshness> = {};
+        await Promise.all(Object.entries(details).map(async ([id, detail]) => {
+            if (!detail.installed || !PARTNER_LATEST_SOURCES[id]) { return; }
+            const latest = await latestPartnerVersion(id).catch(() => undefined);
+            result[id] = decidePartnerCliUpdate(id, extractCliVersion(detail.version), latest);
+        }));
+        return result;
+    }
+    async updatePartner(agent: string): Promise<PartnerUpdateResult> {
+        // 更新できるのは取得元が分かる CLI だけ（Claude は自己更新、それ以外は元の方法で）。
+        const source = PARTNER_LATEST_SOURCES[agent];
+        if (!CLI_AGENTS.includes(agent) || !source || source.kind === 'self-updating' || !this.partnerServer) {
+            return { ok: false, message: t('surfaces.settings.partnerUpdateUnsupported.message') };
+        }
+        if (this.updating.has(agent)) { return { ok: false, message: t('surfaces.settings.partnerUpdateRunning.message') }; }
+        this.updating.add(agent);
+        try {
+            // 同じ導入経路を強制で通す。ボタンを押したこと自体が同意なので consent を立てる。
+            const outcome = await this.partnerServer.bootstrap(agent as PartnerAgentId, undefined, true, true);
+            if ('consentRequired' in outcome) { return { ok: false, message: t('surfaces.settings.partnerUpdateUnsupported.message') }; }
+            const detail = (await this.partnerDetails())[agent];
+            return { ok: true, version: extractCliVersion(detail?.version) };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            // Windows は実行中の exe を置き換えられない。起動中のセッションを勝手に止めず、閉じてから再実行してもらう。
+            if (process.platform === 'win32' && /EBUSY|EPERM|EACCES|being used by another process/i.test(message)) {
+                return { ok: false, busy: true, message: t('surfaces.settings.partnerUpdateBusy.message') };
+            }
+            return { ok: false, message: message.split(/\r?\n/).filter(Boolean).slice(-1)[0]?.slice(0, 200) };
+        } finally {
+            this.updating.delete(agent);
+        }
     }
     async measure(workspaceRoot?: string): Promise<StorageSnapshot> {
         const entries = await Promise.all(storageLocations(workspaceRoot).map(async entry => {

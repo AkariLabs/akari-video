@@ -425,6 +425,14 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             await fs.rename(temporaryLink, executableLink);
             executable = executableLink;
         }
+        // 更新を重ねるたびに 100MB 級のバンドルが溜まらないよう、新版以外の版フォルダを片付ける。
+        // 実行中の旧版や権限の問題で消せなくても導入自体は成功なので握りつぶす（best-effort）。
+        try {
+            for (const entry of await fs.readdir(managedRoot, { withFileTypes: true })) {
+                if (!entry.isDirectory() || entry.name === version || entry.name === 'current' || entry.name.startsWith('.')) continue;
+                await fs.rm(path.join(managedRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+            }
+        } catch { /* 片付けは任意 */ }
         console.log(t('partner.partnerSetup.bootstrap.installedCodexLabel', { value1: version, value2: versionDir }));
         return executable;
     }
