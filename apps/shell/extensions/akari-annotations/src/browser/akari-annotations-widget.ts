@@ -5490,7 +5490,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const caption = selectedCaptionId ? this.captions.find(item => item.id === selectedCaptionId) : undefined;
         return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
             playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path,
-            pendingKeyframeGroups: selectedId === this.pendingPreviewKeyframes?.itemId
+            pendingKeyframeGroups: this.pendingPreviewKeyframes && selectedId === this.pendingPreviewKeyframes.itemId
                 ? this.pendingPreviewKeyframes.groups : [],
             caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {},
                 locale: this.captionDisplayLocale } : undefined };

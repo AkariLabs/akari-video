@@ -139,6 +139,8 @@ export class AkariExportSessionService implements Disposable {
 
     protected settings: ExportSettings = DEFAULT_SETTINGS;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
+    protected failedVersion = 0;
+    get failureVersion(): number { return this.failedVersion; }
     protected licenseFindings: readonly QuickExportLicenseFinding[] = [];
     protected video: ThisVideoDescription = {
         orientation: 'landscape', width: undefined, height: undefined, fps: undefined
@@ -761,6 +763,7 @@ export class AkariExportSessionService implements Disposable {
 
     protected applyStatus(status: QuickExportStatus, options: { notify?: boolean } = {}): void {
         const wasDone = this.status.phase === 'done';
+        if (status.phase === 'failed' && this.status.phase !== 'failed') this.failedVersion++;
         this.status = status;
         if (status.phase === 'linting' || status.phase === 'rendering') {
             this.beginPolling();
@@ -849,6 +852,7 @@ export class AkariExportSessionService implements Disposable {
 
     protected fail(failureSummary: string): void {
         this.stopPolling();
+        this.failedVersion++;
         this.status = { phase: 'failed', logTail: '', failureSummary };
         const notification = quickExportErrorNotification(this.status, this.failureNotified);
         if (notification) {
@@ -860,5 +864,6 @@ export class AkariExportSessionService implements Disposable {
 
     protected fireChanged(): void {
         this.changeEmitter.fire(undefined);
+        window.dispatchEvent(new CustomEvent('akari.export.phaseChanged', { detail: { phase: this.status.phase, failureVersion: this.failedVersion } }));
     }
 }

@@ -83,7 +83,7 @@ export class AkariExportDialog extends ReactDialog<void> {
                 <div className='ph'>
                     <div><div className='ttl' id='akari-export-dialog-title'>{view === 'done' ? t('shell.exportDialog.window.exportCompleteStatus') : t('shell.exportDialog.window.exportAction')}</div><div className='sub'>{subtitle}</div></div>
                     {running && <span className='pill'><span className='dot blink' />{t('shell.exportDialog.window.exportingStatus')}{status.progressPercent ?? 0}%</span>}
-                    <button type='button' className='x' aria-label={t('shell.exportDialog.window.closeAction')} onClick={() => this.close()}>×</button>
+                    <button type='button' className='x' data-akari-onboarding-target='export-close' aria-label={t('shell.exportDialog.window.closeAction')} onClick={() => this.close()}>×</button>
                 </div>
                 {view === 'running' && <ExportRunningView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'done' && <ExportDoneView session={this.session} snapshot={snapshot} close={() => this.close()} />}
@@ -91,7 +91,7 @@ export class AkariExportDialog extends ReactDialog<void> {
                 {view === 'failed' && <>
                     <div className='pb'><div className='right'><h2>{t('shell.exportDialog.window.exportStoppedStatus')}</h2><p>{t('shell.exportDialog.window.checkSettingsInputsTryAgainMessage')}</p></div></div>
                     <ExportEngineReasonView status={status} openLint={status.reportPath ? () => { this.close(); void this.session.openArtifact(status.reportPath); } : undefined} />
-                    <div className='pf'><span className='sp' /><button type='button' className='btn' onClick={() => this.session.resetToSetup()}>{t('shell.exportDialog.window.backSettingsLabel')}</button></div>
+                    <div className='pf'><span className='sp' /><button type='button' className='btn' data-akari-onboarding-target='export-back-settings' onClick={() => this.session.resetToSetup()}>{t('shell.exportDialog.window.backSettingsLabel')}</button></div>
                 </>}
                 {view === 'setup' && <ExportSetupView session={this.session} snapshot={snapshot} />}
             </div>
