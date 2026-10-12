@@ -324,13 +324,7 @@ export function evaluateGpuEligibility({
       ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
       : null;
     const threeScene = readDeclarations(source, THREE_RUNTIME).length > 0;
-    // edit-v2 の validateKeyframes は 2 点未満を拒否し、tree-ops も 1 点になれば配列を消す。
-    const parentKeyframes = Array.isArray(overlay?.motionParents)
-      && overlay.motionParents.some((parent) => Array.isArray(parent?.keyframes)
-        && parent.keyframes.length >= 2);
-    if (threeScene && (names.includes("item-keyframes") || parentKeyframes)) {
-      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "unsupported", "three-item-keyframes", names));
-    } else if (names.includes("item-keyframes")) {
+    if (!threeScene && names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
     } else if (names.includes("vgpu-runtime")) {
       const result = classifyVgpuOverlay(source, names);
@@ -341,7 +335,8 @@ export function evaluateGpuEligibility({
       // entranceCandidate が animation を要求していたため、静止 3D + CSS が分岐から漏れていた。
       // 方式 B は断片全体を転写するため animation の有無に依存せず、U3 実測済みの
       // composite 経路へ静止 3D も通せる（条件外の断片は引き続き fail-closed）。
-      const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
+      const visualNames = names.filter((name) => name !== "item-keyframes");
+      const withinSampledConditions = visualNames.every((name) => SAMPLED_CONDITIONS.has(name));
       if (names.includes("css-3d-backface-hidden")) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
       } else if (animated && entrance.ok && withinSampledConditions) {
@@ -358,13 +353,13 @@ export function evaluateGpuEligibility({
         entries.push(composite.ok
           ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
           : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
-      } else if (names.every((name) => COMPOSITE_CONDITIONS.has(name))) {
+      } else if (visualNames.every((name) => COMPOSITE_CONDITIONS.has(name))) {
         const composite = scanThreeComposite(html);
         entries.push(composite.ok
           ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
           : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
       } else {
-        const unsupported = names.filter((name) => !COMPOSITE_CONDITIONS.has(name));
+        const unsupported = visualNames.filter((name) => !COMPOSITE_CONDITIONS.has(name));
         entries.push(entry(
           "overlay",
           overlay.id ?? `overlay-${index}`,
@@ -772,10 +767,21 @@ function threeOnlyHtmlSpace(html, start, end) {
 // 断片内 CSS の変形や不透明度は出ない。canvas とレイアウトだけを残し、他は既存の composite へ回す。
 // 生 HTML を静的に読み、ブラウザと対応を確定できない断片は偽にする（fail-closed）。
 function isThreeOnlyOverlay(html, conditions, overlay) {
-  if (conditions.length !== 1 || conditions[0] !== "three-or-canvas-runtime") return false;
-  if (Object.hasOwn(overlay, "motion") || Object.hasOwn(overlay, "motionSource")
-    || Object.hasOwn(overlay, "keyframes")
-    || (Array.isArray(overlay.motionParents) && overlay.motionParents.length > 0)) return false;
+  const visualConditions = conditions.filter((condition) => condition !== "item-keyframes");
+  if (visualConditions.length !== 1 || visualConditions[0] !== "three-or-canvas-runtime") return false;
+  const hasValidKeys = (points) => Array.isArray(points) && points.length >= 2
+    && points.every((point) => Number.isFinite(point?.t));
+  const keyed = hasValidKeys(overlay.keyframes)
+    || hasValidKeys(overlay.motionSource?.keyframes)
+    || overlay.motionParents?.some((parent) => hasValidKeys(parent?.keyframes));
+  if (Object.hasOwn(overlay, "keyframes") && !hasValidKeys(overlay.keyframes)) return false;
+  if (!keyed && (Object.hasOwn(overlay, "motion") || Object.hasOwn(overlay, "motionSource")
+    || (Array.isArray(overlay.motionParents) && overlay.motionParents.length > 0))) return false;
+  if (overlay.motion?.in?.preset === "wipe" || overlay.motion?.out?.preset === "wipe"
+    || overlay.motionSource?.motion?.in?.preset === "wipe"
+    || overlay.motionSource?.motion?.out?.preset === "wipe"
+    || overlay.motionParents?.some((parent) => parent?.motion?.in?.preset === "wipe"
+      || parent?.motion?.out?.preset === "wipe")) return false;
   let cursor = 0;
   let fallbacks = 0;
   let fallbackDepth = 0;

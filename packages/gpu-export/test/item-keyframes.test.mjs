@@ -39,7 +39,7 @@ test("item keyframes force a DOM classification instead of a static sprite", () 
   });
 });
 
-test("3D のキーは理由つきで OSR に回し、キーなしと通常 item は従来どおり", () => {
+test("3D のキーは three に分類し、通常 item は DOM に分類する", () => {
   const scene = '<canvas></canvas><script type="application/json" data-akari-3d-scene>{}</script>';
   const classify = (html, keyframes, forceDegraded = false) => evaluateGpuEligibility({
     edit: { overlays: [{ id: "scene", html, ...(keyframes ? { keyframes } : {}) }] },
@@ -49,12 +49,11 @@ test("3D のキーは理由つきで OSR に回し、キーなしと通常 item 
     { t: 60, vars: { "--akari-3d-rot-y": 90 }, transform: { x: 80 } }];
   for (const forced of [false, true]) {
     const keyed = classify(scene, points, forced);
-    assert.equal(keyed.eligible, false);
-    assert.equal(keyed.entries[0].classification, "unsupported");
-    assert.equal(keyed.entries[0].reason, "three-item-keyframes");
-    assert.equal(keyed.summary.unsupported, 1);
-    assert.throws(() => assertGpuEligibility("gpu", keyed, { force: forced }),
-      /three-item-keyframes/u);
+    assert.equal(keyed.eligible, true);
+    assert.equal(keyed.entries[0].classification, "three");
+    assert.equal(keyed.entries[0].reason, "three-scene-canvas-direct");
+    assert.equal(keyed.summary.three, 1);
+    assert.doesNotThrow(() => assertGpuEligibility("gpu", keyed, { force: forced }));
   }
   const still = classify(scene);
   assert.equal(still.eligible, true);
@@ -65,7 +64,7 @@ test("3D のキーは理由つきで OSR に回し、キーなしと通常 item 
   assert.equal(ordinary.entries[0].reason, "item-keyframes");
 });
 
-test('キャンバス内の 3D は子キーと親キーで OSR、静的な子は GPU に分類する', t => {
+test('キャンバス内の 3D は子キー・親キー・静的な子を GPU の three に分類する', t => {
   const root = mkdtempSync(join(tmpdir(), 'three-canvas-classification-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'overlays'));
@@ -103,9 +102,8 @@ test('キャンバス内の 3D は子キーと親キーで OSR、静的な子は
       assert.equal(result.entries[0].classification, 'three');
       continue;
     }
-    assert.equal(result.eligible, false, keyed);
-    assert.equal(result.entries[0].classification, 'unsupported', keyed);
-    assert.equal(result.entries[0].reason, 'three-item-keyframes', keyed);
+    assert.equal(result.eligible, true, keyed);
+    assert.equal(result.entries[0].classification, 'three', keyed);
   }
 });
 
