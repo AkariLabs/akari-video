@@ -1144,5 +1144,6 @@
   "annotations.timeline.text.scene3dChanged": "3D が変更されました",
   "annotations.timeline.text.couldNotSetScene3dScreen": "画面を入れられませんでした: {reason}",
   "annotations.timeline.text.invalidRotation3dValue": "3D 回転の値が不正です。",
-  "annotations.timeline.text.changeRotation3d": "3D 回転を変更"
+  "annotations.timeline.text.changeRotation3d": "3D 回転を変更",
+  "annotations.timeline.text.addPreviewKeyframes": "プレビューの変形にキーフレームを打つ"
 }

@@ -12,6 +12,7 @@ import { applyCaptionContextField, runCaptionStyleWrite } from '../common/captio
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
+import type { PreviewKeyframeGroup } from './focus/preview-keyframe-prompt';
 
 /**
  * 出力プレビューの上のバー・要素の上の小さなメニュー（akari-preview が描く）の書き込み口とデータ。
@@ -40,6 +41,7 @@ export interface ContextBarSource {
     multi: number;
     fps: number;
     playhead: number;
+    pendingKeyframeGroups?: PreviewKeyframeGroup[];
     sourcePath(id: string): string | undefined;
     caption?: { id: string; textStyle: object; locale?: string };
 }
@@ -58,6 +60,7 @@ export interface ContextBarState {
     output: { width: number; height: number };
     /** ロック中の item の id（プレビューがつまみ・ドラッグを止めるのに使う）。 */
     lockedIds: string[];
+    pendingKeyframeGroups: PreviewKeyframeGroup[];
 }
 
 export interface ContextBarRequest {
@@ -109,10 +112,13 @@ export class ContextBarController implements Disposable {
         document.addEventListener('mousedown', onUser, true);
         window.addEventListener('keydown', onUser, true);
         window.addEventListener(CONTEXT_BAR_USER_INPUT_EVENT, onUser);
+        const onRefresh = (): void => this.queuePublish();
+        window.addEventListener('akari.contextBar.refresh', onRefresh);
         this.toDispose.push(Disposable.create(() => {
             document.removeEventListener('mousedown', onUser, true);
             window.removeEventListener('keydown', onUser, true);
             window.removeEventListener(CONTEXT_BAR_USER_INPUT_EVENT, onUser);
+            window.removeEventListener('akari.contextBar.refresh', onRefresh);
         }));
         return this;
     }
@@ -156,7 +162,8 @@ export class ContextBarController implements Disposable {
             multi: source.multi,
             styleCopy: this.styleClip?.kind ?? null,
             output: { width: Number(output.width) || 1920, height: Number(output.height) || 1080 },
-            lockedIds: lockedItemIds(source.doc)
+            lockedIds: lockedItemIds(source.doc),
+            pendingKeyframeGroups: place ? source.pendingKeyframeGroups ?? [] : []
         };
     }
 
@@ -223,6 +230,8 @@ export class ContextBarController implements Disposable {
             ? { ok: false, message: t('annotations.contextBarController.text.lockedItCanBeRemovedByPressing') } : undefined;
         try {
             switch (request.action) {
+                case 'addKeyframes':
+                    return source.selectedId ? widget.commitPendingPreviewKeyframes(source.selectedId) : { ok: false };
                 case 'write': {
                     if (!id || !request.path) return { ok: false };
                     if (request.path.startsWith('transform')) { const locked = guardLocked(); if (locked) return this.notice(locked); }

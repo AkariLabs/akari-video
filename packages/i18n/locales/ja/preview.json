@@ -664,5 +664,12 @@
   "preview.threeScene.validation.textsMustObjectError": "texts[{p1}] は object である必要があります",
   "preview.threeScene.warning.compressionExportSuffix": "（書き出しも同様に失敗します。非圧縮で書き出し直してください）",
   "preview.tracks.validation.couldNotAllocateIdDestinationTrackError": "詰め先トラック {p1} の ID を確保できません。",
-  "preview.libraryDrop.overlay.applyScene3dScreenAction": "3D の画面に入れます"
+  "preview.libraryDrop.overlay.applyScene3dScreenAction": "3D の画面に入れます",
+  "preview.contextBar.keyframe.addAction": "◆ キーを打つ",
+  "preview.contextBar.keyframe.addTitle": "この時刻に{groups}のキーを打つ",
+  "preview.contextBar.keyframe.groupPosition": "位置",
+  "preview.contextBar.keyframe.groupSize": "大きさ",
+  "preview.contextBar.keyframe.groupRotation": "回転",
+  "preview.contextBar.keyframe.groupRotation3d": "3D 回転",
+  "preview.contextBar.keyframe.groupSeparator": "・"
 }

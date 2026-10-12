@@ -1144,5 +1144,6 @@
   "annotations.timeline.text.scene3dChanged": "The 3D item was changed",
   "annotations.timeline.text.couldNotSetScene3dScreen": "Could not set the screen: {reason}",
   "annotations.timeline.text.invalidRotation3dValue": "Invalid 3D rotation value.",
-  "annotations.timeline.text.changeRotation3d": "Change 3D rotation"
+  "annotations.timeline.text.changeRotation3d": "Change 3D rotation",
+  "annotations.timeline.text.addPreviewKeyframes": "Add keyframes for the preview change"
 }

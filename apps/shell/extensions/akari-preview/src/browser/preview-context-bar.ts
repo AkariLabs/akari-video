@@ -34,6 +34,9 @@ export const PREVIEW_CONTEXT_LOCK_MESSAGE = 'akari-preview-context-lock';
 export const PREVIEW_TELOP_INNER_SELECTION_MESSAGE = 'akari-preview-telop-inner-selection';
 
 interface Rect { left: number; top: number; width: number; height: number }
+type KeyframeContextState = ContextBarState & {
+    pendingKeyframeGroups: Array<'position' | 'size' | 'rotation' | 'rotation3d'>;
+};
 
 export interface PreviewContextBoxReport {
     box: Rect | null;
@@ -116,7 +119,7 @@ export class PreviewContextBar implements Disposable {
     protected readonly menu = document.createElement('div');
     protected readonly more = document.createElement('div');
     protected readonly hint = document.createElement('div');
-    protected state: ContextBarState | undefined;
+    protected state: KeyframeContextState | undefined;
     protected report: PreviewContextBoxReport = { box: null, busy: false, stage: null };
     protected openWindow: string | null = null;
     protected moreOpen = false;
@@ -269,7 +272,9 @@ export class PreviewContextBar implements Disposable {
         }
         if (typeof message.user === 'string') {
             // 選択を自分で外したのか（akari-annotations の選び直しの安全網が見る）
-            window.dispatchEvent(new CustomEvent(USER_INPUT_EVENT));
+            window.dispatchEvent(new CustomEvent(USER_INPUT_EVENT, {
+                detail: { blankPreview: message.blankPreview === true }
+            }));
             // プレビューを押したら窓と ⋯ を閉じる（配置の窓はレイヤー一覧を見ながら選べるよう開いたまま）
             if (message.user === 'pointer' && ((this.openWindow && this.openWindow !== 'arrange') || this.moreOpen || this.barOverflowOpen)) {
                 if (this.openWindow !== 'arrange') this.openWindow = null;
@@ -298,7 +303,7 @@ export class PreviewContextBar implements Disposable {
         if (busy !== wasBusy) this.root.toggleAttribute('data-busy', busy);
         if (wasTelop !== this.report.telop || wasTelopId !== this.report.telopId
             || wasTelopInner !== this.report.telopInner) this.renderMenu(!!this.state?.selectedId && this.state.multi === 0
-                && !this.openWindow && this.state.kind !== 'caption');
+                && !this.openWindow && (this.state.kind !== 'caption' || this.state.pendingKeyframeGroups.length > 0));
         this.position();
         if (wasHeld && !this.report.pointerHeld && busy) this.scheduleBusyRelease();
     }
@@ -314,7 +319,15 @@ export class PreviewContextBar implements Disposable {
     }
 
     protected setState(value: unknown): void {
-        const state = parseContextBarState(value);
+        const parsed = parseContextBarState(value);
+        const groups = value && typeof value === 'object'
+            ? (value as { pendingKeyframeGroups?: unknown }).pendingKeyframeGroups : undefined;
+        const state: KeyframeContextState | undefined = parsed ? {
+            ...parsed,
+            pendingKeyframeGroups: Array.isArray(groups) ? groups.filter((group): group is
+                'position' | 'size' | 'rotation' | 'rotation3d' =>
+                ['position', 'size', 'rotation', 'rotation3d'].includes(group)) : []
+        } : undefined;
         const editUri = this.host.editUri();
         if (state && editUri && state.editUri !== editUri) return;
         const previous = this.state?.selectedId;
@@ -399,7 +412,8 @@ export class PreviewContextBar implements Disposable {
         this.renderHint();
         this.renderPop();
         // 窓を開いている間は、要素の上の小さなメニューを出さない（窓と重ならないように）
-        this.renderMenu(selected && !this.openWindow && state?.kind !== 'caption');
+        this.renderMenu(selected && !this.openWindow
+            && (state?.kind !== 'caption' || (state.pendingKeyframeGroups?.length ?? 0) > 0));
         this.renderMore();
         this.position();
         if (this.lockMessageSignature() !== this.lockSignature) this.sendLock();
@@ -535,20 +549,34 @@ export class PreviewContextBar implements Disposable {
         if (!selected || !state) return;
         const telop = this.report.telop === true && this.report.telopId === state.selectedId;
         const telopInner = telop && this.report.telopInner === true;
-        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen, telop, telopInner]);
+        const signature = JSON.stringify([state.selectedId, state.locked, this.moreOpen, telop, telopInner,
+            state.pendingKeyframeGroups]);
         if (signature === this.menuSignature) return;
         this.menuSignature = signature;
         const button = (key: string, label: string, icon: string, extra = ''): string =>
             `<button type="button" class="akari-ctx-mini" data-akari-menu-item="${key}" aria-label="${label}" title="${label}" ${extra}>${ICON[icon]}</button>`;
+        const keyframeGroups = state.pendingKeyframeGroups ?? [];
+        const groupNames: Record<string, string> = {
+            position: t('preview.contextBar.keyframe.groupPosition'), size: t('preview.contextBar.keyframe.groupSize'),
+            rotation: t('preview.contextBar.keyframe.groupRotation'), rotation3d: t('preview.contextBar.keyframe.groupRotation3d')
+        };
+        const keyframeLabel = t('preview.contextBar.keyframe.addAction');
+        const keyframeTitle = t('preview.contextBar.keyframe.addTitle', {
+            groups: keyframeGroups.map(group => groupNames[group]).join(t('preview.contextBar.keyframe.groupSeparator'))
+        });
         this.menu.innerHTML = [
-            button('annotate', t('preview.contextBar.toolbar.addNoteItemAction'), 'note'),
-            button('lock', state.locked ? t('preview.contextBar.toolbar.unlockAction') : t('preview.contextBar.toolbar.lockPreventMovingTransformingDeletingAction'), state.locked ? 'lock' : 'unlock',
-                `aria-pressed="${state.locked}"`),
-            ...(telop ? [button('telopInner', telopInner ? t('preview.contextBar.toolbar.selectOuterItemAction') : t('preview.contextBar.toolbar.selectInnerItemAction'), 'telopInner',
-                `aria-pressed="${telopInner}"`)] : []),
-            button('duplicate', `${t('preview.previewWindow.controls.duplicatePrefix')}${shortcutLabel('D', { mac: this.mac })}${t('preview.diagnostics.overlay.closeParen')}`, 'dup'),
-            button('delete', state.locked ? t('preview.contextBar.toolbar.unlockDeleteAction') : t('preview.contextBar.toolbar.deleteAction'), 'trash', state.locked ? 'disabled aria-disabled="true"' : ''),
-            button('more', t('preview.contextBar.toolbar.otherLabel'), 'more', `aria-haspopup="menu" aria-expanded="${this.moreOpen}"`)
+            ...(keyframeGroups.length ? [`<button type="button" class="akari-ctx-mini" data-akari-menu-item="addKeyframes"`
+                + ` aria-label="${keyframeLabel}" title="${keyframeTitle}">${keyframeLabel}</button>`] : []),
+            ...(state.kind === 'caption' ? [] : [
+                button('annotate', t('preview.contextBar.toolbar.addNoteItemAction'), 'note'),
+                button('lock', state.locked ? t('preview.contextBar.toolbar.unlockAction') : t('preview.contextBar.toolbar.lockPreventMovingTransformingDeletingAction'), state.locked ? 'lock' : 'unlock',
+                    `aria-pressed="${state.locked}"`),
+                ...(telop ? [button('telopInner', telopInner ? t('preview.contextBar.toolbar.selectOuterItemAction') : t('preview.contextBar.toolbar.selectInnerItemAction'), 'telopInner',
+                    `aria-pressed="${telopInner}"`)] : []),
+                button('duplicate', `${t('preview.previewWindow.controls.duplicatePrefix')}${shortcutLabel('D', { mac: this.mac })}${t('preview.diagnostics.overlay.closeParen')}`, 'dup'),
+                button('delete', state.locked ? t('preview.contextBar.toolbar.unlockDeleteAction') : t('preview.contextBar.toolbar.deleteAction'), 'trash', state.locked ? 'disabled aria-disabled="true"' : ''),
+                button('more', t('preview.contextBar.toolbar.otherLabel'), 'more', `aria-haspopup="menu" aria-expanded="${this.moreOpen}"`)
+            ])
         ].join('');
     }
 
@@ -1230,6 +1258,7 @@ const PREVIEW_CONTEXT_BAR_STYLE = `
 [data-akari-ui="preview-element-menu"] { display: flex; gap: 2px; padding: 3px; border-radius: 10px; visibility: hidden; }
 [data-akari-ui="preview-element-menu"].is-placed { visibility: visible; }
 .akari-ctx-mini { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.akari-ctx-mini[data-akari-menu-item="addKeyframes"] { width: auto; padding: 0 8px; white-space: nowrap; }
 .akari-ctx-mini:hover:not(:disabled) { background: var(--theia-toolbar-hoverBackground); }
 .akari-ctx-mini[aria-pressed="true"], .akari-ctx-mini[aria-expanded="true"] { color: var(--theia-focusBorder); }
 .akari-ctx-mini:disabled { opacity: .35; cursor: not-allowed; }
