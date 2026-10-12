@@ -75,8 +75,8 @@ test('更新要否: 新しければ更新あり、同じ・古い・不明は更
 });
 
 test('AKARI 管理の導入先か別管理コピーかを見分ける', () => {
-    const base = { homeDir: '/Users/a', platform: 'darwin', env: {} };
-    assert.equal(isAppManagedCliPath('/Users/a/.local/bin/codex', base), true);
+    const base = { homeDir: '/opt/akari-test-home', platform: 'darwin', env: {} };
+    assert.equal(isAppManagedCliPath('/opt/akari-test-home/.local/bin/codex', base), true);
     assert.equal(isAppManagedCliPath('/opt/homebrew/bin/codex', base), false);
     assert.equal(isAppManagedCliPath('/usr/local/bin/command-code', base), false);
     const win = { homeDir: 'C:\\Users\\a', platform: 'win32', env: { LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' } };
