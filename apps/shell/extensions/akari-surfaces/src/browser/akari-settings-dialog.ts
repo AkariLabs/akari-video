@@ -6,6 +6,7 @@ import URI from '@theia/core/lib/common/uri';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { AkariLibraryStatus, AkariNewProjectService, AkariToolCheckResult, AkariToolId } from '../common/akari-new-project-protocol';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { extractCliVersion } from 'akari-partner/lib/common/partner-cli-freshness';
 import { AKARI_APP_ICON } from './settings/app-icon';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -67,7 +68,7 @@ import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/bro
 import { normalizePartnerPermissionMode } from 'akari-partner/lib/common/partner-permissions';
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
-import { AkariSettingsMaintenanceService, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceService, PartnerDetail, PartnerFreshness, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
 import { AiModelsView } from './ai-models/ai-models-view';
 import { AkariChildLanguageService } from '../common/child-language-protocol';
@@ -176,6 +177,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected narrationError = '';
     protected voicevoxPreviewSrc = '';
     protected partnerDetails: Record<string, PartnerDetail> | undefined;
+    protected partnerFreshness: Record<string, PartnerFreshness> = {};
+    /** CLI ごとのアップデート進行/結果の表示文（空なら通常表示）。 */
+    protected partnerUpdateNote: Record<string, string> = {};
+    protected partnerUpdating = new Set<string>();
     protected extensionVersions: Record<string, string> | undefined;
     protected aboutUpdaterUnsubscribe?: () => void;
     protected aboutUpdateRow?: HTMLElement;
@@ -644,14 +649,30 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const rows = partnerSettingsCliRows().map(({ entry, name }) => {
             const id = entry.agent;
             const detail = this.partnerDetails?.[id];
-            return this.partnerRow(id, name, detail?.installed === undefined ? t('surfaces.settings.partnerChecking.label') : detail.installed ? t('surfaces.settings.partnerInstalled.status') : t('surfaces.settings.partnerNotInstalled.status'),
-                detail?.detail || '—', detail?.installed === false ? t('surfaces.settings.partnerInsert.label') : t('surfaces.settings.partnerStart.label'), async () => {
+            const fresh = this.partnerFreshness[id];
+            const installedVersion = extractCliVersion(detail?.version);
+            const updating = this.partnerUpdating.has(id);
+            // 版が読めるときは「今 x · 最新 y」、読めないときは従来どおり検出文をそのまま出す。
+            const sub = [installedVersion ? t('surfaces.settings.partnerNow.label', { version: installedVersion }) : detail?.detail || '—',
+                fresh?.latestVersion ? t('surfaces.settings.partnerLatest.label', { version: fresh.latestVersion }) : '',
+                fresh?.selfUpdating ? t('surfaces.settings.partnerSelfUpdating.label') : ''].filter(Boolean).join(' · ');
+            const external = Boolean(detail?.installed && fresh?.updateAvailable && detail.managedByApp === false);
+            // アップデートは AKARI が入れた実体にだけ出す（PATH 上の別管理コピーは入れ直しても使われない）。
+            const canUpdate = Boolean(detail?.installed && fresh?.updateAvailable && detail.managedByApp !== false) || updating;
+            const note = updating ? t('surfaces.settings.partnerUpdating.status') : this.partnerUpdateNote[id] || (external ? t('surfaces.settings.partnerExternalUpdate.message') : '');
+            const row = this.partnerRow(id, name, detail?.installed === undefined ? t('surfaces.settings.partnerChecking.label') : detail.installed ? t('surfaces.settings.partnerInstalled.status') : t('surfaces.settings.partnerNotInstalled.status'),
+                sub, detail?.installed === false ? t('surfaces.settings.partnerInsert.label') : t('surfaces.settings.partnerStart.label'), async () => {
                 this.close();
                 await this.commands.executeCommand('akari.partner.open');
                 if (!detail?.installed) { return; }
                 const widget = this.widgetManager.tryGetWidget('akari-partner-onboarding') as unknown as { begin(entry: typeof PARTNER_CATALOG[number]): Promise<void> } | undefined;
                 if (widget) { await widget.begin(entry); }
-            });
+            }, canUpdate ? [this.partnerUpdateButton(id, updating)] : []);
+            if (note) {
+                const noteElement = element('div', note); noteElement.className = 'akari-set-partner-sub';
+                row.children[1]?.append(noteElement);
+            }
+            return row;
         });
         const extensions = [
             { id: 'anthropic.claude-code', agent: 'claude' as const, name: t('surfaces.settings.partnerClaudeCodeExtension.label') },
@@ -687,7 +708,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected partnerRow(id: keyof typeof PARTNER_CLI_ICON_CLASSES, name: string, state: string, sub: string,
-        buttonLabel: string, onClick: () => void | Promise<void>): HTMLElement {
+        buttonLabel: string, onClick: () => void | Promise<void>, extraButtons: HTMLElement[] = []): HTMLElement {
         const row = element('div'); row.className = 'akari-set-partner-row';
         const tile = element('span'); tile.className = 'akari-set-partner-tile';
         const icon = element('span'); icon.className = `akari-set-partner-icon ${PARTNER_CLI_ICON_CLASSES[id]}`; tile.append(icon);
@@ -697,8 +718,35 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         top.append(element('b', name), badge);
         const subtitle = element('div', sub); subtitle.className = 'akari-set-partner-sub';
         text.append(top, subtitle);
-        row.append(tile, text, action(buttonLabel, onClick, { small: true }));
+        const actions = element('div'); actions.className = 'akari-set-partner-actions';
+        actions.append(...extraButtons, action(buttonLabel, onClick, { small: true }));
+        row.append(tile, text, actions);
         return row;
+    }
+
+    protected partnerUpdateButton(id: string, updating: boolean): HTMLElement {
+        const button = action(updating ? t('surfaces.settings.partnerUpdating.status') : t('surfaces.settings.partnerUpdate.button'),
+            () => { void this.updatePartnerCli(id); }, { small: true, variant: 'primary' });
+        button.disabled = updating;
+        return button;
+    }
+
+    /** 押下 = 同意。導入と同じ経路で強制的に入れ直し、終わったら再検出して結果を表示する。 */
+    protected async updatePartnerCli(id: string): Promise<void> {
+        if (this.partnerUpdating.has(id)) { return; }
+        this.partnerUpdating.add(id); this.partnerUpdateNote[id] = '';
+        this.renderSection('partner');
+        try {
+            const result = await this.maintenance.updatePartner(id);
+            this.partnerUpdateNote[id] = result.ok
+                ? t('surfaces.settings.partnerUpdated.message', { version: result.version ?? '' })
+                : t('surfaces.settings.partnerUpdateFailed.message', { reason: result.message ?? '' });
+        } catch (error) {
+            this.partnerUpdateNote[id] = t('surfaces.settings.partnerUpdateFailed.message', { reason: error instanceof Error ? error.message : String(error) });
+        }
+        this.partnerUpdating.delete(id);
+        if (this.isDisposed) { return; }
+        await this.loadPartnerDetails();
     }
 
     protected async loadPartnerDetails(): Promise<void> {
@@ -712,6 +760,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }
         }
         if (!this.isDisposed) { this.renderSection('partner'); }
+        // 最新版の問い合わせはネットワーク待ちがあるので、検出の表示を先に出してから重ねる（失敗は黙って無視）。
+        if (cli.status === 'fulfilled') {
+            try { this.partnerFreshness = await this.maintenance.partnerFreshness(cli.value); } catch { /* 最新版不明のまま */ }
+            if (!this.isDisposed) { this.renderSection('partner'); }
+        }
     }
 
     protected async loadStorage(): Promise<void> {
@@ -2221,6 +2274,20 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({ id: 'akari.update.isAutoCheckEnabled' }, {
             execute: async () => (await this.maintenance.getUpdateSettings()).autoCheck === true
+        });
+        // パートナー起動時の受け身の更新通知用。自動確認 OFF・失敗・最新版不明は undefined（通知しない）。
+        commands.registerCommand({ id: 'akari.partner.cliUpdateStatus' }, {
+            execute: async (agent: unknown): Promise<{ installedVersion: string; latestVersion: string } | undefined> => {
+                try {
+                    if (typeof agent !== 'string' || (await this.maintenance.getUpdateSettings()).autoCheck !== true) { return undefined; }
+                    const details = await this.maintenance.partnerDetails();
+                    const detail = details[agent];
+                    const fresh = (await this.maintenance.partnerFreshness({ [agent]: detail }))[agent];
+                    const installedVersion = extractCliVersion(detail?.version);
+                    return detail?.managedByApp !== false && fresh?.updateAvailable && fresh.latestVersion && installedVersion
+                        ? { installedVersion, latestVersion: fresh.latestVersion } : undefined;
+                } catch { return undefined; }
+            }
         });
         commands.registerCommand({ id: 'akari.library.isMoving' }, { execute: () => this.tools.isLibraryMoving() });
         commands.registerCommand({ id: 'akari.library.changeLocation', label: t('surfaces.settings.registerCommandsChangeLocationAssets.label') }, {

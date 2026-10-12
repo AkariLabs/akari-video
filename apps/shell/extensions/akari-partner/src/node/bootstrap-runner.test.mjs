@@ -1021,3 +1021,39 @@ test('Windows の既存 Codex に host が無ければ既存フォルダを変�
         await rm(home, { recursive: true, force: true });
     }
 });
+
+test('FORCE_REINSTALL=1 は既存の Codex を最新へ置き換え、旧版フォルダを片付ける', async () => {
+    const home = await makeHome('akari-codex-force-');
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        '/assets/codex-package-aarch64-apple-darwin.tar.gz': fixture(bundleArchive('darwin'))
+    });
+    try {
+        // 旧版（0.100.0）を AKARI 管理の場所に置き、~/.local/bin/codex をそこへ向ける。
+        const managedRoot = path.join(home, '.local', 'share', 'akari-video', 'codex');
+        const oldBin = path.join(managedRoot, '0.100.0', 'bin');
+        await mkdir(oldBin, { recursive: true });
+        await writeFile(path.join(oldBin, 'codex'), '#!/bin/sh\necho codex-cli 0.100.0\n', { mode: 0o755 });
+        await writeFile(path.join(oldBin, 'codex-code-mode-host'), 'old host', { mode: 0o755 });
+        await mkdir(path.join(home, '.local', 'bin'), { recursive: true });
+        const shim = path.join(home, '.local', 'bin', 'codex');
+        const { symlink } = await import('node:fs/promises');
+        await symlink(path.join(oldBin, 'codex'), shim);
+
+        // 強制なしなら既存を再利用して何も取りに行かない（既存の挙動）。
+        const reused = await runBootstrap({ home, mock });
+        assert.equal(reused.code, 0, reused.stderr || reused.stdout);
+        assert.equal(await realpath(shim), await realpath(path.join(oldBin, 'codex')));
+
+        const result = await runBootstrap({ home, mock, force: true });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        const executable = await realpath(shim);
+        assert.ok(executable.startsWith(await realpath(path.join(managedRoot, VERSION))), executable);
+        assert.match(await readFile(executable, 'utf8'), /0\.149\.1/);
+        await assert.rejects(stat(path.join(managedRoot, '0.100.0')), '旧版フォルダは消える');
+        assert.ok((await stat(path.join(managedRoot, VERSION))).isDirectory());
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});

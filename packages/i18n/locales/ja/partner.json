@@ -75,6 +75,8 @@
   "partner.partnerPanel.extensionUpdater.extensionNotInstalledStatus": "拡張は未インストールです",
   "partner.partnerPanel.extensionUpdater.extensionUpdateAvailableText": "拡張の更新があります",
   "partner.partnerPanel.extensionUpdater.extensionUpDateText": "拡張は最新です",
+  "partner.partnerPanel.cliUpdate.availableText": "{value1} の新しい版 {value2} があります（今は {value3}）",
+  "partner.partnerPanel.cliUpdate.openSettingsAction": "設定でアップデート",
   "partner.partnerPanel.extensionUpdater.laterLabel": "後で",
   "partner.partnerPanel.extensionUpdater.newVersionAvailableText": "{value1} の新しい版 {value2} があります",
   "partner.partnerPanel.extensionUpdater.reloadAction": "今すぐ再読み込み",

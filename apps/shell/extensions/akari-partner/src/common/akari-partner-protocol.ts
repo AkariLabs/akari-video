@@ -129,7 +129,8 @@ export interface AkariPartnerServer {
      * project. Omit when no workspace is open — the wiring step is skipped
      * (fail-soft; bootstrap still completes).
      */
-    bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent?: boolean): Promise<PartnerBootstrapOutcome>;
+    /** `forceReinstall` は設定画面の「アップデート」用: 既存の実体があっても同じ経路で入れ直す。 */
+    bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent?: boolean, forceReinstall?: boolean): Promise<PartnerBootstrapOutcome>;
     getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure>;
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
     /**
