@@ -241,5 +241,22 @@
   "tools.voice.engine.error.sampleOutsideChannel": "Voice samples outside the channel cannot be used",
   "tools.voice.engine.error.setupRequired": "Speaker separation needs setup (run akari tools install voice or use Create Captions in the app).",
   "tools.voice.engine.error.sidecarMissing": "Voice sidecar file is missing",
-  "tools.voice.engine.notice.countFallback": "Could not separate into {requested} speakers; using the automatically detected {used} speakers."
+  "tools.voice.engine.notice.countFallback": "Could not separate into {requested} speakers; using the automatically detected {used} speakers.",
+  "tools.transcribe.error.whisperFallback.speechFailed": "SpeechAnalyzer could not transcribe this file, and the whisper.cpp fallback is unavailable.",
+  "tools.transcribe.error.whisperFallback.localeUnsupported": "SpeechAnalyzer does not support {lang}, and the whisper.cpp fallback is unavailable.",
+  "tools.transcribe.error.whisperFallback.noModel": "No whisper.cpp ggml model was found.\nSearched:\n{locations}\nFix (any one):\n  - akari tools install whisper  (downloads the model into ~/.akari/tools/models/)\n  - Install it from Settings -> Tools -> Whisper\n  - Put a ggml-*.bin in ~/.akari/tools/models/, or point the WHISPER_CPP_MODEL environment variable at the file",
+  "tools.transcribe.error.whisperFallback.noBin": "whisper-cli was not found. You need the one bundled with the app, or one installed with brew install whisper-cpp (also installable from Settings -> Tools -> Whisper). Get the model with akari tools install whisper.",
+  "tools.transcribe.error.whisperFallback.reason": "SpeechAnalyzer error: {reason}",
+  "tools.media.help.in": "  --in <time>              start of the range to transcribe (seconds or mm:ss)",
+  "tools.media.help.out": "  --out <time>             end of the range to transcribe (seconds or mm:ss)",
+  "tools.media.help.backend": "  --backend <speech-analyzer|whisper-cpp|cloud:<id>>  pick the engine (default: auto)",
+  "tools.media.help.lang": "  --lang <code>            language code, e.g. ja, en (default: auto)",
+  "tools.whisper.cli.alreadyReady": "The Whisper model is already installed: {path}",
+  "tools.whisper.cli.installed": "Downloaded the Whisper model: {path}",
+  "tools.whisper.cli.verifyFailed": "The model failed verification (the download may be corrupted). Please try again.",
+  "tools.whisper.cli.downloadFailed": "Could not download the model ({error}). Please try again.",
+  "tools.whisper.cli.downloading": "Downloading the model",
+  "tools.whisper.cli.statusReady": "ready: {path}",
+  "tools.whisper.cli.statusMissing": "missing: no ggml model found. Run akari tools install whisper",
+  "tools.whisper.cli.usage": "Usage: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]"
 }

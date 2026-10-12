@@ -23,7 +23,7 @@ const usage = (lang, extended = false) => [
   ...commands.map((command) => command === "transcribe" ? toolsText('tools.media.help.transcribe', {}, lang) : `  ${command}`),
   "  transcribe-diff <target> [--engines a,b,c]",
   "  transcribe-cuts <target> [--basis b] [--filler on] [--redo on] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
-  ...(!extended && (lang ?? toolsLanguage()).startsWith('ja') ? [] : [toolsText('tools.media.help.prompt', {}, lang), toolsText('tools.media.help.fillers', {}, lang)]),
+  ...(!extended && (lang ?? toolsLanguage()).startsWith('ja') ? [] : [...["in", "out", "backend", "lang"].map((name) => toolsText(`tools.media.help.${name}`, {}, lang)), toolsText('tools.media.help.prompt', {}, lang), toolsText('tools.media.help.fillers', {}, lang)]),
 ].join("\n");
 
 export async function runMediaCli(argv, options = {}) {
@@ -34,15 +34,16 @@ export async function runMediaCli(argv, options = {}) {
     stdout(usage());
     return 0;
   }
-  if (argv[0] === 'transcribe' && (argv.includes('--help') || argv.includes('-h'))) {
-    stdout(usage(undefined, true));
-    return 0;
-  }
   const [subcommand, target, ...rest] = argv;
   if (!commands.includes(subcommand)) {
     stderr(text('tools.media.error.unknownCommand', { command: subcommand }));
     stderr(usage());
     return 1;
+  }
+  // target 判定より前に見る（`akari media transcribe --help` が targetRequired で落ちないように）
+  if (argv.includes('--help') || argv.includes('-h')) {
+    stdout(usage(undefined, subcommand === 'transcribe'));
+    return 0;
   }
   if (!target || target.startsWith("-")) {
     stderr(text('tools.media.error.targetRequired', { command: subcommand }));

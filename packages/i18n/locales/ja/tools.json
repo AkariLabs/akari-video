@@ -241,5 +241,22 @@
   "tools.voice.engine.error.sampleOutsideChannel": "チャンネル外の見本は使えません",
   "tools.voice.engine.error.setupRequired": "話者を分けるには準備が要ります（akari tools install voice か、アプリの『字幕を作る』から）",
   "tools.voice.engine.error.sidecarMissing": "声の側ファイルがありません",
-  "tools.voice.engine.notice.countFallback": "指定の {requested} 人に分けられなかったので、自動で分けた結果（{used} 人）を使います"
+  "tools.voice.engine.notice.countFallback": "指定の {requested} 人に分けられなかったので、自動で分けた結果（{used} 人）を使います",
+  "tools.transcribe.error.whisperFallback.speechFailed": "SpeechAnalyzer で文字起こしできず、代わりの whisper.cpp も使えません。",
+  "tools.transcribe.error.whisperFallback.localeUnsupported": "SpeechAnalyzer は言語 {lang} に対応しておらず、代わりの whisper.cpp も使えません。",
+  "tools.transcribe.error.whisperFallback.noModel": "whisper.cpp の ggml モデルが見つかりません。\n探した場所:\n{locations}\n対処（どれか 1 つ）:\n  - akari tools install whisper （モデルを ~/.akari/tools/models/ に取得）\n  - 設定 → 道具 → Whisper からインストール\n  - ggml-*.bin を ~/.akari/tools/models/ に置く、または環境変数 WHISPER_CPP_MODEL にファイルを指定",
+  "tools.transcribe.error.whisperFallback.noBin": "whisper-cli が見つかりません。アプリ同梱のもの、または brew install whisper-cpp で入れたものが必要です（設定 → 道具 → Whisper からも入れられます）。モデルは akari tools install whisper で取得できます。",
+  "tools.transcribe.error.whisperFallback.reason": "SpeechAnalyzer のエラー: {reason}",
+  "tools.media.help.in": "  --in <time>              文字起こしの開始位置（秒 または mm:ss）",
+  "tools.media.help.out": "  --out <time>             文字起こしの終了位置（秒 または mm:ss）",
+  "tools.media.help.backend": "  --backend <speech-analyzer|whisper-cpp|cloud:<id>>  文字起こしエンジンを指定（既定は自動）",
+  "tools.media.help.lang": "  --lang <code>            言語コード（例: ja, en。既定は自動）",
+  "tools.whisper.cli.alreadyReady": "Whisper の認識モデルは取得済みです: {path}",
+  "tools.whisper.cli.installed": "Whisper の認識モデルを取得しました: {path}",
+  "tools.whisper.cli.verifyFailed": "認識モデルの検証に失敗しました（データが壊れている可能性があります）。もう一度お試しください。",
+  "tools.whisper.cli.downloadFailed": "認識モデルの取得に失敗しました（{error}）。もう一度お試しください。",
+  "tools.whisper.cli.downloading": "認識モデルを取得中",
+  "tools.whisper.cli.statusReady": "ready: {path}",
+  "tools.whisper.cli.statusMissing": "missing: ggml モデルが見つかりません。akari tools install whisper で取得できます",
+  "tools.whisper.cli.usage": "使い方: akari tools install voice|whisper [--json] / akari tools status voice|whisper [--json]"
 }

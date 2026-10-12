@@ -1,5 +1,6 @@
 import { t, childProcessEnv } from '@akari-video/i18n';
 import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+import { WHISPER_MODEL } from '../../../../../../packages/akari-tools/src/media/whisper-model.mjs';
 import { installVoiceEngine, resolveVoiceHome } from '../../../../../../packages/akari-tools/bin/tools.mjs';
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
@@ -67,9 +68,9 @@ export interface ToolInstallOptions {
 const HOMEBREW_PATHS = ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'];
 const BREW_TIMEOUT_MS = 20 * 60 * 1000;
 
-/** 認識モデルの既定ファイル名 + 版固定 sha256（実 DL で確定・2026-08-17）。 */
-export const WHISPER_MODEL_FILENAME = 'ggml-large-v3-turbo-q5_0.bin';
-export const WHISPER_MODEL_SHA256 = '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2';
+/** 認識モデルの既定ファイル名 + 版固定 sha256（実 DL で確定・2026-08-17）。CLI (`akari tools install whisper`) と共有する正本は packages/akari-tools の whisper-model.mjs。 */
+export const WHISPER_MODEL_FILENAME: string = WHISPER_MODEL.file;
+export const WHISPER_MODEL_SHA256: string = WHISPER_MODEL.sha256;
 
 /** 取得元は公式配布チャネルのみ。URL は定数で持つ（野良ミラー禁止）。 */
 export const OFFICIAL_SOURCES = {
@@ -80,7 +81,7 @@ export const OFFICIAL_SOURCES = {
     /** ggerganov/whisper.cpp の Hugging Face 配布（MIT）。バージョンはコミット固定ではなく
      *  ファイル名固定 + sha256 検証で担保する（HF の `resolve/main` はブランチ追従だが、
      *  内容が変われば sha256 不一致で failed になり誤って古い検証をすり抜けない）。 */
-    whisperModel: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin'
+    whisperModel: WHISPER_MODEL.url as string
 } as const;
 
 const BREW_FORMULA: Partial<Record<AkariToolId, string>> = {
