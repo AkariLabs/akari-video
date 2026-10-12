@@ -78,6 +78,7 @@ import { runAutomaticNetworkCheck } from '../common/automatic-network-check';
 import { AkariSettingsMaintenanceService } from '../common/settings-maintenance-protocol';
 import { AkariOnboardingService } from '../onboarding/protocol';
 import { OnboardingController } from '../onboarding/controller';
+import { guideRequiredPanels } from '../onboarding/guide-ui-model';
 import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
@@ -666,7 +667,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.firstVideoGuide ??= new OnboardingController(
             this.onboardingService,
             this.fileService,
-            async uri => { await this.commands.executeCommand(AKARI_COMMANDS.openProject, { uri, reason: 'onboarding' }); },
+            async (uri, busyConfirmed) => { await this.openProject({ uri, reason: 'onboarding' }, busyConfirmed); },
             async uri => {
                 const editUri = new URI(uri).resolve('edit.json');
                 if (await this.fileService.exists(editUri)) {
@@ -681,7 +682,24 @@ export class AkariHomeWidget extends ReactWidget {
             },
             async () => { await this.openProjectLauncher(); },
             async () => { await this.commands.executeCommand('akari.settings.open', { section: 'start' }); },
-            () => this.guideAnnouncementToast.showClosed()
+            () => this.guideAnnouncementToast.showClosed(),
+            () => this.isPartnerBusy() ? t('surfaces.onboarding.inviteMarkupPartnerSwitchWarning.message', {
+                current: this.buildProjectRows().find(row => row.current)?.name ?? this.currentProjectUri?.path.base ?? ''
+            }) : undefined,
+            async targets => {
+                const panels = guideRequiredPanels(targets);
+                const assets = document.querySelector<HTMLElement>('[data-akari-onboarding-target="assets"]')?.getBoundingClientRect();
+                if (panels.includes('left') && (!this.shell.isExpanded('left') || !assets?.width || !assets.height))
+                    await this.shell.revealWidget('akari-role-buckets-widget');
+                if (panels.includes('bottom') && !this.shell.isExpanded('bottom')) this.shell.expandPanel('bottom');
+            },
+            () => ({ left: this.shell.isExpanded('left'), bottom: this.shell.isExpanded('bottom') }),
+            layout => {
+                for (const area of ['left', 'bottom'] as const) {
+                    if (layout[area]) this.shell.expandPanel(area);
+                    else void this.shell.collapsePanel(area);
+                }
+            }
         );
         try { await this.firstVideoGuide.open(state); }
         catch (error) {
@@ -1341,16 +1359,18 @@ export class AkariHomeWidget extends ReactWidget {
         return this.contextKeys.match(AKARI_PARTNER_BUSY_CONTEXT_KEY);
     }
 
-    async openProject(request: OpenProjectRequest): Promise<void> {
+    async openProject(request: OpenProjectRequest, busyConfirmed = false): Promise<void> {
         const uri = new URI(request.uri);
         if (this.currentProjectUri?.toString() === uri.toString()) {
             await this.shell.activateWidget(this.id);
             return;
         }
         const busy = this.isPartnerBusy();
+        if (request.reason === 'onboarding' && busy && !busyConfirmed) throw new Error('Guide project switch requires partner consent');
         const ask = !this.preferences.get<boolean>(AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, false);
-        if (decideOpenFlow({ ask, busy, hasOrigin: !!request.originRect, reducedMotion: false }) === 'direct') {
-            await this.commitOpenProject(request, false);
+        if ((request.reason === 'onboarding' && busyConfirmed)
+            || decideOpenFlow({ ask, busy, reason: request.reason, hasOrigin: !!request.originRect, reducedMotion: false }) === 'direct') {
+            await this.commitOpenProject(request, false, busyConfirmed);
             return;
         }
         const row = this.buildProjectRows().find(candidate => candidate.uri.toString() === uri.toString());

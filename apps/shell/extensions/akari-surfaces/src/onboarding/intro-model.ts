@@ -10,7 +10,12 @@ export function introVisual(step: OnboardingStep, busy = false): { hero: 'welcom
 
 export const PREPARING_COPY = t('surfaces.onboarding.preparing.label');
 
-export function inviteMarkup(busy: boolean, escapedError: string): string {
+export function inviteMarkup(busy: boolean, escapedError: string, escapedSwitchWarning = ''): string {
     if (busy) return `<p>${PREPARING_COPY}</p>`;
-    return t('surfaces.onboarding.inviteMarkupLikeMakeOneTogetherAddTitlesCaptions.message', { error: escapedError ? `<p role="alert">${escapedError}</p>` : '', action: escapedError ? t('surfaces.onboarding.inviteMarkupOnceAgain.label') : t('surfaces.onboarding.inviteMarkupTry.label') });
+    return t('surfaces.onboarding.inviteMarkupLikeMakeOneTogetherAddTitlesCaptions.message', {
+        error: escapedError ? `<p role="alert">${escapedError}</p>` : '',
+        switchNotice: escapedSwitchWarning ? `<p role="alert">${escapedSwitchWarning}</p>` : '',
+        action: escapedError ? t('surfaces.onboarding.inviteMarkupOnceAgain.label')
+            : escapedSwitchWarning ? t('surfaces.onboarding.inviteMarkupAgreeAndStart.label') : t('surfaces.onboarding.inviteMarkupTry.label')
+    });
 }
