@@ -259,11 +259,11 @@ export function CAPTION_SECTIONS(
                 {
                     name: 'caption-text', label: 'テキスト', inputKind: 'caption-text',
                     getValue: () => snapshot.text,
-                    write: async (_snapshot, nextValue) => {
+                    write: async (_snapshot, nextValue, phase) => {
                         if (!nextValue.trim()) {
                             return { ok: false, message: '字幕のテキストは空にできません。' };
                         }
-                        return requestWrite({ kind: 'caption-text', id: snapshot.id, value: nextValue });
+                        return requestWrite({ kind: 'caption-text', id: snapshot.id, value: nextValue, phase });
                     }
                 },
                 {

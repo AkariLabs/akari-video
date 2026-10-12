@@ -3,6 +3,7 @@ import test from 'node:test';
 import { harness, source } from './caption-animator-webview-harness.mjs';
 import { captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
     captionEditorLines, captionEditorValue } from '../lib/common/caption-edit-geometry.js';
+import { LiveCaptionEdit } from '../lib/common/live-caption-edit.js';
 
 function editingHarness(cue, write = async () => {}, visibleLines = []) {
     const h = harness({ cues: [cue] });
@@ -42,7 +43,9 @@ function editingHarness(cue, write = async () => {}, visibleLines = []) {
     };
     h.context.window.getSelection = () => null;
     h.context.window.akari.reportCaptionSelection = () => {};
-    h.context.window.akari.engine = { captionWrite: write };
+    h.context.window.akari.engine = { captionWrite: (id, patch, phase) => phase === 'cancel' || phase === 'draft'
+        ? Promise.resolve() : write(id, patch, phase) };
+    h.context.LiveCaptionEditFn = LiveCaptionEdit;
     h.context.window.akari.showWriteError = () => {};
     h.context.captionEditorLinesFn = captionEditorLines;
     h.context.captionEditorWrapWidthFn = captionEditorWrapWidth;

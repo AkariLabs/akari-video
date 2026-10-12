@@ -62,6 +62,7 @@ import { captionWrapPosition } from '../common/caption-wrap-position';
 import { captionAxisPlacement, captionZonePlacement } from '../common/caption-position-preset';
 import { roundedCaptionStrokeShadows } from '../common/caption-rounded-stroke';
 import { captionWrapFitPosition, captionWrapFitWidth } from '../common/caption-wrap-fit';
+import { LiveCaptionEdit } from '../common/live-caption-edit';
 import { clearCaptionSideActions } from '../common/caption-action-clearance';
 import {
     RESOLVED_CAPTION_STYLE_VARIABLE_NAMES,
@@ -4807,6 +4808,7 @@ export function previewBootstrapScript(): string {
             const refreshActiveCaptionRuns = () => {
                 const edit = activeCaptionEdit;
                 if (!edit) return;
+                if (edit.session) return;
                 const caption = captions.find(item => (item.sourceCueId || item.id) === edit.captionId);
                 if (!caption) return;
                 const element = edit.element;
@@ -5031,6 +5033,7 @@ export function previewBootstrapScript(): string {
             const captionEditorValueFn = (${captionEditorValue.toString()});
             const captionEditKeyActionFn = (${captionEditKeyAction.toString()});
             const captionEditingNavigationKeyFn = (${captionEditingNavigationKey.toString()});
+            const LiveCaptionEditFn = (${LiveCaptionEdit.toString()});
             const syncCaptionHandleBox = () => {
                 const box = captionSelectBox.querySelector('.akari-caption-handle-box');
                 if (!box) return;
@@ -5588,6 +5591,8 @@ export function previewBootstrapScript(): string {
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
                 activeCaptionEdit = null;
+                void edit.session.cancel().then(() => window.akari.engine.captionWrite(edit.captionId,
+                    { text: edit.originalText }, 'cancel')).catch(error => window.akari.showWriteError(error));
                 window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
@@ -5604,9 +5609,14 @@ export function previewBootstrapScript(): string {
                 // Restore styled lines/tokens immediately, including while the write is pending.
                 // Subsequent dragging must measure the rendered plate, not the temporary editor.
                 rerenderCaptionAfterEdit();
-                if (nextText === edit.originalText) return;
+                if (nextText === edit.originalText) {
+                    await edit.session.cancel();
+                    await window.akari.engine.captionWrite(edit.captionId, { text: edit.originalText }, 'cancel');
+                    return;
+                }
                 try {
-                    await window.akari.engine.captionWrite(edit.captionId, { text: nextText });
+                    await edit.session.finish(nextText);
+                    await window.akari.engine.captionWrite(edit.captionId, { text: nextText }, 'commit');
                     if (nextText.trim().length === 0) {
                         captions = captions.filter(caption => (caption.sourceCueId || caption.id) !== edit.captionId);
                         if (selectedCaptionId === edit.captionId) deselectCaption();
@@ -5645,7 +5655,9 @@ export function previewBootstrapScript(): string {
                     return;
                 }
                 if (activeCaptionEdit) {
-                    activeCaptionEdit.element.focus({ preventScroll: true });
+                    if (activeCaptionEdit.captionId === captionId) activeCaptionEdit.element.focus({ preventScroll: true });
+                    else void commitCaptionEdit().then(() => beginCaptionEdit(captions.find(item =>
+                        (item.sourceCueId || item.id) === captionId) || caption));
                     return;
                 }
                 if (isPlaying) togglePlayback();
@@ -5670,6 +5682,8 @@ export function previewBootstrapScript(): string {
                 activeCaptionEdit = {
                     captionId,
                     originalText: caption.text || '',
+                    session: new LiveCaptionEditFn(caption.text || '', value =>
+                        window.akari.engine.captionWrite(captionId, { text: value }, 'draft')),
                     element,
                     contentEditable: element.getAttribute('contenteditable'),
                     spellcheck: element.getAttribute('spellcheck'),
@@ -5737,6 +5751,18 @@ export function previewBootstrapScript(): string {
                     void commitCaptionEdit();
                 }
             }, true);
+            captionLayer.addEventListener('compositionstart', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.compositionStart();
+            });
+            captionLayer.addEventListener('compositionend', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.compositionEnd(
+                    captionEditorValueFn(activeCaptionEdit.element.innerText || '', activeCaptionEdit.element.lastChild?.nodeName === 'BR'));
+            });
+            captionLayer.addEventListener('input', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) activeCaptionEdit.session.input(
+                    captionEditorValueFn(activeCaptionEdit.element.innerText || '', activeCaptionEdit.element.lastChild?.nodeName === 'BR'),
+                    event.isComposing);
+            });
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
                 const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));

@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
 import { decideAutoStart } from '../lib/common/partner-autostart.js';
 import { rememberPartnerClose } from '../lib/common/partner-last-session.js';
 import { normalizePartnerPermissionMode } from '../lib/common/partner-permissions.js';
+
+const require = createRequire(import.meta.url);
+const chatVisibility = require('../lib/browser/partner-chat-visibility.js');
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-partner-widget.tsx', import.meta.url), 'utf8'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -31,6 +35,7 @@ function deferred() {
 
 function autoStartMethod(catalog) {
     return method('autoStartLastPartner', {
+        ...chatVisibility,
         decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
         PARTNER_CATALOG: catalog, PartnerWebWidget: { ID: 'web' }
     });
@@ -203,9 +208,14 @@ test('auto-start backs off when another manually started entry is working', asyn
 test('auto-start waits for preferences before reading the switch', async () => {
     const ready = deferred();
     let reads = 0;
+    let reopenReads = 0;
     const widget = {
         autoStartAttempted: false,
-        preferences: { ready: ready.promise, get: () => { reads++; return false; } },
+        preferences: { ready: ready.promise, get: key => {
+            reads++;
+            if (key === 'akari.partner.reopenLast') reopenReads++;
+            return false;
+        } },
         workspaceService: { roots: [] },
         storageService: { getData: async () => undefined },
         readAppMarkerRaw: async () => undefined,
@@ -217,7 +227,8 @@ test('auto-start waits for preferences before reading the switch', async () => {
     assert.equal(reads, 0);
     ready.resolve();
     await auto;
-    assert.equal(reads, 1);
+    assert.ok(reads >= 1);
+    assert.equal(reopenReads, 1);
 });
 
 test('restorePartnerTerminals resolves while autoStartLastPartner is still pending', async () => {
@@ -260,6 +271,7 @@ test('uninstalled automatic partner shows a quiet notice without opening a dialo
         beginCli: async () => { starts++; }
     };
     const run = method('autoStartLastPartner', {
+        ...chatVisibility,
         decideAutoStart, PARTNER_LAST_KEY: 'akari.partner.last', PARTNER_REOPEN_PREFERENCE: 'akari.partner.reopenLast',
         PARTNER_CATALOG: [entry], PartnerWebWidget: { ID: 'web' }
     });

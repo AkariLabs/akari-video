@@ -741,6 +741,7 @@ export interface SetCaptionFieldsRequest {
     captionsUri: string;
     projectRootUri: string;
     captionId: string;
+    draft?: boolean;
     text?: string;
     speaker?: string | null;
     unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;

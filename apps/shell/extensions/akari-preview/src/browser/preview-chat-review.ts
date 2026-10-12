@@ -32,7 +32,7 @@ export function previewChatReviewScript(): string {
         let tool = null;
         let draft = null;
         let marks = [];
-        let partnerName = 'AKARI';
+        let partnerName = 'クリップボード';
         let trayOpen = false;
         let drawing = null;
         let claimedPointerId = null;
@@ -81,7 +81,7 @@ export function previewChatReviewScript(): string {
         const tray = document.createElement('div');
         tray.id = 'review-chat-tray';
         tray.hidden = true;
-        tray.innerHTML = '<div class="review-tray-heading">添付待ち <span data-review-tray-count></span></div><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-tray-later>あとで</button><button type="button" data-review-send>AKARI に添付</button></div>';
+        tray.innerHTML = '<div class="review-tray-heading">添付待ち <span data-review-tray-count></span></div><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-tray-later>あとで</button><button type="button" data-review-send>クリップボードにコピー</button></div>';
         transport.append(tray);
         const sendButton = tray.querySelector('[data-review-send]');
         const seekMarks = document.createElement('div');
@@ -92,7 +92,7 @@ export function previewChatReviewScript(): string {
         rangeControls.innerHTML = '<button type="button" data-review-range-start>開始</button><button type="button" data-review-range-end>終了</button>';
         transport.append(rangeControls);
         const render = () => {
-            sendButton.textContent = partnerName + ' に添付';
+            sendButton.textContent = partnerName === 'クリップボード' ? 'クリップボードにコピー' : partnerName + ' に添付';
             attachButton.hidden = marks.length === 0;
             attachButton.dataset.reviewAttachCount = String(marks.length);
             attachButton.textContent = '添付 ' + marks.length;
@@ -344,8 +344,8 @@ export function previewChatReviewScript(): string {
         window.addEventListener('message', event => {
             if (event.data?.type !== 'akari-preview-chat-review-state') return;
             if (Array.isArray(event.data.attachments)) marks = event.data.attachments;
-            partnerName = typeof event.data.partnerName === 'string' && /\\S/.test(event.data.partnerName) && event.data.partnerName !== 'AKARI'
-                ? event.data.partnerName : 'AKARI';
+            partnerName = typeof event.data.partnerName === 'string' && /\\S/.test(event.data.partnerName)
+                ? event.data.partnerName : 'クリップボード';
             for (const done of [...stateWaiters]) done();
             if (marks.length === 0) trayOpen = false;
             render();

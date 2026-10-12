@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { shouldShowChatCard, CHAT_ENABLED_PREFERENCE } = require('../lib/browser/partner-chat-visibility.js');
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const catalog = JSON.parse(read('../src/common/partner-catalog.json'));
@@ -20,8 +24,8 @@ function renderer(file, className, methods) {
         compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React }
     }).outputText;
     const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }) };
-    return new (new Function('React', 'PARTNER_CATALOG', 'PARTNER_CLI_ICON_CLASSES', 'PARTNER_LAST_KEY', `${code}\nreturn Picker;`)(
-        React, catalog, iconClasses, 'akari.partner.last'
+    return new (new Function('React', 'PARTNER_CATALOG', 'PARTNER_CLI_ICON_CLASSES', 'PARTNER_LAST_KEY', 'shouldShowChatCard', 'CHAT_ENABLED_PREFERENCE', `${code}\nreturn Picker;`)(
+        React, catalog, iconClasses, 'akari.partner.last', shouldShowChatCard, CHAT_ENABLED_PREFERENCE
     ))();
 }
 
@@ -36,9 +40,18 @@ function partner() {
         entryFlow: () => ({ state: 'failed', status: '失敗', detail: '詳細', warning: '別の警告' }),
         entryActionLabel: () => 'セットアップ',
         extensionViewLost: () => true,
+        preferences: { get: () => false },
         selected: catalog[0]
     });
 }
+
+test('AKARI お試しカードは設定がオンのときだけ描く', () => {
+    const picker = partner();
+    const hasCard = () => nodes(picker.renderOnboarding()).some(node => node.props['data-akari-chat-card']);
+    assert.equal(hasCard(), false);
+    picker.preferences.get = () => true;
+    assert.equal(hasCard(), true);
+});
 
 test('一覧の見出しは場所を取らず読み上げ可能にし、接続済みの見た目を維持する', () => {
     const picker = partner();

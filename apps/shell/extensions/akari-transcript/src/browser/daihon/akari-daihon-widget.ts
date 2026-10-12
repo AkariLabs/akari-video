@@ -54,6 +54,9 @@ import { canRestoreCutRange } from '@akari-video/edit-store';
 import { deriveDaihonCutSpans, restoreImpact, sameCutSpanIdentity, type DaihonCutSpan } from '../../common/daihon-cut-spans';
 import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
+import { LiveCaptionEdit } from 'akari-preview/lib/common/live-caption-edit';
+import { daihonCaptionEditKey } from '../../common/daihon-caption-edit-key';
+import { DaihonCaptionEditSession, seedDaihonCaptionEdit } from '../../common/daihon-caption-edit-session';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { selectionScrollTop } from './selection-reveal';
@@ -205,6 +208,9 @@ interface EditingState {
     original: string;
     cancelled: boolean;
     committing: boolean;
+    session?: LiveCaptionEdit;
+    before?: Promise<string>;
+    lifecycle?: DaihonCaptionEditSession;
 }
 
 interface RowDragState {
@@ -1176,6 +1182,8 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.reload();
         this.toDispose.push(onActiveTimelineEditUriChange(() => this.queueReload()));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            if (this.editing && this.captionsUri && event.changes.length > 0
+                && event.changes.every(change => change.resource.toString() === this.captionsUri?.toString())) return;
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const relevant = (this.editUri && event.contains(this.editUri))
                 || (this.captionsUri && event.contains(this.captionsUri))
@@ -5238,6 +5246,9 @@ export class AkariDaihonWidget extends BaseWidget {
             compositionStart ? undefined : event.key);
         input.value = edit.value;
         input.setSelectionRange(edit.start, edit.end);
+        if (this.editing?.input === input && this.editing.lifecycle?.isEditing) {
+            seedDaihonCaptionEdit(this.editing.session!, edit.value, compositionStart);
+        }
     }
 
     protected selectionRows(): Array<{ id: string; words: readonly { text: string; start: number; end: number }[] }> {
@@ -5985,18 +5996,34 @@ export class AkariDaihonWidget extends BaseWidget {
         input.setAttribute('aria-label', `${row.id} の字幕本文`);
         editor.appendChild(input);
         text.replaceWith(editor);
-        const state: EditingState = { id: row.id, input, original: row.text, cancelled: false, committing: false };
+        const before = this.readText(this.captionsUri);
+        const session = new LiveCaptionEdit(row.text, async value => {
+            await before;
+            await this.annotationsService.setCaptionFields({ captionsUri: this.captionsUri!.toString(),
+                projectRootUri: this.rootUri!.toString(), captionId: row.id, text: value, draft: true });
+        });
+        const state: EditingState = { id: row.id, input, original: row.text, cancelled: false, committing: false,
+            session, before, lifecycle: new DaihonCaptionEditSession() };
         this.editing = state;
+        input.addEventListener('compositionstart', () => { if (state.lifecycle!.isEditing) session.compositionStart(); });
+        input.addEventListener('compositionend', () => { if (state.lifecycle!.isEditing) session.compositionEnd(input.value); });
+        input.addEventListener('input', event => {
+            if (state.lifecycle!.isEditing) session.input(input.value, (event as InputEvent).isComposing);
+        });
         input.addEventListener('keydown', event => {
-            if (event.key === 'Enter') {
+            if (!state.lifecycle!.isEditing) return;
+            const action = daihonCaptionEditKey(event.key, event.isComposing, event.keyCode);
+            if (action === 'commit') {
                 event.preventDefault();
                 event.stopPropagation();
                 input.blur();
-            } else if (event.key === 'Escape') {
+                void this.finishEdit(state);
+            } else if (action === 'cancel') {
                 event.preventDefault();
                 event.stopPropagation();
                 state.cancelled = true;
                 input.blur();
+                void this.finishEdit(state);
             }
         });
         input.addEventListener('blur', () => void this.finishEdit(state));
@@ -6011,48 +6038,58 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected async finishEdit(state: EditingState): Promise<void> {
-        if (state.committing || this.editing !== state) return;
-        state.committing = true;
+        if (this.editing !== state || !state.lifecycle?.beginClose()) return;
         const row = this.rows.find(candidate => candidate.id === state.id);
         if (!row) {
             this.editing = undefined;
+            state.lifecycle.finish();
             this.restoreRowsFocusAfterEdit();
             return;
         }
         const value = state.input.value;
-        if (state.cancelled || value === state.original) {
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
-            this.restoreRowsFocusAfterEdit();
-            return;
-        }
-        if (!value.trim()) {
-            this.notifyError('字幕のテキストは空にできません。');
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
-            this.restoreRowsFocusAfterEdit();
-            return;
-        }
-        const elements = this.elements.get(row.id);
-        elements?.root.classList.add('saving');
-        elements?.root.setAttribute('aria-busy', 'true');
-        state.input.disabled = true;
-        try {
-            await this.setCaptionFieldsWithNotice({
-                captionsUri: this.captionsUri!.toString(),
-                projectRootUri: this.rootUri!.toString(),
-                captionId: row.id,
-                text: value
-            });
-            this.editing = undefined;
+        const captionsUri = this.captionsUri!.toString();
+        const projectRootUri = this.rootUri!.toString();
+        const restore = async (source: string): Promise<void> => {
+            await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri,
+                captionsUri, captionsSource: source });
             await this.reload();
-            this.restoreRowsFocusAfterEdit();
-            this.notify('字幕を更新しました。');
+        };
+        let committed = false;
+        try {
+            if (state.cancelled || value === state.original || !value.trim()) {
+                await state.session!.cancel();
+                const before = await state.before!;
+                if (await this.readText(this.captionsUri!) !== before) {
+                    await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(),
+                        projectRootUri, captionsUri, captionsSource: before });
+                }
+                if (!state.cancelled && !value.trim()) this.notifyError('字幕のテキストは空にできません。');
+            } else {
+                const elements = this.elements.get(row.id);
+                elements?.root.classList.add('saving');
+                elements?.root.setAttribute('aria-busy', 'true');
+                state.input.disabled = true;
+                await state.session!.finish(value);
+                await this.setCaptionFieldsWithNotice({ captionsUri, projectRootUri, captionId: row.id, text: value });
+                const before = await state.before!;
+                const after = await this.readText(this.captionsUri!);
+                if (before !== after) this.historyService.push({ label: '字幕のテキストを変更',
+                    undo: () => restore(before), redo: () => restore(after) });
+                committed = true;
+            }
         } catch (error) {
-            this.editing = undefined;
-            this.replaceRenderedRow(row);
-            this.restoreRowsFocusAfterEdit();
             this.notifyError(this.errorMessage(error));
+        } finally {
+            if (this.editing === state) this.editing = undefined;
+            state.lifecycle.finish();
+            const beforeReload = this.rows.find(candidate => candidate.id === state.id);
+            if (beforeReload && this.elements.get(state.id)?.root.contains(state.input)) this.replaceRenderedRow(beforeReload);
+            try { await this.reload(); }
+            catch (error) { this.notifyError(this.errorMessage(error)); }
+            const current = this.rows.find(candidate => candidate.id === state.id);
+            if (current && this.elements.get(state.id)?.root.contains(state.input)) this.replaceRenderedRow(current);
+            this.restoreRowsFocusAfterEdit();
+            if (committed) this.notify('字幕を更新しました。');
         }
     }
 

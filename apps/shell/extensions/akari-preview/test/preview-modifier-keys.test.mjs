@@ -46,8 +46,9 @@ test('caption rotation previews and persists the same 45-degree patch; Alt targe
 test('caption Escape cancels, Enter inserts a line break, and shortcut or blur saves', () => {
   const edit = between(source, /const\s+restoreCaptionEditAttribute\s*=/, /const\s+beginCaptionHandleDrag\s*=/);
   const cancel = between(edit, /const\s+cancelCaptionEdit\s*=\s*\(\s*\)\s*=>\s*\{/, /\}\s*;\s*const\s+commitCaptionEdit\s*=/);
-  assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*window\.akari\.reportCaptionEditFocus\?\.\(false\)\s*;\s*window\.akari\.syncRunSelection\?\.\(\)\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
-  assert.doesNotMatch(cancel, /captionWrite|deselectCaption/);
+  assert.match(cancel, /edit\.session\.cancel\(\)[\s\S]*captionWrite\(edit\.captionId,[\s\S]*'cancel'/);
+  assert.match(cancel, /restoreCaptionEditElement\(edit\);[\s\S]*rerenderCaptionAfterEdit\(\);/);
+  assert.doesNotMatch(cancel, /deselectCaption/);
 
   const keydown = between(edit, /captionLayer\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);
   assert.match(keydown, /^\s*if\s*\(\s*!activeCaptionEdit\s*\|\|\s*event\.target\s*!==\s*activeCaptionEdit\.element\s*\)\s*return\s*;/);

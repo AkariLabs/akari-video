@@ -5,6 +5,7 @@ import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { ChatAttachment, reviewAttachArgument } from '../common/chat-review-attachments';
 import { describeReviewAttachments } from './preview-chat-review-text';
+import { reviewAttachDestination } from '../common/review-attach-destination';
 
 export interface ReviewPartnerTarget {
     kind: 'terminal' | 'web' | 'extension' | 'chat';
@@ -33,8 +34,9 @@ async function saveReviewImages(root: URI, attachments: readonly ChatAttachment[
 }
 
 export async function attachReviewToPartner(root: URI, attachments: readonly ChatAttachment[], target: ReviewPartnerTarget | undefined,
-    commands: CommandRegistry, files: FileService, clipboard: ClipboardService, messages: MessageService): Promise<boolean> {
-    if (!target || target.kind === 'chat') {
+    commands: CommandRegistry, files: FileService, clipboard: ClipboardService, messages: MessageService, chatEnabled = true): Promise<boolean> {
+    const destination = reviewAttachDestination(target?.kind, chatEnabled);
+    if (destination === 'chat') {
         if (!commands.getCommand('akari.chat.attach')) {
             messages.info('AKARI チャットを開いてください');
             return false;
@@ -44,12 +46,12 @@ export async function attachReviewToPartner(root: URI, attachments: readonly Cha
     }
     const images = await saveReviewImages(root, attachments, files);
     const text = describeReviewAttachments(attachments, images);
-    if (target.kind === 'terminal' && commands.getCommand('akari.partner.insertText')) {
+    if (destination === 'terminal' && commands.getCommand('akari.partner.insertText')) {
         try {
             if (await commands.executeCommand<boolean>('akari.partner.insertText', { text })) return true;
         } catch { /* Clipboard fallback below. */ }
     }
     await clipboard.writeText(text);
-    messages.info(`${target.name} の入力欄に貼り付けてください`);
+    messages.info(target && target.kind !== 'chat' ? `${target.name} の入力欄に貼り付けてください` : 'レビューをクリップボードにコピーしました');
     return true;
 }

@@ -2233,11 +2233,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const runs = request.text === undefined
             ? { source: result.source, removedRuns: result.removedRuns }
             : preserveRunsOutsideTextReplacement(source, result.source, request.captionId);
-        await this.writeProjectFileGuarded(captionsPath, runs.source);
+        if (request.draft) {
+            this.client?.onWillWrite(URI.fromFilePath(captionsPath).toString());
+            await this.writeAtomic(captionsPath, runs.source);
+            this.notifyDidWrite(captionsPath, runs.source);
+        } else {
+            await this.writeProjectFileGuarded(captionsPath, runs.source);
+        }
         const root = JSON.parse(source) as Array<{ id: string; text: string; display_text?: string }>
             | { captions?: Array<{ id: string; text: string; display_text?: string }> };
         const caption = (Array.isArray(root) ? root : root.captions)?.find(item => item.id === request.captionId);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
+        return { committed: request.draft ? false : await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
             notices: captionEditNotices({ ...result, removedRuns: runs.removedRuns },
                 caption?.display_text ?? caption?.text ?? '') };
     }

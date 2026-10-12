@@ -121,6 +121,7 @@ import {
     persistCaptionGroupPosition,
     persistCaptionGroupZone,
     persistCaptionText,
+    updateCaptionTextSource,
     persistCaptionZone,
     updateCaptionToolStyleSource,
     updateCaptionCuePositionsSource,
@@ -442,6 +443,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected lastCaptionRunNotice: string | undefined;
     readonly id = 'akari-preview-open-handler';
     protected readonly onDidWriteCaptionEmitter = new Emitter<PreviewCaptionWrite>();
+    protected readonly captionTextSessions = new Map<string, string>();
     readonly onDidWriteCaption: TheiaEvent<PreviewCaptionWrite> = this.onDidWriteCaptionEmitter.event;
     // 「最近この URI へ書いた」台帳。URI 文字列キーと resourceSuffix キーの両方を入れる
     // （ワークスペース watcher は realpath 済みの URI で通知してくるため、シンボリックリンクを
@@ -594,7 +596,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } else if (message.type === 'akari-preview-chat-review-attach') {
                 if (!current.length) return;
                 if (!await attachReviewToPartner(projectRoot, current, await currentReviewPartner(this.commandRegistry),
-                    this.commandRegistry, this.fileService, this.clipboard, this.messages)) return;
+                    this.commandRegistry, this.fileService, this.clipboard, this.messages,
+                    this.preferences.get<boolean>('akari.chat.experimental.enabled', false))) return;
                 attachments = [];
             }
             if (attachments !== current) {
@@ -609,7 +612,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const editRoot = viewer.akariPreviewEditUri?.parent ?? viewer.akariPreviewRelatedEditUri?.parent;
                 const sameProject = editRoot?.toString() === projectRoot.toString()
                     || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
-                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments, partnerName: partner?.name });
+                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments,
+                    partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : 'クリップボード') });
             }
         });
         this.reviewChatWrites.set(key, next);
@@ -708,7 +712,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const refreshReviewPartner = (): void => {
             void currentReviewPartner(this.commandRegistry).then(partner => {
                 for (const viewer of new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values()])) {
-                    if (!viewer.isDisposed) viewer.sendMessage({ type: 'akari-preview-chat-review-state', partnerName: partner?.name });
+                    if (!viewer.isDisposed) viewer.sendMessage({ type: 'akari-preview-chat-review-state',
+                        partnerName: partner?.name ?? (this.preferences.get<boolean>('akari.chat.experimental.enabled', false) ? 'AKARI' : 'クリップボード') });
                 }
             });
         };
@@ -893,6 +898,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerPulsePreviewItemCommand();
         this.registerShowPreviewZoneHintCommand();
         this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
+            if (event.preferenceName === 'akari.chat.experimental.enabled') refreshReviewPartner();
             if (event.preferenceName === 'akari.preview.scrubAudio') {
                 // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
                 const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', false) === true;
@@ -7197,6 +7203,43 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const captionsUri = widget.akariPreviewCaptionsUri;
         if (!captionsUri) {
             respond(false, '字幕ファイル（captions.json）がありません');
+            return;
+        }
+        if ('text' in request.patch && request.phase) {
+            const key = `${captionsUri.toString()}\0${request.captionId}`;
+            try {
+                const source = await this.readText(captionsUri);
+                if (request.phase === 'draft') {
+                    if (request.patch.text.trim()) {
+                        if (!this.captionTextSessions.has(key)) this.captionTextSessions.set(key, source);
+                        const candidate = updateCaptionTextSource(source, request.captionId, request.patch.text);
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidate));
+                        this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    }
+                } else if (request.phase === 'cancel') {
+                    const before = this.captionTextSessions.get(key);
+                    this.captionTextSessions.delete(key);
+                    if (before && before !== source) {
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(before));
+                        this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    }
+                } else {
+                    const before = this.captionTextSessions.get(key) ?? source;
+                    this.captionTextSessions.delete(key);
+                    const candidate = updateCaptionTextSource(source, request.captionId, request.patch.text);
+                    const lintResult = await this.previewService.lintEditCandidate({ editUri: captionsUri.toString(), candidateText: candidate });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (candidate !== source) {
+                        this.markRecentWrite(captionsUri);
+                        await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidate));
+                    }
+                    this.refreshCaptionsAfterHistoryWrite(captionsUri.toString(), false);
+                    if (before !== candidate) this.notifyCaptionWrite(widget, captionsUri, before, candidate, '字幕のテキストを変更');
+                }
+                respond(true);
+            } catch (error) { respond(false, error instanceof Error ? error.message : String(error)); }
             return;
         }
         if ('duplicate' in request.patch) {

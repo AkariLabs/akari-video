@@ -262,10 +262,10 @@ export function hostAdapterScript(): string {
                     pending.set(requestId, { kind: 'cut-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, cutId, patch });
                 }),
-                captionWrite: (captionId, patch) => new Promise((resolve, reject) => {
+                captionWrite: (captionId, patch, phase) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'caption-write', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch });
+                    vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch, phase });
                 }),
                 mixedMove: (writes, cuePositions) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
