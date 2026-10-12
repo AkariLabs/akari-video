@@ -22,6 +22,12 @@ export interface EditLintFinding {
     message?: string;
     check?: string;
     path?: string;
+    range?: {
+        start?: number;
+        end?: number;
+    };
+    /** 今回の保存より前の lint にも同じ指摘があった（この保存が起こした問題ではない）。 */
+    preexisting?: boolean;
 }
 export interface EditLintGateResult {
     pass: boolean;
@@ -95,6 +101,12 @@ export declare function assertNoCamelCaseTransitionOut(content: string): void;
  * これは render-cut が読む PASS ゲートを常に最新に保つ、意図した保存後 lint の副作用。
  */
 export declare function scheduleProjectLint(projectRoot: string, options?: DeferredLintOptions): void;
+/**
+ * 保存前の lint にも有った指摘へ preexisting を付ける。字幕の挿入で配列の番号がずれても
+ * 同じ指摘と分かるよう、時刻範囲を持つ指摘は path の番号ではなく範囲で照合する。
+ * 基準が無い（初回・lint.json 不在）ときは従来どおり全部を今回の保存の指摘として返す。
+ */
+export declare function markPreexistingLintFindings(result: EditLintGateResult, baseline: readonly EditLintFinding[] | undefined): EditLintGateResult;
 export declare function writeAtomic(destination: string, content: string): Promise<void>;
 /**
  * edit-lint をプロセス内実行する。inputOverrides は候補全文のメモリ差し替え。

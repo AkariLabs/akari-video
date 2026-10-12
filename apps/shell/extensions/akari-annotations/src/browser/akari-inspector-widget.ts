@@ -22,7 +22,7 @@ import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, ImageRouteState } from '../common/akari-annotations-protocol';
 import type { VideoCandidate, VideoCandidateBatch } from '../common/akari-annotations-protocol';
-import { resolveGenerationState, selectGenerationSidecarForSource } from '@akari-video/edit-store';
+import { isScene3dItem, resolveGenerationState, selectGenerationSidecarForSource } from '@akari-video/edit-store';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -126,7 +126,10 @@ import { layerAudioControls, LAYER_SECTIONS, type LayerAudioControls } from './i
 import { CAPTION_BAG_MOTION_SECTION, CAPTION_SECTIONS, MULTI_CAPTION_SECTIONS } from './inspector/sections/caption-sections';
 import { AUDIO_SECTIONS, AUDIO_MASTER_SECTION } from './inspector/sections/audio-sections';
 import { OVERLAY_SECTIONS } from './inspector/sections/overlay-sections';
+import { isScene3dPath, scene3dScreenTextureVar, scene3dScreenVars,
+    SCENE3D_MAX_SCREEN_BYTES, type Scene3dMeta } from '../common/scene3d-item';
 import { TREE_ITEM_SECTIONS } from './inspector/sections/tree-item-sections';
+import type { Scene3dSectionContext } from './inspector/scene3d-section';
 import { shapeLiveMarkup } from './inspector/shape-live';
 import { ADJUST_SECTIONS } from './inspector/sections/adjust-sections';
 
@@ -370,6 +373,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly generationTabLoads = new Set<string>();
     protected readonly generationTabDrafts = new Map<string, GenerationDraft>();
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
+    protected readonly scene3dMetaCache = new Map<string, Scene3dMeta>();
+    protected readonly scene3dFragmentCache = new Map<string, string | null>();
     protected lastEasingPreviewAt = -Infinity;
     protected generationCatalog: GenerationCatalogRow[] = [];
     protected aiCatalogLoaded = false;
@@ -1126,7 +1131,9 @@ export class AkariInspectorWidget extends BaseWidget {
             values.scale = Math.sqrt(values.scaleX * values.scaleY);
         }
         for (const [name, raw] of Object.entries(values)) {
-            const field = this.body.querySelector(`[data-akari-field="transform-${name}"]`);
+            const fieldName = name.startsWith('--akari-3d-rot-')
+                ? `rotation3d-${name.slice('--akari-3d-rot-'.length)}` : `transform-${name}`;
+            const field = this.body.querySelector(`[data-akari-field="${fieldName}"]`);
             const input = field?.querySelector<HTMLInputElement>('.akari-inspector-number-input');
             if (!input || document.activeElement === input) continue;
             input.value = String(name.startsWith('scale') ? Math.round(raw * 1000) / 10 : Math.round(raw * 100) / 100);
@@ -1440,14 +1447,32 @@ export class AkariInspectorWidget extends BaseWidget {
                 case 'audio':
                     sections = AUDIO_SECTIONS(snapshot as AudioInspectorSnapshot, request => this.commitWrite(request));
                     break;
-                case 'overlay':
+                case 'overlay': {
                     this.ensureCaptionRowFontFace();
+                    const source3d = snapshot.payload.source as { html?: string; path?: string; vars?: Record<string, string> } | undefined;
+                    const htmlPath = source3d?.html ?? source3d?.path
+                        ?? (typeof snapshot.payload.html === 'string' ? snapshot.payload.html : undefined);
+                    const scene3dOverlay = htmlPath && isScene3dItem({
+                        source: { kind: 'html', path: htmlPath,
+                            vars: source3d?.vars ?? snapshot.payload.vars as Record<string, string> | undefined },
+                        keyframes: snapshot.keyframes as import('@akari-video/edit-store').ItemV2['keyframes']
+                    });
                     sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion,
-                        this.captionPanelFontFaces);
+                        this.captionPanelFontFaces, scene3dOverlay ? this.scene3dContext(htmlPath, snapshot.id) : undefined);
                     break;
+                }
                 case 'item':
                     sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion,
-                        request => this.model.requestLivePreview?.(request));
+                        request => this.model.requestLivePreview?.(request),
+                        snapshot.source?.kind === 'html' && isScene3dItem({
+                            source: snapshot.source,
+                            keyframes: snapshot.keyframes as import('@akari-video/edit-store').ItemV2['keyframes']
+                        }) ? this.scene3dContext(snapshot.source.path, snapshot.id) : undefined);
+                    if (snapshot.source?.kind === 'html' && isScene3dPath(snapshot.source.path)) this.overlayKnobs({
+                        kind: 'overlay', id: snapshot.id, outputStart: snapshot.outputStart,
+                        duration: snapshot.duration, trackName: snapshot.trackName,
+                        clipName: snapshot.clipName, payload: { html: snapshot.source.path }
+                    });
                     if (snapshot.itemKind === 'captions') sections = composeInspectorSections([...sections, CAPTION_BAG_MOTION_SECTION(
                         async () => {
                             const root = this.workspaceService.tryGetRoots()[0]?.resource;
@@ -2103,8 +2128,27 @@ export class AkariInspectorWidget extends BaseWidget {
         void section; void kind; void previewKind;
     }
 
+    protected scene3dContext(htmlPath: string | undefined, id: string): Scene3dSectionContext {
+        const scene3dPath = isScene3dPath(htmlPath) ? htmlPath : undefined;
+        const metaPath = scene3dPath ? overlayMetaPath(scene3dPath) : undefined;
+        const screenVar = scene3dPath
+            ? scene3dScreenTextureVar(this.scene3dFragmentCache.get(scene3dPath) ?? undefined) : undefined;
+        if (scene3dPath && !this.scene3dFragmentCache.has(scene3dPath)) {
+            this.scene3dFragmentCache.set(scene3dPath, null);
+            void this.loadScene3dFragment(scene3dPath, id);
+        }
+        return {
+            fps: this.model.fps,
+            meta: metaPath ? this.scene3dMetaCache.get(metaPath) : undefined,
+            screenVar,
+            pickScreen: screenVar ? () => this.pickScene3dScreen(id, screenVar) : undefined,
+            writeScreen: screenVar ? path => this.writeScene3dScreen(id, screenVar, path) : undefined
+        };
+    }
+
     protected overlayKnobs(snapshot: TimelineOverlaySelection): readonly InspectorKnob[] {
-        const html = typeof snapshot.payload.html === 'string' ? snapshot.payload.html : undefined;
+        const source = snapshot.payload.source as { html?: string; path?: string } | undefined;
+        const html = typeof snapshot.payload.html === 'string' ? snapshot.payload.html : source?.html ?? source?.path;
         const metaPath = html ? overlayMetaPath(html) : undefined;
         if (!metaPath) return [];
         const cached = this.knobCache.get(metaPath);
@@ -2122,15 +2166,64 @@ export class AkariInspectorWidget extends BaseWidget {
             const uri = /^[a-z][a-z0-9+.-]*:/iu.test(metaPath)
                 ? new URI(metaPath) : root.resource.resolve(metaPath);
             const source = (await this.fileService.readFile(uri)).value.toString();
-            this.knobCache.set(metaPath, parseInspectorKnobs(JSON.parse(source)));
+            const meta = JSON.parse(source) as Scene3dMeta;
+            this.scene3dMetaCache.set(metaPath, meta);
+            this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         } catch {
-            const match = /^assets\/(overlay\/[^/]+)\/meta\.json$/u.exec(metaPath);
+            const match = /^assets\/((?:overlay|scene3d)\/[^/]+)\/meta\.json$/u.exec(metaPath);
             const meta = match ? await this.commandRegistry.executeCommand<unknown>(
                 'akari.catalog.readOverlayMeta', match[1]).catch(() => undefined) : undefined;
+            // ライブラリを参照して置いた 3D でも、動きの選択肢・画面系ツマミの除外に同じメタを使う
+            if (meta && typeof meta === 'object') this.scene3dMetaCache.set(metaPath, meta as Scene3dMeta);
             this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         }
         const current = this.model.snapshot;
-        if (current?.kind === 'overlay' && current.id === overlayId) this.render();
+        if ((current?.kind === 'overlay' || current?.kind === 'item') && current.id === overlayId) this.render();
+    }
+
+    protected async loadScene3dFragment(path: string, overlayId: string): Promise<void> {
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) return;
+            const uri = /^[a-z][a-z0-9+.-]*:/iu.test(path) ? new URI(path) : root.resolve(path);
+            this.scene3dFragmentCache.set(path, (await this.fileService.readFile(uri)).value.toString());
+        } catch {
+            // ライブラリを参照して置いた素材はプロジェクトに実体が無い。カタログからライブラリの断片を読む
+            const match = /^assets\/(scene3d\/[^/]+)\/[^/]+\.html?$/u.exec(path);
+            const fragment = match ? await this.commandRegistry.executeCommand<unknown>(
+                'akari.catalog.readOverlayFragment', match[1]).catch(() => undefined) : undefined;
+            this.scene3dFragmentCache.set(path, typeof fragment === 'string' ? fragment : null);
+        }
+        if ((this.model.snapshot?.kind === 'overlay' || this.model.snapshot?.kind === 'item')
+            && this.model.snapshot.id === overlayId) this.render();
+    }
+
+    protected async writeScene3dScreen(id: string, screenVar: string, path: string): Promise<InspectorWriteResult> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const vars = scene3dScreenVars(screenVar, path);
+        if (!root || !vars) return { ok: false, message: t('inspector.scene3d.message.selectProjectAsset') };
+        try {
+            const stat = await this.fileService.resolve(root.resolve(path));
+            if (stat.size > SCENE3D_MAX_SCREEN_BYTES) this.showFieldNotice(t('inspector.scene3d.message.screenTooLarge'));
+            return await this.model.requestWrite!({ kind: 'item-field', id,
+                path: `source.vars.${screenVar}`, value: vars[screenVar] });
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : t('inspector.scene3d.message.cannotReadAsset') };
+        }
+    }
+
+    protected async pickScene3dScreen(id: string, screenVar: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        const uri = await this.fileDialogService.showOpenDialog({
+            title: t('inspector.scene3d.dialog.pickScreenTitle'), canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+            filters: { [t('inspector.scene3d.dialog.videoImageFilter')]: ['mp4', 'mov', 'webm', 'm4v', 'png', 'jpg', 'jpeg', 'webp'] }
+        }, await this.fileService.resolve(root));
+        if (!uri) return;
+        const relative = root.relative(uri)?.toString();
+        const result = await this.writeScene3dScreen(id, screenVar, relative ?? '');
+        if (!result.ok) this.showFieldNotice(result.message ?? t('inspector.scene3d.message.couldNotChangeScreen'));
     }
 
     protected appendSection(
@@ -4658,7 +4751,9 @@ export class AkariInspectorWidget extends BaseWidget {
                         : fieldName === 'transform-scaleX' ? 'transform.scaleX' as KeyframeSeatProperty
                             : fieldName === 'transform-scaleY' ? 'transform.scaleY' as KeyframeSeatProperty
                         : fieldName === 'transform-rotate' ? 'transform.rotate'
-                            : fieldName === 'opacity' ? 'opacity' : undefined;
+                            : /^rotation3d-[xyz]$/u.test(fieldName)
+                                ? fieldName.replace('-', '.') as KeyframeSeatProperty
+                                : fieldName === 'opacity' ? 'opacity' : undefined;
         if (!property) return undefined;
         const rowProperty = keyframeRowPropertyOf(property);
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
@@ -5393,7 +5488,8 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             const numericValue = Number(editValue);
             if (Number.isFinite(numericValue)) {
-                const keyframe = this.keyframeSeatOptions(snapshot, fieldName, numericValue);
+                const keyframe = /^rotation3d-[yz]$/u.test(fieldName)
+                    ? undefined : this.keyframeSeatOptions(snapshot, fieldName, numericValue);
                 const numberField = createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
@@ -5403,9 +5499,11 @@ export class AkariInspectorWidget extends BaseWidget {
                     focusRoot: this.node,
                     onPreview: sendLive,
                     onCancel: clearLive,
+                    reserveKeyframeSeat: /^rotation3d-[yz]$/u.test(fieldName),
                     onCommit: async value => {
                         if (value === numericValue) return true;
-                        if (keyframe?.hasKeyframes && /^(crop-|perspective-|transform-)/u.test(fieldName)
+                        if ((keyframe?.hasKeyframes || fieldName.startsWith('rotation3d-'))
+                            && /^(crop-|perspective-|transform-|rotation3d-)/u.test(fieldName)
                             && this.model.requestKeyframe) {
                             const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
                             const property = fieldName.startsWith('transform-')
@@ -5527,7 +5625,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (field.optionTitles?.[optionValue]) option.title = field.optionTitles[optionValue];
                 option.textContent = field.inputKind === 'boolean-select'
                     ? (optionValue === 'true' ? 'ON' : 'OFF')
-                    : optionValue;
+                    : field.optionLabels?.[optionValue] ?? optionValue;
                 if (field.previewOption) {
                     option.addEventListener('mouseenter', () => field.previewOption?.(optionValue));
                     option.addEventListener('focus', () => field.previewOption?.(optionValue));

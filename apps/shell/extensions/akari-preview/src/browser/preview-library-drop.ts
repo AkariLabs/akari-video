@@ -25,6 +25,7 @@ type PlannedMaterial = { relativePath: string; kind: 'image' | 'video' | 'audio'
     cached: boolean; thumb?: string; title?: string };
 const APPLY_KINDS = new Set(['textanim', 'textstyle', 'mystyle', 'font', 'lut']);
 const PLACE_KINDS = new Set(['text', 'textstyle', 'mystyle']);
+const SCREEN_KINDS = new Set(['video', 'image']);
 
 function readPayload(value: unknown): Payload | undefined {
     try {
@@ -387,7 +388,8 @@ export class PreviewLibraryDrop {
     private clearHoverHit(): void {
         this.hoverRequestId = 0;
         this.hoverHit = undefined;
-        if (this.layer) this.layer.style.cursor = PLACE_KINDS.has(this.active?.kind ?? '') ? 'copy' : 'not-allowed';
+        if (this.layer) this.layer.style.cursor = PLACE_KINDS.has(this.active?.kind ?? '')
+            || SCREEN_KINDS.has(this.active?.kind ?? '') ? 'copy' : 'not-allowed';
         this.widget.sendMessage({ type: 'akari-preview-hit-test-clear' });
     }
 
@@ -403,7 +405,8 @@ export class PreviewLibraryDrop {
         this.outside = event.altKey;
         if (!this.geometry && Date.now() - this.lastGeometryRequestAt >= 250) void this.queryGeometry();
         this.drawGhost(event.clientX, event.clientY);
-        if (this.active && APPLY_KINDS.has(this.active.kind) && this.geometry
+        if (this.active && (APPLY_KINDS.has(this.active.kind)
+            || (this.active.source === 'material' && SCREEN_KINDS.has(this.active.kind))) && this.geometry
             && Date.now() - this.hitRequestAt > 90) {
             const point = nearestOutputPoint({ x: event.clientX, y: event.clientY }, this.geometry.rect, this.geometry.output);
             if (point) {
@@ -426,7 +429,7 @@ export class PreviewLibraryDrop {
             if (this.ghost) this.ghost.style.display = 'none';
             return;
         }
-        const applying = APPLY_KINDS.has(payload.kind) && !!this.hoverHit;
+        const applying = (APPLY_KINDS.has(payload.kind) || SCREEN_KINDS.has(payload.kind)) && !!this.hoverHit;
         const placeable = PLACE_KINDS.has(payload.kind);
         if (this.layer) this.layer.style.cursor = applying || placeable || !APPLY_KINDS.has(payload.kind)
             ? 'copy' : 'not-allowed';
@@ -440,7 +443,7 @@ export class PreviewLibraryDrop {
         const audio = payload.category === 'audio';
         const text = placeable || applying;
         const transition = payload.kind === 'transition';
-        const overlay = previewOverlayKind(payload) === 'overlay';
+        const overlay = previewOverlayKind(payload) === 'overlay' || previewOverlayKind(payload) === 'scene3d';
         const shape = previewShapePayload(payload);
         const outputBox = shape ? previewShapeDropBox(geometry.output, shape.vb)
             : previewDropBox(geometry.output, { width: payload.width, height: payload.height }, overlay ? 0.4 : 0.25);
@@ -491,7 +494,9 @@ export class PreviewLibraryDrop {
                 note.innerHTML = '<path d="M9 18V5l11-2v13M9 18c0 3-6 4-6 1s6-4 6-1Zm11-2c0 3-6 4-6 1s6-4 6-1Z" fill="none" stroke="currentColor" stroke-width="2"/>';
                 ghost.append(note, document.createTextNode(t('preview.libraryDrop.overlay.placeTimeSuffix')));
             } else ghost.append(document.createTextNode(applying
-                ? (payload.kind === 'lut' ? t('preview.libraryDrop.overlay.applyScreenAction') : t('preview.libraryDrop.overlay.applyTextAction'))
+                ? (payload.source === 'material' && SCREEN_KINDS.has(payload.kind) && this.hoverHit?.kind === 'item'
+                    ? t('preview.libraryDrop.overlay.applyScene3dScreenAction')
+                    : payload.kind === 'lut' ? t('preview.libraryDrop.overlay.applyScreenAction') : t('preview.libraryDrop.overlay.applyTextAction'))
                 : transition ? t('preview.libraryDrop.overlay.dropCutBoundaryLabel') : text ? t('preview.libraryDrop.overlay.addTextAction')
                     : shape ? shape.name ?? t('preview.libraryDrop.overlay.shapeLabel') : payload.title ?? payload.name ?? t('preview.libraryDrop.overlay.assetsLabel')));
         }
@@ -536,6 +541,8 @@ export class PreviewLibraryDrop {
         const ghostRect = this.ghost?.getBoundingClientRect();
         const heldGhost = ghostRect && this.ghost?.style.display !== 'none' && this.ghost?.cloneNode
             ? this.ghost.cloneNode(true) as HTMLDivElement : undefined;
+        // 3D の画面へのドロップ先も同じ理由で最初の await の前に控える（dragend が hoverHit を消す）
+        const screenHit = this.hoverHit;
         const pageId = (this.widget as (WebviewWidget & { akariPreviewPlaybackPageId?: string }) | undefined)
             ?.akariPreviewPlaybackPageId;
         let placementStarted = false;
@@ -632,6 +639,17 @@ export class PreviewLibraryDrop {
                 return;
             }
         }
+        if (payload.source === 'material' && SCREEN_KINDS.has(payload.kind) && payload.relativePath) {
+            const hit = screenHit;
+            if (hit?.kind === 'item') {
+                this.clear();
+                const editUri = this.editUri();
+                if (editUri) await this.commands.executeCommand('akari.timeline.applyLibraryItem', {
+                    payload, target: hit, editUri
+                });
+                return;
+            }
+        }
         this.clear();
         if (payload.kind === 'transition') {
             this.messages.info(t('preview.libraryDrop.overlay.dropTransitionCutBoundaryTimeline'));
@@ -718,10 +736,8 @@ export class PreviewLibraryDrop {
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
             if (!claimScene3dDrop(dragSession)) return;
-            this.messages.info(t('preview.libraryDrop.overlay.threedSupportComingSoon'));
-            return;
         }
-        if (overlayKind === 'overlay') {
+        if (overlayKind === 'overlay' || overlayKind === 'scene3d') {
             placementStarted = true;
             const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addOverlayAtOutputPoint', {
                 key: payload.key, t: geometry.time, center: point, editUri,
@@ -735,6 +751,11 @@ export class PreviewLibraryDrop {
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
+            if (overlayKind === 'scene3d') {
+                await this.commands.executeCommand('akari.timeline.focusItem', {
+                    itemId: placed, reveal: true, pulse: true
+                });
+            }
             return;
         }
         if (PLACE_KINDS.has(payload.kind)) {
@@ -1125,7 +1146,8 @@ export class PreviewLibraryDrop {
 
     private clear(): void {
         if (PreviewLibraryDrop.dragSample?.owner === this) PreviewLibraryDrop.removeDragSample();
-        if (this.active && APPLY_KINDS.has(this.active.kind)) {
+        if (this.active && (APPLY_KINDS.has(this.active.kind)
+            || (this.active.source === 'material' && SCREEN_KINDS.has(this.active.kind)))) {
             this.widget.sendMessage({ type: 'akari-preview-hit-test-clear' });
         }
         this.dragSerial++;

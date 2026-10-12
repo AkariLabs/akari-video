@@ -885,6 +885,9 @@ export interface DeferredLintNotification {
         message?: string;
         check?: string;
         path?: string;
+        range?: { start?: number; end?: number };
+        /** 保存前の lint にも有った指摘（edit-store の write-gate が付ける）。 */
+        preexisting?: boolean;
     }>;
 }
 

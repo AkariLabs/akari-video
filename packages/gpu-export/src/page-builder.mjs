@@ -139,7 +139,8 @@ export function buildGpuPage({
   const dom = buildDomRuns(indexedOverlays, classifications, compositeIds, interleaved ? stackZByOverlay : null);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
-    || overlay.motion || overlay.motionSource);
+    || overlay.motion || overlay.motionSource
+    || overlay.motionParents?.some((parent) => Array.isArray(parent?.keyframes)));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
   const resolvedEmphasisWords = Array.isArray(captions)

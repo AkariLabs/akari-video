@@ -868,5 +868,6 @@
   "project.workspace.service.settingsNotObject": "設定の最上位がオブジェクトではありません",
   "project.workspace.service.settingsUpdateFailedWarning": "設定を更新できません:",
   "project.workspace.service.speakerCompareUnavailable": "話者を分けるときはエンジンを比較できません",
-  "project.workspace.service.speakerCountInvalid": "文字起こしの話者の指定が不正です"
+  "project.workspace.service.speakerCountInvalid": "文字起こしの話者の指定が不正です",
+  "project.library.shelf.scene3dImportFirstMessage": "この 3D は取り込んでから使ってください。"
 }

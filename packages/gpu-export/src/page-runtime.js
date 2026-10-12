@@ -2161,6 +2161,25 @@
     }
   }
 
+  function applyThreeItemMotion(container, item, seconds, fps) {
+    if (!item) return;
+    const motion = window.akari?.itemMotion;
+    if (!motion) throw new Error("3D item motion runtime is unavailable");
+    const state = motion.evaluateOverlayMotion(item, seconds, fps);
+    const background = item.role === "background";
+    container.style.setProperty("--x", background ? "0px" : `${state.x}px`);
+    container.style.setProperty("--y", background ? "0px" : `${state.y}px`);
+    container.style.setProperty("--scale", background ? "1" : String(state.scale));
+    container.style.setProperty("--scale-x", background ? "1" : String(state.scaleX));
+    container.style.setProperty("--scale-y", background ? "1" : String(state.scaleY));
+    container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
+    container.style.setProperty("opacity", String(state.opacity));
+    container.style.clipPath = motion.motionRevealCss(state);
+    for (const [name, value] of Object.entries(motion.evaluateOverlayVars(item, seconds, fps))) {
+      container.style.setProperty(name, String(value));
+    }
+  }
+
   function nextAnimationFrame() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
   }
@@ -3090,6 +3109,8 @@
     const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], luma: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
+    const threeItemsById = new Map((config.edit.overlays ?? [])
+      .map((item) => [String(item.id), item]));
     const vgpuRecords = new Map();
     let vgpuRuntime = null;
     let vgpuProbe = null;
@@ -3247,7 +3268,13 @@
           const draw = value.entranceMode === "none"
             ? threeCanvasPlacement(canvas, container, config.width, config.height)
             : null;
-          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor, draw });
+          const item = threeItemsById.get(value.id);
+          // 毎コマの変形と 3D の向きを描画に入れるのはキーを持つ 3D（自分か祖先）だけ。動きのプリセットだけの 3D は
+          // 従来どおり登場・退場の経路（sampled / composite）に任せ、挙動を変えない
+          const hasMotion = Array.isArray(item?.keyframes) || Array.isArray(item?.motionSource?.keyframes)
+            || item?.motionParents?.some((parent) => Array.isArray(parent?.keyframes));
+          threeRecords.set(value.id, { container, canvas, canvasFor: threeRuntime.canvasFor,
+            draw, motionItem: hasMotion ? item : null });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
         if (config.spriteManifest.vgpu?.length > 0) {
@@ -3378,7 +3405,12 @@
               if (!activeAt(value, seconds)) continue;
               const record = threeRecords.get(value.id);
               if (!record) throw new Error(`3D overlay record is missing: ${value.id}`);
+              if (record.motionItem) applyThreeItemMotion(record.container.parentElement,
+                record.motionItem, seconds, config.fps);
               threeRuntime.render(record.container, seconds - value.start);
+              if (record.motionItem && value.entranceMode === "none") {
+                record.draw = threeCanvasPlacement(record.canvas, record.container, config.width, config.height);
+              }
               if (value.entranceMode === "composite") {
                 threeComposite.syncAt(value, seconds);
               } else if (value.entranceMode === "sampled") {

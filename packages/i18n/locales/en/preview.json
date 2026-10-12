@@ -665,5 +665,13 @@
   "preview.threeScene.validation.sceneRequiresModelOrTextsError": "data-akari-3d-scene requires a model or a nonempty texts[] array",
   "preview.threeScene.validation.textsMustObjectError": "texts[{p1}] must be an object",
   "preview.threeScene.warning.compressionExportSuffix": " (Export will also fail. Export it again without compression.)",
-  "preview.tracks.validation.couldNotAllocateIdDestinationTrackError": "Could not allocate an ID for destination track {p1}."
+  "preview.tracks.validation.couldNotAllocateIdDestinationTrackError": "Could not allocate an ID for destination track {p1}.",
+  "preview.libraryDrop.overlay.applyScene3dScreenAction": "Put into the 3D screen",
+  "preview.contextBar.keyframe.addAction": "◆ Add keyframe",
+  "preview.contextBar.keyframe.addTitle": "Add {groups} keyframes at this time",
+  "preview.contextBar.keyframe.groupPosition": "position",
+  "preview.contextBar.keyframe.groupSize": "size",
+  "preview.contextBar.keyframe.groupRotation": "rotation",
+  "preview.contextBar.keyframe.groupRotation3d": "3D rotation",
+  "preview.contextBar.keyframe.groupSeparator": ", "
 }

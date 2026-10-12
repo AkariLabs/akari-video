@@ -1134,5 +1134,16 @@
   "annotations.timelineCreateDialog.text.thisSlugIsInUse": "この slug は使われています。",
   "annotations.timelineCreateDialog.text.timeline": "タイムライン",
   "annotations.timelineCreateDialog.text.widthAndHeightMustBeIntegersGreater": "幅と高さは 1 以上の整数にしてください。",
-  "annotations.timelineCreateDialog.text.widthPx": "幅（px）"
+  "annotations.timelineCreateDialog.text.widthPx": "幅（px）",
+  "annotations.timeline.text.placeScene3d": "3D を置く",
+  "annotations.timeline.text.placedScene3d": "3D を置きました。",
+  "annotations.timeline.text.keyRotation3d": "3D 回転にキーフレームを打つ",
+  "annotations.timeline.text.scene3dScreenTooLarge": "大きすぎます（720p のプロキシを使ってください）",
+  "annotations.timeline.text.scene3dNoScreen": "この 3D には画面がありません",
+  "annotations.timeline.text.setScene3dScreen": "3D の画面を入れる",
+  "annotations.timeline.text.scene3dChanged": "3D が変更されました",
+  "annotations.timeline.text.couldNotSetScene3dScreen": "画面を入れられませんでした: {reason}",
+  "annotations.timeline.text.invalidRotation3dValue": "3D 回転の値が不正です。",
+  "annotations.timeline.text.changeRotation3d": "3D 回転を変更",
+  "annotations.timeline.text.addPreviewKeyframes": "プレビューの変形にキーフレームを打つ"
 }

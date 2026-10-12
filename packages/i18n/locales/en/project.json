@@ -868,5 +868,6 @@
   "project.workspace.service.settingsNotObject": "Settings must be a JSON object",
   "project.workspace.service.settingsUpdateFailedWarning": "Could not update settings:",
   "project.workspace.service.speakerCompareUnavailable": "Engines cannot be compared while separating speakers",
-  "project.workspace.service.speakerCountInvalid": "Invalid speaker count for transcription"
+  "project.workspace.service.speakerCountInvalid": "Invalid speaker count for transcription",
+  "project.library.shelf.scene3dImportFirstMessage": "Import this 3D model before using it."
 }

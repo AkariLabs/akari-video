@@ -524,6 +524,9 @@ export interface OverlayWriteRequest {
     overlayId: string;
     patch: {
         vars?: Record<string, unknown>;
+        // 3D の向き（--akari-3d-rot-x/y/z・度）。回転にキーがあれば playheadSeconds の時刻に自動キー
+        // （edit-store writeItemVarsAt。内部契約 2026-10-11-3d-place §2.3）
+        varsAt?: Record<string, number>;
         transform?: OverlayTransform;
         duplicate?: boolean;
         // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照

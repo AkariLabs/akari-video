@@ -1309,5 +1309,16 @@
   "inspector.generationBatch.progress.done": "完了",
   "inspector.generationBatch.progress.failed": "失敗",
   "inspector.generationBatch.progress.cancelled": "中止",
-  "inspector.captionRunRows.separator.styles": "・"
+  "inspector.captionRunRows.separator.styles": "・",
+  "inspector.scene3d.message.selectProjectAsset": "プロジェクト内の素材を選んでください。",
+  "inspector.scene3d.message.screenTooLarge": "画面の素材が 24 MiB を超えています。書き出しに失敗する場合があります。",
+  "inspector.scene3d.message.cannotReadAsset": "素材を読み込めません。",
+  "inspector.scene3d.dialog.pickScreenTitle": "画面の動画または画像を選ぶ",
+  "inspector.scene3d.dialog.videoImageFilter": "動画・画像",
+  "inspector.scene3d.message.couldNotChangeScreen": "画面を変更できませんでした。",
+  "inspector.scene3dSection.label.screenContent": "画面の中身: {value}（選択または素材をドロップ）",
+  "inspector.scene3dSection.label.unset": "未設定",
+  "inspector.scene3dSection.label.noScreen": "この 3D には画面がありません",
+  "inspector.scene3dSection.label.rotationAxis": "回転 {axis}",
+  "inspector.scene3dSection.label.motion": "動き"
 }

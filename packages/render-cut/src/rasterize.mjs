@@ -132,6 +132,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
           container.style.setProperty('--rotate', background ? '0deg' : state.rotate + 'deg');
           container.style.setProperty('opacity', String(state.opacity));
           container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
+          for (const [name, value] of Object.entries(window.akari.itemMotion.evaluateOverlayVars(record, seconds, ${formatNumber(edit.output.fps)}))) {
+            container.style.setProperty(name, String(value));
+          }
         }${hasItemKeyframes ? ' else ' : ''}` : "";
   const itemKeyframesSyncBranch = hasItemKeyframes
     ? `

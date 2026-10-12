@@ -889,5 +889,8 @@
   "annotationscommon.roughCanvasService.warning.restoredLegacyStrokes": "線のデータを以前の形式から復元しました。",
   "annotationscommon.sfxFadeStore.field.audioClipNumber": "音声クリップ {number}",
   "annotationscommon.sfxFadeStore.field.audioClip": "音声クリップ",
-  "annotationscommon.voiceCloneDialog.separator.engines": "・"
+  "annotationscommon.voiceCloneDialog.separator.engines": "・",
+  "annotationscommon.timelineKeyframeRows.label.rotation3d": "3D 回転",
+  "annotationscommon.editV2Mutations.error.easingSegmentNotFound": "イージングを設定する区間が見つかりません。",
+  "annotationscommon.scene3dItem.label.motionNone": "なし（止める）"
 }

@@ -1309,5 +1309,16 @@
   "inspector.generationBatch.progress.done": "Done",
   "inspector.generationBatch.progress.failed": "Failed",
   "inspector.generationBatch.progress.cancelled": "Cancelled",
-  "inspector.captionRunRows.separator.styles": ", "
+  "inspector.captionRunRows.separator.styles": ", ",
+  "inspector.scene3d.message.selectProjectAsset": "Choose an asset inside the project.",
+  "inspector.scene3d.message.screenTooLarge": "The screen asset is over 24 MiB. Export may fail.",
+  "inspector.scene3d.message.cannotReadAsset": "Could not read the asset.",
+  "inspector.scene3d.dialog.pickScreenTitle": "Choose a video or image for the screen",
+  "inspector.scene3d.dialog.videoImageFilter": "Videos and images",
+  "inspector.scene3d.message.couldNotChangeScreen": "Could not change the screen.",
+  "inspector.scene3dSection.label.screenContent": "Screen: {value} (choose or drop an asset)",
+  "inspector.scene3dSection.label.unset": "Not set",
+  "inspector.scene3dSection.label.noScreen": "This 3D model has no screen",
+  "inspector.scene3dSection.label.rotationAxis": "Rotation {axis}",
+  "inspector.scene3dSection.label.motion": "Motion"
 }

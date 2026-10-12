@@ -1,6 +1,7 @@
 import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
-import { InspectorWriteRequest, InspectorWriteResult, LivePreviewRequest, LivePreviewTarget, TimelineTreeItemSnapshot } from '../../timeline-selection-model';
+import { isScene3dItem, type ItemV2 } from '@akari-video/edit-store';
+import { InspectorWriteRequest, InspectorWriteResult, LivePreviewRequest, LivePreviewTarget, TimelineOverlaySelection, TimelineTreeItemSnapshot } from '../../timeline-selection-model';
 import { enableShapeStroke, shapeControlGroups, shapeNumber, shapeOptionValue, swapShapeEnds } from '../shape-fields';
 import { shapeLiveMarkup } from '../shape-live';
 import { itemMotionMarks } from '../motion-marks';
@@ -11,13 +12,25 @@ import { CROP_FIELDS, PERSPECTIVE_FIELDS } from './transform-fields';
 import { MASK_FIELDS, PHOTO_FLIP_FIELDS, PHOTO_FRAME_FIELDS, PHOTO_CROP_OPEN_FIELD } from './photo-fields';
 import { MOTION_SECTIONS, MOTION_SUMMARY_SECTION } from './motion-sections';
 import { ANIMATOR_SECTION } from './animator-section';
+import { scene3dSection, type Scene3dSectionContext } from '../scene3d-section';
 
 export function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     openMotion?: () => void,
-    requestLivePreview?: (request: LivePreviewRequest) => void
+    requestLivePreview?: (request: LivePreviewRequest) => void,
+    scene3d: Scene3dSectionContext = {}
 ): InspectorSection[] {
+    const scene3dItem = snapshot.source?.kind === 'html' && isScene3dItem({
+        source: snapshot.source, keyframes: snapshot.keyframes as ItemV2['keyframes']
+    });
+    const scene3dSnapshot: TimelineOverlaySelection = {
+        kind: 'overlay', id: snapshot.id, outputStart: snapshot.outputStart,
+        playheadSeconds: snapshot.playheadSeconds, duration: snapshot.duration,
+        durationFrames: snapshot.durationFrames, keyframes: snapshot.keyframes,
+        trackName: snapshot.trackName, clipName: snapshot.clipName,
+        payload: { source: snapshot.source, vars: snapshot.source?.kind === 'html' ? snapshot.source.vars : undefined }
+    };
     const number = (key: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
     const axisScale = (axis: 'scaleX' | 'scaleY'): number => number(axis, number('scale', 1));
@@ -60,14 +73,14 @@ export function TREE_ITEM_SECTIONS(
             }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
         })),
-        {
+        ...(!scene3dItem || number('rotate', 0) !== 0 ? [{
             name: 'transform-rotate', label: t('inspector.treeItemSections.label.rotation'), unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
-            inputKind: 'scrub-number', scrubStep: 0.1, liveField: 'rotate',
-            write: async (_snapshot, value) => requestWrite({
+            inputKind: 'scrub-number' as const, scrubStep: 0.1, liveField: 'rotate' as const,
+            write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: null })
-        }
+        }] : [])
     ];
     const opacity = snapshot.opacity ?? 1;
     const shapeGroups = shapeControlGroups(snapshot.shape, snapshot.shapeParams);
@@ -167,6 +180,7 @@ export function TREE_ITEM_SECTIONS(
             ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
             : transformFields).map(field => ({ ...field,
                 markers: itemMotionMarks(snapshot, `transform.${field.name?.slice('transform-'.length)}`) })) },
+        ...(scene3dItem ? [scene3dSection(scene3dSnapshot, requestWrite, scene3d)] : []),
         { id: 'crop', label: t('inspector.treeItemSections.label.crop'), fields: cropFields.map(field => ({ ...field,
             markers: itemMotionMarks(snapshot, 'crop') })) },
         perspectiveSection,

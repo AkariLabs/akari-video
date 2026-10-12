@@ -102,7 +102,13 @@ export async function enumerateDeclaredRenderInputs({
     const entry = addInput(role, overlaySourcePath(overlay));
     const html = readFileSync(entry.absolute_path, "utf8");
     for (const reference of extractRuntimeAssetReferences(html, overlaySourcePath(overlay), role)) {
-      addInput(`${role}:${reference.role}`, reference.path);
+      try {
+        addInput(`${role}:${reference.role}`, reference.path);
+      } catch (error) {
+        // 3D の断片基準のパスが無ければ、従来のプロジェクト基準で探す（既存の断片の後方互換）
+        if (!(error instanceof RenderInputError) || reference.fallbackPath === undefined) throw error;
+        addInput(`${role}:${reference.role}`, reference.fallbackPath);
+      }
     }
     const fragmentReferences = extractFragmentAssetReferences(html, overlaySourcePath(overlay), role);
     for (const reference of fragmentReferences) {

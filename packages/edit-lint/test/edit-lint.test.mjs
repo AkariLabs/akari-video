@@ -877,8 +877,8 @@ test("captions validate source-time visibility and edited metadata", async () =>
       `${JSON.stringify([
         {
           id: "c-0001",
-          start: 11,
-          end: 12,
+          start: 9.6,
+          end: 10.6,
           text: "字幕A",
           speaker: null,
           sourceRef: null,
@@ -2469,3 +2469,21 @@ for (const fixture of ['overlay-range', 'speed-exceeds-timeline-invalid']) {
     });
   });
 }
+
+test("caption entirely inside removed sections is recorded as cut-removed, not a cut-visibility error", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    await writeFile(
+      join(project, "captions.json"),
+      `${JSON.stringify([
+        { id: "c-0001", start: 11, end: 12, text: "字幕A", speaker: null, sourceRef: null, edited: false },
+      ])}\n`,
+      "utf8",
+    );
+    const result = run(project);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const findings = parseResult(result).findings;
+    assert.ok(!findings.some((finding) => finding.check === "captions.cut-visibility"));
+    assert.ok(findings.some((finding) => finding.check === "captions.cut-removed" && finding.severity === "info"));
+  });
+});

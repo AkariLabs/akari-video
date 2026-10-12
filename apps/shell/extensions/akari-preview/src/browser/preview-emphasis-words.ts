@@ -1,5 +1,4 @@
 import { resolveCaptionStylePreset, resolveCaptionWordStyleVars, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
-import { t } from '@akari-video/i18n';
 import type { EditSummaryEmphasisWord } from './preview-host-types';
 
 export function normalizePreviewEmphasisWords(
@@ -8,7 +7,7 @@ export function normalizePreviewEmphasisWords(
 ): EditSummaryEmphasisWord[] {
     if (value === undefined) return [];
     if (!Array.isArray(value)) {
-        console.warn(t('preview.emphasisWords.validation.expectedArrayWarning'));
+        console.warn('[akari-preview] ignored emphasis_words (not an array)');
         return [];
     }
     const seenIds = new Set<string>();
@@ -28,7 +27,7 @@ export function normalizePreviewEmphasisWords(
             && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string')
             && (candidate.style_preset === undefined || typeof candidate.style_preset === 'string');
         if (!valid || !candidate) {
-            console.warn(t('preview.emphasisWords.validation.invalidItemWarning', { index }));
+            console.warn(`[akari-preview] ignored emphasis_words[${index}] (invalid entry)`);
             continue;
         }
         seenIds.add(candidate.id as string);

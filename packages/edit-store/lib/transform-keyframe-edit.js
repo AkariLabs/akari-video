@@ -1,14 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ROTATION_3D_VARS = void 0;
+exports.isScene3dItem = isScene3dItem;
 exports.evaluatedItemTransform = evaluatedItemTransform;
 exports.hasItemKeyframeGroup = hasItemKeyframeGroup;
 exports.hasTransformKeyframe = hasTransformKeyframe;
 exports.evaluatedItemOpacity = evaluatedItemOpacity;
+exports.evaluatedItemVar = evaluatedItemVar;
 exports.normalizeItemKeyframeGroup = normalizeItemKeyframeGroup;
 exports.activateItemKeyframeGroup = activateItemKeyframeGroup;
 exports.activateItemKeyframe = activateItemKeyframe;
 exports.activateItemTransformKeyframe = activateItemTransformKeyframe;
 exports.writeItemTransformAt = writeItemTransformAt;
+exports.writeItemVarsAt = writeItemVarsAt;
 exports.writeItemOpacityAt = writeItemOpacityAt;
 exports.removeItemKeyframeGroup = removeItemKeyframeGroup;
 exports.removeItemKeyframePoint = removeItemKeyframePoint;
@@ -18,9 +22,28 @@ const finite = (value) => typeof value === 'number' && Number.isFinite(value);
 const isMedia = (item) => item.source.kind === 'media';
 const pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
 const frameOf = (item, frame) => Math.min(item.duration, Math.max(0, Math.round(frame)));
+/**
+ * 3D モックアップの向き（three ランタイムの標準ツマミ。度）。3 本で 1 つのキーフレームグループ
+ * `rotation3d` になる（内部契約 2026-10-11-3d-place §2.2）。静的値は source.vars の文字列、
+ * キーは keyframes[].vars の数値、easing のキーは "vars.<名前>"。
+ */
+exports.ROTATION_3D_VARS = ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z'];
+const isRotation3dVar = (name) => exports.ROTATION_3D_VARS.includes(name);
+/** three 断片の html item か（scene3d 素材のパス、または 3D 回転の値・キーを持つ）。 */
+function isScene3dItem(item) {
+    if (item.source.kind !== 'html')
+        return false;
+    if (/(^|\/)scene3d\//u.test(item.source.path ?? ''))
+        return true;
+    const vars = item.source.vars ?? {};
+    return exports.ROTATION_3D_VARS.some(name => vars[name] !== undefined)
+        || pointsOf(item).some(point => exports.ROTATION_3D_VARS.some(name => finite(point.vars?.[name])));
+}
 function eased(point, field, u, media) {
     const raw = point.easing;
-    const name = typeof raw === 'string' ? raw : raw?.[`transform.${field}`] ?? raw?.transform ?? 'linear';
+    const name = typeof raw === 'string' ? raw : field.startsWith('--')
+        ? raw?.[`vars.${field}`] ?? 'linear'
+        : raw?.[`transform.${field}`] ?? raw?.transform ?? 'linear';
     if (media)
         return name === 'ease-in-out'
             ? u < .5 ? 4 * u ** 3 : 1 - (-2 * u + 2) ** 3 / 2 : u;
@@ -140,7 +163,9 @@ const GROUP_FIELDS = {
 const groupOf = (field) => field === 'x' || field === 'y' ? 'position'
     : field === 'rotate' ? 'rotation' : 'size';
 const declares = (point, group) => group === 'opacity'
-    ? finite(point.opacity) : GROUP_FIELDS[group].some(field => finite(point.transform?.[field]));
+    ? finite(point.opacity)
+    : group === 'rotation3d' ? exports.ROTATION_3D_VARS.some(name => finite(point.vars?.[name]))
+        : GROUP_FIELDS[group].some(field => finite(point.transform?.[field]));
 const groupPoints = (item, group) => pointsOf(item).filter(point => declares(point, group));
 const hasPointValue = (point) => Object.entries(point)
     .some(([key, value]) => key !== 't' && key !== 'easing' && value !== undefined);
@@ -182,6 +207,32 @@ function evaluatedItemOpacity(item, frame) {
     }
     return fallback;
 }
+function staticRotation3d(item, name) {
+    const raw = item.source.kind === 'html' ? item.source.vars?.[name] : undefined;
+    const value = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? ''));
+    return Number.isFinite(value) ? value : 0;
+}
+/** 3D 回転 1 本の、その時刻に見えている値（度）。キーが無ければ source.vars、それも無ければ 0。 */
+function evaluatedItemVar(item, frame, name) {
+    const fallback = staticRotation3d(item, name);
+    const points = pointsOf(item).filter(point => finite(point.vars?.[name]));
+    if (!points.length)
+        return fallback;
+    const at = frameOf(item, frame);
+    if (at <= points[0].t)
+        return points[0].vars[name];
+    const last = points[points.length - 1];
+    if (at >= last.t)
+        return last.vars[name];
+    for (let index = 1; index < points.length; index++) {
+        const right = points[index], left = points[index - 1];
+        if (at > right.t)
+            continue;
+        const u = eased(right, name, (at - left.t) / (right.t - left.t || 1), false);
+        return left.vars[name] + (right.vars[name] - left.vars[name]) * u;
+    }
+    return fallback;
+}
 function validPatch(patch) {
     for (const [field, value] of Object.entries(patch)) {
         if (!FIELDS.includes(field) || !finite(value)
@@ -200,6 +251,9 @@ function normalizedAxisPatch(current, patch) {
 function valuesAt(item, frame, group) {
     if (group === 'opacity')
         return evaluatedItemOpacity(item, frame);
+    if (group === 'rotation3d')
+        return Object.fromEntries(exports.ROTATION_3D_VARS
+            .map(name => [name, evaluatedItemVar(item, frame, name)]));
     const pose = evaluatedItemTransform(item, frame);
     if (group === 'position')
         return { x: pose.x, y: pose.y };
@@ -209,9 +263,21 @@ function valuesAt(item, frame, group) {
         return { scale: pose.scale };
     return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
 }
+/** 静的値の文字列。浮動小数の端数（0.1 + 0.2 等）を 1/1000 度で丸める。 */
+const varText = (value) => String(Math.round(value * 1000) / 1000);
 function withStaticGroup(item, group, value) {
     if (group === 'opacity')
         return { ...item, opacity: value };
+    if (group === 'rotation3d') {
+        if (item.source.kind !== 'html')
+            throw new Error('3D の回転は html アイテムにだけ書けます');
+        const vars = { ...item.source.vars };
+        for (const [name, number] of Object.entries(value)) {
+            if (finite(number))
+                vars[name] = varText(number);
+        }
+        return { ...item, source: { ...item.source, vars } };
+    }
     return { ...item, transform: { ...item.transform, ...value } };
 }
 /** Backfill old sparse points only when this group is written. Values are read before mutation. */
@@ -223,6 +289,8 @@ function normalizeItemKeyframeGroup(item, group) {
         const value = valuesAt(item, point.t, group);
         if (group === 'opacity')
             copy.opacity = value;
+        else if (group === 'rotation3d')
+            copy.vars = { ...copy.vars, ...value };
         else
             copy.transform = { ...copy.transform, ...value };
         return copy;
@@ -248,6 +316,8 @@ function addGroupPoint(item, frame, group, value) {
         if (isMedia(item))
             seat.transform = evaluatedItemTransform(item, at);
     }
+    else if (group === 'rotation3d')
+        seat.vars = { ...seat.vars, ...value };
     else
         seat.transform = { ...(isMedia(item) ? evaluatedItemTransform(item, at) : seat.transform),
             ...value };
@@ -263,10 +333,13 @@ function activateItemKeyframeGroup(item, frame, group) {
     const updated = addGroupPoint(item, at, group, value);
     return hadGroup ? updated : withStaticGroup(updated, group, value);
 }
-/** Item-wide diamond: all four groups share one playhead point and one item result. */
+/** Item-wide diamond: all four groups share one playhead point and one item result.
+ * A 3D item adds its rotation3d group to the same point. */
 function activateItemKeyframe(item, frame) {
-    return ['position', 'size', 'rotation', 'opacity']
-        .reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
+    const groups = ['position', 'size', 'rotation', 'opacity'];
+    if (isScene3dItem(item))
+        groups.push('rotation3d');
+    return groups.reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
 }
 function activateItemTransformKeyframe(item, frame, field) {
     return activateItemKeyframeGroup(item, frame, groupOf(field));
@@ -302,6 +375,20 @@ function writeItemTransformAt(item, frame, input) {
     validPatch(input);
     return [...new Set(Object.keys(input).map(field => groupOf(field)))].reduce((current, group) => writeGroup(current, frame, group, input), item);
 }
+/** 3D 回転の書き込み（gizmo・インスペクタ共通）。グループにキーがあれば再生ヘッドに自動キー、無ければ静的値。 */
+function writeItemVarsAt(item, frame, values) {
+    for (const [name, value] of Object.entries(values)) {
+        if (!isRotation3dVar(name) || !finite(value))
+            throw new Error(`Invalid vars.${name}`);
+    }
+    if (!hasItemKeyframeGroup(item, 'rotation3d'))
+        return withStaticGroup(item, 'rotation3d', values);
+    const initialPoint = groupPoints(item, 'rotation3d')[0];
+    const merged = { ...valuesAt(item, frame, 'rotation3d'), ...values };
+    const updated = addGroupPoint(item, frame, 'rotation3d', merged);
+    return groupPoints(item, 'rotation3d').length === 1
+        ? withStaticGroup(updated, 'rotation3d', valuesAt(updated, initialPoint.t, 'rotation3d')) : updated;
+}
 function writeItemOpacityAt(item, frame, opacity) {
     if (!finite(opacity) || opacity < 0 || opacity > 1)
         throw new Error('Invalid opacity');
@@ -325,6 +412,14 @@ function removeItemKeyframeGroup(item, frame, group) {
             return copy;
         if (group === 'opacity')
             delete copy.opacity;
+        else if (group === 'rotation3d') {
+            if (copy.vars) {
+                for (const name of exports.ROTATION_3D_VARS)
+                    delete copy.vars[name];
+                if (!Object.keys(copy.vars).length)
+                    delete copy.vars;
+            }
+        }
         else if (copy.transform) {
             for (const field of GROUP_FIELDS[group])
                 delete copy.transform[field];
@@ -333,7 +428,7 @@ function removeItemKeyframeGroup(item, frame, group) {
         }
         return copy;
     }).filter(point => point.transform || point.opacity !== undefined || point.crop || point.perspective
-        || point.animator || point.gain_db !== undefined);
+        || point.animator || point.gain_db !== undefined || (point.vars && Object.keys(point.vars).length));
     let updated = { ...normalized, keyframes: legalPointArray(item, keyframes) };
     const remaining = groupPoints(updated, group);
     if (!remaining.length)
@@ -348,7 +443,7 @@ function removeItemKeyframePoint(item, frame) {
     const point = pointsOf(item).find(entry => entry.t === at);
     if (!point)
         return item;
-    const values = ['position', 'size', 'rotation', 'opacity']
+    const values = ['position', 'size', 'rotation', 'opacity', 'rotation3d']
         .filter(group => declares(point, group)).map(group => [group, valuesAt(item, at, group)]);
     const keyframes = pointsOf(item).filter(entry => entry.t !== at).map(entry => structuredClone(entry));
     let updated = { ...item, keyframes: legalPointArray(item, keyframes) };

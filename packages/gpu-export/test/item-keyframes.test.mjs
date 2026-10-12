@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
+import { assertGpuEligibility } from "../../render-cut/src/cli-arguments.mjs";
 import { buildGpuPage } from "../src/page-builder.mjs";
 import { createRequire } from 'node:module';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readRenderEdit } from '../../render-cut/src/internal-render.mjs';
 const require = createRequire(import.meta.url);
 const { evaluateOverlayMotion } = require('../../overlay-runtime/src/item-motion.js');
 
@@ -32,6 +37,74 @@ test("item keyframes force a DOM classification instead of a static sprite", () 
     reason: "item-keyframes",
     conditions: ["item-keyframes"],
   });
+});
+
+test("3D のキーは three に分類し、通常 item は DOM に分類する", () => {
+  const scene = '<canvas></canvas><script type="application/json" data-akari-3d-scene>{}</script>';
+  const classify = (html, keyframes, forceDegraded = false) => evaluateGpuEligibility({
+    edit: { overlays: [{ id: "scene", html, ...(keyframes ? { keyframes } : {}) }] },
+    forceDegraded,
+  });
+  const points = [{ t: 0, vars: { "--akari-3d-rot-y": 0 } },
+    { t: 60, vars: { "--akari-3d-rot-y": 90 }, transform: { x: 80 } }];
+  for (const forced of [false, true]) {
+    const keyed = classify(scene, points, forced);
+    assert.equal(keyed.eligible, true);
+    assert.equal(keyed.entries[0].classification, "three");
+    assert.equal(keyed.entries[0].reason, "three-scene-canvas-direct");
+    assert.equal(keyed.summary.three, 1);
+    assert.doesNotThrow(() => assertGpuEligibility("gpu", keyed, { force: forced }));
+  }
+  const still = classify(scene);
+  assert.equal(still.eligible, true);
+  assert.equal(still.entries[0].classification, "three");
+  const ordinary = classify('<div>通常の item</div>', points);
+  assert.equal(ordinary.eligible, true);
+  assert.equal(ordinary.entries[0].classification, "dom");
+  assert.equal(ordinary.entries[0].reason, "item-keyframes");
+});
+
+test('キャンバス内の 3D は子キー・親キー・静的な子を GPU の three に分類する', t => {
+  const root = mkdtempSync(join(tmpdir(), 'three-canvas-classification-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'overlays'));
+  const html = '<canvas></canvas><script type="application/json" data-akari-3d-scene>{}</script>';
+  writeFileSync(join(root, 'overlays', 'scene.html'), html);
+  for (const keyed of ['child', 'parent', 'static']) {
+    const points = [{ t: 0, transform: { x: -30 }, vars: { '--akari-3d-rot-y': 0 } },
+      { t: 19, transform: { x: 30 }, vars: { '--akari-3d-rot-y': 90 } }];
+    const parentPoints = [{ t: 0, transform: { x: -30 } },
+      { t: 19, transform: { x: 30 } }];
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 10 }, sources: [],
+      tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'canvas', at: 5, duration: 20,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } },
+        transform: { x: 30, scale: 0.8 },
+        ...(keyed === 'parent' ? { keyframes: parentPoints } : {}),
+        items: [{ id: 'scene', at: 0, duration: 20,
+          source: { kind: 'html', path: 'overlays/scene.html' },
+          ...(keyed === 'child' ? { keyframes: points } : {}) }] }] }] };
+    const projected = readRenderEdit(JSON.stringify(edit), join(root, '.akari', 'render-tmp'),
+      { projectRoot: root }).edit.overlays.find(item => item.id === 'scene');
+    assert.ok(projected, keyed);
+    if (keyed === 'child') assert.equal(projected.keyframes?.length, 2);
+    else {
+      assert.equal(projected.keyframes, undefined);
+      assert.equal(projected.motionSource?.keyframes, undefined);
+      if (keyed === 'parent') assert.equal(projected.motionParents?.[0]?.keyframes?.length, 2);
+    }
+    const result = evaluateGpuEligibility({ edit: { output: edit.output,
+      overlays: [{ ...projected, html }] } });
+    if (keyed === 'static') {
+      assert.equal(projected.start, 0.5);
+      assert.equal(projected.transform.x, 30);
+      assert.equal(projected.transform.scale, 0.8);
+      assert.equal(result.eligible, true);
+      assert.equal(result.entries[0].classification, 'three');
+      continue;
+    }
+    assert.equal(result.eligible, true, keyed);
+    assert.equal(result.entries[0].classification, 'three', keyed);
+  }
 });
 
 test("GPU page carries keyframes into its DOM run and injects the shared runtime", () => {

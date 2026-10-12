@@ -889,5 +889,8 @@
   "annotationscommon.roughCanvasService.warning.restoredLegacyStrokes": "Strokes were restored from an older format.",
   "annotationscommon.sfxFadeStore.field.audioClipNumber": "Audio clip {number}",
   "annotationscommon.sfxFadeStore.field.audioClip": "Audio clip",
-  "annotationscommon.voiceCloneDialog.separator.engines": ", "
+  "annotationscommon.voiceCloneDialog.separator.engines": ", ",
+  "annotationscommon.timelineKeyframeRows.label.rotation3d": "3D rotation",
+  "annotationscommon.editV2Mutations.error.easingSegmentNotFound": "No segment to set the easing on.",
+  "annotationscommon.scene3dItem.label.motionNone": "None (stop)"
 }

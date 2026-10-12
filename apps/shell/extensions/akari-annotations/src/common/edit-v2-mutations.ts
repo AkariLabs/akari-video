@@ -48,16 +48,19 @@ import { normalizeAudioKeyframes, type AudioEnvelopeKeyframe } from './audio-env
 import {
     activateItemKeyframeGroup, activateItemTransformKeyframe, moveItemKeyframeGroup,
     normalizeItemKeyframeGroup,
-    removeItemKeyframeGroup, removeItemKeyframePoint, writeItemOpacityAt,
+    removeItemKeyframeGroup, removeItemKeyframePoint, writeItemOpacityAt, writeItemVarsAt,
     writeItemTransformAt, type ItemKeyframeGroup, type TransformField
 } from '@akari-video/edit-store';
 
 const groupOfProperty = (property: string): ItemKeyframeGroup | undefined => property === 'opacity'
     ? 'opacity' : property === 'transform.x' || property === 'transform.y' ? 'position'
         : ['transform.scale', 'transform.scaleX', 'transform.scaleY'].includes(property) ? 'size'
-            : property === 'transform.rotate' ? 'rotation' : undefined;
-const itemPatch = (item: { transform?: unknown; opacity?: unknown; keyframes?: unknown }): Record<string, unknown> => ({
-    transform: item.transform, opacity: item.opacity, keyframes: item.keyframes
+            : property === 'transform.rotate' ? 'rotation' : property === 'rotation3d' ? 'rotation3d' : undefined;
+const itemPatch = (item: { transform?: unknown; opacity?: unknown; keyframes?: unknown;
+    source?: unknown }): Record<string, unknown> => ({
+    transform: item.transform, opacity: item.opacity, keyframes: item.keyframes,
+    ...(item.source && typeof item.source === 'object' && 'vars' in item.source
+        && item.source.vars ? { source: { vars: item.source.vars } } : {})
 });
 
 export type EditV2Document = Record<string, unknown>;
@@ -151,7 +154,7 @@ export interface TreeMutationResult<T> {
 
 export interface KeyframeMutationOptions {
     itemId: string;
-    property: KeyframeProperty;
+    property: KeyframeProperty | 'rotation3d';
     /** motion 袋参照を編集するとき、shell が読み戻した inline 点列。 */
     hydratedPoints?: readonly Record<string, unknown>[];
 }
@@ -345,6 +348,12 @@ export function setV2Keyframe(
         const item = edit.find(options.itemId);
         if (!item) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: String(options.itemId) }));
         const activated = activateItemKeyframeGroup(item as never, options.t, group);
+        if (group === 'rotation3d') {
+            const values = options.value && typeof options.value === 'object' && !Array.isArray(options.value)
+                ? options.value as Record<string, number> : {};
+            updateTreeItem(edit, options.itemId, itemPatch(writeItemVarsAt(activated, options.t, values)));
+            return finishKeyframeMutation(edit);
+        }
         const field = options.property.startsWith('transform.')
             ? options.property.slice('transform.'.length) as TransformField : undefined;
         if (typeof options.value !== 'number' || !Number.isFinite(options.value)) {
@@ -355,7 +364,7 @@ export function setV2Keyframe(
         updateTreeItem(edit, options.itemId, itemPatch(updated));
         return finishKeyframeMutation(edit);
     }
-    setTreeKeyframe(edit, options.itemId, options.property, options.t, options.value);
+    setTreeKeyframe(edit, options.itemId, options.property as KeyframeProperty, options.t, options.value);
     return finishKeyframeMutation(edit);
 }
 
@@ -385,6 +394,30 @@ export function writeV2ItemTransformAt(
     return finishKeyframeMutation(edit);
 }
 
+export function writeV2ItemVarsAt(
+    doc: EditV2Document,
+    options: { itemId: string; t: number; values: Record<string, number>;
+        hydratedPoints?: readonly Record<string, unknown>[] }
+): EditV2Document {
+    const edit = editForKeyframes(doc, { itemId: options.itemId, property: 'rotation3d',
+        ...(options.hydratedPoints ? { hydratedPoints: options.hydratedPoints } : {}) });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: options.itemId }));
+    updateTreeItem(edit, options.itemId, itemPatch(writeItemVarsAt(item as never, options.t, options.values)));
+    return finishKeyframeMutation(edit);
+}
+
+export function activateV2ItemRotation3dKeyframe(
+    doc: EditV2Document,
+    options: { itemId: string; t: number; hydratedPoints?: readonly Record<string, unknown>[] }
+): EditV2Document {
+    const edit = editForKeyframes(doc, { ...options, property: 'rotation3d' });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: options.itemId }));
+    updateTreeItem(edit, options.itemId, itemPatch(activateItemKeyframeGroup(item as never, options.t, 'rotation3d')));
+    return finishKeyframeMutation(edit);
+}
+
 export function writeV2ItemOpacityAt(
     doc: EditV2Document,
     options: { itemId: string; t: number; opacity: number; hydratedPoints?: readonly Record<string, unknown>[] }
@@ -407,7 +440,7 @@ export function removeV2Keyframe(
         const item = edit.find(options.itemId);
         if (!item) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: String(options.itemId) }));
         updateTreeItem(edit, options.itemId, itemPatch(removeItemKeyframeGroup(item as never, options.t, group)));
-    } else removeTreeKeyframe(edit, options.itemId, options.property, options.t);
+    } else removeTreeKeyframe(edit, options.itemId, options.property as KeyframeProperty, options.t);
     return finishKeyframeMutation(edit);
 }
 
@@ -431,7 +464,7 @@ export function moveV2Keyframe(
         if (!item) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: String(options.itemId) }));
         updateTreeItem(edit, options.itemId, itemPatch(moveItemKeyframeGroup(item as never,
             options.fromT, options.toT, group)));
-    } else moveTreeKeyframe(edit, options.itemId, options.property, options.fromT, options.toT);
+    } else moveTreeKeyframe(edit, options.itemId, options.property as KeyframeProperty, options.fromT, options.toT);
     return finishKeyframeMutation(edit);
 }
 
@@ -445,6 +478,24 @@ export function setV2SegmentEasing(
         const raw = edit.find(options.itemId);
         if (!raw) throw new Error(t('annotationscommon.editV2Mutations.error.itemNotFound', { itemId: String(options.itemId) }));
         updateTreeItem(edit, options.itemId, itemPatch(normalizeItemKeyframeGroup(raw as never, group)));
+        if (group === 'rotation3d') {
+            const points = edit.find(options.itemId)?.keyframes;
+            const point = Array.isArray(points) ? points.find(entry => entry.t === options.toT) : undefined;
+            if (!point?.vars) throw new Error(t('annotationscommon.editV2Mutations.error.easingSegmentNotFound'));
+            const easing: Record<string, string> = point.easing && typeof point.easing === 'object'
+                ? { ...point.easing } : {};
+            if (typeof point.easing === 'string') {
+                for (const name of Object.keys(point.transform ?? {})) easing[`transform.${name}`] = point.easing;
+                for (const name of ['opacity', 'crop', 'perspective']) {
+                    if (name in point) easing[name] = point.easing;
+                }
+            }
+            for (const name of ['--akari-3d-rot-x', '--akari-3d-rot-y', '--akari-3d-rot-z']) {
+                easing[`vars.${name}`] = options.easing;
+            }
+            point.easing = easing;
+            return finishKeyframeMutation(edit);
+        }
         const properties = group === 'position' ? ['transform.x', 'transform.y']
             : group === 'size' ? ['transform.scale', 'transform.scaleX', 'transform.scaleY']
                 : ['transform.rotate'];
@@ -453,7 +504,7 @@ export function setV2SegmentEasing(
         for (const property of properties) if (point?.transform?.[property.slice('transform.'.length) as TransformField] !== undefined) {
             setTreeSegmentEasing(edit, options.itemId, property as KeyframeProperty, options.toT, options.easing);
         }
-    } else setTreeSegmentEasing(edit, options.itemId, options.property, options.toT, options.easing);
+    } else setTreeSegmentEasing(edit, options.itemId, options.property as KeyframeProperty, options.toT, options.easing);
     return finishKeyframeMutation(edit);
 }
 

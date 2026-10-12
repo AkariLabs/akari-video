@@ -30,7 +30,7 @@ test('同じ資産への同時要求は 1 本の createAssetStream に合流す�
   assert.match(loadModel, /const ensureAssetStream = \(key: string, assetUri\?: URI\)/u);
   // 直接 createAssetStream を呼ぶ箇所は合流器の中だけ
   assert.equal((loadModel.match(/this\.createAssetStream\(/g) ?? []).length, 1);
-  assert.match(loadModel, /unsupportedGltfWarnings, ensureAssetStream, this\.stringRecord\(value\?\.vars\)\n/u);
+  assert.match(loadModel, /unsupportedGltfWarnings, ensureAssetStream, this\.stringRecord\(value\?\.vars\),\n/u);
   assert.match(loadModel, /previewAudioService, previewAudioKeepKeys, ensureAssetStream\n/u);
 });
 
@@ -45,7 +45,7 @@ test('GLB の拡張検査はヘッダ + JSON チャンクだけ読む', () => {
   assert.match(handler, /const GLTF_HEADER_PROBE_BYTES = 64 \* 1024;/u);
   assert.match(handler, /this\.fileService\.readFile\(uri, \{ position: 0, length: GLTF_HEADER_PROBE_BYTES \}\)/u);
   assert.match(handler, /const needed = 20 \+ view\.getUint32\(12, true\);/u);
-  assert.match(handler, /await this\.readGltfHeaderBytes\(await this\.resolveEditAssetUri\(resolved\.modelPath, editUri\)\)/u);
+  assert.match(handler, /await this\.readGltfHeaderBytes\(modelUri \?\? await this\.resolveEditAssetUri\(resolved\.modelPath, editUri\)\)/u);
   assert.doesNotMatch(handler, /const modelContent = await this\.fileService\.readFile\(/u);
 });
 

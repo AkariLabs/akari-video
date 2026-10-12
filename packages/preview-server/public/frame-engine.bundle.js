@@ -9376,6 +9376,15 @@ var require_edit_v2 = __commonJS({
           requireRecord(entry.perspective, `${itemPath}.perspective`);
         if (hasOwn(entry, "opacity"))
           requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+        if (hasOwn(entry, "vars")) {
+          requireRecord(entry.vars, `${itemPath}.vars`);
+          for (const [name, number] of Object.entries(entry.vars)) {
+            if (!/^--[A-Za-z0-9_-]+$/.test(name))
+              throw invalid(`${itemPath}.vars.${name}`, "-- \u3067\u59CB\u307E\u308B CSS \u5909\u6570\u540D\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (typeof number !== "number" || !Number.isFinite(number))
+              throw invalid(`${itemPath}.vars.${name}`, "\u6709\u9650\u306E\u6570\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+        }
         if (hasOwn(entry, "animator")) {
           requireRecord(entry.animator, `${itemPath}.animator`);
           for (const [id, state] of Object.entries(entry.animator)) {
@@ -9550,15 +9559,19 @@ var require_transform_keyframe_edit = __commonJS({
   "../edit-store/lib/transform-keyframe-edit.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ROTATION_3D_VARS = void 0;
+    exports.isScene3dItem = isScene3dItem;
     exports.evaluatedItemTransform = evaluatedItemTransform;
     exports.hasItemKeyframeGroup = hasItemKeyframeGroup;
     exports.hasTransformKeyframe = hasTransformKeyframe;
     exports.evaluatedItemOpacity = evaluatedItemOpacity;
+    exports.evaluatedItemVar = evaluatedItemVar;
     exports.normalizeItemKeyframeGroup = normalizeItemKeyframeGroup;
     exports.activateItemKeyframeGroup = activateItemKeyframeGroup;
     exports.activateItemKeyframe = activateItemKeyframe;
     exports.activateItemTransformKeyframe = activateItemTransformKeyframe;
     exports.writeItemTransformAt = writeItemTransformAt;
+    exports.writeItemVarsAt = writeItemVarsAt;
     exports.writeItemOpacityAt = writeItemOpacityAt;
     exports.removeItemKeyframeGroup = removeItemKeyframeGroup;
     exports.removeItemKeyframePoint = removeItemKeyframePoint;
@@ -9568,9 +9581,19 @@ var require_transform_keyframe_edit = __commonJS({
     var isMedia = (item) => item.source.kind === "media";
     var pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
     var frameOf = (item, frame) => Math.min(item.duration, Math.max(0, Math.round(frame)));
+    exports.ROTATION_3D_VARS = ["--akari-3d-rot-x", "--akari-3d-rot-y", "--akari-3d-rot-z"];
+    var isRotation3dVar = (name) => exports.ROTATION_3D_VARS.includes(name);
+    function isScene3dItem(item) {
+      if (item.source.kind !== "html")
+        return false;
+      if (/(^|\/)scene3d\//u.test(item.source.path ?? ""))
+        return true;
+      const vars = item.source.vars ?? {};
+      return exports.ROTATION_3D_VARS.some((name) => vars[name] !== void 0) || pointsOf(item).some((point) => exports.ROTATION_3D_VARS.some((name) => finite4(point.vars?.[name])));
+    }
     function eased(point, field, u2, media) {
       const raw = point.easing;
-      const name = typeof raw === "string" ? raw : raw?.[`transform.${field}`] ?? raw?.transform ?? "linear";
+      const name = typeof raw === "string" ? raw : field.startsWith("--") ? raw?.[`vars.${field}`] ?? "linear" : raw?.[`transform.${field}`] ?? raw?.transform ?? "linear";
       if (media)
         return name === "ease-in-out" ? u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2 : u2;
       if (name === "hold")
@@ -9690,7 +9713,7 @@ var require_transform_keyframe_edit = __commonJS({
       rotation: ["rotate"]
     };
     var groupOf = (field) => field === "x" || field === "y" ? "position" : field === "rotate" ? "rotation" : "size";
-    var declares = (point, group) => group === "opacity" ? finite4(point.opacity) : GROUP_FIELDS[group].some((field) => finite4(point.transform?.[field]));
+    var declares = (point, group) => group === "opacity" ? finite4(point.opacity) : group === "rotation3d" ? exports.ROTATION_3D_VARS.some((name) => finite4(point.vars?.[name])) : GROUP_FIELDS[group].some((field) => finite4(point.transform?.[field]));
     var groupPoints = (item, group) => pointsOf(item).filter((point) => declares(point, group));
     var hasPointValue = (point) => Object.entries(point).some(([key, value]) => key !== "t" && key !== "easing" && value !== void 0);
     function legalPointArray(item, points) {
@@ -9728,6 +9751,31 @@ var require_transform_keyframe_edit = __commonJS({
       }
       return fallback;
     }
+    function staticRotation3d(item, name) {
+      const raw = item.source.kind === "html" ? item.source.vars?.[name] : void 0;
+      const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
+      return Number.isFinite(value) ? value : 0;
+    }
+    function evaluatedItemVar(item, frame, name) {
+      const fallback = staticRotation3d(item, name);
+      const points = pointsOf(item).filter((point) => finite4(point.vars?.[name]));
+      if (!points.length)
+        return fallback;
+      const at2 = frameOf(item, frame);
+      if (at2 <= points[0].t)
+        return points[0].vars[name];
+      const last = points[points.length - 1];
+      if (at2 >= last.t)
+        return last.vars[name];
+      for (let index = 1; index < points.length; index++) {
+        const right = points[index], left = points[index - 1];
+        if (at2 > right.t)
+          continue;
+        const u2 = eased(right, name, (at2 - left.t) / (right.t - left.t || 1), false);
+        return left.vars[name] + (right.vars[name] - left.vars[name]) * u2;
+      }
+      return fallback;
+    }
     function validPatch(patch) {
       for (const [field, value] of Object.entries(patch)) {
         if (!FIELDS.includes(field) || !finite4(value) || (field === "scale" || field === "scaleX" || field === "scaleY") && value <= 0) {
@@ -9745,6 +9793,8 @@ var require_transform_keyframe_edit = __commonJS({
     function valuesAt(item, frame, group) {
       if (group === "opacity")
         return evaluatedItemOpacity(item, frame);
+      if (group === "rotation3d")
+        return Object.fromEntries(exports.ROTATION_3D_VARS.map((name) => [name, evaluatedItemVar(item, frame, name)]));
       const pose = evaluatedItemTransform(item, frame);
       if (group === "position")
         return { x: pose.x, y: pose.y };
@@ -9754,9 +9804,20 @@ var require_transform_keyframe_edit = __commonJS({
         return { scale: pose.scale };
       return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
     }
+    var varText = (value) => String(Math.round(value * 1e3) / 1e3);
     function withStaticGroup(item, group, value) {
       if (group === "opacity")
         return { ...item, opacity: value };
+      if (group === "rotation3d") {
+        if (item.source.kind !== "html")
+          throw new Error("3D \u306E\u56DE\u8EE2\u306F html \u30A2\u30A4\u30C6\u30E0\u306B\u3060\u3051\u66F8\u3051\u307E\u3059");
+        const vars = { ...item.source.vars };
+        for (const [name, number] of Object.entries(value)) {
+          if (finite4(number))
+            vars[name] = varText(number);
+        }
+        return { ...item, source: { ...item.source, vars } };
+      }
       return { ...item, transform: { ...item.transform, ...value } };
     }
     function normalizeItemKeyframeGroup(item, group) {
@@ -9767,6 +9828,8 @@ var require_transform_keyframe_edit = __commonJS({
         const value = valuesAt(item, point.t, group);
         if (group === "opacity")
           copy.opacity = value;
+        else if (group === "rotation3d")
+          copy.vars = { ...copy.vars, ...value };
         else
           copy.transform = { ...copy.transform, ...value };
         return copy;
@@ -9791,7 +9854,9 @@ var require_transform_keyframe_edit = __commonJS({
         seat.opacity = value;
         if (isMedia(item))
           seat.transform = evaluatedItemTransform(item, at2);
-      } else
+      } else if (group === "rotation3d")
+        seat.vars = { ...seat.vars, ...value };
+      else
         seat.transform = {
           ...isMedia(item) ? evaluatedItemTransform(item, at2) : seat.transform,
           ...value
@@ -9808,7 +9873,10 @@ var require_transform_keyframe_edit = __commonJS({
       return hadGroup ? updated : withStaticGroup(updated, group, value);
     }
     function activateItemKeyframe(item, frame) {
-      return ["position", "size", "rotation", "opacity"].reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
+      const groups = ["position", "size", "rotation", "opacity"];
+      if (isScene3dItem(item))
+        groups.push("rotation3d");
+      return groups.reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
     }
     function activateItemTransformKeyframe(item, frame, field) {
       return activateItemKeyframeGroup(item, frame, groupOf(field));
@@ -9839,6 +9907,18 @@ var require_transform_keyframe_edit = __commonJS({
       validPatch(input);
       return [...new Set(Object.keys(input).map((field) => groupOf(field)))].reduce((current, group) => writeGroup(current, frame, group, input), item);
     }
+    function writeItemVarsAt(item, frame, values) {
+      for (const [name, value] of Object.entries(values)) {
+        if (!isRotation3dVar(name) || !finite4(value))
+          throw new Error(`Invalid vars.${name}`);
+      }
+      if (!hasItemKeyframeGroup(item, "rotation3d"))
+        return withStaticGroup(item, "rotation3d", values);
+      const initialPoint = groupPoints(item, "rotation3d")[0];
+      const merged = { ...valuesAt(item, frame, "rotation3d"), ...values };
+      const updated = addGroupPoint(item, frame, "rotation3d", merged);
+      return groupPoints(item, "rotation3d").length === 1 ? withStaticGroup(updated, "rotation3d", valuesAt(updated, initialPoint.t, "rotation3d")) : updated;
+    }
     function writeItemOpacityAt(item, frame, opacity) {
       if (!finite4(opacity) || opacity < 0 || opacity > 1)
         throw new Error("Invalid opacity");
@@ -9860,14 +9940,21 @@ var require_transform_keyframe_edit = __commonJS({
           return copy;
         if (group === "opacity")
           delete copy.opacity;
-        else if (copy.transform) {
+        else if (group === "rotation3d") {
+          if (copy.vars) {
+            for (const name of exports.ROTATION_3D_VARS)
+              delete copy.vars[name];
+            if (!Object.keys(copy.vars).length)
+              delete copy.vars;
+          }
+        } else if (copy.transform) {
           for (const field of GROUP_FIELDS[group])
             delete copy.transform[field];
           if (!Object.keys(copy.transform).length)
             delete copy.transform;
         }
         return copy;
-      }).filter((point) => point.transform || point.opacity !== void 0 || point.crop || point.perspective || point.animator || point.gain_db !== void 0);
+      }).filter((point) => point.transform || point.opacity !== void 0 || point.crop || point.perspective || point.animator || point.gain_db !== void 0 || point.vars && Object.keys(point.vars).length);
       let updated = { ...normalized, keyframes: legalPointArray(item, keyframes) };
       const remaining = groupPoints(updated, group);
       if (!remaining.length)
@@ -9881,7 +9968,7 @@ var require_transform_keyframe_edit = __commonJS({
       const point = pointsOf(item).find((entry) => entry.t === at2);
       if (!point)
         return item;
-      const values = ["position", "size", "rotation", "opacity"].filter((group) => declares(point, group)).map((group) => [group, valuesAt(item, at2, group)]);
+      const values = ["position", "size", "rotation", "opacity", "rotation3d"].filter((group) => declares(point, group)).map((group) => [group, valuesAt(item, at2, group)]);
       const keyframes = pointsOf(item).filter((entry) => entry.t !== at2).map((entry) => structuredClone(entry));
       let updated = { ...item, keyframes: legalPointArray(item, keyframes) };
       for (const [group, value] of values)
@@ -10122,6 +10209,41 @@ var require_item_motion = __commonJS({
         const parents = (record.motionParents ?? []).map((parent) => ({ ...parent, fps }));
         return evaluateItemMotion3(item, t, parents);
       }
+      function evaluateOverlayVars(record, t, fps) {
+        const item = record.motionSource ? { ...record.motionSource, fps } : {
+          at: number(record.start, 0),
+          fps,
+          keyframeUnit: record.keyframeUnit ?? "frames",
+          keyframes: record.keyframes
+        };
+        const points = (Array.isArray(item.keyframes) ? item.keyframes : []).filter((p2) => p2 && Number.isFinite(p2.t) && p2.vars && typeof p2.vars === "object").slice().sort((a, b) => a.t - b.t);
+        const names = new Set(points.flatMap((p2) => Object.keys(p2.vars)));
+        const localSeconds = t - number(item.at, 0);
+        const frame = item.keyframeUnit === "seconds" ? localSeconds : localSeconds * number(item.fps, 30);
+        const values = {};
+        for (const name of names) {
+          const declared = points.filter((p2) => Number.isFinite(p2.vars[name]));
+          if (!declared.length) continue;
+          if (frame <= declared[0].t) {
+            values[name] = declared[0].vars[name];
+            continue;
+          }
+          const last = declared[declared.length - 1];
+          if (frame >= last.t) {
+            values[name] = last.vars[name];
+            continue;
+          }
+          for (let i2 = 1; i2 < declared.length; i2++) {
+            const b = declared[i2], a = declared[i2 - 1];
+            if (frame > b.t) continue;
+            const easing = typeof b.easing === "string" ? b.easing : b.easing?.["vars." + name];
+            const u2 = ease2(easing, (frame - a.t) / (b.t - a.t || 1));
+            values[name] = a.vars[name] + (b.vars[name] - a.vars[name]) * u2;
+            break;
+          }
+        }
+        return values;
+      }
       function motionRevealCss(state) {
         const box2 = state.reveal;
         return box2 ? "inset(" + box2.y * 100 + "% " + (1 - box2.x - box2.w) * 100 + "% " + (1 - box2.y - box2.h) * 100 + "% " + box2.x * 100 + "%)" : "";
@@ -10147,6 +10269,7 @@ var require_item_motion = __commonJS({
       return Object.freeze({
         evaluateItemMotion: evaluateItemMotion3,
         evaluateOverlayMotion,
+        evaluateOverlayVars,
         motionRevealCss,
         invertItemMotionPosition,
         dragItemMotionPosition
@@ -10327,7 +10450,7 @@ var require_edit_v2_item_write = __commonJS({
           if (item.source.kind !== "html" || item.source.part) {
             throw new Error(`\u8981\u7D20\u306E\u66F8\u304D\u623B\u3057\u5BFE\u8C61\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
           }
-          if (["transform", "html", "text", "duplicate", "params", "vars", "xyKeyframes"].some((key) => key in command.patch) || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref) || !/^[a-z][a-z0-9-]*$/u.test(tag) || !isRecord2(style) || Object.keys(style).length === 0) {
+          if (["transform", "html", "text", "duplicate", "params", "vars", "varsAt", "xyKeyframes"].some((key) => key in command.patch) || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref) || !/^[a-z][a-z0-9-]*$/u.test(tag) || !isRecord2(style) || Object.keys(style).length === 0) {
             throw new Error("\u8981\u7D20\u306E\u66F8\u304D\u623B\u3057\u6307\u5B9A\u304C\u4E0D\u6B63\u3067\u3059");
           }
           const source = item.source;
@@ -10423,7 +10546,7 @@ var require_edit_v2_item_write = __commonJS({
           command = { ...command, patch: { ...command.patch, transform: local } };
         }
         if (item.source.kind === "group") {
-          if (command.patch.html !== void 0 || command.patch.vars !== void 0 || command.patch.params !== void 0) {
+          if (command.patch.html !== void 0 || command.patch.vars !== void 0 || command.patch.varsAt !== void 0 || command.patch.params !== void 0) {
             throw new Error(`\u30B0\u30EB\u30FC\u30D7\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.xyKeyframes)
@@ -10474,7 +10597,16 @@ var require_edit_v2_item_write = __commonJS({
             source.vars = { ...recordOf(source.vars), ...command.patch.vars };
             editChanged = true;
           }
-        } else if (command.patch.html !== void 0 || command.patch.params !== void 0 || command.patch.vars !== void 0) {
+          if (command.patch.varsAt) {
+            const seconds = command.playheadSeconds;
+            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Number.isFinite(seconds) ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
+            const updated = (0, transform_keyframe_edit_1.writeItemVarsAt)(item, frame, command.patch.varsAt);
+            item.source = updated.source;
+            item.keyframes = updated.keyframes;
+            editChanged = true;
+          }
+        } else if (command.patch.html !== void 0 || command.patch.params !== void 0 || command.patch.vars !== void 0 || command.patch.varsAt !== void 0) {
           throw new Error(`\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
         }
         if (command.patch.transform) {
@@ -15487,7 +15619,7 @@ var require_edit_v2_keys = __commonJS({
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
     exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "cut_edge", "role", "link", "reason", "label", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "fade_in_shape", "fade_out_shape", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "elements", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
-    exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
+    exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "vars", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
     exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];

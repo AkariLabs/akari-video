@@ -74,11 +74,36 @@ export function rowsInFocusScope(
     return result.map(row => ({ ...row, depth: Math.max(0, row.depth - rootDepth) }));
 }
 
+export function selectionLeavesFocus(
+    rows: readonly TimelineTreeRow[], rootId: string | null, selectedId: string | null
+): boolean {
+    if (rootId === null) return false;
+    if (selectedId === null) return true;
+    const visited = new Set<string>();
+    let cursor = rows.find(row => row.id === selectedId);
+    while (cursor && !visited.has(cursor.id)) {
+        if (cursor.id === rootId) return false;
+        visited.add(cursor.id);
+        cursor = cursor.parentId ? rows.find(row => row.id === cursor!.parentId) : undefined;
+    }
+    return true;
+}
+
 export function timelineDoubleClickAction(
     itemKind: TimelineTreeRow['itemKind'],
-    sourceKind?: string
+    sourceKind?: string,
+    isMainCut = false
 ): TimelineDoubleClickAction {
-    return itemKind === 'media' || sourceKind === 'media' ? 'trimmer' : 'focus';
+    return isMainCut && (itemKind === 'media' || sourceKind === 'media') ? 'trimmer' : 'focus';
+}
+
+/** プレビューの合成 Escape は keyCode=0。実際の打鍵（27）は短い窓の中でも通す。 */
+export function isPreviewSelectionEscapeEcho(
+    key: string, isWebviewKeydown: boolean, focusedRootId: string | null,
+    now: number, lastPublishedAt: number, keyCode = 0, windowMs = 500
+): boolean {
+    return key === 'Escape' && keyCode === 0 && isWebviewKeydown && focusedRootId !== null
+        && lastPublishedAt > 0 && now >= lastPublishedAt && now - lastPublishedAt < windowMs;
 }
 
 function nextSibling(rows: readonly TimelineTreeRow[], row: TimelineTreeRow): TimelineTreeRow | undefined {

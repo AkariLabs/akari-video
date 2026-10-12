@@ -84,7 +84,7 @@ import {
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode } from '../common/asset-bin-grouping';
-import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { canPlaceLibraryAsset, canPlaceOverlay, isScene3dBakeRecipe, libraryDragKind, localLibraryAssetPlacementSource, plannedLibraryAssetMedia, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind } from '../common/asset-group-media';
 import { MaterialsSort } from '../common/materials-view';
 import { DEFAULT_MATERIAL_VIEW, MaterialViewPatch } from '../common/material-view';
@@ -1749,11 +1749,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             let directory: URI | undefined;
             let reusedProjectAsset = false;
+            const localSource = localLibraryAssetPlacementSource(item);
+            const isBakeRecipeAt = async (assetDirectory: URI): Promise<boolean> => {
+                const listing = await this.files.resolve(assetDirectory);
+                const names = (listing.children ?? []).filter(child => !child.isDirectory)
+                    .map(child => child.resource.path.base);
+                const metaSource = names.includes('meta.json')
+                    ? await this.files.readFile(assetDirectory.resolve('meta.json')) : undefined;
+                const meta = metaSource ? JSON.parse(metaSource.value.toString()) : undefined;
+                return isScene3dBakeRecipe({ names, meta });
+            };
             if (key === `${item.category}/${item.id}` && item.id !== '.' && item.id !== '..'
                 && !/[\\/]/.test(item.id)) {
                 try {
-                    const existing = root.resolve(`assets/overlay/${item.id}`);
+                    const existing = root.resolve(`assets/${item.category}/${item.id}`);
                     const listing = await this.files.resolve(existing);
+                    if (item.category === 'scene3d' && listing.isDirectory && await isBakeRecipeAt(existing)) {
+                        this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                        return undefined;
+                    }
                     if (listing.isDirectory && (listing.children ?? []).some(child => child.resource.path.base === 'meta.json')
                         && (listing.children ?? []).some(child => /\.html?$/i.test(child.resource.path.base))) {
                         directory = existing;
@@ -1762,7 +1776,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } catch { /* 未取得なら resolver に委譲する。 */ }
             }
             if (!directory) {
-                const localSource = localLibraryAssetPlacementSource(item);
+                const knownLibraryDir = localSource?.libraryDir ?? item.libraryDir;
+                if (item.category === 'scene3d' && knownLibraryDir
+                    && await isBakeRecipeAt(URI.fromFilePath(knownLibraryDir))) {
+                    this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                    return undefined;
+                }
+                // 未取得のリモート項目は中身が分からないため、取得後に判定する。
                 const outcome = localSource
                     ? await this.projectService.placeLibraryAsset(localSource, root.toString())
                     : await this.projectService.resolveAsset(`${item.category}/${item.id}`, root.toString());
@@ -1780,18 +1800,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const file = item.mediaFile && names.includes(item.mediaFile) && /\.html?$/i.test(item.mediaFile)
                 ? item.mediaFile : names.includes('fragment.html') ? 'fragment.html'
                     : names.filter(name => /\.html?$/i.test(name)).sort()[0];
+            if (item.category === 'scene3d' && isScene3dBakeRecipe({ names })) {
+                this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                return undefined;
+            }
             if (!file || !names.includes('meta.json')) throw new Error(t('project.library.shelf.htmlMetaJsonNotFoundMessage'));
             const [metaSource, fragment] = await Promise.all([
                 this.files.readFile(directory.resolve('meta.json')),
                 this.files.readFile(directory.resolve(file))
             ]);
+            const meta = JSON.parse(metaSource.value.toString()) as { requires?: string[]; tags?: string[] };
+            if (item.category === 'scene3d' && isScene3dBakeRecipe({ names, meta })) {
+                this.messages.info(t('project.library.shelf.scene3dImportFirstMessage'));
+                return undefined;
+            }
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
             this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
                 ? { ...entry, state: 'cached' } : entry);
             if (reusedProjectAsset) void this.projectService.recordLibraryUsage(item.category, item.id, root.toString())
                 .catch(error => console.warn('ライブラリの使用記録を書けませんでした', error));
-            return { relativePath: `assets/overlay/${item.id}/${file}`,
-                meta: JSON.parse(metaSource.value.toString()), fragment: fragment.value.toString() };
+            return { relativePath: `assets/${item.category}/${item.id}/${file}`,
+                meta, fragment: fragment.value.toString() };
         } catch (error) {
             this.messages.warn(t('project.library.shelf.couldNotUseOverlayError', { value1: error instanceof Error ? error.message : String(error) }));
             return undefined;
@@ -1801,9 +1830,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    /** ライブラリを参照して置いた素材の断片 HTML を読む（取り込まない・書かない。インスペクタの 3D セクション用）。 */
+    async readCatalogOverlayFragment(key: string): Promise<string | undefined> {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
+        const file = item.mediaFile && /\.html?$/i.test(item.mediaFile) ? item.mediaFile : 'fragment.html';
+        try {
+            return (await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve(file))).value.toString();
+        } catch { return undefined; }
+    }
+
     async readCatalogOverlayMeta(key: string): Promise<unknown | undefined> {
         const item = this.assetCatalogItems.find(entry => entry.key === key);
-        if (!item || item.category !== 'overlay' || !item.libraryDir) return undefined;
+        if (!item || (item.category !== 'overlay' && item.category !== 'scene3d') || !item.libraryDir) return undefined;
         try {
             const file = await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve('meta.json'));
             return JSON.parse(file.value.toString());
@@ -1983,8 +2022,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         let marked = false;
         try {
-            if (item.category === 'scene3d') { this.messages.info(t('project.library.shelf.threeDSupportComingSoonMessage')); return; }
-            if (item.category === 'overlay') {
+            if (item.category === 'overlay' || item.category === 'scene3d') {
                 await this.commandService.executeCommand('akari.timeline.addOverlayAtOutputPoint', { key: item.key });
                 return;
             }
@@ -3738,7 +3776,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 実体 URL（mediaUrl）があればそれを、無ければサムネイル（previewUrl）を開く。
      */
     protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
-        const source = item.mediaUrl ?? item.previewUrl;
+        // 3D の実体（model.glb）はテキストとして開けない。見本の画像を開く（置くのはドラッグか「プレイヘッドに置く」）
+        const source = item.category === 'scene3d'
+            ? item.previewUrl ?? item.mediaUrl
+            : item.mediaUrl ?? item.previewUrl;
         try {
             if (item.category === 'overlay' && item.state === 'cached' && item.libraryDir) {
                 const fragment = URI.fromFilePath(item.libraryDir).resolve('fragment.html');

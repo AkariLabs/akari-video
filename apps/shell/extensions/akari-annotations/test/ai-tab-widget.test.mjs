@@ -133,17 +133,13 @@ const aiTab = root => find(root, byData('data-akari-ui', 'tab:inspector-edit'));
 const aiTile = root => find(root, byData('data-akari-inspector-ai-tile', 'video'));
 const panel = root => find(root, byData('data-akari-ui', 'section:inspector-generation'));
 
-test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理由付き disabled でクリックしても戻らない', () => withDom(() => {
+test('widget: ふつうの動画 cut は編集が押せ、「作る」（静止画・動画にする）を出さない', () => withDom(() => {
   const instance = fixture({ sourcePath: 'ordinary.mp4' });
   instance.render();
   assert.equal(aiTab(instance.body).textContent, 'ホーム');
   assert.equal(aiTab(instance.body).disabled, false);
-  const tile = aiTile(instance.body);
-  assert.match(tile.className, /akari-inspector-ai-disabled/u);
-  assert.equal(tile.attributes.get('aria-disabled'), 'true');
-  assert.equal(find(tile, byClass('akari-inspector-ai-reason')).textContent, '静止画か空の枠で使えます');
-  tile.click();
-  assert.ok(aiTile(instance.body));
+  assert.equal(aiTile(instance.body), undefined);
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-alternatives')), undefined);
   assert.equal(panel(instance.body), undefined);
 }));
 
@@ -411,7 +407,8 @@ test('高画質化は直すに入り、背景生成（近日）は描かない',
   instance.render();
   const alternatives = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-alternatives'));
   const refine = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-refine'));
-  assert.ok(alternatives);
+  // ふつうの写真には「作る」を出さない（仮枠のときだけ）
+  assert.equal(alternatives, undefined);
   assert.ok(refine);
   assert.ok(find(refine, byData('data-akari-image-ai-panel', 'photo-1')));
   assert.equal(find(instance.body, node => node.textContent === '写真を直す'), undefined);

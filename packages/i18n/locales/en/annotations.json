@@ -1134,5 +1134,16 @@
   "annotations.timelineCreateDialog.text.thisSlugIsInUse": "This slug is in use.",
   "annotations.timelineCreateDialog.text.timeline": "Timeline",
   "annotations.timelineCreateDialog.text.widthAndHeightMustBeIntegersGreater": "Width and height must be integers greater than or equal to 1.",
-  "annotations.timelineCreateDialog.text.widthPx": "Width (px)"
+  "annotations.timelineCreateDialog.text.widthPx": "Width (px)",
+  "annotations.timeline.text.placeScene3d": "Place 3D model",
+  "annotations.timeline.text.placedScene3d": "Placed the 3D model.",
+  "annotations.timeline.text.keyRotation3d": "Add a 3D rotation keyframe",
+  "annotations.timeline.text.scene3dScreenTooLarge": "Too large (use a 720p proxy)",
+  "annotations.timeline.text.scene3dNoScreen": "This 3D model has no screen",
+  "annotations.timeline.text.setScene3dScreen": "Set 3D screen",
+  "annotations.timeline.text.scene3dChanged": "The 3D item was changed",
+  "annotations.timeline.text.couldNotSetScene3dScreen": "Could not set the screen: {reason}",
+  "annotations.timeline.text.invalidRotation3dValue": "Invalid 3D rotation value.",
+  "annotations.timeline.text.changeRotation3d": "Change 3D rotation",
+  "annotations.timeline.text.addPreviewKeyframes": "Add keyframes for the preview change"
 }

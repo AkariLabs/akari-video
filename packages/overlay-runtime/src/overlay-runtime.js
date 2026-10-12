@@ -90,6 +90,8 @@ window.akari.runtimes.register = function (...args) {
 
 function createOverlayRuntime(options = {}) {
   const mountedOverlays = [];
+  // setLiveVars の一時値（data-overlay-id → { "--name": 数値 }）。再マウントをまたいで保持する
+  const liveVars = new Map();
   let mountedStage = null;
   let premount = resolvePremount(options.premount);
   let premountConfigured = false;
@@ -483,6 +485,8 @@ function createOverlayRuntime(options = {}) {
       if (motionDriven) container.dataset.akariMotionDriven = 'true';
       const mountedOverlay = {
         container,
+        // 静的な source.vars（ライブ値を外したときに戻す先。setLiveVars）
+        staticVars: { ...(overlay.vars ?? {}) },
         hasAxisTransform: hasAxisTransform(overlay),
         start,
         duration,
@@ -700,6 +704,16 @@ function createOverlayRuntime(options = {}) {
         overlay.container.style.setProperty("opacity", String(state.opacity));
         overlay.container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
       }
+      // keyframes[].vars（3D の向き --akari-3d-rot-*）は three ランタイムが draw のたびに読むので、
+      // render より前に書く。gizmo のドラッグ中・保存待ちはライブ値が勝つ（内部契約 2026-10-11-3d-place §2.4）
+      const live = liveVars.get(overlay.container.dataset.overlayId);
+      if (Array.isArray(overlay.keyframes) || overlay.motionSource || live) {
+        const animated = Array.isArray(overlay.keyframes) || overlay.motionSource
+          ? window.akari.itemMotion?.evaluateOverlayVars?.(overlay, timelineTime, overlay.fps) ?? {} : {};
+        for (const [name, value] of Object.entries({ ...animated, ...live })) {
+          overlay.container.style.setProperty(name, String(value));
+        }
+      }
       work.push({ overlay, localTimeMs });
     }
 
@@ -809,7 +823,29 @@ function createOverlayRuntime(options = {}) {
     }
   }
 
-  return { mount, tick, unmount, configure, applyAxisSummary, replaceShapeHtml, version: RUNTIME_VERSION };
+  // gizmo などの一時的な CSS 変数（数値）。id は data-overlay-id。null で外し、静的値へ戻す。
+  // 外したあとの次の tick でキーフレームの値が書き直される。戻り値は対象が mount 済みか
+  function setLiveVars(id, vars) {
+    const key = String(id);
+    const mounted = mountedOverlays.find(entry => entry.container.dataset.overlayId === key);
+    const previous = liveVars.get(key);
+    if (vars && typeof vars === "object") {
+      const next = Object.fromEntries(Object.entries(vars)
+        .filter(([name, value]) => name.startsWith("--") && Number.isFinite(Number(value))));
+      liveVars.set(key, next);
+      for (const [name, value] of Object.entries(next)) mounted?.container.style.setProperty(name, String(value));
+    } else {
+      liveVars.delete(key);
+      for (const name of Object.keys(previous ?? {})) {
+        const fallback = mounted?.staticVars?.[name];
+        if (fallback === undefined) mounted?.container.style.removeProperty(name);
+        else mounted?.container.style.setProperty(name, String(fallback));
+      }
+    }
+    return Boolean(mounted);
+  }
+
+  return { mount, tick, unmount, configure, applyAxisSummary, replaceShapeHtml, setLiveVars, version: RUNTIME_VERSION };
 }
 
 window.akari.createOverlayRuntime = createOverlayRuntime;

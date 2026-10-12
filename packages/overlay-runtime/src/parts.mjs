@@ -377,7 +377,9 @@ function emptyGroupContext() {
 
 function hasAnimatedMotion(item) {
   return item?.motion !== undefined || (Array.isArray(item?.keyframes) && item.keyframes.length >= 2
-    && item.keyframes.some(point => point?.transform || Number.isFinite(point?.opacity)));
+    && item.keyframes.some(point => point?.transform || Number.isFinite(point?.opacity)
+      // 3D の向きのキー（keyframes[].vars）も、クリップ前の開始時刻を基準に評価する必要がある
+      || (point?.vars && typeof point.vars === 'object' && Object.keys(point.vars).length > 0)));
 }
 
 export function composeTransforms(parent, child) {

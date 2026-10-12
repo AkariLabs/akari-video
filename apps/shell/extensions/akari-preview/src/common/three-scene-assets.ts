@@ -32,7 +32,14 @@ export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
     'physics'
 ]);
 
-export type ThreeSceneAssetResolver = (relativePath: string, field: string) => Promise<string>;
+/**
+ * パスの出どころ。断片に書かれたパス（model・フォント・環境マップ・既定のテクスチャ）は断片のフォルダ基準、
+ * item の source.vars から来たパス（ユーザーが入れた画面の動画など）はプロジェクト基準で探す
+ * （内部契約 2026-10-11-3d-place §4）。
+ */
+export type ThreeSceneAssetOrigin = 'fragment' | 'vars';
+
+export type ThreeSceneAssetResolver = (relativePath: string, field: string, origin: ThreeSceneAssetOrigin) => Promise<string>;
 
 export interface ThreeSceneDescriptor extends Record<string, unknown> {
     environment?: { map?: unknown };
@@ -90,7 +97,7 @@ export async function resolveThreeSceneDescriptorAssets(
     let modelPath: string | undefined;
     if (hasModel) {
         modelPath = source.model as string;
-        descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model');
+        descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model', 'fragment');
     }
     if (texts) {
         const resolvedTexts: Record<string, unknown>[] = [];
@@ -106,7 +113,7 @@ export async function resolveThreeSceneDescriptorAssets(
             }
             resolvedTexts.push({
                 ...textDescriptor,
-                font: await resolveAsset(textDescriptor.font, field)
+                font: await resolveAsset(textDescriptor.font, field, 'fragment')
             });
         }
         descriptor.texts = resolvedTexts;
@@ -116,7 +123,7 @@ export async function resolveThreeSceneDescriptorAssets(
         assertRelativeAssetPath(source.environment.map, 'data-akari-3d-scene.environment.map');
         descriptor.environment = {
             ...source.environment,
-            map: await resolveAsset(source.environment.map, 'data-akari-3d-scene.environment.map')
+            map: await resolveAsset(source.environment.map, 'data-akari-3d-scene.environment.map', 'fragment')
         };
     }
     if (source.materialOverrides !== undefined) {
@@ -140,12 +147,13 @@ export async function resolveThreeSceneDescriptorAssets(
             }
             const variableTexture = typeof override.textureVar === 'string' ? overlayVars[override.textureVar] : undefined;
             let texture = variableTexture || override.texture;
+            let origin: ThreeSceneAssetOrigin = variableTexture ? 'vars' : 'fragment';
             const match = typeof texture === 'string' ? /^var\(\s*(--[\w-]+)\s*\)$/.exec(texture) : null;
-            if (match) texture = overlayVars[match[1]];
+            if (match) { texture = overlayVars[match[1]]; origin = 'vars'; }
             assertRelativeAssetPath(texture, field);
             // Like export's embedder, resolve the chosen texture once and remove its variable
             // indirection. All non-path material settings are validated by three-runtime.js.
-            const resolved: Record<string, unknown> = { ...override, texture: await resolveAsset(texture, field) };
+            const resolved: Record<string, unknown> = { ...override, texture: await resolveAsset(texture, field, origin) };
             delete resolved.textureVar;
             overrides[name] = resolved;
         }

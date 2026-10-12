@@ -38,11 +38,10 @@ test('★ の文言は状態で入れ替わる', () => {
     assert.equal(on.icon, 'star-full');
 });
 
-test('オーバーレイは置ける、3D は取り込みのみ', () => {
+test('オーバーレイと 3D のカードには配置の入口がある', () => {
     for (const category of ['overlay', 'scene3d']) {
         const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category, key: `${category}/x`, sourceKind: 'lab', state: 'available' }) }, false);
-        assert.deepEqual(ids(entries), category === 'overlay'
-            ? ['place', 'import', 'favorite', 'info'] : ['import', 'favorite', 'info']);
+        assert.deepEqual(ids(entries), ['place', 'import', 'favorite', 'info']);
     }
 });
 

@@ -82,11 +82,17 @@ export async function composeState({ env = process.env, fetchImpl = fetch, inten
     localItems.delete(key);
     // Preserve remote download descriptors/preview keys for existing consumers.
     // Local-only assets use the actual directory listing assembled above.
-    return local ? { ...item, ...local, tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: local.libraryDir && local.preview ? local.preview : item.preview ?? local.preview,
-      ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
+    if (!local) return item;
+    // meta.json の無い取り寄せは表示用の title / tags をカタログから引き継ぐ。空の tags で上書きすると
+    // 効果音の 'sfx' が消え、ライブラリの BGM 側へ混ざっていた（オーナー指摘 2026-10-12）。
+    const { metaOk, ...localFields } = local;
+    return { ...item, ...localFields,
+      ...(metaOk ? {} : { title: item.title ?? localFields.title, tags: item.tags ?? localFields.tags }),
+      tier: item.tier ?? assetTier(item), files: item.files ?? local.files, preview: local.libraryDir && local.preview ? local.preview : item.preview ?? local.preview,
+      ...(item.source === 'installed' ? { source: item.source } : {}) };
   });
   const localOnlyKeys = new Set(localItems.keys());
-  merged.push(...[...localItems.values()].filter(Boolean));
+  merged.push(...[...localItems.values()].filter(Boolean).map(({ metaOk, ...local }) => local));
   const items = merged.map((item) => {
     const key = `${item.category}/${item.id}`;
     const tier = localOnlyKeys.has(key) && !Object.hasOwn(item, 'tier')

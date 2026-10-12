@@ -359,7 +359,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (caption.time_domain !== "output") {
         const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
         const ratio = kept / (caption.end - caption.start);
-        if (ratio < 0.5 - EPSILON) {
+        if (kept <= EPSILON) {
+          // 話した区間ごとカットで消した字幕は出ないのが正しい結果。エラーにすると GUI で
+          // カットするたびに誤報になるため記録だけ残す（オーナー裁定 2026-10-12）。
+          addFinding(findings, {
+            severity: "info",
+            check: "captions.cut-removed",
+            message: "the caption is entirely inside removed sections and will not be shown",
+            path: itemPath,
+            range: { start: caption.start, end: caption.end },
+          });
+        } else if (ratio < 0.5 - EPSILON) {
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",

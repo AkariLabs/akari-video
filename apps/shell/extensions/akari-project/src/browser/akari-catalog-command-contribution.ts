@@ -178,6 +178,13 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                 return widget.resolveCatalogOverlay(key);
             }
         });
+        registry.registerCommand({ id: 'akari.catalog.readOverlayFragment' }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView('automatic');
+                return widget.readCatalogOverlayFragment(key);
+            }
+        });
         registry.registerCommand({ id: 'akari.catalog.readOverlayMeta' }, {
             execute: async (key: string) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);

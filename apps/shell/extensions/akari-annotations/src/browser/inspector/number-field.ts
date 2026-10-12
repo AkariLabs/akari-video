@@ -17,6 +17,7 @@ export interface NumberFieldOptions {
     onCancel?: () => void;
     onCommit: (value: number) => Promise<boolean>;
     keyframe?: KeyframeSeatOptions;
+    reserveKeyframeSeat?: boolean;
     /** この欄が属するインスペクターの根。外にキーボードのフォーカスがあるときだけ引き戻す。 */
     focusRoot?: HTMLElement;
 }
@@ -171,7 +172,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
 
     const container = document.createElement('div');
     container.className = 'akari-inspector-number-field'
-        + (options.keyframe === undefined ? ' akari-inspector-number-field-seatless' : '');
+        + (options.keyframe === undefined && !options.reserveKeyframeSeat ? ' akari-inspector-number-field-seatless' : '');
     container.setAttribute('data-akari-ui', `field:inspector-${options.name}`);
 
     const handle = document.createElement('button');
@@ -408,6 +409,11 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     container.append(handle, input, unit, buttons);
     if (options.keyframe !== undefined) {
         container.appendChild(createKeyframeSeat(options.name, options.keyframe));
+    } else if (options.reserveKeyframeSeat) {
+        const emptySeat = document.createElement('span');
+        emptySeat.className = 'akari-inspector-kf-controls';
+        emptySeat.setAttribute('aria-hidden', 'true');
+        container.appendChild(emptySeat);
     }
     return container;
 }

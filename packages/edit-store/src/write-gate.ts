@@ -40,6 +40,9 @@ export interface EditLintFinding {
     message?: string;
     check?: string;
     path?: string;
+    range?: { start?: number; end?: number };
+    /** 今回の保存より前の lint にも同じ指摘があった（この保存が起こした問題ではない）。 */
+    preexisting?: boolean;
 }
 
 export interface EditLintGateResult {
@@ -120,6 +123,10 @@ const DEFAULT_LINT_DEBOUNCE_MS = 400;
 const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lintRevisions = new Map<string, number>();
 const lintRunChains = new Map<string, Promise<EditLintGateResult>>();
+/** プロジェクトごとの直近の保存後 lint の指摘。次の保存の「保存前から有った指摘」の基準にする。 */
+const lastLintFindings = new Map<string, EditLintFinding[]>();
+/** debounce 窓の最初の書き込みの直前に取った基準。窓の lint が走るときに消費する。 */
+const pendingLintBaselines = new Map<string, EditLintFinding[] | undefined>();
 const dynamicImport = new Function('specifier', 'return import(specifier)') as
     (specifier: string) => Promise<EditLintModule>;
 
@@ -311,6 +318,10 @@ export async function writeProjectFilesGuarded(
     if (typeof editCandidate === 'string') {
         assertNoCamelCaseTransitionOut(editCandidate);
     }
+    const lintKey = resolve(projectRoot);
+    if (!pendingLintBaselines.has(lintKey)) {
+        pendingLintBaselines.set(lintKey, lastLintFindings.get(lintKey) ?? await readPersistedLintFindings(projectRoot));
+    }
     for (const [name, text] of Object.entries(candidates)) {
         if (text === null) {
             continue;
@@ -372,10 +383,18 @@ export function scheduleProjectLint(projectRoot: string, options: DeferredLintOp
     }
     const timer = setTimeout(() => {
         lintTimers.delete(key);
+        const baseline = pendingLintBaselines.get(key);
+        pendingLintBaselines.delete(key);
         const previousRun = lintRunChains.get(key) ?? Promise.resolve({ pass: true, errors: [], findings: [] });
         const currentRun = previousRun
             .catch(() => ({ pass: true, errors: [], findings: [] }))
-            .then(() => (options.lintRunner ?? runEditLint)(key));
+            .then(() => (options.lintRunner ?? runEditLint)(key))
+            .then(result => {
+                if (!result.findings.some(finding => finding.check === 'edit-lint.execution')) {
+                    lastLintFindings.set(key, result.findings);
+                }
+                return markPreexistingLintFindings(result, baseline);
+            });
         lintRunChains.set(key, currentRun);
         void currentRun.then(
             result => lintRevisions.get(key) === revision ? options.onLintResult?.(result) : undefined,
@@ -389,6 +408,48 @@ export function scheduleProjectLint(projectRoot: string, options: DeferredLintOp
         });
     }, options.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS);
     lintTimers.set(key, timer);
+}
+
+/**
+ * 保存前の lint にも有った指摘へ preexisting を付ける。字幕の挿入で配列の番号がずれても
+ * 同じ指摘と分かるよう、時刻範囲を持つ指摘は path の番号ではなく範囲で照合する。
+ * 基準が無い（初回・lint.json 不在）ときは従来どおり全部を今回の保存の指摘として返す。
+ */
+export function markPreexistingLintFindings(
+    result: EditLintGateResult,
+    baseline: readonly EditLintFinding[] | undefined
+): EditLintGateResult {
+    if (!baseline?.length) return result;
+    const remaining = new Map<string, number>();
+    for (const finding of baseline) {
+        const key = lintFindingIdentity(finding);
+        remaining.set(key, (remaining.get(key) ?? 0) + 1);
+    }
+    const findings = result.findings.map(finding => {
+        const key = lintFindingIdentity(finding);
+        const count = remaining.get(key) ?? 0;
+        if (count === 0) return finding;
+        remaining.set(key, count - 1);
+        return { ...finding, preexisting: true };
+    });
+    return { ...result, findings };
+}
+
+function lintFindingIdentity(finding: EditLintFinding): string {
+    const file = finding.path?.split('#', 1)[0] ?? '';
+    const range = finding.range;
+    const where = range && Number.isFinite(range.start) && Number.isFinite(range.end)
+        ? `${file}@${range.start}-${range.end}` : finding.path ?? '';
+    return JSON.stringify([finding.severity ?? '', finding.check ?? '', finding.message ?? '', where]);
+}
+
+async function readPersistedLintFindings(projectRoot: string): Promise<EditLintFinding[] | undefined> {
+    try {
+        const parsed = JSON.parse(await fs.readFile(join(projectRoot, '.akari', 'lint.json'), 'utf8')) as { findings?: unknown };
+        return Array.isArray(parsed.findings) ? parsed.findings as EditLintFinding[] : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 // 同じ宛先への書き込みは 1 本ずつ直列化する。
