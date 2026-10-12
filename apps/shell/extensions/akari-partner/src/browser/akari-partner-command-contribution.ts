@@ -11,10 +11,14 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
+import { insertReviewText, partnerReviewTarget, PartnerReviewTarget } from './partner-review-target';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
 const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「パートナーを追加」パネルから接続してください';
+
+type ReviewWidget = { id: string; isAttached: boolean; isDisposed: boolean;
+    kind?: string; title: { caption: string }; options?: { attributes?: Record<string, string | null> } };
 
 export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
     return currentWidth === undefined || currentWidth > windowWidth * 0.4
@@ -66,7 +70,9 @@ export const AkariPartnerCommands = {
     } as Command,
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
-    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: 'パートナーの入力欄に書く' } as Command
+    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: 'パートナーの入力欄に書く' } as Command,
+    CURRENT: { id: 'akari.partner.current' } as Command,
+    INSERT_TEXT: { id: 'akari.partner.insertText' } as Command
 };
 
 @injectable()
@@ -95,7 +101,47 @@ export class AkariPartnerCommandContribution implements CommandContribution {
             !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0);
     }
 
+    protected lastReviewWidgetId?: string;
+
+    protected currentReviewWidget(): ReviewWidget | undefined {
+        const current = this.shell.rightPanelHandler.tabBar.currentTitle?.owner;
+        if (current && !current.isDisposed && current.isAttached) {
+            const widget = current as ReviewWidget;
+            const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
+            if (partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG)) {
+                this.lastReviewWidgetId = widget.id;
+                return widget;
+            }
+        }
+        return this.shell.widgets.find(widget => widget.id === this.lastReviewWidgetId && widget.isAttached && !widget.isDisposed) as
+            ReviewWidget | undefined;
+    }
+
+    protected reviewTarget(): PartnerReviewTarget | undefined {
+        const widget = this.currentReviewWidget();
+        if (!widget) return undefined;
+        const agent = widget.options?.attributes?.['akari.partner'] ?? undefined;
+        return partnerReviewTarget({ id: widget.id, kind: widget.kind, agent, caption: widget.title.caption }, PARTNER_CATALOG);
+    }
+
     registerCommands(registry: CommandRegistry): void {
+        this.shell.onDidChangeActiveWidget(() => { this.currentReviewWidget(); });
+        this.shell.onDidChangeCurrentWidget(() => { this.currentReviewWidget(); });
+        registry.registerCommand(AkariPartnerCommands.CURRENT, { execute: () => this.reviewTarget() });
+        registry.registerCommand(AkariPartnerCommands.INSERT_TEXT, {
+            execute: async (request: { text?: unknown }): Promise<boolean> => {
+                if (typeof request?.text !== 'string' || this.reviewTarget()?.kind !== 'terminal') return false;
+                const widget = this.currentReviewWidget();
+                const terminal = this.terminals.all.find(candidate => candidate.id === widget?.id &&
+                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed && !candidate.exitStatus && candidate.terminalId >= 0);
+                if (!terminal) return false;
+                try {
+                    await this.shell.activateWidget(terminal.id);
+                    insertReviewText(terminal, request.text);
+                    return true;
+                } catch { return false; }
+            }
+        });
         registry.registerCommand(AkariPartnerCommands.LOGIN_CLAUDE, { execute: async () => {
             const entry = PARTNER_CATALOG.find(candidate => candidate.agent === 'claude' && candidate.form === 'cli');
             if (!entry) return;

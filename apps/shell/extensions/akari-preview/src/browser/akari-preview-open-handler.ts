@@ -3,8 +3,9 @@ import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-contex
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewChatReviewScript } from './preview-chat-review';
+import { attachReviewToPartner, currentReviewPartner } from './preview-chat-review-host';
 import { ChatAttachment, ChatReviewMark, parseReviewPending, serializeReviewPending,
-    reviewAttachArgument, REVIEW_PENDING_PATH } from '../common/chat-review-attachments';
+    REVIEW_PENDING_PATH } from '../common/chat-review-attachments';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { assertPreviewElementAddress } from '../common/preview-element-address';
 import { assertNoElementWriteConflict, isElementSelectionFileReference } from '../common/preview-element-write';
@@ -51,6 +52,7 @@ import {
     open
 } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
@@ -554,6 +556,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(MessageService)
     protected readonly messages: MessageService;
 
+    @inject(ClipboardService)
+    protected readonly clipboard: ClipboardService;
+
     @inject(ApplicationServer)
     protected readonly applicationServer: ApplicationServer;
 
@@ -587,11 +592,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 attachments = current.filter((_, index) => index !== message.index);
             } else if (message.type === 'akari-preview-chat-review-attach') {
                 if (!current.length) return;
-                if (!this.commandRegistry.getCommand('akari.chat.attach')) {
-                    this.messages.info('AKARI チャットを開いてください');
-                    return;
-                }
-                await this.commandRegistry.executeCommand('akari.chat.attach', reviewAttachArgument(current));
+                if (!await attachReviewToPartner(projectRoot, current, await currentReviewPartner(this.commandRegistry),
+                    this.commandRegistry, this.fileService, this.clipboard, this.messages)) return;
                 attachments = [];
             }
             if (attachments !== current) {
@@ -600,12 +602,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const viewers = new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values(), widget]);
             const rootPrefix = projectRoot.toString().replace(/\/$/, '') + '/';
+            const partner = await currentReviewPartner(this.commandRegistry);
             for (const viewer of viewers) {
                 if (viewer.isDisposed) continue;
                 const editRoot = viewer.akariPreviewEditUri?.parent ?? viewer.akariPreviewRelatedEditUri?.parent;
                 const sameProject = editRoot?.toString() === projectRoot.toString()
                     || viewer.akariPreviewVideoUri?.toString().startsWith(rootPrefix);
-                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments });
+                if (sameProject) viewer.sendMessage({ type: 'akari-preview-chat-review-state', attachments, partnerName: partner?.name });
             }
         });
         this.reviewChatWrites.set(key, next);
@@ -701,6 +704,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     onStart(): void {
+        const refreshReviewPartner = (): void => {
+            void currentReviewPartner(this.commandRegistry).then(partner => {
+                for (const viewer of new Set([...this.openOutputPreviews.values(), ...this.openPreviews.values()])) {
+                    if (!viewer.isDisposed) viewer.sendMessage({ type: 'akari-preview-chat-review-state', partnerName: partner?.name });
+                }
+            });
+        };
+        this.lifecycleDisposables.push(this.shell.onDidChangeActiveWidget(refreshReviewPartner));
+        this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(refreshReviewPartner));
         this.previewDiagnostics = this.createPreviewDiagnosticsCenter();
         const unsubscribeRendererGone = window.electronAkariPreview?.onPreviewRendererGone?.(notice => {
             if (!notice || typeof notice.webviewId !== 'string' || typeof notice.reason !== 'string') return;
