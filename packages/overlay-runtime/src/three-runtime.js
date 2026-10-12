@@ -2132,7 +2132,7 @@ window.akari.threeRuntime = (() => {
   }
 
   // ── 標準ツマミ: モデルの姿勢（--akari-3d-rot-x/y/z）と動きのプリセット（--akari-3d-clip）──
-  // 契約: 内部リポ planning/contract-2026-10-11-3d-place-v0.md §2.1。
+  // 契約: 内部リポの 3D 配置 v0 の設計契約 §2.1。
   // pan/zoom と同じく宣言キー不要で、draw のたびに canvas の computed style から読む。
   //  - 軸は水平を保ったカメラ基準（モデル読み込み完了時点。X = 画面の横（水平）・Y = 真上・Z = 手前。levelledCameraFrame）
   //  - 合成は「X → Y → Z の順にカメラ基準の固定軸で回す」（行列 Rz·Ry·Rx = Euler 順 "ZYX"）

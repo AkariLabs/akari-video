@@ -1,3 +1,4 @@
+import './helpers/ja-language.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
