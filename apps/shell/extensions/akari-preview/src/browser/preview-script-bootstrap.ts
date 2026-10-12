@@ -38,6 +38,9 @@ import {
     TRANSITION_VOCABULARY
 } from '@akari-video/edit-store';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
+import { captionEmphasisMatches } from '../common/preview-emphasis-seat';
+import { captionInkClientRect } from '../common/caption-ink-rect';
+import { prioritizeCaptionStyleMarkup } from '../common/caption-style-composition';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionInkClipRecipe, setCaptionInkClipVariables } from '../../../../../../packages/render-cut/src/caption-ink-clip.mjs';
 import { captionRowWrapRect } from '../common/caption-row-box';
@@ -131,6 +134,9 @@ export function previewBootstrapScript(): string {
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
             const canvasCaptionZPlanFn = (${canvasCaptionZPlan.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
+            const captionEmphasisMatchesFn = (${captionEmphasisMatches.toString()});
+            const captionInkClientRectFn = (${captionInkClientRect.toString()});
+            const prioritizeCaptionStyleMarkupFn = (${prioritizeCaptionStyleMarkup.toString()});
             const captionRunSelectionRangeFn = (${captionRunSelectionRange.toString()});
             const captionRunToolbarPlacementFn = (${captionRunToolbarPlacement.toString()});
             const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
@@ -4912,16 +4918,21 @@ export function previewBootstrapScript(): string {
                     const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
                     const rects = elements
                         .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
+                        .concat(captionPlate.ownerDocument
+                            ? [...captionPlate.querySelectorAll('.akari-caption__tok--emphasis')] : [])
                         .filter(element => element.isConnected)
                         .map(element => element.getBoundingClientRect())
-                        .filter(rect => rect.width !== 0 || rect.height !== 0);
-                    if (!rects.length) return null;
-                    const clientRect = {
-                        left: Math.min(...rects.map(rect => rect.left)),
-                        right: Math.max(...rects.map(rect => rect.right)),
-                        top: Math.min(...rects.map(rect => rect.top)),
-                        bottom: Math.max(...rects.map(rect => rect.bottom))
-                    };
+                        .filter(rect => rect.width >= 1 && rect.height >= 1
+                            && [rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite));
+                    const clientRect = typeof captionInkClientRectFn === 'function'
+                        ? captionInkClientRectFn(rects)
+                        : rects.length ? {
+                            left: Math.min(...rects.map(rect => rect.left)),
+                            right: Math.max(...rects.map(rect => rect.right)),
+                            top: Math.min(...rects.map(rect => rect.top)),
+                            bottom: Math.max(...rects.map(rect => rect.bottom))
+                        } : null;
+                    if (!clientRect) return null;
                     const topLeft = captionOutputPoint(clientRect.left, clientRect.top);
                     const bottomRight = captionOutputPoint(clientRect.right, clientRect.bottom);
                     return {
@@ -5087,7 +5098,8 @@ export function previewBootstrapScript(): string {
                     updateCaptionSelectTools();
                     return;
                 }
-                if (!rect) {
+                if (!rect || ![rect.left, rect.right, rect.top, rect.bottom].every(Number.isFinite)
+                    || rect.right - rect.left < 1 || rect.bottom - rect.top < 1) {
                     captionSelectBox.classList.remove('is-active');
                     captionRowBox.classList.remove('is-active');
                     return;
@@ -5325,6 +5337,27 @@ export function previewBootstrapScript(): string {
                 const rect = captionVisualRect();
                 updateCaptionSelectBoxForRect(rect);
             };
+            let captionSelectionFrame = 0;
+            const scheduleCaptionSelectionGeometry = () => {
+                if (!selectedCaptionId || typeof window.requestAnimationFrame !== 'function') return;
+                if (captionSelectionFrame) window.cancelAnimationFrame(captionSelectionFrame);
+                captionSelectionFrame = window.requestAnimationFrame(() => {
+                    captionSelectionFrame = 0;
+                    updateCaptionSelectBox();
+                });
+            };
+            const captionInkObserver = typeof ResizeObserver === 'function'
+                ? new ResizeObserver(scheduleCaptionSelectionGeometry) : null;
+            const watchSelectedCaptionInk = () => {
+                captionInkObserver?.disconnect();
+                if (!captionInkObserver) { scheduleCaptionSelectionGeometry(); return; }
+                const plate = selectedCaptionPlate();
+                if (!selectedCaptionId || !plate?.isConnected) return;
+                for (const ink of plate.querySelectorAll('.akari-caption__line, .akari-caption__block')) {
+                    captionInkObserver?.observe(ink);
+                }
+                scheduleCaptionSelectionGeometry();
+            };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
                 if (report && typeof selectedMixedGroup !== 'undefined') selectedMixedGroup = [];
@@ -5335,11 +5368,13 @@ export function previewBootstrapScript(): string {
                 applyCaptionSelectionAttrs();
                 if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (captionId === selectedCaptionId) {
+                    if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
                     updateCaptionSelectBox();
                     if (report) window.akari.reportCaptionSelection(selectedCaptionId);
                     return;
                 }
                 selectedCaptionId = captionId;
+                if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
                 captionStylePreview.selectionChanged(selectedCaptionIds);
                 window.akari.syncRunSelection?.();
                 if (captionId && !(typeof applyingMixedSelection !== 'undefined' && applyingMixedSelection)) {
@@ -7443,8 +7478,81 @@ export function previewBootstrapScript(): string {
             const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
                 emphasis.t_end > word.start
                 && emphasis.t_start < word.end
-                && (word.text === emphasis.word || emphasis.word.includes(word.text))
+                && (word.text === emphasis.word || emphasis.word.includes(word.text)
+                    || word.text.includes(emphasis.word))
             );
+            const applyEmphasisPaint = (span, emphasis) => {
+                const preset = emphasisPresets[emphasis.style_preset]?.style;
+                const color = typeof preset?.color === 'string' ? preset.color : '#f97316';
+                span.style.setProperty('color', color, 'important');
+                span.style.setProperty('-webkit-text-fill-color', color, 'important');
+                if (typeof preset?.weight === 'number') {
+                    span.style.setProperty('font-weight', String(preset.weight), 'important');
+                }
+                if (typeof preset?.size_px === 'number') span.style.fontSize = preset.size_px + 'px';
+                if (typeof preset?.font_family === 'string') span.style.fontFamily = preset.font_family;
+                if (typeof preset?.letter_spacing_em === 'number') {
+                    span.style.letterSpacing = preset.letter_spacing_em + 'em';
+                }
+                if (preset?.stroke && typeof preset.stroke.width_px === 'number') {
+                    span.style.webkitTextStroke = preset.stroke.width_px + 'px '
+                        + (preset.stroke.color || '#000000');
+                }
+                if (preset?.shadow && typeof preset.shadow.blur_px === 'number') {
+                    span.style.textShadow = '0 0 ' + preset.shadow.blur_px + 'px '
+                        + (preset.shadow.color || color);
+                }
+            };
+            const decorateCaptionEmphasis = (host, caption) => {
+                if (!host.ownerDocument || !emphasisWords.length) return;
+                for (const line of host.querySelectorAll('.akari-caption__line')) {
+                    const existing = line.querySelectorAll('[data-emphasis-id]');
+                    if (existing.length) {
+                        for (const marker of existing) {
+                            const emphasis = emphasisWords.find(item => item.id === marker.dataset.emphasisId);
+                            if (!emphasis) continue;
+                            applyEmphasisPaint(marker, emphasis);
+                            for (const run of marker.querySelectorAll('.akari-caption__run')) {
+                                applyEmphasisPaint(run, emphasis);
+                            }
+                        }
+                        continue;
+                    }
+                    const matches = captionEmphasisMatchesFn(line.textContent || '',
+                        caption.emphasisStart ?? caption.start, caption.emphasisEnd ?? caption.end,
+                        emphasisWords, caption.src);
+                    if (!matches.length) continue;
+                    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+                    const nodes = [];
+                    while (walker.nextNode()) nodes.push(walker.currentNode);
+                    let offset = 0;
+                    for (const node of nodes) {
+                        const value = node.textContent || '';
+                        const end = offset + value.length;
+                        const intersecting = matches.filter(match => match.from < end && match.to > offset);
+                        if (intersecting.length) {
+                            const fragment = document.createDocumentFragment();
+                            let cursor = 0;
+                            for (const match of intersecting) {
+                                const from = Math.max(cursor, match.from - offset, 0);
+                                const to = Math.min(value.length, match.to - offset);
+                                if (to <= from) continue;
+                                if (from > cursor) fragment.append(document.createTextNode(value.slice(cursor, from)));
+                                const span = document.createElement('span');
+                                span.className = 'akari-caption__tok--emphasis';
+                                span.dataset.emphasisId = match.emphasis.id;
+                                span.textContent = value.slice(from, to);
+                                applyEmphasisPaint(span, match.emphasis);
+                                fragment.append(span);
+                                cursor = to;
+                            }
+                            if (cursor < value.length) fragment.append(document.createTextNode(value.slice(cursor)));
+                            node.replaceWith(fragment);
+                        }
+                        offset = end;
+                    }
+                }
+            };
             const resolveEmphasisStyle = emphasis => {
                 if (emphasis.style_hint === 'one-char-bang'
                     || emphasis.style_hint === 'size-pulse'
@@ -8136,18 +8244,30 @@ export function previewBootstrapScript(): string {
                         }
                         captionHtml = caption.runs?.length
                             ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                        const cueEmphasis = typeof captionEmphasisMatchesFn === 'function'
+                            && captionEmphasisMatchesFn(caption.text,
+                            caption.emphasisStart ?? caption.start, caption.emphasisEnd ?? caption.end,
+                            emphasisWords, caption.src).length > 0;
+                        if ((caption.runs?.length || cueEmphasis)
+                            && typeof prioritizeCaptionStyleMarkupFn === 'function') {
+                            captionHtml = prioritizeCaptionStyleMarkupFn(captionHtml, caption.textStyleVars);
+                        }
                         if (caption.textStyle?.animation?.in?.id === 'typewriter'
                             || caption.textStyle?.animation?.out?.id === 'typewriter') {
                             captionHtml = decorateCaptionTypewriterHtml(captionHtml,
                                 caption.textStyle.animation, caption.end - caption.start);
                         }
                         captionPlate.innerHTML = captionHtml;
+                        if (typeof decorateCaptionEmphasis === 'function') decorateCaptionEmphasis(captionPlate, caption);
                         applyRichCaptionLayers(captionPlate, caption);
                     } else {
                         captionPlate.innerHTML = '';
                     }
                     // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
                     applyCaptionRowSelectionAttrs(captionPlate, caption);
+                    if ((caption?.sourceCueId || caption?.id) === selectedCaptionId) {
+                        if (typeof watchSelectedCaptionInk === 'function') watchSelectedCaptionInk();
+                    }
                     row.captionHitRegionPending = true;
                 }
                 let captionAnimations = [];

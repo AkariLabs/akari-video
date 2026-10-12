@@ -180,6 +180,7 @@ import {
     updateCaptionStylePresetInSource,
     updateCaptionTextStyleInSource
 } from '../common/caption-store';
+import { preserveRunsOutsideTextReplacement } from '../common/caption-text-run-rebase';
 import {
     deleteLayerByIdInSource,
     deleteSfxInSource,
@@ -2229,12 +2230,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             style: request.style,
             displayTiming: request.displayTiming
         });
-        await this.writeProjectFileGuarded(captionsPath, result.source);
+        const runs = request.text === undefined
+            ? { source: result.source, removedRuns: result.removedRuns }
+            : preserveRunsOutsideTextReplacement(source, result.source, request.captionId);
+        await this.writeProjectFileGuarded(captionsPath, runs.source);
         const root = JSON.parse(source) as Array<{ id: string; text: string; display_text?: string }>
             | { captions?: Array<{ id: string; text: string; display_text?: string }> };
         const caption = (Array.isArray(root) ? root : root.captions)?.find(item => item.id === request.captionId);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
-            notices: captionEditNotices(result, caption?.display_text ?? caption?.text ?? '') };
+            notices: captionEditNotices({ ...result, removedRuns: runs.removedRuns },
+                caption?.display_text ?? caption?.text ?? '') };
     }
 
     async setCaptionRun(request: SetCaptionRunRequest): Promise<WriteBackResult> {

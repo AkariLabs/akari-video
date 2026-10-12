@@ -179,6 +179,7 @@ import {
     scopeSelectorOutsideOverlays
 } from '../common/webview-default-style-scope';
 import {
+    normalizePreviewEmphasisWords,
     readCaptionsEmphasisWords,
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
@@ -6689,6 +6690,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const rawRoot = JSON.parse(source);
                 const rawRows = Array.isArray(rawRoot) ? rawRoot
                     : Array.isArray(rawRoot?.captions) ? rawRoot.captions : [];
+                const rawById = new Map<string, { start?: number; end?: number; src?: string }>(rawRows
+                    .filter((row: { id?: unknown } | null) => typeof row?.id === 'string')
+                    .map((row: { id: string; start?: number; end?: number; src?: string }) => [row.id, row]));
                 const timeDomains = new Map<string, 'source' | 'output'>(rawRows
                     .filter((row: { time_domain?: string } | null) => row?.time_domain === 'source' || row?.time_domain === 'output')
                     .map((row: { id: string; time_domain: 'source' | 'output' }) => [row.id, row.time_domain]));
@@ -6699,11 +6703,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         workspaceRoots: await this.currentWorkspaceRoots()
                     }),
                     resolved: resolved => ({
-                        captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
-                            ...caption,
-                            clockDomain: 'output' as const,
-                            timeDomain: timeDomains.get(caption.sourceCueId ?? caption.id ?? '')
-                        })),
+                        captions: parseResolvedPreviewCaptions(resolved).map(caption => {
+                            const sourceId = caption.sourceCueId ?? caption.id ?? '';
+                            const raw = rawById.get(sourceId);
+                            return {
+                                ...caption,
+                                ...(raw ? {
+                                    ...(typeof raw.start === 'number' ? { emphasisStart: raw.start } : {}),
+                                    ...(typeof raw.end === 'number' ? { emphasisEnd: raw.end } : {}),
+                                    ...(typeof raw.src === 'string' ? { src: raw.src } : {})
+                                } : {}),
+                                clockDomain: 'output' as const,
+                                timeDomain: timeDomains.get(sourceId)
+                            };
+                        }),
                         emphasisWords: resolved.emphasisWords
                     }),
                     legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri),
@@ -6769,6 +6782,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 : 'legacy';
             return {
                 ...caption,
+                ...(typeof raw?.start === 'number' ? { emphasisStart: raw.start } : {}),
+                ...(typeof raw?.end === 'number' ? { emphasisEnd: raw.end } : {}),
+                ...(typeof raw?.src === 'string' ? { src: raw.src } : {}),
                 clockDomain: declaredDomain,
                 ...(declaredDomain !== 'legacy' ? { timeDomain: declaredDomain } : {}),
                 ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
@@ -8064,6 +8080,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 /* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
 #caption-plate { position:absolute; inset:0; pointer-events:none; }
+.akari-caption__run { -webkit-text-fill-color: currentColor; }
 .caption-row-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%) rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1)); transform-origin: center; padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
@@ -8788,53 +8805,10 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     protected normalizeEmphasisWords(value: unknown): EditSummaryEmphasisWord[] {
-        if (value === undefined) {
-            return [];
-        }
-        if (!Array.isArray(value)) {
+        if (value !== undefined && !Array.isArray(value)) {
             console.warn('[akari-preview] emphasis_words を無視しました（配列ではありません）');
-            return [];
         }
-        const seenIds = new Set<string>();
-        const normalized: EditSummaryEmphasisWord[] = [];
-        for (const [index, item] of value.entries()) {
-            const candidate = item && typeof item === 'object' && !Array.isArray(item)
-                ? item as Record<string, unknown>
-                : undefined;
-            const valid = candidate !== undefined
-                && typeof candidate.id === 'string'
-                && /^e-\d{4}$/u.test(candidate.id)
-                && !seenIds.has(candidate.id)
-                && typeof candidate.t_start === 'number'
-                && Number.isFinite(candidate.t_start)
-                && candidate.t_start >= 0
-                && typeof candidate.t_end === 'number'
-                && Number.isFinite(candidate.t_end)
-                && candidate.t_end > candidate.t_start
-                && typeof candidate.word === 'string'
-                && /\S/u.test(candidate.word)
-                && typeof candidate.emotion === 'string'
-                && /\S/u.test(candidate.emotion)
-                && (candidate.src === undefined || (typeof candidate.src === 'string' && /\S/u.test(candidate.src)))
-                && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string')
-                && (candidate.style_preset === undefined || typeof candidate.style_preset === 'string');
-            if (!valid || !candidate) {
-                console.warn(`[akari-preview] emphasis_words[${index}] を無視しました（要素が不正です）`);
-                continue;
-            }
-            seenIds.add(candidate.id as string);
-            normalized.push({
-                id: candidate.id as string,
-                ...(candidate.src !== undefined ? { src: candidate.src as string } : {}),
-                t_start: candidate.t_start as number,
-                t_end: candidate.t_end as number,
-                word: candidate.word as string,
-                emotion: candidate.emotion as string,
-                ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {}),
-                ...(candidate.style_preset !== undefined ? { style_preset: candidate.style_preset as string } : {})
-            });
-        }
-        return normalized;
+        return normalizePreviewEmphasisWords(value);
     }
 
     protected finiteNumber(value: unknown, fallback: number): number {

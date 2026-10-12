@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyCaptionContextPreset, captionStyleWrite, contextCaptionId, runCaptionStyleWrite } from '../lib/common/caption-context-edit.js';
+import { applyCaptionContextField, applyCaptionContextPreset, captionStyleWrite, contextCaptionId, runCaptionStyleWrite } from '../lib/common/caption-context-edit.js';
 import { ContextBarController } from '../lib/browser/context-bar-controller.js';
 
 test('字幕の各操作は既存の inspector write 種類へ写る', () => {
@@ -77,4 +77,21 @@ test('字幕選択が state と書き込み指示の対象 id へ届く', async 
 test('インスペクターの字幕スナップショットを優先し、文字の袋は字幕と誤認しない', () => {
     assert.equal(contextCaptionId({ kind: 'item', id: 'captions' }, { kind: 'caption', id: 'c-0001' }), 'c-0001');
     assert.equal(contextCaptionId({ kind: 'item', id: 'captions' }, { kind: 'item', id: 'captions' }), undefined);
+});
+
+test('context bar italic writes the cue override in captions.json and publishes the updated source', async () => {
+    let source = JSON.stringify({ captions: [{ id: 'c-0006', text: '対話', style_preset: 'plate-coral' }] });
+    const writes = [];
+    let reloads = 0;
+    const result = await applyCaptionContextField('c-0006', 'italic', true, [], {
+        readSource: async () => source,
+        writeSource: async next => { source = next; writes.push(next); },
+        recordHistory: () => undefined,
+        reload: async () => { reloads++; }
+    });
+    assert.equal(result.ok, true);
+    assert.equal(JSON.parse(source).captions[0].text_style.italic, true);
+    assert.equal(JSON.parse(source).captions[0].style_preset, 'plate-coral');
+    assert.equal(writes.length, 1);
+    assert.equal(reloads, 1);
 });

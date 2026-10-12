@@ -106,7 +106,7 @@ test('強調プリセットと src は保存され、更新通知がプレビュ
         'emphasis-red'), [{ src: 'sample', t_start: 2.35, t_end: 2.75, word: '今日は',
         emotion: 'neutral', style_preset: 'emphasis-red' }]);
     assert.match(transcript, /src: this\.sourceIdForRow\(row\)/);
-    assert.match(previewHost, /style_preset: candidate\.style_preset as string/);
+    assert.match(previewHost, /return normalizePreviewEmphasisWords\(value\)/);
     assert.match(previewHost, /type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords/);
     assert.match(preview, /emphasisWords = message\.emphasisWords/);
     const start = preview.indexOf('const emphasisPresets =');

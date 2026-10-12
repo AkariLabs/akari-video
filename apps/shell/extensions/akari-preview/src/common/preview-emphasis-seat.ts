@@ -25,3 +25,58 @@ export function resolvePreviewEmphasisWords(
 ): unknown {
     return captionsEmphasisWords !== undefined ? captionsEmphasisWords : legacyEditEmphasisWords;
 }
+
+export interface PreviewEmphasisWord {
+    id: string;
+    src?: string;
+    t_start: number;
+    t_end: number;
+    word: string;
+    emotion: string;
+    style_hint?: string;
+    style_preset?: string;
+}
+
+/** An emphasis preset is sufficient; older cues need no explicit emotion. */
+export function normalizePreviewEmphasisWords(value: unknown): PreviewEmphasisWord[] {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    return value.flatMap(item => {
+        if (!isObjectRoot(item) || typeof item.id !== 'string' || !/^e-\d{4}$/u.test(item.id)
+            || seen.has(item.id) || typeof item.t_start !== 'number' || !Number.isFinite(item.t_start)
+            || item.t_start < 0 || typeof item.t_end !== 'number' || !Number.isFinite(item.t_end)
+            || item.t_end <= item.t_start || typeof item.word !== 'string' || !item.word.trim()
+            || item.emotion !== undefined && (typeof item.emotion !== 'string' || !item.emotion.trim())
+            || item.src !== undefined && (typeof item.src !== 'string' || !item.src.trim())
+            || item.style_hint !== undefined && typeof item.style_hint !== 'string'
+            || item.style_preset !== undefined && typeof item.style_preset !== 'string') return [];
+        seen.add(item.id);
+        return [{ id: item.id, t_start: item.t_start, t_end: item.t_end, word: item.word,
+            emotion: typeof item.emotion === 'string' ? item.emotion : 'emphasis',
+            ...(typeof item.src === 'string' ? { src: item.src } : {}),
+            ...(typeof item.style_hint === 'string' ? { style_hint: item.style_hint } : {}),
+            ...(typeof item.style_preset === 'string' ? { style_preset: item.style_preset } : {}) }];
+    });
+}
+
+/** Find the exact visible substring even when a resolved cue has no timed words. */
+export function captionEmphasisMatches(text: string, start: number, end: number,
+    words: readonly PreviewEmphasisWord[], src?: string): Array<{ from: number; to: number; emphasis: PreviewEmphasisWord }> {
+    const matches: Array<{ from: number; to: number; emphasis: PreviewEmphasisWord }> = [];
+    for (const emphasis of words) {
+        if (emphasis.t_end <= start || emphasis.t_start >= end
+            || src && emphasis.src && emphasis.src !== src) continue;
+        let from = 0;
+        while ((from = text.indexOf(emphasis.word, from)) >= 0) {
+            matches.push({ from, to: from + emphasis.word.length, emphasis });
+            from += emphasis.word.length;
+        }
+    }
+    matches.sort((a, b) => a.from - b.from || b.to - a.to);
+    let occupied = 0;
+    return matches.filter(match => {
+        if (match.from < occupied) return false;
+        occupied = match.to;
+        return true;
+    });
+}
