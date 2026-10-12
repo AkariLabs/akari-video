@@ -14,6 +14,13 @@ export function guideNeedsPartner(step: OnboardingStep): boolean {
     return step.startsWith('tour') || ['ask', 'prompt', 'work', 'play', 'caption'].includes(step);
 }
 
+export function guideRequiredPanels(targets: readonly string[]): Array<'left' | 'bottom'> {
+    const panels: Array<'left' | 'bottom'> = [];
+    if (targets.some(target => ['assets', 'sample-card', 'export-result'].includes(target))) panels.push('left');
+    if (targets.includes('timeline')) panels.push('bottom');
+    return panels;
+}
+
 export function askHighlightTarget(answer: AiAnswer | undefined): string {
     return ({ claude: 'partner-claude', chatgpt: 'partner-codex', google: 'partner-antigravity',
         none: 'partner', other: 'partner' } as Record<AiAnswer, string>)[answer ?? 'none'];

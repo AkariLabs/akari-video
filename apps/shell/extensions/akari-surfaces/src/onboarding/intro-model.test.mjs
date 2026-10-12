@@ -29,6 +29,13 @@ test('招待はサンプル動画チップを置かず、小さなリンク文�
     assert.match(markup, /data-ao="later">後で自分で始める<\/button>/);
 });
 
+test('作業中のパートナーがいる招待には切り替えの同意が要る', () => {
+    const markup = inviteMarkup(false, '', 'いまのプロジェクトから切り替わります');
+    assert.match(markup, /role="alert">いまのプロジェクトから切り替わります<\/p>/);
+    assert.match(markup, /data-ao="start">同意してはじめる<\/button>/);
+    assert.match(markup, /data-ao="later"/);
+});
+
 test('ビフォーアフター図の余白は透明で、左右ラベルはそれぞれ中央', () => {
     assert.match(ONBOARDING_CSS, /\.ao-hero\.before-after\s*\{[^}]*background:transparent/);
     assert.match(ONBOARDING_CSS, /\.ao-before-after-labels\s*\{[^}]*grid-template-columns:1fr 1fr;\s*text-align:center/);

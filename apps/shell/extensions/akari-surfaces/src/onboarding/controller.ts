@@ -7,7 +7,7 @@ import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
 import { BEFORE_AFTER_DATA_URL } from './before-after-data';
-import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts, guideRequiredPanels,
     guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
     askConnectionCopy, captionCoachPosition, materialPreviewTransportRect, needsCaptionStyleSelection,
     outputCaptionBandRect, GuideRect } from './guide-ui-model';
@@ -57,6 +57,8 @@ const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number;
     { t: 16400, live: t('surfaces.onboarding.demoFinished.status'), lines: [t('surfaces.onboarding.demoReadyToExport.message')] }
 ];
 const esc = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
+const GUIDE_LAYOUT_KEY = 'akari.onboarding.layoutBeforeGuide';
+interface GuideLayout { left: boolean; bottom: boolean }
 
 export class OnboardingController {
     protected state: OnboardingState = INITIAL_ONBOARDING_STATE;
@@ -102,17 +104,24 @@ export class OnboardingController {
     protected partnerRevealAttempts = 0;
     protected lastPartnerRevealAt = 0;
     protected inputCutouts: GuideRect[] = [];
+    protected layoutBeforeGuide?: GuideLayout;
+    protected switchWarningShown = false;
+    protected switchConsentGiven = false;
 
     constructor(
         protected readonly service: AkariOnboardingService,
         protected readonly files: FileService,
-        protected readonly openProject: (uri: string) => Promise<void>,
+        protected readonly openProject: (uri: string, busyConfirmed: boolean) => Promise<void>,
         protected readonly showOutput: (uri: string) => Promise<void>,
         protected readonly showAssets: () => Promise<void>,
         protected readonly seekOutput: (uri: string, time: number) => Promise<void>,
         protected readonly startOwnVideo: () => Promise<void>,
         protected readonly openGuideSettings: () => Promise<void>,
-        protected readonly showClosedNotice: () => void
+        protected readonly showClosedNotice: () => void,
+        protected readonly switchWarning: () => string | undefined,
+        protected readonly ensureLayout: (targets: string[]) => Promise<void>,
+        protected readonly readLayout: () => GuideLayout,
+        protected readonly restoreLayout: (layout: GuideLayout) => void
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -122,6 +131,13 @@ export class OnboardingController {
 
     protected async openUnchecked(initial?: OnboardingState): Promise<void> {
         this.closeVisual();
+        const storedLayout = sessionStorage.getItem(GUIDE_LAYOUT_KEY);
+        if (storedLayout) {
+            try { this.layoutBeforeGuide = JSON.parse(storedLayout) as GuideLayout; }
+            catch { this.layoutBeforeGuide = this.readLayout(); }
+        } else this.layoutBeforeGuide = this.readLayout();
+        sessionStorage.setItem(GUIDE_LAYOUT_KEY, JSON.stringify(this.layoutBeforeGuide));
+        this.switchConsentGiven = false;
         this.state = initial ?? INITIAL_ONBOARDING_STATE;
         this.hero = await this.service.heroDataUrl();
         this.root = document.createElement('div');
@@ -166,14 +182,19 @@ export class OnboardingController {
             }
         }
         this.render();
+        this.enterStep();
         this.followTargets();
         if (this.state.step === 'prompt' && this.state.sub === 0) this.startPromptTypewriter();
         if (this.state.step === 'work') void this.startWork();
         if (this.state.step === 'export' && this.state.sub === 2) this.beginExportPoll();
-        this.enterStep();
     }
 
     protected closeVisual(): void {
+        if (this.root && this.layoutBeforeGuide) {
+            this.restoreLayout(this.layoutBeforeGuide);
+            this.layoutBeforeGuide = undefined;
+            sessionStorage.removeItem(GUIDE_LAYOUT_KEY);
+        }
         for (const timer of this.recoveryTimers) window.clearTimeout(timer);
         this.recoveryTimers = [];
         if (this.idleCloseTimer) window.clearTimeout(this.idleCloseTimer);
@@ -327,6 +348,7 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        void this.ensureStepLayout(serial);
         this.partnerRevealAttempts = 0;
         if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
         this.scheduleHelp();
@@ -336,6 +358,26 @@ export class OnboardingController {
         this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected async ensureStepLayout(serial: number, attempt = 0): Promise<void> {
+        const spec = this.coach();
+        const targets = [...(spec?.holes ?? []), ...(spec?.clear ?? []), ...(spec?.rings ?? [])];
+        if (!guideRequiredPanels(targets).length) return;
+        await this.ensureLayout(targets);
+        if (!this.root || serial !== this.stepSerial) return;
+        this.placeCoach();
+        const missing = targets.filter(target => ['assets', 'sample-card', 'export-result', 'timeline'].includes(target))
+            .some(target => {
+                const element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${target}"]`);
+                const rect = element?.getBoundingClientRect();
+                return !rect || rect.width <= 0 || rect.height <= 0 || getComputedStyle(element!).visibility === 'hidden';
+            });
+        if (missing && attempt < 3) {
+            this.timers.push(window.setTimeout(() => {
+                if (this.root && serial === this.stepSerial) void this.ensureStepLayout(serial, attempt + 1);
+            }, 200 + attempt * 350));
+        }
     }
 
     protected revealPartner(): void {
@@ -492,7 +534,11 @@ export class OnboardingController {
         const brand = introVisual(this.state.step).brand ? '<div class="ao-brand">AKARI VIDEO</div>' : '';
         if (this.state.step === 'welcome') return t('surfaces.onboarding.takeoverWelcomeAkariVideoNext.message', { brand: brand });
         if (this.state.step === 'first') return t('surfaces.onboarding.takeoverFirstTimeAkariVideoFirstTimeHave.description');
-        if (this.state.step === 'invite') return inviteMarkup(this.busy, esc(this.prepareError));
+        if (this.state.step === 'invite') {
+            const warning = this.switchWarning();
+            this.switchWarningShown = !!warning;
+            return inviteMarkup(this.busy, esc(this.prepareError), warning ? esc(warning) : '');
+        }
         return t('surfaces.onboarding.done.markup');
     }
 
@@ -1027,7 +1073,13 @@ export class OnboardingController {
             }
         }
         else if (action === 'no' || action === 'later') { await this.service.returnToHome(); this.closeVisual(); }
-        else if (action === 'start') await this.prepare();
+        else if (action === 'start') {
+            if (this.busy) return;
+            const warning = this.switchWarning();
+            if (warning && !this.switchWarningShown) { this.render(); return; }
+            this.switchConsentGiven = !!warning;
+            await this.prepare();
+        }
         else if (action === 'import') await this.importSample();
         else if (action === 'answer') {
             const answer = element.dataset.answer as AiAnswer;
@@ -1064,9 +1116,16 @@ export class OnboardingController {
             await this.service.save(this.state);
             await this.service.importSample(prepared.projectUri, prepared.sample.sourcePath);
             await this.service.writeExample(prepared.projectUri, prepared.sample.sourcePath, prepared.sample.segments, prepared.sample.segments.length, true);
+            if (this.switchWarning() && !this.switchConsentGiven) {
+                this.busy = false;
+                this.render();
+                return;
+            }
+            // Persist the resume point before opening the workspace, which may reload this window.
+            await this.service.save(nextOnboardingState(this.state, 'tour0', 0));
+            await this.openProject(prepared.projectUri, this.switchConsentGiven);
             await this.go('tour0');
             if (this.transitionFailure) { this.busy = false; return; }
-            await this.openProject(prepared.projectUri);
             await this.showOutput(prepared.projectUri);
         } catch (error) {
             this.prepareError = error instanceof Error && /network|fetch|ECONN|ENOTFOUND|timeout|ETIMEDOUT/i.test(error.message)
