@@ -70,7 +70,9 @@ import { treeItemOutputStart } from './inspector/tree-item-output-start';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
-import { ApplicationShell, BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget, OpenerService, StorageService, WidgetManager, open } from '@theia/core/lib/browser';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { webviewKeydownSource } from './webview-keydown-source';
 import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
 import { StatusBar } from '@theia/core/lib/browser/status-bar/status-bar';
 import { TimelineZoomBar, ZoomBarPart } from './timeline/timeline-zoom-bar';
@@ -1111,6 +1113,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @inject(KeybindingRegistry)
     protected readonly keybindings!: KeybindingRegistry;
+
+    @inject(WidgetManager)
+    protected readonly widgetManager?: WidgetManager;
 
     protected shortcutHandler?: (event: KeyboardEvent) => void;
 
@@ -2403,9 +2408,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 typeof document.querySelectorAll === 'function'
                     ? Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')) : [])) return;
             // Theia が webview の keydown を再送すると、target と activeElement は iframe になる。
-            const isWebviewKeydown = focusedElement?.tagName === 'IFRAME'
-                || (typeof HTMLElement !== 'undefined' && event.target instanceof HTMLElement
-                    && event.target.tagName === 'IFRAME');
+            // タイムラインが受けるのは Akari の webview（プレビュー等）からの再送だけ。拡張の webview
+            // （Claude Code / Codex 等）の入力欄で打ったキーは、ここでは何もしない。
+            const webviewSource = webviewKeydownSource(focusedElement, event.target,
+                this.widgetManager?.getWidgets(WebviewWidget.FACTORY_ID) as WebviewWidget[] | undefined ?? []);
+            if (webviewSource === 'foreign') return;
+            const isWebviewKeydown = webviewSource === 'akari';
             const timelineOwnsFocus = isWebviewKeydown || !!focusedElement && this.node.contains(focusedElement);
             const focusOutsideTimeline = !!focusedElement && focusedElement !== document.body
                 && !timelineOwnsFocus;
