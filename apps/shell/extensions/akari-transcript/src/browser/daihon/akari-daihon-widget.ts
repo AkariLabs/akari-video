@@ -66,6 +66,8 @@ import {
     type DaihonRow
 } from '../../common/daihon-row-model';
 import { outputToSource, resolveCurrent, sourceToOutput, sourceToOutputForSource, type DaihonHighlight } from '../../common/daihon-time-map';
+import { groupSourceRows, normalizeSourceGroupState, shouldAutoExpandPlayback,
+    sourceGroupStorageKey, type SourceGroup } from '../../common/daihon-source-groups';
 import {
     applyDragRange,
     applySelectionClick,
@@ -262,6 +264,14 @@ const STYLE = `
 .akari-daihon-head .akari-daihon-captions { flex:1 1 auto; min-height:0 !important; padding:5px 4px !important; font-size:12px; }
 .akari-daihon-head .akari-daihon-cuts { flex:1 1 auto; }
 .akari-daihon-source { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:29px; padding:4px 9px; box-sizing:border-box; border-bottom:1px solid var(--akari-line-inner); color:var(--akari-muted); font-size:10px; }
+.akari-daihon-source-main { display:flex; align-items:center; gap:6px; width:100%; min-width:0; white-space:nowrap; }
+.akari-daihon-source-chips { display:flex; flex-wrap:wrap; gap:6px; width:100%; }
+.akari-daihon-source-chips[hidden] { display:none; }
+.akari-daihon-source-toggle,.akari-daihon-source-all { border:0; background:transparent; color:var(--akari-muted); font:inherit; cursor:pointer; padding:2px 3px; white-space:nowrap; }
+.akari-daihon-source-toggle:hover,.akari-daihon-source-all:hover { color:var(--akari-ink); }
+.akari-daihon-source-toggle { display:inline-flex; align-items:center; gap:4px; }
+.akari-daihon-source-arrow,.akari-daihon-source-toggle-arrow { display:inline-flex; align-items:center; justify-content:center; flex:none; width:14px; font-size:15px; line-height:1; color:var(--akari-muted); }
+.akari-daihon-source-lines { margin-left:4px; }
 .akari-daihon-source-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:var(--akari-ink, var(--theia-foreground)); }
 .akari-daihon-source-chip { display:inline-flex; align-items:center; gap:5px; max-width:100%; border:1px solid var(--akari-line); border-radius:999px; padding:2px 7px; background:transparent; color:var(--akari-ink, var(--theia-foreground)); font:inherit; cursor:pointer; }
 .akari-daihon-source-chip[aria-pressed="false"] { opacity:.35; }
@@ -303,6 +313,12 @@ const STYLE = `
 .akari-daihon-row.speaker-hidden { display:none; }
 .akari-daihon-row.source-hidden { display:none; }
 .akari-daihon-gapzone.source-hidden { display:none; }
+.akari-daihon-row.source-collapsed,.akari-daihon-gapzone.source-collapsed,.akari-daihon-gapdraft.source-collapsed { display:none; }
+.akari-daihon-source-heading { display:flex; align-items:center; gap:6px; width:100%; min-width:0; border:0; border-bottom:1px solid var(--akari-line); background:transparent; color:var(--akari-ink); font:inherit; font-size:11px; text-align:left; padding:5px 8px; cursor:pointer; }
+.akari-daihon-source-heading:hover { background:var(--akari-card); }
+.akari-daihon-source-heading-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-daihon-source-heading-meta { color:var(--akari-muted); white-space:nowrap; }
+.akari-daihon-source-heading.filter-hidden { display:none; }
 .akari-daihon-row.iscut { opacity:.5; cursor:pointer; }
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
 .akari-daihon-word.iscut, .akari-daihon-gapchip.iscut { color:var(--akari-bad, var(--theia-errorForeground)) !important; text-decoration:line-through !important; text-decoration-color:var(--akari-bad, var(--theia-errorForeground)); text-decoration-thickness:2px; cursor:pointer; }
@@ -637,6 +653,15 @@ export class AkariDaihonWidget extends BaseWidget {
     protected sourceColors = new Map<string, string>();
     protected activeSourceIds: string[] = [];
     protected hiddenSourceIds: string[] = [];
+    protected sourceGroups: SourceGroup[] = [];
+    protected openSourceGroupIds = new Set<string>();
+    protected savedOpenSourceGroupIds = new Set<string>();
+    protected sourceChipsExpanded = false;
+    protected sourceGroupProjectKey: string | undefined;
+    protected playbackRowInitialized = false;
+    protected playbackRowId: string | null = null;
+    protected playbackWasPlaying = false;
+    protected playbackPendingInitialRowId: string | null = null;
     protected duplicateRowIds = new Map<string, string>();
     protected readonly captionAudioCache = new Map<string, boolean | undefined>();
     protected silencesBySourceId = new Map<string, DaihonSilenceSpan[]>();
@@ -1052,6 +1077,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const validWordRange = !!row && isValidDaihonWordRange(row.words?.length ?? 0, target.wordRange);
         if (row) {
+            this.revealSourceGroupForRow(row.id);
             // A resolved row takes priority over filters left by earlier interactions.
             if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
             this.qcFilter = false;
@@ -1297,6 +1323,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async reload(): Promise<void> {
         if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
         if (this.rootUri) await this.locateProject(this.rootUri);
+        this.restoreSourceGroupState();
+        this.playbackRowInitialized = false;
+        this.playbackPendingInitialRowId = null;
         this.closeCutRangeEditor();
         this.cutCandidates = [];
         this.updateCutsButton();
@@ -1680,17 +1709,133 @@ export class AkariDaihonWidget extends BaseWidget {
         this.updateSourceBand();
     }
 
+    protected restoreSourceGroupState(): void {
+        const key = this.editUri ? sourceGroupStorageKey(this.editUri.normalizePath().toString()) : undefined;
+        if (key === this.sourceGroupProjectKey) return;
+        this.sourceGroupProjectKey = key;
+        let saved: unknown;
+        try { saved = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null; } catch { saved = null; }
+        const state = normalizeSourceGroupState(saved);
+        this.openSourceGroupIds = new Set(state.openSourceIds);
+        this.savedOpenSourceGroupIds = new Set(state.openSourceIds);
+        this.sourceChipsExpanded = state.chipsExpanded;
+        this.playbackRowInitialized = false;
+        this.playbackRowId = null;
+        this.playbackWasPlaying = false;
+        this.playbackPendingInitialRowId = null;
+    }
+
+    protected saveSourceGroupState(): void {
+        if (!this.sourceGroupProjectKey) return;
+        try {
+            localStorage.setItem(this.sourceGroupProjectKey, JSON.stringify({
+                openSourceIds: [...this.savedOpenSourceGroupIds], chipsExpanded: this.sourceChipsExpanded
+            }));
+        } catch { /* storage can be disabled */ }
+    }
+
+    protected setSourceGroupOpen(key: string, open: boolean, save = false): void {
+        if (open) this.openSourceGroupIds.add(key);
+        else this.openSourceGroupIds.delete(key);
+        if (!open && save && this.selectionRevealTargetId
+            && this.sourceGroups.some(group => group.key === key && group.rowIds.includes(this.selectionRevealTargetId!))) {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+            this.selectionRevealFrame = 0;
+            this.selectionRevealInterrupted = true;
+        }
+        if (!open && save && this.playbackPendingInitialRowId
+            && this.sourceGroups.some(group => group.key === key && group.rowIds.includes(this.playbackPendingInitialRowId!))) {
+            this.playbackPendingInitialRowId = null;
+        }
+        if (save) {
+            if (open) this.savedOpenSourceGroupIds.add(key);
+            else this.savedOpenSourceGroupIds.delete(key);
+        }
+        this.applySourceGroupVisibility();
+        if (save) this.saveSourceGroupState();
+    }
+
+    protected revealSourceGroupForRow(rowId: string | null | undefined): boolean {
+        if (!rowId) return false;
+        const group = this.sourceGroups?.find(candidate => candidate.rowIds.includes(rowId));
+        if (group && !this.openSourceGroupIds.has(group.key)) {
+            this.setSourceGroupOpen(group.key, true);
+            return true;
+        }
+        return false;
+    }
+
+    protected applySourceGroupVisibility(): void {
+        const keyByRow = new Map(this.sourceGroups.flatMap(group => group.rowIds.map(id => [id, group.key] as const)));
+        for (const group of this.sourceGroups) {
+            const open = this.openSourceGroupIds.has(group.key);
+            const heading = this.rowsNode.querySelector<HTMLButtonElement>(`.akari-daihon-source-heading[data-first-row-id="${CSS.escape(group.firstRowId)}"]`);
+            if (heading) {
+                heading.setAttribute('aria-expanded', String(open));
+                const arrow = heading.querySelector('.akari-daihon-source-arrow');
+                if (arrow) arrow.textContent = open ? '▾' : '▸';
+            }
+            for (const id of group.rowIds) this.elements.get(id)?.root.classList.toggle('source-collapsed', !open);
+        }
+        this.rowsNode.querySelectorAll<HTMLElement>('.akari-daihon-gapzone,.akari-daihon-gapdraft').forEach(zone => {
+            const previousKey = keyByRow.get(zone.dataset.prevRowId ?? '');
+            const nextKey = keyByRow.get(zone.dataset.nextRowId ?? '');
+            zone.classList.toggle('source-collapsed', !previousKey || !nextKey
+                || !this.openSourceGroupIds.has(previousKey) || !this.openSourceGroupIds.has(nextKey));
+        });
+    }
+
+    protected renderSourceGroups(): void {
+        this.rowsNode.querySelectorAll('.akari-daihon-source-heading').forEach(node => node.remove());
+        this.sourceGroups = groupSourceRows(this.rows.map(row => ({
+            id: row.id, sourceId: this.displaySourceIdForRow(row), start: row.start, end: row.end
+        })));
+        for (const group of this.sourceGroups) {
+            const heading = document.createElement('button');
+            heading.type = 'button';
+            heading.className = 'akari-daihon-source-heading';
+            heading.dataset.firstRowId = group.firstRowId;
+            const source = this.editSources.find(candidate => candidate.id === group.sourceId);
+            heading.title = source?.path ?? group.sourceId ?? '素材の指定なし';
+            const arrow = document.createElement('span'); arrow.className = 'akari-daihon-source-arrow';
+            const dot = document.createElement('span'); dot.className = 'akari-daihon-source-dot';
+            dot.style.setProperty('--daihon-source-color', group.sourceId ? this.sourceColors.get(group.sourceId) ?? 'var(--akari-muted)' : 'var(--akari-muted)');
+            const name = document.createElement('span'); name.className = 'akari-daihon-source-heading-name';
+            name.textContent = source ? sourceBadgeName(source) : group.sourceId ?? '素材の指定なし';
+            const meta = document.createElement('span'); meta.className = 'akari-daihon-source-heading-meta';
+            const seconds = Math.max(0, Math.round(group.duration));
+            meta.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${group.rowIds.length} 行`;
+            heading.append(arrow, dot, name, meta);
+            heading.addEventListener('click', () => this.setSourceGroupOpen(group.key, !this.openSourceGroupIds.has(group.key), true));
+            this.elements.get(group.firstRowId)?.root.before(heading);
+        }
+        this.applySourceGroupVisibility();
+    }
+
     protected updateSourceBand(): void {
         if (!this.sourceBand) return;
         this.sourceBand.replaceChildren();
         const sources = this.editSources;
         const rowIds = this.rowSourceIdsForDisplay();
         const visibleIds = visibleSourceIds(rowIds, this.hiddenSourceIds);
+        const main = document.createElement('div'); main.className = 'akari-daihon-source-main';
+        const toggle = document.createElement('button'); toggle.type = 'button';
+        toggle.className = 'akari-daihon-source-toggle';
+        const toggleArrow = document.createElement('span'); toggleArrow.className = 'akari-daihon-source-toggle-arrow';
+        toggleArrow.textContent = this.sourceChipsExpanded ? '▾' : '▸';
+        toggle.append(toggleArrow, document.createTextNode(`素材 ${sources.length}`));
+        toggle.setAttribute('aria-expanded', String(this.sourceChipsExpanded));
+        toggle.addEventListener('click', () => {
+            this.sourceChipsExpanded = !this.sourceChipsExpanded;
+            this.saveSourceGroupState();
+            this.updateSourceBand();
+        });
+        main.appendChild(toggle);
+        const chips = document.createElement('div'); chips.className = 'akari-daihon-source-chips';
+        chips.hidden = !this.sourceChipsExpanded;
         if (!sources.length) {
-            const name = document.createElement('span');
-            name.className = 'akari-daihon-source-name';
-            name.textContent = '素材 なし';
-            this.sourceBand.appendChild(name);
+            const name = document.createElement('span'); name.className = 'akari-daihon-source-name';
+            name.textContent = '素材 なし'; chips.appendChild(name);
         }
         for (const source of sources) {
             const hasRows = rowIds.includes(source.id);
@@ -1728,12 +1873,31 @@ export class AkariDaihonWidget extends BaseWidget {
                 void this.preferences.set(DAIHON_HIDDEN_SOURCES_PREFERENCE, this.hiddenSourceIds, PreferenceScope.Workspace)
                     .catch(error => this.notifyError(this.errorMessage(error)));
             });
-            this.sourceBand.appendChild(chip);
+            chips.appendChild(chip);
         }
         const lines = document.createElement('span');
         lines.className = 'akari-daihon-source-lines';
         lines.textContent = `${this.rows.length} 行`;
         const grow = document.createElement('span'); grow.className = 'grow';
+        const allOpen = document.createElement('button'); allOpen.type = 'button';
+        allOpen.className = 'akari-daihon-source-all'; allOpen.textContent = 'すべて開く';
+        allOpen.addEventListener('click', () => {
+            for (const group of this.sourceGroups) {
+                this.openSourceGroupIds.add(group.key);
+                this.savedOpenSourceGroupIds.add(group.key);
+            }
+            this.applySourceGroupVisibility(); this.saveSourceGroupState();
+        });
+        const allClose = document.createElement('button'); allClose.type = 'button';
+        allClose.className = 'akari-daihon-source-all'; allClose.textContent = 'すべて閉じる';
+        allClose.addEventListener('click', () => {
+            if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
+            this.selectionRevealFrame = 0;
+            this.selectionRevealInterrupted = true;
+            this.playbackPendingInitialRowId = null;
+            this.openSourceGroupIds.clear(); this.savedOpenSourceGroupIds.clear();
+            this.applySourceGroupVisibility(); this.saveSourceGroupState();
+        });
         const label = document.createElement('label');
         const check = document.createElement('input'); check.type = 'checkbox'; check.checked = this.showCutMarks;
         check.addEventListener('change', () => {
@@ -1743,7 +1907,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 .catch(error => this.notifyError(this.errorMessage(error)));
         });
         label.append(check, document.createTextNode('カット候補の印'));
-        this.sourceBand.append(lines, grow, label);
+        main.append(lines, grow, allOpen, allClose, label);
+        this.sourceBand.append(main, chips);
         this.applyQcFilter();
     }
 
@@ -1937,6 +2102,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {
         this.closeCutRangeEditor();
+        this.rowsNode.querySelectorAll('.akari-daihon-source-heading').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
         const previousActiveSourceIds = this.activeSourceIds;
@@ -2007,6 +2173,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         if (next.length > 0) this.rowsNode.querySelector('.akari-daihon-empty')?.remove();
         this.rows = next;
+        this.renderSourceGroups();
         this.updateSourceBand();
         for (const row of next) {
             const chip = this.elements.get(row.id)?.root.querySelector<HTMLButtonElement>('.akari-daihon-speaker');
@@ -3168,6 +3335,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
                 const target = this.elements.get(duplicateId)?.root;
                 if (!target) return;
+                this.revealSourceGroupForRow(duplicateId);
                 target.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 target.classList.add('duplicate-flash');
                 window.setTimeout(() => target.classList.remove('duplicate-flash'), 1200);
@@ -3454,6 +3622,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openGapDraft(zone: HTMLElement, previous: DaihonRow, following: DaihonRow): void {
         const draft = document.createElement('div');
         draft.className = 'akari-daihon-gapdraft';
+        draft.dataset.prevRowId = previous.id;
+        draft.dataset.nextRowId = following.id;
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = '挿入する字幕';
@@ -4108,6 +4278,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected openCutRangeEditor(row: DaihonRow, target: CutRangeEditorTarget, existing?: CutRangeEdit): void {
         if (this.audioOnlyCutReason(row)) return;
+        this.revealSourceGroupForRow(row.id);
         const rowElement = this.elements.get(row.id)?.root;
         if (!rowElement || !this.editUri) return;
         this.closeCutRangeEditor();
@@ -5053,7 +5224,7 @@ export class AkariDaihonWidget extends BaseWidget {
             || this.editing || (!this.wordRanges.length && !this.selection.selected.length)) return;
         const target = event.target;
         if (!(target instanceof Element) || !this.node.contains(target)
-            || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+            || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .akari-daihon-source-heading, .akari-daihon-source-toggle, .akari-daihon-source-all')) return;
         const range = this.wordRanges[0];
         const row = this.rows.find(item => item.id === (range?.row ?? this.selection.selected[0]));
         if (!row) return;
@@ -5539,6 +5710,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
+        this.revealSourceGroupForRow(next.anchorId ?? next.selected[0]);
         if (this.selectionRevealFrame) cancelAnimationFrame(this.selectionRevealFrame);
         this.selectionRevealFrame = 0;
         this.selectionRevealInterrupted = false;
@@ -5596,6 +5768,14 @@ export class AkariDaihonWidget extends BaseWidget {
             zone.classList.toggle('source-hidden', sourceVisibleByRowId.get(zone.dataset.prevRowId ?? '') === false
                 || sourceVisibleByRowId.get(zone.dataset.nextRowId ?? '') === false);
         });
+        for (const group of this.sourceGroups) {
+            const heading = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-source-heading[data-first-row-id="${CSS.escape(group.firstRowId)}"]`);
+            heading?.classList.toggle('filter-hidden', !group.rowIds.some(id => {
+                const root = this.elements.get(id)?.root;
+                return root && !root.classList.contains('qc-hidden')
+                    && !root.classList.contains('speaker-hidden') && !root.classList.contains('source-hidden');
+            }));
+        }
         const filtered = this.qcFilter || this.speakerFilter !== null || visibleSources.length < activeSources.length;
         this.sourceBand.title = this.speakerFilter !== null
             ? `話者 ${speakerLabel(this.speakerFilter, this.speakerDictionary)} ${visible} 行`
@@ -5673,13 +5853,22 @@ export class AkariDaihonWidget extends BaseWidget {
         const started = performance.now();
         this.lastOutputT = detail.time!;
         const next = resolveCurrent(this.rows, detail.time!);
+        const openedGroup = shouldAutoExpandPlayback(this.playbackRowId, next.rowId, this.playbackWasPlaying,
+            detail.playing, this.playbackRowInitialized, this.playbackPendingInitialRowId)
+            && this.revealSourceGroupForRow(next.rowId);
+        this.playbackPendingInitialRowId = !this.playbackRowInitialized && detail.playing ? next.rowId : null;
+        this.playbackRowId = next.rowId;
+        this.playbackWasPlaying = detail.playing;
+        this.playbackRowInitialized = true;
         const plan = planHighlight(this.current, next);
         this.applyHighlight(plan.rowIds, next, detail.time!);
         this.current = next;
         const current = next.rowId ? this.elements.get(next.rowId)?.root : undefined;
         if (current && !current.classList.contains('qc-hidden')) {
+            const openedVisibleGroup = openedGroup && !current.classList.contains('speaker-hidden')
+                && !current.classList.contains('source-hidden');
             const visible = this.isRowVisible(current);
-            if (shouldAutoScroll({
+            if (openedVisibleGroup || shouldAutoScroll({
                 playing: detail.playing,
                 currentRowVisible: visible,
                 userScrolledRecentlyMs: this.lastUserScrollAt === 0 ? Number.POSITIVE_INFINITY : Date.now() - this.lastUserScrollAt
@@ -5687,7 +5876,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.selectionRevealInterrupted = true;
                 this.autoScrolling = true;
                 current.scrollIntoView({ block: 'nearest' });
-                requestAnimationFrame(() => { this.autoScrolling = false; });
+                if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { this.autoScrolling = false; });
+                else this.autoScrolling = false;
             }
         }
         const elapsed = performance.now() - started;
@@ -5784,6 +5974,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected startEdit(row: DaihonRow): void {
         if (this.editing || !this.captionsUri || !this.rootUri) return;
+        this.revealSourceGroupForRow(row.id);
         const elements = this.elements.get(row.id);
         const text = elements?.root.querySelector('.akari-daihon-row-text');
         if (!elements || !text) return;
@@ -5878,6 +6069,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.placedSelection = undefined;
         this.placedEditor.hidden = true;
         this.rows = [];
+        this.sourceGroups = [];
         this.activeSourceIds = [];
         this.duplicateRowIds.clear();
         this.updateSourceBand();

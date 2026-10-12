@@ -50,6 +50,7 @@ function widget(overrides = {}) {
     rows: buildDaihonRows([...spoken, ...placed], null), sourceCaptions: structuredClone([...spoken, ...placed]),
     captionsUri: uri('captions.json'), rootUri: uri(''), editUri: uri('edit.json'),
     silencesBySourceId: new Map(), segments: [], editSources: [],
+    sourceGroups: [], openSourceGroupIds: new Set(), savedOpenSourceGroupIds: new Set(),
     notify() {}, renderPlacedText() {}, renderPlacedEditor() {},
     async reload() {}, ...overrides
   });
@@ -914,7 +915,7 @@ test('候補バーの ▶ 聞くは残し、書き込む操作の後だけ消す
 });
 
 test('reload は候補が残ればバーを保ち、候補が消えればバーを閉じる', async () => {
-  const editUri = { toString: () => 'file:///project/edit.json',
+  const editUri = { toString: () => 'file:///project/edit.json', normalizePath() { return this; },
     parent: { toString: () => 'file:///project', resolve: name => ({ toString: () => `file:///project/${name}` }) } };
   const edit = JSON.stringify({ version: 1, sources: [{ id: 'main', path: 'main.mp4' }] });
   let caption = { id: 'r1', src: 'main', start: 0, end: 2, text: 'えー',
@@ -967,6 +968,156 @@ test('QC の絞り込み件数を素材帯に表示する', () => {
   instance.qcFilter = false;
   instance.applyQcFilter();
   assert.equal(lines.textContent, '8 行');
+});
+
+test('素材の見出し・一括操作・選択と再生の自動開閉・保存復元を台本に反映する', () => {
+  const oldDocument = globalThis.document, oldCss = globalThis.CSS;
+  const oldStorage = globalThis.localStorage, oldWindow = globalThis.window;
+  const values = new Map();
+  const makeNode = (tag = 'div') => {
+    const node = { tag, className: '', dataset: {}, children: [], attributes: {}, hidden: false,
+      style: { setProperty() {} }, listeners: {},
+      classList: {
+        contains(name) { return node.className.split(/\s+/u).includes(name); },
+        toggle(name, on) { const names = new Set(node.className.split(/\s+/u).filter(Boolean));
+          if (on) names.add(name); else names.delete(name); node.className = [...names].join(' '); },
+        add(name) { this.toggle(name, true); }, remove(name) { this.toggle(name, false); }
+      },
+      append(...children) { for (const child of children) { child.remove?.(); child.parent = this; this.children.push(child); } },
+      appendChild(child) { this.append(child); },
+      replaceChildren(...children) { for (const child of this.children) child.parent = undefined;
+        this.children = []; this.append(...children); },
+      before(other) { const siblings = this.parent.children; other.remove?.(); other.parent = this.parent;
+        siblings.splice(siblings.indexOf(this), 0, other); },
+      remove() { if (!this.parent) return; const siblings = this.parent.children;
+        siblings.splice(siblings.indexOf(this), 1); this.parent = undefined; },
+      setAttribute(name, value) { this.attributes[name] = value; },
+      getAttribute(name) { return this.attributes[name]; },
+      addEventListener(name, listener) { this.listeners[name] = listener; },
+      querySelectorAll(selector) { return descendants(this).slice(1).filter(child => selector.split(',').some(part => {
+        const className = part.trim().match(/^\.([\w-]+)/u)?.[1];
+        const firstId = part.match(/data-first-row-id="([^"]+)"/u)?.[1];
+        return className && child.classList.contains(className) && (!firstId || child.dataset.firstRowId === firstId);
+      })); },
+      querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+    };
+    return node;
+  };
+  globalThis.document = { createElement: makeNode, createTextNode: value => Object.assign(makeNode('text'), { textContent: value }) };
+  globalThis.CSS = { escape: value => value };
+  globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  globalThis.window = { dispatchEvent() {} };
+  const rows = buildDaihonRows([
+    { id: 'a', src: 'video', start: 0, end: 2, text: 'a', style: null },
+    { id: 'b', src: 'video', start: 3, end: 5, text: 'b', style: null },
+    { id: 'c', src: 'audio', start: 6, end: 8, text: 'c', style: null }
+  ], null);
+  const create = () => {
+    const rowsNode = makeNode(), sourceBand = makeNode(), qcButton = makeNode('button');
+    const elements = new Map(rows.map(row => [row.id, { root: makeNode() }]));
+    const scrolls = [];
+    let instance;
+    for (const [id, entry] of elements) entry.root.scrollIntoView = options =>
+      scrolls.push({ id, options, guarded: instance.autoScrolling });
+    const firstGap = makeNode(); firstGap.className = 'akari-daihon-gapzone';
+    firstGap.dataset.prevRowId = 'a'; firstGap.dataset.nextRowId = 'b';
+    const boundary = makeNode(); boundary.className = 'akari-daihon-gapzone';
+    boundary.dataset.prevRowId = 'b'; boundary.dataset.nextRowId = 'c';
+    const boundaryDraft = makeNode(); boundaryDraft.className = 'akari-daihon-gapdraft';
+    boundaryDraft.dataset.prevRowId = 'b'; boundaryDraft.dataset.nextRowId = 'c';
+    rowsNode.append(elements.get('a').root, firstGap, elements.get('b').root, boundary, boundaryDraft, elements.get('c').root);
+    instance = widget({ rows, rowsNode, sourceBand, qcButton, elements,
+      editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit.json' },
+      sourceCaptions: [], editSources: [{ id: 'video', path: 'clips/main.mp4' }, { id: 'audio', path: 'mic.m4a' }],
+      sourceColors: new Map([['video', 'var(--akari-accent)'], ['audio', 'var(--akari-muted)']]),
+      activeSourceIds: ['video', 'audio'], hiddenSourceIds: [], syncedVideoNames: new Map(),
+      captionOverflowUnitsById: new Map(), speakerFilter: null, qcFilter: false, showCutMarks: true,
+      selection: { selected: [], anchorId: null }, selectionRevealFrame: 0,
+      current: { rowId: null, wordIndex: null },
+      renderActionBar() {}, scheduleSelectionReveal() {}, applyHighlight() {}, isRowVisible: () => true });
+    instance.restoreSourceGroupState();
+    instance.renderSourceGroups();
+    instance.updateSourceBand();
+    return { instance, elements, rowsNode, sourceBand, firstGap, boundary, boundaryDraft, scrolls };
+  };
+  try {
+    const { instance, elements, rowsNode, sourceBand, firstGap, boundary, boundaryDraft } = create();
+    const headings = rowsNode.querySelectorAll('.akari-daihon-source-heading');
+    assert.equal(headings.length, 2);
+    assert.equal(headings[0].getAttribute('aria-expanded'), 'false');
+    assert.equal(headings[0].title, 'clips/main.mp4');
+    assert.match(headings[0].children.at(-1).textContent, /0:05 · 2 行/u);
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), true);
+    assert.equal(firstGap.classList.contains('source-collapsed'), true);
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-chips').hidden, true);
+    instance.hiddenSourceIds = ['audio']; instance.applyQcFilter();
+    assert.equal(headings[1].classList.contains('filter-hidden'), true);
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-lines').textContent, '2 / 3 行');
+    instance.hiddenSourceIds = []; instance.applyQcFilter();
+
+    headings[0].listeners.click();
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), false);
+    assert.equal(firstGap.classList.contains('source-collapsed'), false);
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), true);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, ['source:video']);
+    sourceBand.querySelectorAll('.akari-daihon-source-all').find(button => button.textContent === 'すべて閉じる').listeners.click();
+    assert.equal(elements.get('a').root.classList.contains('source-collapsed'), true);
+    sourceBand.querySelectorAll('.akari-daihon-source-all').find(button => button.textContent === 'すべて開く').listeners.click();
+    assert.equal(elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.equal(boundary.classList.contains('source-collapsed'), false);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), false);
+    headings[0].listeners.click();
+    assert.equal(boundary.classList.contains('source-collapsed'), true);
+    assert.equal(boundaryDraft.classList.contains('source-collapsed'), true);
+    headings[0].listeners.click();
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds.sort(), ['source:audio', 'source:video']);
+
+    sourceBand.querySelector('.akari-daihon-source-toggle').listeners.click();
+    assert.equal(sourceBand.querySelector('.akari-daihon-source-chips').hidden, false);
+    const restored = create();
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.equal(restored.sourceBand.querySelector('.akari-daihon-source-chips').hidden, false);
+    restored.sourceBand.querySelectorAll('.akari-daihon-source-all')
+      .find(button => button.textContent === 'すべて閉じる').listeners.click();
+    restored.instance.setSelection({ selected: ['c'], anchorId: 'c' }, false);
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, []);
+    restored.rowsNode.querySelectorAll('.akari-daihon-source-heading')[1].listeners.click();
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: true });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), false);
+    restored.rowsNode.querySelectorAll('.akari-daihon-source-heading')[1].listeners.click();
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: true });
+    assert.equal(restored.elements.get('c').root.classList.contains('source-collapsed'), true);
+    restored.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(restored.elements.get('a').root.classList.contains('source-collapsed'), false);
+    assert.deepEqual(JSON.parse([...values.values()][0]).openSourceIds, []);
+    const playingAtStart = create();
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), true);
+    const pausedSeek = create();
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls, []);
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls, [{ id: 'c', options: { block: 'nearest' }, guarded: true }]);
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: false });
+    pausedSeek.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 6.5, playing: false });
+    assert.deepEqual(pausedSeek.scrolls.map(entry => entry.id), ['c', 'a']);
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), false);
+    playingAtStart.rowsNode.querySelectorAll('.akari-daihon-source-heading')[0].listeners.click();
+    playingAtStart.instance.handlePlaybackTick({ videoUri: 'file:///project/edit.json', time: 0.5, playing: true });
+    assert.equal(playingAtStart.elements.get('a').root.classList.contains('source-collapsed'), true);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldCss === undefined) delete globalThis.CSS; else globalThis.CSS = oldCss;
+    if (oldStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = oldStorage;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+  }
 });
 
 test('表示のカラオケ切替を保存すると同じ word_style をウィジェットが読む', async () => {

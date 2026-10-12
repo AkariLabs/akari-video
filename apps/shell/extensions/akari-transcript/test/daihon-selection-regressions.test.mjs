@@ -49,6 +49,57 @@ test('行選択の印字キーは本文の末尾へ追記し、単語選択な�
     assert.match(transcript, /selectedDaihonEdit\(row\.text, row\.words/);
 });
 
+test('素材の新しい操作ボタンでは Space を編集へ渡さず、ほかのボタンの印字は従来どおり', () => {
+    const ts = require('typescript');
+    const start = transcript.indexOf('    protected handleSelectedTyping(');
+    const end = transcript.indexOf('    protected selectionRows(', start);
+    assert.ok(start >= 0 && end > start);
+    class Target {
+        constructor(className, parent = null) { this.className = className; this.parent = parent; }
+        closest(selector) {
+            const names = [...selector.matchAll(/\.([\w-]+)/gu)].map(match => match[1]);
+            for (let node = this; node; node = node.parent) {
+                if (names.includes(node.className)) return node;
+            }
+            return null;
+        }
+    }
+    const compiled = ts.transpileModule(`class Harness { ${transcript.slice(start, end)} }`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022 }
+    }).outputText;
+    const Harness = new Function('Element', 'isDaihonCompositionStart', 'isPrintableDaihonKey',
+        'selectedDaihonEdit', `${compiled}; return Harness;`)(
+        Target, isDaihonCompositionStart, isPrintableDaihonKey, selectedDaihonEdit);
+    const widget = new Harness();
+    let edits = 0;
+    Object.assign(widget, {
+        node: { contains: () => true }, rows: [{ id: 'a', text: '本文', words: null }],
+        selection: { selected: ['a'] }, wordRanges: [], editing: undefined,
+        startEdit() { edits++; this.editing = { input: { value: '', setSelectionRange() {} } }; }
+    });
+    const send = (target, key = ' ') => {
+        const result = { prevented: false, stopped: false };
+        widget.handleSelectedTyping({ target, key, keyCode: key === ' ' ? 32 : 65,
+            isComposing: false, altKey: false, ctrlKey: false, metaKey: false,
+            preventDefault() { result.prevented = true; }, stopPropagation() { result.stopped = true; } });
+        return result;
+    };
+    for (const selection of [{ selected: ['a'] }, { selected: [], wordRanges: [{ row: 'a', a: 0, b: 0 }] }]) {
+        widget.selection = { selected: selection.selected };
+        widget.wordRanges = selection.wordRanges ?? [];
+        for (const className of ['akari-daihon-source-heading', 'akari-daihon-source-toggle',
+            'akari-daihon-source-all']) {
+            assert.deepEqual(send(new Target('arrow', new Target(className))),
+                { prevented: false, stopped: false });
+            assert.equal(edits, 0);
+        }
+    }
+    widget.wordRanges = [];
+    widget.selection = { selected: ['a'] };
+    assert.deepEqual(send(new Target('old-button'), 'a'), { prevented: true, stopped: true });
+    assert.equal(edits, 1);
+});
+
 test('IME の Process / keyCode 229 は既定動作を止めず編集欄へ移し、行末か選択語を変換対象にする', () => {
     assert.equal(isDaihonCompositionStart('Process', 0), true);
     assert.equal(isDaihonCompositionStart('Unidentified', 229), true);
