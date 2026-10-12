@@ -1,7 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
-import { writeAtomic, writeProjectFilesGuarded, scheduleProjectLint } from '@akari-video/edit-store/lib/write-gate';
+import { writeAtomic, writeProjectFilesGuarded, scheduleProjectLint, type EditLintGateResult } from '@akari-video/edit-store/lib/write-gate';
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
@@ -30,6 +30,7 @@ import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, a
 import { NarrationCliManager } from './narration-cli';
 import { timelineCaptionsPath, timelineEditPath, timelineEditPathForCaptions } from './timeline-target';
 import { CaptionWriteQueue, captionTemporaryPath } from './caption-write-queue';
+import { DeferredLintBaseline } from './deferred-lint-baseline';
 /** Optional JSON-RPC field; the shared protocol file belongs to the timeline-open lane. */
 type TimelineRequest<T> = T & { editUri?: string };
 import { GenerationCandidates, readCandidateMeta, readPreferredModelIds } from './generation-candidates';
@@ -262,6 +263,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     private clipSilenceFfmpegMissingUntil = 0;
     private clipSilenceResults?: Map<string, Promise<GetClipSilencesResult>>;
     private readonly captionWrites = new CaptionWriteQueue();
+    private readonly deferredLintBaseline = new DeferredLintBaseline();
 
     private shellWriterVersion(): Promise<string | undefined> {
         return this.writerVersionPromise ??= this.applicationServer
@@ -2863,13 +2865,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await this.writeSnapshotCandidates(projectDir, candidates, {
             appVersion: await this.shellWriterVersion(),
             onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
-            onLintResult: result => this.client?.onLintResult({
-                projectRootUri: URI.fromFilePath(projectDir).toString(),
-                pass: result.pass,
-                errors: result.errors,
-                writtenFiles: Object.keys(candidates),
-                findings: result.findings
-            })
+            onLintResult: result => this.notifyDeferredLint(projectDir, result)
         });
         return { committed: false };
     }
@@ -2895,13 +2891,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 await this.writeSnapshotCandidates(projectDir, candidates, {
                     appVersion: await this.shellWriterVersion(),
                     onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
-                    onLintResult: result => this.client?.onLintResult({
-                        projectRootUri: request.projectRootUri,
-                        pass: result.pass,
-                        errors: result.errors,
-                        writtenFiles: Object.keys(candidates),
-                        findings: result.findings
-                    })
+                    onLintResult: result => this.notifyDeferredLint(projectDir, result)
                 });
             }
         }));
@@ -2909,6 +2899,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     private async writeSnapshotCandidates(projectDir: string, candidates: Record<string, string>,
         options: Parameters<typeof writeProjectFilesGuarded>[2]): Promise<void> {
+        await this.deferredLintBaseline.begin(projectDir, Object.keys(candidates));
         const other = { ...candidates };
         const captions = Object.entries(candidates).filter(([name]) => this.isCaptionsFileName(name));
         for (const [name] of captions) delete other[name];
@@ -2923,6 +2914,22 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     private isCaptionsFileName(name: string): boolean {
         return /^captions(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)?\.json$/u.test(name);
+    }
+
+    private async notifyDeferredLint(projectDir: string, result: EditLintGateResult): Promise<void> {
+        const writtenFiles = this.deferredLintBaseline.writtenFiles(projectDir);
+        let blame: Awaited<ReturnType<DeferredLintBaseline['finish']>>;
+        try {
+            blame = await this.deferredLintBaseline.finish(projectDir, result);
+        } catch (error) {
+            console.warn('[akari-annotations] 保存後の指摘比較に失敗しました。', error);
+            blame = { writtenFiles };
+        }
+        if (!blame) return;
+        this.client?.onLintResult({
+            projectRootUri: URI.fromFilePath(projectDir).toString(), pass: result.pass,
+            errors: result.errors, findings: result.findings, ...blame
+        });
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
@@ -2942,29 +2949,21 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
      */
     protected async writeProjectFileGuarded(filePath: string, content: string): Promise<void> {
         const projectDir = dirname(filePath);
+        await this.deferredLintBaseline.begin(projectDir, [basename(filePath)]);
         this.client?.onWillWrite(URI.fromFilePath(filePath).toString());
         if (this.isCaptionsFileName(basename(filePath))) {
             await this.writeCaptionAtomic(filePath, content);
             this.notifyDidWrite(filePath, content);
             scheduleProjectLint(projectDir, {
                 appVersion: await this.shellWriterVersion(),
-                onLintResult: result => this.client?.onLintResult({
-                    projectRootUri: URI.fromFilePath(projectDir).toString(), pass: result.pass,
-                    errors: result.errors, writtenFiles: [basename(filePath)], findings: result.findings
-                })
+                onLintResult: result => this.notifyDeferredLint(projectDir, result)
             });
             return;
         }
         await writeProjectFilesGuarded(projectDir, { [basename(filePath)]: content }, {
             appVersion: await this.shellWriterVersion(),
             onDidWrite: (written, text) => this.notifyDidWrite(written, text),
-            onLintResult: result => this.client?.onLintResult({
-                projectRootUri: URI.fromFilePath(projectDir).toString(),
-                pass: result.pass,
-                errors: result.errors,
-                writtenFiles: [basename(filePath)],
-                findings: result.findings
-            })
+            onLintResult: result => this.notifyDeferredLint(projectDir, result)
         });
     }
 

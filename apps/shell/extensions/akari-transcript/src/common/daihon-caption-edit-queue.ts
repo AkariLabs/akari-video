@@ -28,7 +28,9 @@ export function decideDaihonCaptionEdit(original: string, value: string, cancell
 export class DaihonCaptionEditQueue {
     private tail: Promise<void> = Promise.resolve();
     private readonly overrides = new Map<string, TextOverride & {
-        recover: (attempt: DaihonEditAttempt) => Promise<void>; settled: boolean; revision: number;
+        recover: (attempt: DaihonEditAttempt) => Promise<void>;
+        beforeWrite?: () => Promise<void>; afterWrite?: () => Promise<void>;
+        settled: boolean; revision: number;
     }>();
     private readonly notice = new DaihonUnsavedNotice();
     private revision = 0;
@@ -40,6 +42,12 @@ export class DaihonCaptionEditQueue {
 
     get(id: string): TextOverride | undefined { return this.overrides.get(id); }
     revisionFor(id: string): number | undefined { return this.overrides.get(id)?.revision; }
+    hasPendingVisibleWrite(): boolean {
+        return [...this.overrides.values()].some(entry => !entry.settled && !entry.unsaved);
+    }
+    hasOwnedCaptionChange(): boolean {
+        return [...this.overrides.values()].some(entry => !entry.unsaved);
+    }
 
     reconcile(id: string, diskText: string): TextOverride | undefined {
         const entry = this.overrides.get(id);
@@ -63,15 +71,20 @@ export class DaihonCaptionEditQueue {
 
     read<T>(operation: () => Promise<T>): Promise<T> { return this.enqueue(operation); }
 
+    readUntimed<T>(operation: () => Promise<T>): Promise<T> { return this.enqueue(operation, true, false); }
+
     after<T>(operation: () => Promise<T>): Promise<T> { return this.enqueue(operation, false); }
 
-    write(id: string, text: string, operation: (attempt: DaihonEditAttempt) => Promise<void>, visible = false): Promise<void> {
-        let entry = visible ? { text, unsaved: false, recover: operation, settled: false, revision: ++this.revision }
+    write(id: string, text: string, operation: (attempt: DaihonEditAttempt) => Promise<void>, visible = false,
+        afterWrite?: () => Promise<void>, beforeWrite?: () => Promise<void>): Promise<void> {
+        let entry = visible ? { text, unsaved: false, recover: operation, beforeWrite, afterWrite,
+            settled: false, revision: ++this.revision }
             : undefined;
         if (entry) this.overrides.set(id, entry);
-        return this.enqueue(async attempt => {
-            await operation(attempt);
-            if (attempt.abandoned) return;
+        return this.enqueue(async () => {
+            await beforeWrite?.();
+            await this.limit(operation);
+            await afterWrite?.();
             const current = this.overrides.get(id);
             if (entry && current === entry) {
                 current.unsaved = false;
@@ -79,10 +92,11 @@ export class DaihonCaptionEditQueue {
                 this.changed(id);
                 this.updateNotice();
             }
-        }).catch(error => {
+        }, true, false).catch(error => {
             const current = this.overrides.get(id);
             if (entry ? current === entry : !current) {
-                entry ??= { text, unsaved: true, recover: operation, settled: false, revision: ++this.revision };
+                entry ??= { text, unsaved: true, recover: operation, beforeWrite, afterWrite,
+                    settled: false, revision: ++this.revision };
                 entry.unsaved = true;
                 entry.settled = false;
                 this.overrides.set(id, entry);
@@ -94,12 +108,14 @@ export class DaihonCaptionEditQueue {
         });
     }
 
-    private enqueue<T>(operation: (attempt: DaihonEditAttempt) => Promise<T>, recover = true): Promise<T> {
+    private enqueue<T>(operation: (attempt: DaihonEditAttempt) => Promise<T>, recover = true, timed = true): Promise<T> {
         const result = this.tail.catch(() => undefined).then(async () => {
             if (recover) {
                 for (const [id, entry] of this.overrides) {
                     if (!entry.unsaved) continue;
+                    await entry.beforeWrite?.();
                     await this.limit(entry.recover);
+                    await entry.afterWrite?.();
                     if (this.overrides.get(id) === entry) {
                         entry.unsaved = false;
                         entry.settled = true;
@@ -108,7 +124,7 @@ export class DaihonCaptionEditQueue {
                     }
                 }
             }
-            return this.limit(operation);
+            return timed ? this.limit(operation) : operation({ abandoned: false });
         });
         this.tail = result.then(() => undefined, () => undefined);
         return result;
@@ -135,6 +151,41 @@ export class DaihonCaptionEditQueue {
 
     private changed(id: string): void {
         try { this.onChange(id); } catch { /* 描画失敗を保存失敗として扱わない。 */ }
+    }
+}
+
+export class DaihonReloadQueue<T = void> {
+    private running = false;
+    private queued = false;
+    private scheduled = false;
+    private waiters: Array<{ resolve: (value: T) => void; reject: (error: unknown) => void }> = [];
+
+    constructor(private readonly reload: () => Promise<T>, private readonly canRun: () => boolean) {}
+
+    request(): Promise<T> {
+        this.queued = true;
+        const result = new Promise<T>((resolve, reject) => this.waiters.push({ resolve, reject }));
+        this.resume();
+        return result;
+    }
+
+    resume(): void {
+        if (!this.queued || this.running || this.scheduled || !this.canRun()) return;
+        this.scheduled = true;
+        queueMicrotask(() => {
+            this.scheduled = false;
+            if (!this.queued || this.running || !this.canRun()) return;
+            this.queued = false;
+            this.running = true;
+            const waiters = this.waiters.splice(0);
+            void this.reload().then(
+                value => waiters.forEach(waiter => waiter.resolve(value)),
+                error => waiters.forEach(waiter => waiter.reject(error))
+            ).finally(() => {
+                this.running = false;
+                this.resume();
+            });
+        });
     }
 }
 

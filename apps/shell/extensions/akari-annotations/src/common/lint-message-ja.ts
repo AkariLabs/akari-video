@@ -17,6 +17,8 @@ export const LINT_CHECK_JA: Readonly<Record<string, string>> = Object.freeze({
         'このクリップは PiP 経路へ退避されているため、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。',
     'captions.overlap':
         '字幕の表示時間が重なっています。タイムラインで字幕の開始・終了位置をずらしてください。',
+    'captions.cut-visibility':
+        '字幕が映像のカットでほとんど見えません（半分未満しか残っていません）。',
     'captions.output-domain-exceeds-duration':
         '出力時間の字幕が動画総尺を超えています。書き出しでは動画終端までにクランプして表示されます。',
     'cuts.track-overlap':
@@ -59,7 +61,7 @@ export function japaneseLintWarningSummary(
 }
 
 /**
- * 辞書にある check は日本語要約 + 従来の英語詳細、未知 check は従来文言そのまま。
+ * 辞書にある check は日本語要約 + 詳細を使い、日本語の詳細が十分な場合は重複を省く。
  */
 export function formatLintFailureForUi(
     prefix: string,
@@ -67,6 +69,12 @@ export function formatLintFailureForUi(
     findings: readonly UiLintFinding[] = []
 ): string {
     const detail = errors[0] ?? 'edit-lint error';
-    const summary = japaneseLintSummary(errors, findings);
+    const message = detail.replace(/^\[[^\]]+\]\s*/u, '');
+    if (/^\s*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(message)) {
+        return `${prefix}: ${message}`;
+    }
+    const firstFinding = findings.find(finding => finding.severity === 'error'
+        && `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}` === detail);
+    const summary = japaneseLintSummary([detail], firstFinding ? [firstFinding] : []);
     return summary ? `${prefix}: ${summary} 詳細: ${detail}` : `${prefix}: ${detail}`;
 }

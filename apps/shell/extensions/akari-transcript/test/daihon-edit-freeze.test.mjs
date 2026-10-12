@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { CaptionWriteQueue, captionTemporaryPath } = require('../../akari-annotations/lib/node/caption-write-queue.js');
-const { DaihonCaptionEditQueue, DaihonCaptionInput, decideDaihonCaptionEdit, shouldReloadDaihonChanges } =
+const { DaihonCaptionEditQueue, DaihonCaptionInput, DaihonReloadQueue, decideDaihonCaptionEdit, shouldReloadDaihonChanges } =
     require('../lib/common/daihon-caption-edit-queue.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
@@ -213,6 +213,44 @@ test('時間切れの処理が後で返っても履歴相当の副作用は取�
     assert.equal(historyPushes, 1);
 });
 
+test('打ち切った書き込みの取り戻しでは保存後の履歴を一度だけ記録する', async () => {
+    const queue = new DaihonCaptionEditQueue(10);
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let histories = 0;
+    const saving = queue.write('a', '本文', async attempt => {
+        await gate;
+        if (attempt.abandoned) return;
+    }, true, async () => { histories++; });
+    await assert.rejects(saving, /15 秒以内/u);
+    release();
+    await tick();
+    assert.equal(histories, 0);
+    await queue.write('b', '次', async () => undefined, true);
+    assert.equal(histories, 1);
+});
+
+test('取消の準備読取りが一度失敗しても、取り戻しで読み直して書き戻す', async () => {
+    const queue = new DaihonCaptionEditQueue(100);
+    let source = '途中保存';
+    let reads = 0;
+    let restoreSource;
+    const beforeWrite = async () => {
+        restoreSource = undefined;
+        if (++reads === 1) throw new Error('読取り失敗');
+        if (source !== '元') restoreSource = '元';
+    };
+    await assert.rejects(queue.write('a', '元', async () => {
+        if (restoreSource !== undefined) source = restoreSource;
+    }, true, undefined, beforeWrite), /読取り失敗/u);
+    assert.equal(source, '途中保存');
+    assert.equal(queue.get('a').unsaved, true);
+    await queue.write('b', '次', async () => undefined, true);
+    assert.equal(reads, 2);
+    assert.equal(source, '元');
+    assert.equal(queue.get('a').unsaved, false);
+});
+
 test('未保存の失敗通知は一度だけ出し、回復で解除し、次の失敗で再び出す', async () => {
     const notices = [];
     const queue = new DaihonCaptionEditQueue(100, () => undefined, event => notices.push(event));
@@ -236,6 +274,76 @@ test('時間切れとその後の再試行失敗も未保存通知を一つに�
     await assert.rejects(queue.write('a', '本文', never, true), /15 秒以内/u);
     await assert.rejects(queue.write('b', '次', async () => undefined, true), /15 秒以内/u);
     assert.deepEqual(notices, ['show']);
+});
+
+test('15 秒を超える再読込は保存の打ち切りと未保存通知を起こさない', async () => {
+    const notices = [];
+    const queue = new DaihonCaptionEditQueue(10, () => undefined, event => notices.push(event));
+    let release;
+    const reload = new DaihonReloadQueue(() => new Promise(resolve => { release = resolve; }), () => true);
+    await queue.write('a', '確定', async () => undefined, true);
+    const pending = reload.request();
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.deepEqual(notices, []);
+    assert.equal(queue.get('a').unsaved, false);
+    release();
+    await pending;
+});
+
+test('保存後の履歴用の読み取りが遅くても書き込み失敗にしない', async () => {
+    const notices = [];
+    const queue = new DaihonCaptionEditQueue(10, () => undefined, event => notices.push(event));
+    let release;
+    const saving = queue.write('a', '確定', async () => undefined, true,
+        () => new Promise(resolve => { release = resolve; }));
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.deepEqual(notices, []);
+    release();
+    await saving;
+    assert.equal(queue.get('a').unsaved, false);
+});
+
+test('保存前の読み取りが遅くても書き込み失敗にしない', async () => {
+    const notices = [];
+    const queue = new DaihonCaptionEditQueue(10, () => undefined, event => notices.push(event));
+    let release;
+    let writes = 0;
+    const saving = queue.write('a', '確定', async () => { writes++; }, true, undefined,
+        () => new Promise(resolve => { release = resolve; }));
+    await tick();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.deepEqual(notices, []);
+    assert.equal(writes, 0);
+    release();
+    await saving;
+    assert.equal(writes, 1);
+});
+
+test('ファイル監視と連続確定の再読込を一回にまとめ、実行中の追加要求は次の一回にする', async () => {
+    let runs = 0;
+    let release;
+    let allowed = false;
+    const reload = new DaihonReloadQueue(async () => {
+        runs++;
+        await new Promise(resolve => { release = resolve; });
+    }, () => allowed);
+    const first = [reload.request(), reload.request(), reload.request()];
+    await tick();
+    assert.equal(runs, 0);
+    allowed = true;
+    reload.resume();
+    await tick();
+    assert.equal(runs, 1);
+    const second = [reload.request(), reload.request()];
+    release();
+    await Promise.all(first);
+    await tick();
+    assert.equal(runs, 2);
+    release();
+    await Promise.all(second);
+    assert.equal(runs, 2);
 });
 
 test('同じ pid と時刻でも一時ファイル名は重複せず、.akari の有無で置き場を変える', () => {

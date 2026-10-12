@@ -881,6 +881,8 @@ export interface DeferredLintNotification {
     pass: boolean;
     errors: string[];
     writtenFiles?: string[];
+    existingFindingKeys?: string[];
+    findingKeys?: string[];
     findings: Array<{
         severity?: string;
         message?: string;

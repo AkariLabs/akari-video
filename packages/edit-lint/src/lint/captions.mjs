@@ -345,7 +345,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",
-            message: "less than 50% of the caption remains after cuts",
+            message: `字幕 ${caption.id ?? `captions[${index}]`} は映像のカットでほとんど見えません（半分未満しか残っていません）`,
             path: itemPath,
             range: { start: caption.start, end: caption.end },
           });
