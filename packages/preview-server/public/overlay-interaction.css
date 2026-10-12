@@ -18,7 +18,7 @@
 }
 .akari-interaction-rotation3d[data-akari-interaction] {
   position: fixed;
-  z-index: 2147483647;
+  z-index: 2147483646;
   overflow: visible;
   pointer-events: none;
   touch-action: none;
@@ -33,11 +33,6 @@
 .akari-interaction-rotation3d-hit {
   pointer-events: stroke;
   cursor: grab;
-  touch-action: none;
-}
-.akari-interaction-rotation3d-inner {
-  pointer-events: all;
-  cursor: move;
   touch-action: none;
 }
 [data-akari-ui=preview-marquee] {

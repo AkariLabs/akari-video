@@ -453,7 +453,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     }).filter(candidate => candidate.distance <= tolerance)
       .sort((a, b) => a.distance - b.distance);
     if (candidates.length) return candidates[0].axis;
-    return Math.hypot(x, y) < radius ? 'xy' : null;
+    return null;
   }
 
   function rotation3dValues(start, axis, pointerStart, pointerNow, radius, shift) {
@@ -467,8 +467,8 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       if (radians < -Math.PI) radians += Math.PI * 2;
       result.z = start.z - degrees(radians * 180 / Math.PI);
     } else {
-      if (axis === 'x' || axis === 'xy') result.x = start.x + degrees(dy / radius * 90);
-      if (axis === 'y' || axis === 'xy') result.y = start.y + degrees(dx / radius * 90);
+      if (axis === 'x') result.x = start.x + degrees(dy / radius * 90);
+      if (axis === 'y') result.y = start.y + degrees(dx / radius * 90);
     }
     return result;
   }
@@ -1689,6 +1689,155 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     return frame;
   }
 
+  // BEGIN selection-handle-placement
+  function rotation3dRingDistance(x, y, center, radius) {
+    if (!(radius > 0) || ![x, y, center?.x, center?.y].every(Number.isFinite)) return Infinity;
+    const dx = x - center.x, dy = y - center.y;
+    // 楕円の正規化距離から実距離の下限を得る。下限で判定すれば線に近い点を見逃さない。
+    return Math.min(...[[radius, radius], [radius, radius * .32], [radius * .32, radius]]
+      .map(([rx, ry]) => Math.abs(Math.hypot(dx / rx, dy / ry) - 1) * Math.min(rx, ry)));
+  }
+
+  function selectionHandlePlacement(rect, stageRect, paneRect, menuRects, controlsRect, viewportRect,
+    ringDistance = null) {
+    const bounds = value => ({ left: value.left, top: value.top,
+      right: value.left + value.width, bottom: value.top + value.height });
+    const stageBounds = bounds(stageRect), paneBounds = bounds(paneRect);
+    const viewport = bounds(viewportRect);
+    const visible = { left: Math.max(stageBounds.left, paneBounds.left, viewport.left),
+      top: Math.max(stageBounds.top, paneBounds.top, viewport.top),
+      right: Math.min(stageBounds.right, paneBounds.right, viewport.right),
+      bottom: Math.min(stageBounds.bottom, paneBounds.bottom, viewport.bottom) };
+    const intersects = (a, b) => a.left < b.right && a.right > b.left
+      && a.top < b.bottom && a.bottom > b.top;
+    const controls = controlsRect && bounds(controlsRect);
+    if (controls && intersects(visible, controls) && controls.bottom >= visible.bottom - 30)
+      visible.bottom = Math.min(visible.bottom, controls.top - 2);
+    if (visible.right - visible.left < 39 || visible.bottom - visible.top < 39) return null;
+    const original = bounds(rect);
+    if (original.left >= visible.left && original.top >= visible.top
+      && original.right <= visible.right && original.bottom <= visible.bottom) return null;
+    const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+    const menus = (Array.isArray(menuRects) ? menuRects : menuRects ? [menuRects] : [])
+      .filter(Boolean).map(bounds);
+    const overlapsMenu = (x, y, radius) => menus.some(menu => intersects(
+      { left: x - radius, top: y - radius, right: x + radius, bottom: y + radius }, menu));
+    const cornerRadius = 7;
+    const corners = {};
+    const anchors = {};
+    let left = clamp(original.left, visible.left + cornerRadius, visible.right - cornerRadius);
+    let right = clamp(original.right, visible.left + cornerRadius, visible.right - cornerRadius);
+    let top = clamp(original.top, visible.top + cornerRadius, visible.bottom - cornerRadius);
+    let bottom = clamp(original.bottom, visible.top + cornerRadius, visible.bottom - cornerRadius);
+    if (right - left < 25) {
+      left = clamp(left, visible.left + cornerRadius, visible.right - cornerRadius - 25);
+      right = left + 25;
+    }
+    if (bottom - top < 25) {
+      top = clamp(top, visible.top + cornerRadius, visible.bottom - cornerRadius - 25);
+      bottom = top + 25;
+    }
+    const topLimit = (top + bottom - 25) / 2;
+    const bottomLimit = (top + bottom + 25) / 2;
+    const clearCorner = (x, y, low, high) => {
+      const choices = [y, ...menus.flatMap(menu => [menu.top - cornerRadius - 2,
+        menu.bottom + cornerRadius + 2]), ...(ringDistance ? [low, high, (low + high) / 2] : [])]
+        .filter(candidate => candidate >= low && candidate <= high)
+        .sort((a, b) => Math.abs(a - y) - Math.abs(b - y));
+      const free = choices.filter(candidate => !overlapsMenu(x, candidate, cornerRadius));
+      if (!ringDistance) return free[0] ?? y;
+      return free.find(candidate => ringDistance(x, candidate) >= cornerRadius + 10)
+        ?? free.sort((a, b) => ringDistance(x, b) - ringDistance(x, a))[0] ?? y;
+    };
+    for (const name of ['nw', 'ne', 'se', 'sw']) {
+      const placedX = name.includes('w') ? left : right;
+      const placedY = name.includes('n')
+        ? clearCorner(placedX, top, visible.top + cornerRadius, topLimit)
+        : clearCorner(placedX, bottom, bottomLimit, visible.bottom - cornerRadius);
+      corners[name] = { x: placedX, y: placedY };
+      anchors[name] = { x: name.includes('w') ? original.right : original.left,
+        y: name.includes('n') ? original.bottom : original.top };
+    }
+    const radius = 12.5;
+    const centerX = clamp(rect.left + rect.width / 2,
+      visible.left + radius + 2, visible.right - radius - 2);
+    const centerY = clamp(rect.top + rect.height / 2,
+      visible.top + radius + 2, visible.bottom - radius - 2);
+    const candidates = [
+      { x: centerX, y: original.bottom + 25 },
+      { x: original.right + radius + 4, y: centerY },
+      { x: original.left - radius - 4, y: centerY },
+      { x: centerX, y: original.top - 25 },
+      { x: centerX, y: original.bottom - radius },
+      { x: centerX, y: original.top + radius },
+    ];
+    const fits = point => {
+      const button = { left: point.x - radius, top: point.y - radius,
+        right: point.x + radius, bottom: point.y + radius };
+      return button.left >= visible.left + 2 && button.right <= visible.right - 2
+        && button.top >= visible.top + 2 && button.bottom <= visible.bottom - 2
+        && !menus.some(menu => intersects(button, menu));
+    };
+    const safeLeft = visible.left + radius + 2;
+    const safeRight = visible.right - radius - 2;
+    const safeTop = visible.top + radius + 2;
+    const safeBottom = visible.bottom - radius - 2;
+    const fallbackX = [clamp(original.right + radius + 4, safeLeft, safeRight),
+      clamp(original.left - radius - 4, safeLeft, safeRight), centerX];
+    const fallbackY = [centerY, ...menus.flatMap(menu => [menu.top - radius,
+      menu.bottom + radius]), safeBottom, safeTop];
+    const fallback = fallbackX.flatMap(x => fallbackY.map(y => ({ x, y })));
+    const free = [...candidates, ...fallback].filter(fits);
+    const move = ringDistance
+      ? free.find(point => ringDistance(point.x, point.y) >= radius + 10)
+        ?? free.sort((a, b) => ringDistance(b.x, b.y) - ringDistance(a.x, a.y))[0]
+        ?? { x: centerX, y: centerY }
+      : candidates.find(fits) ?? fallback.find(fits) ?? { x: centerX, y: centerY };
+    return { visible, corners, anchors, move };
+  }
+  function resizePointerOffset(dragged, pointer, relocated) {
+    return relocated ? { x: dragged.x - pointer.x, y: dragged.y - pointer.y } : { x: 0, y: 0 };
+  }
+  // END selection-handle-placement
+
+  function placeSelectionHandles(rect, transform, focused, lineRect) {
+    if (!selectionFrame) return;
+    const pane = document.querySelector('.preview-pane');
+    const ringCenter = rotation3dFrame && !rotation3dFrame.hasAttribute('hidden')
+      ? { x: Number(rotation3dFrame.dataset.centerX), y: Number(rotation3dFrame.dataset.centerY) } : null;
+    const ringRadius = rotation3dFrame ? Number(rotation3dFrame.dataset.radius) : 0;
+    const ringDistance = isRotation3dItem(selectedOverlay) && ringCenter && ringRadius > 0
+      ? (x, y) => rotation3dRingDistance(x, y, ringCenter, ringRadius) : null;
+    const placement = !focused && !lineRect && !transform.rotate && pane
+      ? selectionHandlePlacement(rect, stage.getBoundingClientRect(), pane.getBoundingClientRect(),
+        window.akari.previewInteractionMenuRects,
+        document.querySelector('.transport-controls')?.getBoundingClientRect(),
+        { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }, ringDistance) : null;
+    for (const name of ['nw', 'ne', 'se', 'sw']) {
+      const handle = selectionFrame.querySelector(`.akari-interaction-handle.is-${name}`);
+      if (!handle) continue;
+      handle.style.removeProperty('left'); handle.style.removeProperty('right');
+      handle.style.removeProperty('top'); handle.style.removeProperty('bottom');
+      handle.style.removeProperty('transform');
+      delete handle.dataset.akariRelocated;
+      if (!placement) continue;
+      handle.style.left = `${placement.corners[name].x - rect.left}px`;
+      handle.style.top = `${placement.corners[name].y - rect.top}px`;
+      handle.style.transform = 'translate(-50%, -50%)';
+      handle.dataset.akariRelocated = 'true';
+    }
+    const move = selectionFrame.querySelector('.akari-interaction-action.is-move');
+    if (!move) return;
+    move.style.top = 'auto';
+    move.style.bottom = '-38px';
+    move.style.left = 'calc(50% + 2px)';
+    if (placement) {
+      move.style.top = `${placement.move.y - rect.top - 12.5}px`;
+      move.style.bottom = 'auto';
+      move.style.left = `${placement.move.x - rect.left - 12.5}px`;
+    }
+  }
+
   function refreshRotation3dFrame(rect) {
     const item = selectedOverlay;
     if (!rect || !isRotation3dItem(item) || !isMovable(item) || focusedElement()) {
@@ -1743,13 +1892,6 @@ function elementBoxCompanions(style, parentStyle, width, height) {
       hit.setAttribute('aria-label', `${axis.toUpperCase()} 軸を回転`);
       rotation3dFrame.appendChild(hit);
     };
-    const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    for (const [name, value] of Object.entries({ cx: origin, cy: origin, r: radius,
-      fill: 'transparent' })) inner.setAttribute(name, String(value));
-    inner.classList.add('akari-interaction-rotation3d-inner');
-    inner.setAttribute('data-akari-rotation-axis', 'xy');
-    inner.setAttribute('aria-label', 'X 軸と Y 軸を同時に回転');
-    rotation3dFrame.appendChild(inner);
     createEllipse('z', radius, radius, '#399bff');
     createEllipse('y', radius, radius * .32, '#35cb70');
     createEllipse('x', radius * .32, radius, '#f46060');
@@ -1935,6 +2077,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     selectionFrame.style.width = `${rect.width}px`;
     selectionFrame.style.height = `${rect.height}px`;
     selectionFrame.style.setProperty('--akari-line-end-inset', `${lineRect?.endPadding ?? 0}px`);
+    placeSelectionHandles(rect, transform, focused, lineRect);
     if (lineRect) {
       selectionFrame.style.transformOrigin = 'center';
       selectionFrame.style.transform = `rotate(${lineRect.angle}deg)`;
@@ -2220,6 +2363,7 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     selectionFrame.hidden = false;
     Object.assign(selectionFrame.style, { left: `${rect.left}px`, top: `${rect.top}px`,
       width: `${rect.width}px`, height: `${rect.height}px` });
+    placeSelectionHandles(rect, { rotate: activeRotate?.angle ?? 0 }, false, null);
   }
   let breadcrumbResizeObserver = null;
   let breadcrumbHoverActive = false;
@@ -3934,8 +4078,10 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     const pointer = stageLocalPoint(event.clientX, event.clientY);
     if (!anchor || !dragged || !pointer) return;
 
-    const pointerOffsetX = rotated ? dragged.x - pointer.x : 0;
-    const pointerOffsetY = rotated ? dragged.y - pointer.y : 0;
+    const offset = resizePointerOffset(dragged, pointer,
+      Boolean(rotated) || handleEl.dataset.akariRelocated === 'true');
+    const pointerOffsetX = offset.x;
+    const pointerOffsetY = offset.y;
     const startDistance = Math.hypot(pointer.x + pointerOffsetX - anchor.x,
       pointer.y + pointerOffsetY - anchor.y);
 
@@ -4616,7 +4762,8 @@ function elementBoxCompanions(style, parentStyle, width, height) {
     const rotation3dHandle = event.target instanceof Element
       ? event.target.closest('[data-akari-rotation-axis]') : null;
     if (rotation3dHandle && rotation3dFrame?.contains(rotation3dHandle)) {
-      beginRotation3d(event, rotation3dHandle);
+      if (event.altKey) beginLeafDrag(event, selectedOverlay);
+      else beginRotation3d(event, rotation3dHandle);
       return;
     }
 
