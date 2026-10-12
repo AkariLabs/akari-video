@@ -29852,9 +29852,6 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
     warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
   });
-  if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
-    throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
-  }
   const virtualCuts = cuts.map((cut) => {
     const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
     const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
@@ -38463,10 +38460,20 @@ function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   const declaredTracks = cuts.map((cut) => cut?.track).filter((value) => Number.isInteger(value) && value >= 0);
   const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
+  const cursorByTrack = /* @__PURE__ */ new Map();
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
     const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
-    const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
+    const cursor = cursorByTrack.get(track) ?? 0;
+    const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
+    const hasGap = track === 0 && explicitAt !== null && explicitAt > cursor + 1e-6;
+    const at2 = hasGap ? explicitAt : cursor;
+    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+    const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0 ? cut.freeze.duration_sec : 0;
+    const transition = cut.transition_out ?? cut.transitionOut;
+    const overlap = Number.isFinite(transition?.duration) && transition.duration > 0 ? transition.duration : 0;
+    cursorByTrack.set(track, at2 + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
+    const placement = track > 0 ? { track, ...explicitAt !== null ? { at: explicitAt } : {} } : hasGap ? { at: explicitAt } : {};
     return resolvedItemAdjust({
       ...sequential,
       ...placement,

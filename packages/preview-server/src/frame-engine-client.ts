@@ -242,10 +242,10 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     .map((cut: any) => cut?.track)
     .filter((value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0);
   const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
+  const cursorByTrack = new Map<number, number>();
   return cuts.map((cut: any, index: number) => {
-    // Track 0 (the main cuts chain) stays on the sequential frame-engine timeline: renderer
-    // projection includes derived at/track fields even for that path; remove them so freeze can
-    // extend the timeline and transition overlap is recomputed from the declared transition itself.
+    // Keep real gaps in the base chain, while derived adjacent placements remain sequential
+    // so freeze and declared transition overlap are recomputed by frame-engine.
     // Cuts on upper visual tracks (track >= 1) keep at/track so they are placed absolutely; stripping
     // them chained the clip after the main track and silently dropped it past the end (issue #31).
     // Z order is the frame-engine default (higher track number in front), same as the export runtimes.
@@ -254,9 +254,20 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     // 全カットが track 1 に載る編集で全部を絶対配置にしてしまい、freeze / transition の再計算が
     // 効かなくなる差を塞ぐ — task/2026-09-02-preview-perf: パリティ）。
     const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
+    const cursor = cursorByTrack.get(track) ?? 0;
+    const explicitAt = Number.isFinite(cut.at) && cut.at >= 0 ? Number(cut.at) : null;
+    const hasGap = track === 0 && explicitAt !== null && explicitAt > cursor + 1e-6;
+    const at = hasGap ? explicitAt : cursor;
+    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+    const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
+      ? cut.freeze.duration_sec : 0;
+    const transition = cut.transition_out ?? cut.transitionOut;
+    const overlap = Number.isFinite(transition?.duration) && transition.duration > 0
+      ? transition.duration : 0;
+    cursorByTrack.set(track, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
     const placement = track > 0
-      ? { track, ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {}) }
-      : {};
+      ? { track, ...(explicitAt !== null ? { at: explicitAt } : {}) }
+      : hasGap ? { at: explicitAt } : {};
     return resolvedItemAdjust({
       ...sequential,
       ...placement,

@@ -4,8 +4,15 @@ const normalizeLanguage = core?.normalizeLanguage ?? ((value) => typeof value ==
 const getLanguage = core?.getLanguage ?? (() => normalizeLanguage(process.env.AKARI_LANG ?? Intl.DateTimeFormat().resolvedOptions().locale));
 
 function catalog(language) {
-  try { return JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}/render.json`, import.meta.url), 'utf8')); }
-  catch { return {}; }
+  let base = {};
+  let local = {};
+  try { base = JSON.parse(readFileSync(new URL(`../../i18n/locales/${language}/render.json`, import.meta.url), 'utf8')); }
+  catch {}
+  try {
+    local = JSON.parse(readFileSync(new URL(`./locales/${language}.json`, import.meta.url), 'utf8'));
+  }
+  catch {}
+  return { ...base, ...local };
 }
 
 const catalogs = { ja: catalog('ja'), en: catalog('en') };

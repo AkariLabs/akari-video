@@ -130,6 +130,7 @@ export async function runVerifyStage({ reusableGpuVerification, plan, outputPath
     plan,
     inputs: state.provenance.sources,
     edit,
+    projectRoot,
     ffprobeCommand: capabilities.ffprobeCommand,
     ffmpegCommand: capabilities.ffmpegCommand,
     verifyBlank: options.verifyBlank,

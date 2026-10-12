@@ -30136,9 +30136,6 @@ void main() {
       warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
       warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
     });
-    if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
-      throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
-    }
     const virtualCuts = cuts.map((cut) => {
       const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
       const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
