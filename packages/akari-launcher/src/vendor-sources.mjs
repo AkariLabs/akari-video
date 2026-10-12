@@ -40,6 +40,9 @@ export const VENDOR_SOURCES = [
   'packages/akari-tools/bin/tools.mjs',
   'packages/akari-tools/src/common/main-module.mjs',
   'packages/akari-tools/src/media/common.mjs',
+  // bin/tools.mjs の install / status whisper が引く（akari tools install whisper）。
+  'packages/akari-tools/src/media/whisper-model.mjs',
+  'packages/akari-tools/src/media/whisper-model-candidates.mjs',
   'packages/akari-tools/src/i18n.mjs',
   'packages/akari-tools/package.json',
   'packages/akari-voice/src',
