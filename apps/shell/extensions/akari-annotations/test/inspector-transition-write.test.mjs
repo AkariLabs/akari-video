@@ -2,7 +2,7 @@ import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-v
 import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TRANSITION_VOCABULARY, cutOverlapFrames, areCutsAdjacent,
+import { cutOverlapFrames, areCutsAdjacent, transitionFamilyOf,
     planTransitionHandleWindow } from '@akari-video/edit-store';
 
 
@@ -12,8 +12,8 @@ import { setLanguage } from '@akari-video/i18n';
 import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
-const { transitionFields, cutSnapshot, timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
-const { transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest } = await import('../lib/browser/inspector/transition-fields.js');
+const { timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
+const { transitionDurationValue, transitionInspectorFields, createTransitionSelection } = await import('../lib/common/transition-selection-model.js');
 const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
 const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
 const { resolveBoundaryInDocument, validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
@@ -29,99 +29,67 @@ globalThis.i18n_1 = annotationI18n;
 test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
 test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
-test('transition select は「なし」+ 正準語彙の labelJa 配列順を使用する', () => {
-    const [row] = transitionFields(cutSnapshot(), () => {});
-    assert.equal(row.inputKind, 'select');
-    assert.equal(row.options.length, TRANSITION_VOCABULARY.length + 1);
-    assert.deepEqual(row.options, ['なし', ...TRANSITION_VOCABULARY.map(entry => entry.labelJa)]);
-    assert.equal(row.getValue(), 'なし');
-    for (const { id, labelJa } of TRANSITION_VOCABULARY) {
-        assert.equal(transitionOptionLabel(id), labelJa);
-        assert.equal(transitionTypeForLabel(labelJa), id);
-    }
-    assert.equal(transitionTypeForLabel('なし'), null);
-    assert.equal(transitionTypeForLabel('unknown'), undefined);
+const ref = { earlierItemId: 'cut-1', laterItemId: 'cut-2' };
+const selection = patch => createTransitionSelection({ ref,
+    earlier: { index: 1, name: 'A' }, later: { index: 2, name: 'B' }, locked: false, ...patch });
+
+test('transition boundary fields cover empty, unknown, blocked, locked and removal', () => {
+    const empty = transitionInspectorFields(selection());
+    assert.equal(empty.type.labelKey, 'transition.inspector.type.none');
+    assert.equal(empty.type.disabled, false);
+    assert.equal(empty.duration.disabled, true);
+    assert.equal(empty.remove, undefined);
+    const unknown = transitionInspectorFields(selection({ declaration: { type: 'future-kind', duration: 0.7 } }));
+    assert.equal(unknown.type.labelKey, 'transition.family.label.unknown');
+    assert.equal(unknown.type.disabled, false);
+    assert.equal(unknown.duration.disabled, true);
+    assert.equal(unknown.directions.length, 0);
+    assert.equal(unknown.remove.disabled, false);
+    const blocked = transitionInspectorFields(selection({ block: 'multi-track', declaration: { type: 'fade', duration: 0.5 } }));
+    assert.equal(blocked.type.disabled, true);
+    assert.equal(blocked.remove.disabled, false);
+    assert.equal(blocked.status.key, 'transition.boundary.dead.multiTrack');
+    assert.deepEqual(blocked.handles, []);
+    const locked = transitionInspectorFields(selection({ locked: true, declaration: { type: 'fade', duration: 0.5 } }));
+    assert.equal(locked.type.disabled, true);
+    assert.equal(locked.remove.disabled, true);
+    assert.equal(locked.status.key, 'transition.inspector.status.locked');
 });
 
-test('transition の未知種別は raw id を末尾に表示し、書き込み候補としては拒否する', async () => {
-    const snapshot = cutSnapshot({ transitionOut: { type: 'future-transition', duration: 0.7 } });
-    const [row, duration] = transitionFields(snapshot, async () => assert.fail('unknown write'));
-    assert.equal(row.options.at(-1), 'future-transition');
-    assert.equal(row.getValue(), 'future-transition');
-    assert.equal((await row.write(snapshot, 'future-transition')).ok, false);
-    assert.equal((await duration.write(snapshot, '1.2')).ok, false);
-    assert.equal(createCutTransitionWriteRequest(snapshot, 'transition-type', 'なし').value, null);
+test('transition duration clamps, rounds and resets; invalid input is rejected', () => {
+    assert.equal(transitionDurationValue(0.01), 0.1);
+    assert.equal(transitionDurationValue(3.8), 3);
+    assert.equal(transitionDurationValue(1.23), 1.25);
+    assert.equal(transitionDurationValue(null), 0.5);
+    assert.throws(() => transitionDurationValue('NaN'));
 });
 
-test('ディゾルブ選択は既定尺0.5、既存の尺があればその値を保持する', async () => {
-    const requests = [];
-    for (const duration of [undefined, 1.2]) {
-        const snapshot = cutSnapshot({ index: 2, ...(duration ? { transitionOut: { type: 'fade', duration } } : {}) });
-        const [row] = transitionFields(snapshot, async request => { requests.push(request); return { ok: true }; });
-        assert.deepEqual(await row.write(snapshot, 'ディゾルブ'), { ok: true });
-        assert.deepEqual(requests.at(-1), {
-            kind: 'cut-transition-out', index: 2, value: { type: 'dissolve', duration: duration ?? 0.5 }
-        });
-    }
-});
-
-test('transition 尺は1.2を書き、resetは0.5、「なし」はnullを書く', async () => {
-    const snapshot = cutSnapshot({ transitionOut: { type: 'dissolve', duration: 0.8 } });
-    const requests = [];
-    const [select, duration] = transitionFields(snapshot, async request => { requests.push(request); return { ok: true }; });
-    assert.deepEqual([duration.min, duration.max, duration.scrubStep, duration.displayPrecision, duration.unit], [0.1, 3, 0.05, 2, 's']);
-    await duration.write(snapshot, '1.2');
-    await duration.reset(snapshot);
-    await select.write(snapshot, 'なし');
-    assert.deepEqual(requests.map(request => request.value), [
-        { type: 'dissolve', duration: 1.2 }, { type: 'dissolve', duration: 0.5 }, null
-    ]);
-});
-
-test('transitionOut 未設定では尺だけ disabled、blocked なら両行 disabled と理由を表示する', async () => {
-    const rows = transitionFields(cutSnapshot(), () => {});
-    assert.equal(rows[0].disabled, false);
-    assert.equal(rows[1].disabled, true);
-    assert.equal(rows[1].title, 'トランジションを選ぶと変更できます');
-    for (const transitionOut of [undefined, { type: 'dissolve', duration: 0.5 }]) {
-        const snapshot = cutSnapshot({ transitionOut, transitionOutBlocked: '非隣接のため変更できません' });
-        const fields = transitionFields(snapshot, async () => assert.fail('blocked write'));
-        for (const row of fields) {
-            assert.equal(row.disabled, true);
-            assert.equal(row.title, snapshot.transitionOutBlocked);
-            assert.deepEqual(await row.write(snapshot, '1.2'), { ok: false, message: snapshot.transitionOutBlocked });
-        }
-    }
-});
-
-test('transition 尺の範囲外と非有限入力は ok:false で、境界値は書ける', async () => {
-    const snapshot = cutSnapshot({ transitionOut: { type: 'dissolve', duration: 0.5 } });
-    const requests = [];
-    const row = transitionFields(snapshot, async request => { requests.push(request); return { ok: true }; })[1];
-    for (const input of ['0', '0.09', '3.01', '-1', 'NaN', 'Infinity', '']) {
-        assert.deepEqual(await row.write(snapshot, input), {
-            ok: false, message: 'トランジション尺は 0.1〜3 秒の範囲で入力してください。'
-        });
-    }
-    assert.equal(requests.length, 0);
-    for (const input of ['0.1', '3']) assert.equal((await row.write(snapshot, input)).ok, true);
-});
-
-const handleWrite = timelineMethod('handleInspectorWrite');
-test('cut-transition-out は applyTransitionOut に委譲し、成功・拒否・通知をそのまま返す', async () => {
-    const request = createCutTransitionWriteRequest(cutSnapshot(), 'transition-type', 'ディゾルブ');
+const handleWrite = timelineMethod('handleInspectorWrite', { transitionFamilyOf });
+test('transition-boundary は applyTransitionOut に委譲し、成功・拒否・通知をそのまま返す', async () => {
+    const request = { kind: 'transition-boundary', ref, value: { type: 'dissolve', duration: 0.5 } };
     for (const result of [{ ok: true }, { ok: false, message: 'blocked' }, { ok: true, message: 'clamped' }]) {
         const calls = [];
         const context = { location: {}, editDocument: { tracks: [] },
-            async applyTransitionOut(...args) { calls.push(args); return result; } };
+            async applyTransitionOut(...args) { calls.push(args); return result; },
+            rememberTransitionDirection() {} };
         assert.deepEqual(await handleWrite.call(context, request), result);
-        assert.deepEqual(calls, [[request.index, request.value]]);
+        assert.deepEqual(calls, [[request.ref, request.value]]);
     }
     assert.deepEqual(await handleWrite.call({ location: {}, legacyReadOnly: true }, request), {
         ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。'
     });
     assert.deepEqual(await handleWrite.call({ location: {}, editDocument: { tracks: [] },
         async applyTransitionOut() { throw new Error('save failed'); } }, request), { ok: false, message: 'save failed' });
+});
+
+test('transition-boundary rejects out-of-range duration before writing', async () => {
+    for (const duration of [0, 0.09, 3.01, NaN, Infinity]) {
+        const result = await handleWrite.call({ location: {}, editDocument: { tracks: [] },
+            applyTransitionOut: () => assert.fail('invalid duration reached mutation') },
+        { kind: 'transition-boundary', ref, value: { type: 'dissolve', duration } });
+        assert.equal(result.ok, false);
+        assert.match(result.message, /0.1〜3/u);
+    }
 });
 
 const applyTransitionOut = timelineMethod('applyTransitionOut', {
@@ -166,6 +134,22 @@ test('applyTransitionOut は通常の保存・削除を ok:true で返す', asyn
     assert.equal(Object.hasOwn(context.document.tracks[0].items[0].source, 'transition_out'), false);
 });
 
+test('inspector request replaces an unknown type through applyTransitionOut and preserves its extra fields', async () => {
+    const context = transitionContext();
+    context.document.tracks[0].items[0].source.transition_out = {
+        type: 'future-kind', duration: 0.7, align: 'start'
+    };
+    context.location = { editUri: 'edit.json' };
+    context.editDocument = { tracks: [] };
+    context.applyTransitionOut = (...args) => applyTransitionOut.call(context, ...args);
+    context.rememberTransitionDirection = () => {};
+    const result = await handleWrite.call(context, { kind: 'transition-boundary', ref,
+        value: { type: 'wipe-right', duration: 0.5 } });
+    assert.equal(result.ok, true);
+    assert.deepEqual(context.document.tracks[0].items[0].source.transition_out,
+        { type: 'wipe-right', duration: 0.5, align: 'start' });
+});
+
 test('applyTransitionOut の複数トラック・非隣接ガードは保存せず ok:false と通知を返す', async () => {
     for (const patch of [{ compatibilityTimelineTracks: [{ kind: 'cuts' }, { kind: 'cuts' }] },
         { segments: [{ index: 0, itemId: 'cut-1', track: 0, tlStart: 0, tlEnd: 5 },
@@ -187,6 +171,13 @@ test('ロック中は「なしにする」も書き込まない', async () => {
     });
     assert.deepEqual(await applyTransitionOut.call(context, 0, null), { ok: false, message: 'unsupported' });
     assert.deepEqual(context.notices, ['unsupported']);
+});
+
+test('empty boundary Delete does not issue a write', async () => {
+    const remove = timelineMethod('removeActiveTransition');
+    const state = { activeBoundary: ref, cutItemIds: ['cut-1', 'cut-2'], segments: [],
+        applyTransitionOut: () => assert.fail('empty boundary must not write') };
+    assert.equal(await remove.call(state), false);
 });
 
 test('applyTransitionOut の clamp とゼロ重なりは ok:true + 通知を返す', async () => {
@@ -249,7 +240,7 @@ test('applyTransitionOut は実際の handle 計算で保存尺を決める', as
 test('transition の snapshot・kind 委譲・Promise 結果と picker 呼び出しが配線される', () => {
     assert.match(timelineSource, /transitionOutBlocked: this\.unsupportedTransitionMessage\(selection\.index\)/u);
     assert.match(timelineSource, /this\.unsupportedTransitionTrack\(selection\.index\) !== undefined\s*\|\| this\.nonAdjacentTransitionTarget\(selection\.index\) !== undefined/u);
-    assert.match(timelineSource, /request\.kind === 'cut-transition-out'[\s\S]*?return await this\.applyTransitionOut\(request\.index, request\.value\)/u);
+    assert.match(timelineSource, /request\.kind === 'transition-boundary'[\s\S]*?this\.applyTransitionOut\(request\.ref, request\.value\)/u);
     const body = timelineSource.slice(timelineSource.indexOf('protected async applyTransitionOut('), timelineSource.indexOf('protected nextSameTrackSegment('));
     assert.match(body, /Promise<\{ ok: boolean; message\?: string \}>/u);
     assert.match(body, /return \{ ok: false, message \}/u);

@@ -235,15 +235,12 @@ test('layer / item の動画タブにクロップ直後のパース（4 隅）8�
   }
 });
 
-test('cut の時間セクションに実働のトランジション選択・尺が一度だけ出る', () => {
+test('cut の時間セクションからトランジション選択・尺が外れる', () => {
   const sections = cutSections(cutSnapshot(), async () => ({ ok: true }));
   const time = sections.find(section => section.id === 'time');
   const rows = time.fields.filter(field => field.name.startsWith('transition-'));
-  assert.deepEqual(rows.map(field => [field.label, field.inputKind]), [
-    ['トランジション', 'select'], ['トランジション尺', 'scrub-number']
-  ]);
-  assert.ok(rows.every(field => typeof field.write === 'function'));
-  assert.equal(sections.flatMap(section => section.fields).filter(field => field.name?.startsWith('transition-')).length, 2);
+  assert.deepEqual(rows, []);
+  assert.equal(sections.flatMap(section => section.fields).filter(field => field.name?.startsWith('transition-')).length, 0);
 });
 
 test('パース左上Xの25%入力は数値部品を通り corners[0][0] = 0.25 を書く', async () => {

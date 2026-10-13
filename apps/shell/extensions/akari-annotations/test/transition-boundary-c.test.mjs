@@ -10,6 +10,8 @@ import { transitionWriteIsBlocked } from '../lib/common/transition-boundary-stat
 import { clampTransitionHandleForWrite, planCachedTransitionHandle, planFetchedTransitionHandle,
   planNoUriTransitionHandle } from '../lib/common/transition-handle-plan.js';
 import { updateItem } from '../lib/common/edit-v2-mutations.js';
+import { completeTimelineRange } from '../lib/common/timeline-range.js';
+import { timelineDeletePlan } from '../lib/common/timeline-delete-plan.js';
 
 const pair = (overrides = {}) => [
   { index: 0, itemId: 'a', track: 0, tlStart: 0, tlEnd: 5, ...overrides },
@@ -32,29 +34,39 @@ const widgetMethod = (name, dependencies = {}) => {
 
 test('selecting a boundary clears every deletion target without switching panels', () => {
   let panelSwitches = 0;
+  let durationFetches = 0;
   const state = {
     selection: { kind: 'cut', index: 0 }, multiSelection: [{ kind: 'cut', index: 0 }],
     selectedGap: { startFrames: 3 }, gapBand: { remove() {} },
     timelineRange: { inFrame: 1, outFrame: 3 }, selectionModel: { keyframeSelection: { times: [1] } },
     setTimelineRange(value) { this.timelineRange = value; }, clearMarqueeRange() {},
     applySelectionClass() {}, publishPrimaryPreviewSelection() {}, pushSelectionSnapshot() {},
+    transitionBoundaryCandidates: () => [{ ref: { earlierItemId: 'a', laterItemId: 'b' }, earlierIndex: 0 }],
+    cuts: [{ src: 'video' }], isStillImageCut: () => false, cutVideoUri: () => 'video.mp4',
+    videoDurationCache: new Map(), ensureVideoDurationFetch() { durationFetches++; this.videoDurationCache.set('video.mp4', 'pending'); },
     syncRightPane() { panelSwitches++; }, revealOutputPreview() { panelSwitches++; }
   };
-  widgetMethod('selectTransitionBoundary').call(state, { earlierItemId: 'a', laterItemId: 'b' });
+  const select = widgetMethod('selectTransitionBoundary', {
+    sameBoundary: (left, right) => left.earlierItemId === right.earlierItemId && left.laterItemId === right.laterItemId
+  });
+  select.call(state, { earlierItemId: 'a', laterItemId: 'b' });
+  select.call(state, { earlierItemId: 'a', laterItemId: 'b' });
   assert.equal(state.selection, undefined);
   assert.deepEqual(state.multiSelection, []);
   assert.equal(state.selectedGap, undefined);
   assert.deepEqual(state.timelineRange, {});
   assert.equal(state.selectionModel.keyframeSelection, undefined);
   assert.equal(panelSwitches, 0);
+  assert.equal(durationFetches, 1);
 });
 
 test('Delete on an active boundary removes its transition and never reaches clip deletion', async () => {
   let removed = 0;
   const state = { activeBoundary: { earlierItemId: 'a', laterItemId: 'b' },
+    timelineRange: {}, selectionModel: {}, multiSelection: [], autoRipple: false,
     removeActiveTransition: async () => { removed++; return true; },
     performDeleteSelected: () => { throw new Error('clip deletion reached'); } };
-  await widgetMethod('performTimelineDelete').call(state, false);
+  await widgetMethod('performTimelineDelete', { completeTimelineRange, timelineDeletePlan }).call(state, false);
   assert.equal(removed, 1);
 });
 

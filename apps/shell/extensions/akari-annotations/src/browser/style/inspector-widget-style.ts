@@ -1,5 +1,21 @@
 // 出所: akari-inspector-widget.ts の init()。CSS 文字列の変更時は関連テストも更新する。
 export const INSPECTOR_WIDGET_CSS = `
+.akari-inspector-transition { display: grid; gap: 7px; padding: 8px 12px 14px; min-width: 0; color: var(--akari-ink); }
+.akari-inspector-transition-heading { margin: 0; font-size: 13px; font-weight: 700; }
+.akari-inspector-transition-pair { margin: 0 0 4px; color: var(--akari-muted); font-size: 11px; }
+.akari-inspector-transition-strip { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; border-radius: 4px; }
+.akari-inspector-transition-row { min-width: 0; }
+.akari-inspector-widget .akari-inspector-transition-row .akari-inspector-row-label { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.akari-inspector-transition-value { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; flex-wrap: wrap; overflow-wrap: anywhere; text-align: right; }
+.akari-inspector-transition-value .akari-inspector-number-field { width: min(100%, 170px); min-width: 125px; }
+.akari-inspector-transition-type, .akari-inspector-transition-remove { white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.akari-inspector-transition-directions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.akari-inspector-transition-directions button, .akari-inspector-transition-reset { color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 4px; padding: 4px 7px; cursor: pointer; }
+.akari-inspector-transition-directions button[aria-pressed="true"] { background: var(--akari-elevated); border-color: var(--akari-accent); }
+.akari-inspector-transition-directions button:disabled, .akari-inspector-transition-reset:disabled { opacity: .55; cursor: default; }
+.akari-inspector-transition-status, .akari-inspector-transition-feedback { margin: 3px 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.akari-inspector-transition-status { color: var(--akari-muted); }
+.akari-inspector-transition-feedback[data-error="true"] { color: var(--akari-danger); }
 .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; }
 .akari-inspector-ai-group { min-width: 0; }
 .akari-inspector-widget .akari-inspector-ai-heading { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--akari-muted); }
@@ -1002,6 +1018,45 @@ export const INSPECTOR_WIDGET_CSS = `
     @container (max-width: 300px) {
         .akari-inspector-widget .akari-inspector-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
         .akari-inspector-widget .akari-adjust-preview-wheel-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .akari-inspector-widget .akari-inspector-transition { gap: 7px; }
+    .akari-inspector-widget .akari-inspector-transition-row { min-height: 30px; }
+    .akari-inspector-widget .akari-inspector-transition-type,
+    .akari-inspector-widget .akari-inspector-transition-remove {
+        box-sizing: border-box; width: auto; min-height: 28px; padding: 3px 9px;
+        border: 1px solid var(--akari-line); border-radius: 4px;
+        background: var(--akari-card); color: var(--akari-ink); font: inherit;
+        white-space: nowrap; cursor: pointer;
+    }
+    .akari-inspector-widget .akari-inspector-transition-type:disabled,
+    .akari-inspector-widget .akari-inspector-transition-remove:disabled { opacity: .55; cursor: default; }
+    .akari-inspector-widget .akari-inspector-transition-empty { color: var(--akari-muted); }
+    .akari-inspector-widget .akari-inspector-transition-directions { gap: 4px; }
+    .akari-inspector-widget .akari-inspector-transition-directions button {
+        box-sizing: border-box; min-width: 30px; min-height: 28px; padding: 3px 7px;
+        border: 1px solid var(--akari-line); border-radius: 4px;
+        background: var(--akari-card); color: var(--akari-ink); font: inherit; white-space: nowrap;
+    }
+    .akari-inspector-widget .akari-inspector-transition-directions button[aria-pressed="true"] {
+        background: var(--akari-elevated); border-color: var(--akari-accent);
+    }
+    .akari-inspector-widget .akari-inspector-transition-handle-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .akari-inspector-widget .akari-inspector-transition-handle-row .akari-inspector-row-label {
+        white-space: nowrap; overflow: visible; overflow-wrap: normal;
+    }
+    .akari-inspector-widget .akari-inspector-transition-handle-row .akari-inspector-transition-value {
+        white-space: nowrap;
+    }
+    .akari-inspector-widget .akari-inspector-transition-remove-row { display: flex; justify-content: flex-end; }
+    .akari-inspector-widget .akari-inspector-transition-feedback { margin: 0; }
+    @container (max-width: 300px) {
+        .akari-inspector-widget .akari-inspector-transition-handle-row { grid-template-columns: minmax(0, 1fr) auto; }
+        .akari-inspector-widget .akari-inspector-transition-handle-row .akari-inspector-row-label {
+            white-space: normal; overflow-wrap: anywhere;
+        }
     }
 
 `;

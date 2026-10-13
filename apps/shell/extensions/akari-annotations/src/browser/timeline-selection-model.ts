@@ -1,8 +1,10 @@
 import type { MaterialSwapTarget } from '../common/material-replacement';
+import type { TimelineTransitionSelection, TransitionBoundaryWriteRequest } from '../common/transition-selection-model';
+export type { TimelineTransitionSelection } from '../common/transition-selection-model';
 import type { ImageAiBinding } from '../common/image-ai-binding';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
-import type { EditAudioKeyframe, ReadableTransitionType, TransitionType } from '@akari-video/edit-store';
+import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionGlow, CaptionShadow, CaptionTextStyle, CaptionTextStylePatch, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
@@ -302,6 +304,7 @@ export type TimelineSelectionSnapshot =
     | TimelineItemSelectionSnapshot
     | TimelineWorldSelection
     | TimelineGapSelection
+    | TimelineTransitionSelection
     | TimelineMultiSelectionSnapshot
     | undefined;
 
@@ -365,7 +368,7 @@ type InspectorWriteOperation =
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | boolean | null;
     }
-    | { kind: 'cut-transition-out'; index: number; value: { type: TransitionType; duration: number } | null }
+    | TransitionBoundaryWriteRequest
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-audio-gain'; index: number; value: number | null }
     | { kind: 'cut-audio-mute'; index: number; value: boolean }
