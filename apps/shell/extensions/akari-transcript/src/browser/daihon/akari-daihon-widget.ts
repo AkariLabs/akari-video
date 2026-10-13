@@ -1,5 +1,5 @@
 import { t } from '../transcript-text';
-import { formatDate } from '@akari-video/i18n';
+import { formatDate, getLanguage, localizedPresetText, t as catalogText } from '@akari-video/i18n';
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
 import { currentTimelineEditUri, currentTimelineCaptionsUri, onActiveTimelineEditUriChange } from 'akari-annotations/lib/browser/active-timeline';
 import { isTimelineEditFileName } from 'akari-annotations/lib/common/timeline-files';
@@ -40,7 +40,6 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
     buildCaptionTimelineSegments,
-    CAPTION_SAMPLE_TEXT,
     getCaptionDisplayWordStyle,
     measureCaptionUnits,
     projectLegacyEdit,
@@ -2585,11 +2584,11 @@ export class AkariDaihonWidget extends BaseWidget {
         for (const item of presets.filter(preset => this.dockCategory === 'all' || preset.category === this.dockCategory)) {
             const card = document.createElement('button'); card.type = 'button';
             card.className = 'akari-daihon-tplcard'; card.dataset.presetId = item.id;
-            const preview = document.createElement('span'); preview.className = 'tprev'; preview.textContent = CAPTION_SAMPLE_TEXT;
+            const preview = document.createElement('span'); preview.className = 'tprev'; preview.textContent = catalogText('inspector.captionPanels.sample.captionText', {}, getLanguage());
             Object.assign(preview.style, presetCardStyle(item.style));
-            const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
+            const name = document.createElement('span'); name.className = 'tname'; name.textContent = localizedPresetText(TEXTSTYLE_CATALOG[item.id], 'name', getLanguage()) ?? item.name;
             card.append(preview, name);
-            card.addEventListener('click', () => void this.applyPreset(ids, item.id, item.name, true));
+            card.addEventListener('click', () => void this.applyPreset(ids, item.id, name.textContent ?? item.name, true));
             grid.appendChild(card);
         }
         this.dockBody.append(cats, grid);
@@ -2724,7 +2723,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const button = document.createElement('button'); button.type = 'button'; button.className = 'akari-daihon-tplcard';
             button.dataset.emphasisPreset = item.id; button.disabled = !spans.length;
             const preview = document.createElement('span'); preview.className = 'tprev';
-            preview.textContent = spans.map(span => span.word).join(t('transcript.daihon.editor.leadingMiddleDotTrailingText')).slice(0, 9) || CAPTION_SAMPLE_TEXT;
+            preview.textContent = spans.map(span => span.word).join(t('transcript.daihon.editor.leadingMiddleDotTrailingText')).slice(0, 9) || catalogText('inspector.captionPanels.sample.captionText', {}, getLanguage());
             Object.assign(preview.style, presetCardStyle(item.style));
             const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
             button.append(preview, name);
@@ -3251,7 +3250,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const preset = TEXTSTYLE_CATALOG[row.stylePreset];
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-tpl';
-            badge.textContent = `🎨 ${preset?.name ?? `${row.stylePreset}?`}`;
+            badge.textContent = `🎨 ${preset ? localizedPresetText(preset, 'name', getLanguage()) ?? preset.name : `${row.stylePreset}?`}`;
             if (!preset) badge.title = t('transcript.daihon.editor.templateIdMissingFromCatalogEditLintWarningTooltip');
             head.appendChild(badge);
         }
@@ -5044,7 +5043,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const fixed = ['neon', 'glitch', 'title-impact', 'emphasis-red'];
         const all = orderPresetsForPicker(TEXTSTYLE_CATALOG);
         const ids = [...fixed, ...all.filter(preset => preset.category !== 'subtitle' && !fixed.includes(preset.id)).map(preset => preset.id).slice(0, 1)];
-        return ids.flatMap(id => { const preset = TEXTSTYLE_CATALOG[id]; return preset ? [{ id, name: preset.name, style: preset.style }] : []; });
+        return ids.flatMap(id => { const preset = TEXTSTYLE_CATALOG[id]; return preset ? [{ id, name: localizedPresetText(preset, 'name', getLanguage()) ?? preset.name, style: preset.style }] : []; });
     }
 
     protected selectedRangeSpans(): Array<{ row: DaihonRow; src?: string; t_start: number; t_end: number; word: string }> {
@@ -5104,7 +5103,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     removeIds: emphasisIdsCovering(readEmphasisWords(source), spans) });
             });
             const preset = TEXTSTYLE_CATALOG[presetId];
-            this.notify(t('transcript.daihon.editor.rangesWithValuesNotice', { value1: spans.map(span => span.word).join(t('transcript.shared.list.separator')), value2: preset?.name ?? presetId, value3: spans.length }));
+            this.notify(t('transcript.daihon.editor.rangesWithValuesNotice', { value1: spans.map(span => span.word).join(t('transcript.shared.list.separator')), value2: preset ? localizedPresetText(preset, 'name', getLanguage()) ?? preset.name : presetId, value3: spans.length }));
             this.openWordBar();
         } catch (error) { this.notifyError(this.errorMessage(error)); }
     }

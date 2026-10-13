@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { previewBootstrapScript } from '../lib/browser/preview-script-bootstrap.js';
 import { readHandlerSource } from './helpers/handler-source.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -60,11 +63,28 @@ test('webview の 29 種は正準 previewKind から opacity / transform / clip 
   assert.match(source, /drawTransitionPixelize\(/);
 });
 
-test('未知・近似なし種別は合成領域の日本語ラベルへ配線される', () => {
+test('未知・近似なし種別は表示言語のラベルへ配線される', () => {
   assert.match(source, /id="transition-fallback-label"/);
-  assert.match(source, /transitionDefinition\?\.labelJa \|\| String\(window\.type\)/);
+  assert.match(source, /transitionLabels\[window\.type\] \|\| String\(window\.type\)/);
+  assert.match(source, /translate\(`inspector\.transitionFields\.preset\.\$\{entry\.id\.replace\(/);
+  assert.match(source, /getLanguage\(\)/);
   assert.match(source, /transitionFallbackLabel\.textContent = visual\.fallbackLabel/);
   assert.match(source, /transitionFallbackLabel\.dataset\.akariTransitionFallback/);
+});
+
+test('webview に渡す切り替え名は両言語で正本と一致する', () => {
+  const presets = readFileSync(join(here, '../../../../../presets/transitions/index.jsonl'), 'utf8')
+    .trim().split(/\r?\n/u).map(JSON.parse);
+  try {
+    for (const language of ['ja', 'en']) {
+      setLanguage(language);
+      const match = previewBootstrapScript().match(/const transitionLabels = (\{[^\n]+\});/u);
+      assert.ok(match);
+      const labels = JSON.parse(match[1]);
+      assert.deepEqual(TRANSITION_VOCABULARY.map(entry => labels[entry.id]),
+        presets.map(preset => language === 'ja' ? preset.name : preset.i18n.en.name));
+    }
+  } finally { setLanguage(undefined); }
 });
 
 test('窓音声は前後を線形クロスし二重無減衰にしない', () => {

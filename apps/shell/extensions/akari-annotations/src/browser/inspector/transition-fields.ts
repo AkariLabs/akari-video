@@ -1,13 +1,21 @@
-import { t } from '@akari-video/i18n';
+import { getLanguage, t } from '@akari-video/i18n';
 import { TRANSITION_VOCABULARY, isTransitionType, type TransitionType } from '@akari-video/edit-store';
 import type { InspectorWriteRequest, TimelineCutSelection } from '../timeline-selection-model';
 
 export function transitionOptionLabel(id: string | undefined): string {
-    return id === undefined ? t('inspector.transitionFields.label.none') : TRANSITION_VOCABULARY.find(entry => entry.id === id)?.labelJa ?? id;
+    if (id === undefined) return t('inspector.transitionFields.label.none');
+    const entry = TRANSITION_VOCABULARY.find(candidate => candidate.id === id);
+    return entry ? t(`inspector.transitionFields.preset.${entry.id.replace(/-([a-z])/gu, (_, letter: string) => letter.toUpperCase())}`, {}, getLanguage()) : id;
+}
+
+export function transitionCategoryLabel(category: string): string {
+    const entry = TRANSITION_VOCABULARY.find(candidate => candidate.category === category);
+    return entry ? t(`inspector.transitionFields.category.${entry.id.replace(/-([a-z])/gu, (_, letter: string) => letter.toUpperCase())}`, {}, getLanguage()) : category;
 }
 
 export function transitionTypeForLabel(label: string): TransitionType | null | undefined {
-    return label === t('inspector.transitionFields.label.none') ? null : TRANSITION_VOCABULARY.find(entry => entry.labelJa === label)?.id;
+    return label === t('inspector.transitionFields.label.none') ? null
+        : TRANSITION_VOCABULARY.find(entry => transitionOptionLabel(entry.id) === label)?.id;
 }
 
 export function createCutTransitionWriteRequest(

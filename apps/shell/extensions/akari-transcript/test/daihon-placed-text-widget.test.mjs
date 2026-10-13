@@ -507,6 +507,36 @@ test('ドックの「すべて」は先頭にテンプレなしを表示して�
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });
 
+test('字幕スタイルは両言語の名前と見本を表示し、同じ presetId を保存する', async () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const { TEXTSTYLE_CATALOG } = require('@akari-video/edit-store');
+  const calls = [];
+  const body = fakeNode();
+  const instance = widget({ dockBody: body, dockCategory: 'all',
+    async withHistory(_label, operation) { await operation(); },
+    annotationsService: { async setCaptionStylePreset(request) { calls.push(request); return { changed: 1 }; } } });
+  try {
+    for (const language of ['ja', 'en']) {
+      setLanguage(language);
+      body.replaceChildren();
+      instance.renderDockTemplates(['r1']);
+      const card = body.children[1].children.find(node => node.dataset.presetId === 'subtitle-news');
+      assert.ok(card);
+      assert.equal(card.children[0].textContent, language === 'ja' ? 'あア12' : 'Aa12');
+      assert.equal(card.children[1].textContent,
+        language === 'ja' ? TEXTSTYLE_CATALOG['subtitle-news'].name : TEXTSTYLE_CATALOG['subtitle-news'].i18n.en.name);
+      await instance.applyPreset(['r1'], card.dataset.presetId, card.children[1].textContent, true);
+    }
+    assert.deepEqual(calls.map(({ captionIds, presetId }) => ({ captionIds, presetId })), [
+      { captionIds: ['r1'], presetId: 'subtitle-news' }, { captionIds: ['r1'], presetId: 'subtitle-news' }
+    ]);
+  } finally {
+    setLanguage('ja');
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+  }
+});
+
 test('rowShortcut の clear は選択を外して開いたドックを閉じる', () => {
   const editor = fakeNode(); editor.classList.add('open');
   const calls = [];

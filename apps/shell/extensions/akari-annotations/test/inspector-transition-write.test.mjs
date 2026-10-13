@@ -2,7 +2,8 @@ import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-v
 import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TRANSITION_VOCABULARY, cutOverlapFrames, areCutsAdjacent } from '@akari-video/edit-store';
+import { readFileSync } from 'node:fs';
+import { TRANSITION_CATEGORIES, TRANSITION_VOCABULARY, cutOverlapFrames, areCutsAdjacent } from '@akari-video/edit-store';
 
 
 
@@ -12,7 +13,7 @@ import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
 const { transitionFields, cutSnapshot, timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
-const { transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest } = await import('../lib/browser/inspector/transition-fields.js');
+const { transitionCategoryLabel, transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest } = await import('../lib/browser/inspector/transition-fields.js');
 const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
 const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
 
@@ -35,6 +36,28 @@ test('transition select は「なし」+ 正準語彙の labelJa 配列順を使
     }
     assert.equal(transitionTypeForLabel('なし'), null);
     assert.equal(transitionTypeForLabel('unknown'), undefined);
+});
+
+test('transition の表示名はプリセット正本と両言語で一致し、保存する type は同じ', async () => {
+    const presets = readFileSync(new URL('../../../../../presets/transitions/index.jsonl', import.meta.url), 'utf8')
+        .trim().split(/\r?\n/u).map(JSON.parse);
+    assert.deepEqual(TRANSITION_VOCABULARY.map(entry => entry.id), presets.map(entry => entry.id));
+    const writes = [];
+    for (const language of ['ja', 'en']) {
+        setLanguage(language);
+        const [row] = transitionFields(cutSnapshot(), async request => { writes.push(request); return { ok: true }; });
+        assert.deepEqual(row.options.slice(1), presets.map(preset => language === 'ja' ? preset.name : preset.i18n.en.name));
+        assert.deepEqual(TRANSITION_CATEGORIES.map(transitionCategoryLabel),
+            [...new Map(presets.map(preset => [preset.category, language === 'ja' ? preset.category : preset.i18n.en.category])).values()]);
+        for (const preset of presets) {
+            const label = language === 'ja' ? preset.name : preset.i18n.en.name;
+            assert.equal(transitionTypeForLabel(label), preset.id);
+            assert.deepEqual(await row.write(cutSnapshot(), label), { ok: true });
+            assert.deepEqual(writes.at(-1).value, { type: preset.id, duration: 0.5 });
+        }
+    }
+    assert.deepEqual(writes.slice(0, presets.length), writes.slice(presets.length));
+    setLanguage('ja');
 });
 
 test('transition の未知種別は raw id を末尾に表示し、書き込み候補としては拒否する', async () => {

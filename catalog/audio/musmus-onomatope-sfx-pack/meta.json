@@ -7,7 +7,7 @@
   "i18n": {
     "en": {
       "title": "MusMus Electronic Onomatopoeia SFX Pack",
-      "description": "A 16-item set of short pop and click electronic sounds (beeps, pops, trills, chimes, etc.), yes/no judgment tones, a scissor snip, mechanical operation sounds, and alert cues. Includes 16 items. Under audio-standard, 4 of 10 sounds participate; the local index.jsonl standard flag identifies them, and sfx-curation.json in the internal repository is authoritative.",
+      "description": "A 16-item set of short pop and click electronic sounds (beeps, pops, trills, chimes, etc.), yes/no judgment tones, a scissor snip, mechanical operation sounds, and alert cues. Includes 16 items. Under audio-standard, 4 of 10 sounds participate; the local index.jsonl standard flag identifies them.",
       "when_to_use": "For light UI operation sounds, yes/no judgments, mechanical operations or switching, and chime notifications."
     }
   },

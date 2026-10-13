@@ -7,7 +7,7 @@
   "i18n": {
     "en": {
       "title": "Pocket Sound Failure SFX (Disappointed Chime / Death / Dramatic Fail)",
-      "description": "Three standard mishap or failure cues: a disappointed chime, a game-death sound, and a dramatic failure sting. Includes 3 items. Under audio-standard, 1 of 3 sounds participates; the local index.jsonl standard flag identifies it, and sfx-curation.json in the internal repository is authoritative.",
+      "description": "Three standard mishap or failure cues: a disappointed chime, a game-death sound, and a dramatic failure sting. Includes 3 items. Under audio-standard, 1 of 3 sounds participates; the local index.jsonl standard flag identifies it.",
       "when_to_use": "For pratfalls or comic retorts (chin), defeat or exit (deathse), and an out or failure verdict (deden)."
     }
   },

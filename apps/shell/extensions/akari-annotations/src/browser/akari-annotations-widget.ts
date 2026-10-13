@@ -1,5 +1,6 @@
 import { pluralCountForDisplay } from '../common/plural-display-count';
 import { t } from '@akari-video/i18n';
+import { transitionCategoryLabel, transitionOptionLabel } from './inspector/transition-fields';
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { adjacentEditPoint, timelineEditPoints, type EditPointTrack } from '../common/timeline-edit-points';
@@ -660,7 +661,6 @@ const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
 const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY.map(entry => ({
     type: entry.id,
-    label: entry.labelJa,
     category: entry.category,
     glyph: entry.glyph
 }));
@@ -12755,7 +12755,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     color: '#fff'
                 });
                 badge.textContent = option?.glyph ?? '✨';
-                badge.title = `${option?.label ?? boundary.transitionOut.type} `
+                badge.title = `${option ? transitionOptionLabel(option.type) : boundary.transitionOut.type} `
                     + t('annotations.timeline.text.sClickToEdit', { duration: boundary.transitionOut.duration.toFixed(2) });
             } else {
                 Object.assign(badge.style, {
@@ -12845,7 +12845,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const categorySection = document.createElement('section');
                 categorySection.dataset.akariTransitionCategory = category;
                 const categoryHeading = document.createElement('div');
-                categoryHeading.textContent = category;
+                categoryHeading.textContent = transitionCategoryLabel(category);
                 categoryHeading.style.opacity = '.72';
                 categoryHeading.style.marginTop = '2px';
                 categorySection.appendChild(categoryHeading);
@@ -12857,7 +12857,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
-                    button.textContent = option.label;
+                    button.textContent = transitionOptionLabel(option.type);
                     button.style.padding = '3px 4px';
                     button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
                     button.dataset.akariTransitionType = option.type;
