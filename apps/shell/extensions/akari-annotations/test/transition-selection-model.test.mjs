@@ -50,6 +50,29 @@ test('inspector status uses the existing reason in priority order and hides bloc
     assert.equal(transitionInspectorFields(snapshot(handles)).handles.length, 2);
 });
 
+test('freeze messages report known sides separately and omit unavailable boundaries', () => {
+    const placement = { state: 'ok', effectiveSeconds: 1, reasons: [], legacyOverlap: false,
+        freezeIncomingSeconds: 0.2, freezeOutgoingSeconds: 0.3, freezeOutgoingUnknown: false };
+    const fields = patch => transitionInspectorFields(snapshot({ declaration: { type: 'fade', duration: 1 },
+        placement: { ...placement, ...patch } }));
+    assert.deepEqual(fields({}).freezeMessages, [
+        { key: 'transition.fill.status.outgoing', args: { index: 2, seconds: '0.30' } },
+        { key: 'transition.fill.status.outgoingHint' },
+        { key: 'transition.fill.status.incoming', args: { index: 3, seconds: '0.20' } }
+    ]);
+    assert.deepEqual(fields({ freezeIncomingSeconds: 0 }).freezeMessages.map(message => message.key),
+        ['transition.fill.status.outgoing', 'transition.fill.status.outgoingHint']);
+    assert.deepEqual(fields({ freezeOutgoingSeconds: 0 }).freezeMessages.map(message => message.key),
+        ['transition.fill.status.incoming']);
+    assert.deepEqual(fields({ freezeOutgoingUnknown: true }).freezeMessages.map(message => message.key),
+        ['transition.fill.status.incoming']);
+    assert.deepEqual(fields({ state: 'dead' }).freezeMessages, []);
+    assert.deepEqual(fields({ legacyOverlap: true }).freezeMessages, []);
+    assert.deepEqual(transitionInspectorFields(snapshot({ placement })).freezeMessages, []);
+    assert.deepEqual(transitionInspectorFields(snapshot({ declaration: { type: 'fade', duration: 1 },
+        placement, block: 'gap' })).freezeMessages, []);
+});
+
 test('only directional arrows use symbols; other directions show translated names', () => {
     const panel = readFileSync(new URL('../src/browser/inspector/transition-panel.ts', import.meta.url), 'utf8');
     assert.match(panel, /button\.textContent = direction\.symbol \?\? t\(direction\.labelKey\)/u);

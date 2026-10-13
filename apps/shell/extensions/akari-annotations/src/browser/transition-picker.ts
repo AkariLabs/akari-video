@@ -17,6 +17,7 @@ export interface TransitionPickerOptions {
     rememberedDirection: (family: TransitionFamily) => TransitionDirection | undefined;
     apply: (type: TransitionType) => Promise<boolean>;
     remove: () => Promise<boolean>;
+    fill?: () => void;
     reveal: () => void;
     closed: () => void;
 }
@@ -35,7 +36,7 @@ export function initialTransitionPickerFocusFamily(
     return currentFamily && availableFamilies.includes(currentFamily) ? currentFamily : undefined;
 }
 
-function visibleFrameRect(frame: Element): PickerFrameRect | undefined {
+export function visibleFrameRect(frame: Element): PickerFrameRect | undefined {
     const bounds = frame.getBoundingClientRect();
     const rect = { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom };
     for (let parent: Element | null = frame; parent; parent = parent.parentElement) {
@@ -251,6 +252,15 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
             remove.textContent = t('transition.picker.action.remove');
             remove.addEventListener('click', () => void options.remove().then(ok => { if (ok) close(); }));
             footer.appendChild(remove);
+            if (options.blockedReason && options.fill) {
+                const fill = document.createElement('button');
+                fill.type = 'button';
+                fill.className = 'theia-button secondary';
+                fill.dataset.akariTransitionPickerFill = 'true';
+                fill.textContent = t('transition.fill.action.fill');
+                fill.addEventListener('click', () => options.fill?.());
+                footer.appendChild(fill);
+            }
             if (!options.blockedReason) {
                 const reveal = document.createElement('button');
                 reveal.type = 'button';

@@ -16,6 +16,7 @@ const LINT_CHECK_KEYS: Readonly<Record<string, string>> = Object.freeze({
     'cuts.transition-out.unknown-align': 'lint-messages.cuts.transition.unknownAlignCheck',
     'cuts.transition-out.unknown-fill': 'lint-messages.cuts.transition.unknownFillCheck',
     'cuts.transition-out.shortened': 'lint-messages.cuts.transition.shortenedCheck',
+    'cuts.transition-out.freeze': 'lint-messages.cuts.transition.freezeCheck',
     'cuts.transition-out.zero-overlap': 'lint.check.cuts.transitionOutZeroOverlap',
     'cuts.transition-out.layer-evacuated': 'lint.check.cuts.transitionOutLayerEvacuated',
     'captions.overlap': 'lint.check.captions.overlap',

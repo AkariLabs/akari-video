@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import { planTrackTransitions, transitionPlanClipsFromCuts } from '@akari-video/edit-store';
 
 import { computeCutBoundaryCandidates } from '../lib/common/cut-boundaries.js';
 import { resolveBoundaryInDocument, validateTransitionBoundaryWrite } from '../lib/common/transition-boundary-write.js';
 import { mergeTransitionDeclaration, primaryBoundaryBlock } from '../lib/common/transition-boundary-model.js';
 import { transitionWriteIsBlocked } from '../lib/common/transition-boundary-state.js';
-import { transitionWritePlan, transitionMaterialDuration } from '../lib/common/transition-write-plan.js';
+import { transitionMaterialDuration } from '../lib/common/transition-write-plan.js';
+import { decideTransitionWrite } from '../lib/common/transition-fill-write.js';
+import { transitionFreezeSnapshot, transitionFreezeGrowth } from '../lib/common/transition-freeze-growth.js';
 import { updateItem } from '../lib/common/edit-v2-mutations.js';
 import { completeTimelineRange } from '../lib/common/timeline-range.js';
 import { timelineDeletePlan } from '../lib/common/timeline-delete-plan.js';
@@ -34,7 +37,10 @@ const widgetMethod = (name, dependencies = {}) => {
 test('selecting a boundary clears every deletion target without switching panels', () => {
   let panelSwitches = 0;
   let durationFetches = 0;
+  const savedBytes = JSON.stringify(documentWithPair());
   const state = {
+    editDocument: documentWithPair(),
+    commitEditMutation() { assert.fail('selection must not save'); },
     selection: { kind: 'cut', index: 0 }, multiSelection: [{ kind: 'cut', index: 0 }],
     selectedGap: { startFrames: 3 }, gapBand: { remove() {} },
     timelineRange: { inFrame: 1, outFrame: 3 }, selectionModel: { keyframeSelection: { times: [1] } },
@@ -57,6 +63,7 @@ test('selecting a boundary clears every deletion target without switching panels
   assert.equal(state.selectionModel.keyframeSelection, undefined);
   assert.equal(panelSwitches, 0);
   assert.equal(durationFetches, 1);
+  assert.equal(JSON.stringify(state.editDocument), savedBytes);
 });
 
 test('Delete on an active boundary removes its transition and never reaches clip deletion', async () => {
@@ -157,8 +164,8 @@ test('queued transition mutation rejects a moved clip and an inserted clip at wr
   const ref = { earlierItemId: 'a', laterItemId: 'b' };
   const apply = widgetMethod('applyTransitionOut', {
     validateTransitionBoundaryWrite, transitionWriteIsBlocked, resolveBoundaryInDocument,
+    transitionFreezeSnapshot, transitionFreezeGrowth,
     primaryBoundaryBlock, chooseTransitionAlign: () => ({ align: 'center' }),
-    transitionWritePlan: ({ duration }) => ({ duration, align: null, roomOutcome: 'full', roomSeconds: duration }),
     cutOverlapFrames: () => 0, t: key => key
   });
   for (const change of [
@@ -216,10 +223,40 @@ test('saved duration keeps the prior unknown, unavailable, and missing-URI rules
         tailRoomSeconds: duration === undefined ? undefined : Math.max(0, duration - 5) },
       { id: 'b', startSeconds: 5, lengthSeconds: 5, headRoomSeconds: head, tailRoomSeconds: 5 }
     ];
-    return transitionWritePlan({ clips, earlierId: 'a', duration: 0.5, fps: 30, explicitAlign: align }).duration;
+    return decideTransitionWrite({ clips, earlierId: 'a', fps: 30,
+      request: { type: 'fade', duration: 0.5, align } }).patch.duration;
   };
   assert.equal(write('media.mp4', undefined), 0.5);
   assert.equal(write('media.mp4', 'unavailable'), 0.5);
   assert.equal(write(undefined, undefined), 0.5);
-  assert.equal(write('media.mp4', 10, 0.1, 'center'), 0.2);
+  assert.equal(write('media.mp4', 10, 0.1, 'center'), 0.5);
+});
+
+test('live and document transition plans carry raw fill and ignore known outgoing shortages', () => {
+  const cuts = [
+    { in: 0, out: 5, at: 0, src: 'a', transitionOut: { type: 'fade', duration: 0.5 } },
+    { in: 0, out: 5, at: 5, src: 'b' }
+  ];
+  const raw = { align: 'after-cut', fill: 'freeze' };
+  const state = { cuts, cutItemIds: ['a', 'b'], fps: 30, transitionPlanRevision: 0,
+    rawV2Item: id => id === 'a' ? { source: { transition_out: raw } } : undefined,
+    isStillImageCut: () => false, cutVideoUri: cut => `${cut.src}.mp4`,
+    videoDurationCache: new Map([['a.mp4', 5.2], ['b.mp4', 5]]) };
+  const dependencies = { transitionPlanClipsFromCuts, transitionMaterialDuration, planTrackTransitions };
+  const live = widgetMethod('transitionPlans', dependencies).call(state);
+  assert.equal(live.tracks[0].clips[0].transitionOut.fill, true);
+  assert.equal(live.plans[0].state, 'ok');
+  assert.ok(Math.abs(live.plans[0].freezeOutgoingSeconds - 0.3) < 1e-9);
+
+  const internal = { tracks: [{ items: [
+    { id: 'a', legacy: { collection: 'cuts', index: 0 }, declaration: { transition_out: raw } },
+    { id: 'b', legacy: { collection: 'cuts', index: 1 }, declaration: {} }
+  ] }] };
+  const document = widgetMethod('transitionPlanInDocument', { ...dependencies,
+    stringifyEditV2: () => '', projectLegacyEdit: () => ({ cuts }) });
+  const result = document.call({ ...state, readEdit: () => internal }, {},
+    { earlierItemId: 'a', laterItemId: 'b' });
+  assert.equal(result.track.clips[0].transitionOut.fill, true);
+  assert.equal(result.plans[0].state, 'ok');
+  assert.ok(Math.abs(result.plans[0].freezeOutgoingSeconds - 0.3) < 1e-9);
 });

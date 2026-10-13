@@ -90,6 +90,7 @@ test('all known lint checks and detail label are translated in English', () => {
     const checks = [
       'cuts.track-transition-unsupported', 'cuts.transition-out.non-adjacent',
       'cuts.transition-out.zero-overlap', 'cuts.transition-out.layer-evacuated',
+      'cuts.transition-out.freeze',
       'captions.overlap', 'captions.output-domain-exceeds-duration',
       'cuts.track-overlap', 'references.files', 'overlays.timeline', 'audio.sfx.timeline'
     ];

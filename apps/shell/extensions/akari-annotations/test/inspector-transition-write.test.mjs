@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cutOverlapFrames, areCutsAdjacent, transitionFamilyOf,
     planTrackTransitions, chooseTransitionAlign, isTransitionAlign, isTransitionType,
-    readInternalEdit, projectLegacyEdit, transitionPlanClipsFromCuts } from '@akari-video/edit-store';
+    readInternalEdit, projectLegacyEdit, transitionPlanClipsFromCuts,
+    transitionFamilyLabelKey, TRANSITION_UNKNOWN_LABEL_KEY } from '@akari-video/edit-store';
 
 
 
@@ -21,7 +22,12 @@ const { formatTransitionSeconds, roundTransitionDurationForWrite } = await impor
 const { resolveBoundaryInDocument, validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
 const { primaryBoundaryBlock, mergeTransitionDeclaration } = await import('../lib/common/transition-boundary-model.js');
 const { transitionWriteIsBlocked } = await import('../lib/common/transition-boundary-state.js');
-const { transitionWritePlan, transitionDeclarationPatch, transitionMaterialDuration } = await import('../lib/common/transition-write-plan.js');
+const { transitionDeclarationPatch, transitionMaterialDuration } = await import('../lib/common/transition-write-plan.js');
+const { decideTransitionWrite, refreshedTransitionConfirmation, compareTransitionConfirmation,
+    confirmedTransitionPatch,
+    transitionFillBodyKey } = await import('../lib/common/transition-fill-write.js');
+const { transitionFreezeSnapshot, transitionFreezeGrowth } = await import('../lib/common/transition-freeze-growth.js');
+let askResponse = false;
 
 
 setAnnotationLanguage('ja');
@@ -104,6 +110,18 @@ test('transition-boundary は applyTransitionOut に委譲し、成功・拒否�
     });
     assert.deepEqual(await handleWrite.call({ location: {}, editDocument: { tracks: [] },
         async applyTransitionOut() { throw new Error('save failed'); } }, request), { ok: false, message: 'save failed' });
+});
+
+test('inspector omits the caption notice from feedback while footer keeps it', async () => {
+    const context = transitionContext({ hasCaptionDisplayPolicy: true });
+    context.document.tracks[0].items[0].source.transition_out = { type: 'fade', duration: 0.5 };
+    context.editDocument = context.document;
+    context.applyTransitionOut = (...args) => applyTransitionOut.call(context, ...args);
+    const result = await handleWrite.call(context, { kind: 'transition-boundary', ref,
+        value: { type: 'fade', duration: 0.7 } });
+    assert.equal(result.ok, true);
+    assert.equal(result.message, undefined);
+    assert.match(context.footer.textContent, /字幕の出し方/u);
 });
 
 test('transition-boundary rejects out-of-range duration before writing', async () => {
@@ -189,9 +207,16 @@ test('transition snapshot only reports measured outgoing room and keeps readable
 const applyTransitionOut = timelineMethod('applyTransitionOut', {
     updateV2Item, cutOverlapFrames, areCutsAdjacent, formatTransitionSeconds, roundTransitionDurationForWrite,
     validateTransitionBoundaryWrite, resolveBoundaryInDocument, primaryBoundaryBlock,
-    transitionDeclarationPatch, transitionWritePlan, chooseTransitionAlign,
-    transitionWriteIsBlocked, isTransitionType,
+    transitionDeclarationPatch, chooseTransitionAlign,
+    transitionWriteIsBlocked, isTransitionType, decideTransitionWrite,
+    refreshedTransitionConfirmation, compareTransitionConfirmation, confirmedTransitionPatch,
+    transitionFreezeSnapshot, transitionFreezeGrowth, transitionFillBodyKey,
+    transitionFamilyOf, transitionFamilyLabelKey, TRANSITION_UNKNOWN_LABEL_KEY,
+    createTransitionFillAsk: () => ({ result: Promise.resolve(askResponse), close() {} }),
     ZERO_OVERLAP_TRANSITION_MESSAGE: () => 'zero overlap'
+});
+const applyLibraryTransitionDrop = timelineMethod('applyLibraryTransitionDrop', {
+    TRANSITION_DEFAULT_DURATION_SECONDS: 0.5
 });
 const transitionPlanInDocument = timelineMethod('transitionPlanInDocument', {
     stringifyEditV2: JSON.stringify, projectLegacyEdit, transitionPlanClipsFromCuts,
@@ -256,6 +281,120 @@ test('applyTransitionOut は通常の保存・削除を ok:true で返す', asyn
     assert.equal(Object.prototype.hasOwnProperty.call(context.document.tracks[0].items[0].source, 'transition_out'), false);
 });
 
+test('confirmation cancellation leaves source bytes and undo history untouched; approval saves once', async () => {
+    const context = transitionContext({ tailRoom: 0,
+        cuts: [{ in: 0, out: 5 }, { in: 0, out: 5 }], saves: 0,
+        selectTransitionBoundary() {}, transitionBoundaryElement: () => ({}),
+        async commitEditMutation(_label, mutate) { this.saves++; this.document = mutate(this.document); }
+    });
+    context.editDocument = context.document;
+    const before = JSON.stringify(context.document);
+    askResponse = false;
+    const cancelled = await applyTransitionOut.call(context, 0, { type: 'fade', duration: 0.5 });
+    assert.equal(cancelled.ok, false);
+    assert.equal(cancelled.message, annotationT('transition.fill.notice.cancelled'));
+    assert.equal(JSON.stringify(context.document), before);
+    assert.equal(context.saves, 0);
+    askResponse = true;
+    const approved = await applyTransitionOut.call(context, 0, { type: 'fade', duration: 0.5 });
+    assert.equal(approved.ok, true);
+    assert.equal(context.saves, 1);
+    assert.equal(context.document.tracks[0].items[0].source.transition_out.duration, 0.5);
+    assert.equal(context.document.tracks[0].items[0].source.transition_out.fill, 'freeze');
+});
+
+test('library drop hides a cancelled confirmation but shows other failures', async () => {
+    const notices = [];
+    const context = { location: { editUri: 'edit.json' }, cuts: [], showNotice: message => notices.push(message),
+        applyTransitionOut: async () => ({ ok: false, message: 'cancelled', cancelled: true }) };
+    await applyLibraryTransitionDrop.call(context, { id: 'fade', name: 'Fade' }, 0);
+    assert.deepEqual(notices, []);
+    context.applyTransitionOut = async () => ({ ok: false, message: 'locked' });
+    await applyLibraryTransitionDrop.call(context, { id: 'fade', name: 'Fade' }, 0);
+    assert.deepEqual(notices, ['locked']);
+});
+
+test('confirmation refuses a larger freeze before the queued save', async () => {
+    const context = transitionContext({ tailRoom: 0,
+        cuts: [{ in: 0, out: 5 }, { in: 0.2, out: 5.2 }],
+        selectTransitionBoundary() {}, transitionBoundaryElement: () => ({}),
+        async commitEditMutation(_label, mutate) {
+            this.cuts[1].in = 0;
+            this.document = mutate(this.document);
+        }
+    });
+    context.editDocument = context.document;
+    const before = JSON.stringify(context.document);
+    askResponse = true;
+    const rejected = await applyTransitionOut.call(context, 0, { type: 'fade', duration: 0.5 });
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.message, annotationT('transition.fill.notice.changed'));
+    assert.equal(JSON.stringify(context.document), before);
+});
+
+test('confirmation saves without fill when both shortages disappear before the queued save', async () => {
+    const context = transitionContext({ tailRoom: 0,
+        cuts: [{ in: 0, out: 5 }, { in: 0.2, out: 5.2 }],
+        selectTransitionBoundary() {}, transitionBoundaryElement: () => ({}), saves: 0,
+        async commitEditMutation(_label, mutate) {
+            this.cuts[1].in = 1;
+            this.tailRoom = 1;
+            this.document = mutate(this.document);
+            this.saves++;
+        }
+    });
+    context.editDocument = context.document;
+    askResponse = true;
+    const result = await applyTransitionOut.call(context, 0, { type: 'fade', duration: 0.5 });
+    assert.equal(result.ok, true);
+    assert.equal(context.saves, 1);
+    assert.equal(context.document.tracks[0].items[0].source.transition_out.duration, 0.5);
+    assert.equal('fill' in context.document.tracks[0].items[0].source.transition_out, false);
+});
+
+test('confirmed fill makes no save when the shortage disappears before writing', async () => {
+    const context = transitionContext({ tailRoom: 0,
+        cuts: [{ in: 0, out: 5 }, { in: 0, out: 5 }], saves: 0,
+        selectTransitionBoundary() {}, transitionBoundaryElement: () => ({}),
+        async commitEditMutation(_label, mutate) {
+            this.cuts[1].in = 1;
+            this.tailRoom = 1;
+            this.document = mutate(this.document);
+            this.saves++;
+        }
+    });
+    context.document.tracks[0].items[0].source.transition_out = {
+        type: 'fade', duration: 0.5, align: 'before-cut' };
+    context.editDocument = context.document;
+    const before = JSON.stringify(context.document);
+    askResponse = true;
+    const result = await applyTransitionOut.call(context, 0,
+        { type: 'fade', duration: 0.5, fillOnly: true });
+    assert.equal(result.ok, false);
+    assert.equal(result.message, annotationT('transition.fill.notice.changed'));
+    assert.equal(context.saves, 0);
+    assert.equal(JSON.stringify(context.document), before);
+});
+
+test('caption policy notice follows the saved effective plan', async () => {
+    const effective = transitionContext({ hasCaptionDisplayPolicy: true });
+    const result = await applyTransitionOut.call(effective, 0, { type: 'fade', duration: 0.5 });
+    assert.equal(result.ok, true);
+    assert.match(result.message, /^.*付けました /u);
+    assert.match(result.message, /字幕の出し方/u);
+    assert.equal(effective.footer.textContent, result.message);
+    const dead = transitionContext({ hasCaptionDisplayPolicy: true,
+        transitionPlanTrackFor() { return { clips: [
+            { id: '0', startSeconds: 0, lengthSeconds: 0.01, headRoomSeconds: 0, tailRoomSeconds: 0 },
+            { id: '1', startSeconds: 0.01, lengthSeconds: 0.01,
+                headRoomSeconds: 0, tailRoomSeconds: 0 }
+        ] }; } });
+    const unavailable = await applyTransitionOut.call(dead, 0,
+        { type: 'fade', duration: 0.5, align: 'before-cut' });
+    assert.equal(unavailable.ok, true);
+    assert.doesNotMatch(unavailable.message ?? '', /字幕の出し方/u);
+});
+
 test('the document write path clears center, preserves extra fields, and stores recommended positions', async () => {
     for (const originalAlign of ['after-cut', 'future-side']) {
         const context = transitionContext();
@@ -308,16 +447,16 @@ test('position-only writes preserve declaration length and each undo restores on
     const source = context.document.tracks[0].items[0].source;
     source.transition_out = { type: 'dissolve', duration: 0.5, align: 'after-cut',
         fill: 'future-fill', extra: { keep: true } };
-    for (const [align, recommendAlign, expectedAlign] of [
-        [null, undefined, undefined], ['before-cut', undefined, 'before-cut'],
-        [undefined, true, 'after-cut']
+    for (const [align, recommendAlign, expectedAlign, expectedFill] of [
+        [null, undefined, undefined, 'future-fill'], ['before-cut', undefined, 'before-cut', 'future-fill'],
+        [undefined, true, 'after-cut', 'future-fill']
     ]) {
         assert.equal((await applyTransitionOut.call(context, ref,
             { type: 'dissolve', duration: 0.5, align, recommendAlign, alignOnly: true })).ok, true);
         const saved = context.document.tracks[0].items[0].source.transition_out;
         assert.equal(saved.duration, 0.5);
         assert.equal(saved.align, expectedAlign);
-        assert.equal(saved.fill, 'future-fill');
+        assert.equal(saved.fill, expectedFill);
         assert.deepEqual(saved.extra, { keep: true });
     }
     for (const expectedAlign of ['before-cut', undefined, 'after-cut']) {
@@ -361,7 +500,7 @@ test('inspector request replaces an unknown type through applyTransitionOut and 
         type: 'future-kind', duration: 0.7, align: 'start'
     };
     context.location = { editUri: 'edit.json' };
-    context.editDocument = { tracks: [] };
+    context.editDocument = context.document;
     context.applyTransitionOut = (...args) => applyTransitionOut.call(context, ...args);
     context.rememberTransitionDirection = () => {};
     const result = await handleWrite.call(context, { kind: 'transition-boundary', ref,
@@ -401,8 +540,8 @@ test('empty boundary Delete does not issue a write', async () => {
     assert.equal(await remove.call(state), false);
 });
 
-test('applyTransitionOut の clamp とゼロ重なりは ok:true + 通知を返す', async () => {
-    for (const [head, expected] of [[0.2, 0.2], [0, 0.5]]) {
+test('applyTransitionOut は余りで保存尺を縮めずゼロ重なりも通知する', async () => {
+    for (const [head, expected] of [[0.2, 0.5], [0, 0.5]]) {
         const context = transitionContext({ tailRoom: 0,
             cuts: [{ in: 0, out: 5 }, { in: head, out: head + 5 }] });
         const result = await applyTransitionOut.call(context, 0, { type: 'dissolve', duration: 0.5 });
@@ -457,14 +596,16 @@ test('a new transition reports a shorter neighbor and the planned windows do not
             const items = this.document.tracks[0].items;
             return { clips: items.map((item, index) => ({ id: String(index),
                 startSeconds: item.at / 30, lengthSeconds: item.duration / 30,
-                headRoomSeconds: item.source.in, tailRoomSeconds: index === 1 ? 0 : 2,
+                headRoomSeconds: item.source.in, tailRoomSeconds: 2,
                 ...(item.source.transition_out ? { transitionOut: {
                     declaredSeconds: item.source.transition_out.duration,
                     align: item.source.transition_out.align ?? 'center', fill: false } } : {}) })) };
         }
     });
-    const result = await applyTransitionOut.call(context, 1, { type: 'dissolve', duration: 0.5 });
+    const result = await applyTransitionOut.call(context, 1,
+        { type: 'dissolve', duration: 0.5, align: 'before-cut' });
     assert.equal(result.ok, true);
+    assert.match(result.message, /^.*付けました /u);
     assert.match(result.message, /C1 と C2 の境目も 0\.3 秒に短くなります/u);
     assert.equal(context.footer.textContent, result.message);
     assert.deepEqual(context.notices, []);
@@ -473,7 +614,7 @@ test('a new transition reports a shorter neighbor and the planned windows do not
         <= plans[1].cutSeconds + plans[1].startOffsetSeconds + 1e-9);
 });
 
-test('a declaration added while material loads keeps its position and recalculates the saved duration', async () => {
+test('a declaration added while material loads keeps its position and declared duration', async () => {
     const context = transitionContext({
         cuts: [{ in: 0, out: 5 }, { in: 0.2, out: 5.2 }], tailRoom: 5,
         async commitEditMutation(_label, mutate) {
@@ -485,7 +626,7 @@ test('a declaration added while material loads keeps its position and recalculat
     const result = await applyTransitionOut.call(context, 0, { type: 'dissolve', duration: 0.5 });
     assert.equal(result.ok, true);
     assert.deepEqual(context.document.tracks[0].items[0].source.transition_out,
-        { type: 'dissolve', duration: 0.2, align: 'before-cut' });
+        { type: 'dissolve', duration: 0.5, align: 'before-cut' });
 });
 
 test('transition の snapshot・kind 委譲・Promise 結果と picker 呼び出しが配線される', () => {

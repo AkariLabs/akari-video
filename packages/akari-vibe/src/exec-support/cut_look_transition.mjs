@@ -7,7 +7,7 @@ export function unapplied(env, op, reason) {
     env.log.push(`${op} → 未適用（${reason}）`);
 }
 export function guardedApply(env, op, action) {
-    try { action(); } catch (error) { unapplied(env, op, error.message); }
+    try { return action(); } catch (error) { unapplied(env, op, error.message); }
 }
 export function visualTarget(env, d, mediaOnly = false) {
     const item = targetItem(env, d.target);

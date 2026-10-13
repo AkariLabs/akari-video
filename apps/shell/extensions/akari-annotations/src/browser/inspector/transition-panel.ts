@@ -193,6 +193,35 @@ export function renderTransitionPanel(
         status.textContent = t(fields.status.key, fields.status.args);
         panel.append(status);
     }
+    if (fields.canFill && snapshot.declaration) {
+        const fillRow = document.createElement('div');
+        fillRow.className = 'akari-inspector-transition-remove-row';
+        const fill = document.createElement('button');
+        fill.type = 'button';
+        fill.className = 'akari-inspector-transition-remove';
+        fill.dataset.akariTransitionFill = 'true';
+        fill.textContent = t('transition.fill.action.fill');
+        fill.addEventListener('click', () => {
+            if (!panel.isConnected) return;
+            void write({ kind: 'transition-boundary', ref: snapshot.ref,
+                value: { type: snapshot.declaration!.type,
+                    duration: snapshot.declaration!.duration, fillOnly: true } }).then(report);
+        });
+        fillRow.append(fill);
+        panel.append(fillRow);
+    }
+    for (const message of fields.freezeMessages) {
+        const note = document.createElement('p');
+        note.className = 'akari-inspector-transition-status';
+        note.textContent = t(message.key, message.args);
+        panel.append(note);
+    }
+    if (fields.captionConflict) {
+        const note = document.createElement('p');
+        note.className = 'akari-inspector-transition-status';
+        note.textContent = t('transition.fill.notice.captionConflict');
+        panel.append(note);
+    }
     if (fields.remove) {
         const removeRow = document.createElement('div');
         removeRow.className = 'akari-inspector-transition-remove-row';

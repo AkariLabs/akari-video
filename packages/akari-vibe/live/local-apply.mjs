@@ -23,16 +23,19 @@ export function applyDecision({ source, edit, ctx, segments, context, captionsSo
 
 
     const op = operationsById.get(d.op);
+    let opResult;
     if (op) {
         if (d.targets) {
+            const results = [];
             for (const target of d.targets) {
-                invokeExecutor(op, env, { ...d, target });
+                results.push(invokeExecutor(op, env, { ...d, target }));
                 // The source is authoritative, including operations that only update source.
                 env.edit = JSON.parse(env.source);
                 env.segments = view(env.edit).segments;
                 env.captions = parseCaptionList(env.captionsSource);
             }
-        } else invokeExecutor(op, env, d);
+            if (results.some(result => result !== undefined)) opResult = results;
+        } else opResult = invokeExecutor(op, env, d);
     }
     else if (d.op && d.op !== 'none') log.push(`${d.op}: 未登録の操作 → 未適用`);
     const total = view(JSON.parse(env.source)).segments.at(-1)?.end ?? 0;
@@ -40,5 +43,6 @@ export function applyDecision({ source, edit, ctx, segments, context, captionsSo
     return { lastCandidates: env.lastCandidates, selection: env.selection, source: env.source, captionsSource: env.captionsSource,
         playheadT: Math.max(0, Math.min(env.playheadT, Math.max(0, total - 0.01))), log,
         reviewSource: env.reviewSource, pendingEffects: env.pendingEffects,
-        changed: env.source !== source || env.captionsSource !== captionsSource };
+        changed: env.source !== source || env.captionsSource !== captionsSource,
+        ...(opResult === undefined ? {} : { opResult }) };
 }

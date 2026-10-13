@@ -42,6 +42,16 @@ export function transitionPickerLayout(
     return { left, top, width, height, arrowLeft };
 }
 
+export function transitionAskLayout(anchor: PickerAnchorRect, viewportWidth: number, viewportHeight: number,
+    contentHeight: number): { left: number; top: number; width: number; arrowLeft: number } {
+    const margin = 8;
+    const width = Math.max(0, Math.min(330, viewportWidth - 16));
+    const center = (anchor.left + anchor.right) / 2;
+    const left = Math.max(margin, Math.min(center - width / 2, viewportWidth - width - margin));
+    const top = Math.max(margin, anchor.top - 9 - contentHeight);
+    return { left, top, width, arrowLeft: Math.max(9, Math.min(width - 9, center - left)) };
+}
+
 export function rememberedTransitionType(
     definition: TransitionFamilyDefinition, remembered?: TransitionDirection
 ): ReturnType<typeof transitionTypeOf> {
