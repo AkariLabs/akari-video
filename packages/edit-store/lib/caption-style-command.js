@@ -36,16 +36,25 @@ function resolveRange(row, range) {
             throw new Error('文字範囲が表示文字列の外か空です。');
         return range;
     }
-    const quote = (0, caption_runs_1.captionGraphemes)(range.quote);
+    const normalized = chars.map(char => char.normalize('NFC'));
+    const quote = (0, caption_runs_1.captionGraphemes)(range.quote).map(char => char.normalize('NFC'));
     const matches = [];
     if (quote.length)
-        for (let index = 0; index <= chars.length - quote.length; index++) {
-            if (quote.every((char, offset) => chars[index + offset] === char))
+        for (let index = 0; index <= chars.length - quote.length;) {
+            if (quote.every((char, offset) => normalized[index + offset] === char)) {
                 matches.push(index);
+                index += quote.length;
+            }
+            else
+                index++;
         }
-    if (!matches.length || matches.length > 1 && range.occurrence === undefined
-        || range.occurrence !== undefined && (!Number.isInteger(range.occurrence)
-            || range.occurrence < 1 || range.occurrence > matches.length)) {
+    if (!matches.length)
+        throw new Error('引用した文字が見つかりません。');
+    if (range.occurrence !== undefined && (!Number.isInteger(range.occurrence)
+        || range.occurrence < 1 || range.occurrence > matches.length)) {
+        throw new Error(`候補は ${matches.length} 件です（occurrence は 1〜${matches.length}）。`);
+    }
+    if (matches.length > 1 && range.occurrence === undefined) {
         throw new Error(`引用した文字の候補は ${matches.length} 件です。occurrence で番号を指定してください。`);
     }
     const from = matches[(range.occurrence ?? 1) - 1];
@@ -138,9 +147,29 @@ function planCaptionStyleEdit(input) {
             throw new Error('この部品は字幕全体にだけ当てられます。');
         throw new Error('効果音と効果はこの編集コマンドでは扱えません。');
     }
-    if (!input.parts.look && !input.parts.motion)
+    if (!input.parts.look && !input.parts.motion && !input.targets.some(target => 'parts' in target && !!(target.parts?.look || target.parts?.motion)))
         throw new Error('当てる見た目か動きを指定してください。');
     let captions = structuredClone(input.captions);
+    const rowList = rowsOf(captions);
+    const rowIndex = new Map();
+    rowList.forEach((row, index) => {
+        if (typeof row.id !== 'string')
+            return;
+        const prior = rowIndex.get(row.id);
+        rowIndex.set(row.id, { row, index, count: (prior?.count ?? 0) + 1 });
+    });
+    const usedRunIds = new Set(allRuns(captions).map(run => run.id).filter((id) => typeof id === 'string'));
+    let nextRun = allRuns(captions).reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run.id ?? '');
+        return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+    const newRunId = () => {
+        while (usedRunIds.has(`r-${String(nextRun).padStart(4, '0')}`))
+            nextRun++;
+        const id = `r-${String(nextRun++).padStart(4, '0')}`;
+        usedRunIds.add(id);
+        return id;
+    };
     const catalog = input.catalog ?? textstyle_catalog_1.TEXTSTYLE_CATALOG;
     const catalogObject = catalogRecord(catalog);
     const changed = [];
@@ -148,6 +177,12 @@ function planCaptionStyleEdit(input) {
     const at = input.now instanceof Date ? input.now.toISOString()
         : typeof input.now === 'string' ? new Date(input.now).toISOString() : new Date().toISOString();
     for (const target of input.targets) {
+        const parts = 'parts' in target && target.parts ? { ...input.parts, ...target.parts } : input.parts;
+        if (parts.sfx !== undefined || parts.effect !== undefined) {
+            if ('range' in target && target.range)
+                throw new Error('この部品は字幕全体にだけ当てられます。');
+            throw new Error('効果音と効果はこの編集コマンドでは扱えません。');
+        }
         if ('default' in target) {
             const current = defaultOf(captions);
             const next = { ...current };
@@ -159,7 +194,7 @@ function planCaptionStyleEdit(input) {
                         delete next[key];
                     const value = input.legacy?.size === 'style' ? (0, caption_look_v1_1.sanitizeMyStyleLook)(input.parts.look)
                         : applyRowLook({ text_style: current }, current, input.parts.look, catalogObject, input.legacy);
-                    Object.assign(next, value);
+                    Object.assign(next, input.legacy ? value : roundPixels(value));
                 }
             }
             if (input.parts.motion) {
@@ -175,7 +210,12 @@ function planCaptionStyleEdit(input) {
             changed.push('default_text_style');
             continue;
         }
-        const row = targetRow(captions, target);
+        const indexed = 'caption_index' in target && target.caption_index !== undefined
+            ? { row: rowList[target.caption_index], index: target.caption_index, count: 1 }
+            : rowIndex.get(target.caption_id);
+        if (!indexed?.row || indexed.count !== 1)
+            throw new Error(`字幕 ${'caption_id' in target ? target.caption_id : target.caption_index} が一意に見つかりません。`);
+        const { row } = indexed;
         if (target.range) {
             const { from, to } = resolveRange(row, target.range);
             const runs = Array.isArray(row.runs) ? row.runs : [];
@@ -184,7 +224,7 @@ function planCaptionStyleEdit(input) {
                 if (candidate.id && candidate.from === from && candidate.to === to)
                     run = candidate;
             if (!run) {
-                run = { id: (0, caption_runs_1.nextCaptionRunId)(allRuns(captions)), from, to };
+                run = { id: newRunId(), from, to };
                 const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
                 if (anchor.anchor)
                     run.anchor = anchor.anchor;
@@ -193,38 +233,40 @@ function planCaptionStyleEdit(input) {
                 runs.push(run);
                 row.runs = runs;
             }
-            if (input.parts.look) {
-                const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), input.parts.look, catalogObject);
-                run.look = result.look;
+            if (parts.look) {
+                const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), parts.look, catalogObject);
+                run.look = input.legacy ? result.look : roundPixels(result.look);
                 notices.push(...result.notices);
             }
-            if (input.parts.motion) {
-                if (Object.keys(input.parts.motion).length)
-                    run.motion = structuredClone(input.parts.motion);
+            if (parts.motion) {
+                if (Object.keys(parts.motion).length)
+                    run.motion = structuredClone(parts.motion);
                 else
                     delete run.motion;
             }
-            updateSources(run, input.parts, input.source, input.parts.look ? projectedRunLook(input.parts.look) : {}, input.parts.motion ?? {}, at);
-            changed.push(`captions[${rowsOf(captions).indexOf(row)}].runs`);
+            updateSources(run, parts, input.source, parts.look ? projectedRunLook(parts.look) : {}, parts.motion ?? {}, at);
+            changed.push(`captions[${indexed.index}].runs`);
             continue;
         }
         migratePreset(row, catalog, notices, at, input.legacy);
         const before = record(row.text_style) ? row.text_style : {};
-        const style = input.parts.look ? applyRowLook(row, defaultOf(captions), input.parts.look, catalogObject, input.legacy) : { ...before };
-        if (input.parts.look && input.legacy?.preset === 'drop')
+        const style = parts.look ? applyRowLook(row, defaultOf(captions), parts.look, catalogObject, input.legacy) : { ...before };
+        if (parts.look && !input.legacy)
+            Object.assign(style, roundPixels(style));
+        if (parts.look && input.legacy?.preset === 'drop')
             delete row.style_preset;
-        if (input.parts.motion) {
-            if (Object.keys(input.parts.motion).length)
-                style.animation = structuredClone(input.parts.motion);
+        if (parts.motion) {
+            if (Object.keys(parts.motion).length)
+                style.animation = structuredClone(parts.motion);
             else
                 delete style.animation;
         }
         row.text_style = style;
-        updateSources(row, input.parts, input.source, input.parts.look ? projectedLook(input.parts.look) : {}, input.parts.motion ?? {}, at);
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+        updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at);
+        changed.push(`captions[${indexed.index}].text_style`);
     }
     return { next: { captions, ...(input.edit === undefined ? {} : { edit: input.edit }),
-            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) }, changed, notices };
+            ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) }, changed, notices: [...new Set(notices)] };
 }
 function planCaptionStyleClear(input) {
     const captions = structuredClone(input.captions);
@@ -316,7 +358,7 @@ function planCaptionStyleReapply(input) {
             }
         }
     }
-    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices };
+    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: [...new Set(notices)] };
 }
 function planCaptionSizeEdit(input) {
     if (!Number.isFinite(input.size_px) || input.size_px <= 0)

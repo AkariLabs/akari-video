@@ -7,7 +7,8 @@
  * preview-server の PUT ハンドラも同じ共有層を使う。保存前ゲートだった lint は
  * task 2026-08-18-shell-write-path-latency で保存後 debounce lint へ移した。
  *
- * 保存の臨界経路は tmp + rename だけに限定する。edit-lint は保存後 400ms の末尾
+ * 比較なしの保存は lock + tmp + rename、比較つきの保存は journal と退避も使う。
+ * edit-lint は保存後 400ms の末尾
  * debounce で同じプロジェクトにつき最新 1 本だけをプロセス内実行する。lint が
  * 利用できない場合は従来どおり fail-open とし、編集不能にはしない。
  *
@@ -16,6 +17,7 @@
  * 編集不能より lint なし保存の方が被害が小さいという判断（型不正は各書き込みの
  * ローカル検証が別途残るため安全側は保たれる）。
  */
+import { promises as fs } from 'fs';
 export declare const SAVED_BY_PATH = ".akari/saved-by.json";
 export interface EditLintFinding {
     severity?: string;
@@ -107,6 +109,7 @@ type TransactionHooks = {
     rename?: (source: string, target: string, index: number) => Promise<void>;
     crashAfterJournal?: boolean;
     crashAfterFirstRename?: boolean;
+    fs?: Partial<Pick<typeof fs, 'unlink' | 'rm' | 'mkdir' | 'rmdir' | 'writeFile' | 'readFile'>>;
 };
 export type TransactionOptions = {
     waitTimeoutMs?: number;
@@ -116,7 +119,14 @@ export type TransactionOptions = {
     onDidWrite?: (path: string, content: string, name: string) => void | Promise<void>;
     hooks?: TransactionHooks;
 };
+export type RecoveryDetail = {
+    restored: string[];
+    preserved: string[];
+    missing: string[];
+    broken?: true;
+};
 export declare function recoverInterruptedProjectWrite(projectRoot: string): Promise<string | undefined>;
+export declare function recoverInterruptedProjectWriteDetailed(projectRoot: string): Promise<RecoveryDetail | undefined>;
 export declare function writeProjectFilesTransactional(projectRoot: string, input: {
     files: Record<string, TransactionFile>;
     label: string;
