@@ -275,6 +275,8 @@ export class PreviewDiagnosticsSession {
     protected unresponsive = false;
     protected ready = false;
     protected missingHeartbeatMs = 0;
+    protected attachedIframe?: object;
+    protected iframeAttachedAt = 0;
 
     constructor(
         protected readonly io: PreviewDiagnosticsIo,
@@ -490,7 +492,14 @@ export class PreviewDiagnosticsSession {
         const noticeAt = Date.parse(at);
         return !this.disposed && !this.trace.rendererGone
             && Number.isFinite(noticeAt) && noticeAt >= this.createdAt
-            && Number.isFinite(observedAt) && observedAt >= this.createdAt;
+            && Number.isFinite(observedAt) && observedAt >= this.createdAt
+            && observedAt >= this.iframeAttachedAt;
+    }
+
+    observeAttachedIframe(iframe: object | undefined, at: number): void {
+        if (!iframe || iframe === this.attachedIframe) return;
+        this.attachedIframe = iframe;
+        this.iframeAttachedAt = at;
     }
 
     protected entryFor(

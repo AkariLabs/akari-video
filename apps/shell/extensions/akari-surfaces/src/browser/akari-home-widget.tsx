@@ -81,7 +81,8 @@ import { shouldResumeOnboarding } from '../onboarding/model';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { BUILTIN_PROJECT_TEMPLATES, defaultProjectTitle, parseTemplateMarkdown, planFileName, ProjectTemplate } from './home/project-templates';
 import { computeProjectStages, EMPTY_PRESENCE, ProjectProgressService, stageSummary, ProjectStageKey } from './home/project-progress';
-import { ProjectCard, ProjectListView, projectListCss } from './home/project-list-view';
+import { ProjectCard, ProjectListView, isProjectCardSettled, projectListCss } from './home/project-list-view';
+import { VisibleCardGrid } from './home/visible-card-grid';
 import { resolveListChannel } from './home/project-list-channel';
 import { projectHomeCss } from './home/project-home-style';
 import { animateProjectOpen } from './home/open-motion';
@@ -2469,9 +2470,12 @@ export class AkariHomeWidget extends ReactWidget {
             </section>}
             {channel && <section><div className='akari-os-other-heading'><h3>{channel} のほかのプロジェクト</h3><small>{others.length} 本</small>
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>プロジェクト一覧へ</button></div>
-                <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact active={this.isVisible} rowVersion={this.projectRowVersions.get(row.uri.toString()) ?? 0}
-                    onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
-                    readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>}
+                <VisibleCardGrid rows={others} rowKey={row => row.key} rowLabel={row => row.name} className='akari-os-other-grid' initialHeight={69}
+                    isSettled={row => isProjectCardSettled(row, this.projectRowVersions.get(row.uri.toString()) ?? 0)}
+                    renderCard={(row, onSettled) => <ProjectCard row={row} compact active={this.isVisible} rowVersion={this.projectRowVersions.get(row.uri.toString()) ?? 0}
+                        onSettled={onSettled}
+                        onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
+                        readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />} /></section>}
         </div>;
     }
 

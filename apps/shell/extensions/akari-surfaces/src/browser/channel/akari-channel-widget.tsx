@@ -13,6 +13,7 @@ import { AkariProjectService } from 'akari-project/lib/common/akari-project-prot
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { ProjectProgressService, stageSummary } from '../home/project-progress';
+import { VisibleCardGrid, visibleCardGridCss } from '../home/visible-card-grid';
 import { AkariChannelContextService, ChannelProject } from './akari-channel-context-service';
 import { CHANNEL_DOC_KINDS, ChannelDocKind, channelDocFileName, channelDocTemplate, resolveChannelDocFileName } from './channel-docs';
 import { ChannelAnswers, channelDesignPartnerPrompt, parseChannelMarkdown } from './channel-design-model';
@@ -38,6 +39,7 @@ export const CHANNEL_WIDGET_LABEL = 'チャンネル';
 const STYLE_ID = 'akari-channel-style';
 const RAIL_TAB = `#theia-left-content-panel .lm-TabBar.theia-app-left .lm-TabBar-tab[data-akari-rail-id="${RAIL_CHANNEL_WIDGET_ID}"]`;
 const CSS = `
+${visibleCardGridCss}
 ${RAIL_TAB} .lm-TabBar-tabIcon { display:grid !important; place-items:center; box-sizing:border-box; width:28px !important; height:28px !important; line-height:1 !important; color:var(--theia-foreground,#ccc); font-family:var(--theia-ui-font-family,sans-serif) !important; font-size:13px !important; font-weight:700; }
 ${RAIL_TAB} .lm-TabBar-tabIcon::before { content:attr(data-akari-channel-initial); display:grid; place-items:center; box-sizing:border-box; width:25px; height:25px; border:1px solid var(--theia-foreground,#ccc); border-radius:7px; background:transparent; opacity:.9; font-family:inherit; }
 .akari-channel-panel { position:relative; display:flex; flex-direction:column; box-sizing:border-box; height:100%; padding:16px 14px; color:var(--theia-foreground); }
@@ -87,6 +89,7 @@ export class AkariChannelWidget extends ReactWidget {
     @inject(AkariAnnotationsService) protected readonly annotations!: AkariAnnotationsService;
     protected projectStages = new Map<string, string>();
     protected projectThumbnails = new Map<string, string[]>();
+    protected visibleProjectKeys: ReadonlySet<string> = new Set();
     protected stageRefreshSeen = false;
     protected stagesChannel?: string;
     protected stageRefreshRun?: Promise<void>;
@@ -255,7 +258,8 @@ export class AkariChannelWidget extends ReactWidget {
         this.stagesChannel = this.context.viewingChannel;
         const projects = this.context.viewingChannel ? this.context.projectsOf(this.context.viewingChannel) : [];
         const live = new Set(projects.map(project => project.uri.toString()));
-        const selected = changed ? projects.filter(project => changed.has(`${this.context.viewingChannel}/${project.name}`)) : projects;
+        const selected = projects.filter(project => this.visibleProjectKeys.has(project.uri.toString())
+            && (!changed || changed.has(`${this.context.viewingChannel}/${project.name}`)));
         const stages = await Promise.all(selected.map(async project => {
             try { return [project.uri.toString(), stageSummary(await this.progress.readPresence(project.uri))] as const; }
             catch { return [project.uri.toString(), ''] as const; }
@@ -275,6 +279,18 @@ export class AkariChannelWidget extends ReactWidget {
         this.projectThumbnails = thumbnails;
         this.update();
     }
+
+    protected onVisibleProjectsChange = (keys: ReadonlySet<string>): void => {
+        const channel = this.context.viewingChannel;
+        const added = channel ? this.context.projectsOf(channel)
+            .filter(project => {
+                const key = project.uri.toString();
+                return keys.has(key) && !this.visibleProjectKeys.has(key)
+                    && (!this.projectStages.has(key) || !this.projectThumbnails.has(key));
+            }) : [];
+        this.visibleProjectKeys = keys;
+        if (added.length && this.isVisible) void this.refreshStages(new Set(added.map(project => `${channel}/${project.name}`)));
+    };
 
     protected async refreshChannelDocs(): Promise<void> {
         if (!this.isVisible) return;
@@ -693,14 +709,16 @@ export class AkariChannelWidget extends ReactWidget {
             </div>
             <div className='akari-channel-area akari-channel-projects'>
                 <div className='akari-channel-section'>プロジェクト</div>
-                {projects.map(project => <button key={project.uri.toString()} type='button' className='akari-channel-row akari-channel-project-card'
+                <VisibleCardGrid rows={projects} rowKey={project => project.uri.toString()} rowLabel={project => project.title || project.name} className='akari-channel-project-list' initialHeight={71}
+                    isSettled={project => this.projectStages.has(project.uri.toString())}
+                    onVisibleChange={this.onVisibleProjectsChange} renderCard={project => <button type='button' className='akari-channel-row akari-channel-project-card'
                 aria-current={this.context.currentProjectUri?.toString() === project.uri.toString() ? 'page' : undefined}
                 onClick={event => void this.openProject(project, event.currentTarget)}>
                     <span className='akari-channel-project-thumb'>{this.projectThumbnails.get(project.uri.toString())?.[0]
                         ? <img src={this.projectThumbnails.get(project.uri.toString())?.[0]} alt='' /> : <span />}</span>
                     <span className='akari-channel-project-body'><span>{project.title || project.name}</span>
                         <small>{this.context.currentProjectUri?.toString() === project.uri.toString() ? '開いています' : this.projectStages.get(project.uri.toString()) ?? ''}</small></span>
-                </button>)}
+                </button>} />
             </div>
             {this.sheet?.kind === 'design-start' && <ChannelDesignStart
                 onFromType={() => { this.sheet = { kind: 'types-catalog' }; this.update(); void this.refreshProKey(); }}

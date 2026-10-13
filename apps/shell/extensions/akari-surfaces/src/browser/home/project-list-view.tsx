@@ -2,6 +2,22 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { ProjectPresence, stageSummary } from './project-progress-model';
 import type { ProjectListRow } from '../akari-home-widget';
+import { VisibleCardGrid, visibleCardGridCss } from './visible-card-grid';
+
+interface CachedProjectCard {
+    version: number | undefined;
+    badge?: string;
+    thumbnail?: string;
+    pending?: Promise<void>;
+    complete: boolean;
+}
+
+const projectCardCache = new Map<string, CachedProjectCard>();
+
+export function isProjectCardSettled(row: ProjectListRow, version: number | undefined): boolean {
+    const cached = projectCardCache.get(row.uri.toString());
+    return !!cached?.complete && cached.version === version;
+}
 
 export interface ProjectListViewProps {
     channel: string;
@@ -19,25 +35,40 @@ export interface ProjectListViewProps {
     loadThumbnails: (uri: URI) => Promise<string[]>;
 }
 
-export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'active'> & { row: ProjectListRow; compact?: boolean; rowVersion?: number }): React.ReactElement {
+export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'active'> & { row: ProjectListRow; compact?: boolean; rowVersion?: number; onSettled?: () => void }): React.ReactElement {
     const { row } = props;
-    const [badge, setBadge] = React.useState<string>();
-    const [thumbnail, setThumbnail] = React.useState<string>();
-    const loaded = React.useRef<{ key: string; version: number | undefined } | undefined>(undefined);
+    const initial = projectCardCache.get(row.uri.toString());
+    const [badge, setBadge] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.badge : undefined);
+    const [thumbnail, setThumbnail] = React.useState<string | undefined>(initial?.version === props.rowVersion ? initial.thumbnail : undefined);
+    const [settled, setSettled] = React.useState(initial?.version === props.rowVersion && initial.complete === true);
     React.useEffect(() => {
         if (!props.active) return;
-        if (loaded.current?.key === row.key && loaded.current.version === props.rowVersion) return;
         let active = true;
-        let completed = 0;
-        const finish = (): void => {
-            completed++;
-            if (active && completed === 2) loaded.current = { key: row.key, version: props.rowVersion };
-        };
-        setBadge(undefined); setThumbnail(undefined);
-        void props.readPresence(row.uri).then(presence => { if (active) setBadge(stageSummary(presence)); }).catch(() => undefined).finally(finish);
-        void props.loadThumbnails(row.uri).then(frames => { if (active) setThumbnail(frames[0]); }).catch(() => undefined).finally(finish);
+        const key = row.uri.toString();
+        let cached = projectCardCache.get(key);
+        if (!cached || cached.version !== props.rowVersion) {
+            cached = { version: props.rowVersion, complete: false };
+            projectCardCache.set(key, cached);
+        }
+        const entry = cached;
+        setBadge(entry.badge); setThumbnail(entry.thumbnail);
+        setSettled(entry.complete);
+        if (!entry.complete && !entry.pending) {
+            entry.pending = Promise.all([
+                props.readPresence(row.uri).then(presence => {
+                    entry.badge = stageSummary(presence);
+                    if (active) setBadge(entry.badge);
+                }).catch(() => undefined),
+                props.loadThumbnails(row.uri).then(frames => {
+                    entry.thumbnail = frames[0];
+                    if (active) setThumbnail(entry.thumbnail);
+                }).catch(() => undefined)
+            ]).then(() => { entry.complete = true; entry.pending = undefined; });
+        }
+        void entry.pending?.then(() => { if (active) { setBadge(entry.badge); setThumbnail(entry.thumbnail); setSettled(true); } });
         return () => { active = false; };
-    }, [row.key, props.rowVersion, props.active]);
+    }, [row.key, row.uri.toString(), props.rowVersion, props.active]);
+    React.useEffect(() => { if (settled) props.onSettled?.(); }, [settled, props.onSettled]);
     return <button type='button' className={`akari-os-card${props.compact ? ' compact' : ''}`}
         data-akari-project-card='true' aria-current={row.current ? 'true' : undefined}
         onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}>
@@ -61,12 +92,17 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
             <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
                 <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>チャンネルを開く</button>
                 <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>更新</button></div>
-            {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} rowVersion={props.rowVersion?.(row.uri)} active={props.active} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>
+            {rows.length ? <VisibleCardGrid rows={rows} rowKey={row => row.key} rowLabel={row => row.name} className='akari-os-card-grid' initialHeight={183}
+                isSettled={row => isProjectCardSettled(row, props.rowVersion?.(row.uri))}
+                renderCard={(row, onSettled) => <ProjectCard row={row} rowVersion={props.rowVersion?.(row.uri)} active={props.active} onSettled={onSettled}
+                    onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} />
                 : <p className='akari-os-note'>まだプロジェクトがありません。</p>}
         </section>
         {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>ほかの場所のプロジェクト</h3></div>
-            <div className='akari-os-card-grid'>{props.standalone.map(row => <ProjectCard key={row.key} row={row} compact rowVersion={props.rowVersion?.(row.uri)} active={props.active}
-                onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div></section>}
+            <VisibleCardGrid rows={props.standalone} rowKey={row => row.key} rowLabel={row => row.name} className='akari-os-card-grid akari-os-compact-grid' initialHeight={69}
+                isSettled={row => isProjectCardSettled(row, props.rowVersion?.(row.uri))}
+                renderCard={(row, onSettled) => <ProjectCard row={row} compact rowVersion={props.rowVersion?.(row.uri)} active={props.active} onSettled={onSettled}
+                    onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />} /></section>}
     </div>;
 }
 
@@ -81,6 +117,7 @@ export const projectListCss = `
 .akari-os-section-heading button:first-of-type{margin-left:auto}
 .akari-os-note{font-size:12px;color:var(--theia-descriptionForeground);margin:0}
 .akari-os-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+${visibleCardGridCss}
 .akari-os-card{display:flex;flex-direction:column;min-width:0;padding:0;text-align:left;border:0;border-radius:10px;overflow:hidden;background:var(--theia-editorWidget-background);color:var(--theia-foreground);cursor:pointer}
 .akari-os-card:hover,.akari-os-card:focus-visible{outline:2px solid var(--theia-focusBorder);outline-offset:1px}
 .akari-os-thumb{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:16/9;background:var(--theia-editor-background);color:var(--theia-descriptionForeground)}

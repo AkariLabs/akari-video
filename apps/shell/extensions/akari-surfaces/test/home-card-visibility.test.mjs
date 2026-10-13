@@ -34,7 +34,7 @@ test('隠れたカードは版が変わっても読まず、表示時に一度�
             effects[index] = { dependencies, cleanup: callback() };
         }
     };
-    const ProjectCard = new Function('React', 'stageSummary', `${code}\nreturn ProjectCard;`)(React, () => '札');
+    const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', `${code}\nreturn ProjectCard;`)(React, () => '札', new Map());
     let presenceReads = 0;
     let thumbnailReads = 0;
     const base = {
@@ -55,6 +55,36 @@ test('隠れたカードは版が変わっても読まず、表示時に一度�
     render(false, 2);
     render(true, 2);
     assert.deepEqual([presenceReads, thumbnailReads], [2, 2]);
+});
+
+test('枠から外れて戻ったカードは結果を保ち、再読込しない', async () => {
+    const cache = new Map();
+    let reads = 0;
+    let thumbnails = 0;
+    const row = { key: 'cached', uri: { toString: () => 'cached' }, name: 'cached' };
+    const props = { row, active: true, rowVersion: 1, onOpen: () => {},
+        readPresence: async () => { reads++; return {}; },
+        loadThumbnails: async () => { thumbnails++; return ['image']; } };
+    const mount = () => {
+        const states = [];
+        const React = {
+            createElement: () => ({}),
+            useState(initial) {
+                const index = states.length;
+                states.push(initial);
+                return [initial, value => { states[index] = value; }];
+            },
+            useEffect(callback) { callback(); }
+        };
+        const ProjectCard = new Function('React', 'stageSummary', 'projectCardCache', `${code}\nreturn ProjectCard;`)(React, () => '札', cache);
+        ProjectCard(props);
+        return states;
+    };
+    mount();
+    await new Promise(resolve => setImmediate(resolve));
+    const restored = mount();
+    assert.deepEqual([reads, thumbnails], [1, 1]);
+    assert.deepEqual(restored, ['札', 'image', true]);
 });
 
 test('ホームと別タブは各自の表示状態をカードへ渡す', () => {
