@@ -1,5 +1,6 @@
 import { t } from '../common/project-text';
 import type { LibraryTextstylePreset } from '@akari-video/edit-store';
+import { localizedPresetText } from '@akari-video/i18n';
 
 export type PresetShowcaseKind = 'lut' | 'textanim' | 'textstyle';
 
@@ -7,6 +8,7 @@ export interface PresetShowcaseItem {
     kind: PresetShowcaseKind;
     id: string;
     name: string;
+    searchNames?: string[];
     tags: string[];
     category?: string;
     description?: string;
@@ -75,7 +77,7 @@ function parseTags(value: unknown): string[] | undefined {
 }
 
 /** index.jsonl を行単位で読み、壊れた行だけを捨てて残りを返す寛容パーサー。 */
-export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind): PresetShowcaseItem[] {
+export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind, language = 'ja'): PresetShowcaseItem[] {
     const items: PresetShowcaseItem[] = [];
     if (!['lut', 'textanim', 'textstyle'].includes(kind)) return items;
     for (const line of raw.split(/\r?\n/)) {
@@ -91,6 +93,9 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
         if (!isRecord(parsed) || !isNonEmptyString(parsed.id) || !isNonEmptyString(parsed.name)) {
             continue;
         }
+        const row = parsed as { id: string; name: string; i18n?: Record<string, Record<string, string>>; [key: string]: unknown };
+        const local = (field: 'name' | 'category' | 'description' | 'sample_text') => localizedPresetText(row, field, language);
+        const searchNames = [row.name, ...Object.values(row.i18n ?? {}).map(value => value.name).filter(isNonEmptyString)];
         if (kind === 'textanim') {
             if (!isNonEmptyString(parsed.category)
                 || !isNonEmptyString(parsed.description)
@@ -101,10 +106,10 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
             items.push({
                 kind,
                 id: parsed.id,
-                name: parsed.name,
-                category: parsed.category,
-                description: parsed.description,
-                sampleText: parsed.sample_text,
+                name: local('name') ?? row.id, ...(row.i18n ? { searchNames } : {}),
+                category: local('category'),
+                description: local('description'),
+                sampleText: local('sample_text'),
                 tags: [parsed.slot]
             });
             continue;
@@ -119,9 +124,9 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
             items.push({
                 kind,
                 id: parsed.id,
-                name: parsed.name,
-                category: parsed.category,
-                sampleText: parsed.sample_text,
+                name: local('name') ?? row.id, ...(row.i18n ? { searchNames } : {}),
+                category: local('category'),
+                sampleText: local('sample_text'),
                 style: parsed.style,
                 tags: [parsed.category]
             });
@@ -137,9 +142,9 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
         items.push({
             kind,
             id: parsed.id,
-            name: parsed.name,
-            description: parsed.description,
-            whenToUse: parsed.when_to_use,
+            name: local('name') ?? row.id, ...(row.i18n ? { searchNames } : {}),
+            description: local('description'),
+            whenToUse: language === 'ja' ? parsed.when_to_use : undefined,
             tags
         });
     }
@@ -156,7 +161,7 @@ export function derivePresetShowcaseChips(showcase: PresetShowcase): PresetShowc
 
 /** プリセット棚を小文字包含で検索する。 */
 export function filterPresetShowcaseItems<T extends Pick<PresetShowcaseItem, 'name' | 'id' | 'tags'>
-    & Partial<Pick<PresetShowcaseItem, 'category' | 'description' | 'sampleText'>>>(
+    & Partial<Pick<PresetShowcaseItem, 'category' | 'description' | 'sampleText' | 'searchNames'>>>(
     items: readonly T[],
     query: string
 ): T[] {
@@ -164,7 +169,7 @@ export function filterPresetShowcaseItems<T extends Pick<PresetShowcaseItem, 'na
     if (!normalizedQuery) {
         return [...items];
     }
-    return items.filter(item => [item.name, item.id, item.category ?? '', item.description ?? '', item.sampleText ?? '', ...item.tags]
+    return items.filter(item => [item.name, ...(item.searchNames ?? []), item.id, item.category ?? '', item.description ?? '', item.sampleText ?? '', ...item.tags]
         .join(' ')
         .toLowerCase()
         .includes(normalizedQuery));

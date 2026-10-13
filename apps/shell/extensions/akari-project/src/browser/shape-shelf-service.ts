@@ -1,9 +1,10 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { getLanguage } from '@akari-video/i18n';
 import { Command, CommandContribution, CommandRegistry, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { AkariProjectService } from '../common/akari-project-protocol';
 import {
-    parseRecentShapes, pushRecentShape, SHAPE_SHELF_RECENT_STORAGE_KEY, ShapeShelfPreset
+    parseRecentShapes, pushRecentShape, SHAPE_SHELF_RECENT_STORAGE_KEY, ShapeShelfPreset, shapeShelfName
 } from '../common/shape-shelf';
 
 /**
@@ -57,7 +58,7 @@ export class ShapeShelfService implements CommandContribution, FrontendApplicati
                 const preset = this.byId.get(id);
                 if (!preset) return undefined;
                 const base = preset.rounded_from ? this.byId.get(preset.rounded_from.base) : undefined;
-                return { preset, ...(base ? { base } : {}) };
+                return { preset: { ...preset, name: shapeShelfName(preset, getLanguage()) }, ...(base ? { base } : {}) };
             }
         });
     }

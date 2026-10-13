@@ -1,9 +1,14 @@
 import { INSPECTOR_ADJUST_BASIC_FIELDS } from './adjust-fields';
+import { t } from '@akari-video/i18n';
 import { INSPECTOR_ADJUST_WHEELS } from './adjust-editor-model';
 
 export interface InspectorLookPreset {
     id: string; name: string;
     adjust: { basic?: Record<string, number>; wheels?: Record<string, { r?: number; g?: number; b?: number }> };
+}
+
+export function inspectorLookPresetLabel(preset: InspectorLookPreset): string {
+    return t(`inspector.lookPresets.preset.${preset.id.replace(/_([a-z])/gu, (_, letter: string) => letter.toUpperCase())}`);
 }
 
 export const INSPECTOR_LOOK_PRESETS: readonly InspectorLookPreset[] = [

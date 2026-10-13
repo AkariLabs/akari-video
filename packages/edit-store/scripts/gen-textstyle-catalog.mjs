@@ -29,6 +29,7 @@ export async function generateTextstyleCatalogSource(root = catalogRoot) {
       name: preset.name,
       category: preset.category,
       style: preset.style,
+      ...(indexEntry.i18n ? { i18n: indexEntry.i18n } : {}),
     }]);
   }
   entries.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
@@ -39,7 +40,9 @@ export async function generateTextstyleCatalogSource(root = catalogRoot) {
     '',
     "import type { TextstylePreset } from '../caption-style-preset';",
     '',
-    `export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = ${JSON.stringify(catalog, null, 2)};`,
+    'export type LocalizedTextstylePreset = TextstylePreset & { i18n?: Record<string, { name?: string; category?: string; sample_text?: string }> };',
+    '',
+    `export const TEXTSTYLE_CATALOG: Record<string, LocalizedTextstylePreset> = ${JSON.stringify(catalog, null, 2)};`,
     '',
   ].join('\n');
 }

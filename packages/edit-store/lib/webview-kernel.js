@@ -635,6 +635,13 @@ var AkariEditKernel = (() => {
           "distance_px": 3,
           "angle_deg": 90
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Cinema Blue",
+          "category": "title",
+          "sample_text": "The Journey Begins"
+        }
       }
     },
     "cinema-gold": {
@@ -652,6 +659,13 @@ var AkariEditKernel = (() => {
           "blur_px": 10,
           "distance_px": 3,
           "angle_deg": 90
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Cinema Gold",
+          "category": "title",
+          "sample_text": "The End"
         }
       }
     },
@@ -671,6 +685,13 @@ var AkariEditKernel = (() => {
           "distance_px": 2,
           "angle_deg": 90
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Cinema White",
+          "category": "title",
+          "sample_text": "A Quiet Moment"
+        }
       }
     },
     "discount-text": {
@@ -685,6 +706,13 @@ var AkariEditKernel = (() => {
         "stroke": {
           "color": "#ffffff",
           "width_px": 3
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Discount Badge Text",
+          "category": "price",
+          "sample_text": "30% OFF"
         }
       }
     },
@@ -704,6 +732,13 @@ var AkariEditKernel = (() => {
           "in": {
             "id": "pop"
           }
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Emphasis",
+          "category": "emphasis",
+          "sample_text": "This Matters!"
         }
       }
     },
@@ -729,6 +764,13 @@ var AkariEditKernel = (() => {
             "id": "glitch"
           }
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Glitch",
+          "category": "decorative",
+          "sample_text": "GLITCH"
+        }
       }
     },
     "narration-caption": {
@@ -746,6 +788,13 @@ var AkariEditKernel = (() => {
           "blur_px": 6,
           "distance_px": 1,
           "angle_deg": 90
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Narration Caption",
+          "category": "subtitle",
+          "sample_text": "This city has stories yet to be told."
         }
       }
     },
@@ -782,6 +831,13 @@ var AkariEditKernel = (() => {
             "id": "soft-fade"
           }
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Neon",
+          "category": "decorative",
+          "sample_text": "NEON"
+        }
       }
     },
     "neon-amber": {
@@ -806,6 +862,13 @@ var AkariEditKernel = (() => {
           "spread": 50
         },
         "text_transform": "uppercase"
+      },
+      "i18n": {
+        "en": {
+          "name": "Amber Neon",
+          "category": "decorative",
+          "sample_text": "OPEN"
+        }
       }
     },
     "neon-lime": {
@@ -830,6 +893,13 @@ var AkariEditKernel = (() => {
           "spread": 42
         },
         "text_transform": "uppercase"
+      },
+      "i18n": {
+        "en": {
+          "name": "Lime Neon",
+          "category": "decorative",
+          "sample_text": "ON AIR"
+        }
       }
     },
     "neon-rose": {
@@ -854,6 +924,13 @@ var AkariEditKernel = (() => {
           "spread": 45
         },
         "text_transform": "uppercase"
+      },
+      "i18n": {
+        "en": {
+          "name": "Rose Neon",
+          "category": "decorative",
+          "sample_text": "NIGHT LIFE"
+        }
       }
     },
     "neon-violet": {
@@ -878,6 +955,13 @@ var AkariEditKernel = (() => {
           "spread": 54
         },
         "text_transform": "uppercase"
+      },
+      "i18n": {
+        "en": {
+          "name": "Violet Neon",
+          "category": "decorative",
+          "sample_text": "DREAM"
+        }
       }
     },
     "news-navy-bar": {
@@ -893,6 +977,13 @@ var AkariEditKernel = (() => {
           "opacity": 0.96,
           "padding_px": 17,
           "radius_px": 2
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Navy News Bar",
+          "category": "subtitle",
+          "sample_text": "The Key Points"
         }
       }
     },
@@ -917,6 +1008,13 @@ var AkariEditKernel = (() => {
           "distance_px": 2,
           "angle_deg": 90
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Red News Bar",
+          "category": "subtitle",
+          "sample_text": "Breaking News Update"
+        }
       }
     },
     "news-yellow-label": {
@@ -933,6 +1031,13 @@ var AkariEditKernel = (() => {
           "padding_px": 16,
           "radius_px": 3
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Yellow Explainer Label",
+          "category": "emphasis",
+          "sample_text": "Here Is the Takeaway"
+        }
       }
     },
     "plate-coral": {
@@ -948,6 +1053,13 @@ var AkariEditKernel = (() => {
           "opacity": 0.96,
           "padding_px": 22,
           "radius_px": 22
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Coral Plate",
+          "category": "emphasis",
+          "sample_text": "Key Point"
         }
       }
     },
@@ -966,6 +1078,13 @@ var AkariEditKernel = (() => {
           "radius_px": 10
         },
         "letter_spacing_em": 0.09
+      },
+      "i18n": {
+        "en": {
+          "name": "Cream Plate",
+          "category": "title",
+          "sample_text": "Today\u2019s Recap"
+        }
       }
     },
     "plate-indigo": {
@@ -981,6 +1100,13 @@ var AkariEditKernel = (() => {
           "opacity": 0.97,
           "padding_px": 24,
           "radius_px": 24
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Rounded Indigo Plate",
+          "category": "subtitle",
+          "sample_text": "Important Announcement"
         }
       }
     },
@@ -1000,6 +1126,13 @@ var AkariEditKernel = (() => {
           "in": {
             "id": "caption-rise"
           }
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Live Commentary",
+          "category": "subtitle",
+          "sample_text": "Full Speed Ahead!"
         }
       }
     },
@@ -1022,6 +1155,13 @@ var AkariEditKernel = (() => {
           "distance_px": 4,
           "angle_deg": 90
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Interview Caption",
+          "category": "subtitle",
+          "sample_text": "\u201CThat Is What I Thought.\u201D"
+        }
       }
     },
     "subtitle-news": {
@@ -1037,6 +1177,13 @@ var AkariEditKernel = (() => {
           "opacity": 1,
           "padding_px": 16,
           "radius_px": 0
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "News",
+          "category": "subtitle",
+          "sample_text": "Breaking News"
         }
       }
     },
@@ -1054,6 +1201,13 @@ var AkariEditKernel = (() => {
           "padding_px": 14,
           "radius_px": 4
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Caption on Soft Band",
+          "category": "subtitle",
+          "sample_text": "Let Us Take It Slowly"
+        }
       }
     },
     "subtitle-standard": {
@@ -1067,6 +1221,13 @@ var AkariEditKernel = (() => {
         "stroke": {
           "color": "#000000",
           "width_px": 4
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Standard Caption",
+          "category": "subtitle",
+          "sample_text": "Clear, Standard Captions"
         }
       }
     },
@@ -1089,6 +1250,13 @@ var AkariEditKernel = (() => {
           "distance_px": 6,
           "angle_deg": 90
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "Variety",
+          "category": "subtitle",
+          "sample_text": "This Is Amazing!"
+        }
       }
     },
     "subtitle-white-bold": {
@@ -1102,6 +1270,13 @@ var AkariEditKernel = (() => {
         "stroke": {
           "color": "#080808",
           "width_px": 8
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "White Caption, Bold Outline",
+          "category": "subtitle",
+          "sample_text": "Loud and Clear"
         }
       }
     },
@@ -1117,6 +1292,13 @@ var AkariEditKernel = (() => {
           "color": "#101820",
           "width_px": 2
         }
+      },
+      "i18n": {
+        "en": {
+          "name": "White Caption, Thin Outline",
+          "category": "subtitle",
+          "sample_text": "Listen Closely"
+        }
       }
     },
     "subtitle-yellow-bold": {
@@ -1130,6 +1312,13 @@ var AkariEditKernel = (() => {
         "stroke": {
           "color": "#151515",
           "width_px": 7
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Yellow Caption, Bold Outline",
+          "category": "subtitle",
+          "sample_text": "Look Here!"
         }
       }
     },
@@ -1151,6 +1340,13 @@ var AkariEditKernel = (() => {
           "blur_px": 14,
           "distance_px": 8,
           "angle_deg": 90
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Impact Title",
+          "category": "title",
+          "sample_text": "A Shocking Discovery"
         }
       }
     },
@@ -1174,6 +1370,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.02
+      },
+      "i18n": {
+        "en": {
+          "name": "Candy Pink Variety",
+          "category": "decorative",
+          "sample_text": "Great Success!"
+        }
       }
     },
     "variety-lime-pop": {
@@ -1196,6 +1399,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.04
+      },
+      "i18n": {
+        "en": {
+          "name": "Lime Pop Variety",
+          "category": "decorative",
+          "sample_text": "We Did It!"
+        }
       }
     },
     "variety-orange-pop": {
@@ -1218,6 +1428,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.01
+      },
+      "i18n": {
+        "en": {
+          "name": "Orange Shadow Variety",
+          "category": "decorative",
+          "sample_text": "This Is the Best!"
+        }
       }
     },
     "variety-soda-blue": {
@@ -1240,6 +1457,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": 0.03
+      },
+      "i18n": {
+        "en": {
+          "name": "Soda Blue Variety",
+          "category": "decorative",
+          "sample_text": "What a Surprise!"
+        }
       }
     },
     "verdict-badge": {
@@ -1260,6 +1484,13 @@ var AkariEditKernel = (() => {
           "blur_px": 16,
           "distance_px": 0,
           "angle_deg": 90
+        }
+      },
+      "i18n": {
+        "en": {
+          "name": "Verdict Badge",
+          "category": "emphasis",
+          "sample_text": "Worth It!"
         }
       }
     },
@@ -1283,6 +1514,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.04
+      },
+      "i18n": {
+        "en": {
+          "name": "Vertical Cyan Headline",
+          "category": "title",
+          "sample_text": "Do Not Miss This"
+        }
       }
     },
     "vertical-impact-red": {
@@ -1305,6 +1543,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.03
+      },
+      "i18n": {
+        "en": {
+          "name": "Vertical Red Headline",
+          "category": "title",
+          "sample_text": "An Unexpected Result!"
+        }
       }
     },
     "vertical-impact-white": {
@@ -1327,6 +1572,13 @@ var AkariEditKernel = (() => {
           "angle_deg": 90
         },
         "letter_spacing_em": -0.05
+      },
+      "i18n": {
+        "en": {
+          "name": "Vertical White Headline",
+          "category": "title",
+          "sample_text": "Did You Know?"
+        }
       }
     }
   };

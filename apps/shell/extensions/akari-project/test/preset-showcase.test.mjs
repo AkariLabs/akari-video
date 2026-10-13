@@ -1,6 +1,7 @@
 import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
     derivePresetShowcaseChips,
     filterPresetShowcaseItems,
@@ -132,4 +133,42 @@ test('filterPresetShowcaseItems: 和名・id・タグを検索する', () => {
 test('filterPresetShowcaseItems: 空検索は全件、不一致は 0 件', () => {
     assert.equal(filterPresetShowcaseItems(SEARCH_ITEMS, ' ').length, 2);
     assert.equal(filterPresetShowcaseItems(SEARCH_ITEMS, 'no-match').length, 0);
+});
+
+test('preset display follows UI language and searches both names', () => {
+    const row = JSON.stringify({ id: 'fade-up', name: 'フェードアップ', category: 'フェード',
+        description: '下から薄く浮かぶ', sample_text: '浮かぶ字幕', slot: 'in',
+        i18n: { en: { name: 'Fade Up', category: 'Fade', description: 'Floats up from below.', sample_text: 'Floating Caption' } } });
+    const ja = parsePresetShowcaseJsonl(row, 'textanim', 'ja')[0];
+    const en = parsePresetShowcaseJsonl(row, 'textanim', 'en')[0];
+    assert.equal(ja.name, 'フェードアップ');
+    assert.equal(en.name, 'Fade Up');
+    assert.equal(en.category, 'Fade');
+    assert.equal(en.description, 'Floats up from below.');
+    assert.equal(en.sampleText, 'Floating Caption');
+    assert.deepEqual(filterPresetShowcaseItems([en], 'フェードアップ'), [en]);
+    assert.deepEqual(filterPresetShowcaseItems([ja], 'Fade Up'), [ja]);
+});
+
+test('English LUT tooltip omits untranslated when_to_use', () => {
+    const row = JSON.stringify({ id: 'natural', name: 'ナチュラル', description: '穏やか',
+        when_to_use: '一般的な書き出し', tags: ['lut'], i18n: { en: { name: 'Natural', description: 'Subtle color.' } } });
+    assert.equal(parsePresetShowcaseJsonl(row, 'lut', 'ja')[0].whenToUse, '一般的な書き出し');
+    const english = parsePresetShowcaseJsonl(row, 'lut', 'en')[0];
+    assert.equal(english.name, 'Natural');
+    assert.equal(english.description, 'Subtle color.');
+    assert.equal(english.whenToUse, undefined);
+});
+
+test('bundled LUT, text motion, and caption style names switch with UI language', () => {
+    for (const [directory, kind] of [['luts', 'lut'], ['textanim', 'textanim'], ['textstyle', 'textstyle']]) {
+        const raw = readFileSync(new URL(`../../../../../presets/${directory}/index.jsonl`, import.meta.url), 'utf8');
+        const first = JSON.parse(raw.split('\n')[0]);
+        const ja = parsePresetShowcaseJsonl(raw, kind, 'ja')[0];
+        const en = parsePresetShowcaseJsonl(raw, kind, 'en')[0];
+        assert.equal(ja.name, first.name);
+        assert.equal(en.name, first.i18n.en.name);
+        assert.ok(filterPresetShowcaseItems([en], first.name).length);
+        assert.ok(filterPresetShowcaseItems([ja], first.i18n.en.name).length);
+    }
 });

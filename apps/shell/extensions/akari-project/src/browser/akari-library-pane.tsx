@@ -1,4 +1,5 @@
 import { t } from '../common/project-text';
+import { getLanguage } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
@@ -18,7 +19,7 @@ import { TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryDotsCorner } from './library-card-view';
 import { libraryAssetInfoCard, libraryPresetInfoCard, libraryMenuTargetKey, LibraryInfoCardModel, LibraryMenuTarget } from '../common/library-card-menu';
 import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
-import { LIBRARY_GROUPS, LibraryGroupDefinition, LibraryCategoryKey, LibraryCategoryDefinition } from '../common/library-home-view';
+import { LIBRARY_GROUPS, LibraryGroupDefinition, LibraryCategoryKey, LibraryCategoryDefinition, transitionDisplayName, transitionDisplayCategory } from '../common/library-home-view';
 import { myStylePartLabel, type MyStyle } from '../common/my-style';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
@@ -56,7 +57,7 @@ export interface LibraryPaneHost {
     readonly renderCatalogItem: (item: AssetCatalogViewItem) => React.ReactNode;
     readonly catalogQuery: string;
     readonly libraryFavorites: Set<string>;
-    readonly transitionPreviewUrls: Record<string, { preview: string; strip: string }>;
+    readonly transitionPreviewUrls: Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }>;
     readonly presetPassesLibraryFilter: (key: string, source?: 'lab' | 'own') => boolean;
     readonly openLibraryMenuAt: (event: React.MouseEvent<HTMLElement>, target: LibraryMenuTarget) => void;
     readonly openLibraryInfo: (target: LibraryMenuTarget, anchor: HTMLElement) => void;
@@ -368,22 +369,33 @@ export class AkariLibraryPane {
 
     protected handleLibraryTransitionDragStart(
         event: React.DragEvent<HTMLElement>,
-        transition: { readonly id: TransitionType; readonly labelJa: string }
+        transition: { readonly id: TransitionType; readonly labelJa: string; readonly category: string }
     ): void {
         const payload: { kind: 'transition'; id: TransitionType; name: string } = {
             kind: 'transition',
             id: transition.id,
-            name: transition.labelJa
+            name: this.transitionName(transition)
         };
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
     }
 
+    protected transitionRow(transition: { id: TransitionType; labelJa: string; category: string }):
+        { id: string; labelJa: string; category: string; name?: string; i18n?: Record<string, Record<string, string>> } {
+        return { ...transition, ...this.host.transitionPreviewUrls[transition.id] };
+    }
+
+    protected transitionName(transition: { id: TransitionType; labelJa: string; category: string }): string {
+        return transitionDisplayName(this.transitionRow(transition), getLanguage());
+    }
+
     public renderTransitionLibrary(): React.ReactNode {
         const normalizedQuery = this.host.catalogQuery.trim().toLowerCase();
         const filtered = TRANSITION_VOCABULARY.filter(transition => this.host.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
-            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
+            || [transition.labelJa, transition.id, transition.category,
+                ...Object.values(this.transitionRow(transition).i18n ?? {}).flatMap(value => [value.name, value.category])]
+                .join(' ').toLowerCase().includes(normalizedQuery)));
         const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
         return (
             <div
@@ -400,7 +412,7 @@ export class AkariLibraryPane {
                     return (
                         <section key={category} style={{ marginTop: '10px' }}>
                             <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
-                                {category}
+                                {transitionDisplayCategory(this.transitionRow(transitions[0]), getLanguage())}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
                                 {transitions.map(transition => (
@@ -413,12 +425,12 @@ export class AkariLibraryPane {
                                         data-akari-hover-preview-src={libraryHoverPreview('transition', undefined, this.host.transitionPreviewUrls[transition.id]?.strip)?.src}
                                         data-akari-hover-preview-kind='transition'
                                         data-akari-hover-preview-strip={this.host.transitionPreviewUrls[transition.id]?.strip}
-                                        data-akari-hover-preview-label={transition.labelJa}
+                                        data-akari-hover-preview-label={this.transitionName(transition)}
                                         aria-describedby={this.host.transitionPreviewUrls[transition.id]?.strip ? LIBRARY_HOVER_DESCRIPTION_ID : undefined}
                                         data-akari-library-category='transition'
                                         data-akari-library-card='grid'
                                         data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
-                                        title={t('project.library.pane.labelJaDragCutBoundaryLabel', { labelJa: transition.labelJa })}
+                                        title={t('project.library.pane.labelJaDragCutBoundaryLabel', { labelJa: this.transitionName(transition) })}
                                         onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
                                         onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
                                         onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
@@ -434,7 +446,7 @@ export class AkariLibraryPane {
                                             background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
                                         }}
                                     >
-                                        <LibraryDotsCorner label={transition.labelJa}
+                                        <LibraryDotsCorner label={this.transitionName(transition)}
                                             onOpen={anchor => this.host.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
                                         <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
                                             overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
@@ -442,7 +454,7 @@ export class AkariLibraryPane {
                                                 stripUrl={this.host.transitionPreviewUrls[transition.id]?.strip} />
                                         </span>
                                         <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
-                                            {transition.labelJa}
+                                            {this.transitionName(transition)}
                                         </span>
                                     </div>
                                 ))}
@@ -528,8 +540,8 @@ export class AkariLibraryPane {
         }
         if (target.kind === 'transition') {
             const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
-            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
-                categoryLabel: t('project.library.pane.transitionLabel'), tags: [transition.category] }, favorite);
+            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: this.transitionName(transition),
+                categoryLabel: t('project.library.pane.transitionLabel'), tags: [transitionDisplayCategory(this.transitionRow(transition), getLanguage())] }, favorite);
         }
         const { preset, style } = this.host.libraryMenuTargetItem(target);
         if (preset) {

@@ -16,7 +16,7 @@ const tabModel = await import('../lib/browser/inspector/tab-model.js');
 const fx = await import('../lib/browser/inspector/adjust-fx-fields.js');
 const adjust = await import('../lib/browser/inspector/adjust-fields.js');
 const audioMaster = await import('../lib/browser/inspector/audio-master.js');
-const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
 const { buildLutOptions } = await import('../lib/browser/inspector/lut-options.js');
 const { AUDIO_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/audio-preview.js');
 const { ADJUST_PREVIEW_SECTIONS } = await import('../lib/browser/inspector/adjust-preview.js');
@@ -122,7 +122,7 @@ const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTar
 const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);
 const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(widgetAst);
-const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
+const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset, buildLutOptions,
   aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor,
   isInspectorStillImage, CAPTION_IMAGE_EXTENSIONS,
   PHOTO_PANEL_FIELDS: () => [],

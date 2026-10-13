@@ -697,11 +697,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
     }
 
-    async getPresetShowcase(): Promise<PresetShowcase> {
+    async getPresetShowcase(language: 'ja' | 'en' = 'ja'): Promise<PresetShowcase> {
         const [lut, textanim, textstyle] = await Promise.all([
-            this.loadPresetShowcaseIndex('lut'),
-            this.loadPresetShowcaseIndex('textanim'),
-            this.loadPresetShowcaseIndex('textstyle')
+            this.loadPresetShowcaseIndex('lut', language),
+            this.loadPresetShowcaseIndex('textanim', language),
+            this.loadPresetShowcaseIndex('textstyle', language)
         ]);
         const library = loadTextstyleCatalogSync({ env: process.env }).library;
         return { lut, textanim, textstyle: appendLibraryTextstyleShowcaseItems(textstyle, library,
@@ -713,16 +713,16 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return loadTextstyleCatalogSync({ env: process.env }).library;
     }
 
-    async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>> {
+    async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }>> {
         const lutCandidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), 'luts', this.resourcesPath());
         for (const lutIndex of lutCandidates) {
             const file = resolve(lutIndex, '../../transitions/index.jsonl');
             try {
                 const raw = await fs.readFile(file, 'utf8');
-                const urls: Record<string, { preview: string; strip: string }> = {};
+                const urls: Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }> = {};
                 for (const line of raw.split(/\r?\n/)) {
                     if (!line.trim()) continue;
-                    const item = JSON.parse(line) as { id?: string; preview?: string; preview_strip?: string };
+                    const item = JSON.parse(line) as { id?: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>>; preview?: string; preview_strip?: string };
                     const id = item.id;
                     const expected = id && shelfPreviewPath('transition', id);
                     const strip = id && shelfPreviewPath('transition', id, true);
@@ -730,7 +730,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                         && item.preview_strip === `${id}/preview-strip.webp`) {
                         const root = resolve(dirname(file), '../..');
                         urls[id] = { preview: pathToFileURL(join(root, expected)).toString(),
-                            strip: pathToFileURL(join(root, strip)).toString() };
+                            strip: pathToFileURL(join(root, strip)).toString(),
+                            name: item.name, category: item.category, i18n: item.i18n };
                     }
                 }
                 return urls;
@@ -834,13 +835,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         await fs.rmdir(dirname(file));
     }
 
-    protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind): Promise<PresetShowcase[PresetShowcaseKind]> {
+    protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind, language: 'ja' | 'en' = 'ja'): Promise<PresetShowcase[PresetShowcaseKind]> {
         const directory = kind === 'lut' ? 'luts' : kind;
         const candidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), directory, this.resourcesPath());
         for (const candidate of candidates) {
             try {
                 const raw = await fs.readFile(candidate, 'utf8');
-                return parsePresetShowcaseJsonl(raw, kind).map(item => {
+                return parsePresetShowcaseJsonl(raw, kind, language).map(item => {
                     const relative = kind === 'lut' ? shelfPreviewPath('lut', item.id) : undefined;
                     return relative ? { ...item, previewUrl: pathToFileURL(join(resolve(dirname(candidate), '../..'), relative)).toString() } : item;
                 });

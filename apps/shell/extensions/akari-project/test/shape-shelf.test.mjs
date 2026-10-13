@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     buildShapeShelfRows, parseRecentShapes, parseShapeShelfJsonl, pushRecentShape, searchShapeShelf,
-    SHAPE_SHELF_LINE_ROW, SHAPE_SHELF_RECENT_LIMIT, shapeShelfDragPayload, shapeShelfRowItems, shapeShelfRowLabel
+    SHAPE_SHELF_LINE_ROW, SHAPE_SHELF_RECENT_LIMIT, shapeShelfDragPayload, shapeShelfRowItems, shapeShelfRowLabel, shapeShelfName
 } from '../lib/common/shape-shelf.js';
 import { LIBRARY_PRIMARY_TILES, resolveOpenableLibraryCategory, searchLibraryHome } from '../lib/common/library-home-view.js';
 
@@ -117,4 +117,14 @@ test('ドラッグの payload は kind: shape + preset（仮枠用に名前と v
     const { d, ...rest } = payload;
     assert.deepEqual(rest, { kind: 'shape', preset: 'star-5', name: '5 点の星', vb: [100, 95] });
     assert.equal(d, star.d);
+});
+
+test('shape shelf displays and places the English name while searching either language', () => {
+    const star = presets.find(preset => preset.id === 'star-5');
+    assert.equal(shapeShelfName(star, 'en'), '5-Point Star');
+    assert.equal(shapeShelfName(star, 'ja'), '5 点の星');
+    assert.equal(shapeShelfDragPayload(star, 'en').name, '5-Point Star');
+    assert.ok(searchShapeShelf(presets, '5-Point Star').some(item => item.id === star.id));
+    assert.ok(searchLibraryHome('5-Point Star', { ...emptySources, shapes: presets }, 'en')
+        .some(hit => hit.label === '5-Point Star'));
 });

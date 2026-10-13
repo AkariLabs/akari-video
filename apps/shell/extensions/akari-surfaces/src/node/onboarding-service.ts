@@ -118,7 +118,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             try { return `data:image/webp;base64,${(await fs.readFile(candidate)).toString('base64')}`; }
             catch (error) { lastError = error; }
         }
-        console.warn('[akari-onboarding] ようこそ画像を読めませんでした。画像なしで続けます。', lastError);
+        console.warn('[akari-onboarding] ' + t('surfaces.onboardingService.warning.welcomeImageUnavailable'), lastError);
         return '';
     }
 
@@ -248,7 +248,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
             await fs.rename(temporary, target);
         } catch (error) {
             await fs.rm(temporary, { force: true }).catch(() => undefined);
-            console.warn('[akari-onboarding] サンプルの書き起こしを新しい語の時刻へ更新できませんでした。前の版のまま続けます。', error);
+            console.warn('[akari-onboarding] ' + t('surfaces.onboardingService.warning.transcriptUpgradeUnavailable'), error);
         }
     }
 

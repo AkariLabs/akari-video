@@ -1,4 +1,4 @@
-import { getLanguage } from '@akari-video/i18n';
+import { getLanguage, t as catalogText } from '@akari-video/i18n';
 import { t } from '../common/project-text';
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
@@ -30,7 +30,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
-import { CAPTION_SAMPLE_TEXT, registerLibraryTextstylePresets, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { registerLibraryTextstylePresets, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
     AKARI_INK,
@@ -306,11 +306,11 @@ function StyleSpecimen(props: { sample: LibraryTextStyleSample; myStyle?: boolea
             style={{ ...(look.vars as React.CSSProperties), flex: '0 0 auto', transform: `scale(${scale})` }}>
             <span className='akari-caption__plate'><span className='akari-caption__line'>
                 {look.rich ? <span className='akari-caption__tok'><span className='akari-caption__rich-segment'>
-                    <span className='akari-caption__rich-shadow' aria-hidden='true'>{CAPTION_SAMPLE_TEXT}</span>
+                    <span className='akari-caption__rich-shadow' aria-hidden='true'>{catalogText('inspector.captionPanels.sample.captionText')}</span>
                     {look.strokes.map((stroke, index) => <span key={index} className='akari-caption__rich-stroke'
-                        aria-hidden='true' style={stroke as React.CSSProperties}>{CAPTION_SAMPLE_TEXT}</span>)}
-                    <span className='akari-caption__rich-fill'>{CAPTION_SAMPLE_TEXT}</span>
-                </span></span> : CAPTION_SAMPLE_TEXT}
+                        aria-hidden='true' style={stroke as React.CSSProperties}>{catalogText('inspector.captionPanels.sample.captionText')}</span>)}
+                    <span className='akari-caption__rich-fill'>{catalogText('inspector.captionPanels.sample.captionText')}</span>
+                </span></span> : catalogText('inspector.captionPanels.sample.captionText')}
             </span></span>
         </span>
     </span></>;
@@ -566,7 +566,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
     protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
-    protected transitionPreviewUrls: Record<string, { preview: string; strip: string }> = {};
+    protected transitionPreviewUrls: Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }> = {};
     protected myStyles: MyStyle[] = [];
     protected closeMyStyleApplyPopover?: () => void;
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
@@ -1314,7 +1314,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.libraryPane.catalogPickError = undefined;
         const [view, presetShowcase, libraryTextstyles, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot, intent, getLanguage()),
-            this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
+            this.projectService.getPresetShowcase(getLanguage()).catch(() => EMPTY_PRESET_SHOWCASE),
             this.projectService.getLibraryTextstylePresets().catch(() => []),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
             this.projectService.listMyStyles().catch(() => [] as MyStyle[]),
@@ -2693,9 +2693,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const hits = searchLibraryHome(query, {
                 catalogItems: this.applyLibraryFilter(this.assetCatalogItems),
                 presetShowcase: { textstyle: presets('textstyle'), textanim: presets('textanim'), lut: presets('lut') },
-                transitions: TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`)),
+                transitions: TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`))
+                    .map(transition => ({ ...transition, ...this.transitionPreviewUrls[transition.id] })),
                 shapes: this.shapeShelf?.presets
-            });
+            }, getLanguage());
             return (
                 <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
                     <div style={{ fontSize: '0.78em', fontWeight: 700, opacity: 0.7, padding: '4px 0 8px' }}>{t('project.library.shelf.searchResultsAcrossLibraryAction')}</div>
@@ -2821,7 +2822,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected handleShapeDragStart(event: React.DragEvent<HTMLElement>, preset: ShapeShelfPreset): void {
-        const payload = shapeShelfDragPayload(preset);
+        const payload = shapeShelfDragPayload(preset, getLanguage());
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));

@@ -1,47 +1,47 @@
-{"id":"fade-in-out","name":"フェード","category":"フェード","description":"ふわっと出て消える","sample_text":"フェード","slot":"in"}
-{"id":"soft-fade","name":"ソフトフェード","category":"フェード","description":"少し寄りながら柔らかく表示","sample_text":"ソフト","slot":"in"}
-{"id":"fade-up","name":"フェードアップ","category":"フェード","description":"下から薄く浮かぶ","sample_text":"浮かぶ字幕","slot":"in"}
-{"id":"fade-down","name":"フェードダウン","category":"フェード","description":"上から薄く降りる","sample_text":"降りる字幕","slot":"in"}
-{"id":"cinematic-fade","name":"シネマフェード","category":"フェード","description":"ゆっくり近づくタイトル向け","sample_text":"SCENE TITLE","slot":"in"}
-{"id":"slide-left","name":"左からスライド","category":"スライド","description":"左から入り左へ抜ける","sample_text":"左から","slot":"in"}
-{"id":"slide-right","name":"右からスライド","category":"スライド","description":"右から入り右へ抜ける","sample_text":"右から","slot":"in"}
-{"id":"slide-up","name":"下からスライド","category":"スライド","description":"下から上へ入る","sample_text":"下から","slot":"in"}
-{"id":"slide-down","name":"上からスライド","category":"スライド","description":"上から下へ入る","sample_text":"上から","slot":"in"}
-{"id":"push-left","name":"プッシュ左","category":"スライド","description":"短く押し出す左移動","sample_text":"プッシュ","slot":"in"}
-{"id":"push-right","name":"プッシュ右","category":"スライド","description":"短く押し出す右移動","sample_text":"プッシュ","slot":"in"}
-{"id":"push-up","name":"プッシュ上","category":"スライド","description":"上方向に素早く押し出す","sample_text":"プッシュ","slot":"in"}
-{"id":"push-down","name":"プッシュ下","category":"スライド","description":"下方向に素早く押し出す","sample_text":"プッシュ","slot":"in"}
-{"id":"rise-soft","name":"ソフトライズ","category":"スライド","description":"字幕向けに小さく持ち上がる","sample_text":"自然な字幕","slot":"in"}
-{"id":"drop-in","name":"ドロップイン","category":"スライド","description":"上から落ちて止まる","sample_text":"ドン","slot":"in"}
-{"id":"zoom-in-out","name":"ズーム","category":"ズーム","description":"近づきながら出て奥へ消える","sample_text":"ズーム","slot":"in"}
-{"id":"zoom-pop","name":"ズームポップ","category":"ズーム","description":"小さく弾んで拡大","sample_text":"POP","slot":"in"}
-{"id":"zoom-pulse","name":"ズームパルス","category":"ズーム","description":"表示中に軽く鼓動する","sample_text":"PULSE","slot":"in"}
-{"id":"pop","name":"ポップ","category":"弾性","description":"ぽんっと拡大して出る","sample_text":"ポップ","slot":"in"}
-{"id":"bounce","name":"バウンス","category":"弾性","description":"跳ねるように着地","sample_text":"バウンド","slot":"in"}
-{"id":"squash-pop","name":"スクワッシュ","category":"弾性","description":"潰れて戻るように強調","sample_text":"BOOM","slot":"in"}
-{"id":"stretch-in","name":"ストレッチ","category":"弾性","description":"伸びてから整う","sample_text":"伸びる","slot":"in"}
-{"id":"stomp","name":"ストンプ","category":"弾性","description":"重く踏み込むインパクト","sample_text":"ドン！","slot":"in"}
-{"id":"snap","name":"スナップ","category":"弾性","description":"一瞬で切れよく表示","sample_text":"SNAP","slot":"in"}
-{"id":"rotate-in","name":"回転イン","category":"回転","description":"少し回転しながら入る","sample_text":"回転","slot":"in"}
-{"id":"spin-in","name":"スピンイン","category":"回転","description":"大きく回って登場","sample_text":"SPIN","slot":"in"}
-{"id":"roll-in","name":"ロールイン","category":"回転","description":"転がるように横から入る","sample_text":"ROLL","slot":"in"}
-{"id":"spiral-in","name":"スパイラル","category":"回転","description":"弧を描きながら中央へ","sample_text":"SPIRAL","slot":"in"}
-{"id":"swing","name":"スイング","category":"回転","description":"吊られたように揺れる","sample_text":"SWING","slot":"in"}
-{"id":"shake","name":"シェイク","category":"強調","description":"小刻みに震える","sample_text":"ブルブル","slot":"in"}
-{"id":"jitter","name":"ジッター","category":"強調","description":"細かく荒く揺れる","sample_text":"JITTER","slot":"in"}
-{"id":"glitch","name":"グリッチ","category":"強調","description":"瞬間的に横ズレする","sample_text":"GLITCH","slot":"in"}
-{"id":"flash","name":"フラッシュ","category":"強調","description":"点滅して目を引く","sample_text":"FLASH","slot":"in"}
-{"id":"heartbeat","name":"ハートビート","category":"強調","description":"強めの鼓動で押す","sample_text":"HEART","slot":"in"}
-{"id":"typewriter","name":"タイプライター","category":"文字表示","description":"1文字ずつ表示","sample_text":"タイプ印字","slot":"in"}
-{"id":"wipe-left","name":"左ワイプ","category":"文字表示","description":"左から文字を開く","sample_text":"ワイプ表示","slot":"in"}
-{"id":"wipe-right","name":"右ワイプ","category":"文字表示","description":"右側から文字を開く","sample_text":"右ワイプ","slot":"in"}
-{"id":"wobble","name":"ゆらゆら","category":"ループ","description":"表示中に軽く揺れる","sample_text":"ゆらゆら","slot":"loop"}
-{"id":"float","name":"フロート","category":"ループ","description":"上下にゆっくり浮く","sample_text":"FLOAT","slot":"loop"}
-{"id":"breath","name":"ブレス","category":"ループ","description":"呼吸するように伸縮","sample_text":"BREATH","slot":"loop"}
-{"id":"neon-flicker","name":"ネオン点滅","category":"ループ","description":"ネオン看板のように明滅","sample_text":"NEON","slot":"loop"}
-{"id":"hologram","name":"ホログラム","category":"ループ","description":"薄く揺れるデジタル感","sample_text":"HOLOGRAM","slot":"loop"}
-{"id":"retro-flicker","name":"レトロ点滅","category":"ループ","description":"古い映像のようにちらつく","sample_text":"RETRO","slot":"loop"}
-{"id":"caption-rise","name":"字幕ライズ","category":"テロップ","description":"会話字幕向けに短く上がる","sample_text":"字幕テロップ","slot":"in"}
-{"id":"news-ticker","name":"ニュース帯","category":"テロップ","description":"右から左へ流れる","sample_text":"ニュース速報","slot":"loop"}
-{"id":"marquee-left","name":"横スクロール","category":"テロップ","description":"テキストを横に流す","sample_text":"横に流れるテキスト","slot":"loop"}
-{"id":"crawl-up","name":"縦スクロール","category":"テロップ","description":"下から上へ流す","sample_text":"縦に流れる","slot":"loop"}
+{"id":"fade-in-out","name":"フェード","category":"フェード","description":"ふわっと出て消える","sample_text":"フェード","slot":"in","i18n":{"en":{"name":"Fade","category":"Fade","description":"Fades in gently, then fades out.","sample_text":"Fade"}}}
+{"id":"soft-fade","name":"ソフトフェード","category":"フェード","description":"少し寄りながら柔らかく表示","sample_text":"ソフト","slot":"in","i18n":{"en":{"name":"Soft Fade","category":"Fade","description":"Appears softly with a slight push in.","sample_text":"Soft"}}}
+{"id":"fade-up","name":"フェードアップ","category":"フェード","description":"下から薄く浮かぶ","sample_text":"浮かぶ字幕","slot":"in","i18n":{"en":{"name":"Fade Up","category":"Fade","description":"Floats up from below as it fades in.","sample_text":"Floating Caption"}}}
+{"id":"fade-down","name":"フェードダウン","category":"フェード","description":"上から薄く降りる","sample_text":"降りる字幕","slot":"in","i18n":{"en":{"name":"Fade Down","category":"Fade","description":"Descends softly from above.","sample_text":"Descending Caption"}}}
+{"id":"cinematic-fade","name":"シネマフェード","category":"フェード","description":"ゆっくり近づくタイトル向け","sample_text":"SCENE TITLE","slot":"in","i18n":{"en":{"name":"Cinematic Fade","category":"Fade","description":"Slowly approaches for a cinematic title.","sample_text":"SCENE TITLE"}}}
+{"id":"slide-left","name":"左からスライド","category":"スライド","description":"左から入り左へ抜ける","sample_text":"左から","slot":"in","i18n":{"en":{"name":"Slide Left","category":"Slide","description":"Slides in from the left and exits left.","sample_text":"From Left"}}}
+{"id":"slide-right","name":"右からスライド","category":"スライド","description":"右から入り右へ抜ける","sample_text":"右から","slot":"in","i18n":{"en":{"name":"Slide Right","category":"Slide","description":"Slides in from the right and exits right.","sample_text":"From Right"}}}
+{"id":"slide-up","name":"下からスライド","category":"スライド","description":"下から上へ入る","sample_text":"下から","slot":"in","i18n":{"en":{"name":"Slide Up","category":"Slide","description":"Slides upward from below.","sample_text":"From Below"}}}
+{"id":"slide-down","name":"上からスライド","category":"スライド","description":"上から下へ入る","sample_text":"上から","slot":"in","i18n":{"en":{"name":"Slide Down","category":"Slide","description":"Slides downward from above.","sample_text":"From Above"}}}
+{"id":"push-left","name":"プッシュ左","category":"スライド","description":"短く押し出す左移動","sample_text":"プッシュ","slot":"in","i18n":{"en":{"name":"Push Left","category":"Slide","description":"Pushes briefly to the left.","sample_text":"Push"}}}
+{"id":"push-right","name":"プッシュ右","category":"スライド","description":"短く押し出す右移動","sample_text":"プッシュ","slot":"in","i18n":{"en":{"name":"Push Right","category":"Slide","description":"Pushes briefly to the right.","sample_text":"Push"}}}
+{"id":"push-up","name":"プッシュ上","category":"スライド","description":"上方向に素早く押し出す","sample_text":"プッシュ","slot":"in","i18n":{"en":{"name":"Push Up","category":"Slide","description":"Pushes upward quickly.","sample_text":"Push"}}}
+{"id":"push-down","name":"プッシュ下","category":"スライド","description":"下方向に素早く押し出す","sample_text":"プッシュ","slot":"in","i18n":{"en":{"name":"Push Down","category":"Slide","description":"Pushes downward quickly.","sample_text":"Push"}}}
+{"id":"rise-soft","name":"ソフトライズ","category":"スライド","description":"字幕向けに小さく持ち上がる","sample_text":"自然な字幕","slot":"in","i18n":{"en":{"name":"Soft Rise","category":"Slide","description":"Lifts slightly for a natural caption.","sample_text":"Natural Caption"}}}
+{"id":"drop-in","name":"ドロップイン","category":"スライド","description":"上から落ちて止まる","sample_text":"ドン","slot":"in","i18n":{"en":{"name":"Drop In","category":"Slide","description":"Drops in from above and stops.","sample_text":"Drop"}}}
+{"id":"zoom-in-out","name":"ズーム","category":"ズーム","description":"近づきながら出て奥へ消える","sample_text":"ズーム","slot":"in","i18n":{"en":{"name":"Zoom","category":"Zoom","description":"Moves closer on entry, then recedes.","sample_text":"Zoom"}}}
+{"id":"zoom-pop","name":"ズームポップ","category":"ズーム","description":"小さく弾んで拡大","sample_text":"POP","slot":"in","i18n":{"en":{"name":"Zoom Pop","category":"Zoom","description":"Pops and grows from a small size.","sample_text":"POP"}}}
+{"id":"zoom-pulse","name":"ズームパルス","category":"ズーム","description":"表示中に軽く鼓動する","sample_text":"PULSE","slot":"in","i18n":{"en":{"name":"Zoom Pulse","category":"Zoom","description":"Pulses gently while visible.","sample_text":"PULSE"}}}
+{"id":"pop","name":"ポップ","category":"弾性","description":"ぽんっと拡大して出る","sample_text":"ポップ","slot":"in","i18n":{"en":{"name":"Pop","category":"Elastic","description":"Pops into view at a larger size.","sample_text":"Pop"}}}
+{"id":"bounce","name":"バウンス","category":"弾性","description":"跳ねるように着地","sample_text":"バウンド","slot":"in","i18n":{"en":{"name":"Bounce","category":"Elastic","description":"Lands with a bounce.","sample_text":"Bounce"}}}
+{"id":"squash-pop","name":"スクワッシュ","category":"弾性","description":"潰れて戻るように強調","sample_text":"BOOM","slot":"in","i18n":{"en":{"name":"Squash Pop","category":"Elastic","description":"Squashes and rebounds for emphasis.","sample_text":"BOOM"}}}
+{"id":"stretch-in","name":"ストレッチ","category":"弾性","description":"伸びてから整う","sample_text":"伸びる","slot":"in","i18n":{"en":{"name":"Stretch In","category":"Elastic","description":"Stretches before settling.","sample_text":"Stretch"}}}
+{"id":"stomp","name":"ストンプ","category":"弾性","description":"重く踏み込むインパクト","sample_text":"ドン！","slot":"in","i18n":{"en":{"name":"Stomp","category":"Elastic","description":"Lands with a heavy impact.","sample_text":"BOOM!"}}}
+{"id":"snap","name":"スナップ","category":"弾性","description":"一瞬で切れよく表示","sample_text":"SNAP","slot":"in","i18n":{"en":{"name":"Snap","category":"Elastic","description":"Appears instantly with a crisp snap.","sample_text":"SNAP"}}}
+{"id":"rotate-in","name":"回転イン","category":"回転","description":"少し回転しながら入る","sample_text":"回転","slot":"in","i18n":{"en":{"name":"Rotate In","category":"Rotation","description":"Enters with a small rotation.","sample_text":"Rotate"}}}
+{"id":"spin-in","name":"スピンイン","category":"回転","description":"大きく回って登場","sample_text":"SPIN","slot":"in","i18n":{"en":{"name":"Spin In","category":"Rotation","description":"Spins into view.","sample_text":"SPIN"}}}
+{"id":"roll-in","name":"ロールイン","category":"回転","description":"転がるように横から入る","sample_text":"ROLL","slot":"in","i18n":{"en":{"name":"Roll In","category":"Rotation","description":"Rolls in from the side.","sample_text":"ROLL"}}}
+{"id":"spiral-in","name":"スパイラル","category":"回転","description":"弧を描きながら中央へ","sample_text":"SPIRAL","slot":"in","i18n":{"en":{"name":"Spiral In","category":"Rotation","description":"Curves inward toward the center.","sample_text":"SPIRAL"}}}
+{"id":"swing","name":"スイング","category":"回転","description":"吊られたように揺れる","sample_text":"SWING","slot":"in","i18n":{"en":{"name":"Swing","category":"Rotation","description":"Swings like a hanging sign.","sample_text":"SWING"}}}
+{"id":"shake","name":"シェイク","category":"強調","description":"小刻みに震える","sample_text":"ブルブル","slot":"in","i18n":{"en":{"name":"Shake","category":"Emphasis","description":"Shakes in quick, small movements.","sample_text":"Shake"}}}
+{"id":"jitter","name":"ジッター","category":"強調","description":"細かく荒く揺れる","sample_text":"JITTER","slot":"in","i18n":{"en":{"name":"Jitter","category":"Emphasis","description":"Jitters with a rough, tight motion.","sample_text":"JITTER"}}}
+{"id":"glitch","name":"グリッチ","category":"強調","description":"瞬間的に横ズレする","sample_text":"GLITCH","slot":"in","i18n":{"en":{"name":"Glitch","category":"Emphasis","description":"Shifts sideways for a split second.","sample_text":"GLITCH"}}}
+{"id":"flash","name":"フラッシュ","category":"強調","description":"点滅して目を引く","sample_text":"FLASH","slot":"in","i18n":{"en":{"name":"Flash","category":"Emphasis","description":"Flashes to draw attention.","sample_text":"FLASH"}}}
+{"id":"heartbeat","name":"ハートビート","category":"強調","description":"強めの鼓動で押す","sample_text":"HEART","slot":"in","i18n":{"en":{"name":"Heartbeat","category":"Emphasis","description":"Pulses with a strong heartbeat.","sample_text":"HEART"}}}
+{"id":"typewriter","name":"タイプライター","category":"文字表示","description":"1文字ずつ表示","sample_text":"タイプ印字","slot":"in","i18n":{"en":{"name":"Typewriter","category":"Text Reveal","description":"Reveals one character at a time.","sample_text":"Typing"}}}
+{"id":"wipe-left","name":"左ワイプ","category":"文字表示","description":"左から文字を開く","sample_text":"ワイプ表示","slot":"in","i18n":{"en":{"name":"Wipe Left","category":"Text Reveal","description":"Uncovers the text from the left.","sample_text":"Wipe Reveal"}}}
+{"id":"wipe-right","name":"右ワイプ","category":"文字表示","description":"右側から文字を開く","sample_text":"右ワイプ","slot":"in","i18n":{"en":{"name":"Wipe Right","category":"Text Reveal","description":"Uncovers the text from the right.","sample_text":"Right Wipe"}}}
+{"id":"wobble","name":"ゆらゆら","category":"ループ","description":"表示中に軽く揺れる","sample_text":"ゆらゆら","slot":"loop","i18n":{"en":{"name":"Wobble","category":"Loop","description":"Wobbles gently while visible.","sample_text":"Wobble"}}}
+{"id":"float","name":"フロート","category":"ループ","description":"上下にゆっくり浮く","sample_text":"FLOAT","slot":"loop","i18n":{"en":{"name":"Float","category":"Loop","description":"Floats slowly up and down.","sample_text":"FLOAT"}}}
+{"id":"breath","name":"ブレス","category":"ループ","description":"呼吸するように伸縮","sample_text":"BREATH","slot":"loop","i18n":{"en":{"name":"Breathe","category":"Loop","description":"Expands and contracts like breathing.","sample_text":"BREATHE"}}}
+{"id":"neon-flicker","name":"ネオン点滅","category":"ループ","description":"ネオン看板のように明滅","sample_text":"NEON","slot":"loop","i18n":{"en":{"name":"Neon Flicker","category":"Loop","description":"Flickers like a neon sign.","sample_text":"NEON"}}}
+{"id":"hologram","name":"ホログラム","category":"ループ","description":"薄く揺れるデジタル感","sample_text":"HOLOGRAM","slot":"loop","i18n":{"en":{"name":"Hologram","category":"Loop","description":"Shimmers with a faint digital distortion.","sample_text":"HOLOGRAM"}}}
+{"id":"retro-flicker","name":"レトロ点滅","category":"ループ","description":"古い映像のようにちらつく","sample_text":"RETRO","slot":"loop","i18n":{"en":{"name":"Retro Flicker","category":"Loop","description":"Flickers like old footage.","sample_text":"RETRO"}}}
+{"id":"caption-rise","name":"字幕ライズ","category":"テロップ","description":"会話字幕向けに短く上がる","sample_text":"字幕テロップ","slot":"in","i18n":{"en":{"name":"Caption Rise","category":"Caption","description":"Rises briefly for dialogue captions.","sample_text":"Caption"}}}
+{"id":"news-ticker","name":"ニュース帯","category":"テロップ","description":"右から左へ流れる","sample_text":"ニュース速報","slot":"loop","i18n":{"en":{"name":"News Ticker","category":"Caption","description":"Scrolls from right to left like a news ticker.","sample_text":"Breaking News"}}}
+{"id":"marquee-left","name":"横スクロール","category":"テロップ","description":"テキストを横に流す","sample_text":"横に流れるテキスト","slot":"loop","i18n":{"en":{"name":"Horizontal Scroll","category":"Caption","description":"Scrolls text horizontally.","sample_text":"Scrolling Text"}}}
+{"id":"crawl-up","name":"縦スクロール","category":"テロップ","description":"下から上へ流す","sample_text":"縦に流れる","slot":"loop","i18n":{"en":{"name":"Vertical Crawl","category":"Caption","description":"Scrolls text upward.","sample_text":"Vertical Scroll"}}}
