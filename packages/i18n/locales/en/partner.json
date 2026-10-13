@@ -214,6 +214,7 @@
   "partner.partnerSetup.bootstrap.fetchingCodexReleaseInformationText": "Fetching Codex release information: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingClaudeText": "Found existing claude: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingCodexText": "Found existing codex: {value1}",
+  "partner.partnerSetup.bootstrap.managedCodexPackageIncompleteText": "The codex package installed by AKARI is incomplete; reinstalling: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingStatus": "Found existing {value1}: {value2}",
   "partner.partnerSetup.bootstrap.foundExistingVersionStatus": "Found existing {value1} {value2}: {value3}",
   "partner.partnerSetup.bootstrap.foundLabel": "Found {value1} {value2}: {value3}",

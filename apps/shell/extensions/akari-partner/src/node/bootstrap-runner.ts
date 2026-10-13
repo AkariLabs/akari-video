@@ -341,11 +341,15 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 const existing = await firstExecutable(codexCandidates());
                 if (existing) {
                     console.log(t('partner.partnerSetup.bootstrap.foundExistingCodexText', { value1: existing }));
-                    if (await codexHostPath(existing)) {
+                    if (await isIncompleteManagedCodex(existing)) {
+                        // 以前の Windows 導入は bin の 2 本だけを current へ写していた。新しい Codex は
+                        // codex-package.json などの一式が無いと起動を拒む（no complete local package）ので入れ直す。
+                        console.log(t('partner.partnerSetup.bootstrap.managedCodexPackageIncompleteText', { value1: existing }));
+                    } else if (await codexHostPath(existing)) {
                         logCodexHostResult('OK', existing);
                         return { executablePath: existing, reused: true };
                     }
-                    if (process.platform !== 'win32') {
+                    if (process.platform !== 'win32' && !await isIncompleteManagedCodex(existing)) {
                         try {
                             await repairCodexHost(existing);
                             await requireCodexHost(existing);
@@ -406,16 +410,33 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
 
         const bundled = codexBundlePaths(versionDir);
         let executable: string;
+        let installedDir = versionDir;
         if (process.platform === 'win32') {
-            const currentBin = path.join(managedRoot, 'current', 'bin');
+            // Windows は固定の current を指す。bin だけでなくパッケージ一式（codex-package.json・
+            // codex-path・codex-resources）を丸ごと current に据える。欠けると Codex が起動を拒む。
+            const current = path.join(managedRoot, 'current');
             const temporaryCurrent = path.join(managedRoot, `.current-${process.pid}`);
             await fs.rm(temporaryCurrent, { recursive: true, force: true });
-            await fs.mkdir(path.join(temporaryCurrent, 'bin'), { recursive: true });
-            await fs.copyFile(bundled.executable, path.join(temporaryCurrent, 'bin', path.basename(bundled.executable)));
-            await fs.copyFile(bundled.host, path.join(temporaryCurrent, 'bin', path.basename(bundled.host)));
-            await fs.rm(path.dirname(currentBin), { recursive: true, force: true });
-            await fs.rename(temporaryCurrent, path.dirname(currentBin));
-            executable = path.join(currentBin, path.basename(bundled.executable));
+            const previousCurrent = path.join(managedRoot, `.previous-${process.pid}`);
+            await fs.rename(versionDir, temporaryCurrent);
+            try {
+                // 消す前に別名へ退避する。実行中の codex.exe があれば退避の rename が丸ごと失敗するので、
+                // 中途半端に削れた current を残さない。
+                await fs.rm(previousCurrent, { recursive: true, force: true });
+                await fs.rename(current, previousCurrent).catch(error => {
+                    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw error;
+                });
+                await fs.rename(temporaryCurrent, current);
+            } catch (error) {
+                await fs.rm(temporaryCurrent, { recursive: true, force: true }).catch(() => undefined);
+                if (!await pathExists(current)) {
+                    await fs.rename(previousCurrent, current).catch(() => undefined);
+                }
+                throw error;
+            }
+            await fs.rm(previousCurrent, { recursive: true, force: true }).catch(() => undefined);
+            executable = path.join(current, 'bin', path.basename(bundled.executable));
+            installedDir = current;
         } else {
             const executableLink = path.join(os.homedir(), '.local', 'bin', 'codex');
             await fs.mkdir(path.dirname(executableLink), { recursive: true });
@@ -433,7 +454,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
                 await fs.rm(path.join(managedRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
             }
         } catch { /* 片付けは任意 */ }
-        console.log(t('partner.partnerSetup.bootstrap.installedCodexLabel', { value1: version, value2: versionDir }));
+        console.log(t('partner.partnerSetup.bootstrap.installedCodexLabel', { value1: version, value2: installedDir }));
         return executable;
     }
 
@@ -509,6 +530,29 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             executable: path.join(root, 'bin', `codex${suffix}`),
             host: path.join(root, 'bin', `codex-code-mode-host${suffix}`)
         };
+    }
+
+    /** AKARI 管理フォルダの Codex なのに、パッケージ一式の目印（codex-package.json）が無い。 */
+    async function isIncompleteManagedCodex(executable: string): Promise<boolean> {
+        let managedRoot: string;
+        let executableRealpath: string;
+        try {
+            managedRoot = await fs.realpath(codexManagedRoot());
+            executableRealpath = await fs.realpath(executable);
+        } catch {
+            return false;
+        }
+        if (!executableRealpath.startsWith(managedRoot + path.sep)) return false;
+        try {
+            await fs.access(path.join(path.dirname(path.dirname(executableRealpath)), 'codex-package.json'));
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    async function pathExists(target: string): Promise<boolean> {
+        try { await fs.access(target); return true; } catch { return false; }
     }
 
     async function codexHostPath(executable: string): Promise<string | undefined> {

@@ -1022,6 +1022,78 @@ test('Windows の既存 Codex に host が無ければ既存フォルダを変�
     }
 });
 
+test('Windows の管理 Codex は bin だけでなくパッケージ一式を current に置く', async () => {
+    const home = await makeHome('akari-codex-win-package-');
+    const asset = 'codex-package-x86_64-pc-windows-msvc.tar.gz';
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        [`/assets/${asset}`]: fixture(bundleArchive('win32'))
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64' });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        const managedRoot = path.join(home, 'local-app-data', 'AKARI Video', 'codex');
+        const current = path.join(managedRoot, 'current');
+        // Codex は実行ファイルの 1 つ上に codex-package.json が無いと「no complete local package」で止まる。
+        assert.equal(await readFile(path.join(current, 'codex-package.json'), 'utf8'), JSON.stringify({ version: VERSION }));
+        assert.ok((await stat(path.join(current, 'codex-path', 'rg'))).isFile());
+        assert.ok((await stat(path.join(current, 'bin', 'codex.exe'))).isFile());
+        assert.ok((await stat(path.join(current, 'bin', 'codex-code-mode-host.exe'))).isFile());
+        // 版フォルダとの二重持ちはしない（100MB 級）。
+        await assert.rejects(stat(path.join(managedRoot, VERSION)));
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows で以前の導入が残した欠けた current（bin の 2 本だけ）は再利用せず入れ直す', async () => {
+    const home = await makeHome('akari-codex-win-broken-');
+    const managedRoot = path.join(home, 'local-app-data', 'AKARI Video', 'codex');
+    const brokenBin = path.join(managedRoot, 'current', 'bin');
+    await mkdir(brokenBin, { recursive: true });
+    await writeFile(path.join(brokenBin, 'codex.exe'), '#!/bin/sh\necho codex-cli 0.147.0\n', { mode: 0o755 });
+    await writeFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'old host', { mode: 0o755 });
+    await mkdir(path.join(managedRoot, '0.147.0', 'bin'), { recursive: true });
+    const asset = 'codex-package-x86_64-pc-windows-msvc.tar.gz';
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json'),
+        [`/assets/${asset}`]: fixture(bundleArchive('win32'))
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64' });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /入れ直します|reinstalling/);
+        assert.ok((await stat(path.join(managedRoot, 'current', 'codex-package.json'))).isFile());
+        assert.match(await readFile(path.join(brokenBin, 'codex.exe'), 'utf8'), /0\.149\.1/);
+        assert.equal(await readFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'utf8'), 'matching host');
+        await assert.rejects(stat(path.join(managedRoot, '0.147.0')), '旧版フォルダは消える');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の欠けた current を直すにも導入の同意が要る', async () => {
+    const home = await makeHome('akari-codex-win-broken-consent-');
+    const brokenBin = path.join(home, 'local-app-data', 'AKARI Video', 'codex', 'current', 'bin');
+    await mkdir(brokenBin, { recursive: true });
+    await writeFile(path.join(brokenBin, 'codex.exe'), 'old', { mode: 0o755 });
+    await writeFile(path.join(brokenBin, 'codex-code-mode-host.exe'), 'old host', { mode: 0o755 });
+    const mock = await startFixtureServer({
+        '/latest': fixture(JSON.stringify(latestRelease()), 200, 'application/json')
+    });
+    try {
+        const result = await runBootstrap({ home, mock, platform: 'win32', arch: 'x64', consent: 'unset' });
+        assert.equal(result.code, 0, result.stderr);
+        assert.match(result.stdout, /"consentRequired":true/u);
+        assert.equal(await readFile(path.join(brokenBin, 'codex.exe'), 'utf8'), 'old');
+    } finally {
+        await mock.close();
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
 test('FORCE_REINSTALL=1 は既存の Codex を最新へ置き換え、旧版フォルダを片付ける', async () => {
     const home = await makeHome('akari-codex-force-');
     const mock = await startFixtureServer({
@@ -1035,6 +1107,7 @@ test('FORCE_REINSTALL=1 は既存の Codex を最新へ置き換え、旧版フ�
         await mkdir(oldBin, { recursive: true });
         await writeFile(path.join(oldBin, 'codex'), '#!/bin/sh\necho codex-cli 0.100.0\n', { mode: 0o755 });
         await writeFile(path.join(oldBin, 'codex-code-mode-host'), 'old host', { mode: 0o755 });
+        await writeFile(path.join(managedRoot, '0.100.0', 'codex-package.json'), JSON.stringify({ version: '0.100.0' }));
         await mkdir(path.join(home, '.local', 'bin'), { recursive: true });
         const shim = path.join(home, '.local', 'bin', 'codex');
         const { symlink } = await import('node:fs/promises');

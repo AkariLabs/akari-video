@@ -214,6 +214,7 @@
   "partner.partnerSetup.bootstrap.fetchingCodexReleaseInformationText": "Codex リリース情報を取得しています: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingClaudeText": "既存の claude を検出: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingCodexText": "既存の codex を検出: {value1}",
+  "partner.partnerSetup.bootstrap.managedCodexPackageIncompleteText": "AKARI が入れた codex のパッケージが欠けているため入れ直します: {value1}",
   "partner.partnerSetup.bootstrap.foundExistingStatus": "既存の {value1} を検出: {value2}",
   "partner.partnerSetup.bootstrap.foundExistingVersionStatus": "既存の {value1} {value2} を検出: {value3}",
   "partner.partnerSetup.bootstrap.foundLabel": "{value1} {value2} を検出: {value3}",
