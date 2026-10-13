@@ -9,9 +9,14 @@ import { readLintSourceSync } from '../../edit-lint/test/helpers/read-lint-sourc
 import {
   TRANSITION_BY_ID,
   TRANSITION_CATEGORIES,
+  TRANSITION_FAMILIES,
   TRANSITION_TYPE_IDS,
   TRANSITION_VOCABULARY,
   isTransitionType,
+  transitionDirectionLabelKey,
+  transitionFamilyLabelKey,
+  transitionFamilyOf,
+  transitionTypeOf,
   setCutTransitionOutInSource,
 } from '../lib/index.js';
 
@@ -33,6 +38,47 @@ test('正準表は 29 種・8 カテゴリで id / xfade 名が一意', () => {
   assert.equal(TRANSITION_BY_ID.blur.previewKind, 'blur');
   assert.equal(TRANSITION_BY_ID.pixelize.previewKind, 'pixelize');
   assert.equal(TRANSITION_BY_ID.dissolve.previewKind, 'dissolve');
+});
+
+test('family は向き違いをまとめた 15 件で、29 種すべてへ往復できる', () => {
+  assert.deepEqual(TRANSITION_FAMILIES.map(entry => entry.family), [
+    'dissolve', 'fade', 'fade-black', 'fade-white', 'fade-grays', 'wipe', 'radial',
+    'slide', 'cover', 'reveal', 'circle', 'zoom-in', 'squeeze', 'blur', 'pixelize'
+  ]);
+  const directions = Object.fromEntries(TRANSITION_FAMILIES.map(entry => [entry.family, entry.directions]));
+  for (const family of ['wipe', 'slide', 'cover', 'reveal']) {
+    assert.deepEqual(directions[family], ['left', 'right', 'up', 'down']);
+  }
+  assert.deepEqual(directions.circle, ['open', 'close']);
+  assert.deepEqual(directions.squeeze, ['h', 'v']);
+  assert.deepEqual(directions.fade, []);
+  const reached = new Set();
+  for (const { family, directions: list } of TRANSITION_FAMILIES) {
+    for (const direction of list.length > 0 ? list : [undefined]) {
+      const type = transitionTypeOf(family, direction);
+      assert.equal(isTransitionType(type), true, `${family} ${direction}`);
+      assert.deepEqual(transitionFamilyOf(type), direction ? { family, direction } : { family });
+      reached.add(type);
+    }
+  }
+  assert.equal(reached.size, 29);
+  assert.equal(transitionTypeOf('slide'), undefined);
+  assert.equal(transitionTypeOf('fade', 'left'), undefined);
+  assert.equal(transitionTypeOf('future'), undefined);
+  assert.equal(transitionFamilyOf('future-transition'), undefined);
+});
+
+test('family と向きの名前は辞書に ja / en の両方がある', () => {
+  for (const language of ['ja', 'en']) {
+    const catalog = JSON.parse(readFileSync(join(repoRoot, 'packages', 'i18n', 'locales', language, 'transition.json'), 'utf8'));
+    for (const { family, directions } of TRANSITION_FAMILIES) {
+      assert.equal(typeof catalog[transitionFamilyLabelKey(family)], 'string', `${language} ${family}`);
+      for (const direction of directions) {
+        assert.equal(typeof catalog[transitionDirectionLabelKey(direction)], 'string', `${language} ${direction}`);
+      }
+    }
+  }
+  assert.equal(transitionFamilyLabelKey('fade-black'), 'transition.family.label.fadeBlack');
 });
 
 // 33e9250d で legacy 合成経路が撤去され、render-cut の XFADE_TRANSITION_NAMES も削除された。

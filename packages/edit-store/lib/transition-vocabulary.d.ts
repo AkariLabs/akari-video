@@ -9,6 +9,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "フェード";
     readonly previewKind: "dissolve";
     readonly glyph: "D";
+    readonly family: "dissolve";
 }, {
     readonly id: "fade";
     readonly xfadeName: "fade";
@@ -16,6 +17,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "フェード";
     readonly previewKind: "fade";
     readonly glyph: "F";
+    readonly family: "fade";
 }, {
     readonly id: "fade-black";
     readonly xfadeName: "fadeblack";
@@ -23,6 +25,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "フェード";
     readonly previewKind: "fade-black";
     readonly glyph: "B";
+    readonly family: "fade-black";
 }, {
     readonly id: "fade-white";
     readonly xfadeName: "fadewhite";
@@ -30,6 +33,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "フェード";
     readonly previewKind: "fade-white";
     readonly glyph: "W";
+    readonly family: "fade-white";
 }, {
     readonly id: "fade-grays";
     readonly xfadeName: "fadegrays";
@@ -37,6 +41,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "フェード";
     readonly previewKind: "fade-grays";
     readonly glyph: "G";
+    readonly family: "fade-grays";
 }, {
     readonly id: "wipe-left";
     readonly xfadeName: "wipeleft";
@@ -44,6 +49,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "ワイプ";
     readonly previewKind: "wipe-left";
     readonly glyph: "←";
+    readonly family: "wipe";
+    readonly direction: "left";
 }, {
     readonly id: "wipe-right";
     readonly xfadeName: "wiperight";
@@ -51,6 +58,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "ワイプ";
     readonly previewKind: "wipe-right";
     readonly glyph: "→";
+    readonly family: "wipe";
+    readonly direction: "right";
 }, {
     readonly id: "wipe-up";
     readonly xfadeName: "wipeup";
@@ -58,6 +67,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "ワイプ";
     readonly previewKind: "wipe-up";
     readonly glyph: "↑";
+    readonly family: "wipe";
+    readonly direction: "up";
 }, {
     readonly id: "wipe-down";
     readonly xfadeName: "wipedown";
@@ -65,6 +76,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "ワイプ";
     readonly previewKind: "wipe-down";
     readonly glyph: "↓";
+    readonly family: "wipe";
+    readonly direction: "down";
 }, {
     readonly id: "radial";
     readonly xfadeName: "radial";
@@ -72,6 +85,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "ワイプ";
     readonly previewKind: "radial";
     readonly glyph: "◷";
+    readonly family: "radial";
 }, {
     readonly id: "slide-left";
     readonly xfadeName: "slideleft";
@@ -79,6 +93,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "スライド";
     readonly previewKind: "slide-left";
     readonly glyph: "←";
+    readonly family: "slide";
+    readonly direction: "left";
 }, {
     readonly id: "slide-right";
     readonly xfadeName: "slideright";
@@ -86,6 +102,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "スライド";
     readonly previewKind: "slide-right";
     readonly glyph: "→";
+    readonly family: "slide";
+    readonly direction: "right";
 }, {
     readonly id: "slide-up";
     readonly xfadeName: "slideup";
@@ -93,6 +111,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "スライド";
     readonly previewKind: "slide-up";
     readonly glyph: "↑";
+    readonly family: "slide";
+    readonly direction: "up";
 }, {
     readonly id: "slide-down";
     readonly xfadeName: "slidedown";
@@ -100,6 +120,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "スライド";
     readonly previewKind: "slide-down";
     readonly glyph: "↓";
+    readonly family: "slide";
+    readonly direction: "down";
 }, {
     readonly id: "cover-left";
     readonly xfadeName: "coverleft";
@@ -107,6 +129,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "カバー";
     readonly previewKind: "cover-left";
     readonly glyph: "←";
+    readonly family: "cover";
+    readonly direction: "left";
 }, {
     readonly id: "cover-right";
     readonly xfadeName: "coverright";
@@ -114,6 +138,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "カバー";
     readonly previewKind: "cover-right";
     readonly glyph: "→";
+    readonly family: "cover";
+    readonly direction: "right";
 }, {
     readonly id: "cover-up";
     readonly xfadeName: "coverup";
@@ -121,6 +147,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "カバー";
     readonly previewKind: "cover-up";
     readonly glyph: "↑";
+    readonly family: "cover";
+    readonly direction: "up";
 }, {
     readonly id: "cover-down";
     readonly xfadeName: "coverdown";
@@ -128,6 +156,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "カバー";
     readonly previewKind: "cover-down";
     readonly glyph: "↓";
+    readonly family: "cover";
+    readonly direction: "down";
 }, {
     readonly id: "reveal-left";
     readonly xfadeName: "revealleft";
@@ -135,6 +165,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "リビール";
     readonly previewKind: "reveal-left";
     readonly glyph: "←";
+    readonly family: "reveal";
+    readonly direction: "left";
 }, {
     readonly id: "reveal-right";
     readonly xfadeName: "revealright";
@@ -142,6 +174,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "リビール";
     readonly previewKind: "reveal-right";
     readonly glyph: "→";
+    readonly family: "reveal";
+    readonly direction: "right";
 }, {
     readonly id: "reveal-down";
     readonly xfadeName: "revealdown";
@@ -149,6 +183,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "リビール";
     readonly previewKind: "reveal-down";
     readonly glyph: "↓";
+    readonly family: "reveal";
+    readonly direction: "down";
 }, {
     readonly id: "reveal-up";
     readonly xfadeName: "revealup";
@@ -156,6 +192,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "リビール";
     readonly previewKind: "reveal-up";
     readonly glyph: "↑";
+    readonly family: "reveal";
+    readonly direction: "up";
 }, {
     readonly id: "circle-open";
     readonly xfadeName: "circleopen";
@@ -163,6 +201,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "形状";
     readonly previewKind: "circle-open";
     readonly glyph: "○";
+    readonly family: "circle";
+    readonly direction: "open";
 }, {
     readonly id: "circle-close";
     readonly xfadeName: "circleclose";
@@ -170,6 +210,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "形状";
     readonly previewKind: "circle-close";
     readonly glyph: "●";
+    readonly family: "circle";
+    readonly direction: "close";
 }, {
     readonly id: "zoom-in";
     readonly xfadeName: "zoomin";
@@ -177,6 +219,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "変形";
     readonly previewKind: "zoom-in";
     readonly glyph: "＋";
+    readonly family: "zoom-in";
 }, {
     readonly id: "squeeze-h";
     readonly xfadeName: "squeezeh";
@@ -184,6 +227,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "変形";
     readonly previewKind: "squeeze-h";
     readonly glyph: "↕";
+    readonly family: "squeeze";
+    readonly direction: "h";
 }, {
     readonly id: "squeeze-v";
     readonly xfadeName: "squeezev";
@@ -191,6 +236,8 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "変形";
     readonly previewKind: "squeeze-v";
     readonly glyph: "↔";
+    readonly family: "squeeze";
+    readonly direction: "v";
 }, {
     readonly id: "blur";
     readonly xfadeName: "hblur";
@@ -198,6 +245,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "質感";
     readonly previewKind: "blur";
     readonly glyph: "B";
+    readonly family: "blur";
 }, {
     readonly id: "pixelize";
     readonly xfadeName: "pixelize";
@@ -205,6 +253,7 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly category: "質感";
     readonly previewKind: "pixelize";
     readonly glyph: "P";
+    readonly family: "pixelize";
 }];
 export type TransitionDefinition = typeof TRANSITION_VOCABULARY[number];
 export type TransitionType = TransitionDefinition['id'];
@@ -220,4 +269,24 @@ export declare const TRANSITION_TYPE_IDS: readonly TransitionType[];
 export declare const TRANSITION_CATEGORIES: readonly TransitionCategory[];
 export declare const TRANSITION_BY_ID: Readonly<Record<TransitionType, TransitionDefinition>>;
 export declare function isTransitionType(value: unknown): value is TransitionType;
+export type TransitionFamily = TransitionDefinition['family'];
+export type TransitionDirection = 'left' | 'right' | 'up' | 'down' | 'open' | 'close' | 'h' | 'v';
+export interface TransitionFamilyDefinition {
+    readonly family: TransitionFamily;
+    /** 向きを持たない family は空配列。 */
+    readonly directions: readonly TransitionDirection[];
+}
+/** 選ぶ画面に並べる単位。向き違いを 1 つにまとめた 15 件で、順序は正準表の初出順。 */
+export declare const TRANSITION_FAMILIES: readonly TransitionFamilyDefinition[];
+export declare function transitionFamilyOf(type: unknown): {
+    family: TransitionFamily;
+    direction?: TransitionDirection;
+} | undefined;
+/** family と向きから保存用の type を引く。向きを持つ family に向きを渡さなければ undefined。 */
+export declare function transitionTypeOf(family: unknown, direction?: unknown): TransitionType | undefined;
+/** 辞書のキー。名前そのものは UI の辞書が持ち、ここは引き方だけを決める。 */
+export declare function transitionFamilyLabelKey(family: string): string;
+export declare function transitionDirectionLabelKey(direction: string): string;
+export declare const TRANSITION_UNKNOWN_LABEL_KEY = "transition.family.label.unknown";
+export declare const TRANSITION_NAME_WITH_DIRECTION_KEY = "transition.name.format.withDirection";
 export {};
