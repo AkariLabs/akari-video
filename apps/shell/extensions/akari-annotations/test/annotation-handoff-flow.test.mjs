@@ -119,6 +119,32 @@ test('stroke description preserves direction, enclosure, multiplicity and fallba
     assert.equal(describePenStrokes([stroke([[.1,.1]])]), 'ペン描画あり');
 });
 
+test('zero-length pen strokes fall back to the presence label', () => {
+    assert.equal(describePenStrokes([{ tool: 'pen', space: 'content-rect', points: [[.4, .6], [.4, .6], [.4, .6]] }]), 'ペン描画あり');
+});
+
+for (const [direction, end] of [
+    ['右', [.7, .5]], ['上', [.5, .3]], ['左上', [.3, .3]],
+    ['左下', [.3, .7]], ['右下', [.7, .7]]
+]) {
+    test(`pen stroke direction ${direction}`, () => {
+        assert.match(describePenStrokes([{ tool: 'pen', space: 'content-rect', points: [[.5, .5], end] }]),
+            new RegExp(`${direction}へ$`));
+    });
+}
+
+test('enclosure threshold is strictly below fifteen percent of path length', () => {
+    const threshold = .15 / 1.15;
+    const stroke = offset => ({ tool: 'pen', space: 'content-rect', points: [[0, 0], [.5, 0], [threshold + offset, 0]] });
+    assert.match(describePenStrokes([stroke(-.0001)]), /囲み/);
+    assert.match(describePenStrokes([stroke(.0001)]), /右へ$/);
+});
+
+test('percentage coordinates round a half point upward', () => {
+    assert.match(describePenStrokes([{ tool: 'pen', space: 'content-rect', points: [[.125, .4], [.3, .4]] }]),
+        /始点 13%, 40%/);
+});
+
 test('English handoff keeps stroke, batch heading and recording prompt in English', () => {
     setLanguage('en');
     try {
@@ -154,6 +180,10 @@ test('panel renders card actions and disables an empty batch', () => {
     assert.match(row, /row\.appendChild\(actions\)/);
     assert.match(row, /sendButton\.textContent = t\('annotations\.reviewPanelWidget\.text\.handToAi'\)/);
     assert.match(widget, /this\.batchButton\.disabled = pending\.length === 0/);
+    const recording = widget.slice(widget.indexOf('    protected renderRecordingSection('), widget.indexOf('    protected refreshReviewSessionContext('));
+    assert.ok(recording.indexOf('actions.appendChild(trash)') < recording.indexOf('actions.appendChild(hand)'));
+    assert.ok(row.indexOf('actions.appendChild(deleteButton)') < row.indexOf('actions.appendChild(resolveButton)'));
+    assert.ok(row.indexOf('actions.appendChild(deleteButton)') < row.indexOf('actions.appendChild(sendButton)'));
 });
 
 test('recording display name drops leading zeroes', () => {

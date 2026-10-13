@@ -443,7 +443,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.textInput.setAttribute('aria-label', t('annotations.reviewPanelWidget.text.enterComment'));
         Object.assign(this.textInput.style, { flex: '1', minWidth: '0' });
         this.textInput.addEventListener('keydown', event => {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
                 event.preventDefault();
                 void this.submitAnnotation();
             }
@@ -1301,6 +1301,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
         }
         const actions = document.createElement('div');
         Object.assign(actions.style, { display: 'flex', gap: '6px', justifyContent: 'flex-end' });
+        const deleteButton = this.trashButton(() => void this.deleteAnnotationById(annotation.id));
+        deleteButton.setAttribute('data-delete-button', annotation.id);
+        actions.appendChild(deleteButton);
         if (annotation.status === 'addressed') {
             const resolveButton = document.createElement('button');
             resolveButton.type = 'button';
@@ -1319,9 +1322,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
             sendButton.addEventListener('click', () => void this.sendAnnotationToAgent(annotation));
             actions.appendChild(sendButton);
         }
-        const deleteButton = this.trashButton(() => void this.deleteAnnotationById(annotation.id));
-        deleteButton.setAttribute('data-delete-button', annotation.id);
-        actions.appendChild(deleteButton);
         const text = document.createElement('div');
         text.textContent = annotation.text;
         text.style.whiteSpace = 'pre-wrap';
@@ -1792,7 +1792,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         try {
             const removed = await this.previewService.deleteReviewSession({ projectRootUri: entry.projectRootUri, sessionId: id });
             if (removed) this.hideNotice();
-            else this.showNotice(t('annotations.reviewPanelWidget.text.recordingNotFound'));
+            else {
+                const message = t('annotations.reviewPanelWidget.text.recordingNotFound');
+                this.showNotice(message);
+                this.messages.error(message);
+            }
             const state = this.reviewSessionState;
             const location = this.model.location;
             if (state && location?.root.normalizePath().toString() === entry.projectRootUri) {
@@ -1806,7 +1810,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
                 }));
             }
         } catch (error) {
-            this.showNotice(t('annotations.reviewPanelWidget.text.cannotDelete', { reason: this.errorMessage(error) }));
+            const message = t('annotations.reviewPanelWidget.text.cannotDelete', { reason: this.errorMessage(error) });
+            this.showNotice(message);
+            this.messages.error(message);
             this.renderRecordingSection();
         }
     }

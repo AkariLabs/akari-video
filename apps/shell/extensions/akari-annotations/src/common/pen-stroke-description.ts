@@ -21,8 +21,9 @@ export function describePenStrokes(strokes: readonly DescribableStroke[] | null 
     for (let index = 1; index < points.length; index++) {
         length += Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1]);
     }
+    if (length === 0) return t('annotationscommon.penStrokes.text.present');
     let description: string;
-    if (length > 0 && distance < length * 0.15) {
+    if (distance < length * 0.15) {
         const xs = points.map(point => point[0]);
         const ys = points.map(point => point[1]);
         description = t('annotationscommon.penStrokes.text.enclosure', {

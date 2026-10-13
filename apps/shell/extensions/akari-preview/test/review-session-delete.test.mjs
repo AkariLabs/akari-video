@@ -38,3 +38,32 @@ test('resolved paths outside the direct sessions directory are rejected', async 
     await assert.rejects(writer.delete({ projectRootUri: request.projectRootUri, sessionId: 's-0001' }), /Invalid review session directory/);
     assert.equal((await stat(outside)).isDirectory(), true);
 });
+
+test('a failed end releases the recording so it can be deleted', async () => {
+    const { writer, request } = await fixture();
+    const started = await writer.start(request);
+    const writeAtomic = writer.writeAtomic.bind(writer);
+    writer.writeAtomic = async (path, content) => {
+        if (path.endsWith('/session.json')) throw new Error('manifest write failed');
+        return writeAtomic(path, content);
+    };
+    await assert.rejects(writer.end({
+        sessionDir: started.sessionDir, startedAt: started.startedAt, endedAt: new Date().toISOString(),
+        editHash: started.editHash, recT: 0, timelineT: 0
+    }), /manifest write failed/);
+    assert.equal(await writer.delete({ projectRootUri: request.projectRootUri, sessionId: started.id }), true);
+});
+
+test('starting a new recording releases an unfinished earlier recording in the same project', async () => {
+    const { writer, request } = await fixture();
+    const earlier = await writer.start(request);
+    const current = await writer.start(request);
+    assert.equal(await writer.delete({ projectRootUri: request.projectRootUri, sessionId: earlier.id }), true);
+    await assert.rejects(writer.delete({ projectRootUri: request.projectRootUri, sessionId: current.id }), /still in progress/);
+});
+
+test('the current recording remains protected from deletion', async () => {
+    const { writer, request } = await fixture();
+    const current = await writer.start(request);
+    await assert.rejects(writer.delete({ projectRootUri: request.projectRootUri, sessionId: current.id }), /still in progress/);
+});

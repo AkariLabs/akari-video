@@ -87,6 +87,9 @@ export class ReviewSessionWriter {
             timelineT: request.timelineT,
             playing: request.playing
         })}\n`);
+        for (const active of this.activeSessions) {
+            if (dirname(active) === sessionsRoot) this.activeSessions.delete(active);
+        }
         this.activeSessions.add(sessionDirectory);
 
         return {
@@ -388,34 +391,37 @@ export class ReviewSessionWriter {
 
     async end(request: EndReviewSessionRequest): Promise<void> {
         const sessionDirectory = await this.resolveSessionDirectory(request?.sessionDir);
-        if (!this.isIsoDate(request?.startedAt) || !this.isIsoDate(request?.endedAt)
-            || typeof request?.editHash !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(request.editHash)
-            || !Number.isFinite(request?.recT) || request.recT < 0
-            || !Number.isFinite(request?.timelineT)) {
-            throw new Error('Invalid review session end request');
+        try {
+            if (!this.isIsoDate(request?.startedAt) || !this.isIsoDate(request?.endedAt)
+                || typeof request?.editHash !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(request.editHash)
+                || !Number.isFinite(request?.recT) || request.recT < 0
+                || !Number.isFinite(request?.timelineT)) {
+                throw new Error('Invalid review session end request');
+            }
+            await this.appendAndSync(join(sessionDirectory, 'events.jsonl'), `${JSON.stringify({
+                recT: request.recT,
+                type: 'end',
+                timelineT: request.timelineT
+            })}\n`);
+            const id = basename(sessionDirectory);
+            const manifest: SessionManifest = {
+                version: 1,
+                id,
+                startedAt: request.startedAt,
+                endedAt: request.endedAt,
+                audio: 'audio.wav',
+                editSnapshot: 'edit.snapshot.json',
+                editHash: request.editHash,
+                status: 'recorded',
+                compiledAnnotations: null
+            };
+            await this.writeAtomic(
+                join(sessionDirectory, 'session.json'),
+                Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+            );
+        } finally {
+            this.activeSessions.delete(sessionDirectory);
         }
-        await this.appendAndSync(join(sessionDirectory, 'events.jsonl'), `${JSON.stringify({
-            recT: request.recT,
-            type: 'end',
-            timelineT: request.timelineT
-        })}\n`);
-        const id = basename(sessionDirectory);
-        const manifest: SessionManifest = {
-            version: 1,
-            id,
-            startedAt: request.startedAt,
-            endedAt: request.endedAt,
-            audio: 'audio.wav',
-            editSnapshot: 'edit.snapshot.json',
-            editHash: request.editHash,
-            status: 'recorded',
-            compiledAnnotations: null
-        };
-        await this.writeAtomic(
-            join(sessionDirectory, 'session.json'),
-            Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-        );
-        this.activeSessions.delete(sessionDirectory);
     }
 
     async list(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {

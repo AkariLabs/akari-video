@@ -919,7 +919,7 @@
   "annotationscommon.annotationPacket.text.target": "対象 {target}{label}",
   "annotationscommon.annotationPacket.text.noBody": "(本文なし。ペン描画のみ)",
   "annotationscommon.annotationPacket.text.prompt": "【注釈】{id}（{time}{details}）について: {body}\nこの注釈に対応してください。",
-  "annotationscommon.partnerHandoff.text.typed": "{subject}の依頼文を入力欄に入れました",
+  "annotationscommon.partnerHandoff.text.typed": "{subject} の依頼文を入力欄に入れました",
   "annotationscommon.partnerHandoff.text.unsupported": "依頼文をコピーしました。パートナーに貼り付けてください",
   "annotationscommon.partnerHandoff.text.noPartner": "パートナーが開いていません。依頼文をコピーしました",
   "annotationscommon.partnerHandoff.text.openPartner": "パートナーを開く",
