@@ -3510,7 +3510,8 @@ var require_transition_plan = __commonJS({
         const facts = options.resolve(cut, index);
         const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
         const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
-        const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
+        const list = tracks.get(segment.track) ?? [];
+        const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 && list.length > 0 && list[list.length - 1].transitionOut !== void 0 ? facts.holdHeadSeconds : 0;
         const transition = cut.transitionOut;
         const clip = {
           id: String(index),
@@ -3526,7 +3527,6 @@ var require_transition_plan = __commonJS({
           } } : {},
           ...facts.holdBlocked ?? freezeSeconds > 0 ? { holdBlocked: true } : {}
         };
-        const list = tracks.get(segment.track) ?? [];
         list.push(clip);
         tracks.set(segment.track, list);
       }

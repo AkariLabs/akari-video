@@ -304,8 +304,11 @@ function transitionPlanClipsFromCuts(cuts, options) {
         const facts = options.resolve(cut, index);
         const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
         const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+        const list = tracks.get(segment.track) ?? [];
+        // 前出しは、同じトラックの直前のクリップにトランジションの宣言があるときだけ数える（宣言の外れた前出しは読まない）。
         const holdHeadSeconds = typeof facts.holdHeadSeconds === 'number' && Number.isFinite(facts.holdHeadSeconds)
-            && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
+            && facts.holdHeadSeconds > 0 && list.length > 0 && list[list.length - 1].transitionOut !== undefined
+            ? facts.holdHeadSeconds : 0;
         const transition = cut.transitionOut;
         const clip = {
             id: String(index),
@@ -324,7 +327,6 @@ function transitionPlanClipsFromCuts(cuts, options) {
                 } } : {}),
             ...((facts.holdBlocked ?? freezeSeconds > 0) ? { holdBlocked: true } : {})
         };
-        const list = tracks.get(segment.track) ?? [];
         list.push(clip);
         tracks.set(segment.track, list);
     }

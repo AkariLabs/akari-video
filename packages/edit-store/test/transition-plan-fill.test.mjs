@@ -196,3 +196,20 @@ test('setCutTransitionOutInSource keeps, sets and removes fill', () => {
     { type: 'dissolve', duration: 1, fill: 'freeze' });
   assert.throws(() => setCutTransitionOutInSource(bare, 0, { type: 'dissolve', duration: 1, fill: 'repeat' }));
 });
+
+test('a held head without a declared transition before it is not counted', () => {
+  const cuts = [
+    { at: 0, in: 0, out: 5, src: 'a' },
+    { at: 5, in: 0, out: 0.2, src: 'b', transitionHold: { headSeconds: 1 },
+      transitionOut: { type: 'dissolve', duration: 1, align: 'before-cut' } },
+    { at: 5.2, in: 2, out: 7, src: 'c' },
+  ];
+  const [track] = transitionPlanClipsFromCuts(cuts, {
+    fps: 30, resolve: cut => ({ stillImage: false, freezeSeconds: 0, holdHeadSeconds: cut.transitionHold?.headSeconds }),
+  });
+  near(track.clips[1].startSeconds, 5, 'the stray hold does not move the clip start');
+  near(track.clips[1].lengthSeconds, 0.2, 'the stray hold does not lengthen the clip');
+  const [plan] = planTrackTransitions(track.clips, { fps: 30 });
+  near(plan.cutSeconds + plan.startOffsetSeconds, 5, 'window start');
+  near(plan.cutSeconds + plan.endOffsetSeconds, 5.2, 'window end');
+});
