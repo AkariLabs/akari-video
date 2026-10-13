@@ -16633,6 +16633,14 @@ var require_audio_schedule = __commonJS({
       ]));
       const outgoingEnds = /* @__PURE__ */ new Map();
       for (const window2 of map.transitionWindows) {
+        for (const participant of [window2.outgoing, window2.incoming]) {
+          const clip = clipWindows.get(participant.cutIndex);
+          const cut = normalizedCuts2[participant.cutIndex];
+          if (!clip || !cut || typeof participant.in !== "number")
+            continue;
+          const speed = finitePositive3(cut.speed) ? cut.speed : 1;
+          clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+        }
         const outgoing = clipWindows.get(window2.outgoing.cutIndex);
         const incoming = clipWindows.get(window2.incoming.cutIndex);
         if (outgoing) {
@@ -16708,7 +16716,7 @@ var require_audio_schedule = __commonJS({
         const incomingBase = speechBaseId(incomingCut, window2.incoming.cutIndex);
         const outgoing = [...declarationsByCut.get(window2.outgoing.cutIndex) ?? []].reverse().find((item) => item.atSec <= window2.start + 1e-9 && item.atSec + item.durationSec >= window2.end - 1e-9);
         let incoming = (declarationsByCut.get(window2.incoming.cutIndex) ?? []).find((item) => item.atSec <= window2.end + 1e-9 && item.atSec + item.durationSec > window2.start + 1e-9);
-        if (!incoming && incomingCut && typeof incomingCut.src === "string" && incomingCut.src && (0, audio_ownership_1.isCutAudioAudible)(incomingCut)) {
+        if (!incoming && incomingCut && !(freezeDuration(incomingCut.freeze) > 0) && typeof incomingCut.src === "string" && incomingCut.src && (0, audio_ownership_1.isCutAudioAudible)(incomingCut)) {
           const clip = clipWindows.get(window2.incoming.cutIndex);
           const speed = finitePositive3(incomingCut.speed) ? incomingCut.speed : 1;
           if (clip && clip.end <= window2.end + 1e-9 && window2.end > window2.start) {
@@ -16826,10 +16834,12 @@ var require_audio_schedule = __commonJS({
         return Math.max(0, Math.min(1, value));
       };
       const windowEnd = elapsedIntoItemSec + availableSec;
+      const intersection = fadeInSec > 0 && fadeOutSec > 0 ? (fadeInSec * itemDurationSec - fadeOutSec * fadeInClockOffsetSec) / (fadeInSec + fadeOutSec) : NaN;
       return uniqueSorted([
         elapsedIntoItemSec,
         fadeInSec - fadeInClockOffsetSec,
         itemDurationSec - fadeOutSec,
+        ...intersection > itemDurationSec - fadeOutSec && intersection < fadeInSec - fadeInClockOffsetSec ? [intersection] : [],
         windowEnd
       ].filter((point) => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
         offsetSec: point - elapsedIntoItemSec,

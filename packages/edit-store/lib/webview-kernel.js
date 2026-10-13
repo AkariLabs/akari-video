@@ -3088,6 +3088,13 @@ var AkariEditKernel = (() => {
     ]));
     const outgoingEnds = /* @__PURE__ */ new Map();
     for (const window of map.transitionWindows) {
+      for (const participant of [window.outgoing, window.incoming]) {
+        const clip = clipWindows.get(participant.cutIndex);
+        const cut = normalizedCuts[participant.cutIndex];
+        if (!clip || !cut || typeof participant.in !== "number") continue;
+        const speed = finitePositive2(cut.speed) ? cut.speed : 1;
+        clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+      }
       const outgoing = clipWindows.get(window.outgoing.cutIndex);
       const incoming = clipWindows.get(window.incoming.cutIndex);
       if (outgoing) {
@@ -3159,7 +3166,7 @@ var AkariEditKernel = (() => {
       const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
       const outgoing = [...declarationsByCut.get(window.outgoing.cutIndex) ?? []].reverse().find((item) => item.atSec <= window.start + 1e-9 && item.atSec + item.durationSec >= window.end - 1e-9);
       let incoming = (declarationsByCut.get(window.incoming.cutIndex) ?? []).find((item) => item.atSec <= window.end + 1e-9 && item.atSec + item.durationSec > window.start + 1e-9);
-      if (!incoming && incomingCut && typeof incomingCut.src === "string" && incomingCut.src && isCutAudioAudible(incomingCut)) {
+      if (!incoming && incomingCut && !(freezeDuration(incomingCut.freeze) > 0) && typeof incomingCut.src === "string" && incomingCut.src && isCutAudioAudible(incomingCut)) {
         const clip = clipWindows.get(window.incoming.cutIndex);
         const speed = finitePositive2(incomingCut.speed) ? incomingCut.speed : 1;
         if (clip && clip.end <= window.end + 1e-9 && window.end > window.start) {
@@ -3277,10 +3284,12 @@ var AkariEditKernel = (() => {
       return Math.max(0, Math.min(1, value));
     };
     const windowEnd = elapsedIntoItemSec + availableSec;
+    const intersection = fadeInSec > 0 && fadeOutSec > 0 ? (fadeInSec * itemDurationSec - fadeOutSec * fadeInClockOffsetSec) / (fadeInSec + fadeOutSec) : NaN;
     return uniqueSorted([
       elapsedIntoItemSec,
       fadeInSec - fadeInClockOffsetSec,
       itemDurationSec - fadeOutSec,
+      ...intersection > itemDurationSec - fadeOutSec && intersection < fadeInSec - fadeInClockOffsetSec ? [intersection] : [],
       windowEnd
     ].filter((point2) => point2 >= elapsedIntoItemSec && point2 <= windowEnd)).map((point2, index) => ({
       offsetSec: point2 - elapsedIntoItemSec,

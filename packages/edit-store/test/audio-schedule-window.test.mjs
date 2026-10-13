@@ -5,6 +5,12 @@ import { buildTimelineMap, buildWebAudioSchedule, projectSpeechDeclarations } fr
 
 const cases = JSON.parse(fs.readFileSync(new URL('./transition-plan-cases.json', import.meta.url), 'utf8')).timeline;
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
+// Set to true when visual timeline projection supports align.
+const ALIGN_PROJECTION_READY = false;
+const alignedCase = cases.find(example => example.cuts[0].transitionOut.align);
+const alignedWindow = buildTimelineMap(alignedCase.cuts, { fps: alignedCase.fps }).transitionWindows[0];
+const alignProjectionActive = Math.abs(alignedWindow.start - 3.5) > 1e-8
+  || Math.abs(alignedWindow.end - 4.5) > 1e-8;
 
 function gainAt(item, timelineSec) {
   const offset = timelineSec - item.timelineStartSec;
@@ -74,15 +80,14 @@ for (const example of cases) {
     checkAudio(projectedCuts(example), example);
   });
   test(`${example.name}: raw audio follows the timeline-map window`, t => {
+    if (example.cuts[0].transitionOut.align && !ALIGN_PROJECTION_READY && !alignProjectionActive) {
+      t.skip('timeline-map does not honor transition_out.align yet');
+      return;
+    }
     const window = buildTimelineMap(example.cuts, { fps: example.fps }).transitionWindows[0];
     const expected = example.expected.window;
     if (Math.abs(window.start - expected.start) < 1e-8 && Math.abs(window.end - expected.end) < 1e-8) {
       checkAudio(example.cuts.map((cut, index) => ({ ...cut, id: index ? 'b' : 'a' })), example);
-      return;
-    }
-    if (example.cuts[0].transitionOut.align && Math.abs(window.start - 3.5) < 1e-8
-        && Math.abs(window.end - 4.5) < 1e-8) {
-      t.skip('timeline-map does not honor transition_out.align yet');
       return;
     }
     assert.fail(`unexpected raw window ${window.start}..${window.end}`);
@@ -107,6 +112,49 @@ test('an incoming clip wholly inside the window retains speech and seek gain', (
   close(fullB.gainEvents[1].value, 1);
   close(seekB.gainEvents[0].value, 0.5);
   close(seekB.timelineStartSec, 4.5);
+});
+
+test('a frozen short incoming clip has no restored sound during its hold', () => {
+  const speech = projectSpeechDeclarations([
+    { id: 'a', src: 'a', at: 0, in: 0, out: 5,
+      transition_out: { type: 'dissolve', duration: 1 } },
+    { id: 'b', src: 'b', at: 4, in: 2, out: 2.5,
+      freeze: { at_sec: 0, duration_sec: 0.5 } },
+  ], { fps: 30 });
+  assert.ok(speech.every(item => item.id !== 'b-speech'
+    && (item.id.indexOf('b-speech-') !== 0
+      || item.atSec >= 4.5 || item.atSec + item.durationSec <= 4)));
+});
+
+test('rounded adjacent cuts retain the incoming source position and end', () => {
+  const speech = projectSpeechDeclarations([
+    { id: 'a', src: 'a', at: 0, in: 0, out: 4,
+      transition_out: { type: 'dissolve', duration: 1 } },
+    { id: 'b', src: 'b', at: 4.01, in: 2, out: 6 },
+  ], { fps: 30 });
+  const b = speech.find(item => item.id === 'b-speech');
+  assert.ok(b);
+  close(b.atSec, 4.5);
+  close(b.durationSec, 3.5);
+  close(b.inSec, 2.5);
+  close(b.outSec, 6);
+});
+
+test('overlapping speech fades have the same gain during playback and after a seek', () => {
+  const speech = projectSpeechDeclarations([
+    { id: 'a', src: 'a', at: 0, in: 0, out: 5,
+      transition_out: { type: 'dissolve', duration: 1 } },
+    { id: 'b', src: 'b', at: 4, in: 2, out: 3,
+      transition_out: { type: 'dissolve', duration: 0.5 } },
+    { id: 'c', src: 'c', at: 4.5, in: 2, out: 6 },
+  ], { fps: 30 });
+  const full = buildWebAudioSchedule({ timelineDurationSec: 8, startAtSec: 0,
+    audio: { speech } }).items.find(item => item.id === 'b-speech');
+  const seek = buildWebAudioSchedule({ timelineDurationSec: 8, startAtSec: 4.75,
+    audio: { speech } }).items.find(item => item.id === 'b-speech');
+  assert.ok(full && seek);
+  close(gainAt(full, 4.75), seek.gainEvents[0].value);
+  close(gainAt(full, 4.75), 0.5);
 });
 
 test('a clamped speed-two sidecar uses its actual source start after seeking', () => {

@@ -140,6 +140,29 @@ test('decoded threshold is strict, extension independent, and uses speech trim p
   assert.equal(result.audio.speech[0].sidecar, undefined);
 });
 
+test('speed-two transition speech requests source-time pads and carries the decoded start', t => {
+  const { deps } = fixture(t);
+  const calls = [];
+  const result = prepareFrameEngineAudioSummary({
+    output: { fps: 30 }, sources: [{ id: 'v', path: 'video.mp4' }],
+    cuts: [
+      { id: 'a', src: 'v', at: 0, in: 0, out: 10, speed: 2,
+        transition_out: { type: 'dissolve', duration: 1 } },
+      { id: 'b', src: 'v', at: 5, in: 2, out: 10, speed: 2 },
+    ],
+  }, { ...deps, requestSidecar: options => {
+    calls.push(options);
+    return { state: 'ready', key: String(calls.length),
+      path: path.join(deps.cacheDir, 'preview-audio', `${calls.length}.flac`),
+      durationSec: 5, bytes: 64, actualStartSeconds: 0.5 };
+  } });
+  assert.equal(calls[0].padAfterSec, 2);
+  assert.equal(calls[1].padBeforeSec, 2);
+  assert.equal(calls[1].format, 'flac');
+  assert.equal(result.audio.speech[1].sidecar.actualStartSeconds, 0.5);
+  assert.equal(result.audio.speech[1].sidecar.padBeforeSec, 2);
+});
+
 test('duration-less requests delegate selection to background probe and retain its fingerprint', t => {
   const { deps } = fixture(t);
   const calls = [];

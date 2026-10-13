@@ -602,6 +602,14 @@ export function projectSpeechDeclarations(
     ]));
     const outgoingEnds = new Map<number, number>();
     for (const window of map.transitionWindows) {
+        for (const participant of [window.outgoing, window.incoming]) {
+            const clip = clipWindows.get(participant.cutIndex!);
+            const cut = normalizedCuts[participant.cutIndex!];
+            if (!clip || !cut || typeof participant.in !== 'number') continue;
+            const speed = finitePositive(cut.speed) ? cut.speed as number : 1;
+            // Transition slices retain the source mapping after hidden-handle adjustment.
+            clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+        }
         const outgoing = clipWindows.get(window.outgoing.cutIndex!);
         const incoming = clipWindows.get(window.incoming.cutIndex!);
         if (outgoing) {
@@ -670,7 +678,8 @@ export function projectSpeechDeclarations(
         let incoming = (declarationsByCut.get(window.incoming.cutIndex) ?? []).find(item =>
             item.atSec <= window.end + 1e-9
             && item.atSec + item.durationSec > window.start + 1e-9);
-        if (!incoming && incomingCut && typeof incomingCut.src === 'string'
+        if (!incoming && incomingCut && !(freezeDuration(incomingCut.freeze) > 0)
+            && typeof incomingCut.src === 'string'
             && incomingCut.src && isCutAudioAudible(incomingCut)) {
             const clip = clipWindows.get(window.incoming.cutIndex);
             const speed = finitePositive(incomingCut.speed) ? incomingCut.speed as number : 1;
@@ -837,10 +846,15 @@ function speechCrossfadeGainEvents(
         return Math.max(0, Math.min(1, value));
     };
     const windowEnd = elapsedIntoItemSec + availableSec;
+    const intersection = fadeInSec > 0 && fadeOutSec > 0
+        ? (fadeInSec * itemDurationSec - fadeOutSec * fadeInClockOffsetSec)
+            / (fadeInSec + fadeOutSec) : NaN;
     return uniqueSorted([
         elapsedIntoItemSec,
         fadeInSec - fadeInClockOffsetSec,
         itemDurationSec - fadeOutSec,
+        ...(intersection > itemDurationSec - fadeOutSec
+            && intersection < fadeInSec - fadeInClockOffsetSec ? [intersection] : []),
         windowEnd
     ].filter(point => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
         offsetSec: point - elapsedIntoItemSec,
