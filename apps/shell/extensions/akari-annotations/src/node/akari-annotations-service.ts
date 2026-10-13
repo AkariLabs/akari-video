@@ -2282,8 +2282,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         return this.captionWrites.run(captionsPath, async () => {
             const beforeSource = await fs.readFile(captionsPath, 'utf8');
+            const editPath = timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
+            const edit = await fs.readFile(editPath, 'utf8')
+                .then(source => JSON.parse(source) as { output?: { width: number; height: number } })
+                .catch(() => ({} as { output?: { width: number; height: number } }));
             const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId,
-                { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog });
+                { catalog: loadTextstyleCatalogSync({ env: process.env }).catalog, output: edit.output });
             if (updated.changed === 0) {
                 return { committed: false, changed: 0, beforeSource };
             }
@@ -2393,13 +2397,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 Object.assign(next, { t_start: upsert.t_start, t_end: upsert.t_end, word: upsert.word, emotion: upsert.emotion });
                 if (upsert.style_preset === undefined) delete next.style_preset; else next.style_preset = upsert.style_preset;
                 if (upsert.style_hint === undefined) delete next.style_hint; else next.style_hint = upsert.style_hint;
+                if (upsert.inherit_caption_size === true) next.inherit_caption_size = true;
                 if (previous >= 0) records[previous] = next; else records.push(next);
             }
             records.sort((left, right) => Number(left.t_start) - Number(right.t_start));
             const ordered = records.map(record => {
                 const value: Record<string, unknown> = { id: record.id };
                 if (record.src !== undefined && record.src !== null) value.src = record.src;
-                for (const key of ['t_start', 't_end', 'word', 'emotion', 'style_preset', 'style_hint']) {
+                for (const key of ['t_start', 't_end', 'word', 'emotion', 'style_preset', 'style_hint', 'inherit_caption_size']) {
                     if (record[key] !== undefined) value[key] = record[key];
                 }
                 for (const [key, entry] of Object.entries(record)) if (!(key in value) && key !== 'src') value[key] = entry;

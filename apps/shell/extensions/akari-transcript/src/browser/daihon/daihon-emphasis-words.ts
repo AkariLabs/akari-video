@@ -4,7 +4,7 @@ export interface EmphasisWordRecord {
 }
 export interface EmphasisWordUpsert {
     src?: string; t_start: number; t_end: number; word: string; emotion: string;
-    style_preset?: string; style_hint?: string;
+    style_preset?: string; style_hint?: string; inherit_caption_size?: boolean;
 }
 
 export function readEmphasisWords(captionsSource: string): EmphasisWordRecord[] {
@@ -19,7 +19,7 @@ export function readEmphasisWords(captionsSource: string): EmphasisWordRecord[] 
 export function planEmphasisUpserts(
     ranges: readonly { src?: string; t_start: number; t_end: number; word: string }[], stylePreset: string
 ): EmphasisWordUpsert[] {
-    return ranges.map(range => ({ ...range, emotion: 'neutral', style_preset: stylePreset }));
+    return ranges.map(range => ({ ...range, emotion: 'neutral', style_preset: stylePreset, inherit_caption_size: true }));
 }
 
 export function emphasisIdsCovering(existing: readonly EmphasisWordRecord[],

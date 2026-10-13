@@ -4,7 +4,7 @@ test('reads object root only and plans one neutral record per range', () => {
   assert.equal(readEmphasisWords('[]').length, 0);
   assert.equal(readEmphasisWords('{"emphasis_words":[{"id":"e-0001"}]}').length, 1);
   assert.deepEqual(planEmphasisUpserts([{ t_start: 1, t_end: 2, word: '語' }], 'neon'),
-    [{ t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon' }]);
+    [{ t_start: 1, t_end: 2, word: '語', emotion: 'neutral', style_preset: 'neon', inherit_caption_size: true }]);
 });
 test('covering ids require matching optional src and overlap', () => assert.deepEqual(emphasisIdsCovering([
   { id: 'e-0001', t_start: 1, t_end: 2, word: 'a', emotion: 'neutral' },

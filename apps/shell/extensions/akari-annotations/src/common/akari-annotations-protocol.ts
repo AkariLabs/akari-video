@@ -808,6 +808,7 @@ export interface EmphasisWord {
     emotion: string;
     style_preset?: string;
     style_hint?: string;
+    inherit_caption_size?: boolean;
 }
 
 export interface SetEmphasisWordsRequest {
