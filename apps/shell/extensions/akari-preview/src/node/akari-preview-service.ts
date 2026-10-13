@@ -25,6 +25,7 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     EndReviewSessionRequest,
+    DeleteReviewSessionRequest,
     GpuPreferenceState,
     SetHighPerformanceGpuResult,
     LintEditCandidateRequest,
@@ -1411,6 +1412,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {
         return this.reviewSessionWriter.list(request);
+    }
+
+    async deleteReviewSession(request: DeleteReviewSessionRequest): Promise<boolean> {
+        return this.reviewSessionWriter.delete(request);
     }
 
     async readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult> {

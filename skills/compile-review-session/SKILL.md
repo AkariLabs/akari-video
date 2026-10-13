@@ -1,6 +1,6 @@
 ---
 name: compile-review-session
-description: Transcribe recorded review-session audio.wav, events.jsonl, edit.snapshot.json, and session.json using analyze-footage's same 3-layer STT. Segment utterances, resolve references from the interaction trace, normalize imperative instructions, and produce open review.json annotations plus a compilation report. Use to turn spoken QA sessions into tickets, compile recorded/transcribed sessions, or explicitly recompile compiled sessions.
+description: Transcribe recorded review-session audio.wav, events.jsonl, edit.snapshot.json, and session.json using analyze-footage's same 3-layer STT. Segment utterances, resolve references from the interaction trace, normalize imperative instructions, and produce open review.json annotations plus a compilation report. Use to turn spoken QA sessions into tickets, compile recorded/transcribed sessions, or explicitly recompile compiled sessions. Also triggered by requests like "レビューの録音 s-0003 を文字起こしして、コメントにまとめて" or "Transcribe review recording s-0003 and turn it into comments".
 ---
 
 # Compile a review session

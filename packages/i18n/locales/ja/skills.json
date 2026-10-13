@@ -1,5 +1,5 @@
 {
-  "skills.catalog.addressReview.summary": "open チケットへの実対応 → edit-lint → チケット更新を型どおりに執行",
+  "skills.catalog.addressReview.summary": "open コメントへの実対応 → edit-lint → コメント更新を型どおりに執行",
   "skills.catalog.addressReview.title": "address-review",
   "skills.catalog.akari.summary": "AKARI Video のプロジェクトを作る・開く・続きから再開する",
   "skills.catalog.akari.title": "akari",
@@ -11,7 +11,7 @@
   "skills.catalog.bake3d.title": "bake-3d",
   "skills.catalog.beatSyncEdit.summary": "宣言済み音源の拍・キメ・区間に合わせて edit.json とオーバーレイを生成",
   "skills.catalog.beatSyncEdit.title": "beat-sync-edit",
-  "skills.catalog.compileReviewSession.summary": "録音レビューを文字起こし・参照解決し、review.json の open チケットへ変換",
+  "skills.catalog.compileReviewSession.summary": "録音レビューを文字起こし・参照解決し、review.json の open コメントへ変換",
   "skills.catalog.compileReviewSession.title": "compile-review-session",
   "skills.catalog.createProject.summary": "雛形をコピーして AKARI Video の新規プロジェクトを作成",
   "skills.catalog.createProject.title": "create-project",

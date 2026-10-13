@@ -38,7 +38,7 @@ test('パネルはプロジェクトルート基準で状態を受け取りラ�
     assert.match(attach, /this\.refreshReviewSessionContext\(\)/);
     assert.match(panelSource, /data-review-sessions-hint/);
     assert.match(panelSource, /t\('annotations\.reviewPanelWidget\.text\.aRecordIDrewWhileTalkingWhen'\)/);
-    assert.equal(ja['annotations.reviewPanelWidget.text.aRecordIDrewWhileTalkingWhen'], '喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります');
+    assert.equal(ja['annotations.reviewPanelWidget.text.aRecordIDrewWhileTalkingWhen'], '再生しながら話して描くと、あとで AI がコメントにまとめます。イヤホンで聞いてください。');
 });
 
 test('ボードは共通の状態語彙と未コンパイル操作を表示する', () => {

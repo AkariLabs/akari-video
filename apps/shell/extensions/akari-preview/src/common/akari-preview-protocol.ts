@@ -267,6 +267,11 @@ export interface ListReviewSessionsRequest {
     projectRootUri: string;
 }
 
+export interface DeleteReviewSessionRequest {
+    projectRootUri: string;
+    sessionId: string;
+}
+
 export interface ReadReviewSessionBundleRequest {
     projectRootUri: string;
     sessionId: string;
@@ -317,6 +322,7 @@ export interface ReviewSessionSummary {
     ranges: import('./review-session-ranges').ReviewSessionRange[];
     status: ReviewSessionLifecycleStatus | null;
     compiledAnnotations: string[] | null;
+    strokeCount: number;
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
@@ -472,6 +478,7 @@ export interface AkariPreviewService {
     readReviewSessionStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
+    deleteReviewSession(request: DeleteReviewSessionRequest): Promise<boolean>;
     readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
     prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;

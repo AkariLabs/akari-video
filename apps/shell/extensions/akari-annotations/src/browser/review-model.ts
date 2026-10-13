@@ -16,6 +16,7 @@ export interface ReviewSessionSummaryLike {
     orphaned?: boolean;
     status?: ReviewSessionLifecycle | null;
     compiledAnnotations?: string[] | null;
+    strokeCount?: number;
 }
 
 export type ReviewSessionBadgeKey = ReviewSessionLifecycle | 'orphaned';
@@ -23,8 +24,6 @@ export type ReviewSessionBadgeKey = ReviewSessionLifecycle | 'orphaned';
 export interface ReviewSessionBadge {
     key: ReviewSessionBadgeKey;
     label: string;
-    /** recorded のときだけ非 undefined（パネルの 1 行ヒント） */
-    hint?: string;
 }
 
 export function reviewSessionBadge(session: ReviewSessionSummaryLike): ReviewSessionBadge {
@@ -35,12 +34,14 @@ export function reviewSessionBadge(session: ReviewSessionSummaryLike): ReviewSes
         return { key: 'transcribed', label: t('annotations.reviewModel.text.transcribed') };
     }
     if (session.status === 'compiled') {
-        return { key: 'compiled', label: t('annotations.reviewModel.text.compiled') };
+        const count = session.compiledAnnotations?.length;
+        return { key: 'compiled', label: count === undefined
+            ? t('annotations.reviewModel.text.compiledWithoutCount')
+            : t('annotations.reviewModel.text.compiledWithCount', { count, n: count }) };
     }
     return {
         key: 'recorded',
-        label: t('annotations.reviewModel.text.alreadyRecorded'),
-        hint: t('annotations.reviewModel.text.notYetATicketCompiledIntoA')
+        label: t('annotations.reviewModel.text.alreadyRecorded')
     };
 }
 

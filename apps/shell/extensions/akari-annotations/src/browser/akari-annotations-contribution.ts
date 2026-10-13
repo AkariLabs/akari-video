@@ -805,11 +805,6 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             label: OPEN_AKARI_CANVAS.label,
             order: 'z23'
         });
-        menus.registerMenuAction(CommonMenus.FILE, {
-            commandId: OPEN_AKARI_SESSION_VIEWER.id,
-            label: OPEN_AKARI_SESSION_VIEWER.label,
-            order: 'z24'
-        });
     }
 
     /**

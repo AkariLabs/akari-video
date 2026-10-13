@@ -54,7 +54,7 @@ test('shared action models use English', () => {
   assert.equal(aiActionCatalog([])[0].label, 'Still image');
   assert.deepEqual(availableActions({ state: 'unsent' }).map(action => action.label), ['Send', 'Dismiss']);
   assert.equal(shapeClipLabel({ id: 'shape', source: { shape: 'rect' } }), 'Rectangle');
-  assert.equal(planCompileHandoff([]).notice, 'No recorded sessions. Record a session first.');
+  assert.equal(planCompileHandoff([]).notice, 'No recordings yet. Record one first.');
   assert.equal(materialDropDecision('audio', 'cuts').reason, 'Drop audio onto an audio track.');
 });
 
