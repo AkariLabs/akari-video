@@ -3,14 +3,16 @@ import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AkariOnboardingServiceImpl } from '../../lib/node/onboarding-service.js';
 import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions } from '../../lib/onboarding/model.js';
 setLanguage('ja');
 after(() => setLanguage(undefined));
 
 const sampleName = 'サンプル動画.mp4';
+const guide = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)),
+    '../../../../resources/onboarding-sample/talkinghead-desk-ja-01/guide.json'), 'utf8'));
 const segments = [{ start: 0, end: 1, text: 'こんにちは' }];
 const exists = path => stat(path).then(() => true, () => false);
 
@@ -26,8 +28,8 @@ async function fixture(t) {
     await writeFile(source, 'bundled sample');
     await writeFile(copied, 'bundled sample');
     await writeFile(join(sidecar, 'analysis.json'), '{}');
-    await writeFile(join(project, 'edit.json'), `${JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true), null, 2)}\n`);
-    await writeFile(join(project, 'captions.json'), `${JSON.stringify(createOnboardingCaptions(segments, 1, true), null, 2)}\n`);
+    await writeFile(join(project, 'edit.json'), `${JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true, guide), null, 2)}\n`);
+    await writeFile(join(project, 'captions.json'), `${JSON.stringify(createOnboardingCaptions(segments, 1, true, guide), null, 2)}\n`);
     const projectUri = pathToFileURL(project).toString();
     const service = new AkariOnboardingServiceImpl();
     service.load = async () => ({ schema: 1, step: 'tour3', sub: 1, projectUri, exampleActive: true });
@@ -35,9 +37,9 @@ async function fixture(t) {
 }
 
 for (const [name, editText] of [
-    ['CRLF', () => JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true), null, 2).replaceAll('\n', '\r\n') + '\r\n'],
-    ['インデント', () => JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true), null, 4) + '\n'],
-    ['キー追加', () => JSON.stringify({ ...createOnboardingEdit(`assets/${sampleName}`, true), extra: 'saved by UI' }) + '\n']
+    ['CRLF', () => JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true, guide), null, 2).replaceAll('\n', '\r\n') + '\r\n'],
+    ['インデント', () => JSON.stringify(createOnboardingEdit(`assets/${sampleName}`, true, guide), null, 4) + '\n'],
+    ['キー追加', () => JSON.stringify({ ...createOnboardingEdit(`assets/${sampleName}`, true, guide), extra: 'saved by UI' }) + '\n']
 ]) {
     test(`作例の edit.json が ${name} でも空の編集へ戻せる`, async t => {
         const setup = await fixture(t);
@@ -59,7 +61,7 @@ test('captions.json が既に無くても空の編集へ戻せる', async t => {
 
 test('captions.json の改行コード・インデント・追加キーが違っても片付けられる', async t => {
     const setup = await fixture(t);
-    const captions = { ...createOnboardingCaptions(segments, 1, true), extra: 'saved by UI' };
+    const captions = { ...createOnboardingCaptions(segments, 1, true, guide), extra: 'saved by UI' };
     await writeFile(join(setup.project, 'captions.json'), `${JSON.stringify(captions, null, 4).replaceAll('\n', '\r\n')}\r\n`);
     await setup.service.resetTourExample(setup.projectUri, setup.source, segments);
     assert.deepEqual(JSON.parse(await readFile(join(setup.project, 'edit.json'), 'utf8')), createEmptyOnboardingEdit());

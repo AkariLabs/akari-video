@@ -67,7 +67,7 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-message.user .ao-bubble { background:#51301a; border-color:#aa5d23; }
 #akari-onboarding-v1 .ao-bubble code { display:block; color:#ddd4cb; font:12px/1.5 Consolas,monospace; opacity:.9; }
 #akari-onboarding-v1 .ao-chat-note { color:#d7c5b7; font-size:12px; margin:0 2px 12px; }
-#akari-onboarding-v1 .ao-chat-fallback::before { content:"案内用ビュー"; display:block; padding:5px 12px; color:#d7c5b7; background:#29221d; font-size:11px; }
+#akari-onboarding-v1 .ao-chat-fallback::before { content:attr(data-fallback-label); display:block; padding:5px 12px; color:#d7c5b7; background:#29221d; font-size:11px; }
 #akari-onboarding-v1 .ao-chat-input { margin:9px; padding:9px; min-height:55px; border:1px solid #596068; border-radius:7px; color:#e9edef; background:#2a3036; font-size:13px; line-height:1.6; }
 #akari-onboarding-v1 .ao-chat button { margin:0 9px 9px auto; padding:6px 14px; border:0; border-radius:6px; background:var(--akari-accent); color:var(--akari-bg); }
 #akari-onboarding-v1 .ao-pulse { outline:3px solid #ffa249!important; box-shadow:0 0 24px #ff8a38!important; }
