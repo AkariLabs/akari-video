@@ -172,6 +172,7 @@ export class ClaudeStreamJsonAdapter implements ChatAdapter {
 
 class ClaudeSession implements ChatAdapterSession {
     private child?: ChildProcessWithoutNullStreams;
+    initialError?: Extract<ChatEvent, { type: 'error' }>;
     private readonly parser: ClaudeStreamParser;
     private readonly listeners = new Set<(event: ChatEvent) => void>();
     private pending?: PendingTurn;
@@ -402,6 +403,11 @@ class ClaudeSession implements ChatAdapterSession {
         child.on('close', code => {
             if (this.child !== child) {
                 return;
+            }
+            if (this.opts.resume && !this.parser.initialized && !this.pending && !this.closed
+                && !/not logged in|authentication_failed/i.test(this.stderr)) {
+                this.initialError = { type: 'error', kind: 'other', message: 'No conversation found' };
+                this.publish(this.initialError);
             }
             if (this.permissionRequest?.child === child) this.permissionRequest = undefined;
             if (this.pending?.child === child && !this.pending.writeAcknowledged) {

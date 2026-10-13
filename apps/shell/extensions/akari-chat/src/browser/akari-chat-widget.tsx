@@ -8,11 +8,11 @@ import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import URI from '@theia/core/lib/common/uri';
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../common/chat-agent';
-import type { ChatAttachment } from '../common/chat-attachments';
+import { type ChatAttachment, reviewTimeSpan } from '../common/chat-attachments';
 import type { ChatEvent, ToolKind } from '../common/chat-events';
 import { connectorPrefill, initialChatPermission, partnerPermission, partnerPermissionAfterChoice,
     permissionOption, availableChatPermission, runningTools, modelChoices, modelLabel, chatErrorPresentation,
-    latestResumableHistory, isCurrentHistory,
+    latestResumableHistory, isCurrentHistory, resumeFailure,
     type ChatPermission, type PartnerPermission } from '../common/chat-ui-logic';
 import { screenRecordingFormat } from '../common/screen-recording';
 import { AkariChatService, ChatHistoryEntry, ChatContextInfo } from '../common/chat-protocol';
@@ -136,6 +136,11 @@ export class AkariChatWidget extends ReactWidget {
     private capabilities?: ChatCapabilities;
     private readonly modelsByAgent = new Map<string, ChatCapabilities['models']>();
     private items: ChatItem[] = [];
+    private liveStart = 0;
+    private resumedChatId?: string;
+    private resumeFirstTurn = false;
+    private errorIsResume = false;
+    private preparationFailed = false;
     private attachments: ChatAttachment[] = [];
     private input = '';
     private model?: string;
@@ -429,12 +434,12 @@ export class AkariChatWidget extends ReactWidget {
             this.items.push({ type: 'message', id: event.id, text: '' });
         } else if (event.type === 'message.delta') {
             if (this.thinking) this.thinking.open = false;
-            const item = this.items.find(candidate => candidate.type === 'message' && candidate.id === event.id);
+            const item = this.items.slice(this.liveStart).reverse().find(candidate => candidate.type === 'message' && candidate.id === event.id);
             if (item?.type === 'message') {
                 item.text += event.text;
             }
         } else if (event.type === 'thinking.delta') {
-            if (!this.thinking || this.thinking.id !== event.id) {
+            if (!this.thinking || this.thinking.id !== event.id || this.thinking.status !== 'running') {
                 this.thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(), open: true, status: 'running' };
                 this.items.push(this.thinking);
             }
@@ -455,7 +460,8 @@ export class AkariChatWidget extends ReactWidget {
         } else if (event.type === 'tool') {
             this.tools.set(event.id, event);
             if (event.kind === 'think') {
-                let thinking = this.items.find(candidate => candidate.type === 'thinking' && candidate.id === event.id);
+                let thinking = this.items.slice(this.liveStart).reverse().find(candidate => candidate.type === 'thinking'
+                    && candidate.id === event.id && (candidate.status === 'running' || event.status !== 'running'));
                 if (thinking?.type !== 'thinking') {
                     thinking = { type: 'thinking', id: event.id, text: '', startedAt: Date.now(),
                         open: false, status: 'running' };
@@ -469,9 +475,12 @@ export class AkariChatWidget extends ReactWidget {
                     this.thinking = thinking;
                 }
             } else {
-            const index = this.items.findIndex(candidate =>
-                candidate.type === 'tool' && candidate.event.id === event.id
-            );
+            let index = -1;
+            for (let position = this.items.length - 1; position >= this.liveStart; position--) {
+                const candidate = this.items[position];
+                if (candidate.type === 'tool' && candidate.event.id === event.id
+                    && (candidate.event.status === 'running' || event.status !== 'running')) { index = position; break; }
+            }
             if (index >= 0) {
                 const previous = this.items[index];
                 this.items[index] = {
@@ -491,15 +500,34 @@ export class AkariChatWidget extends ReactWidget {
             this.usedTokens = event.usedTokens;
             this.contextWindow = event.contextWindow || this.contextWindow;
         } else if (event.type === 'error') {
-            this.error = event;
-            this.errorIsStart = chatId === this.initialErrorChatId;
+            const priority = event.kind === 'auth' || event.kind === 'not-installed' || event.kind === 'rate-limit';
+            const existingPriority = this.error?.kind === 'auth' || this.error?.kind === 'not-installed'
+                || this.error?.kind === 'rate-limit';
+            if (!existingPriority || priority) {
+                this.error = event;
+                this.errorIsStart = chatId === this.initialErrorChatId;
+                this.errorIsResume = chatId === this.resumedChatId && !priority
+                    && (this.errorIsResume || resumeFailure(event, !this.readyEventSeen, this.resumeFirstTurn));
+            }
+            if (!this.readyEventSeen) { this.preparationFailed = true; this.stopWaiting(); }
+        } else if (event.type === 'turn.end' && !event.ok && chatId === this.resumedChatId && this.resumeFirstTurn
+            && /no conversation found|error_during_execution/i.test(event.reason || '')
+            && this.error?.kind !== 'auth' && this.error?.kind !== 'not-installed' && this.error?.kind !== 'rate-limit') {
+            this.error = { type: 'error', kind: 'other', message: event.reason || '' };
+            this.errorIsResume = true;
+            this.resumeFirstTurn = false;
         } else if (event.type === 'turn.end' && event.reason === 'interrupted') {
             if (this.thinking) this.thinking.open = false;
-            this.stopped = true;
-            this.error = undefined;
+            if (!this.errorIsResume) {
+                this.stopped = true;
+                this.error = undefined;
+            }
         } else if (event.type === 'turn.end' && event.ok) {
             if (this.thinking) this.thinking.open = false;
             this.initialErrorChatId = undefined;
+            this.resumeFirstTurn = false;
+            if (this.errorIsResume) this.error = undefined;
+            this.errorIsResume = false;
         } else if (event.type === 'session' && event.model) {
             const models = this.currentModels();
             if (this.selectedAgent !== 'claude' || !this.model ||
@@ -515,6 +543,7 @@ export class AkariChatWidget extends ReactWidget {
                 item.open = false;
             }
         }
+        if (event.type === 'turn.end') this.liveStart = this.items.length;
         if (!this.frame) this.frame = requestAnimationFrame(() => {
             this.frame = undefined;
             this.update();
@@ -569,11 +598,13 @@ export class AkariChatWidget extends ReactWidget {
         const transcript = await optionalRpc(() => this.chat.loadTranscript(cwd, id), READ_RPC_TIMEOUT_MS);
         if (!transcript || sequence !== this.startSequence) return;
         this.items = transcriptToItems(transcript);
+        this.liveStart = this.items.length;
         this.resumedTitle = undefined;
         this.update();
     }
 
     private beginWaiting(): void {
+        this.preparationFailed = false;
         this.ready = false;
         this.readyEventSeen = false;
         this.startReturned = false;
@@ -590,7 +621,7 @@ export class AkariChatWidget extends ReactWidget {
     }
 
     private refreshPreparation(): void {
-        this.ready = preparationReady(this.readyEventSeen);
+        this.ready = this.preparationFailed || preparationReady(this.readyEventSeen);
         if (this.ready && !this.busy) {
             if (this.ticker) clearInterval(this.ticker);
             this.ticker = undefined;
@@ -661,12 +692,16 @@ export class AkariChatWidget extends ReactWidget {
             });
             if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return undefined; }
             this.chatId = started.chatId;
+            this.resumedChatId = deferred ? started.chatId : undefined;
+            this.resumeFirstTurn = !!deferred;
             this.deferredHistory = undefined;
             this.activePermission = permission;
             this.setCapabilities(started.capabilities);
             this.actualModel = started.capabilities.currentModel || this.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
+            this.errorIsResume = !!deferred && !!started.error && resumeFailure(this.error!, true, true);
+            if (started.error) this.preparationFailed = true;
             this.initialErrorChatId = started.error ? started.chatId : undefined;
             this.replayEarlyEvents(started.chatId);
             this.finishWaiting();
@@ -681,6 +716,9 @@ export class AkariChatWidget extends ReactWidget {
                 message: String(error)
             };
             this.errorIsStart = true;
+            this.errorIsResume = !!this.deferredHistory && resumeFailure(this.error, true, true);
+            this.preparationFailed = true;
+            this.stopWaiting();
             this.update();
             return undefined;
         } finally {
@@ -807,7 +845,7 @@ export class AkariChatWidget extends ReactWidget {
                         }
                     }
                 } catch (error) {
-                    this.error = { type: 'error', kind: 'other', message: String(error) };
+                    if (!this.errorIsResume) this.error = { type: 'error', kind: 'other', message: String(error) };
                     this.update();
                 }
             }
@@ -846,6 +884,10 @@ export class AkariChatWidget extends ReactWidget {
         this.hasSentToChat = false;
         this.openingHistoryId = undefined;
         this.items = [];
+        this.liveStart = 0;
+        this.resumedChatId = undefined;
+        this.resumeFirstTurn = false;
+        this.errorIsResume = false;
         this.thinking = undefined;
         this.turnHasActivity = false;
         this.update();
@@ -861,6 +903,7 @@ export class AkariChatWidget extends ReactWidget {
         this.contextWindow = 0;
         this.error = undefined;
         this.errorIsStart = false;
+        this.errorIsResume = false;
         this.initialErrorChatId = undefined;
         this.stopped = false;
         this.popup = undefined;
@@ -931,6 +974,9 @@ export class AkariChatWidget extends ReactWidget {
         this.capabilities = undefined;
         this.actualModel = entry.model;
         this.items = [];
+        this.liveStart = 0;
+        this.resumedChatId = undefined;
+        this.resumeFirstTurn = true;
         this.thinking = undefined;
         this.turnHasActivity = false;
         this.commandsList = [];
@@ -940,6 +986,7 @@ export class AkariChatWidget extends ReactWidget {
         this.outbox.length = 0;
         this.error = undefined;
         this.errorIsStart = false;
+        this.errorIsResume = false;
         this.initialErrorChatId = undefined;
         this.stopped = false;
         this.usedTokens = 0;
@@ -962,11 +1009,14 @@ export class AkariChatWidget extends ReactWidget {
             const started = await this.chat.resume(cwd, entry.id, token, permission);
             if (sequence !== this.startSequence) { await this.chat.close(started.chatId); return; }
             this.chatId = started.chatId;
+            this.resumedChatId = started.chatId;
             this.activePermission = permission;
             this.setCapabilities(started.capabilities);
             this.actualModel = started.capabilities.currentModel || entry.model;
             this.error = started.error ? { type: 'error', ...started.error } : undefined;
             this.errorIsStart = !!started.error;
+            this.errorIsResume = !!started.error && resumeFailure(this.error!, true, true);
+            if (started.error) this.preparationFailed = true;
             this.initialErrorChatId = started.error ? started.chatId : undefined;
             this.replayEarlyEvents(started.chatId);
             this.finishWaiting();
@@ -977,6 +1027,9 @@ export class AkariChatWidget extends ReactWidget {
             if (sequence === this.startSequence) {
                 this.error = { type: 'error', kind: 'other', message: String(error) };
                 this.errorIsStart = true;
+                this.errorIsResume = resumeFailure(this.error, true, true);
+                this.preparationFailed = true;
+                this.stopWaiting();
                 this.update();
             }
             return undefined;
@@ -1596,7 +1649,7 @@ export class AkariChatWidget extends ReactWidget {
             {remove && <button className='akari-chat-plain' data-chat-attachment-remove={key} onClick={remove}>×</button>}
         </span>;
         const mark = item.review;
-        const time = `${Math.floor(mark.time / 60)}:${String(Math.floor(mark.time % 60)).padStart(2, '0')}`;
+        const time = reviewTimeSpan(mark);
         return <span key={key} className='akari-chat-chip akari-chat-review-chip' data-chat-review-chip>
             {mark.thumbnail ? <img src={mark.thumbnail} alt='' /> : <span className='akari-chat-review-frame' />}
             <span><b>{mark.sourceLabel}</b> · {time}<small>{mark.text}</small></span>
@@ -1787,7 +1840,7 @@ export class AkariChatWidget extends ReactWidget {
         const models = this.currentModels();
         const shownModel = modelLabel(models, this.model, this.actualModel);
         const errorDisplay = this.error
-            ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent)
+            ? chatErrorPresentation(this.error, agent?.name || this.selectedAgent, this.errorIsStart, this.selectedAgent, this.errorIsResume)
             : undefined;
         const effortLabel = this.effort && this.capabilities?.efforts?.includes(this.effort)
             ? EFFORT_LABELS[this.effort] || this.effort : undefined;
@@ -1859,6 +1912,9 @@ export class AkariChatWidget extends ReactWidget {
                     {errorDisplay.heading && <strong>{errorDisplay.heading}</strong>}
                     <div>{errorDisplay.reason}</div>
                     {errorDisplay.nextStep && <div data-chat-next-step>
+                        {this.errorIsResume && <button data-chat-new-after-resume onClick={() => void this.newChat()}>
+                            新しいチャットを始める
+                        </button>}
                         {this.error.kind === 'auth' && this.selectedAgent === 'claude' && <button data-chat-login onClick={() => this.login()}>
                             Claude Code でログイン
                         </button>}
@@ -1866,7 +1922,7 @@ export class AkariChatWidget extends ReactWidget {
                             <button data-chat-login onClick={() => void navigator.clipboard.writeText(agent.loginHint!)}>
                                 ターミナルで {agent.loginHint} を実行（コピー）
                             </button>}
-                        <button onClick={() => { this.popup = 'model'; if (!this.chatId) void this.ensureChat(); this.update(); }}>別の相手を選ぶ</button>
+                        {!this.errorIsResume && <button onClick={() => { this.popup = 'model'; if (!this.chatId) void this.ensureChat(); this.update(); }}>別の相手を選ぶ</button>}
                     </div>}
                 </div>}
             </div>

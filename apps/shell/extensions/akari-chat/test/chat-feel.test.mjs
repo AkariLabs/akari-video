@@ -84,6 +84,41 @@ test('slash menu filters descriptions and keeps skills and commands selectable',
         .map(group => group.label), ['会話操作']);
 });
 
+test('slash menu ranks command names before descriptions', () => {
+    const commands = [
+        { name: 'address-review', description: 'edit-lint を実行', kind: 'skill' },
+        { name: 'edit-lint', description: '', kind: 'skill' },
+        { name: 'render-cut', description: 'edit-lint 後に実行', kind: 'skill' },
+        { name: 'akari:edit-lint', description: '', kind: 'skill' }
+    ];
+    assert.deepEqual(commandMatches(commands, 'edit-l').map(row => row.name),
+        ['edit-lint', 'akari:edit-lint', 'address-review', 'render-cut']);
+    assert.equal(commandMatches(commands, '').length, 4);
+});
+
+test('transcript keeps reused IDs separate across resumed turns', () => {
+    const at = '2026-10-11T00:00:00Z';
+    const events = [
+        { type: 'message.start', id: 'm', role: 'assistant' },
+        { type: 'message.delta', id: 'm', text: '前' },
+        { type: 'thinking.delta', id: 't', text: '考え' },
+        { type: 'tool', id: 't', kind: 'think', title: '思考', status: 'done' },
+        { type: 'tool', id: 'tool', kind: 'read', title: '前', status: 'running' },
+        { type: 'tool', id: 'tool', kind: 'read', title: '前', status: 'done' },
+        { type: 'turn.end', ok: true },
+        { type: 'message.start', id: 'm', role: 'assistant' },
+        { type: 'message.delta', id: 'm', text: '後' },
+        { type: 'thinking.delta', id: 't', text: '新しく' },
+        { type: 'tool', id: 't', kind: 'think', title: '思考', status: 'done' },
+        { type: 'tool', id: 'tool', kind: 'read', title: '後', status: 'running' },
+        { type: 'tool', id: 'tool', kind: 'read', title: '後', status: 'done' }
+    ];
+    const items = transcriptToItems(events.map(event => ({ at, event })));
+    assert.deepEqual(items.filter(item => item.type === 'message').map(item => item.text), ['前', '後']);
+    assert.deepEqual(items.filter(item => item.type === 'thinking').map(item => item.text), ['考え', '新しく']);
+    assert.deepEqual(items.filter(item => item.type === 'tool').map(item => item.event.title), ['前', '後']);
+});
+
 test('transcript restores user attachments, assistant deltas and latest tool state', () => {
     const at = '2026-10-11T00:00:00Z';
     const items = transcriptToItems([
