@@ -96,6 +96,7 @@
   "shell.export.engineReason.videoAudioElementText": "動画・音声要素",
   "shell.export.engineReason.wipeLeftLabel": "左へワイプ",
   "shell.export.engineReason.wipeRightLabel": "右へワイプ",
+  "shell.export.engineReason.wordDisplayRunEffectsText": "語ごとの表示と、選んだ文字の台紙・影・グローの同時使用",
   "shell.export.estimate.aboutGbLabel": "約 {value1} GB",
   "shell.export.estimate.aboutMbLabel": "約 {value1} MB",
   "shell.export.estimate.aboutMinLabel": "約 {value1} 分",

@@ -6,9 +6,31 @@ import { readFileSync } from "node:fs";
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { typewriterDurations, typewriterStepTiming } from "../../render-cut/src/caption-typewriter.mjs";
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
+import { buildGpuPage } from '../src/page-builder.mjs';
 
 const require = createRequire(import.meta.url);
-const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
+const { applyCaptionStylePresets, planCaptionLookMigration, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
+
+test('GPU page eligibility keeps migrated and remaining emphasis words identical', () => {
+  const edit = { output: { width: 640, height: 360, fps: 30 }, cuts: [], overlays: [] };
+  const root = { captions: [{ id: 'c-0001', src: 'main', start: 1, end: 2, text: '赤青',
+    words: [{ text: '赤', start: 1, end: 1.5 }, { text: '青', start: 1.5, end: 2 }],
+    runs: [{ from: 0, to: 1, style: { color: '#ff0000', scale: 1.4 } }] }],
+  emphasis_words: [
+    { id: 'e-0001', src: 'main', word: '赤', t_start: 1, t_end: 1.5,
+      emotion: 'surprise', style_hint: 'one-char-bang' },
+    { id: 'e-0002', src: 'main', word: '青', t_start: 1.5, t_end: 2,
+      emotion: 'emphasis', style_hint: 'color-only' },
+  ] };
+  const migrated = planCaptionLookMigration(root, TEXTSTYLE_CATALOG).next;
+  const decide = captions => buildGpuPage({ edit, captions, overlays: [], duration: 2,
+    frameEngineBundle: '', pageRuntime: '', slotParamsRuntime: '',
+    itemKeyframesRuntime: '', itemMotionRuntime: '' }).eligibility;
+  const before = decide(root);
+  const after = decide(migrated);
+  assert.deepEqual(after.entries, before.entries);
+  assert.deepEqual(after.summary, before.summary);
+});
 
 function evaluate(overlays, captions = [], extra = {}) {
   return evaluateGpuEligibility({ edit: { overlays, output: {} }, captions, ...extra });
@@ -198,6 +220,15 @@ test("v2 word styles are native while plain words remain a caption sprite", () =
   assert.deepEqual(result.entries.map((entry) => entry.reason), [
     "words-native", "words-native", "words-native", "words-native", "caption-sprite",
   ]);
+});
+
+test('word tiles with a run plate or shadow use the OSR path', () => {
+  for (const look of [{ background: { color: '#ffffff' } }, { glow: { color: '#ffffff' } }]) {
+    const result = evaluate([], [{ id: 'rich', start: 0, end: 1, text: 'x', style: 'reveal',
+      words: [{ text: 'x', start: 0, end: 1 }], runs: [{ from: 0, to: 1, look }] }]);
+    assert.equal(result.eligible, false);
+    assert.equal(result.entries[0].reason, 'caption-run-plate-words-native');
+  }
 });
 
 test("unknown word style and unknown caption motion fail closed", () => {

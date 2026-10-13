@@ -197,7 +197,7 @@ import {
     parsePreviewCaptions,
     parseResolvedPreviewCaptions
 } from './akari-preview-captions';
-import { captionRenderInputFromV1 } from '@akari-video/edit-store';
+import { applyCaptionStylePresets, captionRenderInputFromV1, resolveTextstyleCatalog } from '@akari-video/edit-store';
 import { listen } from './akari-preview-listen';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } from './review-session-recorder';
@@ -887,7 +887,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.captionWriteTail = this.captionWriteTail.then(async () => {
                     const captionsUri = widget.akariPreviewCaptionsUri;
                     if (!captionsUri) return;
-                    const parsed = captionRenderInputFromV1(JSON.parse(await this.readText(captionsUri))) as {
+                    const source = JSON.parse(await this.readText(captionsUri));
+                    const edit = JSON.parse(await this.readText(new URI(detail.editUri)));
+                    const presetRoot = applyCaptionStylePresets(source, resolveTextstyleCatalog().catalog).root;
+                    const parsed = captionRenderInputFromV1(presetRoot, { output: edit.output }) as {
                         captions?: Array<{ id: string; time_domain?: string }>;
                     } | Array<{ id: string; time_domain?: string }>;
                     const entries = Array.isArray(parsed) ? parsed : parsed.captions;
@@ -6699,7 +6702,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // Legacy caption loading remains fail-open when edit output is unavailable.
             }
         }
-        const renderSource = JSON.stringify(captionRenderInputFromV1(JSON.parse(source)));
+        const presetRoot = applyCaptionStylePresets(JSON.parse(source), resolveTextstyleCatalog().catalog).root;
+        const renderSource = JSON.stringify(captionRenderInputFromV1(presetRoot, { output }));
         const parsed = parsePreviewCaptions(renderSource, output);
         const root: unknown = JSON.parse(renderSource);
         const emphasisWords = readCaptionsEmphasisWords(root);

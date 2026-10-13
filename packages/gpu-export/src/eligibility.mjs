@@ -432,6 +432,13 @@ export function evaluateGpuEligibility({
       emphasisWords: validEmphasis,
       locale: Array.isArray(captions) ? 'ja' : captions?.display_policy?.locale,
     });
+    const richRun = Array.isArray(cue?.runs) && cue.runs.some(run => run?.resolved_look?.plate
+      || run?.resolved_look?.text_shadow !== undefined || run?.look?.background
+      || run?.look?.shadow !== undefined || run?.look?.glow !== undefined);
+    if (wordSupport.hasWordDisplay && richRun) {
+      entries.push(entry("caption", id, "unsupported", "caption-run-plate-words-native", ["runs", "words"]));
+      continue;
+    }
     if (wordSupport.hasWordDisplay && textStyle?.vertical === true) {
       entries.push(entry("caption", id, "unsupported", "caption-text-style-vertical-unsupported", ["text_style.vertical"]));
       continue;

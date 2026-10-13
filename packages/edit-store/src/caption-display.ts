@@ -2623,7 +2623,7 @@ export function captionTextShadowValue(shadow: unknown, glow: unknown, scale = 1
     return parts.length > 0 ? parts.join(', ') : null;
 }
 
-function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null {
+export function captionRichTextShadowValue(style: UnknownRecord, scale: number): string | null {
     const parts: string[] = [];
     if (!Array.isArray(style.strokes) && isRecord(style.stroke_inner) && finiteNonNegative(style.stroke_inner.width_px)
         && style.stroke_inner.width_px > 0) {

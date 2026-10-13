@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { planCaptionLookMigration, captionRenderInputFromV1,
-  TEXTSTYLE_CATALOG } from '../../../../../packages/edit-store/lib/index.js';
+  applyCaptionRunsToHtml, TEXTSTYLE_CATALOG } from '../../../../../packages/edit-store/lib/index.js';
 import { parsePreviewCaptions } from '../lib/browser/akari-preview-captions.js';
 import { readCaptionsEmphasisWords } from '../lib/common/preview-emphasis-seat.js';
 
@@ -22,6 +23,25 @@ test('移行後の字幕をプレビュー入口へ通すと強調と runs が�
   assert.deepEqual(visualRuns(renderInput), visualRuns(before));
   const host = readFileSync(new URL('../src/node/akari-preview-service.ts', import.meta.url), 'utf8');
   const webview = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-  assert.match(host, /captionsRoot = captionRenderInputFromV1\(captionsRoot\)/u);
-  assert.match(webview, /const renderSource = JSON\.stringify\(captionRenderInputFromV1\(JSON\.parse\(source\)\)\)/u);
+  assert.match(host, /captionsRoot = captionRenderInputFromV1\(captionsRoot, \{ output: rawEdit\.output \}\)/u);
+  assert.match(webview, /const renderSource = JSON\.stringify\(captionRenderInputFromV1\(presetRoot, \{ output \}\)\)/u);
+  assert.match(webview, /captionRenderInputFromV1\(presetRoot, \{ output: edit\.output \}\)/u);
+  assert.ok(host.indexOf('applyCaptionStylePresets(captionsRoot') < host.indexOf('captionRenderInputFromV1(captionsRoot'));
+  assert.ok(webview.indexOf('applyCaptionStylePresets(JSON.parse(source)') < webview.indexOf('captionRenderInputFromV1(presetRoot, { output })'));
+});
+
+test('webview injection keeps run rules when editing redraws only a paragraph', () => {
+  const injected = runInNewContext(`(${applyCaptionRunsToHtml.toString()})`);
+  const runs = captionRenderInputFromV1({ captions: [{ text: '猫犬', runs: [
+    { from: 0, to: 2, look: { background: { color: '#ffd948', padding_px: 4 },
+      shadow: { color: '#000000', distance_px: 2 } } }
+  ] }] }).captions[0].runs;
+  const html = injected('<p class="akari-caption__line">猫犬</p>', '猫犬', runs);
+  assert.match(html, /^<style>/u);
+  assert.match(html, /data-akari-plate="true"/u);
+  assert.match(html, /data-akari-shadow-text="猫"/u);
+  assert.equal(html.replace(/<style>[\s\S]*?<\/style>/u, '').replace(/<[^>]+>/gu, ''), '猫犬');
+  const bootstrap = readFileSync(new URL('../src/browser/preview-script-bootstrap.ts', import.meta.url), 'utf8');
+  assert.match(bootstrap, /document\.head\.appendChild\(runRules\)/u);
+  assert.match(bootstrap, /selectEditorGraphemes\(element, from, to\)/u);
 });

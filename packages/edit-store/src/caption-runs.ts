@@ -21,6 +21,12 @@ export interface CaptionRun {
         out?: CaptionRunAnimationSlot;
     };
     look?: Record<string, unknown>;
+    resolved_look?: {
+        plate?: { color: string; opacity: number; padding_px: number; radius_px: number };
+        text_shadow?: string;
+        ink_outset_px?: number;
+        rotate_deg?: number;
+    };
     motion?: { in?: CaptionRunAnimationSlot; loop?: CaptionRunAnimationSlot; out?: CaptionRunAnimationSlot };
     dormant_animation?: CaptionRun['animation'];
     emotion?: string;
@@ -420,7 +426,9 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     const defaultStroke = html.includes('akari-caption--single-line') ? '0 transparent' : '0.14em rgba(0,0,0,.9)';
     if (!runs.some(run => Number.isInteger(run?.from) && Number.isInteger(run?.to)
         && run.from >= 0 && run.to <= chars.length && run.from < run.to)) return html;
-    const resolved = chars.map((value, index) => ({ text: value, index, style: {} as Record<string, unknown>, role: '' }));
+    const richRuns = runs.filter(run => run?.resolved_look?.plate || run?.resolved_look?.text_shadow !== undefined);
+    const resolved = chars.map((value, index) => ({ text: value, index, style: {} as Record<string, unknown>,
+        role: '', shadow: undefined as string | undefined, plateTransform: false }));
     for (const run of runs) {
         if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
             || run.from < 0 || run.to > chars.length || run.from >= run.to) continue;
@@ -435,6 +443,8 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
         for (let index = run.from; index < run.to; index++) {
             resolved[index] = { ...resolved[index],
                 role: run.role ?? resolved[index].role,
+                shadow: run.resolved_look?.text_shadow ?? resolved[index].shadow,
+                plateTransform: Boolean(run.resolved_look?.plate) || resolved[index].plateTransform,
                 style: { ...resolved[index].style, ...style,
                     ...(style?.stroke ? { stroke: { ...(resolved[index].style.stroke as object ?? {}), ...(style.stroke as object) } } : {}) } };
         }
@@ -476,14 +486,17 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 ? style.baseline_shift_em : 0;
             const rotate = typeof style.rotate_deg === 'number' && Number.isFinite(style.rotate_deg)
                 ? style.rotate_deg : 0;
-            if (shift || rotate) css.push(scale === 1
+            if ((shift || rotate) && !item.plateTransform) css.push(scale === 1
                 ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)`
                 : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
-            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''} style="${css.join(';')}">${escape(character)}</span>`;
+            if (item.shadow !== undefined) css.push(`text-shadow:none`, `position:relative`,
+                `--akari-run-shadow:${item.shadow}`);
+            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''}${item.shadow !== undefined
+                ? ` data-akari-shadow-text="${escape(character)}"` : ''} style="${css.join(';')}">${escape(character)}</span>`;
         }).join('');
     };
     // Limit parsing to caption line contents, leaving CSS and plate markup untouched.
-    return html.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g,
+    const renderedHtml = html.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
             const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g,
                 (whole, charOpen: string | undefined, charText: string | undefined,
@@ -499,4 +512,124 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             return open + (/class="[^"]*\bakari-caption__tok\b/.test(rendered)
                 ? rendered : `<span class="akari-caption__tok">${rendered}</span>`) + close;
         });
+    if (!richRuns.length) return renderedHtml;
+    let lineStart = 0;
+    const layered = renderedHtml.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g,
+        (_whole, open: string, content: string, close: string) => {
+            type Container = { kind: string; start: number; end: number; from: number; to: number };
+            type Unit = { index: number; start: number; end: number; containers: Container[] };
+            const units: Unit[] = [];
+            const containers: Container[] = [];
+            const stack: Container[] = [];
+            let index = lineStart;
+            const tokens = /<span class="akari-caption__run"[^>]*>[^<]*<\/span>|<[^>]+>|[^<]+/g;
+            for (const match of content.matchAll(tokens)) {
+                const token = match[0];
+                const start = match.index;
+                const end = start + token.length;
+                if (/^<span class="akari-caption__run"/.test(token)) {
+                    const value = decode(token.replace(/^<[^>]+>/, '').replace(/<\/span>$/, ''));
+                    for (const _char of segment(value)) units.push({ index: index++, start, end,
+                        containers: [...stack] });
+                } else if (/^<span\b/.test(token)) {
+                    const kind = /class="[^"]*\bakari-caption__tok\b/.test(token) ? 'tok'
+                        : /class="[^"]*\bakari-caption__char\b/.test(token) ? 'char' : 'span';
+                    const container = { kind, start, end, from: index, to: index };
+                    containers.push(container); stack.push(container);
+                } else if (token === '</span>') {
+                    const container = stack.pop();
+                    if (container) { container.end = end; container.to = index; }
+                } else if (!token.startsWith('<')) {
+                    let offset = start;
+                    for (const char of segment(decode(token))) {
+                        const encoded = escape(char);
+                        units.push({ index: index++, start: offset, end: offset + encoded.length,
+                            containers: [...stack] });
+                        offset += encoded.length;
+                    }
+                }
+            }
+            const lineEnd = index;
+            lineStart = lineEnd;
+            type Fragment = { start: number; end: number; runIndex: number; run: CaptionRun; split: boolean };
+            const fragments: Fragment[] = [];
+            for (const run of richRuns) {
+                const runIndex = runs.indexOf(run);
+                const selected = units.filter(unit => unit.index >= run.from && unit.index < run.to);
+                if (!selected.length) continue;
+                const boundaries = new Set<number>();
+                for (const prior of runs.slice(0, runIndex)) {
+                    if (!prior || prior.from >= run.to || prior.to <= run.from) continue;
+                    if (prior.from >= run.from && prior.to <= run.to) continue;
+                    if (run.from >= prior.from && run.to <= prior.to) continue;
+                    if (prior.from > run.from && prior.from < run.to) boundaries.add(prior.from);
+                    if (prior.to > run.from && prior.to < run.to) boundaries.add(prior.to);
+                }
+                const firstTok = (unit: Unit): Container | undefined => unit.containers.find(item => item.kind === 'tok');
+                const groups: Unit[][] = [];
+                let group: Unit[] = [];
+                for (const unit of selected) {
+                    const previous = group[group.length - 1];
+                    const tok = firstTok(unit);
+                    const priorTok = previous && firstTok(previous);
+                    const crossing = previous && boundaries.has(unit.index);
+                    const partialTokCrossing = previous && tok !== priorTok &&
+                        ((priorTok && group[0].index > priorTok.from) || (tok && selected[selected.length - 1].index + 1 < tok.to));
+                    if (previous && (crossing || partialTokCrossing)) {
+                        groups.push(group); group = [];
+                    }
+                    group.push(unit);
+                }
+                if (group.length) groups.push(group);
+                for (const part of groups) {
+                    const first = part[0]; const last = part[part.length - 1];
+                    let start = first.start; let end = last.end;
+                    const firstToken = firstTok(first); const lastToken = firstTok(last);
+                    if (firstToken && firstToken === lastToken) {
+                        if (first.index === firstToken.from && last.index + 1 === firstToken.to) {
+                            start = firstToken.start; end = firstToken.end;
+                        }
+                    } else if (firstToken && lastToken && first.index === firstToken.from
+                        && last.index + 1 === lastToken.to) {
+                        start = firstToken.start; end = lastToken.end;
+                    }
+                    const firstChar = first.containers.find(item => item.kind === 'char');
+                    const lastChar = last.containers.find(item => item.kind === 'char');
+                    if (start === first.start && firstChar && first.index === firstChar.from) start = firstChar.start;
+                    if (end === last.end && lastChar && last.index + 1 === lastChar.to) end = lastChar.end;
+                    fragments.push({ start, end, runIndex, run, split: groups.length > 1 });
+                }
+            }
+            if (!fragments.length) return open + content + close;
+            const openings = new Map<number, Fragment[]>();
+            const closings = new Map<number, Fragment[]>();
+            for (const fragment of fragments) {
+                openings.set(fragment.start, [...(openings.get(fragment.start) ?? []), fragment]);
+                closings.set(fragment.end, [...(closings.get(fragment.end) ?? []), fragment]);
+            }
+            const points = [...new Set([...openings.keys(), ...closings.keys(), 0, content.length])].sort((a, b) => a - b);
+            let body = '';
+            for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
+                const point = points[pointIndex];
+                for (const fragment of (closings.get(point) ?? []).sort((a, b) => b.start - a.start || b.runIndex - a.runIndex)) {
+                    const style = fragment.run.style ?? fragment.run.look ?? {};
+                    if (fragment.run.resolved_look?.plate && (style.rotate_deg || style.baseline_shift_em)) body += '</span>';
+                    body += '</span>';
+                }
+                for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
+                    const plate = fragment.run.resolved_look?.plate;
+                    const style = fragment.run.style ?? fragment.run.look ?? {};
+                    const rotate = typeof style.rotate_deg === 'number' ? style.rotate_deg : 0;
+                    const shift = typeof style.baseline_shift_em === 'number' ? style.baseline_shift_em : 0;
+                    const transform = plate && (rotate || shift)
+                        ? `transform:translateY(${shift}em) rotate(${rotate}deg);transform-origin:center` : '';
+                    body += `<span class="akari-caption__run-frag"${plate ? ` data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : ''}${fragment.run.resolved_look?.ink_outset_px ? ` data-akari-ink-outset="${fragment.run.resolved_look.ink_outset_px}"` : ''}${rotate ? ` data-akari-ink-rotate="${rotate}"` : ''}${fragment.split ? ' data-akari-plate-split="true"' : ''}${plate ? ` style="--akari-plate-pad:${plate.padding_px}px;--akari-plate-radius:${plate.radius_px}px;--akari-plate-color:${escape(plate.color)};--akari-plate-opacity:${plate.opacity};--akari-plate-z:${-1000000 + fragment.runIndex};--akari-plate-transform:${transform ? `translateY(${shift}em) rotate(${rotate}deg)` : 'none'}"` : ''}>`;
+                    if (transform) body += `<span class="akari-caption__run-body" style="${transform}">`;
+                }
+                if (pointIndex + 1 < points.length) body += content.slice(point, points[pointIndex + 1]);
+            }
+            return open + body + close;
+        });
+    const rules = '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]){isolation:isolate;position:relative}.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}.akari-caption__run-frag{display:inline-block;position:relative;line-height:1;vertical-align:baseline}.akari-caption__run-frag[data-akari-plate]::before{content:"";position:absolute;left:calc(-1 * var(--akari-plate-pad));right:calc(-1 * var(--akari-plate-pad));top:calc(-1 * var(--akari-plate-pad));bottom:calc(-1 * var(--akari-plate-pad));border-radius:var(--akari-plate-radius);background:var(--akari-plate-color);opacity:var(--akari-plate-opacity);z-index:var(--akari-plate-z);transform:var(--akari-plate-transform);transform-origin:center;pointer-events:none;user-select:none}.akari-caption__run-body{display:inline-block;line-height:1;vertical-align:baseline}.akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}';
+    return layered.includes('</style>') ? layered.replace('</style>', `${rules}</style>`) : `<style>${rules}</style>${layered}`;
 }

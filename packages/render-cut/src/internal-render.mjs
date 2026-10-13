@@ -5,6 +5,7 @@ import { basename, dirname, resolve } from "node:path";
 
 import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 import { generateCaptionOverlays } from "./captions.mjs";
+import { prepareCaptionRenderInput } from "./caption-resolve.mjs";
 
 const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible, referencedCaptionSourceCount } = require("../../edit-store/lib/index.js");
@@ -157,8 +158,11 @@ export function captionItemOverlays(
     onWarning?.("captions.json was not found; caption items were skipped");
     return [];
   }
+  const { root: prepared } = prepareCaptionRenderInput(root, { output });
   const captions = Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+  const preparedCaptions = Array.isArray(prepared) ? prepared : prepared?.captions ?? [];
   const byId = new Map(captions.map(caption => [String(caption?.id), caption]));
+  const preparedById = new Map(preparedCaptions.map(caption => [String(caption?.id), caption]));
   const defaultTextStyle = Array.isArray(root) ? undefined : root?.default_text_style;
   const emphasisWords = Array.isArray(root)
     ? editEmphasisWords
@@ -181,12 +185,17 @@ export function captionItemOverlays(
       onWarning?.(`captions.json item ${captionId} was not found; caption item ${item.id} was skipped`);
       continue;
     }
+    const v1 = Boolean((row.style_sources && !row.style_preset)
+      || (Array.isArray(row.runs) && row.runs.some(run => run?.look || run?.migrated_from)));
+    const renderRow = v1 ? preparedById.get(String(row.id)) ?? row : row;
+    const renderEmphasisWords = v1 && !Array.isArray(prepared)
+      ? prepared.emphasis_words ?? editEmphasisWords : emphasisWords;
     // Output-domain caption items may live over layer-only timelines. The shared caption
     // generator clamps output cues to the cut timeline, so supply a timing-only span.
     const captionCuts = cuts.length > 0 ? cuts : [{ in: 0, out: selectedRow.at + selectedRow.duration,
       at: 0, src: "__caption_item_clock__" }];
     const generated = generateCaptionOverlays([{
-      ...row,
+      ...renderRow,
       start: selectedRow.at,
       end: selectedRow.at + selectedRow.duration,
       time_domain: "output",
@@ -195,7 +204,7 @@ export function captionItemOverlays(
       output,
       sourceCount,
       defaultTextStyle,
-      emphasisWords,
+      emphasisWords: renderEmphasisWords,
       onWarning,
     });
     for (const record of generated) {

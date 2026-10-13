@@ -6,7 +6,8 @@ import type { EditCut } from './edit-store';
 export interface CaptionSemanticDiagnostic { code: string; severity: 'error' | 'warning' | 'info';
     path: string; message: string; layer: 'document' | 'project' | 'path' }
 export interface CaptionSemanticsContext {
-    captions: { captions?: Array<Record<string, unknown>>; unresolved_runs?: Array<{ run?: CaptionRun }> }
+    captions: { captions?: Array<Record<string, unknown>>; unresolved_runs?: Array<{ run?: CaptionRun }>;
+        emphasis_words?: Array<Record<string, unknown>> }
         | Array<Record<string, unknown>> | null;
     edit?: { cuts?: EditCut[]; sources?: Array<{ id: string }> };
     timeline?: TimelineMapResult | readonly EditCut[];
@@ -25,6 +26,15 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
     }
     const unresolved = !root || Array.isArray(root) ? [] :
         (Array.isArray(root.unresolved_runs) ? root.unresolved_runs as Array<{ run?: CaptionRun }> : []);
+    const emphasisWords = !root || Array.isArray(root) || !Array.isArray(root.emphasis_words) ? []
+        : (root.emphasis_words as Array<Record<string, unknown>>).filter(item => item
+            && typeof item.id === 'string' && /^e-\d{4}$/.test(item.id)
+            && typeof item.word === 'string' && /\S/.test(item.word)
+            && typeof item.emotion === 'string' && /\S/.test(item.emotion)
+            && typeof item.t_start === 'number' && Number.isFinite(item.t_start) && item.t_start >= 0
+            && typeof item.t_end === 'number' && Number.isFinite(item.t_end) && item.t_end > item.t_start
+            && (item.src === undefined || typeof item.src === 'string' && /\S/.test(item.src))
+            && (item.style_hint === undefined || typeof item.style_hint === 'string'));
     for (const item of unresolved) if (item && typeof item === 'object' && item.run?.id) {
         counts.set(item.run.id, (counts.get(item.run.id) ?? 0) + 1);
     }
@@ -58,6 +68,27 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
         }
         const chars = captionGraphemes(typeof row.display_text === 'string' ? row.display_text : String(row.text ?? ''));
         const runs = Array.isArray(row.runs) ? row.runs as CaptionRun[] : [];
+        const words = Array.isArray(row.words) ? row.words as Array<{ text?: string }> : [];
+        const hasEmphasisDisplay = words.some(word => emphasisWords.some(item => {
+            if (item.src !== undefined && item.src !== row.src) return false;
+            const timedWord = word as { text?: string; sourceText?: string; start?: number; end?: number };
+            const text = String(timedWord.sourceText ?? timedWord.text ?? '').normalize('NFKC').toLowerCase();
+            const emphasisText = typeof item.word === 'string' ? item.word.normalize('NFKC').toLowerCase() : '';
+            return text.length > 0 && emphasisText.length > 0
+                && (text === emphasisText || emphasisText.includes(text))
+                && Number(item.t_end) > Number(timedWord.start) && Number(item.t_start) < Number(timedWord.end)
+                && Number(item.t_end) > Number(row.start) && Number(item.t_start) < Number(row.end);
+        }));
+        const tokenRanges: Array<{ from: number; to: number }> = [];
+        if (words.length && words.every(word => typeof word?.text === 'string')
+            && words.map(word => word.text).join('') === chars.join('')) {
+            let offset = 0;
+            for (const word of words) {
+                const next = offset + captionGraphemes(word.text!).length;
+                tokenRanges.push({ from: offset, to: next });
+                offset = next;
+            }
+        }
         for (const [runIndex, run] of runs.entries()) {
             if (!run || typeof run !== 'object' || Array.isArray(run)) continue;
             const path = `captions.json#captions[${index}].runs[${runIndex}]`;
@@ -73,6 +104,34 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
             }
             if (run.fire === 'spoken' && !run.anchor) {
                 add('captions.run.anchor', 'error', path, '発話時に動かす範囲には実測時刻が必要です。', 'document');
+            }
+            const background = run.look && typeof run.look.background === 'object'
+                ? run.look.background as Record<string, unknown> : null;
+            const richRun = Boolean(background || run.resolved_look?.plate
+                || run.resolved_look?.text_shadow !== undefined
+                || run.look && (Object.prototype.hasOwnProperty.call(run.look, 'shadow')
+                    || Object.prototype.hasOwnProperty.call(run.look, 'glow')));
+            if (ctx.path === 'gpu' && words.length && richRun
+                && (['karaoke', 'pop', 'reveal', 'reveal-word'].includes(String(row.style)) || hasEmphasisDisplay)) {
+                add('captions.style.unsupported-path', 'error', path,
+                    '語ごとの表示と範囲の台紙・影は GPU 経路で一緒に描けません。', 'path');
+            }
+            if (background) {
+                const touched = tokenRanges.filter(token => token.from < run.to && token.to > run.from);
+                const tokenSplit = touched.length > 1 && (run.from > touched[0].from
+                    || run.to < touched[touched.length - 1].to);
+                const crossing = runs.slice(0, runIndex).some(prior => prior && prior.from < run.to
+                    && prior.to > run.from && !(prior.from >= run.from && prior.to <= run.to)
+                    && !(run.from >= prior.from && run.to <= prior.to));
+                if (tokenSplit || crossing) {
+                    add('captions.run.plate-split', 'warning', path,
+                        '語の境界または範囲の交差により、台紙を分けて描きます。', 'document');
+                }
+            }
+            if (background && ['width_pct', 'height_pct', 'fit', 'offset_x', 'offset_y', 'mode']
+                .some(key => Object.prototype.hasOwnProperty.call(background, key))) {
+                add('captions.run.background-unused', 'warning', path,
+                    '範囲の台紙では幅・高さ・合わせ方・位置・モードの指定を使いません。', 'document');
             }
             if (run.anchor) {
                 const domain = row.time_domain === 'output' ? 'output' : 'source';
@@ -113,10 +172,11 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
 }
 
 export function renderableCaptionRuns(caption: { text: string; display_text?: string; runs?: CaptionRun[] },
-    document: CaptionSemanticsContext['captions']): CaptionRun[] {
+    document: CaptionSemanticsContext['captions'],
+    options: { diagnostics?: readonly CaptionSemanticDiagnostic[]; index?: number } = {}): CaptionRun[] {
     const rows = Array.isArray(document) ? document : Array.isArray(document?.captions) ? document.captions : [];
-    const index = rows.indexOf(caption as Record<string, unknown>);
-    const invalid = new Set(validateCaptionsSemantics({ captions: document })
+    const index = options.index ?? rows.indexOf(caption as Record<string, unknown>);
+    const invalid = new Set((options.diagnostics ?? validateCaptionsSemantics({ captions: document }))
         .filter(item => item.severity === 'error' && item.layer === 'document')
         .flatMap(item => {
             const match = /captions\[(\d+)\]\.runs\[(\d+)\]/.exec(item.path);

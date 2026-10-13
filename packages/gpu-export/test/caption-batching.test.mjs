@@ -189,11 +189,29 @@ test("variant CSS is scoped per band and rejects at-rules", () => {
     '[data-akari-band="2"] .a,[data-akari-band="2"] .b{color:red}[data-akari-band="2"] .c{opacity:0}',
   );
   assert.throws(() => scopeCaptionCss("@media all{.a{color:red}}", ".band"), /at-rules/u);
+  assert.equal(scopeCaptionCss('.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-1}', '.band'),
+    '.band .akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-1}');
+});
+
+test('run ink bounds include resolved padding, effect extent, and rotation', () => {
+  const expand = new Function(`return (${functionSource('expandedCaptionRunRect')})`)();
+  assert.deepEqual(expand({ x: 10, y: 20, width: 100, height: 20 }, 8, 0),
+    { x: 2, y: 12, width: 116, height: 36 });
+  const rotated = expand({ x: 10, y: 20, width: 100, height: 20 }, 8, 90);
+  assert.ok(rotated.x > 10 && rotated.y < 20);
+  assert.ok(rotated.width >= 36 && rotated.height >= 116);
+  assert.match(source, /runEffectRects.*?expandedCaptionRunRect/su);
+  assert.match(source, /\.\.\.runRects, \.\.\.runEffectRects/u);
 });
 
 test("字幕断片自身の CSS は帯ごとに閉じ、詳細度を変えず @規則はそのまま残す", () => {
   const isolate = new Function(`return (${functionSource("isolateCaptionFragmentCss")})`)();
   const band = '[data-akari-band="3"]';
+  const rich = '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-1}'
+    + '.akari-caption__run-frag[data-akari-plate]::before{left:var(--akari-plate-pad)}';
+  const scopedRich = isolate(rich, band);
+  assert.match(scopedRich, /:where\(\[data-akari-band="3"\]\) \.akari-caption__line:has\(\.akari-caption__run-frag,\.akari-caption__run\[data-akari-shadow-text\]\)::before/u);
+  assert.match(scopedRich, /:where\(\[data-akari-band="3"\]\) \.akari-caption__run-frag\[data-akari-plate\]::before\{left:var\(--akari-plate-pad\)/u);
   assert.equal(
     isolate('.a,.b:not(.c,.d)>.e{color:red} .f[data-x="1,2"]{opacity:0}', band),
     ':where([data-akari-band="3"]) .a,:where([data-akari-band="3"]) .b:not(.c,.d)>.e{color:red}'

@@ -96,6 +96,7 @@
   "shell.export.engineReason.videoAudioElementText": "Video or audio element",
   "shell.export.engineReason.wipeLeftLabel": "Wipe left",
   "shell.export.engineReason.wipeRightLabel": "Wipe right",
+  "shell.export.engineReason.wordDisplayRunEffectsText": "Word display together with a plate, shadow, or glow on selected text",
   "shell.export.estimate.aboutGbLabel": "About {value1} GB",
   "shell.export.estimate.aboutMbLabel": "About {value1} MB",
   "shell.export.estimate.aboutMinLabel": "About {value1} min",

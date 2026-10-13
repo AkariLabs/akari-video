@@ -4843,6 +4843,11 @@ export function previewBootstrapScript(): string {
                     const holder = document.createElement('div');
                     holder.innerHTML = renderCaptionRuns('<p class="akari-caption__line">' + escaped + '</p>',
                         text, caption.runs);
+                    const runRules = holder.querySelector('style');
+                    if (runRules && !document.getElementById('akari-caption-run-rules')) {
+                        runRules.id = 'akari-caption-run-rules';
+                        document.head.appendChild(runRules);
+                    }
                     const line = holder.querySelector('.akari-caption__line');
                     const content = line?.querySelector('.akari-caption__tok') || line;
                     if (!content) return;
@@ -5701,10 +5706,9 @@ export function previewBootstrapScript(): string {
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
-                if (layoutPlate && editorWidth && caption?.runs?.some(run =>
-                    Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+                if (layoutPlate && editorWidth && caption?.runs?.length > 0
                     && lineCount(element) > targetLines) {
-                    // offsetWidth rounds away the subpixel width reserved by font-size runs.
+                    // offsetWidth rounds away the subpixel width reserved by styled runs.
                     element.style.width = Math.max(parseFloat(element.style.width) || 0, editorWidth + 1) + 'px';
                 }
                 window.akari.syncRunSelection?.();

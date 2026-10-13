@@ -71,6 +71,7 @@ export function japaneseExportReason(code: string): string {
     if (look) return Object.prototype.hasOwnProperty.call(LOOK_LABELS(), look) ? LOOK_LABELS()[look] : code;
     if (code === 'caption-karaoke-fill-unsupported') return t('shell.export.engineReason.karaokeFillLabel');
     if (code === 'caption-text-style-vertical-unsupported') return t('shell.export.engineReason.verticalTextLabel');
+    if (code === 'caption-run-plate-words-native') return t('shell.export.engineReason.wordDisplayRunEffectsText');
     if (code === 'words-native-color-and-geometry-mixed') return t('shell.export.engineReason.perCharacterColorShapeTogetherText');
     if (code === 'GPU Electron launcher unavailable') return t('shell.export.engineReason.gpuLaunchEnvironmentUnavailableStatus');
     if (code === 'caption-measure-unstable') return t('shell.export.engineReason.captionPositionUnstableText');
