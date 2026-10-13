@@ -101,7 +101,12 @@ test('webview priority is runtime-local, preparing-only, debounced 300 ms, every
     assert.match(source, /vscode.postMessage\(\{ type: 'akari-preview-audio-priority', time \}\)/u);
     const begin = source.indexOf('                const AUDIO_PRIORITY_DEBOUNCE_MS');
     const end = source.indexOf('\n                updateAudioStatus();', begin);
-    const block = source.slice(begin, end);
+    // 10 秒ごとのタイマーは再生状態の宣言のあとで登録する（初期化失敗時の ReferenceError を避ける）。
+    const intervalTail = '}, AUDIO_PRIORITY_INTERVAL_MS);';
+    const intervalBegin = source.indexOf('                const audioPriorityInterval = setInterval(', end);
+    const intervalEnd = source.indexOf(intervalTail, intervalBegin) + intervalTail.length;
+    assert.ok(begin >= 0 && end > begin && intervalBegin > end && intervalEnd > intervalBegin);
+    const block = `${source.slice(begin, end)}\n${source.slice(intervalBegin, intervalEnd)}`;
     assert.match(block, /AUDIO_PRIORITY_DEBOUNCE_MS = 300/u);
     assert.match(block, /AUDIO_PRIORITY_INTERVAL_MS = 10_000/u);
     assert.equal([...block.matchAll(/audioSupply.debug\(\).supply\?\.phase !== 'preparing'/gu)].length, 2);
