@@ -1,4 +1,5 @@
 import { t } from '../common/preview-text';
+import { captionOutlineRuntime } from '@akari-video/edit-store';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import { CommandContribution } from '@theia/core/lib/common';
 import { WidgetFactory } from '@theia/core/lib/browser';
@@ -18,6 +19,8 @@ import { AkariGpuPreferenceContribution } from './akari-gpu-preference-contribut
 import { AkariPreviewOpenHandler } from './akari-preview-open-handler';
 import { AkariOutputPreviewOpenHandler } from './akari-output-preview-open-handler';
 import { ConnectionDiagnosticsContribution } from './connection-diagnostics-contribution';
+
+captionOutlineRuntime().install(document);
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariAudioMeterWidget).toSelf();

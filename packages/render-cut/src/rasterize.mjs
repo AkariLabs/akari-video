@@ -8,6 +8,8 @@ import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
 import { setCaptionInkClipVariables } from "./caption-ink-clip.mjs";
+import { createRequire } from "node:module";
+const captionOutlineRuntime = createRequire(import.meta.url)("../../edit-store/lib/index.js").captionOutlineRuntime;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -229,6 +231,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
 ${nodes}${slotRuntimeScripts}
   </div>
+  <script>(${captionOutlineRuntime.toString()})().install(document);</script>
   <script>
     // Overlay fragments author entrance animations as plain CSS keyframes, but plain CSS
     // animations cannot survive a the retired renderer render: its producer free-runs this sheet on

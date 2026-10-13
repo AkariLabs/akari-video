@@ -1,19 +1,17 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { cp, mkdir, mkdtemp, readFile, rm, rmdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { roundedCaptionStrokeShadows as webRoundedStroke } from '../public/caption-rounded-stroke.js';
-import { roundedCaptionStrokeShadows as renderRoundedStroke } from '../../render-cut/src/captions.mjs';
 import { resolveCaptionPlan } from '../../render-cut/src/caption-resolve.mjs';
 import { readRenderEdit } from '../../render-cut/src/internal-render.mjs';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(packageRoot, '../..');
+const laneRoot = join(repositoryRoot, '.tmp-lane');
 const sourceProject = join(repositoryRoot, 'test-project');
 const STROKE = { color: '#102030', width_px: 3 };
 const SHADOW = { color: '#000000', distance_px: 4, blur_px: 6, angle_deg: 90 };
@@ -30,21 +28,6 @@ const POLICY = {
   minimum_fragment_duration_seconds: 0.72, locale: 'ja', lines: 1, wrap: 'multi',
 };
 
-test('browser copy returns exactly the render-cut rounded stroke shadows', () => {
-  const strokes = [
-    '3px #102030', '3.5px rgba(0, 0, 0, .8)', '0 transparent', '0px #000',
-    '3 #000', '-3px #000', '1001px #000', '1000px red', '.5px blue',
-    '2px #fff', '2px rgb(16 32 48 / 50%)', '2px rebeccapurple',
-    undefined, null, '', '  3px  hsl(0 100% 50%)  ',
-  ];
-  for (const stroke of strokes) {
-    for (const shadow of [undefined, 'none', '0px 4px 6px #000']) {
-      assert.deepEqual(webRoundedStroke(stroke, shadow), renderRoundedStroke(stroke, shadow),
-        `stroke=${String(stroke)}, shadow=${String(shadow)}`);
-    }
-  }
-});
-
 test('Web UI and render-cut agree for placed and spoken captions in both routes', { timeout: 240_000 }, async t => {
   let chromium;
   try {
@@ -60,12 +43,13 @@ test('Web UI and render-cut agree for placed and spoken captions in both routes'
     t.skip('Chromium is unavailable');
     return;
   }
+  await mkdir(laneRoot, { recursive: true });
   try {
     for (const [route, captionsRoot] of [
       ['legacy', CUES],
       ['resolved', { display_policy: POLICY, captions: CUES }],
     ]) {
-      const project = await mkdtemp(join(tmpdir(), 'akari-rounded-stroke-'));
+      const project = await mkdtemp(join(laneRoot, 'caption-outline-'));
       let server;
       try {
         await cp(sourceProject, project, { recursive: true });
@@ -107,24 +91,15 @@ test('Web UI and render-cut agree for placed and spoken captions in both routes'
             const render = await measureRender(renderPage, overlay);
             assert.equal(web.strokeWidth, render.strokeWidth, `${route}/${cue.id}: stroke width`);
             assert.equal(web.textShadow, render.textShadow, `${route}/${cue.id}: shadow`);
-            if (cue.id === 'placed') {
-              assert.equal(web.strokeWidth, '0px');
-              assert.equal((web.textShadow.match(/rgb\(16, 32, 48\)/gu) ?? []).length, 32,
-                `${route}: 32 rounded stroke offsets`);
-              assert.equal((web.textShadow.match(/rgb\(0, 0, 0\)/gu) ?? []).length, 1,
-                `${route}: original shadow`);
-              assert.equal(web.roundedClass, true);
-            } else if (cue.id === 'spoken') {
+            assert.equal(web.roundedClass, false);
+            assert.equal(web.roundedVar, '');
+            if (cue.id === 'placed' || cue.id === 'spoken') {
               assert.equal(web.strokeWidth, '6px');
-              assert.equal(web.textShadow.includes('rgb(16, 32, 48)'), false,
-                `${route}: spoken caption has no rounded stroke shadows`);
-              assert.equal(web.roundedClass, false);
+              assert.ok(web.outlineCount > 0, `${route}/${cue.id}: SVG outline`);
+              assert.equal(web.textShadow.includes('rgb(16, 32, 48)'), false);
             } else if (cue.id === 'placed-gradient') {
               assert.equal(web.strokeWidth, '0px');
               assert.equal(web.textShadow, 'none');
-            } else {
-              assert.equal(web.roundedClass, false);
-              assert.equal(web.roundedVar, '');
             }
           }
           assert.deepEqual(pageErrors, [], `${route}: browser errors`);
@@ -142,6 +117,7 @@ test('Web UI and render-cut agree for placed and spoken captions in both routes'
     }
   } finally {
     await browser.close();
+    await rmdir(laneRoot).catch(() => {});
   }
 });
 
@@ -155,6 +131,10 @@ async function measureWeb(page, cue) {
     seek.dispatchEvent(new Event('input', { bubbles: true }));
     return plate.textContent.includes(text);
   }, { second, text: cue.text }, { polling: 250, timeout: 30_000 });
+  if (cue.id === 'placed' || cue.id === 'spoken') {
+    await page.waitForFunction(() => [...document.querySelectorAll('#caption-plate *')]
+      .some(node => node.shadowRoot?.querySelector('svg')), null, { timeout: 30_000 });
+  }
   return page.evaluate(() => {
     const element = document.querySelector('#caption-plate .akari-caption__line, #caption-plate .akari-caption__resolved-line');
     const row = element?.closest('.caption-row-plate');
@@ -165,6 +145,7 @@ async function measureWeb(page, cue) {
       textShadow: style.textShadow,
       roundedClass: row.classList.contains('akari-caption--rounded-stroke'),
       roundedVar: row.style.getPropertyValue('--caption-rounded-stroke'),
+      outlineCount: [...row.querySelectorAll('*')].reduce((total, node) => total + (node.shadowRoot?.querySelectorAll('svg').length || 0), 0),
     };
     function assertElement(line, plate) { if (!line || !plate) throw new Error('caption line missing'); }
   });
