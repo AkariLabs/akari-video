@@ -1768,7 +1768,8 @@ test("cuts[].transition_out accepts all known types and warns once for an unknow
       await writeFile(editPath, `${JSON.stringify(editFor(type))}\n`);
       const result = parseResult(run(root));
       assert.equal(
-        result.findings.some((finding) => finding.check === "cuts.transition-out.unknown-type"),
+        result.findings.some((finding) =>
+          finding.check === "cuts.transition-out.type" || finding.check === "cuts.transition-out.unknown-type"),
         false,
         type,
       );
@@ -1779,6 +1780,11 @@ test("cuts[].transition_out accepts all known types and warns once for an unknow
     const unknown = fixture.findings.filter(finding => finding.check === 'cuts.transition-out.unknown-type');
     assert.equal(unknown.length, 1, JSON.stringify(fixture.findings));
     assert.equal(unknown[0].severity, 'warning');
+    assert.equal(unknown[0].message,
+      '知らない種類のトランジション「future-kind」です。クロスフェードで代用して表示・書き出しします。');
+    const english = parseResult(run(join(preparedFixtures, 'v2-unknown-transition-warning'), [], { AKARI_LANG: 'en' }));
+    assert.equal(english.findings.find(finding => finding.check === 'cuts.transition-out.unknown-type')?.message,
+      'Unknown transition type "future-kind". A crossfade will be used for preview and export.');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

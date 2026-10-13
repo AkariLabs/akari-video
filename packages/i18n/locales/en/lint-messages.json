@@ -2,7 +2,7 @@
   "lint-messages.geometry.fit.compat": "Rendering in fit compatibility mode. Use `normalize-geometry` to migrate to source-size geometry.",
   "lint-messages.cuts.transition.zeroOverlap": "The transition has no usable source handles and will not apply. Adjust the trim or remove the transition.",
   "lint-messages.cuts.transition.nonAdjacent": "There is a gap after transition_out. Close the gap or remove the transition.",
-  "lint-messages.cuts.transition.unknownType": "This transition type is unknown. A crossfade will be used for preview and export.",
+  "lint-messages.cuts.transition.unknownType": "Unknown transition type \"{type}\". A crossfade will be used for preview and export.",
   "lint-messages.captions.track.undeclared": "captions.json has renderable cues, but no caption track is declared. Captions currently display through implicit completion. Add { \"id\": \"captions\", \"name\": \"Captions\", \"at\": 0, \"duration\": <output duration>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } to visual track items[].",
   "lint-messages.overlays.root.attributes": "data-start / data-duration on the fragment root are ignored. Timing in edit.json takes precedence. Record the asset length in data-akari-natural-duration.",
   "lint-messages.edit.version.future": "edit.json version {version} is too new to validate. Update the skills and app.",

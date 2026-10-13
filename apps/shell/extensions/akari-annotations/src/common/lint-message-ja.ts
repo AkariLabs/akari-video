@@ -40,7 +40,6 @@ function lintCheckMessage(check: string | undefined): string | undefined {
 
 /** pass verdict でも保存直後に知らせる、本タスク由来の transition warning だけ。 */
 export const LINT_WARNING_SUMMARY_CHECKS: readonly string[] = Object.freeze([
-    'cuts.transition-out.unknown-type',
     'cuts.transition-out.zero-overlap',
     'cuts.transition-out.layer-evacuated'
 ]);

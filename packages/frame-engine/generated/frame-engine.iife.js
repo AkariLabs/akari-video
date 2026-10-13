@@ -12205,6 +12205,7 @@ ${indent}`);
       exports.ensureChildren = ensureChildren;
       exports.clone = clone;
       exports.assertKnownTransitionChange = assertKnownTransitionChange;
+      exports.unknownTransitionTypesIn = unknownTransitionTypesIn;
       exports.assertKnownItemTransitions = assertKnownItemTransitions;
       var transform_1 = require_transform();
       var transition_vocabulary_1 = require_transition_vocabulary();
@@ -12557,7 +12558,7 @@ ${indent}`);
         if (locate(edit, item.id))
           throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
         const cloned = clone(item);
-        assertKnownItemTransitions(cloned);
+        assertKnownItemTransitions(cloned, unknownTransitionTypesIn(edit));
         const track = tracksOf(edit).find((candidate) => candidate.id === target);
         if (track) {
           let destination = requireTrackItems(track);
@@ -13057,13 +13058,33 @@ ${indent}`);
         const previous = isRecord2(previousSource) && isRecord2(previousSource.transition_out) ? previousSource.transition_out.type : void 0;
         const next = isRecord2(nextSource) && isRecord2(nextSource.transition_out) ? nextSource.transition_out.type : void 0;
         if (next !== void 0 && next !== previous && !(0, transition_vocabulary_1.isTransitionType)(next)) {
-          throw new Error("Unknown transition type cannot be written");
+          throw new Error(`transition_out.type "${String(next)}" \u306F\u4F7F\u3048\u306A\u3044\u7A2E\u985E\u3067\u3059\u3002\u4F7F\u3048\u308B\u7A2E\u985E: ${transition_vocabulary_1.TRANSITION_TYPE_IDS.join(" / ")}`);
         }
       }
-      function assertKnownItemTransitions(item) {
-        assertKnownTransitionChange(void 0, item.source);
+      function unknownTransitionTypesIn(edit) {
+        const types = /* @__PURE__ */ new Set();
+        for (const track of edit.tracks) {
+          for (const item of track.items ?? [])
+            collectUnknownTransitionTypes(item, types);
+        }
+        return types;
+      }
+      function collectUnknownTransitionTypes(item, types) {
+        const source = item.source;
+        const transition = isRecord2(source) && isRecord2(source.transition_out) ? source.transition_out : void 0;
+        const type = transition?.type;
+        if (typeof type === "string" && type.length > 0 && !(0, transition_vocabulary_1.isTransitionType)(type))
+          types.add(type);
         for (const child of item.items ?? [])
-          assertKnownItemTransitions(child);
+          collectUnknownTransitionTypes(child, types);
+      }
+      function assertKnownItemTransitions(item, existingUnknownTypes = /* @__PURE__ */ new Set()) {
+        const source = item.source;
+        const transition = isRecord2(source) && isRecord2(source.transition_out) ? source.transition_out : void 0;
+        if (!existingUnknownTypes.has(transition?.type))
+          assertKnownTransitionChange(void 0, source);
+        for (const child of item.items ?? [])
+          assertKnownItemTransitions(child, existingUnknownTypes);
       }
     }
   });

@@ -42,6 +42,7 @@ exports.relativeTransform = relativeTransform;
 exports.ensureChildren = ensureChildren;
 exports.clone = clone;
 exports.assertKnownTransitionChange = assertKnownTransitionChange;
+exports.unknownTransitionTypesIn = unknownTransitionTypesIn;
 exports.assertKnownItemTransitions = assertKnownItemTransitions;
 const transform_1 = require("./transform");
 const transition_vocabulary_1 = require("./transition-vocabulary");
@@ -384,7 +385,7 @@ function insertItem(edit, target, item, index) {
     if (locate(edit, item.id))
         throw new Error(`item id が重複しています: ${item.id}`);
     const cloned = clone(item);
-    assertKnownItemTransitions(cloned);
+    assertKnownItemTransitions(cloned, unknownTransitionTypesIn(edit));
     const track = tracksOf(edit).find(candidate => candidate.id === target);
     if (track) {
         let destination = requireTrackItems(track);
@@ -900,11 +901,31 @@ function assertKnownTransitionChange(previousSource, nextSource) {
     const next = isRecord(nextSource) && isRecord(nextSource.transition_out)
         ? nextSource.transition_out.type : undefined;
     if (next !== undefined && next !== previous && !(0, transition_vocabulary_1.isTransitionType)(next)) {
-        throw new Error('Unknown transition type cannot be written');
+        throw new Error(`transition_out.type "${String(next)}" は使えない種類です。使える種類: ${transition_vocabulary_1.TRANSITION_TYPE_IDS.join(' / ')}`);
     }
 }
-function assertKnownItemTransitions(item) {
-    assertKnownTransitionChange(undefined, item.source);
+function unknownTransitionTypesIn(edit) {
+    const types = new Set();
+    for (const track of edit.tracks) {
+        for (const item of track.items ?? [])
+            collectUnknownTransitionTypes(item, types);
+    }
+    return types;
+}
+function collectUnknownTransitionTypes(item, types) {
+    const source = item.source;
+    const transition = isRecord(source) && isRecord(source.transition_out) ? source.transition_out : undefined;
+    const type = transition?.type;
+    if (typeof type === 'string' && type.length > 0 && !(0, transition_vocabulary_1.isTransitionType)(type))
+        types.add(type);
     for (const child of item.items ?? [])
-        assertKnownItemTransitions(child);
+        collectUnknownTransitionTypes(child, types);
+}
+function assertKnownItemTransitions(item, existingUnknownTypes = new Set()) {
+    const source = item.source;
+    const transition = isRecord(source) && isRecord(source.transition_out) ? source.transition_out : undefined;
+    if (!existingUnknownTypes.has(transition?.type))
+        assertKnownTransitionChange(undefined, source);
+    for (const child of item.items ?? [])
+        assertKnownItemTransitions(child, existingUnknownTypes);
 }

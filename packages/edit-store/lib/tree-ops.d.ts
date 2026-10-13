@@ -143,4 +143,5 @@ export declare function relativeTransform(parent: TransformV2 | undefined, world
 export declare function ensureChildren(item: MutableItem, create?: boolean): MutableItem[];
 export declare function clone<T>(value: T): T;
 export declare function assertKnownTransitionChange(previousSource: unknown, nextSource: unknown): void;
-export declare function assertKnownItemTransitions(item: ProjectItemV2): void;
+export declare function unknownTransitionTypesIn(edit: EditableEditV2): Set<string>;
+export declare function assertKnownItemTransitions(item: ProjectItemV2, existingUnknownTypes?: ReadonlySet<string>): void;

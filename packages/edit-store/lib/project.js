@@ -22,7 +22,7 @@ async function openProject(dir, opts = {}) {
         throw new Error('openProject は version: 2 の edit.json を必要とします。');
     }
     const edit = parsedEdit;
-    let originalTransitionSources = transitionSourcesById(edit);
+    let originalUnknownTransitionTypes = (0, tree_ops_1.unknownTransitionTypesIn)(edit);
     (0, tree_ops_1.attachEditHelpers)(edit);
     const captionsPath = (0, path_1.join)(dir, 'captions.json');
     let captionsText = await readOptional(captionsPath);
@@ -65,8 +65,10 @@ async function openProject(dir, opts = {}) {
             return (await loadMotionPath(`motion/${groupId}.json`, groupId)).doc;
         },
         async save(options = {}) {
-            for (const [id, source] of transitionSourcesById(edit)) {
-                (0, tree_ops_1.assertKnownTransitionChange)(originalTransitionSources.get(id), source);
+            const currentUnknownTransitionTypes = (0, tree_ops_1.unknownTransitionTypesIn)(edit);
+            for (const type of currentUnknownTransitionTypes) {
+                if (!originalUnknownTransitionTypes.has(type))
+                    (0, tree_ops_1.assertKnownTransitionChange)(undefined, { transition_out: { type } });
             }
             (0, tree_ops_1.normalizeTracks)(edit);
             await distributeKeyframes(edit, loadMotionPath);
@@ -108,7 +110,7 @@ async function openProject(dir, opts = {}) {
                     captionsText = candidates[key];
             }
             if (editName in candidates)
-                originalTransitionSources = transitionSourcesById(edit);
+                originalUnknownTransitionTypes = currentUnknownTransitionTypes;
             for (const state of motionStates.values()) {
                 if (state.path in candidates)
                     state.originalText = candidates[state.path];
@@ -118,19 +120,6 @@ async function openProject(dir, opts = {}) {
         }
     };
     return project;
-}
-function transitionSourcesById(edit) {
-    const sources = new Map();
-    const visit = (item) => {
-        sources.set(item.id, (0, tree_ops_1.clone)(item.source));
-        for (const child of (0, tree_ops_1.ensureChildren)(item, false))
-            visit(child);
-    };
-    for (const track of edit.tracks) {
-        for (const item of track.items ?? [])
-            visit(item);
-    }
-    return sources;
 }
 async function distributeKeyframes(edit, loadMotion) {
     const visit = async (item, ancestors) => {

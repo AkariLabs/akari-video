@@ -2,7 +2,7 @@
   "lint-messages.geometry.fit.compat": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
   "lint-messages.cuts.transition.zeroOverlap": "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
   "lint-messages.cuts.transition.nonAdjacent": "transition_out の次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
-  "lint-messages.cuts.transition.unknownType": "知らない種類のトランジションです。クロスフェードで代用して表示・書き出しします。",
+  "lint-messages.cuts.transition.unknownType": "知らない種類のトランジション「{type}」です。クロスフェードで代用して表示・書き出しします。",
   "lint-messages.captions.track.undeclared": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
   "lint-messages.overlays.root.attributes": "断片ルートの data-start / data-duration は使われません。edit.json の時刻が正です。素材の長さは data-akari-natural-duration に記録してください",
   "lint-messages.edit.version.future": "edit.json version {version} は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください",

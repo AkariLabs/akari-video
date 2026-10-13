@@ -9,6 +9,7 @@ import {
   japaneseLintSummary,
   japaneseLintWarningSummary,
   lintSummary,
+  lintWarningSummary,
   lintCheckFromError
 } from '../lib/common/lint-message-ja.js';
 
@@ -59,9 +60,8 @@ test('失敗用要約は warning を使わず、未知 error の原文を transi
   );
 });
 
-test('pass 時の warning 要約対象は transition の 3 check に固定する', () => {
+test('pass 時の warning 要約対象は transition の 2 check に固定する', () => {
   assert.deepEqual(LINT_WARNING_SUMMARY_CHECKS, [
-    'cuts.transition-out.unknown-type',
     'cuts.transition-out.zero-overlap',
     'cuts.transition-out.layer-evacuated',
   ]);
@@ -75,6 +75,13 @@ test('pass 時の warning 要約対象は transition の 3 check に固定する
     severity: 'warning', check: 'captions.output-domain-exceeds-duration'
   }]), undefined);
   assert.match(LINT_CHECK_JA['cuts.transition-out.layer-evacuated'], /PiP 経路へ退避/u);
+});
+
+test('未知種の warning だけでは保存時の要約を出さない', () => {
+  assert.equal(lintWarningSummary([{
+    severity: 'warning', check: 'cuts.transition-out.unknown-type'
+  }]), undefined);
+  assert.match(LINT_CHECK_JA['cuts.transition-out.unknown-type'], /知らない種類のトランジション/u);
 });
 
 test('all known lint checks and detail label are translated in English', () => {

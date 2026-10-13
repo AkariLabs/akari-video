@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import transitionOp from '../src/ops-exec/cut_look_transition.mjs';
+import duplicateOp from '../src/ops-exec/z_order_duplicate_copy.mjs';
 
 function environment(type = 'future-kind') {
   const edit = {
@@ -37,4 +38,16 @@ test('transition op rejects a newly written unknown type', () => {
   apply(env, 'future-kind');
   assert.equal(env.edit.tracks[0].items[0].source.transition_out, undefined);
   assert.match(env.log.join('\n'), /未適用/u);
+});
+
+test('duplicate op copies a clip with an existing unknown transition type', () => {
+  const env = environment();
+  env.edit.tracks[0].items[0].source.transition_out.x = { retained: true };
+  duplicateOp.apply(env, { op: 'z_order_duplicate_copy', target: 'item_first' });
+  const items = env.edit.tracks.flatMap(track => track.items);
+  const copied = items.find(item => item.id === 'first-copy-1');
+  assert.ok(copied);
+  assert.deepEqual(copied.source.transition_out,
+    { type: 'future-kind', duration: 0.5, align: 'before-cut', x: { retained: true } });
+  assert.equal(env.selection, 'item:first-copy-1');
 });

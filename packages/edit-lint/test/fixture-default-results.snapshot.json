@@ -3586,7 +3586,7 @@
         {
           "severity": "warning",
           "check": "cuts.transition-out.unknown-type",
-          "message": "知らない種類のトランジションです。クロスフェードで代用して表示・書き出しします。",
+          "message": "知らない種類のトランジション「future-kind」です。クロスフェードで代用して表示・書き出しします。",
           "path": "edit.json#cuts[0].transition_out"
         },
         {

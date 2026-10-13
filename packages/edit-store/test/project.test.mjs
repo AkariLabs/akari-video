@@ -84,22 +84,37 @@ test('project edits and cross-track move preserve an existing unknown transition
     { type: 'future-kind', duration: 0.4, align: 'before-cut', x: { retained: true } });
 });
 
-test('tree helpers and project save reject newly written unknown types', async t => {
+test('tree helpers distinguish explicit transition changes from copying a document type', async t => {
   const root = await makeProject(unknownTransitionEdit());
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const project = await openProject(root);
   assert.throws(() => project.edit.update('second', { source: { transition_out: {
-    type: 'future-kind', duration: 0.5, align: 'before-cut' } } }), /Unknown transition type/u);
+    type: 'future-kind', duration: 0.5, align: 'before-cut' } } }), /transition_out\.type "future-kind" は使えない種類です。使える種類: dissolve \/ fade/u);
   assert.throws(() => project.edit.update('first', { source: { transition_out: {
-    type: 'different-future-kind', duration: 0.5 } } }), /Unknown transition type/u);
-  assert.throws(() => project.edit.insert('visual', { id: 'third', at: 105, duration: 60,
-    source: { kind: 'media', src: 'main', in: 4, out: 6, transition_out: { type: 'future-kind', duration: 0.5 } } }),
-  /Unknown transition type/u);
-  project.edit.find('second').source.transition_out = { type: 'future-kind', duration: 0.5 };
-  await assert.rejects(project.save({ lint: false }), /Unknown transition type/u);
-  delete project.edit.find('second').source.transition_out;
-  project.edit.update('first', { name: 'still valid' });
+    type: 'different-future-kind', duration: 0.5 } } }), /transition_out\.type "different-future-kind" は使えない種類です/u);
+  const retained = { type: 'future-kind', duration: 0.5, x: { retained: true } };
+  project.edit.insert('visual', { id: 'third', at: 105, duration: 60,
+    source: { kind: 'media', src: 'main', in: 4, out: 6, transition_out: retained } });
+  assert.throws(() => project.edit.insert('visual', { id: 'fourth', at: 165, duration: 60,
+    source: { kind: 'media', src: 'main', in: 4, out: 6, transition_out: { type: 'different-future-kind', duration: 0.5 } } }),
+  /transition_out\.type "different-future-kind" は使えない種類です/u);
   await project.save({ lint: false });
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'edit.json'), 'utf8'))
+    .tracks[0].items.find(item => item.id === 'third').source.transition_out, retained);
+  project.edit.find('second').source.transition_out = { type: 'future-kind', duration: 0.5 };
+  await project.save({ lint: false });
+  project.edit.find('second').source.transition_out = { type: 'different-future-kind', duration: 0.5 };
+  await assert.rejects(project.save({ lint: false }), /transition_out\.type "different-future-kind" は使えない種類です/u);
+});
+
+test('project save rejects a new unknown type in a known-only document', async t => {
+  const edit = unknownTransitionEdit();
+  delete edit.tracks[0].items[0].source.transition_out;
+  const root = await makeProject(edit);
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = await openProject(root);
+  project.edit.find('second').source.transition_out = { type: 'future-kind', duration: 0.5 };
+  await assert.rejects(project.save({ lint: false }), /transition_out\.type "future-kind" は使えない種類です/u);
 });
 
 async function makeProject(edit, captions, files = {}) {

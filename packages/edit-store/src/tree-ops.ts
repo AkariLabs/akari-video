@@ -1,5 +1,5 @@
 import { effectiveScale, normalizeTransform } from './transform';
-import { isTransitionType } from './transition-vocabulary';
+import { isTransitionType, TRANSITION_TYPE_IDS } from './transition-vocabulary';
 import type { CanvasV0, EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
 import {
     type AnchorCaption,
@@ -438,7 +438,7 @@ export function takeOutOfCanvas(edit: EditableEditV2, itemIds: readonly string[]
 export function insertItem(edit: EditableEditV2, target: string, item: MutableItem, index?: number): ProjectItemV2 {
     if (locate(edit, item.id)) throw new Error(`item id が重複しています: ${item.id}`);
     const cloned = clone(item);
-    assertKnownItemTransitions(cloned);
+    assertKnownItemTransitions(cloned, unknownTransitionTypesIn(edit));
     const track = tracksOf(edit).find(candidate => candidate.id === target);
     if (track) {
         let destination = requireTrackItems(track);
@@ -962,11 +962,29 @@ export function assertKnownTransitionChange(previousSource: unknown, nextSource:
     const next = isRecord(nextSource) && isRecord(nextSource.transition_out)
         ? nextSource.transition_out.type : undefined;
     if (next !== undefined && next !== previous && !isTransitionType(next)) {
-        throw new Error('Unknown transition type cannot be written');
+        throw new Error(`transition_out.type "${String(next)}" は使えない種類です。使える種類: ${TRANSITION_TYPE_IDS.join(' / ')}`);
     }
 }
 
-export function assertKnownItemTransitions(item: ProjectItemV2): void {
-    assertKnownTransitionChange(undefined, item.source);
-    for (const child of item.items ?? []) assertKnownItemTransitions(child);
+export function unknownTransitionTypesIn(edit: EditableEditV2): Set<string> {
+    const types = new Set<string>();
+    for (const track of edit.tracks) {
+        for (const item of track.items ?? []) collectUnknownTransitionTypes(item, types);
+    }
+    return types;
+}
+
+function collectUnknownTransitionTypes(item: ProjectItemV2, types: Set<string>): void {
+    const source = item.source;
+    const transition = isRecord(source) && isRecord(source.transition_out) ? source.transition_out : undefined;
+    const type = transition?.type;
+    if (typeof type === 'string' && type.length > 0 && !isTransitionType(type)) types.add(type);
+    for (const child of item.items ?? []) collectUnknownTransitionTypes(child, types);
+}
+
+export function assertKnownItemTransitions(item: ProjectItemV2, existingUnknownTypes: ReadonlySet<string> = new Set()): void {
+    const source = item.source;
+    const transition = isRecord(source) && isRecord(source.transition_out) ? source.transition_out : undefined;
+    if (!existingUnknownTypes.has(transition?.type as string)) assertKnownTransitionChange(undefined, source);
+    for (const child of item.items ?? []) assertKnownItemTransitions(child, existingUnknownTypes);
 }

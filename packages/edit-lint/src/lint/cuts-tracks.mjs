@@ -20,7 +20,7 @@ function validateTransitionOut(value, findings, path) {
     return;
   }
   if (isNonEmptyString(value.type) && !TRANSITION_TYPE_IDS.includes(value.type)) {
-    addFinding(findings, { severity: "warning", check: "cuts.transition-out.unknown-type", message: lintText('lint-messages.cuts.transition.unknownType'), path });
+    addFinding(findings, { severity: "warning", check: "cuts.transition-out.unknown-type", message: lintText('lint-messages.cuts.transition.unknownType', { type: value.type }), path });
   } else if (!isNonEmptyString(value.type)) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be a non-empty string", path });
   }
