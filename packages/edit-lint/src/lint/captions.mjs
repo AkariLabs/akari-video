@@ -515,7 +515,7 @@ function validateEmphasisWords(emphasisWords, findings, captionPath) {
   });
 }
 
-function captionDisplayEdit(edit) {
+export function captionDisplayEdit(edit) {
   if (!Array.isArray(edit?.cuts)) return edit;
   let cursor = 0;
   for (const cut of edit.cuts) {

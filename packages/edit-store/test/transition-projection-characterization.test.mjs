@@ -47,7 +47,7 @@ const marks = {
 };
 
 for (const c of cases) {
-  const difference = ['d-freeze-a', 'j-subframe'].includes(c.id) ? ' 生の経路と投影済みの経路で違う' : '';
+  const difference = c.id === 'd-freeze-a' ? ' 生の経路と投影済みの経路で違う' : '';
   test(`${c.id}${difference}${marks[c.id] ?? ''}`, () => {
     const edit = makeEdit(c);
     const internal = readInternalEdit(edit);
@@ -66,7 +66,9 @@ for (const c of cases) {
     assert.deepEqual(cuts.map(item => ({
       id: item.id, at: round(item.declaration.at), in: round(item.declaration.in), out: round(item.declaration.out),
       ...(item.declaration.speed !== undefined ? { speed: round(item.declaration.speed) } : {}),
-      ...(item.declaration.transition_out ? { transition_out: item.declaration.transition_out } : {}),
+      ...(item.declaration.transition_out ? { transition_out: {
+        ...item.declaration.transition_out, duration: round(item.declaration.transition_out.duration)
+      } } : {}),
       ...(item.declaration.freeze ? { freeze: item.declaration.freeze } : {})
     })), c.expected.declarations);
     assert.deepEqual(items.map(item => ({
@@ -76,7 +78,7 @@ for (const c of cases) {
     assert.deepEqual(rawCuts.map(cut => ({ at: round(cut.at), in: round(cut.in), out: round(cut.out) })), c.expected.rawCuts);
     assert.deepEqual(comparableMap(projected), c.expected.projected);
     assert.deepEqual(comparableMap(raw), c.expected.raw);
-    if (c.id === 'k-no-head') assert.equal('transition_out' in cuts[0].declaration, true);
+    if (c.id === 'k-no-head') assert.equal('transition_out' in cuts[0].declaration, false);
   });
 }
 
@@ -102,12 +104,12 @@ test('i-subframe-adjacency: 生の cuts 経路 [変わりうる: 1 コマ未満�
     { at: 4, in: 2, out: 6 }
   ], { fps: 30 });
   assert.deepEqual(comparableMap(map), {
-    windows: [{ start: 3.74, end: 4.24, duration: 0.5, type: 'dissolve',
-      outgoing: { in: 3.74, out: 4.24 }, incoming: { in: 1.75, out: 2.25 } }],
+    windows: [{ start: 3.75, end: 4.25, duration: 0.5, type: 'dissolve',
+      outgoing: { in: 3.75, out: 4.25 }, incoming: { in: 1.75, out: 2.25 } }],
     totalDuration: 8,
     segments: [
-      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.24, in: 0, out: 4.24 },
-      { kind: 'src', cutIndex: 1, outStart: 4.24, outEnd: 8, in: 2.25, out: 6.01 }
+      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.25, in: 0, out: 4.25 },
+      { kind: 'src', cutIndex: 1, outStart: 4.25, outEnd: 8, in: 2.25, out: 6 }
     ]
   });
 });
@@ -118,12 +120,12 @@ test('i-subframe-overlap: 生の cuts 経路 [変わりうる: 1 コマ未満ず
     { at: 4, in: 2, out: 6 }
   ], { fps: 30 });
   assert.deepEqual(comparableMap(map), {
-    windows: [{ start: 3.76, end: 4.26, duration: 0.5, type: 'dissolve',
-      outgoing: { in: 3.76, out: 4.26 }, incoming: { in: 1.75, out: 2.25 } }],
+    windows: [{ start: 3.75, end: 4.25, duration: 0.5, type: 'dissolve',
+      outgoing: { in: 3.75, out: 4.25 }, incoming: { in: 1.75, out: 2.25 } }],
     totalDuration: 8,
     segments: [
-      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.26, in: 0, out: 4.26 },
-      { kind: 'src', cutIndex: 1, outStart: 4.26, outEnd: 8, in: 2.25, out: 5.99 }
+      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.25, in: 0, out: 4.25 },
+      { kind: 'src', cutIndex: 1, outStart: 4.25, outEnd: 8, in: 2.25, out: 6 }
     ]
   });
 });
@@ -149,12 +151,12 @@ test('60fps の 1 コマ窓を 60fps と既定 30fps で読む [変わりうる:
     ]
   });
   assert.deepEqual(comparableMap(buildTimelineMap(declarations)), {
-    windows: [{ start: 4, end: 4.016666667, duration: 0.016666667, type: 'dissolve',
-      outgoing: { in: 6, out: 6.016666667 }, incoming: { in: 1.983333333, out: 2 } }],
+    windows: [{ start: 3.991666667, end: 4.008333333, duration: 0.016666667, type: 'dissolve',
+      outgoing: { in: 5.991666667, out: 6.008333333 }, incoming: { in: 1.991666667, out: 2.008333333 } }],
     totalDuration: 8,
     segments: [
-      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.016666667, in: 2, out: 6.016666667 },
-      { kind: 'src', cutIndex: 1, outStart: 4.016666667, outEnd: 8, in: 2, out: 5.983333333 }
+      { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.008333333, in: 2, out: 6.008333333 },
+      { kind: 'src', cutIndex: 1, outStart: 4.008333333, outEnd: 8, in: 2.008333333, out: 6 }
     ]
   });
 });

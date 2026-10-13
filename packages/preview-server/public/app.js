@@ -612,7 +612,7 @@ function buildSegments() {
     ...cut,
     ...(cut.transition_out !== undefined ? { transitionOut: cut.transition_out } : {}),
   }));
-  const built = buildTimelineMap(kernelCuts, { trackZ: track => track });
+  const built = buildTimelineMap(kernelCuts, { trackZ: track => track, fps });
   timelineMap = built;
   refreshCaptionClock();
   segments = built.segments.map(s => s.kind === 'gap'

@@ -1,7 +1,7 @@
 import { segmentDuration } from "../cut-timeline.mjs";
-import { lintText } from '../i18n.mjs';
+import { lintText, lintTextWithFallback } from '../i18n.mjs';
 import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
-import { TRANSITION_TYPE_IDS, areCutsAdjacent, findUnsupportedDeclaredTrackTransitions, isStillImageSourcePath } from "./external.mjs";
+import { TRANSITION_ALIGN_IDS, TRANSITION_FILL_IDS, TRANSITION_TYPE_IDS, areCutsAdjacent, findUnsupportedDeclaredTrackTransitions, isStillImageSourcePath } from "./external.mjs";
 
 export function collectInternalAudioTrackRefs(internalEdit) {
   return new Set(internalEdit.tracks
@@ -26,6 +26,17 @@ function validateTransitionOut(value, findings, path) {
   }
   if (!isPositiveNumber(value.duration)) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.duration", message: "duration must be a positive number", path });
+  }
+  for (const [field, known] of [['align', TRANSITION_ALIGN_IDS], ['fill', TRANSITION_FILL_IDS]]) {
+    if (value[field] === undefined || known.includes(value[field])) continue;
+    const label = String(value[field]);
+    const key = `lint-messages.cuts.transition.${field === 'align' ? 'unknownAlign' : 'unknownFill'}`;
+    addFinding(findings, {
+      severity: 'warning', check: `cuts.transition-out.unknown-${field}`,
+      message: lintTextWithFallback(key, { value: label },
+        `Unknown transition ${field} "${label}"; ${field === 'align' ? 'center' : 'no fill'} will be used.`),
+      path: `${path}.${field}`
+    });
   }
 }
 

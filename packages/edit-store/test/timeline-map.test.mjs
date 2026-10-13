@@ -211,8 +211,8 @@ test('連鎖境界の窓上限は前境界で延長された見かけ尺でな�
     { in: 1, out: 3, at: 0.4 },
   ]);
   assert.equal(map.transitionWindows.length, 2);
-  approx(map.transitionWindows[0].duration, 0.4);
-  approx(map.transitionWindows[1].duration, 0.4);
+  approx(map.transitionWindows[0].duration, 0.2);
+  approx(map.transitionWindows[1].duration, 0.2);
   approx(map.totalDuration, 2.4);
 });
 

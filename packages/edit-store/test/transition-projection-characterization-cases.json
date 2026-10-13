@@ -964,7 +964,7 @@
           "in": 0.5,
           "out": 4,
           "freeze": {
-            "at_sec": 2,
+            "at_sec": 2.5,
             "duration_sec": 1
           }
         }
@@ -1275,7 +1275,7 @@
           "base": [
             {
               "id": "cut-1",
-              "sourceTimeUs": 2500000,
+              "sourceTimeUs": 3000000,
               "opacity": 1
             }
           ],
@@ -1289,7 +1289,7 @@
           "base": [
             {
               "id": "cut-1",
-              "sourceTimeUs": 2500000,
+              "sourceTimeUs": 3000000,
               "opacity": 1
             }
           ],
@@ -1303,7 +1303,7 @@
           "base": [
             {
               "id": "cut-1",
-              "sourceTimeUs": 2500000,
+              "sourceTimeUs": 3000000,
               "opacity": 1
             }
           ],
@@ -1317,7 +1317,7 @@
           "base": [
             {
               "id": "cut-1",
-              "sourceTimeUs": 2600000,
+              "sourceTimeUs": 3000000,
               "opacity": 1
             }
           ],
@@ -1331,7 +1331,7 @@
           "base": [
             {
               "id": "cut-1",
-              "sourceTimeUs": 2900000,
+              "sourceTimeUs": 3000000,
               "opacity": 1
             }
           ],
@@ -2508,26 +2508,26 @@
           "id": "a",
           "at": 0,
           "in": 2,
-          "out": 4.2,
+          "out": 4.1,
           "transition_out": {
             "type": "dissolve",
-            "duration": 0.4
+            "duration": 0.2
           }
         },
         {
           "id": "b",
-          "at": 1.8,
-          "in": 1.8,
-          "out": 2.4,
+          "at": 1.9,
+          "in": 1.9,
+          "out": 2.3,
           "transition_out": {
             "type": "dissolve",
-            "duration": 0.4
+            "duration": 0.2
           }
         },
         {
           "id": "c",
-          "at": 2,
-          "in": 1.8,
+          "at": 2.1,
+          "in": 1.9,
           "out": 4
         }
       ],
@@ -2574,31 +2574,31 @@
       "projected": {
         "windows": [
           {
-            "start": 1.8,
-            "end": 2.2,
-            "duration": 0.4,
+            "start": 1.9,
+            "end": 2.1,
+            "duration": 0.2,
             "type": "dissolve",
             "outgoing": {
-              "in": 3.8,
-              "out": 4.2
+              "in": 3.9,
+              "out": 4.1
             },
             "incoming": {
-              "in": 1.8,
-              "out": 2.2
+              "in": 1.9,
+              "out": 2.1
             }
           },
           {
-            "start": 2,
-            "end": 2.4,
-            "duration": 0.4,
+            "start": 2.1,
+            "end": 2.3,
+            "duration": 0.2,
             "type": "dissolve",
             "outgoing": {
-              "in": 2,
-              "out": 2.4
+              "in": 2.1,
+              "out": 2.3
             },
             "incoming": {
-              "in": 1.8,
-              "out": 2.2
+              "in": 1.9,
+              "out": 2.1
             }
           }
         ],
@@ -2608,24 +2608,24 @@
             "kind": "src",
             "cutIndex": 0,
             "outStart": 0,
-            "outEnd": 2.2,
+            "outEnd": 2.1,
             "in": 2,
-            "out": 4.2
+            "out": 4.1
           },
           {
             "kind": "src",
             "cutIndex": 1,
-            "outStart": 2.2,
-            "outEnd": 2.4,
-            "in": 2.2,
-            "out": 2.4
+            "outStart": 2.1,
+            "outEnd": 2.3,
+            "in": 2.1,
+            "out": 2.3
           },
           {
             "kind": "src",
             "cutIndex": 2,
-            "outStart": 2.4,
+            "outStart": 2.3,
             "outEnd": 4.2,
-            "in": 2.2,
+            "in": 2.1,
             "out": 4
           }
         ]
@@ -2633,31 +2633,31 @@
       "raw": {
         "windows": [
           {
-            "start": 1.8,
-            "end": 2.2,
-            "duration": 0.4,
+            "start": 1.9,
+            "end": 2.1,
+            "duration": 0.2,
             "type": "dissolve",
             "outgoing": {
-              "in": 3.8,
-              "out": 4.2
+              "in": 3.9,
+              "out": 4.1
             },
             "incoming": {
-              "in": 1.8,
-              "out": 2.2
+              "in": 1.9,
+              "out": 2.1
             }
           },
           {
-            "start": 2,
-            "end": 2.4,
-            "duration": 0.4,
+            "start": 2.1,
+            "end": 2.3,
+            "duration": 0.2,
             "type": "dissolve",
             "outgoing": {
-              "in": 2,
-              "out": 2.4
+              "in": 2.1,
+              "out": 2.3
             },
             "incoming": {
-              "in": 1.8,
-              "out": 2.2
+              "in": 1.9,
+              "out": 2.1
             }
           }
         ],
@@ -2667,24 +2667,24 @@
             "kind": "src",
             "cutIndex": 0,
             "outStart": 0,
-            "outEnd": 2.2,
+            "outEnd": 2.1,
             "in": 2,
-            "out": 4.2
+            "out": 4.1
           },
           {
             "kind": "src",
             "cutIndex": 1,
-            "outStart": 2.2,
-            "outEnd": 2.4,
-            "in": 2.2,
-            "out": 2.4
+            "outStart": 2.1,
+            "outEnd": 2.3,
+            "in": 2.1,
+            "out": 2.3
           },
           {
             "kind": "src",
             "cutIndex": 2,
-            "outStart": 2.4,
+            "outStart": 2.3,
             "outEnd": 4.2,
-            "in": 2.2,
+            "in": 2.1,
             "out": 4
           }
         ]
@@ -2725,15 +2725,10 @@
               "id": "cut-0",
               "sourceTimeUs": 3800000,
               "opacity": 1
-            },
-            {
-              "id": "cut-1",
-              "sourceTimeUs": 1800000,
-              "opacity": 1
             }
           ],
           "transition": {
-            "type": "dissolve",
+            "type": "hard-cut",
             "progress": 0
           }
         },
@@ -2744,16 +2739,11 @@
               "id": "cut-0",
               "sourceTimeUs": 3850000,
               "opacity": 1
-            },
-            {
-              "id": "cut-1",
-              "sourceTimeUs": 1850000,
-              "opacity": 1
             }
           ],
           "transition": {
-            "type": "dissolve",
-            "progress": 0.125
+            "type": "hard-cut",
+            "progress": 0
           }
         },
         {
@@ -2772,7 +2762,7 @@
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.25
+            "progress": 0
           }
         },
         {
@@ -2791,7 +2781,7 @@
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.375
+            "progress": 0.25
           }
         },
         {
@@ -2829,64 +2819,64 @@
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.625
+            "progress": 0.75
           }
         },
         {
           "t": 2.1,
           "base": [
             {
-              "id": "cut-0",
-              "sourceTimeUs": 4100000,
+              "id": "cut-1",
+              "sourceTimeUs": 2100000,
               "opacity": 1
             },
             {
-              "id": "cut-1",
-              "sourceTimeUs": 2100000,
+              "id": "cut-2",
+              "sourceTimeUs": 1900000,
               "opacity": 1
             }
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.75
+            "progress": 0
           }
         },
         {
           "t": 2.15,
           "base": [
             {
-              "id": "cut-0",
-              "sourceTimeUs": 4150000,
+              "id": "cut-1",
+              "sourceTimeUs": 2150000,
               "opacity": 1
             },
             {
-              "id": "cut-1",
-              "sourceTimeUs": 2150000,
+              "id": "cut-2",
+              "sourceTimeUs": 1950000,
               "opacity": 1
             }
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.875
+            "progress": 0.25
           }
         },
         {
           "t": 2.2,
           "base": [
             {
-              "id": "cut-0",
-              "sourceTimeUs": 4200000,
+              "id": "cut-1",
+              "sourceTimeUs": 2200000,
               "opacity": 1
             },
             {
-              "id": "cut-1",
-              "sourceTimeUs": 2200000,
+              "id": "cut-2",
+              "sourceTimeUs": 2000000,
               "opacity": 1
             }
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 1
+            "progress": 0.5
           }
         },
         {
@@ -2905,17 +2895,12 @@
           ],
           "transition": {
             "type": "dissolve",
-            "progress": 0.75
+            "progress": 1
           }
         },
         {
           "t": 2.35,
           "base": [
-            {
-              "id": "cut-1",
-              "sourceTimeUs": 2350000,
-              "opacity": 1
-            },
             {
               "id": "cut-2",
               "sourceTimeUs": 2150000,
@@ -2923,18 +2908,13 @@
             }
           ],
           "transition": {
-            "type": "dissolve",
-            "progress": 0.875
+            "type": "hard-cut",
+            "progress": 0
           }
         },
         {
           "t": 2.4,
           "base": [
-            {
-              "id": "cut-1",
-              "sourceTimeUs": 2400000,
-              "opacity": 1
-            },
             {
               "id": "cut-2",
               "sourceTimeUs": 2200000,
@@ -2942,8 +2922,8 @@
             }
           ],
           "transition": {
-            "type": "dissolve",
-            "progress": 1
+            "type": "hard-cut",
+            "progress": 0
           }
         },
         {
@@ -3430,16 +3410,12 @@
           "id": "a",
           "at": 0,
           "in": 2,
-          "out": 6.01,
-          "transition_out": {
-            "type": "dissolve",
-            "duration": 0.02
-          }
+          "out": 6
         },
         {
           "id": "b",
-          "at": 3.99,
-          "in": 1.99,
+          "at": 4,
+          "in": 2,
           "out": 6
         }
       ],
@@ -3472,75 +3448,45 @@
         }
       ],
       "projected": {
-        "windows": [
-          {
-            "start": 4,
-            "end": 4.02,
-            "duration": 0.02,
-            "type": "dissolve",
-            "outgoing": {
-              "in": 6,
-              "out": 6.02
-            },
-            "incoming": {
-              "in": 1.98,
-              "out": 2
-            }
-          }
-        ],
+        "windows": [],
         "totalDuration": 8,
         "segments": [
           {
             "kind": "src",
             "cutIndex": 0,
             "outStart": 0,
-            "outEnd": 4.02,
+            "outEnd": 4,
             "in": 2,
-            "out": 6.02
+            "out": 6
           },
           {
             "kind": "src",
             "cutIndex": 1,
-            "outStart": 4.02,
+            "outStart": 4,
             "outEnd": 8,
             "in": 2,
-            "out": 5.98
+            "out": 6
           }
         ]
       },
       "raw": {
-        "windows": [
-          {
-            "start": 3.99,
-            "end": 4.01,
-            "duration": 0.02,
-            "type": "dissolve",
-            "outgoing": {
-              "in": 5.99,
-              "out": 6.01
-            },
-            "incoming": {
-              "in": 1.99,
-              "out": 2.01
-            }
-          }
-        ],
+        "windows": [],
         "totalDuration": 8,
         "segments": [
           {
             "kind": "src",
             "cutIndex": 0,
             "outStart": 0,
-            "outEnd": 4.01,
+            "outEnd": 4,
             "in": 2,
-            "out": 6.01
+            "out": 6
           },
           {
             "kind": "src",
             "cutIndex": 1,
-            "outStart": 4.01,
+            "outStart": 4,
             "outEnd": 8,
-            "in": 2.01,
+            "in": 2,
             "out": 6
           }
         ]
@@ -3592,18 +3538,13 @@
           "t": 4,
           "base": [
             {
-              "id": "cut-0",
-              "sourceTimeUs": 6000000,
-              "opacity": 1
-            },
-            {
               "id": "cut-1",
               "sourceTimeUs": 2000000,
               "opacity": 1
             }
           ],
           "transition": {
-            "type": "dissolve",
+            "type": "hard-cut",
             "progress": 0
           }
         },
@@ -3611,29 +3552,19 @@
           "t": 4.01,
           "base": [
             {
-              "id": "cut-0",
-              "sourceTimeUs": 6010000,
-              "opacity": 1
-            },
-            {
               "id": "cut-1",
               "sourceTimeUs": 2010000,
               "opacity": 1
             }
           ],
           "transition": {
-            "type": "dissolve",
-            "progress": 0.5
+            "type": "hard-cut",
+            "progress": 0
           }
         },
         {
           "t": 4.02,
           "base": [
-            {
-              "id": "cut-0",
-              "sourceTimeUs": 6010000,
-              "opacity": 1
-            },
             {
               "id": "cut-1",
               "sourceTimeUs": 2020000,
@@ -3641,8 +3572,8 @@
             }
           ],
           "transition": {
-            "type": "dissolve",
-            "progress": 1
+            "type": "hard-cut",
+            "progress": 0
           }
         },
         {
@@ -3712,11 +3643,7 @@
           "id": "a",
           "at": 0,
           "in": 2,
-          "out": 6,
-          "transition_out": {
-            "type": "dissolve",
-            "duration": 1
-          }
+          "out": 6
         },
         {
           "id": "b",

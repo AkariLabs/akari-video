@@ -6,6 +6,7 @@ import { readInternalEdit } from '@akari-video/edit-store';
 import { buildResolvedTimelinePlan, evaluationPlanFromResolvedTimeline } from '../dist/index.js';
 
 const cases = JSON.parse(readFileSync(new URL('../../edit-store/test/transition-projection-characterization-cases.json', import.meta.url), 'utf8'));
+const sharedTimeline = JSON.parse(readFileSync(new URL('../../edit-store/test/transition-plan-cases.json', import.meta.url), 'utf8')).timeline;
 const output = { width: 320, height: 180, colorSpace: 'bt709-limited' };
 const round = value => typeof value === 'number' ? Math.round((value + Number.EPSILON) * 1e9) / 1e9 : value;
 const makeEdit = c => ({
@@ -20,6 +21,7 @@ const makeEdit = c => ({
     ...(item.keyframes ? { keyframes: item.keyframes } : {}),
     ...(item.motion ? { motion: item.motion } : {}),
     source: { kind: 'media', src: item.id, in: item.in, out: item.out,
+      ...(item.speed ? { speed: item.speed } : {}),
       ...(item.transition !== undefined ? { transition_out: { type: 'dissolve', duration: item.transition } } : {}),
       ...(item.freeze ? { freeze: item.freeze } : {}) }
   })) }]
@@ -86,13 +88,82 @@ test('共通の中央 2 件の手計算 sourceSeconds と一致する', () => {
   }
 });
 
-test('B の既存フリーズは宣言で出力位置が 0.5 秒早まる [変わりうる: B の既存のフリーズの位置]', () => {
+for (const entry of sharedTimeline) {
+  test(`shared ${entry.name}: FE requests hand-calculated source times`, () => {
+    const edit = {
+      version: 2, output: { width: 320, height: 180, fps: entry.fps },
+      sources: entry.cuts.map((cut, index) => ({ id: String(index), path: `${index}.mp4` })),
+      tracks: [{ id: 'main', lane: 'visual', items: entry.cuts.map((cut, index) => ({
+        id: String(index), at: cut.at * entry.fps,
+        duration: Math.round((cut.out - cut.in) / (cut.speed ?? 1) * entry.fps),
+        source: { kind: 'media', src: String(index), in: cut.in, out: cut.out,
+          ...(cut.speed ? { speed: cut.speed } : {}),
+          ...(cut.transitionOut ? { transition_out: cut.transitionOut } : {}) }
+      })) }]
+    };
+    const declarations = readInternalEdit(edit).tracks[0].items.map(item => item.declaration);
+    const timeline = buildResolvedTimelinePlan(declarations, { fps: entry.fps });
+    const sources = new Map(edit.sources.map(source => [source.id,
+      { decode: async () => { throw new Error('not used'); } }]));
+    for (const point of entry.expected.sourceSeconds) {
+      // Within a window, source time = source in + (t - window start) * speed.
+      const actual = evaluationPlanFromResolvedTimeline(timeline, Math.round(point.t * 1e6), sources, output);
+      assert.deepEqual(actual.base.map(layer => layer.sourceTimeUs),
+        [point.outgoing, point.incoming].map(seconds => Math.round(seconds * 1e6)), entry.name);
+    }
+  });
+}
+
+for (const [label, incomingIn, duration] of [['no head', 0, 1], ['subframe', 2, 0.02]]) {
+  test(`${label}: a removed declaration remains a hard cut in FE`, () => {
+    const edit = makeEdit({ fps: 30, items: [
+      { id: 'a', at: 0, duration: 120, in: 2, out: 6, transition: duration },
+      { id: 'b', at: 120, duration: 120, in: incomingIn, out: incomingIn + 4 }
+    ] });
+    const declarations = readInternalEdit(edit).tracks[0].items.map(item => item.declaration);
+    assert.equal(declarations[0].transition_out, undefined);
+    const timeline = buildResolvedTimelinePlan(declarations, { fps: 30 });
+    const sources = new Map(edit.sources.map(source => [source.id,
+      { decode: async () => { throw new Error('not used'); } }]));
+    // No window survives: t = 4 ± 0.01 evaluates as an ordinary cut.
+    for (const t of [3.99, 4.01]) {
+      assert.equal(evaluationPlanFromResolvedTimeline(timeline, Math.round(t * 1e6), sources, output)
+        .transition.type, 'hard-cut');
+    }
+  });
+}
+
+test('B の既存フリーズは宣言があっても出力位置と素材位置を保つ', () => {
   const sample = (id, t) => actualAt(id, t).base.at(-1).sourceTimeUs;
-  // 宣言あり: 出力 5.5〜6.5 秒は素材 2.5 秒。宣言なし: 出力 6〜7 秒は素材 3 秒。
+  // どちらも出力 6〜7 秒に素材 3 秒を保持する。
   assert.deepEqual([5.4, 5.5, 6, 6.5, 6.6].map(t => sample('d-freeze-b', t)),
-    [2_400_000, 2_500_000, 2_500_000, 2_500_000, 2_600_000]);
+    [2_400_000, 2_500_000, 3_000_000, 3_000_000, 3_000_000]);
   assert.deepEqual([5.5, 6, 6.5, 7, 7.1].map(t => sample('d-freeze-b-no-transition', t)),
     [2_500_000, 3_000_000, 3_000_000, 3_000_000, 3_100_000]);
+});
+
+test('速度 2 倍の B でも 3 つの置き方で窓内の素材時刻とフリーズ位置を保つ', () => {
+  for (const [align, midpoint, outgoingTime, incomingTime] of [
+    ['before-cut', 3.5, 5_500_000, 1_000_000],
+    ['center', 4, 6_000_000, 2_000_000],
+    ['after-cut', 4.5, 6_500_000, 3_000_000]
+  ]) {
+    const edit = makeEdit({ fps: 30, items: [
+      { id: 'a', at: 0, duration: 120, in: 2, out: 6, transition: 1 },
+      { id: 'b', at: 120, duration: 120, in: 2, out: 8, speed: 2,
+        freeze: { at_sec: 2, duration_sec: 1 } }
+    ] });
+    edit.tracks[0].items[0].source.transition_out.align = align;
+    const declarations = readInternalEdit(edit).tracks[0].items.map(item => item.declaration);
+    const timeline = buildResolvedTimelinePlan(declarations, { fps: 30 });
+    const sources = new Map(edit.sources.map(source => [source.id,
+      { decode: async () => { throw new Error('not used'); } }]));
+    const times = t => evaluationPlanFromResolvedTimeline(timeline, t * 1e6, sources, output).base
+      .map(layer => layer.sourceTimeUs);
+    assert.deepEqual(times(midpoint), [outgoingTime, incomingTime], align);
+    assert.deepEqual([5.5, 6, 6.5, 7, 7.1].map(t => times(t).at(-1)),
+      [5_000_000, 6_000_000, 6_000_000, 6_000_000, 6_200_000], align);
+  }
 });
 
 test('キーフレームの時計は投影後の at から進む', () => {
@@ -130,13 +201,13 @@ test('A の後ろが足りなくても窓で元の out を越える時刻を要�
     [6_000_000, 6_450_000, 6_500_000]);
 });
 
-test('g の重なる 2 窓では先の窓を返す [変わりうる: 両端の窓のぶつかり]', () => {
+test('g の取り合った 2 窓は重ならず境界で次の窓を返す', () => {
   assert.deepEqual([2, 2.1, 2.2].map(t => {
     const point = actualAt('g-short-middle', t);
     return [point.base.map(layer => layer.id), point.transition];
   }), [
     [['cut-0', 'cut-1'], { type: 'dissolve', progress: 0.5 }],
-    [['cut-0', 'cut-1'], { type: 'dissolve', progress: 0.75 }],
-    [['cut-0', 'cut-1'], { type: 'dissolve', progress: 1 }]
+    [['cut-1', 'cut-2'], { type: 'dissolve', progress: 0 }],
+    [['cut-1', 'cut-2'], { type: 'dissolve', progress: 0.5 }]
   ]);
 });

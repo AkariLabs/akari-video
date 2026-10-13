@@ -19,6 +19,7 @@ exports.outputToSource = outputToSource;
 exports.sourceToOutput = sourceToOutput;
 const edit_store_1 = require("./edit-store");
 const cut_adjacency_1 = require("./cut-adjacency");
+const transition_plan_1 = require("./transition-plan");
 /** analysis transcript の source 秒を、cuts と同じ speed/境界規則で timeline 秒へ写す。 */
 function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
     const normalizedCuts = cuts.map(cut => ({
@@ -91,41 +92,42 @@ function buildTimelineMap(cuts, options) {
         cutIndex: usable[segment.index].index
     }));
     const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
-    // 隠れのりしろは、フレーム量子化で突き合わせとなる境界にだけ合成する。
-    // 実重なり済みの境界は一切変更せず、従来の窓計算へそのまま流す。
-    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
-        const outgoing = resolved[outgoingIndex];
-        const transition = outgoing.cut.transitionOut;
-        if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
-            && transition.duration > 0))
-            continue;
-        const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
-        if (!incoming || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.end }, { tlStart: incoming.start }, fps) !== 0)
-            continue;
-        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
-        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
-        const incomingSpeed = typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0
-            ? incoming.cut.speed : 1;
-        const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
-            declaredSeconds: transition.duration,
-            outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
-            incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
-            outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
-            incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+    // 計画には投影前の並びを渡し、隣の境目との取り合いをまとめて決める。
+    const plannedWindows = new Map();
+    const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
+        fps, resolve: () => ({ stillImage: false, freezeSeconds: 0 })
+    });
+    for (const track of planTracks) {
+        const clips = track.clips.map(clip => {
+            const originalIndex = usable[Number(clip.id)].index;
+            const handleRoom = options?.handleRoom?.(originalIndex);
+            return {
+                ...clip,
+                headRoomSeconds: handleRoom?.headSeconds ?? clip.headRoomSeconds,
+                tailRoomSeconds: handleRoom?.tailSeconds ?? Number.POSITIVE_INFINITY
+            };
         });
-        if (plan.effectiveSeconds <= 0)
-            continue;
-        const cutPoint = outgoing.end;
-        outgoing.end = cutPoint + plan.halfSeconds;
-        outgoing.cut = {
-            ...outgoing.cut,
-            transitionOut: { ...transition, duration: plan.effectiveSeconds }
-        };
-        incoming.start = cutPoint - plan.halfSeconds;
-        incoming.cut = {
-            ...incoming.cut,
-            in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
-        };
+        for (const plan of (0, transition_plan_1.planTrackTransitions)(clips, { fps })) {
+            if (plan.legacyOverlap || plan.state === 'none')
+                continue;
+            const outgoing = resolved.find(entry => entry.cutIndex === usable[Number(plan.earlierId)].index);
+            const incoming = resolved.find(entry => entry.cutIndex === usable[Number(plan.laterId)].index);
+            if (!outgoing || !incoming || !outgoing.cut.transitionOut)
+                continue;
+            const incomingSpeed = typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0
+                ? incoming.cut.speed : 1;
+            outgoing.end = plan.cutSeconds + plan.endOffsetSeconds;
+            outgoing.cut = {
+                ...outgoing.cut,
+                transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
+            };
+            incoming.start = plan.cutSeconds + plan.startOffsetSeconds;
+            incoming.cut = {
+                ...incoming.cut,
+                in: Math.max(0, incoming.cut.in + plan.startOffsetSeconds * incomingSpeed)
+            };
+            plannedWindows.set(outgoing.cutIndex, plan);
+        }
     }
     const segmentSlice = (entry, start, end, transitionOut = null) => {
         const cut = entry.cut;
@@ -166,7 +168,13 @@ function buildTimelineMap(cuts, options) {
             duration: end - start,
             type: transition.type,
             outgoing: segmentSlice(outgoing, start, end, transition),
-            incoming: segmentSlice(incoming, start, end)
+            incoming: segmentSlice(incoming, start, end),
+            ...(plannedWindows.has(outgoing.cutIndex) ? {
+                cutSeconds: plannedWindows.get(outgoing.cutIndex).cutSeconds,
+                effectiveSeconds: plannedWindows.get(outgoing.cutIndex).effectiveSeconds,
+                state: plannedWindows.get(outgoing.cutIndex).state,
+                reasons: plannedWindows.get(outgoing.cutIndex).reasons
+            } : {})
         });
     }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
