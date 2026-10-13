@@ -3829,7 +3829,7 @@ var require_caption_display = __commonJS({
           const sourceRuns = captions[occurrence.caption_input_index].runs;
           const cueRuns = Array.isArray(sourceRuns) ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd) : void 0;
           const karaokeOffset = karaoke ? captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length : void 0;
-          const display = resolved.manual && !resolved.overflow ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset, resolvedStyle?.vertical === true) : {
+          const display = resolved.manual && !resolved.overflow ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset) : {
             text,
             lines: group.lines,
             runs: cueRuns,
@@ -4177,10 +4177,10 @@ var require_caption_display = __commonJS({
         wordStyles
       };
     }
-    function trimManualCueDisplay(lines, locale, runs, wordDisplay, karaokeOffset, vertical) {
+    function trimManualCueDisplay(lines, locale, runs, wordDisplay, karaokeOffset) {
       const kept = lines.map((line, index) => ({
-        start: vertical && index > 0 ? 0 : line.length - line.trimStart().length,
-        end: vertical && index < lines.length - 1 ? line.length : line.trimEnd().length
+        start: index > 0 ? 0 : line.length - line.trimStart().length,
+        end: index < lines.length - 1 ? line.length : line.trimEnd().length
       }));
       const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
       if (lines.every((line, index) => line === trimmedLines[index])) {
