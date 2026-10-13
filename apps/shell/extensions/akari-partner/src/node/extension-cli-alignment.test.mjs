@@ -118,6 +118,6 @@ test('設定の書き換え: 空なら入れる・AKARI が入れた値だけを
 
 test('パスの比較は Windows の形だけ大文字小文字と区切りを無視する', () => {
     assert.equal(sameCliPath('C:\\Users\\A\\codex.exe', 'c:/users/a/CODEX.EXE'), true);
-    assert.equal(sameCliPath('/Users/a/.local/bin/codex', '/Users/A/.local/bin/codex'), false);
-    assert.equal(sameCliPath('/Users/a/.local/bin/codex', '/Users/a/.local/bin/codex'), true);
+    assert.equal(sameCliPath('/opt/tools/bin/codex', '/opt/Tools/bin/codex'), false);
+    assert.equal(sameCliPath('/opt/tools/bin/codex', '/opt/tools/bin/codex'), true);
 });
