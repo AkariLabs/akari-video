@@ -449,10 +449,18 @@ function makeView(found, kind) {
               if (!el) return null; const b = el.getBoundingClientRect();
               return b.width > 0 && b.height > 0 ? { left: b.left, top: b.top, width: b.width, height: b.height } : null; })()`);
         },
-        async click(selector) {
+        // 押す前に、その点で当たる要素が目当ての要素（かその中身）であることを確かめる。スクロールで隠れた行などを座標だけで押すと、
+        // 同じ場所にある別のボタンを押してしまうため。わざと当たらない要素を押す検査だけ force を付ける
+        async click(selector, { force = false } = {}) {
             if (!view.calibration) await view.calibrate();
             const box = await view.rect(selector);
             if (!box) throw new Error(`not clickable: ${selector}`);
+            if (!force) {
+                const hit = await view.eval(`(() => { const el = document.querySelector(${JSON.stringify(selector)});
+                  const at = document.elementFromPoint(${box.left + box.width / 2}, ${box.top + box.height / 2});
+                  return at && el.contains(at) ? true : { hit: at ? at.tagName + (at.id ? '#' + at.id : '') + (typeof at.className === 'string' && at.className ? '.' + at.className : '') : null }; })()`);
+                if (hit !== true) throw new Error(`covered or out of view: ${selector}: ${JSON.stringify(hit)}`);
+            }
             const point = view.toMain({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
             await mouseClick(point.x, point.y);
         },
@@ -582,6 +590,65 @@ const DOCK_GEOMETRY = `(() => {
     viewport: { w: window.innerWidth, h: window.innerHeight }
   }; })()`;
 
+// 一覧の渡すボタンの行（.review-tray-actions）が、置き場の見えている矩形のどこにあるか。行がその下を流れていないか
+const SEND_ROW = `(() => {
+  const H = ${H};
+  const dockEl = H.q('#review-dock'); const trayEl = H.q('#review-chat-tray'); const rowsEl = H.q('#review-chat-tray [data-review-rows]');
+  const actionsEl = H.q('#review-chat-tray .review-tray-actions'); const sendEl = H.q('#review-chat-tray [data-review-send]');
+  const dock = H.rectOf(dockEl); const actions = H.rectOf(actionsEl); const send = H.rectOf(sendEl);
+  if (!dock || !actions || !send) return null;
+  const cut = (a, b) => ({ left: Math.max(a.left, b.left), top: Math.max(a.top, b.top), right: Math.min(a.right, b.right), bottom: Math.min(a.bottom, b.bottom) });
+  const box = r => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.right - r.left, height: r.bottom - r.top });
+  const inner = el => { const b = el.getBoundingClientRect();
+    return { left: b.left + el.clientLeft, top: b.top + el.clientTop, right: b.left + el.clientLeft + el.clientWidth, bottom: b.top + el.clientTop + el.clientHeight }; };
+  // 置き場の見えている矩形 = 枠の内側（border を除く）を画面で切ったもの
+  const visible = cut(inner(dockEl), { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight });
+  const inside = (r, outer) => r.left >= outer.left - .5 && r.right <= outer.right + .5 && r.top >= outer.top - .5 && r.bottom <= outer.bottom + .5;
+  const scrollable = el => Boolean(el) && el.scrollHeight - el.clientHeight > 1 && /auto|scroll/.test(getComputedStyle(el).overflowY);
+  const scrollerName = scrollable(rowsEl) ? 'rows' : scrollable(trayEl) ? 'tray' : scrollable(dockEl) ? 'dock' : null;
+  const scrollerEl = { rows: rowsEl, tray: trayEl, dock: dockEl }[scrollerName] ?? null;
+  // 行が見える範囲 = スクロールする箱の内側（スクロールしていないときは置き場の内側）
+  const rowClip = scrollerEl ? cut(inner(scrollerEl), visible) : visible;
+  const rows = Array.from(document.querySelectorAll('#review-chat-tray [data-review-row]')).map(row => {
+    const b = row.getBoundingClientRect(); const shown = cut(b, rowClip);
+    const shownRect = shown.right > shown.left && shown.bottom > shown.top ? box(shown) : null;
+    const text = row.querySelector('.review-row-text'); const t = text?.getBoundingClientRect();
+    const at = t ? document.elementFromPoint(t.left + Math.min(t.width / 2, 40), t.top + t.height / 2) : null;
+    return { index: Number(row.dataset.reviewRow), badge: row.querySelector('.review-row-badge')?.textContent.trim() ?? null,
+      text: text?.textContent ?? '', top: b.top, bottom: b.bottom, height: b.height,
+      fullyShown: inside(b, rowClip), aboveActions: b.bottom <= actions.top + .5,
+      underActions: shownRect ? H.overlap(shownRect, actions) > .5 : false, hit: Boolean(at && row.contains(at)) }; });
+  const points = [[send.left + send.width / 2, send.top + send.height / 2], [send.left + 2, send.top + 2], [send.right - 2, send.top + 2],
+    [send.left + 2, send.bottom - 2], [send.right - 2, send.bottom - 2]];
+  const sendHits = points.map(([x, y]) => { const el = document.elementFromPoint(x, y); return Boolean(el && sendEl.contains(el)); });
+  const opaque = color => { const m = /rgba?\\(([^)]+)\\)/.exec(color); if (!m) return false; const parts = m[1].split(',').map(Number); return parts.length < 4 || parts[3] === 1; };
+  let bgEl = actionsEl; while (bgEl !== dockEl && !opaque(getComputedStyle(bgEl).backgroundColor)) bgEl = bgEl.parentElement;
+  const actionsHits = [.08, .3, .5].map(f => { const el = document.elementFromPoint(actions.left + actions.width * f, actions.top + actions.height / 2);
+    return { inActions: Boolean(el && actionsEl.contains(el)), inRow: Boolean(el?.closest?.('[data-review-row]')), inDock: Boolean(el && dockEl.contains(el)) }; });
+  const ds = getComputedStyle(dockEl);
+  const fixed = dockEl.clientTop + parseFloat(ds.paddingTop) + parseFloat(ds.paddingBottom) + actions.height;
+  const last = rows[rows.length - 1] ?? null;
+  const listBottom = Math.min(actions.top, visible.bottom);
+  return { count: rows.length, dock: box(dock), visible: box(visible), actions: box(actions), send: box(send),
+    sendInside: inside(send, visible), sendHits, sendHitAll: sendHits.every(Boolean),
+    actionsInside: inside(actions, visible),
+    scroller: scrollerEl ? { which: scrollerName, scrollTop: scrollerEl.scrollTop, scrollHeight: scrollerEl.scrollHeight, clientHeight: scrollerEl.clientHeight,
+      max: scrollerEl.scrollHeight - scrollerEl.clientHeight } : null,
+    overflow: { dock: ds.overflowY, tray: getComputedStyle(trayEl).overflowY, rows: getComputedStyle(rowsEl).overflowY, actionsPosition: getComputedStyle(actionsEl).position },
+    rowClip: box(rowClip), rows, last, rowsUnderActions: rows.filter(row => row.underActions).map(row => row.index),
+    actionsBg: getComputedStyle(actionsEl).backgroundColor, effectiveBg: getComputedStyle(bgEl).backgroundColor,
+    effectiveBgFrom: bgEl === actionsEl ? 'actions' : bgEl === dockEl ? 'dock' : (bgEl.id || bgEl.className), dockBg: ds.backgroundColor, actionsHits,
+    // 行の高さの合計 + ボタンの行 + 置き場の padding / border と、置き場の高さの差（スクロールしていないときは 0 = 余分な隙間なし）
+    slack: dock.height - (fixed + rows.reduce((sum, row) => sum + row.height, 0)),
+    gapLastRowToActions: last ? actions.top - last.bottom : null,
+    padding: [ds.paddingTop, ds.paddingBottom], borderTop: dockEl.clientTop, limit: Math.min(window.innerHeight * .4, 220), maxHeight: ds.maxHeight,
+    listPoint: { x: visible.left + (visible.right - visible.left) / 2, y: (rowClip.top + Math.max(rowClip.top + 8, listBottom)) / 2 }
+  }; })()`;
+// 行が透けない = 行がボタンの行の下を流れない。流れる作り（sticky）なら、ボタンの行の地が不透明で、行より前面にあること
+const sendRowSolid = probe => Boolean(probe) && probe.effectiveBg === probe.dockBg
+    && (probe.rowsUnderActions.length === 0
+        || (probe.effectiveBgFrom === 'actions' && probe.actionsHits.every(hit => hit.inActions && !hit.inRow)));
+
 // 印（index）の中心が、絵（映像の枠）のどこにあるか（0〜1）
 const markOnPicture = index => `(() => {
   const H = ${H};
@@ -689,14 +756,55 @@ async function clickUntil(view, selector, predicate, label) {
     await view.click(selector);
     return waitState(view, predicate, `${label} (retry)`);
 }
-async function clickBadge(view, index) {
-    await view.click(`[data-review-marks] [data-review-badge="${index}"]`);
+async function clickBadge(view, index, options) {
+    await view.click(`[data-review-marks] [data-review-badge="${index}"]`, options);
 }
 // 2 行目の左の何も無いところ（入力からフォーカスを外すため）
 async function clickToolbarBlank(view) {
     const box = await view.rect('.review-toolbar');
     const point = view.toMain({ x: box.left + 24, y: box.top + box.height / 2 });
     await mouseClick(point.x, point.y);
+}
+
+// 実マウスのホイール（webview の中の点）
+async function wheelAt(view, point, deltaY) {
+    const target = view.toMain(point);
+    await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: target.x, y: target.y, button: 'none' });
+    await main.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: target.x, y: target.y, deltaX: 0, deltaY });
+    await sleep(350);
+}
+// 一覧をいちばん下（toEnd）/ いちばん上までホイールで送る。ホイールで届かなければ scrollTop を直に書き、その事実を返す
+async function scrollList(view, toEnd) {
+    const reached = probe => !probe?.scroller || (toEnd ? probe.scroller.scrollTop >= probe.scroller.max - .5 : probe.scroller.scrollTop <= .5);
+    const used = { wheel: 0, forced: false };
+    let probe = await view.eval(SEND_ROW);
+    for (let turn = 0; turn < 10 && !reached(probe); turn += 1) {
+        await wheelAt(view, probe.listPoint, toEnd ? 300 : -300);
+        used.wheel += 1;
+        probe = await view.eval(SEND_ROW);
+    }
+    if (!reached(probe)) {
+        used.forced = true;
+        const selector = { rows: '#review-chat-tray [data-review-rows]', tray: '#review-chat-tray', dock: '#review-dock' }[probe.scroller.which];
+        await view.eval(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollTop = ${toEnd ? 'el.scrollHeight' : '0'}; return true; })()`);
+        await sleep(200);
+        probe = await view.eval(SEND_ROW);
+    }
+    await sleep(150);
+    return { probe: await view.eval(SEND_ROW), used };
+}
+
+// 一覧の行（index）が全部見える所までホイールで送る（スクロールするのは行の領域だけなので、下の行は送らないと押せない）
+async function revealRow(view, index) {
+    let probe = await view.eval(SEND_ROW);
+    for (let turn = 0; turn < 12; turn += 1) {
+        const row = probe?.rows.find(entry => entry.index === index);
+        if (!row) throw new Error(`no tray row ${index}`);
+        if (row.fullyShown && row.aboveActions) return probe;
+        await wheelAt(view, probe.listPoint, row.bottom > probe.rowClip.bottom ? Math.max(20, row.bottom - probe.rowClip.bottom + 2) : Math.min(-20, row.top - probe.rowClip.top - 2));
+        probe = await view.eval(SEND_ROW);
+    }
+    throw new Error(`tray row ${index} did not scroll into view`);
 }
 
 async function setTheme(id, view) {
@@ -740,12 +848,13 @@ const THEME_COLORS = `(() => {
 //   tray     … 添付の一覧・同時に出ない・行から直す・×（7・8）
 //   geometry … 置き場の開閉・窓の大きさで印が絵の同じ場所にある（11）
 //   chrome   … 置き場の開閉に、選んだ要素の枠が追従する
-//   themes   … 明るい / 暗いテーマの画像 6 枚 + 文字と地のコントラスト（14）
+//   longlist … 印を 6 件にして、一覧が長くても渡すボタンが置き場の下端に見えている（スクロールするのは行だけ）
+//   themes   … 明るい / 暗いテーマの画像（2 行目・入力・一覧・一覧のいちばん下）+ 文字と地のコントラスト（14）+ 渡すボタンの行の地
 //   restart  … アプリを落として開き直す（13）
 //   attach   … 「クリップボードにコピー」で渡す中身（12。システムのクリップボードを書き換え、終わったら元の文字へ戻す）
-//   export   … 書き出した動画のプレビュー（15）
+//   export   … 書き出した動画のプレビュー（15）+ 印が 1 件のときの一覧（行とボタンの行の間に余分な隙間が無い）
 
-const ALL_SECTIONS = ['layout', 'pin', 'pen', 'range', 'tray', 'geometry', 'chrome', 'themes', 'restart', 'attach', 'export'];
+const ALL_SECTIONS = ['layout', 'pin', 'pen', 'range', 'tray', 'geometry', 'chrome', 'longlist', 'themes', 'restart', 'attach', 'export'];
 const sections = new Set((process.env.AKARI_L1_SECTIONS || ALL_SECTIONS.join(',')).split(',').map(s => s.trim()).filter(Boolean));
 const on = name => sections.has(name);
 result.sections = [...sections];
@@ -755,6 +864,10 @@ const MEMO_PIN_1A = 'ここの色を';
 const MEMO_PIN_1B = '明るく';
 const MEMO_PEN = 'テロップを上に';
 const MEMO_RANGE = 'この間のテンポを上げる';
+
+// システムのクリップボードの文字。attach の節のほか、押し間違いで渡すボタンに当たった場合にも書き換わるので、
+// 走行の頭で取っておき、終わりに（変わっていれば）戻す
+const clipboardAtStart = spawnSync('pbpaste', [], { encoding: 'utf8' }).stdout ?? '';
 
 let exitCode = 1;
 try {
@@ -1170,7 +1283,7 @@ try {
         check('E / C-4: 時刻が離れた印は薄く、押せない（pointer-events: none）',
             faded.length >= 1 && faded.every(m => m.pointerEvents === 'none'), state.marks);
         if (faded.length) {
-            await clickBadge(edit, faded[0].index);
+            await clickBadge(edit, faded[0].index, { force: true });
             await sleep(700);
             state = await edit.eval(STATE);
             check('C-4: 薄いバッジを押しても入力は開かず、印も増えない', !state.noteOpen && (await pendingList()).length === pending.length);
@@ -1234,6 +1347,7 @@ try {
         await edit.click('[data-review-attach-count]');
         await waitState(edit, 's.trayOpen', 'tray open again');
         const rowText = pending[2].review.text;
+        await revealRow(edit, 2);
         await edit.click('[data-review-row="2"] .review-row-text');
         state = await waitState(edit, 's.noteOpen && s.noteIndex === 2', 'row → note');
         check('C-4 / D-2: 一覧の行を押すとその印の入力に切り替わる（一覧は閉じる・保存したメモが入っている）',
@@ -1255,6 +1369,7 @@ try {
         await seekEdit(edit, 8);
         await edit.click('[data-review-attach-count]');
         await waitState(edit, 's.trayOpen', 'tray open at 8s');
+        await revealRow(edit, 0);
         await edit.click('[data-review-row="0"] .review-row-text');
         state = await waitState(edit, 's.noteOpen && s.noteIndex === 0 && Math.abs(s.seek - 3) < 0.3', 'row → seek + note', 20000);
         check('C-4: 時刻が離れている印は、その時刻へシークしてから入力が開く', Math.abs(state.seek - 3) < 0.3 && state.memoFocused, { seek: state.seek });
@@ -1264,6 +1379,7 @@ try {
         // × で外す
         await edit.click('[data-review-attach-count]');
         await waitState(edit, 's.trayOpen', 'tray open for remove');
+        result.steps.trayRemoveReveal = (await revealRow(edit, total - 1)).scroller;
         await edit.click(`[data-review-remove="${total - 1}"]`);
         state = await waitState(edit, `s.rows.length === ${total - 1}`, 'remove one');
         pending = await waitPending(list => list.length === total - 1, 'removed in pending');
@@ -1356,6 +1472,83 @@ try {
         result.steps.chromeDeselected = !(await edit.eval(FRAME)).frame;
     }
 
+    // ===== longlist: 一覧が長くても、渡すボタンが置き場の下端に見えている =====
+    if (on('longlist')) {
+        const WANT = 6;
+        await seekEdit(edit, 3);
+        let pending = await pendingList();
+        const before = pending.length;
+        // 足りないぶんをピンで足す（メモを入れて Enter。付けたばかりで空の印は Esc で消えるため）
+        const spots = [{ x: 0.1, y: 0.45 }, { x: 0.9, y: 0.15 }, { x: 0.1, y: 0.15 }, { x: 0.9, y: 0.8 }, { x: 0.45, y: 0.12 }, { x: 0.1, y: 0.8 }];
+        const memoOf = index => `${index + 1} 番の印`;
+        if (before < WANT) {
+            await clickUntil(edit, '[data-review-tool="pin"]', 's.activeTool === "pin"', 'longlist pin tool');
+            for (let index = before; index < WANT; index += 1) {
+                await clickStage(edit, spots[index]);
+                await waitState(edit, `s.noteOpen && s.noteIndex === ${index}`, `longlist pin ${index + 1}`);
+                await waitPending(list => list.length === index + 1, `longlist pin ${index + 1} saved`);
+                await typeMemo(edit, memoOf(index));
+                await pressEnter();
+                await waitPending(list => list[index]?.review.text === memoOf(index), `longlist memo ${index + 1}`);
+                await waitState(edit, '!s.noteOpen', `longlist note ${index + 1} closed`);
+            }
+            await pressEscape();
+            await waitState(edit, 's.activeTool === null', 'longlist tool off');
+        }
+        pending = await waitPending(list => list.length >= WANT, 'longlist marks');
+        await clickUntil(edit, '[data-review-attach-count]', 's.trayOpen', 'longlist tray open');
+        await sleep(400);
+        const atTop = await edit.eval(SEND_ROW);
+        const lastText = pending[pending.length - 1].review.text;
+        check(`r1: 印 ${WANT} 件の一覧を開くと、スクロール位置 0 のまま、渡すボタンの矩形が置き場の見えている矩形の内側に全部入っている`,
+            atTop.count === pending.length && atTop.count >= WANT && (atTop.scroller?.scrollTop ?? 0) === 0 && atTop.sendInside && atTop.actionsInside,
+            { count: atTop.count, send: atTop.send, visible: atTop.visible, actions: atTop.actions, scroller: atTop.scroller });
+        check('r1: 渡すボタンの中央（と四隅）の elementFromPoint がそのボタン', atTop.sendHitAll, atTop.sendHits);
+        check('r1 / B-3: 置き場の上限 min(40vh, 220px) は変わらず、スクロールするのは印の行だけ（ボタンの行はスクロールの外）',
+            atTop.dock.height <= atTop.limit + 0.5 && atTop.scroller?.which === 'rows' && atTop.rowsUnderActions.length === 0,
+            { height: atTop.dock.height, limit: atTop.limit, maxHeight: atTop.maxHeight, scroller: atTop.scroller, overflow: atTop.overflow,
+                rowsUnderActions: atTop.rowsUnderActions });
+        const scrolled = await scrollList(edit, true);
+        const atBottom = scrolled.probe;
+        const moved = Math.max(Math.abs(atBottom.send.top - atTop.send.top), Math.abs(atBottom.send.bottom - atTop.send.bottom),
+            Math.abs(atBottom.actions.top - atTop.actions.top), Math.abs(atBottom.actions.bottom - atTop.actions.bottom));
+        check('r1: 一覧をいちばん下までスクロールしても、渡すボタンは同じ位置にある（動き 0.5px 以内・全部見えていて押せる）',
+            Boolean(atBottom.scroller) && atBottom.scroller.scrollTop >= atBottom.scroller.max - 0.5 && atBottom.scroller.scrollTop > 0
+            && moved <= 0.5 && atBottom.sendInside && atBottom.sendHitAll && !scrolled.used.forced,
+            { moved, scroller: atBottom.scroller, used: scrolled.used, sendTop: [atTop.send.top, atBottom.send.top] });
+        check(`r1: いちばん下では最後の行（${pending.length} 番）がボタンの行に隠れず、全部読める`,
+            atBottom.last.index === pending.length - 1 && atBottom.last.badge === String(pending.length) && atBottom.last.fullyShown
+            && atBottom.last.aboveActions && atBottom.last.hit && atBottom.last.text.includes(lastText || 'メモなし') && atBottom.rowsUnderActions.length === 0,
+            { last: atBottom.last, actionsTop: atBottom.actions.top, rowClip: atBottom.rowClip });
+        check('r1: ボタンの行の地は置き場と同じ色で、行が透けない（いちばん上 / いちばん下）', sendRowSolid(atTop) && sendRowSolid(atBottom),
+            { actionsBg: atTop.actionsBg, effectiveBg: atTop.effectiveBg, from: atTop.effectiveBgFrom, dockBg: atTop.dockBg,
+                under: [atTop.rowsUnderActions, atBottom.rowsUnderActions], hits: [atTop.actionsHits, atBottom.actionsHits] });
+        const back = await scrollList(edit, false);
+        result.steps.longlist = { added: pending.length - before, atTop, atBottom, used: scrolled.used, moved, backToTop: back.probe.scroller, backUsed: back.used };
+        // 渡すボタンは置き場の下端にある（下の padding のぶんだけ上）
+        check('r1: 渡すボタンの行は置き場の下端にある（下の padding のぶんだけ内側）',
+            Math.abs((atTop.visible.bottom - atTop.actions.bottom) - parseFloat(atTop.padding[1])) <= 0.5,
+            { fromBottom: atTop.visible.bottom - atTop.actions.bottom, padding: atTop.padding });
+        await edit.click('[data-review-attach-count]');
+        state = await waitState(edit, '!s.trayOpen && !s.dockOpen', 'longlist tray closed');
+        check('r1: 一覧を閉じると置き場の高さは 0 のまま', state.dockHeight === 0, { dockHeight: state.dockHeight });
+        // メモの入力の側は変わらない（置き場の高さを残す）
+        await clickBadge(edit, 0);
+        await waitState(edit, 's.noteOpen && s.noteIndex === 0', 'longlist note');
+        await sleep(300);
+        const noteGeometry = await edit.eval(DOCK_GEOMETRY);
+        const noteLook = await edit.eval(`(() => { const H = ${H}; const dock = H.q('#review-dock'); const note = H.q('[data-review-note]');
+          return { dockDisplay: getComputedStyle(dock).display, noteHeight: note.getBoundingClientRect().height, noteWidth: note.getBoundingClientRect().width,
+            dockWidth: dock.clientWidth, memo: H.rectOf(H.q('[data-review-memo]')), chips: H.rectOf(H.q('[data-review-elements]')) }; })()`);
+        result.steps.longlist.note = { dock: noteGeometry.dock, note: noteGeometry.note, padding: noteGeometry.dockPadding, scroll: noteGeometry.dockScroll, look: noteLook };
+        check('r1: メモの入力の側は変わらない（置き場の中に収まり、スクロールしない・幅いっぱい）',
+            noteGeometry.noteStageOverlap === 0 && noteGeometry.dockScroll.scrollHeight <= noteGeometry.dockScroll.clientHeight + 1
+            && Math.abs(noteLook.noteWidth - (noteLook.dockWidth - 20)) <= 1,
+            { dockHeight: noteGeometry.dock.height, noteHeight: noteLook.noteHeight, noteWidth: noteLook.noteWidth, dockWidth: noteLook.dockWidth, memo: noteLook.memo });
+        await pressEscape();
+        await waitState(edit, '!s.noteOpen', 'longlist note closed');
+    }
+
     // ===== themes: 明るい / 暗いテーマ（14） =====
     if (on('themes')) {
         await seekEdit(edit, 3);
@@ -1378,9 +1571,19 @@ try {
             await sleep(300);
             const trayColors = await edit.eval(THEME_COLORS);
             await screenshot(`${theme}-3-tray`, edit);
+            const sendTop = await edit.eval(SEND_ROW);
+            const sendScrolled = await scrollList(edit, true);
+            if (sendScrolled.probe.scroller) await screenshot(`${theme}-4-tray-bottom`, edit);
+            await scrollList(edit, false);
             await edit.click('[data-review-attach-count]');
             await waitState(edit, '!s.trayOpen', `${theme} tray closed`);
-            result.steps.themes[theme] = { applied, toolbar: toolbarColors, note: noteColors, tray: trayColors };
+            result.steps.themes[theme] = { applied, toolbar: toolbarColors, note: noteColors, tray: trayColors,
+                sendRow: { top: sendTop, bottom: sendScrolled.probe, used: sendScrolled.used } };
+            check(`r1: ${theme === 'dark' ? '暗い' : '明るい'}テーマで、渡すボタンが置き場の中に全部見え、ボタンの行の地が置き場と同じ色（行が透けない）`,
+                sendTop.sendInside && sendTop.sendHitAll && sendScrolled.probe.sendInside && sendScrolled.probe.sendHitAll
+                && sendRowSolid(sendTop) && sendRowSolid(sendScrolled.probe) && sendTop.dockBg === trayColors.dockBg,
+                { count: sendTop.count, actionsBg: sendTop.actionsBg, effectiveBg: sendTop.effectiveBg, from: sendTop.effectiveBgFrom, dockBg: sendTop.dockBg,
+                    under: [sendTop.rowsUnderActions, sendScrolled.probe.rowsUnderActions], scroller: sendScrolled.probe.scroller });
             check(`14 / B-5: ${theme === 'dark' ? '暗い' : '明るい'}テーマで 2 行目・入力・一覧が読める（文字と地のコントラスト 4.5 以上）`,
                 toolbarColors.toolContrast >= 4.5 && toolbarColors.hintContrast >= 4.5 && noteColors.memoContrast >= 4.5 && trayColors.rowContrast >= 4.5,
                 { body: toolbarColors.bodyClass, transportBg: toolbarColors.transportBg, dockBg: noteColors.dockBg, tool: toolbarColors.toolContrast,
@@ -1523,6 +1726,16 @@ try {
         await raw.click('[data-review-attach-count]');
         await waitState(raw, 's.trayOpen', 'raw tray');
         await screenshot('export-2-tray', raw);
+        await sleep(300);
+        const single = await raw.eval(SEND_ROW);
+        result.steps.singleRowTray = single;
+        if (single.count === 1) {
+            check('r1: 印が 1 件のとき、行とボタンの行の間に余分な隙間ができない（置き場の高さは中身ちょうど・スクロールなし）',
+                single.scroller === null && Math.abs(single.slack) <= 1 && single.gapLastRowToActions >= -0.5 && single.gapLastRowToActions <= 1
+                && single.sendInside && single.sendHitAll,
+                { dockHeight: single.dock.height, rowHeight: single.rows[0].height, actionsHeight: single.actions.height, padding: single.padding,
+                    borderTop: single.borderTop, slack: single.slack, gap: single.gapLastRowToActions });
+        }
     }
 
     check('クリックのやり直しが 0 回（押した 1 回目がすべて効いた）', result.retries.length === 0, result.retries);
@@ -1533,6 +1746,10 @@ try {
     await screenshot('99-failure').catch(() => undefined);
 } finally {
     await shutdown().catch(() => undefined);
+    if ((spawnSync('pbpaste', [], { encoding: 'utf8' }).stdout ?? '') !== clipboardAtStart) {
+        spawnSync('pbcopy', [], { input: clipboardAtStart });
+        result.clipboardRestored = true;
+    }
     result.pass = exitCode === 0;
     await writeFile(path.join(outDir, 'result.json'), `${JSON.stringify(sanitizeValue(result), null, 2)}\n`);
     console.log(`checks: ${result.checks.filter(c => c.ok).length}/${result.checks.length} pass; screenshots: ${result.screenshots.length}`);

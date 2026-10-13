@@ -8413,6 +8413,7 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 #review-chat-layer [data-review-badge]:not([data-review-active]) { pointer-events:none; }
 #review-dock { position:relative; z-index:1; width:100%; max-height:min(40vh,220px); overflow:auto; padding:5px 10px; border-top:1px solid var(--akari-control-active); background:var(--akari-transport-bg); color:var(--akari-transport-fg); font-size:12px; }
 #review-dock[hidden], #review-dock [hidden] { display:none; }
+#review-dock:has(> #review-chat-tray:not([hidden])) { display:flex; flex-direction:column; overflow:hidden; }
 #review-dock [data-review-note] { overflow-wrap:anywhere; }
 .review-note-line { display:flex; align-items:center; gap:6px; min-width:0; }
 .review-note-meta { display:flex; flex:none; align-items:center; gap:6px; white-space:nowrap; font-size:11px; }
@@ -8428,14 +8429,15 @@ ${materialRangeEnabled ? '.transport-seek { align-items: center; } .material-see
 .review-note-actions button.icon-button { width:28px; height:28px; padding:0; background:transparent; color:var(--akari-transport-fg); }
 .review-note-actions button.icon-button:hover { background:var(--akari-control-hover); }
 #review-chat-tray [data-review-send] { color:#191919; background:#f97316; }
-#review-chat-tray { overflow-wrap:anywhere; }
+#review-chat-tray { display:flex; flex-direction:column; min-height:0; overflow-wrap:anywhere; }
+#review-chat-tray [data-review-rows] { flex:0 1 auto; min-height:0; overflow-y:auto; }
 .review-tray-row { display:flex; align-items:center; gap:8px; min-height:42px; padding:3px 0; border-bottom:1px solid var(--akari-control-active); cursor:pointer; }
 .review-row-badge { flex:none; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#f97316; color:#191919; font-size:11px; font-weight:700; }
 .review-tray-row img { flex:none; width:64px; height:36px; object-fit:cover; border-radius:3px; }
 .review-tray-row .review-row-text { flex:1; min-width:0; overflow-wrap:anywhere; }
 .review-empty-memo { color:var(--akari-time-fg); }
 .review-tray-row [data-review-remove] { flex:none; }
-.review-tray-actions { display:flex; justify-content:flex-end; gap:7px; padding-top:5px; }
+.review-tray-actions { display:flex; flex:none; justify-content:flex-end; gap:7px; padding-top:5px; background:var(--akari-transport-bg); }
 #review-seek-marks { position:absolute; inset:0; pointer-events:none; }
 .transport-seek { position:relative; }
 .review-seek-dot { position:absolute; top:2px; width:5px; height:5px; border-radius:50%; background:#f97316; transform:translateX(-50%); }
