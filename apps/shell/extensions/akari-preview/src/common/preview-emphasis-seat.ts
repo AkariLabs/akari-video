@@ -35,6 +35,7 @@ export interface PreviewEmphasisWord {
     emotion: string;
     style_hint?: string;
     style_preset?: string;
+    inherit_caption_size?: boolean;
 }
 
 /** An emphasis preset is sufficient; older cues need no explicit emotion. */
@@ -55,7 +56,8 @@ export function normalizePreviewEmphasisWords(value: unknown): PreviewEmphasisWo
             emotion: typeof item.emotion === 'string' ? item.emotion : 'emphasis',
             ...(typeof item.src === 'string' ? { src: item.src } : {}),
             ...(typeof item.style_hint === 'string' ? { style_hint: item.style_hint } : {}),
-            ...(typeof item.style_preset === 'string' ? { style_preset: item.style_preset } : {}) }];
+            ...(typeof item.style_preset === 'string' ? { style_preset: item.style_preset } : {}),
+            ...(item.inherit_caption_size === true ? { inherit_caption_size: true } : {}) }];
     });
 }
 

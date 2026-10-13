@@ -264,6 +264,28 @@ test('空白を含む語と空白を省いた語のどちらも強調 cue を正
   }
 });
 
+test('新しい強調だけ字幕の大きさを継承し、既存の強調は従来のプリセットサイズを保つ', () => {
+  const source = {
+    display_policy: englishPolicy(40),
+    captions: [caption('c-0001', 0, 2, 'Hello world', {
+      text_style: { size_px: 56 },
+      words: [{ text: 'Hello', start: 0, end: 1 }, { text: ' world', start: 1, end: 2 }],
+    })],
+    emphasis_words: [{ id: 'e-0001', t_start: 1, t_end: 2,
+      word: 'world', style_preset: 'emphasis-red', inherit_caption_size: true }],
+  };
+  const before = JSON.stringify(source);
+  const edit = { cuts: [{ in: 0, out: 2 }], output: { width: 1920, height: 1080 } };
+  const marked = resolveCaptionDisplay(source, edit, { output: edit.output }).display_cues[0];
+  assert.equal(marked.style_vars['--caption-font-size'], '56px');
+  assert.equal(marked.word_styles[0].style_vars['--caption-tok-font-size'], undefined);
+  assert.ok(marked.word_styles[0].style_vars['--caption-tok-color']);
+  assert.equal(JSON.stringify(source), before);
+  delete source.emphasis_words[0].inherit_caption_size;
+  const legacy = resolveCaptionDisplay(source, edit, { output: edit.output }).display_cues[0];
+  assert.equal(legacy.word_styles[0].style_vars['--caption-tok-font-size'], '92px');
+});
+
 test('旧データの長さ 0 の語を文字として救済し、強調は時刻付き語にだけ付ける', () => {
   const root = {
     display_policy: { ...policy, max_line_units: 20 },

@@ -34,6 +34,15 @@ test('emphasis preset without emotion is retained and targets the exact text', (
     assert.equal(captionEmphasisMatches('対話', 7, 9, sourced, 'source-1').length, 1);
 });
 
+test('new emphasis keeps its caption-size opt-in through preview normalization', () => {
+    const [marked, legacy] = normalizePreviewEmphasisWords([
+        { id: 'e-0001', t_start: 0, t_end: 1, word: 'A', style_preset: 'emphasis-red', inherit_caption_size: true },
+        { id: 'e-0002', t_start: 1, t_end: 2, word: 'B', style_preset: 'emphasis-red' }
+    ]);
+    assert.equal(marked.inherit_caption_size, true);
+    assert.equal(legacy.inherit_caption_size, undefined);
+});
+
 test('caption update reaches the webview and redraws only its active caption row', () => {
     const compiled = readHandlerCompiled();
     assert.match(compiled, /type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords/);
@@ -84,4 +93,9 @@ test('timed emphasis paint has priority over an overlapping run', () => {
     assert.deepEqual(values.get('color'), ['#ff1744', 'important']);
     assert.deepEqual(values.get('-webkit-text-fill-color'), ['#ff1744', 'important']);
     assert.deepEqual(values.get('font-weight'), ['700', 'important']);
+    const marked = { style: { fontSize: '92px', setProperty() {}, removeProperty(name) {
+        if (name === 'font-size') this.fontSize = '';
+    } } };
+    apply(marked, { style_preset: 'emphasis-red', inherit_caption_size: true });
+    assert.equal(marked.style.fontSize, '');
 });

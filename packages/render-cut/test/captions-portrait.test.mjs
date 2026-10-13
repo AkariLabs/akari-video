@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 
 import { generateCaptionOverlays } from "../src/captions.mjs";
+const { captionDefaultSizePx } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 // 2026-08-03 縦長字幕改修: output が縦長（height > width）のとき、既定を
 // 「行を短く（10 文字）・文字を大きく（幅 6%）・複数行になる字幕は行単位の順送り表示（reveal）」
@@ -60,6 +62,7 @@ test("縦長の既定フォントサイズは出力幅の 6%（1080 → 65px）"
     { output: PORTRAIT },
   );
   assert.match(overlay.html, /font-size: var\(--caption-font-size, 65px\);/);
+  assert.equal(captionDefaultSizePx(PORTRAIT), 65);
 });
 
 test("縦長でも 1 行に収まる字幕・words 不在の字幕は静的表示のまま", () => {
@@ -101,6 +104,7 @@ test("横長の既定は従来のまま（38px・静的表示・20 文字予算�
     { output: LANDSCAPE },
   );
   assert.match(overlay.html, /font-size: var\(--caption-font-size, 38px\);/);
+  assert.equal(captionDefaultSizePx(LANDSCAPE), 38);
   assert.doesNotMatch(overlay.html, /akari-caption--reveal/);
   assert.deepEqual(
     overlay.html,

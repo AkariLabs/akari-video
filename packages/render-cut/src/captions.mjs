@@ -28,6 +28,7 @@ const {
   resolveCaptionStyleForOutput,
   resolveCaptionWordStyleVars,
   resolveCaptionRichStrokes,
+  captionDefaultSizePx,
   CAPTION_RICH_LAYER_CSS,
   alignCaptionRichFillPhase,
   resolveCaptionStylePreset,
@@ -97,8 +98,6 @@ const DEFAULT_MAX_CHARACTERS = 20;
 // （オーナー裁定 2026-08-03: 縦は 5〜10 文字級のチャンクを大きく順送りで見せる）。
 const PORTRAIT_MAX_CHARACTERS = 10;
 // 縦長の既定フォントサイズは出力幅比で決める（1080px 幅 → 65px）。
-const PORTRAIT_FONT_SIZE_RATIO = 0.06;
-const DEFAULT_FONT_SIZE_PX = 38;
 
 function captionPlateMarginVars(style, includeZone = false) {
   if (Number.isFinite(style?.position?.x)) return { '--caption-plate-margin': '0' };
@@ -249,9 +248,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const portrait = typeof output?.width === "number"
     && typeof output?.height === "number"
     && output.height > output.width;
-  const baseFontSize = portrait
-    ? Math.round(output.width * PORTRAIT_FONT_SIZE_RATIO)
-    : DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = captionDefaultSizePx(output);
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords, output);
   const sourceCount = options.sourceCount ?? 1;
   const overlays = [];
@@ -895,7 +892,7 @@ export function renderCaptionFragment(text, options = {}) {
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
-  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = options.baseFontSize ?? captionDefaultSizePx();
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
@@ -1069,7 +1066,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
     : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
-  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const baseFontSize = options.baseFontSize ?? captionDefaultSizePx();
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
@@ -1818,9 +1815,11 @@ function normalizeEmphasisWords(value, output) {
     const preset = typeof item.style_preset === "string" && item.style_preset.length > 0
       ? resolveCaptionStylePreset({ style_preset: item.style_preset }, TEXTSTYLE_CATALOG)
       : null;
-    normalized.push(preset?.resolved
-      ? { ...item, _presetStyleVars: resolveCaptionWordStyleVars(preset.record.text_style, output) }
-      : item);
+    if (preset?.resolved) {
+      const vars = resolveCaptionWordStyleVars(preset.record.text_style, output);
+      if (item.inherit_caption_size === true) delete vars["--caption-tok-font-size"];
+      normalized.push({ ...item, _presetStyleVars: vars });
+    } else normalized.push(item);
   }
   return normalized;
 }
