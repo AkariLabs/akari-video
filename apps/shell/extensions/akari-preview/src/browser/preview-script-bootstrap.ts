@@ -94,6 +94,7 @@ import { placePreviewLayerActions } from '../common/preview-layer-action-placeme
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import { normalizePersistentStrokeItems, PEN_TUNING, resolveStrokeLifetimeAlpha } from '../common/pen-canvas-visuals';
+import { annotationStrokePrefix } from '../common/annotation-stroke-replay';
 import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import {
     computePreviewStageClearance,
@@ -329,6 +330,7 @@ export function previewBootstrapScript(): string {
             const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
             const normalizePersistentStrokeItemsFn = (${normalizePersistentStrokeItems.toString()});
             const resolveStrokeLifetimeAlphaFn = (${resolveStrokeLifetimeAlpha.toString()});
+            const annotationStrokePrefixFn = (${annotationStrokePrefix.toString()});
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
@@ -744,6 +746,9 @@ export function previewBootstrapScript(): string {
             let fadingStrokes = [];
             let sparkles = [];
             let annotationStrokeItems = [];
+            let annotationStrokeProgress = null;
+            let annotationReplay = null;
+            let annotationReplayHandle = 0;
             let persistentStrokeItems = [];
             let localStrokeSequence = 0;
             const nextLocalStrokeId = () => 'local-st-' + String(++localStrokeSequence).padStart(4, '0');
@@ -843,6 +848,42 @@ export function previewBootstrapScript(): string {
                 if (item.tool === 'rect') drawRectShape(staticBitmap.ctx, item.box);
                 else paintStaticStroke(item.points);
             };
+            const ANNOTATION_START_DOT_RADIUS_PX = 4;
+            const paintAnnotationItem = (item, progress) => {
+                if (item.tool === 'rect') {
+                    paintStaticItem(item);
+                    return;
+                }
+                if (progress < 0) return;
+                let points = item.points;
+                if (progress < 1) {
+                    const scaled = item.points.map(point => [
+                        point[0] * penCanvasWidth, point[1] * penCanvasHeight
+                    ]);
+                    points = annotationStrokePrefixFn(scaled, progress).map(point => [
+                        point[0] / penCanvasWidth, point[1] / penCanvasHeight
+                    ]);
+                }
+                if (item.points.length === 0) return;
+                const ctx = staticBitmap.ctx;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(item.points[0][0] * penCanvasWidth,
+                    item.points[0][1] * penCanvasHeight,
+                    ANNOTATION_START_DOT_RADIUS_PX + PEN_TUNING.outlineExtraWidthPx / 2,
+                    0, Math.PI * 2);
+                ctx.fillStyle = PEN_TUNING.outlineColor;
+                ctx.fill();
+                paintStaticStroke(points);
+                ctx.beginPath();
+                ctx.arc(item.points[0][0] * penCanvasWidth,
+                    item.points[0][1] * penCanvasHeight,
+                    ANNOTATION_START_DOT_RADIUS_PX,
+                    0, Math.PI * 2);
+                ctx.fillStyle = PEN_TUNING.coreColor;
+                ctx.fill();
+                ctx.restore();
+            };
             const strokeLifetimeContext = () => ({
                 recording: reviewRecordingActive === true,
                 visible: persistentStrokesVisible === true,
@@ -860,7 +901,7 @@ export function previewBootstrapScript(): string {
                 staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
                 const context = strokeLifetimeContext();
                 if (persistentStrokesVisible) {
-                    for (const item of [...persistentStrokeItems, ...annotationStrokeItems]) {
+                    for (const item of persistentStrokeItems) {
                         const alpha = resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING);
                         if (alpha <= 0) continue;
                         staticBitmap.ctx.save();
@@ -868,6 +909,14 @@ export function previewBootstrapScript(): string {
                         paintStaticItem(item);
                         staticBitmap.ctx.restore();
                     }
+                    annotationStrokeItems.forEach((item, index) => {
+                        const alpha = resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING);
+                        if (alpha <= 0) return;
+                        staticBitmap.ctx.save();
+                        staticBitmap.ctx.globalAlpha = alpha;
+                        paintAnnotationItem(item, annotationStrokeProgress?.[index] ?? 1);
+                        staticBitmap.ctx.restore();
+                    });
                 }
                 lastStrokeLifetimeSignature = strokeLifetimeSignature();
             };
@@ -990,7 +1039,9 @@ export function previewBootstrapScript(): string {
             new ResizeObserver(resizePenCanvases).observe(penLayer);
             resizePenCanvases();
             const clearStaticAnnotationStrokes = () => {
+                cancelAnnotationReplay();
                 annotationStrokeItems = [];
+                annotationStrokeProgress = null;
                 redrawStaticBitmap();
                 recomposite();
             };
@@ -1046,8 +1097,56 @@ export function previewBootstrapScript(): string {
                 const bitmap = allocPenCanvas();
                 return { kind: 'pen', pointerId, points: [firstPoint], drawnIndex: 0, canvas: bitmap.canvas, ctx: bitmap.ctx };
             };
+            const cancelAnnotationReplay = () => {
+                if (annotationReplayHandle) cancelAnimationFrame(annotationReplayHandle);
+                annotationReplayHandle = 0;
+                annotationReplay = null;
+            };
+            const annotationReplayDuration = points => {
+                let length = 0;
+                for (let index = 1; index < points.length; index += 1) {
+                    length += Math.hypot(
+                        (points[index][0] - points[index - 1][0]) * penCanvasWidth,
+                        (points[index][1] - points[index - 1][1]) * penCanvasHeight);
+                }
+                const diagonal = Math.hypot(penCanvasWidth, penCanvasHeight);
+                return clamp(1200 * length / diagonal, 400, 1200);
+            };
+            const tickAnnotationReplay = timestamp => {
+                annotationReplayHandle = 0;
+                if (!annotationReplay) return;
+                const replay = annotationReplay;
+                const itemIndex = replay.penIndices[replay.cursor];
+                const duration = annotationReplayDuration(annotationStrokeItems[itemIndex].points);
+                const progress = clamp((timestamp - replay.startedAt) / duration, 0, 1);
+                annotationStrokeProgress[itemIndex] = progress;
+                if (progress >= 1) {
+                    replay.cursor += 1;
+                    if (replay.cursor < replay.penIndices.length) {
+                        replay.startedAt = timestamp;
+                        annotationStrokeProgress[replay.penIndices[replay.cursor]] = 0;
+                    } else {
+                        annotationReplay = null;
+                    }
+                }
+                redrawStaticBitmap();
+                recomposite();
+                if (annotationReplay) annotationReplayHandle = requestAnimationFrame(tickAnnotationReplay);
+            };
             const showStaticAnnotationStrokes = strokes => {
+                cancelAnnotationReplay();
                 annotationStrokeItems = normalizePersistentStrokeItemsFn(strokes);
+                annotationStrokeProgress = null;
+                const penIndices = annotationStrokeItems.flatMap((item, index) =>
+                    item.tool === 'pen' ? [index] : []);
+                if (penIndices.length > 0
+                    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    annotationStrokeProgress = annotationStrokeItems.map(item =>
+                        item.tool === 'pen' ? -1 : 1);
+                    annotationStrokeProgress[penIndices[0]] = 0;
+                    annotationReplay = { penIndices, cursor: 0, startedAt: performance.now() };
+                    annotationReplayHandle = requestAnimationFrame(tickAnnotationReplay);
+                }
                 redrawStaticBitmap();
                 recomposite();
             };
@@ -11306,7 +11405,9 @@ export function previewBootstrapScript(): string {
                     if (reviewRecordingActive && !wasRecordingActive) {
                         reviewRecordingStartedAt = performance.now();
                         persistentStrokeItems = [];
+                        cancelAnnotationReplay();
                         annotationStrokeItems = [];
+                        annotationStrokeProgress = null;
                         penLayer.dataset.akariStrokeSession = '';
                         redrawStaticBitmap();
                         recomposite();
@@ -11315,7 +11416,9 @@ export function previewBootstrapScript(): string {
                         // 表示プールだけを捨てる。記録済みデータは strokes.json に残り、
                         // セッション行の「描線」から必要な時点へ再表示できる。
                         persistentStrokeItems = [];
+                        cancelAnnotationReplay();
                         annotationStrokeItems = [];
+                        annotationStrokeProgress = null;
                         penLayer.dataset.akariStrokeSession = '';
                         redrawStaticBitmap();
                         recomposite();
