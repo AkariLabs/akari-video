@@ -48,7 +48,13 @@ test('オーバーレイと 3D のカードには配置の入口がある', () =
 test('フォントは選択中の文字へ当てる', () => {
     const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category: 'font', key: 'font/noto-sans-jp' }) }, false);
     assert.deepEqual(ids(entries), ['apply', 'favorite', 'info']);
+    assert.equal(entries.some(entry => entry.id === 'reveal' || entry.id === 'remove-library'), false);
     assert.equal(entries[0].label, '選択中に当てる');
+    const imported = libraryCardMenuEntries({ kind: 'asset', item: asset({ category: 'font',
+        key: 'font/my-font', id: 'my-font', libraryDir: '/library/font/my-font' }) }, false);
+    assert.deepEqual(ids(imported), ['apply', 'favorite', 'info', 'reveal', 'remove-library']);
+    assert.equal(imported.find(entry => entry.id === 'reveal').label, '場所を見る');
+    assert.equal(imported.find(entry => entry.id === 'remove-library').danger, true);
 });
 
 test('Pro 未契約: Lab で見る / プレイヘッドに置く（押すと促しのシート）/ ★ / 情報を見る', () => {

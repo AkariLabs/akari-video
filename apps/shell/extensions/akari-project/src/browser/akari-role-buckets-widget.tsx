@@ -1171,22 +1171,42 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected reportLibraryImportResult(result: LibraryImportResult): void {
-        if (result.added.length) this.messages.info(t('project.library.shelf.importedLengthItemsMessage', { length: result.added.length, n: result.added.length }));
+        if (result.added.length) this.messages.info(t(result.added.some(item => item.category === 'font')
+            ? 'project.library.shelf.importedLengthItemsFontLocationMessage'
+            : 'project.library.shelf.importedLengthItemsMessage', { length: result.added.length, n: result.added.length }));
         for (const item of result.failures) this.messages.warn(`${item.path || ''}: ${item.reason}`);
+    }
+
+    protected async refreshLibraryFonts(): Promise<void> {
+        const editUri = this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString();
+        await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+        this.libraryStyleFontsRequested = false;
+        this.ensureLibraryStyleFonts();
+        window.dispatchEvent(new CustomEvent('akari.library.fontsChanged'));
     }
 
     protected async finishLibraryImport(result: LibraryImportResult): Promise<void> {
         this.reportLibraryImportResult(result);
+        const importedFontIds = new Set(result.added.filter(item => item.category === 'font').map(item => item.id));
+        if (importedFontIds.size) await this.refreshLibraryFonts();
         this.topView = 'catalog';
         this.libraryCategory = undefined;
         this.librarySourceFilter = 'all';
+        if (importedFontIds.size) this.libraryFilterRest = { price: [], license: [], status: [] };
         this.libraryFolderFilter = undefined;
         this.catalogQuery = '';
         this.syncSearchInput();
         this.catalogCategory = 'all';
         await this.loadAssetCatalogView('user');
+        const importedFont = this.assetCatalogItems.find(item => item.category === 'font'
+            && importedFontIds.has(item.id));
+        if (importedFont) {
+            this.libraryTextLookOpen = true;
+            this.libraryTextTab = 'font';
+        }
         this.update();
-        requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
+        if (importedFont) void this.focusAssetCard('catalog', importedFont.key, false);
+        else requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
     }
 
     public async siteImportCompleted(result: LibraryImportResult): Promise<void> {
@@ -3279,7 +3299,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     payload: { kind: 'font', id: item.id, fontFamily: family }, editUri
                 }); },
                 refresh: async () => {
-                    await this.commandService.executeCommand('akari.preview.refreshFontAssets', { editUri }).catch(() => undefined);
+                    await this.refreshLibraryFonts();
                     void this.loadAssetCatalogView('user');
                 }
             });
@@ -3355,7 +3375,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             else if (id === 'agent-import') await this.libraryPane.importCatalogItem(item);
             else if (id === 'ask') await this.libraryPane.askAgentAboutCatalogItem(item);
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
-            else if (id === 'remove-library') await this.libraryPane.removeLibraryItem(item);
+            else if (id === 'remove-library') {
+                await this.libraryPane.removeLibraryItem(item);
+                if (item.category === 'font') {
+                    await this.loadAssetCatalogView('user');
+                    if (!this.assetCatalogItems.some(entry => entry.key === item.key && entry.libraryDir === item.libraryDir)) {
+                        await this.refreshLibraryFonts();
+                    }
+                }
+            }
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
@@ -3498,27 +3526,39 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected libraryStyleFontsRequested = false;
+    protected libraryStyleFontsGeneration = 0;
     protected libraryStyleFontFaces = new Map<string, string>();
 
     protected ensureLibraryStyleFonts(): void {
         if (this.libraryStyleFontsRequested || !this.materialPreviewService) return;
         this.libraryStyleFontsRequested = true;
+        const generation = ++this.libraryStyleFontsGeneration;
         void this.materialPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
-            this.libraryStyleFontFaces = new Map([...assets.bundledCaptionFontFaces,
-                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY }].map(face => [face.id, face.family]));
-            const style = document.createElement('style');
-            style.setAttribute('data-akari-library-style-fonts', '');
+            if (generation !== this.libraryStyleFontsGeneration) return;
+            const registered = new Map<string, string>();
+            for (const face of [...assets.bundledCaptionFontFaces,
+                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY }]) {
+                if (!registered.has(face.id)) registered.set(face.id, face.family);
+            }
+            this.libraryStyleFontFaces = registered;
+            let style = document.querySelector<HTMLStyleElement>('style[data-akari-library-style-fonts]');
+            if (!style) {
+                style = document.createElement('style');
+                style.setAttribute('data-akari-library-style-fonts', '');
+                document.head.append(style);
+                this.toDispose.push({ dispose: () => style?.remove() });
+            }
             style.textContent = [...assets.bundledCaptionFontFaces,
-                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', url: assets.captionFontUrl }]
+                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, file: '', weight: '100 900', url: assets.captionFontUrl }]
                 .filter(face => face.id !== 'noto-sans-jp')
                 .map(face => `@font-face{font-family:${JSON.stringify(face.family)};`
-                    + `src:url(${JSON.stringify(face.url)}) format('truetype');`
+                    + `src:url(${JSON.stringify(face.url)}) format('${face.file.toLowerCase().endsWith('.woff2') ? 'woff2'
+                        : face.file.toLowerCase().endsWith('.woff') ? 'woff'
+                            : face.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype'}');`
                     + `font-weight:${face.id === 'noto-serif-jp' ? '200 900' : face.weight};font-display:swap}`)
                 .join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
-            document.head.append(style);
-            this.toDispose.push({ dispose: () => style.remove() });
             void document.fonts.ready.then(() => this.update());
-        }).catch(() => { this.libraryStyleFontsRequested = false; });
+        }).catch(() => { if (generation === this.libraryStyleFontsGeneration) this.libraryStyleFontsRequested = false; });
     }
 
     protected renderMyStyles(): React.ReactNode {

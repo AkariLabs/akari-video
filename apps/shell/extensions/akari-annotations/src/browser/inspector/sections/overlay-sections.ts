@@ -1,7 +1,7 @@
 import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { CAPTION_PANEL_FONTS } from '../../../common/caption-panel-catalog';
-import { renderableCaptionFonts } from '../../../common/caption-panel-state';
+import { captionPanelFontRows, renderableCaptionFonts } from '../../../common/caption-panel-state';
 import { InspectorWriteRequest, InspectorWriteResult, TimelineOverlaySelection } from '../../timeline-selection-model';
 import { composeInspectorSections } from '../section-model';
 import { findKnobForVar, isFontFamilyKnob, InspectorKnob, knobControlKind } from '../knob-resolver';
@@ -118,8 +118,8 @@ export function OVERLAY_SECTIONS(
         const fields = groups.get(group) ?? [];
         const kind = knob ? knobControlKind(knob.type) : 'text';
         const fontKnob = knob ? isFontFamilyKnob(knob) : false;
-        const fontOptions = fontKnob ? renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces)
-            .map(font => fontFaces.get(font.id) ?? font.family) : [];
+        const fontOptions = fontKnob ? captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
+            fontFaces).map(font => font.family) : [];
         if (fontKnob && typeof value === 'string' && value && !fontOptions.includes(value)) fontOptions.unshift(value);
         fields.push({
                 name: `var-${name.replace(/[^a-z0-9_-]+/giu, '-')}`,

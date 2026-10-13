@@ -39,13 +39,17 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
             opacity: card.availability?.status === 'available' ? 1 : 0.65 }}>
         <div data-akari-font-primary style={{ width: '100%', height: '32px' }}>
             <span style={{ display: 'block', width: '100%', height: '32px', overflow: 'hidden' }}>
-                {rowUrl ? <span data-akari-font-preview role='img' aria-label={t('project.library.textPage.fontPreviewTitleLabel', { title: item.title })}
+                {rowUrl && !props.faceFamily ? <span data-akari-font-preview role='img' aria-label={t('project.library.textPage.fontPreviewTitleLabel', { title: item.title })}
                     style={{ display: 'block', width: '100%', height: '32px', backgroundColor: 'currentColor',
                         mask: `url("${rowUrl}") left center / auto 32px no-repeat`,
                         WebkitMask: `url("${rowUrl}") left center / auto 32px no-repeat` }} />
-                    : <span data-akari-font-name style={{ display: 'block', fontFamily: 'sans-serif',
+                    : <span data-akari-font-name style={{ display: 'block', fontFamily: props.faceFamily
+                        ? `${JSON.stringify(props.faceFamily)}, sans-serif` : 'sans-serif',
                         fontSize: '22px', lineHeight: '32px', whiteSpace: 'nowrap', overflow: 'hidden',
-                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}</span>}
+                        textOverflow: 'ellipsis', opacity: 0.72 }}>{item.title}
+                        {props.faceFamily && <span data-akari-font-specimen aria-hidden='true'
+                            style={{ marginLeft: '0.5em', opacity: 0.55 }}>{t('project.library.textPage.fontSpecimenLabel')}</span>}
+                    </span>}
             </span>
         </div>
         <div data-akari-font-secondary style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%',
