@@ -16,7 +16,7 @@ test('一覧の見出し、チャンネル動線、ホームの線と暗幕', ()
 test('変わった行だけ札とサムネを読み直す', () => {
     const list = readFileSync(new URL('../src/browser/home/project-list-view.tsx', import.meta.url), 'utf8');
     const home = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
-    assert.match(list, /\}, \[row\.key, props\.rowVersion, props\.active\]\);/);
+    assert.match(list, /\}, \[row\.key, row\.uri\.toString\(\), props\.rowVersion, props\.active\]\);/);
     assert.match(list, /rowVersion=\{props\.rowVersion\?\.\(row\.uri\)\}/);
     assert.doesNotMatch(list, /refreshToken/);
     assert.doesNotMatch(home, /projectListRefreshToken/);

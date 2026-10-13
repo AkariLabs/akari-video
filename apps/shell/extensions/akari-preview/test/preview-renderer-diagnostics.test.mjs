@@ -67,6 +67,19 @@ test('同じ widget id の新 frame は古い PID を捨て、通知時に観測
     ]);
 });
 
+test('新 frame の PID が未確定でも旧 frame の停止を通知しない', () => {
+    const table = new tracker.PreviewRendererTracker(() => 100);
+    const url = 'https://a.webview.localhost/?id=akari-preview-abc';
+    table.observe(1, 2, 200, url);
+    table.poll(new Set([200]));
+    table.observe(1, 3, 0, url);
+    assert.deepEqual(table.poll(new Set()), []);
+    assert.deepEqual(table.poll(new Set()), []);
+    table.observe(1, 3, 201, url);
+    table.poll(new Set([201]));
+    assert.deepEqual(table.poll(new Set()), []);
+});
+
 test('main の監視は対象 frame だけを取得し、停止済み frame の getter を巡回しない', () => {
     const source = readFileSync(new URL('../src/electron-main/electron-api-main.ts', import.meta.url), 'utf8');
     assert.equal(tracker.PREVIEW_RENDERER_POLL_MS, 1000);
@@ -196,6 +209,21 @@ test('閉じた webview と旧世代の停止通知は現在の診断へ渡さ�
     assert.equal(h.session.trace.rendererGone, undefined);
     h.session.dispose();
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, current), false);
+});
+
+test('iframe の付け替えより前の通知を捨て、付け替え後と同じ iframe の停止を届ける', () => {
+    const born = Date.parse('2026-10-06T12:03:00.000Z');
+    const h = harness({ nowMs: born });
+    const widget = { isDisposed: false, isAttached: true, isVisible: true, akariPreviewDiagnostics: h.session };
+    const first = {};
+    const second = {};
+    h.session.observeAttachedIframe(first, born + 10);
+    h.session.observeAttachedIframe(first, born + 2000);
+    const at = new Date(born + 3000).toISOString();
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at, observedAt: born + 20 }), true);
+    h.session.observeAttachedIframe(second, born + 2100);
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at, observedAt: born + 20 }), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, { at, observedAt: born + 2200 }), true);
 });
 
 test('非表示中の renderer 停止を捨て、表示後の新しい停止は届ける', () => {
