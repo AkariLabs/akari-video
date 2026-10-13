@@ -2,8 +2,8 @@
   "id": "851-chikara-dzuyoku",
   "category": "font",
   "title": "851チカラヅヨク",
-  "aliases": ["851チカラヅヨク","851 Chikara Dzuyoku"],
-  "description": "太マジックで書き殴ったような手書きフォント（配布元: 8:51:22 pm）。YouTube のツッコミテロップの超定番。商用利用可・許可不要だが、フォントファイルの再配布・販売は禁止のため参照配布のみ（実体は各自取得）。",
+  "aliases": ["851チカラヅヨク","851 Chikara Dzuyoku","851チカラヅヨク-かなA","851チカラヅヨク-かなB","851CHIKARA-DZUYOKU-KANA-A","851CHIKARA-DZUYOKU-KANA-B"],
+  "description": "太マジックで書き殴ったような手書きフォント（配布元: 8:51:22 pm）。商用利用可・許可不要で、改変と再配布も可能。クレジット表記は不要。そのままのフォントファイルを単品で販売することはできない。",
   "when_to_use": "強いツッコミ・怒り・勢い系の手書きテロップに（バラエティの定番トーン）",
   "tags": [
     "font",
@@ -12,12 +12,11 @@
     "telop",
     "tsukkomi",
     "free",
-    "no-redistribution",
-    "reference-only",
+    "redistributable",
     "pack:telop-standard"
   ],
   "knobs": [],
-  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "ai_usage": "テロップ・字幕・サムネの本文や見出しに使用できる。改変・再配布は配布元の条件に従って行う。そのままの単品販売はしない。",
   "requires": [],
   "provenance": {
     "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
@@ -36,7 +35,7 @@
   "source": {
     "url": "https://pm85122.onamae.jp/851ch-dz.html",
     "acquisition": "direct",
-    "license_at_source": "無料・商用利用可（チラシ/同人誌/動画等に許可不要）。自作主張・無断販売・再配布は禁止（配布元規約で確認）",
+    "license_at_source": "無料・商用利用可、許可・クレジット不要。改変・再配布可。そのままのフォントファイルの単品販売は不可。",
     "attribution_required": false
   }
 }

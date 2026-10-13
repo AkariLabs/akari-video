@@ -11,6 +11,7 @@ import { generateWaveformPreview } from '../../audio-library-setup/shared/wavefo
 import { scanLocalLibrary, readLocalLibraryItem } from './library.mjs';
 import { sha256File } from './hash.mjs';
 import { writeImportPreview, writeImportFragment } from './import-artifacts.mjs';
+import { fontCatalog, readFontNames, matchFontCatalog } from './font-names.mjs';
 
 export const ADD_PLAN_SCHEMA = 'akari-assets-add-plan/v0';
 export const MAX_IMPORT_FILES = 5000;
@@ -38,6 +39,16 @@ function uniqueId(category, proposed, keys) {
   for (let suffix = 2; keys.has(`${category}/${id}`); suffix++) id = `${proposed}-${suffix}`;
   keys.add(`${category}/${id}`);
   return id;
+}
+
+function fontIdentity(file, name, catalog) {
+  const parsed = readFontNames(file);
+  const fallback = path.basename(name, path.extname(name));
+  const title = parsed?.familyJa ?? parsed?.family ?? fallback;
+  const aliases = [...new Set([...(parsed?.all ?? []), fallback].filter(value => value && value !== title))];
+  const matched = parsed ? matchFontCatalog([title, ...aliases], catalog) : undefined;
+  return { title, aliases, catalog: matched,
+    aliasesWithCatalogTitle: [...new Set([...aliases, ...(matched ? [matched.title] : [])].filter(value => value !== title))] };
 }
 
 /** null means ffprobe unavailable; a failed probe must throw, never estimate. */
@@ -81,12 +92,13 @@ async function findDuplicate(entry, sizes, hashFile = sha256File) {
 }
 
 /** The probe injection keeps duration boundaries independent of installed tools. */
-export async function planAdd(paths, { env = process.env, probe = probeDuration, hashFile = sha256File } = {}) {
+export async function planAdd(paths, { env = process.env, probe = probeDuration, hashFile = sha256File, catalogRoot } = {}) {
   if (!Array.isArray(paths) || !paths.length) throw new Error('add --plan にはファイルかフォルダが必要です');
   const result = { schema: ADD_PLAN_SCHEMA, items: [], duplicates: [], rejected: [], truncated: false, limit: MAX_IMPORT_FILES, warnings: [] };
   const seen = new Set();
   const keys = await occupiedKeys(env);
   const sizes = fileIndex(env);
+  const catalog = fontCatalog(catalogRoot);
   let count = 0;
   async function walk(input, folder) {
     const absolute = path.resolve(input);
@@ -131,7 +143,18 @@ export async function planAdd(paths, { env = process.env, probe = probeDuration,
       }
       const duplicate = await findDuplicate(entry, sizes, hashFile);
       if (duplicate) { result.duplicates.push({ ...entry, ...duplicate, status: 'duplicate' }); return; }
+      let identity;
+      if (category === 'font') {
+        identity = fontIdentity(absolute, name, catalog);
+        entry.title = identity.title;
+        entry.aliases = identity.aliasesWithCatalogTitle;
+        entry.catalogId = identity.catalog?.id;
+        if (identity.catalog) entry.proposedId = identity.catalog.id;
+      }
       entry.proposedId = uniqueId(category, entry.proposedId, keys);
+      if (category === 'font' && entry.proposedId !== entry.catalogId) {
+        entry.aliases = identity.aliases;
+      }
       result.items.push(entry);
     } catch (error) { result.rejected.push({ ...entry, reason: error.message }); }
   }
@@ -155,7 +178,8 @@ export function createImportMeta(entry, options = {}) {
   if (origin === 'site' && options.subscription === true) tags.push('license:subscription');
   const credit = oneLine(options.credit);
   const meta = {
-    id: entry.proposedId, category: entry.category, title: path.basename(entry.name, path.extname(entry.name)),
+    id: entry.proposedId, category: entry.category, title: entry.category === 'font' && entry.title
+      ? entry.title : path.basename(entry.name, path.extname(entry.name)),
     description: '利用者がローカルから取り込んだ素材',
     when_to_use: '利用者のプロジェクトでこの素材を使うとき',
     tags, knobs: [], ai_usage: '利用者の利用条件の範囲で使用する。再配布・AI 学習には使用しない。',
@@ -164,6 +188,7 @@ export function createImportMeta(entry, options = {}) {
     license: { spdx: 'LicenseRef-user-owned', scope: 'private-owned', attribution_required: Boolean(credit), ai_training_allowed: false },
     tier: 'free',
   };
+  if (entry.category === 'font' && Array.isArray(entry.aliases)) meta.aliases = entry.aliases;
   if (origin === 'site') {
     meta.source = {
       url: options.sourceUrl, acquisition: options.subscription === true ? 'login' : 'direct',
@@ -220,7 +245,7 @@ async function preparePack(root, pack, category) {
   return { file, data: `${JSON.stringify(index, null, 2)}\n` };
 }
 
-export async function applyAdd(plan, { env = process.env, waveform = generateWaveformPreview, thumbnail, validate = validateImport, copy = copyPayload } = {}) {
+export async function applyAdd(plan, { env = process.env, waveform = generateWaveformPreview, thumbnail, validate = validateImport, copy = copyPayload, catalogRoot } = {}) {
   if (plan?.schema !== ADD_PLAN_SCHEMA || !Array.isArray(plan.items)) throw new Error('add plan の形式が不正です');
   const result = { added: [], duplicates: [...(plan.duplicates ?? [])], rejected: [...(plan.rejected ?? [])], failures: [] };
   const root = path.resolve(resolveAssetLibraryRoots(env).write);
@@ -236,6 +261,7 @@ export async function applyAdd(plan, { env = process.env, waveform = generateWav
   try {
     const keys = await occupiedKeys(env);
     const sizes = fileIndex(env);
+    const catalog = fontCatalog(catalogRoot);
     for (const entry of plan.items) {
       if (entry?.selected === false) continue;
       let tempRoot, committedDir, packTemp;
@@ -251,9 +277,12 @@ export async function applyAdd(plan, { env = process.env, waveform = generateWav
         if (entry.sha256 && entry.sha256 !== hash) throw new Error('元ファイルの内容が変更されました。plan を作り直してください');
         const duplicate = await findDuplicate({ ...entry, sha256: hash }, sizes);
         if (duplicate) { result.duplicates.push({ ...entry, ...duplicate, status: 'duplicate' }); continue; }
-        const id = uniqueId(entry.category, entry.proposedId, keys);
+        const identity = entry.category === 'font' ? fontIdentity(entry.path, path.basename(entry.path), catalog) : null;
+        const baseId = identity?.catalog?.id ?? entry.proposedId;
+        const id = uniqueId(entry.category, baseId, keys);
         const options = { ...plan, ...entry, pack: plan.pack };
-        const meta = createImportMeta({ ...entry, name: path.basename(entry.path), proposedId: id }, options);
+        const meta = createImportMeta({ ...entry, name: path.basename(entry.path), proposedId: id,
+          ...(identity ? { title: identity.title, aliases: id === identity.catalog?.id ? identity.aliasesWithCatalogTitle : identity.aliases } : {}) }, options);
         const pack = plan.pack ? await preparePack(root, plan.pack, entry.category) : null;
         tempRoot = await mkdtemp(path.join(root, '.tmp-add-'));
         const stage = path.join(tempRoot, entry.category, id);

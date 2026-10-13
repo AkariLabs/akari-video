@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { fontNames, normalizeFontName as normalizeResolverFontName } from '../../../../../packages/asset-resolver/src/font-names.mjs';
 
 const require = createRequire(import.meta.url);
 const { normalizeFontName, resolveFontAvailability, downloadFont, sfntFontNames, macSystemFontNames,
@@ -46,7 +47,7 @@ function sfnt(records, signature = 'ttf') {
         const record = records[index];
         const at = 34 + index * 12;
         buffer.writeUInt16BE(record.platform ?? 3, at);
-        buffer.writeUInt16BE(record.platform === 1 ? 0 : 1, at + 2);
+        buffer.writeUInt16BE(record.encoding ?? (record.platform === 1 ? 0 : 1), at + 2);
         buffer.writeUInt16BE(record.language ?? 0x0409, at + 4);
         buffer.writeUInt16BE(record.id, at + 6);
         buffer.writeUInt16BE(strings[index].length, at + 8);
@@ -70,6 +71,36 @@ function collection(fonts) {
     });
     return Buffer.concat([header, ...fonts]);
 }
+
+test('synthetic sfnt names agree with the resolver, including Mac Japanese records', () => {
+    const bytes = sfnt([
+        { id: 1, value: 'English Family' }, { id: 1, value: '日本語書体', language: 0x0411 },
+        { id: 16, value: 'Preferred Family' }, { id: 4, value: 'Preferred Family Regular' },
+        { id: 6, value: 'PreferredFamily-Regular' },
+        { id: 4, platform: 1, encoding: 1, language: 11, bytes: Buffer.from([0x82, 0xa0]) }
+    ]);
+    const shell = [...sfntFontNames(bytes).keys()].sort();
+    const resolver = fontNames(bytes).all.map(normalizeResolverFontName).sort();
+    assert.deepEqual(shell, resolver);
+});
+
+test('old library font metadata resolves catalog aliases through the internal family', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'font-library-names-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const dir = join(root, 'font', 'old-font');
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'old-font.ttf'), sfnt([
+        { id: 1, value: '851CHIKARA-DZUYOKU-KANA-A' },
+        { id: 1, value: '851チカラヅヨク-かなA', language: 0x0411 }
+    ]));
+    await writeFile(join(dir, 'meta.json'), JSON.stringify({ title: '851CHIKARA-DZUYOKU_kanaA_004' }));
+    const result = await resolveFontAvailability([{ id: '851-chikara-dzuyoku', title: '851チカラヅヨク',
+        aliases: ['851チカラヅヨク', '851 Chikara Dzuyoku', '851チカラヅヨク-かなA',
+            '851チカラヅヨク-かなB', '851CHIKARA-DZUYOKU-KANA-A', '851CHIKARA-DZUYOKU-KANA-B'] }],
+        { fonts: {} }, [], { libraryRoot: root, system: new Map() });
+    assert.deepEqual(result.get('851-chikara-dzuyoku'),
+        { status: 'available', family: '851CHIKARA-DZUYOKU_kanaA_004', source: 'library' });
+});
 
 test('sfnt は英語 family・full・PostScript と MacRoman を読む', () => {
     const names = sfntFontNames(sfnt([
