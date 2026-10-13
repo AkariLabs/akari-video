@@ -7,6 +7,7 @@ import { LibraryImportItem, LibraryImportPlan, LibraryImportResult, LIBRARY_IMPO
 import { hoverPopupPosition } from '../common/material-card-hover';
 import { AssetSiteListing } from '../common/asset-sites';
 import { composeSiteAgentPrompt } from '../common/asset-site-prompt';
+import { isOsFileDropInput } from '../common/delegated-drop';
 import { AKARI_BORDER, AKARI_FAINT, AKARI_INK, AKARI_LINE, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 interface Props {
@@ -47,6 +48,7 @@ const css = `
 .akari-import-sheet footer { flex:none; display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:${AKARI_BORDER.hairline}; }
 .akari-import-sheet .theia-button { min-width:0 !important; margin-left:0 !important; }
 .akari-import-drop { border:1px dashed ${AKARI_LINE.edge}; border-radius:calc(${AKARI_RADIUS.panel}px + 2px); padding:28px 14px; display:grid; justify-items:center; gap:10px; text-align:center; color:var(--akari-muted); background:${AKARI_SURFACE.card}; font-size:12px; }
+.akari-import-drop[data-akari-drop-over='true'] { border-color:var(--akari-accent); background:color-mix(in srgb, var(--akari-accent) 12%, ${AKARI_SURFACE.card}); }
 .akari-import-drop .codicon { font-size:26px; color:${AKARI_FAINT}; }
 .akari-import-drop strong { color:${AKARI_INK}; font-size:13px; }
 .akari-import-ok { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--akari-success); }
@@ -110,6 +112,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
     const [siteRequest, setSiteRequest] = React.useState('');
     const [plan, setPlan] = React.useState<LibraryImportPlan>();
     const [busy, setBusy] = React.useState<'plan' | 'apply'>();
+    const [dropOver, setDropOver] = React.useState(false);
     const [error, setError] = React.useState('');
     const [asSet, setAsSet] = React.useState(false);
     const [title, setTitle] = React.useState('');
@@ -173,7 +176,9 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
     }, [props.overlayHost]);
     const begin = async (paths: string[]): Promise<void> => {
-        if (!paths.length || busy === 'apply') return;
+        setDropOver(false);
+        if (!paths.length) return;
+        if (busy === 'apply') { setError(t('project.library.importSheet.importingStatus')); return; }
         const current = ++generation.current;
         stop(); props.stopAudio(); hideHover(); waveforms.current.clear(); setMenu(false); setOpen(true);
         setPlan(undefined); setError(''); setAsSet(false); setTitle(''); setCredit(''); setBusy('plan');
@@ -299,7 +304,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                     <div className='akari-import-lab'><div><strong>AKARI Video Lab</strong><span>{t('project.library.importSheet.readyUseAssetsStartHereMessage')}</span></div><button type='button' className='theia-button small' onClick={() => { setSitesOpen(false); props.openLab(); }}>{t('project.library.importSheet.openLabAction')}</button></div>
                     <div className='akari-import-ask'><label htmlFor='akari-site-request'>{t('project.library.importSheet.describeWhatYouNeedAskAgentMessage')}</label>
                         <textarea id='akari-site-request' placeholder={t('project.library.importSheet.exampleShortUpbeatJingleCookingVideoLabel')} value={siteRequest} onChange={event => setSiteRequest(event.target.value)} />
-                        <div className='akari-import-actions'><button type='button' className='theia-button secondary small' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>{t('project.web.assetSite.askAgentAction')}</button></div>
+                        <div className='akari-import-actions'><button type='button' className='theia-button secondary small' disabled={!siteRequest.trim()} onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>{t('project.web.assetSite.askAgentAction')}</button></div>
                     </div>
                     <div role='tablist' aria-label={t('project.library.importSheet.assetSiteTypeLabel')} className='akari-seg' style={{ alignSelf: 'flex-start' }}>
                         {([['audio', t('project.handoff.item.audioLabel')], ['font', t('project.library.importSheet.fontLabel')], ['visual', t('project.library.importSheet.videoImagesLabel')]] as const).map(([key, label]) =>
@@ -332,7 +337,12 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                     {!plan && <button type='button' className='theia-button quiet small' disabled={busy === 'apply'} onClick={close}>{t('project.library.card.close')}</button>}</header>
                 <div className='akari-import-scroll'>
                     {busy === 'plan' && <p role='status'>{t('project.library.importSheet.checkingFilesStatus')}</p>}
-                    {!plan && !busy && <div className='akari-import-drop'><span className='codicon codicon-cloud-upload' aria-hidden='true' />
+                    {!plan && !busy && <div className='akari-import-drop' data-akari-drop-over={dropOver}
+                        onDragEnter={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(true); }}
+                        onDragOver={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(true); }}
+                        onDragLeave={event => { if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+                            if (dropOver) setDropOver(false); }}
+                        onDrop={event => { if (isOsFileDropInput(Array.from(event.dataTransfer.types))) setDropOver(false); }}><span className='codicon codicon-cloud-upload' aria-hidden='true' />
                         <strong>{t('project.library.importSheet.dropFilesFoldersHereAction')}</strong><span>{t('project.library.importSheet.importAudioImagesVideoFontsTogetherAction')}</span>
                         {props.isOSX ? <button type='button' className='theia-button secondary' onClick={() => void pick('both')}>{t('project.library.importSheet.chooseFilesFoldersAction')}</button>
                             : <div className='akari-import-actions'><button type='button' className='theia-button secondary' onClick={() => void pick('files')}>{t('project.library.importSheet.chooseFilesAction')}</button><button type='button' className='theia-button secondary' onClick={() => void pick('folders')}>{t('project.library.pane.chooseFolderAction')}</button></div>}
