@@ -1,11 +1,15 @@
 import { areCutsAdjacent } from '@akari-video/edit-store';
+import type { BoundaryBlock, BoundaryRef } from './transition-boundary-model';
 
 export interface CutBoundaryInput {
     index: number;
+    itemId?: string;
     track: number;
     tlStart: number;
     tlEnd: number;
     transitionOut?: { type: string; duration: number };
+    locked?: boolean;
+    trackOrderValid?: boolean;
 }
 
 export interface CutBoundary {
@@ -14,6 +18,44 @@ export interface CutBoundary {
     track: number;
     boundaryT: number;
     transitionOut?: { type: string; duration: number };
+}
+
+export interface CutBoundaryCandidate extends CutBoundary {
+    ref: BoundaryRef;
+    blocks: BoundaryBlock[];
+}
+
+/** Same-track neighbours remain visible even when a gap or another restriction blocks writing. */
+export function computeCutBoundaryCandidates(
+    segments: readonly CutBoundaryInput[],
+    fps = 30,
+    videoTrackCount = new Set(segments.map(segment => segment.track)).size
+): CutBoundaryCandidate[] {
+    const byTrack = new Map<number, CutBoundaryInput[]>();
+    for (const segment of segments) {
+        const list = byTrack.get(segment.track) ?? [];
+        list.push(segment);
+        byTrack.set(segment.track, list);
+    }
+    const candidates: CutBoundaryCandidate[] = [];
+    for (const list of byTrack.values()) {
+        for (let index = 1; index < list.length; index++) {
+            const earlier = list[index - 1];
+            const later = list[index];
+            const blocks: BoundaryBlock[] = [];
+            if (videoTrackCount > 1) blocks.push('multi-track');
+            if (earlier.trackOrderValid === false) blocks.push('track-order');
+            if (!areCutsAdjacent(earlier, later, fps)) blocks.push('gap');
+            if (earlier.locked || later.locked) blocks.push('locked');
+            candidates.push({
+                earlierIndex: earlier.index, laterIndex: later.index, track: earlier.track,
+                boundaryT: later.tlStart, transitionOut: earlier.transitionOut,
+                ref: { earlierItemId: earlier.itemId ?? String(earlier.index),
+                    laterItemId: later.itemId ?? String(later.index) }, blocks
+            });
+        }
+    }
+    return candidates.sort((a, b) => a.earlierIndex - b.earlierIndex);
 }
 
 /**

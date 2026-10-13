@@ -1,7 +1,6 @@
 // 出所: akari-annotations-widget.ts の init()。CSS 文字列の変更時は関連テストも更新する。
 import { EDGE_ZONE_PX, SNAP_GUIDE_COLOR_DEFAULT, RULER_BAND_HEIGHT_PX, REVIEW_SESSION_LANE_HEIGHT_PX,
-    STRIP_BACKGROUND, CLIP_HEADER_HEIGHT, SUBROW_HEIGHT, TRANSITION_BADGE_WARNING_COLOR,
-    TRANSITION_DROP_TARGET_SIZE_PX } from '../timeline/timeline-metrics';
+    STRIP_BACKGROUND, CLIP_HEADER_HEIGHT, SUBROW_HEIGHT } from '../timeline/timeline-metrics';
 
 export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-widget,
@@ -845,26 +844,245 @@ export const ANNOTATIONS_WIDGET_CSS = `
         border-color: #a855f7 !important;
         background: rgba(168, 85, 247, .3) !important;
     }
+    .akari-annotations-widget .akari-transition-boundary {
+        position: absolute;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-sizing: border-box;
+        padding: 0;
+        border: 1px solid var(--akari-tl-transition-neutral);
+        border-radius: 3px;
+        background: var(--akari-tl-clip-face);
+        color: var(--akari-tl-clip-text);
+        cursor: pointer;
+        pointer-events: auto;
+        z-index: 5;
+    }
+    .akari-annotations-widget .akari-transition-boundary-band {
+        border-color: var(--akari-tl-clip-text);
+        box-shadow: 0 0 0 1px var(--akari-tl-clip-edge-dark), 0 2px 3px var(--akari-tl-clip-edge-dark);
+    }
+    .akari-annotations-widget .akari-transition-boundary[data-akari-boundary-hidden="true"] { opacity: .28; }
+    .akari-annotations-widget .akari-transition-boundary[data-akari-boundary-selected="true"] {
+        background: var(--theia-list-activeSelectionBackground);
+        border-color: var(--theia-focusBorder);
+    }
+    .akari-annotations-widget .akari-transition-boundary[data-akari-boundary-micro="true"] { opacity: 0; }
+    .akari-annotations-widget .akari-transition-boundary[data-akari-boundary-micro="true"]:hover,
+    .akari-annotations-widget .akari-transition-boundary[data-akari-boundary-micro="true"]:focus-visible { opacity: 1; }
+    .akari-annotations-widget .akari-transition-boundary-add,
+    .akari-annotations-widget .akari-transition-boundary-blocked,
+    .akari-annotations-widget .akari-transition-boundary-dead {
+        border-radius: 4px;
+        font-size: 17px;
+        line-height: 1;
+    }
+    .akari-annotations-widget .akari-transition-boundary-blocked { opacity: .55; border-style: dashed; }
+    .akari-annotations-widget .akari-transition-boundary-dead { color: var(--akari-tl-waveform-yellow); }
+    .akari-annotations-widget .akari-transition-boundary:focus-visible { outline: 2px solid var(--theia-focusBorder); }
+    .akari-annotations-widget .akari-transition-boundary-preview {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+    .akari-annotations-widget .akari-transition-boundary-preview img {
+        position: absolute;
+        width: 300%;
+        height: 100%;
+        max-width: none;
+        left: -100%;
+    }
+    .akari-annotations-widget .akari-transition-boundary-freeze {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: repeating-linear-gradient(135deg, var(--akari-tl-clip-edge-dark) 0 2px,
+            var(--akari-tl-transition-neutral) 2px 4px);
+        pointer-events: none;
+    }
+    .akari-annotations-widget .akari-transition-boundary-freeze-incoming { left: 0; }
+    .akari-annotations-widget .akari-transition-boundary-freeze-outgoing { right: 0; }
+    .akari-annotations-widget .akari-transition-boundary-label {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        box-sizing: border-box;
+        max-width: calc(100% - 8px);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        background: color-mix(in srgb, var(--akari-tl-clip-edge-dark) 78%, transparent);
+        color: var(--akari-tl-clip-text);
+        padding: 0 4px;
+        font-size: 11px;
+        line-height: 1.2;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .akari-annotations-widget .akari-transition-boundary-cut {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--akari-tl-clip-text);
+        box-shadow: -1px 0 var(--akari-tl-clip-edge-dark), 1px 0 var(--akari-tl-clip-edge-dark);
+        pointer-events: none;
+        z-index: 1;
+    }
+    .akari-transition-picker {
+        position: fixed;
+        z-index: 10000;
+        box-sizing: border-box;
+        border: 1px solid var(--theia-widget-border);
+        border-radius: 6px;
+        background: var(--theia-menu-background);
+        color: var(--theia-foreground);
+        box-shadow: 0 3px 12px var(--theia-widget-shadow, var(--theia-widget-border));
+        font-size: 11px;
+    }
+    .akari-transition-picker-shield {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: auto;
+        background: transparent;
+    }
+    .akari-transition-picker:focus { outline: none; }
+    .akari-transition-picker-body { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 8px; box-sizing: border-box; }
+    .akari-transition-picker-heading { flex: none; margin-bottom: 6px; font-weight: 600; }
+    .akari-transition-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        grid-auto-rows: minmax(68px, 1fr);
+        align-content: stretch;
+    }
+    .akari-transition-picker-grid:focus { outline: none; }
+    .akari-transition-picker[data-akari-picker-columns="3"] .akari-transition-picker-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .akari-transition-picker-card {
+        min-width: 0;
+        padding: 3px;
+        border: 1px solid var(--theia-widget-border);
+        border-radius: 4px;
+        background: var(--theia-editor-background);
+        color: var(--theia-foreground);
+        cursor: pointer;
+        text-align: center;
+    }
+    .akari-transition-picker-card[data-akari-selected="true"] {
+        background: color-mix(in srgb, var(--theia-list-activeSelectionBackground) 82%, var(--theia-focusBorder) 18%);
+    }
+    .akari-transition-picker-card:focus-visible { outline: 2px solid var(--theia-focusBorder); }
+    .akari-transition-picker-sample {
+        display: block;
+        position: relative;
+        height: 36px;
+        overflow: hidden;
+        background-size: 300% 100%;
+        background-position: 50% 50%;
+        background-repeat: no-repeat;
+    }
+    .akari-transition-picker-strip {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        background-size: 500% 100%;
+        background-repeat: no-repeat;
+    }
+    .akari-transition-picker-card:hover .akari-transition-picker-strip,
+    .akari-transition-picker-card:focus-visible .akari-transition-picker-strip {
+        opacity: 1;
+        animation: akari-transition-picker-strip-play .3s steps(4, end) both;
+    }
+    @keyframes akari-transition-picker-strip-play {
+        from { background-position: 0% 50%; }
+        to { background-position: 100% 50%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .akari-transition-picker-card:hover .akari-transition-picker-strip,
+        .akari-transition-picker-card:focus-visible .akari-transition-picker-strip { opacity: 0; animation: none; }
+    }
+    .akari-transition-picker-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 11px;
+        line-height: 1.15;
+        letter-spacing: -.03em;
+    }
+    .akari-transition-picker-footer { display: flex; flex: none; align-items: center; gap: 6px; padding-top: 8px; }
+    .akari-transition-picker-reason { line-height: 1.4; }
+    .akari-transition-picker-arrow {
+        position: absolute;
+        bottom: -9px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 8px solid var(--theia-widget-border);
+    }
+    .akari-transition-picker-arrow::after {
+        content: '';
+        position: absolute;
+        left: -7px;
+        top: -9px;
+        border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-top: 7px solid var(--theia-menu-background);
+    }
+    .akari-annotations-widget .akari-transition-source-edge {
+        position: absolute;
+        top: 0;
+        width: 0;
+        height: 0;
+        border-top: 7px solid var(--akari-tl-clip-text);
+        pointer-events: none;
+        z-index: 6;
+    }
+    .akari-annotations-widget .akari-transition-source-edge-start {
+        left: 0;
+        border-right: 7px solid transparent;
+    }
+    .akari-annotations-widget .akari-transition-source-edge-end {
+        right: 0;
+        border-left: 7px solid transparent;
+    }
     .akari-annotations-widget .akari-annotations-transition-drop-target {
         position: absolute;
-        width: ${TRANSITION_DROP_TARGET_SIZE_PX}px;
-        height: ${TRANSITION_DROP_TARGET_SIZE_PX}px;
+        width: 44px;
+        min-height: 28px;
         transform: translate(-50%, -50%);
-        border: 2px dashed ${TRANSITION_BADGE_WARNING_COLOR};
-        border-radius: 50%;
-        background: rgba(249, 115, 22, .18);
-        box-shadow: 0 0 0 4px rgba(249, 115, 22, .10);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--akari-tl-clip-text);
+        border-radius: 4px;
+        background: var(--theia-editor-background);
+        opacity: .55;
         box-sizing: border-box;
-        cursor: copy;
-        pointer-events: auto;
+        pointer-events: none;
         z-index: 7;
-        transition: transform 80ms ease, background 80ms ease, box-shadow 80ms ease;
+        font-size: 11px;
+        text-align: center;
+        transition: opacity 80ms ease, background 80ms ease;
     }
     .akari-annotations-widget .akari-annotations-transition-drop-target[data-akari-transition-drop-hover="true"] {
-        transform: translate(-50%, -50%) scale(1.16);
-        border-style: solid;
-        background: rgba(249, 115, 22, .42);
-        box-shadow: 0 0 0 6px rgba(249, 115, 22, .22), 0 0 16px rgba(249, 115, 22, .65);
+        width: 84px;
+        opacity: 1;
+        border: 2px solid var(--theia-focusBorder);
+        background: var(--theia-list-activeSelectionBackground);
     }
     .akari-annotations-widget .akari-annotations-strip-clip-trimmer-active {
         overflow: visible;

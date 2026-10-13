@@ -1,25 +1,23 @@
 import assert from 'node:assert/strict';
-import { readAllSourceText } from './helpers/widget-source.mjs';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
-const source = readAllSourceText();
-const { TRANSITION_CATEGORIES, TRANSITION_VOCABULARY } = createRequire(import.meta.url)(
+const source = readFileSync(new URL('../src/browser/transition-picker.ts', import.meta.url), 'utf8');
+const { TRANSITION_FAMILIES, TRANSITION_VOCABULARY } = createRequire(import.meta.url)(
   '../../../../../packages/edit-store/lib/index.js'
 );
 
-test('トランジション選択 UI は正準 29 種と 8 カテゴリから導出する', () => {
+test('トランジション選択 UI は正準 29 種を 15 family にまとめる', () => {
   assert.equal(TRANSITION_VOCABULARY.length, 29);
-  assert.deepEqual(TRANSITION_CATEGORIES, [
-    'フェード', 'ワイプ', 'スライド', 'カバー', 'リビール', '形状', '変形', '質感'
-  ]);
-  assert.match(source, /const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY\.map/u);
-  assert.match(source, /for \(const category of TRANSITION_CATEGORIES\)/u);
-  assert.match(source, /categorySection\.dataset\.akariTransitionCategory = category/u);
-  assert.match(source, /button\.dataset\.akariTransitionType = option\.type/u);
+  assert.equal(TRANSITION_FAMILIES.length, 15);
+  assert.match(source, /for \(const definition of TRANSITION_FAMILIES\)/u);
+  assert.match(source, /card\.dataset\.akariTransitionFamily = definition\.family/u);
+  assert.match(source, /card\.dataset\.akariTransitionType = type/u);
+  assert.match(source, /transitionFamilyLabelKey\(definition\.family\)/u);
 });
 
-test('既存 5 種のボタン文言は維持する', () => {
+test('既存 5 種の名称は維持する', () => {
   const labels = Object.fromEntries(TRANSITION_VOCABULARY.map(entry => [entry.id, entry.labelJa]));
   assert.equal(labels.dissolve, 'ディゾルブ');
   assert.equal(labels['fade-black'], '黒フェード');

@@ -158,13 +158,9 @@ export interface TransitionBoundaryHitCandidate {
     earlierIndex: number;
     laterIndex: number;
     x: number;
-    y: number;
+    applicable: boolean;
 }
 
-export interface TransitionDropPoint {
-    x: number;
-    y: number;
-}
 
 /** JSON 文字列と CustomEvent.detail の双方を、書き込み可能な transition payload に絞り込む。 */
 export function parseLibraryTransitionDragPayload(value: unknown): LibraryTransitionDragPayload | undefined {
@@ -195,35 +191,24 @@ export function filterSupportedTransitionBoundaries<T extends { earlierIndex: nu
     return boundaries.filter(boundary => !unsupportedEarlierIndexes.has(boundary.earlierIndex));
 }
 
-/**
- * ドロップ点に最も近い境界を円形の許容距離内で選ぶ。同距離では cut index の小さい方を選び、
- * DOM の列挙順に結果が左右されないようにする。
- */
-export function hitTestTransitionBoundary(
-    point: TransitionDropPoint,
+/** Visible, applicable boundary nearest to the pointer, with the left side winning ties. */
+export function nearestTransitionBoundary(
+    pointerX: number,
     candidates: readonly TransitionBoundaryHitCandidate[],
-    tolerancePx: number
+    visibleLeft: number,
+    visibleRight: number
 ): TransitionBoundaryHitCandidate | undefined {
-    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)
-        || !Number.isFinite(tolerancePx) || tolerancePx < 0) {
-        return undefined;
-    }
-    const toleranceSquared = tolerancePx * tolerancePx;
+    if (!Number.isFinite(pointerX) || !Number.isFinite(visibleLeft) || !Number.isFinite(visibleRight)) return undefined;
     let best: TransitionBoundaryHitCandidate | undefined;
-    let bestDistanceSquared = Number.POSITIVE_INFINITY;
+    let bestDistance = Number.POSITIVE_INFINITY;
     for (const candidate of candidates) {
-        if (!Number.isFinite(candidate.x) || !Number.isFinite(candidate.y)) continue;
-        const xDistance = candidate.x - point.x;
-        const yDistance = candidate.y - point.y;
-        const distanceSquared = xDistance * xDistance + yDistance * yDistance;
-        if (distanceSquared > toleranceSquared) continue;
-        const isCloser = distanceSquared < bestDistanceSquared;
-        const isDeterministicTie = distanceSquared === bestDistanceSquared
-            && (!best || candidate.earlierIndex < best.earlierIndex
-                || (candidate.earlierIndex === best.earlierIndex && candidate.laterIndex < best.laterIndex));
-        if (isCloser || isDeterministicTie) {
+        if (!candidate.applicable || !Number.isFinite(candidate.x)
+            || candidate.x < visibleLeft || candidate.x > visibleRight) continue;
+        const distance = Math.abs(candidate.x - pointerX);
+        if (distance < bestDistance || (distance === bestDistance && (!best || candidate.x < best.x
+            || (candidate.x === best.x && candidate.earlierIndex < best.earlierIndex)))) {
             best = candidate;
-            bestDistanceSquared = distanceSquared;
+            bestDistance = distance;
         }
     }
     return best;

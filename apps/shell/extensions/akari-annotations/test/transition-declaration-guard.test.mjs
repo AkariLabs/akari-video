@@ -18,8 +18,8 @@ test('宣言前ガードは edit.json 書き込みより先に return する', (
   const start = source.indexOf('protected async applyTransitionOut');
   const end = source.indexOf('protected unsupportedTransitionTrack', start);
   const method = source.slice(start, end);
-  const guard = method.indexOf('if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined');
-  const adjacency = method.indexOf('this.nonAdjacentTransitionTarget(cutIndex) !== undefined', guard);
+  const guard = method.indexOf('validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs()');
+  const adjacency = method.indexOf('if (transitionWriteIsBlocked(next, validation.blocks))', guard);
   const noWriteReturn = method.indexOf('return { ok: false, message };', guard);
   const write = method.indexOf("commitEditMutation(t('annotations.timeline.text.changeTransition')");
   assert.equal(ja['annotations.timeline.text.changeTransition'], 'トランジションを変更');
@@ -31,15 +31,14 @@ test('既存の非対応宣言はクリップ警告のワンクリックで null
   assert.match(source, /warning\.addEventListener\('click',[\s\S]*applyTransitionOut\(segment\.index, null\)/);
 });
 
-test('ポップオーバーは非対応理由を日本語で表示し付与ボタンを無効化する', () => {
-  const start = source.indexOf('protected openTransitionPopup');
+test('効かない宣言は理由画面を開き、書き込みガードを共有する', () => {
+  const start = source.indexOf('protected openTransitionPicker');
   const end = source.indexOf('protected async applyTransitionOut', start);
   const method = source.slice(start, end);
-  assert.match(method, /dataset\.akariTransitionGuard/);
-  assert.match(method, /warning\.textContent = this\.unsupportedTransitionMessage/);
-  assert.match(method, /unsupportedTrack !== undefined \|\| unsupportedAdjacency !== undefined \|\| zeroOverlap/);
-  assert.match(method, /button\.disabled = unsupportedTrack !== undefined \|\| unsupportedAdjacency !== undefined/);
-  assert.doesNotMatch(method, /button\.disabled =[^;]*zeroOverlap/);
+  assert.match(method, /blockedReason,/u);
+  assert.match(method, /this\.applyTransitionOut\(ref, null\)/u);
+  assert.match(source, /transitionDeclarationIsDead\(!!declared, boundary\.blocks,/u);
+  assert.match(source, /transitionWriteIsBlocked\(next, validation\.blocks\)/u);
 });
 
 test('非隣接の宣言済み transition_out はクリップ警告へ統合され固定文言を返す', () => {
