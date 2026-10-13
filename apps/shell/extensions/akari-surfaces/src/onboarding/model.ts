@@ -1,4 +1,5 @@
 import { createEmptyEditV2 } from '@akari-video/edit-store';
+import { OnboardingGuide } from './guide';
 
 export const ONBOARDING_STEPS = [
     'welcome', 'first', 'invite', 'tour0', 'tour1', 'tour2', 'tour3', 'drag', 'matpreview', 'ask',
@@ -14,6 +15,7 @@ export interface OnboardingState {
     answer?: AiAnswer;
     projectUri?: string;
     samplePath?: string;
+    sampleId?: string;
     imported?: boolean;
     exampleActive?: boolean;
     workCompleted?: boolean;
@@ -30,11 +32,13 @@ export function parseOnboardingState(value: unknown): OnboardingState | undefine
     if (raw.schema !== 1 || !ONBOARDING_STEPS.includes(raw.step as OnboardingStep)
         || !Number.isInteger(raw.sub) || (raw.sub as number) < 0) return undefined;
     if (raw.answer !== undefined && !['claude', 'chatgpt', 'google', 'none', 'other'].includes(String(raw.answer))) return undefined;
+    if (raw.sampleId !== undefined && (typeof raw.sampleId !== 'string' || !/^[a-z0-9-]+$/.test(raw.sampleId))) return undefined;
     return {
         schema: 1, step: raw.step as OnboardingStep, sub: raw.sub as number,
         answer: raw.answer as AiAnswer | undefined,
         projectUri: typeof raw.projectUri === 'string' ? raw.projectUri : undefined,
         samplePath: typeof raw.samplePath === 'string' ? raw.samplePath : undefined,
+        ...(typeof raw.sampleId === 'string' ? { sampleId: raw.sampleId } : {}),
         imported: raw.imported === true, exampleActive: raw.exampleActive === true,
         workCompleted: raw.workCompleted === true, materialOpened: raw.materialOpened === true,
         played: raw.played === true, completed: raw.completed === true
@@ -115,7 +119,9 @@ export interface TranscriptToken { t: string; start: number; end: number }
 
 // Keep each subtitle below the width of the standard 16:9 subtitle plate.
 // Token boundaries supply the timing; punctuation supplies natural breaks.
-export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): TranscriptSegment[] {
+export function splitOnboardingTokens(tokens: readonly TranscriptToken[],
+    subtitles: OnboardingGuide['subtitles']): TranscriptSegment[] {
+    if (subtitles.language !== 'ja') return splitSpacedTokens(tokens, subtitles.max_characters);
     const result: TranscriptSegment[] = [];
     let group: TranscriptToken[] = [];
     const Segmenter = (Intl as typeof Intl & { Segmenter: new (locale: string, options: { granularity: 'word' }) => {
@@ -134,7 +140,7 @@ export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): Trans
         for (let end = 1; end <= group.length; end++) {
             for (let start = end - 1; start >= 0; start--) {
                 const length = offsets[end] - offsets[start];
-                if (length > 13 && start < end - 1) break;
+                if (length > subtitles.max_characters && start < end - 1) break;
                 const cost = best[start] + (length - 10) ** 2
                     + (length < 5 && group.length > 1 ? 45 : 0)
                     + (end < group.length && !wordEnds.has(offsets[end]) ? 80 : 0)
@@ -163,23 +169,45 @@ export function splitOnboardingTokens(tokens: readonly TranscriptToken[]): Trans
     return result;
 }
 
+function splitSpacedTokens(tokens: readonly TranscriptToken[], maxCharacters: number): TranscriptSegment[] {
+    const result: TranscriptSegment[] = [];
+    let group: TranscriptToken[] = [];
+    const limit = Math.max(1, maxCharacters);
+    const flush = (): void => {
+        if (!group.length) return;
+        result.push({ start: group[0].start, end: Math.max(group[0].start + .05, group[group.length - 1].end),
+            text: group.map(token => token.t).join(' ').replace(/\s+([.!?,])/gu, '$1') });
+        group = [];
+    };
+    for (const token of tokens) {
+        if (!token.t || !Number.isFinite(token.start) || !Number.isFinite(token.end)) continue;
+        const next = [...group.map(part => part.t), token.t].join(' ').replace(/\s+([.!?,])/gu, '$1');
+        if (group.length && next.length > limit) flush();
+        group.push(token);
+        if (/[.!?,]["'”’）)\]】」』]*$/u.test(token.t) && !/^(?:[A-Za-z]\.){2,}$/u.test(token.t)) flush();
+    }
+    flush();
+    return result;
+}
+
 export function createEmptyOnboardingEdit(): object {
     return createEmptyEditV2({ width: 1280, height: 720, geometry: 'omit' });
 }
 
-export function createOnboardingEdit(samplePath: string, withTitle = false): object {
-    const frames = 1128;
-    const tracks: object[] = [{ id: 'video', lane: 'visual', name: '本編', items: [
-        { id: 'sample', at: 0, duration: frames, source: { kind: 'media', src: 'sample', in: 0, out: 37.6 } }
+export function createOnboardingEdit(samplePath: string, withTitle: boolean, guide: OnboardingGuide): object {
+    const frames = guide.duration_frames;
+    const tracks: object[] = [{ id: 'video', lane: 'visual', name: guide.tracks.video, items: [
+        { id: 'sample', at: 0, duration: frames, source: { kind: 'media', src: 'sample', in: 0, out: guide.duration_seconds } }
     ] }];
-    if (withTitle) tracks.push({ id: 'captions', lane: 'visual', name: '字幕とタイトル', items: [
+    if (withTitle) tracks.push({ id: 'captions', lane: 'visual', name: guide.tracks.captions_and_title, items: [
         { id: 'captions', at: 0, duration: frames, source: { kind: 'captions', path: 'captions.json' } }
     ] });
     return { version: 2, output: { width: 1280, height: 720, fps: 30, geometry: 'source' },
         sources: [{ id: 'sample', path: samplePath }], tracks };
 }
 
-export function createOnboardingCaptions(segments: readonly TranscriptSegment[], count: number, withTitle = false): object {
+export function createOnboardingCaptions(segments: readonly TranscriptSegment[], count: number, withTitle: boolean,
+    guide: OnboardingGuide): object {
     const captions: object[] = segments.slice(0, count).map((segment, index) => ({
         id: `c-${String(index + 1).padStart(4, '0')}`, start: segment.start, end: segment.end,
         text: segment.text, display_text: segment.text, runs: [],
@@ -187,9 +215,9 @@ export function createOnboardingCaptions(segments: readonly TranscriptSegment[],
         src: 'sample', style_preset: 'subtitle-standard'
     }));
     if (withTitle) captions.push({
-        id: `c-${String(segments.length + 1).padStart(4, '0')}`, start: 0, end: 37.6,
-        text: 'AI と話すだけで動画編集', speaker: null, sourceRef: null,
-        display_text: 'AI と話すだけで動画編集', runs: [],
+        id: `c-${String(segments.length + 1).padStart(4, '0')}`, start: 0, end: guide.duration_seconds,
+        text: guide.title_caption, speaker: null, sourceRef: null,
+        display_text: guide.title_caption, runs: [],
         edited: true, time_domain: 'output', style_preset: 'title-impact',
         text_style: { zone: 'top-right', size_px: 38, weight: 800, letter_spacing_em: 0.035,
             max_characters: 40, color: '#FFFFFF',

@@ -78,6 +78,7 @@ const expectedPlan = {
   punch_in_keyframes: [{ t: 590, transform: { x: 0, scale: 1 } }, { t: 592, transform: { x: 0, scale: 1.1 }, easing: 'out-expo' }, { t: 593, transform: { x: 4, scale: 1.1 } }, { t: 594, transform: { x: -4, scale: 1.1 } }, { t: 595, transform: { x: 0, scale: 1.1 } }, { t: 633, transform: { x: 0, scale: 1.1 } }, { t: 642, transform: { x: 0, scale: 1 }, easing: 'in-out-cubic' }]
 };
 const sample = join(dirname(fileURLToPath(import.meta.url)), '../../../../resources/onboarding-sample/talkinghead-desk-ja-01');
+const guide = JSON.parse(await readFile(join(sample, 'guide.json'), 'utf8'));
 const exists = path => stat(path).then(() => true, () => false);
 const json = async path => JSON.parse(await readFile(path, 'utf8'));
 const overlays = ['demo-title', 'demo-chat', 'demo-done', 'demo-effects', 'demo-flash',
@@ -129,7 +130,7 @@ async function fixture(t) {
     const uri = pathToFileURL(root).toString();
     const service = new AkariOnboardingServiceImpl();
     service.load = async () => ({ schema: 1, step: 'work', sub: 0, projectUri: uri, imported: true, exampleActive: true });
-    const segments = splitOnboardingTokens((await json(join(sample, 'transcript.json'))).tokens.items);
+    const segments = splitOnboardingTokens((await json(join(sample, 'transcript.json'))).tokens.items, guide.subtitles);
     return { root, uri, service, segments };
 }
 
@@ -183,6 +184,7 @@ test('同梱 24 本が library に届き、旧図解は同梱されない', asyn
     t.after(() => rm(root, { recursive: true, force: true }));
     const library = await new AkariOnboardingServiceImpl().ensureSample(root);
     for (const [origin] of files) assert.equal(await exists(join(library, origin)), true, origin);
+    assert.equal(await exists(join(library, 'guide.json')), false);
 });
 
 test('段階 0〜8 の edit・字幕・素材コピーと lint', async t => {

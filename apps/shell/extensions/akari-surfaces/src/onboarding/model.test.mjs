@@ -14,6 +14,8 @@ const {
     previousGuidePosition, onboardingCaptionSeekTime, createEmptyOnboardingEdit, createOnboardingEdit,
     createOnboardingCaptions, splitOnboardingTokens
 } = require('../../lib/onboarding/model.js');
+const guide = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)),
+    '../../../../resources/onboarding-sample/talkinghead-desk-ja-01/guide.json'), 'utf8'));
 const segments = [
     { start: 0.3, end: 1.1, text: 'こんにちは。' },
     { start: 1.3, end: 2.1, text: '今日はですね。' },
@@ -79,7 +81,7 @@ test('書き出し前は一段ずつ戻り、開始後は書き出しを止め�
 test('お手本の字幕表示文は読点を置換しない', () => {
     const captions = createOnboardingCaptions([
         { start: 0, end: 1, text: 'ほら、こんな感じで。' }
-    ], 1).captions;
+    ], 1, false, guide).captions;
     assert.equal(captions[0].text, 'ほら、こんな感じで。');
     assert.equal(captions[0].display_text, 'ほら、こんな感じで。');
 });
@@ -107,6 +109,13 @@ test('保存形式を検査し、同じプロジェクトでのみ中断段か�
     assert.equal(parseOnboardingState({ ...state, sub: -1 }), undefined);
 });
 
+test('保存した sampleId を保ち、旧状態は sampleId なしで読める', () => {
+    const state = { schema: 1, step: 'tour0', sub: 0, projectUri: 'file:///project' };
+    assert.equal(parseOnboardingState({ ...state, sampleId: 'talkinghead-desk-en-01' }).sampleId,
+        'talkinghead-desk-en-01');
+    assert.equal(parseOnboardingState(state).sampleId, undefined);
+});
+
 test('最後の接続先は回答に従い、未使用・その他には表示しない', () => {
     assert.equal(partnerToConnect('claude'), 'Claude Code CLI');
     assert.equal(partnerToConnect('chatgpt'), 'Codex CLI');
@@ -118,11 +127,11 @@ test('最後の接続先は回答に従い、未使用・その他には表示�
 test('同梱の語時刻から短い一行字幕を決定的に作る', async () => {
     const transcript = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)),
         '../../../../resources/onboarding-sample/talkinghead-desk-ja-01/transcript.json'), 'utf8'));
-    const result = splitOnboardingTokens(transcript.tokens.items);
+    const result = splitOnboardingTokens(transcript.tokens.items, guide.subtitles);
     assert.ok(result.length > 7);
     assert.equal(result.map(item => item.text).join(''), transcript.tokens.items.map(item => item.t).join(''));
     assert.ok(result.every(item => item.text.length <= 14 && item.end > item.start));
-    assert.deepEqual(result, splitOnboardingTokens(transcript.tokens.items));
+    assert.deepEqual(result, splitOnboardingTokens(transcript.tokens.items, guide.subtitles));
 });
 
 test('お手本の本編、1行ずつの字幕、右上タイトルが edit-lint を通る', async () => {
@@ -134,8 +143,8 @@ test('お手本の本編、1行ずつの字幕、右上タイトルが edit-lint
         await writeFile(join(dir, 'assets', 'sample.txt'), 'test fixture');
         for (const count of [0, 1, 4, 7]) {
             const title = count === 7;
-            const edit = createOnboardingEdit('assets/sample.txt', count > 0);
-            const captions = createOnboardingCaptions(segments, count, title);
+            const edit = createOnboardingEdit('assets/sample.txt', count > 0, guide);
+            const captions = createOnboardingCaptions(segments, count, title, guide);
             assert.equal(captions.captions.filter(caption => caption.sourceRef !== null).length, count);
             if (title) {
                 const item = captions.captions.find(caption => caption.id === 'c-0008');

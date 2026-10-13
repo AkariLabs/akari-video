@@ -1,0 +1,119 @@
+{
+  "language": "en",
+  "duration_seconds": 4,
+  "duration_frames": 120,
+  "asset_name": "Example.mp4",
+  "project_title": "First video",
+  "title_caption": "Edit with AI",
+  "tracks": {
+    "video": "Video",
+    "captions_and_title": "Captions and title",
+    "captions": "Captions",
+    "demo-phone-screen": "Phone screen",
+    "demo-flash": "Flash",
+    "demo-stage": "Overlays",
+    "demo-accents": "Accents",
+    "onboarding-bgm": "Music",
+    "demo-sfx": "Sound effects"
+  },
+  "demo_plan": {
+    "stages": [
+      {
+        "stage": 1,
+        "key": "stage-1",
+        "items": [
+          {
+            "track": "demo-stage",
+            "item": {
+              "id": "demo-title",
+              "name": "Edit with AI",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/demo-title/fragment.html"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "stage": 2,
+        "key": "stage-2",
+        "items": []
+      },
+      {
+        "stage": 3,
+        "key": "stage-3",
+        "items": []
+      },
+      {
+        "stage": 4,
+        "key": "stage-4",
+        "items": []
+      },
+      {
+        "stage": 5,
+        "key": "stage-5",
+        "items": []
+      },
+      {
+        "stage": 6,
+        "key": "stage-6",
+        "items": []
+      },
+      {
+        "stage": 7,
+        "key": "stage-7",
+        "items": []
+      },
+      {
+        "stage": 8,
+        "key": "stage-8",
+        "items": []
+      }
+    ],
+    "punch_in_keyframes": []
+  },
+  "seek_seconds": [
+    0.2,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5
+  ],
+  "emphasis": [
+    {
+      "text": "Edit",
+      "scale": 1.15
+    }
+  ],
+  "karaoke": {
+    "pair": "Music, captions sing.",
+    "head": "Music,",
+    "text": "captions sing.",
+    "separator": ","
+  },
+  "log_words": {
+    "opening_title": "Edit",
+    "first_quote": "AI chat",
+    "second_quote": "Ready",
+    "effect": "Pop",
+    "diagram": "Diagram",
+    "music": "Music",
+    "karaoke": "Karaoke",
+    "credit": "Editing AI"
+  },
+  "finder": {
+    "length": "00:04",
+    "size": "1280×720"
+  },
+  "asset_facts_duration_seconds": 4,
+  "subtitles": {
+    "language": "en",
+    "max_characters": 42
+  }
+}

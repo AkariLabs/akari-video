@@ -9,6 +9,7 @@ import { splitOnboardingTokens } from '../../lib/onboarding/model.js';
 import { readEditV2 } from '../../../../../../packages/edit-store/lib/edit-v2.js';
 
 const sample = join(dirname(fileURLToPath(import.meta.url)), '../../../../resources/onboarding-sample/talkinghead-desk-ja-01');
+const guide = JSON.parse(await readFile(join(sample, 'guide.json'), 'utf8'));
 
 test('完成した見本の edit.json は厳格な v2 reader で読める', async t => {
     const root = await mkdtemp(join(process.env.AKARI_TEST_SCRATCH || tmpdir(), 'akari-demo-v2-read-'));
@@ -21,7 +22,7 @@ test('完成した見本の edit.json は厳格な v2 reader で読める', asyn
     const service = new AkariOnboardingServiceImpl();
     service.load = async () => ({ schema: 1, step: 'work', sub: 0, projectUri: uri, imported: true, exampleActive: true });
     const transcript = JSON.parse(await readFile(join(sample, 'transcript.json'), 'utf8'));
-    const segments = splitOnboardingTokens(transcript.tokens.items);
+    const segments = splitOnboardingTokens(transcript.tokens.items, guide.subtitles);
     await service.writeExample(uri, join(sample, 'clip.mp4'), segments, segments.length, true, { stage: 8 });
     const edit = readEditV2(await readFile(join(root, 'edit.json'), 'utf8'));
     const phone = edit.tracks.flatMap(track => 'items' in track ? track.items : [])

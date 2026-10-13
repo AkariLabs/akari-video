@@ -1145,7 +1145,6 @@ export class AkariMaterialsPane {
             <div
                 key={entry.uri.toString()}
                 data-akari-material-path={entry.relativePath}
-                data-akari-onboarding-target={entry.relativePath === 'assets/サンプル動画.mp4' ? 'sample-card' : undefined}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 data-akari-material-reference={entry.reference ? 'true' : undefined}
                 data-akari-material-missing={entry.missing ? 'true' : undefined}
