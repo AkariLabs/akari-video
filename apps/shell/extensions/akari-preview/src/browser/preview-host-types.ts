@@ -186,6 +186,7 @@ export interface EditSummaryCut {
         type: ReadableTransitionType;
         duration: number;
     };
+    transitionHold?: { headSeconds: number };
     at?: number;
     track: number;
     trackId: string;

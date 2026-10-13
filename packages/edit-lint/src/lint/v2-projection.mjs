@@ -31,13 +31,23 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
   for (const track of transitionPlanClipsFromCuts(planCuts, {
     fps, resolve: cut => ({ stillImage: isStillCut(cut), freezeSeconds: freezeDurationSeconds(cut?.freeze) })
   })) {
-    for (const plan of planTrackTransitions(track.clips, { fps })) {
-      if (plan.legacyOverlap || plan.state === 'ok') continue;
+    for (const plan of planTrackTransitions(track.clips, { fps, tailRoom: 'ignore' })) {
+      if (plan.legacyOverlap) continue;
       const earlierIndex = Number(plan.earlierId);
       const laterIndex = Number(plan.laterId);
       const earlier = segments.find(segment => segment.index === earlierIndex);
       const later = segments.find(segment => segment.index === laterIndex);
       const path = `edit.json#cuts[${earlierIndex}].transition_out`;
+      if (plan.freezeIncomingSeconds > 0) {
+        addFinding(findings, {
+          severity: 'info', check: 'cuts.transition-out.freeze',
+          message: lintText('lint-messages.cuts.transition.freeze',
+            { seconds: plan.freezeIncomingSeconds }),
+          path,
+          range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
+        });
+      }
+      if (plan.state === 'ok') continue;
       if (plan.state === 'none') {
         addFinding(findings, {
           severity: 'warning', check: 'cuts.transition-out.zero-overlap',

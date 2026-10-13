@@ -5,7 +5,7 @@ import { buildTimelineMap, buildWebAudioSchedule, projectSpeechDeclarations,
   projectSpeechDeclarationsFromWindows } from '../lib/index.js';
 
 // Set to true when timeline-map widens the window for transitionHold and adds holdHeadSeconds to its participant.
-const HOLD_WINDOW_READY = false;
+const HOLD_WINDOW_READY = true;
 const cases = JSON.parse(fs.readFileSync(new URL('./transition-plan-cases.json', import.meta.url), 'utf8'));
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 
