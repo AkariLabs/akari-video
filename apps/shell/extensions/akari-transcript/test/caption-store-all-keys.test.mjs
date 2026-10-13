@@ -12,6 +12,18 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { parseCaptions, regenerateCaptions, serializeCaptions } = require('../lib/browser/caption-store.js');
 
+test('ルートの未解決範囲を再生成と保存で保全する', () => {
+    const unresolved = [{ run: { id: 'r-0001', from: 0, to: 1 }, old_caption_id: 'c-old',
+        old_text: '旧', old_src: 's1', old_start: 0, old_end: 1, reason: '行が消えた' }];
+    const emphasis = [{ id: 'e-0001', word: '猫', t_start: 0, t_end: 1, emotion: 'joy' }];
+    const source = JSON.stringify({ captions: [], emphasis_words: emphasis, unresolved_runs: unresolved });
+    const parsed = parseCaptions(source);
+    const saved = JSON.parse(serializeCaptions(parsed.captions, parsed.shape));
+    assert.deepEqual(saved.unresolved_runs, unresolved);
+    assert.deepEqual(saved.emphasis_words, emphasis);
+    assert.deepEqual(Object.keys(saved), ['captions', 'emphasis_words', 'unresolved_runs']);
+});
+
 const schema = JSON.parse(await readFile(
     new URL('../../../../../packages/schemas/captions.schema.json', import.meta.url),
     'utf8'
@@ -31,6 +43,7 @@ const optionalValues = {
     display_fragments: ['前半', '後半'],
     style_preset: 'subtitle-standard',
     text_style: { color: '#ffffff' },
+    style_sources: { look: { kind: 'builtin', id: 'sample', original_hash: 'x', applied_hash: 'y' } },
     display_timing: 'speech-tight',
     runs: [{ from: 0, to: 1, role: 'emphasis' }]
 };
