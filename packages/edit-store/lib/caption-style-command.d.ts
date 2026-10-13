@@ -1,3 +1,4 @@
+import { anchorForCaptionRange } from './caption-anchor-map';
 import { type CaptionRun } from './caption-runs';
 import { type TextstyleCatalog } from './caption-style-preset';
 type Row = Record<string, unknown> & {
@@ -71,6 +72,16 @@ type Plan = {
     changed: string[];
     notices: string[];
 };
+type EmphasisWord = {
+    src?: string;
+    t_start: number;
+    t_end: number;
+    word: string;
+};
+export declare function captionEmphasisOverlapsRange(row: Row, range: {
+    from: number;
+    to: number;
+}, emphasis: EmphasisWord, resolvedAnchor?: ReturnType<typeof anchorForCaptionRange>): boolean;
 export declare function planCaptionStyleEdit(input: CaptionStyleEditInput): Plan;
 export type CaptionClearTarget = {
     caption_id: string;
@@ -117,11 +128,13 @@ export declare function planCaptionStyleReapply(input: {
     };
     notices: string[];
 };
+export declare function resizeCaptionRow(row: Row, defaultStyle: Record<string, unknown>, size: number, catalog?: TextstyleCatalog, notices?: string[], at?: string): boolean;
 export declare function planCaptionSizeEdit(input: {
     captions: CaptionRoot;
     targets: Array<{
         caption_id: string;
     }>;
     size_px: number;
+    catalog?: TextstyleCatalog;
 }): Plan;
 export {};

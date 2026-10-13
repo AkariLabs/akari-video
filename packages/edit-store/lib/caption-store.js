@@ -24,6 +24,8 @@ const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_merge_1 = require("./textstyle-catalog-merge");
 const caption_display_1 = require("./caption-display");
+const caption_style_command_1 = require("./caption-style-command");
+const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -361,7 +363,7 @@ function applyWordBookToCaptionsInSourceWithNotices(source, changes) {
     }
     return { source: output, notices };
 }
-function updateCaptionTextStyleInSource(source, captionId, updates) {
+function updateCaptionTextStyleInSource(source, captionId, updates, catalog = textstyle_catalog_1.TEXTSTYLE_CATALOG) {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
@@ -369,6 +371,17 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
+    if (typeof updates.sizePx === 'number') {
+        const planned = (0, caption_style_command_1.planCaptionSizeEdit)({ captions: JSON.parse(source),
+            targets: [{ caption_id: captionId }], size_px: updates.sizePx, catalog });
+        if (planned.changed.length) {
+            const rows = Array.isArray(planned.next.captions) ? planned.next.captions : planned.next.captions.captions;
+            const row = rows.find(candidate => candidate.id === captionId);
+            for (const key of ['text_style', 'runs', 'style_sources', 'style_preset'])
+                nextElement = syncOptionalCaptionProperty(nextElement, key, row[key], captionId);
+        }
+        updates = { ...updates, sizePx: undefined };
+    }
     const existing = locateTopLevelProperty(nextElement, 'text_style');
     if (!existing) {
         const created = textStylePatchToJson(updates);

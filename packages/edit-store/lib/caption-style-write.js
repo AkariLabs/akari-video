@@ -104,7 +104,8 @@ async function reapplyCaptionStyle(projectRoot, input, options = {}) {
 }
 async function setCaptionSize(projectRoot, input, options = {}) {
     const { before, captions } = await readCaptions(projectRoot, options);
-    const result = (0, caption_style_command_1.planCaptionSizeEdit)({ ...input, captions });
+    const result = (0, caption_style_command_1.planCaptionSizeEdit)({ ...input, captions, catalog: options.catalog
+            ?? (0, textstyle_library_node_1.loadTextstyleCatalogSync)({ env: process.env }).catalog });
     return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-size');
 }
 async function applyCaptionLookMigration(projectRoot, options = {}) {

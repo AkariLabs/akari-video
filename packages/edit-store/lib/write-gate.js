@@ -390,11 +390,11 @@ async function acquireProjectLock(projectRoot, options) {
         }
         catch { /* ほかの待ち手の印や一時的な失敗は待機を妨げない。 */ }
     };
-    const releaseOwned = (ownedNonce, acquiredAt) => async () => {
+    const releaseOwned = (ownedNonce, acquiredAt, reused = false) => async () => {
         // 長時間の処理中に lock を奪われた場合は、別の持ち主の lock を消さない。
-        if (now() - acquiredAt >= 30_000) {
+        if (reused || now() - acquiredAt >= 30_000) {
             try {
-                const current = await readBytes(lock);
+                const current = await readBytes(lock, ops);
                 if (!current || JSON.parse(current.toString('utf8')).nonce !== ownedNonce)
                     return;
             }
@@ -460,7 +460,7 @@ async function acquireProjectLock(projectRoot, options) {
                                 throw error;
                             throw probeError;
                         }
-                        await ops.unlink(probe);
+                        await retryFs(() => ops.unlink(probe)).catch(() => undefined);
                         permissionFailures = 0;
                     }
                 }
@@ -473,7 +473,7 @@ async function acquireProjectLock(projectRoot, options) {
         }
         let existing;
         try {
-            existing = await readBytes(lock);
+            existing = await readBytes(lock, ops);
         }
         catch (error) {
             if (!retryCodes.has(error.code ?? ''))
@@ -489,13 +489,13 @@ async function acquireProjectLock(projectRoot, options) {
                 owner = JSON.parse(existing.toString('utf8'));
             }
             catch { /* 壊れた lock は期限後に奪う */ }
+            const created = Date.parse(owner.created_at ?? '');
             if (owner.host === host && owner.pid === process.pid && typeof owner.nonce === 'string'
                 && owner.nonce === sharedState.unreleased.get(lock)) {
                 sharedState.unreleased.delete(lock);
                 await clearOwnWaitMark();
-                return releaseOwned(owner.nonce, now());
+                return releaseOwned(owner.nonce, Number.isFinite(created) ? created : now(), true);
             }
-            const created = Date.parse(owner.created_at ?? '');
             let age;
             try {
                 age = now() - (Number.isFinite(created) ? created : (await fs_1.promises.stat(lock)).mtimeMs);
@@ -515,7 +515,16 @@ async function acquireProjectLock(projectRoot, options) {
                 const clearStaleClaim = async () => {
                     try {
                         const stat = await fs_1.promises.stat(claim);
-                        if (Date.now() - stat.mtimeMs > 5_000)
+                        let claimant = {};
+                        try {
+                            claimant = JSON.parse((await fs_1.promises.readFile((0, path_1.join)(claim, 'owner.json'))).toString('utf8'));
+                        }
+                        catch { /* 識別できない claim は期限後だけ取り除く */ }
+                        if (claimant.host === host && typeof claimant.pid === 'number'
+                            && (options.hooks?.processAlive ?? ownerAlive)(claimant.pid))
+                            return;
+                        const createdAt = Date.parse(claimant.created_at ?? '');
+                        if (now() - (Number.isFinite(createdAt) ? createdAt : stat.mtimeMs) > 30_000)
                             await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
                     }
                     catch (error) {
@@ -528,6 +537,8 @@ async function acquireProjectLock(projectRoot, options) {
                     await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
+                    await retryFs(() => ops.writeFile((0, path_1.join)(claim, 'owner.json'), JSON.stringify({ pid: process.pid,
+                        host, created_at: new Date(now()).toISOString() })));
                     const current = await readBytes(lock);
                     if (current?.equals(existing)) {
                         await retryFs(() => ops.unlink(lock)).catch(error => { if (!absent(error))
@@ -544,7 +555,7 @@ async function acquireProjectLock(projectRoot, options) {
                 }
                 finally {
                     if (claimed)
-                        await retryFs(() => ops.rmdir(claim)).catch(() => undefined);
+                        await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
                 }
             }
             else if (typeof owner.pid === 'number' && Number.isInteger(owner.pid) && owner.pid > 0
@@ -668,6 +679,7 @@ async function writeJournal(destination, content, options) {
         throw error;
     }
 }
+/** 保存の onDidWrite 通知の中から await しない。 */
 async function recoverInterruptedProjectWrite(projectRoot) {
     const detail = await recoverInterruptedProjectWriteDetailed(projectRoot);
     return detail && recoveryNotice(detail);
