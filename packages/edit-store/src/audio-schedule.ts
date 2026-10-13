@@ -47,8 +47,11 @@ export interface WebAudioDecodedItem {
 export interface WebAudioSidecar {
     path: string;
     durationSec: number;
+    /** Requested source seconds before and after the trim. */
     padBeforeSec: number;
     padAfterSec: number;
+    /** Actual first source second after clamping at the start of the material. */
+    actualStartSeconds?: number;
     generatedMs?: number;
     skipped?: boolean;
     bytes?: number;
@@ -84,10 +87,15 @@ export interface WebAudioSpeechDeclaration {
         durationSec: number;
         generatedMs?: number;
     };
+    /** Window handles in output seconds; the host converts them to source seconds. */
     padBeforeSec?: number;
     padAfterSec?: number;
     crossfadeInSec?: number;
     crossfadeOutSec?: number;
+    /** A clip wholly inside the window fades from its own start. */
+    fadeInAtStart?: boolean;
+    /** Absolute start of the incoming window when source availability delays this clip. */
+    fadeInWindowStartSec?: number;
 }
 
 export interface WebAudioSpeechCut extends EditCut {
@@ -493,19 +501,35 @@ function scheduleSpeech(
     const baked = sidecar ?? atempo;
     const crossfadeInSec = finitePositive(spec.crossfadeInSec) ? spec.crossfadeInSec as number : 0;
     const crossfadeOutSec = finitePositive(spec.crossfadeOutSec) ? spec.crossfadeOutSec as number : 0;
-    const effectiveAtSec = spec.atSec - crossfadeInSec;
-    const effectiveDurationSec = spec.durationSec + crossfadeInSec;
-    const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
-    if (elapsedIntoItemSec >= effectiveDurationSec) return null;
-    const delaySec = Math.max(0, effectiveAtSec - startAtSec);
-    const timelineStartSec = startAtSec + delaySec;
+    const incomingLeadSec = spec.fadeInAtStart ? 0 : crossfadeInSec;
+    const effectiveAtSec = spec.atSec - incomingLeadSec;
+    const effectiveDurationSec = spec.durationSec + incomingLeadSec;
     const playbackRate = baked ? 1 : spec.speed;
     const padBeforeSec = sidecar && finiteNonNegative(sidecar.padBeforeSec)
         ? sidecar.padBeforeSec : finiteNonNegative(spec.padBeforeSec) ? spec.padBeforeSec as number : 0;
-    const bakedContentOffsetSec = sidecar ? padBeforeSec / spec.speed : 0;
+    const bakedContentOffsetSec = sidecar
+        ? (finiteNonNegative(sidecar.actualStartSeconds)
+            ? (spec.inSec - sidecar.actualStartSeconds!) / spec.speed
+            : padBeforeSec / spec.speed) : 0;
+    const availableLeadSec = baked ? bakedContentOffsetSec : spec.inSec / spec.speed;
+    const missingLeadSec = incomingLeadSec - availableLeadSec;
+    let elapsedIntoItemSec: number;
+    let delaySec: number;
+    let timelineStartSec: number;
+    if (missingLeadSec <= 1e-9) {
+        elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
+        delaySec = Math.max(0, effectiveAtSec - startAtSec);
+        timelineStartSec = startAtSec + delaySec;
+    } else {
+        const readableAtSec = effectiveAtSec + missingLeadSec;
+        timelineStartSec = Math.max(startAtSec, readableAtSec);
+        delaySec = timelineStartSec - startAtSec;
+        elapsedIntoItemSec = timelineStartSec - effectiveAtSec;
+    }
+    if (elapsedIntoItemSec >= effectiveDurationSec) return null;
     const sourceOffsetSec = baked
-        ? Math.max(0, bakedContentOffsetSec - crossfadeInSec + elapsedIntoItemSec)
-        : Math.max(0, spec.inSec - crossfadeInSec * spec.speed + elapsedIntoItemSec * spec.speed);
+        ? Math.max(0, bakedContentOffsetSec - incomingLeadSec + elapsedIntoItemSec)
+        : Math.max(0, spec.inSec - incomingLeadSec * spec.speed + elapsedIntoItemSec * spec.speed);
     const sourceEndSec = baked
         ? Math.min(baked.durationSec, spec.materialDurationSec)
         : Math.min(spec.outSec, spec.materialDurationSec);
@@ -527,7 +551,9 @@ function scheduleSpeech(
         durationSec,
         crossfadeInSec,
         crossfadeOutSec,
-        baseGain
+        baseGain,
+        finiteNonNegative(spec.fadeInWindowStartSec)
+            ? spec.atSec - spec.fadeInWindowStartSec! : 0
     );
     return {
         kind: 'speech',
@@ -574,24 +600,20 @@ export function projectSpeechDeclarations(
         usable[segment.index].index,
         { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
     ]));
+    const outgoingEnds = new Map<number, number>();
     for (const window of map.transitionWindows) {
-        for (const participant of [window.outgoing, window.incoming]) {
-            const clip = clipWindows.get(participant.cutIndex!);
-            const cut = normalizedCuts[participant.cutIndex!];
-            if (!clip || !cut || typeof participant.in !== 'number') continue;
-            const speed = finitePositive(cut.speed) ? cut.speed as number : 1;
-            // Transition slices retain the source mapping after hidden-handle adjustment,
-            // even when another track completely covers both participants.
-            clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
-        }
         const outgoing = clipWindows.get(window.outgoing.cutIndex!);
         const incoming = clipWindows.get(window.incoming.cutIndex!);
-        if (outgoing) outgoing.end = Math.max(outgoing.end, window.end);
+        if (outgoing) {
+            outgoing.end = Math.max(outgoing.end, window.end);
+            outgoingEnds.set(window.outgoing.cutIndex!, outgoing.end);
+        }
         // scheduleSpeech adds this incoming overlap back via crossfadeInSec. Keep the
         // existing declaration boundary so the transition is not applied twice.
         if (incoming) incoming.start = Math.max(incoming.start, window.end);
     }
     const declarations: WebAudioSpeechDeclaration[] = [];
+    const declarationsByCut = new Map<number, WebAudioSpeechDeclaration[]>();
     for (const [cutIndex, clip] of clipWindows) {
         const cut = normalizedCuts[cutIndex];
         if (!cut || typeof cut.src !== 'string' || !cut.src) continue;
@@ -602,16 +624,18 @@ export function projectSpeechDeclarations(
         const gainDb = speechGainDb(cut);
         const baseId = speechBaseId(cut, cutIndex);
         const holdSec = freezeDuration(cut.freeze);
+        const firstDeclaration = declarations.length;
         if (!(holdSec > 0)) {
             appendSpeechIntersection(declarations, {
                 id: `${baseId}-speech`, src: cut.src, gainDb, speed,
                 sourceIn: cut.in,
                 outputStart: cutTimelineStart,
-                outputEnd: cutTimelineStart + baseDurationSec,
+                outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec,
                 clipStart: clip.start,
                 clipEnd: clip.end,
                 track: cut.track
             });
+            declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
             continue;
         }
         const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
@@ -629,31 +653,64 @@ export function projectSpeechDeclarations(
             id: `${baseId}-speech-post`, src: cut.src, gainDb, speed,
             sourceIn: freezeSourceIn,
             outputStart: cutTimelineStart + freezeAtSec + holdSec,
-            outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+            outputEnd: outgoingEnds.get(cutIndex) ?? cutTimelineStart + baseDurationSec + holdSec,
             clipStart: clip.start,
             clipEnd: clip.end,
             track: cut.track
         });
+        declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
     }
     for (const window of map.transitionWindows) {
         if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null) continue;
-        const outgoingCut = normalizedCuts[window.outgoing.cutIndex];
         const incomingCut = normalizedCuts[window.incoming.cutIndex];
-        const outgoingBase = speechBaseId(outgoingCut, window.outgoing.cutIndex);
         const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
-        const outgoing = [...declarations].reverse().find(item =>
-            item.id.startsWith(`${outgoingBase}-speech`)
-            && item.atSec <= window.start + 1e-9
+        const outgoing = [...(declarationsByCut.get(window.outgoing.cutIndex) ?? [])].reverse().find(item =>
+            item.atSec <= window.start + 1e-9
             && item.atSec + item.durationSec >= window.end - 1e-9);
-        const incoming = declarations.find(item =>
-            item.id.startsWith(`${incomingBase}-speech`)
-            && item.atSec >= window.end - 1e-9);
+        let incoming = (declarationsByCut.get(window.incoming.cutIndex) ?? []).find(item =>
+            item.atSec <= window.end + 1e-9
+            && item.atSec + item.durationSec > window.start + 1e-9);
+        if (!incoming && incomingCut && typeof incomingCut.src === 'string'
+            && incomingCut.src && isCutAudioAudible(incomingCut)) {
+            const clip = clipWindows.get(window.incoming.cutIndex);
+            const speed = finitePositive(incomingCut.speed) ? incomingCut.speed as number : 1;
+            if (clip && clip.end <= window.end + 1e-9 && window.end > window.start) {
+                const rawSourceIn = incomingCut.in + (window.start - clip.cutTimelineStart) * speed;
+                const sourceIn = rawSourceIn >= -1e-9 ? Math.max(0, rawSourceIn) : 0;
+                const availableStart = rawSourceIn >= -1e-9
+                    ? window.start : window.start - rawSourceIn / speed;
+                if (availableStart < window.end - 1e-9) {
+                    const replacement: WebAudioSpeechDeclaration[] = [];
+                    appendSpeechIntersection(replacement, {
+                        id: `${incomingBase}-speech`, src: incomingCut.src,
+                        gainDb: speechGainDb(incomingCut), speed,
+                        sourceIn, outputStart: availableStart, outputEnd: window.end,
+                        clipStart: availableStart, clipEnd: window.end,
+                        track: incomingCut.track
+                    });
+                    incoming = replacement[0];
+                    if (incoming) {
+                        incoming.fadeInAtStart = true;
+                        if (availableStart > window.start + 1e-9) incoming.fadeInWindowStartSec = window.start;
+                        let insertAt = declarations.length;
+                        for (const [index, items] of declarationsByCut) {
+                            if (index > window.incoming.cutIndex! && items.length) {
+                                insertAt = Math.min(insertAt, declarations.indexOf(items[0]));
+                            }
+                        }
+                        declarations.splice(insertAt, 0, incoming);
+                        declarationsByCut.set(window.incoming.cutIndex!, [incoming]);
+                    }
+                }
+            }
+        }
         if (outgoing) {
             outgoing.padAfterSec = Math.max(outgoing.padAfterSec ?? 0, window.duration);
             outgoing.crossfadeOutSec = Math.max(outgoing.crossfadeOutSec ?? 0, window.duration);
         }
         if (incoming) {
-            incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, window.duration);
+            incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0,
+                incoming.fadeInAtStart ? 0 : window.duration);
             incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
         }
     }
@@ -763,14 +820,17 @@ function speechCrossfadeGainEvents(
     availableSec: number,
     fadeInSec: number,
     fadeOutSec: number,
-    baseGain: number
+    baseGain: number,
+    fadeInClockOffsetSec = 0
 ): WebAudioGainEvent[] {
     if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
         return [{ offsetSec: 0, value: baseGain, method: 'set' }];
     }
     const multiplierAt = (localSec: number): number => {
         let value = 1;
-        if (fadeInSec > 0 && localSec < fadeInSec) value = Math.min(value, localSec / fadeInSec);
+        if (fadeInSec > 0 && localSec + fadeInClockOffsetSec < fadeInSec) {
+            value = Math.min(value, (localSec + fadeInClockOffsetSec) / fadeInSec);
+        }
         if (fadeOutSec > 0 && localSec > itemDurationSec - fadeOutSec) {
             value = Math.min(value, (itemDurationSec - localSec) / fadeOutSec);
         }
@@ -779,7 +839,7 @@ function speechCrossfadeGainEvents(
     const windowEnd = elapsedIntoItemSec + availableSec;
     return uniqueSorted([
         elapsedIntoItemSec,
-        fadeInSec,
+        fadeInSec - fadeInClockOffsetSec,
         itemDurationSec - fadeOutSec,
         windowEnd
     ].filter(point => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({

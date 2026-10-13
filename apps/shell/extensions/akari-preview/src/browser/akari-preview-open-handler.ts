@@ -4768,6 +4768,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 sidecar: {
                     path: result.stream.url,
                     durationSec: result.durationSec ?? 0,
+                    ...(result.actualStartSeconds !== undefined
+                        ? { actualStartSeconds: result.actualStartSeconds } : {}),
                     padBeforeSec: item.request.padBeforeSec ?? 0,
                     padAfterSec: item.request.padAfterSec ?? 0,
                     skipped: true,
@@ -5436,8 +5438,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     outSec: declaration.outSec,
                     speed: declaration.speed,
                     format: resolveSpeechSidecarFormat(declaration),
-                    padBeforeSec: declaration.padBeforeSec ?? 0,
-                    padAfterSec: declaration.padAfterSec ?? 0
+                    padBeforeSec: (declaration.padBeforeSec ?? 0) * declaration.speed,
+                    padAfterSec: (declaration.padAfterSec ?? 0) * declaration.speed
                 };
                 const item: PreviewAudioPendingRequest = {
                     at: declaration.atSec,

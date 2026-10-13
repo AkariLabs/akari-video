@@ -218,6 +218,7 @@ export interface PreviewAudioSidecarRequestResult {
     probe?: { fingerprint: string };
     bytes?: number;
     durationSec?: number;
+    actualStartSeconds?: number;
     reason?: string;
     stream?: VideoStreamReference;
 }
@@ -269,6 +270,8 @@ export interface EditSummarySpeech {
     padAfterSec?: number;
     crossfadeInSec?: number;
     crossfadeOutSec?: number;
+    fadeInAtStart?: boolean;
+    fadeInWindowStartSec?: number;
     sidecarWarningEmitted?: boolean;
 }
 
@@ -280,6 +283,9 @@ export interface PreviewAudioSidecarSummary {
     bytesPerSample?: number;
     path: string;
     durationSec: number;
+    /** Actual first source second after clamping. */
+    actualStartSeconds?: number;
+    /** Requested source seconds. */
     padBeforeSec: number;
     padAfterSec: number;
     generatedMs?: number;
