@@ -430,9 +430,9 @@ export interface AkariProjectService {
     /** Already generated local thumbnails for catalog item keys; pending means another poll may find more. */
     getLibraryThumbnails(keys: string[]): Promise<{ urls: Record<string, string>; pending: boolean }>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
-    getPresetShowcase(): Promise<PresetShowcase>;
+    getPresetShowcase(language?: 'ja' | 'en'): Promise<PresetShowcase>;
     getLibraryTextstylePresets(): Promise<LibraryTextstylePreset[]>;
-    getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
+    getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string; name?: string; category?: string; i18n?: Record<string, Record<string, string>> }>>;
     /** 図形の棚（presets/shapes/index.jsonl）。読めなければ空配列。 */
     getShapeShelf(): Promise<ShapeShelfPreset[]>;
     listMyStyles(): Promise<MyStyle[]>;

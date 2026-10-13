@@ -15,7 +15,7 @@ resetLanguageAfter(() => setLanguage(undefined));
 const fx = await import('../lib/browser/inspector/adjust-fx-fields.js');
 const adjust = await import('../lib/browser/inspector/adjust-fields.js');
 const { ACTIVE_ADJUST_SECTIONS } = await import('../lib/browser/inspector/tab-model.js');
-const { INSPECTOR_LOOK_PRESETS, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
+const { INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset } = await import('../lib/browser/inspector/look-presets.js');
 const { buildLutOptions } = await import('../lib/browser/inspector/lut-options.js');
 
 
@@ -83,7 +83,7 @@ const source = readInspectorSource();
 const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
 const factory = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'ADJUST_SECTIONS');
 assert.ok(factory);
-const dependencies = { ...fx, ...adjust, ACTIVE_ADJUST_SECTIONS, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions, t };
+const dependencies = { ...fx, ...adjust, ACTIVE_ADJUST_SECTIONS, INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset, buildLutOptions, t };
 delete dependencies.default;
 delete dependencies['module.exports'];
 const code = ts.transpileModule(factory.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;

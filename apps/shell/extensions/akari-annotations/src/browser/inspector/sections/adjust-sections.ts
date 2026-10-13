@@ -2,7 +2,7 @@ import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { InspectorWriteRequest, InspectorWriteResult } from '../../timeline-selection-model';
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from '../adjust-editors';
-import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from '../look-presets';
+import { INSPECTOR_LOOK_PRESETS, inspectorLookPresetLabel, matchLookPreset } from '../look-presets';
 import { buildLutOptions } from '../lut-options';
 import { createInspectorAdjustWriteRequest, formatInspectorAdjustValue, INSPECTOR_ADJUST_BASIC_FIELDS, readInspectorAdjustSnapshot } from '../adjust-fields';
 import { INSPECTOR_ADJUST_FX, InspectorAdjustFx, addInspectorAdjustFx, removeInspectorAdjustFx, moveInspectorAdjustFx, updateInspectorAdjustFxParam } from '../adjust-fx-fields';
@@ -55,16 +55,19 @@ export function ADJUST_SECTIONS(
             null
         ))
     }));
-    const lookName = (): string => INSPECTOR_LOOK_PRESETS.find(preset => preset.id === matchLookPreset(adjust))?.name ?? t('inspector.adjustSections.label.custom');
+    const lookName = (): string => {
+        const preset = INSPECTOR_LOOK_PRESETS.find(item => item.id === matchLookPreset(adjust));
+        return preset ? inspectorLookPresetLabel(preset) : t('inspector.adjustSections.label.custom');
+    };
     basicFields.unshift({
         name: 'adjust-look', label: t('inspector.adjustSections.label.look'), inputKind: 'select',
-        options: [t('inspector.adjustSections.label.custom'), ...INSPECTOR_LOOK_PRESETS.map(preset => preset.name)],
+        options: [t('inspector.adjustSections.label.custom'), ...INSPECTOR_LOOK_PRESETS.map(inspectorLookPresetLabel)],
         keyframeDisabled: true, disabled: !basicEnabled, title: basicEnabled ? undefined : disabledTitle,
         getValue: lookName, getEditValue: lookName,
         write: async (_snapshot, value) => {
             if (!basicEnabled) return { ok: false, message: disabledTitle };
             if (value === t('inspector.adjustSections.label.custom')) return { ok: true };
-            const preset = INSPECTOR_LOOK_PRESETS.find(candidate => candidate.name === value);
+            const preset = INSPECTOR_LOOK_PRESETS.find(candidate => inspectorLookPresetLabel(candidate) === value);
             if (!preset) return { ok: false, message: t('inspector.adjustSections.message.selectLookFromList') };
             return requestWrite(createInspectorAdjustWriteRequest(itemId, 'adjust', {
                 basic: preset.adjust.basic, wheels: preset.adjust.wheels

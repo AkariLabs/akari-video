@@ -2244,5 +2244,7 @@
   "surfaces.projects.contextMenuOpenProject.action": "プロジェクトを開く",
   "surfaces.projects.contextMenuCopyPath.action": "パスをコピー",
   "surfaces.projects.pathCopied.message": "プロジェクトのパスをコピーしました。",
-  "surfaces.projects.couldNotCopyPath.message": "パスをコピーできませんでした。"
+  "surfaces.projects.couldNotCopyPath.message": "パスをコピーできませんでした。",
+  "surfaces.onboardingService.warning.welcomeImageUnavailable": "ようこそ画像を読めませんでした。画像なしで続けます。",
+  "surfaces.onboardingService.warning.transcriptUpgradeUnavailable": "サンプルの書き起こしを新しい語の時刻へ更新できませんでした。前の版のまま続けます。"
 }

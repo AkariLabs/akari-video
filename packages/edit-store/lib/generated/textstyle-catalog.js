@@ -20,6 +20,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "distance_px": 3,
                 "angle_deg": 90
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Cinema Blue",
+                "category": "title",
+                "sample_text": "The Journey Begins"
+            }
         }
     },
     "cinema-gold": {
@@ -37,6 +44,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "blur_px": 10,
                 "distance_px": 3,
                 "angle_deg": 90
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Cinema Gold",
+                "category": "title",
+                "sample_text": "The End"
             }
         }
     },
@@ -56,6 +70,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "distance_px": 2,
                 "angle_deg": 90
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Cinema White",
+                "category": "title",
+                "sample_text": "A Quiet Moment"
+            }
         }
     },
     "discount-text": {
@@ -70,6 +91,13 @@ exports.TEXTSTYLE_CATALOG = {
             "stroke": {
                 "color": "#ffffff",
                 "width_px": 3
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Discount Badge Text",
+                "category": "price",
+                "sample_text": "30% OFF"
             }
         }
     },
@@ -89,6 +117,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "in": {
                     "id": "pop"
                 }
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Emphasis",
+                "category": "emphasis",
+                "sample_text": "This Matters!"
             }
         }
     },
@@ -114,6 +149,13 @@ exports.TEXTSTYLE_CATALOG = {
                     "id": "glitch"
                 }
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Glitch",
+                "category": "decorative",
+                "sample_text": "GLITCH"
+            }
         }
     },
     "narration-caption": {
@@ -131,6 +173,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "blur_px": 6,
                 "distance_px": 1,
                 "angle_deg": 90
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Narration Caption",
+                "category": "subtitle",
+                "sample_text": "This city has stories yet to be told."
             }
         }
     },
@@ -167,6 +216,13 @@ exports.TEXTSTYLE_CATALOG = {
                     "id": "soft-fade"
                 }
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Neon",
+                "category": "decorative",
+                "sample_text": "NEON"
+            }
         }
     },
     "neon-amber": {
@@ -191,6 +247,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "spread": 50
             },
             "text_transform": "uppercase"
+        },
+        "i18n": {
+            "en": {
+                "name": "Amber Neon",
+                "category": "decorative",
+                "sample_text": "OPEN"
+            }
         }
     },
     "neon-lime": {
@@ -215,6 +278,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "spread": 42
             },
             "text_transform": "uppercase"
+        },
+        "i18n": {
+            "en": {
+                "name": "Lime Neon",
+                "category": "decorative",
+                "sample_text": "ON AIR"
+            }
         }
     },
     "neon-rose": {
@@ -239,6 +309,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "spread": 45
             },
             "text_transform": "uppercase"
+        },
+        "i18n": {
+            "en": {
+                "name": "Rose Neon",
+                "category": "decorative",
+                "sample_text": "NIGHT LIFE"
+            }
         }
     },
     "neon-violet": {
@@ -263,6 +340,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "spread": 54
             },
             "text_transform": "uppercase"
+        },
+        "i18n": {
+            "en": {
+                "name": "Violet Neon",
+                "category": "decorative",
+                "sample_text": "DREAM"
+            }
         }
     },
     "news-navy-bar": {
@@ -278,6 +362,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "opacity": 0.96,
                 "padding_px": 17,
                 "radius_px": 2
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Navy News Bar",
+                "category": "subtitle",
+                "sample_text": "The Key Points"
             }
         }
     },
@@ -302,6 +393,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "distance_px": 2,
                 "angle_deg": 90
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Red News Bar",
+                "category": "subtitle",
+                "sample_text": "Breaking News Update"
+            }
         }
     },
     "news-yellow-label": {
@@ -318,6 +416,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "padding_px": 16,
                 "radius_px": 3
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Yellow Explainer Label",
+                "category": "emphasis",
+                "sample_text": "Here Is the Takeaway"
+            }
         }
     },
     "plate-coral": {
@@ -333,6 +438,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "opacity": 0.96,
                 "padding_px": 22,
                 "radius_px": 22
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Coral Plate",
+                "category": "emphasis",
+                "sample_text": "Key Point"
             }
         }
     },
@@ -351,6 +463,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "radius_px": 10
             },
             "letter_spacing_em": 0.09
+        },
+        "i18n": {
+            "en": {
+                "name": "Cream Plate",
+                "category": "title",
+                "sample_text": "Today’s Recap"
+            }
         }
     },
     "plate-indigo": {
@@ -366,6 +485,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "opacity": 0.97,
                 "padding_px": 24,
                 "radius_px": 24
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Rounded Indigo Plate",
+                "category": "subtitle",
+                "sample_text": "Important Announcement"
             }
         }
     },
@@ -385,6 +511,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "in": {
                     "id": "caption-rise"
                 }
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Live Commentary",
+                "category": "subtitle",
+                "sample_text": "Full Speed Ahead!"
             }
         }
     },
@@ -407,6 +540,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "distance_px": 4,
                 "angle_deg": 90
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Interview Caption",
+                "category": "subtitle",
+                "sample_text": "“That Is What I Thought.”"
+            }
         }
     },
     "subtitle-news": {
@@ -422,6 +562,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "opacity": 1,
                 "padding_px": 16,
                 "radius_px": 0
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "News",
+                "category": "subtitle",
+                "sample_text": "Breaking News"
             }
         }
     },
@@ -439,6 +586,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "padding_px": 14,
                 "radius_px": 4
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Caption on Soft Band",
+                "category": "subtitle",
+                "sample_text": "Let Us Take It Slowly"
+            }
         }
     },
     "subtitle-standard": {
@@ -452,6 +606,13 @@ exports.TEXTSTYLE_CATALOG = {
             "stroke": {
                 "color": "#000000",
                 "width_px": 4
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Standard Caption",
+                "category": "subtitle",
+                "sample_text": "Clear, Standard Captions"
             }
         }
     },
@@ -474,6 +635,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "distance_px": 6,
                 "angle_deg": 90
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "Variety",
+                "category": "subtitle",
+                "sample_text": "This Is Amazing!"
+            }
         }
     },
     "subtitle-white-bold": {
@@ -487,6 +655,13 @@ exports.TEXTSTYLE_CATALOG = {
             "stroke": {
                 "color": "#080808",
                 "width_px": 8
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "White Caption, Bold Outline",
+                "category": "subtitle",
+                "sample_text": "Loud and Clear"
             }
         }
     },
@@ -502,6 +677,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "color": "#101820",
                 "width_px": 2
             }
+        },
+        "i18n": {
+            "en": {
+                "name": "White Caption, Thin Outline",
+                "category": "subtitle",
+                "sample_text": "Listen Closely"
+            }
         }
     },
     "subtitle-yellow-bold": {
@@ -515,6 +697,13 @@ exports.TEXTSTYLE_CATALOG = {
             "stroke": {
                 "color": "#151515",
                 "width_px": 7
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Yellow Caption, Bold Outline",
+                "category": "subtitle",
+                "sample_text": "Look Here!"
             }
         }
     },
@@ -536,6 +725,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "blur_px": 14,
                 "distance_px": 8,
                 "angle_deg": 90
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Impact Title",
+                "category": "title",
+                "sample_text": "A Shocking Discovery"
             }
         }
     },
@@ -559,6 +755,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.02
+        },
+        "i18n": {
+            "en": {
+                "name": "Candy Pink Variety",
+                "category": "decorative",
+                "sample_text": "Great Success!"
+            }
         }
     },
     "variety-lime-pop": {
@@ -581,6 +784,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.04
+        },
+        "i18n": {
+            "en": {
+                "name": "Lime Pop Variety",
+                "category": "decorative",
+                "sample_text": "We Did It!"
+            }
         }
     },
     "variety-orange-pop": {
@@ -603,6 +813,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.01
+        },
+        "i18n": {
+            "en": {
+                "name": "Orange Shadow Variety",
+                "category": "decorative",
+                "sample_text": "This Is the Best!"
+            }
         }
     },
     "variety-soda-blue": {
@@ -625,6 +842,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": 0.03
+        },
+        "i18n": {
+            "en": {
+                "name": "Soda Blue Variety",
+                "category": "decorative",
+                "sample_text": "What a Surprise!"
+            }
         }
     },
     "verdict-badge": {
@@ -645,6 +869,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "blur_px": 16,
                 "distance_px": 0,
                 "angle_deg": 90
+            }
+        },
+        "i18n": {
+            "en": {
+                "name": "Verdict Badge",
+                "category": "emphasis",
+                "sample_text": "Worth It!"
             }
         }
     },
@@ -668,6 +899,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.04
+        },
+        "i18n": {
+            "en": {
+                "name": "Vertical Cyan Headline",
+                "category": "title",
+                "sample_text": "Do Not Miss This"
+            }
         }
     },
     "vertical-impact-red": {
@@ -690,6 +928,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.03
+        },
+        "i18n": {
+            "en": {
+                "name": "Vertical Red Headline",
+                "category": "title",
+                "sample_text": "An Unexpected Result!"
+            }
         }
     },
     "vertical-impact-white": {
@@ -712,6 +957,13 @@ exports.TEXTSTYLE_CATALOG = {
                 "angle_deg": 90
             },
             "letter_spacing_em": -0.05
+        },
+        "i18n": {
+            "en": {
+                "name": "Vertical White Headline",
+                "category": "title",
+                "sample_text": "Did You Know?"
+            }
         }
     }
 };

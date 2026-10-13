@@ -1,7 +1,12 @@
 import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY_DETAIL_GROUPS, LIBRARY_GROUPS, LIBRARY_PRIMARY_TILES, resolveOpenableLibraryCategory, searchLibraryHome } from '../lib/common/library-home-view.js';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { LIBRARY_DETAIL_GROUPS, LIBRARY_GROUPS, LIBRARY_PRIMARY_TILES, resolveOpenableLibraryCategory, searchLibraryHome, transitionDisplayName, transitionDisplayCategory } from '../lib/common/library-home-view.js';
+
+const require = createRequire(import.meta.url);
+const { TRANSITION_VOCABULARY } = require('@akari-video/edit-store');
 
 // 2026-09-27 オーナー改訂: 9 枚 → 16 枚。仕上げ・まとめて・マイスタイルも同じカードで
 // 最上段へ出し、B-roll は「動画」と呼ぶ（データキー broll は維持）。
@@ -124,4 +129,33 @@ test('未取得 textstyle のカタログ項目は字幕スタイルの検索先
     ]);
     const category = LIBRARY_GROUPS.flatMap(group => group.categories).find(row => row.key === 'textstyle');
     assert.equal(category.label, '字幕スタイル');
+});
+
+test('transition search includes Japanese and English names and displays UI language', () => {
+    const transition = { id: 'dissolve', labelJa: 'ディゾルブ', category: 'フェード',
+        name: 'ディゾルブ', i18n: { en: { name: 'Dissolve', category: 'Fade' } } };
+    const sources = { ...SEARCH_SOURCES, transitions: [transition], catalogItems: [],
+        presetShowcase: { lut: [], textanim: [], textstyle: [] } };
+    assert.deepEqual(searchLibraryHome('ディゾルブ', sources, 'en'),
+        [{ categoryKey: 'transition', label: 'Dissolve', kind: 'transition' }]);
+    assert.deepEqual(searchLibraryHome('Dissolve', sources, 'ja'),
+        [{ categoryKey: 'transition', label: 'ディゾルブ', kind: 'transition' }]);
+});
+
+test('all transition catalog rows resolve both display languages and missing rows use vocabulary labels', () => {
+    const rows = readFileSync(new URL('../../../../../presets/transitions/index.jsonl', import.meta.url), 'utf8')
+        .trim().split('\n').map(JSON.parse);
+    assert.equal(rows.length, 29);
+    assert.deepEqual(rows.map(row => row.id), TRANSITION_VOCABULARY.map(item => item.id));
+    for (const row of rows) {
+        const vocabulary = TRANSITION_VOCABULARY.find(item => item.id === row.id);
+        const item = { ...row, labelJa: vocabulary.labelJa };
+        assert.equal(transitionDisplayName(item, 'ja'), row.name);
+        assert.equal(transitionDisplayName(item, 'en'), row.i18n.en.name);
+        assert.equal(transitionDisplayCategory(item, 'ja'), row.category);
+        assert.equal(transitionDisplayCategory(item, 'en'), row.i18n.en.category);
+    }
+    const missing = TRANSITION_VOCABULARY[0];
+    assert.equal(transitionDisplayName(missing, 'en'), missing.labelJa);
+    assert.equal(transitionDisplayCategory(missing, 'en'), missing.category);
 });

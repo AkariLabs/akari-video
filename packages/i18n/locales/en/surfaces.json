@@ -2244,5 +2244,7 @@
   "surfaces.projects.contextMenuOpenProject.action": "Open project",
   "surfaces.projects.contextMenuCopyPath.action": "Copy path",
   "surfaces.projects.pathCopied.message": "Copied the project path.",
-  "surfaces.projects.couldNotCopyPath.message": "Could not copy the path."
+  "surfaces.projects.couldNotCopyPath.message": "Could not copy the path.",
+  "surfaces.onboardingService.warning.welcomeImageUnavailable": "Could not load the welcome image. Continuing without it.",
+  "surfaces.onboardingService.warning.transcriptUpgradeUnavailable": "Could not update the sample transcript to the new word timings. Continuing with the previous version."
 }
