@@ -12,6 +12,7 @@ export interface UiLintFinding {
 const LINT_CHECK_KEYS: Readonly<Record<string, string>> = Object.freeze({
     'cuts.track-transition-unsupported': 'lint.check.cuts.trackTransitionUnsupported',
     'cuts.transition-out.non-adjacent': 'lint.check.cuts.transitionOutNonAdjacent',
+    'cuts.transition-out.unknown-type': 'lint.check.cuts.transitionOutUnknownType',
     'cuts.transition-out.zero-overlap': 'lint.check.cuts.transitionOutZeroOverlap',
     'cuts.transition-out.layer-evacuated': 'lint.check.cuts.transitionOutLayerEvacuated',
     'captions.overlap': 'lint.check.captions.overlap',
@@ -39,6 +40,7 @@ function lintCheckMessage(check: string | undefined): string | undefined {
 
 /** pass verdict でも保存直後に知らせる、本タスク由来の transition warning だけ。 */
 export const LINT_WARNING_SUMMARY_CHECKS: readonly string[] = Object.freeze([
+    'cuts.transition-out.unknown-type',
     'cuts.transition-out.zero-overlap',
     'cuts.transition-out.layer-evacuated'
 ]);

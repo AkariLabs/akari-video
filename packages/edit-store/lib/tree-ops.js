@@ -41,7 +41,10 @@ exports.composeTransforms = composeTransforms;
 exports.relativeTransform = relativeTransform;
 exports.ensureChildren = ensureChildren;
 exports.clone = clone;
+exports.assertKnownTransitionChange = assertKnownTransitionChange;
+exports.assertKnownItemTransitions = assertKnownItemTransitions;
 const transform_1 = require("./transform");
+const transition_vocabulary_1 = require("./transition-vocabulary");
 const item_anchor_1 = require("./item-anchor");
 const SEGMENT_EASINGS = new Set([
     'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
@@ -68,6 +71,9 @@ function attachEditHelpers(edit) {
 }
 function updateItem(edit, id, patch) {
     const location = requireLocation(edit, id);
+    const nextSource = isRecord(patch.source) && isRecord(location.item.source)
+        ? mergePatch(location.item.source, patch.source) : patch.source;
+    assertKnownTransitionChange(location.item.source, nextSource);
     for (const [key, value] of Object.entries(patch)) {
         if (key === 'source' && isRecord(value) && isRecord(location.item.source)) {
             location.item.source = mergePatch(location.item.source, value);
@@ -378,6 +384,7 @@ function insertItem(edit, target, item, index) {
     if (locate(edit, item.id))
         throw new Error(`item id が重複しています: ${item.id}`);
     const cloned = clone(item);
+    assertKnownItemTransitions(cloned);
     const track = tracksOf(edit).find(candidate => candidate.id === target);
     if (track) {
         let destination = requireTrackItems(track);
@@ -868,6 +875,9 @@ function mergePatch(base, patch) {
     for (const [key, value] of Object.entries(patch)) {
         if (value === null || value === undefined)
             delete result[key];
+        else if (key === 'transition_out' && isRecord(result[key]) && isRecord(value)) {
+            result[key] = { ...result[key], ...clone(value) };
+        }
         else
             result[key] = clone(value);
     }
@@ -883,4 +893,18 @@ function partIdOf(itemId, source) {
 }
 function isRecord(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+function assertKnownTransitionChange(previousSource, nextSource) {
+    const previous = isRecord(previousSource) && isRecord(previousSource.transition_out)
+        ? previousSource.transition_out.type : undefined;
+    const next = isRecord(nextSource) && isRecord(nextSource.transition_out)
+        ? nextSource.transition_out.type : undefined;
+    if (next !== undefined && next !== previous && !(0, transition_vocabulary_1.isTransitionType)(next)) {
+        throw new Error('Unknown transition type cannot be written');
+    }
+}
+function assertKnownItemTransitions(item) {
+    assertKnownTransitionChange(undefined, item.source);
+    for (const child of item.items ?? [])
+        assertKnownItemTransitions(child);
 }

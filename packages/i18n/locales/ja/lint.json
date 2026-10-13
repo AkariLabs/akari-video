@@ -1,6 +1,7 @@
 {
   "lint.check.cuts.trackTransitionUnsupported": "このトランジションは PiP または複数トラックの合成では書き出せません。トランジションを削除するか、映像を単一のトラックへ戻してください。",
   "lint.check.cuts.transitionOutNonAdjacent": "トランジションの次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+  "lint.check.cuts.transitionOutUnknownType": "知らない種類のトランジションです。クロスフェードで代用して表示・書き出しします。",
   "lint.check.cuts.transitionOutZeroOverlap": "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
   "lint.check.cuts.transitionOutLayerEvacuated": "このクリップは PiP 経路へ退避されているため、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。",
   "lint.check.captions.cutVisibility": "字幕の表示時間の半分以上がカットした区間にかかっていて、ほとんど映りません。字幕の開始・終了を残した区間に合わせるか、字幕を消してください。",

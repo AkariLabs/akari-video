@@ -1,4 +1,5 @@
 import { effectiveScale, normalizeTransform } from './transform';
+import { isTransitionType } from './transition-vocabulary';
 import type { CanvasV0, EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
 import {
     type AnchorCaption,
@@ -101,6 +102,9 @@ export function attachEditHelpers(edit: EditableEditV2): void {
 
 export function updateItem(edit: EditableEditV2, id: string, patch: JsonRecord): ProjectItemV2 {
     const location = requireLocation(edit, id);
+    const nextSource = isRecord(patch.source) && isRecord(location.item.source)
+        ? mergePatch(location.item.source as unknown as JsonRecord, patch.source) : patch.source;
+    assertKnownTransitionChange(location.item.source, nextSource);
     for (const [key, value] of Object.entries(patch)) {
         if (key === 'source' && isRecord(value) && isRecord(location.item.source)) {
             location.item.source = mergePatch(location.item.source as unknown as JsonRecord, value) as unknown as ItemV2['source'];
@@ -434,6 +438,7 @@ export function takeOutOfCanvas(edit: EditableEditV2, itemIds: readonly string[]
 export function insertItem(edit: EditableEditV2, target: string, item: MutableItem, index?: number): ProjectItemV2 {
     if (locate(edit, item.id)) throw new Error(`item id が重複しています: ${item.id}`);
     const cloned = clone(item);
+    assertKnownItemTransitions(cloned);
     const track = tracksOf(edit).find(candidate => candidate.id === target);
     if (track) {
         let destination = requireTrackItems(track);
@@ -933,7 +938,9 @@ function mergePatch(base: JsonRecord, patch: JsonRecord): JsonRecord {
     const result = { ...base };
     for (const [key, value] of Object.entries(patch)) {
         if (value === null || value === undefined) delete result[key];
-        else result[key] = clone(value);
+        else if (key === 'transition_out' && isRecord(result[key]) && isRecord(value)) {
+            result[key] = { ...result[key] as JsonRecord, ...clone(value) };
+        } else result[key] = clone(value);
     }
     return result;
 }
@@ -947,4 +954,19 @@ function partIdOf(itemId: string, source: ItemV2['source']): string {
 
 function isRecord(value: unknown): value is JsonRecord {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function assertKnownTransitionChange(previousSource: unknown, nextSource: unknown): void {
+    const previous = isRecord(previousSource) && isRecord(previousSource.transition_out)
+        ? previousSource.transition_out.type : undefined;
+    const next = isRecord(nextSource) && isRecord(nextSource.transition_out)
+        ? nextSource.transition_out.type : undefined;
+    if (next !== undefined && next !== previous && !isTransitionType(next)) {
+        throw new Error('Unknown transition type cannot be written');
+    }
+}
+
+export function assertKnownItemTransitions(item: ProjectItemV2): void {
+    assertKnownTransitionChange(undefined, item.source);
+    for (const child of item.items ?? []) assertKnownItemTransitions(child);
 }

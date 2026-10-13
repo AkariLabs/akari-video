@@ -18,6 +18,7 @@ export interface EditCut {
     transitionOut?: {
         type: ReadableTransitionType;
         duration: number;
+        [key: string]: unknown;
     };
     at?: number;
     track?: number;

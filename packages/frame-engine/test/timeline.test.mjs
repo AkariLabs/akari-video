@@ -59,17 +59,20 @@ test('resolved timeline accepts the complete shared transition vocabulary', () =
   }
 });
 
-test('resolved timeline rejects an unknown transition instead of silently hard-cutting', () => {
+test('resolved timeline uses a fade window for an unknown transition', () => {
   const source = { decode: async () => { throw new Error('not used'); } };
   const sources = new Map([['fixture.mp4', source]]);
   const timeline = buildResolvedTimelinePlan([
     { src: 'fixture.mp4', in: 0, out: 1,
-      transition_out: { type: 'unknown-transition', duration: 0.3 } },
+      transition_out: { type: 'future-kind', duration: 0.5, align: 'before-cut' } },
     { src: 'fixture.mp4', in: 1, out: 2 },
   ]);
-  assert.throws(() => evaluationPlanFromResolvedTimeline(timeline, 850_000, sources, {
+  const plan = evaluationPlanFromResolvedTimeline(timeline, 750_000, sources, {
     width: 320, height: 180, colorSpace: 'bt709-limited'
-  }), /unsupported transition type: unknown-transition/u);
+  });
+  assert.equal(plan.base.length, 2);
+  assert.equal(plan.transition?.type, 'fade');
+  assert.ok(plan.transition.progress > 0 && plan.transition.progress < 1);
 });
 
 test('transition golden fixture resolves every comparison sample to its declared cut sources', () => {

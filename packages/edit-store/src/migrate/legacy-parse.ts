@@ -127,10 +127,7 @@ export function parseEdit(source: string): {
                         && Number.isFinite(transition.duration) && transition.duration > 0;
                     if (transition && typeof transition === 'object' && !Array.isArray(transition)
                         && validType && validDuration) {
-                        transitionOut = {
-                            type: transition.type as NonNullable<EditCut['transitionOut']>['type'],
-                            duration: transition.duration
-                        };
+                        transitionOut = { ...transition } as NonNullable<EditCut['transitionOut']>;
                     } else {
                         warnings.push(`${index + 1} 番目のクリップの transition_out が不正なため無視します。`);
                     }

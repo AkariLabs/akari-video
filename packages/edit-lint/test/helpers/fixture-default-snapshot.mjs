@@ -9,7 +9,9 @@ import { prepareCutAudioFixtures } from "./cut-audio-fixtures.mjs";
 const CHECKED_AT = "2000-01-01T00:00:00.000Z";
 
 function normalizeFinding({ id: _id, ...finding }) {
-  return finding;
+  return typeof finding.path === "string"
+    ? { ...finding, path: finding.path.split("\\").join("/") }
+    : finding;
 }
 
 function normalizeExecutionError(error, copiedRoot) {

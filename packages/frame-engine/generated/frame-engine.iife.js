@@ -443,7 +443,8 @@ var AkariFrameEngine = (() => {
           }
           try {
             const located = locateTopLevelObjectProperty(element, "transition_out");
-            return element.slice(0, located.start) + JSON.stringify(value) + element.slice(located.end);
+            const existing = JSON.parse(element.slice(located.start, located.end));
+            return element.slice(0, located.start) + JSON.stringify({ ...existing, ...value }) + element.slice(located.end);
           } catch {
             return appendJsonProperty(removeObjectProperty(element, "transition_out"), "transition_out", value);
           }
@@ -12203,7 +12204,10 @@ ${indent}`);
       exports.relativeTransform = relativeTransform;
       exports.ensureChildren = ensureChildren;
       exports.clone = clone;
+      exports.assertKnownTransitionChange = assertKnownTransitionChange;
+      exports.assertKnownItemTransitions = assertKnownItemTransitions;
       var transform_1 = require_transform();
+      var transition_vocabulary_1 = require_transition_vocabulary();
       var item_anchor_1 = require_item_anchor();
       var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
         "linear",
@@ -12246,6 +12250,8 @@ ${indent}`);
       }
       function updateItem(edit, id, patch) {
         const location2 = requireLocation(edit, id);
+        const nextSource = isRecord2(patch.source) && isRecord2(location2.item.source) ? mergePatch(location2.item.source, patch.source) : patch.source;
+        assertKnownTransitionChange(location2.item.source, nextSource);
         for (const [key, value] of Object.entries(patch)) {
           if (key === "source" && isRecord2(value) && isRecord2(location2.item.source)) {
             location2.item.source = mergePatch(location2.item.source, value);
@@ -12551,6 +12557,7 @@ ${indent}`);
         if (locate(edit, item.id))
           throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
         const cloned = clone(item);
+        assertKnownItemTransitions(cloned);
         const track = tracksOf(edit).find((candidate) => candidate.id === target);
         if (track) {
           let destination = requireTrackItems(track);
@@ -13028,7 +13035,9 @@ ${indent}`);
         for (const [key, value] of Object.entries(patch)) {
           if (value === null || value === void 0)
             delete result[key];
-          else
+          else if (key === "transition_out" && isRecord2(result[key]) && isRecord2(value)) {
+            result[key] = { ...result[key], ...clone(value) };
+          } else
             result[key] = clone(value);
         }
         return result;
@@ -13043,6 +13052,18 @@ ${indent}`);
       }
       function isRecord2(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+      function assertKnownTransitionChange(previousSource, nextSource) {
+        const previous = isRecord2(previousSource) && isRecord2(previousSource.transition_out) ? previousSource.transition_out.type : void 0;
+        const next = isRecord2(nextSource) && isRecord2(nextSource.transition_out) ? nextSource.transition_out.type : void 0;
+        if (next !== void 0 && next !== previous && !(0, transition_vocabulary_1.isTransitionType)(next)) {
+          throw new Error("Unknown transition type cannot be written");
+        }
+      }
+      function assertKnownItemTransitions(item) {
+        assertKnownTransitionChange(void 0, item.source);
+        for (const child of item.items ?? [])
+          assertKnownItemTransitions(child);
       }
     }
   });
@@ -19582,10 +19603,7 @@ ${indent}`);
                 const validType = (0, transition_vocabulary_1.isTransitionType)(transition?.type) || typeof transition?.type === "string" && transition.type.trim().length > 0;
                 const validDuration = typeof transition?.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0;
                 if (transition && typeof transition === "object" && !Array.isArray(transition) && validType && validDuration) {
-                  transitionOut = {
-                    type: transition.type,
-                    duration: transition.duration
-                  };
+                  transitionOut = { ...transition };
                 } else {
                   warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transition_out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
@@ -28319,12 +28337,11 @@ vec3 mixFf(vec3 a, vec3 b, float P) { return a * P + b * (1.0 - P); }
     vec2 q = texelOf(vec2(sx, sy));
     result = A(q) * P + B(q) * (1.0 - P);`;
       default:
-        throw new Error(`unsupported transition type: ${String(type)}`);
+        return transitionFragmentBody("fade");
     }
   }
   function buildBaseFragment(type) {
-    if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type))
-      throw new Error(`unsupported transition type: ${String(type)}`);
+    if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type)) type = "fade";
     const blurHelper = type === "blur" ? `vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
   int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});
   vec3 sum = vec3(0.0);
@@ -31851,9 +31868,6 @@ void main() {
       const outgoingIndex = window2.outgoing.cutIndex;
       const incomingIndex = window2.incoming.cutIndex;
       if (outgoingIndex == null || incomingIndex == null) throw new Error("transition has no source cuts");
-      if (!(0, import_edit_store3.isTransitionType)(window2.type)) {
-        throw new Error(`unsupported transition type: ${window2.type}`);
-      }
       return {
         timeUs,
         frameIndex,
@@ -31863,7 +31877,7 @@ void main() {
         ],
         layers: resolvedCompositeLayers(timeline, timeUs, sources),
         transition: {
-          type: window2.type,
+          type: (0, import_edit_store3.isTransitionType)(window2.type) ? window2.type : "fade",
           progress: (0, import_edit_store2.transitionProgressAt)(window2, outputSeconds)
         },
         output

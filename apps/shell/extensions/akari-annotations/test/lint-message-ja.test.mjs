@@ -59,8 +59,9 @@ test('失敗用要約は warning を使わず、未知 error の原文を transi
   );
 });
 
-test('pass 時の warning 要約対象は transition の 2 check だけに固定する', () => {
+test('pass 時の warning 要約対象は transition の 3 check に固定する', () => {
   assert.deepEqual(LINT_WARNING_SUMMARY_CHECKS, [
+    'cuts.transition-out.unknown-type',
     'cuts.transition-out.zero-overlap',
     'cuts.transition-out.layer-evacuated',
   ]);

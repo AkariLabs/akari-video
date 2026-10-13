@@ -8,7 +8,8 @@ export default { id: 'cut_look_transition', apply(env, d) {
         guardedApply(env, d.op, () => {
             const { item, location } = visualTarget(env, d, true);
             if (location.parent) throw new Error('グループ内のつなぎは未対応');
-            if (!vocabulary.some(v => v.id === d.transition_type)) throw new Error('つなぎの種類が未指定・未知');
+            if (!vocabulary.some(v => v.id === d.transition_type)
+                && d.transition_type !== item.source.transition_out?.type) throw new Error('つなぎの種類が未指定・未知');
             const model = view(env.edit), segment = model.segments.find(s => s.itemId === item.id);
             const legacy = editStore.projectLegacyEdit(model.internal);
             if (!segment || typeof editStore.unsupportedTrackTransitionTarget !== 'function') throw new Error('トラック互換性の受け口が未確認');
@@ -21,7 +22,7 @@ export default { id: 'cut_look_transition', apply(env, d) {
             const duration = d.cutLookTransitionSeconds ?? item.source.transition_out?.duration ?? 0.5;
             if (!Number.isFinite(duration) || duration <= 0 || duration >= Math.min(item.duration, next.duration) / env.edit.output.fps)
                 throw new Error('つなぎの秒数が正でない、または隣接カット尺以上');
-            patchItem(env, item.id, { source: { transition_out: { type: d.transition_type, duration } } });
+            patchItem(env, item.id, { source: { transition_out: { ...item.source.transition_out, type: d.transition_type, duration } } });
             env.log.push(`transition ${item.id} → ${d.transition_type} ${duration}秒`);
         });
     } };

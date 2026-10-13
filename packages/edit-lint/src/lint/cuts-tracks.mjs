@@ -19,8 +19,10 @@ function validateTransitionOut(value, findings, path) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.structure", message: "transition_out must be an object", path });
     return;
   }
-  if (!TRANSITION_TYPE_IDS.includes(value.type)) {
-    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: `type must be ${TRANSITION_TYPE_IDS.join("/")}`, path });
+  if (isNonEmptyString(value.type) && !TRANSITION_TYPE_IDS.includes(value.type)) {
+    addFinding(findings, { severity: "warning", check: "cuts.transition-out.unknown-type", message: lintText('lint-messages.cuts.transition.unknownType'), path });
+  } else if (!isNonEmptyString(value.type)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be a non-empty string", path });
   }
   if (!isPositiveNumber(value.duration)) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.duration", message: "duration must be a positive number", path });

@@ -6,6 +6,7 @@ import { serializeCaptions, serializeEdit, serializeMotion } from './canonical';
 import type { KeyframeV2 } from './edit-v2';
 import {
     attachEditHelpers,
+    assertKnownTransitionChange,
     clone,
     ensureChildren,
     normalizeTracks,
@@ -98,6 +99,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
         throw new Error('openProject は version: 2 の edit.json を必要とします。');
     }
     const edit = parsedEdit as unknown as EditableEditV2;
+    let originalTransitionSources = transitionSourcesById(edit);
     attachEditHelpers(edit);
 
     const captionsPath = join(dir, 'captions.json');
@@ -142,6 +144,9 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
             return (await loadMotionPath(`motion/${groupId}.json`, groupId)).doc;
         },
         async save(options: ProjectSaveOptions = {}): Promise<ProjectSaveResult> {
+            for (const [id, source] of transitionSourcesById(edit)) {
+                assertKnownTransitionChange(originalTransitionSources.get(id), source);
+            }
             normalizeTracks(edit);
             await distributeKeyframes(edit, loadMotionPath);
 
@@ -180,6 +185,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
                 if (key === editName) editText = candidates[key] as string;
                 else if (key === 'captions.json') captionsText = candidates[key] as string;
             }
+            if (editName in candidates) originalTransitionSources = transitionSourcesById(edit);
             for (const state of motionStates.values()) {
                 if (state.path in candidates) state.originalText = candidates[state.path] as string;
                 state.originalState = stableJson(state.doc);
@@ -188,6 +194,18 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
         }
     };
     return project;
+}
+
+function transitionSourcesById(edit: EditableEditV2): Map<string, unknown> {
+    const sources = new Map<string, unknown>();
+    const visit = (item: MutableItem): void => {
+        sources.set(item.id, clone(item.source));
+        for (const child of ensureChildren(item, false)) visit(child);
+    };
+    for (const track of edit.tracks) {
+        for (const item of track.items ?? []) visit(item as MutableItem);
+    }
+    return sources;
 }
 
 async function distributeKeyframes(

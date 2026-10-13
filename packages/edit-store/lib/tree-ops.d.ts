@@ -142,3 +142,5 @@ export declare function composeTransforms(parent?: TransformV2, child?: Transfor
 export declare function relativeTransform(parent: TransformV2 | undefined, world: TransformV2 | undefined): TransformV2 | undefined;
 export declare function ensureChildren(item: MutableItem, create?: boolean): MutableItem[];
 export declare function clone<T>(value: T): T;
+export declare function assertKnownTransitionChange(previousSource: unknown, nextSource: unknown): void;
+export declare function assertKnownItemTransitions(item: ProjectItemV2): void;

@@ -46,6 +46,62 @@ function points(count) {
   return Array.from({ length: count }, (_, t) => ({ t, opacity: t / Math.max(1, count - 1) }));
 }
 
+function unknownTransitionEdit() {
+  return editWith([track('visual', [
+    { id: 'first', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2,
+      transition_out: { type: 'future-kind', duration: 0.5, align: 'before-cut', x: { retained: true } } } },
+    { id: 'second', at: 45, duration: 60, source: { kind: 'media', src: 'main', in: 2, out: 4 } },
+  ])], { sources: [{ id: 'main', path: 'source.mp4' }] });
+}
+
+test('unknown transition survives no-op save and editing another clip', async t => {
+  const root = await makeProject(unknownTransitionEdit());
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = await openProject(root);
+  await project.save({ lint: false });
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'edit.json'), 'utf8'))
+    .tracks[0].items[0].source.transition_out, unknownTransitionEdit().tracks[0].items[0].source.transition_out);
+  project.edit.update('second', { name: 'changed' });
+  await project.save({ lint: false });
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, 'edit.json'), 'utf8'))
+    .tracks[0].items[0].source.transition_out, unknownTransitionEdit().tracks[0].items[0].source.transition_out);
+});
+
+test('project edits and cross-track move preserve an existing unknown transition', async t => {
+  const root = await makeProject(unknownTransitionEdit());
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = await openProject(root);
+  project.edit.tracks.push(track('other', []));
+  project.edit.update('first', { source: { in: 0.1 } });
+  project.edit.update('first', { source: { transition_out: { duration: 0.4 } } });
+  project.edit.move('first', { track: 'other' });
+  await project.save({ lint: false });
+  const saved = JSON.parse(await readFile(path.join(root, 'edit.json'), 'utf8'));
+  const moved = saved.tracks.find(candidate => candidate.id === 'other').items[0];
+  assert.equal(moved.id, 'first');
+  assert.equal(moved.source.in, 0.1);
+  assert.deepEqual(moved.source.transition_out,
+    { type: 'future-kind', duration: 0.4, align: 'before-cut', x: { retained: true } });
+});
+
+test('tree helpers and project save reject newly written unknown types', async t => {
+  const root = await makeProject(unknownTransitionEdit());
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const project = await openProject(root);
+  assert.throws(() => project.edit.update('second', { source: { transition_out: {
+    type: 'future-kind', duration: 0.5, align: 'before-cut' } } }), /Unknown transition type/u);
+  assert.throws(() => project.edit.update('first', { source: { transition_out: {
+    type: 'different-future-kind', duration: 0.5 } } }), /Unknown transition type/u);
+  assert.throws(() => project.edit.insert('visual', { id: 'third', at: 105, duration: 60,
+    source: { kind: 'media', src: 'main', in: 4, out: 6, transition_out: { type: 'future-kind', duration: 0.5 } } }),
+  /Unknown transition type/u);
+  project.edit.find('second').source.transition_out = { type: 'future-kind', duration: 0.5 };
+  await assert.rejects(project.save({ lint: false }), /Unknown transition type/u);
+  delete project.edit.find('second').source.transition_out;
+  project.edit.update('first', { name: 'still valid' });
+  await project.save({ lint: false });
+});
+
 async function makeProject(edit, captions, files = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'edit-store-project-'));
   await writeFile(path.join(root, 'edit.json'), typeof edit === 'string' ? edit : JSON.stringify(edit), 'utf8');

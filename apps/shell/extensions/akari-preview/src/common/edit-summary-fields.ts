@@ -161,6 +161,7 @@ export interface LayerSummaryBaseResult {
 export interface CutSummaryTransitionOut {
     type: ReadableTransitionType;
     duration: number;
+    [key: string]: unknown;
 }
 
 export interface CutSummaryFields {
@@ -461,7 +462,7 @@ export function buildCutSummaryFields(
         const validDuration = typeof transition?.duration === 'number'
             && Number.isFinite(transition.duration) && transition.duration > 0;
         if (isPlainObject(transition) && validType && validDuration) {
-            transitionOut = { type: transition.type as ReadableTransitionType, duration: transition.duration as number };
+            transitionOut = { ...transition } as CutSummaryTransitionOut;
         } else {
             warn('[akari-preview] cut.transition_out を無視しました（type/duration 不正）', transition);
         }

@@ -30,6 +30,17 @@ function base(version = 0) {
   };
 }
 
+test('v0 and v1 migration preserve an unknown transition and its extra fields', () => {
+  for (const version of [0, 1]) {
+    const edit = base(version);
+    edit.cuts[0].transition_out = { type: 'future-kind', duration: 0.5, align: 'before-cut' };
+    const migrated = migrateEditToV2(edit);
+    assert.equal(migrated.ok, true, migrated.blockers?.join('\n'));
+    assert.deepEqual(migrated.doc.tracks[0].items[0].source.transition_out,
+      edit.cuts[0].transition_out);
+  }
+});
+
 test('空の edit.json は退避後に新規 v2 として開け、原文へ戻せる', async () => {
   const root = await mkdtemp(join(tmpdir(), 'akari-migrate-empty-'));
   const editPath = join(root, 'edit.json');

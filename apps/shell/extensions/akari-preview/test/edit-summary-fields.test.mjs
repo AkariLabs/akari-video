@@ -351,6 +351,14 @@ test('buildCutSummaryFields: 正準 29 種をすべて summary へ保持する',
     }
 });
 
+test('buildCutSummaryFields keeps an unknown transition and its align field', () => {
+    const transition = { type: 'future-kind', duration: 0.5, align: 'before-cut' };
+    const result = buildCutSummaryFields({ src: 'main', in: 0, out: 2,
+        transition_out: transition }, 'main', id => id === 'main', identityTransform, noopWarn);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.fields.transitionOut, transition);
+});
+
 test('buildCutSummaryFields: 未知の非空 type もフォールバック描画のため保持する', () => {
     const result = buildCutSummaryFields({
         src: 'main', in: 0, out: 2, transition_out: { type: 'future-transition', duration: 0.5 }

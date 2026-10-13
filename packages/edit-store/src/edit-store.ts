@@ -12,6 +12,7 @@ export interface EditCut {
     transitionOut?: {
         type: ReadableTransitionType;
         duration: number;
+        [key: string]: unknown;
     };
     at?: number;
     track?: number;
@@ -502,7 +503,8 @@ export function setCutTransitionOutInSource(
         // 例外を投げる — 一旦除去してから追記する（結果は object 直書きと同じ）。
         try {
             const located = locateTopLevelObjectProperty(element, 'transition_out');
-            return element.slice(0, located.start) + JSON.stringify(value) + element.slice(located.end);
+            const existing = JSON.parse(element.slice(located.start, located.end));
+            return element.slice(0, located.start) + JSON.stringify({ ...existing, ...value }) + element.slice(located.end);
         } catch {
             return appendJsonProperty(removeObjectProperty(element, 'transition_out'), 'transition_out', value);
         }

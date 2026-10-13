@@ -52,7 +52,7 @@ import {
   waitForMediaSeekCompletion,
 } from '/audio-declick.js';
 import { createScrubAudioController } from '/audio-scrub.js';
-import { editForPut } from '/transition-write-guard.js';
+import { editForPut, escapeTransitionOptionAttribute, transitionTypeOptions } from '/transition-write-guard.js';
 import { relocateCutIndex } from '/cut-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
@@ -3087,11 +3087,7 @@ function renderCutInfoContent(seg) {
       <label style="flex:1;color:#888;font-size:11px">OUT トランジション
         <select id="cut-inp-to-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
           <option value="">なし</option>
-          <option value="dissolve"${toType==='dissolve'?' selected':''}>dissolve</option>
-          <option value="fade-black"${toType==='fade-black'?' selected':''}>fade-black</option>
-          <option value="fade-white"${toType==='fade-white'?' selected':''}>fade-white</option>
-          <option value="reveal-down"${toType==='reveal-down'?' selected':''}>reveal-down</option>
-          <option value="reveal-up"${toType==='reveal-up'?' selected':''}>reveal-up</option>
+          ${transitionTypeOptions(toType).map(type => `<option value="${escapeTransitionOptionAttribute(type)}"${toType === type ? ' selected' : ''}>${esc(type)}</option>`).join('')}
      </select>
         <input id="cut-inp-to-dur" type="number" step="0.01" min="0" value="${toDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
       </label>
@@ -3132,7 +3128,7 @@ function renderCutInfoContent(seg) {
     const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transition_out: cut.transition_out };
     cut.in = inVal; cut.out = outVal; cut.speed = speedVal;
     cut.at = atVal ? Number(atVal) : undefined;
-    cut.transition_out = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
+    cut.transition_out = toType ? { ...cut.transition_out, type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
     try {
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },

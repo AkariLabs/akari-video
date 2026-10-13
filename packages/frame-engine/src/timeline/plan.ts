@@ -832,9 +832,6 @@ export function evaluationPlanFromResolvedTimeline(
     const outgoingIndex = window.outgoing.cutIndex;
     const incomingIndex = window.incoming.cutIndex;
     if (outgoingIndex == null || incomingIndex == null) throw new Error('transition has no source cuts');
-    if (!isTransitionType(window.type)) {
-      throw new Error(`unsupported transition type: ${window.type}`);
-    }
     return {
       timeUs,
       frameIndex,
@@ -844,7 +841,7 @@ export function evaluationPlanFromResolvedTimeline(
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
-        type: window.type,
+        type: isTransitionType(window.type) ? window.type : 'fade',
         progress: transitionProgressAt(window, outputSeconds)
       },
       output

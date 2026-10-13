@@ -84,9 +84,9 @@ test('family と向きの名前は辞書に ja / en の両方がある', () => {
 // 33e9250d で legacy 合成経路が撤去され、render-cut の XFADE_TRANSITION_NAMES も削除された。
 // 映像トランジションの実装は frame-engine の compositor/webgl2.ts にある id 分岐へ移った。
 // 29 id の全件カバレッジは frame-engine/test/compositor-contract.test.mjs:101 が担う。
-test('schema enum は正準表から 1 種消しても検知できる完全一致', () => {
+test('schema known values are identical to the canonical vocabulary', () => {
   const schema = JSON.parse(readFileSync(join(repoRoot, 'packages', 'schemas', 'edit.schema.json'), 'utf8'));
-  assert.deepEqual(schema.$defs.transitionOut.properties.type.enum, TRANSITION_TYPE_IDS);
+  assert.deepEqual(schema.$defs.transitionOut.properties.type['x-akari-known-values'], TRANSITION_TYPE_IDS);
 });
 
 test('legacy テキスト手術は正準 29 種をすべて保存し、未知種別を拒否する', () => {
@@ -101,11 +101,22 @@ test('legacy テキスト手術は正準 29 種をすべて保存し、未知種
   );
 });
 
+test('legacy transition rewrite keeps extra fields in order and can remove the transition', () => {
+  const source = '{"cuts":[{"in":0,"out":1,"transition_out":{"type":"future-kind","duration":0.5,"align":"before-cut","x":{"keep":true}}}]}\n';
+  const updated = setCutTransitionOutInSource(source, 0, { type: 'dissolve', duration: 0.4 });
+  assert.match(updated, /"transition_out":\{"type":"dissolve","duration":0\.4,"align":"before-cut","x":\{"keep":true\}\}/u);
+  assert.deepEqual(JSON.parse(updated).cuts[0].transition_out,
+    { type: 'dissolve', duration: 0.4, align: 'before-cut', x: { keep: true } });
+  assert.equal(JSON.parse(setCutTransitionOutInSource(updated, 0, null)).cuts[0].transition_out, undefined);
+  assert.throws(() => setCutTransitionOutInSource(source, 0,
+    { type: 'different-future-kind', duration: 0.4 }), /種別/u);
+});
+
 test('非 JSON 消費者は正準表の import を使い手書き enum を持たない', () => {
   const consumers = [
     ['packages/edit-store/src/edit-store.ts', /isTransitionType/u],
     ['packages/edit-lint/src (concatenated)', /TRANSITION_TYPE_IDS/u],
-    ['packages/schemas/bin/validate-edit.mjs', /TRANSITION_TYPE_IDS/u],
+    ['packages/schemas/bin/validate-edit.mjs', /isNonEmptyString\(value\.type\)/u],
     ['apps/shell/extensions/akari-preview/src/common/edit-summary-fields.ts', /isTransitionType/u],
     ['apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts', /TRANSITION_VOCABULARY/u],
     ['apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts', /TRANSITION_VOCABULARY/u],
