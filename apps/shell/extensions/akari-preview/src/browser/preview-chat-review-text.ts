@@ -10,7 +10,8 @@ export function describeReviewAttachments(attachments: readonly ChatAttachment[]
         const span = mark.timeEnd === undefined ? time(mark.time) : `${time(mark.time)}〜${time(mark.timeEnd)}`;
         const tool = { pen: 'ペン', pin: 'ピン', range: '範囲' }[mark.tool];
         const context = mark.elements?.length ? `（${mark.elements.map(oneLine).join('、')}付近）` : '';
-        const base = `[レビュー] ${oneLine(mark.sourceLabel)} ${span} ${tool}${context}: ${oneLine(mark.text)} [${oneLine(mark.source)}]`;
+        const body = oneLine(mark.text);
+        const base = `[レビュー] ${oneLine(mark.sourceLabel)} ${span} ${tool}${context}${body ? `: ${body}` : ''} [${oneLine(mark.source)}]`;
         const image = imagePaths.get(index);
         return image ? `${base} [コマの絵: ${image}]` : base;
     }).join('\n') + (attachments.length ? '\n' : '');

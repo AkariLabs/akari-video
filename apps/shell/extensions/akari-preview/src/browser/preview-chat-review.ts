@@ -1,4 +1,5 @@
-import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt } from '../common/chat-review-attachments';
+import { normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt,
+    reviewEscapeStep, reviewMemoEnterAction } from '../common/chat-review-attachments';
 import type { ChatAttachment } from '../common/chat-review-attachments';
 
 export function reviewThumbnailEviction(attachments: readonly ChatAttachment[], limit = 50): number {
@@ -17,6 +18,8 @@ export function previewChatReviewScript(): string {
         const boxFromPoints = (${reviewBoxFromPoints.toString()});
         const captionLabelsAt = (${reviewCaptionLabelsAt.toString()});
         const elementsAt = (${reviewElementsAt.toString()});
+        const escapeStep = (${reviewEscapeStep.toString()});
+        const enterAction = (${reviewMemoEnterAction.toString()});
         const thumbnailEviction = (${reviewThumbnailEviction.toString()});
         const stage = document.getElementById('preview-stage');
         const transport = document.querySelector('.transport');
@@ -30,13 +33,29 @@ export function previewChatReviewScript(): string {
             return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
         };
         let tool = null;
-        let draft = null;
+        let activeNote = null;
         let marks = [];
+        const pendingAdds = new Map();
+        const pendingUpdates = new Map();
+        const pendingRemoves = new Set();
         let partnerName = 'クリップボード';
         let trayOpen = false;
         let drawing = null;
         let claimedPointerId = null;
         let suppressReviewClick = false;
+        let suppressReviewClickTimer = null;
+        const claimReviewClick = () => {
+            if (suppressReviewClickTimer !== null) clearTimeout(suppressReviewClickTimer);
+            suppressReviewClickTimer = null;
+            suppressReviewClick = true;
+        };
+        const releaseReviewClick = () => {
+            if (suppressReviewClickTimer !== null) clearTimeout(suppressReviewClickTimer);
+            suppressReviewClickTimer = setTimeout(() => {
+                suppressReviewClick = false;
+                suppressReviewClickTimer = null;
+            }, 0);
+        };
         let rangeStart = null;
         let trimTail = Promise.resolve();
         const waitForState = predicate => new Promise(resolve => {
@@ -45,57 +64,71 @@ export function previewChatReviewScript(): string {
             stateWaiters.add(done);
         });
         const stateWaiters = new Set();
+        const markIndex = id => marks.findIndex(item => item.kind === 'review' && item.review.id === id);
+        const requestUpdate = (index, review) => {
+            const id = review.id;
+            if (!id || index < 0 || pendingRemoves.has(id)) return;
+            marks[index] = { ...marks[index], review };
+            pendingUpdates.set(id, { review, lastIndex: index });
+            post({ type: 'akari-preview-chat-review-update', index, id, review });
+            render();
+        };
         const trim = limit => {
             trimTail = trimTail.catch(() => undefined).then(async () => {
                 for (let attempt = 0; attempt < 100; attempt++) {
                     const index = thumbnailEviction(marks, limit);
                     if (index < 0) break;
-                    const old = marks[index];
-                    const count = marks.length;
-                    const removed = waitForState(() => marks.length < count);
-                    post({ type: 'akari-preview-chat-review-remove', index });
-                    if (!await removed) break;
-                    const added = waitForState(() => marks.length >= count);
-                    post({ type: 'akari-preview-chat-review-add', review: { ...old.review, thumbnail: undefined } });
-                    if (!await added) break;
+                    const review = { ...marks[index].review, thumbnail: undefined };
+                    const updated = waitForState(() => !pendingUpdates.has(review.id));
+                    requestUpdate(index, review);
+                    if (!await updated) break;
                 }
             });
             return trimTail;
         };
         const root = document.createElement('div');
         root.id = 'review-chat-layer';
-        root.innerHTML = '<svg data-review-ink viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div data-review-marks></div><div data-review-hint hidden></div><div data-review-note hidden><div class="review-what">ここにあるもの <div data-review-elements></div></div><textarea data-review-memo placeholder="変更したい内容を入力" rows="3"></textarea><div class="review-note-actions"><button type="button" data-review-later>あとで</button><button type="button" data-review-add>追加</button></div></div>';
+        root.innerHTML = '<svg data-review-ink viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div data-review-marks></div>';
         stage.append(root);
         const ink = root.querySelector('[data-review-ink]');
         const marksNode = root.querySelector('[data-review-marks]');
-        const hint = root.querySelector('[data-review-hint]');
-        const note = root.querySelector('[data-review-note]');
-        const elementsNode = root.querySelector('[data-review-elements]');
-        const memo = root.querySelector('[data-review-memo]');
-        const right = document.querySelector('.transport-right');
-        const buttons = document.createElement('div');
-        buttons.className = 'review-tools';
-        buttons.innerHTML = '<button type="button" data-review-tool="pen" title="ペン">ペン</button><button type="button" data-review-tool="pin" title="ピン">ピン</button><button type="button" data-review-tool="range" title="範囲">範囲</button><span class="review-divider"></span><button type="button" data-review-attach-count="0" hidden>添付 0</button>';
-        right.prepend(buttons);
+        const toolbar = document.createElement('div');
+        toolbar.className = 'review-toolbar';
+        toolbar.innerHTML = '<span data-review-hint hidden></span><div class="review-tools"><button type="button" class="icon-button" data-review-tool="pen" title="ペン" aria-label="ペン" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-tool="pin" title="ピン" aria-label="ピン" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-7.1 7-13a7 7 0 1 0-14 0c0 5.9 7 13 7 13Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="icon-button" data-review-tool="range" title="範囲" aria-label="範囲" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12m16-12v12M5 12h14m-11-3-3 3 3 3m8-6 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="review-range-controls" hidden><button type="button" data-review-range-start>開始</button><button type="button" data-review-range-end>終了</button></span><span class="review-divider" aria-hidden="true"></span><button type="button" class="icon-button" data-review-attach-count="0" title="添付 0 件" aria-label="添付 0 件" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.5-6.5a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.5-9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-review-attach-number>0</span></button></div>';
+        transport.querySelector('.transport-controls').after(toolbar);
+        const hint = toolbar.querySelector('[data-review-hint]');
+        const buttons = toolbar.querySelector('.review-tools');
+        const rangeControls = toolbar.querySelector('#review-range-controls');
         const attachButton = buttons.querySelector('[data-review-attach-count]');
-        const tray = document.createElement('div');
-        tray.id = 'review-chat-tray';
-        tray.hidden = true;
-        tray.innerHTML = '<div class="review-tray-heading">添付待ち <span data-review-tray-count></span></div><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-tray-later>あとで</button><button type="button" data-review-send>クリップボードにコピー</button></div>';
-        transport.append(tray);
+        const dock = document.createElement('div');
+        dock.id = 'review-dock';
+        dock.hidden = true;
+        dock.innerHTML = '<div data-review-note hidden><div class="review-note-line"><div class="review-note-meta"><span data-review-note-badge></span><span data-review-note-tool></span><span data-review-note-time></span></div><textarea data-review-memo placeholder="変更したい内容を入力" rows="2"></textarea><div class="review-note-actions"><button type="button" class="icon-button" data-review-delete title="削除" aria-label="削除"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="icon-button" data-review-done title="完了" aria-label="完了"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div><div data-review-elements hidden></div></div><div id="review-chat-tray" hidden><div data-review-rows></div><div class="review-tray-actions"><button type="button" data-review-send>クリップボードにコピー</button></div></div>';
+        toolbar.after(dock);
+        const note = dock.querySelector('[data-review-note]');
+        const elementsNode = note.querySelector('[data-review-elements]');
+        const noteBadge = note.querySelector('[data-review-note-badge]');
+        const noteTool = note.querySelector('[data-review-note-tool]');
+        const noteTime = note.querySelector('[data-review-note-time]');
+        const memo = note.querySelector('[data-review-memo]');
+        const tray = dock.querySelector('#review-chat-tray');
         const sendButton = tray.querySelector('[data-review-send]');
         const seekMarks = document.createElement('div');
         seekMarks.id = 'review-seek-marks';
         document.querySelector('.transport-seek')?.append(seekMarks);
-        const rangeControls = document.createElement('div');
-        rangeControls.id = 'review-range-controls';
-        rangeControls.innerHTML = '<button type="button" data-review-range-start>開始</button><button type="button" data-review-range-end>終了</button>';
-        transport.append(rangeControls);
+        const setBadgeActive = (badge, time) => {
+            const active = Math.abs(Number(badge.dataset.reviewTime) - time) <= 1.5;
+            badge.style.opacity = active ? '1' : '.25';
+            badge.querySelector('[data-review-badge]')?.toggleAttribute('data-review-active', active);
+            if (badge.hasAttribute('data-review-badge')) badge.toggleAttribute('data-review-active', active);
+        };
         const render = () => {
             sendButton.textContent = partnerName === 'クリップボード' ? 'クリップボードにコピー' : partnerName + ' に添付';
             attachButton.hidden = marks.length === 0;
             attachButton.dataset.reviewAttachCount = String(marks.length);
-            attachButton.textContent = '添付 ' + marks.length;
+            attachButton.querySelector('[data-review-attach-number]').textContent = String(marks.length);
+            attachButton.title = '添付 ' + marks.length + ' 件';
+            attachButton.setAttribute('aria-label', attachButton.title);
             for (const button of buttons.querySelectorAll('[data-review-tool]')) {
                 button.classList.toggle('on', button.dataset.reviewTool === tool);
                 button.setAttribute('aria-pressed', String(button.dataset.reviewTool === tool));
@@ -106,17 +139,28 @@ export function previewChatReviewScript(): string {
             hint.textContent = tool === 'pen' ? '動画の上をクリックして丸をつける'
                 : tool === 'pin' ? '動画の上をクリックしてピンを置く'
                 : tool === 'range' ? (rangeStart === null ? '開始位置を選ぶ' : '終了位置を選ぶ') : '';
-            note.hidden = !draft;
+            if (activeNote) tray.hidden = true;
+            else note.hidden = true;
+            note.hidden = !activeNote;
+            tray.hidden = !trayOpen || marks.length === 0 || Boolean(activeNote);
+            dock.hidden = note.hidden && tray.hidden;
             elementsNode.replaceChildren();
-            if (draft) {
-                for (const label of draft.elements || []) {
+            if (activeNote) {
+                const index = markIndex(activeNote.id);
+                const review = marks[index]?.review;
+                note.dataset.reviewNoteIndex = String(index);
+                noteBadge.textContent = String(index + 1);
+                noteTool.dataset.reviewNoteTool = review.tool;
+                noteTool.innerHTML = buttons.querySelector('[data-review-tool="' + review.tool + '"] svg').outerHTML;
+                noteTime.textContent = clock(review.time) + (review.timeEnd === undefined ? '' : '〜' + clock(review.timeEnd));
+                elementsNode.hidden = !review.elements?.length;
+                for (const label of review.elements || []) {
                     const item = document.createElement('span');
                     item.dataset.reviewElement = '';
                     item.textContent = label;
                     elementsNode.append(item);
                 }
-                if (!draft.elements?.length) elementsNode.textContent = 'この時刻のコマ';
-            }
+            } else delete note.dataset.reviewNoteIndex;
             marksNode.replaceChildren();
             seekMarks.replaceChildren();
             const duration = Number(seek.max) || document.getElementById('preview-video')?.duration || 1;
@@ -130,25 +174,34 @@ export function previewChatReviewScript(): string {
                 if (!mark.shape) continue;
                 const badge = document.createElement('span');
                 badge.className = 'review-mark ' + mark.tool;
+                badge.dataset.reviewIndex = String(index);
                 badge.dataset.reviewTime = String(mark.time);
                 badge.style.left = (mark.shape.x * 100) + '%';
                 badge.style.top = (mark.shape.y * 100) + '%';
-                badge.style.opacity = Math.abs(mark.time - currentTime()) > 1.5 ? '.25' : '1';
                 if (mark.tool === 'pen') {
                     badge.style.width = (Math.max(mark.shape.w || 0, .025) * 100) + '%';
                     badge.style.height = (Math.max(mark.shape.h || 0, .025) * 100) + '%';
+                    const chip = document.createElement('span');
+                    chip.dataset.reviewBadge = String(index);
+                    chip.textContent = String(index + 1);
+                    badge.append(chip);
+                } else {
+                    badge.dataset.reviewBadge = String(index);
+                    badge.textContent = String(index + 1);
                 }
-                badge.textContent = String(index + 1);
+                setBadgeActive(badge, currentTime());
                 marksNode.append(badge);
             }
-            tray.hidden = !trayOpen || marks.length === 0;
-            tray.querySelector('[data-review-tray-count]').textContent = String(marks.length);
             const rows = tray.querySelector('[data-review-rows]');
             rows.replaceChildren();
             marks.forEach((item, index) => {
                 const row = document.createElement('div');
                 row.dataset.reviewRow = String(index);
                 row.className = 'review-tray-row';
+                const badge = document.createElement('span');
+                badge.className = 'review-row-badge';
+                badge.textContent = String(index + 1);
+                row.append(badge);
                 if (item.review.thumbnail) {
                     const thumb = document.createElement('img');
                     thumb.src = item.review.thumbnail;
@@ -156,10 +209,15 @@ export function previewChatReviewScript(): string {
                     row.append(thumb);
                 }
                 const content = document.createElement('span');
+                content.className = 'review-row-text';
                 content.textContent = item.review.sourceLabel + ' ・ ' + clock(item.review.time)
                     + (item.review.timeEnd === undefined ? '' : '〜' + clock(item.review.timeEnd))
                     + ' ・ ' + ({ pen: 'ペン', pin: 'ピン', range: '範囲' })[item.review.tool]
-                    + ' — ' + item.review.text;
+                    + ' — ';
+                const memoText = document.createElement('span');
+                memoText.textContent = item.review.text || 'メモなし';
+                if (!item.review.text) memoText.className = 'review-empty-memo';
+                content.append(memoText);
                 row.append(content);
                 const remove = document.createElement('button');
                 remove.type = 'button';
@@ -211,7 +269,59 @@ export function previewChatReviewScript(): string {
             }
             return rows;
         };
+        const saveNote = close => {
+            if (!activeNote) return true;
+            const index = markIndex(activeNote.id);
+            if (index < 0) { activeNote = null; render(); return true; }
+            const review = { ...marks[index].review, text: memo.value.trim() };
+            const candidate = { ...marks[index], review };
+            const size = item => new TextEncoder().encode(JSON.stringify(item)).byteLength;
+            if (size(candidate) > 64 * 1024) review.thumbnail = undefined;
+            if (size(candidate) > 64 * 1024) {
+                memo.setCustomValidity('メモが長すぎます。短くしてください');
+                memo.reportValidity();
+                return false;
+            }
+            memo.setCustomValidity('');
+            if (review.text !== activeNote.savedText || review.thumbnail !== marks[index].review.thumbnail) {
+                requestUpdate(index, review);
+                activeNote.savedText = review.text;
+            }
+            if (close) { activeNote = null; render(); }
+            return true;
+        };
+        const removeMark = index => {
+            const item = marks[index];
+            if (!item || item.kind !== 'review') return;
+            const id = item.review.id;
+            if (activeNote?.id === id) activeNote = null;
+            pendingAdds.delete(id);
+            pendingUpdates.delete(id);
+            pendingRemoves.add(id);
+            marks.splice(index, 1);
+            post({ type: 'akari-preview-chat-review-remove', index, id });
+            if (marks.length === 0) trayOpen = false;
+            render();
+        };
+        const openNote = (index, fresh = false) => {
+            const item = marks[index];
+            if (!item || item.kind !== 'review') return;
+            if (activeNote && activeNote.id !== item.review.id && !saveNote(true)) return;
+            trayOpen = false;
+            tray.hidden = true;
+            const end = item.review.timeEnd ?? item.review.time;
+            if (!fresh && (currentTime() < item.review.time - 1.5 || currentTime() > end + 1.5)) {
+                seek.value = String(item.review.time);
+                seek.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            activeNote = { id: item.review.id, savedText: item.review.text, fresh };
+            memo.value = item.review.text;
+            render();
+            memo.focus();
+            memo.setSelectionRange(memo.value.length, memo.value.length);
+        };
         const beginNote = (kind, time, shape, clientX, clientY) => {
+            if (activeNote && !saveNote(true)) return;
             const point = shape ? { x: shape.x + (shape.w || 0) / 2, y: shape.y + (shape.h || 0) / 2 } : { x: .5, y: .5 };
             const stageRect = stage.getBoundingClientRect();
             const hit = kind === 'pen' && shape
@@ -225,26 +335,28 @@ export function previewChatReviewScript(): string {
             const elements = initial.kind === 'output'
                 ? [...new Set([...domLabels, ...elementsAt({ ...initial.summary, captions: window.akari?.previewCaptions || initial.captions }, time, point)])]
                 : [];
-            draft = { tool: kind, source, sourceLabel, time,
+            const review = { id: crypto.randomUUID(), tool: kind, source, sourceLabel, time,
                 ...(kind === 'range' ? { timeEnd: currentTime() } : {}),
                 ...(shape ? { shape } : {}), elements, text: '', thumbnail: thumbnail() };
-            memo.value = '';
-            note.style.left = '8px';
-            note.style.top = '8px';
-            render();
-            const fit = (preferred, size, available) => Math.max(8, Math.min(preferred, Math.max(8, available - size - 8)));
-            note.style.left = fit(point.x * stageRect.width + 16, note.offsetWidth, stageRect.width) + 'px';
-            note.style.top = fit(point.y * stageRect.height - 24, note.offsetHeight, stageRect.height) + 'px';
-            memo.focus();
+            const item = { kind: 'review', label: review.sourceLabel + ' ' + review.time.toFixed(1) + '秒', review };
+            if (new TextEncoder().encode(JSON.stringify(item)).byteLength > 64 * 1024) review.thumbnail = undefined;
+            marks.push(item);
+            pendingAdds.set(review.id, item);
+            post({ type: 'akari-preview-chat-review-add', review });
+            openNote(marks.length - 1, true);
+            if (kind === 'range') rangeStart = null;
+            void trim(50);
         };
         buttons.addEventListener('click', event => {
             const picked = event.target.closest('[data-review-tool]');
             if (picked) {
+                if (activeNote && !saveNote(true)) return;
                 tool = tool === picked.dataset.reviewTool ? null : picked.dataset.reviewTool;
                 rangeStart = tool === 'range' ? currentTime() : null;
-                draft = null;
                 render();
             } else if (event.target.closest('[data-review-attach-count]')) {
+                if (activeNote && !saveNote(true)) return;
+                note.hidden = true;
                 trayOpen = !trayOpen;
                 render();
             }
@@ -257,16 +369,18 @@ export function previewChatReviewScript(): string {
             }
         });
         window.addEventListener('pointerdown', event => {
-            if (draft && event.target.closest?.('[data-review-note]')
-                && !event.target.closest?.('textarea,button,input,select,a[href]')) {
+            const badge = event.target.closest?.('[data-review-badge][data-review-active]');
+            if (badge && marksNode.contains(badge) && event.button === 0) {
                 event.preventDefault(); event.stopImmediatePropagation();
+                claimedPointerId = event.pointerId;
+                claimReviewClick();
+                openNote(Number(badge.dataset.reviewBadge));
                 return;
             }
-            if (!tool || draft || event.button !== 0 || !stage.contains(event.target)
-                || event.target.closest?.('[data-review-note]')) return;
+            if (!tool || event.button !== 0 || !stage.contains(event.target)) return;
             event.preventDefault(); event.stopImmediatePropagation();
             claimedPointerId = event.pointerId;
-            suppressReviewClick = true;
+            claimReviewClick();
             const rect = stage.getBoundingClientRect();
             const point = normalizePoint(event.clientX, event.clientY, rect);
             if (tool === 'pin') { beginNote('pin', currentTime(), point, event.clientX, event.clientY); return; }
@@ -285,6 +399,7 @@ export function previewChatReviewScript(): string {
         window.addEventListener('pointerup', event => {
             if (claimedPointerId !== event.pointerId) return;
             claimedPointerId = null;
+            releaseReviewClick();
             event.preventDefault(); event.stopImmediatePropagation();
             if (!drawing) return;
             const done = drawing; drawing = null;
@@ -299,51 +414,99 @@ export function previewChatReviewScript(): string {
         window.addEventListener('pointercancel', event => {
             if (claimedPointerId !== event.pointerId) return;
             claimedPointerId = null;
+            suppressReviewClick = false;
+            if (suppressReviewClickTimer !== null) clearTimeout(suppressReviewClickTimer);
+            suppressReviewClickTimer = null;
             drawing = null;
             ink.replaceChildren();
             event.preventDefault(); event.stopImmediatePropagation();
         }, true);
         window.addEventListener('click', event => {
-            if (!suppressReviewClick || !stage.contains(event.target)) return;
+            if (!suppressReviewClick) return;
             suppressReviewClick = false;
+            if (suppressReviewClickTimer !== null) clearTimeout(suppressReviewClickTimer);
+            suppressReviewClickTimer = null;
             event.preventDefault(); event.stopImmediatePropagation();
         }, true);
-        const saveDraft = () => {
-            if (!draft || !memo.value.trim()) { memo.focus(); return; }
-            const review = { ...draft, text: memo.value.trim() };
-            const candidate = { kind: 'review', label: review.sourceLabel + ' ' + review.time.toFixed(1) + '秒', review };
-            if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) review.thumbnail = undefined;
-            if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > 64 * 1024) {
-                memo.setCustomValidity('メモが長すぎます。短くしてください');
-                memo.reportValidity();
-                return;
-            }
-            memo.setCustomValidity('');
-            void trim(review.thumbnail ? 49 : 50).then(() => post({ type: 'akari-preview-chat-review-add', review }));
-            draft = null; rangeStart = null; tool = null; render();
-        };
-        root.querySelector('[data-review-add]').addEventListener('click', saveDraft);
-        root.querySelector('[data-review-later]').addEventListener('click', () => {
-            if (memo.value.trim()) saveDraft();
-            else { draft = null; tool = null; render(); }
+        note.querySelector('[data-review-done]').addEventListener('click', () => { saveNote(true); });
+        note.querySelector('[data-review-delete]').addEventListener('click', () => {
+            if (activeNote) removeMark(markIndex(activeNote.id));
         });
+        memo.addEventListener('blur', () => { if (activeNote) saveNote(false); });
         tray.addEventListener('click', event => {
             const remove = event.target.closest('[data-review-remove]');
-            if (remove) post({ type: 'akari-preview-chat-review-remove', index: Number(remove.dataset.reviewRemove) });
+            if (remove) removeMark(Number(remove.dataset.reviewRemove));
             else if (event.target.closest('[data-review-send]')) post({ type: 'akari-preview-chat-review-attach' });
-            else if (event.target.closest('[data-review-tray-later]')) { trayOpen = false; render(); }
+            else {
+                const row = event.target.closest('[data-review-row]');
+                if (row) openNote(Number(row.dataset.reviewRow));
+            }
         });
         seek.addEventListener('pointerdown', () => { if (tool === 'range') rangeStart = currentTime(); });
         seek.addEventListener('pointerup', () => { if (tool === 'range' && rangeStart !== null && currentTime() !== rangeStart) beginNote('range', rangeStart); });
         seek.addEventListener('input', render);
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && (tool || draft || trayOpen)) {
-                draft = null; tool = null; rangeStart = null; trayOpen = false; render();
+        const escapeOne = event => {
+            const step = escapeStep({ noteOpen: Boolean(activeNote), trayOpen, tool,
+                isComposing: event.isComposing, keyCode: event.keyCode });
+            if (step === 'note') {
+                if (activeNote.fresh && !memo.value.trim()) removeMark(markIndex(activeNote.id));
+                else saveNote(true);
+            } else if (step === 'tray') { trayOpen = false; render(); }
+            else if (step === 'tool') { tool = null; rangeStart = null; render(); }
+            return Boolean(step);
+        };
+        const memoKeys = new Set();
+        window.addEventListener('keydown', event => {
+            const inMemo = event.target === memo;
+            if (inMemo) memoKeys.add(event.code || event.key);
+            if (event.key === 'Escape' && (inMemo || activeNote || trayOpen || tool)) {
+                event.stopImmediatePropagation();
+                if (!event.isComposing && event.keyCode !== 229) {
+                    event.preventDefault();
+                    escapeOne(event);
+                }
+                return;
             }
-        });
+            if (!inMemo) return;
+            const action = enterAction(event);
+            if (action === 'save') {
+                event.preventDefault();
+                saveNote(true);
+            }
+            event.stopImmediatePropagation();
+        }, true);
+        for (const type of ['keypress', 'keyup']) {
+            window.addEventListener(type, event => {
+                const key = event.code || event.key;
+                if (event.target !== memo && !memoKeys.has(key)) return;
+                event.stopImmediatePropagation();
+                if (type === 'keyup') memoKeys.delete(key);
+            }, true);
+        }
         window.addEventListener('message', event => {
             if (event.data?.type !== 'akari-preview-chat-review-state') return;
-            if (Array.isArray(event.data.attachments)) marks = event.data.attachments;
+            if (Array.isArray(event.data.attachments)) {
+                const received = event.data.attachments;
+                const present = new Set(received.filter(item => item.kind === 'review').map(item => item.review.id));
+                for (const id of pendingAdds.keys()) if (present.has(id)) pendingAdds.delete(id);
+                for (const id of pendingRemoves) if (!present.has(id)) pendingRemoves.delete(id);
+                marks = received.filter(item => item.kind !== 'review' || !pendingRemoves.has(item.review.id));
+                for (const [id, item] of pendingAdds) if (!present.has(id) && !pendingRemoves.has(id)) marks.push(item);
+                for (const [id, pending] of pendingUpdates) {
+                    const index = markIndex(id);
+                    if (index < 0) { pendingUpdates.delete(id); continue; }
+                    if (JSON.stringify(marks[index].review) === JSON.stringify(pending.review)) {
+                        pendingUpdates.delete(id);
+                    } else {
+                        marks[index] = { ...marks[index], review: pending.review };
+                        if (index !== pending.lastIndex) {
+                            pending.lastIndex = index;
+                            post({ type: 'akari-preview-chat-review-update', index, id, review: pending.review });
+                        }
+                    }
+                }
+                if (activeNote && markIndex(activeNote.id) < 0) activeNote = null;
+            }
             partnerName = typeof event.data.partnerName === 'string' && /\\S/.test(event.data.partnerName)
                 ? event.data.partnerName : 'クリップボード';
             for (const done of [...stateWaiters]) done();
@@ -353,7 +516,7 @@ export function previewChatReviewScript(): string {
         setInterval(() => {
             const time = currentTime();
             for (const badge of marksNode.querySelectorAll('[data-review-time]')) {
-                badge.style.opacity = Math.abs(Number(badge.dataset.reviewTime) - time) > 1.5 ? '.25' : '1';
+                setBadgeActive(badge, time);
             }
         }, 250);
         post({ type: 'akari-preview-chat-review-load' });

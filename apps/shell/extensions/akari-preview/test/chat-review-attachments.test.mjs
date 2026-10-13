@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { Script } from 'node:vm';
 import {
   normalizeReviewPoint, reviewBoxFromPoints, reviewCaptionLabelsAt, reviewElementsAt, REVIEW_PENDING_PATH,
-  parseReviewPending, serializeReviewPending, reviewAttachArgument
+  parseReviewPending, serializeReviewPending, reviewAttachArgument, reviewEscapeStep,
+  reviewMemoEnterAction, updateReviewPending
 } from '../lib/common/chat-review-attachments.js';
 import { reviewThumbnailEviction, previewChatReviewScript } from '../lib/browser/preview-chat-review.js';
 
@@ -53,7 +54,8 @@ test('review thumbnails keep each pending item below 64KB and retain only 50 ima
   assert.match(script, /thumbnailEviction\(marks, limit\)/);
   assert.match(script, /akari-preview-chat-review-remove/);
   assert.match(script, /akari-preview-chat-review-add/);
-  assert.match(script, /void trim\(review\.thumbnail \? 49 : 50\)/);
+  assert.match(script, /void trim\(50\)/);
+  assert.match(script, /akari-preview-chat-review-update/);
   const stateHandler = script.slice(script.indexOf("window.addEventListener('message'"), script.indexOf('setInterval', script.indexOf("window.addEventListener('message'")));
   assert.doesNotMatch(stateHandler, /trim\(/);
 });
@@ -91,4 +93,37 @@ test('pending.json の保存と再読込、チャットへの引数形', async (
     await writeFile(path, serializeReviewPending([]));
     assert.deepEqual(parseReviewPending(await readFile(path, 'utf8')), []);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('空のメモを含む pending.json を読み書きし、書き換えても番号と件数を保つ', () => {
+  const oldMark = { kind: 'review', label: '既存 2.0秒', review: {
+    tool: 'pin', source: 'edit.json', sourceLabel: '既存', time: 2, text: '前からあるメモ'
+  } };
+  const emptyMark = { kind: 'review', label: '新規 3.0秒', review: {
+    id: 'mark-2', tool: 'pin', source: 'edit.json', sourceLabel: '新規', time: 3, text: ''
+  } };
+  const restored = parseReviewPending(serializeReviewPending([oldMark, emptyMark]));
+  assert.deepEqual(restored, [oldMark, emptyMark]);
+  assert.deepEqual(reviewAttachArgument(restored), { attachments: restored });
+  const changed = updateReviewPending(restored, 1, { ...emptyMark.review, text: 'あとから書いた' });
+  assert.equal(changed.length, 2);
+  assert.equal(changed[0], restored[0]);
+  assert.equal(changed[1].review.text, 'あとから書いた');
+  assert.equal(updateReviewPending(changed, 2, emptyMark.review), changed);
+  assert.equal(updateReviewPending(changed, 1, { ...emptyMark.review, shape: { x: 2, y: 0 } }), changed);
+});
+
+test('Esc は一段だけ進み、IME の Enter は保存しない', () => {
+  assert.equal(reviewEscapeStep({ noteOpen: true, trayOpen: true, tool: 'pin' }), 'note');
+  assert.equal(reviewEscapeStep({ noteOpen: false, trayOpen: true, tool: 'pin' }), 'tray');
+  assert.equal(reviewEscapeStep({ noteOpen: false, trayOpen: false, tool: 'pin' }), 'tool');
+  assert.equal(reviewEscapeStep({ noteOpen: false, trayOpen: false, tool: null }), undefined);
+  assert.equal(reviewEscapeStep({ noteOpen: true, trayOpen: true, tool: 'pin', isComposing: true }), undefined);
+  assert.equal(reviewEscapeStep({ noteOpen: true, trayOpen: true, tool: 'pin', keyCode: 229 }), undefined);
+  const key = { key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13 };
+  assert.equal(reviewMemoEnterAction(key), 'save');
+  assert.equal(reviewMemoEnterAction({ ...key, shiftKey: true }), 'newline');
+  assert.equal(reviewMemoEnterAction({ ...key, isComposing: true }), 'ignore');
+  assert.equal(reviewMemoEnterAction({ ...key, keyCode: 229 }), 'ignore');
+  assert.equal(reviewMemoEnterAction({ ...key, key: 'a' }), 'ignore');
 });
