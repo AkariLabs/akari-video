@@ -10,6 +10,10 @@ export const INSPECTOR_WIDGET_CSS = `
 .akari-inspector-transition-value .akari-inspector-number-field { width: min(100%, 170px); min-width: 125px; }
 .akari-inspector-transition-type, .akari-inspector-transition-remove { white-space: normal; overflow-wrap: anywhere; text-align: right; }
 .akari-inspector-transition-directions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.akari-inspector-transition-align { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; min-width: 0; max-width: 100%; }
+.akari-inspector-transition-align button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 4px; padding: 4px 6px; cursor: pointer; }
+.akari-inspector-transition-align button[aria-pressed="true"] { background: var(--akari-elevated); border-color: var(--akari-accent); }
+.akari-inspector-transition-align button:disabled { opacity: .55; cursor: default; }
 .akari-inspector-transition-directions button, .akari-inspector-transition-reset { color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 4px; padding: 4px 7px; cursor: pointer; }
 .akari-inspector-transition-directions button[aria-pressed="true"] { background: var(--akari-elevated); border-color: var(--akari-accent); }
 .akari-inspector-transition-directions button:disabled, .akari-inspector-transition-reset:disabled { opacity: .55; cursor: default; }
@@ -1033,12 +1037,16 @@ export const INSPECTOR_WIDGET_CSS = `
     .akari-inspector-widget .akari-inspector-transition-remove:disabled { opacity: .55; cursor: default; }
     .akari-inspector-widget .akari-inspector-transition-empty { color: var(--akari-muted); }
     .akari-inspector-widget .akari-inspector-transition-directions { gap: 4px; }
-    .akari-inspector-widget .akari-inspector-transition-directions button {
-        box-sizing: border-box; min-width: 30px; min-height: 28px; padding: 3px 7px;
+    .akari-inspector-widget .akari-inspector-transition-directions button,
+    .akari-inspector-widget .akari-inspector-transition-align button {
+        box-sizing: border-box; min-height: 28px; padding: 3px 7px;
         border: 1px solid var(--akari-line); border-radius: 4px;
         background: var(--akari-card); color: var(--akari-ink); font: inherit; white-space: nowrap;
     }
-    .akari-inspector-widget .akari-inspector-transition-directions button[aria-pressed="true"] {
+    .akari-inspector-widget .akari-inspector-transition-directions button { min-width: 30px; }
+    .akari-inspector-widget .akari-inspector-transition-align button { white-space: normal; overflow-wrap: anywhere; }
+    .akari-inspector-widget .akari-inspector-transition-directions button[aria-pressed="true"],
+    .akari-inspector-widget .akari-inspector-transition-align button[aria-pressed="true"] {
         background: var(--akari-elevated); border-color: var(--akari-accent);
     }
     .akari-inspector-widget .akari-inspector-transition-handle-row {

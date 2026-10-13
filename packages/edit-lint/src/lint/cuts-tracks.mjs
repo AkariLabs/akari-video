@@ -33,7 +33,7 @@ function validateTransitionOut(value, findings, path) {
     const key = `lint-messages.cuts.transition.${field === 'align' ? 'unknownAlign' : 'unknownFill'}`;
     addFinding(findings, {
       severity: 'warning', check: `cuts.transition-out.unknown-${field}`,
-      message: lintTextWithFallback(key, { value: label },
+      message: lintTextWithFallback(key, { [field]: label },
         `Unknown transition ${field} "${label}"; ${field === 'align' ? 'center' : 'no fill'} will be used.`),
       path: `${path}.${field}`
     });

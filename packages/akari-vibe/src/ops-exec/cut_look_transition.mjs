@@ -3,7 +3,7 @@ import { visualTarget } from '../exec-support/cut_look_transition.mjs';
 import { vocabulary } from '../exec-support/cut_look_transition.mjs';
 import { view } from '../v2/model.mjs';
 import { editStore } from '../edit-store.mjs';
-import { patchItem } from '../ops/_knobs.mjs';
+import { patchItem, writeEdit } from '../ops/_knobs.mjs';
 export default { id: 'cut_look_transition', apply(env, d) {
         guardedApply(env, d.op, () => {
             const { item, location } = visualTarget(env, d, true);
@@ -22,7 +22,16 @@ export default { id: 'cut_look_transition', apply(env, d) {
             const duration = d.cutLookTransitionSeconds ?? item.source.transition_out?.duration ?? 0.5;
             if (!Number.isFinite(duration) || duration <= 0 || duration >= Math.min(item.duration, next.duration) / env.edit.output.fps)
                 throw new Error('つなぎの秒数が正でない、または隣接カット尺以上');
-            patchItem(env, item.id, { source: { transition_out: { ...item.source.transition_out, type: d.transition_type, duration } } });
+            if (d.align !== undefined && !['center', 'before-cut', 'after-cut'].includes(d.align))
+                throw new Error('つなぎの位置が不正');
+            const transition = { ...item.source.transition_out, type: d.transition_type, duration };
+            if (d.align === 'center') delete transition.align;
+            else if (d.align !== undefined) transition.align = d.align;
+            if (d.align === 'center') {
+                const edit = structuredClone(env.edit);
+                editStore.locate(edit, item.id).item.source.transition_out = transition;
+                writeEdit(env, edit);
+            } else patchItem(env, item.id, { source: { transition_out: transition } });
             env.log.push(`transition ${item.id} → ${d.transition_type} ${duration}秒`);
         });
     } };

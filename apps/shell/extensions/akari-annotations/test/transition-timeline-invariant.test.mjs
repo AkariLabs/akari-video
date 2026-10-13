@@ -24,16 +24,22 @@ const transition = (doc, value) => updateItem(doc, {
 
 const withoutTransitionBytes = doc => stringifyEditV2(transition(doc, null));
 
-test('追加→尺変更→削除の全系列で transition_out 以外の edit.json bytes は不変', () => {
+test('追加→位置変更→尺変更→削除の全系列で transition_out 以外の edit.json bytes は不変', () => {
   const before = stringifyEditV2(baseline);
   const added = transition(baseline, { type: 'dissolve', duration: 1 });
-  const resized = transition(added, { type: 'dissolve', duration: 0.5 });
-  const removed = transition(resized, null);
+  const moved = transition(added, { type: 'dissolve', duration: 1, align: 'after-cut' });
+  const resized = transition(moved, { type: 'dissolve', duration: 0.5 });
+  const centered = transition(resized, { type: 'dissolve', duration: 0.5, align: null });
+  const removed = transition(centered, null);
 
   assert.equal(withoutTransitionBytes(added), before);
+  assert.equal(withoutTransitionBytes(moved), before);
   assert.equal(withoutTransitionBytes(resized), before);
+  assert.equal(resized.tracks[0].items[0].source.transition_out.align, 'after-cut');
+  assert.equal(withoutTransitionBytes(centered), before);
+  assert.equal('align' in centered.tracks[0].items[0].source.transition_out, false);
   assert.equal(stringifyEditV2(removed), before);
-  for (const doc of [added, resized, removed]) {
+  for (const doc of [added, moved, resized, centered, removed]) {
     assert.deepEqual(doc.tracks[0].items.map(item => ({
       at: item.at, duration: item.duration, in: item.source.in, out: item.source.out,
     })), [

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from 'node:fs';
+import { planTrackTransitions } from '@akari-video/edit-store';
 
 import {
   BOUNDARY_BAND_MIN_WIDTH_PX,
@@ -11,51 +13,37 @@ import {
   sourceEdgeMarks
 } from "../lib/common/transition-boundary-model.js";
 
-const room = { outgoingTailRoomSeconds: 5, incomingHeadRoomSeconds: 5, outgoingDurationSeconds: 4, incomingDurationSeconds: 4 };
+const cases = JSON.parse(readFileSync(new URL('../../../../../packages/edit-store/test/transition-plan-cases.json', import.meta.url), 'utf8'));
+const clipOf = clip => ({ id: clip.id, startSeconds: clip.start, lengthSeconds: clip.length,
+  headRoomSeconds: clip.head === 'inf' ? Infinity : clip.head,
+  tailRoomSeconds: clip.tail === 'inf' ? Infinity : clip.tail === null ? undefined : clip.tail,
+  ...(clip.out ? { transitionOut: { declaredSeconds: clip.out.declared, align: clip.out.align,
+    fill: clip.out.fill === true } } : {}) });
 
-test("余りが足りればカット点を中心に宣言どおりの窓を返す", () => {
-  assert.deepEqual(placeBoundary({ declaredSeconds: 0.5, ...room }), {
-    effectiveSeconds: 0.5, startOffsetSeconds: -0.25, endOffsetSeconds: 0.25,
-    freezeOutgoingSeconds: 0, freezeIncomingSeconds: 0, state: "ok"
+for (const entry of cases.plan) {
+  test(`計画から帯の位置: ${entry.name}`, () => {
+    const plans = planTrackTransitions(entry.clips.map(clipOf), { fps: entry.fps });
+    assert.equal(plans.length, entry.expected.length);
+    for (let index = 0; index < plans.length; index++) {
+      const plan = plans[index], expected = entry.expected[index];
+      const placement = placeBoundary(plan);
+      assert.equal(placement.state, expected.state === 'none' ? 'dead' : expected.state);
+      assert.equal(placement.legacyOverlap, expected.legacy);
+      assert.deepEqual(placement.reasons, expected.reasons);
+      assert.ok(Math.abs(placement.effectiveSeconds - expected.effective) < 1e-9);
+      assert.ok(Math.abs(plan.cutSeconds + placement.startOffsetSeconds - expected.start) < 1e-9);
+      assert.ok(Math.abs(plan.cutSeconds + placement.endOffsetSeconds - expected.end) < 1e-9);
+      const geometry = boundaryBandGeometry(placement, 100);
+      const center = ((expected.start + expected.end) / 2 - plan.cutSeconds) * 100;
+      assert.ok(Math.abs(geometry.leftPx + geometry.widthPx / 2 - center) < 1e-9);
+      assert.ok(geometry.cutPx >= 0 && geometry.cutPx <= geometry.widthPx);
+    }
   });
-});
+}
 
-test("余りが足りなければ短くなり、余りが無ければ効かない（描画と同じ規則）", () => {
-  const shortened = placeBoundary({ declaredSeconds: 1, ...room, incomingHeadRoomSeconds: 0.2 });
-  assert.equal(shortened.state, "shortened");
-  assert.equal(shortened.effectiveSeconds, 0.4);
-  assert.equal(shortened.startOffsetSeconds, -0.2);
-  assert.equal(shortened.endOffsetSeconds, 0.2);
-
-  const dead = placeBoundary({ declaredSeconds: 1, ...room, outgoingTailRoomSeconds: 0 });
-  assert.equal(dead.state, "dead");
-  assert.equal(dead.effectiveSeconds, 0);
-  assert.equal(Object.is(dead.startOffsetSeconds, 0), true);
-});
-
-test("余りが分からない（無限）ときは短くしない", () => {
-  const placement = placeBoundary({
-    declaredSeconds: 0.5, ...room,
-    outgoingTailRoomSeconds: Number.POSITIVE_INFINITY, incomingHeadRoomSeconds: Number.POSITIVE_INFINITY
-  });
-  assert.equal(placement.state, "ok");
-  assert.equal(placement.effectiveSeconds, 0.5);
-});
-
-test("実際に重なっている古い形の境目は、後のクリップの始まりから重なりの終わりまでが窓", () => {
-  // 後のクリップの in が 0（頭の余りなし）でも、重なりで保存されていれば窓はある
-  const legacy = { ...room, incomingHeadRoomSeconds: 0 };
-  assert.deepEqual(placeBoundary({ declaredSeconds: 0.5, ...legacy, actualOverlapSeconds: 0.5 }), {
-    effectiveSeconds: 0.5, startOffsetSeconds: 0, endOffsetSeconds: 0.5,
-    freezeOutgoingSeconds: 0, freezeIncomingSeconds: 0, state: "ok"
-  });
-  const shorter = placeBoundary({ declaredSeconds: 1, ...legacy, actualOverlapSeconds: 0.4 });
-  assert.equal(shorter.state, "shortened");
-  assert.equal(shorter.endOffsetSeconds, 0.4);
-  // 宣言より長い重なりは窓を作らない（描画と同じ）
-  assert.equal(placeBoundary({ declaredSeconds: 0.5, ...legacy, actualOverlapSeconds: 0.8 }).state, "dead");
-  // 0 以下は突き合わせとして扱う
-  assert.equal(placeBoundary({ declaredSeconds: 0.5, ...room, actualOverlapSeconds: 0 }).startOffsetSeconds, -0.25);
+test('宣言があっても描かれない境目は効かない', () => {
+  assert.equal(placeBoundary(undefined).state, 'dead');
+  assert.equal(placeBoundary(undefined).effectiveSeconds, 0);
 });
 
 test("宣言の書き換えは種類と尺だけを差し替え、知らない項目を残す", () => {
@@ -68,10 +56,15 @@ test("宣言の書き換えは種類と尺だけを差し替え、知らない�
 });
 
 test("帯は窓の長さに比例し、最小幅より狭いときは中心を保って広げる", () => {
-  const wide = boundaryBandGeometry(placeBoundary({ declaredSeconds: 1, ...room }), 100);
+  const planFor = declared => planTrackTransitions([
+    { id: 'a', startSeconds: 0, lengthSeconds: 4, headRoomSeconds: 5, tailRoomSeconds: 5,
+      transitionOut: { declaredSeconds: declared, align: 'center', fill: false } },
+    { id: 'b', startSeconds: 4, lengthSeconds: 4, headRoomSeconds: 5, tailRoomSeconds: 5 }
+  ], { fps: 30 })[0];
+  const wide = boundaryBandGeometry(placeBoundary(planFor(1)), 100);
   assert.deepEqual(wide, { leftPx: -50, widthPx: 100, cutPx: 50, freezeIncomingPx: 0, freezeOutgoingPx: 0 });
 
-  const narrow = boundaryBandGeometry(placeBoundary({ declaredSeconds: 0.1, ...room }), 100);
+  const narrow = boundaryBandGeometry(placeBoundary(planFor(0.1)), 100);
   assert.equal(narrow.widthPx, BOUNDARY_BAND_MIN_WIDTH_PX);
   assert.equal(narrow.leftPx, -BOUNDARY_BAND_MIN_WIDTH_PX / 2);
   assert.equal(narrow.cutPx, BOUNDARY_BAND_MIN_WIDTH_PX / 2);
@@ -82,13 +75,21 @@ test("帯はカット点の片側だけの窓と止め絵の幅も描ける", ()
     effectiveSeconds: 1, startOffsetSeconds: -1, endOffsetSeconds: 0,
     freezeOutgoingSeconds: 0, freezeIncomingSeconds: 0.25, state: "ok"
   }, 100);
-  assert.deepEqual(beforeCut, { leftPx: -100, widthPx: 100, cutPx: 100, freezeIncomingPx: 25, freezeOutgoingPx: 0 });
+  assert.deepEqual(beforeCut, { leftPx: -100, widthPx: 100, cutPx: 98, freezeIncomingPx: 25, freezeOutgoingPx: 0 });
 
   const afterCut = boundaryBandGeometry({
     effectiveSeconds: 1, startOffsetSeconds: 0, endOffsetSeconds: 1,
     freezeOutgoingSeconds: 0.5, freezeIncomingSeconds: 0, state: "ok"
   }, 100);
-  assert.deepEqual(afterCut, { leftPx: 0, widthPx: 100, cutPx: 0, freezeIncomingPx: 0, freezeOutgoingPx: 50 });
+  assert.deepEqual(afterCut, { leftPx: 0, widthPx: 100, cutPx: 2, freezeIncomingPx: 0, freezeOutgoingPx: 50 });
+  const centered = boundaryBandGeometry({
+    effectiveSeconds: 1, startOffsetSeconds: -0.5, endOffsetSeconds: 0.5,
+    freezeOutgoingSeconds: 0, freezeIncomingSeconds: 0, state: 'ok'
+  }, 100);
+  assert.equal(centered.cutPx, 50);
+  for (const geometry of [beforeCut, centered, afterCut]) {
+    assert.ok(geometry.cutPx >= 2 && geometry.cutPx <= geometry.widthPx - 2);
+  }
 });
 
 test("三角は素材の端と半コマ以内で一致したときだけ出る", () => {

@@ -1,4 +1,4 @@
-import { planTransitionHandleWindow } from '@akari-video/edit-store';
+import type { TransitionBoundaryPlan, TransitionShortenReason, TransitionAlign } from '@akari-video/edit-store';
 
 /** コマンド ID（文字列の正本）。登録は annotations の contribution が行う。 */
 export const TRANSITION_OPEN_PICKER_COMMAND_ID = 'akari.transition.openPicker';
@@ -50,22 +50,6 @@ export function mergeTransitionDeclaration(
     return merged;
 }
 
-export interface BoundaryPlacementInput {
-    declaredSeconds: number;
-    /** 前のクリップの out より後ろに残る素材の長さ（出力の秒）。分からなければ Infinity。 */
-    outgoingTailRoomSeconds: number;
-    /** 後のクリップの in より前に残る素材の長さ（出力の秒）。分からなければ Infinity。 */
-    incomingHeadRoomSeconds: number;
-    outgoingDurationSeconds: number;
-    incomingDurationSeconds: number;
-    /**
-     * 前のクリップの終わり − 後のクリップの始まり（出力の秒）。0 以下なら突き合わせ。
-     * 正なら、実際に重ねて保存されている古い形の境目で、窓はその重なりそのもの。
-     */
-    actualOverlapSeconds?: number;
-    fps?: number;
-}
-
 /**
  * 境目の帯を描くための値。カット点を 0 として、窓がどこからどこまでか、
  * そのうち何秒が止め絵かを返す。
@@ -81,42 +65,23 @@ export interface BoundaryPlacement {
     /** 後のクリップが止め絵になる秒（窓の頭側）。 */
     freezeIncomingSeconds: number;
     state: 'ok' | 'shortened' | 'dead';
+    reasons: readonly TransitionShortenReason[];
+    align: TransitionAlign;
+    legacyOverlap: boolean;
 }
 
-const OVERLAP_EPSILON_SECONDS = 0.000001;
-
-/**
- * 画面が窓の位置を知るための唯一の入口。描画と同じ規則をそのまま返す。
- * - 突き合わせの境目: カット点を中心に置き、余りが足りなければ短くする
- * - 実際に重なっている境目: 後のクリップの始まりから重なりの終わりまで。重なりが宣言より長ければ窓は無い
- * 置き方の規則が変わるときはここだけを差し替える。
- */
-export function placeBoundary(input: BoundaryPlacementInput): BoundaryPlacement {
-    const overlap = input.actualOverlapSeconds;
-    if (typeof overlap === 'number' && Number.isFinite(overlap) && overlap > OVERLAP_EPSILON_SECONDS) {
-        const declared = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
-        const incomingDuration = Number.isFinite(input.incomingDurationSeconds) && input.incomingDurationSeconds > 0
-            ? input.incomingDurationSeconds : 0;
-        const window = overlap - declared > OVERLAP_EPSILON_SECONDS ? 0 : Math.min(overlap, incomingDuration, declared);
-        const effective = window > OVERLAP_EPSILON_SECONDS ? window : 0;
-        return {
-            effectiveSeconds: effective,
-            startOffsetSeconds: 0,
-            endOffsetSeconds: effective,
-            freezeOutgoingSeconds: 0,
-            freezeIncomingSeconds: 0,
-            state: effective === 0 ? 'dead' : declared - effective > OVERLAP_EPSILON_SECONDS ? 'shortened' : 'ok'
-        };
-    }
-    const plan = planTransitionHandleWindow(input);
-    const half = plan.halfSeconds > 0 ? plan.halfSeconds : 0;
+/** トラック計画を帯の表示状態へ写す。計画に無い宣言は効かない境目として扱う。 */
+export function placeBoundary(plan: TransitionBoundaryPlan | undefined): BoundaryPlacement {
     return {
-        effectiveSeconds: plan.effectiveSeconds,
-        startOffsetSeconds: half === 0 ? 0 : -half,
-        endOffsetSeconds: half,
+        effectiveSeconds: plan?.effectiveSeconds ?? 0,
+        startOffsetSeconds: plan?.startOffsetSeconds ?? 0,
+        endOffsetSeconds: plan?.endOffsetSeconds ?? 0,
         freezeOutgoingSeconds: 0,
-        freezeIncomingSeconds: 0,
-        state: plan.outcome === 'full' ? 'ok' : plan.outcome === 'clamped' ? 'shortened' : 'dead'
+        freezeIncomingSeconds: plan?.freezeIncomingSeconds ?? 0,
+        state: !plan || plan.state === 'none' ? 'dead' : plan.state,
+        reasons: plan?.reasons ?? [],
+        align: plan?.align ?? 'center',
+        legacyOverlap: plan?.legacyOverlap ?? false
     };
 }
 
@@ -141,10 +106,12 @@ export function boundaryBandGeometry(placement: BoundaryPlacement, pxPerSecond: 
     const centerPx = ((placement.startOffsetSeconds + placement.endOffsetSeconds) / 2) * scale;
     const leftPx = centerPx - widthPx / 2;
     const ratio = naturalWidth > 0 ? widthPx / naturalWidth : 0;
+    // The marker and its halo occupy two pixels at each edge of the band.
+    const markerInsetPx = 2;
     return {
         leftPx,
         widthPx,
-        cutPx: Math.max(0, Math.min(widthPx, -leftPx)),
+        cutPx: Math.max(markerInsetPx, Math.min(widthPx - markerInsetPx, -leftPx)),
         freezeIncomingPx: Math.min(widthPx, placement.freezeIncomingSeconds * scale * ratio),
         freezeOutgoingPx: Math.min(widthPx, placement.freezeOutgoingSeconds * scale * ratio)
     };

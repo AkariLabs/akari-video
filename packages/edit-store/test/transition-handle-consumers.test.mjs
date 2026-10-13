@@ -6,7 +6,7 @@ import { readAllSourceText } from '../../../apps/shell/extensions/akari-annotati
 
 const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8');
 
-test('映像の窓はトラック単位の計画を読み、UI は旧入口を読む', () => {
+test('映像の窓も UI もトラック単位の計画を読む', () => {
   const lintSource = readLintSourceSync();
   const consumers = [
     read('../src/timeline-map.ts'),
@@ -16,7 +16,8 @@ test('映像の窓はトラック単位の計画を読み、UI は旧入口を�
   for (const source of consumers) {
     assert.match(source, /planTrackTransitions/u);
   }
-  assert.match(readAllSourceText(), /planTransitionHandleWindow/u);
+  assert.match(readAllSourceText(), /transitionPlanClipsFromCuts/u);
+  assert.match(readAllSourceText(), /planTrackTransitions/u);
   assert.doesNotMatch(lintSource, /IMAGE_CUT_SOURCE_PATTERN/u);
   assert.doesNotMatch(
     readAllSourceText(),

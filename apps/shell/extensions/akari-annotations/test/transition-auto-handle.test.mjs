@@ -30,12 +30,13 @@ test('family 選択・コマンド・削除は同じ宣言専用経路を使う'
   assert.doesNotMatch(picker, /slider|autoHandle/u);
 });
 
-test('突き合わせ境界は単一定義で宣言尺だけをクランプし trim を書かない', () => {
+test('突き合わせ境界は共通計画から素材の余りだけで保存尺を決め trim を書かない', () => {
   const apply = method('protected async applyTransitionOut', 'protected nextSameTrackSegment');
   assert.match(apply, /cutOverlapFrames\(earlier, later, this\.fps\) === 0/u);
-  assert.match(apply, /transitionHandlePlan\(earlier, later, next\.duration\)/u);
-  assert.match(apply, /clampTransitionHandleForWrite\(handle, next\.duration\)/u);
-  assert.match(apply, /writtenNext = \{ \.\.\.next, duration: write\.duration \}/u);
+  assert.match(apply, /waitForTransitionMaterial\(earlier\.index\)/u);
+  assert.match(apply, /chooseTransitionAlign\(track\.clips/u);
+  assert.match(apply, /transitionWritePlan\(\{ clips: track\.clips/u);
+  assert.match(apply, /duration: write\.duration/u);
   assert.equal((apply.match(/commitEditMutation\(/gu) ?? []).length, 1);
   assert.doesNotMatch(apply, /setV2TransitionOutWithHandleInSource|autoHandle|maxExtendSeconds/u);
 });

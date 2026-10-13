@@ -1,4 +1,5 @@
 import { type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
+import type { TransitionAlign } from './transition-plan';
 export interface EditCut {
     audio?: false;
     mute?: unknown;
@@ -197,6 +198,7 @@ export declare function updateCutOpacityInSource(source: string, cutIndex: numbe
 export declare function setCutTransitionOutInSource(source: string, cutIndex: number, transitionOut: {
     type: TransitionType;
     duration: number;
+    align?: TransitionAlign | null;
 } | null): string;
 export interface RemoveV2TransitionOutWithHandleRetractInput {
     itemId: string;

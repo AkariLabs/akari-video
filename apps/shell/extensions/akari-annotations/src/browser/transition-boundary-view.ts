@@ -34,7 +34,7 @@ export function renderTransitionBoundaryView(button: HTMLButtonElement, input: T
         (input.geometry?.widthPx ?? 0) >= 118]);
     if (button.dataset.akariBoundaryContent === signature) {
         const cut = button.querySelector<HTMLElement>('.akari-transition-boundary-cut');
-        if (cut) cut.style.left = `${input.geometry?.cutPx ?? 0}px`;
+        if (cut) cut.style.left = `clamp(1px, ${input.geometry?.cutPx ?? 0}px, calc(100% - 2px))`;
         const incoming = button.querySelector<HTMLElement>('.akari-transition-boundary-freeze-incoming');
         if (incoming) incoming.style.width = `${input.geometry?.freezeIncomingPx ?? 0}px`;
         const outgoing = button.querySelector<HTMLElement>('.akari-transition-boundary-freeze-outgoing');
@@ -66,7 +66,7 @@ export function renderTransitionBoundaryView(button: HTMLButtonElement, input: T
         if (input.geometry) {
             const cut = document.createElement('span');
             cut.className = 'akari-transition-boundary-cut';
-            cut.style.left = `${input.geometry.cutPx}px`;
+            cut.style.left = `clamp(1px, ${input.geometry.cutPx}px, calc(100% - 2px))`;
             button.appendChild(cut);
         }
         if ((input.geometry?.widthPx ?? 0) >= 118 || input.kind === 'unknown') {

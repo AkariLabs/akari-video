@@ -1,7 +1,8 @@
 import {
     TRANSITION_FAMILIES, TRANSITION_UNKNOWN_LABEL_KEY, transitionDirectionLabelKey,
     transitionFamilyLabelKey, transitionFamilyOf, transitionTypeOf, isTransitionType,
-    type TransitionDirection, type TransitionFamily, type TransitionType
+    isTransitionAlign, readTransitionAlign,
+    type TransitionAlign, type TransitionDirection, type TransitionFamily, type TransitionType
 } from '@akari-video/edit-store';
 import type { BoundaryBlock, BoundaryPlacement, BoundaryRef } from './transition-boundary-model';
 
@@ -16,8 +17,9 @@ export interface TimelineTransitionSelection {
     ref: BoundaryRef;
     earlier: { index: number; name: string };
     later: { index: number; name: string };
-    declaration?: { type: string; duration: number };
-    placement?: Pick<BoundaryPlacement, 'state' | 'effectiveSeconds'>;
+    declaration?: { type: string; duration: number; align?: unknown };
+    recommendedAlign?: TransitionAlign;
+    placement?: Pick<BoundaryPlacement, 'state' | 'effectiveSeconds' | 'reasons' | 'legacyOverlap'>;
     outgoingTailRoomSeconds?: number;
     incomingHeadRoomSeconds?: number;
     block?: BoundaryBlock;
@@ -36,8 +38,10 @@ export function createTransitionSelection(input: TransitionSelectionInput): Time
     return {
         kind: 'transition', ref: input.ref, earlier: input.earlier, later: input.later,
         declaration: input.declaration,
+        recommendedAlign: input.recommendedAlign,
         ...(input.placement ? { placement: {
-            state: input.placement.state, effectiveSeconds: input.placement.effectiveSeconds
+            state: input.placement.state, effectiveSeconds: input.placement.effectiveSeconds,
+            reasons: input.placement.reasons, legacyOverlap: input.placement.legacyOverlap
         } } : {}),
         ...(Number.isFinite(input.outgoingTailRoomSeconds)
             ? { outgoingTailRoomSeconds: input.outgoingTailRoomSeconds } : {}),
@@ -54,6 +58,8 @@ export interface TransitionInspectorFields {
     type: { labelKey: string; disabled: boolean; reasonKey?: string };
     directions: Array<{ direction: TransitionDirection; labelKey: string; symbol?: string; pressed: boolean; type: TransitionType }>;
     duration: { value: number; disabled: boolean; reasonKey?: string };
+    align?: { buttons: Array<{ align: TransitionAlign; labelKey: string; pressed: boolean }>;
+        disabled: boolean; reasonKey?: string; recommendDisabled: boolean };
     handles: Array<{ labelKey: string; index: number; seconds: number }>;
     status?: { key: string; args?: Record<string, string | number> };
     remove?: { disabled: boolean; reasonKey?: string };
@@ -88,10 +94,15 @@ export function transitionInspectorFields(snapshot: TimelineTransitionSelection)
     });
     const blockName = snapshot.block === 'multi-track' ? 'multiTrack'
         : snapshot.block === 'track-order' ? 'trackOrder' : snapshot.block;
+    const unknownAlign = typeof declaration?.align === 'string' && !isTransitionAlign(declaration.align);
+    const shortenedReason = snapshot.placement?.reasons?.includes('neighbor') ? 'neighbor'
+        : snapshot.placement?.reasons?.some(reason => reason === 'outgoing-length' || reason === 'incoming-length')
+            ? 'clipLength' : 'material';
     const status = snapshot.locked ? { key: 'transition.inspector.status.locked' }
         : blockName ? { key: `transition.boundary.${declaration ? 'dead' : 'block'}.${blockName}` }
             : snapshot.placement?.state === 'dead' ? { key: 'transition.boundary.dead.noHandle' }
-                : snapshot.placement?.state === 'shortened' ? { key: 'transition.picker.boundary.shortened' }
+                : unknownAlign ? { key: 'transition.inspector.status.unknownAlign' }
+                : snapshot.placement?.state === 'shortened' ? { key: `transition.inspector.status.shortened.${shortenedReason}` }
                     : unknown ? { key: 'transition.inspector.status.unknown' } : undefined;
     return {
         headingKey: 'transition.inspector.heading.title',
@@ -105,6 +116,15 @@ export function transitionInspectorFields(snapshot: TimelineTransitionSelection)
             disabled: !declaration || unknown || snapshot.locked || blocked,
             reasonKey: reasonKey ?? (unknown ? 'transition.inspector.reason.unknown'
                 : !declaration ? 'transition.inspector.reason.empty' : undefined) },
+        align: declaration && family && !snapshot.placement?.legacyOverlap
+            ? { buttons: (['before-cut', 'center', 'after-cut'] as const).map(align => ({ align,
+                labelKey: `transition.align.label.${align === 'before-cut' ? 'beforeCut'
+                    : align === 'after-cut' ? 'afterCut' : 'center'}`,
+                pressed: !unknownAlign && readTransitionAlign(declaration.align) === align })),
+                disabled: snapshot.locked || blocked, reasonKey,
+                recommendDisabled: !unknownAlign && snapshot.recommendedAlign !== undefined
+                    && snapshot.recommendedAlign === readTransitionAlign(declaration.align) }
+            : undefined,
         handles,
         status,
         remove: declaration ? { disabled: snapshot.locked, reasonKey: snapshot.locked ? reasonKey : undefined } : undefined
@@ -129,7 +149,7 @@ export function transitionDirectionType(family: TransitionFamily, direction: Tra
 export interface TransitionBoundaryWriteRequest {
     kind: 'transition-boundary';
     ref: BoundaryRef;
-    value: { type: TransitionType; duration: number } | null;
+    value: { type: TransitionType; duration: number; align?: TransitionAlign | null; recommendAlign?: true } | null;
 }
 
 export function transitionDurationRequest(snapshot: TimelineTransitionSelection,
