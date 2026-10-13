@@ -46,3 +46,14 @@ test('migrate-look の dry-run は差分と通知だけ出して書かない', a
   assert.ok(JSON.parse(result.lines[0]).diff.length > 0);
   assert.deepEqual(await readFile(path), before);
 }));
+
+test('別名の字幕も対応する edit と一緒に移行する', async () => fixture(async (project, path) => {
+  const alternate = join(project, 'captions.second.json');
+  await writeFile(alternate, await readFile(path));
+  const result = await run(project, ['--json']);
+  assert.equal(result.code, 0, result.errors.join('\n'));
+  const summary = JSON.parse(result.lines[0]);
+  assert.deepEqual(summary.files.map(file => file.captions), ['captions.json', 'captions.second.json']);
+  assert.ok(summary.files.every(file => file.changed > 0 && file.written.includes(file.captions)));
+  assert.equal(JSON.parse(await readFile(alternate, 'utf8')).captions[0].style_preset, undefined);
+}));

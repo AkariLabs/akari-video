@@ -9,6 +9,21 @@ type Emphasis = { id: string; src?: string; t_start: number; t_end: number; word
     emotion: string; style_hint?: string; style_preset?: string; [key: string]: unknown };
 type CaptionsRoot = { captions: CaptionRow[]; emphasis_words?: Emphasis[]; [key: string]: unknown };
 
+/** 旧い強調の ID は移行済み run に残った出所 ID も予約済みとして扱う。 */
+export function nextEmphasisWordId(root: CaptionsRoot | CaptionRow[]): string {
+    const rows = Array.isArray(root) ? root : root.captions;
+    const used = new Set<string>(Array.isArray(root) ? [] : (root.emphasis_words ?? []).map(item => item.id));
+    for (const row of rows) for (const run of row.runs ?? [])
+        if (typeof run.migrated_from === 'string') used.add(run.migrated_from);
+    if (!Array.isArray(root) && Array.isArray(root.unresolved_runs))
+        for (const entry of root.unresolved_runs as Array<{ run?: CaptionRun }>)
+            if (typeof entry.run?.migrated_from === 'string') used.add(entry.run.migrated_from);
+    let number = 1;
+    while (used.has(`e-${String(number).padStart(4, '0')}`)) number++;
+    if (number > 9999) throw new Error('強調語の id に空きがありません。');
+    return `e-${String(number).padStart(4, '0')}`;
+}
+
 export const CAPTION_EMPHASIS_MOTION: Readonly<Record<string, string>> = {
     'one-char-bang': 'pop', 'one-char-jumble': 'jitter', 'size-pulse': 'zoom-pulse'
 };
@@ -157,8 +172,11 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
     for (const item of emphasis) {
         while (occupiedIndices.has(originalIndex)) originalIndex++;
         const index = originalIndex++;
-        if (rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
-            && run.migrated_from === item.id))) { migrated.add(item.id); continue; }
+        if (allRuns.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) {
+            const old = item.id;
+            item.id = nextEmphasisWordId(source);
+            notices.push(`強調語 ${old} は id が重なっていたので ${item.id} に振り直しました`);
+        }
         const candidate = projectEmphasis(rows, item);
         if (!candidate) { unresolved.push(item); notices.push(`強調語 ${item.id} は可逆に移行できません`); continue; }
         const { row, interval, motion } = candidate;
@@ -187,17 +205,28 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         diff.push({ path: 'emphasis_words', before: captions.emphasis_words, after: source.emphasis_words });
     }
     return { next: source, diff,
-        unresolved, notices };
+        unresolved, notices: [...new Set(notices)] };
 }
 
 /** Restore the renderer's legacy input without changing a legacy-only document. */
 export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T {
     const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
+    const legacyIds = Array.isArray(root) ? [] : (root.emphasis_words ?? []).map(item => item.id);
     if (!rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
-        && (run.look || run.dormant_animation || run.migrated_from)))) return root;
+        && (run.look || run.dormant_animation || run.migrated_from)))
+        && new Set(legacyIds).size === legacyIds.length) return root;
     const copy = structuredClone(root);
     const nextRows: CaptionRow[] = Array.isArray(copy) ? copy : copy.captions;
     const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
+    const migratedIds = new Set<string>();
+    for (const row of nextRows) for (const run of rowRuns(row))
+        if (typeof run?.migrated_from === 'string') migratedIds.add(run.migrated_from);
+    const ids = new Set<string>();
+    for (const item of emphasis) {
+        if (ids.has(item.id) || migratedIds.has(item.id))
+            item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
+        ids.add(item.id);
+    }
     const migrated: Array<{ index: number; item: Emphasis }> = [];
     for (const row of nextRows) {
         if (!Array.isArray(row.runs)) continue;
@@ -207,11 +236,22 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
                 const hint = Object.keys(CAPTION_EMPHASIS_MOTION)
                     .find(key => CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
                 const restored = run.migrated_emphasis?.item as Emphasis | undefined;
-                if (restored) migrated.push({ index: run.migrated_emphasis!.index, item: structuredClone(restored) });
-                else if (hint) emphasis.push({ id: run.migrated_from,
+                if (restored) {
+                    const item = structuredClone(restored);
+                    if (ids.has(item.id)) item.id = nextEmphasisWordId({ captions: nextRows,
+                        emphasis_words: [...emphasis, ...migrated.map(entry => entry.item)] });
+                    ids.add(item.id);
+                    migrated.push({ index: run.migrated_emphasis!.index, item });
+                } else if (hint) {
+                    let id = run.migrated_from;
+                    if (ids.has(id)) id = nextEmphasisWordId({ captions: nextRows,
+                        emphasis_words: [...emphasis, ...migrated.map(entry => entry.item)] });
+                    ids.add(id);
+                    emphasis.push({ id,
                     word: captionGraphemes(row.display_text ?? row.text ?? '').slice(run.from, run.to).join(''),
                     t_start: run.anchor.start, t_end: run.anchor.end, emotion: run.emotion ?? 'emphasis',
                     style_hint: hint, ...(run.anchor.src ? { src: run.anchor.src } : {}) });
+                }
                 return [];
             }
             const next = { ...run };

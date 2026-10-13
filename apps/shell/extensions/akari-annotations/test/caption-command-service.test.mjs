@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -54,6 +54,22 @@ test('競合する期待 hash は何も書かず形のある結果を返す', as
   assert.equal(await read(f.captionsPath), before);
 }));
 
+test('字幕コマンド RPC は実行時に旧い入力欄を落とす', async () => fixture(async f => {
+  const result = await f.service.applyCaptionStyle({ ...f.request, input: {
+    targets: [{ caption_id: 'c-0001' }], parts: { look: { color: '#ffffff' } },
+    legacy: { size: 'style' }, captions: { captions: [] }, edit: {}, assetReferences: {}, catalog: {}
+  } });
+  assert.equal(result.ok, true);
+  assert.equal(JSON.parse(await read(f.captionsPath)).captions[0].text_style.color, '#ffffff');
+}));
+
+test('比較付きスナップショットも transitionOut を拒む', async () => fixture(async f => {
+  const before = await read(f.editPath);
+  await assert.rejects(f.service.writeEditSnapshot({ ...f.request,
+    editSource: '{"transitionOut":1}', expectedHashes: { edit: projectFileHash(before) } }), /transitionOut/);
+  assert.equal(await read(f.editPath), before);
+}));
+
 test('壊れた v1 は invalid と診断を返して保存しない', async () => fixture(async f => {
   const before = await read(f.captionsPath);
   const result = await f.service.applyCaptionStyle({ ...f.request,
@@ -90,11 +106,17 @@ test('全文スナップショットの期待 hash は競合を返し、省略�
 test('中断した書き込みをプロジェクトを読む前に回復できる', async () => fixture(async f => {
   const before = await read(f.captionsPath);
   await assert.rejects(writeProjectFilesTransactional(f.root, { label: '落下', files: {
-    'captions.json': { next: '途中' }
+    'captions.json': { expectedHash: projectFileHash(before), next: '途中' }
   } }, { hooks: { crashAfterFirstRename: true } }));
   const result = await f.service.recoverInterruptedWrite({ projectRootUri: f.request.projectRootUri });
-  assert.match(result.notice, /前回の書き込み/);
+  assert.match(result.notice, /前回の途中で止まった書き込み/);
   assert.equal(await read(f.captionsPath), before);
+}));
+
+test('回復 RPC は記録の無いプロジェクトに .akari を作らずファイルの URI を拒む', async () => fixture(async f => {
+  assert.deepEqual(await f.service.recoverInterruptedWrite({ projectRootUri: f.request.projectRootUri }), {});
+  await assert.rejects(stat(join(f.root, '.akari')), { code: 'ENOENT' });
+  await assert.rejects(f.service.recoverInterruptedWrite({ projectRootUri: uri(f.editPath) }));
 }));
 
 test('別名タイムラインの適用は対象字幕だけを書き標準字幕を保つ', async () => fixture(async f => {

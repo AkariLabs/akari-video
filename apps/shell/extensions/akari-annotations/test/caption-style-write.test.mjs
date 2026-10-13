@@ -10,6 +10,7 @@ import * as myStyleLook from '../lib/browser/my-style-look.js';
 import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import { commitCaptionStyleBatch } from '../lib/browser/inspector/caption-style-batch.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
+import { captionCommandHistory } from '../lib/browser/caption-command-history.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
 setAnnotationLanguage('ja');
@@ -27,14 +28,15 @@ const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
 const storeAliases = [...new Set([...block.matchAll(/\b(edit_store(?:_\d+)?)\./g)].map(match => match[1]))];
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1',
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'caption_command_history_1',
   'buffer_1', 'library_apply_plan_1', 'caption_style_batch_1', ...storeAliases, `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
   id, textStyle: style, stylePreset, rawStyle
 });
-const location = { captionsUri: { toString: () => 'captions' }, editUri: { toString: () => 'edit' },
+const location = { captionsUri: { toString: () => 'captions', path: { base: 'captions.json' } },
+  editUri: { toString: () => 'edit', path: { base: 'edit.json' } },
   root: { toString: () => 'root' } };
 
 function rawStyle(style) {
@@ -87,7 +89,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value,
     ...(targets ? { targets } : {}), ...(libraryApplyKind ? { libraryApplyKind } : {}) },
-    location, captionStyleEffects, myStyleLook, {}, libraryApplyPlan, {
+    location, captionStyleEffects, myStyleLook, { captionCommandHistory }, {}, libraryApplyPlan, {
       commitCaptionStyleBatch: (styles, input, read, write) => {
         calls.push(...styles.map(entry => ({ captionId: entry.id, textStyle: entry.style })));
         return commitCaptionStyleBatch(styles, input, read, write);
@@ -178,7 +180,7 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.equal(result.history.length, 1);
   assert.equal(result.writes.length, 1);
   assert.deepEqual(Object.keys(result.writes[0]).sort(),
-    ['captionsSource', 'captionsUri', 'editUri', 'projectRootUri']);
+    ['captionsSource', 'captionsUri', 'editUri', 'expectedHashes', 'projectRootUri']);
   const rows = JSON.parse(result.writes[0].captionsSource);
   assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
   assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);

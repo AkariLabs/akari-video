@@ -503,6 +503,7 @@ import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { projectFileContentHash } from '@akari-video/edit-store';
+import { captionCommandHistory } from './caption-command-history';
 import { ReviewModel } from './review-model';
 import {
     AudioMasterWriteRequest,
@@ -3720,42 +3721,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             ...(editBefore ? { edit: projectFileContentHash(editBefore) } : {}) }
                     };
                     const writeResult = await this.annotationsService.writeEditSnapshot(writeRequest);
-                    // 戻り値のない旧代役が保持する要求は、旧形式の列挙形へ戻す。
-                    if (writeResult === undefined) delete (writeRequest as {
-                        expectedHashes?: { captions: string; edit?: string } }).expectedHashes;
                     if (writeResult?.conflict) {
                         try {
                             if (editAfter) await this.reloadEdit();
                             await this.reloadCaptions();
                         } catch (error) { console.warn('[akari-annotations] reload after caption conflict failed', error); }
                         const message = t('annotations.captionCommandHistory.text.reloadAfterConflict');
-                        this.showNotice(message);
                         return { ok: false, message };
                     }
                     const feedback = captionLibraryApplyFeedback(request.libraryApplyKind);
                     if (after !== before || editAfter && editAfter !== editBefore) {
-                        const restore = async (kind: 'undo' | 'redo'): Promise<void> => {
-                            const result = await this.annotationsService.writeEditSnapshot({
-                                editUri, projectRootUri: location.root.toString(), captionsUri: captionsUri.toString(),
-                                captionsSource: kind === 'undo' ? before : after,
-                                ...(editBefore && editAfter ? { editSource: kind === 'undo' ? editBefore : editAfter } : {}),
-                                expectedHashes: { captions: projectFileContentHash(kind === 'undo' ? after : before),
-                                    ...(editBefore && editAfter ? {
-                                        edit: projectFileContentHash(kind === 'undo' ? editAfter : editBefore)
-                                    } : {}) }
-                            });
-                            if (result?.conflict) {
-                                try { if (editAfter) await this.reloadEdit(); await this.reloadCaptions(); }
-                                catch { /* 読み直しの失敗も競合として知らせる。 */ }
-                                throw new Error(t(kind === 'undo'
-                                    ? 'annotations.captionCommandHistory.text.cannotUndoAfterOtherChanges'
-                                    : 'annotations.captionCommandHistory.text.cannotRedoAfterOtherChanges'));
-                            }
-                            if (editAfter) await this.reloadEdit();
-                            await this.reloadCaptions();
-                        };
-                        this.pushHistory({ label: feedback?.history ?? t('annotations.timeline.text.guessMyStyle'),
-                            undo: () => restore('undo'), redo: () => restore('redo') });
+                        const versions = { captions: captionsUri.path.base, edit: location.editUri.path.base };
+                        this.pushHistory(captionCommandHistory({
+                            written: [versions.captions, ...(editBefore && editAfter ? [versions.edit] : [])],
+                            roles: versions,
+                            before: { [versions.captions]: { text: before, hash: projectFileContentHash(before) },
+                                [versions.edit]: { text: editBefore ?? null, hash: editBefore ? projectFileContentHash(editBefore) : null } },
+                            after: { [versions.captions]: { text: after, hash: projectFileContentHash(after) },
+                                [versions.edit]: { text: editAfter ?? null, hash: editAfter ? projectFileContentHash(editAfter) : null } }
+                        }, feedback?.history ?? t('annotations.timeline.text.guessMyStyle'),
+                        { editUri, projectRootUri: location.root.toString(), captionsUri: captionsUri.toString() },
+                        request => this.annotationsService.writeEditSnapshot(request),
+                        async () => { if (editAfter) await this.reloadEdit(); await this.reloadCaptions(); }));
                     }
                     if (editAfter) await this.reloadEdit();
                     await this.reloadCaptions();

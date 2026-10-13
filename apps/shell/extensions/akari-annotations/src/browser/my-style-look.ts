@@ -119,16 +119,24 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
     const lookPart = parts.find(part => part.kind === 'look');
     const motionPart = parts.find(part => part.kind === 'motion');
     const look = sanitizeMyStyleLook(lookPart?.text_style);
-    let document = JSON.parse(source) as CaptionRoot;
+    const document = JSON.parse(source) as CaptionRoot;
     const rows = Array.isArray(document) ? document
         : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
     if (!rows) throw new Error(t('annotations.myStyleLook.text.unableToReadSubtitleData'));
     const catalog = options.catalog ?? TEXTSTYLE_CATALOG;
+    const index = new Map<string, { row: Record<string, unknown>; position: number; count: number }>();
+    rows.forEach((row, position) => {
+        if (!record(row) || typeof row.id !== 'string') return;
+        const prior = index.get(row.id);
+        index.set(row.id, { row, position, count: (prior?.count ?? 0) + 1 });
+    });
+    const targets: Array<{ caption_id: string; parts: { look?: Record<string, unknown>; motion?: Record<string, unknown> } }> = [];
+    const orders: Array<{ id: string; before: Record<string, unknown> }> = [];
     for (const id of new Set(ids)) {
-        const matches = rows.filter(row => record(row) && row.id === id);
-        if (matches.length !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
+        const match = index.get(id);
+        if (!match || match.count !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
         if (!lookPart && !motionPart) continue;
-        const row = matches[0] as Record<string, unknown>;
+        const row = match.row;
         const before = record(row.text_style) ? row.text_style : {};
         const motion = motionPart && options.motionDelta
             ? applyCaptionMotionDelta(before.animation, options.motionDelta) : motionPart?.animation;
@@ -136,19 +144,24 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
             ...(lookPart ? { look } : {}),
             ...(motionPart ? { motion: record(motion) ? motion : {} } : {})
         };
-        try {
-            document = planCaptionStyleEdit({ captions: document, targets: [{ caption_id: id }],
-                parts: partsToApply, source: options.source, now: options.now, catalog: catalog as TextstyleCatalog,
-                legacy: { preset: 'drop', ...(options.keepSize ? {} : { size: 'style' }) } }).next.captions;
-        } catch (error) {
+        targets.push({ caption_id: id, parts: partsToApply });
+        orders.push({ id, before });
+    }
+    let next = document;
+    if (targets.length) try {
+        next = planCaptionStyleEdit({ captions: document, targets,
+            parts: {}, source: options.source, now: options.now, catalog: catalog as TextstyleCatalog,
+            legacy: { preset: 'drop', ...(options.keepSize ? {} : { size: 'style' }) } }).next.captions;
+    } catch (error) {
             if (error instanceof Error && (error as Error & { code?: string }).code
                 === 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT') {
                 throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
             }
             throw error;
-        }
-        const nextRows = Array.isArray(document) ? document : document.captions;
-        const nextRow = nextRows.find(candidate => candidate.id === id);
+    }
+    const nextRows = Array.isArray(next) ? next : next.captions;
+    for (const { id, before } of orders) {
+        const nextRow = nextRows[index.get(id)!.position];
         if (nextRow && record(nextRow.text_style)) {
             const style = nextRow.text_style;
             const order = [
@@ -163,7 +176,7 @@ export function replaceMyStylePartsInSource(source: string, ids: readonly string
             nextRow.text_style = ordered;
         }
     }
-    return `${JSON.stringify(document, null, 2)}\n`;
+    return `${JSON.stringify(next, null, 2)}\n`;
 }
 
 export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown,

@@ -6,13 +6,48 @@ import test from 'node:test';
 import { planCaptionStyleEdit, planCaptionStyleClear, planCaptionStyleReapply,
   planCaptionSizeEdit, captionValueHash } from '../lib/index.js';
 import { applyCaptionStyle, applyCaptionLookMigration, setCaptionSize, clearCaptionStyle } from '../lib/caption-style-write.js';
-import { projectFileHash } from '../lib/write-gate.js';
+import { projectFileHash, writeProjectFilesTransactional } from '../lib/write-gate.js';
 
 const row = (extra = {}) => ({ id: 'c-0001', start: 0, end: 2, text: '赤い猫と赤い犬',
   speaker: 'a', sourceRef: null, edited: false, ...extra });
 const root = (extra = {}) => ({ default_text_style: { size_px: 38 }, captions: [row(extra)] });
 const source = { kind: 'my', id: '好きな見た目' };
 const look = { size_px: 56, color: '#ffffff', stroke: { color: '#000000', width_px: 4 } };
+
+test('BOM 付き字幕は BOM なしの期待 hash で書けて undo で元のバイト列に戻る', async () => {
+  const project = await mkdtemp(join(tmpdir(), 'akari-bom-'));
+  try {
+    const original = `\uFEFF${JSON.stringify(root())}\n`;
+    await writeFile(join(project, 'captions.json'), original);
+    const result = await applyCaptionStyle(project, { targets: [{ caption_id: 'c-0001' }],
+      parts: { look: { color: '#ffffff' } } }, { expectedHashes: { captions: projectFileHash(original.slice(1)) } });
+    assert.equal(result.before['captions.json'].text, original);
+    assert.equal(result.before['captions.json'].hash, projectFileHash(original));
+    await writeProjectFilesTransactional(project, { label: 'undo', files: {
+      'captions.json': { expectedHash: result.after['captions.json'].hash, next: result.before['captions.json'].text }
+    } });
+    assert.deepEqual(await readFile(join(project, 'captions.json')), Buffer.from(original));
+  } finally { await rm(project, { recursive: true, force: true }); }
+});
+
+test('引用は重ならず NFC で探し元の書記素位置を返す', () => {
+  const captions = root({ text: 'ああああか\u3099' });
+  const result = planCaptionStyleEdit({ captions, targets: [
+    { caption_id: 'c-0001', range: { quote: 'ああ', occurrence: 2 } },
+    { caption_id: 'c-0001', range: { quote: 'が' } }
+  ], parts: { look: { color: '#ffffff' } } });
+  assert.deepEqual(result.next.captions.captions[0].runs.map(run => [run.from, run.to]), [[2, 4], [4, 5]]);
+});
+
+test('複数対象で同じ通知は一度だけ返す', () => {
+  const captions = root({ text: '猫犬' });
+  const result = planCaptionStyleEdit({ captions, targets: [
+    { caption_id: 'c-0001', range: { from: 0, to: 1 } },
+    { caption_id: 'c-0001', range: { from: 1, to: 2 } }
+  ], parts: { look: { color: '#ffffff', font_family: 'Klee One' } } });
+  assert.ok(result.notices.length > 0);
+  assert.equal(new Set(result.notices).size, result.notices.length);
+});
 
 test('行に当てると大きさを保ち px を換算し preset を解いて出所を記録する', () => {
   const input = root({ style_preset: 'subtitle-news', text_style: { size_px: 38 } });
@@ -22,7 +57,7 @@ test('行に当てると大きさを保ち px を換算し preset を解いて�
   const updated = result.next.captions.captions[0];
   assert.deepEqual(input, original);
   assert.equal(updated.text_style.size_px, 38);
-  assert.equal(updated.text_style.stroke.width_px, 4 * 38 / 56);
+  assert.equal(updated.text_style.stroke.width_px, 2.714286);
   assert.equal(updated.style_preset, undefined);
   assert.equal(updated.style_sources.look.kind, 'my');
   assert.equal(updated.style_sources.look.applied_at, '2026-10-13T00:00:00.000Z');
@@ -34,7 +69,7 @@ test('マイスタイル互換: keepSize 真の行 look は既存の置換結果
   const result = planCaptionStyleEdit({ captions, targets: [{ caption_id: 'c-0001' }],
     parts: { look }, source }).next.captions.captions[0].text_style;
   assert.deepEqual(result, { position: { y: 0.4 }, size_px: 38, color: '#ffffff',
-    stroke: { color: '#000000', width_px: 4 * 38 / 56 }, reference_height_px: 1920 });
+    stroke: { color: '#000000', width_px: 2.714286 }, reference_height_px: 1920 });
 });
 
 test('layout と基準高さの衝突は文言に依存しない code を持つ', () => {

@@ -45,6 +45,7 @@ test('雛形の .gitignore: issue #48 の期待表どおりに分かれる（git
             ['.akari/reports/contact-sheet.png', true],
             ['.akari/reports/export-check/result.json', false],
             ['.akari/work/base.mp4', true],
+            ['.akari/write.lock.wait', true],
             ['.akari/work/notes.json', false],
             ['edit.json', false],
             ['captions.json', false],

@@ -9,7 +9,7 @@ import {
   moveDeletedCaptionRunsToUnresolved,
   splitCaptionLine, mergeCaptionLines,
   planCaptionLookMigration, readCaptionLookV1, validateCaptionsSemantics, renderableCaptionRuns,
-  captionRenderInputFromV1,
+  captionRenderInputFromV1, nextEmphasisWordId,
   resolveCaptionStylePreset, resolveCaptionWordStyleVars, resolveCaptionStyleForOutput,
   lookForCaptionRow, lookForCaptionRun, applyCaptionRunsToHtml,
   applyWordBookToCaptionsInSource, captionValueHash, captionEffectiveSize,
@@ -67,6 +67,48 @@ test('可逆に移せない強調語は残して通知する', () => {
   assert.deepEqual(result.next.emphasis_words, emphasis);
   assert.deepEqual(result.unresolved, emphasis);
   assert.equal(result.notices.length, 3);
+});
+
+test('移行済み強調の id は再利用せず衝突した新しい強調も消さない', () => {
+  const first = planCaptionLookMigration({ captions: [row('猫話')], emphasis_words: [
+    { id: 'e-0001', src: 's1', word: '猫', t_start: 0, t_end: 1,
+      emotion: 'joy', style_hint: 'size-pulse' }
+  ] }, {}).next;
+  assert.equal(nextEmphasisWordId(first), 'e-0002');
+  first.emphasis_words.push({ id: 'e-0001', src: 's1', word: '話', t_start: 0, t_end: 1,
+    emotion: 'joy', style_hint: 'size-pulse' });
+  const second = planCaptionLookMigration(first, {});
+  assert.match(second.notices.join(' '), /e-0001.*e-0002/);
+  assert.ok(second.next.emphasis_words.some(item => item.word === '話')
+    || second.next.captions.some(item => item.runs?.some(run => run.migrated_from === 'e-0002')));
+  const legacy = captionRenderInputFromV1(second.next);
+  assert.equal(new Set(legacy.emphasis_words.map(item => item.id)).size, legacy.emphasis_words.length);
+});
+
+test('描画に戻す強調語の id は移行前後で同じ側を振り直す', () => {
+  const original = { captions: [row('猫話')], emphasis_words: [
+    { id: 'e-0001', src: 's1', word: '猫', t_start: 0, t_end: 1,
+      emotion: 'joy', style_hint: 'size-pulse' }
+  ] };
+  const once = planCaptionLookMigration(original, {}).next;
+  for (let number = 2; number <= 5; number++) once.emphasis_words.push({
+    id: `e-000${number}`, src: 's1', word: `未使用${number}`, t_start: 0, t_end: 1,
+    emotion: 'joy', style_hint: 'size-pulse'
+  });
+  once.emphasis_words.push({ id: 'e-0001', src: 's1', word: '話', t_start: 0, t_end: 1,
+    emotion: 'joy', style_hint: 'size-pulse' });
+  const ids = value => captionRenderInputFromV1(value).emphasis_words
+    .filter(item => item.word === '猫' || item.word === '話')
+    .map(item => `${item.id}:${item.word}`);
+  const before = ids(once);
+  const after = ids(planCaptionLookMigration(once, {}).next);
+  assert.deepEqual(before, ['e-0001:猫', 'e-0006:話']);
+  assert.deepEqual(after, before);
+});
+
+test('旧い強調の採番は未解決 run の出所 id も避ける', () => {
+  assert.equal(nextEmphasisWordId({ captions: [row('猫')], emphasis_words: [{ id: 'e-0001' }],
+    unresolved_runs: [{ run: { id: 'r-0001', from: 0, to: 1, migrated_from: 'e-0002' } }] }), 'e-0003');
 });
 
 test('旧形式だけの描画入力は同じオブジェクトを返す', () => {
