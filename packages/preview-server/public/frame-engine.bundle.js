@@ -1695,6 +1695,28 @@ var require_caption_runs = __commonJS({
     function applyCaptionRunsToHtml(html, displayText, runs) {
       if (!runs?.length)
         return html;
+      const validColor = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+      const finite4 = (value) => typeof value === "number" && Number.isFinite(value);
+      const safeShadow = (value) => typeof value === "string" && (value === "none" || /^[\d\s.,()%#a-fA-Fprgbx-]+$/.test(value));
+      const safeGradient = (value) => typeof value === "string" && /^linear-gradient\(-?\d+(?:\.\d+)?deg, (?:#[\da-fA-F]{3,8})(?:, #[\da-fA-F]{3,8}){1,2}\)$/.test(value);
+      runs = runs.map((run) => {
+        const value = run?.resolved_look;
+        if (!value || typeof value !== "object" || Array.isArray(value))
+          return run;
+        const plate = value.plate;
+        const safePlate = plate && validColor(plate.color) && finite4(plate.opacity) && plate.opacity >= 0 && plate.opacity <= 1 && finite4(plate.padding_px) && plate.padding_px >= 0 && finite4(plate.radius_px) && plate.radius_px >= 0 ? { plate } : {};
+        return { ...run, resolved_look: {
+          ...safePlate,
+          ...safeShadow(value.text_shadow) ? { text_shadow: value.text_shadow } : {},
+          ...finite4(value.ink_outset_px) && value.ink_outset_px >= 0 ? { ink_outset_px: value.ink_outset_px } : {},
+          ...finite4(value.rotate_deg) ? { rotate_deg: value.rotate_deg } : {},
+          ...value.wrappable === true ? { wrappable: true } : {},
+          ...safeGradient(value.gradient) ? { gradient: value.gradient } : {},
+          ...value.replace_stroke === true ? { replace_stroke: true } : {},
+          ...value.replace_shadow === true ? { replace_shadow: true } : {},
+          ...value.gradient_filter === true ? { gradient_filter: true } : {}
+        } };
+      });
       const Segmenter = Intl.Segmenter;
       const segment = (value) => Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(value), (item) => item.segment);
       const chars = segment(displayText);
@@ -1708,7 +1730,9 @@ var require_caption_runs = __commonJS({
         style: {},
         role: "",
         shadow: void 0,
-        plateTransform: false
+        plate: false,
+        plateTransform: false,
+        replaceStroke: false
       }));
       for (const run of runs) {
         if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to) || run.from < 0 || run.to > chars.length || run.from >= run.to)
@@ -1728,7 +1752,9 @@ var require_caption_runs = __commonJS({
             ...resolved[index],
             role: run.role ?? resolved[index].role,
             shadow: run.resolved_look?.text_shadow ?? resolved[index].shadow,
-            plateTransform: Boolean(run.resolved_look?.plate) || resolved[index].plateTransform,
+            plate: Boolean(run.resolved_look?.plate) || resolved[index].plate,
+            plateTransform: Boolean(run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0) || resolved[index].plateTransform,
+            replaceStroke: Boolean(run.resolved_look?.replace_stroke) || resolved[index].replaceStroke,
             style: {
               ...resolved[index].style,
               ...style,
@@ -1750,7 +1776,7 @@ var require_caption_runs = __commonJS({
           const style = item.style;
           const css = ["display:inline-block", "vertical-align:baseline", "line-height:1"];
           const scale = typeof style.scale === "number" && Number.isFinite(style.scale) && style.scale > 0 ? style.scale : 1;
-          if (scale !== 1)
+          if (scale !== 1 && !item.plateTransform)
             css.push(`font-size:${scale}em`);
           if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em)) {
             css.push(`letter-spacing:${style.letter_spacing_em}em`);
@@ -1770,17 +1796,24 @@ var require_caption_runs = __commonJS({
           const stroke = style.stroke;
           if (stroke && typeof stroke.width_px === "number" && Number.isFinite(stroke.width_px) && stroke.width_px >= 0 && (!stroke.color || /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(stroke.color))) {
             css.push(`-webkit-text-stroke:${stroke.width_px}px ${stroke.color ?? "currentColor"}`);
-          }
+          } else if (item.replaceStroke)
+            css.push("-webkit-text-stroke:0 transparent");
           const shift = typeof style.baseline_shift_em === "number" && Number.isFinite(style.baseline_shift_em) ? style.baseline_shift_em : 0;
           const rotate = typeof style.rotate_deg === "number" && Number.isFinite(style.rotate_deg) ? style.rotate_deg : 0;
           if ((shift || rotate) && !item.plateTransform)
             css.push(scale === 1 ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)` : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
-          if (item.shadow !== void 0)
-            css.push(`text-shadow:none`, `position:relative`, `--akari-run-shadow:${item.shadow}`);
-          return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""}${item.shadow !== void 0 ? ` data-akari-shadow-text="${escape(character)}"` : ""} style="${css.join(";")}">${escape(character)}</span>`;
+          if (item.shadow !== void 0) {
+            if (item.plate)
+              css.push(`text-shadow:${item.shadow}`);
+            else
+              css.push("text-shadow:none", "position:relative", `--akari-run-shadow:${item.shadow}`);
+          }
+          if (/^\s$/u.test(character))
+            css.push("white-space:pre");
+          return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""}${item.shadow !== void 0 && !item.plate ? ` data-akari-shadow-text="${escape(character)}"` : ""} style="${css.join(";")}">${escape(character)}</span>`;
         }).join("");
       };
-      const renderedHtml = html.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+      const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
         const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g, (whole, charOpen, charText, charClose, tag, plain) => {
           if (charOpen) {
             return charOpen + decorate(charText ?? "") + charClose;
@@ -1792,7 +1825,7 @@ var require_caption_runs = __commonJS({
       if (!richRuns.length)
         return renderedHtml;
       let lineStart = 0;
-      const layered = renderedHtml.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+      const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
         const units = [];
         const containers = [];
         const stack = [];
@@ -1857,16 +1890,14 @@ var require_caption_runs = __commonJS({
             if (prior.to > run.from && prior.to < run.to)
               boundaries.add(prior.to);
           }
-          const firstTok = (unit) => unit.containers.find((item) => item.kind === "tok");
           const groups = [];
           let group = [];
           for (const unit of selected) {
             const previous = group[group.length - 1];
-            const tok = firstTok(unit);
-            const priorTok = previous && firstTok(previous);
             const crossing = previous && boundaries.has(unit.index);
-            const partialTokCrossing = previous && tok !== priorTok && (priorTok && group[0].index > priorTok.from || tok && selected[selected.length - 1].index + 1 < tok.to);
-            if (previous && (crossing || partialTokCrossing)) {
+            const changed = previous && [...previous.containers, ...unit.containers].filter((container) => !previous.containers.includes(container) || !unit.containers.includes(container));
+            const partialCrossing = changed && changed.some((container) => container.from < selected[0].index || container.to > selected[selected.length - 1].index + 1);
+            if (previous && (crossing || partialCrossing)) {
               groups.push(group);
               group = [];
             }
@@ -1879,23 +1910,16 @@ var require_caption_runs = __commonJS({
             const last = part[part.length - 1];
             let start = first.start;
             let end = last.end;
-            const firstToken = firstTok(first);
-            const lastToken = firstTok(last);
-            if (firstToken && firstToken === lastToken) {
-              if (first.index === firstToken.from && last.index + 1 === firstToken.to) {
-                start = firstToken.start;
-                end = firstToken.end;
+            for (const container of first.containers) {
+              if (container.from === first.index && container.to <= last.index + 1) {
+                start = Math.min(start, container.start);
               }
-            } else if (firstToken && lastToken && first.index === firstToken.from && last.index + 1 === lastToken.to) {
-              start = firstToken.start;
-              end = lastToken.end;
             }
-            const firstChar = first.containers.find((item) => item.kind === "char");
-            const lastChar = last.containers.find((item) => item.kind === "char");
-            if (start === first.start && firstChar && first.index === firstChar.from)
-              start = firstChar.start;
-            if (end === last.end && lastChar && last.index + 1 === lastChar.to)
-              end = lastChar.end;
+            for (const container of last.containers) {
+              if (container.to === last.index + 1 && container.from >= first.index) {
+                end = Math.max(end, container.end);
+              }
+            }
             fragments.push({ start, end, runIndex, run, split: groups.length > 1 });
           }
         }
@@ -1912,27 +1936,67 @@ var require_caption_runs = __commonJS({
         for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
           const point = points[pointIndex];
           for (const fragment of (closings.get(point) ?? []).sort((a, b) => b.start - a.start || b.runIndex - a.runIndex)) {
-            const style = fragment.run.style ?? fragment.run.look ?? {};
-            if (fragment.run.resolved_look?.plate && (style.rotate_deg || style.baseline_shift_em))
-              body += "</span>";
             body += "</span>";
           }
           for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
-            const plate = fragment.run.resolved_look?.plate;
+            const resolvedLook = fragment.run.resolved_look;
+            const plate = resolvedLook?.plate;
             const style = fragment.run.style ?? fragment.run.look ?? {};
-            const rotate = typeof style.rotate_deg === "number" ? style.rotate_deg : 0;
-            const shift = typeof style.baseline_shift_em === "number" ? style.baseline_shift_em : 0;
-            const transform = plate && (rotate || shift) ? `transform:translateY(${shift}em) rotate(${rotate}deg);transform-origin:center` : "";
-            body += `<span class="akari-caption__run-frag"${plate ? ` data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : ""}${fragment.run.resolved_look?.ink_outset_px ? ` data-akari-ink-outset="${fragment.run.resolved_look.ink_outset_px}"` : ""}${rotate ? ` data-akari-ink-rotate="${rotate}"` : ""}${fragment.split ? ' data-akari-plate-split="true"' : ""}${plate ? ` style="--akari-plate-pad:${plate.padding_px}px;--akari-plate-radius:${plate.radius_px}px;--akari-plate-color:${escape(plate.color)};--akari-plate-opacity:${plate.opacity};--akari-plate-z:${-1e6 + fragment.runIndex};--akari-plate-transform:${transform ? `translateY(${shift}em) rotate(${rotate}deg)` : "none"}"` : ""}>`;
-            if (transform)
-              body += `<span class="akari-caption__run-body" style="${transform}">`;
+            const rotate = finite4(style.rotate_deg) ? style.rotate_deg : 0;
+            const shift = finite4(style.baseline_shift_em) ? style.baseline_shift_em : 0;
+            const scale = finite4(style.scale) && style.scale > 0 ? style.scale : 1;
+            const rgba = plate ? (() => {
+              const hex = plate.color.slice(1);
+              const pairs = hex.length === 3 ? [...hex].map((digit) => digit + digit) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
+              const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+              return `rgba(${pairs.map((pair) => parseInt(pair, 16)).join(",")},${Math.round(alpha * plate.opacity * 1e4) / 1e4})`;
+            })() : void 0;
+            const fragCss = [
+              resolvedLook?.wrappable || !rotate ? "display:inline" : "display:inline-block",
+              "position:relative",
+              `z-index:${-1e6 + fragment.runIndex}`,
+              "line-height:1",
+              ...scale !== 1 ? [`font-size:${scale}em`] : [],
+              ...shift ? [`top:${shift}em`] : [],
+              ...!resolvedLook?.wrappable && rotate ? [`transform:rotate(${rotate}deg)`, "transform-origin:center"] : [],
+              ...plate ? [
+                `background:${rgba}`,
+                `border-radius:${plate.radius_px}px`,
+                `padding:${plate.padding_px}px`,
+                `margin:-${plate.padding_px}px`,
+                "-webkit-box-decoration-break:clone",
+                "box-decoration-break:clone"
+              ] : [],
+              ...resolvedLook?.gradient_filter && resolvedLook.gradient ? [`--akari-run-gradient:${resolvedLook.gradient}`] : []
+            ];
+            const attrs = [
+              plate ? `data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : "",
+              resolvedLook?.ink_outset_px ? `data-akari-ink-outset="${resolvedLook.ink_outset_px}"` : "",
+              rotate && !resolvedLook?.wrappable ? `data-akari-ink-rotate="${rotate}"` : "",
+              fragment.split ? 'data-akari-plate-split="true"' : "",
+              resolvedLook?.replace_stroke ? 'data-akari-no-stroke="true"' : "",
+              resolvedLook?.replace_shadow ? 'data-akari-no-shadow="true"' : "",
+              resolvedLook?.text_shadow !== void 0 ? 'data-akari-shadow-override="true"' : "",
+              resolvedLook?.gradient_filter ? 'data-akari-gradient-filter="true"' : ""
+            ];
+            body += `<span class="akari-caption__run-frag" ${attrs.filter(Boolean).join(" ")} style="${fragCss.join(";")}">`;
           }
           if (pointIndex + 1 < points.length)
             body += content.slice(point, points[pointIndex + 1]);
         }
-        return open + body + close;
+        const gradient = fragments.some((fragment) => fragment.run.resolved_look?.gradient);
+        return (gradient ? open.replace(/>$/, ' data-akari-gradient-run="true">') : open) + body + close;
       });
-      const rules = '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]){isolation:isolate;position:relative}.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}.akari-caption__run-frag{display:inline-block;position:relative;line-height:1;vertical-align:baseline}.akari-caption__run-frag[data-akari-plate]::before{content:"";position:absolute;left:calc(-1 * var(--akari-plate-pad));right:calc(-1 * var(--akari-plate-pad));top:calc(-1 * var(--akari-plate-pad));bottom:calc(-1 * var(--akari-plate-pad));border-radius:var(--akari-plate-radius);background:var(--akari-plate-color);opacity:var(--akari-plate-opacity);z-index:var(--akari-plate-z);transform:var(--akari-plate-transform);transform-origin:center;pointer-events:none;user-select:none}.akari-caption__run-body{display:inline-block;line-height:1;vertical-align:baseline}.akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}';
+      const rules = "/*akari-run-rules:start*/" + [
+        ".akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]):not([data-akari-gradient-run]){isolation:isolate;position:relative}",
+        ".akari-caption__plate:has(.akari-caption__line[data-akari-gradient-run]){isolation:isolate}",
+        ".akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}",
+        ".akari-caption__run-frag[data-akari-no-stroke] .akari-caption__rich-stroke{display:none}",
+        ".akari-caption__run-frag[data-akari-shadow-override] .akari-caption__rich-shadow{display:none}",
+        '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__run:not([style*="-webkit-text-stroke:"]){-webkit-text-stroke:0 transparent}',
+        ".akari-caption__run-frag[data-akari-gradient-filter] .akari-caption__run{background-image:var(--akari-run-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}",
+        ".akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}"
+      ].join("") + "/*akari-run-rules:end*/";
       return layered.includes("</style>") ? layered.replace("</style>", `${rules}</style>`) : `<style>${rules}</style>${layered}`;
     }
   }
@@ -8864,7 +8928,7 @@ var require_caption_semantics = __commonJS({
         const chars = (0, caption_runs_1.captionGraphemes)(typeof row.display_text === "string" ? row.display_text : String(row.text ?? ""));
         const runs = Array.isArray(row.runs) ? row.runs : [];
         const words = Array.isArray(row.words) ? row.words : [];
-        const hasEmphasisDisplay = words.some((word) => emphasisWords.some((item) => {
+        const hasEmphasisDisplay = words.some((word) => word && typeof word === "object" && emphasisWords.some((item) => {
           if (item.src !== void 0 && item.src !== row.src)
             return false;
           const timedWord = word;
@@ -8898,14 +8962,41 @@ var require_caption_semantics = __commonJS({
           }
           const background = run.look && typeof run.look.background === "object" ? run.look.background : null;
           const richRun = Boolean(background || run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0 || run.look && (Object.prototype.hasOwnProperty.call(run.look, "shadow") || Object.prototype.hasOwnProperty.call(run.look, "glow")));
+          const rowStyle = row.text_style && typeof row.text_style === "object" ? row.text_style : {};
+          const defaultStyle = !Array.isArray(root) && root?.default_text_style && typeof root.default_text_style === "object" ? root.default_text_style : {};
+          const effective = { ...defaultStyle, ...rowStyle };
+          if (richRun && typeof run.look?.rotate_deg === "number" && run.look.rotate_deg !== 0 && (effective.wrap_width_pct || effective.vertical)) {
+            add("captions.run.rotation-wrap", "warning", path, "\u6298\u308A\u8FD4\u3059\u884C\u306E\u7BC4\u56F2\u306F\u56DE\u8EE2\u305B\u305A\u306B\u63CF\u304D\u307E\u3059\u3002", "document");
+          }
+          if (richRun && effective.fill_gradient && !effective.fill && (effective.stroke || effective.stroke_inner || effective.extrude || effective.shadow || effective.glow)) {
+            add("captions.run.gradient-filter", "warning", path, "\u884C\u306E\u7E01\u3084\u5F71\u304C\u3042\u308B\u305F\u3081\u3001\u7BC4\u56F2\u306E\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u3092\u65AD\u7247\u3067\u63CF\u304D\u76F4\u3057\u307E\u3059\u3002", "document");
+          }
+          if (richRun && effective.fill_gradient && !effective.fill && run.look?.color) {
+            add("captions.run.gradient-color", "warning", path, "\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u8272\u3092\u63CF\u3051\u307E\u305B\u3093\u3002", "document");
+          }
           if (ctx.path === "gpu" && words.length && richRun && (["karaoke", "pop", "reveal", "reveal-word"].includes(String(row.style)) || hasEmphasisDisplay)) {
             add("captions.style.unsupported-path", "error", path, "\u8A9E\u3054\u3068\u306E\u8868\u793A\u3068\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u306F GPU \u7D4C\u8DEF\u3067\u4E00\u7DD2\u306B\u63CF\u3051\u307E\u305B\u3093\u3002", "path");
           }
           if (background) {
             const touched = tokenRanges.filter((token) => token.from < run.to && token.to > run.from);
             const tokenSplit = touched.length > 1 && (run.from > touched[0].from || run.to < touched[touched.length - 1].to);
+            const emphasisSplit = emphasisWords.some((item) => {
+              if (item.src !== void 0 && item.src !== row.src)
+                return false;
+              const value = (0, caption_runs_1.captionGraphemes)(item.word);
+              const positions = [];
+              for (let at2 = 0; at2 <= chars.length - value.length; at2++) {
+                if (value.every((char, offset) => chars[at2 + offset] === char))
+                  positions.push(at2);
+              }
+              if (positions.length !== 1)
+                return false;
+              const from = positions[0];
+              const to = from + value.length;
+              return run.from < from && run.to > from && run.to < to || run.from > from && run.from < to && run.to > to;
+            });
             const crossing = runs.slice(0, runIndex).some((prior) => prior && prior.from < run.to && prior.to > run.from && !(prior.from >= run.from && prior.to <= run.to) && !(run.from >= prior.from && run.to <= prior.to));
-            if (tokenSplit || crossing) {
+            if (tokenSplit || emphasisSplit || crossing) {
               add("captions.run.plate-split", "warning", path, "\u8A9E\u306E\u5883\u754C\u307E\u305F\u306F\u7BC4\u56F2\u306E\u4EA4\u5DEE\u306B\u3088\u308A\u3001\u53F0\u7D19\u3092\u5206\u3051\u3066\u63CF\u304D\u307E\u3059\u3002", "document");
             }
           }
@@ -9026,7 +9117,7 @@ var require_caption_look_reader = __commonJS({
       return candidates.length === 1 ? candidates[0] : void 0;
     }
     function rowRuns(row) {
-      return Array.isArray(row.runs) ? row.runs : [];
+      return Array.isArray(row?.runs) ? row.runs : [];
     }
     function invalidLegacyRun(run, row) {
       if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
@@ -9135,7 +9226,8 @@ var require_caption_look_reader = __commonJS({
             notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
         }
         const effectiveStyle = (0, caption_display_1.mergeCaptionLineTextStyles)(Array.isArray(source) ? null : source.default_text_style, row.text_style);
-        const keepLegacyPixels = effectiveStyle?.reference_height_px !== void 0 || effectiveStyle?.layout !== void 0;
+        const layout = row.text_style?.layout ?? (Array.isArray(source) ? void 0 : source.default_text_style?.layout);
+        const keepLegacyPixels = effectiveStyle?.reference_height_px !== void 0 || layout !== void 0;
         if (Array.isArray(row.runs))
           row.runs = row.runs.map((run) => {
             if (!run || typeof run !== "object" || Array.isArray(run))
@@ -9240,57 +9332,113 @@ var require_caption_look_reader = __commonJS({
         notices
       };
     }
-    function resolveCaptionRunLook(look, lineStyle, output) {
+    function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, roundedStroke = false) {
+      const color = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+      const finite4 = (value, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+      const effect = (value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+          return void 0;
+        const record = value;
+        if (!color(record.color))
+          return void 0;
+        const clean = { color: record.color };
+        for (const key of ["opacity", "blur_px", "distance_px", "angle_deg", "density", "spread", "offset_x", "offset_y"]) {
+          if (typeof record[key] === "number" && Number.isFinite(record[key]))
+            clean[key] = record[key];
+        }
+        return clean;
+      };
       const scale = typeof look.scale === "number" && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
-      const lineScale = !output ? 1 : lineStyle?.layout ? (0, caption_display_1.resolveCaptionStyleForOutput)(lineStyle, output).layout.scale : (0, caption_display_1.resolveCaptionReferenceScale)(lineStyle, output);
+      const effectiveLayout = layout ?? lineStyle?.layout;
+      const lineScale = !output ? 1 : effectiveLayout ? (0, caption_display_1.resolveCaptionStyleForOutput)({ ...lineStyle, layout: effectiveLayout }, output).layout.scale : (0, caption_display_1.resolveCaptionReferenceScale)(lineStyle, output);
       const pxScale = lineScale * scale;
       const style = { ...look };
-      if (style.stroke?.width_px !== void 0)
+      if (style.stroke && typeof style.stroke === "object") {
+        const stroke = style.stroke;
         style.stroke = {
-          ...style.stroke,
-          width_px: (0, caption_display_1.scaleCaptionPx)(style.stroke.width_px, pxScale)
+          ...color(stroke.color) ? { color: stroke.color } : {},
+          ...typeof stroke.width_px === "number" && Number.isFinite(stroke.width_px) ? { width_px: (0, caption_display_1.scaleCaptionPx)(stroke.width_px, pxScale) } : {}
         };
+      }
       const background = look.background && typeof look.background === "object" ? look.background : null;
-      const plate = background && typeof background.color === "string" ? {
+      const plate = background && color(background.color) ? {
         color: background.color,
-        opacity: typeof background.opacity === "number" ? background.opacity : 1,
-        padding_px: (0, caption_display_1.scaleCaptionPx)(typeof background.padding_px === "number" ? background.padding_px : 0, pxScale),
-        radius_px: (0, caption_display_1.scaleCaptionPx)(typeof background.radius_px === "number" ? background.radius_px : 0, pxScale)
+        opacity: Math.max(0, Math.min(1, finite4(background.opacity, 1))),
+        padding_px: (0, caption_display_1.scaleCaptionPx)(Math.max(0, finite4(background.padding_px)), pxScale),
+        radius_px: (0, caption_display_1.scaleCaptionPx)(Math.max(0, finite4(background.radius_px)), pxScale)
       } : void 0;
+      const hasStroke = Object.prototype.hasOwnProperty.call(look, "stroke");
       const hasShadow = Object.prototype.hasOwnProperty.call(look, "shadow");
       const hasGlow = Object.prototype.hasOwnProperty.call(look, "glow");
-      const lineShadow = lineStyle?.shadow;
-      const lineGlow = lineStyle?.glow;
-      const shadow = (0, caption_display_1.captionTextShadowValue)(hasShadow ? look.shadow : lineShadow, void 0, hasShadow ? pxScale : lineScale);
-      const glow = (0, caption_display_1.captionTextShadowValue)(void 0, hasGlow ? look.glow : lineGlow, hasGlow ? pxScale : lineScale);
-      const extras = lineStyle ? (0, caption_display_1.captionRichTextShadowValue)({ ...lineStyle, shadow: void 0, glow: void 0 }, lineScale) : null;
-      const shadowValue = hasShadow ? look.shadow : lineShadow;
-      const glowValue = hasGlow ? look.glow : lineGlow;
-      const shadowExtent = shadowValue && typeof shadowValue.color === "string" ? (0, caption_display_1.scaleCaptionPx)(Math.abs(Number(shadowValue.distance_px) || 0) + (Number(shadowValue.blur_px) || 0), hasShadow ? pxScale : lineScale) : 0;
-      const glowExtent = glowValue && typeof glowValue.color === "string" ? (0, caption_display_1.scaleCaptionPx)(Math.abs(Number(glowValue.offset_x) || 0) + Math.abs(Number(glowValue.offset_y) || 0) + 2 * (typeof glowValue.spread === "number" ? glowValue.spread : 40), hasGlow ? pxScale : lineScale) : 0;
+      const shadowValue = effect(hasShadow ? look.shadow : lineStyle?.shadow);
+      const glowValue = effect(hasGlow ? look.glow : lineStyle?.glow);
+      const shadow = hasShadow && shadowValue && finite4(shadowValue.opacity, 1) > 0 ? (0, caption_display_1.captionTextShadowValue)(shadowValue, void 0, pxScale) : null;
+      const glow = hasGlow && glowValue && finite4(glowValue.density, 50) > 0 ? (0, caption_display_1.captionTextShadowValue)(void 0, glowValue, pxScale) : null;
+      const lineStroke = lineStyle?.stroke && typeof lineStyle.stroke === "object" ? lineStyle.stroke : null;
+      const lineHasStyle = Boolean(lineStyle && Object.keys(lineStyle).length);
+      const lineTextShadow = lineStyle ? (0, caption_display_1.captionRichTextShadowValue)(lineStyle, lineScale) : null;
+      const extras = !hasStroke && lineStyle ? (0, caption_display_1.captionRichTextShadowValue)({ ...lineStyle, shadow: void 0, glow: void 0 }, lineScale) : null;
+      const lineUsesRoundedStroke = roundedStroke && lineStroke && !Array.isArray(lineStyle?.strokes) && finite4(lineStroke.width_px, 1.5) > 0;
+      const roundOutline = !hasStroke && lineUsesRoundedStroke ? Array.from({ length: 32 }, (_3, index) => {
+        const radius = (0, caption_display_1.scaleCaptionPx)(finite4(lineStroke.width_px, 1.5), lineScale);
+        const angle = index * Math.PI / 16;
+        const x3 = Number((Math.cos(angle) * radius).toFixed(3));
+        const y2 = Number((Math.sin(angle) * radius).toFixed(3));
+        return `${x3}px ${y2}px 0 ${color(lineStroke.color) ? lineStroke.color : "rgba(0,0,0,.9)"}`;
+      }).join(",") : null;
+      const defaultOutline = policy && !hasStroke && !lineHasStyle ? "-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85)" : null;
+      const defaultDrop = policy ? "0 0 8px rgba(0,0,0,.6)" : "0 2px 8px rgba(0,0,0,.35)";
+      const inheritedShadow = hasShadow ? null : lineStyle?.shadow ? (0, caption_display_1.captionTextShadowValue)(lineStyle.shadow, void 0, lineScale) : !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
+      const inheritedGlow = hasGlow ? null : lineStyle?.glow ? (0, caption_display_1.captionTextShadowValue)(void 0, lineStyle.glow, lineScale) : null;
+      const shadowExtent = shadowValue && finite4(shadowValue.opacity, 1) > 0 ? (0, caption_display_1.scaleCaptionPx)(Math.abs(finite4(shadowValue.distance_px)) + finite4(shadowValue.blur_px), hasShadow ? pxScale : lineScale) : 0;
+      const glowExtent = glowValue && finite4(glowValue.density, 50) > 0 ? (0, caption_display_1.scaleCaptionPx)(Math.abs(finite4(glowValue.offset_x)) + Math.abs(finite4(glowValue.offset_y)) + 2 * finite4(glowValue.spread, 40), hasGlow ? pxScale : lineScale) : 0;
       const inner = lineStyle?.stroke_inner;
       const extrude = lineStyle?.extrude;
-      const lineExtent = (0, caption_display_1.scaleCaptionPx)(Math.max(Number(inner?.width_px) || 0, Number(extrude?.depth_px) || 0), lineScale);
-      const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent);
+      const lineExtent = hasStroke ? 0 : (0, caption_display_1.scaleCaptionPx)(Math.max(finite4(inner?.width_px), finite4(extrude?.depth_px)), lineScale);
+      const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? 8 : 0;
+      const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
+      const gradient = lineStyle?.fill_gradient;
+      const gradientCss = !lineStyle?.fill && Array.isArray(gradient?.colors) && gradient.colors.length >= 2 && gradient.colors.length <= 3 && gradient.colors.every(color) && typeof gradient.angle_deg === "number" && Number.isFinite(gradient.angle_deg) ? `linear-gradient(${gradient.angle_deg}deg, ${gradient.colors.join(", ")})` : void 0;
       return { style, ...plate || hasShadow || hasGlow ? { resolved_look: {
         ...plate ? { plate } : {},
         ink_outset_px: inkOutset,
         rotate_deg: typeof look.rotate_deg === "number" ? look.rotate_deg : 0,
-        ...hasShadow || hasGlow ? { text_shadow: [extras, shadow, glow].filter(Boolean).join(", ") || "none" } : {}
+        wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),
+        ...gradientCss ? { gradient: gradientCss } : {},
+        gradient_filter: Boolean(gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner || lineStyle?.extrude || lineStyle?.shadow || lineStyle?.glow)),
+        replace_stroke: hasStroke,
+        replace_shadow: hasShadow,
+        ...hasStroke || hasShadow || hasGlow ? { text_shadow: [
+          roundOutline,
+          extras,
+          defaultOutline,
+          shadow ?? inheritedShadow,
+          glow ?? inheritedGlow
+        ].filter(Boolean).join(", ") || "none" } : {}
       } } : {} };
     }
     function captionRenderInputFromV1(root, options = {}) {
       const rows = Array.isArray(root) ? root : root.captions;
-      const diagnostics = (0, caption_semantics_1.validateCaptionsSemantics)({ captions: root });
-      const validRuns = rows.map((row, index) => Array.isArray(row.runs) ? (0, caption_semantics_1.renderableCaptionRuns)(row, root, { diagnostics, index }) : []);
-      if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length || rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))))
+      let diagnostics;
+      try {
+        diagnostics = (0, caption_semantics_1.validateCaptionsSemantics)({ captions: root });
+      } catch {
+        const copy2 = structuredClone(root);
+        for (const row of Array.isArray(copy2) ? copy2 : copy2.captions) {
+          if (row && typeof row === "object")
+            row.runs = [];
+        }
+        return copy2;
+      }
+      const validRuns = rows.map((row, index) => Array.isArray(row?.runs) ? (0, caption_semantics_1.renderableCaptionRuns)(row, root, { diagnostics, index }) : []);
+      if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length || rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from || run.resolved_look))))
         return root;
       const copy = structuredClone(root);
       const nextRows = Array.isArray(copy) ? copy : copy.captions;
       const emphasis = Array.isArray(copy) ? [] : [...copy.emphasis_words ?? []];
       const migrated = [];
       for (const [rowIndex, row] of nextRows.entries()) {
-        if (!Array.isArray(row.runs))
+        if (!Array.isArray(row?.runs))
           continue;
         row.runs = validRuns[rowIndex];
         const defaultStyle = Array.isArray(copy) ? null : copy.default_text_style;
@@ -9316,8 +9464,10 @@ var require_caption_look_reader = __commonJS({
             return [];
           }
           const next = { ...run };
+          delete next.resolved_look;
           if (next.look) {
-            const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output);
+            const layout = row.text_style?.layout ?? defaultStyle?.layout;
+            const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output, layout, !Array.isArray(copy) && Boolean(copy.display_policy), row.time_domain === "output");
             if (!next.style)
               next.style = resolved.style;
             if (resolved.resolved_look)

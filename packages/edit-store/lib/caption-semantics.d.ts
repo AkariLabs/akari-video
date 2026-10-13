@@ -15,6 +15,7 @@ export interface CaptionSemanticsContext {
             run?: CaptionRun;
         }>;
         emphasis_words?: Array<Record<string, unknown>>;
+        default_text_style?: unknown;
     } | Array<Record<string, unknown>> | null;
     edit?: {
         cuts?: EditCut[];

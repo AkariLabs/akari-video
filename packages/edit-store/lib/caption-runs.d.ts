@@ -35,6 +35,11 @@ export interface CaptionRun {
         text_shadow?: string;
         ink_outset_px?: number;
         rotate_deg?: number;
+        wrappable?: boolean;
+        gradient?: string;
+        replace_stroke?: boolean;
+        replace_shadow?: boolean;
+        gradient_filter?: boolean;
     };
     motion?: {
         in?: CaptionRunAnimationSlot;
