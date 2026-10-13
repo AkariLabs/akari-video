@@ -87,6 +87,16 @@ test('patch uses an absolute plugin path and replaces the default model', () => 
     }), /absolute/);
 });
 
+test('OpenCode Go offers both DeepSeek V4 Flash and V4 Pro', () => {
+    const go = buildDshPatchYaml({ pluginPath, provider: 'opencode-go', appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir) });
+    const models = go.slice(go.indexOf('        models:\n')).split('\n').filter(line => line.startsWith('          - '));
+    assert.deepEqual(models, [
+        '          - { id: deepseek-v4-flash, name: DeepSeek V4 Flash (OpenCode Go), contextWindow: 131072 }',
+        '          - { id: deepseek-v4-pro, name: DeepSeek V4 Pro (OpenCode Go), contextWindow: 131072 }'
+    ]);
+    assert.ok(go.endsWith('}\n'));
+});
+
 test('generated patches leave the DeepSeek UI theme to its own settings', () => {
     const input = { pluginPath, appVersion: '1.2.3', sessionId: buildDshSessionId(homeDir), theme: 'dark' };
     for (const provider of ['deepseek-official', 'opencode-go']) {
