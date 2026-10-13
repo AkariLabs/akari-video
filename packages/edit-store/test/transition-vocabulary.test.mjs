@@ -119,7 +119,7 @@ test('非 JSON 消費者は正準表の import を使い手書き enum を持た
     ['packages/schemas/bin/validate-edit.mjs', /isNonEmptyString\(value\.type\)/u],
     ['apps/shell/extensions/akari-preview/src/common/edit-summary-fields.ts', /isTransitionType/u],
     ['apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts', /TRANSITION_VOCABULARY/u],
-    ['apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts', /TRANSITION_VOCABULARY/u],
+    ['apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts', /TRANSITION_FAMILIES/u],
     ['apps/shell/extensions/akari-annotations/src/common/akari-annotations-protocol.ts', /TransitionType/u],
   ];
   for (const [relativePath, expected] of consumers) {
