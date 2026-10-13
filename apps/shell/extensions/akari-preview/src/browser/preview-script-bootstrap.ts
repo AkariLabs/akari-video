@@ -7515,7 +7515,8 @@ export function previewBootstrapScript(): string {
                 if (typeof preset?.weight === 'number') {
                     span.style.setProperty('font-weight', String(preset.weight), 'important');
                 }
-                if (typeof preset?.size_px === 'number') span.style.fontSize = preset.size_px + 'px';
+                if (emphasis.inherit_caption_size === true) span.style.removeProperty('font-size');
+                else if (typeof preset?.size_px === 'number') span.style.fontSize = preset.size_px + 'px';
                 if (typeof preset?.font_family === 'string') span.style.fontFamily = preset.font_family;
                 if (typeof preset?.letter_spacing_em === 'number') {
                     span.style.letterSpacing = preset.letter_spacing_em + 'em';

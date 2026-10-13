@@ -374,6 +374,7 @@ export interface EditSummaryEmphasisWord {
     emotion: string;
     style_hint?: string;
     style_preset?: string;
+    inherit_caption_size?: boolean;
 }
 
 export interface EditSummaryTrackState {

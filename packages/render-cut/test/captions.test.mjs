@@ -335,6 +335,20 @@ test("legacy emphasis style_preset wins over emotion rendering", () => {
   assert.doesNotMatch(overlay.html, /akari-caption__tok--one-char-bang/u);
 });
 
+test("opted-in emphasis keeps the line font size in legacy export", () => {
+  const cue = { id: "c-0001", start: 0, end: 1, text: "AKARI", style: "karaoke",
+    text_style: { size_px: 56 }, words: [{ start: 0, end: 1, text: "AKARI" }] };
+  const render = inherit_caption_size => generateCaptionOverlays([cue], [{ in: 0, out: 1 }], {
+    output: { width: 1920, height: 1080 },
+    emphasisWords: [{ id: "e-0001", t_start: 0, t_end: 1, word: "AKARI",
+      emotion: "neutral", style_preset: "emphasis-red", ...(inherit_caption_size ? { inherit_caption_size } : {}) }],
+  })[0];
+  const marked = render(true);
+  assert.equal(marked.vars["--caption-font-size"], "56px");
+  assert.doesNotMatch(marked.html, /--caption-tok-font-size:92px/u);
+  assert.match(render(false).html, /--caption-tok-font-size:92px/u);
+});
+
 test('captionTextStyleVars keeps the existing neon line shadow output', () => {
   const neon = TEXTSTYLE_CATALOG.neon;
   assert.ok(neon);

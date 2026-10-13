@@ -20,6 +20,7 @@ const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const {
   applyCaptionStylePresets,
+  captionDefaultSizePx,
   collectTrackZByItemId,
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
@@ -140,7 +141,6 @@ export function buildGpuPage({
   const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
     || overlay.motion || overlay.motionSource);
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
-  const portrait = height > width;
   const resolvedEmphasisWords = Array.isArray(captions)
     ? edit.emphasis_words ?? []
     : captions?.emphasis_words ?? edit.emphasis_words ?? [];
@@ -172,7 +172,7 @@ export function buildGpuPage({
         // 実効フォント px は render-cut の vars（--caption-font-size = size_px × reference_height_px
         // の scale）から取る。size_px 未宣言なら vars に無いので従来の既定（縦長 = 幅 6% / 横長 = 38）。
         // page-runtime の caption 計測（emPx）と CSS の font-size が同じ実効 px を指すための単一経路。
-        emPx: captionFontSizePx(overlay.vars) ?? Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
+        emPx: captionFontSizePx(overlay.vars) ?? Number(textStyle?.size_px ?? captionDefaultSizePx({ width, height })),
         motion: textStyle?.animation ?? null,
         ...(textStyle && (textStyle.fill !== undefined || textStyle.strokes !== undefined)
           ? { richTextStyle: textStyle } : {}),

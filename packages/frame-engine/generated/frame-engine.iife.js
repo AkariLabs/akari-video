@@ -3374,6 +3374,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+      exports.captionDefaultSizePx = captionDefaultSizePx;
       exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
       exports.measureCaptionUnits = measureCaptionUnits;
       exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
@@ -3415,6 +3416,9 @@ ${indent}`);
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
+      function captionDefaultSizePx(output) {
+        return output && finitePositive4(output.width) && finitePositive4(output.height) && output.height > output.width ? Math.round(output.width * 0.06) : 38;
+      }
       exports.CAPTION_RICH_LAYER_CSS = '.akari-caption--rich .akari-caption__tok{position:relative;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;}.akari-caption--rich .akari-caption__run,.akari-caption--rich .akari-caption__char{position:relative;}.akari-caption--rich .akari-caption__rich-segment{position:relative;display:inline-block;vertical-align:baseline;white-space:pre;}.akari-caption--rich .akari-caption__rich-shadow,.akari-caption--rich .akari-caption__rich-stroke{position:absolute;inset:0;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-fill{position:relative;white-space:pre;pointer-events:none;text-decoration:none;}.akari-caption--rich .akari-caption__rich-shadow{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:var(--caption-text-shadow,none);}.akari-caption--rich .akari-caption__rich-stroke{color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:var(--caption-rich-stroke-width) var(--caption-rich-stroke-color);paint-order:stroke fill;text-shadow:none;transform:translate(var(--caption-rich-stroke-offset-x,0em),var(--caption-rich-stroke-offset-y,0em));}.akari-caption--rich .akari-caption__rich-fill{color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));background-image:var(--caption-tok-rich-fill-image,var(--caption-rich-fill-image,none));background-size:var(--caption-tok-rich-fill-size,var(--caption-rich-fill-size,100% 100%));background-position:var(--caption-tok-rich-fill-position,var(--caption-rich-fill-position,0 0));-webkit-background-clip:text;-webkit-text-fill-color:var(--caption-tok-rich-fill-color,var(--caption-rich-fill-color,var(--caption-color,#fff)));-webkit-text-stroke:0 transparent;text-shadow:none;paint-order:stroke fill;}.akari-caption--rich .akari-caption__run[style*="color:"] .akari-caption__rich-fill{color:inherit;background-image:none;-webkit-text-fill-color:currentColor;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-stroke{display:none;}.akari-caption--rich .akari-caption__run[style*="-webkit-text-stroke:"][style*="px"] .akari-caption__rich-fill{-webkit-text-stroke:inherit;}.akari-caption--rich .akari-caption__tok--karaoke-done .akari-caption__rich-fill{background-image:none;-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);}.akari-caption--rich .akari-caption__tok--karaoke-smooth::after{display:none;}.akari-caption--rich .akari-caption__tok--karaoke-smooth .akari-caption__rich-fill::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;background-image:none;color:var(--caption-highlight-color,#ffd94a);-webkit-text-fill-color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}';
       function alignCaptionRichFillPhase(root) {
         const fillType = root.getAttribute("data-rich-fill-type");
@@ -4012,7 +4016,7 @@ ${indent}`);
               if (!resolvedVars)
                 continue;
               emphasis = candidate;
-              styleVars = resolvedVars;
+              styleVars = candidate.inherit_caption_size === true ? Object.fromEntries(Object.entries(resolvedVars).filter(([key]) => key !== "--caption-tok-font-size")) : resolvedVars;
               break;
             }
             const value = {
@@ -6211,7 +6215,13 @@ ${indent}`);
         if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
           throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
+        if (options.output && (!Number.isFinite(options.output.width) || options.output.width <= 0 || !Number.isFinite(options.output.height) || options.output.height <= 0)) {
+          throw new Error("\u51FA\u529B\u89E3\u50CF\u5EA6\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
         const ids = [...new Set(captionIds)];
+        const root = JSON.parse(source);
+        const defaultStyle = isRecord2(root) && isRecord2(root.default_text_style) ? root.default_text_style : {};
+        const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
         const array = locateCaptionArray(source);
         const elementsById = /* @__PURE__ */ new Map();
         for (const entry of captionElementEntries(array.elements)) {
@@ -6234,17 +6244,27 @@ ${indent}`);
         for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
           const record2 = JSON.parse(element.text);
           const hasPreset = Object.prototype.hasOwnProperty.call(record2, "style_preset");
+          const oldStyle = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record2, catalog).record.text_style);
+          const oldSize = typeof oldStyle?.size_px === "number" && Number.isFinite(oldStyle.size_px) && oldStyle.size_px > 0 ? oldStyle.size_px : void 0;
+          const oldReference = oldStyle?.reference_height_px;
+          const displayedSize = options.output ? oldSize === void 0 ? (0, caption_display_1.captionDefaultSizePx)(options.output) : oldSize * (typeof oldReference === "number" ? options.output.height / oldReference : 1) : void 0;
           if (presetId === null) {
             if (!hasPreset)
               continue;
-            const nextElement2 = removeObjectProperty(element.text, "style_preset");
+            let nextElement2 = removeObjectProperty(element.text, "style_preset");
+            const size2 = oldSize ?? (displayedSize === void 0 ? void 0 : typeof oldReference === "number" ? displayedSize * oldReference / options.output.height : displayedSize);
+            nextElement2 = retainCaptionSize(nextElement2, captionId, size2, oldReference);
             output = replaceElement(output, array.openIndex + 1, element, nextElement2);
             changed++;
             continue;
           }
-          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
+          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style, catalog);
           if (hasPreset && record2.style_preset === presetId && shadowed.length === 0)
             continue;
+          const incoming = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, catalog).record.text_style;
+          const newReference = isRecord2(record2.text_style) && record2.text_style.reference_height_px !== void 0 ? record2.text_style.reference_height_px : isRecord2(incoming) && incoming.reference_height_px !== void 0 ? incoming.reference_height_px : defaultStyle.reference_height_px;
+          const targetReference = oldReference ?? newReference;
+          const size = displayedSize !== void 0 ? oldSize !== void 0 && (oldReference !== void 0 || targetReference === void 0) ? oldSize : typeof targetReference === "number" ? displayedSize * targetReference / options.output.height : displayedSize : oldReference === void 0 && newReference !== void 0 ? void 0 : oldSize;
           let nextElement;
           if (hasPreset) {
             nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
@@ -6259,10 +6279,31 @@ ${indent}`);
             }
           }
           nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+          nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
           output = replaceElement(output, array.openIndex + 1, element, nextElement);
           changed++;
         }
         return { source: output, changed };
+      }
+      function retainCaptionSize(element, captionId, size, reference) {
+        if (size === void 0 && reference === void 0)
+          return element;
+        if (!locateTopLevelProperty(element, "text_style")) {
+          return appendJsonProperty(element, "text_style", {
+            ...size !== void 0 ? { size_px: size } : {},
+            ...reference !== void 0 ? { reference_height_px: reference } : {}
+          });
+        }
+        const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+        const style = JSON.parse(located.text);
+        let textStyle = located.text;
+        if (size !== void 0) {
+          textStyle = style.size_px === void 0 ? appendJsonProperty(textStyle, "size_px", size) : style.size_px === size ? textStyle : replaceTopLevelPropertyValue(textStyle, "size_px", size, `\u5B57\u5E55 ${captionId}`);
+        }
+        if (reference !== void 0 && style.reference_height_px === void 0) {
+          textStyle = appendJsonProperty(textStyle, "reference_height_px", reference);
+        }
+        return element.slice(0, located.start) + textStyle + element.slice(located.end);
       }
       function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
         const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
@@ -6270,7 +6311,7 @@ ${indent}`);
           return [];
         }
         const style = textStyle;
-        return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+        return Object.keys(preset.style).filter((key) => key !== "size_px" && key !== "reference_height_px" && Object.prototype.hasOwnProperty.call(style, key));
       }
       function pruneShadowedTextStyle(element, keys, captionId) {
         if (keys.length === 0) {

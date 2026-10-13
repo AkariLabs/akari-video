@@ -8,7 +8,7 @@ import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedSty
   supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
-import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
+import { resolveCaptionReferenceScale, resolveCaptionLineStyleVars, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
 
 test('実効の見た目を解決し、位置と動きを保存しない', () => {
   const look = effectiveMyStyleLook({ color: '#ffffff', stroke: { color: '#000000', widthPx: 2 },
@@ -253,6 +253,10 @@ test('ライブラリ由来の旧プリセットサイズを合算カタログ�
   assert.equal(result.size_px, 72);
   assert.equal(result.reference_height_px, 1080);
   assert.equal(result.background.padding_px, 6);
+  for (const height of [720, 1080, 2160]) {
+    assert.equal(resolveCaptionLineStyleVars(result, { width: 1920, height })['--caption-font-size'],
+      `${72 * height / 1080}px`);
+  }
 });
 
 test('ツリー選択の仮表示も合算カタログから字幕の実効サイズを読む', () => {

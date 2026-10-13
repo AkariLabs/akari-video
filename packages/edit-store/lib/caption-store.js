@@ -429,7 +429,14 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
     if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
         throw new Error('字幕テンプレ ID の形式が不正です。');
     }
+    if (options.output && (!Number.isFinite(options.output.width) || options.output.width <= 0
+        || !Number.isFinite(options.output.height) || options.output.height <= 0)) {
+        throw new Error('出力解像度が不正です。');
+    }
     const ids = [...new Set(captionIds)];
+    const root = JSON.parse(source);
+    const defaultStyle = isRecord(root) && isRecord(root.default_text_style) ? root.default_text_style : {};
+    const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
     const array = locateCaptionArray(source);
     const elementsById = new Map();
     for (const entry of captionElementEntries(array.elements)) {
@@ -454,19 +461,40 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
     for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
         const record = JSON.parse(element.text);
         const hasPreset = Object.prototype.hasOwnProperty.call(record, 'style_preset');
+        const oldStyle = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record, catalog).record.text_style);
+        const oldSize = typeof oldStyle?.size_px === 'number' && Number.isFinite(oldStyle.size_px) && oldStyle.size_px > 0
+            ? oldStyle.size_px : undefined;
+        const oldReference = oldStyle?.reference_height_px;
+        const displayedSize = options.output
+            ? oldSize === undefined ? (0, caption_display_1.captionDefaultSizePx)(options.output)
+                : oldSize * (typeof oldReference === 'number' ? options.output.height / oldReference : 1)
+            : undefined;
         if (presetId === null) {
             if (!hasPreset)
                 continue;
-            const nextElement = removeObjectProperty(element.text, 'style_preset');
+            let nextElement = removeObjectProperty(element.text, 'style_preset');
+            const size = oldSize ?? (displayedSize === undefined ? undefined
+                : typeof oldReference === 'number' ? displayedSize * oldReference / options.output.height : displayedSize);
+            nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
             output = replaceElement(output, array.openIndex + 1, element, nextElement);
             changed++;
             continue;
         }
-        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog);
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, catalog);
         // 同じテンプレの再適用でも、そのテンプレを覆い隠している字幕個別の指定が残っていれば
         // 掃除する仕事が残っている（「変更はありません」で終わらせない）。
         if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
             continue;
+        const incoming = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, catalog).record.text_style;
+        const newReference = isRecord(record.text_style) && record.text_style.reference_height_px !== undefined
+            ? record.text_style.reference_height_px
+            : isRecord(incoming) && incoming.reference_height_px !== undefined
+                ? incoming.reference_height_px : defaultStyle.reference_height_px;
+        const targetReference = oldReference ?? newReference;
+        const size = displayedSize !== undefined
+            ? oldSize !== undefined && (oldReference !== undefined || targetReference === undefined) ? oldSize
+                : typeof targetReference === 'number' ? displayedSize * targetReference / options.output.height : displayedSize
+            : oldReference === undefined && newReference !== undefined ? undefined : oldSize;
         let nextElement;
         if (hasPreset) {
             nextElement = replaceCaptionJsonProperty(element.text, 'style_preset', presetId, captionId);
@@ -487,10 +515,33 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
             }
         }
         nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+        nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;
     }
     return { source: output, changed };
+}
+function retainCaptionSize(element, captionId, size, reference) {
+    if (size === undefined && reference === undefined)
+        return element;
+    if (!locateTopLevelProperty(element, 'text_style')) {
+        return appendJsonProperty(element, 'text_style', {
+            ...(size !== undefined ? { size_px: size } : {}),
+            ...(reference !== undefined ? { reference_height_px: reference } : {})
+        });
+    }
+    const located = locateTopLevelObjectProperty(element, 'text_style', `字幕 ${captionId}`);
+    const style = JSON.parse(located.text);
+    let textStyle = located.text;
+    if (size !== undefined) {
+        textStyle = style.size_px === undefined ? appendJsonProperty(textStyle, 'size_px', size)
+            : style.size_px === size ? textStyle
+                : replaceTopLevelPropertyValue(textStyle, 'size_px', size, `字幕 ${captionId}`);
+    }
+    if (reference !== undefined && style.reference_height_px === undefined) {
+        textStyle = appendJsonProperty(textStyle, 'reference_height_px', reference);
+    }
+    return element.slice(0, located.start) + textStyle + element.slice(located.end);
 }
 /**
  * そのテンプレが決めるツマミのうち、字幕個別の text_style が上書きしてしまっているキーを挙げる。
@@ -500,7 +551,7 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
  * （オーナー報告 2026-09-04:「ニュース帯だけ効く」= ニュース風の background だけが text_style に
  *  無いツマミだった）。テンプレを選ぶ操作は「このツマミはテンプレに任せる」という意思表示なので、
  * 適用時に該当キーを落としてテンプレを表に出す。テンプレが決めないツマミ（ドラッグした position /
- * zone / max_characters など）は字幕個別の指定として残す。
+ * zone / max_characters など）は字幕個別の指定として残す。大きさと基準高さは常に残す。
  */
 function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
     // strict: `instanceof Map` の偽側では ReadonlyMap を除外できないため、Record 側へ明示的に絞る
@@ -513,7 +564,8 @@ function shadowedPresetStyleKeys(presetId, textStyle, catalog) {
     }
     const style = textStyle;
     return Object.keys(preset.style)
-        .filter(key => Object.prototype.hasOwnProperty.call(style, key));
+        .filter(key => key !== 'size_px' && key !== 'reference_height_px'
+        && Object.prototype.hasOwnProperty.call(style, key));
 }
 /** text_style から指定キーを取り除く。空になったら text_style ごと落とす。 */
 function pruneShadowedTextStyle(element, keys, captionId) {

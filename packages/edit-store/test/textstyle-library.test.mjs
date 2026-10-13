@@ -71,13 +71,14 @@ test('reader skips invalid entries and the first root wins', () => {
 
 test('applying a library preset removes caption overrides that shadow its style', () => {
   const source = JSON.stringify({ captions: [{ id: 'c1', start: 0, end: 1, text: 'Gold',
-    text_style: { size_px: 40, color: '#ffffff', strokes: [{ color: '#000000', width_px: 1 }] } }] });
+    text_style: { size_px: 40, reference_height_px: 720, color: '#ffffff',
+      strokes: [{ color: '#000000', width_px: 1 }] } }] });
   const catalog = loadTextstyleCatalogSync({ roots: [fixtureRoot] }).catalog;
   const updated = updateCaptionStylePresetInSource(source, ['c1'], 'library-gold-sample', { catalog });
   assert.equal(updated.changed, 1);
   const caption = JSON.parse(updated.source).captions[0];
   assert.equal(caption.style_preset, 'library-gold-sample');
-  assert.deepEqual(caption.text_style, { color: '#ffffff' });
+  assert.deepEqual(caption.text_style, { size_px: 40, reference_height_px: 720, color: '#ffffff' });
 });
 
 test('library root mirror follows creator-root for env, home and location migration', () => {
