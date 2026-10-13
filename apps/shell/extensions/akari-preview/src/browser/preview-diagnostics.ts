@@ -228,11 +228,12 @@ export function shouldDeliverPreviewRendererGone(
     widget: {
         isDisposed: boolean;
         isAttached: boolean;
+        isVisible: boolean;
         akariPreviewDiagnostics?: PreviewDiagnosticsSession;
     } | undefined,
     notice: { at: string; observedAt: number }
 ): boolean {
-    return !!widget && !widget.isDisposed && widget.isAttached
+    return !!widget && !widget.isDisposed && widget.isAttached && widget.isVisible
         && !!widget.akariPreviewDiagnostics?.acceptsRendererGoneNotice(notice.at, notice.observedAt);
 }
 

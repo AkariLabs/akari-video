@@ -13,7 +13,13 @@ test('一覧の見出し、チャンネル動線、ホームの線と暗幕', ()
     assert.match(home, /--akari-line/);
 });
 
-test('一覧を読み直すたびに札とサムネを読み直す', () => {
+test('変わった行だけ札とサムネを読み直す', () => {
     const list = readFileSync(new URL('../src/browser/home/project-list-view.tsx', import.meta.url), 'utf8');
-    assert.match(list, /\}, \[row\.key, props\.refreshToken\]\);/);
+    const home = readFileSync(new URL('../src/browser/akari-home-widget.tsx', import.meta.url), 'utf8');
+    assert.match(list, /\}, \[row\.key, props\.rowVersion, props\.active\]\);/);
+    assert.match(list, /rowVersion=\{props\.rowVersion\?\.\(row\.uri\)\}/);
+    assert.doesNotMatch(list, /refreshToken/);
+    assert.doesNotMatch(home, /projectListRefreshToken/);
+    assert.match(home, /if \(force\) await this\.channelContext\.refresh\(\)/);
+    assert.match(home, /this\.projectRowVersions\.set\(key, \(this\.projectRowVersions\.get\(key\) \?\? 0\) \+ 1\)/);
 });

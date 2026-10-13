@@ -80,6 +80,7 @@ test('start source fixes the awaited methods before and after its first update',
             if (ts.isAwaitExpression(node)) {
                 const call = node.expression;
                 assert.ok(ts.isCallExpression(call));
+                if (call.expression.getText(source) === 'this.channelContext.ensureLocation') return;
                 assert.equal(call.expression.getText(source), 'measureStep');
                 const [label, callback] = call.arguments;
                 assert.ok(ts.isStringLiteral(label));
@@ -94,12 +95,16 @@ test('start source fixes the awaited methods before and after its first update',
     assert.ok(updated);
     assert.deepEqual(before, initialSteps);
     assert.deepEqual(after, deferredSteps);
+    const startText = method('start').getText(source);
+    assert.ok(startText.indexOf('this.channelContext.ensureLocation()') < startText.indexOf("measureStep('loadCreatorRootProjects'"));
 });
 
 function startFixture(firstRunWillAutoOpen = false) {
     const calls = [];
     const instance = {
         homeReady: false, watching: false, toDispose: [],
+        channelContext: { async ensureLocation() { calls.push('ensureLocation'); } },
+        syncCreatorRootContext() { calls.push('syncCreatorRootContext'); },
         update() { assert.equal(this.homeReady, true); calls.push('update'); },
         initUpdaterEvents() { calls.push('updater'); },
         resumeStartKind() {}, syncUpdateToast() {},
@@ -121,7 +126,8 @@ for (const firstRunWillAutoOpen of [false, true]) {
     test(`start works without performance and retains first-run priority: ${firstRunWillAutoOpen}`, async () => {
         const { calls, instance } = startFixture(firstRunWillAutoOpen);
         await loadMethod('start').call(instance);
-        assert.deepEqual(calls, [...initialSteps, 'update', ...deferredSteps.slice(0, 2), 'updater', 'checkVersionNotice', 'watch']);
+        assert.deepEqual(calls, [initialSteps[0], 'ensureLocation', 'syncCreatorRootContext', ...initialSteps.slice(1),
+            'update', ...deferredSteps.slice(0, 2), 'updater', 'checkVersionNotice', 'watch']);
         assert.equal(instance.watching, true);
         assert.equal(instance.toDispose.length, 1);
     });

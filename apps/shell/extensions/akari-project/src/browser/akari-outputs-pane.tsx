@@ -94,6 +94,7 @@ export class AkariOutputsPane {
     protected readonly pendingMetadataUris = new Set<string>();
     protected outputsWatchReason?: 'structural' | 'name-check';
     protected readonly pendingNameCheckFolders = new Set<string>();
+    protected readonly missingNameChecks = new Map<string, string>();
 
     constructor(protected readonly host: OutputsPaneHost) {}
 
@@ -299,6 +300,7 @@ export class AkariOutputsPane {
         this.outputsWatchReason = undefined;
         this.pendingMetadataUris.clear();
         this.pendingNameCheckFolders.clear();
+        this.missingNameChecks.clear();
         this.outputsWatch.dispose();
         this.outputsWatch = new DisposableCollection();
         this.outputsWatchRootKey = rootKey;
@@ -380,12 +382,13 @@ export class AkariOutputsPane {
     }
 
     protected scheduleOutputsReload(reason: 'name-check' | 'structural'): void {
+        const nextReason = this.outputsWatchReason === 'structural' ? 'structural' : reason;
         if (this.outputsWatchTimer) clearTimeout(this.outputsWatchTimer);
-        this.outputsWatchReason = reason;
+        this.outputsWatchReason = nextReason;
         this.outputsWatchTimer = setTimeout(() => {
             this.outputsWatchTimer = undefined;
             this.outputsWatchReason = undefined;
-            if (reason === 'name-check') void this.reconcileOutputNames();
+            if (nextReason === 'name-check') void this.reconcileOutputNames();
             else void this.loadOutputs();
         }, 900);
     }
@@ -397,6 +400,10 @@ export class AkariOutputsPane {
         const uris = new Set(this.pendingMetadataUris);
         this.pendingNameCheckFolders.clear();
         this.pendingMetadataUris.clear();
+        for (const uri of uris) {
+            const parent = uri.slice(0, uri.lastIndexOf('/'));
+            if (parent === root.toString() || parent === root.resolve('.akari/reports').toString()) folders.add(parent);
+        }
         const filesByUri = new Map<string, FileStatWithMetadata>();
         for (const folderKey of folders) {
             const folder = folderKey === root.toString() ? root : root.resolve('.akari/reports');
@@ -411,10 +418,21 @@ export class AkariOutputsPane {
                     || this.host.rootReportFiles.includes(file.resource.path.base)
                 : /\.html?$/iu.test(file.resource.path.base)
                     && !/^create-project-report\.html?$/iu.test(file.resource.path.base));
-            if (JSON.stringify(available.map(file => file.resource.path.base).sort()) !== JSON.stringify(listed)) {
-                void this.loadOutputs();
+            const availableNames = JSON.stringify(available.map(file => file.resource.path.base).sort());
+            const listedNames = JSON.stringify(listed);
+            if (availableNames !== listedNames) {
+                const signature = `${listedNames}:${availableNames}`;
+                if (this.missingNameChecks.get(folderKey) !== signature) {
+                    this.missingNameChecks.set(folderKey, signature);
+                    this.pendingNameCheckFolders.add(folderKey);
+                    this.scheduleOutputsReload('name-check');
+                } else {
+                    this.missingNameChecks.delete(folderKey);
+                    void this.loadOutputs();
+                }
                 return;
             }
+            this.missingNameChecks.delete(folderKey);
             for (const file of files) filesByUri.set(file.resource.toString(), file);
             if (![...uris].some(uri => available.some(file => file.resource.toString() === uri))) {
                 for (const entry of this.outputs) if (entry.uri.parent.toString() === folderKey) uris.add(entry.uri.toString());
@@ -429,7 +447,8 @@ export class AkariOutputsPane {
         const folders = new Map<string, URI>();
         for (const entry of entries) folders.set(entry.uri.parent.toString(), entry.uri.parent);
         const byUri = new Map(resolvedFiles ?? []);
-        if (!resolvedFiles) await Promise.all([...folders.values()].map(async folder => {
+        const resolvedFolders = new Set([...byUri.keys()].map(uri => uri.slice(0, uri.lastIndexOf('/'))));
+        await Promise.all([...folders.values()].filter(folder => !resolvedFolders.has(folder.toString())).map(async folder => {
             try {
                 const stat = await this.host.files.resolve(folder, { resolveMetadata: true });
                 for (const child of stat.children ?? []) byUri.set(child.resource.toString(), child);
@@ -439,7 +458,11 @@ export class AkariOutputsPane {
         let changed = false;
         for (const entry of entries) {
             const file = byUri.get(entry.uri.toString());
-            if (!file) { this.scheduleOutputsReload('structural'); continue; }
+            if (!file) {
+                this.pendingNameCheckFolders.add(entry.uri.parent.toString());
+                this.scheduleOutputsReload('name-check');
+                continue;
+            }
             if (entry.mtime !== file.mtime || entry.size !== file.size) {
                 entry.mtime = file.mtime;
                 entry.size = file.size;

@@ -87,6 +87,11 @@ export class AkariChannelWidget extends ReactWidget {
     @inject(AkariAnnotationsService) protected readonly annotations!: AkariAnnotationsService;
     protected projectStages = new Map<string, string>();
     protected projectThumbnails = new Map<string, string[]>();
+    protected stageRefreshSeen = false;
+    protected stagesChannel?: string;
+    protected stageRefreshRun?: Promise<void>;
+    protected stageRefreshPending = new Set<string>();
+    protected stageRefreshAll = false;
     protected channelDocFiles = new Map<ChannelDocKind, string>();
     protected designBadge?: string;
     protected channelSkills: ChannelSkillRow[] = [];
@@ -133,7 +138,10 @@ export class AkariChannelWidget extends ReactWidget {
         this.updateCaption();
         this.title.closable = false;
         this.addClass('akari-channel-widget');
-        this.toDispose.push(this.context.onDidChange(() => { this.updateCaption(); this.update(); this.updateRailTab(); void this.refreshStages(); void this.refreshChannelDocs(); }));
+        this.toDispose.push(this.context.onDidChange(() => { this.updateCaption(); if (this.isVisible) this.update(); this.updateRailTab(); }));
+        this.toDispose.push(this.context.onDidProjectsChange(keys => {
+            if (this.isVisible) { this.stageRefreshSeen = true; void this.refreshStages(keys); }
+        }));
         this.update();
         this.updateRailTab();
     }
@@ -144,9 +152,23 @@ export class AkariChannelWidget extends ReactWidget {
         this.updateRailTab();
         setTimeout(() => this.updateRailTab(), 100);
         setTimeout(() => this.updateRailTab(), 500);
-        void this.context.refresh();
-        void this.refreshChannelDocs();
         void this.refreshProKey();
+    }
+
+    protected override onAfterShow(msg: Message): void {
+        super.onAfterShow(msg);
+        this.stageRefreshSeen = false;
+        this.context.setListVisible('channel', true);
+        void this.context.ensureProjects().then(() => {
+            if (this.isVisible && !this.stageRefreshSeen
+                && (!this.projectStages.size || this.stagesChannel !== this.context.viewingChannel)) void this.refreshStages();
+        });
+        void this.refreshChannelDocs();
+    }
+
+    protected override onBeforeHide(msg: Message): void {
+        this.context.setListVisible('channel', false);
+        super.onBeforeHide(msg);
     }
 
     protected async refreshProKey(): Promise<void> {
@@ -209,15 +231,40 @@ export class AkariChannelWidget extends ReactWidget {
         tab.querySelector('.lm-TabBar-tabIcon')?.setAttribute('data-akari-channel-initial', initial);
     }
 
-    protected async refreshStages(): Promise<void> {
+    protected async refreshStages(changed?: ReadonlySet<string>): Promise<void> {
+        if (!this.isVisible) return;
+        if (this.stageRefreshRun) {
+            if (!changed) this.stageRefreshAll = true;
+            else for (const key of changed) this.stageRefreshPending.add(key);
+            return;
+        }
+        const run = this.readStages(changed);
+        this.stageRefreshRun = run;
+        try { await run; } finally {
+            this.stageRefreshRun = undefined;
+            if (this.stageRefreshAll || this.stageRefreshPending.size) {
+                const next = this.stageRefreshAll ? undefined : new Set(this.stageRefreshPending);
+                this.stageRefreshAll = false;
+                this.stageRefreshPending.clear();
+                void this.refreshStages(next);
+            }
+        }
+    }
+
+    protected async readStages(changed?: ReadonlySet<string>): Promise<void> {
+        this.stagesChannel = this.context.viewingChannel;
         const projects = this.context.viewingChannel ? this.context.projectsOf(this.context.viewingChannel) : [];
-        const stages = await Promise.all(projects.map(async project => {
+        const live = new Set(projects.map(project => project.uri.toString()));
+        const selected = changed ? projects.filter(project => changed.has(`${this.context.viewingChannel}/${project.name}`)) : projects;
+        const stages = await Promise.all(selected.map(async project => {
             try { return [project.uri.toString(), stageSummary(await this.progress.readPresence(project.uri))] as const; }
             catch { return [project.uri.toString(), ''] as const; }
         }));
-        this.projectStages = new Map(stages);
-        const thumbnails = new Map<string, string[]>();
-        for (const project of projects) {
+        const nextStages = new Map([...this.projectStages].filter(([key]) => live.has(key)));
+        for (const [key, stage] of stages) nextStages.set(key, stage);
+        this.projectStages = nextStages;
+        const thumbnails = new Map([...this.projectThumbnails].filter(([key]) => live.has(key)));
+        for (const project of selected) {
             const key = project.uri.toString();
             try {
                 const outcome = await this.storeService.resolveProjectCardThumbnails(key);
@@ -230,6 +277,7 @@ export class AkariChannelWidget extends ReactWidget {
     }
 
     protected async refreshChannelDocs(): Promise<void> {
+        if (!this.isVisible) return;
         const version = ++this.docRefreshVersion;
         const root = this.context.rootUri;
         const channel = this.context.viewingChannel;
@@ -585,6 +633,7 @@ export class AkariChannelWidget extends ReactWidget {
         this.closeSheet();
         this.context.setViewingChannel(name);
         this.updateCaption();
+        if (this.isVisible) { void this.refreshStages(); void this.refreshChannelDocs(); }
         if (this.scope.scope === 'project') await this.openProjectList();
     }
 

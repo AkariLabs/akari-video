@@ -27,7 +27,7 @@ test('チャンネル widget は左レールの ID と日本語ラベルを使�
     assert.match(widget, /openMemorySheet\(/);
     // 一覧を開くときは見ているチャンネルを渡す（別のチャンネルの一覧を開ける）。チャンネルを選ぶと project モードでは一覧を開く
     assert.match(widget, /protected async openProjectList\(\): Promise<void> \{\s*const channel = this\.context\.viewingChannel;\s*await this\.commands\.executeCommand\(AKARI_COMMANDS\.openProjectList, \.\.\.\(channel \? \[\{ channel \}\] : \[\]\)\);\s*\}/);
-    assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{[\s\S]*?this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
+    assert.match(widget, /protected async chooseChannel\(name: string\): Promise<void> \{[\s\S]*?this\.context\.setViewingChannel\(name\);\s*this\.updateCaption\(\);\s*if \(this\.isVisible\) \{ void this\.refreshStages\(\); void this\.refreshChannelDocs\(\); \}\s*if \(this\.scope\.scope === 'project'\) await this\.openProjectList\(\);\s*\}/);
 });
 
 test('チャンネルの札とシートの表示を整える', () => {

@@ -5,7 +5,8 @@ import type { ProjectListRow } from '../akari-home-widget';
 
 export interface ProjectListViewProps {
     channel: string;
-    refreshToken: number;
+    active: boolean;
+    rowVersion?: (uri: URI) => number;
     rows: ProjectListRow[];
     standalone: ProjectListRow[];
     currentName?: string;
@@ -18,17 +19,25 @@ export interface ProjectListViewProps {
     loadThumbnails: (uri: URI) => Promise<string[]>;
 }
 
-export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'refreshToken'> & { row: ProjectListRow; compact?: boolean }): React.ReactElement {
+export function ProjectCard(props: Pick<ProjectListViewProps, 'onOpen' | 'readPresence' | 'loadThumbnails' | 'active'> & { row: ProjectListRow; compact?: boolean; rowVersion?: number }): React.ReactElement {
     const { row } = props;
     const [badge, setBadge] = React.useState<string>();
     const [thumbnail, setThumbnail] = React.useState<string>();
+    const loaded = React.useRef<{ key: string; version: number | undefined } | undefined>(undefined);
     React.useEffect(() => {
+        if (!props.active) return;
+        if (loaded.current?.key === row.key && loaded.current.version === props.rowVersion) return;
         let active = true;
+        let completed = 0;
+        const finish = (): void => {
+            completed++;
+            if (active && completed === 2) loaded.current = { key: row.key, version: props.rowVersion };
+        };
         setBadge(undefined); setThumbnail(undefined);
-        void props.readPresence(row.uri).then(presence => { if (active) setBadge(stageSummary(presence)); }).catch(() => undefined);
-        void props.loadThumbnails(row.uri).then(frames => { if (active) setThumbnail(frames[0]); }).catch(() => undefined);
+        void props.readPresence(row.uri).then(presence => { if (active) setBadge(stageSummary(presence)); }).catch(() => undefined).finally(finish);
+        void props.loadThumbnails(row.uri).then(frames => { if (active) setThumbnail(frames[0]); }).catch(() => undefined).finally(finish);
         return () => { active = false; };
-    }, [row.key, props.refreshToken]);
+    }, [row.key, props.rowVersion, props.active]);
     return <button type='button' className={`akari-os-card${props.compact ? ' compact' : ''}`}
         data-akari-project-card='true' aria-current={row.current ? 'true' : undefined}
         onClick={event => { if (!row.current) props.onOpen(row, event.currentTarget.getBoundingClientRect()); }}>
@@ -52,11 +61,11 @@ export function ProjectListView(props: ProjectListViewProps): React.ReactElement
             <div className='akari-os-section-heading'><h3>チャンネル「{props.channel}」のプロジェクト</h3><small>{rows.length} 本 · 新しい順</small>
                 <button type='button' className='theia-button secondary' onClick={props.onOpenChannel}>チャンネルを開く</button>
                 <button type='button' className='theia-button secondary' disabled={false} onClick={props.onRefresh}>更新</button></div>
-            {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} refreshToken={props.refreshToken} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>
+            {rows.length ? <div className='akari-os-card-grid'>{rows.map(row => <ProjectCard key={row.key} row={row} rowVersion={props.rowVersion?.(row.uri)} active={props.active} onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div>
                 : <p className='akari-os-note'>まだプロジェクトがありません。</p>}
         </section>
         {!!props.standalone.length && <section><div className='akari-os-section-heading'><h3>ほかの場所のプロジェクト</h3></div>
-            <div className='akari-os-card-grid'>{props.standalone.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={props.refreshToken}
+            <div className='akari-os-card-grid'>{props.standalone.map(row => <ProjectCard key={row.key} row={row} compact rowVersion={props.rowVersion?.(row.uri)} active={props.active}
                 onOpen={props.onOpen} readPresence={props.readPresence} loadThumbnails={props.loadThumbnails} />)}</div></section>}
     </div>;
 }

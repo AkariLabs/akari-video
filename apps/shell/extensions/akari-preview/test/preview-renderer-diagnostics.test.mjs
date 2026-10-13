@@ -178,11 +178,12 @@ test('非表示タブで止まった心拍は無応答の時間に数えない',
 test('閉じた webview と旧世代の停止通知は現在の診断へ渡さない', () => {
     const born = Date.parse('2026-10-06T12:03:00.000Z');
     const h = harness({ nowMs: born });
-    const widget = { isDisposed: false, isAttached: true, akariPreviewDiagnostics: h.session };
+    const widget = { isDisposed: false, isAttached: true, isVisible: true, akariPreviewDiagnostics: h.session };
     const current = { at: '2026-10-06T12:04:00.000Z', observedAt: born + 1000 };
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, current), true);
     assert.equal(host.shouldDeliverPreviewRendererGone({ ...widget, isDisposed: true }, current), false);
     assert.equal(host.shouldDeliverPreviewRendererGone({ ...widget, isAttached: false }, current), false);
+    assert.equal(host.shouldDeliverPreviewRendererGone({ ...widget, isVisible: false }, current), false);
     assert.equal(host.shouldDeliverPreviewRendererGone(undefined, current), false);
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, {
         at: '2026-10-06T12:02:00.000Z', observedAt: born + 1000
@@ -195,6 +196,23 @@ test('閉じた webview と旧世代の停止通知は現在の診断へ渡さ�
     assert.equal(h.session.trace.rendererGone, undefined);
     h.session.dispose();
     assert.equal(host.shouldDeliverPreviewRendererGone(widget, current), false);
+});
+
+test('非表示中の renderer 停止を捨て、表示後の新しい停止は届ける', () => {
+    const born = Date.parse('2026-10-06T12:03:00.000Z');
+    const h = harness({ nowMs: born });
+    const widget = { isDisposed: false, isAttached: true, isVisible: false, akariPreviewDiagnostics: h.session };
+    const gone = { reason: 'unknown', exitCode: null, at: '2026-10-06T12:04:00.000Z', observedAt: born + 1000 };
+    if (host.shouldDeliverPreviewRendererGone(widget, gone)) h.session.rendererGone(gone);
+    assert.equal(h.shown.length, 0);
+    assert.equal(h.session.trace.rendererGone, undefined);
+    widget.isVisible = true;
+    assert.equal(host.shouldDeliverPreviewRendererGone(widget, gone), true);
+    h.session.rendererGone({ reason: gone.reason, exitCode: gone.exitCode, at: gone.at });
+    assert.match(h.shown.at(-1).title, /表示処理が停止しました/u);
+    assert.deepEqual(h.session.trace.rendererGone, { reason: 'unknown', exitCode: null, at: gone.at });
+    const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    assert.match(handler, /if \(!shouldDeliverPreviewRendererGone\(widget, notice\) \|\| !session\) return;/u);
 });
 
 test('停止理由の日本語化と不明な exitCode の記録', async () => {

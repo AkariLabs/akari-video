@@ -3,11 +3,14 @@ import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { FileChangeType } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { AKARI_LAST_CHANNEL_STORAGE_KEY } from 'akari-shell-strip/lib/common/rail-ids';
 import { channelFromProjectPath, resolveCurrentChannel, saveViewingChannel } from './channel-context-model';
+import { ChannelProjectChange, classifyChannelProjectChange } from './channel-project-change-model';
+import { projectRefreshDelay } from './channel-project-refresh-model';
 
 export interface ChannelProject {
     name: string;
@@ -29,6 +32,19 @@ export class AkariChannelContextService implements FrontendApplicationContributi
     protected readonly subscriptions = new DisposableCollection();
     protected watches = new DisposableCollection();
     protected refreshVersion = 0;
+    protected readonly projectChanged = new Emitter<ReadonlySet<string>>();
+    readonly onDidProjectsChange: Event<ReadonlySet<string>> = this.projectChanged.event;
+    protected readonly viewers = new Set<string>();
+    protected readonly pendingProjects = new Map<string, ChannelProjectChange>();
+    protected projectTimer: ReturnType<typeof setTimeout> | undefined;
+    protected projectRun?: Promise<void>;
+    protected lastProjectRunAt?: number;
+    protected fullRun?: Promise<void>;
+    protected locationRun?: Promise<void>;
+    protected locationReady = false;
+    protected listLoaded = false;
+    protected watchKey = '';
+    protected watchAvailable = false;
     rootUri?: URI;
     channels: string[] = [];
     currentChannel?: string;
@@ -38,25 +54,37 @@ export class AkariChannelContextService implements FrontendApplicationContributi
     protected projects = new Map<string, ChannelProject[]>();
 
     async onStart(): Promise<void> {
-        this.subscriptions.push(this.scope.onDidChangeScope(() => void this.refresh()));
-        this.subscriptions.push(this.workspace.onWorkspaceChanged(() => void this.refresh()));
+        this.subscriptions.push(this.scope.onDidChangeScope(() => void this.refreshLocation()));
+        this.subscriptions.push(this.workspace.onWorkspaceChanged(() => void this.refreshLocation()));
         this.subscriptions.push(this.files.onDidFilesChange(event => {
             const root = this.rootUri;
             if (!root) return;
             const manifest = root.resolve('.akari/root.json');
             const channelDir = root.resolve('channels');
-            if (event.contains(manifest) || event.contains(channelDir)
-                || event.changes.some(change => change.resource.toString().startsWith(`${channelDir.toString()}/`))) {
-                void this.refresh();
+            if (event.changes.some(change => change.resource.isEqual(manifest)
+                || (change.type !== FileChangeType.UPDATED && change.resource.parent.isEqual(channelDir)))) {
+                void this.refreshLocation();
+                return;
             }
+            const project = this.currentProjectUri;
+            const own = project ? root.relative(project)?.toString() : undefined;
+            for (const change of event.changes) {
+                const relative = root.relative(change.resource)?.toString();
+                if (!relative) continue;
+                const classified = classifyChannelProjectChange(relative, change.type, own);
+                if (classified) this.pendingProjects.set(`${classified.channel}/${classified.project}`, classified);
+            }
+            this.scheduleProjects();
         }));
-        await this.refresh();
+        await this.ensureLocation();
     }
 
     onStop(): void {
         this.watches.dispose();
+        if (this.projectTimer) clearTimeout(this.projectTimer);
         this.subscriptions.dispose();
         this.changed.dispose();
+        this.projectChanged.dispose();
     }
 
     protected async resolveRoot(): Promise<URI | undefined> {
@@ -93,7 +121,7 @@ export class AkariChannelContextService implements FrontendApplicationContributi
                 } catch { /* Folder metadata is optional. */ }
                 try {
                     const intake = JSON.parse((await this.files.readFile(child.resource.resolve('.akari/intake.json'))).value.toString());
-                    if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title.trim();
+                    if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title;
                 } catch { /* Folder name remains the display name. */ }
                 return { name: child.name, uri: child.resource, updatedAt, title };
             }));
@@ -101,18 +129,109 @@ export class AkariChannelContextService implements FrontendApplicationContributi
         } catch { return []; }
     }
 
-    async refresh(): Promise<void> {
-        const version = ++this.refreshVersion;
+    protected async readProject(uri: URI): Promise<ChannelProject | undefined> {
+        try {
+            const stat = await this.files.resolve(uri, { resolveMetadata: true });
+            if (!stat.isDirectory) return undefined;
+            let title: string | undefined;
+            try {
+                const intake = JSON.parse((await this.files.readFile(uri.resolve('.akari/intake.json'))).value.toString());
+                if (typeof intake?.title === 'string' && intake.title.trim()) title = intake.title;
+            } catch { /* 題が無ければフォルダ名を使う。 */ }
+            return { name: uri.path.base, uri, updatedAt: stat.mtime, title };
+        } catch { return undefined; }
+    }
+
+    setListVisible(id: string, visible: boolean): void {
+        if (visible) this.viewers.add(id); else this.viewers.delete(id);
+        if (visible && !this.listLoaded) { void this.ensureProjects(); return; }
+        if (visible && !this.watchAvailable) { void this.refresh(); return; }
+        if (visible) this.scheduleProjects();
+    }
+
+    ensureProjects(): Promise<void> {
+        if (this.listLoaded) {
+            if (this.projectRun) return this.projectRun.then(() => this.pendingProjects.size && this.viewers.size ? this.ensureProjects() : undefined);
+            if (!this.viewers.size || !this.pendingProjects.size) return Promise.resolve();
+            if (this.projectTimer) { clearTimeout(this.projectTimer); this.projectTimer = undefined; }
+            this.projectRun = this.flushProjects().finally(() => { this.projectRun = undefined; this.scheduleProjects(); });
+            return this.projectRun;
+        }
+        if (!this.fullRun) this.fullRun = this.refresh().finally(() => { this.fullRun = undefined; });
+        return this.fullRun;
+    }
+
+    ensureLocation(): Promise<void> {
+        if (this.locationReady) return Promise.resolve();
+        if (!this.locationRun) this.locationRun = this.refreshLocation().finally(() => { this.locationRun = undefined; });
+        return this.locationRun;
+    }
+
+    protected scheduleProjects(): void {
+        if (!this.viewers.size || !this.pendingProjects.size) return;
+        if (this.projectTimer) clearTimeout(this.projectTimer);
+        this.projectTimer = setTimeout(() => {
+            this.projectTimer = undefined;
+            if (this.projectRun) { void this.projectRun.finally(() => this.scheduleProjects()); return; }
+            this.projectRun = this.flushProjects().finally(() => { this.projectRun = undefined; this.scheduleProjects(); });
+        }, projectRefreshDelay(Date.now(), this.lastProjectRunAt));
+    }
+
+    protected async flushProjects(): Promise<void> {
+        const root = this.rootUri;
+        if (!root || !this.viewers.size) return;
+        this.lastProjectRunAt = Date.now();
+        const changes = [...this.pendingProjects];
+        this.pendingProjects.clear();
+        const touched = new Set<string>();
+        for (const [key, change] of changes) {
+            const uri = root.resolve('channels').resolve(change.channel).resolve('videos').resolve(change.project);
+            const old = this.projects.get(change.channel) ?? [];
+            const next = change.kind === 'remove' ? undefined : await this.readProject(uri);
+            if (this.rootUri?.toString() !== root.toString()) return;
+            this.projects.set(change.channel, [...old.filter(item => !item.uri.isEqual(uri)), ...(next ? [next] : [])]
+                .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.name.localeCompare(b.name)));
+            touched.add(key);
+        }
+        if (touched.size) { this.projectChanged.fire(touched); this.changed.fire(); }
+    }
+
+    protected async refreshLocation(): Promise<void> {
         const root = await this.resolveRoot();
         const channels = root ? await this.readChannels(root) : [];
+        const changed = root?.toString() !== this.rootUri?.toString() || channels.join('\0') !== this.channels.join('\0');
+        if (changed) { this.listLoaded = false; this.projects.clear(); this.pendingProjects.clear(); this.lastProjectRunAt = undefined; }
+        await this.refreshState(root, channels);
+        this.locationReady = true;
+        if (changed && this.viewers.size) await this.refresh();
+    }
+
+    async refresh(): Promise<void> {
+        const version = ++this.refreshVersion;
+        if (this.projectRun) await this.projectRun;
+        const includedChanges = new Map(this.pendingProjects);
+        if (this.projectTimer) { clearTimeout(this.projectTimer); this.projectTimer = undefined; }
+        const root = await this.resolveRoot();
+        const channels = root ? await this.readChannels(root) : [];
+        if (!this.viewers.size) { this.listLoaded = false; await this.refreshState(root, channels); return; }
+        const projects = new Map<string, ChannelProject[]>();
+        if (root) await Promise.all(channels.map(async name => projects.set(name, await this.readProjects(root, name))));
+        if (version !== this.refreshVersion) return;
+        this.projects = projects;
+        this.listLoaded = true;
+        for (const [key, change] of includedChanges) if (this.pendingProjects.get(key) === change) this.pendingProjects.delete(key);
+        this.lastProjectRunAt = undefined;
+        await this.refreshState(root, channels);
+        this.projectChanged.fire(new Set([...projects].flatMap(([channel, entries]) => entries.map(entry => `${channel}/${entry.name}`))));
+        this.scheduleProjects();
+    }
+
+    protected async refreshState(root: URI | undefined, channels: string[]): Promise<void> {
         const project = (await this.workspace.roots)[0]?.resource;
         const relative = root && project ? root.relative(project)?.toString() : undefined;
         const workspaceChannel = channelFromProjectPath(relative);
         const current = resolveCurrentChannel(this.scope.scope, channels, workspaceChannel,
             () => window.localStorage.getItem(AKARI_LAST_CHANNEL_STORAGE_KEY));
-        const projects = new Map<string, ChannelProject[]>();
-        if (root) await Promise.all(channels.map(async name => projects.set(name, await this.readProjects(root, name))));
-        if (version !== this.refreshVersion) return;
         this.rootUri = root;
         this.channels = channels;
         this.currentChannel = current;
@@ -120,12 +239,16 @@ export class AkariChannelContextService implements FrontendApplicationContributi
             && this.viewingChannel && channels.includes(this.viewingChannel) ? this.viewingChannel : current;
         this.workspaceChannel = workspaceChannel;
         this.currentProjectUri = project;
-        this.projects = projects;
-        this.watches.dispose();
-        this.watches = new DisposableCollection();
-        if (root) {
-            for (const uri of [root.resolve('.akari'), root.resolve('channels'), ...channels.map(name => root.resolve('channels').resolve(name).resolve('videos'))]) {
-                try { this.watches.push(await this.files.watch(uri)); } catch { /* A new folder may appear later. */ }
+        const watchKey = `${root?.toString() ?? ''}\0${channels.join('\0')}`;
+        if (this.watchKey !== watchKey) {
+            this.watchKey = watchKey;
+            this.watches.dispose();
+            this.watches = new DisposableCollection();
+            this.watchAvailable = !!root;
+            if (root) {
+                for (const uri of [root.resolve('.akari'), root.resolve('channels'), ...channels.map(name => root.resolve('channels').resolve(name).resolve('videos'))]) {
+                    try { this.watches.push(await this.files.watch(uri)); } catch { this.watchAvailable = false; }
+                }
             }
         }
         this.changed.fire();
