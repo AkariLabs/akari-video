@@ -41,6 +41,8 @@ __exportStar(require("./caption-runs"), exports);
 __exportStar(require("./caption-look-v1"), exports);
 __exportStar(require("./caption-look-reader"), exports);
 __exportStar(require("./caption-hash"), exports);
+__exportStar(require("./caption-look-shape"), exports);
+__exportStar(require("./caption-style-command"), exports);
 __exportStar(require("./caption-anchor-map"), exports);
 __exportStar(require("./caption-semantics"), exports);
 __exportStar(require("./generation-meta"), exports);

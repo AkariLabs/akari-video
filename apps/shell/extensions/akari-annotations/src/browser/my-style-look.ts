@@ -1,7 +1,8 @@
 import { t } from '@akari-video/i18n';
 import { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 import { TEXTSTYLE_CATALOG, CAPTION_ROW_LOOK_FIELDS as LOOK_FIELDS, sanitizeMyStyleLook,
-    scaledLookForCaption, captionEffectiveSize } from '@akari-video/edit-store';
+    planCaptionStyleEdit,
+    type CaptionRoot, type CaptionStyleSource, type TextstyleCatalog } from '@akari-video/edit-store';
 export { sanitizeMyStyleLook, scaledLookForCaption, captionEffectiveSize } from '@akari-video/edit-store';
 export { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 
@@ -114,48 +115,68 @@ export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: u
 export function replaceMyStylePartsInSource(source: string, ids: readonly string[],
     parts: readonly { kind: string; text_style?: unknown; animation?: unknown }[],
     options: { keepSize?: boolean; catalog?: Record<string, { style: Record<string, unknown> }>;
-        motionDelta?: CaptionMotionDelta } = {}): string {
+        motionDelta?: CaptionMotionDelta; source?: CaptionStyleSource; now?: string | Date } = {}): string {
     const lookPart = parts.find(part => part.kind === 'look');
     const motionPart = parts.find(part => part.kind === 'motion');
     const look = sanitizeMyStyleLook(lookPart?.text_style);
-    const document = JSON.parse(source) as unknown;
+    const document = JSON.parse(source) as CaptionRoot;
     const rows = Array.isArray(document) ? document
         : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
     if (!rows) throw new Error(t('annotations.myStyleLook.text.unableToReadSubtitleData'));
-    const defaultStyle = record(document) && record(document.default_text_style) ? document.default_text_style : {};
     const catalog = options.catalog ?? TEXTSTYLE_CATALOG;
+    const index = new Map<string, { row: Record<string, unknown>; position: number; count: number }>();
+    rows.forEach((row, position) => {
+        if (!record(row) || typeof row.id !== 'string') return;
+        const prior = index.get(row.id);
+        index.set(row.id, { row, position, count: (prior?.count ?? 0) + 1 });
+    });
+    const targets: Array<{ caption_id: string; parts: { look?: Record<string, unknown>; motion?: Record<string, unknown> } }> = [];
+    const orders: Array<{ id: string; before: Record<string, unknown> }> = [];
     for (const id of new Set(ids)) {
-        const matches = rows.filter(row => record(row) && row.id === id);
-        if (matches.length !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
-        const row = matches[0] as Record<string, unknown>;
+        const match = index.get(id);
+        if (!match || match.count !== 1) throw new Error(t('annotations.myStyleLook.text.subtitleNotUniquelyFound', { id: id }));
+        if (!lookPart && !motionPart) continue;
+        const row = match.row;
         const before = record(row.text_style) ? row.text_style : {};
-        const next = { ...before };
-        if (lookPart) {
-            for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
-            if (options.keepSize) {
-                const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
-                const presetStyle = record(preset) ? preset : {};
-                const targetSize = captionEffectiveSize(row, defaultStyle, catalog);
-                const referenceHeight = before.reference_height_px ?? presetStyle.reference_height_px
-                    ?? defaultStyle.reference_height_px;
-                Object.assign(next, scaledLookForCaption(look, targetSize));
-                next.size_px = targetSize;
-                if (referenceHeight !== undefined) next.reference_height_px = referenceHeight;
-            } else Object.assign(next, look);
-            assertMyStyleLayoutCompatible(defaultStyle, next);
-            delete row.style_preset;
-        }
-        if (motionPart) {
-            if (options.motionDelta) {
-                const animation = applyCaptionMotionDelta(before.animation, options.motionDelta);
-                if (Object.keys(animation).length) next.animation = animation;
-                else delete next.animation;
-            } else next.animation = motionPart.animation;
-        }
-        if (Object.keys(next).length) row.text_style = next;
-        else delete row.text_style;
+        const motion = motionPart && options.motionDelta
+            ? applyCaptionMotionDelta(before.animation, options.motionDelta) : motionPart?.animation;
+        const partsToApply = {
+            ...(lookPart ? { look } : {}),
+            ...(motionPart ? { motion: record(motion) ? motion : {} } : {})
+        };
+        targets.push({ caption_id: id, parts: partsToApply });
+        orders.push({ id, before });
     }
-    return `${JSON.stringify(document, null, 2)}\n`;
+    let next = document;
+    if (targets.length) try {
+        next = planCaptionStyleEdit({ captions: document, targets,
+            parts: {}, source: options.source, now: options.now, catalog: catalog as TextstyleCatalog,
+            legacy: { preset: 'drop', ...(options.keepSize ? {} : { size: 'style' }) } }).next.captions;
+    } catch (error) {
+            if (error instanceof Error && (error as Error & { code?: string }).code
+                === 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT') {
+                throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
+            }
+            throw error;
+    }
+    const nextRows = Array.isArray(next) ? next : next.captions;
+    for (const { id, before } of orders) {
+        const nextRow = nextRows[index.get(id)!.position];
+        if (nextRow && record(nextRow.text_style)) {
+            const style = nextRow.text_style;
+            const order = [
+                ...Object.keys(before).filter(key => !lookPart || !Object.prototype.hasOwnProperty.call(LOOK_FIELDS, key)),
+                ...(lookPart ? [...Object.keys(look).filter(key => !options.keepSize
+                    || key !== 'size_px' && key !== 'reference_height_px'),
+                    ...(options.keepSize ? ['size_px', 'reference_height_px'] : [])] : []),
+                ...(motionPart ? ['animation'] : []), ...Object.keys(style)
+            ];
+            const ordered: Record<string, unknown> = {};
+            for (const key of order) if (Object.prototype.hasOwnProperty.call(style, key)) ordered[key] = style[key];
+            nextRow.text_style = ordered;
+        }
+    }
+    return `${JSON.stringify(next, null, 2)}\n`;
 }
 
 export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown,

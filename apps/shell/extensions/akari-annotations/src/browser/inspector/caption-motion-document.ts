@@ -1,4 +1,5 @@
 import { t } from '@akari-video/i18n';
+import { nextEmphasisWordId } from '@akari-video/edit-store';
 import type { TimelineCaptionSelection } from '../timeline-selection-model';
 import { captionMotionOriginalAnimation } from './caption-motion-cards';
 import { commonCaptionAnimation } from './caption-multi-targets';
@@ -120,14 +121,8 @@ export function upsertCaptionEmphasis(source: string, captionId: string, wordInd
         && (entry.src ?? undefined) === cue.src;
     const index = entries.findIndex(sameWord);
     const existing = index >= 0 && object(entries[index]) ? entries[index] as Record<string, unknown> : undefined;
-    const used = new Set(entries.filter(object).map(entry => entry.id));
     let id = existing?.id;
-    if (typeof id !== 'string') {
-        for (let number = 1; number <= 9999; number++) {
-            const candidate = `e-${String(number).padStart(4, '0')}`;
-            if (!used.has(candidate)) { id = candidate; break; }
-        }
-    }
+    if (typeof id !== 'string') id = nextEmphasisWordId(document as Parameters<typeof nextEmphasisWordId>[0]);
     if (typeof id !== 'string') throw new Error(t('inspector.captionMotionDocument.error.couldNotAssignEmphasisId'));
     const next = { ...(existing ?? {}), id, word: word.text, t_start: word.start, t_end: word.end,
         ...(cue.src ? { src: cue.src } : {}), emotion: definition.emotion, style_hint: style };

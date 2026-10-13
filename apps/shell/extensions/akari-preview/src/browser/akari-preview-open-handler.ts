@@ -197,6 +197,7 @@ import {
     parsePreviewCaptions,
     parseResolvedPreviewCaptions
 } from './akari-preview-captions';
+import { captionRenderInputFromV1 } from '@akari-video/edit-store';
 import { listen } from './akari-preview-listen';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import { ReviewSessionRecorder, ReviewSessionUiState, ReviewTransportSnapshot } from './review-session-recorder';
@@ -886,7 +887,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.captionWriteTail = this.captionWriteTail.then(async () => {
                     const captionsUri = widget.akariPreviewCaptionsUri;
                     if (!captionsUri) return;
-                    const parsed = JSON.parse(await this.readText(captionsUri)) as {
+                    const parsed = captionRenderInputFromV1(JSON.parse(await this.readText(captionsUri))) as {
                         captions?: Array<{ id: string; time_domain?: string }>;
                     } | Array<{ id: string; time_domain?: string }>;
                     const entries = Array.isArray(parsed) ? parsed : parsed.captions;
@@ -6698,8 +6699,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // Legacy caption loading remains fail-open when edit output is unavailable.
             }
         }
-        const parsed = parsePreviewCaptions(source, output);
-        const root: unknown = JSON.parse(source);
+        const renderSource = JSON.stringify(captionRenderInputFromV1(JSON.parse(source)));
+        const parsed = parsePreviewCaptions(renderSource, output);
+        const root: unknown = JSON.parse(renderSource);
         const emphasisWords = readCaptionsEmphasisWords(root);
         const rawCaptions = Array.isArray(root)
             ? root

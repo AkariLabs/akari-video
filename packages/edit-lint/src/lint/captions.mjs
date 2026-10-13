@@ -3,7 +3,7 @@ import { lintText } from '../i18n.mjs';
 import { buildMatcher, protectedTermsFrom } from "../../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mjs";
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
-import { resolveCaptionDisplay, validateCaptionsSemantics, CAPTION_RUN_FIELDS } from "./external.mjs";
+import { resolveCaptionDisplay, validateCaptionsSemantics, validateCaptionLookV1Shape, CAPTION_RUN_FIELDS } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
 import { captionLanguageDefaults, resolveContentLanguage } from "../../../content-language/src/index.mjs";
 import { readContentLanguageSync } from "../../../content-language/src/node.mjs";
@@ -452,7 +452,14 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }
   }
-  for (const diagnostic of validateCaptionsSemantics({ captions: captionsRoot, edit, timeline })) {
+  const seenDiagnostics = new Set();
+  for (const diagnostic of [...validateCaptionLookV1Shape(captionsRoot),
+    ...validateCaptionsSemantics({ captions: captionsRoot, edit, timeline })]) {
+    const identity = JSON.stringify([diagnostic.code, diagnostic.path, diagnostic.message]);
+    if (seenDiagnostics.has(identity)) continue;
+    if (diagnostic.code === 'captions.look.shape' && findings.some(item => item.severity === 'error'
+      && item.check === 'captions.schema' && item.path === diagnostic.path)) continue;
+    seenDiagnostics.add(identity);
     addFinding(findings, { severity: diagnostic.severity, check: diagnostic.code,
       message: diagnostic.message, path: diagnostic.path });
   }
