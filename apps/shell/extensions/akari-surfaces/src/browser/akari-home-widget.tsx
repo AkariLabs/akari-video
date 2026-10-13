@@ -89,7 +89,8 @@ import { decideOpenFlow, openChoices, OpenChoice } from './home/home-open-decisi
 import { eventHistoryEntry, exportHistoryEntry, HomeHistoryEntry, sortHomeHistory } from './home/home-history';
 import type { OpenProjectRequest } from './akari-home-command-contribution';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
-import { AkariChannelContextService } from './channel/akari-channel-context-service';
+import { AkariChannelContextService, ChannelProject } from './channel/akari-channel-context-service';
+import { channelFromProjectPath } from './channel/channel-context-model';
 import { AKARI_COMMANDS, AKARI_LAST_CHANNEL_STORAGE_KEY, AKARI_OPEN_PROJECT_WITHOUT_ASKING_PREFERENCE, AKARI_PARTNER_BUSY_CONTEXT_KEY, HOME_WIDGET_ID, PROJECT_LIST_WIDGET_ID, RAIL_CHANNEL_WIDGET_ID } from 'akari-shell-strip/lib/common/rail-ids';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
@@ -407,7 +408,9 @@ export class AkariHomeWidget extends ReactWidget {
     protected openChoice: 'channel' | 'standalone' = 'channel';
     protected channels: string[] = [];
     protected listChannelOverride: string | undefined;
-    protected projectListRefreshToken = 0;
+    protected readonly projectRowVersions = new Map<string, number>();
+    protected readonly pendingHomeProjects = new Set<string>();
+    protected creatorProjectsRun?: Promise<void>;
     protected pendingChannel: string | undefined;
     protected pendingChannelProjectUri: URI | undefined;
     protected newChannelName = '';
@@ -485,6 +488,20 @@ export class AkariHomeWidget extends ReactWidget {
             this.update();
         }));
         this.toDispose.push(this.progress.onDidChange(() => this.update()));
+        this.toDispose.push(this.channelContext.onDidChange(() => {
+            const previousRoot = this.creatorRootUri?.toString();
+            const previousProject = this.currentProjectUri?.toString();
+            this.syncCreatorRootContext();
+            if (previousRoot !== this.creatorRootUri?.toString() || previousProject !== this.currentProjectUri?.toString()) {
+                void this.refreshCurrentLocation();
+            }
+        }));
+        this.toDispose.push(this.channelContext.onDidProjectsChange(keys => {
+            for (const key of keys) this.pendingHomeProjects.add(key);
+            if (this.isVisible || this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.isVisible) {
+                void this.syncCreatorRootProjects();
+            }
+        }));
         this.toDispose.push(this.contextKeys.onDidChange(() => {
             if (this.queuedOpen && !this.isPartnerBusy()) {
                 const request = this.queuedOpen;
@@ -532,6 +549,8 @@ export class AkariHomeWidget extends ReactWidget {
         // F11: ウェルカム判定は roots の有無だけを見る軽い判定なので最初に済ませる
         // （後続のロードが終わるのを待たせない）。
         await measureStep('refreshWelcomeMode', () => this.refreshWelcomeMode());
+        await this.channelContext.ensureLocation();
+        this.syncCreatorRootContext();
         await measureStep('loadHomeFlow', () => this.loadHomeFlow());
         await measureStep('loadCreatorRootProjects', () => this.loadCreatorRootProjects());
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
@@ -584,22 +603,26 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
-    /**
-     * ホームが再表示されるたびに接続状態・プロジェクト一覧を読み直す。
-     * アプリ単位マーカーやプロジェクト一覧は watch していない（v0）ため、
-     * 他のタブから戻ってきたときに取り残されないようにするのはこの経路。
-     */
+    /** ホームを見せたとき、保留中のプロジェクト差分だけを反映する。 */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
+        this.update();
+        this.syncCreatorRootContext();
+        this.channelContext.setListVisible('home', true);
         this.projectView = readProjectView('home');
         this.projectSort = readProjectSort('home');
         checkForShellUpdatesOnHomeShow(this.resolveElectronUpdaterApi());
         void this.refreshWelcomeMode();
         void this.refreshHomeFlow();
-        void this.loadCreatorRootProjects()
+        void this.refreshCurrentLocation()
+            .then(() => this.loadCreatorRootProjects())
             .then(() => this.loadStandaloneProjects())
-            .then(() => this.refreshCurrentLocation())
             .then(() => this.loadCurrentBand());
+    }
+
+    protected override onBeforeHide(msg: Message): void {
+        this.channelContext.setListVisible('home', false);
+        super.onBeforeHide(msg);
     }
 
     /**
@@ -706,10 +729,11 @@ export class AkariHomeWidget extends ReactWidget {
         }
         if (this.projectLauncherPreparing) { return; }
         this.projectLauncherPreparing = true;
+        this.channelContext.setListVisible('launcher', true);
         try {
             await this.loadCreatorRootProjects();
             await this.loadStandaloneProjects();
-        } finally { this.projectLauncherPreparing = false; }
+        } finally { this.projectLauncherPreparing = false; this.channelContext.setListVisible('launcher', false); }
         // 開き直すたびに覚え直す。前回開いてから書き出し・編集が進んでいれば絵も新しくなる
         // （バックエンドはディスクのキャッシュを見るだけなので、変わっていなければ即返る）。
         this.projectCardFrames.clear();
@@ -720,8 +744,12 @@ export class AkariHomeWidget extends ReactWidget {
             onOpenProject: this.openCreatorRootProject,
             loadThumbnails: this.loadProjectCardThumbnails,
             onRefresh: async () => {
-                await this.loadCreatorRootProjects();
-                await this.loadStandaloneProjects();
+                this.channelContext.setListVisible('launcher', true);
+                try {
+                    await this.channelContext.refresh();
+                    await this.loadCreatorRootProjects();
+                    await this.loadStandaloneProjects();
+                } finally { this.channelContext.setListVisible('launcher', false); }
                 return this.buildProjectRows();
             },
             onDismissed: () => {
@@ -1123,33 +1151,101 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- ホーム v4: 過去プロジェクト一覧（裁定 R3・2026-08-02） -----------------
 
-    /**
-     * 作業場（creator-root）を解決し、各チャンネルの videos 配下を列挙する。
-     * 規約は公開リポ契約 `docs/contract-2026-08-02-creator-root-v1.md` §3 と同じ:
-     *   `<AKARI_HOME>/creator-root.json` の `lastRoot` →
-     *   `<lastRoot>/.akari/root.json`（`schema === 'creator-root/v1'` を検証） →
-     *   `<lastRoot>/channels/<channel>/videos/<project>`
-     * 途中のどの段階が壊れていても（ポインタ不在・root.json 不在/壊れた JSON/
-     * 未知 schema・channels/videos ディレクトリ不在）書き込み・修復はせず、
-     * 一覧なしのフォールバック表示に倒す（読み取り専用の不変原則）。
-     */
+    /** 表示中の一覧へ、context が保持するプロジェクトの差分を反映する。 */
     protected async loadCreatorRootProjects(): Promise<void> {
-        const rootUri = await this.resolveCreatorRootDir();
+        if (!this.isVisible && !this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.isVisible
+            && !this.projectLauncherPreparing && !this.projectLauncherDialog) return;
+        await this.channelContext.ensureProjects();
+        this.syncCreatorRootContext();
+        await this.syncCreatorRootProjects();
+    }
+
+    protected syncCreatorRootContext(): void {
+        const root = this.channelContext.rootUri;
+        if (this.creatorRootUri?.toString() !== root?.toString()) {
+            this.creatorRootProjects = [];
+            this.projectRowVersions.clear();
+        }
+        this.creatorRootUri = root;
+        this.creatorRootAvailable = !!root;
+        this.channels = [...this.channelContext.channels];
+        this.currentProjectUri = this.channelContext.currentProjectUri;
+    }
+
+    protected async syncCreatorRootProjects(): Promise<void> {
+        if (this.creatorProjectsRun) return this.creatorProjectsRun;
+        const keys = new Set(this.pendingHomeProjects);
+        this.pendingHomeProjects.clear();
+        const run = this.applyCreatorRootProjects(keys.size ? keys : undefined);
+        this.creatorProjectsRun = run;
+        try { await run; } finally {
+            if (this.creatorProjectsRun === run) this.creatorProjectsRun = undefined;
+            if (this.pendingHomeProjects.size && (this.isVisible || this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.isVisible
+                || this.projectLauncherPreparing || this.projectLauncherDialog)) {
+                void this.syncCreatorRootProjects();
+            }
+        }
+    }
+
+    protected async applyCreatorRootProjects(keys?: ReadonlySet<string>): Promise<void> {
+        if (!this.isVisible && !this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.isVisible
+            && !this.projectLauncherPreparing && !this.projectLauncherDialog) return;
+        const rootUri = this.channelContext.rootUri;
         if (!rootUri) {
             this.creatorRootAvailable = false;
             this.creatorRootProjects = [];
             this.creatorRootUri = undefined;
             this.channels = [];
-            this.projectListRefreshToken++;
-            this.update();
+            this.projectRowVersions.clear();
+            if (this.isVisible) this.update();
+            const listWidget = this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID);
+            if (listWidget?.isVisible) listWidget.update();
             return;
         }
+        const sameRoot = this.creatorRootUri?.isEqual(rootUri) ?? false;
         this.creatorRootAvailable = true;
         this.creatorRootUri = rootUri;
-        this.channels = await this.resolveManifestChannels(rootUri);
-        this.creatorRootProjects = await this.listCreatorRootProjects(rootUri);
-        this.projectListRefreshToken++;
-        this.update();
+        this.channels = this.channelContext.channels;
+        if (!sameRoot) this.projectRowVersions.clear();
+        const previous = new Map((sameRoot ? this.creatorRootProjects : []).map(entry => [entry.channel + '/' + entry.name, entry]));
+        const entries: CreatorRootProjectEntry[] = [];
+        const changed: { channel: string; project: ChannelProject }[] = [];
+        for (const channel of this.channels) {
+            for (const project of this.channelContext.projectsOf(channel)) {
+                const key = `${channel}/${project.name}`;
+                const old = previous.get(key);
+                if (old && (!keys || !keys.has(key))) { entries.push(old); continue; }
+                changed.push({ channel, project });
+            }
+        }
+        for (let start = 0; start < changed.length; start += PROJECT_PAGE_SIZE) {
+            if (!this.isVisible && !this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.isVisible
+                && !this.projectLauncherPreparing && !this.projectLauncherDialog) {
+                this.creatorRootProjects = [];
+                return;
+            }
+            const batch = await Promise.all(changed.slice(start, start + PROJECT_PAGE_SIZE).map(async ({ channel, project }) => ({
+                name: project.name, channel, uri: project.uri, title: project.title ?? null,
+                ...await this.readProjectDetails(project.uri, project.updatedAt)
+            })));
+            entries.push(...batch);
+            for (const entry of batch) {
+                const key = entry.uri.toString();
+                this.projectCardFrames.delete(key);
+                this.projectRowVersions.set(key, (this.projectRowVersions.get(key) ?? 0) + 1);
+                const preview = this.projectCardPreviews.get(key);
+                if (preview && this.isVisible) void this.loadProjectCardThumbnails(entry.uri).then(frames => preview.adopt(frames));
+            }
+        }
+        this.creatorRootProjects = this.sortCreatorRootProjects(entries);
+        const live = new Set(entries.map(entry => entry.uri.toString()));
+        for (const old of previous.values()) if (!live.has(old.uri.toString())) {
+            this.projectCardFrames.delete(old.uri.toString());
+            this.projectRowVersions.delete(old.uri.toString());
+        }
+        if (this.isVisible) this.update();
+        const listWidget = this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID);
+        if (listWidget?.isVisible) listWidget.update();
     }
 
     // --- U3 プロジェクト一覧「単体」行（task 2026-08-03-home-v5-terms） --------
@@ -1165,7 +1261,7 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected async loadStandaloneProjects(): Promise<void> {
         this.standaloneProjects = await this.resolveStandaloneProjects();
-        this.update();
+        if (this.isVisible) this.update();
     }
 
     protected async resolveStandaloneProjects(): Promise<StandaloneProjectEntry[]> {
@@ -1176,7 +1272,7 @@ export class AkariHomeWidget extends ReactWidget {
             console.error('[akari-surfaces] failed to read recent workspaces (falling back to current-only standalone list):', error);
             return [];
         }
-        const insidePaths = new Set(this.creatorRootProjects.map(project => project.uri.path.fsPath()));
+        const creatorRoot = this.channelContext.rootUri ?? this.creatorRootUri;
         const seen = new Set<string>();
         const results: StandaloneProjectEntry[] = [];
         for (const raw of recent) {
@@ -1187,7 +1283,7 @@ export class AkariHomeWidget extends ReactWidget {
                 continue;
             }
             const fsPath = uri.path.fsPath();
-            if (insidePaths.has(fsPath) || seen.has(fsPath)) {
+            if ((creatorRoot && channelFromProjectPath(creatorRoot.relative(uri)?.toString())) || seen.has(fsPath)) {
                 continue;
             }
             seen.add(fsPath);
@@ -1214,12 +1310,15 @@ export class AkariHomeWidget extends ReactWidget {
      * （フェイルセーフ側 — 一覧描画自体は止めない）。
      */
     /** キャッシュ生成で更新順が変わらないよう、編集データ・進め方・ルートの日時を見る。 */
-    protected async readProjectDetails(uri: URI): Promise<ProjectDetails> {
+    protected async readProjectDetails(uri: URI, folderUpdatedAt?: number): Promise<ProjectDetails> {
         const stat = async (resource: URI) => {
             try { return await this.fileService.resolve(resource, { resolveMetadata: true }); }
             catch (error) { return toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND ? null : undefined; }
         };
-        const [folder, edit, intake] = await Promise.all([stat(uri), stat(uri.resolve('edit.json')), stat(uri.resolve(INTAKE_RELATIVE_PATH))]);
+        const [folder, edit, intake] = await Promise.all([
+            folderUpdatedAt === undefined ? stat(uri) : Promise.resolve({ mtime: folderUpdatedAt }),
+            stat(uri.resolve('edit.json')), stat(uri.resolve(INTAKE_RELATIVE_PATH))
+        ]);
         const dates = [folder?.mtime, edit?.mtime, intake?.mtime].filter((value): value is number => Number.isFinite(value));
         return { updatedAt: dates.length ? Math.max(...dates) : undefined, hasEditData: edit === undefined ? undefined : !!edit?.isFile };
     }
@@ -1570,7 +1669,7 @@ export class AkariHomeWidget extends ReactWidget {
     /**
      * 状態バッジ（U2）の解決。開いているワークスペース root が無ければ何も表示しない
      * （ホーム = プロジェクト未選択の状態はそもそも状態を持たない）。作業場ルート
-     * （`creatorRootUri`。loadCreatorRootProjects が解決済み）の
+     * （`creatorRootUri`。一覧の読み込みとは独立に解決済み）の
      * `channels/<channel>/videos/<project>` の内側なら `kind: 'inside'`
      * （「チャンネル <名前> の設定・スタイルが効いています」）、そうでなければ
      * `kind: 'outside'`（「単体プロジェクト — チャンネルの設定は効いていません」+
@@ -2142,10 +2241,19 @@ export class AkariHomeWidget extends ReactWidget {
         this.historyEntries = sortHomeHistory(entries);
     }
 
-    async refreshProjectListData(): Promise<void> {
-        await this.refreshProjectBrowser();
-        this.projectListRefreshToken++;
+    async refreshProjectListData(force = false): Promise<void> {
+        if (force) await this.channelContext.refresh();
+        await this.loadCreatorRootProjects();
+        if (force) { await this.loadStandaloneProjects(); this.refreshStandaloneCardVersions(); }
         this.widgets.tryGetWidget<ReactWidget>(PROJECT_LIST_WIDGET_ID)?.update();
+    }
+
+    protected refreshStandaloneCardVersions(): void {
+        for (const project of this.standaloneProjects) {
+            const key = project.uri.toString();
+            this.projectCardFrames.delete(key);
+            this.projectRowVersions.set(key, (this.projectRowVersions.get(key) ?? 0) + 1);
+        }
     }
 
     setListChannelOverride(channel: string | undefined): void {
@@ -2166,13 +2274,14 @@ export class AkariHomeWidget extends ReactWidget {
         });
     }
 
-    renderProjectListForTab(): React.ReactNode {
+    renderProjectListForTab(active = this.isVisible): React.ReactNode {
         const channel = this.listChannel();
         const rows = this.buildProjectRows();
-        return <ProjectListView channel={channel} rows={rows.filter(row => row.channel === channel)} refreshToken={this.projectListRefreshToken}
+        return <ProjectListView channel={channel} active={active} rows={rows.filter(row => row.channel === channel)}
+            rowVersion={uri => this.projectRowVersions.get(uri.toString()) ?? 0}
             standalone={rows.filter(row => row.standalone)}
             currentName={this.scope.scope === 'project' ? rows.find(row => row.current)?.name ?? this.currentProjectUri?.path.base : undefined}
-            onNew={rect => { this.newProjectOriginRect = rect; void this.startNewProject(); }} onRefresh={() => void this.refreshProjectListData()}
+            onNew={rect => { this.newProjectOriginRect = rect; void this.startNewProject(); }} onRefresh={() => void this.refreshProjectListData(true)}
             onNewStandalone={() => void this.chooseStandaloneFolder()}
             onOpenChannel={() => void this.shell.revealWidget(RAIL_CHANNEL_WIDGET_ID)}
             onOpen={(row, rect) => this.openCreatorRootProject(row.uri, rect)}
@@ -2360,7 +2469,7 @@ export class AkariHomeWidget extends ReactWidget {
             </section>}
             {channel && <section><div className='akari-os-other-heading'><h3>{channel} のほかのプロジェクト</h3><small>{others.length} 本</small>
                 <button type='button' data-akari-project-list='true' onClick={() => void this.commands.executeCommand(AKARI_COMMANDS.openProjectList)}>プロジェクト一覧へ</button></div>
-                <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact refreshToken={this.projectListRefreshToken}
+                <div className='akari-os-other-grid'>{others.map(row => <ProjectCard key={row.key} row={row} compact active={this.isVisible} rowVersion={this.projectRowVersions.get(row.uri.toString()) ?? 0}
                     onOpen={(item, rect) => this.openCreatorRootProject(item.uri, rect)}
                     readPresence={uri => this.progress.readPresence(uri)} loadThumbnails={uri => this.loadProjectCardThumbnails(uri)} />)}</div></section>}
         </div>;
@@ -3218,7 +3327,7 @@ export class AkariHomeWidget extends ReactWidget {
         if (this.projectRefreshing) { return; }
         this.projectRefreshing = true;
         this.update();
-        try { await this.loadCreatorRootProjects(); await this.loadStandaloneProjects(); }
+        try { await this.channelContext.refresh(); await this.loadCreatorRootProjects(); await this.loadStandaloneProjects(); this.refreshStandaloneCardVersions(); }
         finally { this.projectRefreshing = false; this.update(); }
     }
 

@@ -40,6 +40,7 @@ function fixture() {
     pane.outputs = entries;
     pane.pendingMetadataUris = new Set();
     pane.pendingNameCheckFolders = new Set();
+    pane.missingNameChecks = new Map();
     let loads = 0, resolves = 0, titles = 0, updates = 0;
     pane.host = { workflow: { workspaceRoot: root }, projectDataFiles: [{ name: 'edit.json' }, { name: 'captions.json' }],
         rootPlanFiles: [], rootReportFiles: [], update: () => { updates++; },
@@ -119,6 +120,7 @@ test('新しいレポート名が増えたら全一覧を読む', async () => {
     f.present.set(added.toString(), added);
     f.pane.handleOutputsFileChange(f.root, f.watched, f.event(added, FileChangeType.ADDED));
     await f.drain();
+    await f.drain();
     assert.equal(f.loads, 1);
 });
 
@@ -126,6 +128,50 @@ test('レポート名が消えたら全一覧を読む', async () => {
     const f = fixture();
     f.present.delete(f.reportUri.toString());
     f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.reportUri, FileChangeType.DELETED));
+    await f.drain();
+    await f.drain();
+    assert.equal(f.loads, 1);
+});
+
+test('字幕の原子的な保存と lint レポート更新で全一覧を読まない', async () => {
+    const f = fixture();
+    const tmp = f.root.resolve('captions.json.123.tmp');
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.captionsUri, FileChangeType.ADDED));
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(tmp, FileChangeType.DELETED));
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.reportUri, FileChangeType.UPDATED));
+    await f.drain();
+    assert.equal(f.loads, 0);
+    assert.equal(f.titles, 1);
+});
+
+test('レポートの一時的な消失は再確認後に戻れば全一覧を読まない', async () => {
+    const f = fixture();
+    f.present.delete(f.reportUri.toString());
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.reportUri, FileChangeType.DELETED));
+    await f.drain();
+    f.present.set(f.reportUri.toString(), f.reportUri);
+    await f.drain();
+    assert.equal(f.loads, 0);
+});
+
+test('名前確認と別フォルダの日時更新が重なっても全一覧を読まない', async () => {
+    const f = fixture();
+    const exportUri = f.watched.exportsUri.resolve('final.mp4');
+    f.present.set(exportUri.toString(), exportUri);
+    f.pane.outputs.push({ uri: exportUri, name: 'final.mp4', kind: 'export', mtime: 1, size: 5 });
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.captionsUri, FileChangeType.ADDED));
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(exportUri, FileChangeType.UPDATED));
+    await f.drain();
+    assert.equal(f.loads, 0);
+    assert.equal(f.pane.outputs.find(entry => entry.uri.toString() === exportUri.toString()).mtime, 2);
+});
+
+test('本当の書き出し追加は同時の名前確認があっても一覧へ反映する', async () => {
+    const f = fixture();
+    const exportUri = f.watched.exportsUri.resolve('final.mp4');
+    f.present.set(exportUri.toString(), exportUri);
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(exportUri, FileChangeType.ADDED));
+    f.pane.handleOutputsFileChange(f.root, f.watched, f.event(f.captionsUri, FileChangeType.ADDED));
     await f.drain();
     assert.equal(f.loads, 1);
 });
