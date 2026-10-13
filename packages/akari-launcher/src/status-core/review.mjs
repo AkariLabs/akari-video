@@ -139,7 +139,9 @@ function validateStroke(stroke, label, problems) {
         && (!Number.isInteger(stroke.frame.cutIndex) || stroke.frame.cutIndex < 0))) {
       problems.push(`${label}.frame is invalid for content-rect`);
     }
-    if (!isNonEmptyString(stroke.sessionRef)) problems.push(`${label}.sessionRef is required for content-rect`);
+    if (hasOwn(stroke, "sessionRef") && !isNonEmptyString(stroke.sessionRef)) {
+      problems.push(`${label}.sessionRef must be non-empty when present`);
+    }
   } else if (hasOwn(stroke, "frame")) {
     problems.push(`${label}.frame is forbidden for ${stroke.space}`);
   }

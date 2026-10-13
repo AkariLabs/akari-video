@@ -1,13 +1,41 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import Ajv2020 from "ajv/dist/2020.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "validate-review.mjs");
 const fixtureRoot = join(packageRoot, "fixtures", "review");
 const sampleRoot = join(packageRoot, "examples", "review-v1-sample");
+
+function fixtureReview(name) {
+  return JSON.parse(readFileSync(join(fixtureRoot, name, "review.json"), "utf8"));
+}
+
+test("content-rect schema requires frame and keeps sessionRef optional but non-empty", () => {
+  const schema = JSON.parse(readFileSync(join(packageRoot, "review.schema.json"), "utf8"));
+  const contentRect = schema.$defs.stroke.oneOf.find((branch) => branch.properties.space.const === "content-rect");
+  assert.ok(contentRect.required.includes("frame"));
+  assert.ok(!contentRect.required.includes("sessionRef"));
+  assert.deepEqual(contentRect.properties.sessionRef, { $ref: "#/$defs/nonEmptyString" });
+});
+
+test("review schema validates absent, present, empty, and non-string content-rect sessionRef", () => {
+  const schema = JSON.parse(readFileSync(join(packageRoot, "review.schema.json"), "utf8"));
+  const validate = new Ajv2020({ strict: false }).compile(schema);
+  const direct = fixtureReview("valid-strokes-direct");
+  assert.equal(validate(direct), true, JSON.stringify(validate.errors));
+  for (const [sessionRef, expected] of [["s-0001/st-0001", true], ["", false], [5, false], [null, false]]) {
+    const review = structuredClone(direct);
+    review.annotations[0].strokes[0].sessionRef = sessionRef;
+    assert.equal(validate(review), expected, `${String(sessionRef)}: ${JSON.stringify(validate.errors)}`);
+  }
+});
 
 function run(fixture) {
   return spawnSync(process.execPath, [cliPath, join(fixtureRoot, fixture, "review.json")], {
@@ -52,6 +80,44 @@ test("strokes: content-rect (frame + sessionRef) and image-rect (frame omitted) 
   const executed = run("valid-strokes");
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^OK: /);
+});
+
+test("content-rect stroke with sessionRef still passes validate-review", () => {
+  const executed = run("valid-strokes");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("content-rect stroke without sessionRef passes and preserves point order", () => {
+  const executed = run("valid-strokes-direct");
+  assert.equal(executed.status, 0, executed.stderr);
+  const review = JSON.parse(readFileSync(join(fixtureRoot, "valid-strokes-direct", "review.json"), "utf8"));
+  assert.equal(review.annotations[0].input, "typed");
+  assert.ok(!Object.hasOwn(review.annotations[0], "session"));
+  assert.deepEqual(review.annotations[0].strokes[0].points, [[0.7, 0.8], [0.5, 0.4], [0.2, 0.6]]);
+});
+
+test("content-rect stroke with empty sessionRef fails", () => {
+  const executed = run("invalid-strokes-content-rect-empty-sessionref");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /sessionRef を持たせる場合は空でない文字列である必要があります/);
+});
+
+test("content-rect stroke with a non-string sessionRef fails validate-review", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "akari-review-sessionref-"));
+  try {
+    for (const sessionRef of [5, null]) {
+      const review = fixtureReview("valid-strokes-direct");
+      review.annotations[0].strokes[0].sessionRef = sessionRef;
+      const reviewPath = join(directory, "review.json");
+      await writeFile(reviewPath, `${JSON.stringify(review)}\n`, "utf8");
+      const executed = spawnSync(process.execPath, [cliPath, reviewPath], { encoding: "utf8" });
+      assert.equal(executed.status, 1, String(sessionRef));
+      assert.match(executed.stderr, /sessionRef を持たせる場合は空でない文字列である必要があります/);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("strokes with an unrecognized space value fails", () => {

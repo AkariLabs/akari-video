@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-10-14T00:00:00.000Z","src":null,"sourceT":12.0,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"content-rect","frame":{"sourceT":12.0,"cutIndex":0},"points":[[0.7,0.8],[0.5,0.4],[0.2,0.6]],"sessionRef":""}],"refs":null,"insertPosition":null,"intent":null,"text":"ここの動きを調整してください","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}
