@@ -75,7 +75,7 @@ test('後続 cut・非隣接・zero-overlap は rebuildSegments の後方 1 パ�
   assert.match(method, /unsupportedTrackTransitionByCutIndex\.set\(cutIndex, trackRef\)/u);
   assert.match(method, /nextSameTrackSegmentByCutIndex\.set\(earlier\.index, later\)/u);
   assert.match(method, /nonAdjacentTransitionTargetByCutIndex\.set\(earlier\.index, later\.index\)/u);
-  assert.match(method, /transitionHandlePlanSync\(earlier, later\)\.effectiveSeconds <= 0/u);
+  assert.match(method, /placeBoundary\(this\.transitionPlanFor\(earlier\.index, later\.index\)\)\.state === 'dead'/u);
   assert.match(method, /zeroOverlapTransitionIndexes\.add\(earlier\.index\)/u);
   const messages = source.slice(
     source.indexOf('protected unsupportedDeclaredTransitionIndexes'),

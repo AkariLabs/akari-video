@@ -33,6 +33,24 @@ test('transition op preserves unknown fields when changing only duration or know
     { type: 'fade', duration: 0.7, align: 'before-cut' });
 });
 
+test('transition op changes position only when requested and clears center', () => {
+  const env = environment('fade');
+  env.edit.tracks[0].items[0].source.transition_out.fill = 'future-fill';
+  env.edit.tracks[0].items[0].source.transition_out.extra = { keep: true };
+  const run = align => transitionOp.apply(env, { op: 'cut_look_transition', target: 'item_first',
+    transition_type: 'fade', align });
+  run('after-cut');
+  assert.equal(env.edit.tracks[0].items[0].source.transition_out.align, 'after-cut');
+  run('center');
+  assert.equal('align' in env.edit.tracks[0].items[0].source.transition_out, false);
+  assert.equal(env.edit.tracks[0].items[0].source.transition_out.fill, 'future-fill');
+  assert.deepEqual(env.edit.tracks[0].items[0].source.transition_out.extra, { keep: true });
+  assert.deepEqual(JSON.parse(env.source), env.edit);
+  run('future-side');
+  assert.equal('align' in env.edit.tracks[0].items[0].source.transition_out, false);
+  assert.match(env.log.join('\n'), /未適用/u);
+});
+
 test('transition op rejects a newly written unknown type', () => {
   const env = environment(null);
   apply(env, 'future-kind');

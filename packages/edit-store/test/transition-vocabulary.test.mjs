@@ -112,6 +112,24 @@ test('legacy transition rewrite keeps extra fields in order and can remove the t
     { type: 'different-future-kind', duration: 0.4 }), /種別/u);
 });
 
+test('legacy transition setter writes, clears, and validates position without losing other fields', () => {
+  const source = '{"cuts":[{"in":0,"out":1,"transition_out":{"type":"fade","duration":0.5,"align":"future-side","fill":"freeze"}}]}\n';
+  const preserved = setCutTransitionOutInSource(source, 0, { type: 'dissolve', duration: 0.4 });
+  assert.equal(JSON.parse(preserved).cuts[0].transition_out.align, 'future-side');
+  const aligned = setCutTransitionOutInSource(preserved, 0,
+    { type: 'dissolve', duration: 0.4, align: 'after-cut' });
+  assert.deepEqual(JSON.parse(aligned).cuts[0].transition_out,
+    { type: 'dissolve', duration: 0.4, align: 'after-cut', fill: 'freeze' });
+  for (const align of ['center', null]) {
+    const centered = setCutTransitionOutInSource(aligned, 0,
+      { type: 'dissolve', duration: 0.4, align });
+    assert.deepEqual(JSON.parse(centered).cuts[0].transition_out,
+      { type: 'dissolve', duration: 0.4, fill: 'freeze' });
+  }
+  assert.throws(() => setCutTransitionOutInSource(source, 0,
+    { type: 'dissolve', duration: 0.4, align: 'future-side' }), /位置/u);
+});
+
 test('非 JSON 消費者は正準表の import を使い手書き enum を持たない', () => {
   const consumers = [
     ['packages/edit-store/src/edit-store.ts', /isTransitionType/u],

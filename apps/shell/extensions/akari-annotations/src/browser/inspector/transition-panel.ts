@@ -145,6 +145,41 @@ export function renderTransitionPanel(
             } catch { /* The disabled control cannot issue this request. */ }
         };
         durationRow.value.append(reset);
+        if (fields.align) {
+            const alignRow = row(t('transition.inspector.label.align'));
+            const buttons = document.createElement('div');
+            buttons.className = 'akari-inspector-transition-align';
+            for (const choice of fields.align.buttons) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = t(choice.labelKey);
+                button.setAttribute('aria-pressed', String(choice.pressed));
+                button.disabled = fields.align.disabled;
+                if (fields.align.reasonKey) button.title = t(fields.align.reasonKey);
+                button.onclick = () => {
+                    if (!panel.isConnected || !snapshot.declaration) return;
+                    void write({ kind: 'transition-boundary', ref: snapshot.ref,
+                        value: { type: snapshot.declaration.type as import('@akari-video/edit-store').TransitionType,
+                            duration: snapshot.declaration.duration,
+                            align: choice.align === 'center' ? null : choice.align } }).then(report);
+                };
+                buttons.append(button);
+            }
+            const recommend = document.createElement('button');
+            recommend.type = 'button';
+            recommend.className = 'akari-inspector-transition-recommend';
+            recommend.textContent = t('transition.inspector.action.recommendAlign');
+            recommend.disabled = fields.align.disabled || fields.align.recommendDisabled;
+            if (fields.align.reasonKey) recommend.title = t(fields.align.reasonKey);
+            recommend.onclick = () => {
+                if (!panel.isConnected || !snapshot.declaration) return;
+                void write({ kind: 'transition-boundary', ref: snapshot.ref,
+                    value: { type: snapshot.declaration.type as import('@akari-video/edit-store').TransitionType,
+                        duration: snapshot.declaration.duration, recommendAlign: true } }).then(report);
+            };
+            buttons.append(recommend);
+            alignRow.value.append(buttons);
+        }
     }
     panel.append(feedback);
     for (const handle of fields.handles) {

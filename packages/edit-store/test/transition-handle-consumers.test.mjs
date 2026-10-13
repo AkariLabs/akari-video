@@ -6,17 +6,18 @@ import { readAllSourceText } from '../../../apps/shell/extensions/akari-annotati
 
 const read = relative => readFileSync(new URL(relative, import.meta.url), 'utf8');
 
-test('UI・lint・カーネル・レンダー投影は同じ planTransitionHandleWindow を import する', () => {
+test('UI はトラック計画を読み、残りの経路は共有の窓計算を読む', () => {
   const lintSource = readLintSourceSync();
   const consumers = [
     read('../src/timeline-map.ts'),
     read('../src/internal-model.ts'),
     lintSource,
-    readAllSourceText(),
   ];
   for (const source of consumers) {
     assert.match(source, /planTransitionHandleWindow/u);
   }
+  assert.match(readAllSourceText(), /transitionPlanClipsFromCuts/u);
+  assert.match(readAllSourceText(), /planTrackTransitions/u);
   assert.doesNotMatch(lintSource, /IMAGE_CUT_SOURCE_PATTERN/u);
   assert.doesNotMatch(
     readAllSourceText(),

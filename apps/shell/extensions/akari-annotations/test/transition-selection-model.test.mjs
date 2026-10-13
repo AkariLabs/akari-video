@@ -15,14 +15,15 @@ const snapshot = patch => createTransitionSelection({ ref,
 
 test('snapshot carries the resolved boundary values without a widget reference', () => {
     const value = snapshot({ declaration: { type: 'wipe-left', duration: 0.7 },
-        placement: { state: 'shortened', effectiveSeconds: 0.4 },
+        placement: { state: 'shortened', effectiveSeconds: 0.4, reasons: ['incoming-room'], legacyOverlap: false },
         outgoingTailRoomSeconds: 0.8, incomingHeadRoomSeconds: 0,
         stripUrl: 'preview-strip.webp' });
     assert.equal(value.kind, 'transition');
     assert.deepEqual(value.ref, ref);
     assert.deepEqual(value.earlier, { index: 2, name: 'First' });
     assert.deepEqual(value.later, { index: 3, name: 'Second' });
-    assert.deepEqual(value.placement, { state: 'shortened', effectiveSeconds: 0.4 });
+    assert.deepEqual(value.placement, { state: 'shortened', effectiveSeconds: 0.4,
+        reasons: ['incoming-room'], legacyOverlap: false });
     assert.equal(transitionInspectorFields(value).handles.length, 2);
 });
 
@@ -38,7 +39,7 @@ test('inspector status uses the existing reason in priority order and hides bloc
         [{ block: 'multi-track', ...handles }, 'transition.boundary.block.multiTrack'],
         [{ block: 'track-order', ...handles }, 'transition.boundary.block.trackOrder'],
         [{ declaration, placement: { state: 'dead', effectiveSeconds: 0 } }, 'transition.boundary.dead.noHandle'],
-        [{ declaration, placement: { state: 'shortened', effectiveSeconds: 0.2 } }, 'transition.picker.boundary.shortened'],
+        [{ declaration, placement: { state: 'shortened', effectiveSeconds: 0.2 } }, 'transition.inspector.status.shortened.material'],
         [{ declaration }, 'transition.inspector.status.unknown']
     ];
     for (const [patch, expected] of cases) {

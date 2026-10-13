@@ -7,8 +7,7 @@ import { computeCutBoundaryCandidates } from '../lib/common/cut-boundaries.js';
 import { resolveBoundaryInDocument, validateTransitionBoundaryWrite } from '../lib/common/transition-boundary-write.js';
 import { mergeTransitionDeclaration, primaryBoundaryBlock } from '../lib/common/transition-boundary-model.js';
 import { transitionWriteIsBlocked } from '../lib/common/transition-boundary-state.js';
-import { clampTransitionHandleForWrite, planCachedTransitionHandle, planFetchedTransitionHandle,
-  planNoUriTransitionHandle } from '../lib/common/transition-handle-plan.js';
+import { transitionWritePlan, transitionMaterialDuration } from '../lib/common/transition-write-plan.js';
 import { updateItem } from '../lib/common/edit-v2-mutations.js';
 import { completeTimelineRange } from '../lib/common/timeline-range.js';
 import { timelineDeletePlan } from '../lib/common/timeline-delete-plan.js';
@@ -158,7 +157,8 @@ test('queued transition mutation rejects a moved clip and an inserted clip at wr
   const ref = { earlierItemId: 'a', laterItemId: 'b' };
   const apply = widgetMethod('applyTransitionOut', {
     validateTransitionBoundaryWrite, transitionWriteIsBlocked, resolveBoundaryInDocument,
-    primaryBoundaryBlock, clampTransitionHandleForWrite: (handle, duration) => ({ handle, duration }),
+    primaryBoundaryBlock, chooseTransitionAlign: () => ({ align: 'center' }),
+    transitionWritePlan: ({ duration }) => ({ duration, align: null, roomOutcome: 'full', roomSeconds: duration }),
     cutOverlapFrames: () => 0, t: key => key
   });
   for (const change of [
@@ -170,11 +170,14 @@ test('queued transition mutation rejects a moved clip and an inserted clip at wr
     let resume;
     let cleared = 0;
     const segments = pair();
-    const state = { cutItemIds: ['a', 'b'], segments, fps: 30,
+    const state = { cutItemIds: ['a', 'b'], segments, cuts: [{}, {}], fps: 30,
       location: { editUri: 'edit.json' }, compatibilityTimelineTracks: [{ kind: 'cuts' }],
       activeBoundary: ref, footer: { textContent: '' }, messages: { warn() {} },
       transitionBoundaryInputs: () => segments, nextSameTrackSegment: () => segments[1],
-      transitionHandlePlan: async () => ({ outcome: 'full' }),
+      transitionPlans: () => ({ plans: [] }),
+      transitionPlanTrackFor: () => ({ clips: [{ id: '0' }, { id: '1' }] }),
+      waitForTransitionMaterial: async () => {},
+      rawV2Item: () => undefined,
       timelineLockedTrackIds: () => [], boundaryBlockMessage: () => 'blocked', showNotice() {},
       clearActiveTransitionBoundary() { cleared++; this.activeBoundary = undefined; },
       commitEditMutation(_label, mutate) {
@@ -206,18 +209,17 @@ test('unknown declaration fields survive both merge and edit-v2 mutation', () =>
 });
 
 test('saved duration keeps the prior unknown, unavailable, and missing-URI rules', () => {
-  const earlier = { tlStart: 0, tlEnd: 5 };
-  const later = { tlStart: 5, tlEnd: 10 };
-  const outgoing = { in: 0, out: 5, speed: 1 };
-  const incoming = { in: 0.5, out: 5.5, speed: 1 };
-  const common = { earlier, later, outgoing, incoming, outgoingStill: false,
-    incomingStill: false, declaredSeconds: 0.5 };
-  const unknown = planCachedTransitionHandle({ ...common, videoUri: 'media.mp4' });
-  assert.equal(clampTransitionHandleForWrite(unknown, 0.5).duration, 0.5);
-  const unavailable = planFetchedTransitionHandle({ ...common, duration: 'unavailable' });
-  assert.equal(clampTransitionHandleForWrite(unavailable, 0.5).duration, 0.5);
-  const missingUri = planNoUriTransitionHandle({ ...common });
-  assert.equal(clampTransitionHandleForWrite(missingUri, 0.5).duration, 0.5);
-  const shortHead = planCachedTransitionHandle({ ...common, incoming: { ...incoming, in: 0.1 }, videoUri: 'media.mp4' });
-  assert.equal(clampTransitionHandleForWrite(shortHead, 0.5).duration, 0.2);
+  const write = (videoUri, cached, head = 0.5, align = 'before-cut') => {
+    const duration = transitionMaterialDuration({ videoUri, cached, outSeconds: 5 });
+    const clips = [
+      { id: 'a', startSeconds: 0, lengthSeconds: 5, headRoomSeconds: 0,
+        tailRoomSeconds: duration === undefined ? undefined : Math.max(0, duration - 5) },
+      { id: 'b', startSeconds: 5, lengthSeconds: 5, headRoomSeconds: head, tailRoomSeconds: 5 }
+    ];
+    return transitionWritePlan({ clips, earlierId: 'a', duration: 0.5, fps: 30, explicitAlign: align }).duration;
+  };
+  assert.equal(write('media.mp4', undefined), 0.5);
+  assert.equal(write('media.mp4', 'unavailable'), 0.5);
+  assert.equal(write(undefined, undefined), 0.5);
+  assert.equal(write('media.mp4', 10, 0.1, 'center'), 0.2);
 });

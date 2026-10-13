@@ -885,8 +885,11 @@ export function updateItem(
         if (Object.prototype.hasOwnProperty.call(sourcePatch, 'out')) requireSeconds(sourcePatch.out, 'source.out');
         const normalizedSourcePatch = { ...sourcePatch };
         if (isRecord(normalizedSourcePatch.transition_out)) {
+            const transition = normalizedSourcePatch.transition_out;
             normalizedSourcePatch.transition_out = mergeTransitionDeclaration(source.transition_out, {
-                type: String(normalizedSourcePatch.transition_out.type), duration: Number(normalizedSourcePatch.transition_out.duration)
+                type: String(transition.type), duration: Number(transition.duration),
+                ...(Object.prototype.hasOwnProperty.call(transition, 'align') ? { align: transition.align as string | null } : {}),
+                ...(Object.prototype.hasOwnProperty.call(transition, 'fill') ? { fill: transition.fill as string | null } : {})
             });
         }
         next.source = mergeNullable(source, normalizedSourcePatch);
