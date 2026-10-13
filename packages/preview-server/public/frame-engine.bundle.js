@@ -8503,18 +8503,19 @@ var require_caption_look_reader = __commonJS({
     var caption_hash_1 = require_caption_hash();
     var caption_look_v1_1 = require_caption_look_v1();
     var caption_style_preset_1 = require_caption_style_preset();
+    var isRecord2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    var captionRows = (root) => Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+    var emphasisWords = (root) => Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
+    var unresolvedRuns = (root) => Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? [] : root.unresolved_runs.flatMap((item) => isRecord2(item) && isRecord2(item.run) ? [item.run] : []);
     function nextEmphasisWordId(root) {
-      const rows = Array.isArray(root) ? root : root.captions;
-      const used = new Set(Array.isArray(root) ? [] : (root.emphasis_words ?? []).map((item) => item.id));
-      for (const row of rows)
-        for (const run of row.runs ?? [])
-          if (typeof run.migrated_from === "string")
+      const used = new Set(emphasisWords(root).flatMap((item) => isRecord2(item) && typeof item.id === "string" ? [item.id] : []));
+      for (const row of captionRows(root))
+        for (const run of rowRuns(row))
+          if (isRecord2(run) && typeof run.migrated_from === "string")
             used.add(run.migrated_from);
-      if (!Array.isArray(root) && Array.isArray(root.unresolved_runs)) {
-        for (const entry of root.unresolved_runs)
-          if (typeof entry.run?.migrated_from === "string")
-            used.add(entry.run.migrated_from);
-      }
+      for (const run of unresolvedRuns(root))
+        if (typeof run.migrated_from === "string")
+          used.add(run.migrated_from);
       let number = 1;
       while (used.has(`e-${String(number).padStart(4, "0")}`))
         number++;
@@ -8559,6 +8560,8 @@ var require_caption_look_reader = __commonJS({
       if (!motion2)
         return void 0;
       const candidates = rows.flatMap((row) => {
+        if (!isRecord2(row))
+          return [];
         if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
           return [];
         const interval = intervalForEmphasis(row, item);
@@ -8567,7 +8570,7 @@ var require_caption_look_reader = __commonJS({
       return candidates.length === 1 ? candidates[0] : void 0;
     }
     function rowRuns(row) {
-      return Array.isArray(row.runs) ? row.runs : [];
+      return isRecord2(row) && Array.isArray(row.runs) ? row.runs : [];
     }
     function invalidLegacyRun(run, row) {
       if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
@@ -8577,13 +8580,15 @@ var require_caption_look_reader = __commonJS({
       return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
     }
     function readCaptionLookV1(root, catalog) {
-      const rows = Array.isArray(root) ? root : root.captions;
-      const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
+      const rows = captionRows(root);
+      const emphasis = emphasisWords(root);
       const projected = /* @__PURE__ */ new Map();
-      const allRuns = [...rows.flatMap(rowRuns), ...Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []];
+      const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
       const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
       let originalIndex = 0;
       for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
         while (occupiedIndices.has(originalIndex))
           originalIndex++;
         const index = originalIndex++;
@@ -8598,6 +8603,8 @@ var require_caption_look_reader = __commonJS({
       }
       const notices = [];
       const captions = rows.map((row) => {
+        if (!isRecord2(row))
+          return row;
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
         const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
           ...run,
@@ -8605,6 +8612,8 @@ var require_caption_look_reader = __commonJS({
           ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
         });
         for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
           if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
             continue;
           const interval = projected.get(item.id);
@@ -8638,16 +8647,15 @@ var require_caption_look_reader = __commonJS({
     }
     function planCaptionLookMigration(captions, catalog, _edit) {
       const source = structuredClone(captions);
-      const rows = Array.isArray(source) ? source : source.captions;
-      const emphasis = Array.isArray(source) ? [] : source.emphasis_words ?? [];
+      const rows = captionRows(source);
+      const emphasis = emphasisWords(source);
       const unresolved = [];
       const notices = [];
-      const allRuns = [
-        ...rows.flatMap(rowRuns),
-        ...Array.isArray(source) ? [] : Array.isArray(source.unresolved_runs) ? source.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
-      ];
+      const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
       let invalidLegacyCount = 0;
       for (const row of rows) {
+        if (!isRecord2(row))
+          continue;
         if (row.style_preset) {
           const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
           if (preset.resolved) {
@@ -8711,6 +8719,8 @@ var require_caption_look_reader = __commonJS({
       const migrated = /* @__PURE__ */ new Set();
       let originalIndex = 0;
       for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
         while (occupiedIndices.has(originalIndex))
           originalIndex++;
         const index = originalIndex++;
@@ -8747,13 +8757,15 @@ var require_caption_look_reader = __commonJS({
         migrated.add(item.id);
         occupiedIndices.add(index);
       }
-      if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, "emphasis_words")) {
-        source.emphasis_words = emphasis.filter((item) => !migrated.has(item.id));
+      if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
+        source.emphasis_words = emphasis.filter((item) => !isRecord2(item) || !migrated.has(item.id));
       }
-      const originalRows = Array.isArray(captions) ? captions : captions.captions;
+      const originalRows = captionRows(captions);
       const diff = [];
       rows.forEach((row, index) => {
-        const before = originalRows[index] ?? {};
+        if (!isRecord2(row))
+          return;
+        const before = isRecord2(originalRows[index]) ? originalRows[index] : {};
         for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(row)])) {
           if (JSON.stringify(before[key]) !== JSON.stringify(row[key]))
             diff.push({
@@ -8774,13 +8786,13 @@ var require_caption_look_reader = __commonJS({
       };
     }
     function captionRenderInputFromV1(root) {
-      const rows = Array.isArray(root) ? root : root.captions;
-      const legacyIds = Array.isArray(root) ? [] : (root.emphasis_words ?? []).map((item) => item.id);
+      const rows = captionRows(root);
+      const legacyIds = emphasisWords(root).flatMap((item) => isRecord2(item) ? [item.id] : []);
       if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))) && new Set(legacyIds).size === legacyIds.length)
         return root;
       const copy = structuredClone(root);
-      const nextRows = Array.isArray(copy) ? copy : copy.captions;
-      const emphasis = Array.isArray(copy) ? [] : [...copy.emphasis_words ?? []];
+      const nextRows = captionRows(copy);
+      const emphasis = [...emphasisWords(copy)];
       const migratedIds = /* @__PURE__ */ new Set();
       for (const row of nextRows)
         for (const run of rowRuns(row))
@@ -8788,12 +8800,16 @@ var require_caption_look_reader = __commonJS({
             migratedIds.add(run.migrated_from);
       const ids = /* @__PURE__ */ new Set();
       for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
         if (ids.has(item.id) || migratedIds.has(item.id))
           item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
         ids.add(item.id);
       }
       const migrated = [];
       for (const row of nextRows) {
+        if (!isRecord2(row))
+          continue;
         if (!Array.isArray(row.runs))
           continue;
         row.runs = row.runs.flatMap((run) => {
@@ -8846,7 +8862,7 @@ var require_caption_look_reader = __commonJS({
           return [next];
         });
       }
-      if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, "emphasis_words") || migrated.length)) {
+      if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
         const restored = [...emphasis];
         for (const entry of migrated.sort((left, right) => left.index - right.index)) {
           restored.splice(Math.min(entry.index, restored.length), 0, entry.item);

@@ -310,7 +310,7 @@ function normalizedWriteNames(files) {
         const segments = name.split('/');
         if (!name || raw.includes('\\') || raw.includes(':') || name.startsWith('/')
             || segments.some(part => !part || part === '.' || part === '..')
-            || /^\.akari\/(?:write\.lock(?:\.wait)?|write-journal\.json|work\/journal)(?:\/|$)/i.test(name)) {
+            || /^\.akari\/(?:write\.lock(?:\.wait|\.claim|\.probe-[^/]*)?|write-journal\.json|work\/journal)(?:\/|$)/i.test(name)) {
             throw new Error(`書き込み先に使えない相対パスです: ${raw}`);
         }
         const key = name.toLocaleLowerCase('en-US');
@@ -371,7 +371,8 @@ async function acquireProjectLock(projectRoot, options) {
     const host = (0, os_2.hostname)();
     const ops = fileOps(options);
     const nonce = (0, crypto_1.randomUUID)();
-    const mine = JSON.stringify({ pid: process.pid, host, created_at: new Date(now()).toISOString(), nonce });
+    let permissionFailures = 0;
+    let permissionFailureAt = 0;
     let placedWaitMark = false;
     const clearOwnWaitMark = async () => {
         if (!placedWaitMark)
@@ -426,25 +427,49 @@ async function acquireProjectLock(projectRoot, options) {
     if (yieldMs > 0)
         await pause(yieldMs);
     for (;;) {
+        const acquiredAt = now();
         try {
             // 通常は排他作成だけ。親が無い初回に限ってディレクトリを作る。
-            await ops.writeFile(lock, mine, { flag: 'wx' });
+            await ops.writeFile(lock, JSON.stringify({ pid: process.pid, host,
+                created_at: new Date(acquiredAt).toISOString(), nonce }), { flag: 'wx' });
             sharedState.unreleased.delete(lock);
             await clearOwnWaitMark();
-            return releaseOwned(nonce, now());
+            return releaseOwned(nonce, acquiredAt);
         }
         catch (error) {
             const code = error.code;
             if (code === 'ENOENT') {
+                permissionFailures = 0;
                 await retryFs(() => ops.mkdir(folder, { recursive: true }));
                 continue;
             }
             if (code !== 'EEXIST' && !retryCodes.has(code ?? ''))
                 throw error;
             if (code !== 'EEXIST') {
+                if (code === 'EPERM' || code === 'EACCES') {
+                    if (permissionFailures++ === 0)
+                        permissionFailureAt = Date.now();
+                    if (permissionFailures >= 5 && Date.now() - permissionFailureAt >= 50) {
+                        const probe = (0, path_1.join)(folder, `write.lock.probe-${(0, crypto_1.randomUUID)()}`);
+                        try {
+                            await ops.writeFile(probe, '', { flag: 'wx' });
+                        }
+                        catch (probeError) {
+                            const probeCode = probeError.code;
+                            if (probeCode === 'EPERM' || probeCode === 'EACCES')
+                                throw error;
+                            throw probeError;
+                        }
+                        await ops.unlink(probe);
+                        permissionFailures = 0;
+                    }
+                }
+                else
+                    permissionFailures = 0;
                 await wait(true);
                 continue;
             }
+            permissionFailures = 0;
         }
         let existing;
         try {
@@ -487,17 +512,32 @@ async function acquireProjectLock(projectRoot, options) {
                     && !(options.hooks?.processAlive ?? ownerAlive)(owner.pid);
             if (stale) {
                 // 奪取だけ claim で直列化し、取得済みの相手の lock を消さない。
+                const clearStaleClaim = async () => {
+                    try {
+                        const stat = await fs_1.promises.stat(claim);
+                        if (Date.now() - stat.mtimeMs > 5_000)
+                            await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
+                    }
+                    catch (error) {
+                        if (!absent(error) && !retryCodes.has(error.code ?? ''))
+                            throw error;
+                    }
+                };
                 let claimed = false;
                 try {
+                    await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
                     const current = await readBytes(lock);
                     if (current?.equals(existing)) {
-                        await retryFs(() => ops.unlink(lock));
+                        await retryFs(() => ops.unlink(lock)).catch(error => { if (!absent(error))
+                            throw error; });
                         sharedState.unreleased.delete(lock);
                     }
                 }
                 catch (error) {
+                    if (error.code === 'EEXIST')
+                        await clearStaleClaim();
                     if (error.code !== 'EEXIST'
                         && !retryCodes.has(error.code ?? ''))
                         throw error;
@@ -520,7 +560,11 @@ async function acquireProjectLock(projectRoot, options) {
 function recoveryNotice(detail) {
     if (detail.broken)
         return '前回の書き込み記録が壊れていたので退避しました。ファイルは変更していません。';
-    return `前回の書き込みが途中で止まったので元に戻しました${detail.restored.length ? `: ${detail.restored.join('、')}` : ''}`
+    if (!detail.restored.length && !detail.preserved.length && !detail.missing.length)
+        return '前回の書き込みが途中で止まっていましたが、ファイルは元のままでした';
+    return (detail.restored.length
+        ? `前回の書き込みが途中で止まったので元に戻しました: ${detail.restored.join('、')}`
+        : '前回の書き込みが途中で止まっていました')
         + (detail.preserved.length ? `。${detail.preserved.map(path => `${path} はその後に変更されていたのでそのままにしました`).join('。')}` : '')
         + (detail.missing.length ? `。${detail.missing.map(path => `${path} は退避が見つからないので戻せませんでした`).join('。')}` : '');
 }
@@ -638,12 +682,27 @@ async function recoverInterruptedProjectWriteDetailed(projectRoot) {
             return undefined;
         throw error;
     }
-    const release = await acquireProjectLock(projectRoot, {});
+    const key = (0, path_1.resolve)(projectRoot);
+    const previous = projectWriteChains.get(key) ?? Promise.resolve();
+    let finish;
+    const completion = new Promise(done => { finish = done; });
+    projectWriteChains.set(key, completion);
+    await previous.catch(() => undefined);
+    let release;
     try {
+        release = await acquireProjectLock(projectRoot, {});
         return await recoverJournalUnderLock(projectRoot);
     }
     finally {
-        await release();
+        try {
+            if (release)
+                await release();
+        }
+        finally {
+            finish();
+            if (projectWriteChains.get(key) === completion)
+                projectWriteChains.delete(key);
+        }
     }
 }
 async function writeProjectFilesTransactional(projectRoot, input, options = {}) {
@@ -663,7 +722,7 @@ async function writeProjectFilesTransactional(projectRoot, input, options = {}) 
         const entries = normalizedWriteNames(input.files);
         const compared = entries.some(([, candidate]) => candidate.expectedHash !== undefined);
         const originals = compared || !options.writeUnchanged
-            ? await Promise.all(entries.map(async ([name]) => readBytes(safeRelative(projectRoot, name), fileOps(options))))
+            ? await Promise.all(entries.map(async ([name]) => retryFs(() => readBytes(safeRelative(projectRoot, name), fileOps(options)))))
             : entries.map(() => undefined);
         const conflicts = entries.flatMap(([name, candidate], index) => candidate.expectedHash === undefined
             || candidate.expectedHash === (originals[index] ? projectFileHash(originals[index]) : null)
@@ -772,7 +831,7 @@ async function writeProjectFilesTransactional(projectRoot, input, options = {}) 
             }
             throw error;
         }
-        // 全 rename 後は成功扱い。印が書けない窓もプロセス内の記録で回復する。
+        // 全 rename 後は成功扱い。同じプロセス内では記録で回復するが、別プロセス・再起動後は印だけが頼り。
         sharedState.committed.add(`${(0, path_1.resolve)(projectRoot)}:${id}`);
         try {
             const journalBytes = await readBytes(journalPath);
