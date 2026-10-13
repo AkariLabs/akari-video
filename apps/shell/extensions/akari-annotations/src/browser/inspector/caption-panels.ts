@@ -265,9 +265,10 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
             name.textContent = font.displayName ?? font.title;
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
-            english.textContent = font.own ? '' : font.title;
+            english.textContent = font.own && font.title === family ? '' : family;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
-            detail.textContent = font.own ? '' : captionFontRowDetail(font.tags);
+            detail.textContent = font.own ? t('inspector.captionPanels.text.addedByYou')
+                : captionFontRowDetail(font.tags, font.bundled);
             const status = document.createElement('span'); status.className = 'akari-caption-font-status';
             status.textContent = font.own ? t('inspector.captionPanels.text.addedByYou')
                 : t('inspector.captionPanels.text.available');

@@ -57,6 +57,7 @@ const css = `
 .akari-import-group-count { margin-left:auto; color:var(--akari-muted); font-size:11.5px; font-weight:400; font-variant-numeric:tabular-nums; }
 .akari-import-row { display:flex; align-items:center; gap:8px; padding:6px 10px; border-top:${AKARI_BORDER.hairline}; font-size:12px; }
 .akari-import-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-import-filename { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--akari-muted); font-size:10.5px; }
 .akari-import-duration { color:${AKARI_FAINT}; font-variant-numeric:tabular-nums; font-size:11.5px; }
 .akari-import-row-ambiguous { flex-wrap:wrap; }
 .akari-import-kind-question { width:100%; display:flex; align-items:center; gap:8px; color:var(--akari-muted); font-size:11.5px; }
@@ -248,7 +249,8 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         onMouseLeave={hideHover}>
         {item.category === 'audio' && <button type='button' className='theia-button secondary icon akari-import-audio' style={{ borderRadius: '50%' }} aria-label={t('project.library.importSheet.previewNameAction', { name: item.name })} aria-pressed={playing === item.path}
             onClick={() => void play(item)}>{playing === item.path ? '■' : '▶'}</button>}
-        <span className='akari-import-name' title={item.path}>{item.name}</span>
+        <span className='akari-import-name' title={item.path}>{item.kind === 'font' && item.title && item.title !== item.name
+            ? <>{item.title}<small className='akari-import-filename'>{item.name}</small></> : item.name}</span>
         <small className='akari-import-duration'>{item.durationSec !== null ? t('project.library.importSheet.secLabel', { value1: item.durationSec.toFixed(1) }) : `${((item.bytes ?? 0) / 1024).toFixed(0)} KB`}</small>
         {item.ambiguous && <span className='akari-import-kind-question'>{t('project.library.importSheet.howWouldYouLikeImportQuestion')}<span role='group' aria-label={t('project.library.importSheet.typeNameLabel', { name: item.name })} className='akari-seg'>
             {(['sfx', 'bgm'] as const).map(kind => <button type='button' className='theia-button quiet small' key={kind} aria-pressed={item.kind === kind}

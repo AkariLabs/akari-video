@@ -72,18 +72,19 @@ test('explicit metadata aliases produce only the title and its aliases', async t
   assert.ok(faces.every(face => face.id === 'one' && face.path === faces[0].path && face.key === faces[0].key));
 });
 
-test('old metadata adds internal names and catalog names to one font', async t => {
+test('old metadata adds internal names and the catalog title without other file aliases', async t => {
   const f = await fontFixture(t);
   await f.add('a-first', { title: 'first-file' }, 'Sample Face A', '見本書体-かなA');
   await f.catalog({ id: 'sample-face', title: '見本書体', aliases: ['見本書体-かなA', '見本書体-かなB'] });
   const faces = libraryCaptionFontFaces(f.env, { catalogRoot: f.catalogRoot });
   assert.equal(faces[0].family, 'first-file');
-  for (const family of ['見本書体-かなA', 'Sample Face A', '見本書体', '見本書体-かなB']) {
+  for (const family of ['見本書体-かなA', 'Sample Face A', '見本書体']) {
     const face = faces.find(row => row.family === family);
     assert.equal(face?.id, 'a-first', family);
     assert.equal(face?.path, faces[0].path, family);
     assert.equal(face?.key, faces[0].key, family);
   }
+  assert.equal(faces.some(face => face.family === '見本書体-かなB'), false);
 });
 
 test('an old font owns its internal family ahead of another font catalog alias', async t => {

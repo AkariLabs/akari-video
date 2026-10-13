@@ -97,6 +97,7 @@ test('表示できる 9 書体だけを検索・複数タグ AND フィルター
     assert.equal(faces.get('noto-sans-jp'), CAPTION_FONT_FAMILY);
     assert.match(captionFontRowDetail(['latin']), /日本語は代わりの書体で表示/u);
     assert.doesNotMatch(captionFontRowDetail(['japanese']), /代わりの書体/u);
+    assert.equal(captionFontRowDetail(['japanese'], false), 'Aa Bb 123');
 });
 
 test('読み込んだ自前の書体を一行にまとめ、名前と family で検索できる', () => {
@@ -122,6 +123,25 @@ test('読み込んだ自前の書体を一行にまとめ、名前と family で
         .children.find(node => node.className === 'akari-caption-font-face');
     ownChoice.fire('click');
     assert.deepEqual(applied, [['私の書体', undefined, 'my-font']]);
+});
+
+test('カタログ掲載の書体を自分で入れた場合は実際の family と出自を表示する', () => {
+    const id = '851-chikara-dzuyoku';
+    const family = '851チカラヅヨク-かなA';
+    const loaded = firstCaptionFontFamilies([{ id, family, source: 'library' }]);
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    const font = rows.find(row => row.id === id);
+    assert.equal(font?.title, '851チカラヅヨク');
+    assert.equal(font?.family, family);
+    assert.equal(font?.own, true);
+    assert.equal(font?.bundled, false);
+    const panel = createCaptionPanel(document, 'font', state(), [], loaded, actions);
+    const row = descendants(panel).find(node => node.attributes['data-akari-font-row'] === id);
+    assert.ok(row);
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-english' && node.textContent === family));
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-detail' && node.textContent === '自分で入れた'));
+    assert.ok(descendants(row).some(node => node.className === 'akari-caption-font-status' && node.textContent === '自分で入れた'));
+    assert.ok(!descendants(row).some(node => node.textContent.includes('同梱')));
 });
 
 test('最近使ったフォントは現在の描画可能な family だけから id を引く', () => {

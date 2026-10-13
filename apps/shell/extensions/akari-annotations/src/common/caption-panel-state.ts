@@ -79,10 +79,11 @@ export function firstCaptionFontFamilies(faces: readonly ({ id: string; family: 
 /** Build one selectable row per id, retaining the first loaded family for user fonts. */
 export function captionPanelFontRows(catalog: readonly CaptionPanelFontRow[], faces: ReadonlyMap<string, string>,
     availability: Readonly<Record<string, { status: string; family: string }>> = {}): CaptionPanelFontRow[] {
-    const rows: CaptionPanelFontRow[] = catalog.map(font => ({ ...font,
-        family: faces.get(font.id) ?? availability[font.id]?.family ?? font.family }));
-    const known = new Set(rows.map(font => font.id));
     const libraryIds = (faces as ReadonlyMap<string, string> & { libraryIds?: ReadonlySet<string> }).libraryIds;
+    const rows: CaptionPanelFontRow[] = catalog.map(font => ({ ...font,
+        family: faces.get(font.id) ?? availability[font.id]?.family ?? font.family,
+        ...(libraryIds?.has(font.id) ? { own: true, bundled: false } : {}) }));
+    const known = new Set(rows.map(font => font.id));
     for (const [id, family] of faces) {
         if (known.has(id) || !libraryIds?.has(id)) continue;
         rows.push({ id, title: family, family, tags: [], bundled: false, own: true });
@@ -99,8 +100,10 @@ export function recentCaptionFontId(currentFamily: string | undefined,
         ?? (currentFamily === CAPTION_FONT_FAMILY ? 'noto-sans-jp' : undefined);
 }
 
-export function captionFontRowDetail(tags: readonly string[]): string {
-    return t('annotationscommon.captionPanelState.font.rowDetail', { fallback: tags.includes('japanese') ? '' : t('annotationscommon.captionPanelState.font.japaneseFallback') });
+export function captionFontRowDetail(tags: readonly string[], bundled = true): string {
+    return t(bundled ? 'annotationscommon.captionPanelState.font.rowDetail'
+        : 'annotationscommon.captionPanelState.font.rowDetailUnbundled',
+    { fallback: tags.includes('japanese') ? '' : t('annotationscommon.captionPanelState.font.japaneseFallback') });
 }
 
 /** Only verified, bundled font files get weight choices. Reference fonts have no known local axes. */

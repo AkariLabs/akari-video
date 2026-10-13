@@ -77,8 +77,8 @@ export function libraryCaptionFontFaces(env = process.env, options = {}) {
     if (typeof name === 'string' && !explicitOwner.has(name)) explicitOwner.set(name, base.id);
   }
   for (const { names, matched, base } of items) {
-    if (matched) names.push(...[matched.title, ...matched.aliases]
-      .filter(name => !explicitOwner.has(name) || explicitOwner.get(name) === base.id));
+    if (matched && (!explicitOwner.has(matched.title) || explicitOwner.get(matched.title) === base.id))
+      names.push(matched.title);
     for (const family of names) {
       if (typeof family !== 'string' || !family.trim() || used.has(family)
         || explicitOwner.has(family) && explicitOwner.get(family) !== base.id) continue;
