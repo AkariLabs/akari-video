@@ -15,3 +15,9 @@ export function freezeDurationSeconds(freeze) {
 export function segmentDuration(cut) {
   return (cut.out - cut.in) / cutSpeed(cut) + freezeDurationSeconds(cut?.freeze);
 }
+
+/** Return the positive held head preceding a cut's media clock, or zero. */
+export function cutHoldHeadSeconds(cut) {
+  const value = cut?.transitionHold?.headSeconds;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}

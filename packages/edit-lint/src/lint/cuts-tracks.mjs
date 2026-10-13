@@ -1,4 +1,4 @@
-import { segmentDuration } from "../cut-timeline.mjs";
+import { cutHoldHeadSeconds, segmentDuration } from "../cut-timeline.mjs";
 import { lintText, lintTextWithFallback } from '../i18n.mjs';
 import { EPSILON, addFinding, formatNumber, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
 import { TRANSITION_ALIGN_IDS, TRANSITION_FILL_IDS, TRANSITION_TYPE_IDS, areCutsAdjacent, findUnsupportedDeclaredTrackTransitions, isStillImageSourcePath } from "./external.mjs";
@@ -124,7 +124,7 @@ function isDeclaredTransitionOverlap(cuts, segments, current, fps) {
   if (!isPositiveNumber(duration)) return false;
   return areCutsAdjacent(
     { tlEnd: previous.end, transitionOut: { duration } },
-    { tlStart: current.start },
+    { tlStart: current.start - cutHoldHeadSeconds(cuts?.[current.index]) },
     fps,
   );
 }

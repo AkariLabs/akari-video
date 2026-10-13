@@ -536,6 +536,7 @@ var AkariEditKernel = (() => {
       resolve: (cut) => ({
         stillImage: false,
         freezeSeconds: 0,
+        holdHeadSeconds: cut.transitionHold?.headSeconds,
         // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
         holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
       })
@@ -602,7 +603,10 @@ var AkariEditKernel = (() => {
       if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
       const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
       if (!incoming) continue;
-      const start = incoming.start;
+      const plannedHold = plannedWindows.get(outgoing.cutIndex)?.freezeIncomingSeconds ?? 0;
+      const declaredHold = incoming.cut.transitionHold?.headSeconds;
+      const hold = typeof declaredHold === "number" && Number.isFinite(declaredHold) && declaredHold > 0 ? declaredHold : plannedHold;
+      const start = incoming.start - hold;
       const actualOverlap = outgoing.end - start;
       if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6) continue;
       const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
@@ -613,12 +617,20 @@ var AkariEditKernel = (() => {
         duration: end - start,
         type: transition.type,
         outgoing: segmentSlice(outgoing, start, end, transition),
-        incoming: segmentSlice(incoming, start, end),
+        incoming: {
+          ...segmentSlice(incoming, start, end),
+          ...hold > 0 ? {
+            holdHeadSeconds: hold,
+            in: incoming.cut.in,
+            out: incoming.cut.in + Math.max(0, end - incoming.start) * (typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1)
+          } : {}
+        },
         ...plannedWindows.has(outgoing.cutIndex) ? {
           cutSeconds: plannedWindows.get(outgoing.cutIndex).cutSeconds,
           effectiveSeconds: plannedWindows.get(outgoing.cutIndex).effectiveSeconds,
           state: plannedWindows.get(outgoing.cutIndex).state,
-          reasons: plannedWindows.get(outgoing.cutIndex).reasons
+          reasons: plannedWindows.get(outgoing.cutIndex).reasons,
+          ...plannedHold > 0 ? { freezeIncomingSeconds: plannedHold } : {}
         } : {}
       });
     }

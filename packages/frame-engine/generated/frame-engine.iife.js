@@ -3631,6 +3631,7 @@ ${indent}`);
           resolve: (cut) => ({
             stillImage: false,
             freezeSeconds: 0,
+            holdHeadSeconds: cut.transitionHold?.headSeconds,
             // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
             holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
           })
@@ -3703,7 +3704,10 @@ ${indent}`);
           const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
           if (!incoming)
             continue;
-          const start = incoming.start;
+          const plannedHold = plannedWindows.get(outgoing.cutIndex)?.freezeIncomingSeconds ?? 0;
+          const declaredHold = incoming.cut.transitionHold?.headSeconds;
+          const hold = typeof declaredHold === "number" && Number.isFinite(declaredHold) && declaredHold > 0 ? declaredHold : plannedHold;
+          const start = incoming.start - hold;
           const actualOverlap = outgoing.end - start;
           if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6)
             continue;
@@ -3716,12 +3720,20 @@ ${indent}`);
             duration: end - start,
             type: transition.type,
             outgoing: segmentSlice(outgoing, start, end, transition),
-            incoming: segmentSlice(incoming, start, end),
+            incoming: {
+              ...segmentSlice(incoming, start, end),
+              ...hold > 0 ? {
+                holdHeadSeconds: hold,
+                in: incoming.cut.in,
+                out: incoming.cut.in + Math.max(0, end - incoming.start) * (typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1)
+              } : {}
+            },
             ...plannedWindows.has(outgoing.cutIndex) ? {
               cutSeconds: plannedWindows.get(outgoing.cutIndex).cutSeconds,
               effectiveSeconds: plannedWindows.get(outgoing.cutIndex).effectiveSeconds,
               state: plannedWindows.get(outgoing.cutIndex).state,
-              reasons: plannedWindows.get(outgoing.cutIndex).reasons
+              reasons: plannedWindows.get(outgoing.cutIndex).reasons,
+              ...plannedHold > 0 ? { freezeIncomingSeconds: plannedHold } : {}
             } : {}
           });
         }
@@ -31748,6 +31760,7 @@ void main() {
     "audio",
     "mute"
   ];
+  var KNOWN_RENDER_CUT_KEY_LIST = ["transitionHold"];
   var KNOWN_LAYER_KEY_LIST = [
     "id",
     "t",
@@ -31833,7 +31846,7 @@ void main() {
       warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
     }
     for (const key of Object.keys(value)) {
-      if (knownKeys.has(key)) continue;
+      if (knownKeys.has(key) || knownKeys === KNOWN_CUT_KEYS && key === KNOWN_RENDER_CUT_KEY_LIST[0]) continue;
       warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
     }
   }

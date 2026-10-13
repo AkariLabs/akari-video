@@ -91,9 +91,11 @@ export function frameEngineBootstrapScript(): string {
                         ? cut.renderTrack : baseRenderTrack;
                     const cursor = cursorByTrack.get(trackKey) ?? 0;
                     const hasValidAt = Number.isFinite(cut.at) && cut.at >= 0;
+                    const hold = cut.transitionHold && cut.transitionHold.headSeconds;
+                    const hasHold = typeof hold === 'number' && Number.isFinite(hold) && hold > 0;
                     const frozenGap = Number(value.editVersion) === 2 && !upperTrack && !!cut.freeze
                         && hasValidAt && Number(cut.at) > cursor + 1e-6;
-                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze) || frozenGap)
+                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze) || frozenGap || (hasHold && hasValidAt))
                         ? {
                             track: cut.renderTrack,
                             ...(hasValidAt ? { at: Number(cut.at) } : {})
@@ -423,8 +425,10 @@ export function frameEngineBootstrapScript(): string {
                         if (active) initialIds.add(id);
                     };
                     for (const placement of value.cuts) {
-                        note(placement.cut.src || 'default', placement.at,
-                            atSeconds >= placement.at && atSeconds < placement.end);
+                        const hold = Number(placement.cut.transitionHold?.headSeconds);
+                        const start = placement.at - (Number.isFinite(hold) && hold > 0 ? hold : 0);
+                        note(placement.cut.src || 'default', start,
+                            atSeconds >= start && atSeconds < placement.end);
                     }
                     const frame = Math.floor(atSeconds * value.fps + 1e-9);
                     for (const layer of value.layers) {

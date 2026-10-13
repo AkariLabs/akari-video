@@ -23,6 +23,10 @@ function extract(text, marker, indent = '') {
 const initialSourceIds = runInNewContext(`(${stripTypeScriptTypes(
   extract(source, 'function initialSourceIds('),
 )})`);
+const noteCutFirstUses = runInNewContext(`(${stripTypeScriptTypes(
+  extract(source, 'function noteCutFirstUses('),
+)})`);
+const holdCases = JSON.parse(await readFile(path.join(root, '../edit-store/test/transition-plan-cases.json'), 'utf8')).hold;
 const cuts = [
   { id: 'cut-0', src: 'srcA', in: 0, out: 5 },
   { id: 'cut-1', src: 'srcB', in: 0, out: 5 },
@@ -57,6 +61,25 @@ test('initialSourceIds follows speed, freeze, transitions, and explicit track pl
   assert.deepEqual([...initialSourceIds({}, {}, overlapping, [], 6)], ['b']);
   const tracked = [...cuts, { src: 'upper', in: 0, out: 2, at: 6, track: 1 }];
   assert.deepEqual([...initialSourceIds({}, {}, tracked, [], 6)], ['srcB', 'upper']);
+});
+
+test('held cut sources are required from the front of each projected window', () => {
+  for (const entry of holdCases) {
+    const cuts = entry.expected.projected.map((expected, index) => ({
+      src: entry.cuts[index].src, at: expected.at, in: expected.in, out: expected.out,
+      ...(entry.cuts[index].speed ? { speed: entry.cuts[index].speed } : {}),
+      ...(expected.hold ? { transitionHold: { headSeconds: expected.hold } } : {}),
+    }));
+    const b = cuts[1];
+    const start = b.at - (b.transitionHold?.headSeconds ?? 0);
+    const ids = initialSourceIds({}, { fps: entry.fps }, cuts, [], start);
+    assert.equal(ids.has(b.src), true, entry.name);
+    const firstUses = new Map();
+    noteCutFirstUses(cuts.map(cut => ({ cut, at: cut.at })), firstUses);
+    const first = Math.min(...cuts.filter(cut => cut.src === b.src)
+      .map(cut => cut.at - (cut.transitionHold?.headSeconds ?? 0)));
+    assert.ok(Math.abs(firstUses.get(b.src) - first) < 1e-9, entry.name);
+  }
 });
 
 test('prime awaits exactly one presentation, after audio prime and before ready and warmup', async () => {
