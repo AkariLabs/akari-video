@@ -1,0 +1,4718 @@
+[
+  {
+    "id": "a-center",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1,
+        "keyframes": [
+          {
+            "t": 0,
+            "opacity": 0
+          },
+          {
+            "t": 120,
+            "opacity": 1
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 3,
+        "out": 7,
+        "keyframes": [
+          {
+            "t": 0,
+            "opacity": 0
+          },
+          {
+            "t": 120,
+            "opacity": 1
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 2.5,
+          "out": 7
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 3,
+          "out": 7
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 3,
+          "out": 7
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 2.5,
+              "out": 3.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 3.5,
+            "out": 7
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 2.5,
+              "out": 3.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 3.5,
+            "out": 7
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 0.125
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 0.85
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 0.875
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 0
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 0.8875
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2550000,
+              "opacity": 0.0125
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 0.125
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3450000,
+              "opacity": 0.2375
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3500000,
+              "opacity": 0.25
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3600000,
+              "opacity": 0.275
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 4000000,
+              "opacity": 0.375
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "b-speed-both",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 10,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 3,
+        "out": 5
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 11,
+          "speed": 2,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 2.75,
+          "out": 5,
+          "speed": 0.5
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 10
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 3,
+          "out": 5
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 10
+        },
+        {
+          "at": 4,
+          "in": 3,
+          "out": 5
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 9,
+              "out": 11
+            },
+            "incoming": {
+              "in": 2.75,
+              "out": 3.25
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 11
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 3.25,
+            "out": 5
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 9,
+              "out": 11
+            },
+            "incoming": {
+              "in": 2.75,
+              "out": 3.25
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 11
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 3.25,
+            "out": 5
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 8800000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 9000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2750000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 9100000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2775000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 10000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 10900000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3225000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 11000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3250000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3300000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "c-still-b",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 0,
+        "out": 4,
+        "path": "b.png"
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 0,
+          "out": 4.5
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 0,
+          "out": 4
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 0,
+          "out": 4
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 0,
+              "out": 1
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 1,
+            "out": 4.5
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 0,
+              "out": 1
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 1,
+            "out": 4.5
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 0,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 50000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 950000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "d-freeze-b",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 1,
+        "out": 4,
+        "freeze": {
+          "at_sec": 2,
+          "duration_sec": 1
+        }
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 0.5,
+          "out": 4,
+          "freeze": {
+            "at_sec": 2,
+            "duration_sec": 1
+          }
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 1,
+          "out": 4
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 1,
+          "out": 4
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 0.5,
+              "out": 1.5
+            }
+          }
+        ],
+        "totalDuration": 7,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 7,
+            "in": 1.5,
+            "out": 4
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 0.5,
+              "out": 1.5
+            }
+          }
+        ],
+        "totalDuration": 7,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 7,
+            "in": 1.5,
+            "out": 4
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6400000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.9
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.9,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2900000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7.1,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "d-freeze-b-no-transition",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 1,
+        "out": 4,
+        "freeze": {
+          "at_sec": 2,
+          "duration_sec": 1
+        }
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "in": 1,
+          "out": 4,
+          "freeze": {
+            "at_sec": 2,
+            "duration_sec": 1
+          }
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 1,
+          "out": 4
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 1,
+          "out": 4
+        }
+      ],
+      "projected": {
+        "windows": [],
+        "totalDuration": 7,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4,
+            "in": 2,
+            "out": 6
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 7,
+            "in": 1,
+            "out": 4
+          }
+        ]
+      },
+      "raw": {
+        "windows": [],
+        "totalDuration": 7,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4,
+            "in": 2,
+            "out": 6
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 7,
+            "in": 1,
+            "out": 4
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 5.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 6.9,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7.1,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 3100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "d-freeze-a",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 5,
+        "freeze": {
+          "at_sec": 3,
+          "duration_sec": 1
+        },
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 1,
+        "out": 5
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 5.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          },
+          "freeze": {
+            "at_sec": 3,
+            "duration_sec": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 0.5,
+          "out": 5
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 5
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 1,
+          "out": 5
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 5
+        },
+        {
+          "at": 4,
+          "in": 1,
+          "out": 5
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3,
+            "end": 4,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5,
+              "out": 6
+            },
+            "incoming": {
+              "in": 0,
+              "out": 1
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4,
+            "in": 2,
+            "out": 6
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 8,
+            "in": 1,
+            "out": 5
+          }
+        ]
+      },
+      "raw": {
+        "windows": [],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 3,
+            "in": 2,
+            "out": 5
+          },
+          {
+            "kind": "gap",
+            "cutIndex": null,
+            "outStart": 3,
+            "outEnd": 4
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 8,
+            "in": 1,
+            "out": 5
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 2.9,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4900000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.05,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.95,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 950000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.45
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.1,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5100000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.6
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "f-chain",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "c",
+        "at": 240,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ],
+        [
+          "c",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 1.5,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "c",
+          "at": 7.5,
+          "in": 1.5,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "c",
+          "at": 8,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 8,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          },
+          {
+            "start": 7.5,
+            "end": 8.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 12,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8.5,
+            "in": 2.5,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 2,
+            "outStart": 8.5,
+            "outEnd": 12,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          },
+          {
+            "start": 7.5,
+            "end": 8.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 12,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8.5,
+            "in": 2.5,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 2,
+            "outStart": 8.5,
+            "outEnd": 12,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 7.55,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 1550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 8,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 8.45,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 8.5,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 8.6,
+          "base": [
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "g-short-middle",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 60,
+        "in": 2,
+        "out": 4,
+        "transition": 0.4
+      },
+      {
+        "id": "b",
+        "at": 60,
+        "duration": 6,
+        "in": 2,
+        "out": 2.2,
+        "transition": 0.4
+      },
+      {
+        "id": "c",
+        "at": 66,
+        "duration": 60,
+        "in": 2,
+        "out": 4
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ],
+        [
+          "c",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 4.2,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 0.4
+          }
+        },
+        {
+          "id": "b",
+          "at": 1.8,
+          "in": 1.8,
+          "out": 2.4,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 0.4
+          }
+        },
+        {
+          "id": "c",
+          "at": 2,
+          "in": 1.8,
+          "out": 4
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 2,
+          "in": 2,
+          "out": 4
+        },
+        {
+          "id": "b",
+          "at": 2,
+          "duration": 0.2,
+          "in": 2,
+          "out": 2.2
+        },
+        {
+          "id": "c",
+          "at": 2.2,
+          "duration": 2,
+          "in": 2,
+          "out": 4
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 4
+        },
+        {
+          "at": 2,
+          "in": 2,
+          "out": 2.2
+        },
+        {
+          "at": 2.2,
+          "in": 2,
+          "out": 4
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 1.8,
+            "end": 2.2,
+            "duration": 0.4,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 3.8,
+              "out": 4.2
+            },
+            "incoming": {
+              "in": 1.8,
+              "out": 2.2
+            }
+          },
+          {
+            "start": 2,
+            "end": 2.4,
+            "duration": 0.4,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 2,
+              "out": 2.4
+            },
+            "incoming": {
+              "in": 1.8,
+              "out": 2.2
+            }
+          }
+        ],
+        "totalDuration": 4.2,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 2.2,
+            "in": 2,
+            "out": 4.2
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 2.2,
+            "outEnd": 2.4,
+            "in": 2.2,
+            "out": 2.4
+          },
+          {
+            "kind": "src",
+            "cutIndex": 2,
+            "outStart": 2.4,
+            "outEnd": 4.2,
+            "in": 2.2,
+            "out": 4
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 1.8,
+            "end": 2.2,
+            "duration": 0.4,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 3.8,
+              "out": 4.2
+            },
+            "incoming": {
+              "in": 1.8,
+              "out": 2.2
+            }
+          },
+          {
+            "start": 2,
+            "end": 2.4,
+            "duration": 0.4,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 2,
+              "out": 2.4
+            },
+            "incoming": {
+              "in": 1.8,
+              "out": 2.2
+            }
+          }
+        ],
+        "totalDuration": 4.2,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 2.2,
+            "in": 2,
+            "out": 4.2
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 2.2,
+            "outEnd": 2.4,
+            "in": 2.2,
+            "out": 2.4
+          },
+          {
+            "kind": "src",
+            "cutIndex": 2,
+            "outStart": 2.4,
+            "outEnd": 4.2,
+            "in": 2.2,
+            "out": 4
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 1.7,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3700000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 1.8,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3800000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1800000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 1.85,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3850000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1850000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.125
+          }
+        },
+        {
+          "t": 1.9,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3900000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1900000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.25
+          }
+        },
+        {
+          "t": 1.95,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3950000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1950000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.375
+          }
+        },
+        {
+          "t": 2,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 2.05,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4050000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2050000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.625
+          }
+        },
+        {
+          "t": 2.1,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4100000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.75
+          }
+        },
+        {
+          "t": 2.15,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4150000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2150000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.875
+          }
+        },
+        {
+          "t": 2.2,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 4200000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2200000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 2.3,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2300000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2100000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.75
+          }
+        },
+        {
+          "t": 2.35,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2350000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2150000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.875
+          }
+        },
+        {
+          "t": 2.4,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2400000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2200000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 2.5,
+          "base": [
+            {
+              "id": "cut-2",
+              "sourceTimeUs": 2300000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "h-legacy-overlap",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 150,
+        "in": 2,
+        "out": 7,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 135,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 7,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 4.5,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 5,
+          "in": 2,
+          "out": 7
+        },
+        {
+          "id": "b",
+          "at": 4.5,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 7
+        },
+        {
+          "at": 4.5,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 4.5,
+            "end": 5,
+            "duration": 0.5,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 6.5,
+              "out": 7
+            },
+            "incoming": {
+              "in": 2,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8.5,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 5,
+            "in": 2,
+            "out": 7
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 5,
+            "outEnd": 8.5,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 4.5,
+            "end": 5,
+            "duration": 0.5,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 6.5,
+              "out": 7
+            },
+            "incoming": {
+              "in": 2,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8.5,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 5,
+            "in": 2,
+            "out": 7
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 5,
+            "outEnd": 8.5,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2050000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.1
+          }
+        },
+        {
+          "t": 4.75,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6750000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2250000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.95,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6950000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.9
+          }
+        },
+        {
+          "t": 5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 7000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 5.1,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "h-overlap-too-long",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 180,
+        "in": 2,
+        "out": 8,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 8,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 6,
+          "in": 2,
+          "out": 8
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 8
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 6,
+            "in": 2,
+            "out": 8
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 6,
+            "outEnd": 8,
+            "in": 4,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 6,
+            "in": 2,
+            "out": 8
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 6,
+            "outEnd": 8,
+            "in": 4,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "j-subframe",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 0.02
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.01,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 0.02
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.99,
+          "in": 1.99,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 4,
+            "end": 4.02,
+            "duration": 0.02,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 6,
+              "out": 6.02
+            },
+            "incoming": {
+              "in": 1.98,
+              "out": 2
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.02,
+            "in": 2,
+            "out": 6.02
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.02,
+            "outEnd": 8,
+            "in": 2,
+            "out": 5.98
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.99,
+            "end": 4.01,
+            "duration": 0.02,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.99,
+              "out": 6.01
+            },
+            "incoming": {
+              "in": 1.99,
+              "out": 2.01
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.01,
+            "in": 2,
+            "out": 6.01
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.01,
+            "outEnd": 8,
+            "in": 2.01,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.9,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5900000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.97,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5970000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.01,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6010000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2010000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.02,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6010000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2020000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.05,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2050000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 4.12,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2120000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "k-no-head",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 0,
+        "out": 4
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "in": 0,
+          "out": 4
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 0,
+          "out": 4
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 0,
+          "out": 4
+        }
+      ],
+      "projected": {
+        "windows": [],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4,
+            "in": 2,
+            "out": 6
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 8,
+            "in": 0,
+            "out": 4
+          }
+        ]
+      },
+      "raw": {
+        "windows": [],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4,
+            "in": 2,
+            "out": 6
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4,
+            "outEnd": 8,
+            "in": 0,
+            "out": 4
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "l-speed-a",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 10,
+        "transition": 1
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 11,
+          "speed": 2,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 1.5,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 10
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 10
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 9,
+              "out": 11
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 11
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 9,
+              "out": 11
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 11
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 3000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 8800000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 9000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 9100000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 10000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 10900000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 11000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "m-locked",
+    "fps": 60,
+    "locked": true,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 240,
+        "in": 2,
+        "out": 6,
+        "transition": 1,
+        "locked": true
+      },
+      {
+        "id": "b",
+        "at": 240,
+        "duration": 240,
+        "in": 2,
+        "out": 6,
+        "locked": true
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 1.5,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "n-layer-between",
+    "fps": 30,
+    "items": [
+      {
+        "id": "a",
+        "at": 0,
+        "duration": 120,
+        "in": 2,
+        "out": 6,
+        "transition": 1
+      },
+      {
+        "id": "overlay",
+        "at": 60,
+        "duration": 60,
+        "in": 0,
+        "out": 2,
+        "opacity": 0.5,
+        "blend": "multiply"
+      },
+      {
+        "id": "b",
+        "at": 120,
+        "duration": 120,
+        "in": 2,
+        "out": 6
+      }
+    ],
+    "expected": {
+      "collections": [
+        [
+          "a",
+          "cuts"
+        ],
+        [
+          "overlay",
+          "layers"
+        ],
+        [
+          "b",
+          "cuts"
+        ]
+      ],
+      "declarations": [
+        {
+          "id": "a",
+          "at": 0,
+          "in": 2,
+          "out": 6.5,
+          "transition_out": {
+            "type": "dissolve",
+            "duration": 1
+          }
+        },
+        {
+          "id": "b",
+          "at": 3.5,
+          "in": 1.5,
+          "out": 6
+        }
+      ],
+      "rawItems": [
+        {
+          "id": "a",
+          "at": 0,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "id": "overlay",
+          "at": 2,
+          "duration": 2,
+          "in": 0,
+          "out": 2
+        },
+        {
+          "id": "b",
+          "at": 4,
+          "duration": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "rawCuts": [
+        {
+          "at": 0,
+          "in": 2,
+          "out": 6
+        },
+        {
+          "at": 4,
+          "in": 2,
+          "out": 6
+        }
+      ],
+      "projected": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "raw": {
+        "windows": [
+          {
+            "start": 3.5,
+            "end": 4.5,
+            "duration": 1,
+            "type": "dissolve",
+            "outgoing": {
+              "in": 5.5,
+              "out": 6.5
+            },
+            "incoming": {
+              "in": 1.5,
+              "out": 2.5
+            }
+          }
+        ],
+        "totalDuration": 8,
+        "segments": [
+          {
+            "kind": "src",
+            "cutIndex": 0,
+            "outStart": 0,
+            "outEnd": 4.5,
+            "in": 2,
+            "out": 6.5
+          },
+          {
+            "kind": "src",
+            "cutIndex": 1,
+            "outStart": 4.5,
+            "outEnd": 8,
+            "in": 2.5,
+            "out": 6
+          }
+        ]
+      },
+      "fe": [
+        {
+          "t": 0.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5400000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0
+          }
+        },
+        {
+          "t": 3.55,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 5550000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 1550000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.05
+          }
+        },
+        {
+          "t": 4,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6000000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2000000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.5
+          }
+        },
+        {
+          "t": 4.45,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6450000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2450000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 0.95
+          }
+        },
+        {
+          "t": 4.5,
+          "base": [
+            {
+              "id": "cut-0",
+              "sourceTimeUs": 6500000,
+              "opacity": 1
+            },
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2500000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "dissolve",
+            "progress": 1
+          }
+        },
+        {
+          "t": 4.6,
+          "base": [
+            {
+              "id": "cut-1",
+              "sourceTimeUs": 2600000,
+              "opacity": 1
+            }
+          ],
+          "transition": {
+            "type": "hard-cut",
+            "progress": 0
+          }
+        }
+      ]
+    }
+  }
+]
