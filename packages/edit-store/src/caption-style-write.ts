@@ -40,7 +40,7 @@ async function readVersions(projectRoot: string, options: CaptionWriteOptions): 
 }
 
 function parsed(value: FileVersion): unknown {
-    return value.text === null ? undefined : JSON.parse(value.text);
+    return value.text === null ? undefined : JSON.parse(value.text.replace(/^\uFEFF/, ''));
 }
 
 async function commit(projectRoot: string, before: Record<string, FileVersion>, captions: CaptionRoot,
@@ -55,7 +55,7 @@ async function commit(projectRoot: string, before: Record<string, FileVersion>, 
         after[captionsName] = { text: content, hash: projectFileHash(content) };
     }
     if (dryRun || after[captionsName].text === before[captionsName].text) {
-        return { written: [], notices, changed: after[captionsName].text === before[captionsName].text ? [] : changed,
+        return { written: [], notices: [...new Set(notices)], changed: after[captionsName].text === before[captionsName].text ? [] : changed,
             before, after };
     }
     await captureProjectLintBaseline(projectRoot);
@@ -79,7 +79,7 @@ async function commit(projectRoot: string, before: Record<string, FileVersion>, 
         }
     });
     if (written.written.length) scheduleProjectLint(projectRoot, options);
-    return { written: written.written, notices, changed, ...(written.recovered ? { recovered: written.recovered } : {}),
+    return { written: written.written, notices: [...new Set(notices)], changed, ...(written.recovered ? { recovered: written.recovered } : {}),
         before, after };
 }
 

@@ -18,6 +18,24 @@ import { applyCaptionMotionDelta } from '../lib/browser/inspector/caption-multi-
 setLanguage('ja');
 test.after(() => setLanguage(undefined));
 
+test('大量の行へ当てる処理は対象数に対して線形に近い', () => {
+  const measure = count => {
+    const rows = Array.from({ length: count }, (_, index) => ({ id: `c-${String(index).padStart(4, '0')}`,
+      start: index, end: index + 1, text: '字幕', text_style: { size_px: 38 } }));
+    const ids = rows.map(row => row.id);
+    const began = performance.now();
+    replaceMyStylePartsInSource(JSON.stringify({ captions: rows }), ids,
+      [{ kind: 'look', text_style: { size_px: 56, color: '#ffffff', stroke: { color: '#000000', width_px: 4 } } }],
+      { keepSize: true });
+    return performance.now() - began;
+  };
+  measure(30);
+  const small = measure(500);
+  const large = measure(1700);
+  assert.ok(large < 1500, `1700 行: ${large}ms`);
+  assert.ok(large / Math.max(small, 1) < 8, `500 行: ${small}ms; 1700 行: ${large}ms`);
+});
+
 // 載せ替え前の参照実装。見た目の値と JSON の並びを固定するためテスト内に保持する。
 function replaceBeforeCommand(source, ids, parts, options = {}) {
   const lookPart = parts.find(part => part.kind === 'look');

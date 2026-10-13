@@ -22,7 +22,6 @@ const { writeProjectFilesGuarded } = createRequire(import.meta.url)("../../edit-
 const { applyCaptionLookMigration } = createRequire(import.meta.url)("../../edit-store/lib/caption-style-write.js");
 const usage = () => [
   toolsText('tools.captions.help.usage'), "",
-  toolsText('tools.captions.help.migrateLook'),
   ...['source', 'retime', 'readout', 'minDuration', 'split', 'maxChars', 'maxSeconds', 'pause', 'wordBook', 'noWordBook', 'force', 'dryRun'].map((name) => toolsText(`tools.captions.help.${name}`)),
   "  --json", "  --help",
 ].join("\n");
@@ -42,13 +41,26 @@ export async function runCaptionsCli(argv, options = {}) {
       for (const flag of rest) if (flag !== '--dry-run' && flag !== '--json')
         throw new Error(toolsText('tools.captions.error.unknownOption', { option: flag }));
       const dryRun = rest.includes('--dry-run');
-      const result = await applyCaptionLookMigration(path.resolve(options.cwd ?? process.cwd(), directory), { dryRun });
-      const summary = { dry_run: dryRun, changed: result.diff.length, diff: result.diff, notices: result.notices,
-        written: result.written };
+      const project = path.resolve(options.cwd ?? process.cwd(), directory);
+      const names = (await readdir(project)).filter(name => name === 'captions.json'
+        || /^captions\.([a-z0-9]+(?:-[a-z0-9]+)*)\.json$/.test(name)).sort();
+      const files = [];
+      const diff = [], notices = [], written = new Set();
+      for (const captions of names) {
+        const slug = captions === 'captions.json' ? '' : captions.slice('captions.'.length, -'.json'.length);
+        const edit = slug ? `edit.${slug}.json` : 'edit.json';
+        const result = await applyCaptionLookMigration(project, { dryRun, files: { captions, edit } });
+        files.push({ captions, changed: result.diff.length, written: result.written, notices: [...new Set(result.notices)] });
+        diff.push(...result.diff.map(item => ({ ...item, path: `${captions}:${item.path}` })));
+        notices.push(...result.notices);
+        for (const name of result.written) written.add(name);
+      }
+      const summary = { dry_run: dryRun, changed: diff.length, diff, notices: [...new Set(notices)],
+        written: [...written], files };
       if (rest.includes('--json')) stdout(JSON.stringify(summary));
-      else { stdout(toolsText('tools.captions.result.migrateLook', { count: result.diff.length }));
-        for (const item of result.diff) stdout(`${item.path}: ${JSON.stringify(item.before)} → ${JSON.stringify(item.after)}`);
-        for (const notice of result.notices) stdout(notice); }
+      else { stdout(toolsText('tools.captions.result.migrateLook', { count: diff.length }));
+        for (const item of diff) stdout(`${item.path}: ${JSON.stringify(item.before)} → ${JSON.stringify(item.after)}`);
+        for (const notice of summary.notices) stdout(notice); }
       return 0;
     }
     const [directory, ...rest] = argv;

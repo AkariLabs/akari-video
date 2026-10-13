@@ -3,13 +3,14 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded, writeProjectFilesTransactional, captureProjectLintBaseline,
-    scheduleProjectLint, writeSavedByStamp, recoverInterruptedProjectWrite, ConflictError } from '@akari-video/edit-store/lib/write-gate';
+    scheduleProjectLint, writeSavedByStamp, recoverInterruptedProjectWriteDetailed, assertNoCamelCaseTransitionOut,
+    ConflictError } from '@akari-video/edit-store/lib/write-gate';
 import { applyCaptionStyle as applyCaptionStyleWrite, clearCaptionStyle as clearCaptionStyleWrite,
     reapplyCaptionStyle as reapplyCaptionStyleWrite, setCaptionSize as setCaptionSizeWrite,
     applyCaptionLookMigration, type CaptionWriteOptions } from '@akari-video/edit-store/lib/caption-style-write';
 import { CaptionsInvalidError } from '@akari-video/edit-store/lib/caption-look-shape';
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
-import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
+import { bindingShaFor, validateCaptionDisplayPolicy, nextEmphasisWordId, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
@@ -2350,7 +2351,6 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             ? (parsed as { emphasis_words: Array<Record<string, unknown>> }).emphasis_words : [];
         const remove = new Set(request.removeIds);
         const records = existing.filter(record => typeof record.id !== 'string' || !remove.has(record.id));
-        const used = new Set(existing.flatMap(record => typeof record.id === 'string' ? [record.id] : []));
         const ids: string[] = [];
         const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
             (left.src === undefined || left.src === right.src)
@@ -2361,13 +2361,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const matched = existing.find(record => sameSpan(record, upsert));
             let id = upsert.id ?? (typeof matched?.id === 'string' ? matched.id : undefined);
             if (!id) {
-                for (let number = 1; number <= 9999; number++) {
-                    const candidate = `e-${String(number).padStart(4, '0')}`;
-                    if (!used.has(candidate)) { id = candidate; break; }
-                }
+                const root = Array.isArray(parsed) ? { captions: parsed } : parsed as Record<string, unknown>;
+                id = nextEmphasisWordId({ ...root, emphasis_words: [...existing, ...ids.map(value => ({ id: value }))] } as Parameters<typeof nextEmphasisWordId>[0]);
             }
             if (!id || !/^e-\d{4}$/u.test(id)) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotAssignEmphasisWordsId'));
-            used.add(id); ids.push(id);
+            ids.push(id);
             const previous = records.findIndex(record => record.id === id || sameSpan(record, upsert));
             const unknown = previous >= 0 ? records[previous] : matched ?? {};
             const next: Record<string, unknown> = { ...unknown, id };
@@ -2862,35 +2860,60 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async applyCaptionStyle(request: ApplyCaptionStyleRequest): Promise<CaptionCommandResult> {
-        return this.runCaptionCommand(request, (root, options) => applyCaptionStyleWrite(root, request.input, options));
+        const input = this.safeCaptionCommandInput(request.input);
+        return this.runCaptionCommand(request, (root, options) => applyCaptionStyleWrite(root, input, options));
+    }
+
+    private safeCaptionCommandInput<T>(input: T): T {
+        const safe = { ...(input as object) } as Record<string, unknown>;
+        for (const name of ['legacy', 'catalog', 'captions', 'edit', 'assetReferences']) delete safe[name];
+        return safe as T;
     }
 
     async clearCaptionStyle(request: ClearCaptionStyleRequest): Promise<CaptionCommandResult> {
-        return this.runCaptionCommand(request, (root, options) => clearCaptionStyleWrite(root, request.input, options));
+        const input = this.safeCaptionCommandInput(request.input);
+        return this.runCaptionCommand(request, (root, options) => clearCaptionStyleWrite(root, input, options));
     }
 
     async reapplyCaptionStyle(request: ReapplyCaptionStyleRequest): Promise<CaptionCommandResult> {
-        const entries = request.input.styles.entries;
+        const input = this.safeCaptionCommandInput(request.input);
+        const entries = input.styles.entries;
         const styles = { lookup: (source: Record<string, unknown>) => entries.find(entry =>
             entry.source.kind === source.kind && entry.source.id === source.id
             && (entry.source.uid === undefined || entry.source.uid === source.uid)) };
         return this.runCaptionCommand(request, (root, options) => reapplyCaptionStyleWrite(root,
-            { ...request.input, styles }, options));
+            { ...input, styles }, options));
     }
 
     async setCaptionSize(request: SetCaptionSizeRequest): Promise<CaptionCommandResult> {
-        return this.runCaptionCommand(request, (root, options) => setCaptionSizeWrite(root, request.input, options));
+        const input = this.safeCaptionCommandInput(request.input);
+        return this.runCaptionCommand(request, (root, options) => setCaptionSizeWrite(root, input, options));
     }
 
     async migrateCaptionLook(request: MigrateCaptionLookRequest): Promise<CaptionCommandResult> {
+        const input = this.safeCaptionCommandInput(request.input);
         return this.runCaptionCommand(request, (root, options) => applyCaptionLookMigration(root,
-            { ...options, dryRun: request.input.dryRun }));
+            { ...options, dryRun: input.dryRun }));
     }
 
     async recoverInterruptedWrite(request: { projectRootUri: string }): Promise<{ notice?: string }> {
         if (!request?.projectRootUri) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWriteBackDestination'));
-        const notice = await recoverInterruptedProjectWrite(this.fsPath(request.projectRootUri));
-        return notice ? { notice } : {};
+        const root = this.fsPath(request.projectRootUri);
+        if (!(await fs.stat(root)).isDirectory()) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWriteBackDestination'));
+        this.requireWriteRequest(URI.fromFilePath(join(root, 'edit.json')).toString(), request.projectRootUri);
+        const detail = await recoverInterruptedProjectWriteDetailed(root);
+        if (!detail) return {};
+        const notices = [
+            ...(detail.broken ? [t('annotationscommon.akariAnnotationsService.recovery.broken')] : []),
+            ...(detail.restored.length ? [t('annotationscommon.akariAnnotationsService.recovery.restored', {
+                files: detail.restored.join(t('annotationscommon.akariAnnotationsService.recovery.fileSeparator'))
+            })] : !detail.broken ? [t('annotationscommon.akariAnnotationsService.recovery.interrupted')] : []),
+            ...detail.preserved.map(file => t('annotationscommon.akariAnnotationsService.recovery.preserved', { file })),
+            ...detail.missing.map(file => t('annotationscommon.akariAnnotationsService.recovery.missing', { file }))
+        ];
+        return { notice: !detail.broken && !detail.restored.length && !detail.preserved.length && !detail.missing.length
+            ? t('annotationscommon.akariAnnotationsService.recovery.unchanged')
+            : notices.join(t('annotationscommon.akariAnnotationsService.recovery.sentenceSeparator')) };
     }
 
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
@@ -2902,6 +2925,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const projectDir = dirname(editPath);
         const candidates: Record<string, string> = {};
         if (typeof request.editSource === 'string') {
+            assertNoCamelCaseTransitionOut(request.editSource);
             candidates[basename(editPath)] = request.editSource;
         }
         if (typeof request.captionsSource === 'string') {

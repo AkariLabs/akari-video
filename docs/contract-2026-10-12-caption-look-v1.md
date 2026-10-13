@@ -5,7 +5,7 @@
 
 ## 移行と書き出し
 
-移行は render-cut の書き出し結果（HTML と CSS 変数）を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と移行前の配列内の位置から `emphasis_words` へ戻す。残った項目の順を保ち、移した項目を位置の昇順に差し込む。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。取り出した字幕も、未移行を含めて主経路と同じプリセット解決・v1 描画入力の前処理を通す。GPU の適格判定もこの結果を使う。
+移行は、主経路（`resolveCaptionPlan` を通る書き出しとプレビュー）と取り出した字幕の両方で、前後の HTML と CSS 変数を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と移行前の配列内の位置から `emphasis_words` へ戻す。残った項目の順を保ち、移した項目を位置の昇順に差し込む。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。取り出した字幕も、未移行を含めて主経路と同じプリセット解決・v1 描画入力の前処理を通す。GPU の適格判定もこの結果を使う。
 
 | `style_hint`（省略時の `emotion`） | `motion.in.id` |
 |---|---|
@@ -79,15 +79,19 @@ source anchor は字幕が描かれる同じ素材の配置ごとに、速度と
 
 `writeProjectFilesTransactional(projectRoot, { files, label })` は、プロジェクト内の相対パスごとに `expectedHash` と `next` を受け取る。`expectedHash` は生のバイト列の SHA-256 を `sha256:<64 桁の十六進数>` で指定する。`null` はファイルが無いことを期待し、省略時は比較しない。`next: null` は比較だけを行う。読んだだけの `edit.json` なども比較へ含められる。1 件でも違えば何も書かず、`ConflictError` の `files` に競合した相対パスを返す。
 
-書き込みは `.akari/write.lock` を使ってプロセス間で直列化する。lock の持ち主が同じホストで終了した場合、または作成から 30 秒を超えた場合は取得し直せる。同じプロセス内でもプロジェクトごとに順番を保つ。ファイルを変える前に `.akari/write-journal.json` と `.akari/work/journal/<id>/` の元バイト列を保存し、各ファイルを一時ファイルから rename する。途中で失敗したら元のバイト列に戻す。
+書き込みは `.akari/write.lock` の排他作成でプロセス間を直列化する。lock の持ち主が同じホストで終了した場合、または作成から 30 秒を超えた場合は取得し直せる。同じプロセス内でもプロジェクトごとに順番を保つ。比較のない書き込みは lock の下でファイルごとに一時ファイルから rename し、途中で失敗しても先に書いたファイルを戻さず、journal と `.akari/work/` は作らない。比較つきの書き込みは、変更前に `.akari/write-journal.json` と `.akari/work/journal/<id>/` の元バイト列を保存する。途中で失敗したら元のバイト列に戻す。すべての rename が済んだら journal に `committed: true` を記録し、片付けに失敗しても保存は成功とする。
+
+lock を待つ側は `.akari/write.lock.wait` に印を置く。放す側は lock を消した後でその印を消し、待ち手に短く取得を譲る。
+
+書き込み先の相対パスは正規化し、同じファイルを指す鍵の重複、代替データストリームの `:`、lock・journal・退避先を拒む。`./edit.json` は `edit.json` として扱う。比較する hash は生バイトを基準にするが、UTF-8 BOM 付きのファイルでは BOM を除いたバイト列の hash も一致として受け入れる。元の BOM は取り消し用の変更前全文に残す。
 
 比較がすべて通った後、実際に書く各ファイルの rename 直前に `onWillWrite(destination, name)` を呼び、rename 完了後に同じファイルの `onDidWrite` を呼ぶ。競合や内容が同じため書かないファイルにはどちらも通知しない。
 
-次の書き込みの前に journal が残っていれば回復する。現在の内容が止まった書き込みの値と一致するファイルだけ元に戻し、元の値と一致するものはそのままにする。どちらでもないファイルは後から変更されたものとして触らず通知する。journal が壊れていれば退避し、ファイルは触らない。回復通知は保存結果の `recovered` と `onRecovered` で受け取れる。従来の `writeProjectFilesGuarded` は同じ境界を使い、版の比較を省略する。
+次の書き込みの前に journal が残っていれば回復する。`committed: true` なら戻さず片付ける。印がなければ現在の内容が止まった書き込みの値と一致するファイルだけ元に戻し、元の値と一致するものはそのままにする。どちらでもないファイルや退避が読めないファイルは触らず通知する。journal が壊れていれば退避し、ファイルは触らない。回復通知は保存結果の `recovered` と `onRecovered` で受け取れる。journal が無ければ起動時の回復は lock を取らず直ちに終わる。
 
 ## 見た目の編集コマンド
 
-`planCaptionStyleEdit` は `captions`、`targets`、`parts`、`source` を受け、副作用なしに `next`、`changed`、`notices` を返す。対象は `{caption_id}`（行）、`{caption_id, range}`（文字範囲）、`{default:true}`（既定スタイル）。`range` は書記素の半開区間 `{from,to}`、または `{quote,occurrence}` で指定する。同じ引用が複数あれば 1 始まりの `occurrence` が必要。引用が見つからない場合や範囲が空・範囲外の場合は失敗する。範囲の効果音と効果は使えず、行の効果音と効果は従来の attach 経路で扱う。
+`planCaptionStyleEdit` は `captions`、`targets`、`parts`、`source` を受け、副作用なしに `next`、`changed`、`notices` を返す。対象は `{caption_id}`（行）、`{caption_id, range}`（文字範囲）、`{default:true}`（既定スタイル）。対象ごとに `parts` を上書きできる。`range` は書記素の半開区間 `{from,to}`、または `{quote,occurrence}` で指定する。引用の候補は NFC にそろえ、左から重ならないように数える。一致後はその末尾から次を探す（「ああああ」の「ああ」は 2 件）。返す位置は元の文字列の書記素単位。同じ引用が複数あれば 1 始まりの `occurrence` が必要。引用が見つからない場合や範囲が空・範囲外の場合は失敗する。範囲の効果音と効果は使えず、行の効果音と効果は従来の attach 経路で扱う。
 
 行の look は許可項目を部品ごとに置換し、動きは `animation` 全体を置換する。範囲は `runs[].look` と `runs[].motion` を置換し、許可外の look 項目を外して通知する。同じ区間の v1 run は更新し、新しい区間にはファイル全体で一意の id を付ける。実測 words に対応付けられる場合だけ anchor を付ける。行の旧 `style_preset` は現在のカタログで値に解き、出所を記録してから外す。カタログに無ければ元の指定を保って通知する。配列ルートに `{default:true}` を当てた場合は `{default_text_style,captions}` にする。
 
@@ -99,6 +103,9 @@ source anchor は字幕が描かれる同じ素材の配置ごとに、速度と
 
 Node 側の `applyCaptionStyle`、`clearCaptionStyle`、`reapplyCaptionStyle`、`setCaptionSize` は読んだ全文の hash を比較してから保存し、書く前と後の全文・hash を返す。対象ファイルは既定の `captions.json` / `edit.json` に加え、プロジェクト直下の対応する `captions.<slug>.json` / `edit.<slug>.json` を指定できる。期待 hash は役割名（`captions` / `edit`）または実ファイル名で受け、前後の全文と `written` は実ファイル名を鍵にする。読んだだけのファイルも競合の比較に含める。保存前に v1 の項目の形と文書の意味を検査し、error があれば `AKARI_CAPTIONS_INVALID` と診断を返して書かない。形の検査は旧い行の他の項目や v0 の run の形を理由に拒まない。edit-lint も同じ v1 の形の診断を表示する。
 
+書き込み lock の奪取に使う `.akari/write.lock.claim` は、5 秒を超えて残ったものを取り除いてから再取得する。書き込み先のフォルダで作成権限が無いと確かめたときは、待ち上限を待たずに権限エラーを返す。
+`.akari/write.lock.claim` とその下、および試し書き名 `.akari/write.lock.probe-*` は書き込み先に指定できない。
+
 ## 移行と CLI
 
 移行と preset の解決には同梱とライブラリを合わせた現在の textstyle カタログを使う。移行は現在の edit.json も読んで計画し、書き込む前の字幕データを保存境界の期待 hash として扱う。出所を指定せず look または motion を当てた場合、その部品の古い `style_sources` を消す。両部品の出所が無くなれば `style_sources` 自体を消す。
@@ -107,6 +114,6 @@ CLI の `--caption <index>` は id の無い行や id が重複した行にも i
 
 アプリの `applyCaptionStyle`、`clearCaptionStyle`、`reapplyCaptionStyle`、`setCaptionSize`、`migrateCaptionLook` は projectRootUri と対象 URI を検査し、`captionsUri` と対になる edit のあるフォルダを根として別名の組も扱い、任意の期待 hash を受ける。成功は実ファイル名で書いたファイル、通知、前後の全文と hash を返す。`writeEditSnapshot` の期待 hash も edit と captions の役割に対応する候補を比較する。競合は `conflict: true`、検証エラーは `invalid: true` と診断を返し、どちらも書かない。中断した書き込みは `recoverInterruptedWrite` で元に戻す。アプリはプロジェクトを開いたときに回復を試み、通知を表示する。字幕スタイルの undo と redo は前後の全文を各 1 件の履歴に持ち、保存後の hash と一致するときだけ逆向きに書く。競合したら読み直して取り消しややり直しを失敗として知らせる。
 
-`akari captions migrate-look <project> [--dry-run] [--json]` は旧い見た目を値へ移す。`--dry-run` は差分と通知を出し、ファイルを書かない。差分が無ければ保存しない。競合した場合は終了コード 1 で再実行を案内する。保存前に形と意味を検査し、保存後も旧い書き出しの HTML と CSS 変数を保つ。
+移行の保存はプロジェクト直下の `captions.json` と `captions.<slug>.json` を対象にし、対応する edit を比較する。強調語の id は移行済みと未解決の run に残る `migrated_from` も予約済みとして採番する。古い強調語と run の id が重なれば、強調語に新しい id を与えてから移す。主経路（`resolveCaptionPlan` を通る書き出しとプレビュー）では移行の前後で HTML と CSS 変数が同じ。取り出した字幕と GPU の適格判定の入口は未対応のため、移行の保存はまだ一般の利用に勧めない。
 
 `akari-apply-textstyle` の既存の対象指定、`--dry-run`、JSON 出力と終了コードは保つ。保存には同じ書き込み境界を使う。行に当てた場合は `style_sources.look` を記録し、旧 `style_preset` を値に解いて外す。既存の CLI が行っていた深い合成は互換のため維持する。

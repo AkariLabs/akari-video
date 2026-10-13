@@ -28,7 +28,7 @@ async function readVersions(projectRoot, options) {
     return versions;
 }
 function parsed(value) {
-    return value.text === null ? undefined : JSON.parse(value.text);
+    return value.text === null ? undefined : JSON.parse(value.text.replace(/^\uFEFF/, ''));
 }
 async function commit(projectRoot, before, captions, changed, notices, options, label, dryRun = false) {
     const captionsName = options.files?.captions ?? 'captions.json';
@@ -40,7 +40,7 @@ async function commit(projectRoot, before, captions, changed, notices, options, 
         after[captionsName] = { text: content, hash: (0, write_gate_1.projectFileHash)(content) };
     }
     if (dryRun || after[captionsName].text === before[captionsName].text) {
-        return { written: [], notices, changed: after[captionsName].text === before[captionsName].text ? [] : changed,
+        return { written: [], notices: [...new Set(notices)], changed: after[captionsName].text === before[captionsName].text ? [] : changed,
             before, after };
     }
     await (0, write_gate_1.captureProjectLintBaseline)(projectRoot);
@@ -70,7 +70,7 @@ async function commit(projectRoot, before, captions, changed, notices, options, 
     });
     if (written.written.length)
         (0, write_gate_1.scheduleProjectLint)(projectRoot, options);
-    return { written: written.written, notices, changed, ...(written.recovered ? { recovered: written.recovered } : {}),
+    return { written: written.written, notices: [...new Set(notices)], changed, ...(written.recovered ? { recovered: written.recovered } : {}),
         before, after };
 }
 async function readCaptions(projectRoot, options) {

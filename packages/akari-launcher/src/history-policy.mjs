@@ -62,6 +62,7 @@ const HISTORY_BLOCK_BODY = [
     '!.akari/diffs/.gitkeep',
     '.akari/write.lock',
     '.akari/write.lock.claim/',
+    '.akari/write.lock.wait',
     '.akari/write-journal.json',
     '.akari/work/journal/',
     '',

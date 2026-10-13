@@ -35,6 +35,7 @@ export type CaptionStyleTarget = ({
         quote: string;
         occurrence?: number;
     };
+    parts?: CaptionStyleParts;
 } | {
     default: true;
 };

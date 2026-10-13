@@ -9062,6 +9062,7 @@ var require_caption_look_reader = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CAPTION_EMPHASIS_MOTION = void 0;
+    exports.nextEmphasisWordId = nextEmphasisWordId;
     exports.readCaptionLookV1 = readCaptionLookV1;
     exports.planCaptionLookMigration = planCaptionLookMigration;
     exports.resolveCaptionRunLook = resolveCaptionRunLook;
@@ -9072,6 +9073,26 @@ var require_caption_look_reader = __commonJS({
     var caption_style_preset_1 = require_caption_style_preset();
     var caption_display_1 = require_caption_display();
     var caption_semantics_1 = require_caption_semantics();
+    var isRecord2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    var captionRows = (root) => Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+    var emphasisWords = (root) => Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
+    var unresolvedRuns = (root) => Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? [] : root.unresolved_runs.flatMap((item) => isRecord2(item) && isRecord2(item.run) ? [item.run] : []);
+    function nextEmphasisWordId(root) {
+      const used = new Set(emphasisWords(root).flatMap((item) => isRecord2(item) && typeof item.id === "string" ? [item.id] : []));
+      for (const row of captionRows(root))
+        for (const run of rowRuns(row))
+          if (isRecord2(run) && typeof run.migrated_from === "string")
+            used.add(run.migrated_from);
+      for (const run of unresolvedRuns(root))
+        if (typeof run.migrated_from === "string")
+          used.add(run.migrated_from);
+      let number = 1;
+      while (used.has(`e-${String(number).padStart(4, "0")}`))
+        number++;
+      if (number > 9999)
+        throw new Error("\u5F37\u8ABF\u8A9E\u306E id \u306B\u7A7A\u304D\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+      return `e-${String(number).padStart(4, "0")}`;
+    }
     exports.CAPTION_EMPHASIS_MOTION = {
       "one-char-bang": "pop",
       "one-char-jumble": "jitter",
@@ -9109,6 +9130,8 @@ var require_caption_look_reader = __commonJS({
       if (!motion2)
         return void 0;
       const candidates = rows.flatMap((row) => {
+        if (!isRecord2(row))
+          return [];
         if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
           return [];
         const interval = intervalForEmphasis(row, item);
@@ -9117,7 +9140,7 @@ var require_caption_look_reader = __commonJS({
       return candidates.length === 1 ? candidates[0] : void 0;
     }
     function rowRuns(row) {
-      return Array.isArray(row?.runs) ? row.runs : [];
+      return isRecord2(row) && Array.isArray(row.runs) ? row.runs : [];
     }
     function invalidLegacyRun(run, row) {
       if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
@@ -9127,13 +9150,15 @@ var require_caption_look_reader = __commonJS({
       return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
     }
     function readCaptionLookV1(root, catalog) {
-      const rows = Array.isArray(root) ? root : root.captions;
-      const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
+      const rows = captionRows(root);
+      const emphasis = emphasisWords(root);
       const projected = /* @__PURE__ */ new Map();
-      const allRuns = [...rows.flatMap(rowRuns), ...Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []];
+      const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
       const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
       let originalIndex = 0;
       for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
         while (occupiedIndices.has(originalIndex))
           originalIndex++;
         const index = originalIndex++;
@@ -9148,6 +9173,8 @@ var require_caption_look_reader = __commonJS({
       }
       const notices = [];
       const captions = rows.map((row) => {
+        if (!isRecord2(row))
+          return row;
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
         const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
           ...run,
@@ -9155,6 +9182,8 @@ var require_caption_look_reader = __commonJS({
           ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
         });
         for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
           if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
             continue;
           const interval = projected.get(item.id);
@@ -9188,17 +9217,16 @@ var require_caption_look_reader = __commonJS({
     }
     function planCaptionLookMigration(captions, catalog, _edit) {
       const source = structuredClone(captions);
-      const rows = Array.isArray(source) ? source : source.captions;
-      const emphasis = Array.isArray(source) ? [] : source.emphasis_words ?? [];
+      const rows = captionRows(source);
+      const emphasis = emphasisWords(source);
       const unresolved = [];
       const notices = [];
-      const allRuns = [
-        ...rows.flatMap(rowRuns),
-        ...Array.isArray(source) ? [] : Array.isArray(source.unresolved_runs) ? source.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
-      ];
+      const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
       let invalidLegacyCount = 0;
       let unscaledLegacyCount = 0;
       for (const row of rows) {
+        if (!isRecord2(row))
+          continue;
         if (row.style_preset) {
           const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
           if (preset.resolved) {
@@ -9271,12 +9299,15 @@ var require_caption_look_reader = __commonJS({
       const migrated = /* @__PURE__ */ new Set();
       let originalIndex = 0;
       for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
         while (occupiedIndices.has(originalIndex))
           originalIndex++;
         const index = originalIndex++;
-        if (rows.some((row2) => rowRuns(row2).some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id))) {
-          migrated.add(item.id);
-          continue;
+        if (allRuns.some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id)) {
+          const old = item.id;
+          item.id = nextEmphasisWordId(source);
+          notices.push(`\u5F37\u8ABF\u8A9E ${old} \u306F id \u304C\u91CD\u306A\u3063\u3066\u3044\u305F\u306E\u3067 ${item.id} \u306B\u632F\u308A\u76F4\u3057\u307E\u3057\u305F`);
         }
         const candidate = projectEmphasis(rows, item);
         if (!candidate) {
@@ -9306,13 +9337,15 @@ var require_caption_look_reader = __commonJS({
         migrated.add(item.id);
         occupiedIndices.add(index);
       }
-      if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, "emphasis_words")) {
-        source.emphasis_words = emphasis.filter((item) => !migrated.has(item.id));
+      if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
+        source.emphasis_words = emphasis.filter((item) => !isRecord2(item) || !migrated.has(item.id));
       }
-      const originalRows = Array.isArray(captions) ? captions : captions.captions;
+      const originalRows = captionRows(captions);
       const diff = [];
       rows.forEach((row, index) => {
-        const before = originalRows[index] ?? {};
+        if (!isRecord2(row))
+          return;
+        const before = isRecord2(originalRows[index]) ? originalRows[index] : {};
         for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(row)])) {
           if (JSON.stringify(before[key]) !== JSON.stringify(row[key]))
             diff.push({
@@ -9329,7 +9362,7 @@ var require_caption_look_reader = __commonJS({
         next: source,
         diff,
         unresolved,
-        notices
+        notices: [...new Set(notices)]
       };
     }
     function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, roundedStroke = false) {
@@ -9418,27 +9451,43 @@ var require_caption_look_reader = __commonJS({
       } } : {} };
     }
     function captionRenderInputFromV1(root, options = {}) {
-      const rows = Array.isArray(root) ? root : root.captions;
+      const rows = captionRows(root);
+      const legacyIds = emphasisWords(root).flatMap((item) => isRecord2(item) ? [item.id] : []);
       let diagnostics;
       try {
         diagnostics = (0, caption_semantics_1.validateCaptionsSemantics)({ captions: root });
       } catch {
         const copy2 = structuredClone(root);
-        for (const row of Array.isArray(copy2) ? copy2 : copy2.captions) {
-          if (row && typeof row === "object")
+        for (const row of captionRows(copy2)) {
+          if (isRecord2(row))
             row.runs = [];
         }
         return copy2;
       }
-      const validRuns = rows.map((row, index) => Array.isArray(row?.runs) ? (0, caption_semantics_1.renderableCaptionRuns)(row, root, { diagnostics, index }) : []);
-      if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length || rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from || run.resolved_look))))
+      const validRuns = rows.map((row, index) => isRecord2(row) && Array.isArray(row.runs) ? (0, caption_semantics_1.renderableCaptionRuns)(row, root, { diagnostics, index }) : []);
+      if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length || rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from || run.resolved_look))) && new Set(legacyIds).size === legacyIds.length)
         return root;
       const copy = structuredClone(root);
-      const nextRows = Array.isArray(copy) ? copy : copy.captions;
-      const emphasis = Array.isArray(copy) ? [] : [...copy.emphasis_words ?? []];
+      const nextRows = captionRows(copy);
+      const emphasis = [...emphasisWords(copy)];
+      const migratedIds = /* @__PURE__ */ new Set();
+      for (const row of nextRows)
+        for (const run of rowRuns(row))
+          if (typeof run?.migrated_from === "string")
+            migratedIds.add(run.migrated_from);
+      const ids = /* @__PURE__ */ new Set();
+      for (const item of emphasis) {
+        if (!isRecord2(item))
+          continue;
+        if (ids.has(item.id) || migratedIds.has(item.id))
+          item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
+        ids.add(item.id);
+      }
       const migrated = [];
       for (const [rowIndex, row] of nextRows.entries()) {
-        if (!Array.isArray(row?.runs))
+        if (!isRecord2(row))
+          continue;
+        if (!Array.isArray(row.runs))
           continue;
         row.runs = validRuns[rowIndex];
         const defaultStyle = Array.isArray(copy) ? null : copy.default_text_style;
@@ -9449,11 +9498,25 @@ var require_caption_look_reader = __commonJS({
           if (run.migrated_from && !run.look && run.anchor) {
             const hint = Object.keys(exports.CAPTION_EMPHASIS_MOTION).find((key) => exports.CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
             const restored = run.migrated_emphasis?.item;
-            if (restored)
-              migrated.push({ index: run.migrated_emphasis.index, item: structuredClone(restored) });
-            else if (hint)
+            if (restored) {
+              const item = structuredClone(restored);
+              if (ids.has(item.id))
+                item.id = nextEmphasisWordId({
+                  captions: nextRows,
+                  emphasis_words: [...emphasis, ...migrated.map((entry) => entry.item)]
+                });
+              ids.add(item.id);
+              migrated.push({ index: run.migrated_emphasis.index, item });
+            } else if (hint) {
+              let id = run.migrated_from;
+              if (ids.has(id))
+                id = nextEmphasisWordId({
+                  captions: nextRows,
+                  emphasis_words: [...emphasis, ...migrated.map((entry) => entry.item)]
+                });
+              ids.add(id);
               emphasis.push({
-                id: run.migrated_from,
+                id,
                 word: (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").slice(run.from, run.to).join(""),
                 t_start: run.anchor.start,
                 t_end: run.anchor.end,
@@ -9461,6 +9524,7 @@ var require_caption_look_reader = __commonJS({
                 style_hint: hint,
                 ...run.anchor.src ? { src: run.anchor.src } : {}
               });
+            }
             return [];
           }
           const next = { ...run };
@@ -9477,7 +9541,7 @@ var require_caption_look_reader = __commonJS({
           return [next];
         });
       }
-      if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, "emphasis_words") || migrated.length)) {
+      if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
         const restored = [...emphasis];
         for (const entry of migrated.sort((left, right) => left.index - right.index)) {
           restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
@@ -9770,14 +9834,23 @@ var require_caption_style_command = __commonJS({
           throw new Error("\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u5217\u306E\u5916\u304B\u7A7A\u3067\u3059\u3002");
         return range;
       }
-      const quote = (0, caption_runs_1.captionGraphemes)(range.quote);
+      const normalized = chars.map((char) => char.normalize("NFC"));
+      const quote = (0, caption_runs_1.captionGraphemes)(range.quote).map((char) => char.normalize("NFC"));
       const matches = [];
       if (quote.length)
-        for (let index = 0; index <= chars.length - quote.length; index++) {
-          if (quote.every((char, offset) => chars[index + offset] === char))
+        for (let index = 0; index <= chars.length - quote.length; ) {
+          if (quote.every((char, offset) => normalized[index + offset] === char)) {
             matches.push(index);
+            index += quote.length;
+          } else
+            index++;
         }
-      if (!matches.length || matches.length > 1 && range.occurrence === void 0 || range.occurrence !== void 0 && (!Number.isInteger(range.occurrence) || range.occurrence < 1 || range.occurrence > matches.length)) {
+      if (!matches.length)
+        throw new Error("\u5F15\u7528\u3057\u305F\u6587\u5B57\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002");
+      if (range.occurrence !== void 0 && (!Number.isInteger(range.occurrence) || range.occurrence < 1 || range.occurrence > matches.length)) {
+        throw new Error(`\u5019\u88DC\u306F ${matches.length} \u4EF6\u3067\u3059\uFF08occurrence \u306F 1\u301C${matches.length}\uFF09\u3002`);
+      }
+      if (matches.length > 1 && range.occurrence === void 0) {
         throw new Error(`\u5F15\u7528\u3057\u305F\u6587\u5B57\u306E\u5019\u88DC\u306F ${matches.length} \u4EF6\u3067\u3059\u3002occurrence \u3067\u756A\u53F7\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
       }
       const from = matches[(range.occurrence ?? 1) - 1];
@@ -9788,14 +9861,6 @@ var require_caption_style_command = __commonJS({
       if (found.length !== 1)
         throw new Error(`\u5B57\u5E55 ${id} \u304C\u4E00\u610F\u306B\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
       return found[0];
-    }
-    function targetRow(root, target) {
-      if ("caption_index" in target && target.caption_index !== void 0) {
-        if (!Number.isInteger(target.caption_index) || target.caption_index < 0 || target.caption_index >= rowsOf(root).length)
-          throw new Error(`\u5B57\u5E55 index ${target.caption_index} \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002`);
-        return rowsOf(root)[target.caption_index];
-      }
-      return findRow(root, target.caption_id);
     }
     function updateSources(value, parts, source, look, motion2, at2) {
       const sources = record(value.style_sources) ? { ...value.style_sources } : {};
@@ -9868,15 +9933,41 @@ var require_caption_style_command = __commonJS({
           throw new Error("\u3053\u306E\u90E8\u54C1\u306F\u5B57\u5E55\u5168\u4F53\u306B\u3060\u3051\u5F53\u3066\u3089\u308C\u307E\u3059\u3002");
         throw new Error("\u52B9\u679C\u97F3\u3068\u52B9\u679C\u306F\u3053\u306E\u7DE8\u96C6\u30B3\u30DE\u30F3\u30C9\u3067\u306F\u6271\u3048\u307E\u305B\u3093\u3002");
       }
-      if (!input.parts.look && !input.parts.motion)
+      if (!input.parts.look && !input.parts.motion && !input.targets.some((target) => "parts" in target && !!(target.parts?.look || target.parts?.motion)))
         throw new Error("\u5F53\u3066\u308B\u898B\u305F\u76EE\u304B\u52D5\u304D\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       let captions = structuredClone(input.captions);
+      const rowList = rowsOf(captions);
+      const rowIndex = /* @__PURE__ */ new Map();
+      rowList.forEach((row, index) => {
+        if (typeof row.id !== "string")
+          return;
+        const prior = rowIndex.get(row.id);
+        rowIndex.set(row.id, { row, index, count: (prior?.count ?? 0) + 1 });
+      });
+      const usedRunIds = new Set(allRuns(captions).map((run) => run.id).filter((id) => typeof id === "string"));
+      let nextRun = allRuns(captions).reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run.id ?? "");
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, 0) + 1;
+      const newRunId = () => {
+        while (usedRunIds.has(`r-${String(nextRun).padStart(4, "0")}`))
+          nextRun++;
+        const id = `r-${String(nextRun++).padStart(4, "0")}`;
+        usedRunIds.add(id);
+        return id;
+      };
       const catalog = input.catalog ?? textstyle_catalog_1.TEXTSTYLE_CATALOG;
       const catalogObject = catalogRecord(catalog);
       const changed = [];
       const notices = [];
       const at2 = input.now instanceof Date ? input.now.toISOString() : typeof input.now === "string" ? new Date(input.now).toISOString() : (/* @__PURE__ */ new Date()).toISOString();
       for (const target of input.targets) {
+        const parts = "parts" in target && target.parts ? { ...input.parts, ...target.parts } : input.parts;
+        if (parts.sfx !== void 0 || parts.effect !== void 0) {
+          if ("range" in target && target.range)
+            throw new Error("\u3053\u306E\u90E8\u54C1\u306F\u5B57\u5E55\u5168\u4F53\u306B\u3060\u3051\u5F53\u3066\u3089\u308C\u307E\u3059\u3002");
+          throw new Error("\u52B9\u679C\u97F3\u3068\u52B9\u679C\u306F\u3053\u306E\u7DE8\u96C6\u30B3\u30DE\u30F3\u30C9\u3067\u306F\u6271\u3048\u307E\u305B\u3093\u3002");
+        }
         if ("default" in target) {
           const current = defaultOf(captions);
           const next = { ...current };
@@ -9887,7 +9978,7 @@ var require_caption_style_command = __commonJS({
               for (const key of Object.keys(caption_look_v1_1.CAPTION_ROW_LOOK_FIELDS))
                 delete next[key];
               const value = input.legacy?.size === "style" ? (0, caption_look_v1_1.sanitizeMyStyleLook)(input.parts.look) : applyRowLook({ text_style: current }, current, input.parts.look, catalogObject, input.legacy);
-              Object.assign(next, value);
+              Object.assign(next, input.legacy ? value : roundPixels(value));
             }
           }
           if (input.parts.motion) {
@@ -9903,7 +9994,10 @@ var require_caption_style_command = __commonJS({
           changed.push("default_text_style");
           continue;
         }
-        const row = targetRow(captions, target);
+        const indexed = "caption_index" in target && target.caption_index !== void 0 ? { row: rowList[target.caption_index], index: target.caption_index, count: 1 } : rowIndex.get(target.caption_id);
+        if (!indexed?.row || indexed.count !== 1)
+          throw new Error(`\u5B57\u5E55 ${"caption_id" in target ? target.caption_id : target.caption_index} \u304C\u4E00\u610F\u306B\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+        const { row } = indexed;
         if (target.range) {
           const { from, to } = resolveRange(row, target.range);
           const runs = Array.isArray(row.runs) ? row.runs : [];
@@ -9912,7 +10006,7 @@ var require_caption_style_command = __commonJS({
             if (candidate.id && candidate.from === from && candidate.to === to)
               run = candidate;
           if (!run) {
-            run = { id: (0, caption_runs_1.nextCaptionRunId)(allRuns(captions)), from, to };
+            run = { id: newRunId(), from, to };
             const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
             if (anchor.anchor)
               run.anchor = anchor.anchor;
@@ -9921,41 +10015,43 @@ var require_caption_style_command = __commonJS({
             runs.push(run);
             row.runs = runs;
           }
-          if (input.parts.look) {
-            const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), input.parts.look, catalogObject);
-            run.look = result.look;
+          if (parts.look) {
+            const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), parts.look, catalogObject);
+            run.look = input.legacy ? result.look : roundPixels(result.look);
             notices.push(...result.notices);
           }
-          if (input.parts.motion) {
-            if (Object.keys(input.parts.motion).length)
-              run.motion = structuredClone(input.parts.motion);
+          if (parts.motion) {
+            if (Object.keys(parts.motion).length)
+              run.motion = structuredClone(parts.motion);
             else
               delete run.motion;
           }
-          updateSources(run, input.parts, input.source, input.parts.look ? projectedRunLook(input.parts.look) : {}, input.parts.motion ?? {}, at2);
-          changed.push(`captions[${rowsOf(captions).indexOf(row)}].runs`);
+          updateSources(run, parts, input.source, parts.look ? projectedRunLook(parts.look) : {}, parts.motion ?? {}, at2);
+          changed.push(`captions[${indexed.index}].runs`);
           continue;
         }
         migratePreset(row, catalog, notices, at2, input.legacy);
         const before = record(row.text_style) ? row.text_style : {};
-        const style = input.parts.look ? applyRowLook(row, defaultOf(captions), input.parts.look, catalogObject, input.legacy) : { ...before };
-        if (input.parts.look && input.legacy?.preset === "drop")
+        const style = parts.look ? applyRowLook(row, defaultOf(captions), parts.look, catalogObject, input.legacy) : { ...before };
+        if (parts.look && !input.legacy)
+          Object.assign(style, roundPixels(style));
+        if (parts.look && input.legacy?.preset === "drop")
           delete row.style_preset;
-        if (input.parts.motion) {
-          if (Object.keys(input.parts.motion).length)
-            style.animation = structuredClone(input.parts.motion);
+        if (parts.motion) {
+          if (Object.keys(parts.motion).length)
+            style.animation = structuredClone(parts.motion);
           else
             delete style.animation;
         }
         row.text_style = style;
-        updateSources(row, input.parts, input.source, input.parts.look ? projectedLook(input.parts.look) : {}, input.parts.motion ?? {}, at2);
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+        updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at2);
+        changed.push(`captions[${indexed.index}].text_style`);
       }
       return { next: {
         captions,
         ...input.edit === void 0 ? {} : { edit: input.edit },
         ...input.assetReferences === void 0 ? {} : { assetReferences: input.assetReferences }
-      }, changed, notices };
+      }, changed, notices: [...new Set(notices)] };
     }
     function planCaptionStyleClear(input) {
       const captions = structuredClone(input.captions);
@@ -10046,7 +10142,7 @@ var require_caption_style_command = __commonJS({
           }
         }
       }
-      return { items, ...input.apply ? { next: { captions: root } } : {}, notices };
+      return { items, ...input.apply ? { next: { captions: root } } : {}, notices: [...new Set(notices)] };
     }
     function planCaptionSizeEdit(input) {
       if (!Number.isFinite(input.size_px) || input.size_px <= 0)
