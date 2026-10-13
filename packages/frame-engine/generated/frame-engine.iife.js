@@ -3836,6 +3836,15 @@ ${indent}`);
             }
             const sourceRuns = captions[occurrence.caption_input_index].runs;
             const cueRuns = Array.isArray(sourceRuns) ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd) : void 0;
+            const karaokeOffset = karaoke ? captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length : void 0;
+            const display = resolved.manual && !resolved.overflow ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset, resolvedStyle?.vertical === true) : {
+              text,
+              lines: group.lines,
+              runs: cueRuns,
+              words: wordDisplay?.words,
+              wordStyles: wordDisplay?.wordStyles,
+              karaokeOffset
+            };
             displayCues.push({
               id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
               source_cue_id: occurrence.source_cue_id,
@@ -3846,20 +3855,20 @@ ${indent}`);
               fragment_count: groups.length,
               start: group.start,
               end: group.end,
-              text,
-              ...cueRuns ? { runs: cueRuns } : {},
-              ...group.lines.length >= 2 ? { display_lines: group.lines } : {},
-              units: measureCaptionUnits(text),
+              text: display.text,
+              ...display.runs ? { runs: display.runs } : {},
+              ...display.lines.length >= 2 ? { display_lines: display.lines } : {},
+              units: measureCaptionUnits(display.text),
               line_override: resolved.manual,
               ...resolved.overflow ? { overflow: resolved.overflow } : {},
               ...resolvedStyle ? { text_style: resolvedStyle } : {},
               ...cueStyleVars ? { style_vars: cueStyleVars } : {},
               ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
-              ...wordDisplay ? { words: wordDisplay.words } : {},
-              ...wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {},
+              ...display.words ? { words: display.words } : {},
+              ...display.wordStyles?.length ? { word_styles: display.wordStyles } : {},
               ...karaoke ? {
                 style: "karaoke",
-                karaoke_offset: captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                karaoke_offset: display.karaokeOffset
               } : {}
             });
           });
@@ -4174,6 +4183,62 @@ ${indent}`);
             ...untimed ? { untimed } : {}
           })),
           wordStyles
+        };
+      }
+      function trimManualCueDisplay(lines, locale, runs, wordDisplay, karaokeOffset, vertical) {
+        const kept = lines.map((line, index) => ({
+          start: vertical && index > 0 ? 0 : line.length - line.trimStart().length,
+          end: vertical && index < lines.length - 1 ? line.length : line.trimEnd().length
+        }));
+        const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
+        if (lines.every((line, index) => line === trimmedLines[index])) {
+          return {
+            text: joinCaptionLines(lines, locale),
+            lines,
+            runs,
+            words: wordDisplay?.words,
+            wordStyles: wordDisplay?.wordStyles,
+            karaokeOffset
+          };
+        }
+        const graphemeBoundaries = [0];
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+          let position = 0;
+          for (const grapheme of captionDisplayGraphemes(lines[lineIndex])) {
+            const visible = position >= kept[lineIndex].start && position + grapheme.length <= kept[lineIndex].end;
+            graphemeBoundaries.push(graphemeBoundaries[graphemeBoundaries.length - 1] + (visible ? 1 : 0));
+            position += grapheme.length;
+          }
+        }
+        const trimmedRuns = runs?.flatMap((run) => {
+          const from = graphemeBoundaries[run.from];
+          const to = graphemeBoundaries[run.to];
+          return from < to ? [{ ...run, from, to }] : [];
+        });
+        const wordPositions = lines.map(() => 0);
+        const retainedWords = [];
+        const wordBoundaries = [0];
+        for (const word of wordDisplay?.words ?? []) {
+          const position = wordPositions[word.line];
+          wordPositions[word.line] += word.text.length;
+          const start = Math.max(0, kept[word.line].start - position);
+          const end = Math.min(word.text.length, kept[word.line].end - position);
+          if (start < end)
+            retainedWords.push({ ...word, text: word.text.slice(start, end) });
+          wordBoundaries.push(retainedWords.length);
+        }
+        const wordStyles = wordDisplay?.wordStyles.flatMap((style) => {
+          const from = wordBoundaries[style.from];
+          const to = wordBoundaries[style.to];
+          return from < to ? [{ ...style, from, to }] : [];
+        });
+        return {
+          text: joinCaptionLines(trimmedLines, locale),
+          lines: trimmedLines,
+          runs: trimmedRuns?.length ? trimmedRuns : void 0,
+          words: wordDisplay ? retainedWords : void 0,
+          wordStyles,
+          karaokeOffset: karaokeOffset === void 0 ? void 0 : karaokeOffset + captionDisplayGraphemes(lines[0].slice(0, kept[0].start)).length
         };
       }
       function roundOutputSecond(value) {
@@ -4842,14 +4907,14 @@ ${indent}`);
         if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
           return overflow();
         }
-        if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
+        if (caption.display_fragments.some((fragment) => !manualFragmentText(fragment))) {
           return overflow();
         }
         if (caption.display_fragments.join("") !== text) {
           return overflow();
         }
         for (const fragment of caption.display_fragments) {
-          if (measureCaptionUnits(fragment) > policy.max_line_units) {
+          if (measureCaptionUnits(fragment.trim()) > policy.max_line_units) {
             return overflow();
           }
         }
@@ -5819,6 +5884,9 @@ ${indent}`);
       }
       function strictText(value) {
         return typeof value === "string" && value.length > 0 && value.trim() === value && value.normalize("NFC") === value;
+      }
+      function manualFragmentText(value) {
+        return typeof value === "string" && /\S/u.test(value) && value.normalize("NFC") === value;
       }
       function finiteNumber2(value) {
         return typeof value === "number" && Number.isFinite(value);
@@ -7682,7 +7750,7 @@ ${indent}`);
         const sourceText = caption.display_text ?? caption.text;
         const text = typeof sourceText === "string" ? sourceText : null;
         const fragments = caption.display_fragments;
-        if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+        if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.some((fragment) => fragment.trim().length === 0) || fragments.join("") !== text) {
           return null;
         }
         const window2 = captionWindowSeconds(caption);
@@ -7713,7 +7781,7 @@ ${indent}`);
             end = window2.start + duration * (characterEnd / text.length);
           }
           characterStart = characterEnd;
-          return { text: fragment, start, end, index: index + 1, count: fragments.length };
+          return { text: fragment.trim(), start, end, index: index + 1, count: fragments.length };
         });
       }
       function expandCaptionDisplayFragments(captions) {
@@ -7725,7 +7793,10 @@ ${indent}`);
           }
           let characterStart = 0;
           return windows.map((window2) => {
-            const characterEnd = characterStart + window2.text.length;
+            const fragment = caption.display_fragments[window2.index - 1];
+            const characterEnd = characterStart + fragment.length;
+            const visibleStart = characterStart + fragment.length - fragment.trimStart().length;
+            const visibleEnd = characterEnd - (fragment.length - fragment.trimEnd().length);
             const expanded = {
               ...caption,
               text: window2.text,
@@ -7740,8 +7811,8 @@ ${indent}`);
             if (Array.isArray(caption.runs)) {
               const sourceText = String(caption.display_text ?? caption.text ?? "");
               expanded.runSourceText = sourceText;
-              expanded.runTextStart = characterStart;
-              expanded.runTextEnd = characterEnd;
+              expanded.runTextStart = visibleStart;
+              expanded.runTextEnd = visibleEnd;
             }
             if (Array.isArray(caption.words)) {
               let offset = 0;
@@ -7753,8 +7824,13 @@ ${indent}`);
                 offset = wordEnd;
                 if (wordStart < characterStart || wordEnd > characterEnd)
                   return [];
+                const start = Math.max(0, visibleStart - wordStart);
+                const end = Math.min(word.text.length, visibleEnd - wordStart);
+                if (word.text.length > 0 && start >= end)
+                  return [];
                 return [{
                   ...word,
+                  ...start > 0 || end < word.text.length ? { text: word.text.slice(start, end) } : {},
                   start: clamp6(word.start, window2.start, window2.end),
                   end: clamp6(word.end, window2.start, window2.end)
                 }];
