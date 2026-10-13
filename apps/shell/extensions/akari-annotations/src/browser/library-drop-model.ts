@@ -159,6 +159,8 @@ export interface TransitionBoundaryHitCandidate {
     laterIndex: number;
     x: number;
     applicable: boolean;
+    windowStartX?: number;
+    windowEndX?: number;
 }
 
 
@@ -199,6 +201,11 @@ export function nearestTransitionBoundary(
     visibleRight: number
 ): TransitionBoundaryHitCandidate | undefined {
     if (!Number.isFinite(pointerX) || !Number.isFinite(visibleLeft) || !Number.isFinite(visibleRight)) return undefined;
+    const inWindow = candidates.find(candidate => candidate.applicable
+        && Number.isFinite(candidate.windowStartX) && Number.isFinite(candidate.windowEndX)
+        && candidate.windowStartX! <= pointerX && pointerX <= candidate.windowEndX!
+        && candidate.windowEndX! >= visibleLeft && candidate.windowStartX! <= visibleRight);
+    if (inWindow) return inWindow;
     let best: TransitionBoundaryHitCandidate | undefined;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const candidate of candidates) {

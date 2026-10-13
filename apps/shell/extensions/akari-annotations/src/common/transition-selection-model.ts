@@ -149,7 +149,8 @@ export function transitionDirectionType(family: TransitionFamily, direction: Tra
 export interface TransitionBoundaryWriteRequest {
     kind: 'transition-boundary';
     ref: BoundaryRef;
-    value: { type: TransitionType; duration: number; align?: TransitionAlign | null; recommendAlign?: true } | null;
+    value: { type: TransitionType; duration: number; align?: TransitionAlign | null;
+        recommendAlign?: true; alignOnly?: true } | null;
 }
 
 export function transitionDurationRequest(snapshot: TimelineTransitionSelection,

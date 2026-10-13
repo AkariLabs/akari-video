@@ -3391,7 +3391,7 @@ ${indent}`);
               reasons.add("neighbor");
             }
           }
-          if (effective > 0 && effective < minimumSeconds - EPSILON) {
+          if (effective > 0 && (effective < minimumSeconds - EPSILON || (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: boundary.cutSeconds + laterShare(boundary.align, effective) }, { tlStart: boundary.cutSeconds - earlierShare(boundary.align, effective) }, fps) < 1)) {
             effective = 0;
             reasons.add("too-short");
           }
@@ -3562,6 +3562,7 @@ ${indent}`);
         }));
         const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
         const plannedWindows = /* @__PURE__ */ new Map();
+        const suppressedWindows = /* @__PURE__ */ new Set();
         const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
           fps,
           resolve: () => ({ stillImage: false, freezeSeconds: 0 })
@@ -3577,8 +3578,16 @@ ${indent}`);
             };
           });
           for (const plan of (0, transition_plan_1.planTrackTransitions)(clips, { fps })) {
-            if (plan.legacyOverlap || plan.state === "none")
+            if (plan.legacyOverlap)
               continue;
+            if (plan.state === "none") {
+              const originalIndex = usable[Number(plan.earlierId)].index;
+              suppressedWindows.add(originalIndex);
+              const outgoing2 = resolved.find((entry) => entry.cutIndex === originalIndex);
+              if (outgoing2)
+                outgoing2.cut = { ...outgoing2.cut, transitionOut: void 0 };
+              continue;
+            }
             const outgoing = resolved.find((entry) => entry.cutIndex === usable[Number(plan.earlierId)].index);
             const incoming = resolved.find((entry) => entry.cutIndex === usable[Number(plan.laterId)].index);
             if (!outgoing || !incoming || !outgoing.cut.transitionOut)
@@ -3616,6 +3625,8 @@ ${indent}`);
         const transitionWindows = [];
         for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
           const outgoing = resolved[outgoingIndex];
+          if (suppressedWindows.has(outgoing.cutIndex))
+            continue;
           const transition = outgoing.cut.transitionOut;
           if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0))
             continue;
@@ -3738,7 +3749,7 @@ ${indent}`);
       exports.buildCaptionTimelineSegments = buildCaptionTimelineSegments;
       var timeline_map_1 = require_timeline_map();
       function buildCaptionTimelineSegments(cuts, edit, options = {}) {
-        const visual = (0, timeline_map_1.buildTimelineMap)(cuts, options).segments;
+        const visual = (0, timeline_map_1.buildTimelineMap)(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
         if (!edit)
           return visual;
         const audio = [];
@@ -9147,8 +9158,8 @@ ${indent}`);
       exports.fitCaptionMotionWindow = fitCaptionMotionWindow;
       var timeline_map_1 = require_timeline_map();
       var caption_runs_1 = require_caption_runs();
-      function anchorToOutput(anchor, caption, timeline, fire = "shown") {
-        const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline) : timeline;
+      function anchorToOutput(anchor, caption, timeline, fire = "shown", fps) {
+        const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline, { fps }) : timeline;
         const warning = (code, message) => ({ fire: "shown", diagnostics: [{ code, severity: "warning", message }] });
         if (!anchor)
           return [{ fire: "shown", diagnostics: [] }];
@@ -14429,9 +14440,7 @@ ${indent}`);
             const outgoingSpeed = speedOf(outgoing);
             const incomingSpeed = speedOf(incoming);
             const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
-            const outgoingFreeze = outgoing.declaration.freeze;
-            const freezeSeconds = isRecord2(outgoingFreeze) && typeof outgoingFreeze.duration_sec === "number" && Number.isFinite(outgoingFreeze.duration_sec) && outgoingFreeze.duration_sec > 0 ? outgoingFreeze.duration_sec : 0;
-            const currentEnd = Number(outgoing.declaration.at) + (Number(outgoing.declaration.out) - Number(outgoing.declaration.in)) / outgoingSpeed + freezeSeconds;
+            const currentEnd = outgoing.at + outgoing.duration;
             outgoing.declaration = {
               ...outgoing.declaration,
               out: Number(outgoing.declaration.out) + (plan.cutSeconds + tail - currentEnd) * outgoingSpeed,

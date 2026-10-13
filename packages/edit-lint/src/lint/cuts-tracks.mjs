@@ -13,6 +13,31 @@ export function collectInternalAudioTrackRefs(internalEdit) {
     .map(track => Number.isInteger(track.legacy.ref) ? track.legacy.ref : 0));
 }
 
+function transitionHintLabel(value) {
+  if (typeof value === 'string') return value;
+  try {
+    const seen = new Set();
+    const dataOnly = (part, depth) => {
+      if (part === null || typeof part !== 'object') return part;
+      if (depth > 32 || seen.has(part)) throw new Error('unserializable transition hint');
+      seen.add(part);
+      const copy = Array.isArray(part) ? [] : Object.create(null);
+      for (const key of Object.keys(part)) {
+        const descriptor = Object.getOwnPropertyDescriptor(part, key);
+        if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value'))
+          throw new Error('accessor in transition hint');
+        copy[key] = typeof descriptor.value === 'function' ? '[function]'
+          : dataOnly(descriptor.value, depth + 1);
+      }
+      seen.delete(part);
+      return copy;
+    };
+    const label = JSON.stringify(dataOnly(value, 0));
+    if (typeof label === 'string') return label;
+  } catch { /* Fall back to the type for unserializable input. */ }
+  return value === null ? 'null' : typeof value;
+}
+
 function validateTransitionOut(value, findings, path) {
   if (value === undefined || value === null) return;
   if (!isRecord(value)) {
@@ -29,7 +54,7 @@ function validateTransitionOut(value, findings, path) {
   }
   for (const [field, known] of [['align', TRANSITION_ALIGN_IDS], ['fill', TRANSITION_FILL_IDS]]) {
     if (value[field] === undefined || known.includes(value[field])) continue;
-    const label = String(value[field]);
+    const label = transitionHintLabel(value[field]);
     const key = `lint-messages.cuts.transition.${field === 'align' ? 'unknownAlign' : 'unknownFill'}`;
     addFinding(findings, {
       severity: 'warning', check: `cuts.transition-out.unknown-${field}`,

@@ -2,8 +2,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildCaptionTimelineSegments, captionClockDomainOf, normalizeCaptionClock } from '../lib/caption-clock.js';
 import { readInternalEdit } from '../lib/internal-model.js';
-import { applyCutRanges, projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio,
+import { anchorToOutput, applyCutRanges, buildTimelineMap, projectLegacyEdit, removeCutAudioLinked, splitAtFrame, splitCutAudio,
     unlinkCutAudio } from '../lib/index.js';
+
+test('caption entrances use the document fps for a one-frame transition', () => {
+    const cuts = [
+        { at: 0, in: 0, out: 4, src: 'a', transitionOut: { type: 'dissolve', duration: 1 / 60 } },
+        { at: 4, in: 1, out: 5, src: 'b' }
+    ];
+    const expected = buildTimelineMap(cuts, { fps: 60 });
+    assert.deepEqual(expected.transitionWindows.map(window => [window.start, window.end]),
+        [[4 - 1 / 120, 4 + 1 / 120]]);
+    assert.deepEqual(buildCaptionTimelineSegments(cuts, { output: { fps: 60 }, tracks: [] }), expected.segments);
+    const anchor = { src: 'b', start: 1, end: 1.01, domain: 'source' };
+    const caption = { src: 'b', start: 1, end: 1.01 };
+    assert.deepEqual(anchorToOutput(anchor, caption, cuts, 'shown', 60),
+        anchorToOutput(anchor, caption, expected));
+});
 
 test('別ファイルの声は実配置へ射影し、映像の外の声も一度だけ残す', () => {
     const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },

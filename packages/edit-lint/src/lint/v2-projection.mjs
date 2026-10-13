@@ -46,7 +46,14 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
         });
       } else {
         const seconds = plan.effectiveSeconds;
-        const reason = plan.reasons.join(', ') || 'available handles';
+        const reasonKeys = {
+          'outgoing-length': 'reasonClipLength', 'incoming-length': 'reasonClipLength',
+          'outgoing-room': 'reasonMaterial', 'incoming-room': 'reasonMaterial',
+          neighbor: 'reasonNeighbor', 'too-short': 'reasonTooShort'
+        };
+        const reason = [...new Set(plan.reasons.map(code =>
+          lintText(`lint-messages.cuts.transition.${reasonKeys[code]}`)))].join(', ')
+          || lintText('lint-messages.cuts.transition.reasonMaterial');
         addFinding(findings, {
           severity: 'info', check: 'cuts.transition-out.shortened',
           message: lintTextWithFallback('lint-messages.cuts.transition.shortened',

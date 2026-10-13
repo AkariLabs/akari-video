@@ -134,7 +134,7 @@ for (const [label, incomingIn, duration] of [['no head', 0, 1], ['subframe', 2, 
 }
 
 test('B の既存フリーズは宣言があっても出力位置と素材位置を保つ', () => {
-  const sample = (id, t) => actualAt(id, t).base.at(-1).sourceTimeUs;
+  const sample = (id, t) => { const base = actualAt(id, t).base; return base[base.length - 1].sourceTimeUs; };
   // どちらも出力 6〜7 秒に素材 3 秒を保持する。
   assert.deepEqual([5.4, 5.5, 6, 6.5, 6.6].map(t => sample('d-freeze-b', t)),
     [2_400_000, 2_500_000, 3_000_000, 3_000_000, 3_000_000]);
@@ -161,13 +161,13 @@ test('速度 2 倍の B でも 3 つの置き方で窓内の素材時刻とフ�
     const times = t => evaluationPlanFromResolvedTimeline(timeline, t * 1e6, sources, output).base
       .map(layer => layer.sourceTimeUs);
     assert.deepEqual(times(midpoint), [outgoingTime, incomingTime], align);
-    assert.deepEqual([5.5, 6, 6.5, 7, 7.1].map(t => times(t).at(-1)),
+    assert.deepEqual([5.5, 6, 6.5, 7, 7.1].map(t => { const values = times(t); return values[values.length - 1]; }),
       [5_000_000, 6_000_000, 6_000_000, 6_000_000, 6_200_000], align);
   }
 });
 
 test('キーフレームの時計は投影後の at から進む', () => {
-  assert.deepEqual([3.5, 4, 4.5, 4.6].map(t => actualAt('a-center', t).base.at(-1).opacity),
+  assert.deepEqual([3.5, 4, 4.5, 4.6].map(t => { const base = actualAt('a-center', t).base; return base[base.length - 1].opacity; }),
     [0, 0.125, 0.25, 0.275]);
 });
 

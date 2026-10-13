@@ -247,7 +247,10 @@ export function planTrackTransitions(
                 reasons.add('neighbor');
             }
         }
-        if (effective > 0 && effective < minimumSeconds - EPSILON) {
+        if (effective > 0 && (effective < minimumSeconds - EPSILON
+            || cutOverlapFrames(
+                { tlEnd: boundary.cutSeconds + laterShare(boundary.align, effective) },
+                { tlStart: boundary.cutSeconds - earlierShare(boundary.align, effective) }, fps) < 1)) {
             effective = 0;
             reasons.add('too-short');
         }

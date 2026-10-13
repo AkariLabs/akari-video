@@ -29,6 +29,24 @@ const planned = (cuts, fps) => planTrackTransitions(transitionPlanClipsFromCuts(
 })[0].clips, { fps });
 const shared = JSON.parse(readFileSync(new URL('./transition-plan-cases.json', import.meta.url), 'utf8')).timeline;
 
+for (const [align, expectedOut] of [[undefined, 2.5], ['before-cut', 2.25], ['after-cut', 2.75]]) {
+  test(`whole-region outgoing freeze keeps its seed frame with ${align ?? 'center'} placement`, () => {
+    const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+      sources: [{ id: 'a', path: 'a.mp4' }, { id: 'b', path: 'b.mp4' }],
+      tracks: [{ id: 'main', lane: 'visual', items: [
+        { id: 'a', at: 0, duration: 30, source: { kind: 'media', src: 'a', in: 2, out: 2.25,
+          freeze: { at_sec: 0, duration_sec: 1 },
+          transition_out: { type: 'dissolve', duration: 0.5, ...(align ? { align } : {}) } } },
+        { id: 'b', at: 30, duration: 120, source: { kind: 'media', src: 'b', in: 2, out: 6 } }
+      ] }]
+    };
+    const [a, b] = readInternalEdit(edit).tracks[0].items.map(item => item.declaration);
+    assert.equal(a.out, expectedOut);
+    assert.ok(a.out > a.in);
+    if (align === undefined) assert.deepEqual([b.at, b.in], [0.75, 1.75]);
+  });
+}
+
 for (const entry of shared) {
   test(`shared ${entry.name}: the raw plan and rendered projection retain the hand-calculated source times`, () => {
     const edit = {
@@ -94,7 +112,8 @@ for (const [align, expected] of [
 
 for (const [align, fps, duration] of [
   ...['before-cut', 'center', 'after-cut'].map(align => [align, 30, 1]),
-  ...['before-cut', 'center', 'after-cut'].flatMap(align => [[align, 30, 1 / 30], [align, 60, 1 / 60]])
+  ...['before-cut', 'center', 'after-cut'].flatMap(align => [[align, 30, 1 / 30], [align, 60, 1 / 60],
+    [align, 30, 0.033333], [align, 30, 0.0334]])
 ]) {
   test(`${align} at ${fps} fps with ${duration}s: projected declarations are not planned twice`, () => {
     const edit = document(align);
@@ -114,10 +133,15 @@ for (const [align, fps, duration] of [
     assert.deepEqual(withoutPlan(projectedMap.segments), withoutPlan(rawMap.segments));
     assert.equal(projectedMap.totalDuration, rawMap.totalDuration);
     const secondPass = planned(projected, fps);
-    assert.equal(secondPass.length, 1);
-    assert.equal(secondPass[0].legacyOverlap, true);
-    assert.deepEqual(secondPass.map(plan => [plan.cutSeconds + plan.startOffsetSeconds,
-      plan.cutSeconds + plan.endOffsetSeconds]), windows(rawMap));
+    if (duration === 0.033333 && align === 'center') {
+      assert.deepEqual(windows(rawMap), []);
+      assert.deepEqual(secondPass, []);
+    } else {
+      assert.equal(secondPass.length, 1);
+      assert.equal(secondPass[0].legacyOverlap, true);
+      assert.deepEqual(secondPass.map(plan => [plan.cutSeconds + plan.startOffsetSeconds,
+        plan.cutSeconds + plan.endOffsetSeconds]), windows(rawMap));
+    }
   });
 }
 // The map does not count existing freeze time, so freeze examples are excluded from map equivalence.
@@ -132,6 +156,24 @@ for (const [label, incomingIn, duration] of [['no head', 0, 1], ['subframe', 2, 
     assert.deepEqual(windows(buildTimelineMap(declarations, { fps: 30 })), []);
   });
 }
+
+test('a none plan cannot reappear as a narrow playback window', () => {
+  const raw = [
+    { at: 0, in: 0, out: 4.01, transitionOut: { type: 'dissolve', duration: 0.01 } },
+    { at: 4, in: 2, out: 6 }
+  ];
+  assert.deepEqual(windows(buildTimelineMap(raw, { fps: 30 })), []);
+  const edit = { version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'a', path: 'a.mp4' }, { id: 'b', path: 'b.mp4' }],
+    tracks: [{ id: 'main', lane: 'visual', items: [
+      { id: 'a', at: 0, duration: 120, source: { kind: 'media', src: 'a', in: 0, out: 4.01,
+        transition_out: { type: 'dissolve', duration: 0.01 } } },
+      { id: 'b', at: 120, duration: 60, source: { kind: 'media', src: 'b', in: 2, out: 4 } }
+    ] }]
+  };
+  const projected = readInternalEdit(edit).tracks[0].items.map(item => asCut(item.declaration));
+  assert.deepEqual(windows(buildTimelineMap(projected, { fps: 30 })), []);
+});
 
 test('a legacy overlap reserves the short middle clip before its next planned boundary', () => {
   const edit = {

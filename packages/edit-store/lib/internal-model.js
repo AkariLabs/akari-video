@@ -332,13 +332,7 @@ function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
             const outgoingSpeed = speedOf(outgoing);
             const incomingSpeed = speedOf(incoming);
             const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
-            const outgoingFreeze = outgoing.declaration.freeze;
-            const freezeSeconds = isRecord(outgoingFreeze) && typeof outgoingFreeze.duration_sec === 'number'
-                && Number.isFinite(outgoingFreeze.duration_sec) && outgoingFreeze.duration_sec > 0
-                ? outgoingFreeze.duration_sec : 0;
-            const currentEnd = Number(outgoing.declaration.at)
-                + (Number(outgoing.declaration.out) - Number(outgoing.declaration.in)) / outgoingSpeed
-                + freezeSeconds;
+            const currentEnd = outgoing.at + outgoing.duration;
             outgoing.declaration = {
                 ...outgoing.declaration,
                 out: Number(outgoing.declaration.out)

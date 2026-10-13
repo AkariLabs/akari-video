@@ -25,7 +25,7 @@ export function buildCaptionTimelineSegments(
     edit?: InternalEdit | RawCaptionEdit,
     options: { fps?: number; trackZ?: (track: number) => number } = {}
 ): TimelineSegment[] {
-    const visual = buildTimelineMap(cuts, options).segments;
+    const visual = buildTimelineMap(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
     if (!edit) return visual;
     const audio: TimelineSegment[] = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;

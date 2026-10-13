@@ -3659,6 +3659,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && request.value.recommendAlign !== true) {
                 return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
             }
+            if (request.value && Object.prototype.hasOwnProperty.call(request.value, 'alignOnly')
+                && request.value.alignOnly !== true) {
+                return { ok: false, message: t('transition.inspector.error.invalidRecommendation') };
+            }
             if (request.value && !isTransitionType(request.value.type)) {
                 return { ok: false, message: t('transition.inspector.error.unknownType') };
             }
@@ -8242,9 +8246,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const row = resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track);
             if (!row || row.hidden || clientY < contentRect.top + row.top
                 || clientY > contentRect.top + row.top + row.height) continue;
+            const plan = this.transitionPlanFor(boundary.earlierIndex, boundary.laterIndex);
+            const windowStartX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.startOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
+            const windowEndX = plan && plan.state !== 'none'
+                ? stripRect.left + (plan.cutSeconds + plan.endOffsetSeconds - this.viewStart)
+                    / this.visibleDuration() * stripRect.width : undefined;
             candidates.push({
                 earlierIndex: boundary.earlierIndex, laterIndex: boundary.laterIndex,
                 x: stripRect.left + (boundary.boundaryT - this.viewStart) / this.visibleDuration() * stripRect.width,
+                windowStartX, windowEndX,
                 applicable: boundary.blocks.length === 0
                     && this.unsupportedTransitionTrack(boundary.earlierIndex) === undefined
             });
@@ -13182,7 +13194,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async applyTransitionOut(
         cutIndexOrRef: number | BoundaryRef,
-        next: { type: TransitionType; duration: number; align?: TransitionAlign | null; recommendAlign?: true } | null
+        next: { type: TransitionType; duration: number; align?: TransitionAlign | null;
+            recommendAlign?: true; alignOnly?: true } | null
     ): Promise<{ ok: boolean; message?: string }> {
         const cutIndex = typeof cutIndexOrRef === 'number' ? cutIndexOrRef
             : this.cutItemIds.indexOf(cutIndexOrRef.earlierItemId);
@@ -13206,33 +13219,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
-        const beforePlans = this.transitionPlans().plans;
+        let beforePlans: TransitionBoundaryPlan[] = [];
         let roomOutcome: 'full' | 'clamped' | 'none' | undefined;
         let roomSeconds = 0;
-        let automaticForNew = false;
-        let writeTrack: TransitionPlanTrack | undefined;
-        let writtenNext: { type: TransitionType; duration: number; align?: TransitionAlign | null } | null = next;
         if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
             await this.waitForTransitionMaterial(earlier.index);
-            const track = this.transitionPlanTrackFor(earlier.index);
-            writeTrack = track;
-            const rawTransition = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
-            automaticForNew = !rawTransition && !earlier.transitionOut && next.align === undefined
-                && !next.recommendAlign;
-            const autoAlign = next.recommendAlign || !rawTransition && !earlier.transitionOut;
-            const choice = autoAlign && track ? chooseTransitionAlign(track.clips, String(earlier.index),
-                next.duration, { fps: this.fps, allowFill: false }) : undefined;
-            const explicitAlign = next.align !== undefined ? next.align
-                : autoAlign ? choice?.align ?? 'center' : undefined;
-            if (track) {
-                const write = transitionWritePlan({ clips: track.clips, earlierId: String(earlier.index),
-                    duration: next.duration, fps: this.fps, existingAlign: rawTransition?.align
-                        ?? this.cuts[earlier.index]?.transitionOut?.align, explicitAlign });
-                roomOutcome = write.roomOutcome;
-                roomSeconds = write.roomSeconds;
-                writtenNext = { type: next.type, duration: write.duration,
-                    ...(write.align !== undefined ? { align: write.align } : {}) };
-            }
         }
         let writeBlocks: BoundaryBlock[] | undefined;
         let missingPair = false;
@@ -13252,18 +13243,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         itemId: ref.earlierItemId, retractFrames: boundary.overlapFrames, fps: this.fps
                     })) as EditV2Document;
                 }
-                if (next && automaticForNew && boundary.earlierTransition && writeTrack) {
-                    const existing = boundary.earlierTransition as Record<string, unknown>;
-                    const write = transitionWritePlan({ clips: writeTrack.clips, earlierId: String(cutIndex),
-                        duration: next.duration, fps: this.fps, existingAlign: existing.align });
-                    writtenNext = { type: next.type, duration: write.duration };
-                    roomOutcome = write.roomOutcome;
-                    roomSeconds = write.roomSeconds;
+                const fresh = next ? this.transitionPlanInDocument(doc, ref) : undefined;
+                if (next && !fresh) {
+                    missingPair = true;
+                    writeBlocks = ['gap'];
+                    throw rejected;
                 }
-                const currentNext = writtenNext && !boundary.earlierTransition && !next?.recommendAlign
-                    ? writtenNext : writtenNext && next?.align === undefined && !next?.recommendAlign
-                        ? { ...writtenNext, align: undefined } : writtenNext;
-                const patchNext = currentNext ? transitionDeclarationPatch(currentNext) : null;
+                beforePlans = fresh?.plans ?? [];
+                let writtenNext: { type: TransitionType; duration: number; align?: TransitionAlign | null } | null = next;
+                if (next && fresh) {
+                    const existing = boundary.earlierTransition && typeof boundary.earlierTransition === 'object'
+                        ? boundary.earlierTransition as Record<string, unknown> : undefined;
+                    const autoAlign = next.recommendAlign || !existing && !fresh.earlierTransition;
+                    const choice = autoAlign ? chooseTransitionAlign(fresh.track.clips, String(fresh.earlierIndex),
+                        next.alignOnly && typeof existing?.duration === 'number' ? existing.duration : next.duration,
+                        { fps: this.fps, allowFill: false }) : undefined;
+                    const explicitAlign = next.align !== undefined ? next.align
+                        : autoAlign ? choice?.align ?? 'center' : undefined;
+                    if (next.alignOnly) {
+                        if (!existing || !isTransitionType(existing.type) || typeof existing.duration !== 'number') {
+                            missingPair = true;
+                            writeBlocks = ['gap'];
+                            throw rejected;
+                        }
+                        writtenNext = { type: existing.type, duration: existing.duration,
+                            align: explicitAlign === undefined || explicitAlign === 'center' ? null : explicitAlign };
+                    } else if (boundary.overlapFrames === 0) {
+                        const write = transitionWritePlan({ clips: fresh.track.clips,
+                            earlierId: String(fresh.earlierIndex), duration: next.duration, fps: this.fps,
+                            existingAlign: existing?.align, explicitAlign });
+                        roomOutcome = write.roomOutcome;
+                        roomSeconds = write.roomSeconds;
+                        writtenNext = { type: next.type, duration: write.duration,
+                            ...(write.align !== undefined ? { align: write.align } : {}) };
+                    }
+                    if (!next.alignOnly && next.align === undefined && !next.recommendAlign && existing) {
+                        writtenNext = { ...writtenNext!, align: undefined };
+                    }
+                }
+                const patchNext = writtenNext ? transitionDeclarationPatch(writtenNext) : null;
                 return updateV2Item(doc, {
                     itemId: ref.earlierItemId, patch: { source: { transition_out: patchNext } }
                 });
@@ -13292,9 +13310,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else if (roomOutcome === 'none') materialMessages.push(ZERO_OVERLAP_TRANSITION_MESSAGE());
         if (next) {
             const afterPlans = this.transitionPlans().plans;
-            const current = afterPlans.find(plan => plan.earlierId === String(cutIndex));
+            const currentIndex = this.cutItemIds.indexOf(ref.earlierItemId);
+            const current = afterPlans.find(plan => plan.earlierId === String(currentIndex));
             for (const plan of afterPlans) {
-                if (plan.earlierId === String(cutIndex)) continue;
+                if (plan.earlierId === String(currentIndex)) continue;
                 const before = beforePlans.find(entry => entry.earlierId === plan.earlierId
                     && entry.laterId === plan.laterId);
                 if (before && plan.effectiveSeconds < before.effectiveSeconds - 0.000001) {
@@ -13341,6 +13360,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? this.sourceMap.get(cut.src)?.path
             : this.defaultSource?.path;
         return isStillImageSourcePath(declaredPath);
+    }
+
+    protected transitionPlanInDocument(doc: EditV2Document, ref: BoundaryRef): {
+        earlierIndex: number; track: TransitionPlanTrack; plans: TransitionBoundaryPlan[];
+        earlierTransition: boolean;
+    } | undefined {
+        const internal = this.readEdit(stringifyEditV2(doc));
+        const view = projectLegacyEdit(internal);
+        const ids: string[] = [];
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'cuts') ids[item.legacy.index] = item.id;
+        }
+        const earlierIndex = ids.indexOf(ref.earlierItemId);
+        const laterIndex = ids.indexOf(ref.laterItemId);
+        if (earlierIndex < 0 || laterIndex < 0) return undefined;
+        const cuts = (view.cuts as Array<EditCut & { transition_out?: EditCut['transitionOut'] }>).map(cut => ({
+            ...cut, transitionOut: cut.transitionOut ?? cut.transition_out
+        }));
+        const tracks = transitionPlanClipsFromCuts(cuts, { fps: this.fps, resolve: (cut, index) => {
+            const stillImage = this.isStillImageCut(cut);
+            const item = internal.tracks.flatMap(track => track.items).find(entry => entry.id === ids[index]);
+            const freeze = item?.declaration.freeze;
+            const freezeSeconds = freeze && typeof freeze === 'object'
+                ? Number((freeze as { duration_sec?: unknown }).duration_sec) || 0 : 0;
+            const videoUri = stillImage ? undefined : this.cutVideoUri(cut);
+            const duration = transitionMaterialDuration({ videoUri,
+                cached: videoUri ? this.videoDurationCache.get(videoUri) : undefined, outSeconds: cut.out });
+            return { stillImage, freezeSeconds,
+                ...(duration !== undefined ? { materialDurationSeconds: duration } : {}) };
+        } });
+        const track = tracks.find(candidate => candidate.clips.some(clip => clip.id === String(earlierIndex))
+            && candidate.clips.some(clip => clip.id === String(laterIndex)));
+        if (!track) return undefined;
+        return { earlierIndex, track, plans: tracks.flatMap(candidate => planTrackTransitions(candidate.clips, { fps: this.fps })),
+            earlierTransition: !!cuts[earlierIndex]?.transitionOut };
     }
 
     protected transitionPlans(): { tracks: TransitionPlanTrack[]; plans: TransitionBoundaryPlan[] } {

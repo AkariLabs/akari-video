@@ -56,6 +56,15 @@ test('見えている適用可能な境目から横の最近傍を選び、同�
   assert.equal(nearestTransitionBoundary(140, [candidates[2]], 100, 200), undefined);
 });
 
+test('寄せた帯の上ではカット点が遠くてもその帯の境目を選ぶ', () => {
+  const candidates = [
+    { earlierIndex: 0, laterIndex: 1, x: 500, windowStartX: 500, windowEndX: 600, applicable: true },
+    { earlierIndex: 1, laterIndex: 2, x: 600, applicable: true }
+  ];
+  assert.equal(nearestTransitionBoundary(580, candidates, 450, 650), candidates[0]);
+  assert.equal(nearestTransitionBoundary(610, candidates, 450, 650), candidates[1]);
+});
+
 test('unsupported 集合に含まれる境界を適用候補から除外する', () => {
   const boundaries = [
     { earlierIndex: 0, laterIndex: 1, boundaryT: 3 },

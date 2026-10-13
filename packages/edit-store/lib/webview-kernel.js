@@ -379,7 +379,11 @@ var AkariEditKernel = (() => {
           reasons.add("neighbor");
         }
       }
-      if (effective > 0 && effective < minimumSeconds - EPSILON) {
+      if (effective > 0 && (effective < minimumSeconds - EPSILON || cutOverlapFrames(
+        { tlEnd: boundary.cutSeconds + laterShare(boundary.align, effective) },
+        { tlStart: boundary.cutSeconds - earlierShare(boundary.align, effective) },
+        fps
+      ) < 1)) {
         effective = 0;
         reasons.add("too-short");
       }
@@ -496,6 +500,7 @@ var AkariEditKernel = (() => {
     }));
     const fps = options?.fps ?? DEFAULT_CUT_ADJACENCY_FPS;
     const plannedWindows = /* @__PURE__ */ new Map();
+    const suppressedWindows = /* @__PURE__ */ new Set();
     const planTracks = transitionPlanClipsFromCuts(usableCuts, {
       fps,
       resolve: () => ({ stillImage: false, freezeSeconds: 0 })
@@ -511,7 +516,14 @@ var AkariEditKernel = (() => {
         };
       });
       for (const plan of planTrackTransitions(clips, { fps })) {
-        if (plan.legacyOverlap || plan.state === "none") continue;
+        if (plan.legacyOverlap) continue;
+        if (plan.state === "none") {
+          const originalIndex = usable[Number(plan.earlierId)].index;
+          suppressedWindows.add(originalIndex);
+          const outgoing2 = resolved.find((entry) => entry.cutIndex === originalIndex);
+          if (outgoing2) outgoing2.cut = { ...outgoing2.cut, transitionOut: void 0 };
+          continue;
+        }
         const outgoing = resolved.find((entry) => entry.cutIndex === usable[Number(plan.earlierId)].index);
         const incoming = resolved.find((entry) => entry.cutIndex === usable[Number(plan.laterId)].index);
         if (!outgoing || !incoming || !outgoing.cut.transitionOut) continue;
@@ -548,6 +560,7 @@ var AkariEditKernel = (() => {
     const transitionWindows = [];
     for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
       const outgoing = resolved[outgoingIndex];
+      if (suppressedWindows.has(outgoing.cutIndex)) continue;
       const transition = outgoing.cut.transitionOut;
       if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
       const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
@@ -1585,7 +1598,7 @@ var AkariEditKernel = (() => {
 
   // src/caption-timeline.ts
   function buildCaptionTimelineSegments(cuts, edit, options = {}) {
-    const visual = buildTimelineMap(cuts, options).segments;
+    const visual = buildTimelineMap(cuts, { ...options, fps: options.fps ?? edit?.output?.fps }).segments;
     if (!edit) return visual;
     const audio = [];
     const fps = options.fps ?? edit.output?.fps ?? 30;
@@ -5877,9 +5890,7 @@ var AkariEditKernel = (() => {
         const outgoingSpeed = speedOf(outgoing);
         const incomingSpeed = speedOf(incoming);
         const incomingStill = isStillImageSourcePath(incoming.source.path);
-        const outgoingFreeze = outgoing.declaration.freeze;
-        const freezeSeconds = isRecord3(outgoingFreeze) && typeof outgoingFreeze.duration_sec === "number" && Number.isFinite(outgoingFreeze.duration_sec) && outgoingFreeze.duration_sec > 0 ? outgoingFreeze.duration_sec : 0;
-        const currentEnd = Number(outgoing.declaration.at) + (Number(outgoing.declaration.out) - Number(outgoing.declaration.in)) / outgoingSpeed + freezeSeconds;
+        const currentEnd = outgoing.at + outgoing.duration;
         outgoing.declaration = {
           ...outgoing.declaration,
           out: Number(outgoing.declaration.out) + (plan.cutSeconds + tail - currentEnd) * outgoingSpeed,

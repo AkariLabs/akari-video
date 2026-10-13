@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   TRANSITION_ALIGN_IDS,
   chooseTransitionAlign,
+  cutOverlapFrames,
   isTransitionAlign,
   planTrackTransitions,
   planTransitionHandleWindow,
@@ -143,6 +144,9 @@ test('windows of freshly synthesised boundaries never overlap, whatever the plac
       // Ends that round to different frames form an existing overlap, which keeps whatever length it has.
       if (plan.legacyOverlap) continue;
       assert.ok(plan.effectiveSeconds >= 1 / fps - 1e-6, `seed ${seed}: shorter than a frame`);
+      assert.ok(cutOverlapFrames({ tlEnd: plan.cutSeconds + plan.endOffsetSeconds },
+        { tlStart: plan.cutSeconds + plan.startOffsetSeconds }, fps) >= 1,
+      `seed ${seed}: window rounds to no overlap`);
       assert.ok(plan.effectiveSeconds <= plan.declaredSeconds + 1e-9, `seed ${seed}: longer than declared`);
       const later = clips.find(clip => clip.id === plan.laterId);
       const earlier = clips.find(clip => clip.id === plan.earlierId);

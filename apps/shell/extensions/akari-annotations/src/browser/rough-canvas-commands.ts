@@ -87,7 +87,7 @@ export class RoughCanvasCommands implements CommandContribution {
         const edit = currentTimelineEditUri(project);
         if (!await this.files.exists(edit)) { this.messages.error(t('annotations.roughCanvasCommands.text.pleaseOpenYourTimeline')); return { ok: false, reason: 'edit-not-found' }; }
         const editUri = edit.toString();
-        let parsed: { output?: { width?: number; height?: number }; cuts?: EditCut[] } = {};
+        let parsed: { output?: { width?: number; height?: number; fps?: number }; cuts?: EditCut[] } = {};
         try { parsed = JSON.parse((await this.files.readFile(edit)).value.toString()); } catch { /* A blank paper still opens. */ }
         const w = parsed.output?.width, h = parsed.output?.height;
         const aspect = typeof w === 'number' && w > 0 && typeof h === 'number' && h > 0
@@ -97,7 +97,7 @@ export class RoughCanvasCommands implements CommandContribution {
             const playhead = capturedTime ?? await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => 0);
             const outputT = Number.isFinite(playhead) ? playhead : 0;
             let projected: ReturnType<typeof outputToSource> = { segment: null, sourceT: null };
-            try { projected = outputToSource(buildTimelineMap(parsed.cuts ?? []).segments, outputT); }
+            try { projected = outputToSource(buildTimelineMap(parsed.cuts ?? [], { fps: parsed.output?.fps }).segments, outputT); }
             catch { /* Keep the output time if an older edit cannot be projected. */ }
             return buildRoughCanvasSubject(outputT, selectionTargets(this.selection.snapshot),
                 { src: projected.segment?.src, sourceT: projected.sourceT, cutIndex: projected.segment?.cutIndex });

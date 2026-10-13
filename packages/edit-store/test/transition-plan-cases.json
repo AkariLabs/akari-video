@@ -2,6 +2,15 @@
   "note": "Shared, hand-computed expectations for transition planning. Every consumer (plan, both projections, frame engine, audio schedule, timeline band) reads this file. Do not regenerate the expected values from an implementation.",
   "plan": [
     {
+      "name": "subframe centered window rounds to no overlap",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 1, "out": { "declared": 0.033333, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 1 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 4, "effective": 0, "state": "none", "reasons": ["too-short"], "legacy": false }]
+    },
+    {
       "name": "center with enough handles",
       "fps": 30,
       "clips": [

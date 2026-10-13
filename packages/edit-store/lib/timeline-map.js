@@ -94,6 +94,7 @@ function buildTimelineMap(cuts, options) {
     const fps = options?.fps ?? cut_adjacency_1.DEFAULT_CUT_ADJACENCY_FPS;
     // 計画には投影前の並びを渡し、隣の境目との取り合いをまとめて決める。
     const plannedWindows = new Map();
+    const suppressedWindows = new Set();
     const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
         fps, resolve: () => ({ stillImage: false, freezeSeconds: 0 })
     });
@@ -108,8 +109,16 @@ function buildTimelineMap(cuts, options) {
             };
         });
         for (const plan of (0, transition_plan_1.planTrackTransitions)(clips, { fps })) {
-            if (plan.legacyOverlap || plan.state === 'none')
+            if (plan.legacyOverlap)
                 continue;
+            if (plan.state === 'none') {
+                const originalIndex = usable[Number(plan.earlierId)].index;
+                suppressedWindows.add(originalIndex);
+                const outgoing = resolved.find(entry => entry.cutIndex === originalIndex);
+                if (outgoing)
+                    outgoing.cut = { ...outgoing.cut, transitionOut: undefined };
+                continue;
+            }
             const outgoing = resolved.find(entry => entry.cutIndex === usable[Number(plan.earlierId)].index);
             const incoming = resolved.find(entry => entry.cutIndex === usable[Number(plan.laterId)].index);
             if (!outgoing || !incoming || !outgoing.cut.transitionOut)
@@ -148,6 +157,8 @@ function buildTimelineMap(cuts, options) {
     const transitionWindows = [];
     for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
         const outgoing = resolved[outgoingIndex];
+        if (suppressedWindows.has(outgoing.cutIndex))
+            continue;
         const transition = outgoing.cut.transitionOut;
         if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
             && transition.duration > 0))

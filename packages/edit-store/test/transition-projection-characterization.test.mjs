@@ -151,8 +151,7 @@ test('60fps の 1 コマ窓を 60fps と既定 30fps で読む [変わりうる:
     ]
   });
   assert.deepEqual(comparableMap(buildTimelineMap(declarations)), {
-    windows: [{ start: 3.991666667, end: 4.008333333, duration: 0.016666667, type: 'dissolve',
-      outgoing: { in: 5.991666667, out: 6.008333333 }, incoming: { in: 1.991666667, out: 2.008333333 } }],
+    windows: [],
     totalDuration: 8,
     segments: [
       { kind: 'src', cutIndex: 0, outStart: 0, outEnd: 4.008333333, in: 2, out: 6.008333333 },

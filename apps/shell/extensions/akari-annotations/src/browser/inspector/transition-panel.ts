@@ -161,7 +161,7 @@ export function renderTransitionPanel(
                     void write({ kind: 'transition-boundary', ref: snapshot.ref,
                         value: { type: snapshot.declaration.type as import('@akari-video/edit-store').TransitionType,
                             duration: snapshot.declaration.duration,
-                            align: choice.align === 'center' ? null : choice.align } }).then(report);
+                            align: choice.align === 'center' ? null : choice.align, alignOnly: true } }).then(report);
                 };
                 buttons.append(button);
             }
@@ -175,7 +175,7 @@ export function renderTransitionPanel(
                 if (!panel.isConnected || !snapshot.declaration) return;
                 void write({ kind: 'transition-boundary', ref: snapshot.ref,
                     value: { type: snapshot.declaration.type as import('@akari-video/edit-store').TransitionType,
-                        duration: snapshot.declaration.duration, recommendAlign: true } }).then(report);
+                        duration: snapshot.declaration.duration, recommendAlign: true, alignOnly: true } }).then(report);
             };
             buttons.append(recommend);
             alignRow.value.append(buttons);

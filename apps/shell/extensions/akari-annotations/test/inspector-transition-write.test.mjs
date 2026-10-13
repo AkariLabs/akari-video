@@ -3,7 +3,8 @@ import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cutOverlapFrames, areCutsAdjacent, transitionFamilyOf,
-    planTrackTransitions, chooseTransitionAlign, isTransitionAlign, isTransitionType } from '@akari-video/edit-store';
+    planTrackTransitions, chooseTransitionAlign, isTransitionAlign, isTransitionType,
+    readInternalEdit, projectLegacyEdit, transitionPlanClipsFromCuts } from '@akari-video/edit-store';
 
 
 
@@ -20,7 +21,7 @@ const { formatTransitionSeconds, roundTransitionDurationForWrite } = await impor
 const { resolveBoundaryInDocument, validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
 const { primaryBoundaryBlock, mergeTransitionDeclaration } = await import('../lib/common/transition-boundary-model.js');
 const { transitionWriteIsBlocked } = await import('../lib/common/transition-boundary-state.js');
-const { transitionWritePlan, transitionDeclarationPatch } = await import('../lib/common/transition-write-plan.js');
+const { transitionWritePlan, transitionDeclarationPatch, transitionMaterialDuration } = await import('../lib/common/transition-write-plan.js');
 
 
 setAnnotationLanguage('ja');
@@ -189,8 +190,12 @@ const applyTransitionOut = timelineMethod('applyTransitionOut', {
     updateV2Item, cutOverlapFrames, areCutsAdjacent, formatTransitionSeconds, roundTransitionDurationForWrite,
     validateTransitionBoundaryWrite, resolveBoundaryInDocument, primaryBoundaryBlock,
     transitionDeclarationPatch, transitionWritePlan, chooseTransitionAlign,
-    transitionWriteIsBlocked,
+    transitionWriteIsBlocked, isTransitionType,
     ZERO_OVERLAP_TRANSITION_MESSAGE: () => 'zero overlap'
+});
+const transitionPlanInDocument = timelineMethod('transitionPlanInDocument', {
+    stringifyEditV2: JSON.stringify, projectLegacyEdit, transitionPlanClipsFromCuts,
+    transitionMaterialDuration, planTrackTransitions
 });
 function transitionContext(overrides = {}) {
     return {
@@ -214,6 +219,14 @@ function transitionContext(overrides = {}) {
                 { id: '1', startSeconds: 5, lengthSeconds: 5,
                     headRoomSeconds: this.cuts[1].in, tailRoomSeconds: 5 }
             ] };
+        },
+        transitionPlanInDocument(doc, boundaryRef) {
+            const items = doc.tracks[0].items;
+            const earlierIndex = items.findIndex(item => item.id === boundaryRef.earlierItemId);
+            const track = this.transitionPlanTrackFor(earlierIndex);
+            return earlierIndex < 0 ? undefined : { earlierIndex, track,
+                plans: planTrackTransitions(track.clips, { fps: this.fps }),
+                earlierTransition: !!items[earlierIndex].source.transition_out };
         },
         transitionPlans() { return { plans: planTrackTransitions(this.transitionPlanTrackFor().clips, { fps: this.fps }) }; },
         transitionReasonText: () => 'short clip',
@@ -240,7 +253,7 @@ test('applyTransitionOut は通常の保存・削除を ok:true で返す', asyn
     assert.deepEqual(await applyTransitionOut.call(context, 0, value), { ok: true });
     assert.deepEqual(context.document.tracks[0].items[0].source.transition_out, value);
     assert.deepEqual(await applyTransitionOut.call(context, 0, null), { ok: true });
-    assert.equal(Object.hasOwn(context.document.tracks[0].items[0].source, 'transition_out'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(context.document.tracks[0].items[0].source, 'transition_out'), false);
 });
 
 test('the document write path clears center, preserves extra fields, and stores recommended positions', async () => {
@@ -255,7 +268,7 @@ test('the document write path clears center, preserves extra fields, and stores 
         assert.equal((await applyTransitionOut.call(context, 0,
             { type: 'dissolve', duration: 0.5, align: null })).ok, true);
         const saved = context.document.tracks[0].items[0].source.transition_out;
-        assert.equal(Object.hasOwn(saved, 'align'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(saved, 'align'), false);
         assert.equal(saved.fill, 'future-fill');
         assert.deepEqual(saved.extra, { keep: true });
     }
@@ -265,7 +278,7 @@ test('the document write path clears center, preserves extra fields, and stores 
             { type: 'fade', duration: 0.5, align: requestedAlign })).ok, true);
         const saved = context.document.tracks[0].items[0].source.transition_out;
         assert.equal(saved.align, requestedAlign ?? undefined);
-        assert.equal(Object.hasOwn(saved, 'align'), requestedAlign !== null);
+        assert.equal(Object.prototype.hasOwnProperty.call(saved, 'align'), requestedAlign !== null);
     }
     for (const originalAlign of ['after-cut', 'future-side']) {
         const context = transitionContext();
@@ -282,6 +295,64 @@ test('the document write path clears center, preserves extra fields, and stores 
     assert.equal((await applyTransitionOut.call(recommended, 0,
         { type: 'fade', duration: 0.5, recommendAlign: true })).ok, true);
     assert.equal(recommended.document.tracks[0].items[0].source.transition_out.align, 'after-cut');
+});
+
+test('position-only writes preserve declaration length and each undo restores one choice', async () => {
+    const context = transitionContext({ tailRoom: 1,
+        cuts: [{ in: 0, out: 5 }, { in: 0.1, out: 5.1 }], history: [],
+        async commitEditMutation(_label, mutate) {
+            this.history.push(JSON.parse(JSON.stringify(this.document)));
+            this.document = mutate(this.document);
+        }
+    });
+    const source = context.document.tracks[0].items[0].source;
+    source.transition_out = { type: 'dissolve', duration: 0.5, align: 'after-cut',
+        fill: 'future-fill', extra: { keep: true } };
+    for (const [align, recommendAlign, expectedAlign] of [
+        [null, undefined, undefined], ['before-cut', undefined, 'before-cut'],
+        [undefined, true, 'after-cut']
+    ]) {
+        assert.equal((await applyTransitionOut.call(context, ref,
+            { type: 'dissolve', duration: 0.5, align, recommendAlign, alignOnly: true })).ok, true);
+        const saved = context.document.tracks[0].items[0].source.transition_out;
+        assert.equal(saved.duration, 0.5);
+        assert.equal(saved.align, expectedAlign);
+        assert.equal(saved.fill, 'future-fill');
+        assert.deepEqual(saved.extra, { keep: true });
+    }
+    for (const expectedAlign of ['before-cut', undefined, 'after-cut']) {
+        context.document = context.history.pop();
+        assert.equal(context.document.tracks[0].items[0].source.transition_out.align, expectedAlign);
+    }
+});
+
+test('a removed leading clip during material loading cannot change the chosen boundary', async () => {
+    const items = [
+        { id: 'X', at: 0, duration: 30, source: { kind: 'media', src: 'X', in: 0, out: 1 } },
+        { id: 'A', at: 30, duration: 150, source: { kind: 'media', src: 'A', in: 0, out: 5 } },
+        { id: 'B', at: 180, duration: 150, source: { kind: 'media', src: 'B', in: 0.1, out: 5.1 } },
+        { id: 'D', at: 330, duration: 150, source: { kind: 'media', src: 'D', in: 2, out: 7 } }
+    ];
+    const context = transitionContext({
+        document: { version: 2, output: { width: 320, height: 180, fps: 30 },
+            sources: ['X', 'A', 'B', 'D'].map(id => ({ id, path: `${id}.mp4` })),
+            tracks: [{ id: 'video', lane: 'visual', items }] },
+        cutItemIds: ['X', 'A', 'B', 'D'],
+        cuts: items.map(item => ({ at: item.at / 30, in: item.source.in, out: item.source.out,
+            src: item.source.src })),
+        segments: items.map((item, index) => ({ index, itemId: item.id, track: 0,
+            tlStart: item.at / 30, tlEnd: (item.at + item.duration) / 30 })),
+        videoDurationCache: new Map([['A.mp4', 6], ['B.mp4', 5.1]]),
+        cutVideoUri(cut) { return `${cut.src}.mp4`; }, isStillImageCut: () => false,
+        readEdit: readInternalEdit,
+        transitionPlanInDocument,
+        nextSameTrackSegment(index) { return this.segments[index + 1]; },
+        async waitForTransitionMaterial() { this.document.tracks[0].items.shift(); }
+    });
+    assert.equal((await applyTransitionOut.call(context,
+        { earlierItemId: 'A', laterItemId: 'B' }, { type: 'dissolve', duration: 0.5 })).ok, true);
+    assert.equal(context.document.tracks[0].items[0].id, 'A');
+    assert.equal(context.document.tracks[0].items[0].source.transition_out.align, 'after-cut');
 });
 
 test('inspector request replaces an unknown type through applyTransitionOut and preserves its extra fields', async () => {

@@ -33,7 +33,21 @@ test('unknown placement and fill are reported once per boundary; the shortened w
   assert.match(named('cuts.transition-out.unknown-align')[0].message, /sideways/u);
   assert.match(named('cuts.transition-out.unknown-fill')[0].message, /repeat/u);
   assert.match(named('cuts.transition-out.shortened')[0].message, /0\.2/u);
-  assert.match(named('cuts.transition-out.shortened')[0].message, /incoming-room/u);
+  assert.match(named('cuts.transition-out.shortened')[0].message, /素材の余りが足りない/u);
+});
+
+test('non-string placement and fill labels produce one warning without throwing', () => {
+  for (const field of ['align', 'fill']) {
+    for (const value of [{ toString: null }, 42, null, ['future'],
+      { toJSON() { assert.fail('external method was called'); } }]) {
+      const cuts = [{ at: 0, in: 0, out: 2, transition_out: {
+        type: 'dissolve', duration: 1, [field]: value
+      } }, { at: 2, in: 1, out: 3 }];
+      const findings = [];
+      assert.doesNotThrow(() => validateCuts(cuts, findings, {}, sourceIds));
+      assert.equal(findings.filter(finding => finding.check === `cuts.transition-out.unknown-${field}`).length, 1);
+    }
+  }
 });
 
 test('v2 document reports unknown hints and renders the centered unfilled projection', async () => {
