@@ -51,6 +51,7 @@ export interface DeferredLintOptions {
      * ここで例外を投げても保存は完了済みなので、呼び出し側は握りつぶして保存を維持する。
      */
     onDidWrite?: (filePath: string, content: string) => void;
+    onRecovered?: (notice: string) => void;
 }
 /** 影プロジェクトの 1 エントリをどう実体化したか。 */
 export type ShadowEntryStrategy = 'symlink' | 'copy' | 'skip';
@@ -90,8 +91,42 @@ export declare function assertLintPasses(projectRoot: string, candidates: LintCa
 export declare function setDefaultSavedByAppVersion(version: string | undefined): void;
 /** CLI の既存 edit.json 保存直後に、スタンプだけを atomic に更新する。 */
 export declare function writeSavedByStamp(projectRoot: string, appVersion: string | undefined): Promise<void>;
+export declare function projectFileHash(bytes: Buffer | Uint8Array | string): string;
+export declare class ConflictError extends Error {
+    readonly code = "AKARI_WRITE_CONFLICT";
+    readonly files: string[];
+    constructor(files: string[]);
+}
+type TransactionFile = {
+    expectedHash?: string | null;
+    next: string | null;
+};
+type TransactionHooks = {
+    now?: () => number;
+    processAlive?: (pid: number) => boolean;
+    rename?: (source: string, target: string, index: number) => Promise<void>;
+    crashAfterJournal?: boolean;
+    crashAfterFirstRename?: boolean;
+};
+export type TransactionOptions = {
+    waitTimeoutMs?: number;
+    writeUnchanged?: boolean;
+    onRecovered?: (notice: string) => void;
+    onWillWrite?: (destination: string, name: string) => void;
+    onDidWrite?: (path: string, content: string, name: string) => void | Promise<void>;
+    hooks?: TransactionHooks;
+};
+export declare function recoverInterruptedProjectWrite(projectRoot: string): Promise<string | undefined>;
+export declare function writeProjectFilesTransactional(projectRoot: string, input: {
+    files: Record<string, TransactionFile>;
+    label: string;
+}, options?: TransactionOptions): Promise<{
+    written: string[];
+    recovered?: string;
+}>;
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 export declare function writeProjectFilesGuarded(projectRoot: string, candidates: LintCandidates, options?: DeferredLintOptions): Promise<void>;
+export declare function captureProjectLintBaseline(projectRoot: string): Promise<void>;
 /** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */
 export declare function assertNoCamelCaseTransitionOut(content: string): void;
 /**
@@ -107,7 +142,7 @@ export declare function scheduleProjectLint(projectRoot: string, options?: Defer
  * 基準が無い（初回・lint.json 不在）ときは従来どおり全部を今回の保存の指摘として返す。
  */
 export declare function markPreexistingLintFindings(result: EditLintGateResult, baseline: readonly EditLintFinding[] | undefined): EditLintGateResult;
-export declare function writeAtomic(destination: string, content: string): Promise<void>;
+export declare function writeAtomic(destination: string, content: string, rename?: (source: string, target: string) => Promise<void>): Promise<void>;
 /**
  * edit-lint をプロセス内実行する。inputOverrides は候補全文のメモリ差し替え。
  * writeReports=false は保存前候補検査用で実プロジェクトへレポートを書かない。
@@ -117,3 +152,4 @@ export declare function runEditLint(projectRoot: string, inputOverrides?: LintCa
 export declare function findEditLintModulePath(): string;
 /** 既存の複数候補探索を維持する。 */
 export declare function findEditLintBinPath(): string;
+export {};

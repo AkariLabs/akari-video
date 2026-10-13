@@ -146,7 +146,8 @@ function lookForCaptionRow(row, defaultStyle, styleLook, options) {
         }
     }
     if (textStyle.layout !== undefined && textStyle.reference_height_px !== undefined) {
-        return { notices: [], reason: 'layout と reference_height_px を同時に指定できません' };
+        return { notices: [], reason: 'layout と reference_height_px を同時に指定できません',
+            reasonCode: 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT' };
     }
     return { text_style: textStyle, notices: [] };
 }
