@@ -29,7 +29,7 @@ function method(name) {
  const rest = source.slice(start); return rest.slice(0, rest.indexOf('\n    }') + 6);
 }
 const Widget = new Function('edit_v2_mutations_1', 'material_replacement_1', 'timeline_empty_state_1', 'PLAYHEAD_FOLLOW_THRESHOLD', 'swap_trial_playback_1', 'material_trial_window_1', `return class {
- ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
+ ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','releaseTransitionBoundaryForOtherSelection','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
 }`)(mutations, replacement, { relativeTimelineMaterialPath: (_base, path) => path.replace('/project/', '') }, 0.8, playback, trialWindow);
 function fixture(at = 30, mediaKind = 'audio') {
  const visual=mediaKind!=='audio';
@@ -40,7 +40,7 @@ function fixture(at = 30, mediaKind = 'audio') {
  const trial = new MaterialTrialHistory();
  const uri = { toString: () => 'file:///project/edit.json', parent: { path: { toString: () => '/project' } } };
  const w = Object.assign(new Widget(), {
- id: 'test', materialSwapTokenSequence: 0, fps: 30, materialSwapGeneration: 0, materialSwapTail: Promise.resolve(), editMutationTail: Promise.resolve(),
+ id: 'test', materialSwapTokenSequence: 0, fps: 30, materialSwapGeneration: 0, materialSwapTail: Promise.resolve(), editMutationTail: Promise.resolve(), activeBoundary: undefined,
  materialSwap: { target: { itemId: 'item', kind: visual?'visual':'audio', currentRelativePath: path }, editUri: uri.toString() },
  location: { editUri: uri, root: { toString: () => 'file:///project', resolve: path => ({ toString: () => `file:///project/${path}`, path: { toString: () => `/project/${path}` } }) } },
  editDocument: JSON.parse(disk), fileService: { readFile: async () => ({ value: disk }) },
