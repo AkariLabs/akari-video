@@ -1384,6 +1384,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly transitionDirections = new Map<TransitionFamily, TransitionDirection>();
     protected transitionPicker: TransitionPicker | undefined;
     protected transitionFillAsk: TransitionFillAsk | undefined;
+    protected transitionWriteGeneration = 0;
     /**
      * 表示専用のトラック一覧（R7-3・読み込み時の重なり自動配置）。this.timelineTracks（実体・
      * 書き込み経路の基準）に、重なりを解消するための「表示上」追加トラック行を足したもの。
@@ -4867,7 +4868,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const itemDuration = rawKeyframe?.duration ?? 0;
             const itemFrame = keyframeWrite ? Math.max(0, Math.min(itemDuration,
                 Math.round(((this.playheadT ?? itemStart) - itemStart) * this.fps))) : 0;
-            const beforeFreeze = request.kind === 'cut-speed'
+            const trackFreezeGrowth = request.kind === 'cut-speed'
+                || request.kind === 'cut-source-in' || request.kind === 'cut-source-out';
+            const beforeFreeze = trackFreezeGrowth
                 ? transitionFreezeSnapshot(this.transitionPlans().plans, this.cutItemIds) : [];
             await this.commitEditMutation(label, doc => keyframeField && numericValue !== undefined
                 ? writeV2ItemTransformAt(doc, { itemId, t: itemFrame, patch: { [keyframeField]: numericValue } })
@@ -4903,7 +4906,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showNotice(t('annotations.timeline.text.textChangedThePreviewIsStillTheFired'));
             }
             this.footer.textContent = label === t('annotations.timeline.text.eraseTheBackground') ? t('annotations.timeline.text.iDeletedTheBackground') : t('annotations.timeline.text.iDid', { action: label });
-            const grown = request.kind === 'cut-speed'
+            const grown = trackFreezeGrowth
                 ? transitionFreezeGrowth(beforeFreeze, this.transitionPlans().plans, this.cutItemIds)
                     .map(entry => t('transition.fill.notice.grown',
                         { from: entry.from, to: entry.to, seconds: entry.seconds })) : [];
@@ -13062,7 +13065,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             fps: this.fps, blocked: boundary.blocks.length > 0, legacyOverlap: placement?.legacyOverlap }) : false;
         const recommendedAlign = declaration && track && cutOverlapFrames(earlier, later, this.fps) === 0
             ? chooseTransitionAlign(track.clips, String(earlier.index), declaration.duration,
-                { fps: this.fps, allowFill: false })?.align : undefined;
+                { fps: this.fps, tailRoom: 'ignore', allowFill: false })?.align : undefined;
         const name = (index: number): string => {
             const itemName = this.rawKeyframeItem(this.cutItemIds[index])?.name;
             return typeof itemName === 'string' && itemName.trim()
@@ -13245,6 +13248,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         next: { type: string; duration: number; align?: TransitionAlign | null;
             recommendAlign?: true; alignOnly?: true; fillOnly?: true } | null
     ): Promise<{ ok: boolean; message?: string }> {
+        const generation = this.transitionWriteGeneration = (this.transitionWriteGeneration || 0) + 1;
         const cutIndex = typeof cutIndexOrRef === 'number' ? cutIndexOrRef
             : this.cutItemIds.indexOf(cutIndexOrRef.earlierItemId);
         const nextSegment = this.nextSameTrackSegment(cutIndex);
@@ -13257,6 +13261,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return { ok: false, message: t('annotations.timeline.text.unableToLocateProject') };
         }
         this.transitionFillAsk?.close();
+        const projectUri = location.editUri.toString();
+        const current = (): boolean => this.transitionWriteGeneration === generation && !this.isDisposed
+            && this.location?.editUri?.toString() === projectUri;
+        const startingDeclaration = this.rawV2Item(ref.earlierItemId)?.source?.transition_out;
+        const startedKind = !next ? 'remove' : next.fillOnly ? 'fill'
+            : !startingDeclaration ? 'attach'
+                : next.duration === startingDeclaration.duration && next.align === undefined
+                    && !next.recommendAlign && !next.alignOnly ? 'retype' : 'change';
         const validation = validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs(), this.fps,
             this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
         if (!validation.pairExists || transitionWriteIsBlocked(next, validation.blocks)) {
@@ -13275,6 +13287,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         let writeKind: 'attach' | 'fill' | 'retype' | 'change' | undefined;
         if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
             await this.waitForTransitionMaterial(earlier.index);
+            if (!current()) return { ok: false };
         }
         let confirmed: TransitionFillFacts | undefined;
         let confirmedKind: 'attach' | 'fill' | undefined;
@@ -13289,6 +13302,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 fps: this.fps, blocked: validation.blocks.length > 0,
                 legacyOverlap: initial.plans.some(plan => plan.earlierId === String(initial.earlierIndex)
                     && plan.legacyOverlap) }) : undefined;
+            if (decision && decision.kind !== 'none' && decision.kind !== startedKind) {
+                const message = t('transition.fill.notice.changed');
+                this.footer.textContent = message;
+                this.showNotice(message);
+                return { ok: false, message };
+            }
             if (decision?.kind === 'none' && next.fillOnly) return { ok: false };
             if (decision && (decision.kind === 'attach' || decision.kind === 'fill') && decision.confirmation) {
                 confirmed = decision.confirmation;
@@ -13308,11 +13327,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     to: (later?.index ?? cutIndex + 1) + 1,
                     outgoing: confirmed.freezeOutgoingSeconds.toFixed(2),
                     incoming: confirmed.freezeIncomingSeconds.toFixed(2) });
+                if (!current()) return { ok: false };
+                this.transitionFillAsk?.close();
                 const ask = createTransitionFillAsk({ anchor: () => this.transitionBoundaryElement(ref),
                     body, action: decision.kind, captionConflict: this.hasCaptionDisplayPolicy });
                 this.transitionFillAsk = ask;
                 const approved = await ask.result;
                 if (this.transitionFillAsk === ask) this.transitionFillAsk = undefined;
+                if (!current()) return { ok: false };
                 if (!approved) {
                     const message = t(decision.kind === 'attach' ? 'transition.fill.notice.cancelled'
                         : 'transition.fill.notice.fillCancelled');
@@ -13328,6 +13350,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         let changedDuringConfirmation = false;
         try {
             await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => {
+                if (!current()) { changedDuringConfirmation = true; throw rejected; }
                 const boundary = resolveBoundaryInDocument(doc, ref, new Set(this.timelineLockedTrackIds()));
                 if (!boundary.pairExists || transitionWriteIsBlocked(next, boundary.blocks)) {
                     writeBlocks = boundary.blocks;
@@ -13364,6 +13387,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             duration: Number(existing.duration), fill: null } };
                     }
                     if (decision.kind === 'none') {
+                        changedDuringConfirmation = true;
+                        throw rejected;
+                    }
+                    if (decision.kind !== startedKind || ((decision.kind === 'attach' || decision.kind === 'fill')
+                        && decision.confirmation && !confirmed)) {
                         changedDuringConfirmation = true;
                         throw rejected;
                     }

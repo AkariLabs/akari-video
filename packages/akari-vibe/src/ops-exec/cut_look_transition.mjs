@@ -56,7 +56,8 @@ export default { id: 'cut_look_transition', apply(env, d) {
         const existing = item.source.transition_out;
         const duration = d.cutLookTransitionSeconds ?? existing?.duration ?? 0.5;
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('つなぎの秒数が正でない');
-        const typeOnly = !!existing && d.align === undefined && d.allow_freeze !== true
+        const typeOnly = !!existing && d.transition_type !== existing.type
+            && d.align === undefined
             && (d.cutLookTransitionSeconds === undefined || d.cutLookTransitionSeconds === existing.duration);
 
         const cuts = legacy.cuts.map((cut, index) => ({ ...cut,
@@ -91,20 +92,12 @@ export default { id: 'cut_look_transition', apply(env, d) {
             needsFill = choice.needsFill;
         } else {
             align = d.align ?? editStore.readTransitionAlign(existing?.align);
-            if (d.align !== undefined || d.allow_freeze === true) {
-                const plain = plannedAt(track.clips, earlierId, duration, align, false, fps);
-                const filled = plannedAt(track.clips, earlierId, duration, align, true, fps);
-                needsFill = (filled.plan?.effectiveSeconds ?? 0) - (plain.plan?.effectiveSeconds ?? 0)
-                    >= 1 / fps - EPSILON;
-                ({ plan } = needsFill ? filled : plain);
-                changes = neighborChanges(before, (needsFill ? filled : plain).plans, earlierId);
-            } else {
-                const currentClips = track.clips.map(clip => clip.id === earlierId ? { ...clip,
-                    transitionOut: { declaredSeconds: duration, align, fill: existing?.fill === 'freeze' } } : clip);
-                const current = { plan: editStore.planTrackTransitions(currentClips,
-                    { fps, tailRoom: 'ignore' }).find(entry => entry.earlierId === earlierId) };
-                ({ plan } = current);
-            }
+            const plain = plannedAt(track.clips, earlierId, duration, align, false, fps);
+            const filled = plannedAt(track.clips, earlierId, duration, align, true, fps);
+            needsFill = (filled.plan?.effectiveSeconds ?? 0) - (plain.plan?.effectiveSeconds ?? 0)
+                >= 1 / fps - EPSILON;
+            ({ plan } = needsFill ? filled : plain);
+            changes = neighborChanges(before, (needsFill ? filled : plain).plans, earlierId);
         }
         if (!plan || plan.state === 'none') {
             const structural = plannedAt(track.clips, earlierId, duration, align, true, fps).plan;

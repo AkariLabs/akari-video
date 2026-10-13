@@ -157,27 +157,39 @@ test('local apply returns the executor result and keeps each target result in or
   assert.deepEqual(multiple.opResult.map(result => result.reason), ['needs-freeze', 'needs-freeze']);
 });
 
-test('existing length change survives a material-only zero window', () => {
+test('existing length change at a zero window needs freeze permission', () => {
   const env = environment('fade');
   env.edit.tracks[0].items[1].source.in = 0;
   env.source = JSON.stringify(env.edit);
   const result = transitionOp.apply(env, { op: 'cut_look_transition', target: 'item_first',
     transition_type: 'fade', cutLookTransitionSeconds: 0.8 });
-  assert.equal(result, undefined);
-  assert.equal(env.edit.tracks[0].items[0].source.transition_out.duration, 0.8);
+  assert.equal(result.applied, false);
+  assert.equal(result.reason, 'needs-freeze');
+  assert.equal(env.edit.tracks[0].items[0].source.transition_out.duration, 0.5);
 });
 
 test('length change keeps the position and adds fill only when allowed', () => {
   const env = environment('fade');
   env.edit.tracks[0].items[1].source.in = 0.2;
+  env.edit.tracks[0].items[1].source.out = 2.2;
   const request = { op: 'cut_look_transition', target: 'item_first', transition_type: 'fade',
     cutLookTransitionSeconds: 1 };
-  assert.equal(transitionOp.apply(env, request), undefined);
+  const before = JSON.stringify(env.edit);
+  const refused = transitionOp.apply(env, request);
+  assert.equal(refused.applied, false);
+  assert.equal(refused.reason, 'needs-freeze');
+  assert.equal(JSON.stringify(env.edit), before);
+  assert.equal(env.edit.tracks[0].items[0].source.transition_out.duration, 0.5);
+  assert.equal(transitionOp.apply(env, { ...request, cutLookTransitionSeconds: 0.2 }), undefined);
   assert.deepEqual(env.edit.tracks[0].items[0].source.transition_out,
-    { type: 'fade', duration: 1, align: 'before-cut' });
+    { type: 'fade', duration: 0.2, align: 'before-cut' });
   assert.equal(transitionOp.apply(env, { ...request, allow_freeze: true }), undefined);
   assert.deepEqual(env.edit.tracks[0].items[0].source.transition_out,
     { type: 'fade', duration: 1, align: 'before-cut', fill: 'freeze' });
+  assert.equal(transitionOp.apply(env, { op: 'cut_look_transition', target: 'item_first',
+    transition_type: 'dissolve' }), undefined);
+  assert.deepEqual(env.edit.tracks[0].items[0].source.transition_out,
+    { type: 'dissolve', duration: 1, align: 'before-cut', fill: 'freeze' });
 });
 
 test('caption display policy conflict is returned only for an effective transition', () => {

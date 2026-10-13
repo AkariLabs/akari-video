@@ -8,12 +8,22 @@ import test from 'node:test';
 import { AUDIO_SEEK_PREROLL_SECONDS, buildGapAwareMultiSourceAudioCutCommand,
   buildMultiSourceAudioCutCommand, buildPlan, predictedDuration } from '../src/plan.mjs';
 import { segmentDuration } from '../src/cut-timeline.mjs';
+import { appendFreezeAwareRelativeAudioTrim } from '../src/cut-freeze.mjs';
 import { readRenderEdit } from '../src/internal-render.mjs';
 import { unsplitFixture } from '../../edit-store/test/helpers/cut-audio-supply.mjs';
 
 const cases = JSON.parse(fs.readFileSync(new URL('../../edit-store/test/transition-plan-cases.json',
   import.meta.url), 'utf8')).hold;
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
+
+test('ordinary audio trim retains its exact filter string', () => {
+  const filters = [];
+  appendFreezeAwareRelativeAudioTrim({ filters, inputLabel: '[0:a]', outputLabel: '[a0]',
+    sourceIn: 0, sourceOut: 5, speed: 1, id: 'ordinary', padToSeconds: 5 });
+  assert.deepEqual(filters, [
+    '[0:a]atrim=start=0:end=5,asetpts=PTS-STARTPTS,apad=whole_dur=5[a0]'
+  ]);
+});
 
 function projectedCuts(example) {
   return example.expected.projected.map((projection, index) => {
@@ -112,7 +122,7 @@ for (const example of cases) {
       if (hold > 0) {
         assert.ok(silence, `missing hold silence for ${index}`);
         close(Number(silence[1]), hold);
-        assert.match(graph, new RegExp(`\\[lha_v1_${index}_silence\\]\\[lha_v1_${index}_real\\]concat=n=2:v=0:a=1\\[a${index}\\]`));
+        assert.match(graph, new RegExp(`\\[lha_v1_${index}_silence\\]\\[lha_v1_${index}_capped\\]concat=n=2:v=0:a=1\\[a${index}\\]`));
       } else {
         assert.equal(silence, null);
       }
@@ -145,6 +155,8 @@ test('a 0.8 second hold gives five and six second inputs, a one second fade, and
   const graph = graphOf(commandFor(cuts));
   assert.match(graph, /apad=whole_dur=5\[a0\]/);
   assert.match(graph, /apad=whole_dur=5\.2\[lha_v1_1_real\]/);
+  assert.match(graph, /\[lha_v1_1_real\]atrim=duration=5\.2,asetpts=PTS-STARTPTS\[lha_v1_1_capped\]/);
+  assert.match(graph, /\[lha_v1_1_silence\]\[lha_v1_1_capped\]concat=n=2:v=0:a=1\[a1\]/);
   assert.match(graph, /atrim=duration=0\.8,asetpts=PTS-STARTPTS\[lha_v1_1_silence\]/);
   assert.match(graph, /acrossfade=d=1\[joineda\]/);
   close(5 + (5.2 + 0.8) - 1, 10);
@@ -187,6 +199,7 @@ test('buildPlan keeps ordinary cuts on the sequential route without hold labels'
   const graph = graphOf(plan.commands.cut_audio);
   assert.match(graph, /acrossfade=d=1/);
   assert.doesNotMatch(graph, /lha_|adelay|amix/);
+  assert.doesNotMatch(graph, /_capped|atrim=duration=5\.2/);
 });
 
 test('chunking keeps a held B with A and concatenates C to twelve seconds', () => {

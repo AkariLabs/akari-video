@@ -46,7 +46,7 @@
   "transition.picker.action.details": "詳しく設定",
   "transition.picker.hint.defaultDuration": "選ぶと 0.5 秒で付きます",
   "transition.picker.notice.selectBoundaryFirst": "先にタイムラインの境目を選んでください",
-  "transition.picker.notice.applied": "C{from} と C{to} の境目に『{name}』を付けました",
+  "transition.picker.notice.applied": "C{from} と C{to} の境目に『{name}』を付けました。",
   "transition.picker.boundary.pair": "C{from} と C{to} の境目",
   "transition.picker.boundary.declared": "{name} {duration} 秒",
   "transition.picker.boundary.empty": "トランジションなし",

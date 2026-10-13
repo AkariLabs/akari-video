@@ -111,13 +111,17 @@ export function appendFreezeAwareRelativeAudioTrim({
 }) {
   if (leadSilenceSeconds > 0) {
     const real = `[lha_${options.id}_real]`;
+    const capped = `[lha_${options.id}_capped]`;
     const silence = `[lha_${options.id}_silence]`;
     appendFreezeAwareRelativeAudioTrim({
       sourceIn, sourceOut, preroll, filters, inputLabel, outputLabel: real,
       atempoSuffix, normalize, padToSeconds, ...options,
     });
+    if (padToSeconds !== undefined) {
+      filters.push(`${real}atrim=duration=${formatNumber(padToSeconds)},asetpts=PTS-STARTPTS${capped}`);
+    }
     filters.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(leadSilenceSeconds)},asetpts=PTS-STARTPTS${silence}`);
-    filters.push(`${silence}${real}concat=n=2:v=0:a=1${outputLabel}`);
+    filters.push(`${silence}${padToSeconds === undefined ? real : capped}concat=n=2:v=0:a=1${outputLabel}`);
     return;
   }
   if (!Number.isFinite(sourceOut)) {

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { planTrackTransitions } from '@akari-video/edit-store';
+import { t, setLanguage } from '@akari-video/i18n';
 import { transitionFreezeSnapshot, transitionFreezeGrowth } from '../lib/common/transition-freeze-growth.js';
 
 const ids = ['a', 'b', 'c'];
@@ -46,4 +49,22 @@ test('growth follows the same item pair when clip indices change', () => {
   const after = [plan(1, 2, 0.2, 0)];
   assert.deepEqual(transitionFreezeGrowth(previous, after, ['x', 'a', 'b']),
     [{ from: 2, to: 3, seconds: '0.20' }]);
+});
+
+test('changing incoming source in from 0.2 to zero reports one larger frozen boundary', () => {
+  const clips = incomingIn => [
+    { id: '0', startSeconds: 0, lengthSeconds: 5, headRoomSeconds: 0, tailRoomSeconds: 0,
+      transitionOut: { declaredSeconds: 0.5, align: 'center', fill: true } },
+    { id: '1', startSeconds: 5, lengthSeconds: 5, headRoomSeconds: incomingIn, tailRoomSeconds: 0 }
+  ];
+  const before = planTrackTransitions(clips(0.2), { fps: 30, tailRoom: 'ignore' });
+  const after = planTrackTransitions(clips(0), { fps: 30, tailRoom: 'ignore' });
+  const growth = transitionFreezeGrowth(transitionFreezeSnapshot(before, ['a', 'b']), after, ['a', 'b']);
+  assert.equal(growth.length, 1);
+  setLanguage('ja');
+  try {
+    assert.match(t('transition.fill.notice.grown', growth[0]), /止め絵が .* 秒になりました/u);
+  } finally { setLanguage(undefined); }
+  const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  assert.match(widget, /trackFreezeGrowth = request\.kind === 'cut-speed'\s+\|\| request\.kind === 'cut-source-in' \|\| request\.kind === 'cut-source-out'/u);
 });

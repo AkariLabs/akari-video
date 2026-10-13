@@ -17,6 +17,7 @@ export function createTransitionFillAsk(options: {
 }): TransitionFillAsk {
     const element = document.createElement('div');
     element.className = 'akari-transition-fill-ask';
+    element.tabIndex = -1;
     element.setAttribute('role', 'alertdialog');
     const id = `akari-transition-fill-ask-${Math.random().toString(36).slice(2)}`;
     element.setAttribute('aria-labelledby', `${id}-title`);
@@ -73,9 +74,13 @@ export function createTransitionFillAsk(options: {
     const keydown = (event: KeyboardEvent): void => {
         const action = transitionAskKey(event.key);
         event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+        if (event.repeat) return;
         if (action === 'cancel') close();
         else if (action === 'cycle') (document.activeElement === confirm ? cancel : confirm).focus();
-        else if (action === 'press') (document.activeElement === cancel ? cancel : confirm).click();
+        else if (action === 'press') {
+            if (document.activeElement === cancel) cancel.click();
+            else if (document.activeElement === confirm) confirm.click();
+        }
     };
     const blurred = (): void => close();
     const follow = (): void => {
@@ -119,6 +124,11 @@ export function createTransitionFillAsk(options: {
     };
     cancel.addEventListener('click', () => close());
     confirm.addEventListener('click', () => close(true));
+    element.addEventListener('pointerdown', event => {
+        if (!cancel.contains(event.target as Node) && !confirm.contains(event.target as Node)) {
+            element.focus({ preventScroll: true });
+        }
+    });
     document.body.append(element);
     document.addEventListener('pointerdown', outside, true);
     window.addEventListener('keydown', keydown, true);
