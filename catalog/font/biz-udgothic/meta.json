@@ -5,6 +5,16 @@
   "aliases": ["BIZ UDGothic","BIZUDGothic-Regular"],
   "description": "UD（ユニバーサルデザイン）系の日本語ゴシック体。読み間違えにくさを目的に設計されており、ニュース・報道・情報系字幕の定番トーン。 実体（Regular・Bold の 2 ウェイト）は本リポの assets/font/biz-udgothic/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "ニュース・報道・解説の字幕/テロップ。可読性最優先のシーン",
+  "i18n": {
+    "en": {
+      "title": "BIZ UDGothic",
+      "description": "A Japanese universal-design sans serif built to reduce misreading, with a standard tone for news, reporting, and informational subtitles. Regular and Bold files are bundled in assets/font/biz-udgothic/ (added 2026-08-03). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For news, reporting, and explanatory subtitles or captions where readability comes first.",
+      "aliases": [
+        "BIZUDGothic-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

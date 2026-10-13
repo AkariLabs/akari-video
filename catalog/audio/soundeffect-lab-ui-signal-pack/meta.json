@@ -4,6 +4,13 @@
   "title": "効果音ラボ UI・決定音・警告音パック",
   "description": "決定ボタン確定音（バリエーション12種）・クイズ正誤判定・クリック・警告音・チーン・不安を煽る鐘など、UI操作と場面の合図に使う短尺SE 22点セット。（収録数: 22点）※チーン1の配布元公式説明は「がっかりした時の演出に」（2026-07-31 に /sound/anime/ で実確認）。やらかし/がっかりの記号であり、旧記述「終了/決定」は誤りだった 【audio-standard】部分参加 20/21 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
   "when_to_use": "ボタン確定・クイズの正誤判定・操作クリック・警告通知に使う。チーン1はやらかし・がっかり演出専用（完了/決定の合図として使わない）",
+  "i18n": {
+    "en": {
+      "title": "Sound Effect Lab UI, Confirmation and Warning SFX Pack",
+      "description": "A 22-item set of 12 confirmation-button variants, quiz right/wrong cues, clicks, warnings, a chime, and an anxiety-building bell for UI operations and scene signals. Includes 22 items. The distributor describes Chime 1 as an effect for disappointment, verified at /sound/anime/ on 2026-07-31; it signals a mishap or letdown, and the old description as an end or confirmation cue was incorrect. Under audio-standard, 20 of 21 sounds participate; the local index.jsonl standard flag identifies them, and sfx-curation.json in the internal repository is authoritative.",
+      "when_to_use": "For button confirmation, quiz judgments, clicks, and warnings. Use Chime 1 only for mishaps or disappointment, never as a completion or confirmation cue."
+    }
+  },
   "tags": [
     "sfx",
     "ui",

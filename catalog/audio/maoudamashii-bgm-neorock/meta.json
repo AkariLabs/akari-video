@@ -4,6 +4,13 @@
   "title": "魔王魂 ネオロック（Burn_Place / Speed_King / Desert_journey）",
   "description": "対決・闘志の演出に使える激しめロック BGM 3 点。（収録数: 3点）",
   "when_to_use": "相手と戦う・闘志を燃やす・速いテンポで畳み掛ける場面",
+  "i18n": {
+    "en": {
+      "title": "Maoudamashii Neo Rock (Burn_Place / Speed_King / Desert_journey)",
+      "description": "Three intense rock background tracks for confrontation and fighting spirit. Includes 3 items.",
+      "when_to_use": "For fighting an opponent, building resolve, or driving through a fast-paced sequence."
+    }
+  },
   "tags": [
     "bgm",
     "rock",

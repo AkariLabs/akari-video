@@ -4,6 +4,23 @@
   "title": "スマホモックアップ（画面差し込み・ベイクレシピ）",
   "description": "現代的な縁なしスクリーンのスマートフォン実機モデルの画面に、任意の静止画/動画（UI キャプチャ・アプリ画面等）を差し込んでヒーローショットに焼き込むベイクレシピ。media 型ツマミ（screen_src）でスクリーンの中身だけを差し替え、ボディ形状・質感は改変しない",
   "when_to_use": "アプリ紹介・UI 解説・プロダクトデモの冒頭カットで、実機に自社アプリ画面を映し込んだ説得力のあるモックアップ映像が要るとき。静止画のスクリーンショットでも短尺動画キャプチャでも同じレシピで焼ける",
+  "i18n": {
+    "en": {
+      "title": "Smartphone Screen Mockup (Bake Recipe)",
+      "description": "A bake recipe that inserts any still or video, such as a UI capture or app screen, into the display of a modern edge-to-edge smartphone model and renders a hero shot. The media knob screen_src replaces only the screen content; body shape and materials stay intact.",
+      "when_to_use": "For a convincing opening mockup in app introductions, UI explainers, or product demos, showing your app on a real-device-style model. The same recipe bakes either a still screenshot or a short screen recording.",
+      "knobs": {
+        "screen_src": "Still images/videos displayed on screen",
+        "screen_brightness": "Screen brightness (emission intensity)",
+        "orbit_start_deg": "Orbit start angle",
+        "orbit_sweep_deg": "Orbit sweep",
+        "camera_elevation_deg": "High-angle tilt",
+        "camera_distance": "Push-in/pull-out (automatic framing ratio)",
+        "hdri_rotation_deg": "Ambient light direction",
+        "exposure": "Exposure (ambient light intensity)"
+      }
+    }
+  },
   "tags": ["bake-recipe", "product-demo", "smartphone", "mockup", "screen-insert", "ui", "hero-shot", "media-knob", "16:9"],
   "knobs": [
     { "param": "screen_src", "type": "media", "group": "content", "label": "画面に映す静止画/動画" },

@@ -5,6 +5,16 @@
   "aliases": ["RocknRoll One","RocknRollOne-Regular"],
   "description": "Fontworks が Google Fonts に開放したポップなラウンドディスプレイゴシック。太く勢いのある骨格で、動画テロップのツッコミ・元気系見出しの定番。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ・2026-08-05 オーナー裁定でカタログ参照)。",
   "when_to_use": "バラエティ・エンタメ系のツッコミテロップや、勢いを出したい見出しに",
+  "i18n": {
+    "en": {
+      "title": "RocknRoll One",
+      "description": "A lively rounded display sans serif released by Fontworks on Google Fonts. Its bold, energetic forms are a staple for reaction captions and upbeat headlines. OFL-1.1 permits bundling the font later; currently it remains a reference-only catalog entry under the 2026-08-05 owner decision.",
+      "when_to_use": "For variety and entertainment reaction captions or headlines that need energy.",
+      "aliases": [
+        "RocknRollOne-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

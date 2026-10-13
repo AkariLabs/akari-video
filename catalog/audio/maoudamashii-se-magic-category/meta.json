@@ -4,6 +4,13 @@
   "title": "魔王魂 マジカル27（ロゴ・ノイズ演出音）",
   "description": "ピピピッと短く走る電子音 1 点。（収録数: 1点）",
   "when_to_use": "IT・ガジェット系の演出。動画冒頭のロゴがノイズ混じりに出る場面",
+  "i18n": {
+    "en": {
+      "title": "Maoudamashii Magical 27 (Logo and Noise SFX)",
+      "description": "One short, rapidly pulsing electronic beep effect. Includes 1 item.",
+      "when_to_use": "For IT or gadget effects, especially a video-opening logo appearing with noise."
+    }
+  },
   "tags": [
     "sfx",
     "digital",

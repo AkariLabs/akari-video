@@ -5,6 +5,16 @@
   "aliases": ["わんぱくルイカ","Wanpaku Ruika"],
   "description": "タイプラボの元気でくっきりしたポップゴシック。無料お試し版は清音かな + 教育漢字 1,026 字のみ収録（フル版は有料）。商用可・メアド登録制。再配布不可のため参照配布のみ。",
   "when_to_use": "子ども向け・元気・わんぱくなポップテロップに（漢字は教育漢字の範囲で）",
+  "i18n": {
+    "en": {
+      "title": "Wanpaku Ruika (Free Trial)",
+      "description": "An energetic, crisp pop sans serif by Type-Labo. The free trial includes only unvoiced kana and 1,026 educational kanji; the full version is paid. Commercial use is allowed with email registration. Redistribution is prohibited, so this is a reference-only listing.",
+      "when_to_use": "For energetic, playful pop captions for children, within the educational-kanji range.",
+      "aliases": [
+        "Wanpaku Ruika"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

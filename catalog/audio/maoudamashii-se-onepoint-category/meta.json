@@ -4,6 +4,13 @@
   "title": "魔王魂 ワンポイント（不吉 / ふざけた失敗 / ダメ出し）",
   "description": "不協和音・コミカルな失敗音・ブッブーというダメ出し音の 3 点。（収録数: 3点）",
   "when_to_use": "不吉な予兆（29）、ふざけた失敗・ツッコミ（31）、ダメ出し・NG 提示（33）",
+  "i18n": {
+    "en": {
+      "title": "Maoudamashii One-Point SFX (Ominous / Comic Failure / Rejection)",
+      "description": "Three effects: dissonance, a comic failure sound, and a buzzer-like rejection. Includes 3 items.",
+      "when_to_use": "For an ominous sign (29), a silly failure or retort (31), and a rejection or wrong-answer cue (33)."
+    }
+  },
   "tags": [
     "sfx",
     "fail",

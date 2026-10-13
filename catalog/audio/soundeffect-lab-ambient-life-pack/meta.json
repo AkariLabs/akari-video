@@ -4,6 +4,13 @@
   "title": "効果音ラボ 和楽器・観客・生活音パック",
   "description": "和太鼓・拍子木・木魚・小鼓などの和楽器演出音、歓声と拍手・掛け声などの観客リアクション、レジ精算・波音などの生活/環境音を集めた13点セット。（収録数: 13点）",
   "when_to_use": "和風演出（和太鼓・拍子木・木魚）を入れたい・観客の歓声/拍手リアクションを足したい・レジ精算や波音などの生活描写の背景音が欲しいとき",
+  "i18n": {
+    "en": {
+      "title": "Sound Effect Lab Japanese Instruments, Audience and Daily Life Pack",
+      "description": "A 13-item set of Japanese instrument effects (taiko, clappers, wooden fish, and small hand drum), audience reactions (cheers, applause, and calls), and daily or ambient sounds (cash register and waves). Includes 13 items.",
+      "when_to_use": "For Japanese-style instrument cues, audience cheers or applause, and background sounds of daily life such as checkout or waves."
+    }
+  },
   "tags": [
     "sfx",
     "traditional-instrument",

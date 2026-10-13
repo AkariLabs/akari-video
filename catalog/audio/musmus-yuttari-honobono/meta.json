@@ -4,6 +4,13 @@
   "title": "MusMus ゆったり（ひとやすみ / ノスタルジア / 夢の跡の僕ら）",
   "description": "ローテンポで落ち着いた敷き BGM 3 点。（収録数: 3点）",
   "when_to_use": "ゆるい場面の敷き・哀愁のある夜・ひとやすみの間",
+  "i18n": {
+    "en": {
+      "title": "MusMus Relaxed BGM (Hitoyasumi / Nostalgia / Yume no Ato no Bokura)",
+      "description": "Three low-tempo, calm background tracks. Includes 3 items.",
+      "when_to_use": "For easygoing background scenes, wistful nights, and moments of rest."
+    }
+  },
   "tags": [
     "bgm",
     "calm",

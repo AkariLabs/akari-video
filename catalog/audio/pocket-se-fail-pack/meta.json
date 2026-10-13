@@ -4,6 +4,13 @@
   "title": "ポケットサウンド 失敗系SE（呆れチーン / 死亡音 / デデーン）",
   "description": "やらかし・失敗の定番 3 点。呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。（収録数: 3点） 【audio-standard】部分参加 1/3 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
   "when_to_use": "ずっこけ・ツッコミ（chin）、撃沈・退場（deathse）、「〇〇アウト！」の失敗提示（deden）",
+  "i18n": {
+    "en": {
+      "title": "Pocket Sound Failure SFX (Disappointed Chime / Death / Dramatic Fail)",
+      "description": "Three standard mishap or failure cues: a disappointed chime, a game-death sound, and a dramatic failure sting. Includes 3 items. Under audio-standard, 1 of 3 sounds participates; the local index.jsonl standard flag identifies it, and sfx-curation.json in the internal repository is authoritative.",
+      "when_to_use": "For pratfalls or comic retorts (chin), defeat or exit (deathse), and an out or failure verdict (deden)."
+    }
+  },
   "tags": [
     "sfx",
     "fail",

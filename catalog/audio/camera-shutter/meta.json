@@ -4,6 +4,13 @@
   "title": "カメラシャッター SFX",
   "description": "一眼レフ実機（Canon T2i）のシャッター音。写真の切り替えや決定的瞬間の演出に使える短尺 SFX。尺 0.3秒",
   "when_to_use": "写真ギャラリー/スライドショーのカット送り、Before/After 比較、決定的瞬間を強調する演出",
+  "i18n": {
+    "en": {
+      "title": "Camera Shutter SFX",
+      "description": "The shutter of a real Canon T2i DSLR. A short 0.3-second effect for switching photos or marking a decisive moment.",
+      "when_to_use": "For advancing photos in galleries or slideshows, before/after comparisons, and emphasizing decisive moments."
+    }
+  },
   "tags": ["sfx", "camera", "shutter", "photo", "snap"],
   "knobs": [],
   "ai_usage": "音量調整・複数回の重ね掛けは自由。映像のタイミングに合わせたトリムも可。ピッチ・速度を大きく変えると素材の質感が崩れるため軽微な調整に留める",
