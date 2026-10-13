@@ -479,6 +479,19 @@ export interface PreviewModel {
     };
 }
 
+/** 1 回の読み直しの間に分かった配信の成否を、「届いたら読み直す素材」の控えへ反映するための手がかり。 */
+export interface PreviewMediaWatch {
+    widget: PreviewWidgetMarker;
+    identityUri: URI;
+    kind: 'raw' | 'output';
+    /** アプリ自身の保存による読み直し（置いたファイルの通知が読み直しのあとに届く）。 */
+    ownWrite: boolean;
+    /** この読み直しの前から見張っていた素材。 */
+    watchedBefore: Set<string>;
+    /** この読み直しの前から配信できていなかった素材。 */
+    unservedBefore: Set<string>;
+}
+
 export interface PreviewSystemVolumeMessage {
     type: 'akari-preview-system-volume';
     state: 'zero' | 'muted' | 'ok';
@@ -733,6 +746,9 @@ export interface PreviewWidgetMarker extends WebviewWidget {
     /** 配信できなかった素材と静止画の cut ソース。届いた・書き換わった合図で読み直す。 */
     akariPreviewWatchedMediaResources?: Set<string>;
     akariPreviewWatchedMediaSuffixes?: Set<string>;
+    /** そのうち、まだ配信できていない素材。 */
+    akariPreviewUnservedMediaResources?: Set<string>;
+    akariPreviewUnservedMediaSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];

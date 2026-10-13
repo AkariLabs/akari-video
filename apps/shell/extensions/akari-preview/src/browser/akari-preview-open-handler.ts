@@ -167,7 +167,7 @@ import {
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
-    newlyServedWatchedMedia, previewWatchedMediaChange, previewWatchedMediaSets, watchUnservedPreviewMedia
+    markServedPreviewMedia, previewWatchedMediaChange, previewWatchedMediaSets, watchUnservedPreviewMedia
 } from '../common/preview-watched-media';
 import {
     capturePreviewPlaybackTick,
@@ -239,6 +239,7 @@ import type {
     EditSummaryTimelineTrack,
     PreviewSelectionNode,
     EditSummary,
+    PreviewMediaWatch,
     PreviewModel,
     PreviewSetZoomMessage,
     PreviewSetRateMessage,
@@ -3496,8 +3497,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
-        // あとから届いた素材は、書き込みが落ち着くまで待って 1 回で読み直す。
+        // あとから届いた素材は、書き込みの間に通知が何度も来る。少し待ってから読み直し、
+        // 読み直しの間に来た通知は次の 1 回にまとめる（再構築を積み上げない）。
         let watchedMediaSettle: number | undefined;
+        let watchedMediaRefreshing = false;
+        let watchedMediaAgain = false;
+        const refreshWatchedMedia = (): void => {
+            watchedMediaSettle = undefined;
+            if (widget.isDisposed) return;
+            if (watchedMediaRefreshing) {
+                watchedMediaAgain = true;
+                return;
+            }
+            watchedMediaRefreshing = true;
+            // 素材だけが変わってもモデルの差分には出ない。届いた素材を配信し直すため再構築する。
+            this.queueRefresh(widget, identityUri, kind, undefined, true);
+            void (widget.akariPreviewRefresh ?? Promise.resolve()).then(() => {
+                watchedMediaRefreshing = false;
+                if (watchedMediaAgain) {
+                    watchedMediaAgain = false;
+                    scheduleWatchedMediaRefresh();
+                }
+            });
+        };
+        const scheduleWatchedMediaRefresh = (): void => {
+            if (watchedMediaSettle === undefined && !widget.isDisposed) {
+                watchedMediaSettle = window.setTimeout(refreshWatchedMedia, WATCHED_MEDIA_SETTLE_MS);
+            }
+        };
         disposables.push({ dispose: () => window.clearTimeout(watchedMediaSettle) });
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -3596,13 +3623,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (previewChanged) {
                 // 同じ通知に edit.json などの変更も入っていれば、待たずにまとめて読み直す。
-                if (watchedMediaChanged) window.clearTimeout(watchedMediaSettle);
                 this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged || watchedMediaChanged);
             } else if (watchedMediaChanged) {
-                // 素材だけが変わってもモデルの差分には出ない。届いた素材を配信し直すため再構築する。
-                window.clearTimeout(watchedMediaSettle);
-                watchedMediaSettle = window.setTimeout(() =>
-                    this.queueRefresh(widget, identityUri, kind, undefined, true), WATCHED_MEDIA_SETTLE_MS);
+                scheduleWatchedMediaRefresh();
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
@@ -3985,29 +4008,68 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
-    /** 届いたら読み直す素材（配信できなかった素材・静止画の cut ソース）を、読み込んだモデルから作り直す。 */
-    protected updateWatchedPreviewMedia(widget: PreviewWidgetMarker, model: PreviewModel): void {
+    /**
+     * 届いたら読み直す素材（配信できなかった素材・静止画の cut ソース）を、読み込んだモデルから作り直す。
+     * 返す控えは、この読み直しの間に分かった配信の成否を反映するための手がかり。
+     */
+    protected beginPreviewMediaWatch(
+        widget: PreviewWidgetMarker,
+        model: PreviewModel,
+        identityUri: URI,
+        kind: 'raw' | 'output',
+        ownWrite: boolean
+    ): PreviewMediaWatch {
+        const watch: PreviewMediaWatch = {
+            widget, identityUri, kind, ownWrite,
+            watchedBefore: new Set(widget.akariPreviewWatchedMediaResources ?? []),
+            unservedBefore: new Set(widget.akariPreviewUnservedMediaResources ?? [])
+        };
         const cutSourceUris = [...(model.sourcesById ?? [])]
             .filter(([sourceId]) => model.summary.cuts.some(cut => cut.src === sourceId))
             .map(([, source]) => source.uri);
         if (model.sourceUri && !cutSourceUris.some(uri => uri.toString() === model.sourceUri!.toString())) {
             cutSourceUris.push(model.sourceUri);
         }
-        const next = previewWatchedMediaSets(widget, { unservedUris: model.unservedUris, cutSourceUris },
-            uri => this.resourceSuffix(uri), uri => isImageLayerSrc(uri.path.base));
-        // アプリ自身の取り込み（ファイルを置いてから edit.json を書く）では、置いたファイルの通知が
-        // 読み直しのあとに届く。見張り始めた直後の通知は読み直しにしない。
-        const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
-            akariPreviewJustAddedSuffixes?: Map<string, number> };
-        const served = newlyServedWatchedMedia(widget, next);
-        const now = Date.now();
-        for (const key of served.resources) (recent.akariPreviewJustAddedUris ??= new Map()).set(key, now);
-        for (const key of served.suffixes) (recent.akariPreviewJustAddedSuffixes ??= new Map()).set(key, now);
-        Object.assign(widget, next);
+        Object.assign(widget, previewWatchedMediaSets(widget, { unservedUris: model.unservedUris, cutSourceUris },
+            uri => this.resourceSuffix(uri), uri => isImageLayerSrc(uri.path.base)));
+        this.recheckUnservedPreviewMedia(watch, model.unservedUris ?? []);
+        return watch;
     }
 
-    protected watchUnservedPreviewMedia(widget: PreviewWidgetMarker, uri: URI): void {
-        Object.assign(widget, watchUnservedPreviewMedia(widget, uri, value => this.resourceSuffix(value)));
+    /** 再構築で配信に失敗した cut ソースを控える。 */
+    protected noteUnservedPreviewMedia(watch: PreviewMediaWatch | undefined, uri: URI): void {
+        if (!watch) return;
+        Object.assign(watch.widget, watchUnservedPreviewMedia(watch.widget, uri, value => this.resourceSuffix(value)));
+        this.recheckUnservedPreviewMedia(watch, [uri]);
+    }
+
+    /** 再構築で配信できた cut ソースを「配信できている」へ移す。 */
+    protected noteServedPreviewMedia(watch: PreviewMediaWatch | undefined, uri: URI): void {
+        if (!watch) return;
+        const key = uri.toString();
+        Object.assign(watch.widget, markServedPreviewMedia(watch.widget, uri, value => this.resourceSuffix(value)));
+        // アプリ自身の取り込み（ファイルを置いてから edit.json を書く）では、置いたファイルの通知が
+        // 読み直しのあとに届く。配信できたと分かった時点で、見張り始めた直後の通知だけ読み直しにしない。
+        // 外からの書き込み（エージェント・CLI）には猶予を付けない（書き込み途中の続きを落とさない）。
+        if (!watch.ownWrite || watch.watchedBefore.has(key)
+            || !watch.widget.akariPreviewWatchedMediaResources?.has(key)) return;
+        const recent = watch.widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
+            akariPreviewJustAddedSuffixes?: Map<string, number> };
+        const now = Date.now();
+        (recent.akariPreviewJustAddedUris ??= new Map()).set(key, now);
+        (recent.akariPreviewJustAddedSuffixes ??= new Map()).set(this.resourceSuffix(uri), now);
+    }
+
+    /**
+     * 確かめてから見張り始めるまでの間に届いた素材は、通知がどの控えにも当たらず落ちている。
+     * 新しく待ち始めた素材だけ、もう一度確かめる（待ち続けている素材は確かめ直さない = 繰り返さない）。
+     */
+    protected recheckUnservedPreviewMedia(watch: PreviewMediaWatch, uris: readonly URI[]): void {
+        const fresh = uris.filter(uri => !watch.unservedBefore.has(uri.toString()));
+        if (fresh.length === 0) return;
+        void Promise.all(fresh.map(uri => this.fileService.exists(uri).catch(() => false))).then(found => {
+            if (found.some(Boolean)) this.queueRefresh(watch.widget, watch.identityUri, watch.kind, undefined, true);
+        });
     }
 
     protected handleRefreshFailure(widget: PreviewWidgetMarker, error: unknown): void {
@@ -4281,7 +4343,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         diagnostics?.describeFace({ assetOrigin: assets?.origin });
         diagnostics?.markStage('model-loaded', 'ok');
         // この先のどの経路（差分なし・差分更新・再構築・失敗）でも、届いたら読み直せるようにする。
-        if (kind === 'output') this.updateWatchedPreviewMedia?.(widget, model);
+        const mediaWatch = kind === 'output'
+            ? this.beginPreviewMediaWatch?.(widget, model, identityUri, kind, editSource !== undefined) : undefined;
         if (this.previewGestureGuards?.get(widget)?.active) {
             this.queueRefresh(widget, identityUri, kind, initialSeekTime, forceRebuild);
             await this.disposeAssetStreams(model.assetStreamIds);
@@ -4491,8 +4554,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 : this.createVideoStream({ videoUri: streamVideoUri.toString() })
             ).catch(async (error: unknown) => {
                 // 代表ソースがまだ届いていない（生成中の画像など）。届いた合図で読み直す。
-                this.watchUnservedPreviewMedia?.(widget, videoUri);
-                this.watchUnservedPreviewMedia?.(widget, streamVideoUri);
+                this.noteUnservedPreviewMedia?.(mediaWatch, videoUri);
+                if (streamVideoUri.toString() !== videoUri.toString()) {
+                    this.noteUnservedPreviewMedia?.(mediaWatch, streamVideoUri);
+                }
                 await this.disposeAssetStreams(model.assetStreamIds);
                 throw error;
             }),
@@ -4502,6 +4567,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     .then(result => result.hasAudio)
                     .catch(() => undefined)
         ]);
+        if (videoStream) this.noteServedPreviewMedia?.(mediaWatch, videoUri);
         // v1 マルチソース: 代表ソース以外の cuts[].src 先も webview から再生できるよう
         // それぞれストリームを開く（代表ソースは上の videoStream を再利用）。
         // 全ストリームは同一のローカルサーバ由来なので CSP の media-src は据え置きでよい。
@@ -4544,12 +4610,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             imageAssetStreams.set(key, stream);
                         }
                         imageSourceUrlById[sourceId] = stream.url;
+                        this.noteServedPreviewMedia?.(mediaWatch, entry.uri);
                         continue;
                     }
                     const streamUri = await this.resolveStreamVideoUri(entry.uri, model);
                     const stream = await this.createVideoStream({ videoUri: streamUri.toString() });
                     extraVideoStreams.set(sourceId, stream);
                     sourceUrlById[sourceId] = stream.url;
+                    this.noteServedPreviewMedia?.(mediaWatch, entry.uri);
                     if (streamUri.toString() !== entry.uri.toString()) {
                         // スクラブ音はプロキシの形式や音声 track に依存せず、原本の音声 trak を読む。
                         const originalStream = await this.createVideoStream({ videoUri: entry.uri.toString() });
@@ -4558,7 +4626,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                 } catch (error) {
                     console.warn('[akari-preview] sources[] のストリームを開けませんでした', entry.uri.toString(), error);
-                    this.watchUnservedPreviewMedia?.(widget, entry.uri);
+                    this.noteUnservedPreviewMedia?.(mediaWatch, entry.uri);
                 }
             }
         }
@@ -6160,6 +6228,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
                 assetUris: [],
+                // 合成の読み込みが途中で落ちても、それまでに配信できなかった素材は待ち続ける。
+                unservedUris,
                 assetStreamIds: [],
                 compositeError: summarizePreviewError(error),
                 captionsUri,

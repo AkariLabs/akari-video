@@ -28,9 +28,9 @@ test('JSON.parse の SyntaxError は edit.json の文脈を付ける', () => {
 });
 
 test('見つからない素材は、長い絶対パスではなくファイル名で伝える', () => {
-    const windows = new Error("ENOENT: no such file or directory, realpath 'c:\\Users\\someone\\Akari\\channels\\my-channel\\videos\\2026-10-12-first-video\\assets\\generated\\shinjuku-fujino-map.png'");
-    assert.equal(summarizePreviewError(windows), '素材がまだ見つかりません（shinjuku-fujino-map.png）');
-    const posix = new Error("ENOENT: no such file or directory, stat '/Users/someone/Akari/videos/demo/assets/generated/map.png'");
+    const windows = new Error("ENOENT: no such file or directory, realpath 'c:\\work\\a long project folder name\\channels\\demo\\videos\\demo-video\\assets\\generated\\city map.png'");
+    assert.equal(summarizePreviewError(windows), '素材がまだ見つかりません（city map.png）');
+    const posix = new Error("ENOENT: no such file or directory, stat '/work/demo/assets/generated/map.png'");
     assert.equal(summarizePreviewError(posix), '素材がまだ見つかりません（map.png）');
 });
 

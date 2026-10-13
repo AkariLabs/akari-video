@@ -4,7 +4,7 @@ export interface PreviewWatchedMediaSets {
     /** 届いた・書き換わった合図で読み直す素材（配信できなかった素材を含む）。 */
     akariPreviewWatchedMediaResources: Set<string>;
     akariPreviewWatchedMediaSuffixes: Set<string>;
-    /** そのうち、直近の読み込みで配信できなかった素材。 */
+    /** そのうち、まだ配信できていない素材。 */
     akariPreviewUnservedMediaResources: Set<string>;
     akariPreviewUnservedMediaSuffixes: Set<string>;
 }
@@ -24,6 +24,9 @@ interface WatchedMediaModel<T extends UriLike> {
  * （配信できた資産）に入らないため、届いても読み直しが起きなかった。
  *
  * - 今回配信できなかった素材は必ず見張る。
+ * - cut ソースの配信の成否は再構築でしか分からない。配信できなかった cut ソースは、
+ *   再構築で配信できるまで「まだ配信できていない」のまま持ち越す（差分なし・差分更新の
+ *   読み直しで配信済みに戻さない）。
  * - 静止画の cut ソースは画像レイヤーと同じ扱いで常に見張る（同じ名前での作り直しを拾う）。
  * - 一度待った cut ソースは、cuts が使っている間は見張り続ける（届いた直後の書き足しを拾う）。
  *   動画の cut ソースを最初から全部見張らないのは、書き込み中の大きな動画で再構築が続くのを避けるため。
@@ -35,7 +38,11 @@ export function previewWatchedMediaSets<T extends UriLike>(
     isStillImage: (uri: T) => boolean
 ): PreviewWatchedMediaSets {
     const waited = previous.akariPreviewWatchedMediaResources ?? new Set<string>();
-    const unserved = [...(model.unservedUris ?? [])];
+    const notServedYet = previous.akariPreviewUnservedMediaResources ?? new Set<string>();
+    const unserved = [
+        ...(model.unservedUris ?? []),
+        ...model.cutSourceUris.filter(uri => notServedYet.has(uri.toString()))
+    ];
     const watched = [
         ...unserved,
         ...model.cutSourceUris.filter(uri => isStillImage(uri) || waited.has(uri.toString()))
@@ -48,7 +55,7 @@ export function previewWatchedMediaSets<T extends UriLike>(
     };
 }
 
-/** 読み直しの途中で配信に失敗した素材を、次の作り直しを待たずに足す。 */
+/** 再構築の途中で配信に失敗した素材を、次の作り直しを待たずに足す。 */
 export function watchUnservedPreviewMedia<T extends UriLike>(
     sets: Partial<PreviewWatchedMediaSets>,
     uri: T,
@@ -59,6 +66,24 @@ export function watchUnservedPreviewMedia<T extends UriLike>(
         akariPreviewWatchedMediaSuffixes: new Set(sets.akariPreviewWatchedMediaSuffixes ?? []).add(suffix(uri)),
         akariPreviewUnservedMediaResources: new Set(sets.akariPreviewUnservedMediaResources ?? []).add(uri.toString()),
         akariPreviewUnservedMediaSuffixes: new Set(sets.akariPreviewUnservedMediaSuffixes ?? []).add(suffix(uri))
+    };
+}
+
+/** 再構築で配信できた素材を「配信できている」へ移す。見張りは続ける。 */
+export function markServedPreviewMedia<T extends UriLike>(
+    sets: Partial<PreviewWatchedMediaSets>,
+    uri: T,
+    suffix: (uri: T) => string
+): PreviewWatchedMediaSets {
+    const unservedResources = new Set(sets.akariPreviewUnservedMediaResources ?? []);
+    const unservedSuffixes = new Set(sets.akariPreviewUnservedMediaSuffixes ?? []);
+    unservedResources.delete(uri.toString());
+    unservedSuffixes.delete(suffix(uri));
+    return {
+        akariPreviewWatchedMediaResources: new Set(sets.akariPreviewWatchedMediaResources ?? []),
+        akariPreviewWatchedMediaSuffixes: new Set(sets.akariPreviewWatchedMediaSuffixes ?? []),
+        akariPreviewUnservedMediaResources: unservedResources,
+        akariPreviewUnservedMediaSuffixes: unservedSuffixes
     };
 }
 
@@ -76,19 +101,4 @@ export function previewWatchedMediaChange(
     if (sets.akariPreviewWatchedMediaResources?.has(resourceKey)
         || sets.akariPreviewWatchedMediaSuffixes?.has(resourceSuffix)) return 'served';
     return undefined;
-}
-
-/** 新しく見張り始めた「配信できている」素材。取り込み直後の遅れた通知を読み直しにしないための印に使う。 */
-export function newlyServedWatchedMedia(
-    previous: Partial<PreviewWatchedMediaSets>,
-    next: PreviewWatchedMediaSets
-): { resources: string[]; suffixes: string[] } {
-    return {
-        resources: [...next.akariPreviewWatchedMediaResources].filter(key =>
-            !next.akariPreviewUnservedMediaResources.has(key)
-            && previous.akariPreviewWatchedMediaResources?.has(key) !== true),
-        suffixes: [...next.akariPreviewWatchedMediaSuffixes].filter(key =>
-            !next.akariPreviewUnservedMediaSuffixes.has(key)
-            && previous.akariPreviewWatchedMediaSuffixes?.has(key) !== true)
-    };
 }
