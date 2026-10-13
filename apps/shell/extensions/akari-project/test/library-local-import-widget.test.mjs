@@ -8,17 +8,20 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const projectJa = require('../../../../../packages/i18n/locales/ja/project.json');
 const URI = require('@theia/core/lib/common/uri').default;
-const methods = ['handleDrop', 'pickLibraryImport', 'finishLibraryImport', 'reportLibraryImportResult',
+const methods = ['handleDrop', 'pickLibraryImport', 'refreshLibraryFonts', 'finishLibraryImport', 'reportLibraryImportResult',
     // 検索欄は非制御なので、絞り込みを触る処理は必ず入力欄へ書き戻す（IME のため）。
     'syncSearchInput'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => findMember(name, { in: 'widget' }).text).join('\n')}\n${findMember('storeMaterialInLibrary', { in: 'materials' }).text} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Handler = new Function('URI', 'isOsFileDropInput', 'requestAnimationFrame', `${code}; return Handler;`)(URI, types => types.includes('Files') || types.includes('text/uri-list'), fn => fn());
+const createHandler = (window, CustomEvent) => new Function('URI', 'isOsFileDropInput', 'requestAnimationFrame',
+    'window', 'CustomEvent', `${code}; return Handler;`)(URI,
+    types => types.includes('Files') || types.includes('text/uri-list'), fn => fn(), window, CustomEvent);
+const Handler = createHandler();
 const sheetSource = ts.createSourceFile('sheet.tsx', readFileSync(new URL('../src/browser/library-import-sheet.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const sheetHelpers = ['libraryImportReadinessText', 'focusLibraryImportSheet'].map(name => sheetSource.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(sheetSource)).join('\n');
 const { libraryImportReadinessText, focusLibraryImportSheet } = new Function(`${ts.transpileModule(sheetHelpers.replace(/^export /gm, ''), { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText}; return { libraryImportReadinessText, focusLibraryImportSheet };`)();
-function fixture() {
+function fixture(HandlerClass = Handler) {
     const calls = [];
-    const handler = new Handler();
+    const handler = new HandlerClass();
     Object.assign(handler, { topView: 'catalog', update() { calls.push('update'); }, setDragActive() {},
         resolveDroppedFilePath: file => file.path, classifyDropped() { calls.push('classify-project'); return { accepted: [{ name: 'one.wav' }], rejectedCount: 0 }; },
         importDropped: value => calls.push(value), messages: { warn: value => calls.push(value), error: value => calls.push(value) } });
@@ -71,9 +74,9 @@ test('ライブラリに保管は単一ファイル plan/apply だけでプロ�
 test('取り込み後はフィルタを解除しホーム再読込→帯を表示', async () => {
     const { handler, calls } = fixture();
     Object.assign(handler, { libraryCategory: 'sfx', librarySourceFilter: 'lab', libraryFolderFilter: 'old', catalogQuery: 'old',
-        reportLibraryImportResult() {}, loadAssetCatalogView: async () => calls.push('reload'),
+        assetCatalogItems: [], reportLibraryImportResult() {}, loadAssetCatalogView: async () => calls.push('reload'),
         node: { querySelector: () => ({ scrollIntoView: () => calls.push('scroll') }) } });
-    await handler.finishLibraryImport({});
+    await handler.finishLibraryImport({ added: [], duplicates: [], rejected: [], failures: [] });
     assert.deepEqual([handler.topView, handler.libraryCategory, handler.librarySourceFilter, handler.libraryFolderFilter, handler.catalogQuery, handler.catalogCategory], ['catalog', undefined, 'all', undefined, '', 'all']);
     assert.deepEqual(calls, ['reload', 'update', 'scroll']);
 });
@@ -100,6 +103,50 @@ test('完了トーストは件数だけ、rejected・プレースホルダ警告
         failures: [{ path: '/broken.wav', reason: '読み取れません' }] });
     assert.deepEqual(info, ['1 件を取り込みました']);
     assert.deepEqual(warn, ['/broken.wav: 読み取れません']);
+});
+
+test('フォントを含む取り込みは件数と場所を一度だけ通知し、それ以外は件数を通知する', () => {
+    const { handler } = fixture();
+    const info = [], warn = [];
+    handler.messages = { info: value => info.push(value), warn: value => warn.push(value) };
+    handler.reportLibraryImportResult({ added: [{ category: 'font', id: 'my-font' }, { category: 'audio', id: 'music' }],
+        failures: [{ path: '/broken.wav', reason: '読み取れません' }] });
+    assert.deepEqual(info, ['2 件を取り込みました。フォントは「テキスト › フォント」にあります']);
+    assert.deepEqual(warn, ['/broken.wav: 読み取れません']);
+    info.length = 0;
+    handler.reportLibraryImportResult({ added: [{ category: 'audio', id: 'music' }], failures: [] });
+    assert.deepEqual(info, ['1 件を取り込みました']);
+});
+
+test('フォント取り込み後はプレビューを読み直し、テキストのフォント行へ移動する', async () => {
+    const events = [];
+    const window = { dispatchEvent: event => events.push(event.type) };
+    class CustomEvent { constructor(type) { this.type = type; } }
+    const { handler, calls } = fixture(createHandler(window, CustomEvent));
+    const editUri = 'file:///project/edit.json';
+    const imported = { category: 'font', id: 'my-font', key: 'font/my-font', libraryDir: '/library/font/my-font' };
+    Object.assign(handler, {
+        workflow: { workspaceRoot: { resolve: value => {
+            assert.equal(value, 'edit.json');
+            return { normalizePath: () => ({ toString: () => editUri }) };
+        } } },
+        commandService: { executeCommand: async (...args) => calls.push(args) },
+        ensureLibraryStyleFonts: () => calls.push('style-fonts'),
+        libraryStyleFontsRequested: true,
+        assetCatalogItems: [],
+        reportLibraryImportResult: () => calls.push('report'),
+        loadAssetCatalogView: async () => { handler.assetCatalogItems = [imported]; calls.push('reload'); },
+        focusAssetCard: async (...args) => calls.push(['focus', ...args]),
+        node: { querySelector: selector => { calls.push(['query', selector]); return undefined; } }
+    });
+    await handler.finishLibraryImport({ added: [imported], duplicates: [], rejected: [], failures: [] });
+    assert.deepEqual(calls, ['report', ['akari.preview.refreshFontAssets', { editUri }], 'style-fonts',
+        'reload', 'update', ['focus', 'catalog', imported.key, false]]);
+    assert.deepEqual(events, ['akari.library.fontsChanged']);
+    assert.equal(handler.libraryStyleFontsRequested, false);
+    assert.equal(handler.libraryTextLookOpen, true);
+    assert.equal(handler.libraryTextTab, 'font');
+    assert.ok(!calls.some(call => Array.isArray(call) && call[1] === '[data-recent-strip]'));
 });
 
 const jsxAttributes = node => new Map(node.attributes.properties.filter(ts.isJsxAttribute).map(attribute =>

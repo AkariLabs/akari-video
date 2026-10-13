@@ -1,5 +1,6 @@
 import { t } from '@akari-video/i18n';
 import type { CaptionTextStyle, CaptionTextStylePatch } from './caption-store';
+import { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
 export { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
 
 export type CaptionPanel = 'font' | 'style';
@@ -56,6 +57,41 @@ export function renderableCaptionFonts<T extends { id: string }>(fonts: readonly
     const available = typeof window === 'undefined' ? {} : (window as Window & {
         akariFontAvailability?: Record<string, { status: string; family: string }> }).akariFontAvailability ?? {};
     return fonts.filter(font => faces.has(font.id) || available[font.id]?.status === 'available');
+}
+
+export interface CaptionPanelFontRow {
+    id: string; title: string; displayName?: string; family: string;
+    tags: readonly string[]; bundled: boolean; own?: boolean;
+}
+
+export function firstCaptionFontFamilies(faces: readonly ({ id: string; family: string } | undefined)[]): Map<string, string> {
+    const families = new Map<string, string>();
+    for (const face of faces) {
+        if (face && !families.has(face.id)) families.set(face.id, face.family);
+    }
+    return families;
+}
+
+/** Build one selectable row per id, retaining the first loaded family for user fonts. */
+export function captionPanelFontRows(catalog: readonly CaptionPanelFontRow[], faces: ReadonlyMap<string, string>,
+    availability: Readonly<Record<string, { status: string; family: string }>> = {}): CaptionPanelFontRow[] {
+    const rows: CaptionPanelFontRow[] = catalog.map(font => ({ ...font,
+        family: faces.get(font.id) ?? availability[font.id]?.family ?? font.family }));
+    const known = new Set(rows.map(font => font.id));
+    for (const [id, family] of faces) {
+        if (known.has(id)) continue;
+        rows.push({ id, title: family, family, tags: [], bundled: false, own: true });
+        known.add(id);
+    }
+    return rows;
+}
+
+/** An unset or unavailable family must never become a recent-font entry. */
+export function recentCaptionFontId(currentFamily: string | undefined,
+    rows: readonly CaptionPanelFontRow[]): string | undefined {
+    if (!currentFamily) return undefined;
+    return rows.find(font => font.family === currentFamily)?.id
+        ?? (currentFamily === CAPTION_FONT_FAMILY ? 'noto-sans-jp' : undefined);
 }
 
 export function captionFontRowDetail(tags: readonly string[]): string {

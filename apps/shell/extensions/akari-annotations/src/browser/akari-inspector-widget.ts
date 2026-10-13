@@ -12,7 +12,8 @@ import { INSPECTOR_WIDGET_CSS } from './style/inspector-widget-style';
 import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
 import { captionRevealDestination } from '../common/caption-reveal-destination';
 import { captionRevealScrollTop } from '../common/caption-reveal-scroll';
-import { captionPanelChangedDetail, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { captionPanelChangedDetail, captionPanelFontRows, captionPanelLookWrite, firstCaptionFontFamilies, nextCaptionPanel,
+    recentCaptionFontId, renderableCaptionFonts, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
 import { captionPanelSelection, captionPanelFontRequest } from './inspector/caption-panel-selection';
 import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
     type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
@@ -199,6 +200,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelStyles: CaptionPanelPreset[] = [];
     protected captionPanelItemSize?: number;
     protected captionPanelFontFaces = new Map<string, string>();
+    protected captionPanelFontGeneration = 0;
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
     protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
@@ -219,10 +221,10 @@ export class AkariInspectorWidget extends BaseWidget {
         if (selection.primaryCaption) {
             const currentFamily = selection.primaryCaption.effectiveTextStyle?.fontFamily
                 ?? selection.primaryCaption.textStyle?.fontFamily;
-            const current = CAPTION_PANEL_FONTS.find(font => this.captionPanelFontFaces.get(font.id) === currentFamily
-                || font.id === 'noto-sans-jp' && currentFamily === CAPTION_FONT_FAMILY);
-            if (current && !this.captionPanelState.recentFonts.includes(current.id)) {
-                this.captionPanelState.recentFonts.unshift(current.id);
+            const currentId = recentCaptionFontId(currentFamily, captionPanelFontRows(
+                renderableCaptionFonts(CAPTION_PANEL_FONTS, this.captionPanelFontFaces), this.captionPanelFontFaces));
+            if (currentId && !this.captionPanelState.recentFonts.includes(currentId)) {
+                this.captionPanelState.recentFonts.unshift(currentId);
             }
         }
         this.captionPanel = nextCaptionPanel(this.captionPanel, panel, true);
@@ -289,6 +291,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
         this.captionPanelFontsLoaded = true;
+        const generation = ++this.captionPanelFontGeneration;
         const faces = [...assets.bundledCaptionFontFaces,
             { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
         let css = document.querySelector<HTMLStyleElement>('style[data-akari-caption-panel-fonts]');
@@ -300,23 +303,28 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         css.textContent = faces.filter(face => face.id !== 'noto-sans-jp').map(face => {
             const weight = face.id === 'noto-serif-jp' ? '200 900' : face.weight;
-            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('truetype');font-weight:${weight};font-style:normal;font-display:swap}`;
+            const format = face.file.toLowerCase().endsWith('.woff2') ? 'woff2'
+                : face.file.toLowerCase().endsWith('.woff') ? 'woff'
+                    : face.file.toLowerCase().endsWith('.otf') ? 'opentype' : 'truetype';
+            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('${format}');font-weight:${weight};font-style:normal;font-display:swap}`;
         }).join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
         void Promise.all(faces.map(async face => {
             const weight = face.id === 'noto-serif-jp' ? '200' : face.weight.split(' ')[0];
             const descriptor = face.id === 'noto-sans-jp' ? CAPTION_FONT_LOAD_DESCRIPTOR
                 : `${weight} 19px ${JSON.stringify(face.family)}`;
             try {
-                if ((await document.fonts.load(descriptor, 'Aa あいう')).length > 0) {
-                    this.captionPanelFontFaces.set(face.id, face.family);
-                }
+                return (await document.fonts.load(descriptor, 'Aa あいう')).length > 0 ? face : undefined;
             } catch { /* A failed font is not offered as an applicable row. */ }
-        })).then(() => {
+            return undefined;
+        })).then(loadedFaces => {
+            if (generation !== this.captionPanelFontGeneration) return;
+            const registered = firstCaptionFontFamilies(loadedFaces);
             const available = (window as Window & { akariFontAvailability?: Record<string,
                 { status: string; family: string }> }).akariFontAvailability ?? {};
             for (const [id, status] of Object.entries(available)) {
-                if (status?.status === 'available') this.captionPanelFontFaces.set(id, status.family);
+                if (status?.status === 'available' && !registered.has(id)) registered.set(id, status.family);
             }
+            this.captionPanelFontFaces = registered;
             if (this.captionPanel === 'font' || this.model.snapshot?.kind === 'caption'
                 || this.model.snapshot?.kind === 'overlay'
                 || this.model.snapshot?.kind === 'multi') this.render();
@@ -474,6 +482,8 @@ export class AkariInspectorWidget extends BaseWidget {
         };
         window.addEventListener('akari.fontAvailability.changed', refreshFonts);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.fontAvailability.changed', refreshFonts) });
+        window.addEventListener('akari.library.fontsChanged', refreshFonts);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.library.fontsChanged', refreshFonts) });
         const openImageAi = (event: Event): void => {
             const itemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId;
             const selectedId = () => this.model.snapshot?.kind === 'item' ? this.model.snapshot.id

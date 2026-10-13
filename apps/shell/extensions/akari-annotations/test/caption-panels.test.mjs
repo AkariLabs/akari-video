@@ -15,7 +15,7 @@ import { libraryTextStyleSample } from '../../akari-preview/lib/common/textstyle
 import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
-const { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail, renderableCaptionFonts, CAPTION_FONT_FAMILY } = await import('../lib/common/caption-panel-state.js');
+const { nextCaptionPanel, retainCaptionPanel, captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, filterCaptionFonts, captionFontWeights, captionPanelTextStyle, captionFontRowDetail, renderableCaptionFonts, captionPanelFontRows, firstCaptionFontFamilies, recentCaptionFontId, CAPTION_FONT_FAMILY } = await import('../lib/common/caption-panel-state.js');
 const { CAPTION_PANEL_FONTS } = await import('../lib/common/caption-panel-catalog.js');
 const { filterCaptionPanelFonts } = await import('../lib/common/caption-font-label.js');
 const { captionRevealDestination } = await import('../lib/common/caption-reveal-destination.js');
@@ -92,6 +92,56 @@ test('表示できる 9 書体だけを検索・複数タグ AND フィルター
     assert.equal(faces.get('noto-sans-jp'), CAPTION_FONT_FAMILY);
     assert.match(captionFontRowDetail(['latin']), /日本語は代わりの書体で表示/u);
     assert.doesNotMatch(captionFontRowDetail(['japanese']), /代わりの書体/u);
+});
+
+test('読み込んだ自前の書体を一行にまとめ、名前と family で検索できる', () => {
+    const imported = firstCaptionFontFamilies([{ id: 'my-font', family: '私の書体' },
+        { id: 'my-font', family: '別名' }]);
+    assert.equal(imported.get('my-font'), '私の書体');
+    const loaded = new Map([...faces, ...imported]);
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    assert.equal(rows.length, 10);
+    assert.deepEqual(rows.filter(row => row.id === 'my-font').map(row => row.title), ['私の書体']);
+    assert.equal(filterCaptionPanelFonts(rows, '私の', new Set())[0].id, 'my-font');
+    assert.equal(filterCaptionPanelFonts(rows, '私の書体', new Set(['gothic'])).some(row => row.id === 'my-font'), false);
+    const panel = createCaptionPanel(document, 'font', state(), [], loaded, actions);
+    const own = descendants(panel).find(node => node.attributes['data-akari-font-row'] === 'my-font');
+    assert.ok(own);
+    assert.ok(descendants(own).some(node => node.textContent === '自分で入れた'));
+    const applied = [];
+    const selectable = createCaptionPanel(document, 'font', state(), [], loaded,
+        { ...actions, font: (...args) => applied.push(args) });
+    const ownChoice = descendants(selectable).find(node => node.attributes['data-akari-font-row'] === 'my-font')
+        .children.find(node => node.className === 'akari-caption-font-face');
+    ownChoice.fire('click');
+    assert.deepEqual(applied, [['私の書体', undefined, 'my-font']]);
+});
+
+test('最近使ったフォントは現在の描画可能な family だけから id を引く', () => {
+    const loaded = new Map([...faces, ['my-font', '私の書体']]);
+    const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
+    assert.equal(recentCaptionFontId(undefined, rows), undefined);
+    assert.equal(recentCaptionFontId('851チカラヅヨク', rows), undefined);
+    assert.equal(recentCaptionFontId('私の書体', rows), 'my-font');
+    assert.equal(recentCaptionFontId(CAPTION_FONT_FAMILY, rows), 'noto-sans-jp');
+    const withoutDefault = rows.filter(row => row.id !== 'noto-sans-jp');
+    assert.equal(recentCaptionFontId('', withoutDefault), undefined);
+    assert.equal(recentCaptionFontId(CAPTION_FONT_FAMILY, withoutDefault), 'noto-sans-jp');
+    assert.equal(recentCaptionFontId('851チカラヅヨク', withoutDefault), undefined);
+});
+
+test('最近使ったフォントは使える書体だけを描き、自前の書体を選べる', () => {
+    const viewState = state();
+    viewState.recentFonts = ['851-chikara-dzuyoku', 'my-font', 'missing'];
+    const loaded = new Map([...faces, ['my-font', '私の書体']]);
+    const applied = [];
+    const panel = createCaptionPanel(document, 'font', viewState, [], loaded,
+        { ...actions, font: (...args) => applied.push(args) });
+    const recent = descendants(panel).find(node => node.className === 'akari-caption-recent');
+    assert.ok(recent);
+    assert.deepEqual(recent.children.map(node => node.textContent), ['私の書体']);
+    recent.children[0].fire('click');
+    assert.deepEqual(applied, [['私の書体', undefined, 'my-font']]);
 });
 
 test('日本語表示名と英字名の両方で同じ書体を検索できる', () => {
