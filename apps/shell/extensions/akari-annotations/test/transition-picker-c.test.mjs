@@ -3,15 +3,17 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { TRANSITION_FAMILIES } from '@akari-video/edit-store';
-import { transitionPickerLayout, rememberedTransitionType } from '../lib/common/transition-picker-layout.js';
+import { anchorVisibleInClips, nextTransitionPickerCardIndex, transitionPickerLayout,
+  TRANSITION_PICKER_HEIGHT, rememberedTransitionType } from '../lib/common/transition-picker-layout.js';
 import { initialTransitionPickerFocusFamily } from '../lib/browser/transition-picker.js';
 import { transitionPickerShieldRects } from '../lib/common/transition-picker-shield.js';
 import { transitionDeclarationIsDead, transitionWriteIsBlocked } from '../lib/common/transition-boundary-state.js';
 
 test('picker stays above the boundary and fits horizontally at both viewport edges', () => {
   for (const left of [0, 890]) {
-    const layout = transitionPickerLayout({ left, right: left + 10, top: 400, bottom: 422 }, 900, 700, 270);
+    const layout = transitionPickerLayout({ left, right: left + 10, top: 400, bottom: 422 }, 900, 700, TRANSITION_PICKER_HEIGHT);
     assert.equal(layout.width, 520);
+    assert.ok(layout.height <= 236);
     assert.ok(layout.top + layout.height < 400);
     assert.ok(layout.left >= 8 && layout.left + layout.width <= 892);
     assert.ok(layout.arrowLeft >= 9 && layout.arrowLeft <= layout.width - 9);
@@ -22,6 +24,25 @@ test('picker stays above the boundary and fits horizontally at both viewport edg
   assert.equal(narrow.top, 8);
   const minimum = transitionPickerLayout({ left: 180, right: 200, top: 190, bottom: 212 }, 400, 600, 300);
   assert.equal(minimum.height, 180);
+});
+
+test('picker navigation follows the visible column count and stops at both ends', () => {
+  assert.equal(nextTransitionPickerCardIndex(1, 'ArrowDown', 5, 13), 6);
+  assert.equal(nextTransitionPickerCardIndex(1, 'ArrowDown', 3, 13), 4);
+  assert.equal(nextTransitionPickerCardIndex(0, 'ArrowLeft', 5, 13), 0);
+  assert.equal(nextTransitionPickerCardIndex(12, 'ArrowDown', 5, 13), 12);
+  assert.equal(nextTransitionPickerCardIndex(7, 'Home', 5, 13), 0);
+  assert.equal(nextTransitionPickerCardIndex(7, 'End', 3, 13), 12);
+});
+
+test('picker anchor disappears when any scrolling ancestor clips it completely', () => {
+  const anchor = { left: 150, right: 172, top: 120, bottom: 142 };
+  assert.equal(anchorVisibleInClips(anchor, [{ left: 0, right: 500, top: 0, bottom: 400 },
+    { left: 100, right: 200, top: 100, bottom: 200 }]), true);
+  assert.equal(anchorVisibleInClips(anchor, [{ left: 0, right: 500, top: 0, bottom: 400 },
+    { left: 200, right: 300, top: 100, bottom: 200 }]), false);
+  assert.equal(anchorVisibleInClips(anchor, [{ left: 0, right: 500, top: 0, bottom: 400 },
+    { left: 100, right: 200, top: 142, bottom: 200 }]), false);
 });
 
 test('picker shields cover only visible iframe and webview rectangles', () => {
@@ -81,6 +102,46 @@ test('Escape closes only the picker and stops the timeline selection handler', (
   assert.equal(closed, 1);
   assert.equal(activeBoundary, true);
   assert.equal(stopped, true);
+});
+
+test('capture handler moves card focus and keeps picker keys out of the timeline', () => {
+  const source = ts.createSourceFile('transition-picker.ts', readFileSync(
+    new URL('../src/browser/transition-picker.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
+  let declaration;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'keydown') declaration = node;
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  const code = ts.transpileModule(`const ${declaration.getText(source)};`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2021 }
+  }).outputText;
+  class Button {
+    focus() { document.activeElement = this; }
+    scrollIntoView() {}
+    click() { this.clicked = true; }
+  }
+  const cards = Array.from({ length: 13 }, () => new Button());
+  const document = { activeElement: cards[1] };
+  const element = { dataset: { akariPickerColumns: '5' },
+    contains: value => cards.includes(value), querySelectorAll: () => cards };
+  const keydown = new Function('close', 'element', 'document', 'HTMLButtonElement',
+    'nextTransitionPickerCardIndex', `${code}\nreturn keydown;`)(
+    () => {}, element, document, Button, nextTransitionPickerCardIndex);
+  let stopped = 0;
+  const press = key => keydown({ key, preventDefault() {}, stopPropagation() {},
+    stopImmediatePropagation() { stopped++; } });
+  press('ArrowDown');
+  assert.equal(document.activeElement, cards[6]);
+  element.dataset.akariPickerColumns = '3';
+  press('ArrowDown');
+  assert.equal(document.activeElement, cards[9]);
+  press('End');
+  press('ArrowRight');
+  assert.equal(document.activeElement, cards[12]);
+  press('Enter');
+  assert.equal(cards[12].clicked, true);
+  assert.equal(stopped, 5);
 });
 
 test('locked declarations keep their band and cannot be removed', () => {

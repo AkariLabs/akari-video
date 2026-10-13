@@ -71,6 +71,7 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, OpenerService, StorageService, WidgetManager, open } from '@theia/core/lib/browser';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { webviewKeydownSource } from './webview-keydown-source';
 import { MAXIMIZED_CLASS } from '@theia/core/lib/browser/shell/application-shell';
@@ -361,7 +362,7 @@ import { computeCutBoundaryCandidates } from '../common/cut-boundaries';
 import { boundaryBandGeometry, mergeTransitionDeclaration, placeBoundary, primaryBoundaryBlock,
     sameBoundary, sourceEdgeMarks, TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID,
     type BoundaryRef, type BoundaryBlock } from '../common/transition-boundary-model';
-import { validateTransitionBoundaryWrite } from '../common/transition-boundary-write';
+import { resolveBoundaryInDocument, validateTransitionBoundaryWrite } from '../common/transition-boundary-write';
 import { renderTransitionBoundaryView, renderSourceEdgeMarks } from './transition-boundary-view';
 import { createTransitionPicker, type TransitionPicker, type TransitionPreviewUrls } from './transition-picker';
 import { transitionDeclarationIsDead, transitionWriteIsBlocked } from '../common/transition-boundary-state';
@@ -663,8 +664,7 @@ const TRACK_HEADER_WIDTH = 136;
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
 const NON_ADJACENT_TRANSITION_MESSAGE = (): string => t('annotations.timeline.text.thisTransitionWillNotBeExportedBecauseThere')
     + t('annotations.timeline.text.pleaseCloseTheGapOrRemoveTheTransition');
-const ZERO_OVERLAP_TRANSITION_MESSAGE = (): string => t('annotations.timeline.text.thisTransitionDoesnTWorkThereIsNo')
-    + t('annotations.timeline.text.thereIsNoMaterialLeftOverForGluing');
+const ZERO_OVERLAP_TRANSITION_MESSAGE = (): string => t('transition.boundary.dead.noHandle');
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
@@ -976,6 +976,16 @@ export function generationOverhangLabelLayout(
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
+    protected override onAfterHide(msg: Message): void {
+        this.transitionPicker?.close(false);
+        super.onAfterHide(msg);
+    }
+
+    override dispose(): void {
+        this.transitionPicker?.close(false);
+        super.dispose();
+    }
+
     protected lastCaptionRunNotice: string | undefined;
     protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
         withCaptionPreviewFailure(request, this.handleInspectorWrite(request));
@@ -1153,7 +1163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 || this.timelineRange.inFrame !== undefined || this.timelineRange.outFrame !== undefined);
         }
         if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide' || id === 'akari.timeline.rippleDelete') {
-            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
+            return !!(this.activeBoundary || this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0
                 || this.selectedGap || completeTimelineRange(this.timelineRange));
         }
         if (id === 'akari.timeline.selectParent' || id === 'akari.timeline.selectChild') {
@@ -2476,6 +2486,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
+                return;
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.activeBoundary) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
+                void this.removeActiveTransition();
                 return;
             }
             if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectionModel.keyframeSelection) {
@@ -6491,6 +6508,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async performTimelineDelete(shift: boolean, oneSide = false, forceLift = false): Promise<void> {
+        if (this.activeBoundary) {
+            await this.removeActiveTransition();
+            return;
+        }
         const range = completeTimelineRange(this.timelineRange);
         const plan = timelineDeletePlan({ keyframe: !!this.selectionModel.keyframeSelection, gap: !!this.selectedGap,
             range: !!range, selection: !!this.selection || this.multiSelection.length > 0,
@@ -10834,10 +10855,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         });
         this.nextSameTrackSegmentByCutIndex.clear();
-        if (this.activeBoundary && (!this.cutItemIds.includes(this.activeBoundary.earlierItemId)
-            || !this.cutItemIds.includes(this.activeBoundary.laterItemId))) {
-            this.activeBoundary = undefined;
-            this.scheduleStripRender();
+        if (this.activeBoundary && !validateTransitionBoundaryWrite(this.activeBoundary,
+            this.transitionBoundaryInputs(), this.fps,
+            this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length).pairExists) {
+            this.clearActiveTransitionBoundary();
         }
         this.unsupportedTrackTransitionByCutIndex.clear();
         this.nonAdjacentTransitionTargetByCutIndex.clear();
@@ -12434,6 +12455,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 揺れないようにする）。
         const trimmerActiveIndex = this.trimmerItemId;
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
+        const deadBoundaryIndexes = new Set(this.transitionBoundaryCandidates().filter(boundary => {
+            if (!unsupportedDeclaredTransitions.has(boundary.earlierIndex)) return false;
+            const trackId = this.itemLocations.get(boundary.ref.earlierItemId)?.trackId;
+            return !!resolveItemRowLayout(this.laneLayout.tracks, trackId, 'cuts', boundary.track)
+                && this.isRangeMounted(boundary.boundaryT, boundary.boundaryT);
+        }).map(boundary => boundary.earlierIndex));
         this.segments.forEach(segment => {
             const cutItemId = this.cutItemIds[segment.index] ?? '';
             if (timelineItemRenderRoute(cutItemId, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
@@ -12568,7 +12595,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.applyGenerationChip(element, cutGeneration, clipWidth);
             this.applyGenerationOverhang(element, cut, segment, clipWidth, cutGeneration, cutItemId);
             this.applyMaterialFetchBadge(element, this.sourceMap.get(cut.src)?.path ?? cut.src);
-            if (created && unsupportedDeclaredTransitions.has(segment.index)) {
+            if (deadBoundaryIndexes.has(segment.index) || !unsupportedDeclaredTransitions.has(segment.index)) {
+                element.querySelector('[data-akari-unsupported-transition]')?.remove();
+            }
+            if (unsupportedDeclaredTransitions.has(segment.index) && !deadBoundaryIndexes.has(segment.index)
+                && !element.querySelector('[data-akari-unsupported-transition]')) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariUnsupportedTransition = String(segment.index);
@@ -12857,13 +12888,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             button.onclick = event => {
                 event.preventDefault();
                 event.stopPropagation();
-                this.activeBoundary = boundary.ref;
+                this.selectTransitionBoundary(boundary.ref);
                 this.hideNotice();
                 this.footer.textContent = ariaLabel;
                 this.scheduleStripRender();
                 if (kind === 'blocked' || kind === 'dead') {
                     const message = kind === 'dead' ? messageForDead() : this.boundaryBlockMessage(reason);
-                    this.showNotice(message);
+                    if (kind === 'blocked') this.showNotice(message);
                     this.footer.textContent = message;
                     if (kind === 'blocked') return;
                 }
@@ -12899,6 +12930,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     public get activeBoundaryRef(): BoundaryRef | undefined { return this.activeBoundary; }
+
+    protected selectTransitionBoundary(ref: BoundaryRef): void {
+        this.selection = undefined;
+        this.multiSelection = [];
+        this.selectedGap = undefined;
+        this.gapBand?.remove();
+        this.gapBand = undefined;
+        this.setTimelineRange({});
+        this.selectionModel.keyframeSelection = undefined;
+        this.clearMarqueeRange();
+        this.activeBoundary = ref;
+        this.applySelectionClass();
+        this.publishPrimaryPreviewSelection(undefined);
+        this.pushSelectionSnapshot();
+    }
+
+    protected clearActiveTransitionBoundary(ref?: BoundaryRef): void {
+        if (!this.activeBoundary || (ref && !sameBoundary(this.activeBoundary, ref))) return;
+        this.activeBoundary = undefined;
+        this.transitionPicker?.close(false);
+        this.scheduleStripRender();
+    }
 
     public showTransitionSelectionPrompt(): void {
         this.footer.textContent = t('transition.picker.notice.selectBoundaryFirst');
@@ -12997,7 +13050,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     public async removeActiveTransition(): Promise<boolean> {
-        return !!this.activeBoundary && (await this.applyTransitionOut(this.activeBoundary, null)).ok;
+        const ref = this.activeBoundary;
+        if (!ref) return false;
+        const current = this.segments.find(segment => this.cutItemIds[segment.index] === ref.earlierItemId)?.transitionOut;
+        return !!current && (await this.applyTransitionOut(ref, null)).ok;
     }
 
     public revealActiveTransitionInInspector(): boolean {
@@ -13027,7 +13083,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const validation = validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs(), this.fps,
             this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
-        if (transitionWriteIsBlocked(next, validation.blocks)) {
+        if (!validation.pairExists || transitionWriteIsBlocked(next, validation.blocks)) {
+            if (!validation.pairExists) this.clearActiveTransitionBoundary(ref);
             const message = this.boundaryBlockMessage(primaryBoundaryBlock(validation.blocks));
             this.showNotice(message);
             this.footer.textContent = message;
@@ -13036,19 +13093,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
-        if (!next && earlier?.transitionOut && later) {
-            const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
-            if (overlapFrames > 0 && areCutsAdjacent(earlier, later, this.fps)) {
-                await this.commitEditTextMutation(t('annotations.timeline.text.deleteTransition'), text =>
-                    removeV2TransitionOutWithHandleRetractInSource(text, {
-                        itemId: this.cutItemId(cutIndex), retractFrames: overlapFrames, fps: this.fps
-                    })
-                );
-                this.hideNotice();
-                this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe');
-                return { ok: true };
-            }
-        }
         let handle: ReturnType<typeof planTransitionHandleWindow> | undefined;
         let writtenNext = next;
         if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
@@ -13057,21 +13101,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
             handle = write.handle;
             if (write.duration !== next.duration) writtenNext = { ...next, duration: write.duration };
         }
-        if (next) {
-            const currentValidation = validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs(), this.fps,
-                this.compatibilityTimelineTracks.filter(track => track.kind === 'cuts').length);
-            if (currentValidation.blocks.length > 0) {
-                const message = this.boundaryBlockMessage(primaryBoundaryBlock(currentValidation.blocks));
-                this.showNotice(message);
-                this.footer.textContent = message;
-                return { ok: false, message };
-            }
+        let writeBlocks: BoundaryBlock[] | undefined;
+        let missingPair = false;
+        let didRetract = false;
+        const rejected = new Error('transition boundary changed before write');
+        try {
+            await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => {
+                const boundary = resolveBoundaryInDocument(doc, ref, new Set(this.timelineLockedTrackIds()));
+                if (!boundary.pairExists || transitionWriteIsBlocked(next, boundary.blocks)) {
+                    writeBlocks = boundary.blocks;
+                    missingPair = !boundary.pairExists;
+                    throw rejected;
+                }
+                if (!next && boundary.earlierTransition && boundary.overlapFrames > 0) {
+                    didRetract = true;
+                    return JSON.parse(removeV2TransitionOutWithHandleRetractInSource(stringifyEditV2(doc), {
+                        itemId: ref.earlierItemId, retractFrames: boundary.overlapFrames, fps: this.fps
+                    })) as EditV2Document;
+                }
+                const mergedNext = writtenNext ? mergeTransitionDeclaration(boundary.earlierTransition, writtenNext) : null;
+                return updateV2Item(doc, {
+                    itemId: ref.earlierItemId, patch: { source: { transition_out: mergedNext } }
+                });
+            });
+        } catch (error) {
+            if (error !== rejected) throw error;
         }
-        const current = this.rawKeyframeItem(ref.earlierItemId)?.source?.transition_out;
-        const mergedNext = writtenNext ? mergeTransitionDeclaration(current, writtenNext) : null;
-        await this.commitEditMutation(t('annotations.timeline.text.changeTransition'), doc => updateV2Item(doc, {
-            itemId: ref.earlierItemId, patch: { source: { transition_out: mergedNext } }
-        }));
+        if (writeBlocks) {
+            if (missingPair) this.clearActiveTransitionBoundary(ref);
+            const message = this.boundaryBlockMessage(primaryBoundaryBlock(writeBlocks));
+            this.showNotice(message);
+            this.footer.textContent = message;
+            this.messages.warn(message);
+            return { ok: false, message };
+        }
+        if (didRetract) {
+            this.hideNotice();
+            this.footer.textContent = t('annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe');
+            return { ok: true };
+        }
         if (handle?.outcome === 'clamped') {
             const seconds = formatTransitionSeconds(handle.effectiveSeconds);
             const message = t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial', { duration: seconds, n: seconds });

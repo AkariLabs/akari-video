@@ -29,6 +29,7 @@
   "transition.boundary.block.gap": "Close the gap between these clips first.",
   "transition.boundary.block.locked": "Unlock the clip track first.",
   "transition.boundary.dead.gap": "This transition is inactive because there is a gap between the clips. Close the gap or remove the transition.",
+  "transition.boundary.dead.noHandle": "This transition has no effect because the clips have no spare footage to overlap. Trim a clip to make room, or remove the transition.",
   "transition.boundary.dead.multiTrack": "This transition will not be exported because there are multiple video tracks. Use one video track or remove it.",
   "transition.boundary.dead.trackOrder": "This transition will not be exported because the video track order is unsupported. Fix the order or remove it.",
   "transition.picker.heading.choose": "Choose a transition",

@@ -1,7 +1,8 @@
 import { t } from '@akari-video/i18n';
 import { TRANSITION_FAMILIES, transitionFamilyLabelKey, transitionFamilyOf,
     type TransitionDirection, type TransitionFamily, type TransitionType } from '@akari-video/edit-store';
-import { rememberedTransitionType, transitionPickerLayout } from '../common/transition-picker-layout';
+import { anchorVisibleInClips, nextTransitionPickerCardIndex, rememberedTransitionType,
+    TRANSITION_PICKER_HEIGHT, transitionPickerLayout } from '../common/transition-picker-layout';
 import { transitionPickerShieldRects, type PickerFrameRect } from '../common/transition-picker-shield';
 
 export interface TransitionPreviewUrls { preview?: string; strip?: string }
@@ -24,7 +25,7 @@ export interface TransitionPicker {
     element: HTMLDivElement;
     update: () => void;
     reposition: () => void;
-    close: () => void;
+    close: (restoreFocus?: boolean) => void;
 }
 
 export function initialTransitionPickerFocusFamily(
@@ -76,7 +77,7 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
         closed = true;
         cancelAnimationFrame(frame);
         document.removeEventListener('pointerdown', outside, true);
-        document.removeEventListener('keydown', keydown, true);
+        window.removeEventListener('keydown', keydown, true);
         window.removeEventListener('blur', blurred);
         shields.forEach(shield => shield.remove());
         shields.length = 0;
@@ -103,20 +104,48 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
             event.stopPropagation();
             event.stopImmediatePropagation();
             close();
+            return;
+        }
+        if (!element.contains(document.activeElement)) return;
+        const navigation = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+        const activation = event.key === 'Enter' || event.key === ' ';
+        if (!navigation.includes(event.key) && !activation) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (activation) {
+            if (document.activeElement instanceof HTMLButtonElement) document.activeElement.click();
+            return;
+        }
+        const cards = Array.from(element.querySelectorAll<HTMLButtonElement>('.akari-transition-picker-card'));
+        const current = cards.indexOf(document.activeElement as HTMLButtonElement);
+        const next = nextTransitionPickerCardIndex(current, event.key,
+            Number(element.dataset.akariPickerColumns) || 5, cards.length);
+        if (next >= 0) {
+            cards[next].focus();
+            cards[next].scrollIntoView({ block: 'nearest' });
         }
     };
     const reposition = (): void => {
         const anchor = options.anchor();
         if (!anchor || !anchor.isConnected) { close(); return; }
         const rect = anchor.getBoundingClientRect();
-        if (rect.right <= 0 || rect.left >= window.innerWidth || rect.bottom <= 0 || rect.top >= window.innerHeight) {
-            close(); return;
+        const clips = [{ left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }];
+        for (let parent = anchor.parentElement; parent; parent = parent.parentElement) {
+            const style = getComputedStyle(parent);
+            if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+                const bounds = parent.getBoundingClientRect();
+                clips.push({ left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom });
+            }
+        }
+        if (!anchorVisibleInClips(rect, clips)) {
+            close(false); return;
         }
         const signature = `${rect.left}:${rect.right}:${rect.top}:${rect.bottom}:${window.innerWidth}:${window.innerHeight}`;
         if (signature === lastRect) return;
         lastRect = signature;
         const layout = transitionPickerLayout(rect, window.innerWidth, window.innerHeight,
-            options.blockedReason ? 112 : 270, options.blockedReason ? 360 : 520);
+            options.blockedReason ? 112 : TRANSITION_PICKER_HEIGHT, options.blockedReason ? 360 : 520);
         element.style.left = `${layout.left}px`;
         element.style.top = `${layout.top}px`;
         element.style.width = `${layout.width}px`;
@@ -161,27 +190,10 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
             reason.textContent = options.blockedReason;
             body.appendChild(reason);
         } else {
-            const heading = document.createElement('div');
-            heading.className = 'akari-transition-picker-heading';
-            heading.textContent = t('transition.picker.heading.choose');
-            body.appendChild(heading);
             const grid = document.createElement('div');
             grid.className = 'akari-transition-picker-grid';
             grid.dataset.akariTransitionPickerGrid = 'true';
             grid.tabIndex = -1;
-            grid.addEventListener('keydown', event => {
-                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-                const cards = Array.from(grid.querySelectorAll<HTMLButtonElement>('button'));
-                if (cards.length === 0) return;
-                const current = cards.indexOf(document.activeElement as HTMLButtonElement);
-                const columns = Number(element.dataset.akariPickerColumns) || 5;
-                const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1
-                    : event.key === 'ArrowUp' ? -columns : columns;
-                const next = current < 0 ? 0 : Math.max(0, Math.min(cards.length - 1, current + step));
-                event.preventDefault();
-                cards[next].focus();
-                cards[next].scrollIntoView({ block: 'nearest' });
-            });
             const currentFamily = transitionFamilyOf(options.current()?.type)?.family;
             const focusFamily = initialTransitionPickerFocusFamily(currentFamily,
                 TRANSITION_FAMILIES.map(definition => definition.family));
@@ -191,6 +203,7 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
                 if (!type) continue;
                 const card = document.createElement('button');
                 card.type = 'button';
+                card.tabIndex = -1;
                 card.className = 'akari-transition-picker-card';
                 card.dataset.akariTransitionFamily = definition.family;
                 card.dataset.akariTransitionType = type;
@@ -200,15 +213,22 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
                 const sample = document.createElement('span');
                 sample.className = 'akari-transition-picker-sample';
                 const preview = options.previews[type];
-                if (preview?.preview) sample.style.backgroundImage = `url("${preview.preview}")`;
+                const still = document.createElement('span');
+                still.className = 'akari-transition-picker-sample-image';
+                if (preview?.preview) still.style.backgroundImage = `url("${preview.preview}")`;
                 const strip = document.createElement('span');
                 strip.className = 'akari-transition-picker-strip';
                 if (preview?.strip) strip.style.backgroundImage = `url("${preview.strip}")`;
-                sample.appendChild(strip);
+                sample.append(still, strip);
                 const name = document.createElement('span');
                 name.className = 'akari-transition-picker-name';
                 name.textContent = t(transitionFamilyLabelKey(definition.family));
                 card.append(sample, name);
+                card.addEventListener('focus', () => {
+                    grid.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
+                        button.tabIndex = button === card ? 0 : -1;
+                    });
+                });
                 card.addEventListener('click', () => void options.apply(type).then(ok => { if (ok) close(); }));
                 grid.appendChild(card);
             }
@@ -248,7 +268,7 @@ export function createTransitionPicker(options: TransitionPickerOptions): Transi
     update();
     document.body.appendChild(element);
     document.addEventListener('pointerdown', outside, true);
-    document.addEventListener('keydown', keydown, true);
+    window.addEventListener('keydown', keydown, true);
     window.addEventListener('blur', blurred);
     reposition();
     if (!closed) syncShields();

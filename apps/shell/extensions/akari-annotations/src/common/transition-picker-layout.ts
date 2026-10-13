@@ -1,6 +1,31 @@
 import { transitionTypeOf, type TransitionDirection, type TransitionFamilyDefinition } from '@akari-video/edit-store';
 
 export interface PickerAnchorRect { left: number; right: number; top: number; bottom: number }
+export const TRANSITION_PICKER_HEIGHT = 236;
+
+export function nextTransitionPickerCardIndex(
+    current: number, key: string, columns: number, count: number
+): number {
+    if (count <= 0) return -1;
+    if (key === 'Home') return 0;
+    if (key === 'End') return count - 1;
+    const step = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1
+        : key === 'ArrowUp' ? -columns : key === 'ArrowDown' ? columns : 0;
+    return Math.max(0, Math.min(count - 1, (current < 0 ? 0 : current) + step));
+}
+
+export function anchorVisibleInClips(
+    anchor: PickerAnchorRect, clips: readonly PickerAnchorRect[]
+): boolean {
+    let { left, right, top, bottom } = anchor;
+    for (const clip of clips) {
+        left = Math.max(left, clip.left);
+        right = Math.min(right, clip.right);
+        top = Math.max(top, clip.top);
+        bottom = Math.min(bottom, clip.bottom);
+    }
+    return right > left && bottom > top;
+}
 
 export function transitionPickerLayout(
     anchor: PickerAnchorRect, viewportWidth: number, viewportHeight: number, desiredHeight: number, desiredWidth = 520

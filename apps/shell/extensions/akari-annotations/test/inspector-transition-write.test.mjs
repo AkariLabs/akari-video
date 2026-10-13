@@ -16,7 +16,7 @@ const { transitionFields, cutSnapshot, timelineMethod, timelineSource } = await 
 const { transitionOptionLabel, transitionTypeForLabel, createCutTransitionWriteRequest } = await import('../lib/browser/inspector/transition-fields.js');
 const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
 const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
-const { validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
+const { resolveBoundaryInDocument, validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
 const { primaryBoundaryBlock, mergeTransitionDeclaration } = await import('../lib/common/transition-boundary-model.js');
 const { cachedTransitionHandleInput, clampTransitionHandleForWrite,
     planFetchedTransitionHandle, planNoUriTransitionHandle } = await import('../lib/common/transition-handle-plan.js');
@@ -126,7 +126,8 @@ test('cut-transition-out は applyTransitionOut に委譲し、成功・拒否�
 
 const applyTransitionOut = timelineMethod('applyTransitionOut', {
     updateV2Item, cutOverlapFrames, areCutsAdjacent, formatTransitionSeconds, roundTransitionDurationForWrite,
-    validateTransitionBoundaryWrite, primaryBoundaryBlock, mergeTransitionDeclaration, clampTransitionHandleForWrite,
+    validateTransitionBoundaryWrite, resolveBoundaryInDocument, primaryBoundaryBlock,
+    mergeTransitionDeclaration, clampTransitionHandleForWrite,
     transitionWriteIsBlocked,
     ZERO_OVERLAP_TRANSITION_MESSAGE: () => 'zero overlap'
 });
@@ -142,11 +143,14 @@ function transitionContext(overrides = {}) {
         transitionBoundaryInputs() { return this.segments.map(segment => ({ ...segment,
             trackOrderValid: this.unsupportedTransitionTrack(segment.index) === undefined })); },
         boundaryBlockMessage() { return 'unsupported'; },
+        timelineLockedTrackIds() { return []; },
         rawKeyframeItem() { return this.document.tracks[0].items[0]; },
         unsupportedTransitionMessage() { return 'unsupported'; }, cutItemId() { return 'cut-1'; },
         showNotice(message) { this.notices.push(message); }, hideNotice() {},
         document: { version: 2, tracks: [{ id: 'video', lane: 'visual', items: [{
             id: 'cut-1', at: 0, duration: 150, source: { kind: 'media', src: 'main', in: 0, out: 5 }
+        }, {
+            id: 'cut-2', at: 150, duration: 150, source: { kind: 'media', src: 'main', in: 5, out: 10 }
         }] }] },
         async commitEditMutation(_label, mutate) { this.document = mutate(this.document); },
         ...overrides

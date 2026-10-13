@@ -24,7 +24,8 @@ export function renderTransitionBoundaryView(button: HTMLButtonElement, input: T
     button.style.left = `calc(${input.leftPercent}% + ${input.geometry?.leftPx ?? -11}px)`;
     button.style.top = `${input.rowTopPx + input.rowHeightPx / 2}px`;
     button.style.width = `${input.geometry?.widthPx ?? 22}px`;
-    button.style.height = `${Math.max(18, input.rowHeightPx * 0.45)}px`;
+    button.style.height = `${Math.max(input.kind === 'add' || input.kind === 'blocked' || input.kind === 'dead'
+        ? 22 : 18, input.rowHeightPx * 0.45)}px`;
     button.dataset.akariBoundaryHidden = String(input.hidden);
     button.dataset.akariBoundarySelected = String(!!input.selected);
     button.dataset.akariBoundaryMicro = String(!!input.micro);

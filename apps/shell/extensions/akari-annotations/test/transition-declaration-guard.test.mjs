@@ -19,11 +19,13 @@ test('宣言前ガードは edit.json 書き込みより先に return する', (
   const end = source.indexOf('protected unsupportedTransitionTrack', start);
   const method = source.slice(start, end);
   const guard = method.indexOf('validateTransitionBoundaryWrite(ref, this.transitionBoundaryInputs()');
-  const adjacency = method.indexOf('if (transitionWriteIsBlocked(next, validation.blocks))', guard);
+  const adjacency = method.indexOf('if (!validation.pairExists || transitionWriteIsBlocked(next, validation.blocks))', guard);
   const noWriteReturn = method.indexOf('return { ok: false, message };', guard);
   const write = method.indexOf("commitEditMutation(t('annotations.timeline.text.changeTransition')");
+  const queuedGuard = method.indexOf('resolveBoundaryInDocument(doc, ref', write);
   assert.equal(ja['annotations.timeline.text.changeTransition'], 'トランジションを変更');
   assert.ok(guard >= 0 && adjacency > guard && noWriteReturn > adjacency && write > noWriteReturn, method);
+  assert.ok(queuedGuard > write, method);
 });
 
 test('既存の非対応宣言はクリップ警告のワンクリックで null 手術へ進む', () => {

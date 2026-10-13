@@ -876,9 +876,50 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-annotations-widget .akari-transition-boundary-add,
     .akari-annotations-widget .akari-transition-boundary-blocked,
     .akari-annotations-widget .akari-transition-boundary-dead {
-        border-radius: 4px;
+        border-radius: 50%;
         font-size: 17px;
         line-height: 1;
+    }
+    .akari-annotations-widget .akari-transition-boundary-add {
+        isolation: isolate;
+        border-color: transparent;
+        background: transparent;
+        opacity: .55;
+    }
+    .akari-annotations-widget .akari-transition-boundary-add::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        box-sizing: border-box;
+        z-index: -1;
+        border: 1px solid var(--akari-tl-transition-neutral);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--akari-tl-clip-edge-dark) 78%, transparent);
+    }
+    .akari-annotations-widget .akari-transition-boundary-add:hover,
+    .akari-annotations-widget .akari-transition-boundary-add:focus-visible,
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-selected="true"] {
+        opacity: 1;
+    }
+    .akari-annotations-widget .akari-transition-boundary-add:hover::before,
+    .akari-annotations-widget .akari-transition-boundary-add:focus-visible::before,
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-selected="true"]::before {
+        width: 22px;
+        height: 22px;
+    }
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-selected="true"] {
+        background: transparent;
+    }
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-selected="true"]::before {
+        border-color: var(--theia-focusBorder);
+    }
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-hidden="true"] { opacity: .28; }
+    .akari-annotations-widget .akari-transition-boundary-add[data-akari-boundary-micro="true"]:not(:hover):not(:focus-visible) {
+        opacity: 0;
     }
     .akari-annotations-widget .akari-transition-boundary-blocked { opacity: .55; border-style: dashed; }
     .akari-annotations-widget .akari-transition-boundary-dead { color: var(--akari-tl-waveform-yellow); }
@@ -952,7 +993,6 @@ export const ANNOTATIONS_WIDGET_CSS = `
     }
     .akari-transition-picker:focus { outline: none; }
     .akari-transition-picker-body { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 8px; box-sizing: border-box; }
-    .akari-transition-picker-heading { flex: none; margin-bottom: 6px; font-weight: 600; }
     .akari-transition-picker-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -960,16 +1000,20 @@ export const ANNOTATIONS_WIDGET_CSS = `
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        grid-auto-rows: minmax(68px, 1fr);
-        align-content: stretch;
+        grid-auto-rows: 78px;
+        align-content: start;
     }
     .akari-transition-picker-grid:focus { outline: none; }
     .akari-transition-picker[data-akari-picker-columns="3"] .akari-transition-picker-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: 94px;
     }
     .akari-transition-picker-card {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
         min-width: 0;
-        padding: 3px;
+        padding: 2px;
         border: 1px solid var(--theia-widget-border);
         border-radius: 4px;
         background: var(--theia-editor-background);
@@ -984,10 +1028,19 @@ export const ANNOTATIONS_WIDGET_CSS = `
     .akari-transition-picker-sample {
         display: block;
         position: relative;
-        height: 36px;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        flex: none;
         overflow: hidden;
-        background-size: 300% 100%;
-        background-position: 50% 50%;
+    }
+    .akari-transition-picker-sample-image {
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 300%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
         background-repeat: no-repeat;
     }
     .akari-transition-picker-strip {
@@ -1011,17 +1064,16 @@ export const ANNOTATIONS_WIDGET_CSS = `
         .akari-transition-picker-card:focus-visible .akari-transition-picker-strip { opacity: 0; animation: none; }
     }
     .akari-transition-picker-name {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+        display: block;
         overflow: hidden;
-        white-space: normal;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        text-overflow: ellipsis;
         font-size: 11px;
-        line-height: 1.15;
+        line-height: 1.2;
         letter-spacing: -.03em;
     }
-    .akari-transition-picker-footer { display: flex; flex: none; align-items: center; gap: 6px; padding-top: 8px; }
+    .akari-transition-picker-footer { display: flex; flex: none; align-items: center; gap: 6px;
+        min-height: 34px; padding-top: 4px; box-sizing: border-box; margin-top: auto; }
     .akari-transition-picker-reason { line-height: 1.4; }
     .akari-transition-picker-arrow {
         position: absolute;

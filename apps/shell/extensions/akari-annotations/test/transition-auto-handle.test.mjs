@@ -40,10 +40,11 @@ test('突き合わせ境界は単一定義で宣言尺だけをクランプし t
   assert.doesNotMatch(apply, /setV2TransitionOutWithHandleInSource|autoHandle|maxExtendSeconds/u);
 });
 
-test('旧自動のりしろの削除救済だけが byte-preserving text commit を 1 回使う', () => {
+test('旧自動のりしろの削除救済も保存列内で境目を確認する', () => {
   const apply = method('protected async applyTransitionOut', 'protected nextSameTrackSegment');
-  assert.equal((apply.match(/commitEditTextMutation\(/gu) ?? []).length, 1);
-  assert.match(apply, /areCutsAdjacent\(earlier, later, this\.fps\)/u);
+  assert.equal((apply.match(/commitEditTextMutation\(/gu) ?? []).length, 0);
+  assert.match(apply, /resolveBoundaryInDocument\(doc, ref/u);
+  assert.match(apply, /boundary\.overlapFrames > 0/u);
   assert.match(apply, /removeV2TransitionOutWithHandleRetractInSource/u);
   assert.match(apply, /t\('annotations\.timeline\.text\.iDeletedTheTransitionAndAlsoRestoredThe'\)/u);
   assert.equal(ja['annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe'], 'トランジションを削除しました（のりしろも戻しました）。');
@@ -63,10 +64,9 @@ test('text commit は before/after 1 組を 1 history に積み、undo/redo が�
 test('クランプ・不能は日本語通知され、不能と layers 退避は警告バッジ導線を持つ', () => {
   assert.match(source, /t\('annotations\.timeline\.text\.transitionIsShortenedToSecondsNotEnoughMaterial'/u);
   assert.equal(ja['annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial_other'], 'トランジションが {duration} 秒に短くなります（素材の余りが足りません）');
-  assert.match(source, /t\('annotations\.timeline\.text\.thisTransitionDoesnTWorkThereIsNo'\)/u);
-  assert.equal(ja['annotations.timeline.text.thisTransitionDoesnTWorkThereIsNo'], 'このトランジションは効きません: 素材に余りがありません。');
-  assert.match(source, /t\('annotations\.timeline\.text\.thereIsNoMaterialLeftOverForGluing'\)/u);
-  assert.equal(ja['annotations.timeline.text.thereIsNoMaterialLeftOverForGluing'], 'のりしろにできる素材の余りがないため、素材のトリムを調整するか削除してください。');
+  assert.match(source, /t\('transition\.boundary\.dead\.noHandle'\)/u);
+  assert.equal(JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/transition.json', import.meta.url), 'utf8'))
+    ['transition.boundary.dead.noHandle'], '素材の余りがないので、このトランジションは効いていません。トリムで余りを作るか、なしにしてください。');
   assert.match(source, /zeroOverlapTransitionIndexes\.has\(cutIndex\)/u);
   assert.match(source, /dataset\.akariLayerTransitionWarning = layer\.id/u);
   assert.match(source, /t\('annotations\.timeline\.text\.sinceThisClipOverlapsWithAnItemOn'/u);

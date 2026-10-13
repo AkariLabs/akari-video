@@ -432,8 +432,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.getShortcutKeybindings().registerCommands(commands);
         const activeTransition = (): AkariAnnotationsWidget | undefined => {
             const widget = this.timelineWidget;
-            if (widget?.activeBoundaryRef) return widget;
-            widget?.showTransitionSelectionPrompt();
+            if (widget?.isVisible && widget.isAttached && widget.node.isConnected && widget.activeBoundaryRef) return widget;
+            if (widget?.isVisible && widget.isAttached && widget.node.isConnected) widget.showTransitionSelectionPrompt();
             this.messages.info(t('transition.picker.notice.selectBoundaryFirst'));
             return undefined;
         };

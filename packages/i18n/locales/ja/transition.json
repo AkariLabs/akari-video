@@ -29,6 +29,7 @@
   "transition.boundary.block.gap": "先にクリップ間のすき間を閉じてください。",
   "transition.boundary.block.locked": "先にクリップのトラックのロックを解除してください。",
   "transition.boundary.dead.gap": "クリップの間にすき間があるので、このトランジションは効いていません。すき間を閉じるか、なしにしてください。",
+  "transition.boundary.dead.noHandle": "素材の余りがないので、このトランジションは効いていません。トリムで余りを作るか、なしにしてください。",
   "transition.boundary.dead.multiTrack": "映像トラックが複数あるので、このトランジションは書き出されません。映像トラックを1本にするか、なしにしてください。",
   "transition.boundary.dead.trackOrder": "映像トラックの順序が対応していないので、このトランジションは書き出されません。順序を直すか、なしにしてください。",
   "transition.picker.heading.choose": "トランジションを選ぶ",
