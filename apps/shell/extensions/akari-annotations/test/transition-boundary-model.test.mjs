@@ -126,3 +126,17 @@ test("境目は前後の item ID の組で比べ、理由は決まった順で 1
   assert.equal(primaryBoundaryBlock(["locked", "multi-track"]), "multi-track");
   assert.equal(primaryBoundaryBlock([]), undefined);
 });
+
+test("置き方と埋め方は、省けば保ち、null で項目ごと消す", () => {
+  const existing = { type: "fade", duration: 1, align: "after-cut", fill: "freeze", future: 1 };
+  assert.deepEqual(mergeTransitionDeclaration(existing, { type: "dissolve", duration: 0.5 }),
+    { type: "dissolve", duration: 0.5, align: "after-cut", fill: "freeze", future: 1 });
+  assert.deepEqual(mergeTransitionDeclaration(existing, { type: "fade", duration: 1, align: null }),
+    { type: "fade", duration: 1, fill: "freeze", future: 1 });
+  assert.deepEqual(mergeTransitionDeclaration(existing, { type: "fade", duration: 1, align: "before-cut", fill: null }),
+    { type: "fade", duration: 1, align: "before-cut", future: 1 });
+  assert.deepEqual(mergeTransitionDeclaration({ type: "fade", duration: 1, align: "future-side" },
+    { type: "wipe-left", duration: 1 }), { type: "wipe-left", duration: 1, align: "future-side" });
+  assert.deepEqual(mergeTransitionDeclaration(undefined, { type: "fade", duration: 1, align: null }),
+    { type: "fade", duration: 1 });
+});

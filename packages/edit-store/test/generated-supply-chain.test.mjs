@@ -69,6 +69,7 @@ const expectedSources = [
   'track-z.ts',
   'transform-keyframe-edit.ts',
   'transform.ts',
+  'transition-plan.ts',
   'transition-visual.ts',
   'transition-vocabulary.ts',
   'tree-ops.ts',

@@ -15491,6 +15491,273 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/transition-plan.js
+  var require_transition_plan = __commonJS({
+    "packages/edit-store/lib/transition-plan.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.TRANSITION_FILL_IDS = exports.TRANSITION_ALIGN_IDS = void 0;
+      exports.isTransitionAlign = isTransitionAlign;
+      exports.readTransitionAlign = readTransitionAlign;
+      exports.readTransitionFill = readTransitionFill;
+      exports.planTrackTransitions = planTrackTransitions;
+      exports.chooseTransitionAlign = chooseTransitionAlign;
+      exports.transitionPlanClipsFromCuts = transitionPlanClipsFromCuts;
+      var cut_adjacency_1 = require_cut_adjacency();
+      var edit_store_1 = require_edit_store();
+      exports.TRANSITION_ALIGN_IDS = ["center", "before-cut", "after-cut"];
+      exports.TRANSITION_FILL_IDS = ["freeze"];
+      function isTransitionAlign(value) {
+        return typeof value === "string" && exports.TRANSITION_ALIGN_IDS.includes(value);
+      }
+      function readTransitionAlign(value) {
+        return isTransitionAlign(value) ? value : "center";
+      }
+      function readTransitionFill(value) {
+        return value === "freeze" ? "freeze" : void 0;
+      }
+      var EPSILON = 1e-6;
+      var room = (value) => value === void 0 || value === Number.POSITIVE_INFINITY ? Number.POSITIVE_INFINITY : Number.isFinite(value) && value > 0 ? value : 0;
+      var earlierShare = (align, x3) => align === "before-cut" ? x3 : align === "after-cut" ? 0 : x3 / 2;
+      var laterShare = (align, x3) => align === "after-cut" ? x3 : align === "before-cut" ? 0 : x3 / 2;
+      var lengthWithin = (align, a, b) => align === "before-cut" ? a : align === "after-cut" ? b : 2 * Math.min(a, b);
+      function planTrackTransitions(clips, options) {
+        const fps = (0, cut_adjacency_1.effectiveCutFps)(options.fps);
+        const boundaries = [];
+        for (let index = 0; index + 1 < clips.length; index++) {
+          const earlier = clips[index];
+          const later = clips[index + 1];
+          const declared = earlier.transitionOut?.declaredSeconds;
+          if (typeof declared !== "number" || !Number.isFinite(declared) || declared <= 0) {
+            boundaries.push(void 0);
+            continue;
+          }
+          const earlierEnd = earlier.startSeconds + earlier.lengthSeconds;
+          const laterEnd = later.startSeconds + later.lengthSeconds;
+          const overlapFrames = (0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: earlierEnd }, { tlStart: later.startSeconds }, fps);
+          if (overlapFrames === 0) {
+            boundaries.push({
+              kind: "new",
+              earlier: index,
+              later: index + 1,
+              cutSeconds: later.startSeconds,
+              align: earlier.transitionOut.align,
+              declaredSeconds: declared,
+              requested: 0,
+              reasons: /* @__PURE__ */ new Set(),
+              blockedByLegacy: false
+            });
+            continue;
+          }
+          const overlap = earlierEnd - later.startSeconds;
+          if (overlapFrames < 0 || !(overlap > EPSILON) || overlap - declared > EPSILON) {
+            boundaries.push(void 0);
+            continue;
+          }
+          const windowEnd = Math.min(earlierEnd, laterEnd, later.startSeconds + declared);
+          const windowSeconds = windowEnd - later.startSeconds;
+          if (!(windowSeconds > EPSILON)) {
+            boundaries.push(void 0);
+            continue;
+          }
+          boundaries.push({
+            kind: "legacy",
+            earlier: index,
+            later: index + 1,
+            cutSeconds: later.startSeconds,
+            declaredSeconds: declared,
+            overlapSeconds: overlap,
+            windowSeconds,
+            coversLater: windowEnd >= laterEnd - EPSILON
+          });
+        }
+        const ownLength = clips.map((clip, index) => {
+          const tail = boundaries[index];
+          return Math.max(0, tail?.kind === "new" ? tail.cutSeconds - clip.startSeconds : clip.lengthSeconds);
+        });
+        for (const boundary of boundaries) {
+          if (boundary?.kind !== "new")
+            continue;
+          const earlier = clips[boundary.earlier];
+          const later = clips[boundary.later];
+          const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
+          const tailRoom = earlier.tailRoomSeconds === void 0 ? Number.POSITIVE_INFINITY : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+          const headRoom = room(later.headRoomSeconds);
+          const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
+          const laterCap = Math.min(ownLength[boundary.later], tailRoom);
+          const requested = Math.max(0, Math.min(boundary.declaredSeconds, lengthWithin(boundary.align, earlierCap, laterCap)));
+          if (requested < boundary.declaredSeconds - EPSILON) {
+            const a = earlierShare(boundary.align, requested);
+            const b = laterShare(boundary.align, requested);
+            const uses = (share, cap) => share >= cap - EPSILON;
+            if (boundary.align !== "after-cut") {
+              if (uses(a, ownLength[boundary.earlier]))
+                boundary.reasons.add("outgoing-length");
+              if (uses(a, headRoom))
+                boundary.reasons.add("incoming-room");
+            }
+            if (boundary.align !== "before-cut") {
+              if (uses(b, ownLength[boundary.later]))
+                boundary.reasons.add("incoming-length");
+              if (uses(b, tailRoom))
+                boundary.reasons.add("outgoing-room");
+            }
+          }
+          boundary.requested = requested;
+        }
+        const tailLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+        const headLimit = new Array(clips.length).fill(Number.POSITIVE_INFINITY);
+        for (let index = 0; index < clips.length; index++) {
+          const head = index > 0 ? boundaries[index - 1] : void 0;
+          const tail = boundaries[index];
+          if (!head || !tail)
+            continue;
+          if (head.kind === "legacy" && head.coversLater && tail.kind === "new") {
+            tail.blockedByLegacy = true;
+            continue;
+          }
+          const length = ownLength[index];
+          const headUse = head.kind === "legacy" ? head.windowSeconds : laterShare(head.align, head.requested);
+          const tailUse = tail.kind === "legacy" ? tail.overlapSeconds : earlierShare(tail.align, tail.requested);
+          if (!(headUse + tailUse > length + EPSILON))
+            continue;
+          if (head.kind === "legacy" && tail.kind === "legacy")
+            continue;
+          if (head.kind === "legacy")
+            tailLimit[index] = Math.max(0, length - headUse);
+          else if (tail.kind === "legacy")
+            headLimit[index] = Math.max(0, length - tailUse);
+          else {
+            headLimit[index] = Math.max(length / 2, length - tailUse);
+            tailLimit[index] = Math.max(length / 2, length - headUse);
+          }
+        }
+        const minimumSeconds = 1 / fps;
+        const plans = [];
+        for (const boundary of boundaries) {
+          if (!boundary)
+            continue;
+          const earlier = clips[boundary.earlier];
+          const later = clips[boundary.later];
+          if (boundary.kind === "legacy") {
+            plans.push({
+              earlierId: earlier.id,
+              laterId: later.id,
+              cutSeconds: boundary.cutSeconds,
+              legacyOverlap: true,
+              align: "center",
+              declaredSeconds: boundary.declaredSeconds,
+              effectiveSeconds: boundary.windowSeconds,
+              startOffsetSeconds: 0,
+              endOffsetSeconds: boundary.windowSeconds,
+              state: "ok",
+              reasons: [],
+              freezeIncomingSeconds: 0,
+              freezeOutgoingSeconds: 0
+            });
+            continue;
+          }
+          const reasons = new Set(boundary.reasons);
+          let effective = boundary.requested;
+          if (boundary.blockedByLegacy) {
+            effective = 0;
+            reasons.add("neighbor");
+          } else {
+            const limited = lengthWithin(boundary.align, tailLimit[boundary.earlier], headLimit[boundary.later]);
+            if (limited < effective - EPSILON) {
+              effective = Math.max(0, limited);
+              reasons.add("neighbor");
+            }
+          }
+          if (effective > 0 && effective < minimumSeconds - EPSILON) {
+            effective = 0;
+            reasons.add("too-short");
+          }
+          const state = effective <= 0 ? "none" : effective < boundary.declaredSeconds - EPSILON ? "shortened" : "ok";
+          plans.push({
+            earlierId: earlier.id,
+            laterId: later.id,
+            cutSeconds: boundary.cutSeconds,
+            legacyOverlap: false,
+            align: boundary.align,
+            declaredSeconds: boundary.declaredSeconds,
+            effectiveSeconds: effective,
+            startOffsetSeconds: effective > 0 ? -earlierShare(boundary.align, effective) : 0,
+            endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
+            state,
+            reasons: state === "ok" ? [] : [...reasons],
+            freezeIncomingSeconds: 0,
+            freezeOutgoingSeconds: 0
+          });
+        }
+        return plans;
+      }
+      function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
+        const index = clips.findIndex((clip) => clip.id === earlierId);
+        if (index < 0 || index + 1 >= clips.length)
+          return void 0;
+        const laterId = clips[index + 1].id;
+        const boundaryOf = (plans) => plans.find((plan) => plan.earlierId === earlierId && plan.laterId === laterId);
+        const baseline = planTrackTransitions(clips, options);
+        let best;
+        for (const align of exports.TRANSITION_ALIGN_IDS) {
+          const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+            ...clip,
+            tailRoomSeconds: clip.tailRoomSeconds ?? 0,
+            transitionOut: { declaredSeconds, align, fill: false }
+          } : clip);
+          const plans = planTrackTransitions(candidateClips, options);
+          const plan = boundaryOf(plans);
+          if (!plan || plan.legacyOverlap)
+            continue;
+          if (!best || plan.effectiveSeconds > best.plan.effectiveSeconds + EPSILON)
+            best = { align, plan, plans };
+        }
+        if (!best)
+          return void 0;
+        const neighborChanges = best.plans.filter((plan) => {
+          if (plan.earlierId === earlierId && plan.laterId === laterId)
+            return false;
+          const before = baseline.find((entry) => entry.earlierId === plan.earlierId && entry.laterId === plan.laterId);
+          return !before || Math.abs(before.effectiveSeconds - plan.effectiveSeconds) > EPSILON;
+        });
+        return { align: best.align, needsFill: false, plan: best.plan, neighborChanges };
+      }
+      function transitionPlanClipsFromCuts(cuts, options) {
+        const usable = [];
+        cuts.forEach((cut, index) => {
+          if (typeof cut?.in === "number" && Number.isFinite(cut.in) && typeof cut?.out === "number" && Number.isFinite(cut.out) && cut.in < cut.out) {
+            usable.push({ cut, index });
+          }
+        });
+        const tracks = /* @__PURE__ */ new Map();
+        for (const segment of (0, edit_store_1.computeCutTrackSegments)(usable.map((entry) => entry.cut))) {
+          const { cut, index } = usable[segment.index];
+          const facts = options.resolve(cut, index);
+          const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+          const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+          const transition = cut.transitionOut;
+          const clip = {
+            id: String(index),
+            startSeconds: segment.at,
+            lengthSeconds: segment.duration + freezeSeconds,
+            headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
+            tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : typeof facts.materialDurationSeconds === "number" && Number.isFinite(facts.materialDurationSeconds) ? Math.max(0, (facts.materialDurationSeconds - cut.out) / speed) : void 0,
+            ...transition && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? { transitionOut: {
+              declaredSeconds: transition.duration,
+              align: readTransitionAlign(transition.align),
+              fill: readTransitionFill(transition.fill) === "freeze"
+            } } : {}
+          };
+          const list = tracks.get(segment.track) ?? [];
+          list.push(clip);
+          tracks.set(segment.track, list);
+        }
+        return [...tracks.entries()].sort((left, right) => left[0] - right[0]).map(([track, clips]) => ({ track, clips }));
+      }
+    }
+  });
+
   // packages/edit-store/lib/transition-visual.js
   var require_transition_visual = __commonJS({
     "packages/edit-store/lib/transition-visual.js"(exports) {
@@ -20135,6 +20402,7 @@ ${indent}`);
       __exportStar(require_media_planes(), exports);
       __exportStar(require_track_transition_compatibility(), exports);
       __exportStar(require_cut_adjacency(), exports);
+      __exportStar(require_transition_plan(), exports);
       __exportStar(require_transition_vocabulary(), exports);
       __exportStar(require_transition_visual(), exports);
       __exportStar(require_ducking(), exports);

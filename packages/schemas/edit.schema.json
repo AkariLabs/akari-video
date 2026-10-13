@@ -990,9 +990,11 @@
       "required": ["type", "duration"],
       "properties": {
         "type": { "type": "string", "minLength": 1, "pattern": "\\S", "x-akari-known-values": ["dissolve", "fade", "fade-black", "fade-white", "fade-grays", "wipe-left", "wipe-right", "wipe-up", "wipe-down", "radial", "slide-left", "slide-right", "slide-up", "slide-down", "cover-left", "cover-right", "cover-up", "cover-down", "reveal-left", "reveal-right", "reveal-down", "reveal-up", "circle-open", "circle-close", "zoom-in", "squeeze-h", "squeeze-v", "blur", "pixelize"] },
-        "duration": { "$ref": "#/$defs/positiveNumber" }
+        "duration": { "$ref": "#/$defs/positiveNumber" },
+        "align": { "type": "string", "minLength": 1, "x-akari-known-values": ["center", "before-cut", "after-cut"] },
+        "fill": { "type": "string", "minLength": 1, "x-akari-known-values": ["freeze"] }
       },
-      "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。既知値は packages/edit-store の正準トランジション語彙と drift test で一致させる。"
+      "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。既知値は packages/edit-store の正準トランジション語彙と drift test で一致させる。align は窓の置き方（省略と知らない値は center）、fill は足りない素材の埋め方（省略と知らない値は埋めない）。どちらも開いた文字列で、知らない値で読み込みを止めない。"
     },
     "cutTransform": {
       "type": "object",

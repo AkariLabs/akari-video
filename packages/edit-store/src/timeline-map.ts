@@ -17,6 +17,7 @@ import {
     DEFAULT_CUT_ADJACENCY_FPS,
     planTransitionHandleWindow
 } from './cut-adjacency';
+import type { TransitionBoundaryPlan } from './transition-plan';
 
 export interface TimelineTransitionPlate {
     start: number;
@@ -53,6 +54,16 @@ export interface TimelineTransitionWindow {
     type: NonNullable<EditCut['transitionOut']>['type'];
     outgoing: TimelineSegment;
     incoming: TimelineSegment;
+    /**
+     * 以下は、投影前の並びから窓を合成したときだけ入る計画の値。
+     * 投影済みの並び（実際の重なり）から作り直した窓には入らない。
+     */
+    cutSeconds?: number;
+    effectiveSeconds?: number;
+    state?: TransitionBoundaryPlan['state'];
+    reasons?: TransitionBoundaryPlan['reasons'];
+    freezeIncomingSeconds?: number;
+    freezeOutgoingSeconds?: number;
 }
 
 export interface TimelineMapResult {

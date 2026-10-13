@@ -1,0 +1,273 @@
+{
+  "note": "Shared, hand-computed expectations for transition planning. Every consumer (plan, both projections, frame engine, audio schedule, timeline band) reads this file. Do not regenerate the expected values from an implementation.",
+  "plan": [
+    {
+      "name": "center with enough handles",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3.5, "end": 4.5, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "before-cut uses the incoming head",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "before-cut" } },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3, "end": 4, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "after-cut uses the outgoing tail",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "after-cut" } },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 5, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "center is shortened symmetrically by a short incoming head",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 0.2, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3.8, "end": 4.2, "effective": 0.4, "state": "shortened", "reasons": ["incoming-room"], "legacy": false }]
+    },
+    {
+      "name": "before-cut is shortened by a short incoming head",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "before-cut" } },
+        { "id": "b", "start": 4, "length": 4, "head": 0.2, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3.8, "end": 4, "effective": 0.2, "state": "shortened", "reasons": ["incoming-room"], "legacy": false }]
+    },
+    {
+      "name": "after-cut avoids a short incoming head",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2, "out": { "declared": 1, "align": "after-cut" } },
+        { "id": "b", "start": 4, "length": 4, "head": 0.2, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 5, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "unknown outgoing tail is not limited",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": null, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3.5, "end": 4.5, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "no handles on either side leaves no window",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 0, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 0, "tail": 2 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 4, "effective": 0, "state": "none", "reasons": ["incoming-room", "outgoing-room"], "legacy": false }]
+    },
+    {
+      "name": "still image head is unlimited but the outgoing tail still limits center",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 0, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": "inf", "tail": "inf" }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 4, "effective": 0, "state": "none", "reasons": ["outgoing-room"], "legacy": false }]
+    },
+    {
+      "name": "before-cut into a still image needs no outgoing tail",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 0, "out": { "declared": 1, "align": "before-cut" } },
+        { "id": "b", "start": 4, "length": 4, "head": "inf", "tail": "inf" }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3, "end": 4, "effective": 1, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "a short clip between two center windows is shared in halves",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 2, "head": 5, "tail": 5, "out": { "declared": 0.4, "align": "center" } },
+        { "id": "b", "start": 2, "length": 0.2, "head": 5, "tail": 5, "out": { "declared": 0.4, "align": "center" } },
+        { "id": "c", "start": 2.2, "length": 2, "head": 5, "tail": 5 }
+      ],
+      "expected": [
+        { "earlier": "a", "later": "b", "start": 1.9, "end": 2.1, "effective": 0.2, "state": "shortened", "reasons": ["neighbor"], "legacy": false },
+        { "earlier": "b", "later": "c", "start": 2.1, "end": 2.3, "effective": 0.2, "state": "shortened", "reasons": ["neighbor"], "legacy": false }
+      ]
+    },
+    {
+      "name": "a small window keeps its length and the larger neighbour takes the rest",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 5, "tail": 5, "out": { "declared": 0.3, "align": "after-cut" } },
+        { "id": "b", "start": 4, "length": 1, "head": 5, "tail": 5, "out": { "declared": 0.9, "align": "before-cut" } },
+        { "id": "c", "start": 5, "length": 4, "head": 5, "tail": 5 }
+      ],
+      "expected": [
+        { "earlier": "a", "later": "b", "start": 4, "end": 4.3, "effective": 0.3, "state": "ok", "reasons": [], "legacy": false },
+        { "earlier": "b", "later": "c", "start": 4.3, "end": 5, "effective": 0.7, "state": "shortened", "reasons": ["neighbor"], "legacy": false }
+      ]
+    },
+    {
+      "name": "the cut point is the start of the later clip when the ends differ by less than a frame",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 3.99, "head": 5, "tail": 5, "out": { "declared": 0.5, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 5, "tail": 5 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 3.75, "end": 4.25, "effective": 0.5, "state": "ok", "reasons": [], "legacy": false }]
+    },
+    {
+      "name": "a legacy overlap that covers the later clip blocks the window at its tail",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 5, "head": 5, "tail": 5, "out": { "declared": 2, "align": "center" } },
+        { "id": "b", "start": 3, "length": 1, "head": 5, "tail": 5, "out": { "declared": 1, "align": "after-cut" } },
+        { "id": "c", "start": 4, "length": 4, "head": 5, "tail": 5 }
+      ],
+      "expected": [
+        { "earlier": "a", "later": "b", "start": 3, "end": 4, "effective": 1, "state": "ok", "reasons": [], "legacy": true },
+        { "earlier": "b", "later": "c", "start": 4, "end": 4, "effective": 0, "state": "none", "reasons": ["neighbor"], "legacy": false }
+      ]
+    },
+    {
+      "name": "a legacy overlap keeps its interval and a new window follows untouched",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 5, "head": 5, "tail": 5, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4.5, "length": 4.5, "head": 5, "tail": 5, "out": { "declared": 1, "align": "center" } },
+        { "id": "c", "start": 9, "length": 3, "head": 5, "tail": 5 }
+      ],
+      "expected": [
+        { "earlier": "a", "later": "b", "start": 4.5, "end": 5, "effective": 0.5, "state": "ok", "reasons": [], "legacy": true },
+        { "earlier": "b", "later": "c", "start": 8.5, "end": 9.5, "effective": 1, "state": "ok", "reasons": [], "legacy": false }
+      ]
+    },
+    {
+      "name": "a window shorter than one frame is not created",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 5, "tail": 5, "out": { "declared": 0.02, "align": "center" } },
+        { "id": "b", "start": 4, "length": 4, "head": 5, "tail": 5 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 4, "end": 4, "effective": 0, "state": "none", "reasons": ["too-short"], "legacy": false }]
+    },
+    {
+      "name": "center is limited by the length of a short outgoing clip",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 0.3, "head": 5, "tail": 5, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 0.3, "length": 4.7, "head": 5, "tail": 5 }
+      ],
+      "expected": [{ "earlier": "a", "later": "b", "start": 0, "end": 0.6, "effective": 0.6, "state": "shortened", "reasons": ["outgoing-length"], "legacy": false }]
+    },
+    {
+      "name": "a gap has no boundary",
+      "fps": 30,
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 5, "tail": 5, "out": { "declared": 1, "align": "center" } },
+        { "id": "b", "start": 4.5, "length": 4, "head": 5, "tail": 5 }
+      ],
+      "expected": []
+    }
+  ],
+  "choose": [
+    { "name": "enough on both sides stays centered", "fps": 30, "declared": 1, "earlier": "a",
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2 },
+        { "id": "b", "start": 4, "length": 4, "head": 1, "tail": 2 }
+      ],
+      "expected": { "align": "center", "effective": 1 } },
+    { "name": "a short incoming head moves the window after the cut", "fps": 30, "declared": 1, "earlier": "a",
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 2 },
+        { "id": "b", "start": 4, "length": 4, "head": 0.2, "tail": 2 }
+      ],
+      "expected": { "align": "after-cut", "effective": 1 } },
+    { "name": "an unknown outgoing tail is not relied on", "fps": 30, "declared": 1, "earlier": "a",
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": null },
+        { "id": "b", "start": 4, "length": 4, "head": 2, "tail": 2 }
+      ],
+      "expected": { "align": "before-cut", "effective": 1 } },
+    { "name": "no handles anywhere keeps center and has no window", "fps": 30, "declared": 1, "earlier": "a",
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 0 },
+        { "id": "b", "start": 4, "length": 4, "head": 0, "tail": 2 }
+      ],
+      "expected": { "align": "center", "effective": 0 } },
+    { "name": "when nothing reaches the declared length the longest window wins", "fps": 30, "declared": 1, "earlier": "a",
+      "clips": [
+        { "id": "a", "start": 0, "length": 4, "head": 1, "tail": 0.3 },
+        { "id": "b", "start": 4, "length": 4, "head": 0.6, "tail": 2 }
+      ],
+      "expected": { "align": "center", "effective": 0.6 } }
+  ],
+  "timeline": [
+    {
+      "name": "center",
+      "fps": 30,
+      "cuts": [
+        { "at": 0, "in": 2, "out": 6, "src": "a", "transitionOut": { "type": "dissolve", "duration": 1 } },
+        { "at": 4, "in": 3, "out": 7, "src": "b" }
+      ],
+      "facts": [{ "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }, { "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }],
+      "expected": {
+        "window": { "start": 3.5, "end": 4.5 },
+        "sourceSeconds": [{ "t": 3.5, "outgoing": 5.5, "incoming": 2.5 }, { "t": 4, "outgoing": 6, "incoming": 3 }, { "t": 4.5, "outgoing": 6.5, "incoming": 3.5 }],
+        "audio": { "outgoingEnd": 4.5, "incomingStart": 3.5, "fadeStart": 3.5, "fadeEnd": 4.5 }
+      }
+    },
+    {
+      "name": "before-cut",
+      "fps": 30,
+      "cuts": [
+        { "at": 0, "in": 2, "out": 6, "src": "a", "transitionOut": { "type": "dissolve", "duration": 1, "align": "before-cut" } },
+        { "at": 4, "in": 3, "out": 7, "src": "b" }
+      ],
+      "facts": [{ "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }, { "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }],
+      "expected": {
+        "window": { "start": 3, "end": 4 },
+        "sourceSeconds": [{ "t": 3, "outgoing": 5, "incoming": 2 }, { "t": 3.5, "outgoing": 5.5, "incoming": 2.5 }, { "t": 4, "outgoing": 6, "incoming": 3 }],
+        "audio": { "outgoingEnd": 4, "incomingStart": 3, "fadeStart": 3, "fadeEnd": 4 }
+      }
+    },
+    {
+      "name": "after-cut",
+      "fps": 30,
+      "cuts": [
+        { "at": 0, "in": 2, "out": 6, "src": "a", "transitionOut": { "type": "dissolve", "duration": 1, "align": "after-cut" } },
+        { "at": 4, "in": 3, "out": 7, "src": "b" }
+      ],
+      "facts": [{ "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }, { "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 10 }],
+      "expected": {
+        "window": { "start": 4, "end": 5 },
+        "sourceSeconds": [{ "t": 4, "outgoing": 6, "incoming": 3 }, { "t": 4.5, "outgoing": 6.5, "incoming": 3.5 }, { "t": 5, "outgoing": 7, "incoming": 4 }],
+        "audio": { "outgoingEnd": 5, "incomingStart": 4, "fadeStart": 4, "fadeEnd": 5 }
+      }
+    },
+    {
+      "name": "center with speed on both clips",
+      "fps": 30,
+      "cuts": [
+        { "at": 0, "in": 2, "out": 10, "speed": 2, "src": "a", "transitionOut": { "type": "dissolve", "duration": 1 } },
+        { "at": 4, "in": 3, "out": 5, "speed": 0.5, "src": "b" }
+      ],
+      "facts": [{ "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 20 }, { "stillImage": false, "freezeSeconds": 0, "materialDurationSeconds": 20 }],
+      "expected": {
+        "window": { "start": 3.5, "end": 4.5 },
+        "sourceSeconds": [{ "t": 3.5, "outgoing": 9, "incoming": 2.75 }, { "t": 4, "outgoing": 10, "incoming": 3 }, { "t": 4.5, "outgoing": 11, "incoming": 3.25 }],
+        "audio": { "outgoingEnd": 4.5, "incomingStart": 3.5, "fadeStart": 3.5, "fadeEnd": 4.5 }
+      }
+    }
+  ]
+}

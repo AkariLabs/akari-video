@@ -56,6 +56,7 @@ __exportStar(require("./track-z"), exports);
 __exportStar(require("./media-planes"), exports);
 __exportStar(require("./track-transition-compatibility"), exports);
 __exportStar(require("./cut-adjacency"), exports);
+__exportStar(require("./transition-plan"), exports);
 __exportStar(require("./transition-vocabulary"), exports);
 __exportStar(require("./transition-visual"), exports);
 __exportStar(require("./ducking"), exports);

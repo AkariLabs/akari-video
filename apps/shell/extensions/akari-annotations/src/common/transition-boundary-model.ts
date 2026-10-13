@@ -32,14 +32,22 @@ export function primaryBoundaryBlock(blocks: readonly BoundaryBlock[]): Boundary
 /**
  * 宣言を書き換えるときの決まり。種類と尺だけを差し替え、知らない項目
  * （新しい版が足した項目など）はそのまま残す。
+ * 置き方（align）と埋め方（fill）は、省けば既存の値を保ち、null を渡せば項目ごと消す
+ * （中央に戻す = align を消す）。
  */
 export function mergeTransitionDeclaration(
     existing: unknown,
-    patch: { type: string; duration: number }
+    patch: { type: string; duration: number; align?: string | null; fill?: string | null }
 ): Record<string, unknown> {
     const base = existing !== null && typeof existing === 'object' && !Array.isArray(existing)
         ? existing as Record<string, unknown> : {};
-    return { ...base, type: patch.type, duration: patch.duration };
+    const merged: Record<string, unknown> = { ...base, type: patch.type, duration: patch.duration };
+    for (const key of ['align', 'fill'] as const) {
+        const value = patch[key];
+        if (value === null) delete merged[key];
+        else if (value !== undefined) merged[key] = value;
+    }
+    return merged;
 }
 
 export interface BoundaryPlacementInput {
