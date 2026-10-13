@@ -8944,6 +8944,7 @@ var require_caption_semantics = __commonJS({
     exports.validateCaptionsSemantics = validateCaptionsSemantics;
     exports.renderableCaptionRuns = renderableCaptionRuns;
     var caption_runs_1 = require_caption_runs();
+    var caption_look_reader_1 = require_caption_look_reader();
     var caption_anchor_map_1 = require_caption_anchor_map();
     function validateCaptionsSemantics(ctx) {
       const root = ctx.captions;
@@ -9032,7 +9033,8 @@ var require_caption_semantics = __commonJS({
             add("captions.run.anchor", "error", path, "\u767A\u8A71\u6642\u306B\u52D5\u304B\u3059\u7BC4\u56F2\u306B\u306F\u5B9F\u6E2C\u6642\u523B\u304C\u5FC5\u8981\u3067\u3059\u3002", "document");
           }
           const background = run.look && typeof run.look.background === "object" ? run.look.background : null;
-          const richRun = Boolean(background || run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0 || run.look && (Object.prototype.hasOwnProperty.call(run.look, "shadow") || Object.prototype.hasOwnProperty.call(run.look, "glow")));
+          const fragmentRun = Boolean(background || run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0 || run.look && (Object.prototype.hasOwnProperty.call(run.look, "shadow") || Object.prototype.hasOwnProperty.call(run.look, "glow")));
+          const outsideEffect = (0, caption_look_reader_1.captionRunHasOutsideEffect)(run);
           const rowStyle = row.text_style && typeof row.text_style === "object" ? row.text_style : {};
           const defaultStyle = !Array.isArray(root) && root?.default_text_style && typeof root.default_text_style === "object" ? root.default_text_style : {};
           const effective = { ...defaultStyle, ...rowStyle };
@@ -9041,23 +9043,22 @@ var require_caption_semantics = __commonJS({
             add("captions.run.decoration-shape", "warning", path, "\u4E0B\u7DDA\u30FB\u6253\u3061\u6D88\u3057\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u5B57\u5F62\u3092\u5909\u3048\u308B\u6307\u5B9A\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
           }
           const gradientEffects = Boolean(effective.fill_gradient && !effective.fill && (effective.stroke || effective.stroke_inner || effective.extrude || effective.shadow || effective.glow));
-          const hasEffects = Boolean(background || run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0 || run.look && (Object.prototype.hasOwnProperty.call(run.look, "shadow") || Object.prototype.hasOwnProperty.call(run.look, "glow")));
-          if (richRun && typeof run.look?.rotate_deg === "number" && run.look.rotate_deg !== 0 && (effective.wrap_width_pct || effective.vertical)) {
+          if (fragmentRun && typeof run.look?.rotate_deg === "number" && run.look.rotate_deg !== 0 && (effective.wrap_width_pct || effective.vertical)) {
             add("captions.run.rotation-wrap", "warning", path, "\u6298\u308A\u8FD4\u3059\u884C\u306E\u7BC4\u56F2\u306F\u56DE\u8EE2\u305B\u305A\u306B\u63CF\u304D\u307E\u3059\u3002", "document");
           }
-          if (hasEffects && gradientEffects) {
+          if (fragmentRun && gradientEffects) {
             add("captions.run.gradient-filter", "warning", path, "\u884C\u306B\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u3068\u7E01\u30FB\u5F71\u304C\u3042\u308B\u305F\u3081\u3001\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u30FB\u30B0\u30ED\u30FC\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
           }
-          if (richRun && effective.fill_gradient && !effective.fill && run.look?.color) {
+          if (fragmentRun && effective.fill_gradient && !effective.fill && run.look?.color) {
             add("captions.run.gradient-color", "warning", path, "\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u8272\u3092\u63CF\u3051\u307E\u305B\u3093\u3002", "document");
           }
-          if (ctx.path === "gpu" && !gradientEffects && hasEffects && [
+          if (ctx.path === "gpu" && !gradientEffects && outsideEffect && [
             effective.animation && effective.animation.in?.id,
             effective.animation && effective.animation.out?.id
           ].includes("typewriter")) {
             add("captions.style.unsupported-path", "error", path, "\u6587\u5B57\u9001\u308A\u3068\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u30FB\u30B0\u30ED\u30FC\u306F GPU \u7D4C\u8DEF\u3067\u4E00\u7DD2\u306B\u63CF\u3051\u307E\u305B\u3093\u3002", "path");
           }
-          if (ctx.path === "gpu" && words.length && richRun && !gradientEffects && (["karaoke", "pop", "reveal", "reveal-word"].includes(String(row.style)) || hasEmphasisDisplay)) {
+          if (ctx.path === "gpu" && words.length && outsideEffect && !gradientEffects && (["karaoke", "pop", "reveal", "reveal-word"].includes(String(row.style)) || hasEmphasisDisplay)) {
             add("captions.style.unsupported-path", "error", path, "\u8A9E\u3054\u3068\u306E\u8868\u793A\u3068\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u306F GPU \u7D4C\u8DEF\u3067\u4E00\u7DD2\u306B\u63CF\u3051\u307E\u305B\u3093\u3002", "path");
           }
           if (background) {
@@ -9148,6 +9149,7 @@ var require_caption_look_reader = __commonJS({
     exports.nextEmphasisWordId = nextEmphasisWordId;
     exports.readCaptionLookV1 = readCaptionLookV1;
     exports.planCaptionLookMigration = planCaptionLookMigration;
+    exports.captionRunHasOutsideEffect = captionRunHasOutsideEffect;
     exports.resolveCaptionRunLook = resolveCaptionRunLook;
     exports.captionRenderInputFromV1 = captionRenderInputFromV1;
     var caption_runs_1 = require_caption_runs();
@@ -9448,6 +9450,26 @@ var require_caption_look_reader = __commonJS({
         notices: [...new Set(notices)]
       };
     }
+    function captionRunHasOutsideEffect(run) {
+      const resolved = run.resolved_look;
+      if (typeof resolved?.outside_effect === "boolean")
+        return resolved.outside_effect;
+      if (resolved?.plate || resolved?.text_shadow !== void 0)
+        return true;
+      const look = run.look;
+      if (!look)
+        return false;
+      const active = (value, strength, fallback) => {
+        if (!value || typeof value !== "object" || Array.isArray(value))
+          return false;
+        const effect = value;
+        if (typeof effect.color !== "string" || !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(effect.color))
+          return false;
+        const amount = effect[strength];
+        return (typeof amount === "number" && Number.isFinite(amount) ? amount : fallback) > 0;
+      };
+      return active(look.background, "opacity", 1) || active(look.shadow, "opacity", 1) || active(look.glow, "density", 50);
+    }
     function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, roundedStroke = false) {
       const color = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
       const finite4 = (value, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -9520,6 +9542,7 @@ var require_caption_look_reader = __commonJS({
         return { style };
       return { style, ...plate || hasShadow || hasGlow ? { resolved_look: {
         ...plate ? { plate } : {},
+        outside_effect: captionRunHasOutsideEffect({ look }),
         ink_outset_px: inkOutset,
         rotate_deg: typeof look.rotate_deg === "number" ? look.rotate_deg : 0,
         wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),

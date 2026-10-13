@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateCaptionsSemantics = validateCaptionsSemantics;
 exports.renderableCaptionRuns = renderableCaptionRuns;
 const caption_runs_1 = require("./caption-runs");
+const caption_look_reader_1 = require("./caption-look-reader");
 const caption_anchor_map_1 = require("./caption-anchor-map");
 function validateCaptionsSemantics(ctx) {
     const root = ctx.captions;
@@ -105,10 +106,11 @@ function validateCaptionsSemantics(ctx) {
             }
             const background = run.look && typeof run.look.background === 'object'
                 ? run.look.background : null;
-            const richRun = Boolean(background || run.resolved_look?.plate
+            const fragmentRun = Boolean(background || run.resolved_look?.plate
                 || run.resolved_look?.text_shadow !== undefined
                 || run.look && (Object.prototype.hasOwnProperty.call(run.look, 'shadow')
                     || Object.prototype.hasOwnProperty.call(run.look, 'glow')));
+            const outsideEffect = (0, caption_look_reader_1.captionRunHasOutsideEffect)(run);
             const rowStyle = row.text_style && typeof row.text_style === 'object'
                 ? row.text_style : {};
             const defaultStyle = !Array.isArray(root) && root?.default_text_style
@@ -124,27 +126,23 @@ function validateCaptionsSemantics(ctx) {
             const gradientEffects = Boolean(effective.fill_gradient && !effective.fill
                 && (effective.stroke || effective.stroke_inner || effective.extrude
                     || effective.shadow || effective.glow));
-            const hasEffects = Boolean(background || run.resolved_look?.plate
-                || run.resolved_look?.text_shadow !== undefined
-                || run.look && (Object.prototype.hasOwnProperty.call(run.look, 'shadow')
-                    || Object.prototype.hasOwnProperty.call(run.look, 'glow')));
-            if (richRun && typeof run.look?.rotate_deg === 'number' && run.look.rotate_deg !== 0
+            if (fragmentRun && typeof run.look?.rotate_deg === 'number' && run.look.rotate_deg !== 0
                 && (effective.wrap_width_pct || effective.vertical)) {
                 add('captions.run.rotation-wrap', 'warning', path, '折り返す行の範囲は回転せずに描きます。', 'document');
             }
-            if (hasEffects && gradientEffects) {
+            if (fragmentRun && gradientEffects) {
                 add('captions.run.gradient-filter', 'warning', path, '行にグラデーションと縁・影があるため、範囲の台紙・影・グローを描きません。', 'document');
             }
-            if (richRun && effective.fill_gradient && !effective.fill && run.look?.color) {
+            if (fragmentRun && effective.fill_gradient && !effective.fill && run.look?.color) {
                 add('captions.run.gradient-color', 'warning', path, 'グラデーションの行では範囲の色を描けません。', 'document');
             }
-            if (ctx.path === 'gpu' && !gradientEffects && hasEffects
+            if (ctx.path === 'gpu' && !gradientEffects && outsideEffect
                 && [effective.animation && effective.animation.in?.id,
                     effective.animation && effective.animation.out?.id]
                     .includes('typewriter')) {
                 add('captions.style.unsupported-path', 'error', path, '文字送りと範囲の台紙・影・グローは GPU 経路で一緒に描けません。', 'path');
             }
-            if (ctx.path === 'gpu' && words.length && richRun && !gradientEffects
+            if (ctx.path === 'gpu' && words.length && outsideEffect && !gradientEffects
                 && (['karaoke', 'pop', 'reveal', 'reveal-word'].includes(String(row.style)) || hasEmphasisDisplay)) {
                 add('captions.style.unsupported-path', 'error', path, '語ごとの表示と範囲の台紙・影は GPU 経路で一緒に描けません。', 'path');
             }

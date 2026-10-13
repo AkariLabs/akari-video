@@ -32,6 +32,7 @@ export interface CaptionRun {
             padding_px: number;
             radius_px: number;
         };
+        outside_effect?: boolean;
         text_shadow?: string;
         ink_outset_px?: number;
         rotate_deg?: number;

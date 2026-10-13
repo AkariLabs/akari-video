@@ -43,6 +43,7 @@ export declare function planCaptionLookMigration(captions: CaptionsRoot | Captio
     unresolved: Emphasis[];
     notices: string[];
 };
+export declare function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' | 'resolved_look'>): boolean;
 export declare function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null, output?: {
     width: number;
     height: number;
