@@ -307,7 +307,9 @@ function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
                         align: (0, transition_plan_1.readTransitionAlign)(transition.align),
                         fill: (0, transition_plan_1.readTransitionFill)(transition.fill) === 'freeze'
                     }
-                } : {})
+                } : {}),
+                // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+                ...(isRecord(item.declaration.freeze) ? { holdBlocked: true } : {})
             };
         });
         const plans = (0, transition_plan_1.planTrackTransitions)(clips, { fps });
@@ -327,7 +329,9 @@ function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
             if (!isRecord(transition))
                 continue;
             const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
-            const head = -plan.startOffsetSeconds;
+            // 頭の余りを越える分は、後のクリップを早めずに最初のコマの前出し（transitionHold）で持つ。
+            const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+            const head = -plan.startOffsetSeconds - hold;
             const tail = plan.endOffsetSeconds;
             const outgoingSpeed = speedOf(outgoing);
             const incomingSpeed = speedOf(incoming);
@@ -352,8 +356,9 @@ function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
                 : {
                     ...incoming.declaration,
                     at: Number(incoming.declaration.at) - head,
-                    in: Number(incoming.declaration.in) - head * incomingSpeed,
-                    ...shiftedFreeze
+                    in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+                    ...shiftedFreeze,
+                    ...(hold > 0 ? { transitionHold: { headSeconds: hold } } : {})
                 };
         }
     }

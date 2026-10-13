@@ -426,6 +426,9 @@ var require_edit_store = __commonJS({
         if (transitionOut.align !== void 0 && transitionOut.align !== null && transitionOut.align !== "center" && transitionOut.align !== "before-cut" && transitionOut.align !== "after-cut") {
           throw new Error("\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
+        if (transitionOut.fill !== void 0 && transitionOut.fill !== null && transitionOut.fill !== "freeze") {
+          throw new Error("\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u306E\u57CB\u3081\u65B9\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
       }
       return updateArrayElementByIndex(source, "cuts", cutIndex, "\u30AF\u30EA\u30C3\u30D7", (element) => {
         const hasTransitionOut = hasTopLevelProperty(element, "transition_out");
@@ -435,7 +438,8 @@ var require_edit_store = __commonJS({
         const value = {
           type: transitionOut.type,
           duration: transitionOut.duration,
-          ...transitionOut.align && transitionOut.align !== "center" ? { align: transitionOut.align } : {}
+          ...transitionOut.align && transitionOut.align !== "center" ? { align: transitionOut.align } : {},
+          ...transitionOut.fill ? { fill: transitionOut.fill } : {}
         };
         if (!hasTransitionOut) {
           return appendJsonProperty(element, "transition_out", value);
@@ -450,6 +454,8 @@ var require_edit_store = __commonJS({
             else
               merged.align = transitionOut.align;
           }
+          if (transitionOut.fill === null)
+            delete merged.fill;
           return element.slice(0, located.start) + JSON.stringify(merged) + element.slice(located.end);
         } catch {
           return appendJsonProperty(removeObjectProperty(element, "transition_out"), "transition_out", value);
@@ -3236,6 +3242,9 @@ var require_transition_plan = __commonJS({
     var laterShare = (align, x3) => align === "after-cut" ? x3 : align === "before-cut" ? 0 : x3 / 2;
     var lengthWithin = (align, a, b) => align === "before-cut" ? a : align === "after-cut" ? b : 2 * Math.min(a, b);
     function planTrackTransitions(clips, options) {
+      return planTrack(clips, options);
+    }
+    function planTrack(clips, options) {
       const fps = (0, cut_adjacency_1.effectiveCutFps)(options.fps);
       const boundaries = [];
       for (let index = 0; index + 1 < clips.length; index++) {
@@ -3259,7 +3268,11 @@ var require_transition_plan = __commonJS({
             declaredSeconds: declared,
             requested: 0,
             reasons: /* @__PURE__ */ new Set(),
-            blockedByLegacy: false
+            blockedByLegacy: false,
+            fillHead: false,
+            reportTail: false,
+            headRoomSeconds: 0,
+            tailRoomSeconds: void 0
           });
           continue;
         }
@@ -3295,8 +3308,15 @@ var require_transition_plan = __commonJS({
         const earlier = clips[boundary.earlier];
         const later = clips[boundary.later];
         const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
-        const tailRoom = earlier.tailRoomSeconds === void 0 ? Number.POSITIVE_INFINITY : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
-        const headRoom = room(later.headRoomSeconds);
+        const fill = earlier.transitionOut?.fill === true;
+        const knownTailRoom = earlier.tailRoomSeconds === void 0 ? void 0 : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+        const knownHeadRoom = room(later.headRoomSeconds);
+        boundary.fillHead = fill && later.holdBlocked !== true;
+        boundary.reportTail = fill || options.tailRoom === "ignore" && options.strictTailIndex !== boundary.earlier;
+        boundary.headRoomSeconds = knownHeadRoom;
+        boundary.tailRoomSeconds = knownTailRoom;
+        const tailRoom = knownTailRoom === void 0 || boundary.reportTail ? Number.POSITIVE_INFINITY : knownTailRoom;
+        const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
         const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
         const laterCap = Math.min(ownLength[boundary.later], tailRoom);
         const requested = Math.max(0, Math.min(boundary.declaredSeconds, lengthWithin(boundary.align, earlierCap, laterCap)));
@@ -3400,11 +3420,25 @@ var require_transition_plan = __commonJS({
           endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
           state,
           reasons: state === "ok" ? [] : [...reasons],
-          freezeIncomingSeconds: 0,
-          freezeOutgoingSeconds: 0
+          ...freezeOf(boundary, effective)
         });
       }
       return plans;
+    }
+    function freezeOf(boundary, effective) {
+      const over = (used, available) => {
+        const excess = used - available;
+        return excess > EPSILON ? excess : 0;
+      };
+      const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+      const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+      const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+      if (!boundary.reportTail)
+        return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+      if (boundary.tailRoomSeconds === void 0) {
+        return after > EPSILON ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true } : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+      }
+      return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
     }
     function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
       const index = clips.findIndex((clip) => clip.id === earlierId);
@@ -3420,7 +3454,7 @@ var require_transition_plan = __commonJS({
           tailRoomSeconds: clip.tailRoomSeconds ?? 0,
           transitionOut: { declaredSeconds, align, fill: false }
         } : clip);
-        const plans = planTrackTransitions(candidateClips, options);
+        const plans = planTrack(candidateClips, { ...options, strictTailIndex: index });
         const plan = boundaryOf(plans);
         if (!plan || plan.legacyOverlap)
           continue;
@@ -3429,13 +3463,39 @@ var require_transition_plan = __commonJS({
       }
       if (!best)
         return void 0;
-      const neighborChanges = best.plans.filter((plan) => {
+      const neighborChangesOf = (plans) => plans.filter((plan) => {
         if (plan.earlierId === earlierId && plan.laterId === laterId)
           return false;
         const before = baseline.find((entry) => entry.earlierId === plan.earlierId && entry.laterId === plan.laterId);
         return !before || Math.abs(before.effectiveSeconds - plan.effectiveSeconds) > EPSILON;
       });
-      return { align: best.align, needsFill: false, plan: best.plan, neighborChanges };
+      if (options.allowFill) {
+        const freezeTotal = (plan) => plan.freezeIncomingSeconds + (plan.freezeOutgoingSeconds ?? 0);
+        let filled;
+        for (const align of exports.TRANSITION_ALIGN_IDS) {
+          const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+            ...clip,
+            transitionOut: { declaredSeconds, align, fill: true }
+          } : clip);
+          const plans = planTrack(candidateClips, options);
+          const plan = boundaryOf(plans);
+          if (!plan || plan.legacyOverlap)
+            continue;
+          if (!filled || plan.effectiveSeconds > filled.plan.effectiveSeconds + EPSILON || Math.abs(plan.effectiveSeconds - filled.plan.effectiveSeconds) <= EPSILON && freezeTotal(plan) < freezeTotal(filled.plan) - EPSILON) {
+            filled = { align, plan, plans };
+          }
+        }
+        const frameSeconds = 1 / (0, cut_adjacency_1.effectiveCutFps)(options.fps);
+        if (filled && filled.plan.effectiveSeconds - best.plan.effectiveSeconds >= frameSeconds - EPSILON) {
+          return {
+            align: filled.align,
+            needsFill: true,
+            plan: filled.plan,
+            neighborChanges: neighborChangesOf(filled.plans)
+          };
+        }
+      }
+      return { align: best.align, needsFill: false, plan: best.plan, neighborChanges: neighborChangesOf(best.plans) };
     }
     function transitionPlanClipsFromCuts(cuts, options) {
       const usable = [];
@@ -3450,18 +3510,21 @@ var require_transition_plan = __commonJS({
         const facts = options.resolve(cut, index);
         const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
         const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+        const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
         const transition = cut.transitionOut;
         const clip = {
           id: String(index),
-          startSeconds: segment.at,
-          lengthSeconds: segment.duration + freezeSeconds,
+          // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+          startSeconds: segment.at - holdHeadSeconds,
+          lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
           headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
           tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : typeof facts.materialDurationSeconds === "number" && Number.isFinite(facts.materialDurationSeconds) ? Math.max(0, (facts.materialDurationSeconds - cut.out) / speed) : void 0,
           ...transition && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? { transitionOut: {
             declaredSeconds: transition.duration,
             align: readTransitionAlign(transition.align),
             fill: readTransitionFill(transition.fill) === "freeze"
-          } } : {}
+          } } : {},
+          ...facts.holdBlocked ?? freezeSeconds > 0 ? { holdBlocked: true } : {}
         };
         const list = tracks.get(segment.track) ?? [];
         list.push(clip);
@@ -3557,7 +3620,12 @@ var require_timeline_map = __commonJS({
       const suppressedWindows = /* @__PURE__ */ new Set();
       const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
         fps,
-        resolve: () => ({ stillImage: false, freezeSeconds: 0 })
+        resolve: (cut) => ({
+          stillImage: false,
+          freezeSeconds: 0,
+          // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+          holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
+        })
       });
       for (const track of planTracks) {
         const clips = track.clips.map((clip) => {
@@ -3590,10 +3658,12 @@ var require_timeline_map = __commonJS({
             ...outgoing.cut,
             transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
           };
-          incoming.start = plan.cutSeconds + plan.startOffsetSeconds;
+          const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+          const early = -plan.startOffsetSeconds - hold;
+          incoming.start = plan.cutSeconds - early;
           incoming.cut = {
             ...incoming.cut,
-            in: Math.max(0, incoming.cut.in + plan.startOffsetSeconds * incomingSpeed)
+            in: Math.max(0, incoming.cut.in - early * incomingSpeed)
           };
           plannedWindows.set(outgoing.cutIndex, plan);
         }
@@ -14407,7 +14477,9 @@ var require_internal_model = __commonJS({
                 align: (0, transition_plan_1.readTransitionAlign)(transition.align),
                 fill: (0, transition_plan_1.readTransitionFill)(transition.fill) === "freeze"
               }
-            } : {}
+            } : {},
+            // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+            ...isRecord2(item.declaration.freeze) ? { holdBlocked: true } : {}
           };
         });
         const plans = (0, transition_plan_1.planTrackTransitions)(clips, { fps });
@@ -14427,7 +14499,8 @@ var require_internal_model = __commonJS({
           if (!isRecord2(transition))
             continue;
           const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
-          const head = -plan.startOffsetSeconds;
+          const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+          const head = -plan.startOffsetSeconds - hold;
           const tail = plan.endOffsetSeconds;
           const outgoingSpeed = speedOf(outgoing);
           const incomingSpeed = speedOf(incoming);
@@ -14448,8 +14521,9 @@ var require_internal_model = __commonJS({
           } : {
             ...incoming.declaration,
             at: Number(incoming.declaration.at) - head,
-            in: Number(incoming.declaration.in) - head * incomingSpeed,
-            ...shiftedFreeze
+            in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+            ...shiftedFreeze,
+            ...hold > 0 ? { transitionHold: { headSeconds: hold } } : {}
           };
         }
       }

@@ -96,7 +96,12 @@ function buildTimelineMap(cuts, options) {
     const plannedWindows = new Map();
     const suppressedWindows = new Set();
     const planTracks = (0, transition_plan_1.transitionPlanClipsFromCuts)(usableCuts, {
-        fps, resolve: () => ({ stillImage: false, freezeSeconds: 0 })
+        fps, resolve: cut => ({
+            stillImage: false, freezeSeconds: 0,
+            // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+            holdBlocked: typeof cut.freeze === 'object'
+                && cut.freeze !== null
+        })
     });
     for (const track of planTracks) {
         const clips = track.clips.map(clip => {
@@ -130,10 +135,13 @@ function buildTimelineMap(cuts, options) {
                 ...outgoing.cut,
                 transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
             };
-            incoming.start = plan.cutSeconds + plan.startOffsetSeconds;
+            // 頭の余りを越える分（前出し）は、後のクリップの始まりと素材の時計に数えない。
+            const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+            const early = -plan.startOffsetSeconds - hold;
+            incoming.start = plan.cutSeconds - early;
             incoming.cut = {
                 ...incoming.cut,
-                in: Math.max(0, incoming.cut.in + plan.startOffsetSeconds * incomingSpeed)
+                in: Math.max(0, incoming.cut.in - early * incomingSpeed)
             };
             plannedWindows.set(outgoing.cutIndex, plan);
         }

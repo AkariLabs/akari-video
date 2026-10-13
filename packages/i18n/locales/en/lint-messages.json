@@ -153,5 +153,7 @@
   "lint-messages.item.duration.sourceMismatch_one": "item {id}: duration {duration} frame ({seconds}s) differs from source interval in {sourceIn}s to out {sourceOut}s ({sourceSeconds}s{speed}) by a factor of {ratio}. at / duration use frames; source.in / out use seconds. Check the units (if duration was written in seconds, multiply by fps = {fps}).",
   "lint-messages.item.duration.sourceMismatch_other": "item {id}: duration {duration} frames ({seconds}s) differs from source interval in {sourceIn}s to out {sourceOut}s ({sourceSeconds}s{speed}) by a factor of {ratio}. at / duration use frames; source.in / out use seconds. Check the units (if duration was written in seconds, multiply by fps = {fps}).",
   "lint-messages.audio.bgm.example_one": " (for example, an overlap of {frames} frame = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
-  "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})"
+  "lint-messages.audio.bgm.example_other": " (for example, an overlap of {frames} frames = {seconds}s uses \"fade_out\": {seconds} / \"fade_in\": {seconds})",
+  "lint-messages.cuts.transition.freeze": "The first {seconds} s of the later clip is filled with a held frame.",
+  "lint-messages.cuts.transition.freezeCheck": "Part of this transition is filled with a held frame."
 }

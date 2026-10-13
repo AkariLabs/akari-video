@@ -333,6 +333,9 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
             && transitionOut.align !== 'after-cut') {
             throw new Error('トランジションの位置が不正です。');
         }
+        if (transitionOut.fill !== undefined && transitionOut.fill !== null && transitionOut.fill !== 'freeze') {
+            throw new Error('トランジションの埋め方が不正です。');
+        }
     }
     return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
         const hasTransitionOut = hasTopLevelProperty(element, 'transition_out');
@@ -340,7 +343,8 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
             return hasTransitionOut ? removeObjectProperty(element, 'transition_out') : element;
         }
         const value = { type: transitionOut.type, duration: transitionOut.duration,
-            ...(transitionOut.align && transitionOut.align !== 'center' ? { align: transitionOut.align } : {}) };
+            ...(transitionOut.align && transitionOut.align !== 'center' ? { align: transitionOut.align } : {}),
+            ...(transitionOut.fill ? { fill: transitionOut.fill } : {}) };
         if (!hasTransitionOut) {
             return appendJsonProperty(element, 'transition_out', value);
         }
@@ -357,6 +361,8 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
                 else
                     merged.align = transitionOut.align;
             }
+            if (transitionOut.fill === null)
+                delete merged.fill;
             return element.slice(0, located.start) + JSON.stringify(merged) + element.slice(located.end);
         }
         catch {

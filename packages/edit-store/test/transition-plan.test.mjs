@@ -208,14 +208,15 @@ test('an isolated centered boundary equals the previous single-window rule', () 
   }
 });
 
-test('fill is carried but does not lift the room limits in this round', () => {
+test('fill lifts the incoming head limit and reports the held head', () => {
   const [plan] = planTrackTransitions([
     { id: 'a', startSeconds: 0, lengthSeconds: 4, headRoomSeconds: 1, tailRoomSeconds: 2,
       transitionOut: { declaredSeconds: 1, align: 'center', fill: true } },
     { id: 'b', startSeconds: 4, lengthSeconds: 4, headRoomSeconds: 0.1, tailRoomSeconds: 2 },
   ], { fps: 30 });
-  near(plan.effectiveSeconds, 0.2, 'limited by the incoming head');
-  assert.equal(plan.freezeIncomingSeconds, 0);
+  near(plan.effectiveSeconds, 1, 'the declared length');
+  near(plan.freezeIncomingSeconds, 0.4, 'half the window minus the head room');
+  assert.equal(plan.freezeOutgoingSeconds, 0);
 });
 
 for (const entry of cases.timeline) {

@@ -240,6 +240,9 @@ var AkariEditKernel = (() => {
   var laterShare = (align, x) => align === "after-cut" ? x : align === "before-cut" ? 0 : x / 2;
   var lengthWithin = (align, a, b) => align === "before-cut" ? a : align === "after-cut" ? b : 2 * Math.min(a, b);
   function planTrackTransitions(clips, options) {
+    return planTrack(clips, options);
+  }
+  function planTrack(clips, options) {
     const fps = effectiveCutFps(options.fps);
     const boundaries = [];
     for (let index = 0; index + 1 < clips.length; index++) {
@@ -263,7 +266,11 @@ var AkariEditKernel = (() => {
           declaredSeconds: declared,
           requested: 0,
           reasons: /* @__PURE__ */ new Set(),
-          blockedByLegacy: false
+          blockedByLegacy: false,
+          fillHead: false,
+          reportTail: false,
+          headRoomSeconds: 0,
+          tailRoomSeconds: void 0
         });
         continue;
       }
@@ -298,8 +305,15 @@ var AkariEditKernel = (() => {
       const earlier = clips[boundary.earlier];
       const later = clips[boundary.later];
       const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
-      const tailRoom = earlier.tailRoomSeconds === void 0 ? Number.POSITIVE_INFINITY : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
-      const headRoom = room(later.headRoomSeconds);
+      const fill = earlier.transitionOut?.fill === true;
+      const knownTailRoom = earlier.tailRoomSeconds === void 0 ? void 0 : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+      const knownHeadRoom = room(later.headRoomSeconds);
+      boundary.fillHead = fill && later.holdBlocked !== true;
+      boundary.reportTail = fill || options.tailRoom === "ignore" && options.strictTailIndex !== boundary.earlier;
+      boundary.headRoomSeconds = knownHeadRoom;
+      boundary.tailRoomSeconds = knownTailRoom;
+      const tailRoom = knownTailRoom === void 0 || boundary.reportTail ? Number.POSITIVE_INFINITY : knownTailRoom;
+      const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
       const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
       const laterCap = Math.min(ownLength[boundary.later], tailRoom);
       const requested = Math.max(0, Math.min(
@@ -400,11 +414,24 @@ var AkariEditKernel = (() => {
         endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
         state,
         reasons: state === "ok" ? [] : [...reasons],
-        freezeIncomingSeconds: 0,
-        freezeOutgoingSeconds: 0
+        ...freezeOf(boundary, effective)
       });
     }
     return plans;
+  }
+  function freezeOf(boundary, effective) {
+    const over = (used, available) => {
+      const excess = used - available;
+      return excess > EPSILON ? excess : 0;
+    };
+    const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+    const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+    const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+    if (!boundary.reportTail) return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    if (boundary.tailRoomSeconds === void 0) {
+      return after > EPSILON ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true } : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    }
+    return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
   }
   function transitionPlanClipsFromCuts(cuts, options) {
     const usable = [];
@@ -419,18 +446,21 @@ var AkariEditKernel = (() => {
       const facts = options.resolve(cut, index);
       const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
       const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+      const holdHeadSeconds = typeof facts.holdHeadSeconds === "number" && Number.isFinite(facts.holdHeadSeconds) && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
       const transition = cut.transitionOut;
       const clip = {
         id: String(index),
-        startSeconds: segment.at,
-        lengthSeconds: segment.duration + freezeSeconds,
+        // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+        startSeconds: segment.at - holdHeadSeconds,
+        lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
         headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
         tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : typeof facts.materialDurationSeconds === "number" && Number.isFinite(facts.materialDurationSeconds) ? Math.max(0, (facts.materialDurationSeconds - cut.out) / speed) : void 0,
         ...transition && typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0 ? { transitionOut: {
           declaredSeconds: transition.duration,
           align: readTransitionAlign(transition.align),
           fill: readTransitionFill(transition.fill) === "freeze"
-        } } : {}
+        } } : {},
+        ...facts.holdBlocked ?? freezeSeconds > 0 ? { holdBlocked: true } : {}
       };
       const list = tracks.get(segment.track) ?? [];
       list.push(clip);
@@ -503,7 +533,12 @@ var AkariEditKernel = (() => {
     const suppressedWindows = /* @__PURE__ */ new Set();
     const planTracks = transitionPlanClipsFromCuts(usableCuts, {
       fps,
-      resolve: () => ({ stillImage: false, freezeSeconds: 0 })
+      resolve: (cut) => ({
+        stillImage: false,
+        freezeSeconds: 0,
+        // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+        holdBlocked: typeof cut.freeze === "object" && cut.freeze !== null
+      })
     });
     for (const track of planTracks) {
       const clips = track.clips.map((clip) => {
@@ -533,10 +568,12 @@ var AkariEditKernel = (() => {
           ...outgoing.cut,
           transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
         };
-        incoming.start = plan.cutSeconds + plan.startOffsetSeconds;
+        const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+        const early = -plan.startOffsetSeconds - hold;
+        incoming.start = plan.cutSeconds - early;
         incoming.cut = {
           ...incoming.cut,
-          in: Math.max(0, incoming.cut.in + plan.startOffsetSeconds * incomingSpeed)
+          in: Math.max(0, incoming.cut.in - early * incomingSpeed)
         };
         plannedWindows.set(outgoing.cutIndex, plan);
       }
@@ -5868,7 +5905,9 @@ var AkariEditKernel = (() => {
               align: readTransitionAlign(transition.align),
               fill: readTransitionFill(transition.fill) === "freeze"
             }
-          } : {}
+          } : {},
+          // 既存のフリーズがあるクリップの頭は、止め絵で埋める対象にしない。
+          ...isRecord3(item.declaration.freeze) ? { holdBlocked: true } : {}
         };
       });
       const plans = planTrackTransitions(clips, { fps });
@@ -5885,7 +5924,8 @@ var AkariEditKernel = (() => {
         const transition = outgoing.declaration.transition_out;
         if (!isRecord3(transition)) continue;
         const { align: unusedAlign, fill: unusedFill, ...renderTransition } = transition;
-        const head = -plan.startOffsetSeconds;
+        const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+        const head = -plan.startOffsetSeconds - hold;
         const tail = plan.endOffsetSeconds;
         const outgoingSpeed = speedOf(outgoing);
         const incomingSpeed = speedOf(incoming);
@@ -5906,8 +5946,9 @@ var AkariEditKernel = (() => {
         } : {
           ...incoming.declaration,
           at: Number(incoming.declaration.at) - head,
-          in: Number(incoming.declaration.in) - head * incomingSpeed,
-          ...shiftedFreeze
+          in: Math.max(0, Number(incoming.declaration.in) - head * incomingSpeed),
+          ...shiftedFreeze,
+          ...hold > 0 ? { transitionHold: { headSeconds: hold } } : {}
         };
       }
     }

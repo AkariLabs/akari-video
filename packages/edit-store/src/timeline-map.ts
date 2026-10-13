@@ -25,6 +25,8 @@ export interface TimelineTransitionPlate {
     type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
+    /** 窓の incoming の区間だけ: 窓の始まりから、最初のコマを出したまま止めている秒数。in は止めが明けた時点の素材の時刻。 */
+    holdHeadSeconds?: number;
     kind: 'src' | 'gap';
     outStart: number;
     outEnd: number;
@@ -162,7 +164,12 @@ export function buildTimelineMap(
     const plannedWindows = new Map<number, TransitionBoundaryPlan>();
     const suppressedWindows = new Set<number>();
     const planTracks = transitionPlanClipsFromCuts(usableCuts, {
-        fps, resolve: () => ({ stillImage: false, freezeSeconds: 0 })
+        fps, resolve: cut => ({
+            stillImage: false, freezeSeconds: 0,
+            // 表示の長さは変えずに、既存のフリーズがあるクリップ（頭を止め絵にできない）だけ知らせる。
+            holdBlocked: typeof (cut as { freeze?: unknown }).freeze === 'object'
+                && (cut as { freeze?: unknown }).freeze !== null
+        })
     });
     for (const track of planTracks) {
         const clips = track.clips.map(clip => {
@@ -193,10 +200,13 @@ export function buildTimelineMap(
                 ...outgoing.cut,
                 transitionOut: { ...outgoing.cut.transitionOut, duration: plan.effectiveSeconds }
             };
-            incoming.start = plan.cutSeconds + plan.startOffsetSeconds;
+            // 頭の余りを越える分（前出し）は、後のクリップの始まりと素材の時計に数えない。
+            const hold = plan.freezeIncomingSeconds > 0 ? plan.freezeIncomingSeconds : 0;
+            const early = -plan.startOffsetSeconds - hold;
+            incoming.start = plan.cutSeconds - early;
             incoming.cut = {
                 ...incoming.cut,
-                in: Math.max(0, incoming.cut.in + plan.startOffsetSeconds * incomingSpeed)
+                in: Math.max(0, incoming.cut.in - early * incomingSpeed)
             };
             plannedWindows.set(outgoing.cutIndex, plan);
         }

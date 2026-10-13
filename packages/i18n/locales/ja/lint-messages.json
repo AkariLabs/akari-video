@@ -153,5 +153,7 @@
   "lint-messages.item.duration.sourceMismatch_one": "item {id} の duration {duration} フレーム（{seconds} 秒）と source の区間 in {sourceIn} 秒 〜 out {sourceOut} 秒（{sourceSeconds} 秒{speed}）が {ratio} 倍食い違っています。at / duration はフレーム、source.in / out は秒です。取り違えていないか確かめてください（duration を秒で書いたなら ×fps = {fps}）。",
   "lint-messages.item.duration.sourceMismatch_other": "item {id} の duration {duration} フレーム（{seconds} 秒）と source の区間 in {sourceIn} 秒 〜 out {sourceOut} 秒（{sourceSeconds} 秒{speed}）が {ratio} 倍食い違っています。at / duration はフレーム、source.in / out は秒です。取り違えていないか確かめてください（duration を秒で書いたなら ×fps = {fps}）。",
   "lint-messages.audio.bgm.example_one": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）",
-  "lint-messages.audio.bgm.example_other": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）"
+  "lint-messages.audio.bgm.example_other": "（例: 重なり {frames} フレーム = {seconds} 秒なら \"fade_out\": {seconds} / \"fade_in\": {seconds}）",
+  "lint-messages.cuts.transition.freeze": "後のクリップの頭 {seconds} 秒は、止め絵で埋めています。",
+  "lint-messages.cuts.transition.freezeCheck": "トランジションの一部を止め絵で埋めています。"
 }

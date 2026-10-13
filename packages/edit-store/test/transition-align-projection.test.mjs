@@ -252,12 +252,16 @@ test('existing freeze contributes to clip length and its local position follows 
   assert.ok(items[1].declaration.in >= 0 && items[1].declaration.in < items[1].declaration.out);
 });
 
-test('freeze fill is carried without permitting a negative incoming in', () => {
+test('freeze fill holds the first frame instead of permitting a negative incoming in', () => {
   const internal = readInternalEdit(document('center', { incomingIn: 0.1, fill: 'freeze' }));
   const [a, b] = internal.tracks[0].items.map(item => item.declaration);
   assert.ok(b.in >= 0 && b.in < b.out);
-  assert.ok(a.transition_out.duration <= 0.2 + 1e-9);
+  assert.ok(Math.abs(a.transition_out.duration - 1) <= 1e-9);
   assert.equal(a.transition_out.fill, undefined);
+  // The head has 0.1 s: the clip starts 0.1 s early and its first frame is held for the other 0.4 s.
+  assert.ok(Math.abs(b.at - 3.9) <= 1e-9 && Math.abs(b.in) <= 1e-9);
+  assert.ok(Math.abs(b.transitionHold.headSeconds - 0.4) <= 1e-9);
+  assert.ok(Math.abs(a.out - 6.5) <= 1e-9);
 });
 
 test('unknown placement and fill use the centered window without carrying their render hints', () => {

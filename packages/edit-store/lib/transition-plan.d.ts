@@ -28,6 +28,8 @@ export interface TransitionPlanClip {
         align: TransitionAlign;
         fill: boolean;
     };
+    /** このクリップの頭は止め絵にできない（既存のフリーズがある）。 */
+    holdBlocked?: boolean;
 }
 export type TransitionShortenReason = 'outgoing-length' | 'incoming-length' | 'outgoing-room' | 'incoming-room' | 'neighbor' | 'too-short';
 export interface TransitionBoundaryPlan {
@@ -47,11 +49,19 @@ export interface TransitionBoundaryPlan {
     endOffsetSeconds: number;
     state: 'ok' | 'shortened' | 'none';
     reasons: readonly TransitionShortenReason[];
+    /** 後のクリップの頭の止め絵（秒）。fill のある境目だけ 0 以外になる。 */
     freezeIncomingSeconds: number;
+    /** 前のクリップの終わりの止め絵（秒）。後ろの余りが不明なら上限（後ろへ入る分）を返し、freezeOutgoingUnknown を立てる。 */
     freezeOutgoingSeconds: number | undefined;
+    freezeOutgoingUnknown?: true;
 }
 export interface TransitionPlanOptions {
     fps: number;
+    /**
+     * 前のクリップの後ろの余りの扱い。'limit'（省略時）は fill の無い境目を余りで制限する。
+     * 'ignore' は描画と同じ見方で、制限せずに止め絵の秒数だけ報告する。
+     */
+    tailRoom?: 'limit' | 'ignore';
 }
 /**
  * 1 本のトラックのクリップの並び（始まりの順）から、描かれる境目の窓を決める。
@@ -60,7 +70,7 @@ export interface TransitionPlanOptions {
 export declare function planTrackTransitions(clips: readonly TransitionPlanClip[], options: TransitionPlanOptions): TransitionBoundaryPlan[];
 export interface TransitionAlignChoice {
     align: TransitionAlign;
-    /** 止め絵で埋めないと宣言の長さにならない。R2a では常に false。 */
+    /** 止め絵で埋めると、埋めないときより 1 コマ以上長く効く。true のとき plan は fill つきで計画した結果。 */
     needsFill: boolean;
     plan: TransitionBoundaryPlan;
     /** この選び方で窓の長さが変わる、ほかの境目。 */
@@ -68,7 +78,9 @@ export interface TransitionAlignChoice {
 }
 /**
  * earlierId の末尾の境目に付けるときの寄せ方を選ぶ。隣の境目は渡された値のまま固定する。
- * 前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * 止め絵なしの候補は、前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * allowFill のときは、止め絵で埋めると 1 コマ以上長く効く場合だけ、いちばん長く効く置き方のうち
+ * 止め絵がいちばん少ないものを fill つきで返す（後ろの余りが不明なら、後ろへ入る分をすべて止め絵と数える）。
  */
 export declare function chooseTransitionAlign(clips: readonly TransitionPlanClip[], earlierId: string, declaredSeconds: number, options: TransitionPlanOptions & {
     allowFill: boolean;
@@ -80,6 +92,10 @@ export interface TransitionPlanCutFacts {
     freezeSeconds: number;
     /** 素材の長さ。分かる層だけ渡す。無ければ後ろの余りは不明。 */
     materialDurationSeconds?: number;
+    /** 投影済みの並びを読むとき: 最初のコマを at の手前に前出ししている秒数（transitionHold.headSeconds）。 */
+    holdHeadSeconds?: number;
+    /** 頭を止め絵にできないクリップ。省けば、既存のフリーズがあるときに立つ。 */
+    holdBlocked?: boolean;
 }
 export interface TransitionPlanTrack {
     track: number;

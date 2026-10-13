@@ -43,6 +43,9 @@ const lengthWithin = (align, a, b) => align === 'before-cut' ? a : align === 'af
  * 結果は順番によらず、新しい形の窓どうしは正の長さで重ならない。
  */
 function planTrackTransitions(clips, options) {
+    return planTrack(clips, options);
+}
+function planTrack(clips, options) {
     const fps = (0, cut_adjacency_1.effectiveCutFps)(options.fps);
     const boundaries = [];
     for (let index = 0; index + 1 < clips.length; index++) {
@@ -60,7 +63,8 @@ function planTrackTransitions(clips, options) {
             boundaries.push({
                 kind: 'new', earlier: index, later: index + 1, cutSeconds: later.startSeconds,
                 align: earlier.transitionOut.align, declaredSeconds: declared, requested: 0,
-                reasons: new Set(), blockedByLegacy: false
+                reasons: new Set(), blockedByLegacy: false,
+                fillHead: false, reportTail: false, headRoomSeconds: 0, tailRoomSeconds: undefined
             });
             continue;
         }
@@ -93,9 +97,18 @@ function planTrackTransitions(clips, options) {
         const earlier = clips[boundary.earlier];
         const later = clips[boundary.later];
         const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
-        const tailRoom = earlier.tailRoomSeconds === undefined
-            ? Number.POSITIVE_INFINITY : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
-        const headRoom = room(later.headRoomSeconds);
+        const fill = earlier.transitionOut?.fill === true;
+        const knownTailRoom = earlier.tailRoomSeconds === undefined
+            ? undefined : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+        const knownHeadRoom = room(later.headRoomSeconds);
+        boundary.fillHead = fill && later.holdBlocked !== true;
+        boundary.reportTail = fill
+            || (options.tailRoom === 'ignore' && options.strictTailIndex !== boundary.earlier);
+        boundary.headRoomSeconds = knownHeadRoom;
+        boundary.tailRoomSeconds = knownTailRoom;
+        const tailRoom = knownTailRoom === undefined || boundary.reportTail
+            ? Number.POSITIVE_INFINITY : knownTailRoom;
+        const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
         const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
         const laterCap = Math.min(ownLength[boundary.later], tailRoom);
         const requested = Math.max(0, Math.min(boundary.declaredSeconds, lengthWithin(boundary.align, earlierCap, laterCap)));
@@ -189,14 +202,34 @@ function planTrackTransitions(clips, options) {
             startOffsetSeconds: effective > 0 ? -earlierShare(boundary.align, effective) : 0,
             endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
             state, reasons: state === 'ok' ? [] : [...reasons],
-            freezeIncomingSeconds: 0, freezeOutgoingSeconds: 0
+            ...freezeOf(boundary, effective)
         });
     }
     return plans;
 }
+/** 効く長さ effective の窓が、素材の余りを越えて使う分（止め絵になる分）。 */
+function freezeOf(boundary, effective) {
+    const over = (used, available) => {
+        const excess = used - available;
+        return excess > EPSILON ? excess : 0;
+    };
+    const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+    const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+    const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+    if (!boundary.reportTail)
+        return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    if (boundary.tailRoomSeconds === undefined) {
+        return after > EPSILON
+            ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true }
+            : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    }
+    return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
+}
 /**
  * earlierId の末尾の境目に付けるときの寄せ方を選ぶ。隣の境目は渡された値のまま固定する。
- * 前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * 止め絵なしの候補は、前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * allowFill のときは、止め絵で埋めると 1 コマ以上長く効く場合だけ、いちばん長く効く置き方のうち
+ * 止め絵がいちばん少ないものを fill つきで返す（後ろの余りが不明なら、後ろへ入る分をすべて止め絵と数える）。
  */
 function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
     const index = clips.findIndex(clip => clip.id === earlierId);
@@ -212,7 +245,7 @@ function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
             tailRoomSeconds: clip.tailRoomSeconds ?? 0,
             transitionOut: { declaredSeconds, align, fill: false }
         } : clip);
-        const plans = planTrackTransitions(candidateClips, options);
+        const plans = planTrack(candidateClips, { ...options, strictTailIndex: index });
         const plan = boundaryOf(plans);
         if (!plan || plan.legacyOverlap)
             continue;
@@ -221,13 +254,37 @@ function chooseTransitionAlign(clips, earlierId, declaredSeconds, options) {
     }
     if (!best)
         return undefined;
-    const neighborChanges = best.plans.filter(plan => {
+    const neighborChangesOf = (plans) => plans.filter(plan => {
         if (plan.earlierId === earlierId && plan.laterId === laterId)
             return false;
         const before = baseline.find(entry => entry.earlierId === plan.earlierId && entry.laterId === plan.laterId);
         return !before || Math.abs(before.effectiveSeconds - plan.effectiveSeconds) > EPSILON;
     });
-    return { align: best.align, needsFill: false, plan: best.plan, neighborChanges };
+    if (options.allowFill) {
+        const freezeTotal = (plan) => plan.freezeIncomingSeconds + (plan.freezeOutgoingSeconds ?? 0);
+        let filled;
+        for (const align of exports.TRANSITION_ALIGN_IDS) {
+            const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+                ...clip,
+                transitionOut: { declaredSeconds, align, fill: true }
+            } : clip);
+            const plans = planTrack(candidateClips, options);
+            const plan = boundaryOf(plans);
+            if (!plan || plan.legacyOverlap)
+                continue;
+            if (!filled || plan.effectiveSeconds > filled.plan.effectiveSeconds + EPSILON
+                || (Math.abs(plan.effectiveSeconds - filled.plan.effectiveSeconds) <= EPSILON
+                    && freezeTotal(plan) < freezeTotal(filled.plan) - EPSILON)) {
+                filled = { align, plan, plans };
+            }
+        }
+        const frameSeconds = 1 / (0, cut_adjacency_1.effectiveCutFps)(options.fps);
+        if (filled && filled.plan.effectiveSeconds - best.plan.effectiveSeconds >= frameSeconds - EPSILON) {
+            return { align: filled.align, needsFill: true, plan: filled.plan,
+                neighborChanges: neighborChangesOf(filled.plans) };
+        }
+    }
+    return { align: best.align, needsFill: false, plan: best.plan, neighborChanges: neighborChangesOf(best.plans) };
 }
 /**
  * レイヤーへ退避した後のカットの並びから、計画用のクリップの並びをトラックごとに作る。
@@ -247,11 +304,14 @@ function transitionPlanClipsFromCuts(cuts, options) {
         const facts = options.resolve(cut, index);
         const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
         const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+        const holdHeadSeconds = typeof facts.holdHeadSeconds === 'number' && Number.isFinite(facts.holdHeadSeconds)
+            && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
         const transition = cut.transitionOut;
         const clip = {
             id: String(index),
-            startSeconds: segment.at,
-            lengthSeconds: segment.duration + freezeSeconds,
+            // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+            startSeconds: segment.at - holdHeadSeconds,
+            lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
             headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
             tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY
                 : typeof facts.materialDurationSeconds === 'number' && Number.isFinite(facts.materialDurationSeconds)
@@ -261,7 +321,8 @@ function transitionPlanClipsFromCuts(cuts, options) {
                     declaredSeconds: transition.duration,
                     align: readTransitionAlign(transition.align),
                     fill: readTransitionFill(transition.fill) === 'freeze'
-                } } : {})
+                } } : {}),
+            ...((facts.holdBlocked ?? freezeSeconds > 0) ? { holdBlocked: true } : {})
         };
         const list = tracks.get(segment.track) ?? [];
         list.push(clip);

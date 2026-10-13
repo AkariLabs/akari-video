@@ -20,6 +20,8 @@ export interface TimelineTransitionPlate {
     type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
+    /** 窓の incoming の区間だけ: 窓の始まりから、最初のコマを出したまま止めている秒数。in は止めが明けた時点の素材の時刻。 */
+    holdHeadSeconds?: number;
     kind: 'src' | 'gap';
     outStart: number;
     outEnd: number;

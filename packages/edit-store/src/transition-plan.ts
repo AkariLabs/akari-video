@@ -38,6 +38,8 @@ export interface TransitionPlanClip {
     /** out より後ろに残る素材（出力秒）。素材の長さが不明なら undefined。静止画は Infinity。 */
     tailRoomSeconds: number | undefined;
     transitionOut?: { declaredSeconds: number; align: TransitionAlign; fill: boolean };
+    /** このクリップの頭は止め絵にできない（既存のフリーズがある）。 */
+    holdBlocked?: boolean;
 }
 
 export type TransitionShortenReason =
@@ -60,12 +62,25 @@ export interface TransitionBoundaryPlan {
     endOffsetSeconds: number;
     state: 'ok' | 'shortened' | 'none';
     reasons: readonly TransitionShortenReason[];
+    /** 後のクリップの頭の止め絵（秒）。fill のある境目だけ 0 以外になる。 */
     freezeIncomingSeconds: number;
+    /** 前のクリップの終わりの止め絵（秒）。後ろの余りが不明なら上限（後ろへ入る分）を返し、freezeOutgoingUnknown を立てる。 */
     freezeOutgoingSeconds: number | undefined;
+    freezeOutgoingUnknown?: true;
 }
 
 export interface TransitionPlanOptions {
     fps: number;
+    /**
+     * 前のクリップの後ろの余りの扱い。'limit'（省略時）は fill の無い境目を余りで制限する。
+     * 'ignore' は描画と同じ見方で、制限せずに止め絵の秒数だけ報告する。
+     */
+    tailRoom?: 'limit' | 'ignore';
+}
+
+interface InternalPlanOptions extends TransitionPlanOptions {
+    /** この番号のクリップの末尾の境目だけ、'ignore' でも後ろの余りで制限する（置き方を選ぶ候補）。 */
+    strictTailIndex?: number;
 }
 
 const EPSILON = 0.000001;
@@ -96,6 +111,13 @@ interface NewBoundary {
     requested: number;
     reasons: Set<TransitionShortenReason>;
     blockedByLegacy: boolean;
+    /** 後のクリップの頭を止め絵で埋める（fill があり、頭を止められるクリップ）。 */
+    fillHead: boolean;
+    /** 前のクリップの後ろの余りで制限していない（止め絵の秒数を報告する）。 */
+    reportTail: boolean;
+    /** 余りの実際の値。頭は出力秒、後ろは不明なら undefined。 */
+    headRoomSeconds: number;
+    tailRoomSeconds: number | undefined;
 }
 
 interface LegacyBoundary {
@@ -121,6 +143,13 @@ export function planTrackTransitions(
     clips: readonly TransitionPlanClip[],
     options: TransitionPlanOptions
 ): TransitionBoundaryPlan[] {
+    return planTrack(clips, options);
+}
+
+function planTrack(
+    clips: readonly TransitionPlanClip[],
+    options: InternalPlanOptions
+): TransitionBoundaryPlan[] {
     const fps = effectiveCutFps(options.fps);
     const boundaries: Array<Boundary | undefined> = [];
     for (let index = 0; index + 1 < clips.length; index++) {
@@ -138,7 +167,8 @@ export function planTrackTransitions(
             boundaries.push({
                 kind: 'new', earlier: index, later: index + 1, cutSeconds: later.startSeconds,
                 align: earlier.transitionOut!.align, declaredSeconds: declared, requested: 0,
-                reasons: new Set(), blockedByLegacy: false
+                reasons: new Set(), blockedByLegacy: false,
+                fillHead: false, reportTail: false, headRoomSeconds: 0, tailRoomSeconds: undefined
             });
             continue;
         }
@@ -172,9 +202,18 @@ export function planTrackTransitions(
         const earlier = clips[boundary.earlier];
         const later = clips[boundary.later];
         const cutDrift = earlier.startSeconds + earlier.lengthSeconds - boundary.cutSeconds;
-        const tailRoom = earlier.tailRoomSeconds === undefined
-            ? Number.POSITIVE_INFINITY : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
-        const headRoom = room(later.headRoomSeconds);
+        const fill = earlier.transitionOut?.fill === true;
+        const knownTailRoom = earlier.tailRoomSeconds === undefined
+            ? undefined : Math.max(0, room(earlier.tailRoomSeconds) + cutDrift);
+        const knownHeadRoom = room(later.headRoomSeconds);
+        boundary.fillHead = fill && later.holdBlocked !== true;
+        boundary.reportTail = fill
+            || (options.tailRoom === 'ignore' && options.strictTailIndex !== boundary.earlier);
+        boundary.headRoomSeconds = knownHeadRoom;
+        boundary.tailRoomSeconds = knownTailRoom;
+        const tailRoom = knownTailRoom === undefined || boundary.reportTail
+            ? Number.POSITIVE_INFINITY : knownTailRoom;
+        const headRoom = boundary.fillHead ? Number.POSITIVE_INFINITY : knownHeadRoom;
         const earlierCap = Math.min(ownLength[boundary.earlier], headRoom);
         const laterCap = Math.min(ownLength[boundary.later], tailRoom);
         const requested = Math.max(0, Math.min(boundary.declaredSeconds,
@@ -262,15 +301,34 @@ export function planTrackTransitions(
             startOffsetSeconds: effective > 0 ? -earlierShare(boundary.align, effective) : 0,
             endOffsetSeconds: effective > 0 ? laterShare(boundary.align, effective) : 0,
             state, reasons: state === 'ok' ? [] : [...reasons],
-            freezeIncomingSeconds: 0, freezeOutgoingSeconds: 0
+            ...freezeOf(boundary, effective)
         });
     }
     return plans;
 }
 
+/** 効く長さ effective の窓が、素材の余りを越えて使う分（止め絵になる分）。 */
+function freezeOf(boundary: NewBoundary, effective: number): Pick<TransitionBoundaryPlan,
+    'freezeIncomingSeconds' | 'freezeOutgoingSeconds' | 'freezeOutgoingUnknown'> {
+    const over = (used: number, available: number): number => {
+        const excess = used - available;
+        return excess > EPSILON ? excess : 0;
+    };
+    const before = effective > 0 ? earlierShare(boundary.align, effective) : 0;
+    const after = effective > 0 ? laterShare(boundary.align, effective) : 0;
+    const freezeIncomingSeconds = boundary.fillHead ? over(before, boundary.headRoomSeconds) : 0;
+    if (!boundary.reportTail) return { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    if (boundary.tailRoomSeconds === undefined) {
+        return after > EPSILON
+            ? { freezeIncomingSeconds, freezeOutgoingSeconds: after, freezeOutgoingUnknown: true }
+            : { freezeIncomingSeconds, freezeOutgoingSeconds: 0 };
+    }
+    return { freezeIncomingSeconds, freezeOutgoingSeconds: over(after, boundary.tailRoomSeconds) };
+}
+
 export interface TransitionAlignChoice {
     align: TransitionAlign;
-    /** 止め絵で埋めないと宣言の長さにならない。R2a では常に false。 */
+    /** 止め絵で埋めると、埋めないときより 1 コマ以上長く効く。true のとき plan は fill つきで計画した結果。 */
     needsFill: boolean;
     plan: TransitionBoundaryPlan;
     /** この選び方で窓の長さが変わる、ほかの境目。 */
@@ -279,7 +337,9 @@ export interface TransitionAlignChoice {
 
 /**
  * earlierId の末尾の境目に付けるときの寄せ方を選ぶ。隣の境目は渡された値のまま固定する。
- * 前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * 止め絵なしの候補は、前のクリップの後ろの余りが不明なら 0 として選ぶ（分からない側に頼らない）。
+ * allowFill のときは、止め絵で埋めると 1 コマ以上長く効く場合だけ、いちばん長く効く置き方のうち
+ * 止め絵がいちばん少ないものを fill つきで返す（後ろの余りが不明なら、後ろへ入る分をすべて止め絵と数える）。
  */
 export function chooseTransitionAlign(
     clips: readonly TransitionPlanClip[],
@@ -293,25 +353,50 @@ export function chooseTransitionAlign(
     const boundaryOf = (plans: readonly TransitionBoundaryPlan[]): TransitionBoundaryPlan | undefined =>
         plans.find(plan => plan.earlierId === earlierId && plan.laterId === laterId);
     const baseline = planTrackTransitions(clips, options);
-    let best: { align: TransitionAlign; plan: TransitionBoundaryPlan; plans: TransitionBoundaryPlan[] } | undefined;
+    type Candidate = { align: TransitionAlign; plan: TransitionBoundaryPlan; plans: TransitionBoundaryPlan[] };
+    let best: Candidate | undefined;
     for (const align of TRANSITION_ALIGN_IDS) {
         const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
             ...clip,
             tailRoomSeconds: clip.tailRoomSeconds ?? 0,
             transitionOut: { declaredSeconds, align, fill: false }
         } : clip);
-        const plans = planTrackTransitions(candidateClips, options);
+        const plans = planTrack(candidateClips, { ...options, strictTailIndex: index });
         const plan = boundaryOf(plans);
         if (!plan || plan.legacyOverlap) continue;
         if (!best || plan.effectiveSeconds > best.plan.effectiveSeconds + EPSILON) best = { align, plan, plans };
     }
     if (!best) return undefined;
-    const neighborChanges = best.plans.filter(plan => {
+    const neighborChangesOf = (plans: readonly TransitionBoundaryPlan[]): TransitionBoundaryPlan[] => plans.filter(plan => {
         if (plan.earlierId === earlierId && plan.laterId === laterId) return false;
         const before = baseline.find(entry => entry.earlierId === plan.earlierId && entry.laterId === plan.laterId);
         return !before || Math.abs(before.effectiveSeconds - plan.effectiveSeconds) > EPSILON;
     });
-    return { align: best.align, needsFill: false, plan: best.plan, neighborChanges };
+    if (options.allowFill) {
+        const freezeTotal = (plan: TransitionBoundaryPlan): number =>
+            plan.freezeIncomingSeconds + (plan.freezeOutgoingSeconds ?? 0);
+        let filled: Candidate | undefined;
+        for (const align of TRANSITION_ALIGN_IDS) {
+            const candidateClips = clips.map((clip, clipIndex) => clipIndex === index ? {
+                ...clip,
+                transitionOut: { declaredSeconds, align, fill: true }
+            } : clip);
+            const plans = planTrack(candidateClips, options);
+            const plan = boundaryOf(plans);
+            if (!plan || plan.legacyOverlap) continue;
+            if (!filled || plan.effectiveSeconds > filled.plan.effectiveSeconds + EPSILON
+                || (Math.abs(plan.effectiveSeconds - filled.plan.effectiveSeconds) <= EPSILON
+                    && freezeTotal(plan) < freezeTotal(filled.plan) - EPSILON)) {
+                filled = { align, plan, plans };
+            }
+        }
+        const frameSeconds = 1 / effectiveCutFps(options.fps);
+        if (filled && filled.plan.effectiveSeconds - best.plan.effectiveSeconds >= frameSeconds - EPSILON) {
+            return { align: filled.align, needsFill: true, plan: filled.plan,
+                neighborChanges: neighborChangesOf(filled.plans) };
+        }
+    }
+    return { align: best.align, needsFill: false, plan: best.plan, neighborChanges: neighborChangesOf(best.plans) };
 }
 
 export interface TransitionPlanCutFacts {
@@ -321,6 +406,10 @@ export interface TransitionPlanCutFacts {
     freezeSeconds: number;
     /** 素材の長さ。分かる層だけ渡す。無ければ後ろの余りは不明。 */
     materialDurationSeconds?: number;
+    /** 投影済みの並びを読むとき: 最初のコマを at の手前に前出ししている秒数（transitionHold.headSeconds）。 */
+    holdHeadSeconds?: number;
+    /** 頭を止め絵にできないクリップ。省けば、既存のフリーズがあるときに立つ。 */
+    holdBlocked?: boolean;
 }
 
 export interface TransitionPlanTrack {
@@ -349,11 +438,14 @@ export function transitionPlanClipsFromCuts(
         const facts = options.resolve(cut, index);
         const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
         const freezeSeconds = Number.isFinite(facts.freezeSeconds) && facts.freezeSeconds > 0 ? facts.freezeSeconds : 0;
+        const holdHeadSeconds = typeof facts.holdHeadSeconds === 'number' && Number.isFinite(facts.holdHeadSeconds)
+            && facts.holdHeadSeconds > 0 ? facts.holdHeadSeconds : 0;
         const transition = cut.transitionOut;
         const clip: TransitionPlanClip = {
             id: String(index),
-            startSeconds: segment.at,
-            lengthSeconds: segment.duration + freezeSeconds,
+            // 前出しのある投影済みのクリップは、前出しの始まりから数える（前の境目の重なりが宣言の長さになる）。
+            startSeconds: segment.at - holdHeadSeconds,
+            lengthSeconds: segment.duration + freezeSeconds + holdHeadSeconds,
             headRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY : Math.max(0, cut.in / speed),
             tailRoomSeconds: facts.stillImage ? Number.POSITIVE_INFINITY
                 : typeof facts.materialDurationSeconds === 'number' && Number.isFinite(facts.materialDurationSeconds)
@@ -363,7 +455,8 @@ export function transitionPlanClipsFromCuts(
                     declaredSeconds: transition.duration,
                     align: readTransitionAlign(transition.align),
                     fill: readTransitionFill(transition.fill) === 'freeze'
-                } } : {})
+                } } : {}),
+            ...((facts.holdBlocked ?? freezeSeconds > 0) ? { holdBlocked: true } : {})
         };
         const list = tracks.get(segment.track) ?? [];
         list.push(clip);
