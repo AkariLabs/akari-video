@@ -34,8 +34,11 @@ export interface WebAudioDecodedItem {
 export interface WebAudioSidecar {
     path: string;
     durationSec: number;
+    /** Requested source seconds before and after the trim. */
     padBeforeSec: number;
     padAfterSec: number;
+    /** Actual first source second after clamping at the start of the material. */
+    actualStartSeconds?: number;
     generatedMs?: number;
     skipped?: boolean;
     bytes?: number;
@@ -69,10 +72,15 @@ export interface WebAudioSpeechDeclaration {
         durationSec: number;
         generatedMs?: number;
     };
+    /** Window handles in output seconds; the host converts them to source seconds. */
     padBeforeSec?: number;
     padAfterSec?: number;
     crossfadeInSec?: number;
     crossfadeOutSec?: number;
+    /** A clip wholly inside the window fades from its own start. */
+    fadeInAtStart?: boolean;
+    /** Absolute start of the incoming window when source availability delays this clip. */
+    fadeInWindowStartSec?: number;
 }
 export interface WebAudioSpeechCut extends EditCut {
     id?: string;
