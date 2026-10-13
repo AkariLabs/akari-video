@@ -1,5 +1,5 @@
 {
-  "$comment": "setup-audio-library 候補リストのデータ SSOT。skills/setup-audio-library と packages/audio-library-setup/bin/generate-candidates-html.mjs がこのファイルを読む。根拠: research/2026-07-22-free-sfx-bgm-sources.md（内部リポ）。リンクは必ずダウンロードページ URL（音声ファイル直 URL は禁止 — 効果音ラボ/甘茶/H-MIX GALLERY 等の直リンク禁止規約対応）。",
+  "$comment": "setup-audio-library 候補リストのデータ SSOT。skills/setup-audio-library と packages/audio-library-setup/bin/generate-candidates-html.mjs がこのファイルを読む。リンクは必ずダウンロードページ URL（音声ファイル直 URL は禁止 — 効果音ラボ/甘茶/H-MIX GALLERY 等の直リンク禁止規約対応）。",
   "version": 1,
   "generated_at": "2026-07-22",
   "source_research": "internal: research/2026-07-22-free-sfx-bgm-sources.md",

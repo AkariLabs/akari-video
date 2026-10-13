@@ -962,6 +962,7 @@ export class OnboardingController {
             ...captionObstacles.map(rect => [rect.x, rect.y, rect.width, rect.height])]);
         const serial = typingPrompt
             ? JSON.stringify([basis, coach?.querySelector<HTMLElement>('.ao-body')?.scrollHeight]) : basis;
+        const forced = this.lastRects === '';
         if (serial === this.lastRects) return;
         this.lastRects = serial;
         dim.classList.toggle('clear', !!spec.noDim);
@@ -1015,13 +1016,19 @@ export class OnboardingController {
         const outputRect = this.state.step === 'caption' && this.state.sub > 0 ? rectOf('output') : undefined;
         const captionPosition = outputRect ? captionCoachPosition({ width: innerWidth, height: innerHeight },
             { width, height }, outputRect, captionObstacles) : undefined;
-        const previousTop = heldGuideCoachTop(this.coachHold, coach, basis, this.state.step, this.state.sub);
+        const previousTop = heldGuideCoachTop(this.coachHold, coach, basis, this.state.step, this.state.sub, forced);
         const bounds = guideCoachPlacement({ width: innerWidth, height: innerHeight },
             { width, height, actionsHeight, actionsBottomInset }, anchor,
             { minimal: spec.minimal, noDim: spec.noDim, place: spec.place, step: this.state.step, sub: this.state.sub,
                 previousTop, captionPosition });
         coach.style.left = `${bounds.left}px`;
-        coach.style.top = `${bounds.top}px`;
+        if (previousTop !== undefined && previousTop + bounds.height > innerHeight && bounds.top < previousTop) {
+            const transition = coach.style.transition;
+            coach.style.transition = 'none';
+            coach.style.top = `${bounds.top}px`;
+            void coach.offsetTop;
+            coach.style.transition = transition;
+        } else coach.style.top = `${bounds.top}px`;
         this.coachHold = { element: coach, basis, top: bounds.top };
     }
 
