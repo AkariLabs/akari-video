@@ -450,6 +450,8 @@ export interface PreviewModel {
     overlayUris: URI[];
     motionBagUris?: URI[];
     assetUris: URI[];
+    /** この読み込みで配信できなかった素材（まだ届いていない画像など）。届いたら読み直す。 */
+    unservedUris?: URI[];
     assetStreamIds: string[];
     compositeError?: string;
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
@@ -728,6 +730,9 @@ export interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewMotionBagResources?: Set<string>;
     akariPreviewMotionBagSuffixes?: Set<string>;
+    /** 配信できなかった素材と静止画の cut ソース。届いた・書き換わった合図で読み直す。 */
+    akariPreviewWatchedMediaResources?: Set<string>;
+    akariPreviewWatchedMediaSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];

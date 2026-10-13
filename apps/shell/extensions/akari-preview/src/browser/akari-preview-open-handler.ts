@@ -167,6 +167,9 @@ import {
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
+    newlyServedWatchedMedia, previewWatchedMediaChange, previewWatchedMediaSets, watchUnservedPreviewMedia
+} from '../common/preview-watched-media';
+import {
     capturePreviewPlaybackTick,
     shouldCapturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
@@ -299,6 +302,7 @@ import {
     TIMELINE_LAYER_SELECTED_EVENT,
     EDIT_STORE_DID_WRITE_EVENT,
     RECENT_WRITE_WINDOW_MS,
+    WATCHED_MEDIA_SETTLE_MS,
     TIMELINE_SET_MUTED_EVENT,
     TIMELINE_SET_TRACK_VISIBILITY_EVENT,
     TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT,
@@ -3492,6 +3496,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
+        // あとから届いた素材は、書き込みが落ち着くまで待って 1 回で読み直す。
+        let watchedMediaSettle: number | undefined;
+        disposables.push({ dispose: () => window.clearTimeout(watchedMediaSettle) });
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3504,6 +3511,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             let generationChanged = false;
             let previewChanged = false;
             let nonModelResourceChanged = false;
+            let watchedMediaChanged = false;
             const editKey = widget.akariPreviewEditUri?.toString();
             const editSuffix = widget.akariPreviewEditUri
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
@@ -3549,17 +3557,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     captionsChanged ||= Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
                     continue;
                 }
-                if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                // 配信できなかった素材（あとから届く生成画像など）と静止画の cut ソース。
+                // 追跡対象に無くても、届いた・書き換わった合図で読み直す。
+                const watchedMedia = previewWatchedMediaChange(widget, key, suffix);
+                if (watchedMedia || tracked.has(key) || trackedSuffixes.has(suffix)) {
                     const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                         akariPreviewJustAddedSuffixes?: Map<string, number> };
                     const added = recent.akariPreviewJustAddedUris?.get(key)
                         ?? recent.akariPreviewJustAddedSuffixes?.get(suffix);
                     // A generated frame can arrive just after edit.json. Its stream was
-                    // already supplied by the incremental model update.
-                    if (added && Date.now() - added < RECENT_WRITE_WINDOW_MS
-                        && change.resource.path.toString().includes('/assets/generated/')
-                        && change.resource.path.base.endsWith('.png')) continue;
+                    // already supplied by the incremental model update. A still cut source
+                    // that was just served gets the same grace. Media that could not be
+                    // served is never skipped: its arrival is the only chance to show it.
+                    if (watchedMedia !== 'unserved' && added && Date.now() - added < RECENT_WRITE_WINDOW_MS
+                        && (watchedMedia === 'served'
+                            || (change.resource.path.toString().includes('/assets/generated/')
+                                && change.resource.path.base.endsWith('.png')))) continue;
                     const externalChange = Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
+                    if (watchedMedia) {
+                        watchedMediaChanged ||= externalChange;
+                        continue;
+                    }
                     previewChanged ||= externalChange;
                     if (externalChange && !isPreviewModelResourceChange(
                         key, suffix, editKey, editSuffix, motionBagResources, motionBagSuffixes
@@ -3577,7 +3595,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueGenerationUpdate(widget);
             }
             if (previewChanged) {
-                this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged);
+                // 同じ通知に edit.json などの変更も入っていれば、待たずにまとめて読み直す。
+                if (watchedMediaChanged) window.clearTimeout(watchedMediaSettle);
+                this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged || watchedMediaChanged);
+            } else if (watchedMediaChanged) {
+                // 素材だけが変わってもモデルの差分には出ない。届いた素材を配信し直すため再構築する。
+                window.clearTimeout(watchedMediaSettle);
+                watchedMediaSettle = window.setTimeout(() =>
+                    this.queueRefresh(widget, identityUri, kind, undefined, true), WATCHED_MEDIA_SETTLE_MS);
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
@@ -3960,6 +3985,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
+    /** 届いたら読み直す素材（配信できなかった素材・静止画の cut ソース）を、読み込んだモデルから作り直す。 */
+    protected updateWatchedPreviewMedia(widget: PreviewWidgetMarker, model: PreviewModel): void {
+        const cutSourceUris = [...(model.sourcesById ?? [])]
+            .filter(([sourceId]) => model.summary.cuts.some(cut => cut.src === sourceId))
+            .map(([, source]) => source.uri);
+        if (model.sourceUri && !cutSourceUris.some(uri => uri.toString() === model.sourceUri!.toString())) {
+            cutSourceUris.push(model.sourceUri);
+        }
+        const next = previewWatchedMediaSets(widget, { unservedUris: model.unservedUris, cutSourceUris },
+            uri => this.resourceSuffix(uri), uri => isImageLayerSrc(uri.path.base));
+        // アプリ自身の取り込み（ファイルを置いてから edit.json を書く）では、置いたファイルの通知が
+        // 読み直しのあとに届く。見張り始めた直後の通知は読み直しにしない。
+        const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
+            akariPreviewJustAddedSuffixes?: Map<string, number> };
+        const served = newlyServedWatchedMedia(widget, next);
+        const now = Date.now();
+        for (const key of served.resources) (recent.akariPreviewJustAddedUris ??= new Map()).set(key, now);
+        for (const key of served.suffixes) (recent.akariPreviewJustAddedSuffixes ??= new Map()).set(key, now);
+        Object.assign(widget, next);
+    }
+
+    protected watchUnservedPreviewMedia(widget: PreviewWidgetMarker, uri: URI): void {
+        Object.assign(widget, watchUnservedPreviewMedia(widget, uri, value => this.resourceSuffix(value)));
+    }
+
     protected handleRefreshFailure(widget: PreviewWidgetMarker, error: unknown): void {
         if (widget.isDisposed) {
             return;
@@ -4230,6 +4280,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
         diagnostics?.describeFace({ assetOrigin: assets?.origin });
         diagnostics?.markStage('model-loaded', 'ok');
+        // この先のどの経路（差分なし・差分更新・再構築・失敗）でも、届いたら読み直せるようにする。
+        if (kind === 'output') this.updateWatchedPreviewMedia?.(widget, model);
         if (this.previewGestureGuards?.get(widget)?.active) {
             this.queueRefresh(widget, identityUri, kind, initialSeekTime, forceRebuild);
             await this.disposeAssetStreams(model.assetStreamIds);
@@ -4438,6 +4490,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ? this.createAssetStream({ assetUri: streamVideoUri.toString() })
                 : this.createVideoStream({ videoUri: streamVideoUri.toString() })
             ).catch(async (error: unknown) => {
+                // 代表ソースがまだ届いていない（生成中の画像など）。届いた合図で読み直す。
+                this.watchUnservedPreviewMedia?.(widget, videoUri);
+                this.watchUnservedPreviewMedia?.(widget, streamVideoUri);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 throw error;
             }),
@@ -4503,6 +4558,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                 } catch (error) {
                     console.warn('[akari-preview] sources[] のストリームを開けませんでした', entry.uri.toString(), error);
+                    this.watchUnservedPreviewMedia?.(widget, entry.uri);
                 }
             }
         }
@@ -5057,6 +5113,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previewAudioPendingRequests: PreviewAudioPendingRequest[] = [];
         const sidecarRequests: PreviewAudioSidecarEntry[] = [];
         const assetUris: URI[] = [];
+        // 配信できなかった素材（まだ届いていない生成画像など）。届いた合図で読み直すために控える。
+        const unservedUris: URI[] = [];
+        const noteUnserved = (uri: URI): void => {
+            if (!unservedUris.some(value => value.toString() === uri.toString())) unservedUris.push(uri);
+        };
         const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
             const known = assetStreams.get(key);
             if (known) return Promise.resolve(known);
@@ -5067,7 +5128,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreams.set(key, stream);
                     return stream;
                 });
-                task.catch(() => assetStreamTasks.delete(key));
+                task.catch(() => {
+                    assetStreamTasks.delete(key);
+                    if (assetUri) noteUnserved(assetUri);
+                });
                 assetStreamTasks.set(key, task);
             }
             return task;
@@ -5496,6 +5560,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                         const uri = new URI(stream.uri);
                                         if (!assetUris.some(value => value.toString() === uri.toString())) assetUris.push(uri);
                                     }
+                                    for (const uri of result.unserved ?? []) noteUnserved(new URI(uri));
                                     unsupportedGltfWarnings.push(...result.warnings);
                                     for (const warning of result.warnings) console.warn(`[akari-preview] ${warning}`);
                                 }
@@ -6037,6 +6102,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 overlayUris,
                 motionBagUris,
                 assetUris,
+                unservedUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 previewAudioKeepKeys,
