@@ -892,5 +892,13 @@
   "annotationscommon.voiceCloneDialog.separator.engines": "・",
   "annotationscommon.timelineKeyframeRows.label.rotation3d": "3D 回転",
   "annotationscommon.editV2Mutations.error.easingSegmentNotFound": "イージングを設定する区間が見つかりません。",
-  "annotationscommon.scene3dItem.label.motionNone": "なし（止める）"
+  "annotationscommon.scene3dItem.label.motionNone": "なし（止める）",
+  "annotationscommon.akariAnnotationsService.recovery.broken": "前回の書き込み記録が壊れていたため退避しました",
+  "annotationscommon.akariAnnotationsService.recovery.restored": "前回の書き込みが途中で止まったので元に戻しました: {files}",
+  "annotationscommon.akariAnnotationsService.recovery.preserved": "{file} はその後に変更されていたのでそのままにしました",
+  "annotationscommon.akariAnnotationsService.recovery.missing": "{file} は退避が見つからないので戻せませんでした",
+  "annotationscommon.akariAnnotationsService.recovery.interrupted": "前回の書き込みが途中で止まっていました",
+  "annotationscommon.akariAnnotationsService.recovery.unchanged": "前回の書き込みが途中で止まっていましたが、ファイルは元のままでした",
+  "annotationscommon.akariAnnotationsService.recovery.fileSeparator": "、",
+  "annotationscommon.akariAnnotationsService.recovery.sentenceSeparator": "。"
 }

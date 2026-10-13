@@ -560,10 +560,17 @@ export function applyWordBookToCaptionsInSource(
     source: string,
     changes: WordBookCaptionChange[]
 ): string {
+    return applyWordBookToCaptionsInSourceWithNotices(source, changes).source;
+}
+
+export function applyWordBookToCaptionsInSourceWithNotices(
+    source: string, changes: WordBookCaptionChange[]
+): { source: string; notices: string[] } {
     if (changes.length === 0) {
-        return source;
+        return { source, notices: [] };
     }
     let output = source;
+    const notices: string[] = [];
     for (const change of changes) {
         const array = locateCaptionArray(output);
         const element = findCaptionElement(array.elements, change.id);
@@ -573,6 +580,8 @@ export function applyWordBookToCaptionsInSource(
             const oldDisplay = previous.display_text ?? previous.text;
             const newDisplay = change.display_text ?? change.text;
             const rebased = rebaseCaptionRuns(oldDisplay, newDisplay, previous.runs, { mode: 'project' });
+            const notice = captionRunsRemovedNotice(rebased.removed, oldDisplay);
+            if (notice) notices.push(notice);
             nextElement = syncOptionalCaptionProperty(nextElement, 'runs',
                 rebased.runs.length ? rebased.runs : undefined, change.id);
         }
@@ -582,7 +591,7 @@ export function applyWordBookToCaptionsInSource(
         nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
     }
-    return output;
+    return { source: output, notices };
 }
 
 export function updateCaptionTextStyleInSource(

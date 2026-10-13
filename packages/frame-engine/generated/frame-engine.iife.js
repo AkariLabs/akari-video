@@ -6363,6 +6363,7 @@ ${indent}`);
       exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
       exports.captionEditNotices = captionEditNotices;
       exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
+      exports.applyWordBookToCaptionsInSourceWithNotices = applyWordBookToCaptionsInSourceWithNotices;
       exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
       exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
       exports.insertCaptionLine = insertCaptionLine;
@@ -6655,10 +6656,14 @@ ${indent}`);
         ].filter((notice) => !!notice);
       }
       function applyWordBookToCaptionsInSource(source, changes) {
+        return applyWordBookToCaptionsInSourceWithNotices(source, changes).source;
+      }
+      function applyWordBookToCaptionsInSourceWithNotices(source, changes) {
         if (changes.length === 0) {
-          return source;
+          return { source, notices: [] };
         }
         let output = source;
+        const notices = [];
         for (const change of changes) {
           const array = locateCaptionArray(output);
           const element = findCaptionElement(array.elements, change.id);
@@ -6668,6 +6673,9 @@ ${indent}`);
             const oldDisplay = previous.display_text ?? previous.text;
             const newDisplay = change.display_text ?? change.text;
             const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, previous.runs, { mode: "project" });
+            const notice = (0, caption_runs_1.captionRunsRemovedNotice)(rebased.removed, oldDisplay);
+            if (notice)
+              notices.push(notice);
             nextElement = syncOptionalCaptionProperty(nextElement, "runs", rebased.runs.length ? rebased.runs : void 0, change.id);
           }
           nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
@@ -6676,7 +6684,7 @@ ${indent}`);
           nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
           output = replaceElement(output, array.openIndex + 1, element, nextElement);
         }
-        return output;
+        return { source: output, notices };
       }
       function updateCaptionTextStyleInSource(source, captionId, updates) {
         if (!captionId) {
@@ -8593,7 +8601,11 @@ ${indent}`);
           }
         }
         if (textStyle.layout !== void 0 && textStyle.reference_height_px !== void 0) {
-          return { notices: [], reason: "layout \u3068 reference_height_px \u3092\u540C\u6642\u306B\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093" };
+          return {
+            notices: [],
+            reason: "layout \u3068 reference_height_px \u3092\u540C\u6642\u306B\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093",
+            reasonCode: "AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT"
+          };
         }
         return { text_style: textStyle, notices: [] };
       }
@@ -8609,6 +8621,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.captionValueHash = captionValueHash;
+      exports.projectFileContentHash = projectFileContentHash;
       function captionValueHash(value) {
         const sorted = (entry) => {
           if (Array.isArray(entry))
@@ -8617,7 +8630,10 @@ ${indent}`);
             return Object.fromEntries(Object.keys(entry).sort().map((key) => [key, sorted(entry[key])]));
           return entry;
         };
-        const bytes = new TextEncoder().encode(JSON.stringify(sorted(value)));
+        return projectFileContentHash(JSON.stringify(sorted(value)));
+      }
+      function projectFileContentHash(text) {
+        const bytes = new TextEncoder().encode(text);
         const length = Math.ceil((bytes.length + 9) / 64) * 64;
         const padded = new Uint8Array(length);
         padded.set(bytes);
@@ -8725,8 +8741,8 @@ ${indent}`);
             b = a;
             a = first + second >>> 0;
           }
-          for (const [index, value2] of [a, b, c, d2, e, f2, g2, h].entries())
-            state[index] = state[index] + value2 >>> 0;
+          for (const [index, value] of [a, b, c, d2, e, f2, g2, h].entries())
+            state[index] = state[index] + value >>> 0;
         }
         return `sha256:${state.map((word) => word.toString(16).padStart(8, "0")).join("")}`;
       }
@@ -8739,6 +8755,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CAPTION_EMPHASIS_MOTION = void 0;
+      exports.nextEmphasisWordId = nextEmphasisWordId;
       exports.readCaptionLookV1 = readCaptionLookV1;
       exports.planCaptionLookMigration = planCaptionLookMigration;
       exports.captionRenderInputFromV1 = captionRenderInputFromV1;
@@ -8746,6 +8763,26 @@ ${indent}`);
       var caption_hash_1 = require_caption_hash();
       var caption_look_v1_1 = require_caption_look_v1();
       var caption_style_preset_1 = require_caption_style_preset();
+      var isRecord2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      var captionRows = (root) => Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+      var emphasisWords = (root) => Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
+      var unresolvedRuns = (root) => Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? [] : root.unresolved_runs.flatMap((item) => isRecord2(item) && isRecord2(item.run) ? [item.run] : []);
+      function nextEmphasisWordId(root) {
+        const used = new Set(emphasisWords(root).flatMap((item) => isRecord2(item) && typeof item.id === "string" ? [item.id] : []));
+        for (const row of captionRows(root))
+          for (const run of rowRuns(row))
+            if (isRecord2(run) && typeof run.migrated_from === "string")
+              used.add(run.migrated_from);
+        for (const run of unresolvedRuns(root))
+          if (typeof run.migrated_from === "string")
+            used.add(run.migrated_from);
+        let number2 = 1;
+        while (used.has(`e-${String(number2).padStart(4, "0")}`))
+          number2++;
+        if (number2 > 9999)
+          throw new Error("\u5F37\u8ABF\u8A9E\u306E id \u306B\u7A7A\u304D\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+        return `e-${String(number2).padStart(4, "0")}`;
+      }
       exports.CAPTION_EMPHASIS_MOTION = {
         "one-char-bang": "pop",
         "one-char-jumble": "jitter",
@@ -8783,6 +8820,8 @@ ${indent}`);
         if (!motion2)
           return void 0;
         const candidates = rows.flatMap((row) => {
+          if (!isRecord2(row))
+            return [];
           if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
             return [];
           const interval = intervalForEmphasis(row, item);
@@ -8791,7 +8830,7 @@ ${indent}`);
         return candidates.length === 1 ? candidates[0] : void 0;
       }
       function rowRuns(row) {
-        return Array.isArray(row.runs) ? row.runs : [];
+        return isRecord2(row) && Array.isArray(row.runs) ? row.runs : [];
       }
       function invalidLegacyRun(run, row) {
         if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
@@ -8801,13 +8840,15 @@ ${indent}`);
         return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
       }
       function readCaptionLookV1(root, catalog) {
-        const rows = Array.isArray(root) ? root : root.captions;
-        const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
+        const rows = captionRows(root);
+        const emphasis = emphasisWords(root);
         const projected = /* @__PURE__ */ new Map();
-        const allRuns = [...rows.flatMap(rowRuns), ...Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []];
+        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
         const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
         let originalIndex = 0;
         for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
           while (occupiedIndices.has(originalIndex))
             originalIndex++;
           const index = originalIndex++;
@@ -8822,6 +8863,8 @@ ${indent}`);
         }
         const notices = [];
         const captions = rows.map((row) => {
+          if (!isRecord2(row))
+            return row;
           const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
           const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
             ...run,
@@ -8829,6 +8872,8 @@ ${indent}`);
             ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
           });
           for (const item of emphasis) {
+            if (!isRecord2(item))
+              continue;
             if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
               continue;
             const interval = projected.get(item.id);
@@ -8862,16 +8907,15 @@ ${indent}`);
       }
       function planCaptionLookMigration(captions, catalog, _edit) {
         const source = structuredClone(captions);
-        const rows = Array.isArray(source) ? source : source.captions;
-        const emphasis = Array.isArray(source) ? [] : source.emphasis_words ?? [];
+        const rows = captionRows(source);
+        const emphasis = emphasisWords(source);
         const unresolved = [];
         const notices = [];
-        const allRuns = [
-          ...rows.flatMap(rowRuns),
-          ...Array.isArray(source) ? [] : Array.isArray(source.unresolved_runs) ? source.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
-        ];
+        const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
         let invalidLegacyCount = 0;
         for (const row of rows) {
+          if (!isRecord2(row))
+            continue;
           if (row.style_preset) {
             const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
             if (preset.resolved) {
@@ -8935,12 +8979,15 @@ ${indent}`);
         const migrated = /* @__PURE__ */ new Set();
         let originalIndex = 0;
         for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
           while (occupiedIndices.has(originalIndex))
             originalIndex++;
           const index = originalIndex++;
-          if (rows.some((row2) => rowRuns(row2).some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id))) {
-            migrated.add(item.id);
-            continue;
+          if (allRuns.some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id)) {
+            const old = item.id;
+            item.id = nextEmphasisWordId(source);
+            notices.push(`\u5F37\u8ABF\u8A9E ${old} \u306F id \u304C\u91CD\u306A\u3063\u3066\u3044\u305F\u306E\u3067 ${item.id} \u306B\u632F\u308A\u76F4\u3057\u307E\u3057\u305F`);
           }
           const candidate = projectEmphasis(rows, item);
           if (!candidate) {
@@ -8970,13 +9017,15 @@ ${indent}`);
           migrated.add(item.id);
           occupiedIndices.add(index);
         }
-        if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, "emphasis_words")) {
-          source.emphasis_words = emphasis.filter((item) => !migrated.has(item.id));
+        if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
+          source.emphasis_words = emphasis.filter((item) => !isRecord2(item) || !migrated.has(item.id));
         }
-        const originalRows = Array.isArray(captions) ? captions : captions.captions;
+        const originalRows = captionRows(captions);
         const diff = [];
         rows.forEach((row, index) => {
-          const before = originalRows[index] ?? {};
+          if (!isRecord2(row))
+            return;
+          const before = isRecord2(originalRows[index]) ? originalRows[index] : {};
           for (const key of /* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(row)])) {
             if (JSON.stringify(before[key]) !== JSON.stringify(row[key]))
               diff.push({
@@ -8993,18 +9042,34 @@ ${indent}`);
           next: source,
           diff,
           unresolved,
-          notices
+          notices: [...new Set(notices)]
         };
       }
       function captionRenderInputFromV1(root) {
-        const rows = Array.isArray(root) ? root : root.captions;
-        if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))))
+        const rows = captionRows(root);
+        const legacyIds = emphasisWords(root).flatMap((item) => isRecord2(item) ? [item.id] : []);
+        if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))) && new Set(legacyIds).size === legacyIds.length)
           return root;
         const copy = structuredClone(root);
-        const nextRows = Array.isArray(copy) ? copy : copy.captions;
-        const emphasis = Array.isArray(copy) ? [] : [...copy.emphasis_words ?? []];
+        const nextRows = captionRows(copy);
+        const emphasis = [...emphasisWords(copy)];
+        const migratedIds = /* @__PURE__ */ new Set();
+        for (const row of nextRows)
+          for (const run of rowRuns(row))
+            if (typeof run?.migrated_from === "string")
+              migratedIds.add(run.migrated_from);
+        const ids = /* @__PURE__ */ new Set();
+        for (const item of emphasis) {
+          if (!isRecord2(item))
+            continue;
+          if (ids.has(item.id) || migratedIds.has(item.id))
+            item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
+          ids.add(item.id);
+        }
         const migrated = [];
         for (const row of nextRows) {
+          if (!isRecord2(row))
+            continue;
           if (!Array.isArray(row.runs))
             continue;
           row.runs = row.runs.flatMap((run) => {
@@ -9013,11 +9078,25 @@ ${indent}`);
             if (run.migrated_from && !run.look && run.anchor) {
               const hint = Object.keys(exports.CAPTION_EMPHASIS_MOTION).find((key) => exports.CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
               const restored = run.migrated_emphasis?.item;
-              if (restored)
-                migrated.push({ index: run.migrated_emphasis.index, item: structuredClone(restored) });
-              else if (hint)
+              if (restored) {
+                const item = structuredClone(restored);
+                if (ids.has(item.id))
+                  item.id = nextEmphasisWordId({
+                    captions: nextRows,
+                    emphasis_words: [...emphasis, ...migrated.map((entry) => entry.item)]
+                  });
+                ids.add(item.id);
+                migrated.push({ index: run.migrated_emphasis.index, item });
+              } else if (hint) {
+                let id = run.migrated_from;
+                if (ids.has(id))
+                  id = nextEmphasisWordId({
+                    captions: nextRows,
+                    emphasis_words: [...emphasis, ...migrated.map((entry) => entry.item)]
+                  });
+                ids.add(id);
                 emphasis.push({
-                  id: run.migrated_from,
+                  id,
                   word: (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").slice(run.from, run.to).join(""),
                   t_start: run.anchor.start,
                   t_end: run.anchor.end,
@@ -9025,6 +9104,7 @@ ${indent}`);
                   style_hint: hint,
                   ...run.anchor.src ? { src: run.anchor.src } : {}
                 });
+              }
               return [];
             }
             const next = { ...run };
@@ -9042,7 +9122,7 @@ ${indent}`);
             return [next];
           });
         }
-        if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, "emphasis_words") || migrated.length)) {
+        if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
           const restored = [...emphasis];
           for (const entry of migrated.sort((left, right) => left.index - right.index)) {
             restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
@@ -9333,6 +9413,664 @@ ${indent}`);
         if (!Array.isArray(caption?.runs))
           return caption?.runs ?? [];
         return caption.runs.filter((_run, runIndex) => !invalid.has(runIndex));
+      }
+    }
+  });
+
+  // packages/edit-store/lib/caption-look-shape.js
+  var require_caption_look_shape = __commonJS({
+    "packages/edit-store/lib/caption-look-shape.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.CaptionsInvalidError = exports.CAPTION_LOOK_SHAPE_KEYS = exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = void 0;
+      exports.validateCaptionLookV1Shape = validateCaptionLookV1Shape;
+      exports.assertCaptionsWritable = assertCaptionsWritable;
+      var caption_semantics_1 = require_caption_semantics();
+      var isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      var has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+      var number2 = (value) => typeof value === "number" && Number.isFinite(value);
+      var positive = (value) => number2(value) && value > 0;
+      var nonnegative = (value) => number2(value) && value >= 0;
+      var integer = (value) => Number.isInteger(value);
+      var nonempty = (value) => typeof value === "string" && value.length > 0;
+      var hex = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+      var runId = (value) => typeof value === "string" && /^r-\d{4,}$/.test(value);
+      var fire = (value) => ["shown", "spoken", "whole"].includes(String(value));
+      var enumOf = (...values) => (value) => typeof value === "string" && values.includes(value);
+      function objectRule(fields, required = [], minProperties = 0) {
+        return (value) => isObject(value) && Object.keys(value).length >= minProperties && required.every((key) => has(value, key)) && Object.entries(value).every(([key, entry]) => fields[key] !== void 0 && fields[key](entry));
+      }
+      var stroke = objectRule({ method: enumOf("webkit-outline"), color: hex, width_px: nonnegative });
+      var shadow = objectRule({
+        color: hex,
+        opacity: (value) => number2(value) && value >= 0 && value <= 1,
+        blur_px: nonnegative,
+        distance_px: nonnegative,
+        angle_deg: number2
+      }, ["color"]);
+      var glow = objectRule({ color: hex, density: nonnegative, spread: nonnegative, offset_x: number2, offset_y: number2 }, ["color"]);
+      var background = objectRule({
+        color: hex,
+        opacity: (value) => number2(value) && value >= 0 && value <= 1,
+        radius_px: nonnegative,
+        padding_px: nonnegative,
+        width_pct: nonnegative,
+        height_pct: nonnegative,
+        fit: enumOf("text", "frame"),
+        offset_x: number2,
+        offset_y: number2,
+        mode: enumOf("per-line", "block")
+      });
+      var lookFields = {
+        color: hex,
+        font_weight: (value) => integer(value) && value >= 1 && value <= 1e3,
+        italic: (value) => typeof value === "boolean",
+        underline: (value) => typeof value === "boolean",
+        letter_spacing_em: number2,
+        scale: positive,
+        baseline_shift_em: number2,
+        rotate_deg: (value) => number2(value) && Math.abs(value) <= 180,
+        stroke,
+        shadow,
+        glow,
+        background
+      };
+      var look = objectRule(lookFields);
+      exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS = [
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "caption-rise",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ];
+      var animationIds = new Set(exports.CAPTION_LOOK_SHAPE_ANIMATION_IDS);
+      var slot = objectRule({
+        id: (value) => typeof value === "string" && animationIds.has(value),
+        duration_sec: positive,
+        ease: (value) => value === null || typeof value === "string" && /\S/.test(value),
+        amp: (value) => value === null || positive(value)
+      }, ["id"]);
+      var motion2 = objectRule({ in: slot, loop: slot, out: slot }, [], 1);
+      var anchorFields = {
+        src: nonempty,
+        start: nonnegative,
+        end: nonnegative,
+        domain: enumOf("source", "output")
+      };
+      var anchor = objectRule(anchorFields, ["start", "end", "domain"]);
+      var sourceFields = {
+        kind: enumOf("builtin", "library", "my"),
+        id: nonempty,
+        uid: nonempty,
+        revision: (value) => integer(value) && value >= 0,
+        original_hash: nonempty,
+        applied_hash: nonempty,
+        applied_at: nonempty,
+        requires: (value) => Array.isArray(value) && value.every(objectRule({
+          id: nonempty,
+          version: (value2) => typeof value2 === "string",
+          hash: nonempty
+        }, ["id", "version", "hash"]))
+      };
+      var source = objectRule(sourceFields, ["kind", "id", "original_hash", "applied_hash"]);
+      var styleSourcesFields = { look: source, motion: source };
+      var styleSources = objectRule(styleSourcesFields);
+      var migratedEmphasis = objectRule({ index: nonnegative, item: (value) => isObject(value) }, ["index", "item"]);
+      var v1Fields = {
+        id: runId,
+        from: integer,
+        to: integer,
+        role: nonempty,
+        look,
+        motion: motion2,
+        emotion: nonempty,
+        anchor,
+        fire,
+        fire_was: fire,
+        style_sources: styleSources,
+        needs_review: (value) => typeof value === "boolean",
+        split_from: runId,
+        migrated_from: (value) => typeof value === "string" && /^e-\d{4,}$/.test(value),
+        dormant_animation: motion2,
+        migrated_emphasis: migratedEmphasis
+      };
+      var unresolvedFields = ["run", "old_caption_id", "old_text", "old_src", "old_start", "old_end", "reason"];
+      exports.CAPTION_LOOK_SHAPE_KEYS = {
+        run: [...Object.keys(v1Fields), "style", "animation"],
+        look: Object.keys(lookFields),
+        anchor: Object.keys(anchorFields),
+        styleSources: Object.keys(styleSourcesFields),
+        source: Object.keys(sourceFields),
+        unresolvedRun: unresolvedFields
+      };
+      var idRequired = ["look", "motion", "anchor", "fire", "style_sources", "migrated_from"];
+      function validateCaptionLookV1Shape(captionsRoot) {
+        const diagnostics = [];
+        const add = (path, field) => diagnostics.push({
+          code: "captions.look.shape",
+          severity: "error",
+          path,
+          message: `${field} \u306E\u5F62\u304C\u5B57\u5E55\u306E\u898F\u5247\u306B\u5408\u3044\u307E\u305B\u3093\u3002`,
+          layer: "document"
+        });
+        const rows = Array.isArray(captionsRoot) ? captionsRoot : isObject(captionsRoot) ? captionsRoot.captions : void 0;
+        const checkRun = (run, path) => {
+          if (!isObject(run)) {
+            add(path, "run");
+            return;
+          }
+          const v1 = Object.keys(v1Fields).some((key) => has(run, key));
+          if (v1) {
+            for (const key of ["from", "to"])
+              if (!has(run, key))
+                add(path, key);
+          }
+          if (idRequired.some((key) => has(run, key)) && !has(run, "id"))
+            add(path, "id");
+          for (const [key, rule] of Object.entries(v1Fields))
+            if (has(run, key) && !rule(run[key]))
+              add(`${path}.${key}`, key);
+          for (const key of Object.keys(run))
+            if (!has(v1Fields, key) && !["style", "animation"].includes(key))
+              add(`${path}.${key}`, key);
+        };
+        if (Array.isArray(rows))
+          rows.forEach((row, index) => {
+            if (!isObject(row))
+              return;
+            if (has(row, "style_sources") && !styleSources(row.style_sources))
+              add(`captions.json#captions[${index}].style_sources`, "style_sources");
+            if (Array.isArray(row.runs))
+              row.runs.forEach((run, runIndex) => checkRun(run, `captions.json#captions[${index}].runs[${runIndex}]`));
+          });
+        if (isObject(captionsRoot) && has(captionsRoot, "unresolved_runs")) {
+          const value = captionsRoot.unresolved_runs;
+          const valid = Array.isArray(value) && value.every((item, index) => {
+            if (!isObject(item))
+              return false;
+            checkRun(item.run, `captions.json#unresolved_runs[${index}].run`);
+            return unresolvedFields.every((key) => has(item, key)) && Object.keys(item).every((key) => unresolvedFields.includes(key)) && isObject(item.run) && typeof item.old_caption_id === "string" && typeof item.old_text === "string" && (item.old_src === null || typeof item.old_src === "string") && number2(item.old_start) && number2(item.old_end) && nonempty(item.reason);
+          });
+          if (!valid)
+            add("captions.json#unresolved_runs", "unresolved_runs");
+        }
+        return diagnostics;
+      }
+      var CaptionsInvalidError = class extends Error {
+        constructor(diagnostics) {
+          super(`\u5B57\u5E55\u306E\u5185\u5BB9\u3092\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093: ${diagnostics.map((item) => item.message).join("\u3001")}`);
+          this.diagnostics = diagnostics;
+          this.code = "AKARI_CAPTIONS_INVALID";
+          this.name = "CaptionsInvalidError";
+        }
+      };
+      exports.CaptionsInvalidError = CaptionsInvalidError;
+      function assertCaptionsWritable(captionsRoot, ctx = {}) {
+        const diagnostics = [...validateCaptionLookV1Shape(captionsRoot), ...(0, caption_semantics_1.validateCaptionsSemantics)({ ...ctx, captions: captionsRoot })];
+        if (diagnostics.some((item) => item.severity === "error"))
+          throw new CaptionsInvalidError(diagnostics);
+      }
+    }
+  });
+
+  // packages/edit-store/lib/caption-style-command.js
+  var require_caption_style_command = __commonJS({
+    "packages/edit-store/lib/caption-style-command.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.planCaptionStyleEdit = planCaptionStyleEdit;
+      exports.planCaptionStyleClear = planCaptionStyleClear;
+      exports.planCaptionStyleReapply = planCaptionStyleReapply;
+      exports.planCaptionSizeEdit = planCaptionSizeEdit;
+      var caption_hash_1 = require_caption_hash();
+      var caption_anchor_map_1 = require_caption_anchor_map();
+      var caption_look_v1_1 = require_caption_look_v1();
+      var caption_runs_1 = require_caption_runs();
+      var caption_style_preset_1 = require_caption_style_preset();
+      var textstyle_catalog_1 = require_textstyle_catalog();
+      var record2 = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      var rowsOf = (root) => Array.isArray(root) ? root : root.captions;
+      var defaultOf = (root) => !Array.isArray(root) && record2(root.default_text_style) ? root.default_text_style : {};
+      var projectedLook = (style) => {
+        const look = (0, caption_look_v1_1.sanitizeMyStyleLook)(style);
+        delete look.size_px;
+        delete look.reference_height_px;
+        return look;
+      };
+      var projectedRunLook = (style) => (0, caption_look_v1_1.sanitizeCaptionRunLook)(style).look;
+      var sourceRecord = (source, original, applied, at2) => ({
+        ...source,
+        original_hash: (0, caption_hash_1.captionValueHash)(original),
+        applied_hash: (0, caption_hash_1.captionValueHash)(applied),
+        applied_at: at2
+      });
+      var catalogRecord = (catalog) => catalog instanceof Map ? Object.fromEntries(catalog) : catalog;
+      var allRuns = (root) => [
+        ...rowsOf(root).flatMap((row) => Array.isArray(row.runs) ? row.runs : []),
+        ...!Array.isArray(root) && Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
+      ];
+      function resolveRange(row, range) {
+        const chars = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "");
+        if ("from" in range) {
+          if (!Number.isInteger(range.from) || !Number.isInteger(range.to) || range.from < 0 || range.to > chars.length || range.from >= range.to)
+            throw new Error("\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u5217\u306E\u5916\u304B\u7A7A\u3067\u3059\u3002");
+          return range;
+        }
+        const normalized = chars.map((char) => char.normalize("NFC"));
+        const quote = (0, caption_runs_1.captionGraphemes)(range.quote).map((char) => char.normalize("NFC"));
+        const matches = [];
+        if (quote.length)
+          for (let index = 0; index <= chars.length - quote.length; ) {
+            if (quote.every((char, offset) => normalized[index + offset] === char)) {
+              matches.push(index);
+              index += quote.length;
+            } else
+              index++;
+          }
+        if (!matches.length)
+          throw new Error("\u5F15\u7528\u3057\u305F\u6587\u5B57\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002");
+        if (range.occurrence !== void 0 && (!Number.isInteger(range.occurrence) || range.occurrence < 1 || range.occurrence > matches.length)) {
+          throw new Error(`\u5019\u88DC\u306F ${matches.length} \u4EF6\u3067\u3059\uFF08occurrence \u306F 1\u301C${matches.length}\uFF09\u3002`);
+        }
+        if (matches.length > 1 && range.occurrence === void 0) {
+          throw new Error(`\u5F15\u7528\u3057\u305F\u6587\u5B57\u306E\u5019\u88DC\u306F ${matches.length} \u4EF6\u3067\u3059\u3002occurrence \u3067\u756A\u53F7\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+        }
+        const from = matches[(range.occurrence ?? 1) - 1];
+        return { from, to: from + quote.length };
+      }
+      function findRow(root, id) {
+        const found = rowsOf(root).filter((row) => row && row.id === id);
+        if (found.length !== 1)
+          throw new Error(`\u5B57\u5E55 ${id} \u304C\u4E00\u610F\u306B\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+        return found[0];
+      }
+      function updateSources(value, parts, source, look, motion2, at2) {
+        const sources = record2(value.style_sources) ? { ...value.style_sources } : {};
+        if (parts.look) {
+          if (source)
+            sources.look = sourceRecord(source, look, value instanceof Object && "text_style" in value ? projectedLook(record2(value.text_style) ? value.text_style : {}) : value.look ?? {}, at2);
+          else
+            delete sources.look;
+        }
+        if (parts.motion) {
+          if (source)
+            sources.motion = sourceRecord(source, motion2, "text_style" in value ? (record2(value.text_style) ? value.text_style.animation : void 0) ?? {} : value.motion ?? {}, at2);
+          else
+            delete sources.motion;
+        }
+        if (Object.keys(sources).length)
+          value.style_sources = sources;
+        else
+          delete value.style_sources;
+      }
+      function applyRowLook(row, defaultStyle, look, catalog, legacy) {
+        const before = record2(row.text_style) ? row.text_style : {};
+        if (legacy?.merge === "deep")
+          return (0, caption_style_preset_1.mergePresetTextStyle)(before, look);
+        if (legacy?.size === "style") {
+          const result2 = (0, caption_look_v1_1.lookForCaptionRow)(row, defaultStyle, look, { size: "style", catalog });
+          if (result2.reason || !result2.text_style)
+            throw Object.assign(new Error(result2.reason ?? "\u5B57\u5E55\u306E\u898B\u305F\u76EE\u3092\u5F53\u3066\u3089\u308C\u307E\u305B\u3093\u3002"), result2.reasonCode ? { code: result2.reasonCode } : {});
+          assertLayoutCompatible(result2.text_style, defaultStyle);
+          return result2.text_style;
+        }
+        const preset = typeof row.style_preset === "string" ? catalog[row.style_preset]?.style : void 0;
+        const reference = before.reference_height_px ?? preset?.reference_height_px ?? defaultStyle.reference_height_px;
+        const normalized = { ...row, text_style: {
+          ...before,
+          ...reference !== void 0 && before.layout === void 0 ? { reference_height_px: reference } : {}
+        } };
+        const result = (0, caption_look_v1_1.lookForCaptionRow)(normalized, defaultStyle, look, { size: "keep", catalog });
+        if (result.reason || !result.text_style)
+          throw Object.assign(new Error(result.reason ?? "\u5B57\u5E55\u306E\u898B\u305F\u76EE\u3092\u5F53\u3066\u3089\u308C\u307E\u305B\u3093\u3002"), result.reasonCode ? { code: result.reasonCode } : {});
+        assertLayoutCompatible(result.text_style, defaultStyle);
+        return result.text_style;
+      }
+      function assertLayoutCompatible(style, defaultStyle) {
+        if ((style.layout ?? defaultStyle.layout) !== void 0 && (style.reference_height_px ?? defaultStyle.reference_height_px) !== void 0) {
+          throw Object.assign(new Error("layout \u3068 reference_height_px \u3092\u540C\u6642\u306B\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093"), { code: "AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT" });
+        }
+      }
+      function migratePreset(row, catalog, notices, at2, legacy) {
+        if (typeof row.style_preset !== "string")
+          return;
+        if (legacy?.preset === "drop")
+          return;
+        const id = row.style_preset;
+        const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
+        if (!resolved.resolved) {
+          notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB ${id} \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+          return;
+        }
+        const original = catalog instanceof Map ? catalog.get(id)?.style : catalog[id]?.style;
+        row.text_style = resolved.record.text_style;
+        const sources = record2(row.style_sources) ? { ...row.style_sources } : {};
+        sources.look = sourceRecord({ kind: "builtin", id }, projectedLook(original ?? {}), projectedLook(record2(row.text_style) ? row.text_style : {}), at2);
+        row.style_sources = sources;
+        delete row.style_preset;
+      }
+      function planCaptionStyleEdit(input) {
+        if (input.parts.sfx !== void 0 || input.parts.effect !== void 0) {
+          if (input.targets.some((target) => "range" in target && !!target.range))
+            throw new Error("\u3053\u306E\u90E8\u54C1\u306F\u5B57\u5E55\u5168\u4F53\u306B\u3060\u3051\u5F53\u3066\u3089\u308C\u307E\u3059\u3002");
+          throw new Error("\u52B9\u679C\u97F3\u3068\u52B9\u679C\u306F\u3053\u306E\u7DE8\u96C6\u30B3\u30DE\u30F3\u30C9\u3067\u306F\u6271\u3048\u307E\u305B\u3093\u3002");
+        }
+        if (!input.parts.look && !input.parts.motion && !input.targets.some((target) => "parts" in target && !!(target.parts?.look || target.parts?.motion)))
+          throw new Error("\u5F53\u3066\u308B\u898B\u305F\u76EE\u304B\u52D5\u304D\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        let captions = structuredClone(input.captions);
+        const rowList = rowsOf(captions);
+        const rowIndex = /* @__PURE__ */ new Map();
+        rowList.forEach((row, index) => {
+          if (typeof row.id !== "string")
+            return;
+          const prior = rowIndex.get(row.id);
+          rowIndex.set(row.id, { row, index, count: (prior?.count ?? 0) + 1 });
+        });
+        const usedRunIds = new Set(allRuns(captions).map((run) => run.id).filter((id) => typeof id === "string"));
+        let nextRun = allRuns(captions).reduce((max, run) => {
+          const match = /^r-(\d{4,})$/.exec(run.id ?? "");
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0) + 1;
+        const newRunId = () => {
+          while (usedRunIds.has(`r-${String(nextRun).padStart(4, "0")}`))
+            nextRun++;
+          const id = `r-${String(nextRun++).padStart(4, "0")}`;
+          usedRunIds.add(id);
+          return id;
+        };
+        const catalog = input.catalog ?? textstyle_catalog_1.TEXTSTYLE_CATALOG;
+        const catalogObject = catalogRecord(catalog);
+        const changed = [];
+        const notices = [];
+        const at2 = input.now instanceof Date ? input.now.toISOString() : typeof input.now === "string" ? new Date(input.now).toISOString() : (/* @__PURE__ */ new Date()).toISOString();
+        for (const target of input.targets) {
+          const parts = "parts" in target && target.parts ? { ...input.parts, ...target.parts } : input.parts;
+          if (parts.sfx !== void 0 || parts.effect !== void 0) {
+            if ("range" in target && target.range)
+              throw new Error("\u3053\u306E\u90E8\u54C1\u306F\u5B57\u5E55\u5168\u4F53\u306B\u3060\u3051\u5F53\u3066\u3089\u308C\u307E\u3059\u3002");
+            throw new Error("\u52B9\u679C\u97F3\u3068\u52B9\u679C\u306F\u3053\u306E\u7DE8\u96C6\u30B3\u30DE\u30F3\u30C9\u3067\u306F\u6271\u3048\u307E\u305B\u3093\u3002");
+          }
+          if ("default" in target) {
+            const current = defaultOf(captions);
+            const next = { ...current };
+            if (input.parts.look) {
+              if (input.legacy?.merge === "deep")
+                Object.assign(next, (0, caption_style_preset_1.mergePresetTextStyle)(next, input.parts.look));
+              else {
+                for (const key of Object.keys(caption_look_v1_1.CAPTION_ROW_LOOK_FIELDS))
+                  delete next[key];
+                const value = input.legacy?.size === "style" ? (0, caption_look_v1_1.sanitizeMyStyleLook)(input.parts.look) : applyRowLook({ text_style: current }, current, input.parts.look, catalogObject, input.legacy);
+                Object.assign(next, input.legacy ? value : roundPixels(value));
+              }
+            }
+            if (input.parts.motion) {
+              if (Object.keys(input.parts.motion).length)
+                next.animation = structuredClone(input.parts.motion);
+              else
+                delete next.animation;
+            }
+            if (Array.isArray(captions))
+              captions = { default_text_style: next, captions };
+            else
+              captions.default_text_style = next;
+            changed.push("default_text_style");
+            continue;
+          }
+          const indexed = "caption_index" in target && target.caption_index !== void 0 ? { row: rowList[target.caption_index], index: target.caption_index, count: 1 } : rowIndex.get(target.caption_id);
+          if (!indexed?.row || indexed.count !== 1)
+            throw new Error(`\u5B57\u5E55 ${"caption_id" in target ? target.caption_id : target.caption_index} \u304C\u4E00\u610F\u306B\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
+          const { row } = indexed;
+          if (target.range) {
+            const { from, to } = resolveRange(row, target.range);
+            const runs = Array.isArray(row.runs) ? row.runs : [];
+            let run;
+            for (const candidate of runs)
+              if (candidate.id && candidate.from === from && candidate.to === to)
+                run = candidate;
+            if (!run) {
+              run = { id: newRunId(), from, to };
+              const anchor = (0, caption_anchor_map_1.anchorForCaptionRange)(row, from, to);
+              if (anchor.anchor)
+                run.anchor = anchor.anchor;
+              else
+                notices.push(...anchor.diagnostics.map((item) => item.message));
+              runs.push(run);
+              row.runs = runs;
+            }
+            if (parts.look) {
+              const result = (0, caption_look_v1_1.lookForCaptionRun)(row, defaultOf(captions), parts.look, catalogObject);
+              run.look = input.legacy ? result.look : roundPixels(result.look);
+              notices.push(...result.notices);
+            }
+            if (parts.motion) {
+              if (Object.keys(parts.motion).length)
+                run.motion = structuredClone(parts.motion);
+              else
+                delete run.motion;
+            }
+            updateSources(run, parts, input.source, parts.look ? projectedRunLook(parts.look) : {}, parts.motion ?? {}, at2);
+            changed.push(`captions[${indexed.index}].runs`);
+            continue;
+          }
+          migratePreset(row, catalog, notices, at2, input.legacy);
+          const before = record2(row.text_style) ? row.text_style : {};
+          const style = parts.look ? applyRowLook(row, defaultOf(captions), parts.look, catalogObject, input.legacy) : { ...before };
+          if (parts.look && !input.legacy)
+            Object.assign(style, roundPixels(style));
+          if (parts.look && input.legacy?.preset === "drop")
+            delete row.style_preset;
+          if (parts.motion) {
+            if (Object.keys(parts.motion).length)
+              style.animation = structuredClone(parts.motion);
+            else
+              delete style.animation;
+          }
+          row.text_style = style;
+          updateSources(row, parts, input.source, parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at2);
+          changed.push(`captions[${indexed.index}].text_style`);
+        }
+        return { next: {
+          captions,
+          ...input.edit === void 0 ? {} : { edit: input.edit },
+          ...input.assetReferences === void 0 ? {} : { assetReferences: input.assetReferences }
+        }, changed, notices: [...new Set(notices)] };
+      }
+      function planCaptionStyleClear(input) {
+        const captions = structuredClone(input.captions);
+        const changed = [];
+        for (const target of input.targets) {
+          const row = findRow(captions, target.caption_id);
+          if (!target.range && !target.run_id) {
+            if (record2(row.text_style)) {
+              const style = { ...row.text_style };
+              for (const key of Object.keys(caption_look_v1_1.CAPTION_ROW_LOOK_FIELDS))
+                if (key !== "size_px" && key !== "reference_height_px")
+                  delete style[key];
+              delete style.animation;
+              if (Object.keys(style).length)
+                row.text_style = style;
+              else
+                delete row.text_style;
+            }
+            delete row.style_sources;
+            delete row.style_preset;
+            changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+            continue;
+          }
+          const runs = Array.isArray(row.runs) ? row.runs : [];
+          const range = target.range ? resolveRange(row, target.range) : void 0;
+          if (input.mode === "run") {
+            const before = runs.length;
+            row.runs = runs.filter((run) => target.run_id ? run.id !== target.run_id : run.from !== range?.from || run.to !== range?.to);
+            if (row.runs.length === before)
+              throw new Error("\u5916\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+          } else {
+            const selected = range ?? runs.find((run) => run.id === target.run_id);
+            if (!selected)
+              throw new Error("\u623B\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+            row.runs = (0, caption_runs_1.clearCaptionRunRange)(runs, selected.from, selected.to, allRuns(captions));
+          }
+          changed.push(`captions[${rowsOf(captions).indexOf(row)}].runs`);
+        }
+        return { next: { captions }, changed, notices: [] };
+      }
+      function planCaptionStyleReapply(input) {
+        const items = [];
+        const notices = [];
+        const wanted = input.targets;
+        let root = structuredClone(input.captions);
+        for (const row of rowsOf(root)) {
+          const targets = [
+            { target: { caption_id: row.id ?? "" }, value: row, run: false },
+            ...Array.isArray(row.runs) ? row.runs.map((run) => ({ target: {
+              caption_id: row.id ?? "",
+              range: { from: run.from, to: run.to }
+            }, value: run, run: true })) : []
+          ];
+          for (const entry of targets) {
+            if (wanted && !wanted.some((target) => JSON.stringify(target) === JSON.stringify(entry.target)))
+              continue;
+            const sources = record2(entry.value.style_sources) ? entry.value.style_sources : {};
+            for (const part of ["look", "motion"]) {
+              const source = sources[part];
+              if (!record2(source))
+                continue;
+              const found = input.styles.lookup?.(source) ?? (source.kind === "builtin" ? (() => {
+                const catalog = input.styles.builtin ?? textstyle_catalog_1.TEXTSTYLE_CATALOG;
+                const style = catalog instanceof Map ? catalog.get(String(source.id))?.style : catalog[String(source.id)]?.style;
+                return style ? { look: style, motion: record2(style.animation) ? style.animation : void 0 } : void 0;
+              })() : void 0);
+              const current = entry.run ? part === "look" ? entry.value.look : entry.value.motion : part === "look" ? projectedLook(record2(entry.value.text_style) ? entry.value.text_style : {}) : record2(entry.value.text_style) ? entry.value.text_style.animation : void 0;
+              const modified = (0, caption_hash_1.captionValueHash)(current ?? {}) !== source.applied_hash;
+              const original = found?.[part];
+              const status = !original ? "missing" : (0, caption_hash_1.captionValueHash)(part === "look" ? entry.run ? projectedRunLook(original) : projectedLook(original) : original) === source.original_hash ? "same" : "updated";
+              if (status === "missing")
+                notices.push("\u5143\u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002");
+              items.push({ target: entry.target, part, source, status, modified });
+              if (!input.apply?.some((candidate) => candidate.part === part && JSON.stringify(candidate.target) === JSON.stringify(entry.target)) || !original)
+                continue;
+              const applied = planCaptionStyleEdit({
+                captions: root,
+                targets: [entry.target],
+                parts: { [part]: original },
+                source: {
+                  kind: source.kind,
+                  id: String(source.id),
+                  ...typeof source.uid === "string" ? { uid: source.uid } : {},
+                  ..."revision" in found && found.revision !== void 0 ? { revision: found.revision } : {}
+                }
+              });
+              root = applied.next.captions;
+            }
+          }
+        }
+        return { items, ...input.apply ? { next: { captions: root } } : {}, notices: [...new Set(notices)] };
+      }
+      function planCaptionSizeEdit(input) {
+        if (!Number.isFinite(input.size_px) || input.size_px <= 0)
+          throw new Error("\u5927\u304D\u3055\u306F\u6B63\u306E\u6570\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        const captions = structuredClone(input.captions);
+        const changed = [];
+        for (const target of input.targets) {
+          const row = findRow(captions, target.caption_id);
+          const beforeSize = (0, caption_look_v1_1.captionEffectiveSize)(row, defaultOf(captions));
+          if (beforeSize === input.size_px)
+            continue;
+          const style = record2(row.text_style) ? row.text_style : {};
+          const oldRunHashes = Array.isArray(row.runs) ? row.runs.map((run) => run.look ? (0, caption_hash_1.captionValueHash)(run.look) : void 0) : [];
+          const scaled = (0, caption_look_v1_1.scaleCaptionLookPixels)({ ...style, size_px: beforeSize }, input.size_px);
+          const nextStyle = roundPixels(scaled);
+          nextStyle.size_px = input.size_px;
+          row.text_style = nextStyle;
+          if (Array.isArray(row.runs))
+            row.runs = row.runs.map((run) => run.look ? { ...run, look: roundPixels((0, caption_look_v1_1.scaleCaptionLookPixels)({ ...run.look, size_px: beforeSize }, input.size_px)) } : run).map((run) => {
+              if (run.look)
+                delete run.look.size_px;
+              return run;
+            });
+          const sources = record2(row.style_sources) ? row.style_sources : void 0;
+          const lookSource = sources && record2(sources.look) ? sources.look : void 0;
+          if (lookSource && (0, caption_hash_1.captionValueHash)(projectedLook(style)) === lookSource.applied_hash) {
+            lookSource.applied_hash = (0, caption_hash_1.captionValueHash)(projectedLook(nextStyle));
+          }
+          if (Array.isArray(row.runs))
+            for (const [index, run] of row.runs.entries()) {
+              const source = record2(run.style_sources) && record2(run.style_sources.look) ? run.style_sources.look : void 0;
+              if (source && run.look && oldRunHashes[index] === source.applied_hash)
+                source.applied_hash = (0, caption_hash_1.captionValueHash)(run.look);
+            }
+          changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+        }
+        return { next: { captions }, changed, notices: [] };
+      }
+      function roundPixels(value) {
+        const next = structuredClone(value);
+        for (const [key, fields] of Object.entries({
+          stroke: ["width_px"],
+          background: ["radius_px", "padding_px"],
+          shadow: ["blur_px", "distance_px"],
+          glow: ["spread", "offset_x", "offset_y"]
+        })) {
+          const object = next[key];
+          if (!record2(object))
+            continue;
+          for (const field of fields)
+            if (typeof object[field] === "number")
+              object[field] = (0, caption_runs_1.roundCaptionPixel)(object[field]);
+        }
+        if (Array.isArray(next.strokes)) {
+          for (const stroke of next.strokes)
+            if (record2(stroke)) {
+              for (const field of ["width_px", "offset_x", "offset_y"])
+                if (typeof stroke[field] === "number")
+                  stroke[field] = (0, caption_runs_1.roundCaptionPixel)(stroke[field]);
+            }
+        }
+        if (record2(next.fill) && record2(next.fill.pattern) && typeof next.fill.pattern.scale === "number")
+          next.fill.pattern.scale = (0, caption_runs_1.roundCaptionPixel)(next.fill.pattern.scale);
+        return next;
       }
     }
   });
@@ -20293,6 +21031,8 @@ ${indent}`);
       __exportStar(require_caption_look_v1(), exports);
       __exportStar(require_caption_look_reader(), exports);
       __exportStar(require_caption_hash(), exports);
+      __exportStar(require_caption_look_shape(), exports);
+      __exportStar(require_caption_style_command(), exports);
       __exportStar(require_caption_anchor_map(), exports);
       __exportStar(require_caption_semantics(), exports);
       __exportStar(require_generation_meta(), exports);

@@ -274,6 +274,21 @@ export function frameEngineBootstrapScript(): string {
                     console.warn('[frame-engine] ' + message);
                 }
             };
+            // 初期化の途中で失敗したときの後始末。登録済みのタイマーを止め、止まった段と元の例外を
+            // 初期化診断へ残す（catch で受けた例外は Uncaught にならず、診断の例外記録に載らない）。
+            const initFailureCleanups = [];
+            const failInitialization = reason => {
+                for (const cleanup of initFailureCleanups.splice(0)) {
+                    try { cleanup(); } catch (error) { console.warn('[frame-engine] cleanup failed', error); }
+                }
+                console.error('[frame-engine] initialization failed', reason);
+                if (window.__akariPreviewDiag) {
+                    const stage = window.akari && window.akari.frameEngineClock ? 'first-frame' : 'media-supplied';
+                    const detail = reason instanceof Error ? reason.name + ': ' + reason.message : String(reason);
+                    window.__akariPreviewDiag.fail(stage, 'Frame engine: ' + detail);
+                }
+                showError(reason, true);
+            };
 
             void (async () => {
                 const fps = Number(engineSummary.output && engineSummary.output.fps) > 0
@@ -719,6 +734,7 @@ export function frameEngineBootstrapScript(): string {
                 window.addEventListener('message', updateLayerMute);
                 window.addEventListener('beforeunload', () => window.removeEventListener('message', updateLayerMute), { once: true });
                 const audioStatusTimer = setInterval(updateAudioStatus, 250);
+                initFailureCleanups.push(() => clearInterval(audioStatusTimer));
                 const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
                 const AUDIO_PRIORITY_INTERVAL_MS = 10_000;
                 let audioPriorityTimer;
@@ -730,9 +746,6 @@ export function frameEngineBootstrapScript(): string {
                         window.akari.requestAudioPriority(time);
                     }, AUDIO_PRIORITY_DEBOUNCE_MS);
                 };
-                const audioPriorityInterval = setInterval(() => {
-                    if (playing) requestAudioPriority(position);
-                }, AUDIO_PRIORITY_INTERVAL_MS);
                 updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
@@ -1029,6 +1042,16 @@ export function frameEngineBootstrapScript(): string {
                 let playAnchorPosition = 0;
                 let runtimeUpdating = false;
                 let modelUpdateTail = Promise.resolve();
+                // playing / position を読むタイマーは、この宣言のあとで登録する。宣言より前に登録すると、
+                // その間の初期化が失敗したときに 10 秒ごとの ReferenceError が出続け、診断の
+                // 「最初の例外」が本来の失敗ではなくそちらになる。
+                const audioPriorityInterval = setInterval(() => {
+                    if (playing) requestAudioPriority(position);
+                }, AUDIO_PRIORITY_INTERVAL_MS);
+                initFailureCleanups.push(() => {
+                    clearInterval(audioPriorityInterval);
+                    clearTimeout(audioPriorityTimer);
+                });
                 const setPlaying = (next, requestedPosition = position) => {
                     position = Math.max(0, Math.min(Number(requestedPosition) || 0, totalDuration));
                     if (!next && playing) {
@@ -1516,6 +1539,6 @@ export function frameEngineBootstrapScript(): string {
                     sharedAudioCache.dispose();
                     compositor.dispose();
                 }, { once: true });
-            })().catch(reason => showError(reason, true));
+            })().catch(failInitialization);
         })();`;
 }

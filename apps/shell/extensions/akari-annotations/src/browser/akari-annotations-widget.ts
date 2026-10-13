@@ -503,6 +503,8 @@ import {
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
+import { projectFileContentHash } from '@akari-video/edit-store';
+import { captionCommandHistory } from './caption-command-history';
 import { ReviewModel } from './review-model';
 import {
     AudioMasterWriteRequest,
@@ -3699,7 +3701,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         request.value.parts as Array<{ kind: string; text_style?: unknown; animation?: unknown }>,
                         { keepSize: request.value.keepSize === true,
                             catalog: request.value.catalog as Record<string, { style: Record<string, unknown> }> | undefined,
-                            motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined });
+                            motionDelta: request.value.multi_motion_delta as CaptionMotionDelta | undefined,
+                            source: request.value.style_source as { kind: 'builtin' | 'library' | 'my'; id: string;
+                                uid?: string; revision?: number } | undefined });
                     const attachParts = (request.value.parts as Array<{ kind: string }>).filter(part =>
                         ['sfx', 'fx', 'decor'].includes(part.kind));
                     const editBefore = attachParts.length
@@ -3709,18 +3713,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             JSON.parse(editBefore), toAnchorCaptions(JSON.parse(after)), ids,
                             request.value.style_uid, attachParts) as unknown as EditV2, toAnchorCaptions(JSON.parse(after))).edit, null, 2)}\n`
                         : undefined;
-                    const write = async (captionsSource: string, editSource?: string): Promise<void> => {
-                        await this.annotationsService.writeEditSnapshot({
-                            editUri, projectRootUri: location.root.toString(),
-                            captionsUri: captionsUri.toString(), captionsSource,
-                            ...(editSource ? { editSource } : {})
-                        });
+                    const writeRequest = {
+                        editUri, projectRootUri: location.root.toString(),
+                        captionsUri: captionsUri.toString(), captionsSource: after,
+                        ...(editAfter ? { editSource: editAfter } : {}),
+                        expectedHashes: { captions: projectFileContentHash(before),
+                            ...(editBefore ? { edit: projectFileContentHash(editBefore) } : {}) }
                     };
-                    await write(after, editAfter);
+                    const writeResult = await this.annotationsService.writeEditSnapshot(writeRequest);
+                    if (writeResult?.conflict) {
+                        try {
+                            if (editAfter) await this.reloadEdit();
+                            await this.reloadCaptions();
+                        } catch (error) { console.warn('[akari-annotations] reload after caption conflict failed', error); }
+                        const message = t('annotations.captionCommandHistory.text.reloadAfterConflict');
+                        return { ok: false, message };
+                    }
                     const feedback = captionLibraryApplyFeedback(request.libraryApplyKind);
-                    this.pushHistory({ label: feedback?.history ?? t('annotations.timeline.text.guessMyStyle'),
-                        undo: async () => { await write(before, editBefore); await this.reloadEdit(); await this.reloadCaptions(); },
-                        redo: async () => { await write(after, editAfter); await this.reloadEdit(); await this.reloadCaptions(); } });
+                    if (after !== before || editAfter && editAfter !== editBefore) {
+                        const versions = { captions: captionsUri.path.base, edit: location.editUri.path.base };
+                        this.pushHistory(captionCommandHistory({
+                            written: [versions.captions, ...(editBefore && editAfter ? [versions.edit] : [])],
+                            roles: versions,
+                            before: { [versions.captions]: { text: before, hash: projectFileContentHash(before) },
+                                [versions.edit]: { text: editBefore ?? null, hash: editBefore ? projectFileContentHash(editBefore) : null } },
+                            after: { [versions.captions]: { text: after, hash: projectFileContentHash(after) },
+                                [versions.edit]: { text: editAfter ?? null, hash: editAfter ? projectFileContentHash(editAfter) : null } }
+                        }, feedback?.history ?? t('annotations.timeline.text.guessMyStyle'),
+                        { editUri, projectRootUri: location.root.toString(), captionsUri: captionsUri.toString() },
+                        request => this.annotationsService.writeEditSnapshot(request),
+                        async () => { if (editAfter) await this.reloadEdit(); await this.reloadCaptions(); }));
+                    }
                     if (editAfter) await this.reloadEdit();
                     await this.reloadCaptions();
                     this.hideNotice();
@@ -4899,7 +4922,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
-    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number;
+    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number; id?: string; slug?: string;
+        style_source?: { kind: 'builtin' | 'library' | 'my'; id: string };
         parts?: Array<{ kind: string; text_style?: unknown; animation?: unknown }> }; ids?: string[];
         selectedParts?: string[] } | undefined): Promise<boolean> {
         const style = detail?.style;
@@ -4924,6 +4948,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const result = await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: ids[0],
                 value: { parts: applied, style_uid: style.uid,
+                    ...(style.style_source ? { style_source: style.style_source }
+                        : (style.slug ?? style.id ?? style.uid)
+                            ? { style_source: { kind: 'my', id: style.slug ?? style.id ?? style.uid,
+                                uid: style.uid, revision: style.revision } } : {}),
                     keepSize: (style as { keepSize?: boolean }).keepSize === true,
                     catalog: (style as { catalog?: Record<string, { style: Record<string, unknown> }> }).catalog },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
@@ -5183,7 +5211,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? await this.handleInspectorWrite({ kind: 'caption-style-font-family', id: plan.id,
                     value: payload.fontFamily!.trim(), libraryApplyKind: 'font' })
                 : await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: plan.id,
-                    value: { parts: plan.parts, keepSize: plan.keepSize, catalog: plan.catalog },
+                    value: { parts: plan.parts, keepSize: plan.keepSize, catalog: plan.catalog,
+                        style_source: plan.style_source },
                     libraryApplyKind: payload.kind });
         if (!result.ok) { this.messages.warn(result.message ?? t('annotations.timeline.text.iCouldnTGuess')); return false; }
         if (plan.kind === 'caption' && this.location?.editUri) this.selectCaptions(this.location.editUri.toString(), [plan.id]);
@@ -8554,6 +8583,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.autoRippleButton.setAttribute('aria-pressed', String(this.autoRipple));
         this.refreshLocationEditUri = refreshLocationEditUri;
         this.refreshReviewSessionRanges();
+        try {
+            const recovery = await this.annotationsService.recoverInterruptedWrite({ projectRootUri: location.root.toString() });
+            if (recovery.notice) this.showNotice(recovery.notice);
+        } catch (error) {
+            console.warn('[akari-annotations] write recovery failed', error);
+        }
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());

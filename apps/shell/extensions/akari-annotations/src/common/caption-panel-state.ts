@@ -24,13 +24,15 @@ export function captionPanelLookWrite(id: string, look: Record<string, unknown>,
     if (!styleId) return { kind: 'caption-style-my-style', id,
         value: { parts: [{ kind: 'look', text_style: look }] } };
     if (styleId.startsWith('mystyle/')) return { kind: 'caption-style-my-style', id,
-        value: { parts: [{ kind: 'look', text_style: look }] } };
+        value: { parts: [{ kind: 'look', text_style: look }],
+            style_source: { kind: 'my', id: styleId.slice('mystyle/'.length) } } };
     const { animation, ...textStyle } = look;
     const parts = [{ kind: 'look', text_style: textStyle },
         ...(animation && typeof animation === 'object' && !Array.isArray(animation)
             ? [{ kind: 'motion', animation }] : [])];
     const catalog = Object.fromEntries(presets.map(preset => [preset.id, preset]));
-    return { kind: 'caption-style-my-style', id, value: { parts, keepSize: true, catalog } };
+    return { kind: 'caption-style-my-style', id, value: { parts, keepSize: true, catalog,
+        style_source: { kind: 'builtin', id: styleId } } };
 }
 
 /** The existing effect patch accepts all visual fields without freezing inherited defaults. */

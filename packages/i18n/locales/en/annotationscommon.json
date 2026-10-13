@@ -892,5 +892,13 @@
   "annotationscommon.voiceCloneDialog.separator.engines": ", ",
   "annotationscommon.timelineKeyframeRows.label.rotation3d": "3D rotation",
   "annotationscommon.editV2Mutations.error.easingSegmentNotFound": "No segment to set the easing on.",
-  "annotationscommon.scene3dItem.label.motionNone": "None (stop)"
+  "annotationscommon.scene3dItem.label.motionNone": "None (stop)",
+  "annotationscommon.akariAnnotationsService.recovery.broken": "The previous write record was damaged and moved aside",
+  "annotationscommon.akariAnnotationsService.recovery.restored": "The previous write was interrupted, so these files were restored: {files}",
+  "annotationscommon.akariAnnotationsService.recovery.preserved": "Kept {file} because it changed afterward",
+  "annotationscommon.akariAnnotationsService.recovery.missing": "Could not restore {file} because its backup is missing",
+  "annotationscommon.akariAnnotationsService.recovery.interrupted": "The previous write was interrupted",
+  "annotationscommon.akariAnnotationsService.recovery.unchanged": "The previous write was interrupted, but the files remained unchanged",
+  "annotationscommon.akariAnnotationsService.recovery.fileSeparator": ", ",
+  "annotationscommon.akariAnnotationsService.recovery.sentenceSeparator": ". "
 }
