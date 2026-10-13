@@ -163,3 +163,104 @@ test('findActiveCaptions preserves input order and half-open boundaries', async 
     assert.deepEqual(findActiveCaptions([{ start: 2, duration: 1 }], 3), []);
     assert.deepEqual(findActiveCaptions([{ ...first, display_timing: 'speech-tight', words: [{ start: 2, end: 2.5 }] }], 1), []);
 });
+
+test('captionFragmentWindows trims display text without changing source-length timing', () => {
+    const text = 'When the score is high,';
+    const windows = captionFragmentWindows({ start: 0, end: 23, text,
+        display_fragments: ['When ', 'the score is high,'] });
+    assert.deepEqual(windows, [
+        { text: 'When', start: 0, end: 5, index: 1, count: 2 },
+        { text: 'the score is high,', start: 5, end: 23, index: 2, count: 2 }
+    ]);
+});
+
+test('expandCaptionDisplayFragments keeps source offsets while run ranges match trimmed text', () => {
+    const caption = { id: 'c-space', start: 0, end: 2, text: 'When the score',
+        display_fragments: ['When ', 'the score'], runs: [{ from: 9, to: 14, role: 'score' }],
+        words: [
+            { text: 'When ', start: 0, end: 1 },
+            { text: 'the ', start: 1, end: 1.5 },
+            { text: 'score', start: 1.5, end: 2 }
+        ] };
+    const expanded = expandCaptionDisplayFragments([caption]);
+    assert.deepEqual(expanded.map(({ text, runTextStart, runTextEnd }) =>
+        ({ text, runTextStart, runTextEnd })), [
+        { text: 'When', runTextStart: 0, runTextEnd: 4 },
+        { text: 'the score', runTextStart: 5, runTextEnd: 14 }
+    ]);
+    assert.deepEqual(expanded.map(item => item.words.map(word => word.text)),
+        [['When'], ['the ', 'score']]);
+    expanded.forEach(item => assert.equal(item.words.map(word => word.text).join(''), item.text));
+
+    const leading = expandCaptionDisplayFragments([{ ...caption,
+        display_fragments: ['When', ' the score'],
+        words: [
+            { text: 'When', start: 0, end: 1 },
+            { text: ' the', start: 1, end: 1.5 },
+            { text: ' score', start: 1.5, end: 2 }
+        ] }]);
+    assert.deepEqual(leading.map(({ text, runTextStart, runTextEnd }) =>
+        ({ text, runTextStart, runTextEnd })), [
+        { text: 'When', runTextStart: 0, runTextEnd: 4 },
+        { text: 'the score', runTextStart: 5, runTextEnd: 14 }
+    ]);
+    assert.deepEqual(leading.map(item => item.words.map(word => word.text)),
+        [['When'], ['the', ' score']]);
+    leading.forEach(item => assert.equal(item.words.map(word => word.text).join(''), item.text));
+});
+
+test('expandCaptionDisplayFragments drops a whitespace-only word trimmed from a window', () => {
+    const expanded = expandCaptionDisplayFragments([{
+        id: 'c-space-word', start: 0, end: 2, text: 'When the score',
+        display_fragments: ['When', ' the score'],
+        words: [
+            { text: 'When', start: 0, end: 0.5 },
+            { text: ' ', start: 0.5, end: 0.6 },
+            { text: 'the ', start: 0.6, end: 1.4 },
+            { text: 'score', start: 1.4, end: 2 }
+        ]
+    }]);
+    assert.deepEqual(expanded.map(item => item.words.map(word => word.text)),
+        [['When'], ['the ', 'score']]);
+    expanded.forEach(item => assert.equal(item.words.map(word => word.text).join(''), item.text));
+});
+
+test('expandCaptionDisplayFragments preserves original empty words while dropping trimmed whitespace words', () => {
+    const words = [
+        { text: '前半', start: 0, end: 1 },
+        { text: '', start: 1, end: 1, marker: 'boundary' },
+        { text: '後', start: 1, end: 1.5 },
+        { text: '', start: 1.5, end: 1.5, marker: 'inside' },
+        { text: '半', start: 1.5, end: 2 }
+    ];
+    const plain = expandCaptionDisplayFragments([{
+        start: 0, end: 2, text: '前半後半', display_fragments: ['前半', '後半'], words
+    }]);
+    assert.deepEqual(plain.map(item => item.words), [
+        [words[0], words[1]],
+        [words[1], words[2], words[3], words[4]]
+    ]);
+
+    const spacedWords = [
+        { text: 'When', start: 0, end: 0.5 },
+        { text: ' ', start: 0.5, end: 1 },
+        { text: '', start: 1, end: 1, marker: 'boundary' },
+        { text: 'the', start: 1, end: 1.3 },
+        { text: ' ', start: 1.3, end: 1.4 },
+        { text: 'score', start: 1.4, end: 2 }
+    ];
+    const spaced = expandCaptionDisplayFragments([{
+        start: 0, end: 2, text: 'When the score',
+        display_fragments: ['When ', 'the score'], words: spacedWords
+    }]);
+    assert.deepEqual(spaced.map(item => item.words), [
+        [spacedWords[0], spacedWords[2]],
+        [spacedWords[2], spacedWords[3], spacedWords[4], spacedWords[5]]
+    ]);
+});
+
+test('captionFragmentWindows rejects whitespace-only fragments', () => {
+    const caption = { start: 0, end: 3, text: 'ab cd', display_fragments: ['ab', ' ', 'cd'] };
+    assert.equal(captionFragmentWindows(caption), null);
+    assert.deepEqual(expandCaptionDisplayFragments([caption]), [caption]);
+});

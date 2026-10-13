@@ -559,6 +559,19 @@ export function resolveCaptionDisplay(
                 ? sliceCaptionRuns(projectedCaptions[occurrence.caption_input_index].displayText,
                     sourceRuns as CaptionRun[], group.charStart, group.charEnd)
                 : undefined;
+            const karaokeOffset = karaoke
+                ? captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                : undefined;
+            const display = resolved.manual && !resolved.overflow
+                ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset)
+                : {
+                    text,
+                    lines: group.lines,
+                    runs: cueRuns,
+                    words: wordDisplay?.words,
+                    wordStyles: wordDisplay?.wordStyles,
+                    karaokeOffset
+                };
             displayCues.push({
                 id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
                 source_cue_id: occurrence.source_cue_id,
@@ -569,21 +582,20 @@ export function resolveCaptionDisplay(
                 fragment_count: groups.length,
                 start: group.start,
                 end: group.end,
-                text,
-                ...(cueRuns ? { runs: cueRuns } : {}),
-                ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
-                units: measureCaptionUnits(text),
+                text: display.text,
+                ...(display.runs ? { runs: display.runs } : {}),
+                ...(display.lines.length >= 2 ? { display_lines: display.lines } : {}),
+                units: measureCaptionUnits(display.text),
                 line_override: resolved.manual,
                 ...(resolved.overflow ? { overflow: resolved.overflow } : {}),
                 ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
                 ...(cueStyleVars ? { style_vars: cueStyleVars } : {}),
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
-                ...(wordDisplay ? { words: wordDisplay.words } : {}),
-                ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
+                ...(display.words ? { words: display.words } : {}),
+                ...(display.wordStyles?.length ? { word_styles: display.wordStyles } : {}),
                 ...(karaoke ? {
                     style: 'karaoke' as const,
-                    karaoke_offset: captionDisplayGraphemes(
-                        projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
+                    karaoke_offset: display.karaokeOffset
                 } : {})
             });
         });
@@ -908,6 +920,65 @@ function buildCueWordDisplay(
             start, end, text, line, ...(untimed ? { untimed } : {})
         })),
         wordStyles
+    };
+}
+
+function trimManualCueDisplay(
+    lines: string[],
+    locale: string,
+    runs: CaptionRun[] | undefined,
+    wordDisplay: { words: CaptionDisplayWord[]; wordStyles: CaptionDisplayWordStyle[] } | undefined,
+    karaokeOffset: number | undefined
+): { text: string; lines: string[]; runs?: CaptionRun[]; words?: CaptionDisplayWord[];
+    wordStyles?: CaptionDisplayWordStyle[]; karaokeOffset?: number } {
+    const kept = lines.map((line, index) => ({
+        start: index > 0 ? 0 : line.length - line.trimStart().length,
+        end: index < lines.length - 1 ? line.length : line.trimEnd().length
+    }));
+    const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
+    if (lines.every((line, index) => line === trimmedLines[index])) {
+        return { text: joinCaptionLines(lines, locale), lines, runs,
+            words: wordDisplay?.words, wordStyles: wordDisplay?.wordStyles, karaokeOffset };
+    }
+    const graphemeBoundaries = [0];
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        let position = 0;
+        for (const grapheme of captionDisplayGraphemes(lines[lineIndex])) {
+            const visible = position >= kept[lineIndex].start
+                && position + grapheme.length <= kept[lineIndex].end;
+            graphemeBoundaries.push(graphemeBoundaries[graphemeBoundaries.length - 1] + (visible ? 1 : 0));
+            position += grapheme.length;
+        }
+    }
+    const trimmedRuns = runs?.flatMap(run => {
+        const from = graphemeBoundaries[run.from];
+        const to = graphemeBoundaries[run.to];
+        return from < to ? [{ ...run, from, to }] : [];
+    });
+    const wordPositions = lines.map(() => 0);
+    const retainedWords: CaptionDisplayWord[] = [];
+    const wordBoundaries = [0];
+    for (const word of wordDisplay?.words ?? []) {
+        const position = wordPositions[word.line];
+        wordPositions[word.line] += word.text.length;
+        const start = Math.max(0, kept[word.line].start - position);
+        const end = Math.min(word.text.length, kept[word.line].end - position);
+        if (start < end) retainedWords.push({ ...word, text: word.text.slice(start, end) });
+        wordBoundaries.push(retainedWords.length);
+    }
+    const wordStyles = wordDisplay?.wordStyles.flatMap(style => {
+        const from = wordBoundaries[style.from];
+        const to = wordBoundaries[style.to];
+        return from < to ? [{ ...style, from, to }] : [];
+    });
+    return {
+        text: joinCaptionLines(trimmedLines, locale),
+        lines: trimmedLines,
+        runs: trimmedRuns?.length ? trimmedRuns : undefined,
+        words: wordDisplay ? retainedWords : undefined,
+        wordStyles,
+        karaokeOffset: karaokeOffset === undefined ? undefined
+            : karaokeOffset + captionDisplayGraphemes(lines[0].slice(0, kept[0].start)).length
     };
 }
 
@@ -1618,14 +1689,14 @@ function validateManualFragments(
     if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
         return overflow();
     }
-    if (caption.display_fragments.some((fragment: unknown) => !strictText(fragment))) {
+    if (caption.display_fragments.some((fragment: unknown) => !manualFragmentText(fragment))) {
         return overflow();
     }
     if (caption.display_fragments.join('') !== text) {
         return overflow();
     }
     for (const fragment of caption.display_fragments) {
-        if (measureCaptionUnits(fragment) > policy.max_line_units) {
+        if (measureCaptionUnits(fragment.trim()) > policy.max_line_units) {
             return overflow();
         }
     }
@@ -2714,6 +2785,10 @@ function compareDisplayCue(left: CaptionDisplayCue, right: CaptionDisplayCue): n
 
 function strictText(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0 && value.trim() === value && value.normalize('NFC') === value;
+}
+
+function manualFragmentText(value: unknown): value is string {
+    return typeof value === 'string' && /\S/u.test(value) && value.normalize('NFC') === value;
 }
 
 function finiteNumber(value: unknown): value is number {

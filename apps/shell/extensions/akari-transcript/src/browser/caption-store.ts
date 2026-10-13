@@ -42,6 +42,7 @@ export interface Caption {
     displayFragments?: string[];
     stylePreset?: string;
     textStyle?: unknown;
+    styleSources?: unknown;
     extra?: Record<string, unknown>;
 }
 
@@ -67,6 +68,8 @@ export interface CaptionsDocumentShape {
     root: 'array' | 'object';
     /** オブジェクト形式のときの default_text_style 原値（無ければ undefined） */
     defaultTextStyle?: unknown;
+    emphasisWords?: unknown;
+    unresolvedRuns?: unknown;
 }
 
 export interface DerivedCaptionWord {
@@ -406,7 +409,9 @@ function extractCaptionRecords(value: unknown): { records: unknown[]; shape: Cap
             records: root.captions as unknown[],
             shape: {
                 root: 'object',
-                ...(root.default_text_style !== undefined ? { defaultTextStyle: root.default_text_style } : {})
+                ...(root.default_text_style !== undefined ? { defaultTextStyle: root.default_text_style } : {}),
+                ...(root.emphasis_words !== undefined ? { emphasisWords: root.emphasis_words } : {}),
+                ...(root.unresolved_runs !== undefined ? { unresolvedRuns: root.unresolved_runs } : {})
             }
         };
     }
@@ -569,7 +574,11 @@ export function serializeCaptions(captions: readonly Caption[], shape?: Captions
         ? `  "default_text_style": ${JSON.stringify(shape.defaultTextStyle)},\n`
         : '';
     const body = rows.length > 0 ? `[\n${rows.join(',\n')}\n  ]` : '[]';
-    return `{\n${defaultTextStyle}  "captions": ${body}\n}\n`;
+    const emphasisWords = shape.emphasisWords === undefined
+        ? '' : `,\n  "emphasis_words": ${JSON.stringify(shape.emphasisWords)}`;
+    const unresolvedRuns = shape.unresolvedRuns === undefined
+        ? '' : `,\n  "unresolved_runs": ${JSON.stringify(shape.unresolvedRuns)}`;
+    return `{\n${defaultTextStyle}  "captions": ${body}${emphasisWords}${unresolvedRuns}\n}\n`;
 }
 
 /** Deterministic display-only timing derived from character count; it is never persisted to captions.json. */
@@ -620,10 +629,13 @@ function serializeCaption(caption: Caption): string {
     const textStyle = caption.textStyle === undefined
         ? ''
         : `,"text_style":${JSON.stringify(caption.textStyle)}`;
+    const styleSources = caption.styleSources === undefined
+        ? ''
+        : `,"style_sources":${JSON.stringify(caption.styleSources)}`;
     const schemaKeys = new Set([
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style'
+        'display_fragments', 'style_preset', 'text_style', 'style_sources'
     ]);
     const extra = Object.entries(caption.extra ?? {}).flatMap(([key, value]) =>
         value !== undefined && !schemaKeys.has(key)
@@ -635,7 +647,7 @@ function serializeCaption(caption: Caption): string {
         `"speaker":${caption.speaker === null ? 'null' : JSON.stringify(caption.speaker)},` +
         `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}` +
         `${src}${timeDomain}${words}${unrecognized}${style}${displayText}${displayFragments}` +
-        `${stylePreset}${textStyle}${extra}}`;
+        `${stylePreset}${textStyle}${styleSources}${extra}}`;
 }
 
 function normalizeSegment(value: any): AnalysisSegment | undefined {
@@ -689,7 +701,7 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
     const schemaKeys = new Set([
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style'
+        'display_fragments', 'style_preset', 'text_style', 'style_sources'
     ]);
     const extra = Object.fromEntries(Object.keys(value).flatMap(key =>
         schemaKeys.has(key) ? [] : [[key, value[key]]]
@@ -711,6 +723,7 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         ...(displayFragments === undefined ? {} : { displayFragments }),
         ...(stylePreset === undefined ? {} : { stylePreset }),
         ...(textStyle === undefined ? {} : { textStyle }),
+        ...(value.style_sources === undefined ? {} : { styleSources: value.style_sources }),
         ...(Object.keys(extra).length === 0 ? {} : { extra })
     };
 }

@@ -102,11 +102,16 @@ import {
 
 export const VOICES_READ_DENY = ['Read(/.akari/sidecars/**/voices.json)', 'Read(./.akari/sidecars/**/voices.json)'] as const;
 
+/** 生成物の標準の置き場。拒否ルールは許可より先に効くので、`assets/**` 全体を拒否すると生成が必ず止まる。 */
+export const GENERATED_EDIT_ALLOW = 'Edit(./assets/generated/**)';
+/** 旧雛形が入れていた `assets/**` 丸ごとの編集拒否。画像・音声の生成（assets/generated/）まで止めてしまう。 */
+export const LEGACY_ASSETS_EDIT_DENY: readonly string[] = ['Edit(/assets/**)', 'Edit(./assets/**)'];
+
 const DEFAULT_AGENT_SETTINGS = {
     permissions: {
         allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)',
-            'Edit(./.akari/events/**)', 'Edit(./.akari/intake.json)'],
-        deny: ['Edit(/assets/**)', ...VOICES_READ_DENY]
+            'Edit(./.akari/events/**)', 'Edit(./.akari/intake.json)', GENERATED_EDIT_ALLOW],
+        deny: [...VOICES_READ_DENY]
     }
 };
 
@@ -124,9 +129,13 @@ export function ensureVoicesReadDenied(settingsText: string | undefined): { chan
     if (rules.deny !== undefined && !Array.isArray(rules.deny)) return { changed: false, error: t('project.workspace.service.denyNotArray') };
     const deny = (rules.deny ?? []) as unknown[];
     const missing = VOICES_READ_DENY.filter(rule => !deny.includes(rule));
-    if (!missing.length) return { changed: false };
+    // 旧雛形の `assets/**` 拒否は文字列が完全一致するものだけ外す（利用者が書いた別の拒否は残す）。
+    const legacy = deny.some(rule => LEGACY_ASSETS_EDIT_DENY.includes(rule as string));
+    if (!missing.length && !legacy) return { changed: false };
     settings.permissions = rules;
-    rules.deny = [...deny, ...missing];
+    rules.deny = [...deny.filter(rule => !LEGACY_ASSETS_EDIT_DENY.includes(rule as string)), ...missing];
+    const allow = rules.allow ?? [];
+    if (legacy && Array.isArray(allow) && !allow.includes(GENERATED_EDIT_ALLOW)) rules.allow = [...allow, GENERATED_EDIT_ALLOW];
     return { changed: true, text: `${JSON.stringify(settings, null, 2)}\n` };
 }
 

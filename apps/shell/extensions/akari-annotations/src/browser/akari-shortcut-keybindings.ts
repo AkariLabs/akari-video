@@ -2,12 +2,14 @@ import { CommandRegistry, Disposable } from '@theia/core/lib/common';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { WidgetManager } from '@theia/core/lib/browser';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { PLACE_TEXT } from './akari-annotations-commands';
 import { AKARI_SHORTCUTS, AkariShortcut } from './akari-shortcuts';
 import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
+import { webviewKeydownSource } from './webview-keydown-source';
 
 /** The annotations contribution supplies references; shortcut policy and execution live here. */
 export interface AkariShortcutDependencies {
@@ -51,8 +53,11 @@ export class AkariShortcutKeybindings {
             this.latestKeydown = event;
             const widget = this.shortcutTimelineWidget();
             const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            const webview = focused?.tagName === 'IFRAME'
-                || (event.target instanceof HTMLElement && event.target.tagName === 'IFRAME');
+            const source = webviewKeydownSource(focused, event.target,
+                this.deps.widgetManager.getWidgets(WebviewWidget.FACTORY_ID) as WebviewWidget[]);
+            const webview = source === 'akari';
+            // 拡張の webview（Claude Code / Codex 等）の入力欄で打ったキーは、入力欄にいるのと同じ扱いにする。
+            const foreignWebview = source === 'foreign';
             const owns = webview || !!(widget && focused && widget.node.contains(focused));
             const outside = !!focused && focused !== document.body && !owns;
             const editable = (target: EventTarget | null): boolean => target instanceof HTMLElement
@@ -67,9 +72,9 @@ export class AkariShortcutKeybindings {
             this.deps.contextKeys.setContext('akariFocusOutsideTimeline', outside);
             this.deps.contextKeys.setContext('akariFocusOnControl', isFocusOnControl(focused, widget?.node, webview));
             this.deps.contextKeys.setContext('akariModalOpen', modalOpen);
-            this.deps.contextKeys.setContext('akariEditableFocus', captionEditing || editable(event.target) || editable(focused));
+            this.deps.contextKeys.setContext('akariEditableFocus', foreignWebview || captionEditing || editable(event.target) || editable(focused));
             this.deps.contextKeys.setContext('akariHistoryEditableFocus',
-                captionEditing || event.target instanceof HTMLElement && isEditableEventTarget(event.target)
+                foreignWebview || captionEditing || event.target instanceof HTMLElement && isEditableEventTarget(event.target)
                 || !!focused && isEditableEventTarget(focused));
             this.deps.contextKeys.setContext('akariImeComposing', isImeCompositionKeydown(event));
             this.deps.contextKeys.setContext('akariTextSelection', !!window.getSelection?.()?.toString());

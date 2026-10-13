@@ -229,6 +229,7 @@ export interface CaptionRecord {
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
+    styleSources?: Record<string, unknown>;
     extra?: Record<string, unknown>;
     runs?: CaptionRun[];
 }

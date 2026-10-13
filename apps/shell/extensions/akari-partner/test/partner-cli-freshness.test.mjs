@@ -23,10 +23,11 @@ test('GitHub のタグと npm の version を解釈する', () => {
     assert.equal(parseLatestVersion(PARTNER_LATEST_SOURCES.codex, null), undefined);
 });
 
-test('取得元は Codex=GitHub / npm 製=registry / Claude=自己更新 / その他は無し', () => {
+test('取得元は Codex=GitHub / npm 製=registry / Claude と Muse=自己更新 / その他は無し', () => {
     assert.equal(PARTNER_LATEST_SOURCES.codex.kind, 'github');
     for (const agent of ['commandcode', 'pi', 'deepseek']) assert.equal(PARTNER_LATEST_SOURCES[agent].kind, 'npm');
     assert.equal(PARTNER_LATEST_SOURCES.claude.kind, 'self-updating');
+    assert.equal(PARTNER_LATEST_SOURCES.muse.kind, 'self-updating');
     assert.equal(PARTNER_LATEST_SOURCES.cursor, undefined);
 });
 
@@ -54,6 +55,7 @@ test('ネットワーク失敗・HTTP エラー・Claude・取得元なしは un
     assert.equal(await createLatestVersionLookup({ fetchImpl: async () => ({ ok: false, json: async () => ({}) }) })('pi'), undefined);
     const never = createLatestVersionLookup({ fetchImpl: async () => { throw new Error('must not fetch'); } });
     assert.equal(await never('claude'), undefined);
+    assert.equal(await never('muse'), undefined);
     assert.equal(await never('cursor'), undefined);
 });
 
@@ -72,6 +74,7 @@ test('更新要否: 新しければ更新あり、同じ・古い・不明は更
     assert.equal(decidePartnerCliUpdate('codex', '0.46.0', undefined).updateAvailable, false);
     assert.equal(decidePartnerCliUpdate('codex', undefined, '0.47.0').updateAvailable, false);
     assert.deepEqual(decidePartnerCliUpdate('claude', '2.0.14 (Claude Code)', '9.9.9'), { latestVersion: undefined, updateAvailable: false, selfUpdating: true });
+    assert.deepEqual(decidePartnerCliUpdate('muse', 'muse 1.2.3', '9.9.9'), { latestVersion: undefined, updateAvailable: false, selfUpdating: true });
 });
 
 test('AKARI 管理の導入先か別管理コピーかを見分ける', () => {
@@ -81,6 +84,7 @@ test('AKARI 管理の導入先か別管理コピーかを見分ける', () => {
     assert.equal(isAppManagedCliPath('/usr/local/bin/command-code', base), false);
     const win = { homeDir: 'C:\\Users\\a', platform: 'win32', env: { LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' } };
     assert.equal(isAppManagedCliPath('C:\\Users\\a\\AppData\\Local\\AKARI Video\\codex\\current\\bin\\codex.exe', win), true);
+    assert.equal(isAppManagedCliPath('C:\\Users\\a\\AppData\\Local\\Programs\\muse\\muse.exe', win), true);
     assert.equal(isAppManagedCliPath('C:\\Users\\a\\.local\\pi.cmd', win), true);
     assert.equal(isAppManagedCliPath('C:\\Users\\a\\AppData\\Roaming\\npm\\pi.cmd', win), false);
 });

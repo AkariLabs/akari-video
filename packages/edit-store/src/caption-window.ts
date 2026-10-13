@@ -79,6 +79,7 @@ export function captionFragmentWindows(caption: CaptionFragmentLike): CaptionFra
     const fragments = caption.display_fragments;
     if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2
         || fragments.some(fragment => typeof fragment !== 'string')
+        || fragments.some(fragment => fragment.trim().length === 0)
         || fragments.join('') !== text) {
         return null;
     }
@@ -112,7 +113,7 @@ export function captionFragmentWindows(caption: CaptionFragmentLike): CaptionFra
             end = window.start + duration * (characterEnd / text.length);
         }
         characterStart = characterEnd;
-        return { text: fragment, start, end, index: index + 1, count: fragments.length };
+        return { text: fragment.trim(), start, end, index: index + 1, count: fragments.length };
     });
 }
 
@@ -130,7 +131,10 @@ export function expandCaptionDisplayFragments<T extends CaptionFragmentLike>(cap
         }
         let characterStart = 0;
         return windows.map(window => {
-            const characterEnd = characterStart + window.text.length;
+            const fragment = (caption.display_fragments as string[])[window.index - 1];
+            const characterEnd = characterStart + fragment.length;
+            const visibleStart = characterStart + fragment.length - fragment.trimStart().length;
+            const visibleEnd = characterEnd - (fragment.length - fragment.trimEnd().length);
             const expanded: CaptionFragmentLike = {
                 ...caption,
                 text: window.text,
@@ -144,8 +148,8 @@ export function expandCaptionDisplayFragments<T extends CaptionFragmentLike>(cap
             if (Array.isArray(caption.runs)) {
                 const sourceText = String(caption.display_text ?? caption.text ?? '');
                 expanded.runSourceText = sourceText;
-                expanded.runTextStart = characterStart;
-                expanded.runTextEnd = characterEnd;
+                expanded.runTextStart = visibleStart;
+                expanded.runTextEnd = visibleEnd;
             }
             if (Array.isArray(caption.words)) {
                 let offset = 0;
@@ -155,8 +159,12 @@ export function expandCaptionDisplayFragments<T extends CaptionFragmentLike>(cap
                     const wordEnd = offset + word.text.length;
                     offset = wordEnd;
                     if (wordStart < characterStart || wordEnd > characterEnd) return [];
+                    const start = Math.max(0, visibleStart - wordStart);
+                    const end = Math.min(word.text.length, visibleEnd - wordStart);
+                    if (word.text.length > 0 && start >= end) return [];
                     return [{
                         ...word,
+                        ...(start > 0 || end < word.text.length ? { text: word.text.slice(start, end) } : {}),
                         start: clamp(word.start, window.start, window.end),
                         end: clamp(word.end, window.start, window.end)
                     }];

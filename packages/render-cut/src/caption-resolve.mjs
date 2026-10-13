@@ -11,6 +11,7 @@ const {
   filterCaptionRootByExcludedIds,
   referencedCaptionSourceCount,
   resolveCaptionDisplay,
+  captionRenderInputFromV1,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 
@@ -71,7 +72,7 @@ export function resolveCaptionPlan({
   const textstyleCatalog = loadTextstyleCatalogSync({ env: process.env });
   const presetResolution = applyCaptionStylePresets(parsedRoot, textstyleCatalog.catalog);
   const captionsRoot = filterCaptionRootByExcludedIds(
-    presetResolution.root,
+    captionRenderInputFromV1(presetResolution.root),
     collectExcludedCaptionIds(edit),
   );
   const captions = Array.isArray(captionsRoot)

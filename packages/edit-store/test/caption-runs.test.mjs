@@ -43,22 +43,23 @@ test('runs project across manual lines and displayed wording', () => {
   const edited = applyCaptionTextEdit({ text: '最高', display_text: '最高!', start: 0, end: 1,
     runs: [{ from: 0, to: 2 }] }, '最良');
   assert.equal(edited.record.display_text, '最良!');
-  assert.deepEqual(edited.record.runs, [{ from: 0, to: 2 }]);
+  assert.deepEqual(edited.record.runs, [{ from: 0, to: 2, needs_review: true }]); // run 内の置換を確認する。
 });
 
 test('text edits shift, stretch, replace, and remove runs', () => {
   const run = { from: 3, to: 5, role: 'emphasis' };
   assert.deepEqual(rebaseCaptionRuns('これは最高', '新新これは最高', [run]).runs,
     [{ ...run, from: 5, to: 7 }]);
-  assert.deepEqual(rebaseCaptionRuns('これは最高', 'これは最良', [run]).runs, [run]);
+  assert.deepEqual(rebaseCaptionRuns('これは最高', 'これは最良', [run]).runs,
+    [{ ...run, to: 5, needs_review: true }]); // 置換区間の新しい側まで含めて確認する。
   assert.deepEqual(rebaseCaptionRuns('これは最高', 'これは最も高', [run]).runs,
-    [{ ...run, to: 6 }]);
+    [{ ...run, to: 6, needs_review: true }]); // 範囲内へ挿入された文字も確認が必要。
   const removed = applyCaptionTextEdit({ text: 'これは最高', start: 0, end: 1, runs: [run] }, 'これは');
   assert.equal(Object.hasOwn(removed.record, 'runs'), false);
   assert.deepEqual(removed.removedRuns, [run]);
 });
 
-test('split and merge project run ranges', () => {
+test('分割と結合は範囲を写し、隣接 run を自動結合しない', () => {
   const record = { id: 'c-0001', start: 0, end: 2, text: '最高です', speaker: null,
     sourceRef: null, edited: false, words: [
       { start: 0, end: 1, text: '最高' }, { start: 1, end: 2, text: 'です' }
@@ -68,16 +69,17 @@ test('split and merge project run ranges', () => {
   assert.deepEqual(split.map(item => item.runs?.[0] && [item.runs[0].from, item.runs[0].to]),
     [[1, 2], [0, 1]]);
   const merged = JSON.parse(mergeCaptionLines(JSON.stringify(split), ['c-0001', 'c-0002']));
-  assert.deepEqual(merged[0].runs.map(run => [run.from, run.to]), [[1, 3]]);
+  assert.deepEqual(merged[0].runs.map(run => [run.from, run.to]), [[1, 2], [2, 3]]);
+  assert.equal(new Set(merged[0].runs.map(run => run.id)).size, 2);
 });
 
-test('split and merge omit the runs key when no ranges remain', () => {
+test('分割と結合で範囲がなければ runs を省き、旧範囲には id を採番する', () => {
   const record = { id: 'c-0001', start: 0, end: 2, text: '最高です', speaker: null,
     sourceRef: null, edited: false, words: [
       { start: 0, end: 1, text: '最高' }, { start: 1, end: 2, text: 'です' }
     ], runs: [{ from: 0, to: 2, role: 'emphasis' }] };
   const split = JSON.parse(splitCaptionLine(JSON.stringify([record]), 'c-0001', 1, 'c-0002'));
-  assert.deepEqual(split[0].runs, record.runs);
+  assert.deepEqual(split[0].runs, [{ ...record.runs[0], id: 'r-0001' }]);
   assert.equal(Object.hasOwn(split[1], 'runs'), false);
   const empty = split.map(cue => ({ ...cue, runs: [] }));
   const merged = JSON.parse(mergeCaptionLines(JSON.stringify(empty), ['c-0001', 'c-0002']));

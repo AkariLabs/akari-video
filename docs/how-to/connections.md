@@ -53,11 +53,16 @@ automatic opening in that project. An uninstalled partner is never installed aut
 Exiting inside a CLI (for example, `/exit`) does not count as closing its tab; it opens again next time. Close the tab or turn off the setting to stop it.
 
 The desktop shell's connect button opens a partner catalog. It offers
-**10 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,
-Devin, Copilot, Cursor, Antigravity, and Grok Build — plus the Claude Code
+**11 CLIs** in PTY tabs — Claude Code, Codex, opencode, Command Code, Pi,
+Devin, Copilot, Cursor, Antigravity, Grok Build, and Muse Code — plus the Claude Code
 and Codex editor extensions. Command Code requires Node.js 22 or newer;
 when it is not installed, the shell uses the official
-`npm install -g command-code` package flow. DeepSeek Harness is installed
+`npm install -g command-code` package flow. Muse Code is installed with
+its official install script (on Windows, into `%LOCALAPPDATA%\Programs\muse`).
+On first launch, Muse Code asks whether to trust the workspace; once trusted,
+it loads the project's skills. On Windows, Muse Code also shows an
+administrator prompt (User Account Control) on first launch to set up its
+sandbox. The tab stays blank while that prompt is open. DeepSeek Harness is installed
 through npm (`npm install -g @deepseek-ai/dsh`) and opens its work screen
 in the right panel without opening a browser. Its workspace is the
 currently open project folder. The shell automatically detects an
@@ -80,7 +85,9 @@ Settings → Partner → Partner permissions defaults to **Auto (recommended)**.
 This is a user setting shared across projects. Project settings files cannot change it.
 **Ask every time** uses each tool's default permission behavior. **Allow all** bypasses
 approval prompts and, where supported, the sandbox. Auto uses Claude Code and
-Grok's `auto` mode, Codex and Cursor's auto review, and Devin's `smart` mode.
+Grok's `auto` mode, Codex and Cursor's auto review, Devin's `smart` mode,
+and Muse Code's `on-request` mode with automatic review. Allow all passes `--yolo` to Muse Code.
+Muse Code defaults to automatic review (`on-request`), so Ask every time behaves the same as Auto.
 Copilot, Antigravity, Command Code, and Pi have no launch-time auto mode, so
 Auto starts them with their allow-all option. opencode keeps its own default
 behavior in Auto. Pi has no approval mechanism, so its tab shows

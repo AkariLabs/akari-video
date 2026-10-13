@@ -1,5 +1,7 @@
 # マイスタイル v0 — 保存形と適用契約
 
+v1 で拡張: [contract-2026-10-12-caption-look-v1.md](./contract-2026-10-12-caption-look-v1.md)
+
 - 日付: 2026-09-24
 - 状態: v0
 

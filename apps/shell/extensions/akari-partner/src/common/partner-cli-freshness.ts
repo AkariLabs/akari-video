@@ -15,6 +15,7 @@ export type PartnerLatestSource =
 /** 取得元の表。載っていない CLI（ベンダースクリプト任せのもの）は最新版を調べず、更新ボタンも出さない。 */
 export const PARTNER_LATEST_SOURCES: Readonly<Record<string, PartnerLatestSource>> = {
     claude: { kind: 'self-updating' },
+    muse: { kind: 'self-updating' },
     codex: { kind: 'github', repo: 'openai/codex' },
     opencode: { kind: 'github', repo: 'sst/opencode' },
     copilot: { kind: 'github', repo: 'github/copilot-cli' },
@@ -129,7 +130,8 @@ export function isAppManagedCliPath(executable: string, options: { homeDir: stri
     const dirs = [
         join(homeDir, '.local', 'bin'), join(homeDir, '.opencode', 'bin'), join(homeDir, '.grok', 'bin'),
         ...(win ? [join(homeDir, '.local'), join(localAppData, 'AKARI Video', 'codex', 'current', 'bin'),
-            join(localAppData, 'agy', 'bin'), join(localAppData, 'devin', 'cli', 'bin')] : [])
+            join(localAppData, 'agy', 'bin'), join(localAppData, 'devin', 'cli', 'bin'),
+            join(localAppData, 'Programs', 'muse')] : [])
     ].map(normalize);
     const slash = Math.max(executable.lastIndexOf('/'), win ? executable.lastIndexOf('\\') : -1);
     return dirs.includes(normalize(executable.slice(0, Math.max(slash, 0))));

@@ -10,12 +10,13 @@ export function normalizePartnerPermissionMode(value: unknown): PartnerPermissio
 const AUTO_ARGS: Partial<Record<PartnerAgentId, string[]>> = {
     claude: ['--permission-mode', 'auto'], codex: ['--approve-for-me'],
     grok: ['--permission-mode', 'auto'], devin: ['--permission-mode', 'smart'],
+    muse: ['--approval-mode', 'on-request'],
     cursor: ['--auto-review'], copilot: ['--allow-all'],
     antigravity: ['--dangerously-skip-permissions'], commandcode: ['--yolo'], pi: ['--approve']
 };
 const BYPASS_ARGS: Partial<Record<PartnerAgentId, string[]>> = {
     claude: ['--dangerously-skip-permissions'], codex: ['--dangerously-bypass-approvals-and-sandbox'],
-    grok: ['--always-approve'], devin: ['--permission-mode', 'bypass'],
+    grok: ['--always-approve'], devin: ['--permission-mode', 'bypass'], muse: ['--yolo'],
     cursor: ['--yolo'], copilot: ['--allow-all'], antigravity: ['--dangerously-skip-permissions'],
     commandcode: ['--yolo'], opencode: ['--auto'], pi: ['--approve']
 };

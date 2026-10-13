@@ -40,6 +40,12 @@ export function detectDeepSeekConnection(input: {
     };
 }
 
+// A `models` list replaces dsh's installed OpenCode Go catalog wholesale, so every DeepSeek model the picker should offer must be listed.
+const OPENCODE_GO_MODELS = [
+    { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash (OpenCode Go)' },
+    { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro (OpenCode Go)' }
+];
+
 export function buildDshSessionId(workspaceRootFsPath: string): string {
     return 'akari-' + createHash('sha256').update(workspaceRootFsPath).digest('hex').slice(0, 16);
 }
@@ -71,6 +77,6 @@ export function buildDshPatchYaml(input: {
         baseURL: https://opencode.ai/zen/go/v1
         headers: { User-Agent: ${JSON.stringify('akari-video/' + input.appVersion)}, x-opencode-session: ${input.sessionId} }
         compat: { thinkingFormat: deepseek }
-        models: [{ id: deepseek-v4-pro, name: DeepSeek V4 Pro (OpenCode Go), contextWindow: 131072 }]
-`;
+        models:
+${OPENCODE_GO_MODELS.map(model => `          - { id: ${model.id}, name: ${model.name}, contextWindow: 131072 }\n`).join('')}`;
 }
