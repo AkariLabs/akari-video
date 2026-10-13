@@ -68,6 +68,51 @@ test('壊れた guide は欄名を含むエラーになる', async () => {
     assert.throws(() => parseOnboardingGuide(guide, 'fixture'), /Invalid onboarding guide fixture: seek_seconds/);
 });
 
+test('新しいガイドは guide 欠落・JSON 破損・検証失敗から次の候補へ後退する', async t => {
+    for (const [name, contents] of [
+        ['missing', undefined],
+        ['invalid-json', '{'],
+        ['invalid-guide', JSON.stringify({ language: 'en' })]
+    ]) {
+        await t.test(name, async () => {
+            const root = await mkdtemp(join(tmpdir(), 'akari-guide-fallback-'));
+            t.after(() => import('node:fs/promises').then(fs => fs.rm(root,
+                { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })));
+            const broken = join(root, 'broken');
+            await mkdir(broken);
+            if (contents !== undefined) await writeFile(join(broken, 'guide.json'), contents);
+            const service = new AkariOnboardingServiceImpl();
+            let state;
+            service.load = async () => state;
+            service.save = async next => { state = next; };
+            service.projects = {
+                ensureCreatorRoot: async () => pathToFileURL(root).toString(),
+                createProject: async uri => mkdir(join(fileURLToPath(uri), '.akari'), { recursive: true })
+            };
+            service.bundledSample = async id => id === 'talkinghead-desk-en-01' ? broken : ja;
+            service.ensureSample = async () => ja;
+            const warnings = [];
+            const originalWarn = console.warn;
+            console.warn = message => warnings.push(message);
+            try {
+                const prepared = await service.prepare('en');
+                assert.equal(prepared.sample.sampleId, 'talkinghead-desk-ja-01');
+                assert.equal(prepared.sample.guide.language, 'ja');
+                assert.equal(warnings.length, 1);
+                assert.match(warnings[0], /Guide for talkinghead-desk-en-01 is unavailable/);
+                service.bundledSample = async () => broken;
+                await assert.rejects(service.prepare('en'), /Cannot read onboarding guide|Invalid onboarding guide/);
+                assert.equal(warnings.length, 1, 'resumed sample must not fall back');
+                state = undefined;
+                await assert.rejects(service.prepare('en'), /Cannot read onboarding guide|Invalid onboarding guide/);
+                assert.equal(warnings.length, 3, 'each distinct unusable candidate logs once');
+                assert.match(warnings[2], /^\[akari-onboarding\] Guide for talkinghead-desk-ja-01 is unavailable; no usable sample remains\.$/);
+                assert.doesNotMatch(warnings[2], /trying the next sample/);
+            } finally { console.warn = originalWarn; }
+        });
+    }
+});
+
 test('保存したサンプルの同梱フォルダが無ければ ID を示す', async () => {
     const service = new AkariOnboardingServiceImpl();
     service.load = async () => ({ schema: 1, step: 'work', sub: 0,

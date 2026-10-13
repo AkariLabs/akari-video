@@ -87,6 +87,25 @@ test('webview に渡す切り替え名は両言語で正本と一致する', () 
   } finally { setLanguage(undefined); }
 });
 
+test('UI 言語の reload 後は新しい webview スクリプトに切り替え名を焼き直す', () => {
+  const settings = readFileSync(join(here, '../../akari-surfaces/src/browser/akari-settings-dialog.ts'), 'utf8');
+  assert.match(settings, /window\.localStorage\.setItem\('akari\.ui\.language', value\);[\s\S]*?this\.windows\.reload\(\);/u);
+  assert.match(source, /widget\.setHTML\(this\.prepareHtml\(/u);
+  assert.match(source, /<script>\$\{webviewScriptText\(previewBootstrapScript\(\)\)\}<\/script>/u);
+  const labels = () => JSON.parse(previewBootstrapScript().match(/const transitionLabels = (\{[^\n]+\});/u)[1]);
+  const presets = readFileSync(join(here, '../../../../../presets/transitions/index.jsonl'), 'utf8')
+    .trim().split(/\r?\n/u).map(JSON.parse);
+  try {
+    setLanguage('ja');
+    const beforeReload = labels();
+    setLanguage('en');
+    const afterReload = labels();
+    assert.notDeepEqual(afterReload, beforeReload);
+    assert.deepEqual(TRANSITION_VOCABULARY.map(entry => afterReload[entry.id]),
+      presets.map(preset => preset.i18n.en.name));
+  } finally { setLanguage(undefined); }
+});
+
 test('窓音声は前後を線形クロスし二重無減衰にしない', () => {
   assert.match(source, /video\.volume = transitionAudioBaseVolume \* \(1 - progress\)/);
   assert.match(source, /transitionVideo\.volume = transitionAudioBaseVolume \* progress/);
