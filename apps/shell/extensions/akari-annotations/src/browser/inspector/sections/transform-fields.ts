@@ -88,7 +88,7 @@ export function cutTransitionFields(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef<TimelineCutSelection>[] {
-    const options: string[] = [translate('inspector.transformFields.label.none'), ...TRANSITION_VOCABULARY.map(entry => entry.labelJa)];
+    const options: string[] = [translate('inspector.transformFields.label.none'), ...TRANSITION_VOCABULARY.map(entry => transitionOptionLabel(entry.id))];
     const selected = transitionOptionLabel(snapshot.transitionOut?.type);
     if (!options.includes(selected)) options.push(selected);
     const blocked = snapshot.transitionOutBlocked !== undefined;

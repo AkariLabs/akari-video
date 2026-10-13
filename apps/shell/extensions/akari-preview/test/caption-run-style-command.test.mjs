@@ -61,6 +61,30 @@ test('コマンドで得た見た目が範囲スタイル候補に並ぶ', async
     assert.match(source, /const saved = await this\.listRunMyStyles\(\);\s*const choices = runStyleChoices\(saved, baseSize\);/u);
 });
 
+test('同梱スタイルは名前を訳し、id・style・通知の有無とマイスタイル名は同じ', () => {
+    const { TEXTSTYLE_CATALOG } = require('@akari-video/edit-store');
+    const saved = [{ id: 'favorite', name: '利用者の名前',
+        parts: [{ kind: 'look', text_style: { color: '#ff0000' } }] }];
+    let ja;
+    let en;
+    try {
+        setLanguage('ja');
+        ja = runStyleChoices(saved, 38);
+        setLanguage('en');
+        en = runStyleChoices(saved, 38);
+    } finally { setLanguage('ja'); }
+    assert.deepEqual(ja.map(({ id, style, notice }) => ({ id, style, hasNotice: notice !== undefined })),
+        en.map(({ id, style, notice }) => ({ id, style, hasNotice: notice !== undefined })));
+    assert.deepEqual(ja.map(choice => choice.id),
+        ['mine:favorite', ...Object.keys(TEXTSTYLE_CATALOG).map(id => `preset:${id}`)]);
+    assert.equal(ja[0].name, saved[0].name);
+    assert.equal(en[0].name, saved[0].name);
+    for (const [id, item] of Object.entries(TEXTSTYLE_CATALOG)) {
+        assert.equal(ja.find(choice => choice.id === `preset:${id}`).name, item.name);
+        assert.equal(en.find(choice => choice.id === `preset:${id}`).name, item.i18n.en.name);
+    }
+});
+
 test('文字範囲では同梱スタイルの文字倍率を保ち、リッチ語彙の省略を通知する', () => {
     const host = new Host();
     const choices = runStyleChoices([{ id: 'saved', name: '保存',

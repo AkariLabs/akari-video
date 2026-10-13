@@ -7,7 +7,7 @@
   "i18n": {
     "en": {
       "title": "AKARI Sounds Sound Effects (v0)",
-      "description": "A sound-effects pack from the in-house AKARI Sounds library: 3 tracks and 3 takes. All tracks were AI-generated on a paid Suno plan. Generation records (dates, prompts, and source URLs) are published in akari-sounds catalog.json. Reduced on 2026-08-23 after an owner decision to switch SFX supply to reference sources; only whoosh-paper, snap-dry, and click-typewriter remain. Retirement record: assets/audio/sfx-retirement-2026-08-23.json in the internal repository.",
+      "description": "A sound-effects pack from the in-house AKARI Sounds library: 3 tracks and 3 takes. All tracks were AI-generated on a paid Suno plan. Generation records (dates, prompts, and source URLs) are published in akari-sounds catalog.json. Reduced on 2026-08-23 after an owner decision to switch SFX supply to reference sources; only whoosh-paper, snap-dry, and click-typewriter remain.",
       "when_to_use": "For a paper whoosh (whoosh-paper), dry snap (snap-dry), or typewriter keystroke (click-typewriter). Use reference packs such as otologic-sfx-selection or soundeffect-lab-* for other effects."
     }
   },

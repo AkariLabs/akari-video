@@ -7,7 +7,7 @@
   "i18n": {
     "en": {
       "title": "Sound Effect Lab UI, Confirmation and Warning SFX Pack",
-      "description": "A 22-item set of 12 confirmation-button variants, quiz right/wrong cues, clicks, warnings, a chime, and an anxiety-building bell for UI operations and scene signals. Includes 22 items. The distributor describes Chime 1 as an effect for disappointment, verified at /sound/anime/ on 2026-07-31; it signals a mishap or letdown, and the old description as an end or confirmation cue was incorrect. Under audio-standard, 20 of 21 sounds participate; the local index.jsonl standard flag identifies them, and sfx-curation.json in the internal repository is authoritative.",
+      "description": "A 22-item set of 12 confirmation-button variants, quiz right/wrong cues, clicks, warnings, a chime, and an anxiety-building bell for UI operations and scene signals. Includes 22 items. The distributor describes Chime 1 as an effect for disappointment, verified at /sound/anime/ on 2026-07-31; it signals a mishap or letdown, and the old description as an end or confirmation cue was incorrect. Under audio-standard, 20 of 21 sounds participate; the local index.jsonl standard flag identifies them.",
       "when_to_use": "For button confirmation, quiz judgments, clicks, and warnings. Use Chime 1 only for mishaps or disappointment, never as a completion or confirmation cue."
     }
   },

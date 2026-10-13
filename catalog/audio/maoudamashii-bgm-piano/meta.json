@@ -7,7 +7,7 @@
   "i18n": {
     "en": {
       "title": "Maoudamashii Piano (Seijaku no Sekai e / Miwatasu Machi e)",
-      "description": "Two piano background tracks for quiet and unhurried time. Includes 2 items. Under audio-standard, 1 of 2 sounds participates; the local index.jsonl standard flag identifies the item, and sfx-curation.json in the internal repository is authoritative.",
+      "description": "Two piano background tracks for quiet and unhurried time. Includes 2 items. Under audio-standard, 1 of 2 sounds participates; the local index.jsonl standard flag identifies the item.",
       "when_to_use": "For silence, loss, or drifting time (Seijaku no Sekai e), and for lingering over beautiful scenery (Miwatasu Machi e)."
     }
   },

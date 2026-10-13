@@ -1,5 +1,6 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
+import { getLanguage, t as translate } from '@akari-video/i18n';
 import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
     type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
@@ -416,6 +417,8 @@ export function previewBootstrapScript(): string {
             const computeTransitionVisualFn = (${computeTransitionVisual.toString()});
             const transitionVocabulary = ${JSON.stringify(TRANSITION_VOCABULARY)};
             const transitionById = Object.fromEntries(transitionVocabulary.map(entry => [entry.id, entry]));
+            const transitionLabels = ${JSON.stringify(Object.fromEntries(TRANSITION_VOCABULARY.map(entry =>
+                [entry.id, translate(`inspector.transitionFields.preset.${entry.id.replace(/-([a-z])/gu, (_, letter: string) => letter.toUpperCase())}`, {}, getLanguage())])))};
             // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）。
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
             // ㉗ layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・
@@ -8975,7 +8978,7 @@ export function previewBootstrapScript(): string {
                 const visual = computeTransitionVisualFn(
                     transitionDefinition?.previewKind || 'fallback',
                     progress,
-                    transitionDefinition?.labelJa || String(window.type)
+                    transitionLabels[window.type] || String(window.type)
                 );
                 if (activeTransitionEngine !== visual.engine) {
                     removeTransitionEngineElements();
