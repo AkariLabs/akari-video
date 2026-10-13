@@ -57,6 +57,8 @@ function marqueeState(hitCount) {
     publishPrimaryPreviewSelection() {},
     syncRightPane() {},
     clearMarqueeRange: method('clearMarqueeRange'),
+    activeBoundary: undefined,
+    releaseTransitionBoundaryForOtherSelection: method('releaseTransitionBoundaryForOtherSelection'),
     applySelection: method('applySelection'),
     onStripPointerDown: method('onStripPointerDown', {
       DRAG_THRESHOLD_PX: 3,
