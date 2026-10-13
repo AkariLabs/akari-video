@@ -59,7 +59,8 @@ function validateCaptionsSemantics(ctx) {
             if (!run || typeof run !== 'object' || Array.isArray(run))
                 continue;
             const path = `captions.json#captions[${index}].runs[${runIndex}]`;
-            const v1 = ['id', 'look', 'motion', 'anchor', 'fire'].some(key => Object.hasOwn(run, key));
+            const v1 = ['id', 'look', 'motion', 'anchor', 'fire']
+                .some(key => Object.prototype.hasOwnProperty.call(run, key));
             if (v1 && (!Number.isInteger(run.from) || !Number.isInteger(run.to)
                 || run.from < 0 || run.to > chars.length || run.from >= run.to)) {
                 add('captions.run.range', 'error', path, '文字範囲が表示文字数の外にあります。', 'document');
@@ -108,7 +109,7 @@ function validateCaptionsSemantics(ctx) {
     return diagnostics;
 }
 function renderableCaptionRuns(caption, document) {
-    const rows = Array.isArray(document) ? document : document?.captions ?? [];
+    const rows = Array.isArray(document) ? document : Array.isArray(document?.captions) ? document.captions : [];
     const index = rows.indexOf(caption);
     const invalid = new Set(validateCaptionsSemantics({ captions: document })
         .filter(item => item.severity === 'error' && item.layer === 'document')
@@ -116,5 +117,7 @@ function renderableCaptionRuns(caption, document) {
         const match = /captions\[(\d+)\]\.runs\[(\d+)\]/.exec(item.path);
         return match && Number(match[1]) === index ? [Number(match[2])] : [];
     }));
-    return (caption.runs ?? []).filter((_run, runIndex) => !invalid.has(runIndex));
+    if (!Array.isArray(caption?.runs))
+        return caption?.runs ?? [];
+    return caption.runs.filter((_run, runIndex) => !invalid.has(runIndex));
 }

@@ -5,7 +5,7 @@
 
 ## 移行と書き出し
 
-移行は render-cut の書き出し結果（HTML と CSS 変数）を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と配列内の位置から `emphasis_words` へ戻す。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。
+移行は render-cut の書き出し結果（HTML と CSS 変数）を保つ。移行済みの強調範囲は、描画時に `migrated_emphasis` に保存した元の項目と移行前の配列内の位置から `emphasis_words` へ戻す。残った項目の順を保ち、移した項目を位置の昇順に差し込む。追加のプロパティと項目の順序も保つ。旧形式だけの入力はそのまま描画器へ渡す。
 
 | `style_hint`（省略時の `emotion`） | `motion.in.id` |
 |---|---|
@@ -15,7 +15,7 @@
 
 この対応に無い hint、別の hint と同じ motion になるもの、項目ごとの `style_preset` を持つもの、語が行の表示文字列に一意に現れないもの、時刻が行の外に出るものは `emphasis_words` に残し、通知と未解決一覧に出す。移せたものだけ `fire: "spoken"` と source domain の `anchor` を持つ run にする。
 
-v1 の `look` を持つ run は px 系の値を `scale: 1` の値として保存し、描画時に run の `scale` を掛ける。旧 runs v0 の `style` は保存値を従来どおり直接描く。旧 `animation` は `dormant_animation` に保管し、描画しない。
+v1 の `look` を持つ run は px 系の値を `scale: 1` の値として保存し、描画時に run の `scale` を掛ける。旧 `stroke.width_px` を移す際は `scale` で割った値を丸めずに保存し、描画時に掛けた後だけ px 値を丸める。旧 runs v0 の `style` は保存値を従来どおり直接描く。旧 `animation` は `dormant_animation` に保管し、描画しない。
 
 `lookForCaptionRow` は `size: "keep"` なら当て先の実効 `size_px` を明示して保ち、`k = 当て先の size_px ÷ スタイルの size_px` で px 系の値を換算する。当て先の `reference_height_px` と `layout` も保つ。`size: "style"` で `layout` と `reference_height_px` が衝突するときは値を書かず、理由を返す。範囲への適用も行の実効サイズを使い、許可外の項目を落として通知する。
 
@@ -29,7 +29,7 @@ v1 の `look` を持つ run は px 系の値を `scale: 1` の値として保存
 |---|---|
 | `id, from, to, role, emotion, migrated_from, migrated_emphasis, fire, anchor, motion` | 元の項目は `migrated_emphasis.item` にそのまま保存し、`index` で配列内の順序を復元する。 |
 
-旧 runs の `style` は読むときに `look` に投影する。旧 `animation` は描画されていなかったため `dormant_animation` に保存し、明示的に有効化するまで `motion` にしない。旧 `emphasis_words` は素材・時刻・語から行と文字範囲を一意に決められる場合だけ投影する。移行した項目は `migrated_from` と `migrated_emphasis` を付け、元の `emphasis_words` から除く。一意に決まらない項目は残して通知する。未移行の `style_preset` は描画時に解決するため、見た目の固定は移行後から保証される。出所の `original_hash` と `applied_hash` は鍵を再帰的に整列した JSON を UTF-8 のバイト列にして SHA-256 で計算し、`sha256:` と 64 桁の十六進数で記録する。
+旧 runs の `style` は読むときに `look` に投影する。ただし表示文字列の書記素数に対して範囲外または空の旧 run は投影も移行もせず、id を付けずに元の形で残し、文書全体の件数を通知する。旧 `animation` は描画されていなかったため `dormant_animation` に保存し、明示的に有効化するまで `motion` にしない。旧 `emphasis_words` は素材・時刻・語から行と文字範囲を一意に決められる場合だけ投影する。移行した項目は `migrated_from` と `migrated_emphasis` を付け、元の `emphasis_words` から除く。複数回の移行でも `migrated_emphasis.index` は最初の配列での位置を使い、既存の移行済み run と重複させない。一意に決まらない項目は残して通知する。未移行の `style_preset` は描画時に解決するため、見た目の固定は移行後から保証される。出所の `original_hash` と `applied_hash` は鍵を再帰的に整列した JSON を UTF-8 のバイト列にして SHA-256 で計算し、`sha256:` と 64 桁の十六進数で記録する。
 
 ## look と大きさ
 

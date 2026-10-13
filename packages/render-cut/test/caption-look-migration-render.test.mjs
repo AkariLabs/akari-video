@@ -39,3 +39,14 @@ test('移行を一回と二回行っても書き出しの HTML と CSS 変数が
     'captions[0].style_sources', 'emphasis_words'
   ]);
 });
+
+test('壊れた runs の三形でも字幕プランの解決で例外を出さない', () => {
+  const edit = { version: 1, output: { width: 1080, height: 1920 },
+    sources: [{ id: 's1', path: 'assets/s1.mp4' }],
+    cuts: [{ id: 'cut-1', src: 's1', in: 0, out: 2, at: 0, track: 0 }], overlays: [] };
+  for (const runs of [{}, 'x', [null]]) {
+    const captionsRoot = { captions: [{ id: 'c-0001', src: 's1', start: 0, end: 2,
+      text: '猫', speaker: null, sourceRef: null, edited: false, runs }] };
+    assert.doesNotThrow(() => resolveCaptionPlan({ captionsRoot, edit }));
+  }
+});

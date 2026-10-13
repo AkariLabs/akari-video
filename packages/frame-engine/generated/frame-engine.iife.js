@@ -1476,6 +1476,8 @@ ${indent}`);
         const from = captionGraphemes(text.slice(0, start)).length;
         const to = captionGraphemes(text.slice(0, end)).length;
         const result = runs.flatMap((run) => {
+          if (!run || typeof run !== "object" || Array.isArray(run))
+            return [run];
           const left = Math.max(from, run.from);
           const right = Math.min(to, run.to);
           return left < right ? [{ ...run, from: left - from, to: right - from }] : [];
@@ -8453,17 +8455,34 @@ ${indent}`);
         if (!motion2)
           return void 0;
         const candidates = rows.flatMap((row) => {
+          if (row.runs !== void 0 && (!Array.isArray(row.runs) || row.runs.some((run) => !run || typeof run !== "object" || Array.isArray(run))))
+            return [];
           const interval = intervalForEmphasis(row, item);
           return interval ? [{ row, interval, hint, motion: motion2 }] : [];
         });
         return candidates.length === 1 ? candidates[0] : void 0;
       }
+      function rowRuns(row) {
+        return Array.isArray(row.runs) ? row.runs : [];
+      }
+      function invalidLegacyRun(run, row) {
+        if (["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key))) {
+          return false;
+        }
+        const length = (0, caption_runs_1.captionGraphemes)(row.display_text ?? row.text ?? "").length;
+        return !Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > length || run.from >= run.to;
+      }
       function readCaptionLookV1(root, catalog) {
         const rows = Array.isArray(root) ? root : root.captions;
         const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
         const projected = /* @__PURE__ */ new Map();
-        const allRuns = [...rows.flatMap((row) => row.runs ?? []), ...Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []];
-        for (const [index, item] of emphasis.entries()) {
+        const allRuns = [...rows.flatMap(rowRuns), ...Array.isArray(root) ? [] : Array.isArray(root.unresolved_runs) ? root.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []];
+        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
+        let originalIndex = 0;
+        for (const item of emphasis) {
+          while (occupiedIndices.has(originalIndex))
+            originalIndex++;
+          const index = originalIndex++;
           const candidate = projectEmphasis(rows, item);
           if (candidate)
             projected.set(item.id, {
@@ -8476,13 +8495,13 @@ ${indent}`);
         const notices = [];
         const captions = rows.map((row) => {
           const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
-          const runs = (row.runs ?? []).map((run) => ({
+          const runs = rowRuns(row).map((run) => !run || typeof run !== "object" || Array.isArray(run) || invalidLegacyRun(run, row) ? run : {
             ...run,
             ...run.style && !run.look ? { look: { ...run.style } } : {},
             ...run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}
-          }));
+          });
           for (const item of emphasis) {
-            if (runs.some((run) => run.migrated_from === item.id))
+            if (runs.some((run) => run && typeof run === "object" && run.migrated_from === item.id))
               continue;
             const interval = projected.get(item.id);
             if (!interval || interval.id !== row.id)
@@ -8509,7 +8528,7 @@ ${indent}`);
           }
           if (row.style_preset && !resolved.resolved)
             notices.push(`\u5B57\u5E55 ${row.id ?? ""} \u306E\u30B9\u30BF\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002`);
-          return { ...resolved.record, ...runs.length || Object.hasOwn(row, "runs") ? { runs } : {} };
+          return { ...resolved.record, ...runs.length || Array.isArray(row.runs) ? { runs } : Object.prototype.hasOwnProperty.call(row, "runs") ? { runs: row.runs } : {} };
         });
         return { captions, notices };
       }
@@ -8520,9 +8539,10 @@ ${indent}`);
         const unresolved = [];
         const notices = [];
         const allRuns = [
-          ...rows.flatMap((row) => row.runs ?? []),
+          ...rows.flatMap(rowRuns),
           ...Array.isArray(source) ? [] : Array.isArray(source.unresolved_runs) ? source.unresolved_runs.flatMap((item) => item.run ? [item.run] : []) : []
         ];
+        let invalidLegacyCount = 0;
         for (const row of rows) {
           if (row.style_preset) {
             const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
@@ -8552,6 +8572,12 @@ ${indent}`);
           }
           if (Array.isArray(row.runs))
             row.runs = row.runs.map((run) => {
+              if (!run || typeof run !== "object" || Array.isArray(run))
+                return run;
+              if (invalidLegacyRun(run, row)) {
+                invalidLegacyCount++;
+                return run;
+              }
               const result = { ...run };
               if (result.style) {
                 const scale = typeof result.style.scale === "number" && result.style.scale > 0 ? result.style.scale : 1;
@@ -8559,7 +8585,7 @@ ${indent}`);
                 if (look.stroke?.width_px !== void 0)
                   look.stroke = {
                     ...look.stroke,
-                    width_px: (0, caption_runs_1.roundCaptionPixel)(look.stroke.width_px / scale)
+                    width_px: look.stroke.width_px / scale
                   };
                 result.look = look;
                 delete result.style;
@@ -8575,9 +8601,16 @@ ${indent}`);
               return result;
             });
         }
+        if (invalidLegacyCount)
+          notices.push(`\u7BC4\u56F2\u306E\u5916\u306E\u53E4\u3044\u6307\u5B9A ${invalidLegacyCount} \u4EF6\u306F\u305D\u306E\u307E\u307E\u6B8B\u3057\u307E\u3057\u305F`);
+        const occupiedIndices = new Set(allRuns.flatMap((run) => run && typeof run === "object" && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
         const migrated = /* @__PURE__ */ new Set();
-        for (const [index, item] of emphasis.entries()) {
-          if (rows.some((row2) => row2.runs?.some((run2) => run2.migrated_from === item.id))) {
+        let originalIndex = 0;
+        for (const item of emphasis) {
+          while (occupiedIndices.has(originalIndex))
+            originalIndex++;
+          const index = originalIndex++;
+          if (rows.some((row2) => rowRuns(row2).some((run2) => run2 && typeof run2 === "object" && run2.migrated_from === item.id))) {
             migrated.add(item.id);
             continue;
           }
@@ -8607,8 +8640,9 @@ ${indent}`);
           (row.runs ??= []).push(run);
           allRuns.push(run);
           migrated.add(item.id);
+          occupiedIndices.add(index);
         }
-        if (!Array.isArray(source) && Object.hasOwn(source, "emphasis_words")) {
+        if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, "emphasis_words")) {
           source.emphasis_words = emphasis.filter((item) => !migrated.has(item.id));
         }
         const originalRows = Array.isArray(captions) ? captions : captions.captions;
@@ -8636,14 +8670,18 @@ ${indent}`);
       }
       function captionRenderInputFromV1(root) {
         const rows = Array.isArray(root) ? root : root.captions;
-        if (!rows.some((row) => row.runs?.some((run) => run.look || run.dormant_animation || run.migrated_from)))
+        if (!rows.some((row) => rowRuns(row).some((run) => run && typeof run === "object" && (run.look || run.dormant_animation || run.migrated_from))))
           return root;
         const copy = structuredClone(root);
         const nextRows = Array.isArray(copy) ? copy : copy.captions;
         const emphasis = Array.isArray(copy) ? [] : [...copy.emphasis_words ?? []];
         const migrated = [];
         for (const row of nextRows) {
-          row.runs = (row.runs ?? []).flatMap((run) => {
+          if (!Array.isArray(row.runs))
+            continue;
+          row.runs = row.runs.flatMap((run) => {
+            if (!run || typeof run !== "object" || Array.isArray(run))
+              return [run];
             if (run.migrated_from && !run.look && run.anchor) {
               const hint = Object.keys(exports.CAPTION_EMPHASIS_MOTION).find((key) => exports.CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
               const restored = run.migrated_emphasis?.item;
@@ -8676,12 +8714,10 @@ ${indent}`);
             return [next];
           });
         }
-        if (!Array.isArray(copy) && (Object.hasOwn(copy, "emphasis_words") || migrated.length)) {
-          const restored = [];
-          const remaining = [...emphasis];
-          const indexed = new Map(migrated.map((entry) => [entry.index, entry.item]));
-          for (let index = 0; index < emphasis.length + migrated.length; index++) {
-            restored.push(indexed.get(index) ?? remaining.shift());
+        if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, "emphasis_words") || migrated.length)) {
+          const restored = [...emphasis];
+          for (const entry of migrated.sort((left, right) => left.index - right.index)) {
+            restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
           }
           copy.emphasis_words = restored;
         }
@@ -8909,7 +8945,7 @@ ${indent}`);
             if (!run || typeof run !== "object" || Array.isArray(run))
               continue;
             const path = `captions.json#captions[${index}].runs[${runIndex}]`;
-            const v1 = ["id", "look", "motion", "anchor", "fire"].some((key) => Object.hasOwn(run, key));
+            const v1 = ["id", "look", "motion", "anchor", "fire"].some((key) => Object.prototype.hasOwnProperty.call(run, key));
             if (v1 && (!Number.isInteger(run.from) || !Number.isInteger(run.to) || run.from < 0 || run.to > chars.length || run.from >= run.to)) {
               add("captions.run.range", "error", path, "\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u6570\u306E\u5916\u306B\u3042\u308A\u307E\u3059\u3002", "document");
             }
@@ -8960,13 +8996,15 @@ ${indent}`);
         return diagnostics;
       }
       function renderableCaptionRuns(caption, document2) {
-        const rows = Array.isArray(document2) ? document2 : document2?.captions ?? [];
+        const rows = Array.isArray(document2) ? document2 : Array.isArray(document2?.captions) ? document2.captions : [];
         const index = rows.indexOf(caption);
         const invalid = new Set(validateCaptionsSemantics({ captions: document2 }).filter((item) => item.severity === "error" && item.layer === "document").flatMap((item) => {
           const match = /captions\[(\d+)\]\.runs\[(\d+)\]/.exec(item.path);
           return match && Number(match[1]) === index ? [Number(match[2])] : [];
         }));
-        return (caption.runs ?? []).filter((_run, runIndex) => !invalid.has(runIndex));
+        if (!Array.isArray(caption?.runs))
+          return caption?.runs ?? [];
+        return caption.runs.filter((_run, runIndex) => !invalid.has(runIndex));
       }
     }
   });

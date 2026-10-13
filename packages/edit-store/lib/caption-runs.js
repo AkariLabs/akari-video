@@ -181,6 +181,8 @@ function sliceCaptionRuns(text, runs, start, end) {
     const from = captionGraphemes(text.slice(0, start)).length;
     const to = captionGraphemes(text.slice(0, end)).length;
     const result = runs.flatMap(run => {
+        if (!run || typeof run !== 'object' || Array.isArray(run))
+            return [run];
         const left = Math.max(from, run.from);
         const right = Math.min(to, run.to);
         return left < right ? [{ ...run, from: left - from, to: right - from }] : [];

@@ -39,10 +39,25 @@ function projectEmphasis(rows: CaptionRow[], item: Emphasis):
     const motion = CAPTION_EMPHASIS_MOTION[hint];
     if (!motion) return undefined;
     const candidates = rows.flatMap(row => {
+        if (row.runs !== undefined && (!Array.isArray(row.runs)
+            || row.runs.some(run => !run || typeof run !== 'object' || Array.isArray(run)))) return [];
         const interval = intervalForEmphasis(row, item);
         return interval ? [{ row, interval, hint, motion }] : [];
     });
     return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+function rowRuns(row: CaptionRow): CaptionRun[] {
+    return Array.isArray(row.runs) ? row.runs : [];
+}
+
+function invalidLegacyRun(run: CaptionRun, row: CaptionRow): boolean {
+    if (['id', 'look', 'motion', 'anchor', 'fire'].some(key => Object.prototype.hasOwnProperty.call(run, key))) {
+        return false;
+    }
+    const length = captionGraphemes(row.display_text ?? row.text ?? '').length;
+    return !Number.isInteger(run.from) || !Number.isInteger(run.to)
+        || run.from < 0 || run.to > length || run.from >= run.to;
 }
 
 export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: TextstyleCatalog):
@@ -50,9 +65,14 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
     const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
     const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
     const projected = new Map<string, { id: string | undefined; from: number; to: number; motion: string; index: number }>();
-    const allRuns = [...rows.flatMap(row => row.runs ?? []), ...(Array.isArray(root) ? [] :
+    const allRuns = [...rows.flatMap(rowRuns), ...(Array.isArray(root) ? [] :
         (Array.isArray(root.unresolved_runs) ? (root.unresolved_runs as Array<{ run?: CaptionRun }>).flatMap(item => item.run ? [item.run] : []) : []))];
-    for (const [index, item] of emphasis.entries()) {
+    const occupiedIndices = new Set(allRuns.flatMap(run => run && typeof run === 'object'
+        && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis!.index] : []));
+    let originalIndex = 0;
+    for (const item of emphasis) {
+        while (occupiedIndices.has(originalIndex)) originalIndex++;
+        const index = originalIndex++;
         const candidate = projectEmphasis(rows, item);
         if (candidate) projected.set(item.id, { id: candidate.row.id,
             ...candidate.interval, motion: candidate.motion, index });
@@ -60,11 +80,12 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
     const notices: string[] = [];
     const captions = rows.map(row => {
         const resolved = resolveCaptionStylePreset(row, catalog);
-        const runs = (row.runs ?? []).map(run => ({ ...run,
-            ...(run.style && !run.look ? { look: { ...run.style } } : {}),
-            ...(run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}) }));
+        const runs = rowRuns(row).map(run => !run || typeof run !== 'object' || Array.isArray(run)
+            || invalidLegacyRun(run, row) ? run : { ...run,
+                ...(run.style && !run.look ? { look: { ...run.style } } : {}),
+                ...(run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}) });
         for (const item of emphasis) {
-            if (runs.some(run => run.migrated_from === item.id)) continue;
+            if (runs.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) continue;
             const interval = projected.get(item.id);
             if (!interval || interval.id !== row.id) continue;
             const projection: CaptionRun = { id: nextCaptionRunId(allRuns), from: interval.from, to: interval.to,
@@ -76,7 +97,8 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
             runs.push(projection); allRuns.push(projection);
         }
         if (row.style_preset && !resolved.resolved) notices.push(`字幕 ${row.id ?? ''} のスタイルが見つかりません。`);
-        return { ...resolved.record, ...(runs.length || Object.hasOwn(row, 'runs') ? { runs } : {}) };
+        return { ...resolved.record, ...(runs.length || Array.isArray(row.runs) ? { runs }
+            : Object.prototype.hasOwnProperty.call(row, 'runs') ? { runs: row.runs } : {}) };
     });
     return { captions, notices };
 }
@@ -89,9 +111,10 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
     const emphasis = Array.isArray(source) ? [] : source.emphasis_words ?? [];
     const unresolved: Emphasis[] = [];
     const notices: string[] = [];
-    const allRuns = [...rows.flatMap(row => row.runs ?? []),
+    const allRuns = [...rows.flatMap(rowRuns),
         ...(Array.isArray(source) ? [] : (Array.isArray(source.unresolved_runs)
             ? (source.unresolved_runs as Array<{ run?: CaptionRun }>).flatMap(item => item.run ? [item.run] : []) : []))];
+    let invalidLegacyCount = 0;
     for (const row of rows) {
         if (row.style_preset) {
             const preset = resolveCaptionStylePreset(row, catalog);
@@ -110,13 +133,15 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
             } else notices.push(`字幕 ${row.id ?? ''} のスタイルが見つかりません。`);
         }
         if (Array.isArray(row.runs)) row.runs = row.runs.map(run => {
+            if (!run || typeof run !== 'object' || Array.isArray(run)) return run;
+            if (invalidLegacyRun(run, row)) { invalidLegacyCount++; return run; }
             const result = { ...run };
             if (result.style) {
                 const scale = typeof result.style.scale === 'number' && result.style.scale > 0
                     ? result.style.scale : 1;
                 const look = { ...result.style };
                 if (look.stroke?.width_px !== undefined) look.stroke = {
-                    ...look.stroke, width_px: roundCaptionPixel(look.stroke.width_px / scale) };
+                    ...look.stroke, width_px: look.stroke.width_px / scale };
                 result.look = look; delete result.style;
             }
             if (result.animation) { result.dormant_animation = result.animation; delete result.animation; }
@@ -124,9 +149,16 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
             return result;
         });
     }
+    if (invalidLegacyCount) notices.push(`範囲の外の古い指定 ${invalidLegacyCount} 件はそのまま残しました`);
+    const occupiedIndices = new Set(allRuns.flatMap(run => run && typeof run === 'object'
+        && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis!.index] : []));
     const migrated = new Set<string>();
-    for (const [index, item] of emphasis.entries()) {
-        if (rows.some(row => row.runs?.some(run => run.migrated_from === item.id))) { migrated.add(item.id); continue; }
+    let originalIndex = 0;
+    for (const item of emphasis) {
+        while (occupiedIndices.has(originalIndex)) originalIndex++;
+        const index = originalIndex++;
+        if (rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
+            && run.migrated_from === item.id))) { migrated.add(item.id); continue; }
         const candidate = projectEmphasis(rows, item);
         if (!candidate) { unresolved.push(item); notices.push(`強調語 ${item.id} は可逆に移行できません`); continue; }
         const { row, interval, motion } = candidate;
@@ -136,8 +168,9 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
             anchor: { ...(item.src ? { src: item.src } : {}), start: item.t_start,
                 end: item.t_end, domain: 'source' }, motion: { in: { id: motion } } };
         (row.runs ??= []).push(run); allRuns.push(run); migrated.add(item.id);
+        occupiedIndices.add(index);
     }
-    if (!Array.isArray(source) && Object.hasOwn(source, 'emphasis_words')) {
+    if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, 'emphasis_words')) {
         source.emphasis_words = emphasis.filter(item => !migrated.has(item.id));
     }
     const originalRows = Array.isArray(captions) ? captions : captions.captions;
@@ -160,13 +193,16 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
 /** Restore the renderer's legacy input without changing a legacy-only document. */
 export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T {
     const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
-    if (!rows.some(row => row.runs?.some((run: CaptionRun) => run.look || run.dormant_animation || run.migrated_from))) return root;
+    if (!rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
+        && (run.look || run.dormant_animation || run.migrated_from)))) return root;
     const copy = structuredClone(root);
     const nextRows: CaptionRow[] = Array.isArray(copy) ? copy : copy.captions;
     const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
     const migrated: Array<{ index: number; item: Emphasis }> = [];
     for (const row of nextRows) {
-        row.runs = (row.runs ?? []).flatMap((run: CaptionRun) => {
+        if (!Array.isArray(row.runs)) continue;
+        row.runs = row.runs.flatMap((run: CaptionRun) => {
+            if (!run || typeof run !== 'object' || Array.isArray(run)) return [run];
             if (run.migrated_from && !run.look && run.anchor) {
                 const hint = Object.keys(CAPTION_EMPHASIS_MOTION)
                     .find(key => CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
@@ -190,12 +226,10 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
             return [next];
         });
     }
-    if (!Array.isArray(copy) && (Object.hasOwn(copy, 'emphasis_words') || migrated.length)) {
-        const restored: Emphasis[] = [];
-        const remaining = [...emphasis];
-        const indexed = new Map(migrated.map(entry => [entry.index, entry.item]));
-        for (let index = 0; index < emphasis.length + migrated.length; index++) {
-            restored.push(indexed.get(index) ?? remaining.shift()!);
+    if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, 'emphasis_words') || migrated.length)) {
+        const restored = [...emphasis];
+        for (const entry of migrated.sort((left, right) => left.index - right.index)) {
+            restored.splice(Math.min(entry.index, restored.length), 0, entry.item);
         }
         copy.emphasis_words = restored;
     }

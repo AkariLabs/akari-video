@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
   scaleCaptionLookPixels, lookForCaptionAtSize, sanitizeCaptionRunLook,
-  rebaseCaptionRuns, splitCaptionRuns, nextCaptionRunId, clearCaptionRunRange,
+  rebaseCaptionRuns, splitCaptionRuns, nextCaptionRunId, clearCaptionRunRange, resolveCaptionRuns,
   anchorToOutput, anchorForCaptionRange, fitCaptionMotionWindow, buildTimelineMap,
   unresolvedRunsForDeletedCaption,
   moveDeletedCaptionRunsToUnresolved,
   splitCaptionLine, mergeCaptionLines,
-  planCaptionLookMigration, readCaptionLookV1, validateCaptionsSemantics,
+  planCaptionLookMigration, readCaptionLookV1, validateCaptionsSemantics, renderableCaptionRuns,
   captionRenderInputFromV1,
   resolveCaptionStylePreset, resolveCaptionWordStyleVars, resolveCaptionStyleForOutput,
   lookForCaptionRow, lookForCaptionRun, applyCaptionRunsToHtml,
@@ -356,6 +356,91 @@ test('移行: 縁の 6px と scale 0.7、5px と scale 1.3 を厳密に戻す', 
     assert.equal(restored.captions[0].runs[0].style.stroke.width_px, width);
     assert.match(applyCaptionRunsToHtml('<p class="akari-caption__line">猫</p>', '猫',
       migrated.captions[0].runs), new RegExp(`-webkit-text-stroke:${width}px`));
+  }
+});
+
+test('移行: 縁の 1px と scale 3 を戻し、太さと倍率の格子でも値を保つ', () => {
+  const check = (width, scale) => {
+    const original = { captions: [row('猫', { runs: [{ from: 0, to: 1,
+      style: { scale, stroke: { color: '#fff', width_px: width } } }] })] };
+    const migrated = planCaptionLookMigration(original, {}).next;
+    assert.equal(captionRenderInputFromV1(migrated).captions[0].runs[0].style.stroke.width_px,
+      width, `太さ ${width}、倍率 ${scale}`);
+    if (width === 1 && scale === 3) {
+      assert.equal(resolveCaptionRuns('猫', migrated.captions[0].runs)[0].style.stroke.width_px, 1);
+      assert.match(applyCaptionRunsToHtml('<p class="akari-caption__line">猫</p>', '猫',
+        migrated.captions[0].runs), /-webkit-text-stroke:1px/);
+    }
+  };
+  check(1, 3);
+  for (let widthStep = 1; widthStep <= 24; widthStep++) {
+    for (let scaleStep = 5; scaleStep <= 30; scaleStep++) {
+      const scale = scaleStep / 10;
+      check(widthStep / 2, Math.round(scale * 10) / 10);
+    }
+  }
+});
+
+const emphasisForThree = () => ({ captions: [
+  row('猫', { id: 'c-0001', start: 0, end: 1 }),
+  row('犬犬', { id: 'c-0002', start: 1, end: 2 }),
+  row('鳥', { id: 'c-0003', start: 2, end: 3 })
+], emphasis_words: ['猫', '犬', '鳥'].map((word, index) => ({
+  id: `e-000${index + 1}`, src: 's1', word, t_start: index, t_end: index + 1,
+  emotion: 'joy'
+})) });
+
+test('移行: 最初の行を消しても後ろの強調語を落とさない', () => {
+  const migrated = planCaptionLookMigration(emphasisForThree(), {}).next;
+  migrated.captions.shift();
+  assert.deepEqual(captionRenderInputFromV1(migrated).emphasis_words.map(item => item?.id),
+    ['e-0002', 'e-0003']);
+});
+
+test('移行: 移した run を消しても残りの強調語を順に戻す', () => {
+  const migrated = planCaptionLookMigration(emphasisForThree(), {}).next;
+  migrated.captions[0].runs = [];
+  assert.deepEqual(captionRenderInputFromV1(migrated).emphasis_words.map(item => item?.id),
+    ['e-0002', 'e-0003']);
+});
+
+test('移行: 後から移せた強調語には元の配列の位置を付ける', () => {
+  const first = planCaptionLookMigration(emphasisForThree(), {}).next;
+  assert.deepEqual(first.emphasis_words.map(item => item.id), ['e-0002']);
+  first.captions[1].text = '犬';
+  assert.equal(readCaptionLookV1(first, {}).captions[1].runs[0].migrated_emphasis.index, 1);
+  const second = planCaptionLookMigration(first, {}).next;
+  const runs = second.captions.flatMap(item => item.runs ?? []);
+  assert.deepEqual(runs.map(run => run.migrated_emphasis.index), [0, 1, 2]);
+  assert.deepEqual(captionRenderInputFromV1(second).emphasis_words.map(item => item?.id),
+    ['e-0001', 'e-0002', 'e-0003']);
+});
+
+test('移行: 範囲外と空の旧 run は元の形で残し意味の error を増やさない', () => {
+  const invalid = [
+    { from: 0, to: 2, style: { color: '#f00' } },
+    { from: 0, to: 0, animation: { in: { id: 'pop' } } }
+  ];
+  const original = { captions: [row('猫', { runs: invalid })] };
+  const result = planCaptionLookMigration(original, {});
+  assert.deepEqual(result.next.captions[0].runs, invalid);
+  assert.deepEqual(result.notices, ['範囲の外の古い指定 2 件はそのまま残しました']);
+  assert.deepEqual(readCaptionLookV1(original, {}).captions[0].runs, invalid);
+  assert.deepEqual(captionRenderInputFromV1(result.next).captions[0].runs, invalid);
+  assert.equal(validateCaptionsSemantics({ captions: result.next })
+    .filter(item => item.severity === 'error').length, 0);
+});
+
+test('壊れた runs: 読み取り・移行・描画入力・描画対象の四経路で形を保つ', () => {
+  for (const runs of [{}, 'x', [null]]) {
+    const original = { captions: [row('猫', { runs })] };
+    assert.deepEqual(readCaptionLookV1(original, {}).captions[0].runs, runs);
+    assert.deepEqual(planCaptionLookMigration(original, {}).next.captions[0].runs, runs);
+    assert.strictEqual(captionRenderInputFromV1(original), original);
+    assert.deepEqual(renderableCaptionRuns(original.captions[0], original), runs);
+    const mixed = { captions: [original.captions[0], row('犬', { id: 'c-0002',
+      runs: [{ id: 'r-0001', from: 0, to: 1, look: { color: '#fff' } }] })] };
+    assert.deepEqual(captionRenderInputFromV1(mixed).captions[0].runs, runs);
   }
 });
 
