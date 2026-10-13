@@ -457,6 +457,66 @@ test('automatic splitting extends to three and six fragments at word boundaries'
     ['aa ', 'bb ', 'cc ', 'dd ', 'ee ', 'ff']);
 });
 
+test('長い字幕の分割は元の深さ優先探索と一致する', () => {
+  const reference = (text, options) => {
+    if (measureCaptionUnits(text) <= options.max_line_units) return [text];
+    const segments = [...new Intl.Segmenter(options.locale, { granularity: 'word' }).segment(text)];
+    const boundaries = segments.map(part => part.index).filter(index => index > 0 && index < text.length);
+    const ends = [...boundaries, text.length];
+    const protectedTerms = options.break_hints?.protected_terms ?? [];
+    const blocked = end => end !== text.length && (captionBreakBoundaryBlocked(text, end,
+      segments.map(part => ({ start: part.index, end: part.index + part.segment.length,
+        wordLike: part.isWordLike === true }))) || protectedTerms.some(term => {
+      let at = text.indexOf(term);
+      while (at !== -1) {
+        if (at < end && end < at + term.length) return true;
+        at = text.indexOf(term, at + 1);
+      }
+      return false;
+    }));
+    const visit = (start, remaining) => {
+      if (start === text.length) return [];
+      if (remaining === 0) return undefined;
+      const candidates = ends.filter(end => end > start
+        && measureCaptionUnits(text.slice(start, end)) <= options.max_line_units && !blocked(end)).reverse();
+      for (const end of candidates) {
+        const rest = visit(end, remaining - 1);
+        if (rest) return [text.slice(start, end), ...rest];
+      }
+      return undefined;
+    };
+    for (let count = 3; count <= 6; count++) {
+      const result = visit(0, count);
+      if (result && result.length <= count) return result;
+    }
+    return [text];
+  };
+  let seed = 20261013;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  const words = ['今日は', '撮影', 'を', '進めます', '東京', 'YouTube', '動画', 'alpha', ' beta', '。'];
+  for (let index = 0; index < 240; index++) {
+    const text = Array.from({ length: 7 + Math.floor(random() * 6) }, () => words[Math.floor(random() * words.length)]).join('');
+    const options = { ...policy, locale: index % 2 ? 'ja' : 'en', max_line_units: 6 + index % 9,
+      ...(index % 3 === 0 ? { break_hints: { protected_terms: ['YouTube', '東京'] } } : {}) };
+    const result = splitCaptionFragments(text, options);
+    const expected = reference(text, options);
+    if (measureCaptionUnits(text) > options.max_line_units * 2) {
+      assert.deepEqual(result.fragments, expected);
+      assert.equal(result.overflow?.code, expected.length === 1 ? 'NO_WORD_BOUNDARY_SPLIT' : undefined);
+    }
+    assert.equal(result.fragments.join(''), text);
+  }
+});
+
+test('長い日本語字幕の探索が短時間で終わる', () => {
+  const text = '今日は撮影を進めます。新しい映像を選び、字幕を丁寧に確認します。'.repeat(3);
+  const options = { ...policy, max_line_units: 18 };
+  splitCaptionFragments(text, options);
+  const start = performance.now();
+  splitCaptionFragments(text, options);
+  assert.ok(performance.now() - start < 250);
+});
+
 test('自動分割境界は Latin・数字の連続と Segmenter 語の内側を拒否する', () => {
   assert.equal(captionBreakBoundaryBlocked('YouTube', 3, []), true);
   assert.equal(captionBreakBoundaryBlocked('2026', 2, []), true);

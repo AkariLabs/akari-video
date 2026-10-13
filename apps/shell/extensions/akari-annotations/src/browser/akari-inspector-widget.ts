@@ -5148,7 +5148,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 result = { ok: false, message: String(error) };
             }
             if (!result.ok) {
-                revert();
+                if (snapshot.kind === 'caption' && fieldName.startsWith('caption-')) this.render();
+                else revert();
                 if (field.liveSelect) field.liveSelect(undefined);
                 if (field.liveColor) this.restoreShapePaintLive(fieldName, snapshot, editValue, field.liveColor);
                 this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
@@ -5354,6 +5355,8 @@ export class AkariInspectorWidget extends BaseWidget {
                         };
                         const preview = (state: 'start' | 'committed' | 'failed', weight: number): void => {
                             if (!captionId) return;
+                            if (state === 'failed' && this.model.snapshot?.kind === 'caption'
+                                && this.model.snapshot.id === captionId) return;
                             window.dispatchEvent(new CustomEvent('akari-caption-panel-preview', { detail: {
                                 captionId,
                                 ...(state === 'start' ? { textStyle: { fontWeight: weight, weight } }
@@ -5361,9 +5364,13 @@ export class AkariInspectorWidget extends BaseWidget {
                             } }));
                         };
                         void writeCaptionWeightOptimistically(editValue, value, paint, preview,
-                            () => write(snapshot, value), () => this.captionWeightWriteRevisions.get(captionId) === revision)
+                            () => write(snapshot, value), () => this.captionWeightWriteRevisions.get(captionId) === revision,
+                            () => this.model.snapshot?.kind === 'caption' && this.model.snapshot.id === captionId)
                             .then(result => {
-                                if (!result.ok) this.showFieldNotice(result.message ?? '太さを書き込めませんでした。');
+                                if (!result.ok) {
+                                    this.render();
+                                    this.showFieldNotice(result.message ?? '太さを書き込めませんでした。');
+                                }
                             }, error => this.showFieldNotice(String(error)));
                     } else {
                         void commitValue(value, () => undefined);

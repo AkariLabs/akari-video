@@ -4,7 +4,7 @@ import { CommandService, DisposableCollection } from '@theia/core/lib/common';
 import { QuickInputService } from '@theia/core/lib/browser';
 import { isOSX } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileChangesEvent, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
+import { FileChangesEvent, FileChangeType, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { dataFileIcon, editVariantDataFileLabel, orderDataEntries } from '../common/output-data-order';
@@ -90,6 +90,10 @@ export class AkariOutputsPane {
     protected outputsWatch = new DisposableCollection();
     protected outputsWatchRootKey?: string;
     protected outputsWatchTimer?: ReturnType<typeof setTimeout>;
+    protected metadataTimer?: ReturnType<typeof setTimeout>;
+    protected readonly pendingMetadataUris = new Set<string>();
+    protected outputsWatchReason?: 'structural' | 'name-check';
+    protected readonly pendingNameCheckFolders = new Set<string>();
 
     constructor(protected readonly host: OutputsPaneHost) {}
 
@@ -120,15 +124,15 @@ export class AkariOutputsPane {
         }
         this.outputsLoading = true;
         this.host.update();
-        const [dataFiles, planFiles, exportFiles, rootReportFiles, managedReportFiles] = await Promise.all([
-            this.collectTopLevelFiles(root).then(files => files.filter(file =>
-                isEditDataFileName(file.resource.path.base)
-                || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base))),
-            this.collectPlanFiles(root),
+        const rootFiles = await this.collectTopLevelFiles(root);
+        const [planFiles, exportFiles, managedReportFiles] = await Promise.all([
+            this.collectPlanFiles(root, rootFiles),
             this.collectTopLevelFiles(root.resolve('exports')),
-            this.collectRootFilesNamed(root, this.host.rootReportFiles),
             this.collectTopLevelFiles(root.resolve('.akari/reports'))
         ]);
+        const dataFiles = rootFiles.filter(file => isEditDataFileName(file.resource.path.base)
+            || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base));
+        const rootReportFiles = this.collectRootFilesNamed(rootFiles, this.host.rootReportFiles);
         const reportFiles = [...rootReportFiles, ...managedReportFiles];
         const [dataEntries, planEntries, exportEntries, reportEntries] = await Promise.all([
             Promise.all(dataFiles.map(file => this.buildOutputEntry(root, file, 'data'))),
@@ -165,8 +169,7 @@ export class AkariOutputsPane {
     }
 
     /** ルート直下から、指定した名前のファイルだけを（実在するものだけ）拾う。順序は names の並び。 */
-    protected async collectRootFilesNamed(root: URI, names: readonly string[]): Promise<FileStatWithMetadata[]> {
-        const children = await this.collectTopLevelFiles(root);
+    protected collectRootFilesNamed(children: readonly FileStatWithMetadata[], names: readonly string[]): FileStatWithMetadata[] {
         const byName = new Map(children.map(child => [child.resource.path.base, child]));
         return names.map(name => byName.get(name)).filter((child): child is FileStatWithMetadata => !!child);
     }
@@ -175,12 +178,10 @@ export class AkariOutputsPane {
      * 「企画・メモ」の対象を集める。`planning/` は再帰（スキルが下位分類を切ることがある）、
      * ルート直下は ROOT_PLAN_FILES のみ。どちらも md だけ。
      */
-    protected async collectPlanFiles(root: URI): Promise<FileStatWithMetadata[]> {
-        const [planning, rootFiles] = await Promise.all([
-            this.collectMarkdownRecursively(root.resolve('planning')),
-            this.collectRootFilesNamed(root, this.host.rootPlanFiles)
-        ]);
-        return [...rootFiles, ...planning];
+    protected async collectPlanFiles(root: URI, rootFiles: readonly FileStatWithMetadata[]): Promise<FileStatWithMetadata[]> {
+        const planning = await this.collectMarkdownRecursively(root.resolve('planning'));
+        const named = this.collectRootFilesNamed(rootFiles, this.host.rootPlanFiles);
+        return [...named, ...planning];
     }
 
     /** ディレクトリ配下の md を再帰的に集める（ドット始まりのファイル/ディレクトリは除外）。 */
@@ -291,6 +292,13 @@ export class AkariOutputsPane {
         if (rootKey === this.outputsWatchRootKey) {
             return;
         }
+        if (this.outputsWatchTimer) clearTimeout(this.outputsWatchTimer);
+        if (this.metadataTimer) clearTimeout(this.metadataTimer);
+        this.outputsWatchTimer = undefined;
+        this.metadataTimer = undefined;
+        this.outputsWatchReason = undefined;
+        this.pendingMetadataUris.clear();
+        this.pendingNameCheckFolders.clear();
         this.outputsWatch.dispose();
         this.outputsWatch = new DisposableCollection();
         this.outputsWatchRootKey = rootKey;
@@ -322,23 +330,132 @@ export class AkariOutputsPane {
             ...this.host.rootPlanFiles,
             ...this.host.rootReportFiles
         ]);
-        const relevant = event.changes.some(change =>
-            watched.exportsUri.isEqualOrParent(change.resource)
-            || watched.reportsUri.isEqualOrParent(change.resource)
-            || watched.planningUri.isEqualOrParent(change.resource)
-            || (change.resource.parent.toString() === rootKey
-                && (watchedRootNames.has(change.resource.path.base) || isEditDataFileName(change.resource.path.base)))
-        );
-        if (!relevant) {
-            return;
+        const listed = new Set(this.outputs.map(entry => entry.uri.toString()));
+        let structural = false;
+        let nameCheck = false;
+        for (const change of event.changes) {
+            const key = change.resource.toString();
+            const parent = change.resource.parent.toString();
+            const isWatchedFolder = key === watched.exportsUri.toString()
+                || key === watched.reportsUri.toString() || key === watched.planningUri.toString();
+            const relevant = key === rootKey || isWatchedFolder || parent === watched.exportsUri.toString()
+                || parent === watched.reportsUri.toString()
+                || watched.planningUri.isEqualOrParent(change.resource)
+                || (parent === rootKey && (watchedRootNames.has(change.resource.path.base)
+                    || isEditDataFileName(change.resource.path.base)));
+            if (!relevant) continue;
+            if (change.type === FileChangeType.UPDATED && listed.has(key)) {
+                this.pendingMetadataUris.add(key);
+            } else if (key === rootKey || parent === rootKey || parent === watched.reportsUri.toString()
+                || key === watched.reportsUri.toString()) {
+                nameCheck = true;
+                this.pendingNameCheckFolders.add(key === rootKey || parent === rootKey
+                    ? rootKey : watched.reportsUri.toString());
+                if (listed.has(key)) this.pendingMetadataUris.add(key);
+            } else {
+                structural = true;
+            }
         }
-        if (this.outputsWatchTimer) {
-            clearTimeout(this.outputsWatchTimer);
+        if (structural) {
+            if (this.metadataTimer) clearTimeout(this.metadataTimer);
+            this.metadataTimer = undefined;
+            this.pendingMetadataUris.clear();
+            this.pendingNameCheckFolders.clear();
+            this.scheduleOutputsReload('structural');
+        } else if (nameCheck || this.outputsWatchReason === 'name-check') {
+            if (this.metadataTimer) clearTimeout(this.metadataTimer);
+            this.metadataTimer = undefined;
+            this.scheduleOutputsReload('name-check');
+        } else {
+            if (this.pendingMetadataUris.size) {
+                if (this.metadataTimer) clearTimeout(this.metadataTimer);
+                this.metadataTimer = setTimeout(() => {
+                    this.metadataTimer = undefined;
+                    const uris = new Set(this.pendingMetadataUris);
+                    this.pendingMetadataUris.clear();
+                    void this.refreshOutputMetadata(root, uris);
+                }, 900);
+            }
         }
+    }
+
+    protected scheduleOutputsReload(reason: 'name-check' | 'structural'): void {
+        if (this.outputsWatchTimer) clearTimeout(this.outputsWatchTimer);
+        this.outputsWatchReason = reason;
         this.outputsWatchTimer = setTimeout(() => {
             this.outputsWatchTimer = undefined;
-            void this.loadOutputs();
-        }, 300);
+            this.outputsWatchReason = undefined;
+            if (reason === 'name-check') void this.reconcileOutputNames();
+            else void this.loadOutputs();
+        }, 900);
+    }
+
+    protected async reconcileOutputNames(): Promise<void> {
+        const root = this.host.workflow.workspaceRoot;
+        if (!root) return;
+        const folders = new Set(this.pendingNameCheckFolders);
+        const uris = new Set(this.pendingMetadataUris);
+        this.pendingNameCheckFolders.clear();
+        this.pendingMetadataUris.clear();
+        const filesByUri = new Map<string, FileStatWithMetadata>();
+        for (const folderKey of folders) {
+            const folder = folderKey === root.toString() ? root : root.resolve('.akari/reports');
+            const files = await this.collectTopLevelFiles(folder);
+            if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            const listed = this.outputs.filter(entry => entry.uri.parent.toString() === folderKey)
+                .map(entry => entry.name).sort();
+            const available = files.filter(file => folderKey === root.toString()
+                ? isEditDataFileName(file.resource.path.base)
+                    || this.host.projectDataFiles.some(candidate => candidate.name === file.resource.path.base)
+                    || this.host.rootPlanFiles.includes(file.resource.path.base)
+                    || this.host.rootReportFiles.includes(file.resource.path.base)
+                : /\.html?$/iu.test(file.resource.path.base)
+                    && !/^create-project-report\.html?$/iu.test(file.resource.path.base));
+            if (JSON.stringify(available.map(file => file.resource.path.base).sort()) !== JSON.stringify(listed)) {
+                void this.loadOutputs();
+                return;
+            }
+            for (const file of files) filesByUri.set(file.resource.toString(), file);
+            if (![...uris].some(uri => available.some(file => file.resource.toString() === uri))) {
+                for (const entry of this.outputs) if (entry.uri.parent.toString() === folderKey) uris.add(entry.uri.toString());
+            }
+        }
+        await this.refreshOutputMetadata(root, uris, filesByUri);
+    }
+
+    protected async refreshOutputMetadata(root: URI, uris: ReadonlySet<string>,
+        resolvedFiles?: ReadonlyMap<string, FileStatWithMetadata>): Promise<void> {
+        const entries = this.outputs.filter(entry => uris.has(entry.uri.toString()));
+        const folders = new Map<string, URI>();
+        for (const entry of entries) folders.set(entry.uri.parent.toString(), entry.uri.parent);
+        const byUri = new Map(resolvedFiles ?? []);
+        if (!resolvedFiles) await Promise.all([...folders.values()].map(async folder => {
+            try {
+                const stat = await this.host.files.resolve(folder, { resolveMetadata: true });
+                for (const child of stat.children ?? []) byUri.set(child.resource.toString(), child);
+            } catch { /* A later add/delete notification requests a full listing. */ }
+        }));
+        if (this.host.workflow.workspaceRoot?.toString() !== root.toString()) return;
+        let changed = false;
+        for (const entry of entries) {
+            const file = byUri.get(entry.uri.toString());
+            if (!file) { this.scheduleOutputsReload('structural'); continue; }
+            if (entry.mtime !== file.mtime || entry.size !== file.size) {
+                entry.mtime = file.mtime;
+                entry.size = file.size;
+                changed = true;
+            }
+            if (entry.kind === 'report' || entry.kind === 'plan') {
+                const title = entry.kind === 'report' ? await this.readReportTitle(entry.uri)
+                    : await this.readMarkdownTitle(entry.uri);
+                if (entry.title !== title) { entry.title = title; changed = true; }
+            }
+        }
+        if (changed) {
+            this.outputs.sort((left, right) => right.mtime - left.mtime);
+            this.outputs = orderDataEntries(this.outputs, this.host.projectDataFiles.map(file => file.name));
+            this.host.update();
+        }
     }
 
     protected formatOutputTimestamp(mtime: number): string {

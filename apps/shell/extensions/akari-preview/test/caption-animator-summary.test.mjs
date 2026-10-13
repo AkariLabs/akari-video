@@ -170,7 +170,7 @@ test('初期モデルと字幕差分更新は同じ純関数で宣言を供給�
     assert.equal(source.match(/widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal/g)?.length, 2);
     assert.match(source, /widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal;\s*if \(!forceRebuild/);
     const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
-    const start = compiled.indexOf('queueCaptionsUpdate(widget) {');
+    const start = compiled.indexOf('queueCaptionsUpdate(widget, sourceOverride) {');
     const end = compiled.indexOf('previewModelSnapshot(', start);
     assert.ok(start >= 0 && end > start);
     const host = vm.runInNewContext('(new (class { ' + compiled.slice(start, end).trim() + ' }))', {

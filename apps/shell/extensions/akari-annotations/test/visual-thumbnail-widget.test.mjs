@@ -8,6 +8,7 @@ import { visualThumbnailRetryPlan } from '../lib/common/visual-thumbnail-retry.j
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName } from '../lib/common/visual-thumbnail-disk-cache.js';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
 import { visualThumbnailKey, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
+import { visualThumbnailReuseKey } from '../lib/browser/visual-thumbnail-reuse-key.js';
 import { visualHoverMode } from '../lib/common/visual-hover-mode.js';
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../lib/common/hover-popup-geometry.js';
 
@@ -36,13 +37,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async predicate => { const end = Date.now() + 4000; while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); } };
 function fixture(t, prepare, options = {}) {
   const captures = [], frames = [];
-  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot',
+  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualThumbnailReuseKey',
     'visualThumbnailRetryPlan', 'isVisualThumbnailDiskEntry', 'pruneThumbnailIndex', 'visualThumbnailCacheFileName', 'BinaryBuffer',
     'visualHoverMode', 'hoverPopupGeometry', 'createCaptionHoverPreview', 'HOVER_POPUP_DELAY_MS', 'mergeCaptionTextStyles',
     `const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails'; ${code};return Widget;`)(
     { requestAnimationFrame: callback => frames.push(callback),
       electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } }, ...options.window },
     options.document ?? { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot,
+    visualThumbnailReuseKey,
     visualThumbnailRetryPlan, isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName, BinaryBuffer,
     visualHoverMode, hoverPopupGeometry, createCaptionHoverPreview, HOVER_POPUP_DELAY_MS, mergeCaptionTextStyles);
   const w = new Widget();
@@ -50,7 +52,9 @@ function fixture(t, prepare, options = {}) {
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
   Object.assign(w, { location: { editUri: root }, currentWorkspaceRoots: async () => [`file:///${root.value}`],
     visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
-    failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
+    failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), visualReuseKeys: new WeakMap(),
+    visualReuseGeometry: new WeakMap(),
+    visibleDuration: () => 10, isDisposed: false, stripScroll: new Element(),
     editDocument: { version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [{ id: 'v', lane: 'visual', items: [
       { id: 'parent', at: 0, duration: 120, opacity: 1, source: { kind: 'group' }, items: [
         { id: 'title', at: 0, duration: 120, source: { kind: 'html', path: 'title.html', params: { text: 'A' } } },

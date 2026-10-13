@@ -28,6 +28,7 @@ import {
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { cutMotionReferencePaths } from '@akari-video/edit-store';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
@@ -1223,8 +1224,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const sidecarChanged = meaningful.some(change => /[\\/]\.akari[\\/]sidecars[\\/]/u.test(change.resource.path.toString())
                 || change.resource.path.base === 'cuts.json');
             if (sidecarChanged) this.sidecarRevision++;
-            const captionChanged = meaningful.some(change => change.resource.toString() === this.captionsUri?.toString()
-                && !this.captionEditQueue.hasOwnedCaptionChange());
+            const captionChanged = meaningful.some(change => change.resource.toString() === this.captionsUri?.toString());
             const relevant = meaningful.some(change => change.resource.toString() === this.editUri?.toString()
                 || change.resource.toString() === dictionaryUri?.toString()
                 || sidecarChanged && this.rootUri?.isEqualOrParent(change.resource));
@@ -4341,7 +4341,9 @@ export class AkariDaihonWidget extends BaseWidget {
             if (cutWarnings.includes('映像のある部分だけ切りました。'))
                 this.notify('映像のある部分だけ切りました');
         } catch (error) {
-            this.notifyError(this.errorMessage(error));
+            const message = this.errorMessage(error);
+            this.notifyError(/^(TypeError|ReferenceError|Error):/u.test(message)
+                ? 'この区間をカットできませんでした。編集データを確認してください。' : message);
         }
     }
 
@@ -5489,6 +5491,7 @@ export class AkariDaihonWidget extends BaseWidget {
         recordOnFailure = false): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         const [editBefore, captionsBefore] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
+        const motionBefore = refreshTimeline ? await this.readCutMotionSnapshots(editBefore) : new Map<string, string>();
         let failed = false;
         let failure: unknown;
         try { await operation(); } catch (error) {
@@ -5498,17 +5501,36 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const [editAfter, captionsAfter] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
         if (editBefore !== editAfter || captionsBefore !== captionsAfter) {
-            const write = async (editSource: string, captionsSource: string): Promise<void> => {
+            const motionAfter = refreshTimeline ? await this.readCutMotionSnapshots(editAfter) : new Map<string, string>();
+            const write = async (editSource: string, captionsSource: string,
+                motion: ReadonlyMap<string, string>): Promise<void> => {
+                for (const [path, source] of motion) {
+                    const uri = this.editUri!.parent.resolve(path);
+                    await this.fileService.createFolder(uri.parent);
+                    await this.fileService.writeFile(uri, BinaryBuffer.fromString(source));
+                }
                 await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
                 if (refreshTimeline) this.refreshCutTimeline();
                 await this.reload();
             };
             const history = daihonHistoryService();
-            history?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+            history?.push({ label, undo: () => write(editBefore, captionsBefore, motionBefore),
+                redo: () => write(editAfter, captionsAfter, motionAfter) });
             if (history) this.pendingUndoAt = Date.now();
         }
         if (failed) throw failure;
+    }
+
+    protected async readCutMotionSnapshots(editSource: string): Promise<Map<string, string>> {
+        const snapshots = new Map<string, string>();
+        if (!this.editUri) return snapshots;
+        const edit = JSON.parse(editSource) as { tracks?: unknown };
+        await Promise.all(cutMotionReferencePaths(edit).map(async path => {
+            try { snapshots.set(path, await this.readText(this.editUri!.parent.resolve(path))); }
+            catch { /* A missing bag is rejected if a cut tries to use it. */ }
+        }));
+        return snapshots;
     }
 
     protected async applyWordPreset(presetId: string): Promise<void> {

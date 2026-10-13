@@ -4,7 +4,8 @@ export async function writeCaptionWeightOptimistically<T extends { ok: boolean }
     paint: (value: string) => void,
     preview: (state: 'start' | 'committed' | 'failed', weight: number) => void,
     write: () => Promise<T>,
-    isLatest: () => boolean
+    isLatest: () => boolean,
+    isSelected: () => boolean = () => true
 ): Promise<T> {
     const weight = Number(next);
     paint(next);
@@ -17,13 +18,13 @@ export async function writeCaptionWeightOptimistically<T extends { ok: boolean }
                 paint(previous);
                 preview('failed', weight);
             }
-        }
+        } else if (!isSelected()) preview('failed', weight);
         return result;
     } catch (error) {
         if (isLatest()) {
             paint(previous);
             preview('failed', weight);
-        }
+        } else if (!isSelected()) preview('failed', weight);
         throw error;
     }
 }

@@ -519,6 +519,18 @@ test('v2 の中央レンジは source と duration を同じ比率で二分す�
   assert.equal(result.removedFrames, 60);
 });
 
+test('袋を読めない外部 keyframes 参照はカットと分割を保存前に止める', () => {
+  const item = { ...media('main-1', 0, 300, 0, 10), keyframes: { path: 'motion/m-1.json', count: 3 } };
+  const source = v2([item]);
+  const original = JSON.parse(source);
+  assert.throws(() => applyCutRanges(source, [range([3, 5])]),
+    /動きの記録の袋を読み込めないため、分割できません/);
+  assert.throws(() => splitAtFrame(original, 150, { itemIds: ['main-1'] }),
+    /動きの記録の袋を読み込めないため、分割できません/);
+  assert.deepEqual(JSON.parse(source), original);
+  assert.deepEqual(original.tracks[0].items[0].keyframes, { path: 'motion/m-1.json', count: 3 });
+});
+
 test('v2 は reason / label を残った media items へ永続化する', () => {
   const items = JSON.parse(applyCutRanges(v2(), [range([3, 5], 'row', { reason: 'word', label: '言い直し' })], { fps: 30 }).source).tracks[0].items;
   assert.deepEqual(items.map(item => [item.reason, item.label]), [['word', '言い直し'], ['word', '言い直し']]);

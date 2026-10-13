@@ -23,6 +23,42 @@ test('字幕の上のメニューは試作 v2 の順で 1 段の項目を持つ'
     assert.deepEqual(barItems({ ...state, selectedId: null }), []);
 });
 
+test('帯の見た目は保存を待たずに変わり、失敗で保存済み表示へ戻る', async () => {
+    let finish;
+    const messages = [];
+    let renders = 0;
+    const view = { state: { item: { textStyle: { sizePx: 48 } } }, captionPending: new Map(),
+        host: { sendMessage: message => messages.push(message) }, render: () => { renders++; },
+        run: () => new Promise(resolve => { finish = resolve; }) };
+    PreviewContextBar.prototype.writeCaptionValue.call(view, 'sizePx', 50);
+    assert.equal(view.captionPending.get('sizePx'), 50);
+    assert.equal(messages[0].value, 50);
+    assert.equal(renders, 1);
+    finish({ ok: false });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(view.captionPending.has('sizePx'), false);
+    assert.equal(messages.at(-1).value, null);
+    assert.equal(renders, 2);
+});
+
+test('太字と色は保存前にプレビューへ反映し、透明度は百分率で渡す', async () => {
+    const messages = [];
+    let finish;
+    const view = { state: { selectedId: 'cue-1', item: { textStyle: { weight: 400, opacity: 1 } } },
+        captionPending: new Map(), host: { sendMessage: message => messages.push(message) },
+        render: () => undefined, run: () => new Promise(resolve => { finish = resolve; }) };
+    PreviewContextBar.prototype.writeCaptionValue.call(view, 'weight', 900);
+    assert.deepEqual(messages[0], { type: 'akari-preview-caption-style-preview', captionId: 'cue-1',
+        textStyle: { weight: 900, fontWeight: 900 } });
+    finish({ ok: false });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(messages.at(-1).failed, true);
+    PreviewContextBar.prototype.writeCaptionValue.call(view, 'opacity', 0.4);
+    assert.equal(messages.at(-1).value, 40);
+    finish({ ok: true });
+    await new Promise(resolve => setImmediate(resolve));
+});
+
 test('狭い幅では右から畳みフォント・サイズ・スタイルを残す', () => {
     const widths = Object.fromEntries(CAPTION_BAR_ORDER.map(key => [key,
         key === 'captionFont' ? 94 : key === 'captionSize' ? 78

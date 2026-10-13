@@ -49,6 +49,7 @@ function harness(initial = before) {
     sourceIdForRow: () => 'main', audioOnlyCutReason: () => undefined,
     closePop() {}, closeCutRangeEditor() {},
     readText: async target => target.toString() === 'edit' ? edit : 'captions-before',
+    readCutMotionSnapshots: async () => new Map(),
     async reload() {}, refreshCutTimeline() {}, showCutToast: message => toasts.push(message),
     notify: message => notifications.push(message), notifyError: message => notifications.push(message),
     errorMessage: error => String(error),

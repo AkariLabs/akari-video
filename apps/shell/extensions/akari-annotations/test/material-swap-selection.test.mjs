@@ -77,7 +77,9 @@ test('actual deselection during an asynchronous reload is not resurrected',async
  w.materialSwap={target:{itemId:'broll-1',kind:'visual'}};
  const next=replacement.replaceMaterial(doc,{itemId:'broll-1',relativePath:'assets/still/br-example/broll.png',kind:'image'});
  let resume;w.resolveLegacyEditForOpen=text=>new Promise(resolve=>{resume=()=>resolve(text);});
- const reload=w.reloadEdit(JSON.stringify(next));w.selection=undefined;w.pushSelectionSnapshot();resume();await reload;
+ const reload=w.reloadEdit(JSON.stringify(next));w.selection=undefined;w.pushSelectionSnapshot();
+ for(let attempt=0;attempt<10&&!resume;attempt++) await Promise.resolve();
+ assert.equal(typeof resume,'function');resume();await reload;
  assert.equal(w.selection,undefined);assert.ok(ended()>0);
 });
 

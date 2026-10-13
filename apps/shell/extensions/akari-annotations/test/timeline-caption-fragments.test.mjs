@@ -54,10 +54,12 @@ function between(source, startNeedle, endNeedle) {
     return source.slice(start, end);
 }
 
-test('captions watcher は直後の自己書き込みエコーを読まずに捨てる', () => {
-    const watcher = between(widget, 'this.fileService.onDidFilesChange(event => {', 'protected isRecentWrite(uri: URI)');
-    assert.match(watcher, /this\.isRecentWrite\(this\.location\.captionsUri\)[\s\S]*?this\.captionEchoVerifier\?\.request\(/);
-    assert.match(watcher, /else \{\s*void this\.reloadCaptionsIfChanged\(\)/);
+test('captions watcher は recent-write 時刻ゲートを使わず内容差分を確認する', () => {
+    const watcher = between(widget, 'this.fileService.onDidFilesChange(event => {', 'protected showDeferredLintResult(');
+    assert.match(watcher, /this\.watchedCaptionsReload\.request\(\)/);
+    assert.match(widget, /shouldReloadCaptions\(this\.lastAppliedCaptionsSource, nextSource\)/);
+    assert.doesNotMatch(watcher, /isRecentWrite|captionEchoVerifier/);
+    assert.match(watcher, /this\.watchedEditReload\.request\(\)/);
 });
 
 test('書き込み完了通知は captionsUri の本文を即時 reload へ渡す', () => {

@@ -4,7 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const compiled = readHandlerCompiled();
-const start = compiled.indexOf('queueCaptionsUpdate(widget) {');
+const start = compiled.indexOf('queueCaptionsUpdate(widget, sourceOverride) {');
 const end = compiled.indexOf('previewModelSnapshot(', start);
 assert.ok(start >= 0 && end > start);
 const cue = { id: 'c1', start: 0, end: 1, text: 'Added later' };

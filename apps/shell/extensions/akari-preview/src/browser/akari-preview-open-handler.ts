@@ -3584,6 +3584,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
+        let watchedEditPending = false;
+        let watchedEditRunning = false;
+        let lastQueuedEditContent: string | undefined;
+        const queueWatchedEdit = (): void => {
+            watchedEditPending = true;
+            if (watchedEditRunning) return;
+            watchedEditRunning = true;
+            void (async () => {
+                try {
+                    while (watchedEditPending && !widget.isDisposed) {
+                        watchedEditPending = false;
+                        const uri = widget.akariPreviewEditUri;
+                        if (!uri) continue;
+                        const source = await this.readText(uri);
+                        if (source !== lastQueuedEditContent) {
+                            lastQueuedEditContent = source;
+                            this.queueRefresh(widget, identityUri, kind, undefined, false, source);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('[akari-preview] edit.json を読み取れませんでした', error);
+                    this.queueRefresh(widget, identityUri, kind, undefined, false);
+                } finally {
+                    watchedEditRunning = false;
+                    if (watchedEditPending && !widget.isDisposed) queueWatchedEdit();
+                }
+            })();
+        };
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3643,12 +3671,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // URI の先頭が videoUri/editUri 生成時と食い違う。basename + 直上ディレクトリ名の
                 // suffix 一致もフォールバックとして見る。
                 const suffix = this.resourceSuffix(change.resource);
-                const writtenAt = this.recentWriteAt(change.resource);
                 if (key === captionsKey || (captionsSuffix !== undefined && suffix === captionsSuffix)) {
-                    captionsChanged ||= Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
+                    captionsChanged = true;
+                    continue;
+                }
+                if (editKey && (key === editKey || suffix === editSuffix)) {
+                    queueWatchedEdit();
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                    const writtenAt = this.recentWriteAt(change.resource);
                     const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                         akariPreviewJustAddedSuffixes?: Map<string, number> };
                     const added = recent.akariPreviewJustAddedUris?.get(key)
@@ -3680,8 +3712,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
-        // watcher 経路は残したまま並走させ、こちらで処理した書き込みは recentWrites の窓で
-        // 後から来る watcher イベントを落とす（= 同じ 1 回の編集で差分メッセージは 1 通だけ）。
+        // watcher の再読込は内容差分で判定する。
         // 外部（CLI / 外部エディタ / AI パートナー）からの書き込みはこの通知が来ないので、
         // 従来どおり watcher 経路だけで更新される。
         const onEditStoreDidWrite = (event: Event): void => {
@@ -3707,7 +3738,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 || this.resourceSuffix(written) === this.resourceSuffix(captionsUri))) {
                 this.markRecentWrite(written);
                 this.markRecentWrite(captionsUri);
-                this.queueCaptionsUpdate(widget);
+                this.queueCaptionsUpdate(widget, detail.content);
                 return;
             }
             // 一致した URI にだけ印を付け、後続 watcher の重複通知を抑える。
@@ -3717,6 +3748,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.markRecentWrite(written);
             this.markRecentWrite(editUri);
+            lastQueuedEditContent = detail.content;
             this.queueRefresh(widget, identityUri, kind, undefined, false, detail.content);
         };
         disposables.push(listen(window, EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite));
@@ -4114,30 +4146,41 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         );
     }
 
-    protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
+    protected queueCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): void {
         const state = widget as PreviewWidgetMarker & {
             akariPreviewCaptionUpdateRunning?: boolean; akariPreviewCaptionUpdatePending?: boolean;
+            akariPreviewCaptionPendingSource?: string;
         };
         state.akariPreviewCaptionUpdatePending = true;
+        state.akariPreviewCaptionPendingSource = sourceOverride;
         if (state.akariPreviewCaptionUpdateRunning) return;
         state.akariPreviewCaptionUpdateRunning = true;
         widget.akariPreviewCaptionsUpdate = (async () => {
             while (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
                 state.akariPreviewCaptionUpdatePending = false;
-                await this.applyCaptionsUpdate(widget);
+                const source = state.akariPreviewCaptionPendingSource;
+                state.akariPreviewCaptionPendingSource = undefined;
+                await this.applyCaptionsUpdate(widget, source);
             }
         })().catch(error => console.error('[akari-preview] failed to update captions', error)).finally(() => {
             state.akariPreviewCaptionUpdateRunning = false;
-            if (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) this.queueCaptionsUpdate(widget);
+            if (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
+                this.queueCaptionsUpdate(widget, state.akariPreviewCaptionPendingSource);
+            }
         });
     }
 
-    protected async applyCaptionsUpdate(widget: PreviewWidgetMarker): Promise<void> {
-            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+    protected async applyCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): Promise<void> {
+            const state = widget as PreviewWidgetMarker & { akariPreviewLastCaptionContent?: string };
+            const source = sourceOverride ?? (widget.akariPreviewCaptionsUri
+                ? await this.readText(widget.akariPreviewCaptionsUri).catch(() => undefined) : undefined);
+            if (source !== undefined && source === state.akariPreviewLastCaptionContent) return;
+            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri, source);
             // 字幕 RPC が先着しても、同時に読込中の edit の宣言・cut 時計を使う。
             // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
             await widget.akariPreviewRefresh;
             if (widget.isDisposed) return;
+            state.akariPreviewLastCaptionContent = source;
             // 出力プレビューの identity は edit URI。raw は字幕レーンを持たない。
             // 先行 refresh の完了後に判定することで、連続した字幕通知でも
             // レーン追加の refresh は一度だけになり、以後は差分更新へ戻る。

@@ -29,3 +29,31 @@ test('古い保存応答は新しい選択印を巻き戻さない', async () =>
     assert.deepEqual(painted, ['700']);
     assert.deepEqual(previews, ['start']);
 });
+
+test('保存中に別の字幕を選ぶと古いプレビューを解除する', async () => {
+    const painted = [];
+    const previews = [];
+    let selected = true;
+    let finish;
+    const pending = writeCaptionWeightOptimistically('400', '900', value => painted.push(value),
+        state => previews.push(state), () => new Promise(resolve => { finish = resolve; }),
+        () => selected, () => selected);
+    selected = false;
+    finish({ ok: true });
+    await pending;
+    assert.deepEqual(painted, ['900']);
+    assert.deepEqual(previews, ['start', 'failed']);
+});
+
+test('保存中の選択変更と失敗でも古いプレビューを解除する', async () => {
+    const previews = [];
+    let selected = true;
+    let finish;
+    const pending = writeCaptionWeightOptimistically('400', '900', () => undefined,
+        state => previews.push(state), () => new Promise(resolve => { finish = resolve; }),
+        () => selected, () => selected);
+    selected = false;
+    finish({ ok: false });
+    await pending;
+    assert.deepEqual(previews, ['start', 'failed']);
+});

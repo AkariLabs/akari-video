@@ -5,6 +5,9 @@ import { writeAtomic, writeProjectFilesGuarded, scheduleProjectLint, type EditLi
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
+import { cutMotionReferencePaths, hydrateCutMotionReferences, restoreUncutMotionReferences } from '@akari-video/edit-store';
+import { serializeMotion } from '@akari-video/edit-store/lib/canonical';
+import { prepareV2KeyframeDistribution, type EditV2Document } from '../common/edit-v2-mutations';
 import {
     applyCutRanges as applyCutRangesToSource,
     restoreCutRange as restoreCutRangeInSource,
@@ -2648,7 +2651,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const beforeSource = await fs.readFile(editPath, 'utf8');
+        if (request.ranges.length === 0) return { committed: false, removedFrames: 0, beforeSource, warnings: [] };
         let cutInput = beforeSource;
+        const motionBags = new Map<string, unknown>();
         const anchors = new Map<string, unknown>();
         if (detectEditVersion(beforeSource) === 2) {
             const edit = JSON.parse(beforeSource) as { tracks?: Array<{ items?: unknown[] }> };
@@ -2669,6 +2674,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const anchorFree = withoutItemAnchors(edit);
                 cutInput = `${JSON.stringify(anchorFree, null, 2)}\n`;
             }
+            const cutDocument = JSON.parse(cutInput) as EditV2Document;
+            const motionPaths = cutMotionReferencePaths(cutDocument);
+            await Promise.all(motionPaths.map(async path => {
+                try {
+                    motionBags.set(path, JSON.parse(await fs.readFile(join(dirname(editPath), path), 'utf8')));
+                } catch {
+                    // A sliced item with an unreadable bag is rejected before any write.
+                }
+            }));
+            if (motionPaths.length) cutInput = `${JSON.stringify(hydrateCutMotionReferences(cutDocument, motionBags), null, 2)}\n`;
         }
         // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
         const applied = applyCutRangesToSource(cutInput, request.ranges as unknown as CutRange[], {});
@@ -2704,11 +2719,71 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 if (code !== 'ENOENT') console.warn('[akari-annotations] captions.json のアンカー更新をスキップしました。', error);
             }
         }
+        let motionWrites: Array<{ path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }> = [];
+        if (detectEditVersion(updated) === 2) {
+            const restored = restoreUncutMotionReferences(JSON.parse(beforeSource) as EditV2Document,
+                JSON.parse(updated) as EditV2Document, motionBags);
+            const distribution = prepareV2KeyframeDistribution(restored);
+            updated = `${JSON.stringify(distribution.document, null, 2)}\n`;
+            motionWrites = distribution.writes;
+        }
+        if (JSON.stringify(JSON.parse(updated)) === JSON.stringify(JSON.parse(beforeSource))) {
+            return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+        }
         for (const warning of applied.warnings) console.warn(`[akari-annotations] ${warning}`);
-        await this.writeProjectFileGuarded(editPath, updated);
+        if (motionWrites.length) {
+            await this.writeCutWithMotion(editPath, updated, motionWrites);
+        } else await this.writeProjectFileGuarded(editPath, updated);
         const projectRoot = this.fsPath(request.projectRootUri);
         this.queueEditCommit(projectRoot, request.label, [editPath]);
         return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+    }
+
+    private async writeCutWithMotion(editPath: string, editSource: string,
+        writes: readonly { path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }[]): Promise<void> {
+        const projectDir = dirname(editPath);
+        const originals = new Map<string, string | undefined>();
+        const candidates: Record<string, string> = {};
+        for (const write of writes) {
+            if (!(write.path in candidates)) {
+                let previous: string | undefined;
+                try { previous = await fs.readFile(join(projectDir, write.path), 'utf8'); }
+                catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+                }
+                originals.set(write.path, previous);
+                let bag: { version: number; group: string; items: Record<string, unknown> };
+                try {
+                    bag = previous ? JSON.parse(previous) as typeof bag
+                        : { version: 0, group: write.group, items: {} };
+                } catch {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                if (!bag || typeof bag !== 'object' || bag.version !== 0 || bag.group !== write.group
+                    || !bag.items || typeof bag.items !== 'object' || Array.isArray(bag.items)) {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                candidates[write.path] = serializeMotion(bag);
+            }
+            const bag = JSON.parse(candidates[write.path]) as { version: 0; group: string; items: Record<string, unknown> };
+            bag.items[write.itemId] = structuredClone(write.points);
+            candidates[write.path] = serializeMotion(bag);
+        }
+        candidates[basename(editPath)] = editSource;
+        for (const name of Object.keys(candidates)) this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+        try {
+            await this.writeSnapshotCandidates(projectDir, candidates, {
+                appVersion: await this.shellWriterVersion(),
+                onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
+                onLintResult: result => this.notifyDeferredLint(projectDir, result)
+            });
+        } catch (error) {
+            for (const [path, original] of originals) {
+                if (original === undefined) await fs.rm(join(projectDir, path), { force: true });
+                else await writeAtomic(join(projectDir, path), original);
+            }
+            throw error;
+        }
     }
 
     async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {

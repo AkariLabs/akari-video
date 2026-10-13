@@ -1701,17 +1701,35 @@ function splitCaptionFragmentsAtBoundaries(
     maximumFragments: number
 ): string[] | undefined {
     const ends = [...boundaries, text.length];
+    const units = new Array<number>(text.length + 1).fill(0);
+    for (let index = 0; index < text.length;) {
+        const character = String.fromCodePoint(text.codePointAt(index)!)!;
+        const next = index + character.length;
+        const value = /^[\x00-\x7F]$/u.test(character) ? 0.5 : 1;
+        for (let cursor = index + 1; cursor <= next; cursor++) units[cursor] = units[index] + value;
+        index = next;
+    }
+    const allowed = new Set(ends.filter(end => end === text.length
+        || (!captionBreakBoundaryBlocked(text, end, wordSpans)
+            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? []))));
+    const memo = new Map<string, string[] | undefined>();
     const visit = (start: number, remaining: number): string[] | undefined => {
         if (start === text.length) return [];
         if (remaining === 0) return undefined;
+        const key = `${start}:${remaining}`;
+        if (memo.has(key)) return memo.get(key);
         const candidates = ends.filter(end => end > start
-            && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units
-            && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans))
-            && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+            && units[end] - units[start] <= policy.max_line_units
+            && allowed.has(end)).reverse();
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);
-            if (rest) return [text.slice(start, end), ...rest];
+            if (rest) {
+                const result = [text.slice(start, end), ...rest];
+                memo.set(key, result);
+                return result;
+            }
         }
+        memo.set(key, undefined);
         return undefined;
     };
     for (let count = 3; count <= maximumFragments; count++) {
