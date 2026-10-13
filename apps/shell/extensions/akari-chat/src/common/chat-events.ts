@@ -2,6 +2,7 @@ export type ToolKind = 'think' | 'read' | 'write' | 'command' | 'search' | 'skil
 
 export type ChatEvent =
     | { type: 'ready' }
+    | { type: 'commands.changed' }
     | { type: 'capabilities'; capabilities: import('./chat-agent').ChatCapabilities }
     | { type: 'model'; model?: string; effort?: string }
     | { type: 'thinking.delta'; id: string; text: string }
@@ -32,4 +33,5 @@ export type ChatEvent =
         files: { path: string; label: string; kind: 'video' | 'image' | 'html' | 'audio' | 'other' }[];
     }
     | { type: 'turn.end'; ok: boolean; reason?: string }
-    | { type: 'error'; kind: 'auth' | 'not-installed' | 'crashed' | 'rate-limit' | 'other'; message: string };
+    | { type: 'error'; kind: 'auth' | 'not-installed' | 'crashed' | 'rate-limit' | 'other'; message: string;
+        resumeFailure?: 'missing' | 'startup' };

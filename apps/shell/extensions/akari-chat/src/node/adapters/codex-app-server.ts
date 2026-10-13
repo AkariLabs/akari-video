@@ -1,4 +1,5 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { reapChildGroup, terminateChild } from './terminate';
 import { constants } from 'fs';
 import { access } from 'fs/promises';
 import { homedir } from 'os';
@@ -452,8 +453,9 @@ class CodexSession implements ChatAdapterSession {
 
     private launch(): void {
         const child = spawn(this.executable, ['app-server', '--stdio'], {
-            cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
+            cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, detached: process.platform !== 'win32'
         });
+        reapChildGroup(child);
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         this.child = child;
@@ -525,7 +527,8 @@ class CodexSession implements ChatAdapterSession {
             if (!pending) { return; }
             this.pendingRpc.delete(message.id);
             clearTimeout(pending.timer);
-            if (message.error) { pending.reject(new Error(message.error.message || 'JSON-RPC error')); }
+            if (message.error) { pending.reject(new Error(`${pending.method === 'thread/resume'
+                ? 'akari-chat:resume-missing:' : ''}${message.error.message || 'JSON-RPC error'}`)); }
             else {
                 const requestedModel = pending.method === 'turn/start' ? (pending.params as { model?: string }).model : undefined;
                 const model = pending.method === 'turn/start' ? requestedModel || this.actualModel : undefined;
@@ -848,7 +851,6 @@ class CodexSession implements ChatAdapterSession {
             pending.reject(new Error('closed'));
         }
         this.pendingRpc.clear();
-        child?.stdin.end();
-        child?.kill();
+        await terminateChild(child);
     }
 }

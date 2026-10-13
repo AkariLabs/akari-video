@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { ChatInputIme } = require('../lib/browser/chat-input-ime.js');
 const { commandMatches, commandGroups, optionalRpc, transcriptToItems, thinkingLabel, showElapsedThinking,
-    commandMenuMaxHeight, preparationReady, permissionLabel, permissionSelection, contextUsageLabel } =
+    commandMenuMaxHeight, preparationReady, permissionLabel, permissionSelection, contextUsageLabel,
+    contextUsage, restoreDraft } =
     require('../lib/browser/chat-view-logic.js');
 
 test('IME composition keeps only confirmed Japanese text and ignores shortcut keys', () => {
@@ -216,7 +217,24 @@ test('preparation waits for ready', () => {
 
 test('context usage labels include grouped numbers and unknown limit', () => {
     assert.equal(contextUsageLabel(12345, 200000), '使用量 12,345 / 上限 200,000 トークン · 6%');
-    assert.equal(contextUsageLabel(12345), '使用量 12,345 / 上限 — トークン · —%');
+    assert.equal(contextUsageLabel(12345), '使用量 12,345 トークン（上限は分かりません）');
+    assert.deepEqual(contextUsage(12345, 200000), {
+        state: 'known', label: '使用量 12,345 / 上限 200,000 トークン · 6%', percentage: 6 });
+    assert.deepEqual(contextUsage(13679), {
+        state: 'no-limit', label: '使用量 13,679 トークン（上限は分かりません）', percentage: 0 });
+    assert.deepEqual(contextUsage(undefined, undefined, true), {
+        state: 'unavailable', label: 'この相手は使用量を表示できません', percentage: 0 });
+    assert.deepEqual(contextUsage(), {
+        state: 'empty', label: 'まだ使用量はありません', percentage: 0 });
+});
+
+test('unsent drafts return in send order before newer text and attachments', () => {
+    assert.deepEqual(restoreDraft([
+        { text: '一行目\n二行目', attachments: ['file', 'pin'] },
+        { text: '次の送信', attachments: ['second'] }
+    ], '入力中', ['current']), {
+        text: '一行目\n二行目\n次の送信\n入力中', attachments: ['file', 'pin', 'second', 'current']
+    });
 });
 
 test('new RPC rejection and no response are swallowed', async () => {

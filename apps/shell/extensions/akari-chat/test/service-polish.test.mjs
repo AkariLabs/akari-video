@@ -104,7 +104,7 @@ test('start reports an initial error by event and the first send ends', async ()
         service.setClient({ onEvent: (_id, event) => events.push(event) });
         const started = await service.start({ agent: 'fake', cwd });
         assert.ok(started.chatId);
-        await service.send(started.chatId, 'hello', []);
+        await assert.rejects(service.send(started.chatId, 'hello', []), /akari-chat:not-delivered/);
         assert.ok(events.some(event => event.type === 'error' && event.kind === 'auth'));
         assert.ok(events.some(event => event.type === 'turn.end' && !event.ok));
         assert.deepEqual(await service.listHistory(cwd), []);
@@ -190,7 +190,7 @@ test('a failed resume keeps the saved history reference usable', async () => {
         await service.close(first.chatId);
         const reopened = await service.resume(cwd, saved.id);
         assert.ok(reopened.chatId);
-        await service.send(reopened.chatId, 'retry', []);
+        await assert.rejects(service.send(reopened.chatId, 'retry', []), /akari-chat:not-delivered/);
         const [after] = await service.listHistory(cwd);
         assert.equal(after.sessionRef, 'saved-ref');
         assert.equal(after.title, 'saved chat');
@@ -209,6 +209,31 @@ test('a failed resume keeps the saved history reference usable', async () => {
             interrupt: async () => {}, close: async () => {}
         };
     });
+});
+
+test('close returns promptly while closeAll waits for transport termination', async () => {
+    let finishClose;
+    let closed = false;
+    await withService(async (service, cwd) => {
+        const started = await service.start({ agent: 'fake', cwd });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await service.close(started.chatId);
+        assert.equal(closed, false);
+        const all = service.closeAll();
+        let finished = false;
+        void all.then(() => { finished = true; });
+        await Promise.resolve();
+        assert.equal(finished, false);
+        finishClose();
+        await all;
+        assert.equal(closed, true);
+    }, async () => ({
+        sessionRef: 'ref', capabilities: async () => ({ models: [], images: false, interrupt: true, clear: false,
+            compact: false, resume: true, ask: false }),
+        onEvent: () => ({ dispose: () => undefined }), send: async () => undefined,
+        interrupt: async () => undefined,
+        close: () => new Promise(resolve => { finishClose = () => { closed = true; resolve(); }; })
+    }));
 });
 
 test('model search matches id and label and keeps recent choices above the list', () => {
@@ -259,14 +284,23 @@ test('auth errors show the agent reason and next actions; ordinary turn errors d
     assert.equal(agy.reason, 'Antigravity model unavailable');
 });
 
-test('resume failure has a Japanese action without exposing provider errors', () => {
+test('resume failure separates a missing conversation from startup failure', () => {
     const { resumeFailure } = require('../lib/common/chat-ui-logic.js');
-    for (const message of ['Error: no rollout found for thread id abc', 'Internal error: OpenCode service failure']) {
-        const error = { type: 'error', kind: 'other', message };
+    for (const error of [
+        { type: 'error', kind: 'other', message: 'Error: no rollout found for thread id abc' },
+        { type: 'error', kind: 'other', message: 'Internal error: OpenCode service failure', resumeFailure: 'missing' },
+        { type: 'error', kind: 'other', message: 'No conversation found' }
+    ]) {
         assert.equal(resumeFailure(error, true, true), true);
         const display = chatErrorPresentation(error, 'Codex', true, 'codex', true);
         assert.equal(display.reason, 'この会話は開けません。相手側に会話が残っていません。');
         assert.equal(display.nextStep, true);
+    }
+    for (const message of ['Claude Code が終了しました (2)', 'Codex が終了しました (null)',
+        'initialize: timeout', 'ACP エージェントが終了しました (null)']) {
+        const error = { type: 'error', kind: 'other', message };
+        assert.equal(chatErrorPresentation(error, 'Codex', true, 'codex', true).reason,
+            'Codex を起動できませんでした。もう一度開いてください。');
     }
     assert.equal(resumeFailure({ type: 'error', kind: 'auth', message: 'login required' }, true, true), false);
     assert.equal(resumeFailure({ type: 'error', kind: 'other', message: 'error_during_execution' }, false, true), true);

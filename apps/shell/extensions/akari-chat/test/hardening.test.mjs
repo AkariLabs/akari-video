@@ -18,6 +18,7 @@ const { BackendApplicationContribution } = require('@theia/core/lib/node/backend
 const { chatAdapters } = require('../lib/node/adapters/index.js');
 const { AcpSession } = require('../lib/node/adapters/acp.js');
 const { appendTranscript, loadTranscript } = require('../lib/node/chat-storage.js');
+const { terminateChild } = require('../lib/node/adapters/terminate.js');
 
 async function project(run) {
     const root = await mkdtemp(join(tmpdir(), 'akari-chat-hardening-'));
@@ -104,6 +105,38 @@ test('RPC disconnect hook disposes its connection service while other clients re
             await root.get(BackendApplicationContribution).onStop();
             assert.equal(closed.count, 3);
         } finally { chatAdapters.splice(0, chatAdapters.length, ...original); }
+    });
+});
+
+test('backend stop waits for a disconnect already disposing a stopped service', async () => {
+    await project(async (_root, cwd) => {
+        const original = chatAdapters.splice(0);
+        let child;
+        chatAdapters.push({ info: async () => ({ id: 'fake', name: 'Fake', installed: true, transport: 'acp' }),
+            start: async () => {
+                child = spawn(process.execPath, ['-e', `process.on('SIGTERM', () => {});
+process.stdout.write('ready\\n'); setInterval(() => {}, 1000);`],
+                { stdio: ['ignore', 'pipe', 'ignore'], detached: process.platform !== 'win32' });
+                await once(child.stdout, 'data');
+                return { sessionRef: 'ref', capabilities: async () => ({}),
+                    onEvent: () => ({ dispose() {} }), send: async () => {}, interrupt: async () => {},
+                    close: () => terminateChild(child) };
+            } });
+        try {
+            const registry = new AkariChatSessionRegistry();
+            const service = new AkariChatServiceImpl();
+            registry.add(service);
+            const { chatId } = await service.start({ agent: 'fake', cwd });
+            await service.sessions.get(chatId).ready;
+            void registry.remove(service);
+            await registry.onStop();
+            assert.throws(() => process.kill(child.pid, 0), { code: 'ESRCH' });
+        } finally {
+            if (child?.pid) {
+                try { process.kill(process.platform === 'win32' ? child.pid : -child.pid, 'SIGKILL'); } catch {}
+            }
+            chatAdapters.splice(0, chatAdapters.length, ...original);
+        }
     });
 });
 
@@ -244,7 +277,7 @@ test('failed startup send returns retry error without recording a user row', asy
             const events = [];
             service.setClient({ onEvent: (_id, event) => events.push(event) });
             const { chatId } = await service.start({ agent: 'fake', cwd });
-            await service.send(chatId, 'do not record', []);
+            await assert.rejects(service.send(chatId, 'do not record', []), /akari-chat:not-delivered/);
             assert.ok(events.some(event => event.type === 'error' && /やり直して/.test(event.message)));
             assert.ok(events.some(event => event.type === 'turn.end' && !event.ok));
             assert.equal((await loadTranscript(cwd, chatId)).filter(row => row.event.type === 'user').length, 0);
