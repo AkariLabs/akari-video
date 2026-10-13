@@ -62,6 +62,7 @@ export interface BoundaryPlacement {
     endOffsetSeconds: number;
     /** 前のクリップが止め絵になる秒（窓の尻側）。 */
     freezeOutgoingSeconds: number;
+    freezeOutgoingUnknown: boolean;
     /** 後のクリップが止め絵になる秒（窓の頭側）。 */
     freezeIncomingSeconds: number;
     state: 'ok' | 'shortened' | 'dead';
@@ -76,7 +77,8 @@ export function placeBoundary(plan: TransitionBoundaryPlan | undefined): Boundar
         effectiveSeconds: plan?.effectiveSeconds ?? 0,
         startOffsetSeconds: plan?.startOffsetSeconds ?? 0,
         endOffsetSeconds: plan?.endOffsetSeconds ?? 0,
-        freezeOutgoingSeconds: 0,
+        freezeOutgoingSeconds: plan?.freezeOutgoingUnknown ? 0 : plan?.freezeOutgoingSeconds ?? 0,
+        freezeOutgoingUnknown: !!plan?.freezeOutgoingUnknown,
         freezeIncomingSeconds: plan?.freezeIncomingSeconds ?? 0,
         state: !plan || plan.state === 'none' ? 'dead' : plan.state,
         reasons: plan?.reasons ?? [],
@@ -113,7 +115,8 @@ export function boundaryBandGeometry(placement: BoundaryPlacement, pxPerSecond: 
         widthPx,
         cutPx: Math.max(markerInsetPx, Math.min(widthPx - markerInsetPx, -leftPx)),
         freezeIncomingPx: Math.min(widthPx, placement.freezeIncomingSeconds * scale * ratio),
-        freezeOutgoingPx: Math.min(widthPx, placement.freezeOutgoingSeconds * scale * ratio)
+        freezeOutgoingPx: Math.min(Math.max(0, widthPx - placement.freezeIncomingSeconds * scale * ratio),
+            placement.freezeOutgoingSeconds * scale * ratio)
     };
 }
 

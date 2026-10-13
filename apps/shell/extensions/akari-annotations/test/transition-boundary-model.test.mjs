@@ -18,11 +18,12 @@ const clipOf = clip => ({ id: clip.id, startSeconds: clip.start, lengthSeconds: 
   headRoomSeconds: clip.head === 'inf' ? Infinity : clip.head,
   tailRoomSeconds: clip.tail === 'inf' ? Infinity : clip.tail === null ? undefined : clip.tail,
   ...(clip.out ? { transitionOut: { declaredSeconds: clip.out.declared, align: clip.out.align,
-    fill: clip.out.fill === true } } : {}) });
+    fill: clip.out.fill === true } } : {}), ...(clip.holdBlocked ? { holdBlocked: true } : {}) });
 
 for (const entry of cases.plan) {
   test(`計画から帯の位置: ${entry.name}`, () => {
-    const plans = planTrackTransitions(entry.clips.map(clipOf), { fps: entry.fps });
+    const plans = planTrackTransitions(entry.clips.map(clipOf), { fps: entry.fps,
+      ...(entry.tailRoom ? { tailRoom: entry.tailRoom } : {}) });
     assert.equal(plans.length, entry.expected.length);
     for (let index = 0; index < plans.length; index++) {
       const plan = plans[index], expected = entry.expected[index];
@@ -37,6 +38,17 @@ for (const entry of cases.plan) {
       const center = ((expected.start + expected.end) / 2 - plan.cutSeconds) * 100;
       assert.ok(Math.abs(geometry.leftPx + geometry.widthPx / 2 - center) < 1e-9);
       assert.ok(geometry.cutPx >= 0 && geometry.cutPx <= geometry.widthPx);
+      if (entry.tailRoom === 'ignore' || entry.clips.some(clip => clip.out?.fill)) {
+        assert.equal(placement.freezeIncomingSeconds, expected.freezeIn ?? 0);
+        assert.equal(placement.freezeOutgoingUnknown, !!expected.freezeOutUnknown);
+        assert.ok(Math.abs(placement.freezeOutgoingSeconds - (expected.freezeOutUnknown ? 0
+          : expected.freezeOut ?? 0)) < 1e-9);
+        const ratio = geometry.widthPx / (placement.effectiveSeconds * 100) || 0;
+        assert.ok(Math.abs(geometry.freezeIncomingPx - (expected.freezeIn ?? 0) * 100 * ratio) < 1e-9);
+        assert.ok(Math.abs(geometry.freezeOutgoingPx - (expected.freezeOutUnknown ? 0
+          : expected.freezeOut ?? 0) * 100 * ratio) < 1e-9);
+        assert.ok(geometry.freezeIncomingPx + geometry.freezeOutgoingPx <= geometry.widthPx + 1e-9);
+      }
     }
   });
 }
@@ -90,6 +102,16 @@ test("帯はカット点の片側だけの窓と止め絵の幅も描ける", ()
   for (const geometry of [beforeCut, centered, afterCut]) {
     assert.ok(geometry.cutPx >= 2 && geometry.cutPx <= geometry.widthPx - 2);
   }
+});
+
+test('minimum width scales both freeze regions and keeps their total within the band', () => {
+  const geometry = boundaryBandGeometry({ effectiveSeconds: 0.1, startOffsetSeconds: -0.05,
+    endOffsetSeconds: 0.05, freezeIncomingSeconds: 0.04, freezeOutgoingSeconds: 0.06,
+    freezeOutgoingUnknown: false, state: 'ok' }, 100);
+  assert.equal(geometry.widthPx, 26);
+  assert.ok(Math.abs(geometry.freezeIncomingPx - 10.4) < 1e-9);
+  assert.ok(Math.abs(geometry.freezeOutgoingPx - 15.6) < 1e-9);
+  assert.equal(geometry.freezeIncomingPx + geometry.freezeOutgoingPx, 26);
 });
 
 test("三角は素材の端と半コマ以内で一致したときだけ出る", () => {

@@ -19,12 +19,15 @@ export interface TimelineTransitionSelection {
     later: { index: number; name: string };
     declaration?: { type: string; duration: number; align?: unknown };
     recommendedAlign?: TransitionAlign;
-    placement?: Pick<BoundaryPlacement, 'state' | 'effectiveSeconds' | 'reasons' | 'legacyOverlap'>;
+    placement?: Pick<BoundaryPlacement, 'state' | 'effectiveSeconds' | 'reasons' | 'legacyOverlap'>
+        & Partial<Pick<BoundaryPlacement, 'freezeIncomingSeconds' | 'freezeOutgoingSeconds' | 'freezeOutgoingUnknown'>>;
     outgoingTailRoomSeconds?: number;
     incomingHeadRoomSeconds?: number;
     block?: BoundaryBlock;
     locked: boolean;
     stripUrl?: string;
+    canFill?: boolean;
+    captionConflict?: boolean;
 }
 
 export type TransitionSelectionInput = Omit<TimelineTransitionSelection,
@@ -41,13 +44,20 @@ export function createTransitionSelection(input: TransitionSelectionInput): Time
         recommendedAlign: input.recommendedAlign,
         ...(input.placement ? { placement: {
             state: input.placement.state, effectiveSeconds: input.placement.effectiveSeconds,
-            reasons: input.placement.reasons, legacyOverlap: input.placement.legacyOverlap
+            reasons: input.placement.reasons, legacyOverlap: input.placement.legacyOverlap,
+            ...(input.placement.freezeIncomingSeconds !== undefined
+                ? { freezeIncomingSeconds: input.placement.freezeIncomingSeconds } : {}),
+            ...(input.placement.freezeOutgoingSeconds !== undefined
+                ? { freezeOutgoingSeconds: input.placement.freezeOutgoingSeconds } : {}),
+            ...(input.placement.freezeOutgoingUnknown !== undefined
+                ? { freezeOutgoingUnknown: input.placement.freezeOutgoingUnknown } : {})
         } } : {}),
         ...(Number.isFinite(input.outgoingTailRoomSeconds)
             ? { outgoingTailRoomSeconds: input.outgoingTailRoomSeconds } : {}),
         ...(Number.isFinite(input.incomingHeadRoomSeconds)
             ? { incomingHeadRoomSeconds: input.incomingHeadRoomSeconds } : {}),
-        block: input.block, locked: input.locked, stripUrl: input.stripUrl
+        block: input.block, locked: input.locked, stripUrl: input.stripUrl,
+        canFill: input.canFill, captionConflict: input.captionConflict
     };
 }
 
@@ -62,6 +72,9 @@ export interface TransitionInspectorFields {
         disabled: boolean; reasonKey?: string; recommendDisabled: boolean };
     handles: Array<{ labelKey: string; index: number; seconds: number }>;
     status?: { key: string; args?: Record<string, string | number> };
+    freezeMessages: Array<{ key: string; args?: Record<string, string | number> }>;
+    canFill: boolean;
+    captionConflict: boolean;
     remove?: { disabled: boolean; reasonKey?: string };
 }
 
@@ -104,6 +117,18 @@ export function transitionInspectorFields(snapshot: TimelineTransitionSelection)
                 : unknownAlign ? { key: 'transition.inspector.status.unknownAlign' }
                 : snapshot.placement?.state === 'shortened' ? { key: `transition.inspector.status.shortened.${shortenedReason}` }
                     : unknown ? { key: 'transition.inspector.status.unknown' } : undefined;
+    const freezeMessages: TransitionInspectorFields['freezeMessages'] = [];
+    const placement = snapshot.placement;
+    if (declaration && placement && placement.state !== 'dead' && !placement.legacyOverlap
+        && (!blocked || snapshot.block === 'locked')) {
+        if (!placement.freezeOutgoingUnknown && placement.freezeOutgoingSeconds > 0) {
+            freezeMessages.push({ key: 'transition.fill.status.outgoing', args: {
+                index: snapshot.earlier.index, seconds: placement.freezeOutgoingSeconds.toFixed(2) } });
+            freezeMessages.push({ key: 'transition.fill.status.outgoingHint' });
+        }
+        if (placement.freezeIncomingSeconds > 0) freezeMessages.push({ key: 'transition.fill.status.incoming', args: {
+            index: snapshot.later.index, seconds: placement.freezeIncomingSeconds.toFixed(2) } });
+    }
     return {
         headingKey: 'transition.inspector.heading.title',
         pair: { from: snapshot.earlier.index, to: snapshot.later.index },
@@ -127,6 +152,9 @@ export function transitionInspectorFields(snapshot: TimelineTransitionSelection)
             : undefined,
         handles,
         status,
+        freezeMessages,
+        canFill: !!snapshot.canFill && !snapshot.locked,
+        captionConflict: !!snapshot.captionConflict,
         remove: declaration ? { disabled: snapshot.locked, reasonKey: snapshot.locked ? reasonKey : undefined } : undefined
     };
 }
@@ -149,8 +177,8 @@ export function transitionDirectionType(family: TransitionFamily, direction: Tra
 export interface TransitionBoundaryWriteRequest {
     kind: 'transition-boundary';
     ref: BoundaryRef;
-    value: { type: TransitionType; duration: number; align?: TransitionAlign | null;
-        recommendAlign?: true; alignOnly?: true } | null;
+    value: { type: string; duration: number; align?: TransitionAlign | null;
+        recommendAlign?: true; alignOnly?: true; fillOnly?: true } | null;
 }
 
 export function transitionDurationRequest(snapshot: TimelineTransitionSelection,

@@ -941,9 +941,10 @@ export const ANNOTATIONS_WIDGET_CSS = `
         position: absolute;
         top: 0;
         bottom: 0;
-        background: repeating-linear-gradient(135deg, var(--akari-tl-clip-edge-dark) 0 2px,
-            var(--akari-tl-transition-neutral) 2px 4px);
+        background: repeating-linear-gradient(135deg, var(--akari-tl-clip-text) 0 2px,
+            transparent 2px 6px);
         pointer-events: none;
+        z-index: 1;
     }
     .akari-annotations-widget .akari-transition-boundary-freeze-incoming { left: 0; }
     .akari-annotations-widget .akari-transition-boundary-freeze-outgoing { right: 0; }
@@ -972,7 +973,7 @@ export const ANNOTATIONS_WIDGET_CSS = `
         background: var(--akari-tl-clip-text);
         box-shadow: -1px 0 var(--akari-tl-clip-edge-dark), 1px 0 var(--akari-tl-clip-edge-dark);
         pointer-events: none;
-        z-index: 1;
+        z-index: 3;
     }
     .akari-transition-picker {
         position: fixed;
@@ -985,6 +986,18 @@ export const ANNOTATIONS_WIDGET_CSS = `
         box-shadow: 0 3px 12px var(--theia-widget-shadow, var(--theia-widget-border));
         font-size: 11px;
     }
+    .akari-transition-fill-ask {
+        position: fixed; z-index: 10000; box-sizing: border-box; display: flex; flex-direction: column;
+        gap: 8px; padding: 12px; width: min(330px, calc(100vw - 16px));
+        border: 1px solid var(--theia-widget-border); border-radius: 6px;
+        background: var(--theia-menu-background); color: var(--theia-foreground);
+        box-shadow: 0 3px 12px var(--theia-widget-shadow, var(--theia-widget-border));
+        font-size: 12.5px;
+    }
+    .akari-transition-fill-ask strong { font-size: 13px; font-weight: 700; }
+    .akari-transition-fill-ask p { margin: 0; color: var(--theia-descriptionForeground); line-height: 1.6; }
+    .akari-transition-fill-ask-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .akari-transition-fill-ask [data-akari-transition-fill-ask="confirm"] { font-weight: 700; }
     .akari-transition-picker-shield {
         position: fixed;
         z-index: 9999;
