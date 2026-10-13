@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
+import { toolsText } from '../src/i18n.mjs';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 
 function captureBinary(resolver) {
@@ -58,11 +59,11 @@ for (const candidate of declarationCandidates) {
   }
 }
 if (!declPath) {
-  console.error('読み取れる declarations.json に対象トラックが見つかりません。--declarations で指定するか、declare-audio で宣言を付けてください。');
+  console.error(toolsText('tools.beatmap.error.declarationsMissing'));
   process.exit(1);
 }
 if (!Number.isFinite(decl.bpm) || !Number.isFinite(decl.beat_offset_s)) {
-  console.error(`"${trackId}" に bpm / beat_offset_s がありません。宣言が不完全です。`);
+  console.error(toolsText('tools.beatmap.error.beatDeclarationIncomplete', { track: trackId }));
   process.exit(1);
 }
 
@@ -72,7 +73,7 @@ const trackPath = flag('track') ?? [
   ...resolveAssetLibraryRoots().read.map(root => join(root, 'audio', trackId, 'track.wav')),
 ].find(existsSync);
 if (!trackPath || !existsSync(trackPath)) {
-  console.error('音源が見つかりません。--track で wav を指定してください。');
+  console.error(toolsText('tools.beatmap.error.trackMissing'));
   process.exit(1);
 }
 
@@ -80,7 +81,7 @@ const ffprobe = (a) => execFileSync(commandFor(ffprobeBinary), a, { encoding: 'u
 const duration = Number(ffprobe(['-v', 'error', '-show_entries', 'format=duration',
   '-of', 'default=noprint_wrappers=1:nokey=1', trackPath]));
 if (!Number.isFinite(duration) || duration <= 0) {
-  console.error('ffprobe が音源の尺を返しませんでした。');
+  console.error(toolsText('tools.beatmap.error.durationMissing'));
   process.exit(1);
 }
 
@@ -122,19 +123,21 @@ const report = [];
 for (const s of decl.sections ?? []) {
   const d = nearest(s.start_sec) - s.start_sec;
   worst = Math.max(worst, Math.abs(d));
-  report.push(`  section ${String(s.label).padEnd(8)} ${s.start_sec.toFixed(2)}s → 拍とのズレ ${(d * 1000).toFixed(0)}ms`);
+  report.push(toolsText('tools.beatmap.report.sectionOffset', { label: String(s.label).padEnd(8), start: s.start_sec.toFixed(2), offset: (d * 1000).toFixed(0) }));
 }
 for (const h of decl.hit_points ?? []) {
   const d = nearest(h) - h;
   worst = Math.max(worst, Math.abs(d));
-  report.push(`  hit      ${h.toFixed(3)}s → 拍とのズレ ${(d * 1000).toFixed(0)}ms`);
+  report.push(toolsText('tools.beatmap.report.hitOffset', { hit: h.toFixed(3), offset: (d * 1000).toFixed(0) }));
 }
-console.error(`ビートマップ: BPM ${decl.bpm} / 頭拍 ${decl.beat_offset_s}s / ${beats.length} 拍 / ${(beats.length / 4).toFixed(1)} 小節`);
+console.error(toolsText('tools.beatmap.report.summary', { bpm: decl.bpm, offset: decl.beat_offset_s,
+  beats: toolsText('tools.beatmap.report.beatCount', { count: beats.length, n: beats.length }),
+  bars: toolsText('tools.beatmap.report.barCount', { count: (beats.length / 4).toFixed(1), n: beats.length / 4 }), n: beats.length }));
 console.error(report.join('\n'));
 if (worst > 0.06) {
-  console.error(`\n⚠ 最大ズレ ${(worst * 1000).toFixed(0)}ms — BPM か頭拍の宣言を疑ってください（declare-audio で耳の答え合わせを）。`);
+  console.error(toolsText('tools.beatmap.warning.maxOffset', { milliseconds: (worst * 1000).toFixed(0) }));
 } else {
-  console.error(`\n✓ 区間・キメはすべて計算拍と ±${(worst * 1000).toFixed(0)}ms 以内で一致しています。`);
+  console.error(toolsText('tools.beatmap.report.aligned', { milliseconds: (worst * 1000).toFixed(0) }));
 }
 
 const outPath = resolve(flag('out') ?? join(projectRoot, '.akari', 'work', 'beatmap.json'));

@@ -22,15 +22,17 @@ import {
   sep,
 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { localizeReportTemplate, reportLanguage } from "../analysis-report/report-i18n.mjs";
+import { getLanguage, t } from "../akari-tools/src/decision-log/i18n.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const templatePath = resolve(here, "template.html");
 const DATA_PLACEHOLDER = '{"__AKARI_DECISION_LOG_REPORT_DATA__":true}';
 
-function usage() {
+function usage(lang = getLanguage()) {
   return [
-    "使い方:",
-    "  node render-decision-log-report.mjs --log <decision-log.md> --out <report.html> [--project <root>]",
+    t("decision-log.report.cli.usage", {}, lang),
+    "  node render-decision-log-report.mjs --log <decision-log.md> --out <report.html> [--project <root>] [--lang <ja|en>]",
   ].join("\n");
 }
 
@@ -38,23 +40,26 @@ function parseArgs(argv) {
   let logPath = null;
   let outPath = null;
   let projectPath = null;
+  const languageIndex = argv.indexOf("--lang");
+  let lang = languageIndex >= 0 && ["ja", "en"].includes(argv[languageIndex + 1]) ? argv[languageIndex + 1] : getLanguage();
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--help" || arg === "-h") return { help: true };
-    if (["--log", "--out", "--project"].includes(arg)) {
+    if (arg === "--help" || arg === "-h") return { help: true, lang };
+    if (["--log", "--out", "--project", "--lang"].includes(arg)) {
       const value = argv[index + 1];
-      if (value === undefined) throw new Error(`${arg} には値が必要です`);
+      if (value === undefined) throw new Error(t("decision-log.report.cli.valueRequired", { argument: arg }, lang));
       if (arg === "--log") logPath = value;
       if (arg === "--out") outPath = value;
       if (arg === "--project") projectPath = value;
+      if (arg === "--lang") lang = reportLanguage(value);
       index += 1;
       continue;
     }
-    throw new Error(`未知の引数です: ${arg}`);
+    throw new Error(t("decision-log.report.cli.unknownArgument", { argument: arg }, lang));
   }
-  if (!logPath) throw new Error("--log は必須です");
-  if (!outPath) throw new Error("--out は必須です");
-  return { help: false, logPath, outPath, projectPath };
+  if (!logPath) throw new Error(t("decision-log.report.cli.logRequired", {}, lang));
+  if (!outPath) throw new Error(t("decision-log.report.cli.outRequired", {}, lang));
+  return { help: false, logPath, outPath, projectPath, lang: reportLanguage(lang) };
 }
 
 function tableCells(line) {
@@ -86,16 +91,16 @@ function isSeparatorRow(cells) {
 function decisionColumns(cells) {
   const category = cells.indexOf("category");
   const subject = cells.indexOf("subject");
-  const decision = cells.indexOf("決定");
+  const decision = Math.max(cells.indexOf("決定"), cells.indexOf("Decision"));
   if (category < 0 || subject < 0 || decision < 0) return null;
   return {
-    at: cells.indexOf("日時"),
+    at: Math.max(cells.indexOf("日時"), cells.indexOf("Time")),
     category,
     subject,
     decision,
-    reason: cells.indexOf("理由"),
-    decider: cells.indexOf("決定者"),
-    checkpoint: Math.max(cells.indexOf("関連 checkpoint"), cells.indexOf("checkpoint")),
+    reason: Math.max(cells.indexOf("理由"), cells.indexOf("Reason")),
+    decider: Math.max(cells.indexOf("決定者"), cells.indexOf("Decided by")),
+    checkpoint: Math.max(cells.indexOf("関連 checkpoint"), cells.indexOf("checkpoint"), cells.indexOf("Related checkpoint")),
   };
 }
 
@@ -175,18 +180,18 @@ function parsePipeDecision(line, index) {
   const cells = splitPipeLine(line.replace(/^\s*[-*+]\s+/u, ""));
   const labels = new Map();
   for (const cell of cells.slice(1)) {
-    const match = /^(category|subject|決定|理由|決定者|checkpoint|関連 checkpoint)\s*:\s*(.*)$/u.exec(cell);
+    const match = /^(category|subject|決定|Decision|理由|Reason|決定者|Decided by|checkpoint|関連 checkpoint|Related checkpoint)\s*:\s*(.*)$/u.exec(cell);
     if (match) labels.set(match[1], match[2].trim());
   }
-  if (!labels.has("category") || !labels.has("subject") || !labels.has("決定")) return null;
+  if (!labels.has("category") || !labels.has("subject") || !(labels.has("決定") || labels.has("Decision"))) return null;
   return makeDecision({
     at: cells[0],
     category: labels.get("category"),
     subject: labels.get("subject"),
-    decision: labels.get("決定"),
-    reason: labels.get("理由"),
-    decider: labels.get("決定者"),
-    checkpoint: labels.get("checkpoint") ?? labels.get("関連 checkpoint"),
+    decision: labels.get("決定") ?? labels.get("Decision"),
+    reason: labels.get("理由") ?? labels.get("Reason"),
+    decider: labels.get("決定者") ?? labels.get("Decided by"),
+    checkpoint: labels.get("checkpoint") ?? labels.get("関連 checkpoint") ?? labels.get("Related checkpoint"),
   }, line, index);
 }
 
@@ -404,23 +409,23 @@ function resolveImages(decisions, blocks, projectRoot, outDir) {
   return images;
 }
 
-function readLog(path) {
+function readLog(path, lang) {
   try {
     return readFileSync(path, "utf8");
   } catch (error) {
-    throw new Error(`decision-log.md を読み込めません: ${path}\n${error.message}`);
+    throw new Error(t("decision-log.report.error.logRead", { path, error: error.message }, lang));
   }
 }
 
-function readTemplate() {
+function readTemplate(lang) {
   try {
     return readFileSync(templatePath, "utf8");
   } catch (error) {
-    throw new Error(`template.html を読み込めません: ${templatePath}\n${error.message}`);
+    throw new Error(t("decision-log.report.error.templateRead", { path: templatePath, error: error.message }, lang));
   }
 }
 
-function writeAtomically(outPath, content) {
+function writeAtomically(outPath, content, lang) {
   const outDir = dirname(outPath);
   mkdirSync(outDir, { recursive: true });
   const temporary = resolve(outDir, `.${basename(outPath)}.${process.pid}.tmp`);
@@ -429,14 +434,14 @@ function writeAtomically(outPath, content) {
     renameSync(temporary, outPath);
   } catch (error) {
     rmSync(temporary, { force: true });
-    throw new Error(`レポートを書き込めません: ${outPath}\n${error.message}`);
+    throw new Error(t("decision-log.report.error.write", { path: outPath, error: error.message }, lang));
   }
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log(usage());
+    console.log(usage(args.lang));
     return;
   }
 
@@ -446,7 +451,7 @@ function main() {
   const projectRoot = resolve(
     args.projectPath ?? (basename(logParent) === "planning" ? dirname(logParent) : logParent),
   );
-  const markdown = readLog(logAbsolutePath);
+  const markdown = readLog(logAbsolutePath, args.lang);
   const { decisions, blocks } = parseMarkdown(markdown);
   const images = resolveImages(decisions, blocks, projectRoot, dirname(outAbsolutePath));
   const bundle = {
@@ -465,13 +470,13 @@ function main() {
     },
   };
 
-  const template = readTemplate();
+  const template = readTemplate(args.lang);
   if (!template.includes(DATA_PLACEHOLDER)) {
-    throw new Error(`template.html の埋め込み用プレースホルダーが見つかりません: ${templatePath}`);
+    throw new Error(t("decision-log.report.error.placeholder", { path: templatePath }, args.lang));
   }
   const serialized = JSON.stringify(bundle).replace(/</gu, "\\u003c");
-  const rendered = template.replace(DATA_PLACEHOLDER, serialized);
-  writeAtomically(outAbsolutePath, rendered);
+  const rendered = localizeReportTemplate(template, "report-decision", args.lang).replace(DATA_PLACEHOLDER, serialized);
+  writeAtomically(outAbsolutePath, rendered, args.lang);
   console.log(`OK: ${outAbsolutePath} (${Buffer.byteLength(rendered, "utf8").toLocaleString("en-US")} bytes)`);
 }
 

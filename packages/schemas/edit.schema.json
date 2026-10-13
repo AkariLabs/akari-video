@@ -1233,6 +1233,12 @@
             }
           }
         },
+        "vars": {
+          "type": "object",
+          "propertyNames": { "pattern": "^--[A-Za-z0-9_-]+$" },
+          "additionalProperties": { "type": "number" },
+          "$comment": "数値の CSS 変数のキー。v0 で書けるのは 3D の向き --akari-3d-rot-x/y/z（度）の 3 本で、1 つのグループとしてそろって入る。静的値は source.vars。easing のキーは \"vars.<名前>\"。"
+        },
         "easing": {
           "oneOf": [
             {

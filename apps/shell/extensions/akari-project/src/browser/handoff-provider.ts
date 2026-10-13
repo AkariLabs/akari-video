@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandContribution, CommandRegistry, DisposableCollection } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -24,7 +25,7 @@ const MEDIA = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpe?g|gi
 const AV = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg)$/i;
 function scratchHandoff(item: ScratchListItem, fresh: boolean): HandoffItem {
     return { uri: item.path ? `file://${item.path}` : '', path: item.path ?? '', name: item.label,
-        origin: 'scratch', badge: '外', fresh, ref: item.ref, badges: item.badges,
+        origin: 'scratch', badge: t('project.handoff.item.externalLabel'), fresh, ref: item.ref, badges: item.badges,
         thumb: item.thumb, quality: item.quality, status: item.status };
 }
 
@@ -106,10 +107,10 @@ export class HandoffProvider implements CommandContribution, FrontendApplication
                 } catch { /* 未分析の素材は種類を表示する。 */ }
             }
         }
-        if (origin === 'output') return /\.html?$/i.test(name) ? 'レポート' : '書き出し';
-        if (/\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(name)) return '動画';
-        if (/\.(wav|mp3|m4a|aac|flac|ogg)$/i.test(name)) return '音';
-        return '画像';
+        if (origin === 'output') return /\.html?$/i.test(name) ? t('project.workspace.outputs.reportsLabel') : t('project.workspace.outputs.exportsLabel');
+        if (/\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(name)) return t('project.library.shelf.videoLabel');
+        if (/\.(wav|mp3|m4a|aac|flac|ogg)$/i.test(name)) return t('project.handoff.item.audioLabel');
+        return t('project.library.shelf.imageLabel');
     }
 
     async list(): Promise<HandoffItem[]> {

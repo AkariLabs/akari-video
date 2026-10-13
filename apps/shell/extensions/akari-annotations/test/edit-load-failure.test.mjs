@@ -4,7 +4,13 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
-import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../lib/common/edit-load-failure.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { classifyEditLoadFailure, ReportedEditLoadFailure } = await import('../lib/common/edit-load-failure.js');
+
+
 
 const fixturePath = new URL('../../../../../packages/edit-store/test/fixtures/edit-v2.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));

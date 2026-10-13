@@ -1,16 +1,22 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
-import {
-    AUDIO_CLIP_FX_RANGES,
-    AUDIO_DENOISE_METHOD_OPTIONS,
-    assertAudioClipFxValue,
-    audioClipFxFieldsForSnapshot,
-    buildAudioClipFxPatch,
-    createAudioClipFxWriteRequest,
-    updateAudioClipFxDocument
-} from '../lib/browser/inspector/audio-clip-fx.js';
-import { audioDocument, audioSnapshot, fxSections, handleAudioClipFxWrite } from './helpers/audio-clip-fx-fixture.mjs';
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { audioDocument, audioSnapshot, fxSections, handleAudioClipFxWrite } = await import('./helpers/audio-clip-fx-fixture.mjs');
+const { AUDIO_CLIP_FX_RANGES, AUDIO_DENOISE_METHOD_OPTIONS, assertAudioClipFxValue, audioClipFxFieldsForSnapshot, buildAudioClipFxPatch, createAudioClipFxWriteRequest, updateAudioClipFxDocument } = await import('../lib/browser/inspector/audio-clip-fx.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const timelineSource = readAllSourceText();
 

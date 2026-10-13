@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluatedItemOpacity } from '@akari-video/edit-store';
-import {
-    applyStyleClip, buildItemClipboard, contextBarKind, duplicateItem, findItemPlace, fitItemToScreen, hasCorners,
-    isItemLocked, ITEM_CLIPBOARD_KIND, lockedItemIds, layerListAt, moveLayer, nudgeItem, parseItemClipboard, pasteItemClipboard,
-    resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, STYLE_PATHS, styleClipOf, styleWrites, swapLineEnds
-} from '../lib/common/context-bar-edit.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { applyStyleClip, buildItemClipboard, contextBarKind, duplicateItem, findItemPlace, fitItemToScreen, hasCorners, isItemLocked, ITEM_CLIPBOARD_KIND, lockedItemIds, layerListAt, moveLayer, nudgeItem, parseItemClipboard, pasteItemClipboard, resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, STYLE_PATHS, styleClipOf, styleWrites, swapLineEnds } = await import('../lib/common/context-bar-edit.js');
+
+
 
 const square = (fill, extra = {}) => ({ kind: 'shape', shape: 'path', params: { fill, stroke: 'none', strokeWidth: 0,
     width: 360, height: 240, path: { d: 'M3 3L97 3L97 97L3 97Z', vb: [100, 100] }, ...extra } });

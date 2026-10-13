@@ -1,3 +1,5 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -5,13 +7,19 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
-import {
-  buildAudioMeasureCacheDir,
-  buildPackageModuleCandidates,
-  measureAudioForLevel,
-  measureAudioModuleInWorker,
-  oneLineReason
-} from '../lib/node/audio-level-resolver.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { buildAudioMeasureCacheDir, buildPackageModuleCandidates, measureAudioForLevel, measureAudioModuleInWorker, oneLineReason } = await import('../lib/node/audio-level-resolver.js');
+
+
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const widgetSource = readAllSourceText();
 const inspectorSource = readInspectorSource();
@@ -186,18 +194,20 @@ test('計測失敗時も挿入 snapshot を保存してから history を 1 件�
   const start = widgetSource.indexOf("if (kind === 'audio')");
   const end = widgetSource.indexOf("\n            const sources = Array.isArray(value.sources)", start);
   const block = widgetSource.slice(start, end);
-  assert.match(block, /自動レベルを適用できませんでした/u);
+  assert.match(block, /t\('annotations\.timeline\.text\.failedToApplyAutomaticLevelPleaseAdjustGain'/u);
+  assert.equal(ja['annotations.timeline.text.failedToApplyAutomaticLevelPleaseAdjustGain'], '自動レベルを適用できませんでした（{reason}）。gain は手動で調整してください');
   assert.match(block, /editAfter \?\?= stringifyEditV2\(value\)/u);
   assert.ok(block.indexOf('writeTimelineSnapshots(editAfter)') < block.indexOf('this.pushHistory({'));
   assert.equal((block.match(/this\.pushHistory\(\{/gu) ?? []).length, 1);
 });
 
 test('成功通知は gain・basis・role を 1 行で表示する', () => {
-  assert.match(widgetSource, /自動レベル: \$\{measured\.gain_db\.toFixed\(1\)\} dB（\$\{measured\.basis\}・\$\{measured\.role\}）/u);
+  assert.match(widgetSource, /t\('annotations\.timeline\.text\.autoLevelDb', \{ gain: measured\.gain_db\.toFixed\(1\), basis: measured\.basis, role: measured\.role \}\)/u);
+  assert.equal(ja['annotations.timeline.text.autoLevelDb'], '自動レベル: {gain} dB（{basis}・{role}）');
 });
 
 test('インスペクタは自動レベル actionLabel を音声 write bridge へ配線する', () => {
-  assert.match(inspectorSource, /actionLabel: '自動レベル'/u);
+  assert.match(inspectorSource, /actionLabel: translate\('inspector\.audioSections\.label\.autoLevel'\)/u);
   assert.match(inspectorSource, /kind: 'audio-auto-level', id: snapshot\.id, audioKind: snapshot\.audioKind/u);
   assert.match(widgetSource, /return this\.handleAudioAutoLevelWrite\(request\)/u);
 });
@@ -208,5 +218,6 @@ test('インスペクタ自動レベルは gain_db だけを書き fade を変�
   const block = widgetSource.slice(start, end);
   assert.match(block, /patch: \{ gain_db: measured\.gain_db \}/u);
   assert.doesNotMatch(block, /fade_in|fade_out/u);
-  assert.match(block, /commitEditMutation\('自動レベル'/u);
+  assert.match(block, /commitEditMutation\(t\('annotations\.timeline\.text\.automaticLevel'\)/u);
+  assert.equal(ja['annotations.timeline.text.automaticLevel'], '自動レベル');
 });

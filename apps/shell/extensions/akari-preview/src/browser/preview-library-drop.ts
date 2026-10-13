@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { explorerMaterial, nearestOutputPoint, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
@@ -24,6 +25,7 @@ type PlannedMaterial = { relativePath: string; kind: 'image' | 'video' | 'audio'
     cached: boolean; thumb?: string; title?: string };
 const APPLY_KINDS = new Set(['textanim', 'textstyle', 'mystyle', 'font', 'lut']);
 const PLACE_KINDS = new Set(['text', 'textstyle', 'mystyle']);
+const SCREEN_KINDS = new Set(['video', 'image']);
 
 function readPayload(value: unknown): Payload | undefined {
     try {
@@ -158,9 +160,9 @@ export class PreviewLibraryDrop {
                         : payload.kind === 'shape' ? '◇' : '▣';
                 card.appendChild(icon);
             }
-            const defaultName = payload.kind === 'text' ? 'テキスト'
-                : payload.kind === 'textstyle' || payload.kind === 'mystyle' ? 'テキストスタイル'
-                    : payload.kind === 'shape' ? '図形' : '素材';
+            const defaultName = payload.kind === 'text' ? t('preview.libraryDrop.overlay.textLabel')
+                : payload.kind === 'textstyle' || payload.kind === 'mystyle' ? t('preview.libraryDrop.overlay.textStyleLabel')
+                    : payload.kind === 'shape' ? t('preview.libraryDrop.overlay.shapeLabel') : t('preview.libraryDrop.overlay.assetsLabel');
             card.appendChild(document.createTextNode(payload.relativePath?.split('/').pop()
                 || payload.title || payload.name || defaultName));
             document.body.appendChild(card);
@@ -386,7 +388,8 @@ export class PreviewLibraryDrop {
     private clearHoverHit(): void {
         this.hoverRequestId = 0;
         this.hoverHit = undefined;
-        if (this.layer) this.layer.style.cursor = PLACE_KINDS.has(this.active?.kind ?? '') ? 'copy' : 'not-allowed';
+        if (this.layer) this.layer.style.cursor = PLACE_KINDS.has(this.active?.kind ?? '')
+            || SCREEN_KINDS.has(this.active?.kind ?? '') ? 'copy' : 'not-allowed';
         this.widget.sendMessage({ type: 'akari-preview-hit-test-clear' });
     }
 
@@ -402,7 +405,8 @@ export class PreviewLibraryDrop {
         this.outside = event.altKey;
         if (!this.geometry && Date.now() - this.lastGeometryRequestAt >= 250) void this.queryGeometry();
         this.drawGhost(event.clientX, event.clientY);
-        if (this.active && APPLY_KINDS.has(this.active.kind) && this.geometry
+        if (this.active && (APPLY_KINDS.has(this.active.kind)
+            || (this.active.source === 'material' && SCREEN_KINDS.has(this.active.kind))) && this.geometry
             && Date.now() - this.hitRequestAt > 90) {
             const point = nearestOutputPoint({ x: event.clientX, y: event.clientY }, this.geometry.rect, this.geometry.output);
             if (point) {
@@ -425,7 +429,7 @@ export class PreviewLibraryDrop {
             if (this.ghost) this.ghost.style.display = 'none';
             return;
         }
-        const applying = APPLY_KINDS.has(payload.kind) && !!this.hoverHit;
+        const applying = (APPLY_KINDS.has(payload.kind) || SCREEN_KINDS.has(payload.kind)) && !!this.hoverHit;
         const placeable = PLACE_KINDS.has(payload.kind);
         if (this.layer) this.layer.style.cursor = applying || placeable || !APPLY_KINDS.has(payload.kind)
             ? 'copy' : 'not-allowed';
@@ -439,7 +443,7 @@ export class PreviewLibraryDrop {
         const audio = payload.category === 'audio';
         const text = placeable || applying;
         const transition = payload.kind === 'transition';
-        const overlay = previewOverlayKind(payload) === 'overlay';
+        const overlay = previewOverlayKind(payload) === 'overlay' || previewOverlayKind(payload) === 'scene3d';
         const shape = previewShapePayload(payload);
         const outputBox = shape ? previewShapeDropBox(geometry.output, shape.vb)
             : previewDropBox(geometry.output, { width: payload.width, height: payload.height }, overlay ? 0.4 : 0.25);
@@ -488,11 +492,13 @@ export class PreviewLibraryDrop {
                 const note = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 note.setAttribute('width', '18'); note.setAttribute('height', '18'); note.setAttribute('viewBox', '0 0 24 24');
                 note.innerHTML = '<path d="M9 18V5l11-2v13M9 18c0 3-6 4-6 1s6-4 6-1Zm11-2c0 3-6 4-6 1s6-4 6-1Z" fill="none" stroke="currentColor" stroke-width="2"/>';
-                ghost.append(note, document.createTextNode(' 時刻に置く'));
+                ghost.append(note, document.createTextNode(t('preview.libraryDrop.overlay.placeTimeSuffix')));
             } else ghost.append(document.createTextNode(applying
-                ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
-                : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
-                    : shape ? shape.name ?? '図形' : payload.title ?? payload.name ?? '素材'));
+                ? (payload.source === 'material' && SCREEN_KINDS.has(payload.kind) && this.hoverHit?.kind === 'item'
+                    ? t('preview.libraryDrop.overlay.applyScene3dScreenAction')
+                    : payload.kind === 'lut' ? t('preview.libraryDrop.overlay.applyScreenAction') : t('preview.libraryDrop.overlay.applyTextAction'))
+                : transition ? t('preview.libraryDrop.overlay.dropCutBoundaryLabel') : text ? t('preview.libraryDrop.overlay.addTextAction')
+                    : shape ? shape.name ?? t('preview.libraryDrop.overlay.shapeLabel') : payload.title ?? payload.name ?? t('preview.libraryDrop.overlay.assetsLabel')));
         }
         /*
          * 秒数と行き先の但し書きは、絵が出ているときは出さない（オーナー指示）。
@@ -508,12 +514,12 @@ export class PreviewLibraryDrop {
             label.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:3px 7px;border-radius:4px;background:var(--theia-editorHoverWidget-background,#242424)';
             const target = !audio && canvasAtFrame(geometry.canvases,
                 Math.round(geometry.time * geometry.fps), this.outside);
-            const hint = target ? `${canvasDropLabel(geometry.canvases, target)} に入ります` : '';
+            const hint = target ? t('preview.libraryDrop.notification.goesInsideLabel', { name: canvasDropLabel(geometry.canvases, target) }) : '';
             const end = duration && target
                 ? Math.min(geometry.time + duration, (target.at + target.duration) / geometry.fps)
                 : geometry.time + (duration || 0);
             label.dataset.akariCanvasDropHint = hint ? 'true' : 'false';
-            label.textContent = `${stamp(geometry.time)} → ${duration ? stamp(end) : '実尺'}`
+            label.textContent = t('preview.libraryDrop.notification.toLabel', { start: stamp(geometry.time), end: duration ? stamp(end) : t('preview.audioPreview.controls.fullDurationLabel') })
                 + (hint ? ` · ${hint}` : '');
             ghost.appendChild(label);
         }
@@ -535,6 +541,8 @@ export class PreviewLibraryDrop {
         const ghostRect = this.ghost?.getBoundingClientRect();
         const heldGhost = ghostRect && this.ghost?.style.display !== 'none' && this.ghost?.cloneNode
             ? this.ghost.cloneNode(true) as HTMLDivElement : undefined;
+        // 3D の画面へのドロップ先も同じ理由で最初の await の前に控える（dragend が hoverHit を消す）
+        const screenHit = this.hoverHit;
         const pageId = (this.widget as (WebviewWidget & { akariPreviewPlaybackPageId?: string }) | undefined)
             ?.akariPreviewPlaybackPageId;
         let placementStarted = false;
@@ -607,13 +615,13 @@ export class PreviewLibraryDrop {
         }
         if (payload.outsideProject) {
             this.clear();
-            this.messages.warn('プロジェクトの中のファイルだけ置けます');
+            this.messages.warn(t('preview.libraryDrop.overlay.onlyFilesProjectPlaced'));
             return;
         }
         if (payload.locked) {
             this.clear();
             try { await this.commands.executeCommand('akari.library.showPremiumPrompt', { key: payload.key }); }
-            catch { this.messages.warn('この素材を使うには購入が必要です。'); }
+            catch { this.messages.warn(t('preview.libraryDrop.overlay.purchaseRequiredUseAsset')); }
             return;
         }
         if (APPLY_KINDS.has(payload.kind)) {
@@ -631,9 +639,20 @@ export class PreviewLibraryDrop {
                 return;
             }
         }
+        if (payload.source === 'material' && SCREEN_KINDS.has(payload.kind) && payload.relativePath) {
+            const hit = screenHit;
+            if (hit?.kind === 'item') {
+                this.clear();
+                const editUri = this.editUri();
+                if (editUri) await this.commands.executeCommand('akari.timeline.applyLibraryItem', {
+                    payload, target: hit, editUri
+                });
+                return;
+            }
+        }
         this.clear();
         if (payload.kind === 'transition') {
-            this.messages.info('トランジションはタイムラインのカットの境目に落としてください。');
+            this.messages.info(t('preview.libraryDrop.overlay.dropTransitionCutBoundaryTimeline'));
             return;
         }
         const editUri = this.editUri();
@@ -717,10 +736,8 @@ export class PreviewLibraryDrop {
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
             if (!claimScene3dDrop(dragSession)) return;
-            this.messages.info('3D は近日対応します。');
-            return;
         }
-        if (overlayKind === 'overlay') {
+        if (overlayKind === 'overlay' || overlayKind === 'scene3d') {
             placementStarted = true;
             const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addOverlayAtOutputPoint', {
                 key: payload.key, t: geometry.time, center: point, editUri,
@@ -734,6 +751,11 @@ export class PreviewLibraryDrop {
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
             });
+            if (overlayKind === 'scene3d') {
+                await this.commands.executeCommand('akari.timeline.focusItem', {
+                    itemId: placed, reveal: true, pulse: true
+                });
+            }
             return;
         }
         if (PLACE_KINDS.has(payload.kind)) {
@@ -781,7 +803,7 @@ export class PreviewLibraryDrop {
                 editUri, time: geometry.time, waitForReady: true
             });
         } catch {
-            this.messages.warn('再生位置を戻せませんでした。');
+            this.messages.warn(t('preview.libraryDrop.overlay.couldNotRestorePlaybackPositionError'));
         }
         } catch (error) {
             keepGhost = false;
@@ -815,13 +837,13 @@ export class PreviewLibraryDrop {
         }
         if (!material?.relativePath) {
             const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
-            const reason = recordedReason || '理由は通知を確認してください';
+            const reason = recordedReason || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
             this.showFetchFailure?.(displayPlan, geometry, point, payload, thumb, reason, () => {
                 this.hideFetchFailure?.(relativePath);
                 void this.placeAfterFetch(plan, payload, geometry, point, editUri, outsideCanvas);
             });
             this.hideFetchOverlay(relativePath);
-            this.messages.warn('この素材は取り寄せできませんでした。');
+            this.messages.warn(t('preview.libraryDrop.overlay.couldNotDownloadAssetError'));
             return { keepGhost: false };
         }
         this.hideFetchOverlay(relativePath);
@@ -896,11 +918,11 @@ export class PreviewLibraryDrop {
             const material = fetched.material;
             if (material === undefined) {
                 resolverAlreadyNotified = true;
-                throw new Error('取り寄せできませんでした');
+                throw new Error(t('preview.libraryDrop.overlay.downloadFailedError'));
             }
-            if (!material.relativePath) throw new Error('取り寄せできませんでした');
+            if (!material.relativePath) throw new Error(t('preview.libraryDrop.overlay.downloadFailedError'));
             if (!placedId && material.relativePath === plan.relativePath) {
-                throw new Error('素材をタイムラインに配置できませんでした');
+                throw new Error(t('preview.libraryDrop.overlay.couldNotPlaceAssetTimelineError'));
             }
             await this.commands.executeCommand('akari.preview.seekOutput', {
                 editUri, time: geometry.time, waitForReady: true
@@ -915,12 +937,12 @@ export class PreviewLibraryDrop {
                     ...(typeof payload.width === 'number' ? { sourceWidth: payload.width } : {}),
                     editUri, outsideCanvas, ...(!outsideCanvas ? { canvasAware: true } : {})
                 });
-                if (!placedId) throw new Error('素材をタイムラインに配置できませんでした');
+                if (!placedId) throw new Error(t('preview.libraryDrop.overlay.couldNotPlaceAssetTimelineError'));
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const recordedReason = payload.key ? pendingAssetFetches.takeFailureReason(payload.key) : undefined;
-            const reason = recordedReason || errorMessage || '理由は通知を確認してください';
+            const reason = recordedReason || errorMessage || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
             this.showFetchFailure?.(plan, geometry, point, payload, thumb, reason, () => {
                 this.hideFetchFailure?.(plan.relativePath);
                 void this.placeThenFetch(plan, payload, geometry, point, editUri, outsideCanvas);
@@ -930,7 +952,7 @@ export class PreviewLibraryDrop {
                 await this.commands.executeCommand('akari.timeline.removePlacedMaterial', { editUri, itemId: placedId })
                     .catch(() => undefined);
             }
-            if (!resolverAlreadyNotified) this.messages.warn(`この素材は取り寄せできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            if (!resolverAlreadyNotified) this.messages.warn(t('preview.libraryDrop.notification.couldNotDownloadAssetError', { reason: error instanceof Error ? error.message : String(error) }));
             return;
         } finally {
             endWaiting();
@@ -1008,8 +1030,8 @@ export class PreviewLibraryDrop {
         const spinner = document.createElement('span');
         spinner.className = 'codicon codicon-loading codicon-modifier-spin';
         spinner.setAttribute('aria-hidden', 'true');
-        status.append(spinner, document.createTextNode(width >= 120 ? 'ダウンロード中' : ''));
-        status.title = `${title ?? '素材'}をダウンロード中`;
+        status.append(spinner, document.createTextNode(width >= 120 ? t('preview.libraryDrop.overlay.downloadingLabel') : ''));
+        status.title = t('preview.libraryDrop.notification.downloadingLabel', { name: title ?? t('preview.libraryDrop.overlay.assetsLabel') });
         overlay.append(veil, status);
         document.body.appendChild(overlay);
         (this.fetchOverlays ??= new Map()).set(plan.relativePath, overlay);
@@ -1064,15 +1086,15 @@ export class PreviewLibraryDrop {
         const veil = document.createElement('div');
         Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'rgba(40,0,0,.55)' });
         const label = document.createElement('div');
-        label.textContent = '⚠ 取り寄せできませんでした';
+        label.textContent = t('preview.libraryDrop.overlay.downloadFailedWarning');
         label.style.position = 'relative';
         const explanation = document.createElement('div');
-        explanation.textContent = summarizeFetchFailure(reason) || '理由は通知を確認してください';
+        explanation.textContent = summarizeFetchFailure(reason) || t('preview.libraryDrop.overlay.checkNotificationDetailsAction');
         explanation.style.position = 'relative';
         const actions = document.createElement('div');
         actions.style.position = 'relative';
         const retryButton = document.createElement('button');
-        retryButton.textContent = 'もう一度';
+        retryButton.textContent = t('preview.libraryDrop.overlay.tryAgainAction');
         retryButton.style.pointerEvents = 'auto';
         retryButton.addEventListener('click', () => retry());
         const closeButton = document.createElement('button');
@@ -1104,7 +1126,7 @@ export class PreviewLibraryDrop {
             border: '1px solid var(--theia-focusBorder)', background: 'var(--theia-editorHoverWidget-background)',
             color: 'var(--theia-foreground)', fontSize: '13px' });
         prompt.append(document.createTextNode(payload.kind === 'lut'
-            ? '写真や映像の上に落としてください。' : '文字の上に落としてください。'));
+            ? t('preview.libraryDrop.overlay.dropPhotoVideoLabel') : t('preview.libraryDrop.overlay.dropTextLabel')));
         this.closePrompt?.();
         this.prompt = prompt;
         document.body.appendChild(prompt);
@@ -1124,7 +1146,8 @@ export class PreviewLibraryDrop {
 
     private clear(): void {
         if (PreviewLibraryDrop.dragSample?.owner === this) PreviewLibraryDrop.removeDragSample();
-        if (this.active && APPLY_KINDS.has(this.active.kind)) {
+        if (this.active && (APPLY_KINDS.has(this.active.kind)
+            || (this.active.source === 'material' && SCREEN_KINDS.has(this.active.kind)))) {
             this.widget.sendMessage({ type: 'akari-preview-hit-test-clear' });
         }
         this.dragSerial++;

@@ -1,107 +1,105 @@
-# critique-cut ワークフロー
+# critique-cut workflow
 
-## 使用区間の導出
+## Derive used ranges
 
-`bin/used-ranges.mjs` を使い、手計算しない。
+Use `bin/used-ranges.mjs`; do not calculate manually.
 
 ```sh
 node skills/critique-cut/bin/used-ranges.mjs <project-root>/edit.json
 ```
 
-出力の `sources[]` は、`src`、解決済み `path`、観察対象の統合済み `ranges[]`、各 cut / item の
-`uses[]` を持つ。`uses[].source` は source 秒、`uses[].timeline` は timeline 秒である。
+Output `sources[]` has `src`, resolved `path`, merged observation `ranges[]`, and each cut/item's `uses[]`.
+`uses[].source` is source seconds; `uses[].timeline` is timeline seconds.
 `media_item_count` / `overlay_item_count` / `telop_item_count` / `filter_item_count` /
-`audio_media_item_count` / `caption_track_count` は、所見でタイムライン構成を説明するための件数である。
+`audio_media_item_count` / `caption_track_count` describe timeline composition in findings.
 
-- v0: `cuts[].src` があれば素材パスとして扱う。無ければ単一 `source.path`（文字列 `source`
-  も互換として読む）へ解決する。`cuts` が空または欠落なら `whole_source: true` とし、
-  edit.json だけから終端を推測せず、`probe.duration_s` を得た後に `[0, duration_s)` として確定する。
-- v1: `cuts[].src` を `sources[].id` から `sources[].path` へ解決する。未知 id の cut は
-  `warnings[]` へ出して除外し、見たことにしない。
-- v2: `output.fps` を 1 以上の整数として読み、visual lane の `source.kind: "media"` item だけを
-  素材使用区間へ入れる。`item.at / fps` が timeline 開始秒、
-  `(item.at + item.duration) / fps` が timeline 終端秒である。`at` / `duration` は整数フレーム、
-  `item.source.in/out` は source 秒であり、単位を混ぜない。HTML / telop / filter と audio lane の
-  media item は `ranges[]` へ入れず、種類別件数と全 item の最大終端へだけ反映する。
-- cut の `[in, out)` は source 秒の半開区間。素材ごとに `in` 昇順へ並べ、重複区間と
-  `前の out == 次の in` である隣接区間を統合する。別の `src` は同じ時刻でも統合しない。
-- v0 / v1 の通常の timeline 射影は `(out - in) / speed`。`speed` 省略時は 1。`track` ごとに
-  cursor を持ち、`at` があればその timeline 秒へ明示配置し、無ければ同じ track の直前の終端へ
-  詰める。`track` 省略時は 0 とする。
-- v0 / v1 の `freeze.duration_sec` は source の使用区間を広げず、cut の timeline 尺だけを伸ばす。
-  `freeze.at_sec` は speed 適用後の cut 内秒で、`uses[].freeze` に source 時刻と timeline の
-  hold 区間を残す。v2 の timeline 尺は item 直下の `duration` フレームを正本とし、source 内の
-  `speed` / `freeze` から再計算しない。
-- `timeline_duration_s` は v0 / v1 では全 track の cut 終端、v2 では media 以外も含む全 item
-  終端の最大値である。`overlays` / `layers` / `audio` は完成絵と編集意図の所見には読むが、
-  素材の `ranges[]` へ混ぜない。
+- v0: Treat `cuts[].src` as the media path if present; otherwise resolve to the single `source.path`
+  (also read string `source` for compatibility). Empty/absent `cuts` means `whole_source: true`.
+  Do not infer the end from edit.json alone; obtain `probe.duration_s` and establish `[0, duration_s)`.
+- v1: Resolve `cuts[].src` via `sources[].id` to `sources[].path`. Emit unknown-ID cuts to `warnings[]`
+  and exclude them; do not claim observation.
+- v2: Read `output.fps` as an integer ≥1. Include only visual-lane `source.kind: "media"` items in media ranges.
+  `item.at / fps` is timeline start seconds; `(item.at + item.duration) / fps` is timeline end seconds.
+  `at` / `duration` are integer frames; `item.source.in/out` are source seconds. Never mix units.
+  HTML/telop/filter and audio-lane media items do not enter `ranges[]`; include them only in type counts
+  and maximum end across all items.
+- Cut `[in, out)` is a half-open source-seconds interval. Sort each asset by ascending `in`; merge overlaps
+  and adjacency satisfying `前の out == 次の in` (existing expression: previous out equals next in).
+  Never merge different `src` values even at identical times.
+- Normal v0/v1 timeline projection: `(out - in) / speed`, default `speed` 1.
+  Maintain a cursor per `track`; explicit `at` places at that timeline second, otherwise append at the preceding
+  same-track end. Default `track`: 0.
+- v0/v1 `freeze.duration_sec` extends only timeline cut duration, not source ranges.
+  `freeze.at_sec` is within-cut seconds after speed adjustment; retain source time and timeline hold range in `uses[].freeze`.
+  For v2, item-level `duration` frames are canonical; do not recalculate from source `speed` / `freeze`.
+- `timeline_duration_s` is the maximum cut end across tracks for v0/v1, or the maximum end across all items,
+  including nonmedia, for v2. Read `overlays` / `layers` / `audio` for finished-visual/edit-intent findings,
+  but never mix them into media `ranges[]`.
 
-`warnings[]` が空でない場合は critique.md の証跡へそのまま記録する。解決不能な cut の素材や
-内容を推測しない。
+If `warnings[]` is nonempty, copy it unchanged into critique.md evidence. Do not guess unresolved cuts' sources/content.
 
-## 帳面の既読判定
+## Prior-observation checks
 
-素材 `path` の帳面は
-`.akari/sidecars/<source-relative-path>.analysis/analysis.json` にある。CLI 実行前に存在を確認し、
-`observations[]` を削除・並べ替えない。キーが無いことは「未観察」であり「何も無い」ではない。
+The ledger for asset `path` is `.akari/sidecars/<source-relative-path>.analysis/analysis.json`.
+Check existence before CLI execution; never delete/reorder `observations[]`. Missing keys mean unobserved, not absent contents.
 
-次の条件を満たす観察は既読として再利用する。
+Reuse observations meeting these conditions:
 
-| 観察 | 既読の条件 |
+| Observation | Reuse condition |
 |---|---|
-| probe | `probe` があり、`observations[]` に `kind: "probe"` がある。尺・音声有無・hash は `probe` を読む |
-| waveform | `tracks.waveform.path` と `kind: "waveform"` があり、今回使う引数と `observation.args` が一致し、列挙された出力が存在する |
-| transcribe | `kind: "transcribe"` の `range`（range 無しは素材全体）が、今回の統合済み `[in,out)` を単独または複数観察の和集合で覆い、対応する `transcript[]` がある |
+| probe | `probe` exists and `observations[]` contains `kind: "probe"`. Read duration/audio/hash from `probe`. |
+| waveform | `tracks.waveform.path` and `kind: "waveform"` exist, current arguments match `observation.args`, and listed outputs exist. |
+| transcribe | `kind: "transcribe"` `range` (no range means whole asset) covers current merged `[in,out)` alone or as a union of observations, and corresponding `transcript[]` exists. |
 
-`waveform` は CLI に `--in/--out` が無いため、素材全体の既読結果を使用区間へ交差させて読む。
-同じ素材へ区間ごとに再実行しない。既読でなければ次を素材ごとに 1 回だけ実行する。
+Because `waveform` has no CLI `--in/--out`, intersect existing whole-asset results with used ranges.
+Do not rerun per range. If not already observed, run 1 time per asset:
 
 ```sh
 akari media probe <src-id-or-path>
 akari media waveform <src-id-or-path>
 ```
 
-波形結果が `speech_likely: true` の場合だけ、既読で覆われない統合済み区間を個別に起こす。
-`--in` と `--out` を省略して素材全体を起こしてはならない。
+Only when waveform results give `speech_likely: true`, transcribe individual merged ranges not covered by prior observations.
+Never omit `--in` / `--out` and transcribe the whole asset.
 
 ```sh
 akari media transcribe <src-id-or-path> --in <source-in> --out <source-out>
 ```
 
-ローカル backend が無く失敗した場合は発話内容を推測せず、失敗理由と当該章の「未観察」を残す。
-クラウド backend は人間が接続と利用を明示した場合だけ既存の承認規約へ渡す。
+If the local backend is absent/fails, do not guess speech contents; retain failure reasons and mark the section unobserved.
+Use existing cloud approval conventions only if the human explicitly specifies the connection and its use.
 
-## capture の時刻選び
+## Capture time selection
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-本ワークフローは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+Do not Read all of `edit.json` / `captions.json`; grep by ID and read only matching lines ([Reading edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
+This workflow does not write them. Other writing stages use relevant-line Edit or edit-store's script API.
 
-capture の時刻は **timeline 秒**である。素材の source 秒を渡さない。出力先を今回の critique
-レポート配下に固定する。**現行 `akari capture` は edit.json v2 専用**なので、v0 / v1 では
-呼び出さない。代わりに人間へ次を勧めるが、本スキルは edit.json 読み取り専用のため実行しない。
+Capture times are **timeline seconds**, never source seconds. Fix the output directory beneath this critique report.
+**Current `akari capture` supports only edit.json v2**; do not invoke it for v0/v1.
+Instead recommend this to the human, but do not execute it because this skill treats edit.json as read-only:
 
 ```sh
 akari migrate <project-root>
 ```
 
-人間が v2 へ移行して保存した後にだけ、`--auto`、冒頭 3 秒内の代表時刻、依頼で明示された時刻を
-和集合にする。
+Only after the human migrates and saves v2, take the union of `--auto`, representative opening-3-second times,
+and explicitly requested times.
 
 ```sh
 akari capture -p <project-root> --auto -t 0 1 2.999 <requested-timeline-times...> \
   --per-sheet 12 --out .akari/reports/critique/<stamp>/capture
 ```
 
-短いタイムラインでは capture が末尾フレームへ丸め、同一フレームを重複除去する。複数シートが
-出た場合も、読む画像は原則 1 枚だけとする。依頼時刻を含むシートを最優先し、次に 0〜3 秒を
-最も多く含むシート、同数なら stdout の先頭を選ぶ。選ばなかったシートは「未観察」である。
-`capture.json` と選択した sheet path を critique.md の証跡へ残す。
+For short timelines, capture clamps to the final frame and deduplicates identical frames. Even if multiple sheets
+are produced, normally view only 1. Prioritize a sheet containing requested times, then the sheet with most
+0–3-second samples; ties go to the first stdout entry. Unselected sheets are unobserved.
+Retain `capture.json` and the selected sheet path in critique.md evidence.
 
-v0 / v1 が移行されない、または v2 でも capture が失敗した場合は画像を 1 枚も読まず、
-`images_read: 0`、②「見えている絵」は「未観察」、証跡には capture 不可の理由を書く。素材の
-`grab` を完成絵の代用にせず、重なり・字幕位置・見切れ・黒味について述べない。
+If v0/v1 is not migrated or v2 capture fails, view not even 1 image: `images_read: 0`, mark ② Visible picture unobserved,
+and record why capture was unavailable. Do not substitute source `grab` images for finished visuals;
+do not discuss overlaps, caption positions, clipping, or black frames.
 
-## critique.md テンプレート
+## critique.md template
 
 ```md
 # Critique

@@ -92,6 +92,9 @@ export interface KeyframeV2 {
     opacity?: number;
     gain_db?: number;
     animator?: Record<string, { offset?: number; start?: number; end?: number }>;
+    /** 数値の CSS 変数（例 --akari-3d-rot-y: 度）。v0 でキーを打てるのは 3D 回転の 3 本だけ。 */
+    vars?: Record<string, number>;
+    /** object なら "transform.x" / "opacity" / "vars.--akari-3d-rot-y" のように項目ごと。 */
     easing?: EasingV2 | Record<string, EasingV2>;
     [key: string]: unknown;
 }
@@ -1258,6 +1261,13 @@ function validateKeyframes(
         if (hasOwn(entry, 'crop')) validateCrop(entry.crop, `${itemPath}.crop`);
         if (hasOwn(entry, 'perspective')) requireRecord(entry.perspective, `${itemPath}.perspective`);
         if (hasOwn(entry, 'opacity')) requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+        if (hasOwn(entry, 'vars')) {
+            requireRecord(entry.vars, `${itemPath}.vars`);
+            for (const [name, number] of Object.entries(entry.vars)) {
+                if (!/^--[A-Za-z0-9_-]+$/.test(name)) throw invalid(`${itemPath}.vars.${name}`, '-- で始まる CSS 変数名である必要があります');
+                if (typeof number !== 'number' || !Number.isFinite(number)) throw invalid(`${itemPath}.vars.${name}`, '有限の数値である必要があります');
+            }
+        }
         if (hasOwn(entry, 'animator')) {
             requireRecord(entry.animator, `${itemPath}.animator`);
             for (const [id, state] of Object.entries(entry.animator)) {

@@ -1,109 +1,109 @@
-# サムネイル設計
+# Thumbnail design
 
-サムネイルは静止画として **1280×720** で出力する。候補は複数作り、タイトル文字の差分も見せて編集判断レポートの先頭へ置く。候補数の一律閾値は契約にないため、依頼と比較したい仮説から決め、根拠のない「標準個数」を発明しない。
+Output a still thumbnail at **1280×720**. Make multiple candidates, show variations in headline text, and place them at the start of the editorial decision report. The contract has no universal threshold for the number of candidates: choose from the request and the hypothesis to compare, and do not invent an unsupported "standard count".
 
-## 状況から型を選ぶ
+## Choose a pattern from the situation
 
-| 状況・ジャンル | 第一候補の型 | 注意点 |
+| Situation / genre | First candidate pattern | Caution |
 |---|---|---|
-| 操作解説・ソフトウェア | UI の証拠フレーム + 注目箇所 + 結果を示す短い見出し | UI 全景を縮小せず、見せたい部分を crop する |
-| 商品・機能発表 | product hero + ベネフィット + 小さな category tag | ロゴ、形状、UI を生成で変形しない |
-| 対談・人物解説 | 表情の読める人物 + 論点または対立軸 | 顔を過度に加工せず、視線の先に文字余白を作る |
-| 比較・レビュー | split / versus + 比較対象 + 判断語 | 左右の縮尺と条件をそろえ、勝敗を捏造しない |
-| before / after | 同条件の二面比較 + 変化点 | 撮影条件が違う素材を同一条件のように見せない |
-| リスト・まとめ | 主役 1 点 + 数やカテゴリを示す badge | 小要素を並べすぎず、本文の一覧と混同しない |
-| 事件・ストーリー・ドキュメンタリー | key object / place + 緊張を作る短い問い | 本文にない断定や偽の出来事を描かない |
+| How-to / software | Evidence frame of UI + focal area + short result headline | Crop the area to show; do not shrink the whole UI |
+| Product / feature announcement | Product hero + benefit + small category tag | Do not distort the logo, shape, or UI through generation |
+| Interview / person-led explanation | Readable expression + topic or opposing viewpoint | Do not overprocess faces; leave text space in the gaze direction |
+| Comparison / review | Split / versus + subjects + judgment word | Match scales and conditions on both sides; do not fabricate a winner |
+| Before / after | Two views under the same conditions + change | Do not present material shot under different conditions as comparable |
+| List / roundup | One hero subject + number or category badge | Do not crowd small elements or confuse it with the list in the video |
+| Incident / story / documentary | Key object / place + short question creating tension | Do not depict an unsupported claim or fabricated event |
 
-型はジャンル名だけで決めず、「何がクリック後に証明されるか」を基準にする。サムネイル単独で成立し、動画内容と約束が一致するものだけ採用する。
+Choose by what the video proves after the click, not genre alone. Adopt only thumbnails that stand alone and make a promise the video fulfills.
 
-## デザイン語彙
+## Design vocabulary
 
-### 背景処理
+### Background treatments
 
-| 技法名 | 用途 | HTML/CSS 実装ヒント |
+| Technique | Purpose | HTML/CSS implementation hint |
 |---|---|---|
-| crop / focal crop | 主役を大きく見せる | `<img>` の `object-fit: cover` と `object-position` を変数化する |
-| gradient wash | 文字側のコントラストを作る | 疑似要素の linear / radial gradient を使う |
-| vignette | 周辺を落として中央へ集める | 疑似要素の radial-gradient。CSS blur は使わない |
-| duotone / color wash | シリーズ感を統一する | 半透明の blend layer を重ね、元の証拠を潰さない |
-| cutout silhouette | 人物・商品を背景から分離する | 事前生成した alpha PNG / HEVC を使い、輪郭を検品する |
-| split field | 比較対象を一目で分ける | Grid の 2 region と境界線を使う |
+| crop / focal crop | Make the subject large | Parameterize `<img>` `object-fit: cover` and `object-position` |
+| gradient wash | Build contrast behind text | Use a pseudo-element linear / radial gradient |
+| vignette | Darken the perimeter to draw attention inward | Pseudo-element radial-gradient; do not use CSS blur |
+| duotone / color wash | Unify a series | Overlay a translucent blend layer without erasing the original evidence |
+| cutout silhouette | Separate person or product from background | Use a prepared alpha PNG / HEVC and inspect the edge |
+| split field | Distinguish comparison subjects instantly | Use two Grid regions and a dividing line |
 
-背景ぼかしが必要なら、静止画像を事前処理する。動画 overlay の禁止事項である `filter: blur()` / `backdrop-filter` をデザインの前提にしない。
+If background blur is needed, preprocess the still image. Do not base the design on `filter: blur()` / `backdrop-filter`, which are forbidden in video overlays.
 
 ### FX
 
-| 技法名 | 用途 | HTML/CSS 実装ヒント |
+| Technique | Purpose | HTML/CSS implementation hint |
 |---|---|---|
-| outline / keyline | 主役の輪郭分離 | alpha cutout の背面へ複製 silhouette をずらして置く |
-| halftone | 情報・コミック感 | radial-gradient の pattern layer |
-| speed lines | 勢い・方向 | repeating-conic / repeating-linear gradient |
-| accent ray | 注目点から放射 | conic-gradient を mask して不透明度を抑える |
-| hard offset shadow | 奥行き・ポップ感 | blur の小さい box/text shadow または複製 layer の translate |
-| sticker / tape | 補助ラベル | transform した小さな tag。本文より強くしない |
+| outline / keyline | Separate the subject edge | Offset a duplicate silhouette behind an alpha cutout |
+| halftone | Information / comic texture | radial-gradient pattern layer |
+| speed lines | Motion and direction | repeating-conic / repeating-linear gradient |
+| accent ray | Radiate from the focus | Mask a conic-gradient and restrain its opacity |
+| hard offset shadow | Depth and pop | box/text shadow with little blur, or translated duplicate layer |
+| sticker / tape | Secondary label | Small transformed tag; never stronger than the main claim |
 
-### 文字強調
+### Text emphasis
 
-| 技法名 | 用途 | HTML/CSS 実装ヒント |
+| Technique | Purpose | HTML/CSS implementation hint |
 |---|---|---|
-| stroke | 背景から分離 | `-webkit-text-stroke` と通常色を併用する |
-| highlight band | キーワードだけ強調 | inline span の背景色と padding |
-| two-tone keyword | 意味の対比 | キーワード span の `--accent` を差し替える |
-| condensed stack | 短い見出しを大きく積む | 明示改行と line-height。自動折返し任せにしない |
-| label + headline | 種別と主張を分離 | 小 tag と大見出しを別 hierarchy にする |
-| hard shadow | 小サイズでも輪郭を残す | 複製文字を `aria-hidden` で背面へ offset する |
+| stroke | Separate text from background | Combine `-webkit-text-stroke` with normal fill |
+| highlight band | Emphasize only a keyword | Background color and padding on an inline span |
+| two-tone keyword | Contrast meanings | Change `--accent` on a keyword span |
+| condensed stack | Stack a short large headline | Explicit breaks and line-height; do not rely on automatic wrapping |
+| label + headline | Separate category from claim | Small tag and large headline in different hierarchy |
+| hard shadow | Keep an edge at small display size | Offset duplicate text behind with `aria-hidden` |
 
-日本語の最終文字は HTML で組む。画像生成モデルへ見出し、ロゴ、UI の正確な描画を任せない。
+For language-specific thumbnail text, follow the selected language pack. Never entrust accurate headlines, logos, or UI to an image generation model.
 
-## 経路を選ぶ
+## Choose a route
 
-### 経路 A — 実フレーム + HTML 文字組
+### Route A — real frame + HTML text
 
-次の場合に選ぶ。
+Choose when:
 
-- 動画内に顔、商品、UI、結果などの強い証拠フレームがある。
-- 日本語、数字、ロゴ、UI を正確に見せる必要がある。
-- 生成による事実改変を避ける必要がある。
+- The video contains a strong evidence frame: face, product, UI, result, etc.
+- Words, numbers, logos, or UI must be displayed accurately.
+- Fabricated facts from generation must be avoided.
 
-実フレームを crop / grade し、文字、badge、矢印、比較線だけを HTML/CSS で重ねる。
+Crop / grade a real frame, then overlay only text, badges, arrows, and comparison lines with HTML/CSS.
 
-### 経路 B — Codex 画像生成
+### Route B — Codex image generation
 
-次の場合に選ぶ。
+Choose when:
 
-- 使用可能な実フレームがない。
-- 抽象概念、世界観、イラストが主役で、写真の証拠性を要求しない。
-- 生成物であることと provenance を記録できる。
+- No usable real frame exists.
+- An abstract concept, world, or illustration is central and photographic evidence is unnecessary.
+- The generated nature and provenance can be recorded.
 
-文字なしの構図を生成し、生成手、prompt、日時を記録する。API key の直叩きへ fallback しない。画像生成が使えなければ A または制作保留に戻す。
+Generate a text-free composition and record the generator, prompt, and date. Do not fall back to calling an API key directly. If image generation is unavailable, return to A or pause production.
 
-> **実測済み（2026-07-14）**: `codex exec --skip-git-repo-check` 経由で 16:9・文字なしの背景 PNG（1664×936、1.7MB）が約 93 秒で実ファイル出力されることを視認確認済み。呼び出し形・事前確認・既知の失敗モード（アカウント使用量上限）は [edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md) の「手 1（Codex 画像生成）の実働確認」を参照。
+> **Measured (2026-07-14)**: Through `codex exec --skip-git-repo-check`, a 16:9, text-free background PNG (1664×936, 1.7MB) was visibly confirmed as a real file after about 93 seconds. See [edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md), "Method 1 (Codex image generation) live verification", for invocation, preflight, and the known account-usage-limit failure mode.
 
-### 混成 — B の背景 + A の文字
+### Hybrid — B background + A text
 
-独自背景は必要だが、日本語、ブランド、数値は正確に保つ場合に選ぶ。B では文字・ロゴ・UI を入れず余白を指定し、A の HTML layer で最終文字と正式 asset を置く。
+Choose when a custom backdrop is necessary but words, branding, or numbers must stay accurate. Ask B for space but no text, logos, or UI; add the final words and official asset in A's HTML layer.
 
-## `examples/` の HTML → スクショ手順
+## HTML → screenshot procedure for `examples/`
 
-現在はサムネ専用 CLI がないため、frame-engine のプレビューを指定サイズで開いて静止画を取得する。
+There is currently no thumbnail-specific CLI. Open a frame-engine preview at the requested size and capture a still.
 
-1. `examples/local/thumbnails/<slug>/index.html` を作る。`examples/local/` は gitignore 対象の試作場所である。
-2. `html, body` と単一 sheet を 1280×720、margin 0、overflow hidden にする。背景を明示し、画像・font は同ディレクトリ以下のローカル相対 URL にする。
-3. 文字、色、crop、accent を CSS 変数化する。日本語は HTML text として置く。
-4. font と画像が load 済みになる構造にし、プレビューの固定時刻で安定するようにする。
-5. アプリのプレビューを 1280×720・固定時刻で表示し、単発 PNG を撮る。
+1. Create `examples/local/thumbnails/<slug>/index.html`. `examples/local/` is a gitignored prototype area.
+2. Set `html, body` and a single sheet to 1280×720, margin 0, overflow hidden. Specify a background; use local relative URLs below that directory for images and fonts.
+3. Expose text, color, crop, and accent as CSS variables. Put final text in HTML, following the selected language pack.
+4. Ensure fonts and images are loaded and the fixed preview time produces a stable result.
+5. Display the app preview at 1280×720 and a fixed time, then take one PNG.
 
-6. `sips -g pixelWidth -g pixelHeight .../thumbnail.png` で **1280×720** を確認する。
-7. PNG を実見し、文字欠け、font fallback、crop、コントラスト、誤字、safe zone を確認する。採用 PNG は gitignore 外の案件成果物へ移す。
+6. Confirm **1280×720** with `sips -g pixelWidth -g pixelHeight .../thumbnail.png`.
+7. Inspect the PNG visually for clipped text, font fallback, crop, contrast, spelling, and safe zones. Move the adopted PNG to a project deliverable outside gitignored areas.
 
-YouTube 広告向けの公式 thumbnail 推奨値も 1280×720、16:9 であるが、このスキルではユーザー指定の AKARI 出力契約として 1280×720 を固定する。出典: [Google Ads Help — About video ad specs](https://support.google.com/google-ads/answer/13547298?hl=en)
+The official recommendation for YouTube video ads is also 1280×720, 16:9, but this skill fixes 1280×720 as the user-specified AKARI output contract. Source: [Google Ads Help — About video ad specs](https://support.google.com/google-ads/answer/13547298?hl=en).
 
-## よくある間違い
+## Common mistakes
 
-- 本文にない結果、感情、人物、UI を生成して事実のように見せる。
-- 日本語やロゴを画像生成モデルに描かせる。
-- 背景、人物、文字、矢印、badge をすべて同じ強さにする。
-- 実フレーム全景を縮小して、小さな UI を読ませようとする。
-- 16:9 sheet を CSS transform で拡縮し、最終 PNG の実寸を確認しない。
-- network font / CDN 画像へ依存し、headless で欠落する。
-- `examples/local` の試作 PNG を最終成果物の保存先と思い込む。
+- Generating an unsupported result, emotion, person, or UI and presenting it as fact.
+- Asking an image generation model to draw exact text or logos.
+- Giving the background, person, text, arrows, and badges equal visual strength.
+- Shrinking an entire real frame so tiny UI becomes unreadable.
+- Scaling a 16:9 sheet with CSS transforms without checking actual PNG dimensions.
+- Relying on network fonts or CDN images that disappear in headless output.
+- Treating a prototype PNG in `examples/local` as the final deliverable location.

@@ -1,3 +1,4 @@
+import { setLanguage, t } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
@@ -9,16 +10,16 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
-import { updateItem } from '../lib/common/edit-v2-mutations.js';
+
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 
-import {
-  addCutFramingKeyframe,
-  createCutFramingCropWriteRequest,
-  normalizeCutFramingKeyframes,
-  removeCutFramingKeyframe,
-  updateCutFraming
-} from '../lib/browser/inspector/framing-fields.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { updateItem } = await import('../lib/common/edit-v2-mutations.js');
+const { addCutFramingKeyframe, createCutFramingCropWriteRequest, normalizeCutFramingKeyframes, removeCutFramingKeyframe, updateCutFraming } = await import('../lib/browser/inspector/framing-fields.js');
+
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();
@@ -124,13 +125,23 @@ test('既存 KF への追加は直近倍率を継承し、衝突を +0.1 秒ず�
 
 test('UI は KF 配列丸ごと write・削除メニュー・無効窓タイトルを配線する', () => {
   assert.match(inspectorSource, /kind: 'cut-framing-keyframes'/u);
-  assert.match(inspectorSource, /label: 'この KF を削除'/u);
-  assert.match(inspectorSource, /ズーム KF があるときは窓は無視されます/u);
-  assert.match(inspectorSource, /actionLabel: '＋ ズーム KF を追加'/u);
-  for (const label of ['時刻', '倍率']) {
-    assert.equal(inspectorSource.includes(`label: \`KF \${index + 1} ${label}\``), true, label);
+  assert.match(inspectorSource, /label: translate\('inspector\.transformFields\.action\.removeKf'\)/u);
+  assert.equal(t('inspector.transformFields.action.removeKf'), 'この KF を削除');
+  assert.match(inspectorSource, /CUT_FRAMING_CROP_DISABLED_TITLE = translate\('inspector\.transformFields\.label\.whenZoomKfPresentWindowIgnored'\)/u);
+  assert.equal(t('inspector.transformFields.label.whenZoomKfPresentWindowIgnored'), 'ズーム KF があるときは窓は無視されます');
+  assert.match(inspectorSource, /actionLabel: translate\('inspector\.transformFields\.label\.addZoomKf'\)/u);
+  assert.equal(t('inspector.transformFields.label.addZoomKf'), '＋ ズーム KF を追加');
+  assert.match(inspectorSource, /name: `\$\{prefix\}-t`, label: translate\('inspector\.transformFields\.label\.kfTime', \{ index: index \+ 1 \}\)/u);
+  assert.match(inspectorSource, /name: `\$\{prefix\}-scale`, label: translate\('inspector\.transformFields\.label\.kfMagnification', \{ index: index \+ 1 \}\)/u);
+  assert.match(inspectorSource, /label: translate\('inspector\.transformFields\.label\.kfCenter', \{ index: index \+ 1, axis: axis === 'cx' \? 'X' : 'Y' \}\)/u);
+  for (const index of [1, 2]) {
+    assert.equal(t('inspector.transformFields.label.kfTime', { index }), `KF ${index} 時刻`);
+    assert.equal(t('inspector.transformFields.label.kfMagnification', { index }), `KF ${index} 倍率`);
+    for (const axis of ['X', 'Y']) assert.equal(t('inspector.transformFields.label.kfCenter', { index, axis }), `KF ${index} 中心 ${axis}`);
   }
-  assert.match(inspectorSource, /label: `KF \$\{index \+ 1\} 中心 \$\{axis === 'cx' \? 'X' : 'Y'\}`/u);
+  for (const key of ['kfTimeShouldBeEnteredWithinRange', 'enterKfMagnificationRangeFrom110', 'enterKfCenterRangeFrom0100']) {
+    assert.match(inspectorSource, new RegExp(`inspector\\.transformFields\\.message\\.${key}`, 'u'));
+  }
   assert.match(inspectorSource, /scrubStep: 0\.01, min: 0, max: duration/u);
   assert.match(inspectorSource, /scrubStep: 0\.01, min: 1, max: 10/u);
   assert.match(inspectorSource, /scrubStep: 0\.005, min: 0, max: 1/u);

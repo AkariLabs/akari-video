@@ -1,10 +1,15 @@
 #!/usr/bin/env node
+import { t as toolsText } from '../../i18n/index.mjs';
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, posix, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { isMainModule } from '../src/common/main-module.mjs';
+import { whisperModelCandidates, isWhisperModelExcluded } from '../src/media/whisper-model-candidates.mjs';
+import { WHISPER_MODEL, installWhisperModel } from '../src/media/whisper-model.mjs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const modelPins = [
     { file: 'wespeaker_en_voxceleb_resnet34_LM.onnx', url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx', sha256: 'e9848563da86f263117134dfd7ad63c92355b37de492b55e325400c9d9c39012', bytes: 26530550, license: 'CC-BY-4.0' },
@@ -83,16 +88,16 @@ async function modelPresent(file, pin, hash = false) {
 
 export async function inspectVoiceEngine({ voiceHome = resolveVoiceHome(), platform = process.platform, arch = process.arch } = {}) {
     const key = voiceRuntimeKey(platform, arch);
-    if (!key) return { state: 'unsupported', voiceHome, needs: ['このパソコンでは使えません'] };
+    if (!key) return { state: 'unsupported', voiceHome, needs: [toolsText('tools.voice.cli.unsupportedNeed')] };
     const expected = expectedVoiceManifest(platform, arch);
     const actual = await readManifest(voiceHome);
-    if (!actual) return { state: 'missing', voiceHome, needs: ['取得していない'] };
-    if (!manifestMatches(actual, expected)) return { state: 'outdated', voiceHome, needs: ['版が古い'] };
+    if (!actual) return { state: 'missing', voiceHome, needs: [toolsText('tools.voice.cli.notDownloadedNeed')] };
+    if (!manifestMatches(actual, expected)) return { state: 'outdated', voiceHome, needs: [toolsText('tools.voice.cli.outdatedNeed')] };
     for (const pin of VOICE_ENGINE_PINS.runtimes[key]) {
-        if (!await packagePresent(join(voiceHome, 'runtime', key, 'node_modules', pin.name), pin)) return { state: 'broken', voiceHome, needs: ['ファイルが欠けている'] };
+        if (!await packagePresent(join(voiceHome, 'runtime', key, 'node_modules', pin.name), pin)) return { state: 'broken', voiceHome, needs: [toolsText('tools.voice.cli.missingFilesNeed')] };
     }
     for (const pin of VOICE_ENGINE_PINS.models) {
-        if (!await modelPresent(join(voiceHome, 'models', pin.file), pin)) return { state: 'broken', voiceHome, needs: ['ファイルが欠けている'] };
+        if (!await modelPresent(join(voiceHome, 'models', pin.file), pin)) return { state: 'broken', voiceHome, needs: [toolsText('tools.voice.cli.missingFilesNeed')] };
     }
     return { state: 'ready', voiceHome, needs: [] };
 }
@@ -112,9 +117,9 @@ async function nearestExisting(path) {
 
 function safeTarPath(value) {
     const name = value.replace(/\0.*$/, '').replace(/\/+$/, '');
-    if (!name || name.includes('\\') || name.startsWith('/') || isAbsolute(name) || /^[A-Za-z]:/.test(name)) throw new Error('tar のパスが不正です');
+    if (!name || name.includes('\\') || name.startsWith('/') || isAbsolute(name) || /^[A-Za-z]:/.test(name)) throw new Error(toolsText('tools.voice.cli.invalidTarPath'));
     const parts = name.split('/');
-    if (parts.includes('..') || parts.includes('')) throw new Error('tar のパスが不正です');
+    if (parts.includes('..') || parts.includes('')) throw new Error(toolsText('tools.voice.cli.invalidTarPath'));
     return name;
 }
 
@@ -124,9 +129,9 @@ function paxPath(data) {
     let offset = 0; let path;
     while (offset < data.length) {
         const space = data.indexOf(32, offset);
-        if (space < 0) throw new Error('pax が不正です');
+        if (space < 0) throw new Error(toolsText('tools.voice.cli.invalidPax'));
         const length = Number(data.subarray(offset, space).toString());
-        if (!Number.isSafeInteger(length) || length <= 0 || offset + length > data.length) throw new Error('pax が不正です');
+        if (!Number.isSafeInteger(length) || length <= 0 || offset + length > data.length) throw new Error(toolsText('tools.voice.cli.invalidPax'));
         const record = data.subarray(space + 1, offset + length - 1).toString('utf8');
         if (record.startsWith('path=')) path = record.slice(5);
         offset += length;
@@ -141,7 +146,7 @@ async function unpackTarball(gzip, destination, pin) {
         const header = tar.subarray(offset, offset + 512);
         if (header.every(byte => byte === 0)) break;
         const size = tarNumber(header, 124, 12);
-        if (!Number.isSafeInteger(size) || size < 0 || offset + 512 + size > tar.length) throw new Error('tar が不正です');
+        if (!Number.isSafeInteger(size) || size < 0 || offset + 512 + size > tar.length) throw new Error(toolsText('tools.voice.cli.invalidTar'));
         const data = tar.subarray(offset + 512, offset + 512 + size);
         const type = String.fromCharCode(header[156] || 48);
         const raw = [tarString(header, 345, 155), tarString(header, 0, 100)].filter(Boolean).join('/');
@@ -152,14 +157,14 @@ async function unpackTarball(gzip, destination, pin) {
         const name = safeTarPath(nextPath || raw);
         nextPath = undefined;
         if (type !== '0') continue;
-        if (!name.startsWith('package/')) throw new Error('tar の配置が不正です');
+        if (!name.startsWith('package/')) throw new Error(toolsText('tools.voice.cli.invalidTarPlacement'));
         const relative = safeTarPath(name.slice('package/'.length));
         if (pin.keep && relative.startsWith('bin/napi-v6/') && !relative.startsWith(pin.keep)) continue;
         const target = join(destination, ...relative.split('/'));
         await fs.mkdir(dirname(target), { recursive: true });
         await fs.writeFile(target, data);
     }
-    if (!await packagePresent(destination, pin)) throw new Error('パッケージの中身が足りません');
+    if (!await packagePresent(destination, pin)) throw new Error(toolsText('tools.voice.cli.incompletePackage'));
 }
 
 async function fetchBytes(fetchImpl, url, progress) {
@@ -193,7 +198,7 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
     fetchImpl = fetch, statfs = fs.statfs, onProgress, pins = VOICE_ENGINE_PINS } = {}) {
     const key = `${platform}-${arch}`;
     const packages = pins.runtimes[key];
-    if (!packages) return { outcome: 'unsupported', message: `このパソコン（${key}）では話者を分ける機能に対応していません。`, fetched: [] };
+    if (!packages) return { outcome: 'unsupported', message: toolsText('tools.voice.cli.unsupportedPlatform', { platform: key }), fetched: [] };
     const expected = manifestFor(platform, arch, pins);
     const existing = await readManifest(voiceHome);
     const missingPackages = [];
@@ -201,7 +206,7 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
     for (const pin of packages) if (!await packagePresent(join(voiceHome, 'runtime', key, 'node_modules', pin.name), pin)) missingPackages.push(pin);
     for (const pin of pins.models) if (!await modelPresent(join(voiceHome, 'models', pin.file), pin, true)) missingModels.push(pin);
     if (!missingPackages.length && !missingModels.length && manifestMatches(existing, expected)) {
-        return { outcome: 'unchanged', message: '声のエンジンはそろっています。', fetched: [] };
+        return { outcome: 'unchanged', message: toolsText('tools.voice.cli.alreadyReady'), fetched: [] };
     }
     const items = [...missingPackages.map(pin => ({ pin, kind: 'package' })), ...missingModels.map(pin => ({ pin, kind: 'model' }))];
     const fetched = [];
@@ -213,7 +218,7 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
             const required = items.reduce((sum, { pin, kind }) => sum + (kind === 'package' ? pin.unpackedBytes : pin.bytes), 64 * 1024 * 1024);
             const space = await statfs(await nearestExisting(voiceHome));
             const available = Number(space.bavail) * Number(space.bsize);
-            if (available < required) return { outcome: 'failed', message: `空き容量が足りません（あと約 ${Math.ceil((required - available) / 1048576)} MB 必要です）。`, fetched };
+            if (available < required) return { outcome: 'failed', message: toolsText('tools.voice.cli.notEnoughSpace', { megabytes: Math.ceil((required - available) / 1048576) }), fetched };
             await fs.mkdir(stage, { recursive: true });
         }
         const totalBytes = items.reduce((sum, { pin }) => sum + pin.bytes, 0);
@@ -223,7 +228,7 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
             const url = kind === 'package' ? `https://registry.npmjs.org/${pin.name}/-/${pin.name}-${pin.version}.tgz` : pin.url;
             const report = delta => {
                 downloadedBytes += delta;
-                onProgress?.({ phase: `声のエンジンを取得しています…（${index + 1}/${items.length}）`, downloadedBytes, totalBytes, index: index + 1, count: items.length, name });
+                onProgress?.({ phase: toolsText('tools.voice.cli.downloading', { index: index + 1, count: items.length }), downloadedBytes, totalBytes, index: index + 1, count: items.length, name });
             };
             const bytes = await fetchBytes(fetchImpl, url, report);
             const actual = createHash(kind === 'package' ? 'sha512' : 'sha256').update(bytes).digest(kind === 'package' ? 'base64' : 'hex');
@@ -257,12 +262,12 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
         }
         await writeManifest(voiceHome, expected);
         committed = true;
-        return { outcome: 'installed', message: '声のエンジンを取得しました。', fetched };
+        return { outcome: 'installed', message: toolsText('tools.voice.cli.installed'), fetched };
     } catch (error) {
         const name = typeof error.message === 'string' && error.message.startsWith('VERIFY:') ? error.message.slice(7) : undefined;
         return { outcome: 'failed', message: name
-            ? `取得したファイルの検証に失敗しました（${name}）。時間をおいて、もう一度お試しください。`
-            : '声のエンジンの取得に失敗しました。時間をおいて、もう一度お試しください。', fetched };
+            ? toolsText('tools.voice.cli.verifyFailed', { name })
+            : toolsText('tools.voice.cli.downloadFailed'), fetched };
     } finally {
         if (!committed) for (const { target, backup } of backups.reverse()) {
             await fs.rm(target, { recursive: true, force: true });
@@ -274,18 +279,19 @@ export async function installVoiceEngine({ voiceHome = resolveVoiceHome(), platf
 }
 
 export async function runToolsCli(argv, { env = process.env, homeDir = homedir(), stdout = process.stdout, stderr = process.stderr,
-    fetchImpl = fetch, statfs = fs.statfs, platform = process.platform, arch = process.arch, pins = VOICE_ENGINE_PINS } = {}) {
-    const usage = '使い方: akari tools install voice [--json] / akari tools status voice [--json]';
+    fetchImpl = fetch, statfs = fs.statfs, platform = process.platform, arch = process.arch, pins = VOICE_ENGINE_PINS, whisperModel = WHISPER_MODEL } = {}) {
+    const usage = toolsText('tools.whisper.cli.usage');
     if (argv.includes('--help')) { stdout.write(`${usage}\n`); return 0; }
     const [verb, subject, ...rest] = argv;
-    if (!['install', 'status'].includes(verb) || subject !== 'voice' || rest.some(value => value !== '--json')) {
+    if (!['install', 'status'].includes(verb) || !['voice', 'whisper'].includes(subject) || rest.some(value => value !== '--json')) {
         stderr.write(`${usage}\n`); return 2;
     }
+    if (subject === 'whisper') return runWhisperCli(verb, rest.includes('--json'), { env, homeDir, stdout, stderr, fetchImpl, whisperModel });
     const voiceHome = resolveVoiceHome({ env, homeDir });
     const json = rest.includes('--json');
     if (verb === 'status') {
         const result = await inspectVoiceEngine({ voiceHome, platform, arch });
-        stdout.write(`${json ? JSON.stringify(result) : `${result.state}: ${result.needs.join('、') || '声のエンジンはそろっています。'}`}\n`);
+        stdout.write(`${json ? JSON.stringify(result) : `${result.state}: ${result.needs.join(toolsText('tools.voice.cli.listSeparator')) || toolsText('tools.voice.cli.alreadyReady')}`}\n`);
         return result.state === 'ready' ? 0 : 1;
     }
     let lastStep = -1;
@@ -298,6 +304,24 @@ export async function runToolsCli(argv, { env = process.env, homeDir = homedir()
     return ok ? 0 : 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+async function runWhisperCli(verb, json, { env, homeDir, stdout, stderr, fetchImpl, whisperModel }) {
+    if (verb === 'status') {
+        const model = whisperModelCandidates({ env, homeDir, repoRoot: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'), bin: '' })
+            .find(candidate => existsSync(candidate) && !isWhisperModelExcluded(candidate));
+        stdout.write(`${json ? JSON.stringify({ state: model ? 'ready' : 'missing', model: model ?? null }) : model ? toolsText('tools.whisper.cli.statusReady', { path: model }) : toolsText('tools.whisper.cli.statusMissing')}\n`);
+        return model ? 0 : 1;
+    }
+    let lastStep = -1;
+    const result = await installWhisperModel({ homeDir, fetchImpl, model: whisperModel, onProgress: ({ downloadedBytes, totalBytes }) => {
+        if (!totalBytes) return;
+        const step = Math.min(10, Math.floor(downloadedBytes / totalBytes * 10));
+        if (step > lastStep) { lastStep = step; stderr.write(`${toolsText('tools.whisper.cli.downloading')} ${step * 10}%\n`); }
+    } });
+    const ok = result.outcome === 'installed' || result.outcome === 'unchanged';
+    stdout.write(`${json ? JSON.stringify({ ok, outcome: result.outcome, message: result.message, path: result.path }) : result.message}\n`);
+    return ok ? 0 : 1;
+}
+
+if (isMainModule(import.meta.url)) {
     runToolsCli(process.argv.slice(2)).then(code => { process.exitCode = code; }, error => { console.error(error); process.exitCode = 1; });
 }

@@ -127,6 +127,13 @@ import {
 export function previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const uiText = JSON.parse(document.getElementById('akari-preview-text')?.textContent || '{}');
+            const t = (key, params = {}) => {
+                const language = document.documentElement.lang === 'ja' ? 'ja' : 'en';
+                const form = typeof params.n === 'number' ? (language === 'ja' ? 'other' : new Intl.PluralRules(language).select(params.n)) : null;
+                const selected = form && uiText[key + '_' + form] !== undefined ? key + '_' + form : key;
+                return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
+            };
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
             const canvasCaptionZPlanFn = (${canvasCaptionZPlan.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
@@ -178,24 +185,33 @@ export function previewBootstrapScript(): string {
             });
             const videoFxFailedIndicators = new Set();
             let adjustCssApproximationActive = false;
+            const INDICATOR_LABELS = {
+                lut: 'LUT',
+                chromaKey: t('preview.previewWindow.indicators.chromaKeyLabel'),
+                masterAudio: t('preview.previewWindow.indicators.masterAudioProcessingLabel'),
+                dissolve: t('preview.previewWindow.indicators.dissolveTransitionLabel'),
+                colorApproximation: t('preview.previewWindow.indicators.colorAdjustmentsApproximatePreview'),
+                clipLutReplacement: t('preview.previewWindow.indicators.clipLutReplacesGlobalLut'),
+                audioApproximation: t('preview.previewWindow.canvas.previewApproximateCheckFinalAudioExport'),
+            };
             const INDICATOR_GLOSSARY = {
-                'LUT': '色調フィルタ',
-                'クロマキー': '背景透過',
-                '音声マスター処理': 'ノイズ除去・音量正規化',
-                'ディゾルブ切り替え': 'カットの溶け込み切替',
-                '色調整は近似表示': 'CSS で表現できない調整は最終結果と異なります',
-                'clip LUT はグローバル LUT を置換': '両方の合成は frame engine 側で確認'
+                lut: t('preview.previewWindow.canvas.colorFilterLabel'),
+                chromaKey: t('preview.contextBar.fields.backgroundRemovalLabel'),
+                masterAudio: t('preview.previewWindow.canvas.noiseReductionLoudnessNormalization'),
+                dissolve: t('preview.previewWindow.canvas.dissolveBetweenCutsLabel'),
+                colorApproximation: t('preview.previewWindow.canvas.adjustmentsCssCannotShowDifferFinalOutputError'),
+                clipLutReplacement: t('preview.previewWindow.canvas.viewBothEffectsTogetherFrameEngine')
             };
             const refreshIndicators = () => {
                 const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
                 const approximation = document.getElementById('preview-stage')?.dataset.frameEngineActive === 'true'
-                    ? ['プレビューは近似・最終音声は書き出しで確認'] : [];
+                    ? ['audioApproximation'] : [];
                 const adjustApproximation = !frameEngineMediaIdle && adjustCssApproximationActive
-                    ? ['色調整は近似表示'] : [];
+                    ? ['colorApproximation'] : [];
                 const clipLutReplacement = !frameEngineMediaIdle && summary.videoFx?.look
                     && (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut =>
                         typeof (summary.adjustLutCubeTexts || {})[String(cut && cut.id)] === 'string')
-                    ? ['clip LUT はグローバル LUT を置換'] : [];
+                    ? ['clipLutReplacement'] : [];
                 const indicators = [...new Set([
                     ...declared,
                     ...videoFxFailedIndicators,
@@ -209,11 +225,12 @@ export function previewBootstrapScript(): string {
                     indicatorPopup.textContent = '';
                     return;
                 }
-                indicatorToggle.textContent = 'ⓘ 未対応 ' + indicators.length;
-                const items = indicators.map(item => INDICATOR_GLOSSARY[item]
-                    ? item + ' = ' + INDICATOR_GLOSSARY[item]
-                    : item).join(' / ');
-                indicatorPopup.textContent = 'プレビュー未対応: ' + items;
+                indicatorToggle.textContent = t('preview.previewWindow.canvas.unavailablePrefix') + indicators.length;
+                const items = indicators.map(item => {
+                    const label = INDICATOR_LABELS[item] || item;
+                    return INDICATOR_GLOSSARY[item] ? label + ' = ' + INDICATOR_GLOSSARY[item] : label;
+                }).join(' / ');
+                indicatorPopup.textContent = t('preview.previewWindow.canvas.unavailablePreviewPrefix') + items;
             };
             window.addEventListener('akari-frame-engine-ready', () => {
                 refreshIndicators();
@@ -471,8 +488,7 @@ export function previewBootstrapScript(): string {
                         if (sfxProbeTimeouts.length < 12 && !sfxProbeTimeouts.includes(src)) {
                             sfxProbeTimeouts.push(src);
                             if (window.__akariPreviewDiag) {
-                                window.__akariPreviewDiag.note('尺プローブ打ち切り（' + (SFX_PROBE_TIMEOUT_MS / 1000)
-                                    + ' s 超）: ' + src);
+                                window.__akariPreviewDiag.note(t('preview.diagnostics.event.durationProbeTimeoutStatus', { seconds: SFX_PROBE_TIMEOUT_MS / 1000, src }));
                             }
                         }
                         if (sfxProbeTimeoutWarned) return;
@@ -527,6 +543,7 @@ export function previewBootstrapScript(): string {
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
             let outputTime = 0;
+            Object.defineProperty(window.akari, 'playheadSeconds', { get: () => outputTime, configurable: true });
             window.addEventListener('message', event => {
                 const request = event.data;
                 if (request?.type !== 'akari-preview-library-drop-geometry-request') return;
@@ -560,7 +577,8 @@ export function previewBootstrapScript(): string {
                 const hit = Number.isFinite(x) && Number.isFinite(y) && x >= stageRect.left && x <= stageRect.right
                     && y >= stageRect.top && y <= stageRect.bottom
                     ? window.akari.interaction?.libraryApplyHitTest?.(x, y, fallback, request.kind) : null;
-                const accepted = !!hit && (request.kind === 'lut' ? hit.kind !== 'caption' : hit.kind === 'caption');
+                const accepted = !!hit && (request.kind === 'video' || request.kind === 'image'
+                    ? hit.kind === 'item' : request.kind === 'lut' ? hit.kind !== 'caption' : hit.kind === 'caption');
                 if (accepted && request.highlight) {
                     libraryApplyHighlight = document.createElement('div');
                     libraryApplyHighlight.className = 'akari-preview-apply-target';
@@ -1410,10 +1428,10 @@ export function previewBootstrapScript(): string {
                 if (deferredPlaceholder) {
                     deferredPlaceholder.dataset.akariDeferredTelopId = String(layer.id);
                     deferredPlaceholder.setAttribute('role', 'status');
-                    deferredPlaceholder.setAttribute('aria-label', 'テロップ（ATF）は退役しました');
+                    deferredPlaceholder.setAttribute('aria-label', t('preview.previewWindow.canvas.textOverlaysAtfRetired'));
                     const label = document.createElement('span');
                     label.className = 'akari-deferred-telop-placeholder__label';
-                    label.textContent = 'テロップ（ATF）は退役しました。Lab の HTML 素材版へ差し替えてください。';
+                    label.textContent = t('preview.previewWindow.canvas.textOverlaysAtfRetiredReplaceThemHtmlAssets');
                     deferredPlaceholder.appendChild(label);
                     deferredPlaceholder.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                     layersStage.appendChild(deferredPlaceholder);
@@ -1655,8 +1673,8 @@ export function previewBootstrapScript(): string {
             const videoFxRails = [];
             const railMeta = new Map();
             const noteVideoFxFailure = effects => {
-                if (effects && effects.look) videoFxFailedIndicators.add('LUT');
-                if (effects && effects.chromaKey) videoFxFailedIndicators.add('クロマキー');
+                if (effects && effects.look) videoFxFailedIndicators.add('lut');
+                if (effects && effects.chromaKey) videoFxFailedIndicators.add('chromaKey');
                 refreshIndicators();
             };
             const mountVideoFxRail = (media, role, initialEffects) => {
@@ -2399,6 +2417,7 @@ export function previewBootstrapScript(): string {
                 if (event.data?.type !== 'akari-preview-context-menu-rect') return;
                 hostMenuRect = event.data.rect;
                 updateFloatingMenuRect();
+                window.akari.previewInteractionMenuRects = [hostMenuRect, floatingBarRect].filter(Boolean);
                 updateLayerSelectBox();
                 updateCutSelectBox();
             });
@@ -2406,6 +2425,7 @@ export function previewBootstrapScript(): string {
                 if (event.data?.type !== 'akari-preview-context-bar-rect') return;
                 floatingBarRect = event.data.rect;
                 updateFloatingMenuRect();
+                window.akari.previewInteractionMenuRects = [hostMenuRect, floatingBarRect].filter(Boolean);
                 updateLayerSelectBox();
                 updateCutSelectBox();
             });
@@ -2513,7 +2533,7 @@ export function previewBootstrapScript(): string {
                     } else if (changed) {
                         target.restoreCrop(snapshot.restore);
                         target.flushCrop();
-                        window.akari.showWriteError('切り抜きを保存できませんでした。対象を選び直してください。');
+                        window.akari.showWriteError(t('preview.previewWindow.canvas.couldNotSaveCutoutSelectItemAgainError'));
                     }
                 }
                 cropModeActive = !!(active && (selectedLayerId || cutSelected));
@@ -2785,7 +2805,7 @@ export function previewBootstrapScript(): string {
                 if (photoBrushStatus || typeof document === 'undefined' || typeof previewStage === 'undefined') return;
                 photoBrushStatus = document.createElement('div');
                 photoBrushStatus.className = 'akari-photo-brush-status';
-                photoBrushStatus.textContent = '消しゴム中 — Esc で終わる';
+                photoBrushStatus.textContent = t('preview.previewWindow.canvas.erasingPressEscFinish');
                 photoBrushStatus.hidden = true;
                 previewStage.appendChild(photoBrushStatus);
                 photoBrushCursor = document.createElement('div');
@@ -2885,7 +2905,7 @@ export function previewBootstrapScript(): string {
                         const targetBox = layer ? layerSelectBox : cutSelectBox;
                         targetBox.classList.add('akari-photo-pointer-mode');
                         targetBox.style.cursor = 'crosshair';
-                        targetBox.title = '残したいものを押してください。Esc で終わります';
+                        targetBox.title = t('preview.previewWindow.canvas.clickWhatWantKeepPressEscFinish');
                     }
                     return;
                 }
@@ -2894,7 +2914,7 @@ export function previewBootstrapScript(): string {
                     layerSelectBox.classList.toggle('akari-photo-pointer-mode', Boolean(photoBrush));
                     cutSelectBox.classList.remove('akari-photo-pointer-mode');
                     layerSelectBox.style.cursor = photoBrush ? 'crosshair' : '';
-                    layerSelectBox.title = photoBrush ? 'なぞって編集します。Esc で終わります' : '';
+                    layerSelectBox.title = photoBrush ? t('preview.previewWindow.canvas.brushEditPressEscFinish') : '';
                     cutSelectBox.style.cursor = ''; cutSelectBox.title = '';
                     photoHighlightCanvas?.remove(); photoHighlightCanvas = null;
                     return;
@@ -3066,9 +3086,9 @@ export function previewBootstrapScript(): string {
                 const gestureLabel = document.createElement('div');
                 gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
                 gestureLabel.setAttribute('data-akari-interaction', rotating ? 'rotation-angle' : 'handle-hint');
-                gestureLabel.textContent = rotating ? '回転'
-                    : ['n', 'e', 's', 'w'].includes(handleKind) ? '切り取る'
-                    : ['nw', 'ne', 'sw', 'se'].includes(handleKind) ? '大きさ' : '移動';
+                gestureLabel.textContent = rotating ? t('preview.contextBar.toolbar.rotateLabel')
+                    : ['n', 'e', 's', 'w'].includes(handleKind) ? t('preview.previewWindow.canvas.cropLabel')
+                    : ['nw', 'ne', 'sw', 'se'].includes(handleKind) ? t('preview.captionStyle.warning.sizeLabel') : t('preview.previewWindow.canvas.moveAction');
                 gestureLabel.style.left = startEvent.clientX + 12 + 'px';
                 gestureLabel.style.top = startEvent.clientY + 12 + 'px';
                 document.body.appendChild(gestureLabel);
@@ -3156,7 +3176,7 @@ export function previewBootstrapScript(): string {
                         target.flushTransform();
                         // 書き戻し先を特定できない場合は理由を示して元へ戻す。
                         if (!target.canWrite()) {
-                            window.akari.showWriteError('変更を保存できませんでした。対象を選択し直してください。');
+                            window.akari.showWriteError(t('preview.previewWindow.canvas.couldNotSaveChangeSelectItemAgainError'));
                             target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
                             target.flushTransform();
                             return;
@@ -3166,7 +3186,7 @@ export function previewBootstrapScript(): string {
                             if (duplicating) {
                                 const itemId = target.kind === 'layer' ? target.entry.spec.id
                                     : cutSelectionVideo().dataset.akariCutId;
-                                if (!itemId) throw new Error('複製する要素が見つかりません');
+                                if (!itemId) throw new Error(t('preview.previewWindow.canvas.couldNotFindItemDuplicateError'));
                                 await window.akari.engine.overlayWrite(null, itemId,
                                     { transform: finalTransform, duplicate: true });
                                 target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
@@ -3804,7 +3824,7 @@ export function previewBootstrapScript(): string {
                             return;
                         }
                         if (!target.canWrite()) {
-                            window.akari.showWriteError('クロップを保存できませんでした。対象を選択し直してください。');
+                            window.akari.showWriteError(t('preview.previewWindow.canvas.couldNotSaveCropSelectItemAgainError'));
                             target.restoreCrop(restorePoint);
                             target.flushCrop();
                             return;
@@ -3895,19 +3915,19 @@ export function previewBootstrapScript(): string {
             photoCropPanel.querySelector('[data-photo-crop-auto]').addEventListener('click', () => {
                 if (!photoCropTarget) return;
                 const itemId = photoCropItemId;
-                photoCropStatus.textContent = '水平を調べています…';
+                photoCropStatus.textContent = t('preview.previewWindow.canvas.checkingHorizonLabel');
                 // Unsupported Vision requests return 0°, leaving the current crop intact.
                 requestPhotoAnalysis('horizon').then(result => {
                     if (!photoCropTarget || photoCropItemId !== itemId) return;
                     photoCropRotate.value = String(result?.degrees || 0);
                     photoCropRotate.dispatchEvent(new Event('change'));
-                    photoCropStatus.textContent = result?.available ? '水平に合わせました' : '水平を見つけられませんでした';
+                    photoCropStatus.textContent = result?.available ? t('preview.previewWindow.canvas.straightenedHorizonLabel') : t('preview.previewWindow.canvas.couldNotDetectHorizonError');
                 });
             });
             photoCropPanel.querySelector('[data-photo-crop-smart]').addEventListener('click', () => {
                 if (!photoCropTarget) return;
                 const itemId = photoCropItemId;
-                photoCropStatus.textContent = '写真を調べています…';
+                photoCropStatus.textContent = t('preview.previewWindow.canvas.analyzingPhotoLabel');
                 requestPhotoAnalysis('saliency').then(result => {
                     if (!photoCropTarget || photoCropItemId !== itemId) return;
                     if (result?.focus) {
@@ -3916,9 +3936,9 @@ export function previewBootstrapScript(): string {
                             natural.width, natural.height));
                     }
                     photoCropStatus.textContent = result?.focus
-                        ? result.basis === 'saliency' ? '注目領域を基準にしました。構図を確認してください'
-                            : '主役を三分割に合わせました'
-                        : '主役を見つけられませんでした';
+                        ? result.basis === 'saliency' ? t('preview.previewWindow.canvas.usedAreaInterestCheckComposition')
+                            : t('preview.previewWindow.canvas.alignedSubjectRuleThirds')
+                        : t('preview.previewWindow.canvas.couldNotFindSubjectError');
                 });
             });
             layerCropRect.addEventListener('pointerdown', event => {
@@ -4198,7 +4218,7 @@ export function previewBootstrapScript(): string {
                 return !!original && original.width > 0 && original.height > 0;
             };
             const reportUnknownCutCropSize = () => window.akari.showWriteError(
-                '素材の寸法を確認できないため切り抜きを開始できません');
+                t('preview.previewWindow.canvas.couldNotStartCroppingBecauseAssetDimensionsUnknownError'));
             const cutCropNow = () => ({ ...clampCrop(
                 Number(cutSelectionVideo().dataset.akariCropX),
                 Number(cutSelectionVideo().dataset.akariCropY),
@@ -4258,8 +4278,8 @@ export function previewBootstrapScript(): string {
                     : null;
                 if (noticeKey !== null && noticeKey !== cutCropNoticeKey) {
                     window.akari.showWriteError(!isV2
-                        ? 'この編集データ（v1）ではクロップできません。v2 へ移行してください'
-                        : 'この素材ではクロップできません。素材の ID とフレーミング設定を確認してください。');
+                        ? t('preview.previewWindow.canvas.croppingUnavailableEditDataV1MigrateVError')
+                        : t('preview.previewWindow.canvas.cannotCropAssetCheckIdFramingSettingsError'));
                 }
                 cutCropNoticeKey = noticeKey;
                 return editable;
@@ -5058,14 +5078,14 @@ export function previewBootstrapScript(): string {
                 const cushionOn = !!background && (background.opacity ?? (background.color ? 1 : 0)) > 0;
                 captionTool('cushion').classList.toggle('on', cushionOn);
                 setCaptionToolTip('group', groupOn
-                    ? '全字幕が動く — もう一度押すと「この字幕だけ」'
-                    : 'この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）');
-                setCaptionToolTip('snap', '吸着 ' + (captionSnapEnabled ? 'ON' : 'OFF')
-                    + ' — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効');
-                setCaptionToolTip('clamp', 'はみ出し防止 ' + (clampOn ? 'ON' : 'OFF')
-                    + ' — ON で画面の内側に押し戻す');
-                setCaptionToolTip('cushion', '座布団 ' + (cushionOn ? 'ON' : 'OFF')
-                    + ' — 形・余白・角丸はインスペクターで');
+                    ? t('preview.previewWindow.canvas.moveAllCaptionsClickAgainMoveOnlyCaptionAction')
+                    : t('preview.previewWindow.canvas.moveOnlyCaptionClickMoveAllCaptionsOptionAction'));
+                setCaptionToolTip('snap', t('preview.previewWindow.canvas.snapPrefix') + (captionSnapEnabled ? 'ON' : 'OFF')
+                    + t('preview.previewWindow.canvas.snapsCentersEdgesOptionDragDisableTemporarilySuffix'));
+                setCaptionToolTip('clamp', t('preview.previewWindow.canvas.keepFramePrefix') + (clampOn ? 'ON' : 'OFF')
+                    + t('preview.previewWindow.canvas.keepsItemsInsideFrameSuffix'));
+                setCaptionToolTip('cushion', t('preview.previewWindow.canvas.backgroundPlatePrefix') + (cushionOn ? 'ON' : 'OFF')
+                    + t('preview.previewWindow.canvas.setShapePaddingCornersInspectorSuffix'));
                 captionTool('color').style.setProperty('--caption-tool-color', caption?.textStyle?.color || '#ffffff');
                 captionPositionReset.hidden = !captionHasCuePosition(caption)
                     && !(Number.isFinite(caption?.textStyle?.scale) && caption.textStyle.scale !== 1)
@@ -5209,7 +5229,7 @@ export function previewBootstrapScript(): string {
                 captionRowBox.classList.add('is-active');
             };
             const roundCaptionRatioUnclamped = value => {
-                if (!Number.isFinite(value)) throw new Error('字幕位置は有限数である必要があります');
+                if (!Number.isFinite(value)) throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
                 return Math.round(value * 10000) / 10000;
             };
             // common/caption-plate-handles.ts の純関数と同じ式を webview 内へ複製する。
@@ -5255,7 +5275,7 @@ export function previewBootstrapScript(): string {
             const placedCaptionPositionFromRects = (${placedCaptionPositionFromRects.toString()});
             const captionCuePositionFromRects = (plateRect, frameRect, options) => {
                 if (!(frameRect.width > 0) || !(frameRect.height > 0)) {
-                    throw new Error('出力フレームの幅と高さは正数である必要があります');
+                    throw new Error(t('preview.previewWindow.canvas.outputFrameWidthHeightMustPositiveNumbersError'));
                 }
                 const topRatio = (plateRect.top - frameRect.y) / frameRect.height;
                 const anchor = options.anchor ?? (topRatio < 1 / 3 ? 'tc' : 'bc');
@@ -5264,7 +5284,7 @@ export function previewBootstrapScript(): string {
                 let y = topRatio + (anchor[0] === 'b' ? plateH / frameRect.height
                     : anchor[0] === 'm' ? plateH / frameRect.height / 2 : 0);
                 if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                    throw new Error('字幕位置は有限数である必要があります');
+                    throw new Error(t('preview.previewWindow.canvas.captionPositionMustFiniteNumberError'));
                 }
                 if (options.clamp) {
                     const plateW = plateRect.right - plateRect.left;
@@ -5449,7 +5469,7 @@ export function previewBootstrapScript(): string {
                     if (currentRunSelection()) {
                         if (captionPaletteTab === 'text') writeCaptionRun({ kind: 'style', style: { color } });
                         else if (captionPaletteTab === 'stroke') writeCaptionRun({ kind: 'style', style: { stroke: { color } } });
-                        else window.akari.reportRunStyleOmitted('文字範囲には座布団の色を適用できません');
+                        else window.akari.reportRunStyleOmitted(t('preview.previewWindow.canvas.backgroundPlateColorCannotAppliedTextRangeError'));
                     } else {
                         const field = captionPaletteTab === 'text' ? 'color'
                             : captionPaletteTab === 'stroke' ? 'stroke.color' : 'background.color';
@@ -5463,7 +5483,7 @@ export function previewBootstrapScript(): string {
                 }
                 if (event.target.closest('[data-palette-more]')) {
                     if (currentRunSelection()) {
-                        window.akari.reportRunStyleOmitted('文字範囲の色はパレットから選んでください');
+                        window.akari.reportRunStyleOmitted(t('preview.previewWindow.canvas.chooseTextRangeColorPalette'));
                         return;
                     }
                     requestCaptionInspector(captionPaletteTab === 'text' ? 'caption-style-color'
@@ -5488,7 +5508,7 @@ export function previewBootstrapScript(): string {
                 const roleWasOpen = !captionRunMenu.hidden && captionRunMenu.dataset.kind === 'role';
                 captionRunMenu.replaceChildren();
                 captionRunMenu.dataset.kind = 'role';
-                for (const [role, label] of [['emphasis', '強調'], ['keyword', 'キーワード'], ['aside', '補足']]) {
+                for (const [role, label] of [['emphasis', t('preview.previewWindow.canvas.emphasisLabel')], ['keyword', t('preview.previewWindow.canvas.keywordLabel')], ['aside', t('preview.previewWindow.canvas.asideLabel')]]) {
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.textContent = label;
@@ -5506,7 +5526,7 @@ export function previewBootstrapScript(): string {
                 captionPalette.hidden = true;
                 captionRunMenu.replaceChildren();
                 captionRunMenu.dataset.kind = 'style';
-                captionRunMenu.textContent = 'スタイルを読み込み中…';
+                captionRunMenu.textContent = t('preview.previewWindow.canvas.loadingStylesLabel');
                 captionRunMenu.hidden = false;
                 window.akari.requestRunStyles(activeCaptionEdit.captionId);
             });
@@ -5605,7 +5625,7 @@ export function previewBootstrapScript(): string {
                 if (!captionId) return;
                 if (typeof caption.originalSourceText === 'string'
                     && caption.originalSourceText !== caption.text) {
-                    window.akari.showWriteError('この字幕は一部がカットされています。台本で直してください');
+                    window.akari.showWriteError(t('preview.previewWindow.canvas.partCaptionCutOffFixScript'));
                     return;
                 }
                 if (activeCaptionEdit) {
@@ -5666,7 +5686,7 @@ export function previewBootstrapScript(): string {
                     const hint = document.createElement('div');
                     const mac = /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform);
                     hint.setAttribute('data-akari-caption-edit-hint', '');
-                    hint.textContent = (mac ? '⌘Enter' : 'Ctrl+Enter') + ' で確定・Esc で取り消し';
+                    hint.textContent = (mac ? '⌘Enter' : 'Ctrl+Enter') + t('preview.previewWindow.canvas.confirmEscCancelSuffix');
                     const bounds = element.getBoundingClientRect();
                     Object.assign(hint.style, {
                         position: 'fixed', left: Math.max(8, bounds.left) + 'px',
@@ -5772,8 +5792,8 @@ export function previewBootstrapScript(): string {
                 const gestureLabel = document.createElement('div');
                 gestureLabel.className = kind === 'rot' ? 'akari-interaction-angle' : 'akari-interaction-hint';
                 gestureLabel.setAttribute('data-akari-interaction', kind === 'rot' ? 'rotation-angle' : 'handle-hint');
-                gestureLabel.textContent = ['e', 'w', 'n', 's'].includes(kind) ? '折り返し幅'
-                    : kind === 'rot' ? '回転' : '大きさ';
+                gestureLabel.textContent = ['e', 'w', 'n', 's'].includes(kind) ? t('preview.previewWindow.canvas.wrapWidthGestureLabel')
+                    : kind === 'rot' ? t('preview.contextBar.toolbar.rotateLabel') : t('preview.captionStyle.warning.sizeLabel');
                 gestureLabel.style.left = event.clientX + 12 + 'px';
                 gestureLabel.style.top = event.clientY + 12 + 'px';
                 document.body.appendChild(gestureLabel);
@@ -6125,7 +6145,7 @@ export function previewBootstrapScript(): string {
                         const hasEmphasis = hasWords && candidate.words.some(word => findMatchingEmphasis(word));
                         const reveal = hasWords && (candidate.style === 'reveal'
                             || (!candidate.style && !candidate.textStyle?.vertical && captionPortrait
-                                && splitCaptionLines(candidate.text || '', captionLineBudget).length > 1));
+                                && splitCaptionLines(candidate.text || '', captionLineBudget(candidate), false, captionLocale(candidate)).length > 1));
                         const usesWords = hasWords && (candidate.style === 'karaoke'
                             || candidate.style === 'pop' || candidate.style === 'reveal-word'
                             || hasEmphasis || reveal);
@@ -7268,7 +7288,7 @@ export function previewBootstrapScript(): string {
                 penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
                     playToggleRenderedIsPlaying = isPlaying;
-                    const label = isPlaying ? '一時停止' : '再生';
+                    const label = isPlaying ? uiText.pause : uiText.play;
                     playToggle.innerHTML = isPlaying ? pauseIcon : playIcon;
                     playToggle.setAttribute('aria-label', label);
                     playToggle.title = label;
@@ -7301,11 +7321,30 @@ export function previewBootstrapScript(): string {
                 return lines;
             };
             // --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
-            // 縦長出力の既定: 行 10 字・文字は出力幅 6%・複数行の無指定字幕は行単位の順送り（reveal）。
+            // 縦長出力では文字は出力幅 6%・複数行の無指定字幕は行単位の順送り（reveal）。
             // webview はサンドボックスで import できないため、意図的なコード重複（app.js と同じ判断）。
             const captionOutput = (initial.summary && initial.summary.output) || {};
             const captionPortrait = Number(captionOutput.height) > Number(captionOutput.width);
-            const captionLineBudget = captionPortrait ? 10 : 20;
+            // packages/content-language/src/caption-defaults.json の行文字数既定値。
+            const captionLanguageDefaults = {
+                ja: { landscapeCharacters: 20, portraitCharacters: 10 },
+                en: { landscapeCharacters: 42, portraitCharacters: 24,
+                    fontStack: '"AKARI Noto Sans", "Noto Sans", "AKARI Noto Sans JP", sans-serif' }
+            };
+            const captionLocale = caption => caption?.displayPolicy?.locale || caption?.display_policy?.locale
+                || caption?.locale || summary?.displayPolicy?.locale || summary?.display_policy?.locale
+                || summary?.language || initial.language
+                // Resolved English cues already carry the language-specific font stack.
+                || (caption?.resolvedTimeline && caption?.textStyleVars?.['--caption-font-family']
+                    === captionLanguageDefaults.en.fontStack ? 'en' : 'ja');
+            const captionLineBudget = caption => {
+                const explicit = caption?.textStyle?.max_characters;
+                if (Number.isInteger(explicit) && explicit > 0) return explicit;
+                const language = String(captionLocale(caption)).split('-')[0].toLowerCase();
+                const defaults = captionLanguageDefaults[language] || captionLanguageDefaults.en;
+                return (captionPortrait ? defaults?.portraitCharacters : defaults?.landscapeCharacters)
+                    || (captionPortrait ? 10 : 20);
+            };
             const captionDefaultFontSize = captionPortrait
                 ? Math.round(Number(captionOutput.width) * 0.06) : 38;
             const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
@@ -7365,8 +7404,31 @@ export function previewBootstrapScript(): string {
                 segments.push(characters.slice(start).join(''));
                 return segments;
             };
-            const splitCaptionLines = (text, maximum, graphemes = false) => {
+            const ENGLISH_FUNCTION_WORDS = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'of', 'to', 'in', 'on', 'at', 'with', 'by']);
+            const splitSpaceDelimitedLines = (value, limit) => {
+                const words = value.trim().split(/\\s+/u).filter(Boolean);
+                if (!words.length) return [''];
+                const lines = [];
+                let current = [];
+                for (const word of words) {
+                    if (current.length && [...current, word].join(' ').length > limit) {
+                        const moved = [];
+                        while (current.length > 1 && ENGLISH_FUNCTION_WORDS.has(current.at(-1).toLowerCase())) {
+                            moved.unshift(current.pop());
+                        }
+                        lines.push(current.join(' '));
+                        current = moved;
+                    }
+                    current.push(word);
+                }
+                if (current.length) lines.push(current.join(' '));
+                return lines;
+            };
+            const splitCaptionLines = (text, maximum, graphemes = false, locale = 'ja') => {
                 const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
+                if (!['ja', 'zh'].includes(String(locale).split('-')[0].toLowerCase())) {
+                    return String(text).split(/\\r?\\n/u).flatMap(value => splitSpaceDelimitedLines(value, limit));
+                }
                 const lines = [];
                 for (const value of String(text).split(/\\r?\\n/u)) {
                     if (value.length === 0) { lines.push(''); continue; }
@@ -7377,13 +7439,20 @@ export function previewBootstrapScript(): string {
                 return lines;
             };
             // splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
-            const groupWordsIntoDisplayLines = (words, maximum) => {
+            const groupWordsIntoDisplayLines = (words, maximum, locale = 'ja') => {
                 if (words.length === 0) return [];
                 const text = words.map(word => word.text).join('');
                 const desiredBoundaries = [];
                 let desiredOffset = 0;
-                for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
-                    desiredOffset += Array.from(line).length;
+                const spaceDelimited = !['ja', 'zh'].includes(String(locale).split('-')[0].toLowerCase());
+                for (const line of splitCaptionLines(text, maximum, false, locale).slice(0, -1)) {
+                    if (spaceDelimited) {
+                        const match = text.indexOf(line, desiredOffset);
+                        desiredOffset = match >= 0 ? match + line.length : desiredOffset + line.length;
+                        while (/\\s/u.test(text[desiredOffset] || '')) desiredOffset += 1;
+                    } else {
+                        desiredOffset += Array.from(line).length;
+                    }
                     desiredBoundaries.push(desiredOffset);
                 }
                 const ranges = [];
@@ -7443,6 +7512,10 @@ export function previewBootstrapScript(): string {
                 && emphasis.t_start < word.end
                 && (word.text === emphasis.word || emphasis.word.includes(word.text))
             );
+            const presetCaptionTokenCss = '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}';
+            const presetStyleAttribute = vars => escapeCaptionHtml(Object.entries(vars)
+                .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
+                .map(([name, value]) => name + ':' + value + ';').join(''));
             const resolveEmphasisStyle = emphasis => {
                 if (emphasis.style_hint === 'one-char-bang'
                     || emphasis.style_hint === 'size-pulse'
@@ -7466,6 +7539,13 @@ export function previewBootstrapScript(): string {
             };
             const renderEmphasisCaptionToken = (word, rangeStart, emphasis, renderChars = null) => {
                 const renderText = renderChars || escapeCaptionHtml;
+                if (emphasis._presetStyleVars) {
+                    return '<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--preset" data-emphasis-id="'
+                        + escapeCaptionHtml(emphasis.id) + '" data-emphasis-preset="'
+                        + escapeCaptionHtml(emphasis.style_preset) + '" style="'
+                        + presetStyleAttribute(emphasis._presetStyleVars) + '">'
+                        + renderText(word.text) + '</span>';
+                }
                 const style = resolveEmphasisStyle(emphasis);
                 const overlapStart = Math.max(word.start, emphasis.t_start);
                 const overlapEnd = Math.min(word.end, emphasis.t_end);
@@ -7754,11 +7834,12 @@ export function previewBootstrapScript(): string {
                 const textStyleActive = Boolean(caption.textStyle
                     && Object.keys(caption.textStyle).length > 0);
                 const hasEmphasis = caption.words.some(word => findMatchingEmphasis(word));
+                const hasPresetEmphasis = caption.words.some(word => Boolean(findMatchingEmphasis(word)?._presetStyleVars));
                 // reveal（行単位の順送り）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
                 // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
                 const reveal = style === 'reveal'
                     || (!style && !caption.textStyle?.vertical && captionPortrait
-                        && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
+                        && splitCaptionLines(caption.text || '', captionLineBudget(caption), false, captionLocale(caption)).length > 1);
                 const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
                 let karaokeIndex = 0;
                 let karaokeCursor = 0;
@@ -7775,9 +7856,9 @@ export function previewBootstrapScript(): string {
                 }).join('');
                 const markup = reveal
                     ? renderRevealGroupsMarkup(
-                        groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget),
+                        groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget(caption), captionLocale(caption)),
                         caption.start, caption.end, renderLine)
-                    : groupWordsIntoLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget).map(line =>
+                    : groupWordsIntoLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget(caption)).map(line =>
                         '<p class="akari-caption__line">' + renderLine(line) + '</p>'
                     ).join('');
                 const revealCss = reveal
@@ -7844,6 +7925,7 @@ export function previewBootstrapScript(): string {
                     + revealWordCss
                     + revealCss
                     + emphasisCss
+                    + (hasPresetEmphasis ? presetCaptionTokenCss : '')
                     + captionTextAnimationKeyframesCss(captionAnimation)
                     + captionContextCss(caption, blockMode)
                     + '</style><div class="akari-caption__plate"'
@@ -7891,7 +7973,7 @@ export function previewBootstrapScript(): string {
                             + resolvedRunPlateCss
                             + resolvedFrameCss
                             + (caption.textStyle?.fill_gradient && !caption.textStyle?.fill ? '.akari-caption--single-line .akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
-                            + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
+                            + presetCaptionTokenCss
                             + (caption.style === 'karaoke' ? '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}' : '')
                             + captionContextCss(caption, false, true)
                             + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
@@ -7920,7 +8002,7 @@ export function previewBootstrapScript(): string {
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
                 const lines = caption.textStyle?.vertical
                     ? String(caption.text || '').split(/\\r?\\n/)
-                    : splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
+                    : splitCaptionLines(caption.text || '', captionLineBudget(caption), Boolean(renderChars), captionLocale(caption));
                 const markup = lines.map(line => '<p class="akari-caption__line">'
                     + (caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined
                         ? richPreviewWords(line, renderText) : renderText(line)) + '</p>').join('');
@@ -8107,7 +8189,7 @@ export function previewBootstrapScript(): string {
                     const wantsCaptionReveal = hasCaptionWords
                         && (caption.style === 'reveal'
                             || (!caption.style && !caption.textStyle?.vertical && captionPortrait
-                                && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
+                                && splitCaptionLines(caption.text || '', captionLineBudget(caption), false, captionLocale(caption)).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
                     // caption item は書き出しと同じ全幅プレートを使う。通常の出力字幕だけ
@@ -9571,7 +9653,7 @@ export function previewBootstrapScript(): string {
                 layersStage.hidden = true;
                 stage.hidden = true;
                 captionLayer.textContent = ''; captionRows.clear();
-                previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
+                previewMessageText.textContent = uiText.videoError;
                 previewMessageReload.hidden = false;
                 previewMessage.hidden = false;
                 playToggle.disabled = true;
@@ -9613,7 +9695,7 @@ export function previewBootstrapScript(): string {
                 const request = hevcFallbackQueue.shift();
                 hevcFallbackInFlight = true;
                 if (playbackErrored) {
-                    previewMessageText.textContent = '動画をそのまま再生できませんでした。互換用に変換しています…';
+                    previewMessageText.textContent = uiText.transcoding;
                     previewMessageReload.hidden = true;
                 }
                 window.akari.engine.resolveHevcFallback(request.errorCode, request.requestKey).then(() => {
@@ -9623,7 +9705,7 @@ export function previewBootstrapScript(): string {
                     processNextHevcFallback();
                 }, () => {
                     if (playbackErrored) {
-                        previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
+                        previewMessageText.textContent = uiText.videoError;
                         previewMessageReload.hidden = false;
                     }
                     hevcFallbackInFlight = false;
@@ -10102,8 +10184,8 @@ export function previewBootstrapScript(): string {
             const applyHostFullscreenState = active => {
                 hostFullscreenActive = Boolean(active);
                 fullscreenToggle.setAttribute('aria-pressed', String(hostFullscreenActive));
-                fullscreenToggle.setAttribute('aria-label', hostFullscreenActive ? '全画面解除' : '全画面');
-                fullscreenToggle.title = hostFullscreenActive ? '全画面解除' : '全画面';
+                fullscreenToggle.setAttribute('aria-label', hostFullscreenActive ? t('preview.previewWindow.canvas.exitFullScreenLabel') : t('preview.previewWindow.transport.fullscreenLabel'));
+                fullscreenToggle.title = hostFullscreenActive ? t('preview.previewWindow.canvas.exitFullScreenLabel') : t('preview.previewWindow.transport.fullscreenLabel');
                 fullscreenToggle.innerHTML = hostFullscreenActive ? restoreIcon : fullscreenIcon;
             };
             window.addEventListener('message', event => {
@@ -10237,12 +10319,13 @@ export function previewBootstrapScript(): string {
             const generationBandBar = document.getElementById('akari-gen-band-bar');
             const generationBandFill = document.getElementById('akari-gen-band-fill');
             let generationTagText = '';
+            let generationTagIsPlannedVideo = false;
             let generationElapsedStartedAt = null;
             if (typeof window.setInterval === 'function') {
                 const generationElapsedTicker = window.setInterval(() => {
                     if (!generationOverlay || generationOverlay.hidden || !Number.isFinite(generationElapsedStartedAt)) return;
-                    generationBandText.textContent = '生成中 · ' + Math.max(0,
-                        Math.floor((Date.now() - generationElapsedStartedAt) / 1000)) + ' 秒';
+                    generationBandText.textContent = t('preview.generationOverlay.status.generatingSecondsLabel', { seconds: Math.max(0,
+                        Math.floor((Date.now() - generationElapsedStartedAt) / 1000)) });
                 }, 1000);
                 if (typeof generationElapsedTicker?.unref === 'function') generationElapsedTicker.unref();
             }
@@ -10255,8 +10338,8 @@ export function previewBootstrapScript(): string {
                 generationOverlay.style.setProperty('--akari-gen-inv-scale', String(1 / scale));
                 generationOverlay.style.setProperty('--akari-gen-band-space', generationBand.hidden ? '0px' : '26px');
                 generationTag.textContent = generationTagText;
-                if (generationTagText.startsWith('▶ 動画予定') && generationTag.scrollWidth > generationTag.clientWidth) {
-                    generationTag.textContent = '▶ 動画予定';
+                if (generationTagIsPlannedVideo && generationTag.scrollWidth > generationTag.clientWidth) {
+                    generationTag.textContent = t('preview.previewWindow.canvas.plannedVideoLabel');
                 }
             };
             if (generationOverlay) window.akari.updateGenerationOverlayLayout = updateGenerationOverlayLayout;
@@ -10268,6 +10351,7 @@ export function previewBootstrapScript(): string {
                 for (const extra of generationExtras.values()) extra.remove();
                 generationExtras.clear();
                 generationOverlay.hidden = true;
+                generationTagIsPlannedVideo = false;
                 generationPip.hidden = true;
                 generationBlur.hidden = true;
                 generationPipImage.removeAttribute('src');
@@ -10306,7 +10390,7 @@ export function previewBootstrapScript(): string {
                         sourcePath: typeof candidate.sourcePath === 'string' ? candidate.sourcePath : undefined,
                         localTimeSec: timelineTime - candidate.start,
                         clipDurationSec: candidate.end - candidate.start
-                    }, describeNextDraftV1);
+                    }, describeNextDraftV1, t);
                 }, candidate => window.akari.stillCandidatePreviewItemId === String(candidate.id)
                     || typeof videoCandidatePreview !== 'undefined' && videoCandidatePreview?.itemId === String(candidate.id));
                 const clip = active[0]?.clip;
@@ -10316,7 +10400,7 @@ export function previewBootstrapScript(): string {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
                     localTimeSec: timelineTime - clip.start,
                     clipDurationSec: clip.end - clip.start
-                }, describeNextDraftV1);
+                }, describeNextDraftV1, t);
                 if (description.tag === null && description.band === null
                     && !description.shimmer && !description.aurora && !description.maskRect && !description.pip && !description.blurBackground) {
                     hideGenerationOverlay();
@@ -10413,16 +10497,17 @@ export function previewBootstrapScript(): string {
                 setGenerationImage(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri);
                 generationTag.hidden = description.tag === null;
                 generationTagText = description.tag || '';
+                generationTagIsPlannedVideo = description.plannedVideo === true;
                 if (state === 'failed') generationTag.dataset.akariGenSeverity = 'error';
                 else if (clip.meta && clip.meta.kind === 'frames') generationTag.dataset.akariGenSeverity = 'frames';
                 else if (state === 'generating') generationTag.dataset.akariGenSeverity = 'generating';
-                else if (description.tag?.startsWith('▶ 動画予定')) generationTag.dataset.akariGenSeverity = 'planned-video';
+                else if (generationTagIsPlannedVideo) generationTag.dataset.akariGenSeverity = 'planned-video';
                 else delete generationTag.dataset.akariGenSeverity;
                 generationBand.hidden = description.band === null;
                 generationBandText.textContent = description.band?.text || '';
                 const startedAt = Date.parse(String(clip.meta?.job?.started_at || ''));
-                generationElapsedStartedAt = /^生成中 · [0-9]+ 秒$/u.test(description.band?.text || '')
-                    && Number.isFinite(startedAt) ? startedAt : null;
+                generationElapsedStartedAt = description.elapsedSeconds === true && Number.isFinite(startedAt)
+                    ? startedAt : null;
                 const progress = description.band?.progress;
                 generationBandBar.hidden = progress === null || progress === undefined;
                 generationBandFill.style.width = progress === null || progress === undefined
@@ -10605,6 +10690,7 @@ export function previewBootstrapScript(): string {
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                window.akari.interaction?.observeRotation3dModel?.(nextSummary);
                 nextSummary = window.akari.interaction?.protectModelSummary?.(nextSummary) ?? nextSummary;
                 const nextLayers = Array.isArray(nextSummary.layers) ? nextSummary.layers : [];
                 const previousLayerIds = new Set(layerEntries.map(entry => String(entry.spec.id)));
@@ -10616,6 +10702,20 @@ export function previewBootstrapScript(): string {
                 const addedLayers = nextLayers.filter(layer => !previousLayerIds.has(String(layer.id)));
                 const oldOverlays = Array.isArray(summary.overlays) ? summary.overlays : [];
                 const newOverlays = Array.isArray(nextSummary.overlays) ? nextSummary.overlays : [];
+                const rotationSnapshot = overlay => JSON.stringify({
+                    vars: ['x', 'y', 'z'].map(axis => overlay?.vars?.['--akari-3d-rot-' + axis] ?? 0),
+                    keys: (overlay?.keyframes ?? []).filter(point => ['x', 'y', 'z']
+                        .some(axis => point.vars?.['--akari-3d-rot-' + axis] !== undefined))
+                        .map(point => [point.t, ...['x', 'y', 'z']
+                            .map(axis => point.vars['--akari-3d-rot-' + axis] ?? null), point.easing])
+                });
+                const oldById = new Map(oldOverlays.map(overlay => [overlay.id, overlay]));
+                const rotationChanged = newOverlays.some(overlay => {
+                    const old = oldById.get(overlay.id);
+                    if (!old || rotationSnapshot(old) === rotationSnapshot(overlay)) return false;
+                    return Boolean(stage.querySelector('[data-overlay-id="' + CSS.escape(String(overlay.id)) + '"]'
+                        + ' script[data-akari-3d-scene]'));
+                });
                 const overlaysAppended = newOverlays.length > oldOverlays.length
                     && oldOverlays.every((overlay, index) => overlay.id === newOverlays[index]?.id);
                 if (window.akari.frameEngineClock?.updateModel) {
@@ -10654,6 +10754,11 @@ export function previewBootstrapScript(): string {
                     window.akari.interaction?.clearSelection?.();
                     void window.akari.runtime.mount(summary).catch(error =>
                         console.warn('[akari-preview] incremental overlay mount failed', error));
+                } else if (rotationChanged) {
+                    void window.akari.runtime.mount(summary).then(() => {
+                        window.akari.interaction?.restoreRotation3dAfterModel?.();
+                        tick(true);
+                    }).catch(error => console.warn('[akari-preview] 3D rotation mount failed', error));
                 }
                 for (const layer of addedLayers) {
                     const entry = createLayerEntry(layer, layerEntries.length);
@@ -10727,6 +10832,7 @@ export function previewBootstrapScript(): string {
                     }
                 }
                 window.akari.interaction?.restorePendingDragTransforms?.();
+                if (!rotationChanged || overlaysAppended) window.akari.interaction?.restoreRotation3dAfterModel?.();
                 window.akari.requestGenerationUpdate?.();
                 const renderedModel = playbackModelUpdate;
                 void Promise.resolve(renderedModel).then(() => Promise.all(addedLayers.map(layer => {
@@ -11030,7 +11136,7 @@ export function previewBootstrapScript(): string {
                                 } } });
                             }
                         }
-                        if (writes.length + cuePositions.length !== rows.length) throw new Error('選択素材の位置を取得できません');
+                        if (writes.length + cuePositions.length !== rows.length) throw new Error(t('preview.previewWindow.canvas.couldNotGetSelectedAssetPositionError'));
                         await window.akari.engine.mixedMove(writes, cuePositions);
                         window.akari.reportGesture?.('saved');
                     } catch (error) {
@@ -11344,7 +11450,7 @@ export function previewBootstrapScript(): string {
                         });
                         captionRunMenu.appendChild(button);
                     }
-                    if (!captionRunMenu.childElementCount) captionRunMenu.textContent = '使えるスタイルがありません';
+                    if (!captionRunMenu.childElementCount) captionRunMenu.textContent = t('preview.previewWindow.canvas.noStylesAvailableEmptyState');
                 }
                 if (message && message.type === 'akari-preview-set-selected-captions') {
                     selectedCaptionIds = new Set(Array.isArray(message.captionIds) ? message.captionIds : []);
@@ -11912,11 +12018,11 @@ export function previewBootstrapScript(): string {
             };
             const motionDrawRangeText = (range, existing) => {
                 const seconds = value => String(Math.round(value * 10) / 10);
-                return range ? '位置の点 ' + seconds(range.start) + '〜' + seconds(range.end)
-                    + ' 秒を置き換えます（Esc でやめる）'
-                    : existing ? '今の位置の点 ' + seconds(existing.start) + '〜' + seconds(existing.end)
-                        + ' 秒があります。描く範囲を置き換えます（Esc でやめる）'
-                    : 'プレビューで道筋を描きます（Esc でやめる）';
+                return range ? t('preview.previewWindow.canvas.pointsPrefix') + seconds(range.start) + t('preview.previewWindow.punctuation.rangeSeparator') + seconds(range.end)
+                    + t('preview.previewWindow.canvas.secondsReplacedEscCancelSuffix')
+                    : existing ? t('preview.previewWindow.canvas.existingPointsPrefix') + seconds(existing.start) + t('preview.previewWindow.punctuation.rangeSeparator') + seconds(existing.end)
+                        + t('preview.previewWindow.canvas.secondsDrawingReplaceThemEscCancelSuffix')
+                    : t('preview.previewWindow.canvas.drawPathPreviewEscCancel');
             };
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -11955,7 +12061,7 @@ export function previewBootstrapScript(): string {
                 motionDraw.existing = existing;
                 feedback.show(motionDrawRangeText(null, existing));
                 previewPane.style.cursor = 'crosshair';
-                previewPane.title = '道筋を描きます。Esc で終わります';
+                previewPane.title = t('preview.previewWindow.canvas.drawPathPressEscFinish');
                 motionDrawPointerOwnership.start();
             });
             window.addEventListener('message', event => {
@@ -12038,7 +12144,7 @@ export function previewBootstrapScript(): string {
                         })() }));
                     }
                     stopMotionDraw();
-                    if (points.length < 2) throw new Error('道筋をもう少し長く描いてください。');
+                    if (points.length < 2) throw new Error(t('preview.previewWindow.canvas.drawSlightlyLongerPath'));
                     void (async () => {
                         try {
                             if (draw.kind === 'layer') await window.akari.engine.layerWrite(draw.id, { xyKeyframes: points });

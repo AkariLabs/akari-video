@@ -1,11 +1,12 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
 import { DESIGN_ASSET_ROLES, DESIGN_ASSET_ROLE_LABELS, DESIGN_SECTION_HEADINGS, DESIGN_SECTION_PLACEHOLDERS,
     DesignAsset, DesignAssetRole, DesignMdValues, buildDesignMd, isDesignImageFile } from './design-md-model';
 
-const COLOR_FIELDS = [['main', 'メインの色'], ['sub', 'サブの色'], ['text', '文字の色'], ['background', '背景の色']] as const;
-const FONT_FIELDS = [['heading', '見出しの文字'], ['body', '本文の文字']] as const;
+const COLOR_FIELDS = [['main', t('surfaces.channel.mainColor.label')], ['sub', t('surfaces.channel.subColor.label')], ['text', t('surfaces.channel.fontColor.label')], ['background', t('surfaces.channel.backgroundColor.label')]] as const;
+const FONT_FIELDS = [['heading', t('surfaces.channel.headingText.label')], ['body', t('surfaces.channel.textCharacters.label')]] as const;
 const assetCss = `
 .akari-design-assets { display:grid; gap:9px; border-top:1px solid var(--theia-widget-border); padding-top:14px; font-size:12px; }
 .akari-design-assets-heading,.akari-design-assets-add,.akari-design-asset-row,.akari-design-asset-confirm { display:flex; align-items:center; gap:8px; }
@@ -69,12 +70,12 @@ export function DesignMdForm(props: {
         ...values.sections.filter(section => !(DESIGN_SECTION_HEADINGS as readonly string[]).includes(section.heading))];
     return <HomeScrim kind='channel-design-form' onClose={props.onClose}>
         <style>{homePanelCss}{channelSheetCss}{assetCss}</style>
-        <h3>デザイン</h3>
-        <p>動画の見た目の決まりを、文章で書きます。頭の数行（色と文字の値）だけは機械も読みます。</p>
+        <h3>{t('surfaces.channel.designMdFormDesign.heading')}</h3>
+        <p>{t('surfaces.channel.designMdFormWriteDownRulesVideoLookFirstFew.message')}</p>
         <div className='akari-channel-form-fields'>
             {COLOR_FIELDS.map(([key, label]) => <div className='akari-channel-form-row' key={key}>
                 <label htmlFor={`akari-channel-color-${key}`}>{label}</label>
-                <input type='color' aria-label={`${label}を選ぶ`} value={/^#[0-9a-fA-F]{6}$/.test(values.colors[key]) ? values.colors[key] : '#000000'}
+                <input type='color' aria-label={t('surfaces.channel.designMdFormSelect.message', { label: label })} value={/^#[0-9a-fA-F]{6}$/.test(values.colors[key]) ? values.colors[key] : '#000000'}
                     onChange={event => updateColor(key, event.currentTarget.value)} />
                 <input id={`akari-channel-color-${key}`} type='text' data-akari-design-color={key} value={values.colors[key]}
                     onChange={event => updateColor(key, event.currentTarget.value)} />
@@ -85,15 +86,15 @@ export function DesignMdForm(props: {
                     onChange={event => updateFont(key, event.currentTarget.value)} />
             </div>)}
             <div className='akari-design-assets'>
-                <div className='akari-design-assets-heading'><h4>ロゴ・画像</h4>
-                    {props.onRevealFolder && <button type='button' className='theia-button secondary' data-akari-design-asset-folder onClick={props.onRevealFolder}>フォルダを開く</button>}
+                <div className='akari-design-assets-heading'><h4>{t('surfaces.channel.designMdFormLogoImage.heading')}</h4>
+                    {props.onRevealFolder && <button type='button' className='theia-button secondary' data-akari-design-asset-folder onClick={props.onRevealFolder}>{t('surfaces.channel.designMdFormOpenFolder.button')}</button>}
                 </div>
-                <p>ロゴや参考画像は design/ に置きます。パートナーはここを読んで見た目を合わせます。</p>
+                <p>{t('surfaces.channel.designMdFormLogoReferenceImagesPlacedDesignPartnerRead.message')}</p>
                 {props.onAddAsset && <div className='akari-design-assets-add'>
-                    <select aria-label='足す素材の役割' value={assetRole} onChange={event => setAssetRole(event.currentTarget.value as DesignAssetRole)}>
+                    <select aria-label={t('surfaces.channel.designMdFormRoleAddedAssets.label')} value={assetRole} onChange={event => setAssetRole(event.currentTarget.value as DesignAssetRole)}>
                         {DESIGN_ASSET_ROLES.map(role => <option key={role} value={role}>{DESIGN_ASSET_ROLE_LABELS[role]}</option>)}
                     </select>
-                    <button type='button' className='theia-button secondary' data-akari-design-asset-add onClick={() => assetInput.current?.click()}>足す…</button>
+                    <button type='button' className='theia-button secondary' data-akari-design-asset-add onClick={() => assetInput.current?.click()}>{t('surfaces.channel.designAddMore.button')}</button>
                     <input ref={assetInput} type='file' hidden data-akari-design-asset-input accept='.png,.jpg,.jpeg,.svg,.webp,.ttf,.otf,.woff2'
                         onChange={async event => {
                             const input = event.currentTarget;
@@ -106,18 +107,18 @@ export function DesignMdForm(props: {
                 </div>}
                 {values.assets.map((asset, index) => <div className='akari-design-asset-row' data-akari-design-asset-row key={`${asset.file}-${index}`}>
                     <div className='akari-design-asset-thumb'>{isDesignImageFile(asset.file) && props.assetUrl
-                        ? <img src={props.assetUrl(asset.file)} alt='' /> : <span>{asset.role === 'font' ? '文字' : '素材'}</span>}</div>
+                        ? <img src={props.assetUrl(asset.file)} alt='' /> : <span>{asset.role === 'font' ? t('surfaces.channel.designMdFormCharacters.label') : t('surfaces.channel.designMdFormAssets.label')}</span>}</div>
                     <span className='akari-design-asset-name'>{asset.file.split('/').pop()}</span>
-                    <select aria-label='素材の役割' value={asset.role} onChange={event => changeAsset(index, { role: event.currentTarget.value as DesignAssetRole })}>
+                    <select aria-label={t('surfaces.channel.designMdFormRoleAssets.label')} value={asset.role} onChange={event => changeAsset(index, { role: event.currentTarget.value as DesignAssetRole })}>
                         {DESIGN_ASSET_ROLES.map(role => <option key={role} value={role}>{DESIGN_ASSET_ROLE_LABELS[role]}</option>)}
                     </select>
-                    <input type='text' data-akari-design-asset-note aria-label='素材のメモ' placeholder='メモ' value={asset.note}
+                    <input type='text' data-akari-design-asset-note aria-label={t('surfaces.channel.designMdFormAssetNotes.label')} placeholder={t('surfaces.channel.designMdFormMemo.label')} value={asset.note}
                         onChange={event => changeAsset(index, { note: event.currentTarget.value })} />
-                    <button type='button' className='theia-button secondary' onClick={() => setRemovingAsset(index)}>外す</button>
+                    <button type='button' className='theia-button secondary' onClick={() => setRemovingAsset(index)}>{t('surfaces.channel.designMdFormRemove.button')}</button>
                     {removingAsset === index && <div className='akari-design-asset-confirm' ref={assetConfirm}>
-                        {props.onRemoveAssetFile && <button type='button' className='theia-button secondary' onClick={() => void removeAsset(index, true)}>ファイルも消す</button>}
-                        <button type='button' className='theia-button secondary' onClick={() => void removeAsset(index, false)}>一覧から外すだけ</button>
-                        <button type='button' className='theia-button secondary' onClick={() => setRemovingAsset(undefined)}>やめる</button>
+                        {props.onRemoveAssetFile && <button type='button' className='theia-button secondary' onClick={() => void removeAsset(index, true)}>{t('surfaces.channel.designMdFormDeleteFilesToo.button')}</button>}
+                        <button type='button' className='theia-button secondary' onClick={() => void removeAsset(index, false)}>{t('surfaces.channel.designMdFormRemoveList.button')}</button>
+                        <button type='button' className='theia-button secondary' onClick={() => setRemovingAsset(undefined)}>{t('surfaces.channel.designMdFormStop.button')}</button>
                     </div>}
                 </div>)}
             </div>
@@ -134,17 +135,17 @@ export function DesignMdForm(props: {
             </div>)}
         </div>
         <div className='akari-channel-form-add'>
-            {!addingHeading ? <button type='button' className='theia-button secondary' onClick={() => setAddingHeading(true)}>見出しを足す</button> : <>
-                <input value={newHeading} placeholder='画面の余白 など' onChange={event => setNewHeading(event.currentTarget.value)}
+            {!addingHeading ? <button type='button' className='theia-button secondary' onClick={() => setAddingHeading(true)}>{t('surfaces.channel.designMdFormAddHeading.button')}</button> : <>
+                <input value={newHeading} placeholder={t('surfaces.channel.designMdFormScreenMarginsEtc.label')} onChange={event => setNewHeading(event.currentTarget.value)}
                     onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addHeading(); } }} />
-                <button type='button' className='theia-button secondary' onClick={addHeading}>足す</button>
+                <button type='button' className='theia-button secondary' onClick={addHeading}>{t('surfaces.channel.designAdd.button')}</button>
             </>}
-            {props.onHelper && <button type='button' className='theia-button secondary' data-akari-design-helper onClick={props.onHelper}>過去の動画からヘルパーに書いてもらう</button>}
+            {props.onHelper && <button type='button' className='theia-button secondary' data-akari-design-helper onClick={props.onHelper}>{t('surfaces.channel.designMdFormHaveHelperWritePastVideos.button')}</button>}
         </div>
         <div className='akari-channel-sheet-actions'>
-            <button type='button' className='theia-button secondary' onClick={() => props.onOpenFile(buildDesignMd(values, props.channelName))}>ファイルを開く</button>
+            <button type='button' className='theia-button secondary' onClick={() => props.onOpenFile(buildDesignMd(values, props.channelName))}>{t('surfaces.channel.designMdFormOpenFile.button')}</button>
             <button type='button' className='theia-button main' data-akari-design-save
-                onClick={() => props.onSave(buildDesignMd(values, props.channelName))}>保存する</button>
+                onClick={() => props.onSave(buildDesignMd(values, props.channelName))}>{t('surfaces.channel.designMdFormSave.button')}</button>
         </div>
     </HomeScrim>;
 }

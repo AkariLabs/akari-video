@@ -1,42 +1,34 @@
-# 何を打つべきか（宣言の中身）
+# What to mark in a track
 
-ユーザーが「何を打てばいいの？」と聞いたときに案内する内容。**全部を丁寧に埋める必要はない**。
-効き目の大きい順に並べる。
+Use this guidance when the person asks what to mark. They do **not** need to annotate every detail. Prioritize the items with the greatest effect.
 
-## 優先順位
+## Priority order
 
-| 順 | 何を | なぜ | 目安 |
+| Priority | Mark | Why it matters | Guideline |
 |---|---|---|---|
-| 1 | **サビ（drop）の範囲** | 最初の `drop` の開始秒が「サビ頭出し」になり、`edit.json` の `audio.bgm.in` にそのまま使える。**宣言 1 つで見え方が変わるのはここ** | 1 曲に 1 つ（複数サビがあれば複数可） |
-| 2 | **BPM と頭拍** | 拍に合わせて切る・写真を入れ替える土台。提案でも実測値として使われる | 全曲。クリック音で耳確認する |
-| 3 | 前奏（intro）／後奏（outro） | 「頭は使わない」「終わりで畳む」の判断材料 | サビの前後を大まかに |
-| 4 | キメ（hit_points） | 写真・カットの入れ替えを決めたい拍 | **疎で足りる。1 曲 1〜7 点程度** |
-| 5 | 盛り上げ（build）／間奏（bridge）／静寂（break） | 細かい構成。あると提案の精度が上がるが必須ではない | 気が向いたら |
+| 1 | **Chorus (`drop`) range** | The start of the first `drop` is the chorus cue and can be used directly as `audio.bgm.in` in `edit.json`. A single annotation here changes the way a BGM suggestion appears. | One per song, or more when it has multiple choruses. |
+| 2 | **BPM and first downbeat** | They anchor beat-aligned cuts and image changes, and are used as measured values in suggestions. | Mark for every track that has a beat; verify by listening with the click. |
+| 3 | Intro and outro | They indicate whether to skip the beginning or close out the ending. | Mark roughly before and after the chorus. |
+| 4 | Accent hits (hit_points) | They identify beats worth matching with an image or cut change. | A sparse set is enough: roughly 1–7 per track. |
+| 5 | Build, bridge, and break | They refine the structure and improve suggestions but are optional. | Add when useful. |
 
-**ピンを大量に打つ必要はない**（実運用の実測: 10 曲を宣言して 1〜7 点で足りた）。
-構造の本体は**区間**とビートグリッドであり、ピンはその補助である。
+**Do not place pins on every beat.** In one production pass across ten songs, 1–7 accent pins per song were enough. Sections and the beat grid carry the main structure; pins supplement them.
 
-## 品質の目安（これを満たせば「使える宣言」）
+## Quality checks for a usable declaration
 
-- クリック音を ON にして 30 秒以上再生し、曲のキックとクリックがズレて聞こえない
-  （曲の後半でズレるなら BPM が微妙に違う。前半だけズレるなら頭拍がずれている）
-- サビ区間の頭で再生を始めて、**いきなりサビから鳴る**（「選択区間をループ」で確かめられる）
-- 区間が時間順に並び、意図しない重なりがない
+- Play at least 30 seconds with the click enabled. The click should stay aligned with the track's kick. Drift in the latter half suggests a slightly wrong BPM; an offset near the beginning suggests the first downbeat is misplaced.
+- Start playback at the marked chorus: it should immediately sound like the chorus. Use `選択区間をループ` ("loop selected section") to check.
+- Sections are ordered in time without unintended overlap.
 
-## 判断に迷ったとき
+## When the structure is ambiguous
 
-- **サビが複数ある**: それぞれ `drop` で付けてよい。頭出しには最初のものが使われる
-- **サビが無い曲（環境音・アンビエント）**: 無理に `drop` を作らない。BPM も拍が無ければ
-  空のままでよい（区間だけの宣言も有効）
-- **拍が途中で変わる曲**: v0 の宣言は曲全体で 1 つの BPM しか持てない。**主要部（サビ）に
-  合わせる**のが実用的。合わないことをメモに残す
-- **テンポが揺れる曲（AI 生成曲に多い）**: 完全一致は狙わない。サビ周辺で合っていれば足りる
+- **Several choruses:** Mark each as `drop`; the first is used for the cue.
+- **No chorus, as in ambient audio:** Do not invent a `drop`. If there is no beat, BPM may remain empty. A declaration containing sections alone is still valid.
+- **Tempo changes midway:** v0 stores one BPM for the entire track. Align it with the main part (the chorus), and note where it does not fit.
+- **Variable tempo, common in generated music:** Do not aim for perfect alignment. Alignment around the chorus is sufficient.
 
-## 自動推定について正直に伝えること
+## Be candid about automatic estimates
 
-- 自動推定は**オンセット（音の立ち上がり）の自己相関**で求めた推定値であり、±1〜2 BPM
-  ずれることがある。打点の弱い曲（lofi・アンビエント）や、テンポが揺れる曲で誤差が大きい
-- 倍・半分に取り違えることがある（♩85 の曲を ♩170 と推定する等）。クリック音が
-  「2 回に 1 回しか合わない」ならその症状 — BPM を半分（または倍）にする
-- **推定のまま保存してもよいが、レポートには「推定のまま」と書く**。耳で確認したものと
-  区別する（ハードルール 2）
+- Automatic BPM comes from autocorrelation of sound onsets. It can be off by about 1–2 BPM, especially with weak transients such as lo-fi or ambient music, or with variable tempo.
+- It can choose double or half the true tempo, such as estimating ♩170 for a ♩85 song. A click that aligns only on every other beat is a clue; halve or double BPM and listen again.
+- An unverified estimate may be saved, but label it as an estimate in the report. Keep it distinct from a value confirmed by listening, as required by hard rule 2.

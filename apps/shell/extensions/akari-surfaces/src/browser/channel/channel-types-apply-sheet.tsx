@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import { HomeScrim, homePanelCss } from '../home/home-panels';
 import { channelSheetCss } from './channel-sheet-style';
@@ -23,30 +24,30 @@ export function ChannelTypeApplySheet(props: {
             aria-pressed={choices[key] === value} onClick={() => setChoices(previous => ({ ...previous, [key]: value }))}>{label}</button>;
     return <HomeScrim kind='channel-types-apply' onClose={props.onClose}>
         <style>{homePanelCss}{channelSheetCss}</style>
-        <h3>「{props.type.name}」を当てる</h3>
-        <p>「{props.channelName}」にすでにあるものとの重なりです。項目ごとに決めてから当てます。あとから 1 つ前に戻せます。</p>
-        <div className='akari-channel-apply-row'><b>チャンネル設計（channel.md）</b>
-            <span>{channelBody ? 'すでに書いてあります' : '新しく入ります'}</span>
-            <div>{option('channel', 'keep', '残す')}{option('channel', 'add', '足りない見出しだけ足す')}{option('channel', 'replace', '置き換える')}</div></div>
-        <div className='akari-channel-apply-row'><b>デザイン（design.md）</b>
-            <span>{designBody ? 'すでに書いてあります' : '新しく入ります'}</span>
-            <div>{option('design', 'keep', '残す')}{option('design', 'add', '足す')}{option('design', 'replace', '置き換える')}</div></div>
-        <div className='akari-channel-apply-row'><b>辞書とメモ</b>
-            <span>言い換え 新しく {newWords} 件・決まりごと 新しく {newRules} 件（同じものはとばします）</span><div /></div>
-        <div className='akari-channel-apply-row'><b>スキル</b>
-            <span>新しく {newSkills.map(slug => `/${slug}`).join(' ') || 'なし'}{oldSkills.length ? `・すでにある ${oldSkills.map(slug => `/${slug}`).join(' ')}` : ''}</span>
-            <div>{oldSkills.length ? <>{option('skills', 'skip', 'すでにあるものはとばす')}{option('skills', 'replace', '置き換える')}</> : null}</div></div>
-        <div className='akari-channel-apply-row'><b>ライブラリ</b><span>よく使うテンプレ 新しく {contents.templates.length} 件</span><div /></div>
-        {props.type.tier === 'pro' && <p className='akari-channel-apply-note'>☆ Pro の型です。いまは印だけで、当てられます。</p>}
-        <div className='akari-channel-sheet-actions'><button type='button' className='theia-button secondary' onClick={props.onBack}>戻る</button>
-            <button type='button' className='theia-button main' data-akari-apply-run onClick={() => props.onApply(choices)}>当てる</button></div>
+        <h3>{t('surfaces.channel.applyType.heading', { name: props.type.name })}</h3>
+        <p>{t('surfaces.channel.applyType.description', { name: props.channelName })}</p>
+        <div className='akari-channel-apply-row'><b>{t('surfaces.channel.channelTypeApplySheetChannelDesignChannelMd.label')}</b>
+            <span>{channelBody ? t('surfaces.channel.channelTypeApplySheetAlreadyWritten.label') : t('surfaces.channel.channelTypeApplySheetNewArrival.label')}</span>
+            <div>{option('channel', 'keep', t('surfaces.channel.channelTypeApplySheetLeave.label'))}{option('channel', 'add', t('surfaces.channel.channelTypeApplySheetAddMissingHeadings.label'))}{option('channel', 'replace', t('surfaces.channel.channelTypeApplySheetReplace.label'))}</div></div>
+        <div className='akari-channel-apply-row'><b>{t('surfaces.channel.channelTypeApplySheetDesignDesignMd.label')}</b>
+            <span>{designBody ? t('surfaces.channel.channelTypeApplySheetAlreadyWritten.label') : t('surfaces.channel.channelTypeApplySheetNewArrival.label')}</span>
+            <div>{option('design', 'keep', t('surfaces.channel.channelTypeApplySheetLeave.label'))}{option('design', 'add', t('surfaces.channel.channelTypeApplySheetAdd.label'))}{option('design', 'replace', t('surfaces.channel.channelTypeApplySheetReplace.label'))}</div></div>
+        <div className='akari-channel-apply-row'><b>{t('surfaces.channel.channelTypeApplySheetDictionaryNotes.label')}</b>
+            <span>{t('surfaces.channel.applyType.dictionarySummary.label', { words: newWords, rules: newRules })}</span><div /></div>
+        <div className='akari-channel-apply-row'><b>{t('surfaces.channel.channelTypeApplySheetSkill.label')}</b>
+            <span>{oldSkills.length ? t('surfaces.channel.applyType.skillsWithExisting.label', { skills: newSkills.map(slug => `/${slug}`).join(' ') || t('surfaces.channel.channelTypeApplySheetNone.label'), existing: oldSkills.map(slug => `/${slug}`).join(' ') }) : t('surfaces.channel.applyType.newSkills.label', { skills: newSkills.map(slug => `/${slug}`).join(' ') || t('surfaces.channel.channelTypeApplySheetNone.label') })}</span>
+            <div>{oldSkills.length ? <>{option('skills', 'skip', t('surfaces.channel.channelTypeApplySheetSkipWhatsAlready.label'))}{option('skills', 'replace', t('surfaces.channel.channelTypeApplySheetReplace.label'))}</> : null}</div></div>
+        <div className='akari-channel-apply-row'><b>{t('surfaces.channel.channelTypeApplySheetLibrary.label')}</b><span>{t('surfaces.channel.applyType.newTemplateCount.label', { count: contents.templates.length, n: contents.templates.length })}</span><div /></div>
+        {props.type.tier === 'pro' && <p className='akari-channel-apply-note'>{t('surfaces.channel.proTypeAvailability.message')}</p>}
+        <div className='akari-channel-sheet-actions'><button type='button' className='theia-button secondary' onClick={props.onBack}>{t('surfaces.channel.channelTypeApplySheetBack.button')}</button>
+            <button type='button' className='theia-button main' data-akari-apply-run onClick={() => props.onApply(choices)}>{t('surfaces.channel.applyType.button')}</button></div>
     </HomeScrim>;
 }
 
 export function ChannelTypeBanner(props: { typeName: string; canUndo: boolean; onCatalog: () => void; onUndo: () => void }): React.ReactElement {
     return <div className='akari-channel-type-banner' data-akari-type-banner>
-        <strong>型: {props.typeName}</strong><small>この型から作った下書きを、あなたが直したものです。</small>
-        <button type='button' className='theia-button secondary' data-akari-banner-catalog onClick={props.onCatalog}>型を見る・当て直す…</button>
-        {props.canUndo && <button type='button' className='theia-button secondary' data-akari-banner-undo onClick={props.onUndo}>1 つ前に戻す</button>}
+        <strong>{t('surfaces.channel.appliedType.label', { name: props.typeName })}</strong><small>{t('surfaces.channel.editedTypeDraft.message')}</small>
+        <button type='button' className='theia-button secondary' data-akari-banner-catalog onClick={props.onCatalog}>{t('surfaces.channel.reviewType.button')}</button>
+        {props.canUndo && <button type='button' className='theia-button secondary' data-akari-banner-undo onClick={props.onUndo}>{t('surfaces.channel.channelTypeBannerGoBackOneStep.button')}</button>}
     </div>;
 }

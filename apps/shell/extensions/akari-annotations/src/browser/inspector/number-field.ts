@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { createInspectorIcon } from './icons';
 import { isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 
@@ -16,6 +17,7 @@ export interface NumberFieldOptions {
     onCancel?: () => void;
     onCommit: (value: number) => Promise<boolean>;
     keyframe?: KeyframeSeatOptions;
+    reserveKeyframeSeat?: boolean;
     /** この欄が属するインスペクターの根。外にキーボードのフォーカスがあるときだけ引き戻す。 */
     focusRoot?: HTMLElement;
 }
@@ -73,20 +75,20 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
         button.append(createInspectorIcon(icon));
         return button;
     };
-    const previous = control('left', '前のキーフレームへ');
+    const previous = control('left', t('inspector.numberField.label.previousKeyframe'));
     previous.disabled = !options?.hasKeyframes;
     previous.addEventListener('click', () => options?.onPrevious());
     const button = control('diamond', options?.active
-        ? '現在時刻のキーフレームを消す' : '現在時刻にキーフレームを打つ');
+        ? t('inspector.numberField.action.cancelKeyframesCurrentTime') : t('inspector.numberField.label.hitKeyframeCurrentTime'));
     button.className = 'akari-inspector-kf-seat';
     button.disabled = !options;
     button.setAttribute('aria-pressed', String(options?.active === true));
     button.setAttribute('data-akari-ui', `inspector-kf-seat:${name}`);
     button.addEventListener('click', () => options?.onToggle());
-    const next = control('right', '次のキーフレームへ');
+    const next = control('right', t('inspector.numberField.label.nextKeyframe'));
     next.disabled = !options?.hasKeyframes;
     next.addEventListener('click', () => options?.onNext());
-    const more = control('more', 'キーフレームのその他の操作');
+    const more = control('more', t('inspector.numberField.label.otherOperationsKeyframes'));
     more.disabled = !options?.onReveal;
     more.setAttribute('aria-haspopup', 'menu');
     more.setAttribute('aria-expanded', 'false');
@@ -98,14 +100,14 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
         const menu = document.createElement('div');
         menu.className = 'akari-inspector-kf-menu';
         menu.setAttribute('role', 'menu');
-        menu.setAttribute('aria-label', 'キーフレームの操作');
+        menu.setAttribute('aria-label', t('inspector.numberField.label.keyframeOperation'));
         menu.setAttribute('popover', 'auto');
-        const reveal = control('jump', 'タイムラインのキーフレーム行を開く');
+        const reveal = control('jump', t('inspector.numberField.action.openKeyframeLinesTimeline'));
         const label = document.createElement('span');
         label.textContent = reveal.title;
         reveal.append(label);
         reveal.disabled = !options.hasKeyframes;
-        if (reveal.disabled) reveal.title = 'キーフレームがありません';
+        if (reveal.disabled) reveal.title = t('inspector.numberField.title.noKeyframe');
         reveal.setAttribute('role', 'menuitem');
         reveal.setAttribute('data-akari-ui', `inspector-kf-jump:${name}`);
         menu.append(reveal);
@@ -170,14 +172,14 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
 
     const container = document.createElement('div');
     container.className = 'akari-inspector-number-field'
-        + (options.keyframe === undefined ? ' akari-inspector-number-field-seatless' : '');
+        + (options.keyframe === undefined && !options.reserveKeyframeSeat ? ' akari-inspector-number-field-seatless' : '');
     container.setAttribute('data-akari-ui', `field:inspector-${options.name}`);
 
     const handle = document.createElement('button');
     handle.type = 'button';
     handle.className = 'akari-inspector-number-handle';
-    handle.title = '左右へドラッグして調整';
-    handle.setAttribute('aria-label', `${options.label}をドラッグして調整`);
+    handle.title = t('inspector.numberField.title.dragLeftRightAdjust');
+    handle.setAttribute('aria-label', t('inspector.numberField.label.dragAdjust', { label: options.label }));
     handle.append(createInspectorIcon('scrub'));
 
     const input = document.createElement('input');
@@ -216,10 +218,10 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     buttons.className = 'akari-inspector-number-steps';
     const up = document.createElement('button');
     const down = document.createElement('button');
-    for (const [button, direction, label] of [[up, 1, '増やす'], [down, -1, '減らす']] as const) {
+    for (const [button, direction, label] of [[up, 1, t('inspector.numberField.label.more')], [down, -1, t('inspector.numberField.label.reduce')]] as const) {
         button.type = 'button';
         button.append(createInspectorIcon(direction > 0 ? 'up' : 'down'));
-        button.setAttribute('aria-label', `${options.label}を${label}`);
+        button.setAttribute('aria-label', t('inspector.numberField.label.actionForField', { label: options.label, action: label }));
         button.addEventListener('click', event => {
             cancelInputPreview();
             const current = Number(input.value);
@@ -407,6 +409,11 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     container.append(handle, input, unit, buttons);
     if (options.keyframe !== undefined) {
         container.appendChild(createKeyframeSeat(options.name, options.keyframe));
+    } else if (options.reserveKeyframeSeat) {
+        const emptySeat = document.createElement('span');
+        emptySeat.className = 'akari-inspector-kf-controls';
+        emptySeat.setAttribute('aria-hidden', 'true');
+        container.appendChild(emptySeat);
     }
     return container;
 }

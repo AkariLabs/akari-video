@@ -1,7 +1,11 @@
-import test from 'node:test';
+import test, { after as afterI18nTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } from '../lib/browser/title-bar/title-bar-model.js';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { channelFromRelativePath, savedChip, shouldRerenderOnContextKeys, showsMenuInTitleBar, stageDots, stageDotTitles, titleBarCenter, titleBarGeometry, windowButtons, windowButtonGlyphs } = await import("../lib/browser/title-bar/title-bar-model.js");
+
 
 test('中央は未オープン、チャンネル内、単体で並びが変わる', () => {
     assert.deepEqual(titleBarCenter({ scope: 'channel', channel: '旅' }), ['旅']);
@@ -59,4 +63,15 @@ test('窓オプションに Mac の帯が宣言されている', () => {
     const options = pkg.theia.frontend.config.electron.windowOptions;
     assert.equal(options.titleBarStyle, 'hiddenInset');
     assert.deepEqual(options.trafficLightPosition, { x: 12, y: 12 });
+});
+
+test('Windows / Linux は帯にファイル・編集・ヘルプを描き、Mac は OS のメニューに任せる', () => {
+    assert.equal(showsMenuInTitleBar('windows'), true);
+    assert.equal(showsMenuInTitleBar('other'), true);
+    assert.equal(showsMenuInTitleBar('mac'), false);
+    const source = readFileSync(new URL('../src/browser/title-bar/akari-title-bar-contribution.ts', import.meta.url), 'utf8');
+    const body = source.slice(source.indexOf('protected createCustomTitleBar('));
+    // 帯をページへ付けた後にメニューバーを埋め込む（Lumino の attach は付いていない親を拒む）
+    assert.ok(body.indexOf("app.shell.addWidget(bar, { area: 'top' })") < body.indexOf('Widget.attach(menuBar, left)'));
+    assert.match(source, /\.akari-title-left \.lm-MenuBar \{ -webkit-app-region: no-drag !important;/u);
 });

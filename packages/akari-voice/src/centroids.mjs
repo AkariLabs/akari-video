@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -35,7 +36,7 @@ export async function loadCentroids({ peoplePath, channel, embedder, decode }) {
     try {
       const samples = person.samples.map(sample => {
         const absolute = path.resolve(channelDir, sample.file);
-        if (!absolute.startsWith(channelDir + path.sep)) throw new Error('チャンネル外の見本は使えません');
+        if (!absolute.startsWith(channelDir + path.sep)) throw new Error(t('tools.voice.engine.error.sampleOutsideChannel'));
         return { file: sample.file, absolute, sha256: createHash('sha256').update(fs.readFileSync(absolute)).digest('hex') };
       });
       const signature = samples.map(({ file, sha256 }) => ({ file, sha256 }));

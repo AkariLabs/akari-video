@@ -1,17 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AUDIO_KEYFRAME_MAX_DB, AUDIO_KEYFRAME_MIN_DB, audioKeyframeDbToPx, audioKeyframePxToDb, audioKeyframePxToTime, audioKeyframeTimeToPx, normalizeAudioKeyframeGainDb, snapAudioKeyframeTime, validateAudioKeyframeTime } = await import('../lib/common/audio-keyframe-editor-geometry.js');
 
-import {
-  AUDIO_KEYFRAME_MAX_DB,
-  AUDIO_KEYFRAME_MIN_DB,
-  audioKeyframeDbToPx,
-  audioKeyframePxToDb,
-  audioKeyframePxToTime,
-  audioKeyframeTimeToPx,
-  normalizeAudioKeyframeGainDb,
-  snapAudioKeyframeTime,
-  validateAudioKeyframeTime,
-} from '../lib/common/audio-keyframe-editor-geometry.js';
+
+
 
 test('t→px は実効再生窓の 0・中央・末尾を fit-to-width へ写す', () => {
   assert.equal(audioKeyframeTimeToPx(0, 10, 800), 0);

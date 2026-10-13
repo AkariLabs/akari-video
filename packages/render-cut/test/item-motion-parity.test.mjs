@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const require = createRequire(import.meta.url);
-const { evaluateOverlayMotion, motionRevealCss } = require('../../overlay-runtime/src/item-motion.js');
+const { evaluateOverlayMotion, evaluateOverlayVars, motionRevealCss } = require('../../overlay-runtime/src/item-motion.js');
 const fps = 30;
 const overlay = {
   id: 'child', start: 1, duration: 2, html: '<div>child</div>',
@@ -40,7 +40,7 @@ test('OSR sheet applies the preview evaluator to transmitted child and canvas mo
     style: { setProperty: (name, value) => styles.set(name, value) },
     getAnimations: () => [],
   };
-  const context = { window: { akari: { itemMotion: { evaluateOverlayMotion, motionRevealCss } } },
+  const context = { window: { akari: { itemMotion: { evaluateOverlayMotion, evaluateOverlayVars, motionRevealCss } } },
     document: { querySelectorAll: () => [container] } };
   vm.runInNewContext(script, context);
   for (const seconds of [1, 1.25, 1.5, 2, 2.75]) {
@@ -50,6 +50,30 @@ test('OSR sheet applies the preview evaluator to transmitted child and canvas mo
     assert.ok(Math.abs(Number.parseFloat(styles.get('--y')) - expected.y) < 1e-9);
     assert.ok(Math.abs(Number(styles.get('--scale')) - expected.scale) < 1e-9);
     assert.ok(Math.abs(Number(styles.get('opacity')) - expected.opacity) < 1e-9);
+  }
+});
+
+test('OSR の 3D 変数は item の開始時刻を基準にプレビューと同じ値になる', () => {
+  const scene = { ...overlay, start: 1, motionSource: undefined,
+    keyframes: [{ t: 0, vars: { '--akari-3d-rot-y': 0 } },
+      { t: 60, vars: { '--akari-3d-rot-y': 90 } }] };
+  const sheet = renderOverlaySheet({ overlays: [scene],
+    edit: { output: { width: 640, height: 360, fps } }, duration: 3, projectRoot: '/unused' });
+  const script = sheet.match(/window\.__akariSyncAnimations = function\(seconds\) \{[\s\S]*?\n    \};/u)?.[0];
+  assert.ok(script);
+  const styles = new Map();
+  const container = {
+    dataset: { akariItemMotion: JSON.stringify(scene) },
+    hasAttribute: name => name === 'data-akari-item-motion',
+    style: { setProperty: (name, value) => styles.set(name, value) },
+    getAnimations: () => [],
+  };
+  const window = { akari: { itemMotion: { evaluateOverlayMotion, evaluateOverlayVars, motionRevealCss } } };
+  vm.runInNewContext(script, { window, document: { querySelectorAll: () => [container] } });
+  for (const seconds of [1, 2, 2 + 29 / 30]) {
+    window.__akariSyncAnimations(seconds);
+    const expected = evaluateOverlayVars(scene, seconds, fps)['--akari-3d-rot-y'];
+    assert.equal(Number(styles.get('--akari-3d-rot-y')), expected);
   }
 });
 

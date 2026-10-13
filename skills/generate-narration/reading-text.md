@@ -1,38 +1,23 @@
-# 読み前処理規約（表示原稿 → 読み原稿）
+# Reading-text preparation (display script → spoken text)
 
-TTS（どのエンジンでも）に渡すのは表示原稿そのものではなく、読み上げ用に前処理した
-**読み原稿**である。表示原稿と読み原稿は非可逆な変換関係にあるため、両方を独立フィールドとして
-`edit.json` に保存する（ハードルール 3、契約
-[docs/contract-2026-07-20-edit-json-v1-narration.md](../../docs/contract-2026-07-20-edit-json-v1-narration.md) §5）。
+Pass the prepared **spoken text** to TTS and keep the display script separately in `edit.json` (hard rule 3; [narration data contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-edit-json-v1-narration.md) §5). The two fields can differ, so neither can be reconstructed reliably from the other.
 
-- `script`: 人間が読む正本。字幕連携などの元テキストとしてもそのまま使える表示原稿
-- `reading`: 前処理後、実際に TTS へ渡した文字列
+- `script`: The text shown to people and available for subtitle linking.
+- `reading`: The exact text sent to the speech engine.
 
-読み原稿には読み方・話し方の指示（「明るく読んでください：」等）を書かない。抑揚は句読点・語順・かな化で作り、話し方は `--style`（対応エンジンのみ・API の別フィールド）で渡す（[engines.md](engines.md) の「読み方の指示を本文に混ぜない」）。
+Do not put delivery instructions into the text to be spoken. Send supported delivery instructions through `--style` as a separate API field. Language-specific pronunciation and spelling rules are in the content-language pack named by SKILL.md; see [engines.md](engines.md) for the separate style field.
 
-## 変換対象
+## Conversion targets
 
-- **英字固有名詞・略語**: カタカナへ変換する。例: 「AKARI Video」→「アカリビデオ」
-  （英語読みのまま TTS に渡すと発音が崩れる。実測: エンジンが「AKARI Video」を英語風に読み、
-  聞き取りづらい結果になった）
-- **難読語・専門用語**: 意図した読みにならない漢字・略号は平仮名または想定する読みのカタカナへ
-  開く
-- **数字・日付・単位**: TTS エンジン側の数字読み上げが期待どおりでない場合は、読み下した文字列
-  （例: 「2026年7月20日」→「にせんにじゅうろくねんしちがつはつか」）に置き換える。ただし
-  多くのエンジンは算用数字のままでも正しく読めるため、**実際に生成して耳で確認してから**
-  変換の要否を判断する（先回りして全数字を機械的に開かない）
+See lang/<content-language>.md for language-specific treatment of names and abbreviations. For numbers, dates, and units, generate audio and listen before deciding whether to expand them; do not mechanically expand every number in advance.
 
-## 手順
+## Procedure
 
-1. 表示原稿（`script`）を用意する（人間が書いた原稿、または analyze-footage の captions 由来など）
-2. 上記の変換対象に該当する箇所だけをかな化・カタカナ化し、読み原稿（`reading`）を作る
-3. `reading` を `--reading-file` に、`script` を `--script-file` に渡して生成する
-4. 生成音声を耳で確認する。発音が崩れている固有名詞があれば、その語だけをさらにかな化して
-   再生成する（原稿全体を作り直さない）
+1. Prepare `script` from the approved display copy or captions.
+2. Apply the content-language pack to create `reading`, preserving the intended meaning.
+3. Pass `reading` to `--reading-file` and `script` to `--script-file`.
+4. Listen to the generated audio. Correct individual mispronounced terms and regenerate; do not rewrite the whole script.
 
-## 両方を保存する理由
+## Why save both?
 
-かな化は多くの場合、人手または非決定的なルールベース処理を経ており、`reading` から `script` を
-機械的に逆算できない。再生成（同じ音声を別エンジンで作り直す等）や人間レビュー（`script` は
-読みやすい正本として、`reading` は生成の実態を追跡する記録として）の両方に必要なため、
-どちらか一方だけを保存して済ませない。
+The conversion usually involves manual work or non-deterministic rule-based processing, so `script` cannot be reconstructed mechanically from `reading`. Keep the display script as the readable record for review and `reading` as the record of what was actually generated. Always save both `script` and `reading`; never store only one. Both are required when changing engines or revising the audio later.

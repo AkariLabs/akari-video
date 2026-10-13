@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>AKARI Video 編集判断レポート</title>
+    <title data-i18n="report-cards.template.page.title">AKARI Video 編集判断レポート</title>
     <!--
     AKARI 安全な差し替え規約:
     - data-field の値は HTML として挿入せず、必ずエスケープ済みテキストとして差し替える。
@@ -865,12 +865,12 @@
     <header class="report-header">
       <div class="report-header__inner">
         <p class="eyebrow">AKARI VIDEO / EDIT DECISION REPORT</p>
-        <h1 data-field="report-title" data-placeholder="true">
+        <h1 data-field="report-title" data-placeholder="true" data-i18n="report-cards.template.page.heading">
           編集判断レポート — タイトル未入力
         </h1>
         <dl class="report-meta" aria-label="レポート基本情報">
           <div>
-            <dt>対象プロジェクト</dt>
+            <dt data-i18n="report-cards.template.page.project">対象プロジェクト</dt>
             <dd data-field="project-name" data-placeholder="true">
               プロジェクト名未入力
             </dd>
@@ -902,7 +902,7 @@
         aria-labelledby="heading-decision-cards"
       >
         <span class="section-kicker">DECISION CARDS</span>
-        <h2 id="heading-decision-cards">編集前に決めること</h2>
+        <h2 id="heading-decision-cards" data-i18n="report-cards.template.decision.heading">編集前に決めること</h2>
         <p class="section-lead">
           AI 推奨は選択済みです。直したいカードだけ操作し、最後に 1
           画面の要約を確認して確定します。
@@ -912,7 +912,7 @@
           decisions.json の id・answer を対にして、質問と選択肢を差し替える。
         </p>
 
-        <p class="decision-runtime-message" role="status" aria-live="polite">
+        <p class="decision-runtime-message" role="status" aria-live="polite" data-i18n="report-cards.template.decision.helper">
           ヘルパー経由で開くと回答できます。チャットでの回答も可能です
         </p>
         <p class="decision-runtime-error" role="alert" hidden></p>
@@ -922,7 +922,7 @@
           type="button"
           data-action="accept-all"
           disabled
-        >
+         data-i18n="report-cards.template.decision.delegate">
           すべておまかせで確認
         </button>
 
@@ -933,7 +933,7 @@
             data-question="最初の判断はどの案にしますか？"
             data-placeholder="true"
           >
-            <p class="decision-card__question">
+            <p class="decision-card__question" data-i18n="report-cards.template.decision.questionFirst">
               最初の判断はどの案にしますか？
             </p>
             <div class="decision-options">
@@ -943,7 +943,7 @@
                 data-option="recommended"
                 data-default="true"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionAi">
                 AI 推奨案
               </button>
               <button
@@ -951,7 +951,7 @@
                 type="button"
                 data-option="alternative"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionAlternative">
                 対案
               </button>
             </div>
@@ -961,7 +961,7 @@
                 type="button"
                 data-check="requestMore"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionAnother">
                 別案も依頼する
               </button>
             </div>
@@ -974,8 +974,8 @@
               ></textarea>
             </label>
             <details>
-              <summary>根拠・証拠を見る</summary>
-              <p>推奨理由と参照した根拠をここへ記入する。</p>
+              <summary data-i18n="report-cards.template.decision.evidence">根拠・証拠を見る</summary>
+              <p data-i18n="report-cards.template.decision.reasonExample">推奨理由と参照した根拠をここへ記入する。</p>
             </details>
           </article>
 
@@ -985,7 +985,7 @@
             data-question="次の判断はどの案にしますか？"
             data-placeholder="true"
           >
-            <p class="decision-card__question">
+            <p class="decision-card__question" data-i18n="report-cards.template.decision.questionNext">
               次の判断はどの案にしますか？
             </p>
             <div class="decision-options">
@@ -995,7 +995,7 @@
                 data-option="standard"
                 data-default="true"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionStandard">
                 標準
               </button>
               <button
@@ -1003,7 +1003,7 @@
                 type="button"
                 data-option="strong"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionStrong">
                 強め
               </button>
               <button
@@ -1011,13 +1011,13 @@
                 type="button"
                 data-option="light"
                 disabled
-              >
+               data-i18n="report-cards.template.decision.optionSubtle">
                 控えめ
               </button>
             </div>
             <details>
-              <summary>根拠・証拠を見る</summary>
-              <p>比較した案とトレードオフをここへ記入する。</p>
+              <summary data-i18n="report-cards.template.decision.evidence">根拠・証拠を見る</summary>
+              <p data-i18n="report-cards.template.decision.compareExample">比較した案とトレードオフをここへ記入する。</p>
             </details>
           </article>
 
@@ -1026,7 +1026,7 @@
             data-card="direction"
             data-question="演出はどの方向と強度にしますか？"
           >
-            <p class="decision-card__question">
+            <p class="decision-card__question" data-i18n="report-cards.template.direction.question">
               演出はどの方向と強度にしますか？
             </p>
             <div class="decision-options">
@@ -1038,7 +1038,7 @@
                 data-default="true"
                 disabled
               >
-                <strong>長尺標準（AI 推奨）</strong><br />
+                <strong data-i18n="report-cards.template.direction.long">長尺標準（AI 推奨）</strong><br />
                 冒頭フックあり・見せ場は要所のみ・落ち着いた密度
               </button>
               <button
@@ -1048,7 +1048,7 @@
                 data-answer-key="preset"
                 disabled
               >
-                <strong>ショート向け高密度</strong><br />
+                <strong data-i18n="report-cards.template.direction.short">ショート向け高密度</strong><br />
                 発火多め・強い文字演出
               </button>
               <button
@@ -1058,12 +1058,12 @@
                 data-answer-key="preset"
                 disabled
               >
-                <strong>落ち着き解説</strong><br />
+                <strong data-i18n="report-cards.template.direction.calm">落ち着き解説</strong><br />
                 SE 控えめ・儀式最小限
               </button>
             </div>
             <div class="decision-range">
-              <label for="direction-intensity">演出の強度</label>
+              <label for="direction-intensity" data-i18n="report-cards.template.direction.intensity">演出の強度</label>
               <output data-range-value="intensity" for="direction-intensity">50</output>
               <input
                 id="direction-intensity"
@@ -1078,20 +1078,20 @@
               />
             </div>
             <fieldset class="decision-means">
-              <legend>許可する表現手段</legend>
+              <legend data-i18n="report-cards.template.direction.means">許可する表現手段</legend>
               <div class="decision-card__extras">
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="実写 B ロール" data-default="true" disabled>実写 B ロール</button>
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="スクリーン録画・資料" data-default="true" disabled>スクリーン録画・資料</button>
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="ストック素材" data-default="true" disabled>ストック素材</button>
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="AI 生成" data-default="true" disabled>AI 生成</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="実写 B ロール" data-default="true" disabled data-i18n="report-cards.template.direction.liveBroll">実写 B ロール</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="スクリーン録画・資料" data-default="true" disabled data-i18n="report-cards.template.direction.screen">スクリーン録画・資料</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="ストック素材" data-default="true" disabled data-i18n="report-cards.template.direction.stock">ストック素材</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="AI 生成" data-default="true" disabled data-i18n="report-cards.template.direction.ai">AI 生成</button>
                 <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="3D" data-default="true" disabled>3D</button>
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="HTML 図解" data-default="true" disabled>HTML 図解</button>
-                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="文字演出" data-default="true" disabled>文字演出</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="HTML 図解" data-default="true" disabled data-i18n="report-cards.template.direction.html">HTML 図解</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="文字演出" data-default="true" disabled data-i18n="report-cards.template.direction.text">文字演出</button>
               </div>
             </fieldset>
             <details>
-              <summary>根拠・証拠を見る</summary>
-              <p>素材の読みと狙う見せ場に照らした推奨理由をここへ記入する。</p>
+              <summary data-i18n="report-cards.template.decision.evidence">根拠・証拠を見る</summary>
+              <p data-i18n="report-cards.template.direction.reasonExample">素材の読みと狙う見せ場に照らした推奨理由をここへ記入する。</p>
             </details>
           </article>
         </div>
@@ -1101,7 +1101,7 @@
           type="button"
           data-action="accept-all"
           disabled
-        >
+         data-i18n="report-cards.template.decision.next">
           確認へ
         </button>
 
@@ -1111,14 +1111,14 @@
           aria-labelledby="heading-decision-summary"
           hidden
         >
-          <h3 id="heading-decision-summary">確定内容の要約</h3>
+          <h3 id="heading-decision-summary" data-i18n="report-cards.template.decision.summary">確定内容の要約</h3>
           <dl class="decision-summary__list"></dl>
           <button
             class="decision-action"
             type="button"
             data-action="commit"
             disabled
-          >
+           data-i18n="report-cards.template.decision.confirm">
             この内容で確定
           </button>
           <p class="decision-summary__status" role="status" aria-live="polite"></p>
@@ -1131,7 +1131,7 @@
         aria-labelledby="heading-thumbnails"
       >
         <span class="section-kicker">SECTION 01</span>
-        <h2 id="heading-thumbnails">1. サムネイル案</h2>
+        <h2 id="heading-thumbnails" data-i18n="report-cards.template.thumbnail.heading">1. サムネイル案</h2>
         <p class="section-lead">
           CTR に直結する判断を先頭で確認する。3
           経路を比較し、タイトル文字の候補まで含めて承認する。
@@ -1153,14 +1153,14 @@
               height="360"
             />
             <div class="card__body">
-              <span class="route-label">経路 A</span>
-              <h3 data-field="thumbnail-a-name" data-placeholder="true">
+              <span class="route-label" data-i18n="report-cards.template.thumbnail.routeA">経路 A</span>
+              <h3 data-field="thumbnail-a-name" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeATitle">
                 実フレーム + HTML 文字組
               </h3>
-              <p data-field="thumbnail-a-rationale" data-placeholder="true">
+              <p data-field="thumbnail-a-rationale" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeAReason">
                 根拠フレームの具体性と、日本語タイポグラフィの再現性を優先する案。
               </p>
-              <strong>タイトル文字バリエーション</strong>
+              <strong data-i18n="report-cards.template.thumbnail.titleVariation">タイトル文字バリエーション</strong>
               <ol class="title-variants">
                 <li data-field="thumbnail-a-title-1" data-placeholder="true">
                   タイトル案 A-1
@@ -1174,11 +1174,11 @@
                 <dd data-field="thumbnail-a-tool" data-placeholder="true">
                   ffmpeg 実フレーム + ローカル HTML
                 </dd>
-                <dt>プロンプト</dt>
+                <dt data-i18n="report-cards.template.thumbnail.prompt">プロンプト</dt>
                 <dd data-field="thumbnail-a-prompt" data-placeholder="true">
                   文字組指示を入力
                 </dd>
-                <dt>日時</dt>
+                <dt data-i18n="report-cards.template.thumbnail.time">日時</dt>
                 <dd>
                   <time
                     datetime="2026-07-13T00:00:00+09:00"
@@ -1201,14 +1201,14 @@
               height="360"
             />
             <div class="card__body">
-              <span class="route-label">経路 B</span>
-              <h3 data-field="thumbnail-b-name" data-placeholder="true">
+              <span class="route-label" data-i18n="report-cards.template.thumbnail.routeB">経路 B</span>
+              <h3 data-field="thumbnail-b-name" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeBTitle">
                 Codex 画像生成
               </h3>
-              <p data-field="thumbnail-b-rationale" data-placeholder="true">
+              <p data-field="thumbnail-b-rationale" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeBReason">
                 実写にない構図や象徴表現を作り、視認性の高い一枚絵にする案。
               </p>
-              <strong>タイトル文字バリエーション</strong>
+              <strong data-i18n="report-cards.template.thumbnail.titleVariation">タイトル文字バリエーション</strong>
               <ol class="title-variants">
                 <li data-field="thumbnail-b-title-1" data-placeholder="true">
                   タイトル案 B-1
@@ -1222,11 +1222,11 @@
                 <dd data-field="thumbnail-b-tool" data-placeholder="true">
                   Codex 画像生成
                 </dd>
-                <dt>プロンプト</dt>
+                <dt data-i18n="report-cards.template.thumbnail.prompt">プロンプト</dt>
                 <dd data-field="thumbnail-b-prompt" data-placeholder="true">
                   画像生成プロンプトを入力
                 </dd>
-                <dt>日時</dt>
+                <dt data-i18n="report-cards.template.thumbnail.time">日時</dt>
                 <dd>
                   <time
                     datetime="2026-07-13T00:00:00+09:00"
@@ -1249,14 +1249,14 @@
               height="360"
             />
             <div class="card__body">
-              <span class="route-label">混成</span>
-              <h3 data-field="thumbnail-mixed-name" data-placeholder="true">
+              <span class="route-label" data-i18n="report-cards.template.thumbnail.routeMixed">混成</span>
+              <h3 data-field="thumbnail-mixed-name" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeMixedTitle">
                 生成背景 + HTML 文字組
               </h3>
-              <p data-field="thumbnail-mixed-rationale" data-placeholder="true">
+              <p data-field="thumbnail-mixed-rationale" data-placeholder="true" data-i18n="report-cards.template.thumbnail.routeMixedReason">
                 生成背景の構図自由度と、日本語文字組の正確さを両立する案。
               </p>
-              <strong>タイトル文字バリエーション</strong>
+              <strong data-i18n="report-cards.template.thumbnail.titleVariation">タイトル文字バリエーション</strong>
               <ol class="title-variants">
                 <li
                   data-field="thumbnail-mixed-title-1"
@@ -1276,11 +1276,11 @@
                 <dd data-field="thumbnail-mixed-tool" data-placeholder="true">
                   Codex 画像生成 + ローカル HTML
                 </dd>
-                <dt>プロンプト</dt>
+                <dt data-i18n="report-cards.template.thumbnail.prompt">プロンプト</dt>
                 <dd data-field="thumbnail-mixed-prompt" data-placeholder="true">
                   背景生成と文字組の指示を入力
                 </dd>
-                <dt>日時</dt>
+                <dt data-i18n="report-cards.template.thumbnail.time">日時</dt>
                 <dd>
                   <time
                     datetime="2026-07-13T00:00:00+09:00"
@@ -1301,8 +1301,8 @@
         aria-labelledby="heading-analysis"
       >
         <span class="section-kicker">SECTION 02</span>
-        <h2 id="heading-analysis">2. 分析サマリ</h2>
-        <p class="section-lead">
+        <h2 id="heading-analysis" data-i18n="report-cards.template.analysis.heading">2. 分析サマリ</h2>
+        <p class="section-lead" data-i18n="report-cards.template.analysis.lead">
           素材ごとの要点と、判断の根拠になったキーフレーム・文字起こしを同じ文書内で追跡する。
         </p>
 
@@ -1318,10 +1318,10 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">素材</th>
-                <th scope="col">要点</th>
-                <th scope="col">尺・品質</th>
-                <th scope="col">根拠フレーム</th>
+                <th scope="col" data-i18n="report-cards.template.analysis.asset">素材</th>
+                <th scope="col" data-i18n="report-cards.template.analysis.summary">要点</th>
+                <th scope="col" data-i18n="report-cards.template.analysis.quality">尺・品質</th>
+                <th scope="col" data-i18n="report-cards.template.analysis.frame">根拠フレーム</th>
                 <th scope="col">transcript</th>
               </tr>
             </thead>
@@ -1332,7 +1332,7 @@
                   scope="row"
                   data-field="source-name"
                   data-placeholder="true"
-                >
+                 data-i18n="report-cards.template.analysis.nameMissing">
                   素材名未入力
                 </th>
                 <td data-field="source-summary" data-placeholder="true">
@@ -1341,8 +1341,8 @@
                 <td data-field="source-quality" data-placeholder="true">
                   尺・映像・音声の所見を入力
                 </td>
-                <td><a href="#evidence-frame-001">フレーム KF-001</a></td>
-                <td><a href="#evidence-transcript-001">発話 T-001</a></td>
+                <td><a href="#evidence-frame-001" data-i18n="report-cards.template.analysis.frameLabel">フレーム KF-001</a></td>
+                <td><a href="#evidence-transcript-001" data-i18n="report-cards.template.analysis.utteranceLabel">発話 T-001</a></td>
               </tr>
             </tbody>
           </table>
@@ -1404,46 +1404,46 @@
         aria-labelledby="heading-policy"
       >
         <span class="section-kicker">SECTION 03</span>
-        <h2 id="heading-policy">3. 編集方針</h2>
-        <p class="section-lead">
+        <h2 id="heading-policy" data-i18n="report-cards.template.policy.heading">3. 編集方針</h2>
+        <p class="section-lead" data-i18n="report-cards.template.policy.lead">
           推奨する方向性と理由を示し、成立する別案の利点・欠点も並べて判断可能にする。
         </p>
 
         <div class="policy-grid">
           <article class="policy-card policy-card--recommended">
-            <span class="route-label">推奨案</span>
-            <h3 data-field="policy-primary-title" data-placeholder="true">
+            <span class="route-label" data-i18n="report-cards.template.policy.recommended">推奨案</span>
+            <h3 data-field="policy-primary-title" data-placeholder="true" data-i18n="report-cards.template.policy.recommendedName">
               推奨方針の名称
             </h3>
-            <p data-field="policy-primary-description" data-placeholder="true">
+            <p data-field="policy-primary-description" data-placeholder="true" data-i18n="report-cards.template.policy.recommendedDetail">
               方針の具体内容を入力
             </p>
             <p>
-              <strong>理由:</strong>
+              <strong data-i18n="report-cards.template.policy.reason">理由:</strong>
               <span data-field="policy-primary-reason" data-placeholder="true"
                 >分析根拠に基づく理由を入力</span
               >
             </p>
             <p>
-              <strong>留意点:</strong>
+              <strong data-i18n="report-cards.template.policy.caveat">留意点:</strong>
               <span data-field="policy-primary-risk" data-placeholder="true"
                 >弱点・コスト・失うものを入力</span
               >
             </p>
           </article>
           <article class="policy-card">
-            <span class="route-label">対案</span>
-            <h3 data-field="policy-alternative-title" data-placeholder="true">
+            <span class="route-label" data-i18n="report-cards.template.decision.optionAlternative">対案</span>
+            <h3 data-field="policy-alternative-title" data-placeholder="true" data-i18n="report-cards.template.policy.alternativeName">
               対案の名称
             </h3>
             <p
               data-field="policy-alternative-description"
               data-placeholder="true"
-            >
+             data-i18n="report-cards.template.policy.alternativeDetail">
               対案の具体内容を入力
             </p>
             <p>
-              <strong>利点:</strong>
+              <strong data-i18n="report-cards.template.policy.advantage">利点:</strong>
               <span
                 data-field="policy-alternative-benefit"
                 data-placeholder="true"
@@ -1451,7 +1451,7 @@
               >
             </p>
             <p>
-              <strong>欠点:</strong>
+              <strong data-i18n="report-cards.template.policy.disadvantage">欠点:</strong>
               <span data-field="policy-alternative-cost" data-placeholder="true"
                 >対案の弱点を入力</span
               >
@@ -1465,7 +1465,7 @@
           data-checkpoint="policy"
         >
           <div>
-            <h3 id="checkpoint-policy-title">チェックポイント 1 — 方針</h3>
+            <h3 id="checkpoint-policy-title" data-i18n="report-cards.template.policy.checkpoint">チェックポイント 1 — 方針</h3>
             <p>
               推奨案・対案・理由を確認し、人間が明示承認した事実を decision_log
               へ追記するまで 素材計画の確定へ進まない。
@@ -1483,7 +1483,7 @@
         aria-labelledby="heading-cuts"
       >
         <span class="section-kicker">SECTION 04</span>
-        <h2 id="heading-cuts">4. カット判断一覧</h2>
+        <h2 id="heading-cuts" data-i18n="report-cards.template.cuts.heading">4. カット判断一覧</h2>
         <p class="section-lead">
           keep / drop の判断を source 時間で示し、各行から根拠 event または
           transcript を追跡する。
@@ -1501,17 +1501,17 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">素材</th>
-                <th scope="col">source 範囲</th>
-                <th scope="col">判断</th>
-                <th scope="col">根拠</th>
+                <th scope="col" data-i18n="report-cards.template.analysis.asset">素材</th>
+                <th scope="col" data-i18n="report-cards.template.cuts.range">source 範囲</th>
+                <th scope="col" data-i18n="report-cards.template.cuts.decision">判断</th>
+                <th scope="col" data-i18n="report-cards.template.cuts.reason">根拠</th>
                 <th scope="col">event / evidence</th>
               </tr>
             </thead>
             <tbody>
               <!-- AKARI_REPEAT: cut-decision-row -->
               <tr data-repeat="cut-decision-row">
-                <th scope="row" data-field="cut-source" data-placeholder="true">
+                <th scope="row" data-field="cut-source" data-placeholder="true" data-i18n="report-cards.template.analysis.nameMissing">
                   素材名未入力
                 </th>
                 <td data-field="cut-range" data-placeholder="true">
@@ -1530,7 +1530,7 @@
                 <td><a href="#evidence-transcript-001">event / T-001</a></td>
               </tr>
               <tr data-repeat="cut-decision-row">
-                <th scope="row" data-field="cut-source" data-placeholder="true">
+                <th scope="row" data-field="cut-source" data-placeholder="true" data-i18n="report-cards.template.analysis.nameMissing">
                   素材名未入力
                 </th>
                 <td data-field="cut-range" data-placeholder="true">
@@ -1564,7 +1564,7 @@
         aria-labelledby="heading-assets"
       >
         <span class="section-kicker">SECTION 05</span>
-        <h2 id="heading-assets">5. 素材計画</h2>
+        <h2 id="heading-assets" data-i18n="report-cards.template.assets.heading">5. 素材計画</h2>
         <p class="section-lead">
           全体適用の BGM と、シーン単位の SFX・B
           ロール・テロップ・特殊表現を分ける。 各行で「あれば提案 / なければ生成
@@ -1583,16 +1583,16 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">対象</th>
-                <th scope="col">役割</th>
-                <th scope="col">三択判断</th>
-                <th scope="col">提案・生成・非採用の詳細</th>
+                <th scope="col" data-i18n="report-cards.template.assets.target">対象</th>
+                <th scope="col" data-i18n="report-cards.template.assets.role">役割</th>
+                <th scope="col" data-i18n="report-cards.template.assets.threeWay">三択判断</th>
+                <th scope="col" data-i18n="report-cards.template.assets.detail">提案・生成・非採用の詳細</th>
               </tr>
             </thead>
             <tbody>
               <!-- AKARI_REPEAT: global-bgm-row -->
               <tr data-repeat="global-bgm-row">
-                <th scope="row">全体 BGM</th>
+                <th scope="row" data-i18n="report-cards.template.assets.wholeBgm">全体 BGM</th>
                 <td data-field="bgm-purpose" data-placeholder="true">
                   テンポ・感情・音量方針を入力
                 </td>
@@ -1607,7 +1607,7 @@
                     <span class="choice" data-choice="generate"
                       >なければ生成</span
                     >
-                    <span class="choice" data-choice="unused">使わない</span>
+                    <span class="choice" data-choice="unused" data-i18n="report-cards.template.assets.unused">使わない</span>
                   </div>
                 </td>
                 <td data-field="bgm-detail" data-placeholder="true">
@@ -1630,21 +1630,21 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">シーン / 種別</th>
-                <th scope="col">役割</th>
-                <th scope="col">三択判断</th>
-                <th scope="col">提案・生成・非採用の詳細</th>
+                <th scope="col" data-i18n="report-cards.template.assets.sceneType">シーン / 種別</th>
+                <th scope="col" data-i18n="report-cards.template.assets.role">役割</th>
+                <th scope="col" data-i18n="report-cards.template.assets.threeWay">三択判断</th>
+                <th scope="col" data-i18n="report-cards.template.assets.detail">提案・生成・非採用の詳細</th>
               </tr>
             </thead>
             <tbody>
               <tr data-repeat="scene-sfx-row">
-                <th scope="row">シーン 01 / SFX</th>
+                <th scope="row" data-i18n="report-cards.template.assets.sfxRow">シーン 01 / SFX</th>
                 <td data-field="sfx-purpose" data-placeholder="true">
                   強調点とタイミングを入力
                 </td>
                 <td>
                   <div class="choice-set" aria-label="SFXの三択判断">
-                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span class="choice" data-choice="propose" data-i18n="report-cards.template.assets.propose">あれば提案</span>
                     <span class="choice" data-choice="generate"
                       >なければ生成</span
                     >
@@ -1661,20 +1661,20 @@
                 </td>
               </tr>
               <tr data-repeat="scene-broll-row">
-                <th scope="row">シーン 02 / B ロール</th>
+                <th scope="row" data-i18n="report-cards.template.assets.brollRow">シーン 02 / B ロール</th>
                 <td data-field="broll-purpose" data-placeholder="true">
                   補足する情報・構図を入力
                 </td>
                 <td>
                   <div class="choice-set" aria-label="Bロールの三択判断">
-                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span class="choice" data-choice="propose" data-i18n="report-cards.template.assets.propose">あれば提案</span>
                     <span
                       class="choice"
                       aria-current="true"
                       data-choice="generate"
                       >なければ生成</span
                     >
-                    <span class="choice" data-choice="unused">使わない</span>
+                    <span class="choice" data-choice="unused" data-i18n="report-cards.template.assets.unused">使わない</span>
                   </div>
                 </td>
                 <td data-field="broll-detail" data-placeholder="true">
@@ -1682,7 +1682,7 @@
                 </td>
               </tr>
               <tr data-repeat="scene-telop-row">
-                <th scope="row">シーン 03 / テロップ</th>
+                <th scope="row" data-i18n="report-cards.template.assets.telopRow">シーン 03 / テロップ</th>
                 <td data-field="telop-purpose" data-placeholder="true">
                   情報階層と強調内容を入力
                 </td>
@@ -1697,7 +1697,7 @@
                     <span class="choice" data-choice="generate"
                       >なければ生成</span
                     >
-                    <span class="choice" data-choice="unused">使わない</span>
+                    <span class="choice" data-choice="unused" data-i18n="report-cards.template.assets.unused">使わない</span>
                   </div>
                 </td>
                 <td data-field="telop-detail" data-placeholder="true">
@@ -1705,13 +1705,13 @@
                 </td>
               </tr>
               <tr data-repeat="scene-special-row">
-                <th scope="row">シーン 04 / 特殊表現</th>
+                <th scope="row" data-i18n="report-cards.template.assets.specialRow">シーン 04 / 特殊表現</th>
                 <td data-field="special-purpose" data-placeholder="true">
                   狙いと必要性を入力
                 </td>
                 <td>
                   <div class="choice-set" aria-label="特殊表現の三択判断">
-                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span class="choice" data-choice="propose" data-i18n="report-cards.template.assets.propose">あれば提案</span>
                     <span class="choice" data-choice="generate"
                       >なければ生成</span
                     >
@@ -1733,7 +1733,7 @@
 
         <div class="asset-preview-grid" aria-label="素材プレビュー">
           <article class="asset-preview" data-repeat="library-preview">
-            <h3>ライブラリ提案プレビュー — BGM</h3>
+            <h3 data-i18n="report-cards.template.assets.bgmPreview">ライブラリ提案プレビュー — BGM</h3>
             <div
               class="audio-placeholder"
               role="img"
@@ -1744,15 +1744,15 @@
               >
             </div>
             <dl class="provenance" aria-label="BGM提案の出典情報">
-              <dt>手 / 出典</dt>
+              <dt data-i18n="report-cards.template.assets.methodSource">手 / 出典</dt>
               <dd data-field="bgm-source" data-placeholder="true">
                 検索手とライブラリ名を入力
               </dd>
-              <dt>検索条件</dt>
+              <dt data-i18n="report-cards.template.assets.searchTerms">検索条件</dt>
               <dd data-field="bgm-query" data-placeholder="true">
                 検索語と絞り込み条件を入力
               </dd>
-              <dt>日時</dt>
+              <dt data-i18n="report-cards.template.thumbnail.time">日時</dt>
               <dd>
                 <time
                   datetime="2026-07-13T00:00:00+09:00"
@@ -1765,7 +1765,7 @@
           </article>
 
           <article class="asset-preview" data-repeat="generated-image-preview">
-            <h3>生成案プレビュー — B ロール静止画</h3>
+            <h3 data-i18n="report-cards.template.assets.brollPreview">生成案プレビュー — B ロール静止画</h3>
             <img
               class="asset-image"
               src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Crect%20width='640'%20height='360'%20fill='%231c3440'/%3E%3Crect%20x='80'%20y='80'%20width='480'%20height='200'%20rx='24'%20fill='%232b6070'/%3E%3Ctext%20x='320'%20y='170'%20text-anchor='middle'%20font-size='28'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EGENERATED%20STILL%3C/text%3E%3Ctext%20x='320'%20y='215'%20text-anchor='middle'%20font-size='18'%20font-family='sans-serif'%20fill='%23d7f5ff'%3EAPPROVE%20BEFORE%20I2V%3C/text%3E%3C/svg%3E"
@@ -1778,11 +1778,11 @@
               <dd data-field="broll-tool" data-placeholder="true">
                 Codex 画像生成
               </dd>
-              <dt>プロンプト</dt>
+              <dt data-i18n="report-cards.template.thumbnail.prompt">プロンプト</dt>
               <dd data-field="broll-prompt" data-placeholder="true">
                 生成プロンプトを入力
               </dd>
-              <dt>日時</dt>
+              <dt data-i18n="report-cards.template.thumbnail.time">日時</dt>
               <dd>
                 <time
                   datetime="2026-07-13T00:00:00+09:00"
@@ -1806,7 +1806,7 @@
           data-checkpoint="assets"
         >
           <div>
-            <h3 id="checkpoint-assets-title">チェックポイント 2 — 素材計画</h3>
+            <h3 id="checkpoint-assets-title" data-i18n="report-cards.template.assets.checkpoint">チェックポイント 2 — 素材計画</h3>
             <p>
               三択、プレビュー、プロンプト、非採用理由を確認し、人間が明示承認した事実を
               decision_log へ追記するまで実行計画を確定しない。
@@ -1831,7 +1831,7 @@
         </p>
 
         <div class="log-rule">
-          <strong>追記専用ルール</strong>
+          <strong data-i18n="report-cards.template.log.appendOnly">追記専用ルール</strong>
           <span>
             行の上書き・削除・並べ替えは禁止。訂正は同じ複合キー
             <code>(category, subject)</code>
@@ -1851,13 +1851,13 @@
             </caption>
             <thead>
               <tr>
-                <th scope="col">連番</th>
-                <th scope="col">日時</th>
+                <th scope="col" data-i18n="report-cards.template.log.sequence">連番</th>
+                <th scope="col" data-i18n="report-cards.template.thumbnail.time">日時</th>
                 <th scope="col">category</th>
                 <th scope="col">subject</th>
-                <th scope="col">決定</th>
-                <th scope="col">理由・併記した選択肢</th>
-                <th scope="col">記録者 / provenance</th>
+                <th scope="col" data-i18n="report-cards.template.log.decision">決定</th>
+                <th scope="col" data-i18n="report-cards.template.log.reasonOptions">理由・併記した選択肢</th>
+                <th scope="col" data-i18n="report-cards.template.log.author">記録者 / provenance</th>
               </tr>
             </thead>
             <tbody>
@@ -1898,7 +1898,7 @@
           data-checkpoint="execution"
         >
           <div>
-            <h3 id="checkpoint-execution-title">チェックポイント 3 — 実行</h3>
+            <h3 id="checkpoint-execution-title" data-i18n="report-cards.template.execution.checkpoint">チェックポイント 3 — 実行</h3>
             <p>
               実行対象、使用する手、理由、費用・負荷、代替案を確認し、人間の明示承認を
               decision_log へ追記した後にだけ edit.json v0 と最終オーバーレイ

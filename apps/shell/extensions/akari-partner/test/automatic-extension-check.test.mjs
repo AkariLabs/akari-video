@@ -1,8 +1,15 @@
+import { after as afterI18n } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18n(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
+
+const { t } = createRequire(import.meta.url)('../lib/common/partner-text.js');
 
 const source = ts.createSourceFile('partner-extension-updater.ts', readFileSync(new URL('../src/browser/partner-extension-updater.ts', import.meta.url), 'utf8'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
@@ -20,6 +27,7 @@ const Updater = vm.runInContext(compiled, vm.createContext({
         reason: installedVersion === latestVersion ? 'up-to-date' : 'newer-available'
     }),
     formatExtensionUpdateNotice: (name, installed, latest) => `${name}: ${installed} → ${latest}`,
+    t,
     console
 }));
 
@@ -89,4 +97,19 @@ test('startup offers update, then keeps reload confirmation after user chooses i
     assert.equal(calls[1], 'update');
     assert.equal(calls[2][1], '今すぐ再読み込み');
     assert.equal(calls[3], 'reload');
+});
+
+test('action selection survives a language change while the notice is open', async () => {
+    const { subject, calls, enable } = updater();
+    enable();
+    subject.messageService.info = async (...args) => {
+        calls.push(args);
+        setLanguage('en');
+        return args[1];
+    };
+    try {
+        await subject.runStartupCheck();
+        assert.ok(calls.includes('update'));
+        assert.ok(calls.includes('reload'));
+    } finally { setLanguage('ja'); }
 });

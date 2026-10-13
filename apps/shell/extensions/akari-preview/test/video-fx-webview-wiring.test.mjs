@@ -52,6 +52,6 @@ test('double-buffer swap hides the retired FX canvas and keeps the active canvas
 
 test('rail failure restores the honest-preview LUT/chroma badge path', () => {
   assert.match(handler, /event\.status === 'failed'/);
-  assert.match(handler, /videoFxFailedIndicators\.add\('LUT'\)/);
-  assert.match(handler, /videoFxFailedIndicators\.add\('クロマキー'\)/);
+  assert.match(handler, /videoFxFailedIndicators\.add\('lut'\)/);
+  assert.match(handler, /videoFxFailedIndicators\.add\('chromaKey'\)/);
 });

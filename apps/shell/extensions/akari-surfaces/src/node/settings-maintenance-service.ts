@@ -1,16 +1,19 @@
-import { injectable } from '@theia/core/shared/inversify';
+import { t, childProcessEnv } from '@akari-video/i18n';
+import { inject, injectable, optional } from '@theia/core/shared/inversify';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { constants, existsSync } from 'fs';
 import { pathToFileURL } from 'url';
-import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceService, PartnerDetail, PartnerFreshness, PartnerUpdateResult, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
 import { AKARI_APP_ICON } from '../browser/settings/app-icon';
 import { resolveUpdateChannel } from '../common/shell-update-applier';
 import { partnerCliCandidates } from 'akari-partner/lib/node/partner-cli-candidates';
 import { buildPrivateNodePathEnv } from 'akari-partner/lib/node/cli-provisioner';
 import { resolveAkariHomeDir } from 'akari-partner/lib/node/partner-connection-writer';
+import { AkariPartnerServer, PartnerAgentId } from 'akari-partner/lib/common/akari-partner-protocol';
+import { createLatestVersionLookup, decidePartnerCliUpdate, extractCliVersion, isAppManagedCliPath, PARTNER_LATEST_SOURCES } from 'akari-partner/lib/common/partner-cli-freshness';
 import rawPartnerCatalog = require('akari-partner/lib/common/partner-catalog.json');
 
 const CLI_AGENTS = rawPartnerCatalog.filter(entry => entry.form === 'cli').map(entry => entry.agent as string);
@@ -35,11 +38,11 @@ function cacheRoots(workspaceRoot?: string): string[] {
 export function storageLocations(root?: string): StorageEntry[] {
     const workspace = safeRoot(root);
     return [
-        { id: 'cache', label: 'キャッシュ', path: cacheRoots(root)[0], paths: cacheRoots(root), bytes: 0, detail: '作業に必要になったら自動で作り直すものだけです。プロジェクト・素材・書き出しには触りません。消した直後は、初めて開くパネルの表示が少し遅くなります。', safeToDelete: '消しても大丈夫', children: [] },
-        { id: 'models', label: '文字起こしのモデル', path: path.join(home(), 'tools', 'models'), paths: [path.join(home(), 'tools', 'models')], bytes: 0, detail: '消すと、次に使うときにもう一度ダウンロードします（数分）。', safeToDelete: 'もう一度ダウンロードが必要', children: [] },
-        { id: 'library', label: '素材ライブラリ', path: workspace ? path.join(workspace, 'assets') : path.join(home(), 'assets'), paths: [workspace ? path.join(workspace, 'assets') : path.join(home(), 'assets')], bytes: 0, detail: 'Store で買った素材と自分で入れた素材です。自分の素材は戻りません。', safeToDelete: '消すと戻らない', children: [] },
-        { id: 'exports', label: '書き出し', path: workspace ? path.join(workspace, 'exports') : path.join(home(), 'exports'), paths: [workspace ? path.join(workspace, 'exports') : path.join(home(), 'exports')], bytes: 0, detail: '書き出した動画です。消すと戻りません（プロジェクトから書き出し直すことはできます）。', safeToDelete: '消すと戻らない', children: [] },
-        { id: 'history', label: '編集の履歴', path: workspace ? path.join(workspace, '.akari', 'history') : path.join(home(), 'history'), paths: [workspace ? path.join(workspace, '.akari', 'history') : path.join(home(), 'history')], bytes: 0, detail: '元に戻すための記録です。30 日より古いものだけを消します。最近の編集は残ります。', safeToDelete: '古いものだけ消せる', children: [] }
+        { id: 'cache', label: t('surfaces.settings.storageLocationsCache.label'), path: cacheRoots(root)[0], paths: cacheRoots(root), bytes: 0, detail: t('surfaces.settings.storageLocationsTemporaryDataAppRecreatesNeededProjectsAssets.description'), safeToDelete: t('surfaces.settings.storageLocationsOkayDelete.label'), children: [] },
+        { id: 'models', label: t('surfaces.settings.storageLocationsTranscriptionModel.label'), path: path.join(home(), 'tools', 'models'), paths: [path.join(home(), 'tools', 'models')], bytes: 0, detail: t('surfaces.settings.storageLocationsDeleteDownloadedAgainNextTimeFewMinutes.message'), safeToDelete: t('surfaces.settings.storageLocationsNeedDownloadAgain.label'), children: [] },
+        { id: 'library', label: t('surfaces.settings.storageLocationsAssetLibrary.label'), path: workspace ? path.join(workspace, 'assets') : path.join(home(), 'assets'), paths: [workspace ? path.join(workspace, 'assets') : path.join(home(), 'assets')], bytes: 0, detail: t('surfaces.settings.storageLocationsIncludesPurchasedAssetsAssetsAddedOwnAssets.message'), safeToDelete: t('surfaces.settings.storageLocationsDeletedDataCannotRecovered.label'), children: [] },
+        { id: 'exports', label: t('surfaces.settings.storageLocationsExport.label'), path: workspace ? path.join(workspace, 'exports') : path.join(home(), 'exports'), paths: [workspace ? path.join(workspace, 'exports') : path.join(home(), 'exports')], bytes: 0, detail: t('surfaces.settings.storageLocationsExportedVideosDeletingThemPermanentThoughExport.message'), safeToDelete: t('surfaces.settings.storageLocationsDeletedDataCannotRecovered.label'), children: [] },
+        { id: 'history', label: t('surfaces.settings.storageLocationsEditHistory.label'), path: workspace ? path.join(workspace, '.akari', 'history') : path.join(home(), 'history'), paths: [workspace ? path.join(workspace, '.akari', 'history') : path.join(home(), 'history')], bytes: 0, detail: t('surfaces.settings.storageLocationsRecordRestoreDeleteOlderDaysRecentEdits.message'), safeToDelete: t('surfaces.settings.storageLocationsOldOnesDeleted.label'), children: [] }
     ];
 }
 
@@ -55,7 +58,7 @@ async function directoryBytes(location: string): Promise<number> {
 
 export function diagnosticEntries(info: { version: string; os: string }): Record<string, string> {
     return { 'diagnostic.json': JSON.stringify({ app: 'AKARI Video', ...info, generatedAt: new Date().toISOString(),
-        note: 'ログ本文と edit.json は匿名化して収録します。' }, null, 2) };
+        note: t('surfaces.settings.diagnosticEntriesLogTextEditJsonAnonymizedRecorded.message') }, null, 2) };
 }
 
 /** 診断へ出す全テキストの共通匿名化。既知の鍵は値そのものでも伏せる。 */
@@ -124,7 +127,7 @@ async function sharedCredentialValues(): Promise<string[]> {
             directory = parent;
         }
     }
-    throw new Error('資格情報を匿名化できません。');
+    throw new Error(t('surfaces.settings.sharedCredentialValuesCredentialsCannotAnonymized.message'));
 }
 
 function crc32(data: Buffer): number {
@@ -135,7 +138,7 @@ function crc32(data: Buffer): number {
 
 export function diagnosticFileNameAt(date: Date): string {
     const stamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}-${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
-    return `AKARI-診断-${stamp}.zip`;
+    return t('surfaces.settings.diagnosticFileNameAtAkariDiagnosisZip.message', { stamp: stamp });
 }
 
 /** 外部依存なしの ZIP store。入れる内容は固定名の診断 JSON のみ。 */
@@ -158,8 +161,18 @@ export function zipEntries(entries: Record<string, string>): Buffer {
     return Buffer.concat([...local, ...central, footer]);
 }
 
+/** `--version` の待ち時間。表示は先に「確認中」なので、読めないより待つ方を選ぶ。 */
+const PARTNER_VERSION_TIMEOUT_MS = 12_000;
+
+// 最新版の問い合わせは 1 時間キャッシュ。失敗しても throw せず「不明」を返す。
+const latestPartnerVersion = createLatestVersionLookup({
+    fetchImpl: (url, init) => fetch(url, init)
+});
+
 @injectable()
 export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMaintenanceService {
+    @inject(AkariPartnerServer) @optional() protected readonly partnerServer?: AkariPartnerServer;
+    protected readonly updating = new Set<string>();
     async getUpdateSettings(): Promise<{ channel: 'stable' | 'prerelease'; autoCheck: boolean }> {
         try {
             const value = JSON.parse(await fs.readFile(path.join(home(), 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
@@ -184,7 +197,7 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
         const result: Record<string, PartnerDetail> = {};
         await Promise.all(CLI_AGENTS.map(async id => {
             const executable = await installedPartnerPath(id);
-            if (!executable) { result[id] = { installed: false, detail: id === 'cursor' ? 'cursor-agent が見つかりません' : '—' }; return; }
+            if (!executable) { result[id] = { installed: false, detail: id === 'cursor' ? t('surfaces.settings.partnerDetailsCursorAgentFound.label') : '—' }; return; }
             const privateEnv = id === 'commandcode' || id === 'pi' ? buildPrivateNodePathEnv({
                 agent: id, akariHome: resolveAkariHomeDir(), platform: process.platform, existingPath: process.env.PATH
             }) : {};
@@ -194,13 +207,15 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                 try {
                     child = spawn(isWindowsShim ? `"${executable.replace(/"/g, '\\"')}"` : executable,
                         [isWindowsShim ? '"--version"' : '--version'], {
-                            stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...privateEnv }, shell: isWindowsShim
+                            stdio: ['ignore', 'pipe', 'pipe'], env: childProcessEnv({ ...process.env, ...privateEnv }), shell: isWindowsShim
                         });
                 } catch { resolve(undefined); return; }
                 let output = '';
                 let timedOut = false;
                 let spawnFailed = false;
-                const timeout = setTimeout(() => { timedOut = true; child.kill(); resolve(undefined); }, 4000);
+                // 全 CLI を同時に起こすので、負荷の高い起動直後は node / bun 製の CLI（opencode・Command Code）が
+                // 4 秒を超えて「—」になり、版が読めず更新ボタンも出なかった（実機 2026-10-12: 単独 1 秒・同時 3.7 秒）。
+                const timeout = setTimeout(() => { timedOut = true; child.kill(); resolve(undefined); }, PARTNER_VERSION_TIMEOUT_MS);
                 const collect = (chunk: Buffer): void => { if (output.length < 500) { output += chunk.toString('utf8'); } };
                 child.stdout.on('data', collect); child.stderr.on('data', collect);
                 child.on('error', () => { spawnFailed = true; clearTimeout(timeout); resolve(undefined); });
@@ -210,9 +225,44 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                     resolve(output.split(/\r?\n/)[0]?.replace(/[\\/].*$/, '').slice(0, 80) || undefined);
                 });
             });
-            result[id] = { installed: true, version, detail: version || '—' };
+            result[id] = { installed: true, version, detail: version || '—',
+                managedByApp: isAppManagedCliPath(executable, { homeDir: os.homedir(), platform: process.platform, env: process.env }) };
         }));
         return result;
+    }
+    async partnerFreshness(details: Record<string, PartnerDetail>): Promise<Record<string, PartnerFreshness>> {
+        const result: Record<string, PartnerFreshness> = {};
+        await Promise.all(Object.entries(details).map(async ([id, detail]) => {
+            if (!detail.installed || !PARTNER_LATEST_SOURCES[id]) { return; }
+            const latest = await latestPartnerVersion(id).catch(() => undefined);
+            result[id] = decidePartnerCliUpdate(id, extractCliVersion(detail.version), latest);
+        }));
+        return result;
+    }
+    async updatePartner(agent: string): Promise<PartnerUpdateResult> {
+        // 更新できるのは取得元が分かる CLI だけ（Claude は自己更新、それ以外は元の方法で）。
+        const source = PARTNER_LATEST_SOURCES[agent];
+        if (!CLI_AGENTS.includes(agent) || !source || source.kind === 'self-updating' || !this.partnerServer) {
+            return { ok: false, message: t('surfaces.settings.partnerUpdateUnsupported.message') };
+        }
+        if (this.updating.has(agent)) { return { ok: false, message: t('surfaces.settings.partnerUpdateRunning.message') }; }
+        this.updating.add(agent);
+        try {
+            // 同じ導入経路を強制で通す。ボタンを押したこと自体が同意なので consent を立てる。
+            const outcome = await this.partnerServer.bootstrap(agent as PartnerAgentId, undefined, true, true);
+            if ('consentRequired' in outcome) { return { ok: false, message: t('surfaces.settings.partnerUpdateUnsupported.message') }; }
+            const detail = (await this.partnerDetails())[agent];
+            return { ok: true, version: extractCliVersion(detail?.version) };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            // Windows は実行中の exe を置き換えられない。起動中のセッションを勝手に止めず、閉じてから再実行してもらう。
+            if (process.platform === 'win32' && /EBUSY|EPERM|EACCES|being used by another process/i.test(message)) {
+                return { ok: false, busy: true, message: t('surfaces.settings.partnerUpdateBusy.message') };
+            }
+            return { ok: false, message: message.split(/\r?\n/).filter(Boolean).slice(-1)[0]?.slice(0, 200) };
+        } finally {
+            this.updating.delete(agent);
+        }
     }
     async measure(workspaceRoot?: string): Promise<StorageSnapshot> {
         const entries = await Promise.all(storageLocations(workspaceRoot).map(async entry => {
@@ -325,8 +375,8 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
                 }
             } } catch { /* ログが無くても診断は出す */ }
         }
-        entries['logs-summary.json'] = JSON.stringify({ last24Hours: { files: recentCount, bytes: recentBytes }, note: 'ログ本文は recent-logs.txt に匿名化して収録' }, null, 2);
-        entries['recent-logs.json'] = JSON.stringify({ events: recentEvents, note: '時刻と重要度だけの索引' }, null, 2);
+        entries['logs-summary.json'] = JSON.stringify({ last24Hours: { files: recentCount, bytes: recentBytes }, note: t('surfaces.settings.exportDiagnosticsLogTextAnonymizedRecordedRecentLogsTxt.label') }, null, 2);
+        entries['recent-logs.json'] = JSON.stringify({ events: recentEvents, note: t('surfaces.settings.exportDiagnosticsIndexTimeImportance.label') }, null, 2);
         entries['recent-logs.txt'] = logLines.join('\n') + '\n';
         if (workspace) {
             try { entries['edit.json'] = sanitizeDiagnosticJson((await fs.readFile(path.join(workspace, 'edit.json'), 'utf8')).slice(0, 4 * 1024 * 1024), sanitizerOptions); }
@@ -346,7 +396,7 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
     async appInfo(): Promise<{ version: string; buildDate: string; os: string; icon: string; lastChecked?: string;
         recentChanges?: { version: string; date?: string; notesUrl?: string } }> {
         const shellRoot = process.cwd();
-        let version = '開発版'; let buildDate = '開発ビルド'; const icon = AKARI_APP_ICON;
+        let version = t('surfaces.settings.appInfoDevelopmentVersion.label'); let buildDate = t('surfaces.settings.appInfoDevelopmentBuild.label'); const icon = AKARI_APP_ICON;
         for (const candidate of [path.join(shellRoot, 'package.json'), path.join(shellRoot, 'apps/shell/package.json')]) {
             try {
                 const stat = await fs.stat(candidate);

@@ -1,3 +1,6 @@
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';

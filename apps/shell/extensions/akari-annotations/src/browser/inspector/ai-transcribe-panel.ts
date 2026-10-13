@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 import type { CommandService } from '@theia/core/lib/common';
 import type { TranscriptSummary } from '../../common/akari-annotations-protocol';
 import type { TimelineSelectionModel } from '../timeline-selection-model';
@@ -34,11 +36,11 @@ export function aiTranscribePathRule(path: string, projectRoot?: string): { stat
     const relative = absolute ? root && normalized.startsWith(`${root}/`) ? normalized.slice(root.length + 1) : undefined
         : normalized;
     if (relative?.startsWith('exports/')) {
-        return { status: 'excluded', reason: '書き出した完成品です（元の素材から起こします）' };
+        return { status: 'excluded', reason: t('inspector.aiTranscribePanel.reason.exportedVideoTranscribeOriginalAssetInstead') };
     }
-    if (CAPTION_IMAGE_EXTENSIONS.has(extension)) return { status: 'excluded', reason: '画像には音声がありません' };
+    if (CAPTION_IMAGE_EXTENSIONS.has(extension)) return { status: 'excluded', reason: t('inspector.aiTranscribePanel.reason.noAudioImage') };
     if (!CAPTION_VIDEO_EXTENSIONS.has(extension) && !CAPTION_AUDIO_EXTENSIONS.has(extension)) {
-        return { status: 'excluded', reason: '音声・動画のファイルではありません' };
+        return { status: 'excluded', reason: t('inspector.aiTranscribePanel.reason.notFileAudioVideo') };
     }
     return { status: 'voice' };
 }
@@ -94,14 +96,14 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
     if (!target) {
         const reason = document.createElement('p');
         reason.className = 'akari-inspector-ai-transcribe-reason';
-        reason.textContent = 'このクリップの素材が見つかりません。';
+        reason.textContent = t('inspector.aiTranscribePanel.error.clipNotFound');
         panel.appendChild(reason);
         parent.appendChild(panel);
         return;
     }
     const detail = document.createElement('p');
     detail.className = 'akari-inspector-ai-transcribe-detail';
-    detail.textContent = `${target.name} · ${target.duration.toFixed(1)} 秒`;
+    detail.textContent = t('inspector.aiTranscribePanel.text.seconds', { name: target.name, seconds: target.duration.toFixed(1), n: pluralCountForDisplay(target.duration.toFixed(1)) });
     panel.appendChild(detail);
     const button = (label: string, action: () => void): HTMLButtonElement => {
         const element = document.createElement('button');
@@ -119,7 +121,7 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
     if (options.summary.state === 'done') {
         const heading = document.createElement('h4');
         heading.className = 'akari-inspector-ai-transcribe-status';
-        heading.textContent = `文字起こし済み · ${options.summary.total} 行`;
+        heading.textContent = t('inspector.aiTranscribePanel.status.transcribedLines', { count: options.summary.total, n: options.summary.total });
         panel.appendChild(heading);
         const list = document.createElement('div');
         list.className = 'akari-inspector-ai-transcribe-list';
@@ -136,17 +138,17 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
             list.appendChild(row);
         }
         panel.appendChild(list);
-        panel.appendChild(button('台本で開く', () => {
+        panel.appendChild(button(t('inspector.aiTranscribePanel.button.openScript'), () => {
             void options.commands.executeCommand('akari.daihon.open', { atSeconds: target.atSeconds });
         }));
-        panel.appendChild(button('やり直す', () => { void dialog(); }));
+        panel.appendChild(button(t('inspector.aiTranscribePanel.button.redo'), () => { void dialog(); }));
     } else if (options.running) {
         const status = document.createElement('p');
         status.className = 'akari-inspector-ai-transcribe-status';
-        status.textContent = '文字起こし中です';
+        status.textContent = t('inspector.aiTranscribePanel.text.transcribing');
         panel.appendChild(status);
     } else {
-        panel.appendChild(button('字幕を作る…', () => { void dialog(); }));
+        panel.appendChild(button(t('inspector.aiTranscribePanel.button.makeSubtitles'), () => { void dialog(); }));
     }
     parent.appendChild(panel);
 }

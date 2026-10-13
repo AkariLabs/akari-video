@@ -1,0 +1,57 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      {
+        "ref": "talk",
+        "path": "analysis.json",
+        "source": "Single take, 73.5 s, with local metadata and transcript analysis."
+      }
+    ],
+    "context": {
+      "intake": {
+        "status": "submitted",
+        "autonomy": "checkpoint",
+        "tasks": [],
+        "target": "no length target"
+      },
+      "past_projects": [],
+      "interview": []
+    }
+  },
+  "assets": [
+    {
+      "ref": "talk",
+      "role": "single-take talking-head tips video (the whole programme)",
+      "summary": "One presenter at a desk in a home office talks straight to a fixed wide-angle webcam about setting up a home recording corner, giving three tips and a one-line recap. The take opens with an explicit restart and contains one mid-take stumble; the camera cuts to a tighter framing for tip 3 and back. The mic sits on a small stand at chest height to his side.",
+      "sections": [
+        {
+          "id": "s1",
+          "start": 0.65,
+          "end": 14.04,
+          "title": "Intro: setting up a home recording corner",
+          "role": "intro",
+          "evidence": "transcript 6.50-14.04: \"Hey everyone, this week I finally set up a little recording corner at home and I learned a few things the hard way.\" (preceded by the restart at 0.65-6.50)"
+        }
+      ],
+      "relations": [],
+      "flags": []
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "Intro",
+      "refs": [
+        {
+          "asset": "talk",
+          "start": 6.5,
+          "end": 14.04
+        }
+      ],
+      "purpose": "Set up the topic: a newly built home recording corner and lessons learned the hard way.",
+      "evidence": "transcript 6.50-14.04 (\"…I learned a few things the hard way.\")"
+    }
+  ],
+  "open_questions": []
+}

@@ -1,3 +1,4 @@
+import { t } from './preview-text';
 /**
  * Dependency-free validation and asset-path rewriting for declarative Three.js scenes.
  *
@@ -31,7 +32,14 @@ export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
     'physics'
 ]);
 
-export type ThreeSceneAssetResolver = (relativePath: string, field: string) => Promise<string>;
+/**
+ * パスの出どころ。断片に書かれたパス（model・フォント・環境マップ・既定のテクスチャ）は断片のフォルダ基準、
+ * item の source.vars から来たパス（ユーザーが入れた画面の動画など）はプロジェクト基準で探す
+ * （内部契約 2026-10-11-3d-place §4）。
+ */
+export type ThreeSceneAssetOrigin = 'fragment' | 'vars';
+
+export type ThreeSceneAssetResolver = (relativePath: string, field: string, origin: ThreeSceneAssetOrigin) => Promise<string>;
 
 export interface ThreeSceneDescriptor extends Record<string, unknown> {
     environment?: { map?: unknown };
@@ -51,7 +59,7 @@ function assertRelativeAssetPath(value: unknown, field: string): asserts value i
         || value.startsWith('/')
         || value.startsWith('\\')
         || /^[a-z][a-z\d+.-]*:/i.test(value)) {
-        throw new TypeError(`${field} は edit.json 相対パスである必要があります`);
+        throw new TypeError(t('preview.threeScene.validation.mustRelativeEditJsonError', { p1: (field) }));
     }
 }
 
@@ -67,7 +75,7 @@ export async function resolveThreeSceneDescriptorAssets(
     overlayVars: Record<string, string> = {}
 ): Promise<ResolvedThreeSceneDescriptor> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new TypeError('data-akari-3d-scene は JSON object である必要があります');
+        throw new TypeError(t('preview.outputPreview.window.dataAkari3DSceneMustJsonObjectError'));
     }
     const source = value as ThreeSceneDescriptor;
     const hasModel = source.model !== undefined;
@@ -75,13 +83,13 @@ export async function resolveThreeSceneDescriptorAssets(
         assertRelativeAssetPath(source.model, 'data-akari-3d-scene.model');
     }
     if (source.texts !== undefined && !Array.isArray(source.texts)) {
-        throw new TypeError('data-akari-3d-scene.texts は配列である必要があります');
+        throw new TypeError(t('preview.threeScene.validation.dataAkari3DSceneTextsMustArrayError'));
     }
     const texts = source.texts as unknown[] | undefined;
     const hasNonEmptyTexts = Boolean(texts?.length);
     if (!hasModel && !hasNonEmptyTexts) {
         throw new TypeError(
-            'data-akari-3d-scene は model または非空の texts[] の少なくとも一方を必要とします'
+            t('preview.threeScene.validation.sceneRequiresModelOrTextsError')
         );
     }
 
@@ -89,23 +97,23 @@ export async function resolveThreeSceneDescriptorAssets(
     let modelPath: string | undefined;
     if (hasModel) {
         modelPath = source.model as string;
-        descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model');
+        descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model', 'fragment');
     }
     if (texts) {
         const resolvedTexts: Record<string, unknown>[] = [];
         for (const [index, entry] of texts.entries()) {
             if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-                throw new TypeError(`texts[${index}] は object である必要があります`);
+                throw new TypeError(t('preview.threeScene.validation.textsMustObjectError', { p1: (index) }));
             }
             const textDescriptor = entry as Record<string, unknown>;
             const field = `data-akari-3d-scene.texts[${index}].font`;
             assertRelativeAssetPath(textDescriptor.font, field);
             if (!FONT_EXTENSION_PATTERN.test(textDescriptor.font)) {
-                throw new TypeError(`${field} は .ttf または .otf である必要があります`);
+                throw new TypeError(t('preview.threeScene.validation.mustTtfOtfFileError', { p1: (field) }));
             }
             resolvedTexts.push({
                 ...textDescriptor,
-                font: await resolveAsset(textDescriptor.font, field)
+                font: await resolveAsset(textDescriptor.font, field, 'fragment')
             });
         }
         descriptor.texts = resolvedTexts;
@@ -115,36 +123,37 @@ export async function resolveThreeSceneDescriptorAssets(
         assertRelativeAssetPath(source.environment.map, 'data-akari-3d-scene.environment.map');
         descriptor.environment = {
             ...source.environment,
-            map: await resolveAsset(source.environment.map, 'data-akari-3d-scene.environment.map')
+            map: await resolveAsset(source.environment.map, 'data-akari-3d-scene.environment.map', 'fragment')
         };
     }
     if (source.materialOverrides !== undefined) {
         if (!source.materialOverrides || typeof source.materialOverrides !== 'object'
             || Array.isArray(source.materialOverrides)) {
-            throw new TypeError('materialOverrides は object である必要があります');
+            throw new TypeError(t('preview.threeScene.validation.materialoverridesMustObjectError'));
         }
         const overrides: Record<string, unknown> = Object.create(null);
         for (const [name, value] of Object.entries(source.materialOverrides)) {
             if (!name || !value || typeof value !== 'object' || Array.isArray(value)) {
-                throw new TypeError('materialOverrides は material 名ごとの object である必要があります');
+                throw new TypeError(t('preview.threeScene.validation.materialoverridesMustContainObjectEachMaterialNameError'));
             }
             const override = value as Record<string, unknown>;
             const field = `materialOverrides.${name}.texture`;
             if (typeof override.texture !== 'string' || !override.texture) {
-                throw new TypeError(`${field} は相対パスである必要があります`);
+                throw new TypeError(t('preview.threeScene.validation.mustRelativePathError', { p1: (field) }));
             }
             if (override.textureVar !== undefined && (typeof override.textureVar !== 'string'
                 || !/^--[A-Za-z_][A-Za-z0-9_-]*$/.test(override.textureVar))) {
-                throw new TypeError(`materialOverrides.${name}.textureVar は CSS カスタムプロパティ名である必要があります`);
+                throw new TypeError(t('preview.threeScene.validation.materialoverridesTexturevarMustCssCustomPropertyNameError', { p1: (name) }));
             }
             const variableTexture = typeof override.textureVar === 'string' ? overlayVars[override.textureVar] : undefined;
             let texture = variableTexture || override.texture;
+            let origin: ThreeSceneAssetOrigin = variableTexture ? 'vars' : 'fragment';
             const match = typeof texture === 'string' ? /^var\(\s*(--[\w-]+)\s*\)$/.exec(texture) : null;
-            if (match) texture = overlayVars[match[1]];
+            if (match) { texture = overlayVars[match[1]]; origin = 'vars'; }
             assertRelativeAssetPath(texture, field);
             // Like export's embedder, resolve the chosen texture once and remove its variable
             // indirection. All non-path material settings are validated by three-runtime.js.
-            const resolved: Record<string, unknown> = { ...override, texture: await resolveAsset(texture, field) };
+            const resolved: Record<string, unknown> = { ...override, texture: await resolveAsset(texture, field, origin) };
             delete resolved.textureVar;
             overrides[name] = resolved;
         }

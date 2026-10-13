@@ -1,3 +1,5 @@
+import { t, compareText } from '@akari-video/i18n';
+import { formatDate } from '@akari-video/i18n';
 export type ProjectViewMode = 'cards' | 'list';
 export const PROJECT_PAGE_SIZE = 24;
 const VIEW_KEY = 'akari.projects.view';
@@ -23,10 +25,10 @@ export interface ProjectDetails {
     hasEditData?: boolean;
 }
 export const PROJECT_SORT_LABELS = {
-    'updated-desc': '更新が新しい順',
-    'updated-asc': '更新が古い順',
-    'name-asc': '名前（昇順）',
-    'name-desc': '名前（降順）'
+    'updated-desc': t('surfaces.projects.newestUpdates.label'),
+    'updated-asc': t('surfaces.projects.oldestUpdate.label'),
+    'name-asc': t('surfaces.projects.nameAscending.label'),
+    'name-desc': t('surfaces.projects.nameDescending.label')
 } as const;
 export type ProjectSortOrder = keyof typeof PROJECT_SORT_LABELS;
 export const PROJECT_VIEW_ICONS = { cards: 'codicon-dashboard', list: 'codicon-list-flat' } as const;
@@ -45,7 +47,7 @@ export function saveProjectSort(order: ProjectSortOrder, scope: 'home' | 'launch
 }
 
 export function sortProjects<T extends ProjectDetails & { name: string; key: string }>(rows: readonly T[], order: ProjectSortOrder): T[] {
-    const byName = (a: T, b: T): number => a.name.localeCompare(b.name, 'ja', { numeric: true }) || a.key.localeCompare(b.key);
+    const byName = (a: T, b: T): number => compareText(a.name, b.name, { numeric: true }) || a.key.localeCompare(b.key);
     return [...rows].sort((a, b) => {
         if (order === 'name-asc') { return byName(a, b); }
         if (order === 'name-desc') { return -byName(a, b); }
@@ -60,13 +62,13 @@ export function sortProjects<T extends ProjectDetails & { name: string; key: str
 
 export function formatProjectUpdatedAt(value?: number): string {
     if (!Number.isFinite(value)) { return '—'; }
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatDate(value, {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-    }).format(value);
+    });
 }
 
 export function projectEditStatus(row: ProjectDetails): string {
-    return row.hasEditData === true ? '編集データあり' : row.hasEditData === false ? '未作成' : '—';
+    return row.hasEditData === true ? t('surfaces.projects.projectEditStatusEditingData.label') : row.hasEditData === false ? t('surfaces.projects.projectEditStatusCreated.label') : '—';
 }
 
 export function readProjectView(scope: 'home' | 'launcher' = 'launcher'): ProjectViewMode {
@@ -89,7 +91,7 @@ export function listProjectChannels<T extends { channel?: string }>(rows: readon
     for (const row of rows) {
         if (row.channel) { channels.add(row.channel); }
     }
-    return [...channels].sort((left, right) => left.localeCompare(right));
+    return [...channels].sort((left, right) => compareText(left, right));
 }
 
 /** チャンネル絞り込み。`undefined`（= すべて）はそのまま通す。 */

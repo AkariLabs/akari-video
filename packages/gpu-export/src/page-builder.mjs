@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { t } from "../../i18n/index.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -138,7 +139,8 @@ export function buildGpuPage({
   const dom = buildDomRuns(indexedOverlays, classifications, compositeIds, interleaved ? stackZByOverlay : null);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
-    || overlay.motion || overlay.motionSource);
+    || overlay.motion || overlay.motionSource
+    || overlay.motionParents?.some((parent) => Array.isArray(parent?.keyframes)));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
   const resolvedEmphasisWords = Array.isArray(captions)
@@ -237,6 +239,7 @@ export function buildGpuPage({
     adjustLutCubeTexts,
     spriteManifest,
     eligibility: effectiveEligibility,
+    messages: { preserve3dOrder: t("render.gpu.warning.preserve3dOrder"), longGop: t("render.frameEngine.warning.longGop") },
   };
   if (interleaved) {
     const spriteZ = Object.fromEntries([...stackZByOverlay]);

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { AbstractDialog, DialogError, DialogMode, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -17,7 +18,7 @@ import { AKARI_WARNING_TEXT_COLOR } from './akari-notice-banner';
 const MAX_DISPLAY_WIDTH_RATIO = 0.72;
 const MAX_DISPLAY_HEIGHT_RATIO = 0.62;
 const MAX_BACKGROUND_BYTES = 25 * 1024 * 1024;
-const BACKGROUND_FILTERS = { '画像': ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] };
+const backgroundFilters = () => ({ [t('annotations.canvasDialog.text.image')]: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] });
 
 export interface AkariCanvasDialogProps extends DialogProps {
     /** 'create' = 「キャンバスを開く」からの新規記録。'view' = 既存キャンバスの静止再表示。 */
@@ -105,7 +106,7 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
         this.stage.append(this.image, this.canvas);
 
         if (this.props.mode === 'create') {
-            this.hint.textContent = 'ペンで描いて構図を伝えてください（背景は白紙のままでも画像を選んでもかまいません）。';
+            this.hint.textContent = t('annotations.canvasDialog.text.conveyYourCompositionByDrawingWithA');
             Object.assign(this.hint.style, {
                 fontSize: '11px', color: 'var(--theia-descriptionForeground)', margin: '0 0 6px'
             });
@@ -116,13 +117,13 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
             });
             this.blankButton.type = 'button';
             this.blankButton.className = 'theia-button secondary';
-            this.blankButton.textContent = '白紙のまま';
+            this.blankButton.textContent = t('annotations.canvasDialog.text.leaveABlankPage');
             this.blankButton.addEventListener('click', () => this.clearBackground());
             this.pickButton.type = 'button';
             this.pickButton.className = 'theia-button secondary';
-            this.pickButton.textContent = '画像を選ぶ...';
+            this.pickButton.textContent = t('annotations.canvasDialog.text.selectImage');
             this.pickButton.addEventListener('click', () => void this.pickBackgroundImage());
-            this.backgroundLabel.textContent = '背景: 白紙';
+            this.backgroundLabel.textContent = t('annotations.canvasDialog.text.backgroundBlankPaper');
             Object.assign(this.backgroundLabel.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
             this.backgroundRow.append(this.blankButton, this.pickButton, this.backgroundLabel);
             this.contentNode.appendChild(this.backgroundRow);
@@ -132,8 +133,8 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
 
         if (this.props.mode === 'create') {
             this.memoInput.type = 'text';
-            this.memoInput.placeholder = 'メモ（任意・録音なしのときはこの内容がそのまま注釈になります）';
-            this.memoInput.setAttribute('aria-label', 'キャンバスのメモ');
+            this.memoInput.placeholder = t('annotations.canvasDialog.text.memoOptionalIfNotRecordedThisContent');
+            this.memoInput.setAttribute('aria-label', t('annotations.canvasDialog.text.canvasMemo'));
             Object.assign(this.memoInput.style, { width: '100%', boxSizing: 'border-box', margin: '8px 0 4px' });
             this.memoInput.addEventListener('input', () => this.update());
             this.contentNode.appendChild(this.memoInput);
@@ -149,9 +150,9 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
         this.contentNode.appendChild(this.errorNotice);
 
         if (this.props.mode === 'create') {
-            this.appendAcceptButton('キャンバスを記録');
+            this.appendAcceptButton(t('annotations.canvasDialog.text.recordCanvas'));
         }
-        this.appendCloseButton(this.props.mode === 'create' ? 'キャンセル' : '閉じる');
+        this.appendCloseButton(this.props.mode === 'create' ? t('annotations.canvasDialog.text.cancel') : t('annotations.canvasDialog.text.close'));
 
         // stage のサイズ（アスペクト比）は window.innerWidth/innerHeight だけに依存するため、
         // DOM 未接続の時点で計算しても問題ない。一方 setupCanvas() は
@@ -288,22 +289,22 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
         this.backgroundLoaded = false;
         this.image.style.display = 'none';
         this.image.removeAttribute('src');
-        this.backgroundLabel.textContent = '背景: 白紙';
+        this.backgroundLabel.textContent = t('annotations.canvasDialog.text.backgroundBlankPaper');
         this.hideNotice();
     }
 
     protected async pickBackgroundImage(): Promise<void> {
         const uri = await this.fileDialogService.showOpenDialog({
-            title: '背景に使う画像を選ぶ',
+            title: t('annotations.canvasDialog.text.chooseAnImageToUseAsThe'),
             canSelectFiles: true,
             canSelectFolders: false,
-            filters: BACKGROUND_FILTERS
+            filters: backgroundFilters()
         });
         if (!uri) {
             return;
         }
         if (!await this.fileService.exists(uri)) {
-            this.showNotice('選んだ画像が見つかりません。');
+            this.showNotice(t('annotations.canvasDialog.text.theSelectedImageCannotBeFound'));
             return;
         }
         this.backgroundUri = uri;
@@ -314,7 +315,7 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
         try {
             const stat = await this.fileService.resolve(uri, { resolveMetadata: true });
             if (typeof stat.size === 'number' && stat.size > MAX_BACKGROUND_BYTES) {
-                this.showNotice('この画像はサイズが大きすぎるため使用できません。白紙のまま続けられます。');
+                this.showNotice(t('annotations.canvasDialog.text.thisImageIsTooLargeToBe'));
                 this.backgroundUri = undefined;
                 return;
             }
@@ -330,12 +331,12 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
             this.image.style.display = 'block';
             this.backgroundLoaded = true;
             if (this.props.mode === 'create') {
-                this.backgroundLabel.textContent = `背景: ${uri.path.base}`;
+                this.backgroundLabel.textContent = t('annotations.canvasDialog.text.background', { name: uri.path.base });
             }
             this.hideNotice();
         } catch (error) {
             console.warn('[akari-annotations] canvas dialog failed to load background image', error);
-            this.showNotice('画像を読み込めませんでした。白紙のまま続けられます。');
+            this.showNotice(t('annotations.canvasDialog.text.imageCouldNotBeLoadedYouCan'));
             this.backgroundUri = undefined;
             this.image.style.display = 'none';
         }
@@ -362,7 +363,7 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
         const hasText = this.memoInput.value.trim().length > 0;
         const hasStrokes = this.completedStrokes.length > 0;
         if (!hasText && !hasStrokes) {
-            return { message: 'ペンで描くかメモを入力してください。', result: false };
+            return { message: t('annotations.canvasDialog.text.pleaseDrawWithAPenOrEnter'), result: false };
         }
         if (mode === 'preview' || this.saved) {
             return true;
@@ -380,7 +381,7 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
             this.saved = true;
             return true;
         } catch (error) {
-            return { message: `キャンバスを記録できません: ${this.errorMessage(error)}`, result: false };
+            return { message: t('annotations.canvasDialog.text.unableToRecordCanvas', { reason: this.errorMessage(error) }), result: false };
         }
     }
 

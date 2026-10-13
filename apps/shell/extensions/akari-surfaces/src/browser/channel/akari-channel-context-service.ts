@@ -1,3 +1,4 @@
+import { compareText } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { DisposableCollection, Emitter, Event } from '@theia/core/lib/common';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -97,7 +98,7 @@ export class AkariChannelContextService implements FrontendApplicationContributi
                 } catch { /* Folder name remains the display name. */ }
                 return { name: child.name, uri: child.resource, updatedAt, title };
             }));
-            return projects.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.name.localeCompare(b.name));
+            return projects.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || compareText(a.name, b.name));
         } catch { return []; }
     }
 

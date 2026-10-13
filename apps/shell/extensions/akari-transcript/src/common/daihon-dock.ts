@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 export type DockKind = 'row' | 'placed';
 export type DockTab = 'text' | 'template' | 'look' | 'anim' | 'emphasis' | 'time';
 export type DockAction = 'cut' | 'split' | 'merge-selected' | 'merge-next' | 'speech-tight' | 'insert-below' | 'delete' | 'all' | 'duplicate';
@@ -9,7 +10,7 @@ export function dockTabs(kind: DockKind): DockTab[] {
 }
 
 export function rowDockTitle(count: number, text: string): string {
-    return count > 1 ? `${count} 行を選択中` : text;
+    return count > 1 ? t('transcript.daihon.dock.linesSelectedWithCountLabel', { value1: count, n: count }) : text;
 }
 
 export function dockActions(kind: DockKind, available: Partial<Record<DockAction, boolean>>): DockAction[] {

@@ -5,6 +5,7 @@ import test from 'node:test';
 import ts from 'typescript';
 import { LEGACY_AKARI_HOST } from '../../../../../packages/akari-launcher/src/service-urls.cjs';
 import { mixOrder } from '../lib/common/asset-mix-order.js';
+import { t } from '../../../../../packages/i18n/index.mjs';
 
 const require = createRequire(import.meta.url);
 function compile(source, fileName, imports = {}) {
@@ -17,7 +18,8 @@ function compile(source, fileName, imports = {}) {
     return exports;
 }
 const catalog = compile(readFileSync(new URL('../src/common/asset-catalog-view.ts', import.meta.url), 'utf8'), 'view.ts', {
-    './asset-mix-order': { mixOrder }
+    './asset-mix-order': { mixOrder },
+    './project-text': require('../lib/common/project-text.js')
 });
 const dialogSource = ts.createSourceFile('dialog.ts', readFileSync(new URL('../../akari-surfaces/src/browser/akari-settings-dialog.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const dialog = dialogSource.statements.find(node => ts.isClassDeclaration(node) && node.name.text === 'AkariSettingsDialog');
@@ -41,11 +43,11 @@ for (const [input, lab] of [
         const element = () => ({ style: {}, setAttribute() {}, append() {}, replaceChildren() {} });
         const action = (label, click) => { actions.push({ label, click }); return {}; };
         const compiledMethod = ts.transpileModule(`return class { ${renderStore} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-        const Dialog = new Function('deriveStoreLabBaseUrl', 'element', 'description', 'action', compiledMethod)(catalog.deriveStoreLabBaseUrl, element, element, action);
+        const Dialog = new Function('deriveStoreLabBaseUrl', 'element', 'description', 'action', 't', compiledMethod)(catalog.deriveStoreLabBaseUrl, element, element, action, t);
         const instance = new Dialog();
         Object.assign(instance, { storeState: state, storeRow: element(), windows });
         instance.renderStore();
-        actions.find(item => item.label === '開く').click();
+        actions.find(item => item.label === t('surfaces.settings.storeOpen.button')).click();
 
         const buttons = [];
         let hook = 0;
@@ -59,12 +61,13 @@ for (const [input, lab] of [
         };
         const { AkariStoreSettings } = compile(componentSource, 'settings.tsx', {
             '@theia/core/shared/react': react,
+            '@akari-video/i18n': { t },
             'akari-project/lib/common/asset-catalog-view': catalog,
             'akari-project/lib/common/store-connection-flow': { StoreConnectionFlowController: class {} },
             '../common/store-entitlements-visibility': { storeReconnectRequired: () => false }
         });
         AkariStoreSettings({ service: {}, windows, refreshKey: 0 });
-        buttons.find(button => button.children.includes('AKARI Video Lab を開く')).props.onClick();
+        buttons.find(button => button.children.includes(t('surfaces.store.akariStoreSettingsOpenAkariVideoLab.button'))).props.onClick();
         assert.deepEqual(opened, [
             { url: `${lab}/`, options: { external: true } },
             { url: `${lab}/`, options: { external: true } }

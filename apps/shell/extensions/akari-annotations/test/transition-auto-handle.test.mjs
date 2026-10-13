@@ -1,6 +1,16 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import test from 'node:test';
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
+const ja = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/annotations.json', import.meta.url), 'utf8'));
 
 const source = readAllSourceText();
 
@@ -35,8 +45,10 @@ test('旧自動のりしろの削除救済だけが byte-preserving text commit 
   assert.equal((apply.match(/commitEditTextMutation\(/gu) ?? []).length, 1);
   assert.match(apply, /areCutsAdjacent\(earlier, later, this\.fps\)/u);
   assert.match(apply, /removeV2TransitionOutWithHandleRetractInSource/u);
-  assert.match(apply, /のりしろも戻しました/u);
-  assert.match(apply, /クリップの重なりが残っています/u);
+  assert.match(apply, /t\('annotations\.timeline\.text\.iDeletedTheTransitionAndAlsoRestoredThe'\)/u);
+  assert.equal(ja['annotations.timeline.text.iDeletedTheTransitionAndAlsoRestoredThe'], 'トランジションを削除しました（のりしろも戻しました）。');
+  assert.match(apply, /t\('annotations\.timeline\.text\.iDeletedTheTransitionOverlappingClipsRemain'\)/u);
+  assert.equal(ja['annotations.timeline.text.iDeletedTheTransitionOverlappingClipsRemain'], 'トランジションを削除しました。クリップの重なりが残っています。');
   assert.match(apply, /this\.showNotice\(message\)/u);
 });
 
@@ -49,10 +61,14 @@ test('text commit は before/after 1 組を 1 history に積み、undo/redo が�
 });
 
 test('クランプ・不能は日本語通知され、不能と layers 退避は警告バッジ導線を持つ', () => {
-  assert.match(source, /トランジションが \$\{seconds\} 秒に短くなります（素材の余りが足りません）/u);
-  assert.match(source, /このトランジションは効きません: 素材に余りがありません/u);
-  assert.match(source, /のりしろにできる素材の余りがない/u);
+  assert.match(source, /t\('annotations\.timeline\.text\.transitionIsShortenedToSecondsNotEnoughMaterial'/u);
+  assert.equal(ja['annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial_other'], 'トランジションが {duration} 秒に短くなります（素材の余りが足りません）');
+  assert.match(source, /t\('annotations\.timeline\.text\.thisTransitionDoesnTWorkThereIsNo'\)/u);
+  assert.equal(ja['annotations.timeline.text.thisTransitionDoesnTWorkThereIsNo'], 'このトランジションは効きません: 素材に余りがありません。');
+  assert.match(source, /t\('annotations\.timeline\.text\.thereIsNoMaterialLeftOverForGluing'\)/u);
+  assert.equal(ja['annotations.timeline.text.thereIsNoMaterialLeftOverForGluing'], 'のりしろにできる素材の余りがないため、素材のトリムを調整するか削除してください。');
   assert.match(source, /zeroOverlapTransitionIndexes\.has\(cutIndex\)/u);
   assert.match(source, /dataset\.akariLayerTransitionWarning = layer\.id/u);
-  assert.match(source, /他トラックのアイテム（\$\{cause\.causeItemId\}）.*PiP 経路へ退避/u);
+  assert.match(source, /t\('annotations\.timeline\.text\.sinceThisClipOverlapsWithAnItemOn'/u);
+  assert.equal(ja['annotations.timeline.text.sinceThisClipOverlapsWithAnItemOn'], 'このクリップは他トラックのアイテム（{itemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。');
 });

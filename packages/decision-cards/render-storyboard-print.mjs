@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { localizeReportTemplate, reportDataStrings, reportLanguage } from "../analysis-report/report-i18n.mjs";
 
 const DEFAULT_STALE_AFTER_SECONDS = 900;
 const MIME_BY_EXTENSION = new Map([
@@ -16,7 +17,7 @@ const MIME_BY_EXTENSION = new Map([
   [".webp", "image/webp"],
 ]);
 
-export function renderStoryboardPrint({ edit, captions, frames = [], sidecars = {}, generatedAt, title }) {
+export function renderStoryboardPrint({ edit, captions, frames = [], sidecars = {}, generatedAt, title, lang = reportLanguage() }) {
   const fps = editFps(edit);
   const items = visualMediaItems(edit);
   const totalFrames = items.reduce((maximum, item) => Math.max(maximum, item.at + item.duration), 0);
@@ -48,7 +49,7 @@ export function renderStoryboardPrint({ edit, captions, frames = [], sidecars = 
     </article>`;
   }).join("\n");
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
@@ -59,14 +60,18 @@ export function renderStoryboardPrint({ edit, captions, frames = [], sidecars = 
 </head>
 <body>
   <header><p class="eyebrow">AKARI VIDEO / L1 THROUGH MAP</p><h1>${escapeHtml(reportTitle)}</h1>
-    <dl><div><dt>合計尺</dt><dd>${formatTime(totalSeconds)}</dd></div><div><dt>コマ数</dt><dd>${items.length}</dd></div><div><dt>生成日時</dt><dd><time datetime="${escapeHtml(generated)}">${escapeHtml(generated)}</time></dd></div></dl>
+    <dl><div><dt data-i18n="report-cards.print.duration.total">合計尺</dt><dd>${formatTime(totalSeconds)}</dd></div><div><dt data-i18n="report-cards.print.shots.count">コマ数</dt><dd>${items.length}</dd></div><div><dt data-i18n="report-cards.common.generated.label">生成日時</dt><dd><time datetime="${escapeHtml(generated)}">${escapeHtml(generated)}</time></dd></div></dl>
   </header>
   <main>
-    <section class="duration-map" aria-labelledby="duration-heading"><h2 id="duration-heading">尺バー</h2><div class="duration-bar">${bars}</div></section>
+    <section class="duration-map" aria-labelledby="duration-heading"><h2 id="duration-heading" data-i18n="report-cards.print.duration.bar">尺バー</h2><div class="duration-bar">${bars}</div></section>
     <section class="storyboard-grid" aria-label="絵コンテ">${cards}</section>
   </main>
 </body>
 </html>\n`;
+  return localizeReportTemplate(html, "report-cards", reportLanguage(lang), [
+    ...reportDataStrings(edit), ...reportDataStrings(captions), ...reportDataStrings(frames),
+    ...reportDataStrings(sidecars), ...reportDataStrings(title),
+  ]);
 }
 
 function editFps(edit) {
@@ -144,10 +149,15 @@ function styles() {
 }
 
 function parseArguments(argv) {
-  const options = { projectDir: null, captures: null, noCapture: false, out: null };
+  const options = { projectDir: null, captures: null, noCapture: false, out: null, lang: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--no-capture") options.noCapture = true;
+    else if (argument === "--lang") {
+      const value = argv[++index];
+      if (value === undefined) throw new Error("--lang requires ja or en");
+      options.lang = reportLanguage(value);
+    }
     else if (argument === "--captures" || argument === "--out") {
       const value = argv[index + 1];
       if (!value) throw new Error(`${argument} には値が必要です`);
@@ -309,7 +319,7 @@ async function main(argv) {
     }
   }
   const frames = matchFrames(items, times, records, framesDirectory);
-  const html = renderStoryboardPrint({ edit, captions, frames, sidecars, generatedAt, title: path.basename(projectRoot) });
+  const html = renderStoryboardPrint({ edit, captions, frames, sidecars, generatedAt, title: path.basename(projectRoot), lang: parsed.lang });
   fs.writeFileSync(path.join(outputDirectory, "index.html"), html, "utf8");
   const relativeCapturePaths = frames.map((frame) => frame.pngPath ? path.relative(projectRoot, frame.pngPath).split(path.sep).join("/") : null);
   const manifest = { edit_sha256: sha256(editBytes), captions_sha256: captionsBytes === null ? null : sha256(captionsBytes), times_s: times, generated_at: generatedAt.toISOString(), frames: relativeCapturePaths };

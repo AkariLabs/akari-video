@@ -1,3 +1,8 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
@@ -27,7 +32,7 @@ test('akari world: スクリプト不在は既存 internal-command と同じ案�
 });
 
 test('akari --help: world が一覧に出る', async () => {
-  const result = spawnSync(process.execPath, [new URL('../bin/akari.mjs', import.meta.url).pathname, '--help'], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [new URL('../bin/akari.mjs', import.meta.url).pathname, '--help'], { encoding: 'utf8', env: { ...process.env, AKARI_LANG: 'ja' } });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /world\s+ワールド地図/);
 });

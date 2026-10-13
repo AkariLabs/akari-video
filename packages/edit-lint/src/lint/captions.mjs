@@ -1,9 +1,12 @@
 import { segmentDuration } from "../cut-timeline.mjs";
+import { lintText } from '../i18n.mjs';
 import { buildMatcher, protectedTermsFrom } from "../../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mjs";
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
 import { resolveCaptionDisplay, validateCaptionsSemantics, CAPTION_RUN_FIELDS } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
+import { captionLanguageDefaults, resolveContentLanguage } from "../../../content-language/src/index.mjs";
+import { readContentLanguageSync } from "../../../content-language/src/node.mjs";
 
 export function validateCaptionRunRanges(caption) {
   if (!Array.isArray(caption?.runs)) return [];
@@ -27,7 +30,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "warning",
       check: "word-book.invalid",
-      message: `単語帳を読み込めません（${layer.error.code}）: ${layer.error.message}`,
+      message: lintText('lint-messages.wordBook.load.error', { code: layer.error.code, message: layer.error.message }),
       path: relativePath(paths.projectRoot, layer.path),
     });
   }
@@ -35,7 +38,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     addFinding(findings, {
       severity: "info",
       check: "word-book.variant-shadowed",
-      message: `variant ${conflict.variant_key} は ${conflict.winner.surface} (${conflict.winner.scope}) が優先され、${conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ")} を隠します`,
+      message: lintText('lint-messages.wordBook.variant.shadowed', { variant: conflict.variant_key, winner: conflict.winner.surface, scope: conflict.winner.scope, shadowed: conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ") }),
       path: captionPath,
     });
   }
@@ -87,6 +90,10 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     }
     captions = captions.captions;
   }
+  const locale = typeof paths.projectRoot === 'string'
+    ? readContentLanguageSync(paths.projectRoot, { cliLang: displayPolicy?.locale }).language
+    : resolveContentLanguage({ cliLang: displayPolicy?.locale, analysis }).language;
+  const speedLimit = locale === 'ja' ? null : captionLanguageDefaults(locale).charactersPerSecond;
   const ids = new Set();
   // ここには以前 `captions.overlay-link`（caption の id と一致する overlays[].id が無ければ警告）
   // があったが、2026-08-07 に撤去した。字幕のオーバーレイは消費側が captions[] から合成する
@@ -278,7 +285,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       addFinding(findings, {
         severity: "warning",
         check: `captions.${caption.style}-without-words`,
-        message: `字幕 ${caption.id ?? "(unknown)"}: 語の時刻がない字幕は${caption.style === "karaoke" ? "カラオケ" : "ポップ"}で表示できません。通常の表示で書き出します`,
+        message: lintText('lint-messages.captions.words.missing', { id: caption.id ?? "(unknown)", style: caption.style === "karaoke" ? lintText('lint-messages.captions.style.karaoke') : lintText('lint-messages.captions.style.pop') }),
         path: itemPath,
       });
     }
@@ -322,6 +329,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         }
       }
       const displaySeconds = caption.end - caption.start;
+      if (speedLimit && displaySeconds > 0 && isNonEmptyString(caption.text)) {
+        const characters = Array.from(typeof caption.display_text === 'string' ? caption.display_text : caption.text).length;
+        const speed = characters / displaySeconds;
+        if (speed > speedLimit + EPSILON) {
+          addFinding(findings, {
+            severity: 'warning', check: 'captions.reading-speed',
+            message: `caption reading speed is ${speed.toFixed(1)} characters/s, over ${speedLimit} characters/s for ${locale}`,
+            path: itemPath, range: { start: caption.start, end: caption.end },
+          });
+        }
+      }
       if (displaySeconds < 1.0 - EPSILON) {
         addFinding(findings, {
           severity: "warning",
@@ -335,7 +353,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.output-domain-exceeds-duration",
-          message: `captions[${index}] は time_domain: output の宣言区間が動画総尺 ${cutsEndSeconds.toFixed(1)}s を超えています。書き出しでは ${cutsEndSeconds.toFixed(1)}s までにクランプして表示されます。`,
+          message: lintText('lint-messages.captions.duration.exceeds', { index, seconds: cutsEndSeconds.toFixed(1) }),
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });
@@ -344,7 +362,17 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (caption.time_domain !== "output") {
         const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
         const ratio = kept / (caption.end - caption.start);
-        if (ratio < 0.5 - EPSILON) {
+        if (kept <= EPSILON) {
+          // 話した区間ごとカットで消した字幕は出ないのが正しい結果。エラーにすると GUI で
+          // カットするたびに誤報になるため記録だけ残す（オーナー裁定 2026-10-12）。
+          addFinding(findings, {
+            severity: "info",
+            check: "captions.cut-removed",
+            message: "the caption is entirely inside removed sections and will not be shown",
+            path: itemPath,
+            range: { start: caption.start, end: caption.end },
+          });
+        } else if (ratio < 0.5 - EPSILON) {
           addFinding(findings, {
             severity: "error",
             check: "captions.cut-visibility",
@@ -392,14 +420,14 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: caption.edited === true ? "info" : "warning",
           check: "captions.word-book-term",
-          message: `${position} に単語帳の表記ゆれ ${JSON.stringify(match.matched)} が残っています（正表記: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.variant', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       } else if (match.kind === "notation") {
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-notation",
-          message: `${position} に非推奨表記 ${JSON.stringify(match.matched)} があります（推奨: ${match.surface}）`,
+          message: lintText('lint-messages.captions.wordBook.notation', { position, matched: JSON.stringify(match.matched), surface: match.surface }),
           path: itemPath,
         });
       }
@@ -416,7 +444,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
         addFinding(findings, {
           severity: "warning",
           check: "captions.word-book-break-fallback",
-          message: `単語帳の行分割保護を外しました: ${fallback.dropped_terms.join(", ")}`,
+          message: lintText('lint-messages.captions.wordBook.breakFallback', { terms: fallback.dropped_terms.join(", ") }),
           path: index >= 0 ? `captions.json#[${index}]` : captionPath,
         });
       }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { renderText } from './i18n.mjs';
 import { createReadStream, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -101,7 +102,13 @@ export async function enumerateDeclaredRenderInputs({
     const entry = addInput(role, overlaySourcePath(overlay));
     const html = readFileSync(entry.absolute_path, "utf8");
     for (const reference of extractRuntimeAssetReferences(html, overlaySourcePath(overlay), role)) {
-      addInput(`${role}:${reference.role}`, reference.path);
+      try {
+        addInput(`${role}:${reference.role}`, reference.path);
+      } catch (error) {
+        // 3D の断片基準のパスが無ければ、従来のプロジェクト基準で探す（既存の断片の後方互換）
+        if (!(error instanceof RenderInputError) || reference.fallbackPath === undefined) throw error;
+        addInput(`${role}:${reference.role}`, reference.fallbackPath);
+      }
     }
     const fragmentReferences = extractFragmentAssetReferences(html, overlaySourcePath(overlay), role);
     for (const reference of fragmentReferences) {
@@ -109,7 +116,7 @@ export async function enumerateDeclaredRenderInputs({
         addInput(`${role}:fragment-asset`, reference.path);
       } catch (error) {
         if (error instanceof RenderInputError) {
-          error.message = `${role} fragment ${overlaySourcePath(overlay)} の参照 "${reference.raw}": ${error.message}`;
+          error.message = renderText('render.fragment.error.assetReference', { role, html: overlaySourcePath(overlay), reference: reference.raw, message: error.message });
         }
         throw error;
       }

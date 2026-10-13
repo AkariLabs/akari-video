@@ -1,43 +1,43 @@
 ---
 name: generate-media
-description: 静止画の仮枠から動画生成・再取得までを扱うスキル。「静止画で仮枠を組みたい」「このクリップを動画にして」「生成が落ちた・再取得」「文字カードで尺だけ先に」と頼まれたときに使う。
+description: Build a timeline placeholder from still images or text cards, generate video from it, and recover or refetch generated clips. Use when asked to plan with stills, turn a placeholder into video, recover a failed generation, or establish duration with text cards.
 ---
 
-# 生成素材をタイムラインへつなぐ
+# Connect generated media to the timeline
 
-> **Language**: Respond in the user's language — 対話・質問・費用承認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-次の規則は詳細手順より常に優先する。
+These rules take precedence over detailed instructions.
 
-1. **有償生成は、見積を提示して費用承認を得た後に `--yes` 付きで実行する。** 1 クリップずつが既定。複数をまとめる場合は対象全部の合計金額を示して 1 回の費用承認を得る。「全部を自動で動画にする」は行わない
-2. **判子は書き出しの 1 回にだけ使う語であり、生成には使わない。** 有償生成のゲートは「費用承認」と呼ぶ
-3. **参照要素は 1 ファイル 20 MB まで。** 20 MB 超を外部 storage へ黙ってアップロードしない
-4. **生成物は `assets/generated/`、状態と由来は隣の `<file>.meta.json` に置く。** edit.json に生成専用の語彙を足さない
-5. **[manage-connections](../manage-connections/SKILL.md) で解決されたレジストリに無い接続や allowed 外のモデルは使わない。** キーを直接探索・直叩きしない
-6. **能力カタログの未対応入力は送らずに失敗する。** モデル固有入力は `extra_allowed[]` にある名前だけを通す
+1. **Obtain cost approval before paid generation.** Present an estimate and run with `--yes` only after explicit approval. Generate one clip at a time by default. For a batch, show the total estimated cost for every target and obtain one cost approval. Never automatically turn every placeholder into video.
+2. **Reserve the approval stamp for the single export; never use it for generation.** Call the paid-generation gate "cost approval."
+3. **Limit reference inputs to 20 MB per file.** Do not silently upload a larger file to external storage.
+4. **Store outputs in `assets/generated/` with adjacent state and provenance in `<file>.meta.json`.** Do not add generation-only fields to edit.json.
+5. **Use only connections resolved through the [manage-connections](../manage-connections/SKILL.md) registry and models on its allowed list.** Never search for keys or call an unregistered connection directly.
+6. **Never send inputs the capability catalog does not support; fail instead.** Send model-specific inputs only when their names appear in `extra_allowed[]` in the capability catalog.
 
-## 実行順と目次
+## Execution order and contents
 
-1. 静止画または文字カードで仮枠を作るときは [still.md](still.md) を読む。
-2. 既存の仮枠クリップを動画へ差し替えるときは [video.md](video.md) を読む。
-3. still → video → resume の一連、失敗・stale・書き出し時の見え方を扱うときは [chain.md](chain.md) を読む。
-4. モデル能力、既定モデル、価格、入力可否を判断するときだけ [engines.md](engines.md) を読む。
+1. Read [still.md](still.md) to create a still-image or text-card placeholder.
+2. Read [video.md](video.md) when replacing a placeholder with generated video.
+3. Read [chain.md](chain.md) for the still → video → resume sequence, failed or stale jobs, and export behavior.
+4. Read [engines.md](engines.md) only when checking model capabilities, defaults, price, or accepted inputs.
 
-現在の工程に対応するファイルだけを読み、先読みしない。
+Read only the file for the current step; do not read later steps in advance.
 
-## 用語
+## Terms
 
-- **仮枠**: 尺と場所を持つ静止画クリップ。完成品でもある
-- **参照動画**: 動きやカメラワークを真似る元。生成結果へそのまま貼り込まれない
-- **元動画**: extend / edit / motion / frame-edit で続ける・直す元
-- **費用承認**: 有償生成の実行前ゲート
-- **判子**: 書き出しの 1 回
-- **事実帯**: モデル選択の 1 行。価格・尺・入力・音声・較正を示し、主観点数やレーダーを置き換える
+- **Placeholder:** A still-image clip with a duration and timeline position. It is also a finished output.
+- **Reference video:** Input that guides motion or camera work; it is not inserted directly as the generated clip.
+- **Source video:** Input for extend, edit, motion, or frame-edit operations.
+- **Cost approval:** The gate before paid generation.
+- **Export stamp:** The one-time approval used only for export.
+- **Fact strip:** A one-line summary of model choice, price, duration, inputs, audio, and calibration; it replaces subjective scores and radar charts.
 
-## 根拠
+## References
 
-- 生成契約: [contract-2026-09-13-generation-v0.md](../../docs/contract-2026-09-13-generation-v0.md)
-- 接続・モデル許可・doctor: [../manage-connections/SKILL.md](../manage-connections/SKILL.md)
-- 費用承認の提示形式: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
+- Generation contract: [contract-2026-09-13-generation-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-09-13-generation-v0.md)
+- Connection, model permission, and doctor: [manage-connections](../manage-connections/SKILL.md)
+- Cost presentation format: [edit-plan approvals and generation](../edit-plan/approvals-and-generation.md)

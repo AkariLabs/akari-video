@@ -1,4 +1,7 @@
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+beforeEach(() => setLanguage('ja'));
+afterEach(() => setLanguage(undefined));
 import assert from 'node:assert/strict';
 import { powerThrottlingOffArgs } from '../lib/node/akari-project-service.js';
 

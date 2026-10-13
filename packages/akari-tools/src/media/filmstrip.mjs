@@ -1,4 +1,5 @@
 import path from "node:path";
+import { toolsText } from '../i18n.mjs';
 
 import {
   createOutputDirectory,
@@ -17,7 +18,7 @@ export async function filmstripMedia(targetArgument, options = {}) {
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
   const stream = value.streams?.find((item) => item.codec_type === "video");
-  if (!stream) throw new Error("映像ストリームがありません");
+  if (!stream) throw new Error(toolsText('tools.media.error.videoStreamMissing'));
   const times = options.scenes !== undefined
     ? detectScenes({ ffmpeg, inputPath: target.inputPath, threshold: options.scenes, count: options.count, options })
     : options.every !== undefined
@@ -50,21 +51,21 @@ export async function filmstripMedia(targetArgument, options = {}) {
 }
 
 export function timesCount(duration, count) {
-  if (!Number.isInteger(count) || count < 1) throw new Error("--count は 1 以上の整数で指定してください");
+  if (!Number.isInteger(count) || count < 1) throw new Error(toolsText('tools.filmstrip.error.count'));
   if (count === 1) return [0];
   const last = Math.max(0, duration - 1 / 30);
   return Array.from({ length: count }, (_, index) => last * index / (count - 1));
 }
 
 export function timesEvery(duration, every) {
-  if (!Number.isFinite(every) || every <= 0) throw new Error("--every は 0 より大きい秒数で指定してください");
+  if (!Number.isFinite(every) || every <= 0) throw new Error(toolsText('tools.filmstrip.error.every'));
   const times = [];
   for (let time = 0; time < duration; time += every) times.push(time);
   return times;
 }
 
 export function detectScenes({ ffmpeg, inputPath, threshold = 0.3, count, options = {} }) {
-  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error("--scenes の閾値は 0〜1 で指定してください");
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error(toolsText('tools.filmstrip.error.scenesThreshold'));
   const result = runChecked(ffmpeg, [
     "-hide_banner", "-nostdin", "-i", inputPath,
     "-vf", `select='gt(scene,${threshold})',showinfo`,

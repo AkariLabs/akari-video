@@ -302,9 +302,9 @@ export function buildResolvedTimelinePlan(
     warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
     warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
   });
-  if (cuts.some(cut => cut.freeze && (cut.at !== undefined || cut.track !== undefined))) {
-    throw new Error('freeze with explicit at/track is not supported by the sequential cuts timeline');
-  }
+  // An explicit placement can anchor a gapped cut even when it freezes. The virtual
+  // source range below extends that cut's end; the placement and local freeze mapping
+  // use the same resolved start, so the hold remains inside its declared track window.
   const virtualCuts: EditCut[] = cuts.map(cut => {
     const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
     const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));

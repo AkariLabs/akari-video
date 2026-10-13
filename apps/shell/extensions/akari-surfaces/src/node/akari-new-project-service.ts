@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { promises as fs } from 'fs';
 import { dirname, resolve, join } from 'path';
@@ -99,7 +100,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
 
     protected async localLibraryItems(): Promise<LibraryStorageItem[]> {
         const modulePath = await this.findUpwardFile('packages/asset-resolver/src/state.mjs');
-        if (!modulePath) throw new Error('素材の一覧を読み取れませんでした。');
+        if (!modulePath) throw new Error(t('surfaces.projects.localLibraryItemsListAssetsRead.message'));
         const resolver = await importEsm<{ composeState(options: { env: NodeJS.ProcessEnv; fetchImpl: () => Promise<never> }): Promise<{ items: LibraryStorageItem[] }> }>(pathToFileURL(modulePath).toString());
         const state = await resolver.composeState({ env: process.env, fetchImpl: async () => { throw new Error('offline'); } });
         return state.items;
@@ -129,7 +130,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     }
 
     async moveLibrary(root?: string): Promise<{ state: string | null; moved: number; bytes: number; failures: Array<{ path: string; message: string }> }> {
-        if (this.libraryMoving) throw new Error('素材を移動しています。終わるまでお待ちください。');
+        if (this.libraryMoving) throw new Error(t('surfaces.projects.moveLibraryMovingAssetsWaitMoveFinish.message'));
         this.libraryMoving = true;
         this.libraryProgress = { bytes: 0, totalBytes: 0 };
         try {
@@ -140,7 +141,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
                 : await creator.migrateAssetLibrary({ env: process.env, allowCloud: true, onProgress });
             if (result.busy || result.skippedReason || result.failures.length || result.skipped?.length
                 || (result.state !== 'done' && !(root && result.state === 'pending'))) {
-                throw new Error('素材をすべて移動できませんでした。置き場を確認して、もう一度お試しください。');
+                throw new Error(t('surfaces.projects.moveLibraryMoveAllAssetsCheckDestinationTryAgain.message'));
             }
             return result;
         } finally { this.libraryMoving = false; this.libraryProgress = undefined; }
@@ -154,7 +155,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     }
 
     async labCleanupTargets(directories: string[]): Promise<string[]> {
-        if (this.libraryMoving) throw new Error('素材を移動しています。終わるまでお待ちください。');
+        if (this.libraryMoving) throw new Error(t('surfaces.projects.labCleanupTargetsMovingAssetsWaitMoveFinish.message'));
         const creator = await this.loadCreatorRootModule();
         const roots = await Promise.all(creator.resolveAssetLibraryRoots(process.env).read.map(root => fs.realpath(root).catch(() => resolve(root))));
         const candidates = [];
@@ -183,7 +184,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     protected async loadScaffoldModule(): Promise<ProjectScaffoldModule> {
         const candidate = await this.findUpwardFile('packages/project-scaffold/src/index.mjs');
         if (!candidate) {
-            throw new Error('project-scaffold（packages/project-scaffold/src/index.mjs）が見つかりませんでした。');
+            throw new Error(t('surfaces.projects.scaffoldModuleProjectScaffoldPackagesProjectScaffoldSrcIndex.description'));
         }
         return importEsm<ProjectScaffoldModule>(pathToFileURL(candidate).toString());
     }
@@ -211,7 +212,7 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
     protected async loadCreatorRootModule(): Promise<CreatorRootModule> {
         const candidate = await this.findUpwardFile('packages/creator-root/src/index.mjs');
         if (!candidate) {
-            throw new Error('creator-root（packages/creator-root/src/index.mjs）が見つかりませんでした。');
+            throw new Error(t('surfaces.projects.creatorRootModuleCreatorRootPackagesCreatorRootSrcIndex.description'));
         }
         return importEsm<CreatorRootModule>(pathToFileURL(candidate).toString());
     }
@@ -293,14 +294,14 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         switch (code) {
             case 'ROOT_MANIFEST_INVALID_JSON':
             case 'ROOT_MANIFEST_UNKNOWN_SCHEMA':
-                return 'チャンネルの置き場を確認できませんでした（データの場所の中身を確認してください）。';
+                return t('surfaces.projects.channelFolderInvalid.error');
             case 'EACCES':
             case 'EPERM':
-                return 'チャンネルの置き場を作る権限がありませんでした。';
+                return t('surfaces.projects.describeEnsureErrorPermissionDeniedCreatingChannelFolder.message');
             default:
                 return error instanceof Error
-                    ? `チャンネルの置き場の作成に失敗しました（${error.message}）。`
-                    : 'チャンネルの置き場の作成に失敗しました。';
+                    ? t('surfaces.projects.channelFolderCreateFailedWithDetail.error', { error: error.message })
+                    : t('surfaces.projects.channelFolderCreateFailed.error');
         }
     }
 
@@ -316,29 +317,29 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
             : undefined;
         switch (code) {
             case 'ADOPT_DESTINATION_EXISTS':
-                return '同名のプロジェクトが、そのチャンネルに既にあります。';
+                return t('surfaces.projects.describeAdoptErrorProjectSameNameAlreadyExistsChannel.message');
             case 'ADOPT_NOT_A_PROJECT':
-                return 'AKARI Video のプロジェクトとして認識できませんでした。';
+                return t('surfaces.projects.describeAdoptErrorRecognizedAkariVideoProject.message');
             case 'ADOPT_COPY_VERIFY_FAILED':
-                return 'コピーの検証に失敗しました（元の場所はそのまま残しています）。';
+                return t('surfaces.projects.describeAdoptErrorCopyValidationFailedLeavingOriginalLocationIntact.message');
             case 'ROOT_MANIFEST_NOT_FOUND':
             case 'ROOT_MANIFEST_INVALID_JSON':
             case 'ROOT_MANIFEST_UNKNOWN_SCHEMA':
-                return '作業場の情報を読み取れませんでした。';
+                return t('surfaces.projects.describeAdoptErrorReadWorkspaceInformation.message');
             case 'EBUSY':
             case 'EPERM':
-                return 'ファイルが使用中のため移動できませんでした。';
+                return t('surfaces.projects.describeAdoptErrorFileMovedBecause.message');
             default:
                 return error instanceof Error
-                    ? `チャンネルへの移動に失敗しました（${error.message}）。`
-                    : 'チャンネルへの移動に失敗しました。';
+                    ? t('surfaces.projects.channelMoveFailedWithDetail.error', { error: error.message })
+                    : t('surfaces.projects.channelMoveFailed.error');
         }
     }
 
     protected async resolveTemplateDir(): Promise<string> {
         const candidate = await this.findUpwardDirectory('templates/project-default');
         if (!candidate) {
-            throw new Error('プロジェクト雛形（templates/project-default）が見つかりませんでした。');
+            throw new Error(t('surfaces.projects.resolveTemplateDirProjectTemplateTemplatesProjectDefaultFound.message'));
         }
         return candidate;
     }

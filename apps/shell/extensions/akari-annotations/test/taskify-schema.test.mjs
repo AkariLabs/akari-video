@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { TASKIFY_SCHEMA, validateResult } from '../lib/node/taskify/taskify-schema.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { TASKIFY_SCHEMA, validateResult } = await import('../lib/node/taskify/taskify-schema.js');
+
+
 
 const base = { summary: '案', tasks: [{ ref: 't1', title: '字幕を動かす', body: '字幕を動かす', kind: 'edit',
   target: { outputT: 0, src: 'a', sourceT: 0, cutIndex: 0, refs: ['cut:0'], region: null },

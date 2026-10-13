@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry, CommandService } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
@@ -7,9 +8,9 @@ import { SkillEntry } from '../common/skill-catalog';
 import { AKARI_COMMANDS, RAIL_SKILLS_WIDGET_ID } from '../common/rail-ids';
 
 export const AkariMenuFocusCommands = {
-    FOCUS: { id: 'akari.menu.focus', label: 'スキルまたはホームを開く' } as Command,
-    LIST_SKILLS: { id: 'akari.menu.listSkills', label: 'スキル一覧を返す' } as Command,
-    LIST_OPEN_TARGETS: { id: 'akari.menu.listOpenTargets', label: '旧「ひらく」項目の一覧を返す' } as Command
+    FOCUS: { id: 'akari.menu.focus', label: t('shell.menu.navigation.openSkillsHomeAction') } as Command,
+    LIST_SKILLS: { id: 'akari.menu.listSkills', label: t('shell.menu.navigation.returnSkillsListAction') } as Command,
+    LIST_OPEN_TARGETS: { id: 'akari.menu.listOpenTargets', label: t('shell.menu.navigation.returnOldOpenMenuItemsText') } as Command
 };
 
 interface FocusArgs { section?: 'open' | 'skills'; pulse?: boolean; skill?: string }

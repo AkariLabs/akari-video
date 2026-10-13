@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export const TASKIFY_SCHEMA = {
     type: 'object', additionalProperties: false, required: ['summary', 'tasks'],
     properties: {
@@ -40,16 +41,16 @@ const words = (value: unknown, choices: string[]): boolean => typeof value === '
 const commandWarnings = (task: ValidatedTask): string[] => {
     const value = `${task.title}\n${task.body}`;
     return [
-        /https?:\/\/|www\./i.test(value) ? 'URL が含まれます' : '',
-        /(?:^|\s)(?:rm\s+-[A-Za-z]*|sudo|curl|wget|bash|sh|git\s+push|npm\s+run)(?:\s|$)/im.test(value) ? '実行コマンドらしい記述があります' : '',
-        /(?:^|\s)(?:~\/|\/Users\/|\/home\/|[A-Za-z]:\\)/m.test(value) ? 'プロジェクト外のパスらしい記述があります' : ''
+        /https?:\/\/|www\./i.test(value) ? t('annotationscommon.taskifySchema.warning.containsUrl') : '',
+        /(?:^|\s)(?:rm\s+-[A-Za-z]*|sudo|curl|wget|bash|sh|git\s+push|npm\s+run)(?:\s|$)/im.test(value) ? t('annotationscommon.taskifySchema.warning.possibleCommand') : '',
+        /(?:^|\s)(?:~\/|\/Users\/|\/home\/|[A-Za-z]:\\)/m.test(value) ? t('annotationscommon.taskifySchema.warning.possibleExternalPath') : ''
     ].filter(Boolean);
 };
 function normalizeRegion(value: unknown): { region: { box: number[] } | null; warning?: string } {
     if (value === null) return { region: null };
     if (!object(value) || !Array.isArray(value.box) || value.box.length !== 4
         || value.box.some((part: unknown) => typeof part !== 'number' || !Number.isFinite(part))) {
-        return { region: null, warning: 'region を破棄' };
+        return { region: null, warning: t('annotationscommon.taskifySchema.warning.regionDiscarded') };
     }
     const box = (value.box as number[]).map(part => Math.max(0, Math.min(1, part)));
     let corrected = box.some((part, i) => part !== value.box[i]);
@@ -57,13 +58,13 @@ function normalizeRegion(value: unknown): { region: { box: number[] } | null; wa
         box[2] -= box[0]; box[3] -= box[1]; corrected = true;
     }
     if (box[2] <= 0 || box[3] <= 0 || box[0] + box[2] > 1 + 1e-9 || box[1] + box[3] > 1 + 1e-9) {
-        return { region: null, warning: 'region を破棄' };
+        return { region: null, warning: t('annotationscommon.taskifySchema.warning.regionDiscarded') };
     }
-    return { region: { box }, ...(corrected ? { warning: 'region を補正' } : {}) };
+    return { region: { box }, ...(corrected ? { warning: t('annotationscommon.taskifySchema.warning.regionAdjusted') } : {}) };
 }
 export function validateResult(raw: unknown, ctx: { edit?: unknown } = {}): ValidatedResult {
     if (!object(raw) || typeof raw.summary !== 'string' || !raw.summary.trim() || !Array.isArray(raw.tasks) || raw.tasks.length > 5)
-        throw new Error('結果の形または件数が不正です。');
+        throw new Error(t('annotationscommon.taskifySchema.error.invalidResultFormatItemCount'));
     const known = new Set(enumerateEditContext(ctx.edit).map(entry => entry.ref));
     const refs = new Set(raw.tasks.map(task => object(task) ? task.ref : undefined));
     const result: ValidatedResult = { summary: raw.summary, tasks: [], validated: { refsDropped: 0, warnings: [], outboundHeld: 0 } };
@@ -82,20 +83,20 @@ export function validateResult(raw: unknown, ctx: { edit?: unknown } = {}): Vali
             || typeof value.target.src !== 'string' || !object(value.evidence)
             || typeof value.evidence.memo !== 'string' || typeof value.evidence.quote !== 'string'
             || !Array.isArray(value.evidence.speech) || value.evidence.speech.length !== 2
-            || !Array.isArray(value.evidence.ink)) throw new Error(`tasks[${i}] の形が不正です。`);
+            || !Array.isArray(value.evidence.ink)) throw new Error(t('annotationscommon.taskifySchema.error.invalidTasksFormat', { index: String(i) }));
         const task = JSON.parse(JSON.stringify(value)) as ValidatedTask;
         const kept = task.target.refs.filter(ref => known.has(ref));
         const dropped = task.target.refs.length - kept.length;
         if (dropped) {
             task.target.refs = kept; task.needsConfirm = true; task.confidence = 'low';
-            task.question ||= '対象の位置を確認してください。'; result.validated.refsDropped += dropped;
+            task.question ||= t('annotationscommon.taskifySchema.warning.confirmTargetPosition'); result.validated.refsDropped += dropped;
         }
         const proposedRegion = task.target.region;
         const normalizedRegion = normalizeRegion(proposedRegion);
         task.target.region = normalizedRegion.region;
         if (normalizedRegion.warning) result.validated.warnings.push(`tasks[${i}]: ${normalizedRegion.warning}`);
         // A visual region is only a suggestion; the human must approve it.
-        if (proposedRegion !== null) { task.needsConfirm = true; task.confidence = 'low'; task.question ||= '画面内の位置を確認してください。'; }
+        if (proposedRegion !== null) { task.needsConfirm = true; task.confidence = 'low'; task.question ||= t('annotationscommon.taskifySchema.warning.confirmFramePosition'); }
         if (task.risk === 'outbound') result.validated.outboundHeld++;
         result.validated.warnings.push(...commandWarnings(task).map(w => `tasks[${i}]: ${w}`));
         result.tasks.push(task);

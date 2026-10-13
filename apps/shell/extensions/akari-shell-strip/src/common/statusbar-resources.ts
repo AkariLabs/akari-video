@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 export interface StatusbarOptions {
     cpu: boolean; gpu: boolean; memory: boolean; disk: boolean;
     running: boolean; intervalSec: number; accountBalance: boolean;
@@ -70,18 +71,18 @@ export function resourceSummary(sample: ResourceSample, options: StatusbarOption
     const parts: string[] = [];
     if (options.cpu && sample.cpuPercent !== null) parts.push(`CPU ${Math.round(sample.cpuPercent)}%`);
     if (options.gpu && sample.gpuPercent !== null) parts.push(`GPU ${Math.round(sample.gpuPercent)}%`);
-    if (options.memory) parts.push(`メモリ ${formatGb(sample.memoryUsedBytes)}`);
-    if (options.disk && sample.diskFreeBytes !== null) parts.push(`ディスク 残 ${Math.round(sample.diskFreeBytes / 1_000_000_000)} GB`);
-    if (options.running) parts.push(`実行中 ${runningCount}`);
+    if (options.memory) parts.push(t('shell.statusBar.metrics.memoryLabel', { value1: formatGb(sample.memoryUsedBytes) }));
+    if (options.disk && sample.diskFreeBytes !== null) parts.push(t('shell.statusBar.metrics.diskGbFreeText', { value1: Math.round(sample.diskFreeBytes / 1_000_000_000) }));
+    if (options.running) parts.push(t('shell.statusBar.metrics.runningStatus', { value1: runningCount }));
     return parts.join(' · ');
 }
 
 export function resourceRows(sample: ResourceSample, options: StatusbarOptions): Array<{ key: string; label: string; value: string; percent: number }> {
     const rows: Array<{ key: string; label: string; value: string; percent: number }> = [];
     const clamp = (n: number): number => Math.max(0, Math.min(100, n));
-    if (options.cpu && sample.cpuPercent !== null) rows.push({ key: 'cpu', label: 'CPU（機械全体）', value: `${Math.round(sample.cpuPercent)}%`, percent: clamp(sample.cpuPercent) });
+    if (options.cpu && sample.cpuPercent !== null) rows.push({ key: 'cpu', label: t('shell.statusBar.metrics.cpuSystemLabel'), value: `${Math.round(sample.cpuPercent)}%`, percent: clamp(sample.cpuPercent) });
     if (options.gpu && sample.gpuPercent !== null) rows.push({ key: 'gpu', label: 'GPU', value: `${Math.round(sample.gpuPercent)}%`, percent: clamp(sample.gpuPercent) });
-    if (options.memory) rows.push({ key: 'memory', label: 'メモリ（機械全体）', value: formatGb(sample.memoryUsedBytes), percent: clamp(sample.memoryUsedBytes / sample.memoryTotalBytes * 100) });
-    if (options.disk && sample.diskFreeBytes !== null && sample.diskTotalBytes) rows.push({ key: 'disk', label: 'ディスク', value: `残 ${Math.round(sample.diskFreeBytes / 1_000_000_000)} GB`, percent: clamp((sample.diskTotalBytes - sample.diskFreeBytes) / sample.diskTotalBytes * 100) });
+    if (options.memory) rows.push({ key: 'memory', label: t('shell.statusBar.metrics.memorySystemLabel'), value: formatGb(sample.memoryUsedBytes), percent: clamp(sample.memoryUsedBytes / sample.memoryTotalBytes * 100) });
+    if (options.disk && sample.diskFreeBytes !== null && sample.diskTotalBytes) rows.push({ key: 'disk', label: t('shell.statusBar.metrics.diskLabel'), value: t('shell.statusBar.metrics.gbFreeLabel', { value1: Math.round(sample.diskFreeBytes / 1_000_000_000) }), percent: clamp((sample.diskTotalBytes - sample.diskFreeBytes) / sample.diskTotalBytes * 100) });
     return rows;
 }

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { renderText } from './i18n.mjs';
 import { createRequire } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 
@@ -298,8 +299,11 @@ function expandedHtmlOverlays(internal, projectRoot) {
     return htmlCache.get(reference);
   }, { keyframeUnit: "frames" }).map(overlay => {
     if (!overlay.html.trimStart().startsWith("<")) return overlay;
+    // キャンバスの背景（parts.mjs が edit.json の canvas.background から合成する中身直書きの HTML）は
+    // 図形と同じく edit.json を出どころにする。無いと書き出しが「inline overlay html requires htmlPath」で止まる
     const htmlPath = sourceById.get(String(overlay.id))
-      ?? sourceById.get(String(overlay.parentId ?? ""));
+      ?? sourceById.get(String(overlay.parentId ?? ""))
+      ?? (overlay.role === "background" ? "edit.json" : undefined);
     return htmlPath === undefined ? overlay : { ...overlay, htmlPath };
   });
 }
@@ -424,7 +428,7 @@ export function renderItemDeclaration(item, temporaryDirectory) {
       };
     case "telop":
       if (item.source.baked === undefined) {
-        throw new Error(`telop.retired: ${item.id}: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。既存の baked は再生できます。`);
+        throw new Error(renderText('render.telop.error.retired', { id: item.id }));
       }
       return {
         ...declaration,

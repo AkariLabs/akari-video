@@ -424,6 +424,91 @@
     let activeDrag = null;
     let activeResize = null;
     let activeRotate = null;
+    let activeRotation3d = null;
+    let rotation3dFrame = null;
+    const pendingRotation3d = /* @__PURE__ */ new Map();
+    const rotation3dNames = ["--akari-3d-rot-x", "--akari-3d-rot-y", "--akari-3d-rot-z"];
+    function rotation3dHitTest(x, y, radius, tolerance = 10) {
+      if (!(radius > 0) || ![x, y].every(Number.isFinite)) return null;
+      const candidates = [
+        ["z", radius, radius],
+        ["y", radius, radius * 0.32],
+        ["x", radius * 0.32, radius]
+      ].map(([axis, rx, ry]) => {
+        const distance = Math.abs(Math.hypot(x / rx, y / ry) - 1) * Math.min(rx, ry);
+        return { axis, distance };
+      }).filter((candidate) => candidate.distance <= tolerance).sort((a, b) => a.distance - b.distance);
+      if (candidates.length) return candidates[0].axis;
+      return null;
+    }
+    function rotation3dValues(start, axis, pointerStart, pointerNow, radius, shift) {
+      const result = { ...start };
+      if (!(radius > 0)) return result;
+      const degrees = (delta) => shift ? Math.round(delta / 15) * 15 : delta;
+      const dx = pointerNow.x - pointerStart.x, dy = pointerNow.y - pointerStart.y;
+      if (axis === "z") {
+        let radians = Math.atan2(pointerNow.y, pointerNow.x) - Math.atan2(pointerStart.y, pointerStart.x);
+        if (radians > Math.PI) radians -= Math.PI * 2;
+        if (radians < -Math.PI) radians += Math.PI * 2;
+        result.z = start.z - degrees(radians * 180 / Math.PI);
+      } else {
+        if (axis === "x") result.x = start.x + degrees(dy / radius * 90);
+        if (axis === "y") result.y = start.y + degrees(dx / radius * 90);
+      }
+      return result;
+    }
+    function rotation3dChanged(start, next) {
+      return ["x", "y", "z"].some((axis) => Math.abs(next[axis] - start[axis]) >= 0.05);
+    }
+    function rotation3dVars(values) {
+      return Object.fromEntries(rotation3dNames.map((name, index) => [name, values[["x", "y", "z"][index]]]));
+    }
+    function isRotation3dItem(container) {
+      return Boolean(container?.querySelector('script[type="application/json"][data-akari-3d-scene]'));
+    }
+    function clearRotation3dLive(id) {
+      window.akari.runtime?.setLiveVars?.(id, null);
+      reportLiveValues(id, void 0, true);
+      syncRotation3dFromModel(id);
+      pendingRotation3d.delete(id);
+    }
+    function syncRotation3dFromModel(id) {
+      const container = containerById(id);
+      const overlay = window.akari.state?.summary?.overlays?.find((value) => value.id === id);
+      if (!container || !overlay || !isRotation3dItem(container)) return;
+      const animated = window.akari.itemMotion?.evaluateOverlayVars?.(
+        overlay,
+        window.akari.playheadSeconds ?? 0,
+        window.akari.state?.summary?.output?.fps
+      ) ?? {};
+      for (const name of rotation3dNames) {
+        const value = animated[name] ?? overlay.vars?.[name] ?? 0;
+        container.style.setProperty(name, String(value));
+      }
+      window.akari.threeRuntime?.renderNow?.(container);
+    }
+    function settleRotation3dAfterModel() {
+      for (const [id, pending] of pendingRotation3d) {
+        if (pending.saved && pending.modelUpdated) clearRotation3dLive(id);
+      }
+    }
+    function observeRotation3dModel(next) {
+      if (!Array.isArray(next?.overlays)) return;
+      for (const [id, pending] of pendingRotation3d) {
+        const overlay = next.overlays.find((value) => value.id === id);
+        if (!overlay) continue;
+        const staticMatch = rotation3dNames.every((name) => Math.abs(Number(overlay.vars?.[name] ?? 0) - pending.vars[name]) <= 5e-4 + Number.EPSILON);
+        const keysChanged = pending.beforeKeyframes !== JSON.stringify(overlay.keyframes);
+        if (staticMatch || keysChanged) pending.modelUpdated = true;
+      }
+    }
+    function restoreRotation3dAfterModel() {
+      settleRotation3dAfterModel();
+      for (const overlay of window.akari.state?.summary?.overlays ?? []) {
+        if (activeRotation3d?.overlayId === overlay.id || pendingRotation3d.has(overlay.id)) continue;
+        syncRotation3dFromModel(overlay.id);
+      }
+    }
     function reportLiveValues(id, values, clear = false) {
       if (!id || typeof window.akari?.reportLiveValues !== "function") return;
       window.akari.reportLiveValues({ id, ...clear ? { clear: true } : { values } });
@@ -471,7 +556,7 @@
     let pausedHitPolicyTimer = null;
     let lastPointerHitPolicyRefresh = -Infinity;
     function hitPolicyOperationBusy() {
-      return Boolean(activeEdit || activeDrag || activeResize || activeRotate || activeLine || marqueeFrame || pointerOwner != null);
+      return Boolean(activeEdit || activeDrag || activeResize || activeRotate || activeRotation3d || activeLine || marqueeFrame || pointerOwner != null);
     }
     function schedulePausedHitPolicyRefresh(delay = 120) {
       if (typeof setTimeout !== "function") return;
@@ -1376,6 +1461,231 @@
       }
       return frame;
     }
+    function rotation3dRingDistance(x, y, center, radius) {
+      if (!(radius > 0) || ![x, y, center?.x, center?.y].every(Number.isFinite)) return Infinity;
+      const dx = x - center.x, dy = y - center.y;
+      return Math.min(...[[radius, radius], [radius, radius * 0.32], [radius * 0.32, radius]].map(([rx, ry]) => Math.abs(Math.hypot(dx / rx, dy / ry) - 1) * Math.min(rx, ry)));
+    }
+    function selectionHandlePlacement(rect, stageRect, paneRect, menuRects, controlsRect, viewportRect, ringDistance = null) {
+      const bounds = (value) => ({
+        left: value.left,
+        top: value.top,
+        right: value.left + value.width,
+        bottom: value.top + value.height
+      });
+      const stageBounds = bounds(stageRect), paneBounds = bounds(paneRect);
+      const viewport = bounds(viewportRect);
+      const visible = {
+        left: Math.max(stageBounds.left, paneBounds.left, viewport.left),
+        top: Math.max(stageBounds.top, paneBounds.top, viewport.top),
+        right: Math.min(stageBounds.right, paneBounds.right, viewport.right),
+        bottom: Math.min(stageBounds.bottom, paneBounds.bottom, viewport.bottom)
+      };
+      const intersects = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const controls = controlsRect && bounds(controlsRect);
+      if (controls && intersects(visible, controls) && controls.bottom >= visible.bottom - 30)
+        visible.bottom = Math.min(visible.bottom, controls.top - 2);
+      if (visible.right - visible.left < 39 || visible.bottom - visible.top < 39) return null;
+      const original = bounds(rect);
+      if (original.left >= visible.left && original.top >= visible.top && original.right <= visible.right && original.bottom <= visible.bottom) return null;
+      const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+      const menus = (Array.isArray(menuRects) ? menuRects : menuRects ? [menuRects] : []).filter(Boolean).map(bounds);
+      const overlapsMenu = (x, y, radius2) => menus.some((menu) => intersects(
+        { left: x - radius2, top: y - radius2, right: x + radius2, bottom: y + radius2 },
+        menu
+      ));
+      const cornerRadius = 7;
+      const corners = {};
+      const anchors = {};
+      let left = clamp(original.left, visible.left + cornerRadius, visible.right - cornerRadius);
+      let right = clamp(original.right, visible.left + cornerRadius, visible.right - cornerRadius);
+      let top = clamp(original.top, visible.top + cornerRadius, visible.bottom - cornerRadius);
+      let bottom = clamp(original.bottom, visible.top + cornerRadius, visible.bottom - cornerRadius);
+      if (right - left < 25) {
+        left = clamp(left, visible.left + cornerRadius, visible.right - cornerRadius - 25);
+        right = left + 25;
+      }
+      if (bottom - top < 25) {
+        top = clamp(top, visible.top + cornerRadius, visible.bottom - cornerRadius - 25);
+        bottom = top + 25;
+      }
+      const topLimit = (top + bottom - 25) / 2;
+      const bottomLimit = (top + bottom + 25) / 2;
+      const clearCorner = (x, y, low, high) => {
+        const choices = [y, ...menus.flatMap((menu) => [
+          menu.top - cornerRadius - 2,
+          menu.bottom + cornerRadius + 2
+        ]), ...ringDistance ? [low, high, (low + high) / 2] : []].filter((candidate) => candidate >= low && candidate <= high).sort((a, b) => Math.abs(a - y) - Math.abs(b - y));
+        const free2 = choices.filter((candidate) => !overlapsMenu(x, candidate, cornerRadius));
+        if (!ringDistance) return free2[0] ?? y;
+        return free2.find((candidate) => ringDistance(x, candidate) >= cornerRadius + 10) ?? free2.sort((a, b) => ringDistance(x, b) - ringDistance(x, a))[0] ?? y;
+      };
+      for (const name of ["nw", "ne", "se", "sw"]) {
+        const placedX = name.includes("w") ? left : right;
+        const placedY = name.includes("n") ? clearCorner(placedX, top, visible.top + cornerRadius, topLimit) : clearCorner(placedX, bottom, bottomLimit, visible.bottom - cornerRadius);
+        corners[name] = { x: placedX, y: placedY };
+        anchors[name] = {
+          x: name.includes("w") ? original.right : original.left,
+          y: name.includes("n") ? original.bottom : original.top
+        };
+      }
+      const radius = 12.5;
+      const centerX = clamp(
+        rect.left + rect.width / 2,
+        visible.left + radius + 2,
+        visible.right - radius - 2
+      );
+      const centerY = clamp(
+        rect.top + rect.height / 2,
+        visible.top + radius + 2,
+        visible.bottom - radius - 2
+      );
+      const candidates = [
+        { x: centerX, y: original.bottom + 25 },
+        { x: original.right + radius + 4, y: centerY },
+        { x: original.left - radius - 4, y: centerY },
+        { x: centerX, y: original.top - 25 },
+        { x: centerX, y: original.bottom - radius },
+        { x: centerX, y: original.top + radius }
+      ];
+      const fits = (point) => {
+        const button = {
+          left: point.x - radius,
+          top: point.y - radius,
+          right: point.x + radius,
+          bottom: point.y + radius
+        };
+        return button.left >= visible.left + 2 && button.right <= visible.right - 2 && button.top >= visible.top + 2 && button.bottom <= visible.bottom - 2 && !menus.some((menu) => intersects(button, menu));
+      };
+      const safeLeft = visible.left + radius + 2;
+      const safeRight = visible.right - radius - 2;
+      const safeTop = visible.top + radius + 2;
+      const safeBottom = visible.bottom - radius - 2;
+      const fallbackX = [
+        clamp(original.right + radius + 4, safeLeft, safeRight),
+        clamp(original.left - radius - 4, safeLeft, safeRight),
+        centerX
+      ];
+      const fallbackY = [centerY, ...menus.flatMap((menu) => [
+        menu.top - radius,
+        menu.bottom + radius
+      ]), safeBottom, safeTop];
+      const fallback = fallbackX.flatMap((x) => fallbackY.map((y) => ({ x, y })));
+      const free = [...candidates, ...fallback].filter(fits);
+      const move = ringDistance ? free.find((point) => ringDistance(point.x, point.y) >= radius + 10) ?? free.sort((a, b) => ringDistance(b.x, b.y) - ringDistance(a.x, a.y))[0] ?? { x: centerX, y: centerY } : candidates.find(fits) ?? fallback.find(fits) ?? { x: centerX, y: centerY };
+      return { visible, corners, anchors, move };
+    }
+    function resizePointerOffset(dragged, pointer, relocated) {
+      return relocated ? { x: dragged.x - pointer.x, y: dragged.y - pointer.y } : { x: 0, y: 0 };
+    }
+    function placeSelectionHandles(rect, transform, focused, lineRect) {
+      if (!selectionFrame) return;
+      const pane = document.querySelector(".preview-pane");
+      const ringCenter = rotation3dFrame && !rotation3dFrame.hasAttribute("hidden") ? { x: Number(rotation3dFrame.dataset.centerX), y: Number(rotation3dFrame.dataset.centerY) } : null;
+      const ringRadius = rotation3dFrame ? Number(rotation3dFrame.dataset.radius) : 0;
+      const ringDistance = isRotation3dItem(selectedOverlay) && ringCenter && ringRadius > 0 ? (x, y) => rotation3dRingDistance(x, y, ringCenter, ringRadius) : null;
+      const placement = !focused && !lineRect && !transform.rotate && pane ? selectionHandlePlacement(
+        rect,
+        stage.getBoundingClientRect(),
+        pane.getBoundingClientRect(),
+        window.akari.previewInteractionMenuRects,
+        document.querySelector(".transport-controls")?.getBoundingClientRect(),
+        { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight },
+        ringDistance
+      ) : null;
+      for (const name of ["nw", "ne", "se", "sw"]) {
+        const handle = selectionFrame.querySelector(`.akari-interaction-handle.is-${name}`);
+        if (!handle) continue;
+        handle.style.removeProperty("left");
+        handle.style.removeProperty("right");
+        handle.style.removeProperty("top");
+        handle.style.removeProperty("bottom");
+        handle.style.removeProperty("transform");
+        delete handle.dataset.akariRelocated;
+        if (!placement) continue;
+        handle.style.left = `${placement.corners[name].x - rect.left}px`;
+        handle.style.top = `${placement.corners[name].y - rect.top}px`;
+        handle.style.transform = "translate(-50%, -50%)";
+        handle.dataset.akariRelocated = "true";
+      }
+      const move = selectionFrame.querySelector(".akari-interaction-action.is-move");
+      if (!move) return;
+      move.style.top = "auto";
+      move.style.bottom = "-38px";
+      move.style.left = "calc(50% + 2px)";
+      if (placement) {
+        move.style.top = `${placement.move.y - rect.top - 12.5}px`;
+        move.style.bottom = "auto";
+        move.style.left = `${placement.move.x - rect.left - 12.5}px`;
+      }
+    }
+    function refreshRotation3dFrame(rect) {
+      const item = selectedOverlay;
+      if (!rect || !isRotation3dItem(item) || !isMovable(item) || focusedElement()) {
+        rotation3dFrame?.setAttribute("hidden", "");
+        return;
+      }
+      let canvas, center;
+      try {
+        canvas = window.akari.threeRuntime?.canvasFor?.(item);
+        center = canvas && window.akari.threeRuntime?.posePivotClient?.(canvas);
+      } catch {
+      }
+      if (!center || ![center.x, center.y].every(Number.isFinite)) {
+        rotation3dFrame?.setAttribute("hidden", "");
+        return;
+      }
+      const radius = activeRotation3d?.radius ?? Math.min(220, Math.max(36, Math.max(rect.width, rect.height) * 0.32));
+      if (!Number.isFinite(radius)) {
+        rotation3dFrame?.setAttribute("hidden", "");
+        return;
+      }
+      if (!rotation3dFrame?.isConnected) {
+        rotation3dFrame = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        rotation3dFrame.classList.add("akari-interaction-rotation3d");
+        rotation3dFrame.setAttribute("data-akari-interaction", "rotation3d-frame");
+        rotation3dFrame.setAttribute("aria-label", "3D \u306E\u5411\u304D\u3092\u56DE\u8EE2");
+        document.body.appendChild(rotation3dFrame);
+      }
+      rotation3dFrame.removeAttribute("hidden");
+      const padding = 14, size = radius * 2 + padding * 2, origin = radius + padding;
+      rotation3dFrame.style.left = `${center.x - origin}px`;
+      rotation3dFrame.style.top = `${center.y - origin}px`;
+      rotation3dFrame.style.width = `${size}px`;
+      rotation3dFrame.style.height = `${size}px`;
+      rotation3dFrame.setAttribute("viewBox", `0 0 ${size} ${size}`);
+      if (rotation3dFrame.dataset.radius !== String(radius)) {
+        rotation3dFrame.replaceChildren();
+        const createEllipse = (axis, rx, ry, color) => {
+          const visible = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+          for (const [name, value] of Object.entries({
+            cx: origin,
+            cy: origin,
+            rx,
+            ry,
+            fill: "none",
+            stroke: color,
+            "stroke-width": 2.5
+          })) visible.setAttribute(name, String(value));
+          visible.classList.add("akari-interaction-rotation3d-visible");
+          rotation3dFrame.appendChild(visible);
+          const hit = visible.cloneNode(false);
+          hit.classList.remove("akari-interaction-rotation3d-visible");
+          hit.classList.add("akari-interaction-rotation3d-hit");
+          hit.setAttribute("stroke", "transparent");
+          hit.setAttribute("stroke-width", "18");
+          hit.setAttribute("data-akari-rotation-axis", axis);
+          hit.setAttribute("aria-label", `${axis.toUpperCase()} \u8EF8\u3092\u56DE\u8EE2`);
+          rotation3dFrame.appendChild(hit);
+        };
+        createEllipse("z", radius, radius, "#399bff");
+        createEllipse("y", radius, radius * 0.32, "#35cb70");
+        createEllipse("x", radius * 0.32, radius, "#f46060");
+        rotation3dFrame.dataset.radius = String(radius);
+      }
+      rotation3dFrame.dataset.centerX = String(center.x);
+      rotation3dFrame.dataset.centerY = String(center.y);
+    }
     function isTelopOverlay(container) {
       if (!container) return false;
       if (container.dataset.akariTelop === "true") return true;
@@ -1449,6 +1759,7 @@
     }
     function refreshSelectionFrame() {
       if (collectiveSelection()) {
+        rotation3dFrame?.setAttribute("hidden", "");
         refreshGroupFrame();
         return;
       }
@@ -1468,6 +1779,7 @@
       } : selectedOverlay.dataset.role === "shape-line" ? lineRect : transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
       if (!rect) {
         if (selectionFrame) selectionFrame.hidden = true;
+        rotation3dFrame?.setAttribute("hidden", "");
         return;
       }
       if (!selectionFrame?.isConnected) {
@@ -1481,10 +1793,11 @@
         elementHandlePlacementFrame = null;
       }
       selectionFrame.classList.toggle("is-locked", isLockedItem(selectedOverlay));
-      selectionFrame.classList.toggle("is-busy", Boolean(activeDrag || activeResize || activeRotate || activeLine));
+      selectionFrame.classList.toggle("is-busy", Boolean(activeDrag || activeResize || activeRotate || activeRotation3d || activeLine));
       selectionFrame.classList.toggle("is-moving", Boolean(activeDrag || activeRotate));
       selectionFrame.classList.toggle("is-text", selectedOverlay.dataset.role === "text");
       selectionFrame.classList.toggle("is-telop", isTelopOverlay(selectedOverlay));
+      selectionFrame.classList.toggle("is-rotation3d", isRotation3dItem(selectedOverlay));
       selectionFrame.classList.toggle("is-line", selectedOverlay.dataset.role === "shape-line");
       if (focused) elementHandlePlacementFrame = selectionFrame;
       selectionFrame.classList.toggle("is-element-focus", Boolean(focused));
@@ -1528,12 +1841,17 @@
       selectionFrame.dataset.akariSelectionKind = "leaf";
       const usableRect = [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) && rect.width > 0 && rect.height > 0;
       selectionFrame.hidden = !usableRect;
-      if (!usableRect) return;
+      if (!usableRect) {
+        rotation3dFrame?.setAttribute("hidden", "");
+        return;
+      }
+      refreshRotation3dFrame(rect);
       selectionFrame.style.left = `${rect.left}px`;
       selectionFrame.style.top = `${rect.top}px`;
       selectionFrame.style.width = `${rect.width}px`;
       selectionFrame.style.height = `${rect.height}px`;
       selectionFrame.style.setProperty("--akari-line-end-inset", `${lineRect?.endPadding ?? 0}px`);
+      placeSelectionHandles(rect, transform, focused, lineRect);
       if (lineRect) {
         selectionFrame.style.transformOrigin = "center";
         selectionFrame.style.transform = `rotate(${lineRect.angle}deg)`;
@@ -1545,6 +1863,7 @@
     }
     function trackSelectionFrame() {
       selectionTrackingFrame = null;
+      settleRotation3dAfterModel();
       if (collectiveSelection()) {
         refreshGroupFrame();
         selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
@@ -1567,7 +1886,7 @@
         }
       }
       if (!selectedOverlay) return;
-      if (!selectedOverlay.isConnected && elementFocus?.overlayId === selectedId) {
+      if (!selectedOverlay.isConnected) {
         selectedOverlay = containerById(selectedId);
         if (!selectedOverlay) {
           selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
@@ -1596,6 +1915,7 @@
       elementFocus = null;
       telopInnerId = null;
       if (activeRotate) cancelRotate();
+      if (activeRotation3d) cancelRotation3d();
       if (activeLine) finishLineEndpoint(true);
       flushNudge();
       hideHover();
@@ -1611,6 +1931,8 @@
       groupSelection = false;
       selectionFrame?.remove();
       selectionFrame = null;
+      rotation3dFrame?.remove();
+      rotation3dFrame = null;
       hideSnapGuides();
       if (hadElementFocus || hadTelopSelection) renderScopeBreadcrumb();
     }
@@ -1666,7 +1988,7 @@
       return window.akari.state?.summary?.overlays?.some((overlay) => overlay.id === container.dataset.overlayId && overlay.elementSelection === true) === true;
     }
     function canFocusElement(container) {
-      return elementSelectionEnabled(container) && (!isTelopOverlay(container) || telopInnerId === selectedId && selectedId === container.dataset.overlayId);
+      return elementSelectionEnabled(container) && !isRotation3dItem(container) && (!isTelopOverlay(container) || telopInnerId === selectedId && selectedId === container.dataset.overlayId);
     }
     function setTelopInnerSelection(overlayId, inner) {
       if (typeof overlayId !== "string" || selectedId !== overlayId || selectedIds.length !== 1 || groupSelection || !selectedOverlay || !isTelopOverlay(selectedOverlay) || !elementSelectionEnabled(selectedOverlay)) return false;
@@ -1704,6 +2026,7 @@
       }
     }
     function focusElement(element, { notify = true } = {}) {
+      if (!elementSelectionEnabled(selectedOverlay) || isRotation3dItem(selectedOverlay)) element = null;
       const root = fragmentRoot(selectedOverlay);
       if (element && !selectableElement(root, element, stage?.getBoundingClientRect(), selectionOptions(root))) element = null;
       const ref = element && elementAddress(root, element);
@@ -1810,6 +2133,7 @@
         width: `${rect.width}px`,
         height: `${rect.height}px`
       });
+      placeSelectionHandles(rect, { rotate: activeRotate?.angle ?? 0 }, false, null);
     }
     let breadcrumbResizeObserver = null;
     let breadcrumbHoverActive = false;
@@ -3729,8 +4053,13 @@
       const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
       const pointer = stageLocalPoint(event.clientX, event.clientY);
       if (!anchor || !dragged || !pointer) return;
-      const pointerOffsetX = rotated ? dragged.x - pointer.x : 0;
-      const pointerOffsetY = rotated ? dragged.y - pointer.y : 0;
+      const offset = resizePointerOffset(
+        dragged,
+        pointer,
+        Boolean(rotated) || handleEl.dataset.akariRelocated === "true"
+      );
+      const pointerOffsetX = offset.x;
+      const pointerOffsetY = offset.y;
       const startDistance = Math.hypot(
         pointer.x + pointerOffsetX - anchor.x,
         pointer.y + pointerOffsetY - anchor.y
@@ -3882,6 +4211,109 @@
       } catch {
       }
       if (event.cancelable) event.preventDefault();
+    }
+    function beginRotation3d(event, handleEl) {
+      if (!isMovable(selectedOverlay) || !rotation3dFrame || rotation3dFrame.hasAttribute("hidden")) return;
+      const center = {
+        x: Number(rotation3dFrame.dataset.centerX),
+        y: Number(rotation3dFrame.dataset.centerY)
+      };
+      const radius = Number(rotation3dFrame.dataset.radius);
+      const startPointer = { x: event.clientX - center.x, y: event.clientY - center.y };
+      const axis = rotation3dHitTest(startPointer.x, startPointer.y, radius) ?? handleEl.getAttribute("data-akari-rotation-axis");
+      if (!axis) return;
+      const values = {
+        x: cssVariableNumber(selectedOverlay, rotation3dNames[0], 0),
+        y: cssVariableNumber(selectedOverlay, rotation3dNames[1], 0),
+        z: cssVariableNumber(selectedOverlay, rotation3dNames[2], 0)
+      };
+      pendingRotation3d.delete(selectedId);
+      activeRotation3d = {
+        overlayId: selectedId,
+        container: selectedOverlay,
+        pointerId: event.pointerId,
+        handleEl,
+        axis,
+        center,
+        radius,
+        startPointer,
+        start: values,
+        values,
+        writeContext: captureWriteContext()
+      };
+      window.akari.reportGesture?.("begin");
+      try {
+        handleEl.setPointerCapture?.(event.pointerId);
+      } catch {
+      }
+      if (event.cancelable) event.preventDefault();
+    }
+    function updateRotation3d(event) {
+      const gesture = activeRotation3d;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const pointer = { x: event.clientX - gesture.center.x, y: event.clientY - gesture.center.y };
+      gesture.values = rotation3dValues(
+        gesture.start,
+        gesture.axis,
+        gesture.startPointer,
+        pointer,
+        gesture.radius,
+        event.shiftKey
+      );
+      const vars = rotation3dVars(gesture.values);
+      window.akari.runtime?.setLiveVars?.(gesture.overlayId, vars);
+      window.akari.threeRuntime?.renderNow?.(gesture.container);
+      reportLiveValues(gesture.overlayId, vars);
+      if (clickOrigin && rotation3dChanged(gesture.start, gesture.values)) clickOrigin.moved = true;
+      if (event.cancelable) event.preventDefault();
+    }
+    function cancelRotation3d() {
+      const gesture = activeRotation3d;
+      if (!gesture) return;
+      activeRotation3d = null;
+      try {
+        gesture.handleEl.releasePointerCapture?.(gesture.pointerId);
+      } catch {
+      }
+      clearRotation3dLive(gesture.overlayId);
+      endDragGesture();
+    }
+    function finishRotation3d(event) {
+      const gesture = activeRotation3d;
+      if (!gesture) return;
+      updateRotation3d(event);
+      activeRotation3d = null;
+      try {
+        gesture.handleEl.releasePointerCapture?.(gesture.pointerId);
+      } catch {
+      }
+      if (!rotation3dChanged(gesture.start, gesture.values)) {
+        clearRotation3dLive(gesture.overlayId);
+        endDragGesture();
+        return;
+      }
+      const beforeKeyframes = JSON.stringify(window.akari.state?.summary?.overlays?.find((value) => value.id === gesture.overlayId)?.keyframes);
+      const pending = {
+        saved: false,
+        modelUpdated: false,
+        vars: rotation3dVars(gesture.values),
+        beforeKeyframes
+      };
+      pendingRotation3d.set(gesture.overlayId, pending);
+      const record = enqueueWrite(
+        gesture.writeContext,
+        gesture.overlayId,
+        { varsAt: rotation3dVars(gesture.values) },
+        "3D \u56DE\u8EE2"
+      );
+      record.promise.then(() => {
+        pending.saved = true;
+        settleRotation3dAfterModel();
+        window.akari.reportGesture?.("saved");
+      }, (error) => {
+        if (pendingRotation3d.get(gesture.overlayId) === pending) clearRotation3dLive(gesture.overlayId);
+        reportWriteError("3D \u56DE\u8EE2", gesture.overlayId, error);
+      }).finally(endDragGesture);
     }
     function updateRotate(event) {
       const rotation = activeRotate;
@@ -4406,7 +4838,7 @@
     function onPointerDown(event) {
       if (!interactionEnabled || !canBeginPointerInteraction(pointerOwner)) return;
       event = correctedHitPolicyEvent(event);
-      if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
+      if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeRotation3d || activeLine) return;
       if (selectedId && stage && event.target instanceof Element) {
         const bounds = stage.getBoundingClientRect();
         const outside = event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
@@ -4420,6 +4852,12 @@
       flushNudge();
       hideHover();
       clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
+      const rotation3dHandle = event.target instanceof Element ? event.target.closest("[data-akari-rotation-axis]") : null;
+      if (rotation3dHandle && rotation3dFrame?.contains(rotation3dHandle)) {
+        if (event.altKey) beginLeafDrag(event, selectedOverlay);
+        else beginRotation3d(event, rotation3dHandle);
+        return;
+      }
       if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
       if (selectionTree().length) {
         const handle = findHandleElement(event.target);
@@ -4480,7 +4918,12 @@
           { deep: Boolean(event.metaKey || event.ctrlKey) }
         );
         const keepSet = selectedIds.length > 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey && next.scopeId === scopeId && selectedIds.includes(next.selectId);
-        if (!keepSet && !selectScopedHit(hit, event)) return;
+        if (!keepSet && !selectScopedHit(hit, event)) {
+          if (floorScopeId !== null && next.selectId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) {
+            window.akari.reportOverlaySelection?.(next.selectId, null);
+          }
+          return;
+        }
         if (collectiveSelection()) {
           beginGroupDrag(event, hit);
           return;
@@ -4618,6 +5061,13 @@
         if (activeDrag === drag) onPointerMove(event, true);
       }, 96);
     }
+    function onWindowPointerMove(event) {
+      if (activeRotation3d && event.pointerId === activeRotation3d.pointerId) {
+        updateRotation3d(event);
+        return;
+      }
+      onPointerMove(event);
+    }
     function onPointerMove(event, settled = false) {
       if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
         const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
@@ -4693,6 +5143,10 @@
       if (event.cancelable) event.preventDefault();
     }
     function onPointerUp(event) {
+      if (activeRotation3d && event.pointerId === activeRotation3d.pointerId) {
+        finishRotation3d(event);
+        return;
+      }
       if (activeLine && event.pointerId === activeLine.pointerId) {
         finishLineEndpoint();
         return;
@@ -4725,6 +5179,10 @@
       finishDrag();
     }
     function onPointerCancel(event) {
+      if (activeRotation3d && event.pointerId === activeRotation3d.pointerId) {
+        cancelRotation3d();
+        return;
+      }
       if (activeLine && event.pointerId === activeLine.pointerId) {
         finishLineEndpoint(true);
         return;
@@ -5287,6 +5745,11 @@
           stop();
           return;
         }
+        if (event.key === "Escape" && activeRotation3d) {
+          cancelRotation3d();
+          stop();
+          return;
+        }
         if (event.key === "Escape" || event.key === "Enter" && event.shiftKey) {
           const root = fragmentRoot(selectedOverlay);
           const parent = nearestSelectableElement(
@@ -5305,7 +5768,7 @@
           return;
         }
       }
-      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && elementSelectionEnabled(selectedOverlay) && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
+      if (event.key === "Enter" && !event.shiftKey && !activeEdit && !selectedElementFocus() && selectedOverlay && elementSelectionEnabled(selectedOverlay) && !isRotation3dItem(selectedOverlay) && (!isTelopOverlay(selectedOverlay) || selectedIds.length === 1)) {
         const root = fragmentRoot(selectedOverlay);
         const first = firstSelectableElement(root, stage?.getBoundingClientRect(), selectionOptions(root));
         if (first) {
@@ -5348,6 +5811,11 @@
           }
           if (activeRotate) {
             cancelRotate();
+            handled();
+            return;
+          }
+          if (activeRotation3d) {
+            cancelRotation3d();
             handled();
             return;
           }
@@ -5743,7 +6211,7 @@
         }
       }).observe(stage, { childList: true });
     }
-    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointermove", onWindowPointerMove, true);
     window.addEventListener("pointerup", onPointerUp, true);
     window.addEventListener("pointercancel", onPointerCancel, true);
     window.addEventListener("keydown", onKeyDown, true);
@@ -5762,6 +6230,15 @@
         const style = getComputedStyle(element);
         return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0;
       };
+      if (requestedKind === "video" || requestedKind === "image") {
+        const scenes = [...document.querySelectorAll("[data-overlay-id]")].filter((element) => visible(element) && element.querySelector("script[data-akari-3d-scene]")).sort((a, b) => Number(b.style.zIndex || 0) - Number(a.style.zIndex || 0));
+        for (const scene of scenes) {
+          const canvas = scene.querySelector("canvas");
+          const rect = canvas && (window.akari.threeRuntime?.contentBounds?.(canvas) ?? canvas.getBoundingClientRect());
+          if (rect && contains(rect)) return { kind: "item", id: scene.dataset.overlayId, rect };
+        }
+        return null;
+      }
       const captions = [...document.querySelectorAll(".caption-row-plate[data-caption-key]")].reverse();
       for (const plate of requestedKind === "lut" ? [] : captions) {
         if (!visible(plate)) continue;
@@ -5780,11 +6257,13 @@
     return {
       protectModelSummary,
       restorePendingDragTransforms,
+      observeRotation3dModel,
+      restoreRotation3dAfterModel,
       get pointerOwner() {
         return pointerOwner;
       },
       get activePointerOperation() {
-        return Boolean(activeDrag || activeResize || activeRotate || activeLine || marqueeFrame);
+        return Boolean(activeDrag || activeResize || activeRotate || activeRotation3d || activeLine || marqueeFrame);
       },
       canBeginPointerInteraction,
       setPointerOwner,

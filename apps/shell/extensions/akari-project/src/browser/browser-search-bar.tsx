@@ -1,6 +1,7 @@
+import { t } from '../common/project-text';
 import * as React from '@theia/core/shared/react';
 import { createPortal } from '@theia/core/shared/react-dom';
-import { BrowserEngine } from '../common/browser-engines';
+import { BrowserEngine, browserEngineButtonLabel } from '../common/browser-engines';
 import { AKARI_BORDER, AKARI_INK, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 interface Props {
@@ -78,36 +79,36 @@ export function BrowserSearchBar(props: Props): React.ReactElement {
     const visible = props.engines.slice(0, visibleCount);
     const hidden = props.engines.slice(visibleCount);
     const selectedHidden = hidden.find(engine => engine.id === props.selected);
-    const selectedLabel = props.engines.find(engine => engine.id === props.selected)?.label ?? '検索サイト';
-    const buttonLabel = width > 0 && width <= 480 ? selectedLabel.replace(/\s*画像$/, '') : selectedLabel;
+    const selectedEngine = props.engines.find(engine => engine.id === props.selected);
+    const selectedLabel = selectedEngine?.label ?? t('project.web.assetSite.searchSiteAction');
+    const buttonLabel = selectedEngine ? browserEngineButtonLabel(selectedEngine, width) : selectedLabel;
     return <header ref={ref} data-akari-browser-search-bar data-narrow={width > 0 && width <= 480 ? 'true' : 'false'}>
         <style>{css}</style>
         <div className='akari-browser-main'>
             <div className='akari-browser-engines'>
-                {visible.length > 0 && <div className='akari-seg' role='group' aria-label='検索サイト'>
+                {visible.length > 0 && <div className='akari-seg' role='group' aria-label={t('project.web.assetSite.searchSiteAction')}>
                     {visible.map(engine => <button key={engine.id} type='button' className='theia-button quiet'
                         aria-label={engine.label} aria-pressed={props.selected === engine.id}
                         onClick={() => props.onSelect(engine.id)}>{engine.label}</button>)}
                 </div>}
                 {hidden.length > 0 && <button type='button' className='theia-button secondary small'
-                    aria-label={`検索サイトを選ぶ: ${selectedLabel}`} title={selectedLabel}
+                    aria-label={t('project.web.searchBar.chooseSearchSiteSelectedLabelAction', { selectedLabel: selectedLabel })} title={selectedLabel}
                     aria-haspopup='menu' aria-expanded={engineMenu} aria-pressed={Boolean(selectedHidden)}
-                    onClick={() => { updateMenuBox(); setMoreMenu(false); setEngineMenu(value => !value); }}>{collapsed ? buttonLabel : 'ほか'} ▾</button>}
+                    onClick={() => { updateMenuBox(); setMoreMenu(false); setEngineMenu(value => !value); }}>{collapsed ? buttonLabel : t('project.web.searchBar.otherLabel')} ▾</button>}
             </div>
-            <input className='akari-browser-query' aria-label='検索語' placeholder='調べたいもの' value={props.query}
+            <input className='akari-browser-query' aria-label={t('project.web.searchBar.searchTermAction')} placeholder={t('project.web.searchBar.whatSearchLabel')} value={props.query}
                 onChange={event => props.onQuery(event.currentTarget.value)}
                 onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) props.onSearch(); }} />
-            <button type='button' className='theia-button' aria-label='検索' onClick={props.onSearch}>検索</button>
-            <button type='button' className={`theia-button ${props.pickMode ? '' : 'secondary'}`} aria-label='選ぶ'
-                aria-pressed={props.pickMode} disabled={!props.hasView} title={!props.hasView ? '検索してから使えます' : undefined}
+            <button type='button' className='theia-button' aria-label={t('project.web.searchBar.searchAction')} onClick={props.onSearch}>{t('project.web.searchBar.searchAction')}</button>
+            <button type='button' className={`theia-button ${props.pickMode ? '' : 'secondary'}`} aria-label={t('project.web.searchBar.selectAction')}
+                aria-pressed={props.pickMode} disabled={!props.hasView} title={!props.hasView ? t('project.web.searchBar.searchBeforeUsingAction') : undefined}
                 data-akari-browser-pick-mode={props.pickMode ? 'on' : 'off'}
-                onClick={() => props.onPickMode(!props.pickMode)}>選ぶ</button>
+                onClick={() => props.onPickMode(!props.pickMode)}>{t('project.web.searchBar.selectAction')}</button>
         </div>
         {props.pickMode && <div style={{ padding: '3px 8px', color: 'var(--akari-muted)', fontSize: 11 }}>
-            画像をクリックすると取り込みます（大きく開いてから選ぶと原寸に近づきます）
-        </div>}
+            {t('project.web.searchBar.clickImageImportItOpenItMessage')}</div>}
         {engineMenu && hidden.length > 0 && createPortal(<div data-akari-browser-menu className='akari-browser-popup'
-            role='menu' aria-label='検索サイト' style={{ left: menuBox.left, top: menuBox.top }}>
+            role='menu' aria-label={t('project.web.assetSite.searchSiteAction')} style={{ left: menuBox.left, top: menuBox.top }}>
             {(collapsed ? props.engines : hidden).map(engine => <button key={engine.id} type='button'
                 role='menuitemradio' aria-checked={props.selected === engine.id} className='theia-button secondary'
                 onClick={() => { props.onSelect(engine.id); setEngineMenu(false); }}>
@@ -116,19 +117,19 @@ export function BrowserSearchBar(props: Props): React.ReactElement {
             </button>)}
         </div>, document.body)}
         <div className='akari-browser-meta'>
-            <button type='button' className='theia-button icon quiet small' aria-label='戻る' onClick={props.onBack}><span className='codicon codicon-arrow-left' aria-hidden='true' /></button>
-            <button type='button' className='theia-button icon quiet small' aria-label='進む' onClick={props.onForward}><span className='codicon codicon-arrow-right' aria-hidden='true' /></button>
-            <button type='button' className='theia-button icon quiet small' aria-label='読み込み直し' onClick={props.onReload}><span className='codicon codicon-refresh' aria-hidden='true' /></button>
+            <button type='button' className='theia-button icon quiet small' aria-label={t('project.web.assetSite.backLabel')} onClick={props.onBack}><span className='codicon codicon-arrow-left' aria-hidden='true' /></button>
+            <button type='button' className='theia-button icon quiet small' aria-label={t('project.web.searchBar.forwardLabel')} onClick={props.onForward}><span className='codicon codicon-arrow-right' aria-hidden='true' /></button>
+            <button type='button' className='theia-button icon quiet small' aria-label={t('project.web.searchBar.reloadLabel')} onClick={props.onReload}><span className='codicon codicon-refresh' aria-hidden='true' /></button>
             <output data-akari-site-address className='akari-browser-host' title={props.address}>{hostName(props.address)}</output>
-            <button type='button' className='theia-button icon quiet small' aria-label='ブラウザの操作' aria-haspopup='menu'
+            <button type='button' className='theia-button icon quiet small' aria-label={t('project.web.searchBar.browserActionsLabel')} aria-haspopup='menu'
                 aria-expanded={moreMenu} onClick={() => { updateMenuBox(); setEngineMenu(false); setMoreMenu(value => !value); }}>…</button>
         </div>
         {moreMenu && createPortal(<div data-akari-browser-menu className='akari-browser-popup' role='menu'
             style={{ left: Math.max(8, menuBox.right - 220), top: menuBox.top }}>
             <button type='button' role='menuitem' className='theia-button quiet' onClick={() => {
                 setMoreMenu(false); props.onClearHistory();
-            }}>ブラウザの記録を消す</button>
+            }}>{t('project.web.assetSite.clearBrowserHistoryAction')}</button>
         </div>, document.body)}
-        {props.loading && <div className='akari-browser-progress' role='progressbar' aria-label='ページを読み込み中' />}
+        {props.loading && <div className='akari-browser-progress' role='progressbar' aria-label={t('project.web.searchBar.loadingPageLabel')} />}
     </header>;
 }

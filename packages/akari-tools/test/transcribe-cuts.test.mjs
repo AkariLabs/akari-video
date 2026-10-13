@@ -1,13 +1,84 @@
+import { after } from 'node:test';
+import { setLanguage } from '../../i18n/index.mjs';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { runMediaCli } from "../bin/media.mjs";
-import { pickBasisByFillerHits, transcribeCutsMedia } from "../src/media/transcribe-cuts.mjs";
+import { alignEnglishWords, pickBasisByFillerHits, transcribeCutsMedia } from "../src/media/transcribe-cuts.mjs";
 import { countFillerHits, FILLER_LEXICON } from "../src/media/filler-lexicon.mjs";
+import { UNRECOGNIZED_DEFAULTS } from "../src/media/unrecognized-spans.mjs";
 import { fixture, json, putJson, silenceSpans } from "./fixtures/transcribe-compare/helpers.mjs";
 
 const readCuts = (f) => json(path.join(f.directory, "cuts.json"));
+
+test("bounded English alignment matches 20,000 content words around one-sided fillers", () => {
+  const basis = [], sa = [], content = [];
+  for (let index = 0; index < 20_000; index += 1) {
+    const time = index * 0.4;
+    const text = `word${index}`;
+    const basisIndex = basis.push({ text, start: time, end: time + 0.18 }) - 1;
+    const saIndex = sa.push({ text, start: time + 0.12, end: time + 0.3 }) - 1;
+    content.push([basisIndex, saIndex]);
+    if (index % 97 === 40) basis.push({ text: "uh", start: time + 0.2, end: time + 0.28 });
+    if (index % 131 === 50) sa.push({ text: "erm", start: time + 0.31, end: time + 0.36 });
+  }
+  const started = performance.now();
+  const aligned = alignEnglishWords(basis, sa);
+  const elapsedMs = performance.now() - started;
+  assert.ok(elapsedMs < 5000, `alignment took ${elapsedMs.toFixed(0)} ms`);
+  assert.equal(aligned.size, content.length);
+  for (const [basisIndex, saIndex] of content) assert.equal(aligned.get(basisIndex), saIndex);
+  assert.ok(basis.every((word, index) => word.text !== "uh" || !aligned.has(index)));
+});
+
+test("a repeated word straddling an alignment window prefers its later occurrence", () => {
+  const basis = [
+    { text: "before", start: 119.7, end: 119.8 },
+    { text: "I", start: 119.95, end: 120 },
+    { text: "I", start: 120.05, end: 120.1 },
+    { text: "after", start: 120.2, end: 120.3 },
+  ];
+  const sa = [
+    { text: "before", start: 119.8, end: 119.9 },
+    { text: "I", start: 120, end: 120.05 },
+    { text: "after", start: 120.3, end: 120.4 },
+  ];
+  assert.deepEqual([...alignEnglishWords(basis, sa)], [[0, 0], [2, 1], [3, 2]]);
+});
+
+test("identical words outside the timing band remain unmatched", () => {
+  assert.equal(alignEnglishWords(
+    [{ text: "repeat", start: 1, end: 1.2 }],
+    [{ text: "repeat", start: 31, end: 31.2 }],
+  ).size, 0);
+});
+
+async function englishBoundaryFixture(t) {
+  const f = await fixture(t, ["whisper-cpp", "speech-analyzer"]);
+  for (const [backend, text, words] of [
+    ["whisper-cpp", "close and um 10", [
+      { text: "close", start: 54.33, end: 54.70 }, { text: "and", start: 55.04, end: 55.51 },
+      { text: "um", start: 55.51, end: 55.86 }, { text: "10", start: 55.86, end: 56.09 },
+    ]],
+    ["speech-analyzer", "Close and um ten", [
+      { text: "Close", start: 55.36, end: 55.85 }, { text: "and", start: 55.85, end: 56.09 },
+      { text: "um", start: 56.46, end: 57.01 }, { text: "ten", start: 57.01, end: 57.37 },
+    ]],
+  ]) {
+    const file = path.join(f.directory, `transcripts/${backend}.json`);
+    const data = await json(file);
+    data.transcript_language = "en";
+    data.segments = [{ start: words[0].start, end: words.at(-1).end, text, words }];
+    await putJson(file, data);
+  }
+  const options = { ...f.options, basis: "whisper-cpp", filler: "on", whisperAvailable: false,
+    spawn: () => ({ status: 0, stdout: JSON.stringify({ format: { duration: "100" }, streams: [{ codec_type: "audio" }] }), stderr: "" }) };
+  return { f, options };
+}
 
 test("フィラー候補は SA の文字 words と whisper の語 words で件数・区間・reason が一致する", async (t) => {
   const text = "あの、前、えーと、後、まあ！";
@@ -39,6 +110,215 @@ test("フィラー候補は SA の文字 words と whisper の語 words で件�
   }
   assert.deepEqual(results[0], results[1]);
   assert.deepEqual(results[0].spans, [[1, 1.5], [2.25, 3], [3.75, 4.25]]);
+});
+
+test("English filler and redo cuts extend to detected quiet or neighboring words and mark adjacency", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  const file = path.join(f.directory, "transcripts/whisper-cpp.json");
+  const data = await json(file);
+  data.transcript_language = "en";
+  data.segments = [{ start: 1, end: 4, text: "We um can go. I I will.", words: [
+    { text: "We", start: 1, end: 1.2 },
+    { text: "um", start: 1.4, end: 1.55 },
+    { text: "can", start: 1.9, end: 2.2 },
+    { text: "go.", start: 2.3, end: 2.5 },
+    { text: "I", start: 3, end: 3.2 },
+    { text: "I", start: 3.2, end: 3.4 },
+    { text: "will.", start: 3.5, end: 3.8 },
+  ] }];
+  await putJson(file, data);
+  const silences = [{ start: 1.23, end: 1.32 }, { start: 1.65, end: 1.8 }];
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", redo: "on", whisperAvailable: false,
+    silencesRunner: async () => silences });
+  const speech = (await readCuts(f)).candidates.filter((candidate) => ["filler", "redo"].includes(candidate.kind));
+  assert.deepEqual(speech.map(({ id, kind, start, end, adjacent }) => ({ id, kind, start, end, adjacent })), [
+    { id: "filler-1.4", kind: "filler", start: 1.275, end: 1.725, adjacent: undefined },
+    { id: "redo-3.0", kind: "redo", start: 2.5, end: 3.2, adjacent: true },
+  ]);
+  assert.equal(speech[0].start, (silences[0].start + silences[0].end) / 2);
+  assert.equal(speech[0].end, (silences[1].start + silences[1].end) / 2);
+  assert.ok(speech[0].start >= data.segments[0].words[0].end);
+  assert.ok(speech[0].end <= data.segments[0].words[2].start);
+  assert.equal(speech[1].start, data.segments[0].words[3].end);
+  assert.equal(speech[1].end, data.segments[0].words[5].start);
+  assert.ok(speech[1].start >= data.segments[0].words[3].end);
+  assert.ok(speech[1].end <= data.segments[0].words[5].start);
+});
+
+test("Japanese candidate intervals remain unchanged when silence touches them", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  let calls = 0;
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", silencesRunner: async ({ silenceMinSec }) => {
+    calls += 1;
+    assert.equal(silenceMinSec, UNRECOGNIZED_DEFAULTS.silenceMinSec);
+    return [{ start: 0.1, end: 0.4 }, { start: 0.9, end: 1.1 }];
+  } });
+  assert.equal(calls, 1);
+  const first = (await readCuts(f)).candidates.find((candidate) => candidate.kind === "filler");
+  assert.deepEqual([first.start, first.end, first.adjacent], [0.4, 0.9, undefined]);
+});
+
+test("English cut boundaries retreat from speech without selecting the earlier word", async (t) => {
+  const { f, options } = await englishBoundaryFixture(t);
+  const calls = [];
+  await transcribeCutsMedia(f.target, { ...options, silencesRunner: async ({ silenceDb, silenceMinSec }) => {
+    calls.push([silenceDb, silenceMinSec]);
+    return silenceMinSec === 0.02
+      ? [{ start: 56.09, end: 56.38 }, { start: 56.76, end: 56.78 }]
+      : [{ start: 56.09, end: 56.38 }];
+  } });
+  assert.deepEqual(calls, [[UNRECOGNIZED_DEFAULTS.silenceDb, UNRECOGNIZED_DEFAULTS.silenceMinSec],
+    [UNRECOGNIZED_DEFAULTS.silenceDb, 0.02]]);
+  const candidate = (await readCuts(f)).candidates.find((row) => row.kind === "filler");
+  assert.equal(candidate.id, "filler-55.5");
+  assert.deepEqual([candidate.start, candidate.end], [56.765, 56.775]);
+  assert.equal(candidate.start >= 56.76, true); // the preceding word ends at this valley
+  assert.equal(candidate.default_on, false);
+  assert.equal(candidate.on, false);
+  assert.equal(candidate.adjacent, true);
+  assert.equal(candidate.boundary_review, true);
+});
+
+test("English boundaries already in quiet spans keep their proposed interval", async (t) => {
+  const { f, options } = await englishBoundaryFixture(t);
+  await transcribeCutsMedia(f.target, { ...options, silencesRunner: async ({ silenceMinSec }) => silenceMinSec === 0.02
+    ? [{ start: 56.09, end: 56.38 }, { start: 56.99, end: 57.05 }]
+    : [{ start: 56.09, end: 56.38 }] });
+  const candidate = (await readCuts(f)).candidates.find((row) => row.kind === "filler");
+  assert.deepEqual([candidate.start, candidate.end, candidate.on], [56.235, 57.01, true]);
+  assert.equal(candidate.boundary_review, undefined);
+});
+
+test("a cut without an inner voiced span defaults off and keeps quiet-only boundaries", async (t) => {
+  const { f, options } = await englishBoundaryFixture(t);
+  await transcribeCutsMedia(f.target, { ...options, silencesRunner: async () => [{ start: 56.09, end: 56.38 }] });
+  const candidate = (await readCuts(f)).candidates.find((row) => row.kind === "filler");
+  assert.deepEqual([candidate.start, candidate.end, candidate.default_on, candidate.adjacent], [56.2495, 56.27125, false, true]);
+});
+
+test("failure of the short-silence detector leaves the projected interval intact", async (t) => {
+  const { f, options } = await englishBoundaryFixture(t);
+  let calls = 0;
+  await transcribeCutsMedia(f.target, { ...options, silencesRunner: async () => {
+    calls += 1;
+    if (calls === 2) throw new Error("short silence detector unavailable");
+    return [{ start: 56.09, end: 56.38 }];
+  } });
+  assert.equal(calls, 2);
+  const candidate = (await readCuts(f)).candidates.find((row) => row.kind === "filler");
+  assert.deepEqual([candidate.start, candidate.end, candidate.default_on], [56.235, 57.01, true]);
+});
+
+test("An English filler touching words on both sides stays within the maximal safe interval", async (t) => {
+  const f = await fixture(t, ["whisper-cpp"]);
+  const file = path.join(f.directory, "transcripts/whisper-cpp.json");
+  const data = await json(file);
+  data.transcript_language = "en";
+  data.segments = [{ start: 1, end: 2, text: "We uh go", words: [
+    { text: "We", start: 1, end: 1.4 },
+    { text: "uh", start: 1.4, end: 1.55 },
+    { text: "go", start: 1.55, end: 2 },
+  ] }];
+  await putJson(file, data);
+  await transcribeCutsMedia(f.target, { ...f.options, filler: "on", whisperAvailable: false,
+    silencesRunner: async () => [] });
+  const [candidate] = (await readCuts(f)).candidates.filter((row) => row.kind === "filler");
+  assert.deepEqual([candidate.start, candidate.end, candidate.adjacent], [1.4, 1.55, true]);
+});
+
+test("English candidates borrow aligned SpeechAnalyzer times and protect its other words", async (t) => {
+  const f = await fixture(t, ["whisper-cpp", "speech-analyzer"]);
+  const segment = (entries) => ({ start: entries[0][1], end: entries.at(-1)[2],
+    text: entries.map(([text]) => text).join(" "),
+    words: entries.map(([text, start, end]) => ({ text, start, end })) });
+  const pairs = [
+    [
+      [["home,", 10.16, 10.46], ["and,", 10.46, 10.70], ["uh,", 11.14, 11.36], ["I", 11.36, 11.43]],
+      [["home,", 10.21, 10.52], ["and", 10.52, 10.70], ["I", 11.28, 12.06]],
+    ],
+    [
+      [["bathroom,", 20.66, 21.20], ["because,", 21.20, 21.68], ["you", 22.27, 22.47], ["know,", 22.47, 22.80], ["it", 23.03, 23.10]],
+      [["bathroom", 20.62, 21.12], ["because,", 22.23, 22.80], ["you", 23.10, 23.20], ["know,", 23.20, 23.37], ["it", 23.63, 23.76]],
+    ],
+    [
+      [["mic", 34.34, 34.48], ["closer,", 34.48, 34.81], ["like,", 34.81, 35.05], ["a", 35.43, 35.48], ["fist", 35.48, 35.67]],
+      [["mic", 34.42, 34.61], ["closer,", 34.61, 35.05], ["like", 35.43, 35.62], ["a", 35.62, 35.67], ["fist", 36.06, 36.36]],
+    ],
+    [
+      [["third", 40.12, 40.30], ["one,", 40.30, 40.44], ["uh,", 40.44, 40.55], ["this", 40.55, 40.70]],
+      [["3rd", 40.14, 40.38], ["one.", 40.38, 40.68], ["This", 41.04, 41.27]],
+    ],
+    [
+      [["So", 49.30, 49.45], ["I,", 49.55, 49.61], ["I", 49.67, 49.73], ["honestly", 49.73, 50.20]],
+      [["So", 49.30, 49.45], ["I", 49.67, 49.73], ["honestly", 49.73, 50.20]],
+    ],
+    [
+      [["close,", 54.33, 54.70], ["and,", 55.04, 55.51], ["um,", 55.51, 55.86], ["10", 55.86, 56.09]],
+      [["Close,", 55.36, 55.85], ["and", 55.85, 56.09], ["um,", 56.46, 57.01], ["ten", 57.01, 57.37]],
+    ],
+    [
+      [["missed,", 63.52, 63.97], ["uh,", 64.33, 64.50], ["leave", 64.50, 64.79]],
+      [["missed.", 63.29, 63.66], ["Uh,", 64.24, 64.79], ["leave", 65.51, 65.74]],
+    ],
+    [
+      [["and", 70.00, 70.15], ["uh", 70.22, 70.34], ["leave", 70.60, 70.80]],
+      [["and", 70.00, 70.15], ["ah", 70.20, 70.40], ["leave", 70.60, 70.80]],
+    ],
+    [
+      [["We", 80.00, 80.30], ["uh", 80.30, 80.40], ["go", 80.40, 80.60]],
+      [["We", 80.00, 80.30], ["go", 80.30, 80.60]],
+    ],
+  ];
+  for (const [backend, index] of [["whisper-cpp", 0], ["speech-analyzer", 1]]) {
+    const file = path.join(f.directory, `transcripts/${backend}.json`);
+    const data = await json(file);
+    data.transcript_language = "en";
+    data.segments = pairs.map((pair) => segment(pair[index]));
+    await putJson(file, data);
+  }
+  await transcribeCutsMedia(f.target, { ...f.options, basis: "whisper-cpp", filler: "on", redo: "on",
+    whisperAvailable: false, silencesRunner: async () => [],
+    spawn: () => ({ status: 0, stdout: JSON.stringify({ format: { duration: "100" }, streams: [{ codec_type: "audio" }] }), stderr: "" }) });
+  const candidates = (await readCuts(f)).candidates;
+  const near = (kind, text, at) => candidates.find((candidate) => candidate.kind === kind && candidate.text === text
+    && Math.abs(Number(candidate.id.split("-")[1]) - at) < 0.2);
+  const cases = [
+    ["filler", "you know", 22.3, 23.10, 23.37],
+    ["filler", "like", 34.8, 35.43, 35.62],
+    ["filler", "um", 55.5, 56.46, 57.01],
+    ["filler", "uh", 64.3, 64.24, 64.79],
+    ["filler", "uh", 11.1, 10.70, 11.28],
+    ["filler", "uh", 40.4, 40.68, 41.04],
+    ["redo", "I, I", 49.6, 49.45, 49.67],
+  ];
+  for (const [kind, text, at, start, end] of cases) {
+    const candidate = near(kind, text, at);
+    assert.ok(candidate, `${kind} ${text} near ${at}`);
+    assert.deepEqual([candidate.start, candidate.end], [start, end], `${kind} ${text} near ${at}`);
+  }
+  const protectedWords = [
+    { start: 22.23, end: 22.80 }, // because
+    { start: 34.61, end: 35.05 }, // closer
+    { start: 70.20, end: 70.40 }, // an unmatched SA word
+  ];
+  for (const word of protectedWords) assert.ok(candidates.filter((candidate) => ["filler", "redo"].includes(candidate.kind))
+    .every((candidate) => !candidate.on || !((candidate.start < word.end) && (candidate.end > word.start))));
+  const uncertain = near("filler", "uh", 70.2);
+  assert.equal(uncertain.on, false);
+  assert.equal(uncertain.alignment_review, true);
+  assert.ok(uncertain.end <= 70.20 || uncertain.start >= 70.40);
+  const noGap = near("filler", "uh", 80.3);
+  assert.deepEqual([noGap.start, noGap.end, noGap.adjacent, noGap.on], [80.30, 80.40, true, false]);
+  const reviewed = await readCuts(f);
+  reviewed.candidates.find((candidate) => candidate.id === uncertain.id).on = true;
+  await putJson(path.join(f.directory, "cuts.json"), reviewed);
+  await transcribeCutsMedia(f.target, { ...f.options, basis: "whisper-cpp", filler: "on", redo: "on",
+    whisperAvailable: false, silencesRunner: async () => [],
+    spawn: () => ({ status: 0, stdout: JSON.stringify({ format: { duration: "100" }, streams: [{ codec_type: "audio" }] }), stderr: "" }) });
+  const preserved = (await readCuts(f)).candidates.find((candidate) => candidate.id === uncertain.id);
+  assert.equal(preserved.alignment_review, true);
+  assert.equal(preserved.default_on, false);
+  assert.equal(preserved.on, true);
 });
 
 test("連続同一フィラーの塊は言い直しに譲り、離れた同一・連続する別語彙は残す", async (t) => {

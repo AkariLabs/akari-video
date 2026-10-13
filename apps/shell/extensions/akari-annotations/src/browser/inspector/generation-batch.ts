@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { describeNextDraft, type GenerationMetaV1 } from '@akari-video/edit-store';
 import type { GenerationDraft, GenerationValidation } from './generation-fields';
 
@@ -28,37 +29,48 @@ export function buildGenerationBatch(items: readonly GenerationBatchItem[]): {
     const rows = [...items].sort((a, b) => a.start - b.start || (a.track ?? 0) - (b.track ?? 0)).map(item => {
         let eligible = false;
         let badge: string;
-        if (!item.visual) badge = '対象外';
-        else if (item.state === 'generating') badge = '生成中';
-        else if (item.state === 'stale') badge = '応答なし（対象外）';
-        else if (item.state === 'done') badge = '生成済み';
-        else if (item.state === 'orphan') badge = '入力エラー（素材が一致しません）';
-        else if (item.meta?.status === 'planned' && !describeNextDraft(item.meta)?.prompt.trim()) badge = '空の枠（prompt なし）';
+        if (!item.visual) badge = t('inspector.generationBatch.label.notEligible');
+        else if (item.state === 'generating') badge = t('inspector.generationBatch.status.generating');
+        else if (item.state === 'stale') badge = t('inspector.generationBatch.label.noResponseNotEligible');
+        else if (item.state === 'done') badge = t('inspector.generationBatch.label.generated');
+        else if (item.state === 'orphan') badge = t('inspector.generationBatch.label.inputErrorAssetMismatch');
+        else if (item.meta?.status === 'planned' && !describeNextDraft(item.meta)?.prompt.trim()) badge = t('inspector.generationBatch.label.emptyFrameNoPrompt');
         else if (!describeNextDraft(item.meta)) {
-            badge = item.meta?.status === 'planned' ? '空の枠（prompt なし）' : '画像のまま（対象外）';
-        } else if (!item.validation) badge = '見積を確認中';
+            badge = item.meta?.status === 'planned' ? t('inspector.generationBatch.label.emptyFrameNoPrompt') : t('inspector.generationBatch.label.keepAsImageNotEligible');
+        } else if (!item.validation) badge = t('inspector.generationBatch.status.checkingEstimate');
         else if (!item.draft || !item.validation.ok) {
             const reason = item.validation.messages?.find(message => message.level === 'error')?.text
-                ?? '動画生成の入力を確認してください';
-            badge = `入力エラー（${reason.replace(/\s+/gu, ' ')}）`;
+                ?? t('inspector.generationBatch.action.checkVideoGenerationInput');
+            badge = t('inspector.generationBatch.label.inputError', { reason: reason.replace(/\s+/gu, ' ') });
         } else {
             eligible = true;
-            badge = item.state === 'failed' ? 'もう一度' : '動画にする';
+            badge = item.state === 'failed' ? t('inspector.generationBatch.action.tryAgain') : t('inspector.generationBatch.action.createVideo');
         }
         const value = item.validation?.cost?.estimate_usd;
         const estimate = typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
-        if (eligible) badge += ` · ${estimate === null ? '見積不可' : `$${estimate.toFixed(2)}`}`;
+        if (eligible) badge += ` · ${estimate === null ? t('inspector.generationBatch.status.estimateUnavailable') : `$${estimate.toFixed(2)}`}`;
         return { ...item, eligible, badge, estimate };
     });
     const targets = rows.filter(row => row.eligible);
     const total = targets.reduce((sum, row) => sum + (row.estimate ?? 0), 0);
     const unknown = targets.some(row => row.estimate === null);
-    const asOf = [...new Set(targets.map(row => row.validation?.cost?.as_of ?? '不明'))].join(' / ') || '不明';
+    const asOf = [...new Set(targets.map(row => row.validation?.cost?.as_of ?? t('inspector.generationBatch.label.unknown')))].join(' / ') || t('inspector.generationBatch.label.unknown');
     return { rows, count: targets.length, total, unknown, asOf,
-        summary: `動画にするもの: ${targets.length} 本 · ${unknown ? `一部見積不可（見積可能分 $${total.toFixed(2)}）` : `合計 $${total.toFixed(2)}`}` };
+        summary: t('inspector.generationBatch.summary.videosCreate', { count: targets.length, n: targets.length, estimate: unknown ? t('inspector.generationBatch.error.someEstimatesUnavailableKnownCosts', { amount: total.toFixed(2) }) : t('inspector.generationBatch.label.total', { amount: total.toFixed(2) }) }) };
 }
 
+export type GenerationBatchProgressCode = 'waiting' | 'generating' | 'done' | 'failed' | 'cancelled';
 export type GenerationBatchProgress = '待ち' | '生成中' | '完了' | '失敗' | '中止';
+
+export function generationBatchProgressLabel(code: GenerationBatchProgressCode): string {
+    switch (code) {
+        case 'waiting': return t('inspector.generationBatch.progress.waiting');
+        case 'generating': return t('inspector.generationBatch.progress.generating');
+        case 'done': return t('inspector.generationBatch.progress.done');
+        case 'failed': return t('inspector.generationBatch.progress.failed');
+        case 'cancelled': return t('inspector.generationBatch.progress.cancelled');
+    }
+}
 
 /** Start may return a job handle immediately; wait must settle only once that job has ended. */
 export async function executeGenerationBatch<T>(options: {

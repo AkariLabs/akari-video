@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { ReactDialog } from '@theia/core/lib/browser/dialogs/react-dialog';
 import { Emitter, Event } from '@theia/core/lib/common';
@@ -15,7 +16,7 @@ export class AkariExportDialog extends ReactDialog<void> {
     readonly onDidChangeVisibility: Event<boolean> = this.visibilityEmitter.event;
 
     constructor(protected readonly session: AkariExportSessionService) {
-        super({ title: '書き出し', maxWidth: 880 });
+        super({ title: t('shell.exportDialog.window.exportAction'), maxWidth: 880 });
         this.addClass('akari-export-dialog-host');
         this.node.setAttribute('data-akari-onboarding-target', 'export-dialog');
         ensureExportDialogStyle();
@@ -69,28 +70,28 @@ export class AkariExportDialog extends ReactDialog<void> {
                         ? 'failed'
                     : 'setup';
         const subtitle = view === 'running'
-            ? `${snapshot.outputName} · 閉じても続きます`
+            ? t('shell.exportDialog.window.continuesClosingStatus', { value1: snapshot.outputName })
             : view === 'done'
                 ? status.artifactPath ?? snapshot.outputName
                 : view === 'lint-failed'
-                    ? `lint で ${status.lintIssueCount ?? 0} 件`
+                    ? t('shell.exportDialog.window.lintIssuesLabel', { value1: status.lintIssueCount ?? 0, n: status.lintIssueCount ?? 0 })
                     : view === 'failed'
-                        ? '書き出しを停止しました'
-                    : `${snapshot.projectLabel || 'このプロジェクト'} · edit.json の出力設定`;
+                        ? t('shell.exportDialog.window.exportStoppedStatus')
+                    : t('shell.exportDialog.window.editJsonOutputSettingsText', { value1: snapshot.projectLabel || t('shell.exportDialog.window.projectLabel') });
         return (
             <div className='popup' role='dialog' aria-modal='true' aria-labelledby='akari-export-dialog-title'>
                 <div className='ph'>
-                    <div><div className='ttl' id='akari-export-dialog-title'>{view === 'done' ? '書き出し完了' : '書き出し'}</div><div className='sub'>{subtitle}</div></div>
-                    {running && <span className='pill'><span className='dot blink' />書き出し中 · {status.progressPercent ?? 0}%</span>}
-                    <button type='button' className='x' aria-label='閉じる' onClick={() => this.close()}>×</button>
+                    <div><div className='ttl' id='akari-export-dialog-title'>{view === 'done' ? t('shell.exportDialog.window.exportCompleteStatus') : t('shell.exportDialog.window.exportAction')}</div><div className='sub'>{subtitle}</div></div>
+                    {running && <span className='pill'><span className='dot blink' />{t('shell.exportDialog.window.exportingStatus')}{status.progressPercent ?? 0}%</span>}
+                    <button type='button' className='x' data-akari-onboarding-target='export-close' aria-label={t('shell.exportDialog.window.closeAction')} onClick={() => this.close()}>×</button>
                 </div>
                 {view === 'running' && <ExportRunningView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'done' && <ExportDoneView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'failed' && <>
-                    <div className='pb'><div className='right'><h2>書き出しを停止しました</h2><p>設定と入力を確認して、もう一度お試しください。</p></div></div>
+                    <div className='pb'><div className='right'><h2>{t('shell.exportDialog.window.exportStoppedStatus')}</h2><p>{t('shell.exportDialog.window.checkSettingsInputsTryAgainMessage')}</p></div></div>
                     <ExportEngineReasonView status={status} openLint={status.reportPath ? () => { this.close(); void this.session.openArtifact(status.reportPath); } : undefined} />
-                    <div className='pf'><span className='sp' /><button type='button' className='btn' onClick={() => this.session.resetToSetup()}>設定に戻る</button></div>
+                    <div className='pf'><span className='sp' /><button type='button' className='btn' data-akari-onboarding-target='export-back-settings' onClick={() => this.session.resetToSetup()}>{t('shell.exportDialog.window.backSettingsLabel')}</button></div>
                 </>}
                 {view === 'setup' && <ExportSetupView session={this.session} snapshot={snapshot} />}
             </div>

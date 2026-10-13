@@ -1,6 +1,9 @@
+import { pluralCountForDisplay } from '../../../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 // Moved from akari-inspector-widget.ts (F-57): class-external inspector definitions.
 import { CAPTION_PANEL_FONTS } from '../../../common/caption-panel-catalog';
 import { CAPTION_FONT_FAMILY } from 'akari-preview/lib/common/caption-visual-contract';
+import { captionFontLabel } from 'akari-preview/lib/common/caption-font-label';
 import { TimelineAudioSelection, TimelineCaptionSelection } from '../../timeline-selection-model';
 import { type CaptionTextStyle } from '../../../common/caption-store';
 import type { InspectorFieldDef } from './types';
@@ -16,7 +19,7 @@ export function formatTimestamp(value: number): string {
 }
 
 export function formatDurationSeconds(value: number): string {
-    return `${value.toFixed(2)} 秒`;
+    return t('inspector.sharedHelpers.label.seconds', { seconds: value.toFixed(2), n: pluralCountForDisplay(value.toFixed(2)) });
 }
 
 export function formatDecimal1(value: number): string {
@@ -32,12 +35,12 @@ export function withDefaultNumber(
     defaultValue: number,
     formatFn: (value: number) => string
 ): string {
-    return raw === undefined ? `${formatFn(defaultValue)}（既定）` : formatFn(raw);
+    return raw === undefined ? t('inspector.sharedHelpers.label.default', { formattedValue: formatFn(defaultValue) }) : formatFn(raw);
 }
 
 export function withDefaultBoolean(raw: boolean | undefined, defaultValue: boolean): string {
     const format = (value: boolean): string => value ? 'ON' : 'OFF';
-    return raw === undefined ? `${format(defaultValue)}（既定）` : format(raw);
+    return raw === undefined ? t('inspector.sharedHelpers.label.default', { formattedValue: format(defaultValue) }) : format(raw);
 }
 
 export function orDash<T>(raw: T | null | undefined, formatFn: (value: T) => string): string {
@@ -46,7 +49,7 @@ export function orDash<T>(raw: T | null | undefined, formatFn: (value: T) => str
 
 /** インスペクター「種別」フィールドの表示ラベル（sfx は音声クリップ語彙へ、2026-08-18）。 */
 export function formatAudioKindLabel(audioKind: TimelineAudioSelection['audioKind']): string {
-    return audioKind === 'sfx' ? '音声クリップ' : audioKind;
+    return audioKind === 'sfx' ? t('inspector.sharedHelpers.label.audioClip') : audioKind;
 }
 
 export const CAPTION_STYLE_DEFAULTS = {
@@ -88,13 +91,13 @@ export type CaptionStyleFieldKey =
 export function captionFontFamilyField(snapshot: TimelineCaptionSelection,
     openFontPanel: () => Promise<boolean>): InspectorFieldDef<TimelineCaptionSelection> {
     const rawFamily = snapshot.effectiveTextStyle?.fontFamily ?? snapshot.textStyle?.fontFamily;
-    const family = rawFamily === CAPTION_FONT_FAMILY ? 'Noto Sans JP' : rawFamily ?? 'Noto Sans JP';
+    const family = captionFontLabel(snapshot.captionLocale, rawFamily);
     return {
-        name: 'caption-font-family', label: 'フォント',
+        name: 'caption-font-family', label: t('inspector.sharedHelpers.label.font'),
         getValue: () => family,
         actionLabel: `${family}  \u203a`,
         action: async () => await openFontPanel() ? { ok: true }
-            : { ok: false, message: 'フォントパネルを開けませんでした。' }
+            : { ok: false, message: t('inspector.sharedHelpers.message.openFontPanel') }
     };
 }
 
@@ -111,7 +114,7 @@ export function captionStyleDisplayValue<T>(
     format: (value: T) => string = String
 ): string {
     const value = effective ?? fallback;
-    return raw === undefined ? `${format(value)}（既定）` : format(value);
+    return raw === undefined ? t('inspector.sharedHelpers.label.default', { formattedValue: format(value) }) : format(value);
 }
 
 export function isCaptionHexColor(value: string): boolean {

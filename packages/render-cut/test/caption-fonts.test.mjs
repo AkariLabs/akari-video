@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { BUNDLED_CAPTION_FONT_FACES, BUNDLED_FONT_ROOT, captionFontFamilies, captionFontFaces, resolveBundledFontRoot } from '../src/caption-font-faces.mjs';
 import { resolveCaptionPlan } from '../src/caption-resolve.mjs';
+import { renderOverlaySheet } from '../src/rasterize.mjs';
 
 const edit = { version: 1, output: { width: 1920, height: 1080, fps: 30 }, cuts: [{ src: 'base', in: 0, out: 2 }] };
 const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
@@ -13,7 +14,7 @@ const policy = { mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-
 const cue = (font_family, id = 'c-font') => ({ id, src: 'base', start: 0, end: 1,
   text: '字幕', text_style: { font_family } });
 
-test('one bundled registry supplies nine families and resolved CSS uses its faces', async t => {
+test('one bundled registry supplies ten families and resolved CSS uses its faces', async t => {
   const home = await mkdtemp(join(process.env.TMPDIR || tmpdir(), 'caption-bundled-home-'));
   const previousHome = process.env.AKARI_HOME;
   const previousLibrary = process.env.AKARI_LIBRARY_ROOT;
@@ -24,10 +25,27 @@ test('one bundled registry supplies nine families and resolved CSS uses its face
     if (previousLibrary === undefined) delete process.env.AKARI_LIBRARY_ROOT; else process.env.AKARI_LIBRARY_ROOT = previousLibrary;
     await rm(home, { recursive: true, force: true });
   });
-  assert.equal(BUNDLED_CAPTION_FONT_FACES.length, 13);
-  assert.equal(new Set(BUNDLED_CAPTION_FONT_FACES.map(face => face.family)).size, 9);
+  assert.equal(BUNDLED_CAPTION_FONT_FACES.length, 14);
+  assert.equal(new Set(BUNDLED_CAPTION_FONT_FACES.map(face => face.family)).size, 10);
   const alias = captionFontFaces().find(face => face.family === 'AKARI Noto Sans JP');
   assert.equal(alias?.path, captionFontFaces().find(face => face.family === 'Noto Sans JP')?.path);
+  const latinAlias = captionFontFaces().find(face => face.family === 'AKARI Noto Sans');
+  assert.equal(latinAlias?.path, captionFontFaces().find(face => face.family === 'Noto Sans')?.path);
+  assert.equal(latinAlias?.weight, '100 900');
+  const english = resolveCaptionPlan({ captionsRoot: {
+    display_policy: { ...policy, locale: 'en' },
+    captions: [{ id: 'c-en', src: 'base', start: 0, end: 1, text: 'The quick brown fox' }],
+  }, edit });
+  assert.deepEqual(english.warnings, []);
+  assert.match(english.overlays[0].html, /font-family: "AKARI Noto Sans";[\s\S]*?\/caption-fonts\/noto-sans-alias\/NotoSans-Variable\.ttf/u);
+  assert.match(english.overlays[0].html, /font-family: "AKARI Noto Sans JP";/u);
+  const sheet = renderOverlaySheet({ overlays: english.overlays, edit, projectRoot: process.cwd(), duration: 2 });
+  assert.match(sheet, /document\.fonts\.load\('600 82px "AKARI Noto Sans"', 'English captions'\)/u);
+  const japaneseSheet = renderOverlaySheet({ overlays: [{ id: 'c-ja', start: 0, duration: 1,
+    html: '<style>@font-face { font-family: "AKARI Noto Sans JP"; }</style><div>日本語</div>',
+    vars: { '--caption-font-family': '"AKARI Noto Sans JP", sans-serif' } }],
+    edit, projectRoot: process.cwd(), duration: 2 });
+  assert.doesNotMatch(japaneseSheet, /document\.fonts\.load\('600 82px "AKARI Noto Sans"'/u);
   const root = { display_policy: policy, captions: [cue("'Noto Serif JP', serif")] };
   const plan = resolveCaptionPlan({ captionsRoot: root, edit });
   assert.deepEqual(plan.warnings, []);

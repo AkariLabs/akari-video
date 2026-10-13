@@ -1,7 +1,11 @@
+import { t } from '@akari-video/i18n';
 import type { VoiceAvatar, VoiceCheckResult, VoiceEngine } from './akari-annotations-protocol';
 
 export const GEMINI_CONSENT_TEXT = '私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。';
-export const GEMINI_WATERMARK_NOTICE = '写しには Google の透かしが入ります';
+export const GEMINI_WATERMARK_NOTICE = t('annotationscommon.voiceCloneModel.message.googleAddsWatermarkVoiceCopy', {}, 'ja');
+export function geminiWatermarkNotice(): string {
+    return t('annotationscommon.voiceCloneModel.message.googleAddsWatermarkVoiceCopy');
+}
 
 export interface GeminiConsentCheck {
     pass?: boolean;
@@ -19,10 +23,10 @@ export function geminiConsentCanNext(audioPresent: boolean, check?: GeminiConsen
 
 export function geminiConsentStatus(check?: GeminiConsentCheck): string {
     if (!check) return '';
-    if (geminiConsentReady(check)) return `✓ 同意文との一致 ${Math.round((check.checks?.script?.score ?? 0) * 100)}% · このパソコン で照合しました`;
-    if (check.checks?.script?.ok === 'unavailable') return 'このパソコン で聞き取りができないため送信できません。';
-    if (check.checks?.script?.ok === false || (check.checks?.script?.score ?? 0) < 0.8) return '同意文との一致が 80% 未満です。録り直してください。';
-    return check.reasons?.[0] ?? '同意録音のチェックに合格していません。';
+    if (geminiConsentReady(check)) return t('annotationscommon.voiceCloneModel.status.consentStatementMatchCheckedComputer', { percent: Math.round((check.checks?.script?.score ?? 0) * 100) });
+    if (check.checks?.script?.ok === 'unavailable') return t('annotationscommon.voiceCloneModel.error.transcriptionUnavailableForSending');
+    if (check.checks?.script?.ok === false || (check.checks?.script?.score ?? 0) < 0.8) return t('annotationscommon.voiceCloneModel.error.consentMatchBelowThreshold');
+    return check.reasons?.[0] ?? t('annotationscommon.voiceCloneModel.error.consentRecordingInvalid');
 }
 
 export type VoiceStep = 'consent' | 'record' | 'check' | 'copy' | 'gemini-consent' | 'compare' | 'save';
@@ -59,8 +63,8 @@ export function voiceShouldDiscardProfileForRecording(profile: string | undefine
 }
 
 export function voiceCheckReason(check?: VoiceCheckResult): string {
-    if (!check) return '録音を確かめてください。';
-    return check.reasons[0] ?? (check.pass ? '' : '録音のチェックに合格していません。');
+    if (!check) return t('annotationscommon.voiceCloneModel.action.checkRecording');
+    return check.reasons[0] ?? (check.pass ? '' : t('annotationscommon.voiceCloneModel.message.recordingDidNotPassValidation'));
 }
 
 export function voiceCanNext(step: VoiceStep, state: { consentSelf: boolean; audioPath?: string;
@@ -100,10 +104,10 @@ export function voiceId(label: string, existing: readonly string[], fallback = '
 export function voiceCheckRows(check: VoiceCheckResult): Array<{ label: string; mark: '✓' | '!' | '✗'; detail: string }> {
     const { duration, level, noise, script } = check.checks;
     return [
-        { label: '長さ', mark: duration.ok ? '✓' : '✗', detail: `${duration.value_s} 秒（15〜120 秒）` },
-        { label: '音の大きさ', mark: level.ok ? '✓' : '✗', detail: `ピーク ${level.peak_db} dB · 平均 ${level.mean_db} dB` },
-        { label: 'まわりの音', mark: noise.warn ? '!' : '✓', detail: `無音部分 ${noise.floor_db} dB` },
-        { label: '原稿どおりか', mark: script.ok === false ? '✗' : script.ok === 'unavailable' ? '!' : '✓',
-            detail: script.ok === 'unavailable' ? 'このパソコン では聞き取りができません' : `聞き取り一致 ${Math.round((script.score ?? 0) * 100)}%（${script.backend ?? 'ローカル'}）` }
+        { label: t('annotationscommon.voiceCloneModel.label.duration'), mark: duration.ok ? '✓' : '✗', detail: t('annotationscommon.voiceCloneModel.detail.seconds15120Seconds', { duration: duration.value_s, n: duration.value_s }) },
+        { label: t('annotationscommon.voiceCloneModel.label.volume'), mark: level.ok ? '✓' : '✗', detail: t('annotationscommon.voiceCloneModel.detail.peakDbAverageDb', { peak: level.peak_db, average: level.mean_db }) },
+        { label: t('annotationscommon.voiceCloneModel.label.backgroundNoise'), mark: noise.warn ? '!' : '✓', detail: t('annotationscommon.voiceCloneModel.detail.silenceDb', { noiseFloor: noise.floor_db }) },
+        { label: t('annotationscommon.voiceCloneModel.label.matchesScript'), mark: script.ok === false ? '✗' : script.ok === 'unavailable' ? '!' : '✓',
+            detail: script.ok === 'unavailable' ? t('annotationscommon.voiceCloneModel.error.transcriptionUnavailableComputer') : t('annotationscommon.voiceCloneModel.label.transcriptionMatch', { percent: Math.round((script.score ?? 0) * 100), backend: script.backend ?? t('annotationscommon.voiceCloneModel.label.local') }) }
     ];
 }

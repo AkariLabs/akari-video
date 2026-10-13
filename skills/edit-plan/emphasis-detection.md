@@ -1,135 +1,92 @@
-# 語レベル演出（emphasis_words）を導出する
+# Derive word-level emphasis (emphasis_words)
 
-> **v2 注記**: edit.json v2 のトップレベルは exact で `emphasis_words` を受け付けない。
-> 書き先は `captions.json` object ルートのトップレベル `emphasis_words[]` とし、v2 の
-> `edit.json` には書かない。データ契約は
-> [captions.json v0 語レベル演出契約](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md) を参照する。
+> **v2 note**: edit.json v2 has an exact top level and rejects `emphasis_words`. Write `emphasis_words[]` at the object root of `captions.json`, not in v2 `edit.json`. See the [captions.json v0 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-23-captions-emphasis-words-v0.md).
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or edit-store script API.
 
-## 原則
+## Principle
 
-`emphasis_words[]`（人間向けの呼称は **語レベル演出**）は、素材のどの語を演出の対象にするかを
-記録する解析結果である。データの器と検証責務の正は
-[captions.json v0 語レベル演出契約](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md) にあり、
-レコード形と選定規律は
-[edit.json v1 語レベル演出契約](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) を引き継ぐ
-（`id` は `^e-\d{4}$` でファイル内一意 / `t_start` / `t_end` は source 秒で `t_end > t_start` /
-`word` は transcript の実表記 / `emotion` は例示 6 値で enum 強制なし / `style_hint` は任意の提案 /
-`src` は任意）。本リーフはその器へ**どの語を選ぶか**、すなわち検証済み `analysis.json` の
-word-level タイムスタンプから emphasis_words を導出する規約を定める。
+`emphasis_words[]` (user-facing **word-level emphasis**) is analysis recording which source words receive emphasis. The authoritative structure and validation duties are in the [captions.json v0 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-23-captions-emphasis-words-v0.md); record shape and selection rules continue the [edit.json v1 word-level emphasis contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-23-edit-json-v1-emphasis-words.md): `id` is unique within the file and matches `^e-\d{4}$`; `t_start` / `t_end` are source seconds with `t_end > t_start`; `word` is the transcript's actual spelling; `emotion` has six examples but no forced enum; `style_hint` is an optional suggestion; `src` is optional. This leaf defines **which words to choose** from validated `analysis.json` word times.
 
-- **入力**は検証済み `analysis.json` の `transcript[].words`（[analysis.schema.json](../../packages/schemas/analysis.schema.json)
-  の `$defs/word` = `start` / `end` / `text`）。
-- **根拠のない強調を発明しない**。書いたすべての語は、`words` の実要素を 1 つ指せなければならない。
-  指せない候補は書かない（[beats.md](beats.md) の「根拠のない見せ場を発明しない」と同じ規律）。
-- **語レベル演出は「感情・主張の瞬間」の第一候補の手段**である
-  （[expression-selection.md](expression-selection.md) の意味 → 手段の対応表）。手段として選ばれて
-  いないシーンで語だけ光らせない。
+- **Input** is validated `analysis.json` `transcript[].words` ([analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) `$defs/word` = `start` / `end` / `text`).
+- **Do not invent unsupported emphasis.** Each written word must refer to one actual `words` element. Do not write a candidate that cannot, following [beats.md](beats.md)'s evidence rule.
+- **Word-level emphasis is the first-choice means for a moment of emotion or assertion** ([expression-selection.md](expression-selection.md)'s meaning-to-means table). Do not highlight words in a scene where this means was not selected.
 
-## 入力と対象 tier（2026-07-23 実測に基づく確定事項）
+## Input and target tiers (confirmed by 2026-07-23 measurement)
 
-`transcript[].words` を出せる STT tier は複数あるが、**語照合の成否は tier で分かれる**。次は
-2026-07-23 の 4 tier 実測（同一素材 45 秒・日本語独話）で確定した事項であり、推測ではない。
+Several STT tiers produce `transcript[].words`, but **word matching success differs by tier**. The rules below come from a 2026-07-23 measurement of four tiers on the same 45-second Japanese monologue; they are measured, not guessed. The Japanese utterance examples and measured character counts remain in the language pack (see SKILL.md).
 
-- **whisper.cpp tier の `words` では語照合をしない。** 規約どおりの正規化を通しても
-  `words[]` の連結が `segment.text` と一致しない（171 → 160 文字・**11 文字欠落 = 6.4%**）。
-  0 秒長 token を規約の「`end > start` を保てない word は捨てる」で落とすため、「後」「な」「つ」等の
-  1 文字が構造的に消える。消えた語を強調対象に選べば `word` と実発話がずれ、契約 §4 の
-  「transcript の実表記に忠実」を満たせない。
-- **`words` が無い素材・連結が `segment.text` と一致しない素材では `emphasis_words` を書かない。**
-  導出の前に「該当セグメントの `words[].text` を順に連結したものが `segment.text` と一致するか」を
-  確認し、一致しなければその素材は**語レベル演出の対象外**とする。対象外にしたことと理由を
-  編集判断レポート（[decision-log.md](report-guide.md#decision_log)）へ 1 行残す。黙って空にしない。
-- **語頭の早出しは実測で存在するが、時刻は補正しない。** ポーズ直後の語頭は tier により最大
-  **-0.92 秒**（実際の発声開始より 0.92 秒早い）ずれる実測がある。誤差の符号は一貫して負で、
-  外れるのはすべて「直前にポーズまたは長い鼻音がある語頭」である。それでも `t_start` / `t_end` は
-  **`words` の実測値をそのまま写す**（契約 §4「語の中間で発明しない」）。表示をどう合わせるか
-  （語頭スナップ・オフセット・先読み）は**描画側の関心事**であり、本リーフはデータ側で先回りしない。
-  時刻を導出段で動かすと、ずれの原因が認識器にあるのか描画側にあるのか切り分けられなくなる。
+- **Never match words using whisper.cpp-tier `words`.** Even after contract normalization, dropping zero-duration tokens under the rule that a word without `end > start` must be discarded structurally removes short words from `words[]`; the concatenated text then differs from `segment.text`. Selecting a missing word would misalign `word` with actual speech and fail contract §4's requirement to preserve the transcript's actual spelling.
+- **Do not write `emphasis_words` for an asset without `words` or whose concatenated words differ from `segment.text`.** Before derivation, compare the concatenation of that segment's `words[].text` in order with `segment.text`. On mismatch, **exclude the asset from word-level emphasis**. Record exclusion and reason in one editing-decision row ([decision-log.md](report-guide.md#decision_log)); do not silently leave it empty.
+- **Early word starts were measured, but do not correct their times here.** Depending on the tier, word starts were measured up to **-0.92 seconds** before actual speech. The error sign was consistently negative; every outlier followed a pause or long nasal sound. Still **copy measured `words` times unchanged** into `t_start` / `t_end` (contract §4: do not invent timing inside a word). Display alignment (start snapping, offsets, look-ahead) is **the renderer's concern**. Do not shift times during derivation: doing so obscures whether the recognizer or renderer caused the mismatch.
 
-## 選定規則
+## Selection rules
 
-### 1. 候補の絞り込み
+### 1. Narrow candidates
 
-候補は次の 4 種に限る。
+Candidates are limited to these four types. For content-language examples, see the language pack (see SKILL.md).
 
-| 種別 | 例 |
+| Type | Example from the Japanese sample |
 |---|---|
-| 感情表現 | 「やばい」「うれしい」「しんどかった」 |
-| 強い形容・副詞 | 「最高」「完全に」「圧倒的に」 |
-| 決め台詞の核 | オチ・結論の中心となる 1 語 |
-| 数値実績の核 | 「90 秒」「3 倍」 |
+| Emotional expression | `やばい` / `うれしい` / `しんどかった` |
+| Strong adjective or adverb | `最高` / `完全に` / `圧倒的に` |
+| Core of a decisive line | One word central to a punchline or conclusion |
+| Core of a numerical outcome | `90 秒` (90 seconds) / `3 倍` (threefold) |
 
-**フィラー・接続詞・助詞は選ばない**（「えー」「あの」「で」「が」「は」）。文全体の意味を担って
-いない語を光らせても、視聴者の注意はどこにも向かない。
+**Do not select fillers, conjunctions, or particles.** Highlighting a word that does not carry the sentence's meaning gives viewers no useful focus. Use content-language examples from the language pack (see SKILL.md).
 
-### 2. 見せ場連動を優先する
+### 2. Prioritize highlight linkage
 
-**`beats[]` の `emotion` / `punchline` / `reveal` の ±5 秒内にある候補を最優先する。**
-③語レベルは②見せ場と同期する、が演出文法の原則であり、見せ場から離れた場所で語だけが跳ねると
-演出の主従が壊れる。
+**Prioritize candidates within ±5 seconds of `emotion` / `punchline` / `reveal` in `beats[]`.** The motion grammar synchronizes word-level emphasis (③) with highlights (②); isolated word pops far from a highlight break that hierarchy.
 
-- 距離は **source 秒**で測る（`beats[].t` も `emphasis_words[].t_start` も source 秒である）。
-- 優先の対象は `emotion` / `punchline` / `reveal` の 3 種だけである。`hook` / `turn` は
-  区間・章の入口を指すマーカーであり、語レベルの同期先ではない。
-- 枠（§3 の密度）が余ったときに限り、見せ場外の候補を採ってよい。その場合も候補は §1 の 4 種に限る。
+- Measure distance in **source seconds** (`beats[].t` and `emphasis_words[].t_start` are both source seconds).
+- Prioritize only `emotion` / `punchline` / `reveal`; `hook` / `turn` mark interval or chapter entries, not word-level synchronization targets.
+- Adopt candidates outside highlights only when §3 density capacity remains, and still limit them to §1's four types.
 
-### 3. 密度既定
+### 3. Default density
 
-- **60 秒あたり最大 3 語**
-- **同一文（`transcript` の 1 セグメント）内 1 語**
+- **At most three words per 60 seconds.**
+- **One word per sentence (one `transcript` segment).**
 
-過多は演出をつぶす。同一文に候補が複数あるときは §2 の距離が近い方を採り、残りは不採用候補として
-記録する（§根拠の記録）。
+Too many effects weaken the result. With multiple candidates in one sentence, choose the one closer under §2 and record the others as rejected candidates (§Evidence record).
 
-> **席（写像は定義しない）**: `direction { preset, intensity }`（[beat-sync.md](beat-sync.md)）に
-> よる密度スケールの席は将来開くが、本リーフは写像を定義しない。現時点では上の既定値を固定で使う。
+> **Reserved control (no mapping defined)**: A future `direction { preset, intensity }` ([beat-sync.md](beat-sync.md)) may scale density, but this leaf defines no mapping. For now use the fixed defaults above.
 
-## emotion の割当
+## Assign emotion
 
-`emotion` には `joy` / `pain` / `surprise` / `anger` / `sadness` を割り当て、**判断に迷う強調は
-`emphasis`** にする（契約 §2 の例示 6 値。enum 強制はされないが、語彙を勝手に増やさない）。
+Assign `joy` / `pain` / `surprise` / `anger` / `sadness` to `emotion`; use **`emphasis` for uncertain emphasis**. These are the six examples from contract §2; no enum is enforced, but do not invent vocabulary.
 
-**語義でなく文脈で決める。** 同じ語が文脈によって違う感情になる。
+**Decide from context, not dictionary meaning.** The same word may express different emotions in different contexts.
 
-| 発話（文脈） | 対象語 | `emotion` | 理由 |
+| Utterance (context) | Target word | `emotion` | Reason |
 |---|---|---|---|
-| 「うわ、やばい、これ完全に想定外です。」 | やばい | `surprise` | 直後が「想定外」= 予期しない事態への反応 |
-| 「やばい、これめちゃくちゃ美味しい。」 | やばい | `joy` | 直後が肯定評価 = 快の表明 |
+| `うわ、やばい、これ完全に想定外です。` | `やばい` | `surprise` | Followed by `想定外` (unexpected): response to an unexpected event |
+| `やばい、これめちゃくちゃ美味しい。` | `やばい` | `joy` | Followed by a positive evaluation of taste: expression of pleasure |
 
-語だけを辞書で引いて `emotion` を決めない。決めるのは**同じ文・直前直後の発話**である。
-文脈からどちらとも取れる場合は `emphasis` に落とす（誤った感情を当てるより、感情を主張しない方が
-描画側の劣化が小さい）。
+Do not assign `emotion` by looking up the word alone. Use **the same sentence and nearby speech**. If context supports more than one reading, fall back to `emphasis`; data that makes no emotional claim degrades less on the rendering side than data asserting the wrong emotion.
 
-## style_hint の目安
+## style_hint guidance
 
-`style_hint` は**提案止まりであり、描画側に強制しない**（契約 §2 / §6。消費側が無視しても契約違反では
-ない）。迷ったら省略してよい。付けるときの目安は次のとおり。
+`style_hint` **is only a suggestion; it does not bind the renderer** (contract §2 / §6; a consumer may ignore it without violating the contract). Omit it when uncertain. If used, follow this guidance.
 
 | `emotion` | `style_hint` |
 |---|---|
 | `pain` / `surprise` / `anger` | `one-char-bang` |
 | `joy` / `emphasis` | `size-pulse` |
-| `sadness`・控えめな文脈 | `color-accent` |
+| `sadness` or restrained context | `color-accent` |
 
-同じ `emotion` でも、静かな場面・落ち着いたトーンの発話では `color-accent` へ寄せてよい。
-表に無い値を発明しない（未知値はエラーにならないが、描画側が解釈できず無視されるだけである）。
+Even for the same `emotion`, a quiet scene or calm delivery may use `color-accent`. Do not invent values outside the table; unknown values do not cause an error, but the renderer cannot interpret them and will ignore them.
 
-## 根拠の記録
+## Evidence record
 
-**`emphasis_words` には `basis` に相当する根拠フィールドが無い**（`beats[]` との違い）。したがって
-選定根拠はデータの外に残す。
+**`emphasis_words` has no evidence field corresponding to `basis`**, unlike `beats[]`. Record selection evidence outside the data.
 
-- 採用した語ごとに、**語・理由・対応する beat または発話**を編集判断レポートの素材計画
-  （[decision-log.md](report-guide.md#decision_log) の `material` category）へ **1 行ずつ**記録する。
-- 不採用候補（密度で落とした語・見せ場から遠い語・語照合できない素材）も同じ形式で 1 行残す。
-  黙って捨てない・黙って詰め込まないの両方を守る（[beats.md](beats.md) §v0 導出段のガードレールと同じ）。
+- For each accepted word, record **word, reason, and corresponding beat or utterance** as **one row** in the asset plan of the editing decision record (`material` category in [decision-log.md](report-guide.md#decision_log)).
+- Record rejected candidates too: density exclusions, words distant from highlights, and assets whose words cannot be matched. Use one row in the same format. Do not silently discard or include them (as in [beats.md](beats.md)'s v0 derivation guardrails).
 
 ## worked example
 
-### 入力（`analysis.json` の断片）
+### Input (excerpt of `analysis.json`)
 
 ```json
 {
@@ -214,20 +171,19 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 }
 ```
 
-この素材は SpeechAnalyzer tier で、6 セグメントとも `words[].text` の連結が `segment.text` と
-一致することを確認済みとする（§入力と対象 tier のゲートを通過）。
+Assume this source uses the SpeechAnalyzer tier and all six segments have been checked: concatenated `words[].text` matches `segment.text`, passing the input/tier gate.
 
-### 判断記録にある見せ場候補（[beats.md](beats.md) で導出済み）
+### Highlight candidates in the decision record (already derived under [beats.md](beats.md))
 
-| id | `t` | `kind` | 由来 |
+| id | `t` | `kind` | Source |
 |---|---|---|---|
-| `b-0001` | 12.05 | `hook` | 冒頭の hook event |
-| `b-0002` | 61.30 | `emotion` | 発話『うわ、やばい、これ完全に想定外です。』 |
-| `b-0003` | 96.20 | `emotion` | 発話『正直、この結果は最高でした。』 |
-| `b-0004` | 132.60 | `punchline` | 数値実績の提示『処理時間は、12 分から 90 秒になりました。』 |
-| `b-0005` | 158.40 | `emotion` | 発話『終わってみると、ほんとうに、しんどかった。』 |
+| `b-0001` | 12.05 | `hook` | Opening hook event |
+| `b-0002` | 61.30 | `emotion` | Utterance `うわ、やばい、これ完全に想定外です。` |
+| `b-0003` | 96.20 | `emotion` | Utterance `正直、この結果は最高でした。` |
+| `b-0004` | 132.60 | `punchline` | Numerical outcome `処理時間は、12 分から 90 秒になりました。` |
+| `b-0005` | 158.40 | `emotion` | Utterance `終わってみると、ほんとうに、しんどかった。` |
 
-### `captions.json` へ書く語レベル演出
+### Word-level emphasis written to `captions.json`
 
 ```json
 {
@@ -268,30 +224,22 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 }
 ```
 
-### この例で働いた規則
+### Rules applied in this example
 
-- **時刻はすべて `words` の実測値の写し**である。`e-0003` の `t_start` 134.02 は
-  `{ "start": 134.02, "end": 134.66, "text": "90 秒" }` そのものであり、セグメント時刻
-  （132.60–135.30）から按分していない。`word` も `"90 秒"` と実表記どおり（半角スペース込み）で、
-  `"90秒"` へ正規化していない。
-- **見せ場連動**: 4 件とも `emotion` / `punchline` beat の ±5 秒内にある
-  （+0.32 / +1.20 / +1.42 / +1.45 秒）。
-- **emotion は文脈で決めた**: `e-0001` の「やばい」は直後の「想定外」から `surprise`。
-  `e-0003` の「90 秒」は感情語ではなく数値実績の核なので `emphasis` に落とした
-  （joy と読むこともできるが、発話に快の表明が無いため感情を主張しない側を採った）。
-- **密度**: 4 語 / 160 秒。どの 60 秒窓を取っても最大 2 語（隣接間隔が 35.78 / 36.62 / 25.83 秒）で、
-  上限 3 語に収まる。同一文からは 1 語だけを採っている。
+- **All times copy measured `words` values.** `e-0003` `t_start` 134.02 comes directly from `{ "start": 134.02, "end": 134.66, "text": "90 秒" }`, not apportionment of segment 132.60–135.30. `word` retains `"90 秒"` including its half-width space, rather than normalizing to `"90秒"`.
+- **Highlight linkage**: all four are within ±5 seconds of an `emotion` or `punchline` beat (+0.32 / +1.20 / +1.42 / +1.45 seconds).
+- **Emotion follows context**: `e-0001` `やばい` is `surprise` because `想定外` (unexpected) follows. `e-0003` `90 秒` is the core numerical outcome, not an emotion word, so it uses `emphasis` (it might suggest joy, but speech does not express pleasure; avoid asserting an emotion).
+- **Density**: four words / 160 seconds. Every 60-second window has at most two words (neighbor gaps 35.78 / 36.62 / 25.83 seconds), under the three-word cap. Only one word per sentence was selected.
 
-### 不採用例（1 件）
+### One rejected example
 
-| 語 | 位置 | 不採用の理由 |
+| Word | Position | Reason for rejection |
 |---|---|---|
-| 想定外 | 62.95–63.55（`b-0002` の +1.65 秒） | ①**同一文内 1 語**（§3）— 同じセグメント『うわ、やばい、これ完全に想定外です。』から既に `e-0001`「やばい」を採用済み。②**見せ場連動を優先**（§2）— 同じ `emotion` beat（61.30）に対し「やばい」は +0.32 秒、「想定外」は +1.65 秒で、beat に近い「やばい」を採る。 |
+| `想定外` | 62.95–63.55 (+1.65 seconds from `b-0002`) | ① **One word per sentence** (§3): `e-0001` `やばい` was already selected from the same segment, `うわ、やばい、これ完全に想定外です。` ② **Prioritize highlight linkage** (§2): relative to the same `emotion` beat at 61.30, `やばい` is +0.32 seconds and `想定外` +1.65, so choose the closer word. |
 
-「想定外」は §1 の「強い形容・副詞」に当たる正当な候補であり、規則が無ければ採用され得た。
-規則で落としたので、`decision-log.md` へ不採用候補として残す。
+`想定外` (unexpected) qualifies as a strong adjective/adverb candidate under §1 and could otherwise be selected. Since the rules reject it, record it in `decision-log.md` as a rejected candidate.
 
-参考までに、`e-0001`〜`e-0004` と不採用 1 件を記録した `decision-log.md` の行は次の形になる。
+For reference, the `decision-log.md` rows for `e-0001` through `e-0004` and the one rejection have this form; the fixed-format example retains Japanese contents.
 
 ```
 2026-07-23T10:12+09:00 | material | 語レベル演出 e-0001 | 採用 | 「やばい」= 感情表現。b-0002（emotion @61.30s）の +0.32 秒。発話『うわ、やばい、これ完全に想定外です。』 | エージェント | Checkpoint 2
@@ -301,41 +249,34 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 2026-07-23T10:12+09:00 | material | 語レベル演出 不採用「想定外」 | 不採用 | 同一文内 1 語で e-0001「やばい」を採用済み。b-0002 からの距離も +1.65 秒で「やばい」より遠い | エージェント | Checkpoint 2
 ```
 
-### v2 での保存先
+### v2 storage location
 
-上の `emphasis_words[]` は `captions.json` の object ルートへ書く。v2 の `edit.json` へは
-貼り付けない。採用・不採用、実測の `t_start` / `t_end`、語の表記、根拠は従来どおり
-`decision-log.md` にも残す。
+Write the above `emphasis_words[]` at the object root of `captions.json`, never paste it into v2 `edit.json`. Also record acceptance/rejection, measured `t_start` / `t_end`, word spelling, and evidence in `decision-log.md` as before.
 
-## 検証
+## Validation
 
-語レベル演出候補は `analysis.json` の `words` へ戻れるか、`t_end > t_start` かを検証し、
-採用判断を `decision-log.md` で確認する。採用結果が `captions.json.emphasis_words[]` にあり、
-v2 の `edit.json` には無いことも確認する。
+Check that each word-level candidate traces to `analysis.json` `words` and satisfies `t_end > t_start`; confirm adoption in `decision-log.md`. Check accepted results exist in `captions.json.emphasis_words[]`, not v2 `edit.json`.
 
-**検証がしないこと**（契約 §7）。ここを検証に頼らない。
+**What validation does not do** (contract §7): do not rely on validation for these checks.
 
-- `word` / `t_start` / `t_end` を `analysis.json` の word-level タイムスタンプと突き合わせない。
-  §入力と対象 tier・§選定規則は**書き手が守る規律**であり、静的検証は素通しする。
-- 時刻が素材の実尺を超えていないかを見ない（`--media` なしでメディアをデコードしない規律）。
-- どの cut にも含まれない語をエラーにしない（射影結果 0 件は正常）。
+- It does not compare `word` / `t_start` / `t_end` with `analysis.json` word-level times. The input/tier and selection rules are **writer duties**; static validation lets them pass.
+- It does not check whether times exceed actual media duration (media is not decoded without `--media`).
+- It does not error on words outside every cut (zero projected occurrences is valid).
 
-## よくある間違い
+## Common mistakes
 
-- `t_start` / `t_end` をセグメント時刻から按分して作る。**`words` の実測値だけを使う**。
-- 語頭の早出し（最大 -0.92 秒）をデータ側で補正して書く。補正は描画側の関心事である。
-- whisper.cpp tier の `words` で語照合をして `word` を書く。連結が `segment.text` と一致しない
-  素材は**語レベル演出の対象外**であり、`emphasis_words` を書かずにレポートへ記録する。
-- `word` を正規化・整形して書く（「90 秒」→「90秒」、送り仮名の統一等）。参照元と突き合わせられなくなる。
-- 見せ場から遠い語を density 枠が空いているという理由だけで大量に採る。優先は
-  `emotion` / `punchline` / `reveal` の ±5 秒内である。
-- `hook` / `turn` beat を語レベルの同期先に使う。同期先は `emotion` / `punchline` / `reveal` の 3 種。
-- フィラー・接続詞・助詞（「えー」「で」「が」）を強調対象に選ぶ。
-- 同一文から 2 語以上、または 60 秒に 4 語以上を採る。
-- `emotion` を語義（辞書）で決める。決めるのは同じ文・直前直後の**文脈**である。
-- 迷った強調に無理に感情を当てる。迷ったら `emphasis` に落とす。
-- `style_hint` を描画への指定だと思って必須にする。提案止まりであり、省略してよい。
-- 不採用候補を黙って捨て、`decision-log.md` に残さない。
-- `id` を連番以外（`e-1` / `emphasis-0001` 等）で振る。`^e-\d{4}$` の 4 桁ゼロ埋めである。
-- 語レベル演出を v2 の `edit.json` に書く。書き先は `captions.json.emphasis_words[]` である。
-- `t_start` / `t_end` に timeline 秒（cut 連結後の時刻）を書く。emphasis_words は source 秒である。
+- Do not apportion `t_start` / `t_end` from segment times. **Use only measured `words` values.**
+- Do not correct an early word start (up to -0.92 seconds) in the data. Correction belongs to rendering.
+- Do not match `word` from whisper.cpp-tier `words`. If concatenation differs from `segment.text`, **exclude the asset from word-level emphasis**, write no `emphasis_words`, and record the reason.
+- Do not normalize or reformat `word`, such as `90 秒` → `90秒` or standardize Japanese kana endings; that prevents matching back to the source.
+- Do not select many words far from highlights just because density capacity remains. Prioritize ±5 seconds around `emotion` / `punchline` / `reveal`.
+- Do not synchronize words to `hook` / `turn`; only `emotion` / `punchline` / `reveal` are word-level targets.
+- Do not select fillers, conjunctions, or particles for emphasis; see language-specific examples in the language pack (see SKILL.md).
+- Do not select two or more words from one sentence or four or more within 60 seconds.
+- Assigning `emotion` from a dictionary meaning instead of **context** in the same and neighboring utterances.
+- Forcing an emotion onto uncertain emphasis; use `emphasis` when uncertain.
+- Treating `style_hint` as a required rendering directive; it is an optional suggestion.
+- Silently discarding rejected candidates instead of recording them in `decision-log.md`.
+- Assigning a non-sequential `id` such as `e-1` / `emphasis-0001`; `^e-\d{4}$` requires four zero-padded digits.
+- Writing word-level emphasis into v2 `edit.json`; its home is `captions.json.emphasis_words[]`.
+- Writing timeline seconds after cut concatenation in `t_start` / `t_end`; emphasis_words uses source seconds.

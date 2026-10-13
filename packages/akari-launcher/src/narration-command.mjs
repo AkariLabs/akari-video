@@ -11,6 +11,7 @@ import { preloadMediaBin, resolveMediaCommand } from "./media-bin-loader.mjs";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
 import { listProfiles, readFalKey, readProviderKey, resolveVoiceProfile } from "./voice-command.mjs";
 import { FAL_TTS_ENGINES, DIRECT_TTS_ENGINES, falTtsEngine, ttsEngine, estimateTtsCost, referenceDataUri } from "./tts-engines.mjs";
+import { cliText, cliValue } from './i18n.mjs';
 
 await preloadMediaBin();
 
@@ -31,43 +32,48 @@ const IRODORI_RECIPES = [
 function irodoriEndpoint(value, env = process.env) {
   const raw = value ?? env.AKARI_IRODORI_URL ?? IRODORI_DEFAULT_URL;
   let url;
-  try { url = new URL(raw); } catch { throw new PublicError("--irodori-url は http または https の URL にしてください", 2); }
+  try { url = new URL(raw); } catch { throw new PublicError(cliText('cli.narration.error.irodoriUrl'), 2); }
   if (!["http:", "https:"].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) {
-    throw new PublicError("--irodori-url は http または https のサーバー URL にしてください", 2);
+    throw new PublicError(cliText('cli.narration.error.irodoriServerUrl'), 2);
   }
   return { base: `${url.origin}${url.pathname.replace(/\/+$/, "")}`, server: `${url.hostname}:${url.port || (url.protocol === "https:" ? "443" : "80")}`,
     network: !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) };
 }
 function irodoriTimeout(env = process.env) {
   const value = Number(env.AKARI_IRODORI_TIMEOUT_MS ?? 600_000);
-  if (!Number.isSafeInteger(value) || value <= 0) throw new PublicError("AKARI_IRODORI_TIMEOUT_MS は正の整数にしてください", 2);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new PublicError(cliText('cli.narration.error.irodoriTimeout'), 2);
   return value;
 }
 const GEMINI_VOICES = falTtsEngine('gemini-tts').voices;
 
-const usage = [
-  "使い方:",
+async function projectLanguage(projectRoot, cliLang) {
+  const sourceDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [path.resolve(sourceDir, '..', '..', 'content-language', 'src', 'node.mjs'),
+    path.resolve(sourceDir, '..', 'vendor', 'packages', 'content-language', 'src', 'node.mjs')];
+  const modulePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!modulePath) throw new PublicError(cliText('cli.narration.error.contentLanguageMissing'), 3);
+  const { readContentLanguage } = await import(pathToFileURL(modulePath).href);
+  return (await readContentLanguage(projectRoot, { cliLang })).language;
+}
+
+const usage = (language) => [
+  cliText('cli.narration.help.usage', {}, language),
   "  akari narration generate \\",
-  "    --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts> \\",
-  "    (--reading-file <読み原稿.txt> | --text <原稿>) [--script-file <表示原稿.txt>] \\",
-  "    [--t <タイムライン秒>] [--gain-db 0] [--id n-0001] \\",
-  "    [--speaker 3] [--voice Leda] [--style <text>] [--speed 1] \\",
+  "    --project <projectDir> [--engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts>] \\",
+  cliText('cli.narration.help.reading', {}, language),
+  cliText('cli.narration.help.timeline', {}, language),
+  "    [--lang <code>] [--speaker 3] [--voice Leda] [--style <text>] [--speed 1] \\",
   "    [--profile owner-ja] [--irodori-url http://127.0.0.1:8088] [--caption-ref c-0001] [--dry-run] [--yes] [--apply] [--json]",
 ].join("\n");
-const commandUsage = [
-  "使い方: akari narration <subcommand> [options]",
+const commandUsage = (language) => [
+  cliText('cli.narration.help.commandUsage', {}, language),
   "",
-  "サブコマンド:",
-  "  generate  原稿からナレーション音声を生成する",
-  "  engines   エンジン一覧を表示する",
-  "  start     VOICEVOX エンジンを起動する",
-  "  stop      AKARI が起動した VOICEVOX エンジンを止める",
-  "  voices    声一覧を表示する",
-  "  verify    生成音声をこのパソコンで聞き取り、字幕と照合する",
+  cliText('cli.narration.help.commands', {}, language),
+  ...['generate', 'engines', 'start', 'stop', 'voices', 'verify'].map((name) => cliText(`cli.narration.help.${name}`, {}, language)),
   "",
-  usage,
+  usage(language),
 ].join("\n");
-const verifyUsage = "使い方: akari narration verify --project <root> (--id <n-NNNN> | --audio <path> --text <字幕の文字>) [--reading <読み原稿>] [--backend auto|speechanalyzer|whisper] [--record <dir>] --json";
+const verifyUsage = () => cliText('cli.narration.help.verifyUsage');
 export const VERIFY_THRESHOLDS = Object.freeze({ ok: 0.9, check: 0.7 });
 
 export function normalizeVerifyText(value) {
@@ -120,13 +126,13 @@ function parseVerifyArguments(args) {
   for (let index = 1; index < args.length; index++) {
     const flag = args[index];
     if (flag === "--json" || flag === "--check-backend") { if (flag === "--check-backend") options.checkBackend = true; continue; }
-    if (!keys.has(flag) || !args[index + 1] || args[index + 1].startsWith("--")) throw new PublicError(`引数が不正です: ${flag}\n${verifyUsage}`, 2);
+    if (!keys.has(flag) || !args[index + 1] || args[index + 1].startsWith("--")) throw new PublicError(`${cliText('cli.narration.error.invalidArgument', { argument: flag })}\n${verifyUsage()}`, 2);
     options[flag.slice(2)] = args[++index];
   }
-  if (!options.project || !["auto", "speechanalyzer", "whisper"].includes(options.backend)) throw new PublicError(verifyUsage, 2);
-  if (!options.checkBackend && ((!!options.id) === (!!options.audio)) ) throw new PublicError(verifyUsage, 2);
-  if (options.id && !/^n-\d{4}$/.test(options.id)) throw new PublicError("--id は n- に続く 4 桁です", 2);
-  if (options.audio && options.text === undefined) throw new PublicError("--audio には --text が必要です", 2);
+  if (!options.project || !["auto", "speechanalyzer", "whisper"].includes(options.backend)) throw new PublicError(verifyUsage(), 2);
+  if (!options.checkBackend && ((!!options.id) === (!!options.audio)) ) throw new PublicError(verifyUsage(), 2);
+  if (options.id && !/^n-\d{4}$/.test(options.id)) throw new PublicError(cliText('cli.narration.error.idFormat'), 2);
+  if (options.audio && options.text === undefined) throw new PublicError(cliText('cli.narration.error.audioTextRequired'), 2);
   return options;
 }
 
@@ -141,9 +147,9 @@ function resolveTranscribeModulePath(runtime = {}) {
 
 async function loadTranscribeModule(runtime = {}) {
   const modulePath = (runtime.resolveTranscribeModulePath ?? resolveTranscribeModulePath)(runtime);
-  if (!modulePath) throw new PublicError("ローカル文字起こしの実装が同梱されていません", 3);
+  if (!modulePath) throw new PublicError(cliText('cli.narration.error.localTranscriberMissing'), 3);
   try { return await import(pathToFileURL(modulePath).href); }
-  catch { throw new PublicError("ローカル文字起こしの実装を読み込めません", 3); }
+  catch { throw new PublicError(cliText('cli.narration.error.localTranscriberUnreadable'), 3); }
 }
 
 function verifyBackend(requested, runtime, transcribe) {
@@ -152,7 +158,7 @@ function verifyBackend(requested, runtime, transcribe) {
   if (requested === "speechanalyzer" && speech || requested === "whisper" && whisper || requested === "auto" && (speech || whisper)) {
     return requested === "auto" ? speech ? "speech-analyzer" : "whisper-cpp" : requested === "whisper" ? "whisper-cpp" : "speech-analyzer";
   }
-  throw new PublicError(requested === "speechanalyzer" ? "SpeechAnalyzer を利用できません" : requested === "whisper" ? "whisper.cpp の実行ファイルまたはモデルが見つかりません" : "このパソコンに利用できる文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）", 3);
+  throw new PublicError(requested === "speechanalyzer" ? cliText('cli.narration.error.speechUnavailable') : requested === "whisper" ? cliText('cli.narration.error.whisperMissing') : cliText('cli.narration.error.noLocalBackend'), 3);
 }
 
 async function runVerify(options, io, runtime = {}) {
@@ -172,11 +178,11 @@ async function runVerify(options, io, runtime = {}) {
   if (options.id) {
     const edit = JSON.parse(fs.readFileSync(path.join(root, "edit.json"), "utf8"));
     entry = edit.audio?.narration?.find(item => item.id === options.id);
-    if (!entry?.path || typeof entry.script !== "string") throw new PublicError(`音声 ${options.id} または字幕の文字が見つかりません`, 2);
+    if (!entry?.path || typeof entry.script !== "string") throw new PublicError(cliText('cli.narration.error.audioOrCaptionMissing', { id: options.id }), 2);
   }
   const expected = entry?.script ?? options.text;
   const audio = path.resolve(root, entry?.path ?? options.audio);
-  if (entry && !audio.startsWith(root + path.sep)) throw new PublicError("音声パスがプロジェクト外です", 2);
+  if (entry && !audio.startsWith(root + path.sep)) throw new PublicError(cliText('cli.narration.error.audioOutside'), 2);
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "akari-narration-verify-"));
   const started = performance.now();
   try {
@@ -237,16 +243,16 @@ function isFiniteNumber(value) {
 const VALUE_OPTIONS = new Set([
   "--project", "--engine", "--reading-file", "--script-file",
   "--t", "--gain-db", "--id", "--speaker", "--profile",
-  "--voice", "--style", "--speed", "--text", "--caption-ref", "--irodori-url", "--out",
+  "--voice", "--style", "--speed", "--text", "--caption-ref", "--irodori-url", "--out", "--lang",
 ]);
 const FLAG_OPTIONS = new Set(["--dry-run", "--yes", "--apply", "--json"]);
 
-function parseArguments(argv) {
+async function parseArguments(argv) {
   if (argv[0] !== "generate") {
-    throw new PublicError(`不明なサブコマンドです。\n${usage}`, 2);
+    throw new PublicError(`${cliText('cli.narration.error.unknownCommand', {})}\n${usage()}`, 2);
   }
   const options = {
-    project: null,
+    project: null, lang: null,
     engine: null,
     readingFile: null,
     scriptFile: null,
@@ -265,11 +271,12 @@ function parseArguments(argv) {
     if (VALUE_OPTIONS.has(argument)) {
       const value = argv[index + 1];
       if (value === undefined || FLAG_OPTIONS.has(value) || VALUE_OPTIONS.has(value)) {
-        throw new PublicError(`${argument} の値がありません`);
+        throw new PublicError(cliText('cli.narration.error.valueMissing', { argument }));
       }
       index += 1;
       switch (argument) {
         case "--project": options.project = value; break;
+        case "--lang": options.lang = value; break;
         case "--engine": options.engine = value; break;
         case "--reading-file": options.readingFile = value; break;
         case "--script-file": options.scriptFile = value; break;
@@ -296,67 +303,77 @@ function parseArguments(argv) {
     } else if (argument === "--json") {
       options.json = true;
     } else {
-      throw new PublicError(`不明な引数です: ${argument}\n${usage}`, 2);
+      throw new PublicError(`${cliText('cli.narration.error.unknownArgument', { argument })}\n${usage()}`, 2);
     }
   }
 
-  if (!options.project) throw new PublicError("--project が必要です");
+  if (!options.project) throw new PublicError(cliText('cli.narration.error.projectRequired', {}));
+  options.project = path.resolve(options.project);
+  options.language = await projectLanguage(options.project, options.lang);
+  options.engine ??= options.language === 'ja' ? 'voicevox' : 'gemini-tts';
   if (!["voicevox", "irodori"].includes(options.engine) && !ttsEngine(options.engine)) {
-    throw new PublicError(`--engine には voicevox、irodori、${[...FAL_TTS_ENGINES, ...DIRECT_TTS_ENGINES].map(engine => engine.id).join('、')} を指定してください`, 2);
+    throw new PublicError(cliText('cli.narration.error.invalidEngine', { engines: [...FAL_TTS_ENGINES, ...DIRECT_TTS_ENGINES].map(engine => engine.id).join(cliText('cli.narration.list.separator', {})) }), 2);
   }
   if (options.engine === "irodori") {
     options.voice ??= "narrator-male";
-    if (!options.profile && !IRODORI_RECIPES.some(recipe => recipe.id === options.voice) && options.voice !== "custom") throw new PublicError("彩の声レシピが不明です", 2);
-    if (options.voice === "custom" && !options.style?.trim()) throw new PublicError("自分で書く声には --style が必要です", 2);
+    if (!options.profile && !IRODORI_RECIPES.some(recipe => recipe.id === options.voice) && options.voice !== "custom") throw new PublicError(cliText('cli.narration.error.irodoriVoiceUnknown'), 2);
+    if (options.voice === "custom" && !options.style?.trim()) throw new PublicError(cliText('cli.narration.error.customVoiceStyle'), 2);
     options.irodori = irodoriEndpoint(options.irodoriUrl);
     irodoriTimeout();
-  } else options.voice ??= ttsEngine(options.engine)?.default_voice ?? (ttsEngine(options.engine) ? null : 'Leda');
-  if (!options.readingFile && !options.text) throw new PublicError("--reading-file または --text が必要です");
+  } else {
+    const engine = ttsEngine(options.engine);
+    options.voice ??= engine ? (engine.id === 'fish-s2.1-pro' && options.language !== 'ja' ? null
+      : engine.default_voices && Object.hasOwn(engine.default_voices, options.language)
+      ? engine.default_voices[options.language] : engine.default_voice) : 'Leda';
+    if (options.engine === 'fish-s2.1-pro' && !options.voice && !options.profile) {
+      throw new PublicError(cliText('cli.narration.error.fishDefaultVoiceMissing'), 2);
+    }
+  }
+  if (!options.readingFile && !options.text) throw new PublicError(cliText('cli.narration.error.scriptRequired'));
   const catalogVoices = ttsEngine(options.engine)?.voices;
   if (catalogVoices && !options.profile && !catalogVoices.some(({ id }) => id === options.voice)) {
-    throw new PublicError(`--voice に使える声: ${catalogVoices.map(({ id }) => id).join(", ")}`, 2);
+    throw new PublicError(cliText('cli.narration.error.voicesAvailable', { voices: catalogVoices.map(({ id }) => id).join(", ") }), 2);
   }
   if (options.speed !== null && (!isFiniteNumber(options.speed) || options.speed < (options.engine === "irodori" ? 0.25 : 0.5) || options.speed > (options.engine === "irodori" ? 4 : 2))) {
-    throw new PublicError(options.engine === "irodori" ? "--speed は 0.25 から 4.0 の範囲で指定してください" : "--speed は 0.5 から 2.0 の範囲で指定してください", 2);
+    throw new PublicError(options.engine === "irodori" ? cliText('cli.narration.error.irodoriSpeed') : cliText('cli.narration.error.cloudSpeed'), 2);
   }
   if (options.captionRef !== null && !/^c-\d{4}$/.test(options.captionRef)) {
-    throw new PublicError("--caption-ref は c- に続く 4 桁の数字で指定してください", 2);
+    throw new PublicError(cliText('cli.narration.error.captionRefFormat'), 2);
   }
   if (options.t === null && !options.apply) options.t = 0;
   if (!isFiniteNumber(options.t) || options.t < 0) {
-    throw new PublicError("--t には 0 以上の有限数を指定してください");
+    throw new PublicError(cliText('cli.narration.error.timelineNonNegative'));
   }
   if (!isFiniteNumber(options.gainDb) || options.gainDb < -60 || options.gainDb > 12) {
-    throw new PublicError("--gain-db は -60 から 12 の範囲の有限数である必要があります");
+    throw new PublicError(cliText('cli.narration.error.gainRange'));
   }
   if (options.id !== null && !/^n-\d{4}$/.test(options.id)) {
-    throw new PublicError("--id は n- に続く 4 桁の数字である必要があります（例: n-0001）");
+    throw new PublicError(cliText('cli.narration.error.narrationIdFormat'));
   }
   if ((options.engine === "fal-qwen3" || options.engine === "index-tts-2") && !options.profile) {
-    throw new PublicError(`--engine ${options.engine} には --profile が必要です`);
+    throw new PublicError(cliText('cli.narration.error.profileRequired', { engine: options.engine }));
   }
   if (options.engine === 'elevenlabs-v3' && (options.text?.length ?? 0) > 5000) {
-    throw new PublicError('ElevenLabs v3 は 1 回 5000 字までです。原稿を短くしてください', 2);
+    throw new PublicError(cliText('cli.narration.error.elevenlabsLength'), 2);
   }
 
-  options.project = path.resolve(options.project);
   if (options.out !== null) {
     const out = options.out.replace(/\\/gu, '/');
     if (options.apply || options.id || !/^assets\/generated\/candidates\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:wav|mp3)$/u.test(out)
         || out.split('/').some(part => part === '..') || !out.endsWith(`.${extensionFor(options.engine)}`)) {
-      throw new PublicError('--out はプロジェクト内の未使用候補音声パスを指定してください', 2);
+      throw new PublicError(cliText('cli.narration.error.outputCandidate'), 2);
     }
     const directory = path.dirname(path.join(options.project, out));
     const root = fs.realpathSync(options.project);
     for (let parent = path.dirname(directory); parent !== options.project && parent.startsWith(`${options.project}${path.sep}`); parent = path.dirname(parent)) {
       if (fs.existsSync(parent) && !fs.realpathSync(parent).startsWith(`${root}${path.sep}`)) {
-        throw new PublicError('候補の出力先がプロジェクト外です', 2);
+        throw new PublicError(cliText('cli.narration.error.outputOutside'), 2);
       }
     }
     fs.mkdirSync(directory, { recursive: true });
     if (!fs.realpathSync(directory).startsWith(`${root}${path.sep}`)
         || fs.existsSync(path.join(options.project, out)) || fs.existsSync(path.join(options.project, `${out}.meta.json`))) {
-      throw new PublicError('候補の出力先がプロジェクト外、または既存ファイルです', 2);
+      throw new PublicError(cliText('cli.narration.error.outputUnavailable'), 2);
     }
     options.out = out;
   }
@@ -368,11 +385,11 @@ function readTextFile(filePath, label) {
   try {
     resolved = path.resolve(filePath);
     const text = fs.readFileSync(resolved, "utf8").trim();
-    if (!text) throw new PublicError(`${label} が空です: ${resolved}`);
+    if (!text) throw new PublicError(cliText('cli.narration.error.textEmpty', { label, path: resolved }));
     return text;
   } catch (error) {
     if (error instanceof PublicError) throw error;
-    throw new PublicError(`${label} を読めません: ${resolved ?? filePath}`);
+    throw new PublicError(cliText('cli.narration.error.textUnreadable', { label, path: resolved ?? filePath }));
   }
 }
 
@@ -409,8 +426,7 @@ function resolveFalKey() {
   const secret = readFalKey(process.env);
   if (!secret) {
     throw new PublicError(
-      `FAL_KEY が未設定です。<AKARI_HOME>/credentials.env に FAL_KEY=... を 1 行追加してください`
-      + "（取得先: https://fal.ai/dashboard/keys）。",
+      cliText('cli.narration.error.falKeyGuidance'),
     );
   }
   return secret;
@@ -419,36 +435,36 @@ function resolveFalKey() {
 function readProfileMeta(profileName) {
   let meta;
   try { meta = resolveVoiceProfile(profileName).meta; }
-  catch { throw new PublicError(`声プロファイルが見つかりません: ${profileName}`, 2); }
+  catch { throw new PublicError(cliText('cli.narration.error.profileMissing', { name: profileName }), 2); }
   const embedding_source_url = meta.engines?.["fal-qwen3"]?.embedding_source_url;
-  if (!embedding_source_url) throw new PublicError(`この声には fal の写しがありません。akari voice copy で作ってください`, 2);
-  if (!meta.reference_text) throw new PublicError(`声プロファイルの reference_text がありません: ${profileName}`, 2);
+  if (!embedding_source_url) throw new PublicError(cliText('cli.narration.error.falCopyMissing'), 2);
+  if (!meta.reference_text) throw new PublicError(cliText('cli.narration.error.referenceTextMissing', { name: profileName }), 2);
   return { ...meta, embedding_source_url };
 }
 
 function guardedProfile(profileName, engine) {
   let record;
   try { record = resolveVoiceProfile(profileName); }
-  catch { throw new PublicError(`声プロファイルが見つかりません: ${profileName}`, 2); }
+  catch { throw new PublicError(cliText('cli.narration.error.profileMissing', { name: profileName }), 2); }
   const { meta } = record;
   if (meta.consent?.self_voice !== true || meta.consent?.cloud_upload !== true ||
       !(meta.reference?.verification?.score >= 0.7)) {
-    throw new PublicError('クラウド送信には本人同意・cloud_upload 同意・原稿照合 0.7 以上が必要です', 2);
+    throw new PublicError(cliText('cli.narration.error.cloudConsent'), 2);
   }
   if (engine.supports.clone === 'registered' &&
       (engine.id === 'gemini-3.8-flash-tts' ?
         (!/^voice_[A-Za-z0-9_-]+$/.test(meta.engines?.[engine.id]?.voice_id ?? '') || meta.engines[engine.id].stale) :
         (!meta.engines?.[engine.id]?.custom_voice_id || meta.engines[engine.id].stale))) {
-    throw new PublicError('この声には指定した作り手の写しがありません。akari voice copy で作ってください', 2);
+    throw new PublicError(cliText('cli.narration.error.providerCopyMissing'), 2);
   }
   const name = meta.reference?.file;
   if (engine.supports.clone === 'per-request' &&
       (!name || path.basename(name) !== name || !fs.existsSync(path.join(record.dir, name)))) {
-    throw new PublicError('正本の録音が見つかりません', 2);
+    throw new PublicError(cliText('cli.narration.error.referenceMissing'), 2);
   }
   if (engine.supports.clone === 'per-request' && meta.reference.sha256 &&
       crypto.createHash('sha256').update(fs.readFileSync(path.join(record.dir, name))).digest('hex') !== meta.reference.sha256) {
-    throw new PublicError('正本の録音が保存時から変わっています', 2);
+    throw new PublicError(cliText('cli.narration.error.referenceChanged'), 2);
   }
   return record;
 }
@@ -461,14 +477,14 @@ function profileReferenceDataUri(record) {
 function irodoriProfileVoice(profileName) {
   let meta;
   try { meta = resolveVoiceProfile(profileName).meta; }
-  catch { throw new PublicError(`声プロファイルが見つかりません: ${profileName}`, 2); }
+  catch { throw new PublicError(cliText('cli.narration.error.profileMissing', { name: profileName }), 2); }
   const voiceId = meta.engines?.irodori?.voice_id;
-  if (!voiceId) throw new PublicError("この声には彩の写しがありません。akari voice copy で作ってください", 2);
+  if (!voiceId) throw new PublicError(cliText('cli.narration.error.irodoriCopyMissing'), 2);
   return voiceId;
 }
 
-function buildFalPayload(readingText, meta) {
-  return falTtsEngine('fal-qwen3').buildPayload({ text: readingText, profileMeta: meta });
+function buildFalPayload(readingText, meta, language = 'ja') {
+  return falTtsEngine('fal-qwen3').buildPayload({ text: readingText, profileMeta: meta, language });
 }
 
 function estimateFalCostUsd(readingText) {
@@ -483,20 +499,20 @@ async function synthesizeCatalog(engine, payload, falKey) {
   try {
     const request = engine.request(payload, falKey);
     response = await fetch(request.url, request.options);
-  } catch { throw new PublicError('fal API へのネットワーク接続に失敗しました'); }
-  if (!response.ok) throw new PublicError(`fal API が HTTP ${response.status} を返しました`);
+  } catch { throw new PublicError(cliText('cli.narration.error.falNetwork')); }
+  if (!response.ok) throw new PublicError(cliText('cli.narration.error.falHttp', { status: response.status }));
   const audioUrl = engine.parseAudio(await response.json());
-  if (!audioUrl) throw new PublicError('fal API の応答に audio.url がありません');
+  if (!audioUrl) throw new PublicError(cliText('cli.narration.error.falAudioMissing'));
   const audioResponse = await fetch(audioUrl);
-  if (!audioResponse.ok) throw new PublicError(`生成音声の取得に失敗しました（HTTP ${audioResponse.status}）`);
+  if (!audioResponse.ok) throw new PublicError(cliText('cli.narration.error.audioFetchHttp', { status: audioResponse.status }));
   return Buffer.from(await audioResponse.arrayBuffer());
 }
 
 async function synthesizeDirect(engine, payload, key) {
   let response;
   try { const request = engine.request(payload, key); response = await fetch(request.url, request.options); }
-  catch { throw new PublicError(`${engine.label} API へのネットワーク接続に失敗しました`); }
-  if (!response.ok) throw new PublicError(`${engine.label} API が HTTP ${response.status} を返しました`);
+  catch { throw new PublicError(cliText('cli.narration.error.providerNetwork', { provider: cliValue('cli.narration.engine.', engine.label) })); }
+  if (!response.ok) throw new PublicError(cliText('cli.narration.error.providerHttp', { provider: cliValue('cli.narration.engine.', engine.label), status: response.status }));
   if (engine.provider === 'fish-audio') return Buffer.from(await response.arrayBuffer());
   try { return engine.parseAudio(await response.json()); }
   catch (error) { throw new PublicError(error.message); }
@@ -527,8 +543,7 @@ export function resolveVoicevoxRunPath(platform = process.platform, env = proces
     return path.join(localAppData, "Programs", "VOICEVOX", "vv-engine", "run.exe");
   }
   throw new PublicError(
-    `VOICEVOX の既定インストール先を ${platform} 向けに解決できません。` +
-      `環境変数 ${VOICEVOX_RUN_ENV} に run 実行ファイルの絶対パスを指定してください。`,
+    cliText('cli.narration.error.voicevoxInstallPath', { platform, variable: VOICEVOX_RUN_ENV }),
   );
 }
 
@@ -549,7 +564,7 @@ async function ensureVoicevoxEngine() {
   if (await isVoicevoxUp()) return { startedByUs: false, child: null };
   const runPath = resolveVoicevoxRunPath();
   if (!fs.existsSync(runPath)) {
-    throw new PublicError(`VOICEVOX エンジンが見つかりません: ${runPath}`);
+    throw new PublicError(cliText('cli.narration.error.voicevoxPathMissing', { path: runPath }));
   }
   const child = spawn(runPath, [], { stdio: "ignore" });
   const deadline = Date.now() + VOICEVOX_STARTUP_TIMEOUT_MS;
@@ -563,7 +578,7 @@ async function ensureVoicevoxEngine() {
     // 起動確認前にプロセスが落ちている場合は無視する。
   }
   throw new PublicError(
-    `VOICEVOX エンジンの起動が ${VOICEVOX_STARTUP_TIMEOUT_MS / 1000} 秒でタイムアウトしました。`,
+    cliText('cli.narration.error.voicevoxStartupTimeout', { seconds: VOICEVOX_STARTUP_TIMEOUT_MS / 1000, n: VOICEVOX_STARTUP_TIMEOUT_MS / 1000 }),
   );
 }
 
@@ -578,7 +593,7 @@ async function stopVoicevoxEngine(child) {
 
 async function getVoicevoxVersion() {
   const response = await fetch(`${VOICEVOX_BASE_URL}/version`);
-  if (!response.ok) throw new PublicError(`VOICEVOX /version が HTTP ${response.status} を返しました`);
+  if (!response.ok) throw new PublicError(cliText('cli.narration.error.voicevoxVersionHttp', { status: response.status }));
   return String(await response.json()).trim();
 }
 
@@ -644,10 +659,10 @@ async function startVoicevox(runtime = {}) {
   const probe = await probeVoicevox(fetchImpl);
   if (probe.running) return { status: "ok", already_running: true, version: probe.version };
   const runPath = resolveVoicevoxRunPath(runtime.platform || process.platform, env, candidate => fileSystem.existsSync(candidate));
-  if (!fileSystem.existsSync(runPath)) throw new PublicError("VOICEVOX エンジンが見つかりません。公式サイトから導入してください。");
+  if (!fileSystem.existsSync(runPath)) throw new PublicError(cliText('cli.narration.error.voicevoxMissing'));
   const child = (runtime.spawnImpl || spawn)(runPath, [], { detached: true, windowsHide: true, stdio: "ignore", env });
   child.on?.('error', () => { /* pid が無い場合は直後に失敗として扱う */ });
-  if (!Number.isSafeInteger(child.pid) || child.pid <= 0) throw new PublicError("VOICEVOX を起動できませんでした。");
+  if (!Number.isSafeInteger(child.pid) || child.pid <= 0) throw new PublicError(cliText('cli.narration.error.voicevoxStart'));
   child.unref();
   fileSystem.mkdirSync(path.dirname(pidPath), { recursive: true });
   fileSystem.writeFileSync(pidPath, `${child.pid}\n`, { mode: 0o600 });
@@ -661,7 +676,7 @@ async function startVoicevox(runtime = {}) {
   }
   try { (runtime.killProcess || process.kill)(child.pid, "SIGTERM"); } catch { /* 終了済み */ }
   fileSystem.rmSync(pidPath, { force: true });
-  throw new PublicError("VOICEVOX エンジンの起動が 60 秒でタイムアウトしました。");
+  throw new PublicError(cliText('cli.narration.error.voicevoxTimeout'));
 }
 
 async function stopManagedVoicevox(runtime = {}) {
@@ -686,7 +701,7 @@ async function stopManagedVoicevox(runtime = {}) {
 
 async function resolveVoicevoxSpeakerName(speakerId) {
   const response = await fetch(`${VOICEVOX_BASE_URL}/speakers`);
-  if (!response.ok) throw new PublicError(`VOICEVOX /speakers が HTTP ${response.status} を返しました`);
+  if (!response.ok) throw new PublicError(cliText('cli.narration.error.voicevoxSpeakersHttp', { status: response.status }));
   const speakers = await response.json();
   for (const speaker of Array.isArray(speakers) ? speakers : []) {
     const styles = Array.isArray(speaker?.styles) ? speaker.styles : [];
@@ -700,7 +715,7 @@ async function synthesizeVoicevox(readingText, speakerId, speed) {
   const queryUrl = `${VOICEVOX_BASE_URL}/audio_query?speaker=${speakerId}&text=${encodeURIComponent(readingText)}`;
   const queryResponse = await fetch(queryUrl, { method: "POST" });
   if (!queryResponse.ok) {
-    throw new PublicError(`VOICEVOX /audio_query が HTTP ${queryResponse.status} を返しました`);
+    throw new PublicError(cliText('cli.narration.error.voicevoxQueryHttp', { status: queryResponse.status }));
   }
   const query = await queryResponse.json();
   if (speed !== null) query.speedScale = speed;
@@ -712,7 +727,7 @@ async function synthesizeVoicevox(readingText, speakerId, speed) {
     body: JSON.stringify(query),
   });
   if (!synthesisResponse.ok) {
-    throw new PublicError(`VOICEVOX /synthesis が HTTP ${synthesisResponse.status} を返しました`);
+    throw new PublicError(cliText('cli.narration.error.voicevoxSynthesisHttp', { status: synthesisResponse.status }));
   }
   return Buffer.from(await synthesisResponse.arrayBuffer());
 }
@@ -729,13 +744,13 @@ function applyToEditJson(projectDir, entry, io) {
   try {
     originalText = fs.readFileSync(editPath, "utf8");
   } catch {
-    throw new PublicError(`--apply には既存の edit.json が必要です: ${editPath}`);
+    throw new PublicError(cliText('cli.narration.error.applyEditMissing', { path: editPath }));
   }
   let edit;
   try {
     edit = JSON.parse(originalText);
   } catch {
-    throw new PublicError(`edit.json を JSON として読めません: ${editPath}`);
+    throw new PublicError(cliText('cli.narration.error.editJsonUnreadable', { path: editPath }));
   }
 
   if (!isPlainObject(edit.audio)) edit.audio = {};
@@ -749,10 +764,10 @@ function applyToEditJson(projectDir, entry, io) {
     fs.writeFileSync(editPath, originalText, "utf8");
     const detail = `${validateResult.stdout ?? ""}${validateResult.stderr ?? ""}`.trim();
     throw new PublicError(
-      `validate-edit が NG のため edit.json への書き込みをロールバックしました。\n${detail}`,
+      cliText('cli.narration.error.applyRolledBack', { detail }),
     );
   }
-  io.logError(`edit.json に ${entry.id} を追加しました（validate-edit: PASS）。`);
+  io.logError(cliText('cli.narration.status.editUpdated', { id: entry.id }));
 }
 
 // --- dry-run ---
@@ -779,10 +794,10 @@ async function synthesizeIrodori(readingText, options, fetchImpl = fetch) {
       body: JSON.stringify({ model: "irodori-tts", input: readingText, voice: profileVoice ?? "none", response_format: "wav",
         speed: options.speed ?? 1, ...(caption ? { irodori: { caption } } : {}) }),
     });
-  } catch (error) { throw new PublicError(`彩サーバーに接続できません: ${error?.message ?? error}`); }
+  } catch (error) { throw new PublicError(cliText('cli.narration.error.irodoriConnection', { message: error?.message ?? error })); }
   const buffer = Buffer.from(await response.arrayBuffer());
   if (!response.ok || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
-    throw new PublicError(`彩サーバーが音声を返しませんでした（HTTP ${response.status}）: ${buffer.toString("utf8", 0, 300)}`);
+    throw new PublicError(cliText('cli.narration.error.irodoriAudioHttp', { status: response.status, message: buffer.toString("utf8", 0, 300) }));
   }
   return buffer;
 }
@@ -813,24 +828,24 @@ async function listEngines(runtime = {}) {
   const detail = { running: state.running, ...(state.version ? { version: state.version } : {}), app_found: appFound,
     managed: state.running && Boolean(ownedPid) };
   if (state.running) {
-    voicevox = { state: "available", label: "VOICEVOX を使用できます", detail };
+    voicevox = { state: "available", label: cliText('cli.narration.engine.voicevoxAvailable'), detail };
   } else {
     voicevox = appFound
-      ? { state: "needs", label: "VOICEVOX を起動します（自動）", detail }
-      : { state: "unconfigured", label: "VOICEVOX をインストール", detail: { ...detail, setup_url: "https://voicevox.hiroshiba.jp/" } };
+      ? { state: "needs", label: cliText('cli.narration.engine.voicevoxStart'), detail }
+      : { state: "unconfigured", label: cliText('cli.narration.engine.voicevoxInstall'), detail: { ...detail, setup_url: "https://voicevox.hiroshiba.jp/" } };
   }
   let configured = false;
   try { configured = Boolean(readFalKey(runtime.env || process.env)); }
   catch { /* 配布物の creator-root や鍵ファイルを読めなくても一覧は返す。 */ }
   const falAvailability = configured
-    ? { state: "available", label: "fal を使用できます" }
-    : { state: "unconfigured", label: "fal の鍵を登録" };
+    ? { state: "available", label: cliText('cli.narration.engine.falAvailable') }
+    : { state: "unconfigured", label: cliText('cli.narration.engine.falKey') };
   const directAvailability = Object.fromEntries([['fish-audio', 'FISH_AUDIO_API_KEY', 'Fish Audio'],
     ['google-ai', 'GEMINI_API_KEY', 'Google AI']].map(([provider, name, label]) => {
     let hasKey = false;
     try { hasKey = Boolean(readProviderKey(name, runtime.env || process.env)); } catch { /* 一覧は維持する */ }
-    return [provider, hasKey ? { state: 'available', label: `${label} を使用できます` }
-      : { state: 'unconfigured', label: `${label} の鍵を登録` }];
+    return [provider, hasKey ? { state: 'available', label: cliText('cli.narration.engine.providerAvailable', { provider: label }) }
+      : { state: 'unconfigured', label: cliText('cli.narration.engine.providerKey', { provider: label }) }];
   }));
   const profilesWithFal = listFalProfiles(runtime).length;
   let endpoint;
@@ -838,24 +853,24 @@ async function listEngines(runtime = {}) {
   catch (error) { if (!(error instanceof PublicError)) throw error; }
   const irodoriAvailable = endpoint ? await probeIrodori(endpoint, runtime.fetchImpl || fetch) : false;
   return { version: 1, engines: [
-    { id: "voicevox", label: "VOICEVOX", place: "local", price: { usd_per_1000_chars: 0, verified: true }, availability: voicevox, credit_required: true, supports: { speed: true, style: false, clone: 'none' }, group: 'local' },
-    { id: "gemini-tts", label: "Gemini 2.5 Flash TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: GEMINI_USD_PER_1000_CHARS, verified: false, as_of: "2026-09-22" }, availability: falAvailability, default_voice: "Leda", credit_required: false, supports: { speed: false, style: true, clone: 'none' }, group: 'cloud' },
-    { id: "irodori", label: "彩（Irodori-TTS）", place: endpoint?.network ? "network" : "local", experimental: true,
+    { id: "voicevox", label: "VOICEVOX", languages: ['ja'], place: "local", price: { usd_per_1000_chars: 0, verified: true }, availability: voicevox, credit_required: true, supports: { speed: true, style: false, clone: 'none' }, group: 'local' },
+    { id: "gemini-tts", label: "Gemini 2.5 Flash TTS", languages: falTtsEngine('gemini-tts').languages, place: "cloud", provider: "fal", price: { usd_per_1000_chars: GEMINI_USD_PER_1000_CHARS, verified: false, as_of: "2026-09-22" }, availability: falAvailability, default_voice: "Leda", credit_required: false, supports: { speed: false, style: true, clone: 'none' }, group: 'cloud' },
+    { id: "irodori", label: cliText('cli.narration.engine.irodoriName'), languages: ['ja'], place: endpoint?.network ? "network" : "local", experimental: true,
       price: { usd_per_1000_chars: 0, verified: true }, credit_required: false, default_voice: "narrator-male",
       supports: { speed: true, style: true, clone: 'registered' }, group: 'local', availability: !endpoint
-        ? { state: "unconfigured", label: "接続先 URL が正しくありません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } }
+        ? { state: "unconfigured", label: cliText('cli.narration.engine.irodoriUrl'), detail: { setup_url: IRODORI_SETUP_URL } }
         : irodoriAvailable
-        ? { state: "available", label: "お試し · 接続済み", detail: { url: endpoint.server } }
-        : { state: "unconfigured", label: "Irodori サーバーにつながりません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } } },
-    { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? { ...falAvailability, detail: { profiles_with_fal: profilesWithFal } } : profilesWithFal ? { state: "available", label: "声プロファイルを使用できます", detail: { profiles_with_fal: profilesWithFal } } : { state: "needs", label: "fal の写しがある声がありません（自分の声をつくる）", detail: { profiles_with_fal: 0 } }, credit_required: false, supports: { speed: false, style: false, clone: 'registered' }, group: 'cloud' },
+        ? { state: "available", label: cliText('cli.narration.engine.irodoriConnected'), detail: { url: endpoint.server } }
+        : { state: "unconfigured", label: cliText('cli.narration.engine.irodoriUnreachable'), detail: { setup_url: IRODORI_SETUP_URL } } },
+    { id: "fal-qwen3", label: "fal Qwen3-TTS", languages: falTtsEngine('fal-qwen3').languages, place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? { ...falAvailability, detail: { profiles_with_fal: profilesWithFal } } : profilesWithFal ? { state: "available", label: cliText('cli.narration.engine.profileAvailable'), detail: { profiles_with_fal: profilesWithFal } } : { state: "needs", label: cliText('cli.narration.engine.profileMissing'), detail: { profiles_with_fal: 0 } }, credit_required: false, supports: { speed: false, style: false, clone: 'registered' }, group: 'cloud' },
     ...FAL_TTS_ENGINES.filter(engine => !['gemini-tts', 'fal-qwen3'].includes(engine.id)).map(engine => ({
-      id: engine.id, label: engine.label, place: engine.place, provider: engine.provider,
-      group: 'cloud', endpoint: engine.endpoint, price: engine.price, ...(engine.caution ? { caution: engine.caution } : {}),
+      id: engine.id, label: cliText(`cli.narration.engine.${engine.id.replace(/[^a-z0-9]/g, '')}Name`), languages: engine.languages, place: engine.place, provider: engine.provider,
+      group: 'cloud', endpoint: engine.endpoint, price: engine.price, ...(engine.caution ? { caution: cliText('cli.narration.engine.chatterboxCaution') } : {}),
       availability: falAvailability, default_voice: engine.default_voice, credit_required: false,
       supports: engine.supports,
     })),
     ...DIRECT_TTS_ENGINES.map(engine => ({
-      id: engine.id, label: engine.label, place: engine.place, provider: engine.provider,
+      id: engine.id, label: engine.label, languages: engine.languages, place: engine.place, provider: engine.provider,
       group: 'cloud', endpoint: engine.endpoint, price: engine.price,
       availability: directAvailability[engine.provider], default_voice: engine.default_voice,
       credit_required: false, supports: engine.supports,
@@ -864,12 +879,12 @@ async function listEngines(runtime = {}) {
 }
 
 async function listVoices(engine, runtime = {}) {
-  if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label, ...(isDefault ? { default: true } : {}) })),
-    { id: "custom", label: "自分で書く（声の指示）" }];
+  if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label: cliValue('cli.narration.voice.', label), ...(isDefault ? { default: true } : {}) })),
+    { id: "custom", label: cliText('cli.narration.voice.custom') }];
   if (engine === "gemini-tts") return GEMINI_VOICES;
   const catalog = ttsEngine(engine);
   if (catalog && !['fal-qwen3'].includes(engine)) {
-    if (catalog.voices) return catalog.voices;
+    if (catalog.voices) return catalog.voices.map(voice => ({ ...voice, label: cliValue('cli.narration.voice.', voice.label) }));
     return catalog.supports.clone === 'per-request' ? listProfiles(resolveProfileEnv(runtime))
       .filter(profile => profile.consent.self_voice && profile.consent.cloud_upload && profile.verification?.score >= 0.7)
       .map(profile => ({ id: profile.id, label: profile.label })) : [];
@@ -878,7 +893,7 @@ async function listVoices(engine, runtime = {}) {
     const handle = await ensureVoicevoxEngine();
     try {
       const response = await fetch(`${VOICEVOX_BASE_URL}/speakers`);
-      if (!response.ok) throw new PublicError(`VOICEVOX /speakers が HTTP ${response.status} を返しました`, 3);
+      if (!response.ok) throw new PublicError(cliText('cli.narration.error.voicevoxSpeakersHttp', { status: response.status }), 3);
       const speakers = await response.json();
       return speakers.flatMap((speaker) => (speaker.styles ?? []).map((style) => ({
         id: String(style.id), label: `${speaker.name} ${style.name}`, group: speaker.name,
@@ -890,7 +905,7 @@ async function listVoices(engine, runtime = {}) {
   if (engine === "fal-qwen3") {
     return listFalProfiles(runtime).map(({ id, label, legacy }) => ({ id, label, ...(legacy ? { legacy: true } : {}) }));
   }
-  throw new PublicError(`声一覧に対応していないエンジンです: ${engine}`, 2);
+  throw new PublicError(cliText('cli.narration.error.voicesUnsupported', { engine }), 2);
 }
 
 function parseListArguments(args) {
@@ -900,9 +915,9 @@ function parseListArguments(args) {
     if (args[index] === "--json") continue;
     if (args[index] === "--engine" && args[index + 1]) { engine = args[++index]; continue; }
     if (args[index] === "--irodori-url" && args[index + 1]) { irodoriUrl = args[++index]; continue; }
-    throw new PublicError(`不明な引数です: ${args[index]}`, 2);
+    throw new PublicError(cliText('cli.narration.error.unknownArgument', { argument: args[index] }), 2);
   }
-  if (args[0] === "voices" && !engine) throw new PublicError("voices には --engine が必要です", 2);
+  if (args[0] === "voices" && !engine) throw new PublicError(cliText('cli.narration.error.voicesEngineRequired'), 2);
   return { engine, irodoriUrl };
 }
 
@@ -918,7 +933,7 @@ async function runDryRun(options, readingText, io) {
       request: {
         base_url: VOICEVOX_BASE_URL,
         steps: [
-          `POST /audio_query?speaker=${options.speaker}&text=<読み原稿>`,
+          cliText('cli.narration.dryRun.voicevoxRequest', { speaker: options.speaker }),
           `POST /synthesis?speaker=${options.speaker}`,
         ],
         speaker: Number(options.speaker),
@@ -932,9 +947,9 @@ async function runDryRun(options, readingText, io) {
     const record = options.profile ? guardedProfile(options.profile, engine) : null;
     if (record && engine.supports.clone === 'per-request') {
       profileReferenceDataUri(record); // 送信前と同じ容量ガード。録音は表示しない。
-      if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
+      if (!record.meta.reference_text) throw new PublicError(cliText('cli.narration.error.referenceTextMissing'), 2);
     }
-    const body = engine.buildPayload({ text: readingText,
+    const body = engine.buildPayload({ text: readingText, language: options.language,
       voice: engine.id === 'gemini-3.8-flash-tts' && record ? record.meta.engines[engine.id].voice_id : options.voice, style: options.style,
       ...(record && engine.supports.clone === 'per-request' ? { referenceAudio: Buffer.from('<audio bytes>'), referenceText: record.meta.reference_text } : {}) });
     if (record && engine.supports.clone === 'per-request') body.references[0].audio = '<audio bytes>';
@@ -952,7 +967,7 @@ async function runDryRun(options, readingText, io) {
       dry_run: true, engine: options.engine, output_path: outputPath,
       estimated_cost_usd: estimateGeminiTtsCostUsd(readingText.length),
       request: { endpoint: GEMINI_TTS_URL, headers: { Authorization: `Key ${maskKey(readFalKey(process.env))}` },
-        body: { prompt: readingText, voice: options.voice, model: "gemini-2.5-flash-tts", output_format: "mp3", language_code: "Japanese (Japan)", ...(options.style ? { style_instructions: options.style } : {}) } },
+        body: falTtsEngine('gemini-tts').buildPayload({ text: readingText, voice: options.voice, style: options.style, language: options.language }) },
     }, io.log);
     return;
   }
@@ -972,7 +987,7 @@ async function runDryRun(options, readingText, io) {
       profileReferenceDataUri(record); // 容量を確認し、録音そのものは dry-run に表示しない。
       audioUrl = '<data:audio/wav;base64,...>';
     }
-    const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
+    const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style, language: options.language,
       speed: options.speed, profileMeta: record?.meta, audioUrl });
     emit({ dry_run: true, engine: engine.id, output_path: outputPath,
       estimated_cost_usd: estimateTtsCost(engine, readingText),
@@ -981,7 +996,7 @@ async function runDryRun(options, readingText, io) {
   }
   const falKey = resolveFalKey();
   const meta = readProfileMeta(options.profile);
-  const payload = buildFalPayload(readingText, meta);
+  const payload = buildFalPayload(readingText, meta, options.language);
   const estimatedCostUsd = estimateFalCostUsd(readingText);
   emit({
     dry_run: true,
@@ -1010,21 +1025,21 @@ function durationForAudio(buffer, outputPath, engine, warnings) {
     const seconds = Number(result.stdout?.trim());
     if (result.status === 0 && Number.isFinite(seconds) && seconds >= 0) return Number(seconds.toFixed(3));
   }
-  warnings.push("音声の実尺を取得できませんでした");
+  warnings.push(cliText('cli.narration.warning.durationUnknown'));
   return null;
 }
 
 // --- generate 本体 ---
 
 async function runGenerate(options, io) {
-  const readingText = options.readingFile ? readTextFile(options.readingFile, "読み原稿") : options.text.trim();
-  const scriptText = options.scriptFile ? readTextFile(options.scriptFile, "表示原稿") : options.text;
-  if (!readingText) throw new PublicError("読み原稿が空です", 2);
+  const readingText = options.readingFile ? readTextFile(options.readingFile, cliText('cli.narration.label.spokenScript')) : options.text.trim();
+  const scriptText = options.scriptFile ? readTextFile(options.scriptFile, cliText('cli.narration.label.displayScript')) : options.text;
+  if (!readingText) throw new PublicError(cliText('cli.narration.error.readingEmpty'), 2);
   if (options.engine === 'elevenlabs-v3' && readingText.length > 5000) {
-    throw new PublicError('ElevenLabs v3 は 1 回 5000 字までです。原稿を短くしてください', 2);
+    throw new PublicError(cliText('cli.narration.error.elevenlabsLength'), 2);
   }
   if (options.engine === 'chatterbox' && readingText.length > 300) {
-    throw new PublicError('Chatterbox 多言語版は 1 回 300 字までです。原稿を短くしてください', 2);
+    throw new PublicError(cliText('cli.narration.error.chatterboxLength'), 2);
   }
 
   if (options.dryRun) {
@@ -1041,7 +1056,7 @@ async function runGenerate(options, io) {
   let costUsd = 0;
   const warnings = [];
   if (options.speed !== null && !["voicevox", "irodori", 'minimax-2.6-hd'].includes(options.engine)) {
-    const warning = `${options.engine} は --speed に対応していないため無視しました`;
+    const warning = cliText('cli.narration.warning.speedIgnored', { engine: options.engine });
     warnings.push(warning);
     io.logError(warning);
   }
@@ -1049,7 +1064,7 @@ async function runGenerate(options, io) {
   if (options.engine === "voicevox") {
     const speakerId = Number(options.speaker);
     if (!Number.isInteger(speakerId) || speakerId < 0) {
-      throw new PublicError("--speaker には 0 以上の整数を指定してください");
+      throw new PublicError(cliText('cli.narration.error.speakerNonNegative'));
     }
     const engineHandle = await ensureVoicevoxEngine();
     try {
@@ -1076,29 +1091,29 @@ async function runGenerate(options, io) {
     const engine = ttsEngine(options.engine);
     const estimatedCostUsd = estimateTtsCost(engine, readingText);
     costUsd = estimatedCostUsd;
-    io.logError(estimatedCostUsd === null ? `${options.engine} 見積不可（${readingText.length} 文字）` :
-      `${options.engine} 推定費用: 約 $${estimatedCostUsd}（${readingText.length} 文字）`);
+    io.logError(estimatedCostUsd === null ? cliText('cli.narration.cost.unavailable', { engine: options.engine, characters: readingText.length, n: readingText.length }) :
+      cliText('cli.narration.cost.estimated', { engine: options.engine, cost: estimatedCostUsd, characters: readingText.length, n: readingText.length }));
     if (!options.yes) {
       if (options.json) printCompactJson({ version: 1, status: "needs_approval", estimate_usd: estimatedCostUsd, chars: readingText.length,
-        ...(estimatedCostUsd === null ? { reason: '見積不可' } : {}),
+        ...(estimatedCostUsd === null ? { reason: cliText('cli.narration.cost.unavailableShort') } : {}),
         ...(options.speed !== null ? { speed_applied: false, warnings } : {}) }, io.log);
       else printJson({ sent: false, engine: options.engine, estimated_cost_usd: estimatedCostUsd,
-        reason: "費用承認（--yes）がありません。実リクエストは送信していません。" }, io.log);
+        reason: cliText('cli.narration.cost.approvalMissing') }, io.log);
       return 2;
     }
     // --yes が明示された場合のみ、ここで初めて課金の発生する API を呼び出す。
     if (engine.provider !== 'fal') {
       const name = engine.provider === 'fish-audio' ? 'FISH_AUDIO_API_KEY' : 'GEMINI_API_KEY';
       const key = readProviderKey(name);
-      if (!key) throw new PublicError(`${name} が未設定です。<AKARI_HOME>/credentials.env に登録してください`, 2);
+      if (!key) throw new PublicError(cliText('cli.narration.error.keyMissing', { name }), 2);
       const record = options.profile ? guardedProfile(options.profile, engine) : null;
       let referenceAudio;
       if (record && engine.supports.clone === 'per-request') {
         profileReferenceDataUri(record); // 正本 wav と 20 MB 上限を確認する。
-        if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
+        if (!record.meta.reference_text) throw new PublicError(cliText('cli.narration.error.referenceTextMissing'), 2);
         referenceAudio = fs.readFileSync(path.join(record.dir, record.meta.reference.file));
       }
-      const payload = engine.buildPayload({ text: readingText,
+      const payload = engine.buildPayload({ text: readingText, language: options.language,
         voice: engine.id === 'gemini-3.8-flash-tts' && record ? record.meta.engines[engine.id].voice_id : options.voice, style: options.style,
         referenceAudio, referenceText: record?.meta.reference_text });
       audioBuffer = await synthesizeDirect(engine, payload, key);
@@ -1108,20 +1123,20 @@ async function runGenerate(options, io) {
         generated_at: new Date().toISOString(), price_verified: engine.price.verified };
     } else if (options.engine === "gemini-tts") {
       const falKey = resolveFalKey();
-      audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, voice: options.voice, style: options.style }), falKey);
+      audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, voice: options.voice, style: options.style, language: options.language }), falKey);
       provenance = { provider: "fal", engine: "gemini-2.5-flash-tts", voice: `gemini:${options.voice}`,
         generated_at: new Date().toISOString(), price_verified: false, endpoint: engine.endpoint };
     } else if (options.engine === 'fal-qwen3') {
       const falKey = resolveFalKey();
       const meta = readProfileMeta(options.profile);
-      audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, profileMeta: meta }), falKey);
+      audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, profileMeta: meta, language: options.language }), falKey);
       provenance = { provider: "fal", engine: "qwen-3-tts-1.7b", voice: `profile:${options.profile}`,
         generated_at: new Date().toISOString(), endpoint: engine.endpoint, price_verified: false };
     } else {
       const falKey = resolveFalKey();
       const record = options.profile && engine.supports.clone !== 'none' ? guardedProfile(options.profile, engine) : null;
       const audioUrl = record && engine.supports.clone === 'per-request' ? profileReferenceDataUri(record) : undefined;
-      const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
+      const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style, language: options.language,
         speed: options.speed, profileMeta: record?.meta, audioUrl });
       audioBuffer = await synthesizeCatalog(engine, payload, falKey);
       provenance = { provider: 'fal', engine: engine.id, endpoint: engine.endpoint,
@@ -1163,18 +1178,18 @@ export async function runNarrationCommand(args, commandOptions = {}) {
   };
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    io.log(commandUsage);
+    io.log(commandUsage());
     return { exitCode: 0 };
   }
   if (args[0] === 'generate' && (args.includes('--help') || args.includes('-h'))) {
-    io.log(usage);
+    io.log(usage());
     return { exitCode: 0 };
   }
   if (args[0] === 'verify') {
     try { return { exitCode: await runVerify(parseVerifyArguments(args), io, commandOptions.verifyRuntime) }; }
     catch (error) {
       const code = error instanceof PublicError ? error.exitCode : 1;
-      const message = error instanceof PublicError ? error.message : `聞き取りに失敗しました: ${error?.message ?? error}`;
+      const message = error instanceof PublicError ? error.message : cliText('cli.narration.error.verifyFailed', { message: error?.message ?? error });
       io.logError(message);
       printCompactJson({ error: message }, io.log);
       return { exitCode: code };
@@ -1183,12 +1198,12 @@ export async function runNarrationCommand(args, commandOptions = {}) {
   if (["start", "stop"].includes(args[0])) {
     try {
       if (args.length !== 4 || args[1] !== "--engine" || args[2] !== "voicevox" || args[3] !== "--json") {
-        throw new PublicError("start/stop には --engine voicevox --json が必要です", 2);
+        throw new PublicError(cliText('cli.narration.error.startStopArguments'), 2);
       }
       printCompactJson(args[0] === "start" ? await startVoicevox(commandOptions.engineRuntime) : await stopManagedVoicevox(commandOptions.engineRuntime), io.log);
       return { exitCode: 0 };
     } catch (error) {
-      const message = error instanceof PublicError ? error.message : `VOICEVOX を操作できませんでした: ${error?.message ?? error}`;
+      const message = error instanceof PublicError ? error.message : cliText('cli.narration.error.voicevoxOperationFailed', { message: error?.message ?? error });
       io.logError(message); printCompactJson({ error: message }, io.log);
       return { exitCode: error instanceof PublicError ? error.exitCode : 1 };
     }
@@ -1200,7 +1215,7 @@ export async function runNarrationCommand(args, commandOptions = {}) {
         { version: 1, engine, voices: await listVoices(engine, commandOptions.engineRuntime) }, io.log);
       return { exitCode: 0 };
     } catch (error) {
-      const message = error instanceof PublicError ? error.message : "声一覧を取得できませんでした";
+      const message = error instanceof PublicError ? error.message : cliText('cli.narration.error.voicesUnavailable');
       io.logError(message);
       printCompactJson({ error: message }, io.log);
       return { exitCode: args[0] === "voices" ? 3 : 2 };
@@ -1209,12 +1224,12 @@ export async function runNarrationCommand(args, commandOptions = {}) {
 
   let parsedOptions;
   try {
-    parsedOptions = parseArguments(args);
+    parsedOptions = await parseArguments(args);
     const exitCode = await runGenerate(parsedOptions, io);
     return { exitCode };
   } catch (error) {
     const exitCode = error instanceof PublicError ? error.exitCode : 1;
-    const message = error instanceof PublicError ? error.message : `内部処理に失敗しました: ${error?.message ?? error}`;
+    const message = error instanceof PublicError ? error.message : cliText('cli.narration.error.internalFailed', { message: error?.message ?? error });
     io.logError(message);
     if (args.includes("--json")) printCompactJson({ error: message }, io.log);
     else printJson({ error: message }, io.log);

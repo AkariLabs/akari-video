@@ -1,52 +1,30 @@
-# plan.json — 素材ゼロから仮枠タイムラインを確定する
+# plan.json — Confirm a provisional timeline with no media
 
-正本契約: [contract-2026-07-20-plan-json-v0.md](../../docs/contract-2026-07-20-plan-json-v0.md)。
-本リーフは [workflow.md](workflow.md) §2「素材がゼロの場合」の分岐からだけ読む。
-録画素材がある場合は plan.json を作らず、従来どおり分析統合からチャットでの方針提示へ進む
-（確度に応じてステップを飛ばせる 1 本のパイプライン。仮枠は方向性が不確かなときだけ効く）。
+Canonical contract: [contract-2026-07-20-plan-json-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-20-plan-json-v0.md).
+Read this leaf only from the "No media" branch of [workflow.md](workflow.md) §2. When recorded footage exists, do not create plan.json; proceed from integrated analysis to presenting the direction in chat as before (one pipeline that can skip steps according to confidence; provisional slots help only when the direction is uncertain).
 
-## 1. 質問対話で方針を深掘る
+## 1. Develop the direction through questions
 
-- 選択肢式（ABC 回答）の質問を 1 問ずつ重ね、目的・尺・トーン・構成ビートを確定させる。
-  1 問 = 1 決定にし、複合質問で回答を曖昧にしない
-- 対話サーフェスは [decision-cards](../../packages/decision-cards/) の既存機構を
-  そのまま使う: `<plan-dir>/plan-dialogue.html` + `<plan-dir>/plan-dialogue.html.decisions.json`
-  の別ペアを作り、`node packages/decision-cards/report-helper.mjs` で提示する。
-  ヘルパー不通時はチャットの明示承認で代替し、その旨を記録する（[approvals-and-generation.md](approvals-and-generation.md)
-  の Checkpoint 運用と同じ代替規約）
-- この decisions.json は plan-dialogue 専用であり、`decision-log.md`（判断記録）とはファイルを
-  分ける。混ぜない（decisions.json = 対話の生データ、decision-log.md = 確定した決定の要約）
+- Ask one multiple-choice (ABC) question at a time to settle purpose, duration, tone, and structural beats. One question must represent one decision; do not blur answers with compound questions.
+- Use the existing [decision-cards](https://github.com/AkariLabs/akari-video/tree/main/packages/decision-cards) dialogue surface unchanged: create the separate pair `<plan-dir>/plan-dialogue.html` + `<plan-dir>/plan-dialogue.html.decisions.json` and present it with `node packages/decision-cards/report-helper.mjs`. If the helper is unavailable, substitute explicit chat approval and record that substitution (the same fallback as the Checkpoints in [approvals-and-generation.md](approvals-and-generation.md)).
+- Keep this decisions.json exclusive to plan-dialogue and separate from the `decision-log.md` decision record. Do not mix them: decisions.json holds raw dialogue data; decision-log.md summarizes settled decisions.
 
-## 2. plan.json を書く
+## 2. Write plan.json
 
-- 置き場所は `<plan-dir>/plan.json`（`decision-log.md` と同じディレクトリ。AKARI プロジェクトでは
-  `planning/` ロールが既定）
-- 対話で決まった構成ビートを `slots[]`（配列順 = timeline 順、`start` は書かない）に、
-  決定事項（尺の上限・確定尺・位置つき指示）を `constraints[]` に落とす。
-  書式・必須キー・null 規約は契約 §1 のフィールド表に従う
-- 対話中の slot は `confidence: "proposed"` + `fill.method: null` で書き始めてよい。
-  人間が対話で確定させた項目だけを `locked` にする。**AI の判断で locked にしない**
-- 同一ファイルを段階的に更新する（`decision-log.md` への追記と同じ、確定した事実だけを積み増す
-  規律）。決定の経緯は対話の decisions.json が持つため、plan.json 側には結果だけを書く
-- 書いたら毎回検証する:
+- Place it at `<plan-dir>/plan.json` (the same directory as `decision-log.md`; AKARI projects default to the `planning/` role).
+- Put dialogue-approved structural beats in `slots[]` (array order is timeline order; do not write `start`) and decisions (duration ceiling, fixed duration, and positioned instructions) in `constraints[]`. Follow the field table in contract §1 for format, required keys, and null rules.
+- A slot may start during dialogue as `confidence: "proposed"` + `fill.method: null`. Mark only items confirmed by the human in dialogue as `locked`. **Never lock by AI judgment.**
+- Update the same file incrementally, adding only confirmed facts as with append-only `decision-log.md`. The dialogue decisions.json holds decision history; write only outcomes to plan.json.
+- Validate after every write:
   `node packages/schemas/bin/validate-plan.mjs <plan-dir>/plan.json`
-  （error 0 件を維持。warning は仮枠の未成熟として許容されるが、完了報告に列挙する）
+  (Maintain zero errors. Warnings are allowed for immature provisional slots, but list them in the completion report.)
 
-## 3. 確定と接続
+## 3. Confirm and connect
 
-- 方針が確定したら（対話 decisions.json の `completedAt` 非 null、またはチャット明示承認）、
-  `.akari/events/` に gate event `plan-confirmed` を記録する
-- 以降の工程（[report-guide.md](report-guide.md) の「方針をチャットで決める」節）では、
-  編集方針のチャット提示が plan.json の slot id を根拠として参照する。台本や構成をチャット側で
-  再フリーテキスト化しない（2026-07-22 改訂: レポート生成は analyze-project へ移管済み。
-  plan.json の位置づけ自体は変わらない）
-- BGM・SFX・B ロール等の素材三択（提案/生成/不採用）は従来どおり
-  [report-guide.md の「素材計画」節](report-guide.md#素材計画)の管轄。plan.json には
-  持ち込まない（契約 §5）
+- When the direction is confirmed (dialogue decisions.json has non-null `completedAt`, or explicit chat approval), record the `plan-confirmed` gate event in `.akari/events/`.
+- In later work ("Decide the direction in chat" in [report-guide.md](report-guide.md)), cite plan.json slot ids as evidence when presenting the edit direction. Do not turn the script or structure back into free text in chat (2026-07-22 revision: report generation moved to analyze-project; plan.json's role did not change).
+- The three-way asset choices (propose / generate / reject) for BGM, SFX, B-roll, etc. remain under [report-guide.md's Asset plan section](report-guide.md#asset-plan). Do not move them into plan.json (contract §5).
 
-## 4. 仮枠クリップへ接続する
+## 4. Connect provisional clips
 
-素材ゼロでは plan.json の仮枠役を使わない。[generate-media の still.md](../generate-media/still.md) へ進み、
-文字カードまたは Codex 静止画を edit.json v2 の media item としてタイムラインへ置く。仮枠は
-「タイムライン上の静止画クリップ + 素材の隣の `<path>.meta.json`」であり、尺は cuts が持つ。
-静止画のまま完成品としてよく、動画化するクリップだけ generate-media の video.md へ進める。
+For zero media, do not use plan.json's provisional-slot role. Proceed to [generate-media's still.md](../generate-media/still.md) and put text cards or Codex stills on the timeline as edit.json v2 media items. A placeholder consists of a still clip on the timeline plus `<path>.meta.json` beside the asset; cuts hold its duration. A still may be the finished result. Proceed to generate-media's video.md only for clips that will become video.

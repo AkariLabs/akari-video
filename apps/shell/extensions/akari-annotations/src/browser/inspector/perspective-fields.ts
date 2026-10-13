@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type InspectorPerspectiveCorner = 'tl' | 'tr' | 'bl' | 'br';
 export type InspectorPerspectiveAxis = 'x' | 'y';
 export interface InspectorPerspective { corners: [number, number][]; }
@@ -40,17 +41,17 @@ export function updateInspectorPerspective(
 /** プレビューの validateLayerPerspectivePatch と同じ規則・文言。 */
 export function validateInspectorPerspective(corners: unknown): asserts corners is [number, number][] {
     if (!Array.isArray(corners) || corners.length !== 4) {
-        throw new Error('perspective.corners は [TL,TR,BL,BR] の 4 要素配列である必要があります。');
+        throw new Error(t('inspector.perspectiveFields.error.perspectiveCornersMustBeFourFactorArray'));
     }
     const names = ['TL', 'TR', 'BL', 'BR'];
     for (let i = 0; i < 4; i += 1) {
         const corner = corners[i];
         if (!Array.isArray(corner) || corner.length !== 2) {
-            throw new Error(`perspective.corners[${i}] (${names[i]}) は [x, y] の 2 要素配列である必要があります。`);
+            throw new Error(t('inspector.perspectiveFields.error.perspectiveCornersMustBeTwoFactorArrays', { index: i, corner: names[i] }));
         }
         const [x, y] = corner;
         if (!Number.isFinite(x) || x < 0 || x > 1 || !Number.isFinite(y) || y < 0 || y > 1) {
-            throw new Error(`perspective.corners[${i}] (${names[i]}) は 0 から 1 の範囲の有限数である必要があります。`);
+            throw new Error(t('inspector.perspectiveFields.error.perspectiveCornersMustBeFiniteNumberFrom', { index: i, corner: names[i] }));
         }
     }
     const [tl, tr, bl, br] = corners;
@@ -62,6 +63,6 @@ export function validateInspectorPerspective(corners: unknown): asserts corners 
         area2 += x1 * y2 - x2 * y1;
     }
     if (Math.abs(area2) < 1e-4) {
-        throw new Error('perspective.corners は退化した四角形（面積がほぼ 0）であってはなりません。');
+        throw new Error(t('inspector.perspectiveFields.error.perspectiveCornersMustNotBeDegeneratedSquare'));
     }
 }

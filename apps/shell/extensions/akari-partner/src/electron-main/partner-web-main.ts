@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from '@theia/core/electron-shared/electron';
 import type { WebContents } from 'electron';
@@ -161,7 +162,7 @@ async function offerExternal(host: WebContents, guest: WebContents, raw: string)
     const window = BrowserWindow.fromWebContents(host);
     if (!window || window.isDestroyed()) return;
     const answer = await dialog.showMessageBox(window, { type: 'question',
-        title: 'DeepSeek Harness の外へ移動', message: `${new URL(url).hostname} を既定のブラウザで開きますか？`,
-        detail: url, buttons: ['開かない', '既定のブラウザで開く'], defaultId: 0, cancelId: 0 });
+        title: t('partner.web.externalNavigation.leaveDeepseekHarnessText'), message: t('partner.web.externalNavigation.openBrowserConfirmMessage', { value1: new URL(url).hostname }),
+        detail: url, buttons: [t('partner.web.externalNavigation.declineExternalOpenAction'), t('partner.web.externalNavigation.openBrowserAction')], defaultId: 0, cancelId: 0 });
     if (answer.response === 1 && !guest.isDestroyed() && !window.isDestroyed()) await shell.openExternal(url);
 }

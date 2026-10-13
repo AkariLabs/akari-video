@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { mkdir, readFile, readdir } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -30,6 +30,27 @@ test("whisper model 名から DTW preset を詳細モデル優先で選ぶ", () 
   assert.equal(whisperDtwPreset("ggml-large-v3.bin"), "large.v3");
   for (const name of ["medium", "small", "base", "tiny"]) assert.equal(whisperDtwPreset(`ggml-${name}.bin`), name);
   assert.equal(whisperDtwPreset("ggml-large-v2.bin"), null);
+});
+
+test("whisper cache key versions only explicitly requested spaced-word languages", async (t) => {
+  const f = await fixture(t, []);
+  const common = { ...f.options, backend: "whisper-cpp", whisperBin: "fixture-whisper", whisperModel: "fixture-model",
+    backendRunner: async () => [], noRecord: true, wordBook: false, unrecognized: false, snap: false };
+  const keys = new Map();
+  for (const lang of ["en", "en-US", "de", "ja", "ja-JP", "zh", "zh-CN", "auto", "und", "unknown", "zz"]) {
+    const result = await transcribeMedia(f.target, { ...common, lang });
+    keys.set(lang, result.cache.key);
+  }
+  assert.match(keys.get("en"), /-whisper-cpp-en-mixed-v3-words3$/u);
+  assert.equal(keys.get("en-US"), keys.get("en"));
+  assert.match(keys.get("de"), /-whisper-cpp-de-mixed-v3-words3$/u);
+  for (const lang of ["ja", "zh", "auto", "und", "unknown", "zz"]) assert.doesNotMatch(keys.get(lang), /-words3$/u);
+  assert.equal(keys.get("ja-JP"), keys.get("ja"));
+  assert.equal(keys.get("zh-CN"), keys.get("zh"));
+  const prompted = await transcribeMedia(f.target, { ...common, lang: "en", whisperPrompt: true });
+  assert.match(prompted.cache.key, /-whisper-cpp-en-mixed-v3-filler-prompt-words3$/u);
+  const speech = await transcribeMedia(f.target, { ...speechOptions(f), lang: "en", noRecord: true });
+  assert.doesNotMatch(speech.cache.key, /-words3$/u);
 });
 
 for (const rejectsDtw of [false, true]) {
@@ -61,7 +82,7 @@ for (const rejectsDtw of [false, true]) {
 test("whisper は抜けの言語が変わったときだけ起こし直して差し込む", async (t) => {
   const segment = (from, to, text) => ({ offsets: { from, to }, text,
     tokens: [{ offsets: { from, to }, text }] });
-  const run = async (initial, detectedLanguage, recovered = [], recoveredLanguage = "en", detectProbability = 0.99) => {
+  const run = async (initial, detectedLanguage, recovered = [], recoveredLanguage = "en", detectProbability = 0.99, uiLanguage = "ja") => {
     const f = await fixture(t, []);
     const whisperCalls = [];
     const fullCalls = [];
@@ -90,7 +111,8 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
     };
     const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
       whisperBin: "fixture-whisper", whisperModel: "ggml-base.bin", unrecognized: false, snap: false,
-      silencesRunner: async () => { silenceCalls += 1; return []; }, stderr: (message) => backendLogs.push(message),
+      silencesRunner: async () => { silenceCalls += 1; return []; }, uiLanguage,
+      stderr: (message) => backendLogs.push(message),
     });
     return { result, whisperCalls, fullCalls, cuts, silenceCalls, backendLogs };
   };
@@ -109,6 +131,9 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
   assert.equal(lowProbability.fullCalls.length, 1);
   assert.deepEqual(lowProbability.result.segments.map(({ text }) => text), ["前"]);
   assert.ok(lowProbability.backendLogs.some((line) => /言語切替区間 1（\d+\.\d{2}〜\d+\.\d{2} 秒）: 判定した言語=en, p=0\.930, 1 回目の言語=ja, 起こし直さない（p が 0\.95 未満）/u.test(line)));
+
+  const englishLog = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "Hello")]], "en", 0.93, "en");
+  assert.ok(englishLog.backendLogs.some((line) => /Language-switch gap 1 .*detected language=en, p=0\.930.*skip retry \(p below 0\.95\)/u.test(line)));
 
   const missingProbability = await run([segment(0, 1000, "前")], "en", [[segment(1200, 3200, "幻聴")]], "en", null);
   assert.equal(missingProbability.fullCalls.length, 1);
@@ -145,6 +170,64 @@ test("whisper は抜けの言語が変わったときだけ起こし直して差
   assert.equal(empty.whisperCalls.length, 1);
   assert.equal(empty.silenceCalls, 1);
   assert.equal(empty.cuts.length, 0);
+});
+
+test("intake と --lang auto は言語切替を再判定し、明示した具体的な言語は再判定しない", async (t) => {
+  const f = await fixture(t, []);
+  await writeFile(path.join(f.project, ".akari/intake.json"), JSON.stringify({ language: "ja" }));
+  const segment = (from, to, text) => ({ offsets: { from, to }, text,
+    tokens: [{ offsets: { from, to }, text }] });
+  const initial = [segment(0, 2000, "前"), segment(8000, 30000, "後")];
+  let detectCalls = 0;
+  const fullCalls = [];
+  const spawn = (command, args) => {
+    if (command === "fixture-ffprobe") return { status: 0,
+      stdout: JSON.stringify({ format: { duration: "30" }, streams: [{ codec_type: "audio" }] }), stderr: "" };
+    if (command === "fixture-ffmpeg") return { status: 0, stdout: "", stderr: "" };
+    const prefix = args[args.indexOf("-of") + 1];
+    if (args.includes("-dl")) {
+      detectCalls += 1;
+      writeFileSync(`${prefix}.json`, JSON.stringify({ result: { language: "en" }, transcription: [] }));
+      return { status: 0, stdout: "", stderr: "auto-detected language: en (p = 0.990)" };
+    }
+    fullCalls.push(args);
+    writeFileSync(`${prefix}.json`, JSON.stringify({ result: { language: args[args.indexOf("-l") + 1] === "ja" ? "ja" : "en" },
+      transcription: args[args.indexOf("-l") + 1] === "ja" ? initial : [segment(1200, 3200, "Hello")] }));
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  const common = { ...f.options, spawn, backend: "whisper-cpp", whisperBin: "fixture-whisper",
+    whisperModel: "ggml-base.bin", wordBook: false, unrecognized: false, snap: false,
+    silencesRunner: async () => [], noRecord: true, uiLanguage: "ja" };
+  const intake = await transcribeMedia(f.target, common);
+  assert.equal(fullCalls[0][fullCalls[0].indexOf("-l") + 1], "ja");
+  assert.ok(fullCalls.some(args => args[args.indexOf("-l") + 1] === "auto"));
+  assert.ok(detectCalls > 0);
+  assert.deepEqual(intake.segments.map(({ text }) => text), ["前", "Hello", "後"]);
+  assert.match(intake.cache.key, /-whisper-cpp-ja-mixed-v3-intake-gaps-v1$/u);
+
+  const autoFixture = await fixture(t, []);
+  await writeFile(path.join(autoFixture.project, ".akari/intake.json"), JSON.stringify({ language: "ja" }));
+  const beforeAuto = { full: fullCalls.length, detect: detectCalls };
+  const auto = await transcribeMedia(autoFixture.target, { ...common, cwd: autoFixture.project, lang: "auto" });
+  assert.equal(auto.cache.hit, false);
+  assert.equal(auto.cache.key, intake.cache.key);
+  assert.equal(fullCalls[beforeAuto.full][fullCalls[beforeAuto.full].indexOf("-l") + 1], "ja");
+  assert.ok(detectCalls > beforeAuto.detect);
+  assert.deepEqual(auto.segments.map(({ text }) => text), ["前", "Hello", "後"]);
+  const inferred = await transcribeMedia(autoFixture.target, { ...common, cwd: autoFixture.project });
+  assert.equal(inferred.cache.hit, true);
+  assert.equal(inferred.cache.key, auto.cache.key);
+
+  const beforeExplicit = { full: fullCalls.length, detect: detectCalls };
+  const explicit = await transcribeMedia(f.target, { ...common, lang: "ja" });
+  assert.equal(explicit.cache.hit, false);
+  assert.equal(fullCalls.length, beforeExplicit.full + 1);
+  assert.equal(detectCalls, beforeExplicit.detect);
+  assert.deepEqual(explicit.segments.map(({ text }) => text), ["前", "後"]);
+  assert.notEqual(explicit.cache.key, intake.cache.key);
+  assert.match(explicit.cache.key, /-whisper-cpp-ja-mixed-v3$/u);
+  assert.equal((await transcribeMedia(f.target, common)).cache.hit, true);
+  assert.equal((await transcribeMedia(f.target, { ...common, lang: "ja" })).cache.hit, true);
 });
 
 test("全 backend 共通で既定吸着し、snap/timingSnap false は吸着を飛ばす", async (t) => {
@@ -263,7 +346,7 @@ test("transcripts の segment に判定版を記録し、span と top-level の�
   const f = await fixture(t, []);
   await transcribeMedia(f.target, speechOptions(f));
   const transcript = await json(transcriptPath(f));
-  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
+  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap", "transcript_language"]);
   assert.equal(transcript.segments[0].unrecognized_algo_version, UNRECOGNIZED_ALGO_VERSION);
   assert.deepEqual(transcript.segments[0].unrecognized, [{ start: 1.5, end: 2.5 }]);
 });

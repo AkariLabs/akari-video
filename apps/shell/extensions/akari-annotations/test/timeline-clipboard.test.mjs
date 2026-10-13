@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextCaptionId, pasteTimelineFragment, planPaste, parseTimelineFragment, serializeTimelineFragment } from '../lib/common/timeline-clipboard.js';
-import { parseCaptions } from '../lib/common/caption-store.js';
-import { insertItem, splitItem, updateItem } from '../lib/common/edit-v2-mutations.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { nextCaptionId, pasteTimelineFragment, planPaste, parseTimelineFragment, serializeTimelineFragment } = await import('../lib/common/timeline-clipboard.js');
+const { parseCaptions } = await import('../lib/common/caption-store.js');
+const { insertItem, splitItem, updateItem } = await import('../lib/common/edit-v2-mutations.js');
+
+
+
+
 
 const track = (id, kind = 'layers', items = []) => ({ id, kind, items });
 const item = (trackId = 'v1', trackIndex = 0, t = 2, duration = 3, kind = 'layers') =>

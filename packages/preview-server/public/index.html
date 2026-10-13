@@ -16,6 +16,8 @@
 <link rel="stylesheet" href="/style.css">
 <style>
 @font-face { font-family: "AKARI Noto Sans JP"; src: url("/assets/fonts/akari-noto-sans-jp.ttf") format("truetype-variations"); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: "AKARI Noto Sans"; src: url("/assets/fonts/akari-noto-sans.ttf") format("truetype-variations"); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: "Noto Sans"; src: url("/assets/fonts/akari-noto-sans.ttf") format("truetype-variations"); font-weight: 100 900; font-style: normal; font-display: block; }
 :root { color-scheme: dark; font-family: "AKARI Noto Sans JP", system-ui, sans-serif; }
 @keyframes spin { to { transform: rotate(360deg); } }
 * { box-sizing: border-box; }
@@ -248,6 +250,7 @@ input[type=range] { width: 100%; }
 <!-- params + data-akari-slot の差し込み（packages/overlay-runtime/src/slot-params.js。shell は runtimeJavaScript に
      同梱して注入する）。app.js が mount 時に window.akari.slotParams.renderTextSlots を通す -->
 <script src="/slot-params.js"></script>
+<!-- AKARI_PREVIEW_MESSAGES -->
 <script type="module" src="/app.js"></script>
 </body>
 </html>

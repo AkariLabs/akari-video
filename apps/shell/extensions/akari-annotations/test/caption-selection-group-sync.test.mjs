@@ -120,3 +120,42 @@ test('preview click recognizes a caption tree item in a mixed group without clea
   assert.equal(widget.multiSelection.length, 2);
   assert.deepEqual(events, []);
 });
+
+test('フォーカス中の字幕 item はプレビューから同じ字幕が返っても選択を保つ', () => {
+  const events = [];
+  const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
+  Object.assign(widget, {
+    captions: [{ id: 'a' }], multiSelection: [],
+    selection: { kind: 'item', id: 'caption-item', itemKind: 'caption' },
+    selectionModel: { selectedCaptionIds: ['a'] },
+    focusScope: { rootId: 'caption-item' },
+    canHandlePlaybackTick: () => true,
+    rawKeyframeItem: () => ({ source: { kind: 'caption', id: 'a' } }),
+    applySelection() { throw new Error('字幕 item の選択が外れた'); },
+    revealPreviewSelection() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.handleCaptionSelection('/edit.json', 'a');
+  assert.equal(widget.selection.id, 'caption-item');
+});
+
+test('キーフレームの画面の外では、同じ字幕の item 選択からプレビューの字幕選択へ切り替える（文字の帯を出す）', () => {
+  const events = [];
+  const widget = method('handleCaptionSelection', 'protected revealPreviewSelection', events);
+  const applied = [];
+  Object.assign(widget, {
+    captions: [{ id: 'a' }], multiSelection: [],
+    selection: { kind: 'item', id: 'caption-item', itemKind: 'caption' },
+    selectionModel: { selectedCaptionIds: [] },
+    focusScope: { rootId: null },
+    canHandlePlaybackTick: () => true,
+    rawKeyframeItem: () => ({ source: { kind: 'caption', id: 'a' } }),
+    applySelection(selection) { applied.push(selection); this.selection = selection; },
+    applyCaptionStateClasses() {},
+    revealPreviewSelection() {},
+    location: { editUri: { normalizePath() { return this; }, toString: () => '/edit.json' } }
+  });
+  widget.handleCaptionSelection('/edit.json', 'a');
+  assert.deepEqual(applied, [{ kind: 'caption', id: 'a' }]);
+  assert.deepEqual(widget.selectionModel.selectedCaptionIds, ['a']);
+});

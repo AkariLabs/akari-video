@@ -91,7 +91,7 @@ test('summary rewrites fragment URLs and PUT preserves the declared fragment pat
 
 test('missing references remain visible in summary and reach frameEngine warnings', async t => {
   const project = await fixture(t, '<div><img src="../assets/logo.png"></div>');
-  const { base, summary } = await startServer(t, project);
+  const { base, summary } = await startServer(t, project, { ...process.env, AKARI_LANG: 'ja' });
   assert.match(summary.overlays[0].html, /src="\/overlays\/assets\/logo.png"/u);
   assert.deepEqual(summary.frameEngine.intake, {});
   assert.deepEqual(summary.frameEngine.skipped, []);

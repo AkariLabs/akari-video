@@ -1,3 +1,6 @@
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+process.on('exit', () => setLanguage(undefined));
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -46,9 +49,12 @@ test('検索エンジンと設定節の実体に固定文法の値を合わせ�
         assert.ok(ids.has(matchJev(text, closed).plan.value.engine), text);
     }
     const sections = readFileSync(new URL('../../akari-surfaces/src/common/settings-sections.ts', import.meta.url), 'utf8');
-    for (const [text, id, label] of [['設定を開いて', 'listening', '聞き取り'],
-        ['外観の設定を開いて', 'appearance', '外観'], ['書き出しの設定', 'export', '書き出し']]) {
+    const labels = JSON.parse(readFileSync(new URL('../../../../../packages/i18n/locales/ja/surfaces.json', import.meta.url)));
+    for (const [text, id, key, label] of [['設定を開いて', 'listening', 'surfaces.settings.hearing.label', '聞き取り'],
+        ['外観の設定を開いて', 'appearance', 'surfaces.settings.appearance.label', '外観'],
+        ['書き出しの設定', 'export', 'surfaces.settings.export.label', '書き出し']]) {
         assert.equal(matchJev(text, closed).plan.value.section, id);
-        assert.ok(sections.includes(`id: '${id}', label: '${label}'`));
+        assert.ok(sections.includes(`id: '${id}', label: t('${key}')`));
+        assert.equal(labels[key], label);
     }
 });

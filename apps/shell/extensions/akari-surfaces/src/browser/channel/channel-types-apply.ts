@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { ChannelAnswers, QUESTION_KEYS, buildChannelMarkdown, parseChannelMarkdown } from './channel-design-model';
 import { buildDesignMd, defaultDesignValues, parseDesignMd } from './design-md-model';
 import { PRESET_CHANNEL_SKILLS, buildSkillMd } from './channel-skills-model';
@@ -99,11 +100,11 @@ export function channelMdHasBody(text: string | undefined): boolean {
 export function channelMdMissingHeadings(existing: string | undefined, contents: TypeContents): string[] {
     const answers = parseChannelMarkdown(stripGenreLine(existing ?? '')).answers;
     const headings: string[] = [];
-    if (!answers.genre?.length && contents.answers.genre?.length) headings.push('ジャンル');
-    if (!answers.who?.length && contents.answers.who?.length) headings.push('誰に');
-    if ((!answers.plat?.length && contents.answers.plat?.length) || (!answers.len?.length && contents.answers.len?.length)) headings.push('どこに出す');
-    if (!answers.tone?.length && contents.answers.tone?.length) headings.push('雰囲気');
-    if (!answers.every?.length && contents.answers.every?.length) headings.push('毎回入れること（決まりごと）');
+    if (!answers.genre?.length && contents.answers.genre?.length) headings.push(t('surfaces.channel.channelMdMissingHeadingsGenre.label'));
+    if (!answers.who?.length && contents.answers.who?.length) headings.push(t('surfaces.channel.channelMdMissingHeadingsWhom.label'));
+    if ((!answers.plat?.length && contents.answers.plat?.length) || (!answers.len?.length && contents.answers.len?.length)) headings.push(t('surfaces.channel.channelMdMissingHeadingsPutOut.label'));
+    if (!answers.tone?.length && contents.answers.tone?.length) headings.push(t('surfaces.channel.channelMdMissingHeadingsAtmosphere.label'));
+    if (!answers.every?.length && contents.answers.every?.length) headings.push(t('surfaces.channel.channelMdMissingHeadingsIncludeTimeRule.label'));
     return headings;
 }
 

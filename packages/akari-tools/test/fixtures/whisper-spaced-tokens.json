@@ -1,0 +1,103 @@
+{
+  "result": { "language": "en" },
+  "transcription": [
+    {
+      "offsets": { "from": 0, "to": 1900 },
+      "text": " Hey everyone, um, okay, let me start over.",
+      "tokens": [
+        { "offsets": { "from": 0, "to": 0 }, "text": "[_BEG_]" },
+        { "offsets": { "from": 0, "to": 0 }, "text": " Hey" },
+        { "offsets": { "from": 0, "to": 300 }, "text": " everyone" },
+        { "offsets": { "from": 300, "to": 300 }, "text": "," },
+        { "offsets": { "from": 400, "to": 500 }, "text": " um" },
+        { "offsets": { "from": 500, "to": 500 }, "text": "," },
+        { "offsets": { "from": 600, "to": 700 }, "text": " okay" },
+        { "offsets": { "from": 700, "to": 750 }, "text": "," },
+        { "offsets": { "from": 800, "to": 800 }, "text": " let" },
+        { "offsets": { "from": 800, "to": 900 }, "text": " me" },
+        { "offsets": { "from": 1000, "to": 1100 }, "text": " start" },
+        { "offsets": { "from": 1100, "to": 1300 }, "text": " over" },
+        { "offsets": { "from": 1300, "to": 1300 }, "text": "." },
+        { "offsets": { "from": 1900, "to": 1900 }, "text": "[_TT_123]" }
+      ]
+    },
+    {
+      "offsets": { "from": 2000, "to": 4900 },
+      "text": " I set up a little corner. A fist away from your mouth.",
+      "tokens": [
+        { "offsets": { "from": 2000, "to": 2100 }, "text": " I" },
+        { "offsets": { "from": 2100, "to": 2250 }, "text": " set" },
+        { "offsets": { "from": 2250, "to": 2350 }, "text": " up" },
+        { "offsets": { "from": 2400, "to": 2400 }, "text": " a" },
+        { "offsets": { "from": 2450, "to": 2700 }, "text": " little" },
+        { "offsets": { "from": 2700, "to": 2900 }, "text": " corner" },
+        { "offsets": { "from": 2900, "to": 2900 }, "text": "." },
+        { "offsets": { "from": 3000, "to": 3100 }, "text": " A" },
+        { "offsets": { "from": 3100, "to": 3300 }, "text": " fist" },
+        { "offsets": { "from": 3300, "to": 3500 }, "text": " away" },
+        { "offsets": { "from": 3500, "to": 3700 }, "text": " from" },
+        { "offsets": { "from": 3800, "to": 3800 }, "text": " your" },
+        { "offsets": { "from": 3800, "to": 4050 }, "text": " mouth" },
+        { "offsets": { "from": 4050, "to": 4050 }, "text": "." },
+        { "offsets": { "from": 4900, "to": 4900 }, "text": "[_TT_456]" }
+      ]
+    },
+    {
+      "offsets": { "from": 5000, "to": 7600 },
+      "text": " I'd really like to hear it. Okay, see you next week.",
+      "tokens": [
+        { "offsets": { "from": 5000, "to": 5100 }, "text": " I" },
+        { "offsets": { "from": 5100, "to": 5150 }, "text": "'d" },
+        { "offsets": { "from": 5200, "to": 5500 }, "text": " really" },
+        { "offsets": { "from": 5600, "to": 5600 }, "text": " like" },
+        { "offsets": { "from": 5700, "to": 5700 }, "text": " to" },
+        { "offsets": { "from": 5800, "to": 6000 }, "text": " hear" },
+        { "offsets": { "from": 6100, "to": 6200 }, "text": " it" },
+        { "offsets": { "from": 6200, "to": 6200 }, "text": "." },
+        { "offsets": { "from": 7000, "to": 6800 }, "text": " Okay" },
+        { "offsets": { "from": 7000, "to": 6900 }, "text": "," },
+        { "offsets": { "from": 7000, "to": 6950 }, "text": " see" },
+        { "offsets": { "from": 7000, "to": 7150 }, "text": " you" },
+        { "offsets": { "from": 7200, "to": 7300 }, "text": " next" },
+        { "offsets": { "from": 7300, "to": 7450 }, "text": " week" },
+        { "offsets": { "from": 7450, "to": 7600 }, "text": "." }
+      ]
+    },
+    {
+      "offsets": { "from": 8000, "to": 10000 },
+      "text": " That's, that's what it is. I've seen it, haven't I?",
+      "tokens": [
+        { "offsets": { "from": 8000, "to": 8000 }, "text": "[_BEG_]" },
+        { "offsets": { "from": 8000, "to": 8000 }, "text": " That" },
+        { "offsets": { "from": 8000, "to": 8000 }, "text": "'s" },
+        { "offsets": { "from": 8000, "to": 8000 }, "text": "," },
+        { "offsets": { "from": 8000, "to": 8200 }, "text": " that" },
+        { "offsets": { "from": 8200, "to": 8300 }, "text": "'s" },
+        { "offsets": { "from": 8400, "to": 8700 }, "text": " what" },
+        { "offsets": { "from": 8700, "to": 8800 }, "text": " it" },
+        { "offsets": { "from": 8800, "to": 9000 }, "text": " is" },
+        { "offsets": { "from": 9000, "to": 9000 }, "text": "." },
+        { "offsets": { "from": 9100, "to": 9200 }, "text": " I" },
+        { "offsets": { "from": 9200, "to": 9250 }, "text": "'ve" },
+        { "offsets": { "from": 9300, "to": 9500 }, "text": " seen" },
+        { "offsets": { "from": 9500, "to": 9650 }, "text": " it" },
+        { "offsets": { "from": 9650, "to": 9650 }, "text": "," },
+        { "offsets": { "from": 9700, "to": 9900 }, "text": " haven" },
+        { "offsets": { "from": 9900, "to": 9950 }, "text": "'t" },
+        { "offsets": { "from": 10000, "to": 10000 }, "text": " I" },
+        { "offsets": { "from": 10000, "to": 10000 }, "text": "?" },
+        { "offsets": { "from": 10000, "to": 10000 }, "text": "[_TT_789]" }
+      ]
+    },
+    {
+      "offsets": { "from": 11000, "to": 11100 },
+      "text": " Bye.",
+      "tokens": [
+        { "offsets": { "from": 11000, "to": 11000 }, "text": "[_BEG_]" },
+        { "offsets": { "from": 11000, "to": 11000 }, "text": " Bye" },
+        { "offsets": { "from": 11000, "to": 11000 }, "text": "." },
+        { "offsets": { "from": 11100, "to": 11100 }, "text": "[_TT_999]" }
+      ]
+    }
+  ]
+}

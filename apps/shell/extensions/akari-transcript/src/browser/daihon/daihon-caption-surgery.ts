@@ -1,3 +1,4 @@
+import { t } from '../transcript-text';
 import { splitTopLevelElements } from '@akari-video/edit-store';
 
 export function fragmentBoundaries(words: readonly { text: string }[], fragments: readonly string[] | undefined): number[] {
@@ -84,7 +85,7 @@ function rootArrayBounds(source: string): { start: number; end: number } | undef
 export function setCaptionDisplayFragmentsInSource(source: string, captionId: string,
     fragments: readonly string[]): string {
     const bounds = rootArrayBounds(source);
-    if (!bounds) throw new Error('captions 配列が見つかりません。');
+    if (!bounds) throw new Error(t('transcript.daihon.captionSurgery.captionsArrayNotFoundError'));
     const inner = source.slice(bounds.start + 1, bounds.end);
     const elements = splitTopLevelElements(inner);
     for (const element of elements) {
@@ -98,7 +99,7 @@ export function setCaptionDisplayFragmentsInSource(source: string, captionId: st
         const end = bounds.start + 1 + element.end;
         return source.slice(0, start) + updated + source.slice(end);
     }
-    throw new Error(`字幕が見つかりません: ${captionId}`);
+    throw new Error(t('transcript.daihon.captionSurgery.captionNotFoundWithValueError', { value1: captionId }));
 }
 
 function setObjectProperty(raw: string, key: string, jsonValue: string | null): string {

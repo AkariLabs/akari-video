@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { imageQuality } from './browser-pick';
 import { detectInjectionSuspect, sanitizeExternalText } from './external-text';
 
@@ -26,8 +27,8 @@ export function licenseHint(pageHost: string, imageHost: string): string | null 
     return host ? `domain:${host}` : null;
 }
 export function scratchLabel(app: ScratchSource['app'], engineName?: string): string {
-    if (app.search) return `画像（${engineName ?? app.search.engine}「${app.search.query.slice(0, 30)}」）`;
-    return `画像（${app.page_host}）`;
+    if (app.search) return t('project.handoff.scratch.imageFromSearchLabel', { value1: engineName ?? app.search.engine, value2: app.search.query.slice(0, 30) });
+    return t('project.handoff.scratch.imageFromHostLabel', { value1: app.page_host });
 }
 export function makeScratchSource(input: {
     id: string; status: ScratchStatus; capturedAt: Date; via: ScratchSource['via']; pageUrl: string;

@@ -18,7 +18,9 @@ test('OSR serves only registered bundled and library font URLs', async t => {
     captionFontPath: join(BUNDLED_FONT_ROOT, 'noto-sans-jp/NotoSansJP-Variable.ttf'),
     env: { AKARI_HOME: home } });
   t.after(() => server.close());
-  for (const url of ['/caption-fonts/noto-serif-jp/NotoSerifJP-Variable.ttf',
+  for (const url of ['/caption-fonts/noto-sans/NotoSans-Variable.ttf',
+    '/caption-fonts/noto-sans-alias/NotoSans-Variable.ttf',
+    '/caption-fonts/noto-serif-jp/NotoSerifJP-Variable.ttf',
     '/caption-fonts/noto-sans-jp-alias/NotoSansJP-Variable.ttf', '/caption-fonts/library-probe-hand']) {
     const response = await fetch(new URL(url, server.url));
     assert.equal(response.status, 200, url);

@@ -1,3 +1,5 @@
+
+
 # `.akari` data contract v1
 
 `workflow.json` declares canonical role paths, localized labels, normal-mode hidden entries, sidecar suffixes,
@@ -9,8 +11,7 @@ Full per-asset analysis output lives at `sidecars/<asset-relative-path>.analysis
 An asset meta object has `version: 1`, `asset` (project-relative string), optional `thumbnail` (path or URI),
 optional non-negative `durationSeconds`, optional positive integer `width` and `height`, optional
 `transcript` (`available` boolean and optional `path`), optional `analysis` (`status` and `summary` strings),
-and optional inline `decisions` (`id`, `summary`, `status`). Missing inspection fields mean "未分析".
-
+and optional inline `decisions` (`id`, `summary`, `status`). Missing inspection fields mean `未分析` ("not analyzed").
 An optional `<asset>.decisions.json` has `version: 1`, `asset`, and a `decisions` array. Each decision contains
 `id`, `summary`, `status` (`proposed`, `approved`, or `rejected`), and ISO-8601 `updatedAt`.
 

@@ -105,6 +105,16 @@ test('transition golden fixture resolves every comparison sample to its declared
   }
 });
 
+test('a gapped frozen cut keeps its anchor and extends the following sequential cut', () => {
+  const timeline = buildResolvedTimelinePlan([
+    { src: 's', in: 0, out: 2, at: 2, freeze: { at_sec: 1, duration_sec: 1 } },
+    { src: 's', in: 2, out: 3 },
+  ], { fps: 10 });
+  assert.equal(timeline.cuts[0].at, 2);
+  assert.equal(timeline.cuts[0].end, 5);
+  assert.equal(timeline.cuts[1].at, 5);
+});
+
 test('resolved cuts apply speed, freeze extension, and shift every following segment', () => {
   const source = { decode: async () => { throw new Error('not used'); } };
   const sources = new Map([['fixture.mp4', source]]);

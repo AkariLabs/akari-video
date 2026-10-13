@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -31,7 +32,7 @@ export function writeVoicesFile(file, value) {
 
 export function setDecided(file, speakerId, person) {
   const value = readVoicesFile(file);
-  if (!value) throw new Error('声の側ファイルがありません');
+  if (!value) throw new Error(t('tools.voice.engine.error.sidecarMissing'));
   value.decided = { ...value.decided };
   if (person === null) delete value.decided[speakerId];
   else value.decided[speakerId] = person;

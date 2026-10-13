@@ -25,15 +25,18 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
         : [''];
     const local = path.join(homeDir, '.local', 'bin');
     const localAppData = env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local');
-    const candidates = suffixes.map(suffix => path.join(local, name + suffix));
+    // Windows の Codex は導入・更新が AKARI の管理フォルダへ入る（mac は ~/.local/bin/codex が管理先への
+    // リンク）。~/.local/bin に古い codex.exe が残っていると、設定から更新しても起動されるのは古い版の
+    // ままになり、新しいモデルが選べない。管理フォルダを先に見る。
+    const managedFirst = agent === 'codex' && win ? [path.join(localAppData, 'AKARI Video', 'codex', 'current', 'bin')] : [];
+    const candidates = [...managedFirst.flatMap(directory => suffixes.map(suffix => path.join(directory, name + suffix))),
+        ...suffixes.map(suffix => path.join(local, name + suffix))];
     const extra: string[] = [];
     if (agent === 'claude') {
         extra.push(path.join(homeDir, '.claude', 'bin'), path.join(homeDir, '.claude', 'local'));
         if (win) {
             extra.push(path.join(env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'npm'));
         }
-    } else if (agent === 'codex' && win) {
-        extra.push(path.join(localAppData, 'AKARI Video', 'codex', 'current', 'bin'));
     } else if (agent === 'opencode') {
         extra.push(path.join(homeDir, '.opencode', 'bin'));
     } else if (agent === 'grok') {

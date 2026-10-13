@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import type {
     WriteBackResult,
@@ -120,8 +121,8 @@ export async function applyCompanionEdit(
         const matches = (!args.edit || current.editSha256 === expected.editSha256)
             && (!args.captions || current.captionsSha256 === expected.captionsSha256);
         if (!matches) {
-            deps.notify('ほかの変更が入ったため、この変更は元に戻せません');
-            throw new Error('現在の内容が変更されています');
+            deps.notify(t('companion.companion.guardedRewriteCannotUndoEditBecauseContentHasChanged.label'));
+            throw new Error(t('companion.companion.guardedRewriteCurrentContentHasChanged.label'));
         }
         await deps.writeEditSnapshot(request(editText, captionsText));
     };

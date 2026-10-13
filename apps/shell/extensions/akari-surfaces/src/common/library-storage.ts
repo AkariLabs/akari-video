@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type LibrarySource = 'lab' | 'site' | 'own';
 
 export interface LibraryStorageItem {
@@ -41,7 +42,7 @@ export function summarizeLibraryStorage(items: readonly LibraryStorageItem[]): L
 }
 
 export function librarySyncChoices(state: string | null): readonly string[] {
-    return state === 'pending' ? ['このまま使う', '別の場所を選ぶ', '今は移さない'] : [];
+    return state === 'pending' ? [t('surfaces.library.libraryStepChoice.label'), t('surfaces.library.chooseSyncLocationChooseAnotherLocation.label'), t('surfaces.library.chooseSyncLocationMoveLater.label')] : [];
 }
 
 export function libraryMoveCopy(
@@ -50,14 +51,14 @@ export function libraryMoveCopy(
     cloud: string | null
 ): { transfer?: string; sync?: string; retained?: string } {
     if (state === 'declined') {
-        return { retained: '今の置き場のまま使います。あとから設定の「素材の置き場を変える…」で移せます。' };
+        return { retained: t('surfaces.library.libraryMoveCopyKeepCurrentLocationMoveLaterSettingsChange.message') };
     }
     if (state === 'done') return {};
     return {
-        ...(previous.count > 0 ? { transfer: `${previous.count} 個・約 ${formatLibraryBytes(previous.bytes)} を新しい場所へ移します。` } : {}),
+        ...(previous.count > 0 ? { transfer: t('surfaces.library.libraryMoveCopyMovePiecesApproximatelyNewLocation.message', { previousCount: previous.count, n: previous.count, size: formatLibraryBytes(previous.bytes) }) } : {}),
         ...(state === 'pending' ? { sync: previous.bytes > 0
-            ? `この場所は ${cloud ?? 'クラウド'} と同期されています。約 ${formatLibraryBytes(previous.bytes)} が同期に乗ります。`
-            : `この場所は ${cloud ?? 'クラウド'} と同期されています。素材を入れると同期されます。` } : {})
+            ? t('surfaces.library.libraryMoveCopyLocationSyncApproximatelySync.message', { cloud: cloud ?? t('surfaces.library.libraryMoveCopyCloud.label'), size: formatLibraryBytes(previous.bytes) })
+            : t('surfaces.library.libraryMoveCopyLocationSyncInputAssetSynchronized.message', { cloud: cloud ?? t('surfaces.library.libraryMoveCopyCloud.label') }) } : {})
     };
 }
 

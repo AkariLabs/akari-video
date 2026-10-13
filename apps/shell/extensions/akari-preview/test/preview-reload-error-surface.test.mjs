@@ -173,7 +173,8 @@ test('refresh-ok と再構築の双方で解消済み表示を消す', () => {
     assert.equal(rebuilt.compositeErrorBanner.hidden, true);
 
     assert.match(bootstrap, /akari-preview-refresh-ok[\s\S]*hideReloadError\(\);[\s\S]*applyCompositeError\(message\.compositeError\)/u);
-    assert.match(compiled, /const reloadNotice = widget\.akariPreviewModelSnapshot !== undefined;[\s\S]*?widget\.setHTML/u);
+    // 組み直しの「再読込しました」通知は出さない（自分の保存でも毎回出て邪魔だったため）。
+    assert.match(compiled, /const reloadNotice = false;[\s\S]*?widget\.setHTML/u);
 });
 
 test('失敗・成功・再試行のホスト配線と z-index 優先順位を維持する', () => {

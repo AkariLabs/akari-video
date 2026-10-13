@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { toolsText } from '../i18n.mjs';
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import os from "node:os";
@@ -19,7 +20,7 @@ export function runChecked(command, args, options = {}) {
   });
   if (result?.error || result?.status !== 0) {
     const detail = String(result?.stderr || result?.stdout || result?.error?.message || "").trim();
-    throw new Error(detail || `${path.basename(command)} が終了コード ${result?.status ?? 1} で失敗しました`);
+    throw new Error(detail || toolsText('tools.media.error.commandFailed', { command: path.basename(command), code: result?.status ?? 1 }));
   }
   return result;
 }
@@ -61,7 +62,7 @@ function readEditSources(projectRoot) {
 }
 
 export function resolveTarget(target, options = {}) {
-  if (!target) throw new Error("target が必要です");
+  if (!target) throw new Error(toolsText('tools.media.error.targetMissing'));
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const cwdProject = findProjectRoot(cwd);
   let inputPath = path.resolve(cwd, target);
@@ -93,8 +94,8 @@ export function resolveTarget(target, options = {}) {
     }
   }
   if (!libraryRelative) {
-    if (!existsSync(inputPath)) throw new Error(`素材ファイルが見つかりません: ${target}`);
-    if (!statSync(inputPath).isFile()) throw new Error(`通常ファイルではありません: ${target}`);
+    if (!existsSync(inputPath)) throw new Error(toolsText('tools.media.error.sourceMissing', { target }));
+    if (!statSync(inputPath).isFile()) throw new Error(toolsText('tools.media.error.notRegularFile', { target }));
 
     projectRoot = projectRoot ?? findProjectRoot(inputPath);
     if (projectRoot) {
@@ -134,13 +135,13 @@ export function parseTime(value) {
   const text = String(value ?? "").trim();
   if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
   const match = /^(\d+):([0-5]?\d(?:\.\d+)?)$/.exec(text);
-  if (!match) throw new Error(`時刻が不正です: ${value}`);
+  if (!match) throw new Error(toolsText('tools.media.error.invalidTime', { value }));
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-export function validateTime(time, duration, label = "時刻") {
+export function validateTime(time, duration, label = toolsText('tools.media.label.time')) {
   if (!Number.isFinite(time) || time < 0 || time > duration) {
-    throw new Error(`${label} は 0〜${formatNumber(duration)} 秒で指定してください`);
+    throw new Error(toolsText('tools.media.error.timeRange', { label, duration: formatNumber(duration), n: duration }));
   }
   return time;
 }
@@ -172,7 +173,7 @@ export function probeRaw(inputPath, ffprobeCommand, options = {}) {
   ], options);
   const value = JSON.parse(result.stdout);
   const duration = Number(value.format?.duration ?? value.streams?.find((stream) => stream.duration)?.duration);
-  if (!Number.isFinite(duration) || duration <= 0) throw new Error("素材の duration を確定できません");
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error(toolsText('tools.media.error.durationUnknown'));
   return { value, duration };
 }
 

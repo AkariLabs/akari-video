@@ -1,3 +1,4 @@
+import { t } from '../../common/shell-text';
 import * as React from '@theia/core/shared/react';
 import { japaneseLintSummary } from 'akari-annotations/lib/common/lint-message-ja';
 import { lintRecheckHint } from '../../common/export-lint-recheck';
@@ -10,7 +11,7 @@ function findingTitle(finding: QuickExportLintFinding): string {
     const detail = `${finding.check ? `[${finding.check}] ` : ''}${finding.message ?? ''}`;
     const summary = japaneseLintSummary([detail], [finding]);
     if (summary) return summary;
-    return finding.severity === 'warning' ? '確認してほしい点があります' : '書き出す前に直す必要があります';
+    return finding.severity === 'warning' ? t('shell.exportDialog.lintFailure.someItemsNeedReviewText') : t('shell.exportDialog.lintFailure.fixTheseExportingAction');
 }
 
 export function ExportLintFailedView(props: {
@@ -33,10 +34,10 @@ export function ExportLintFailedView(props: {
         <>
             <div className='pb'>
                 <div className='left'>
-                    <div className='sec'><span>この動画</span><span className='r'>lint で停止</span></div>
+                    <div className='sec'><span>{t('shell.exportDialog.lintFailure.videoLabel')}</span><span className='r'>{t('shell.exportDialog.lintFailure.stoppedLintStatus')}</span></div>
                     <ExportFrame video={snapshot.video} />
                     <VideoFacts video={snapshot.video} />
-                    <p className='fine'>問題を直したあと、同じ設定からもう一度書き出せます。</p>
+                    <p className='fine'>{t('shell.exportDialog.lintFailure.fixingIssuesExportAgainSettingsMessage')}</p>
                     <p className='fine'>{lintRecheckHint({
                         rechecking: snapshot.lintRechecking,
                         checkedAt: status.lintCheckedAt
@@ -44,29 +45,29 @@ export function ExportLintFailedView(props: {
                 </div>
                 <div className='rwrap'>
                     <div className='right'>
-                        <div className='sec'><span>書き出す前に止めました</span><span className='r'>lint · エラー {status.lintErrorCount ?? 0} · 警告 {status.lintWarningCount ?? 0}</span></div>
-                        {findings.length === 0 && <div className='finding'><i /><div><b>lint の問題を確認してください</b>{status.failureSummary ?? '詳しい内容は lint レポートにあります。'}</div></div>}
+                        <div className='sec'><span>{t('shell.exportDialog.lintFailure.stoppedExportStatus')}</span><span className='r'>{t('shell.exportDialog.lintFailure.lintErrorsLabel')}{status.lintErrorCount ?? 0} {t('shell.exportDialog.lintFailure.warningsLabel')}{status.lintWarningCount ?? 0}</span></div>
+                        {findings.length === 0 && <div className='finding'><i /><div><b>{t('shell.exportDialog.lintFailure.reviewLintIssuesText')}</b>{status.failureSummary ?? t('shell.exportDialog.lintFailure.seeLintReportDetailsMessage')}</div></div>}
                         {findings.map((finding, index) => (
                             <div className={`finding${finding.severity === 'warning' ? ' warn' : ''}`} key={`${finding.check ?? 'finding'}-${index}`}>
-                                <i /><div><b>{findingTitle(finding)}</b>{finding.message ?? '詳細は lint レポートを確認してください。'} {finding.check && <code>{finding.check}</code>}</div>
+                                <i /><div><b>{findingTitle(finding)}</b>{finding.message ?? t('shell.exportDialog.lintFailure.checkLintReportDetailsMessage')} {finding.check && <code>{finding.check}</code>}</div>
                             </div>
                         ))}
                         <div className='acts'>
-                            <button type='button' className='btn primary' onClick={() => void session.handOffLintFailure()}>パートナーに直してもらう</button>
+                            <button type='button' className='btn primary' onClick={() => void session.handOffLintFailure()}>{t('shell.exportDialog.lintFailure.askPartnerFixAction')}</button>
                             <button
                                 type='button'
                                 className='btn'
                                 disabled={snapshot.lintRechecking}
                                 onClick={() => void session.recheckLint()}
-                            >{snapshot.lintRechecking ? '検査中…' : 'もう一度検査する'}</button>
-                            {warningOnly && <button type='button' className='btn ghost' onClick={() => void session.start({ rerunLint: false })}>そのまま書き出す</button>}
+                            >{snapshot.lintRechecking ? t('shell.exportDialog.lintFailure.checkingStatus') : t('shell.exportDialog.lintFailure.checkAgainAction')}</button>
+                            {warningOnly && <button type='button' className='btn ghost' onClick={() => void session.start({ rerunLint: false })}>{t('shell.exportDialog.lintFailure.exportAnywayAction')}</button>}
                         </div>
-                        <p className='fine'>パートナーに直してもらうと、この所見を AI チャットへ渡します。</p>
+                        <p className='fine'>{t('shell.exportDialog.lintFailure.askPartnerFixTheseFindingsSentAiChatMessage')}</p>
                     </div>
                 </div>
             </div>
             <ExportEngineReasonView status={status} openLint={status.reportPath ? () => openAndClose(status.reportPath) : undefined} />
-            <div className='pf'><span className='fn'>直したら設定に戻ってやり直せます。</span><span className='sp' /><button type='button' className='btn' onClick={() => session.resetToSetup()}>設定に戻る</button></div>
+            <div className='pf'><span className='fn'>{t('shell.exportDialog.lintFailure.fixingIssuesReturnSettingsTryAgainMessage')}</span><span className='sp' /><button type='button' className='btn' onClick={() => session.resetToSetup()}>{t('shell.exportDialog.lintFailure.backSettingsLabel')}</button></div>
         </>
     );
 }

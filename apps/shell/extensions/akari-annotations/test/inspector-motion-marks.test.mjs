@@ -1,6 +1,12 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { itemMotionMarks } from '../lib/browser/inspector/motion-marks.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { itemMotionMarks } = await import('../lib/browser/inspector/motion-marks.js');
+
 
 test('軸ごとの点・プリセット・親キャンバスの印を重ねる', () => {
   const item = {

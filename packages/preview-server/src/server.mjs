@@ -44,6 +44,7 @@ import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 import { assertNoSessionAssetUrl, materializedFragmentPlan, patchFragmentSourceText, replaceFragmentReference, withoutFragmentRootTiming } from '../../overlay-runtime/src/fragment-source-write.mjs';
 import { resolveProjectAssetPathSync } from '../../asset-resolver/src/shell-reference-sync.mjs';
+import { renderPreviewIndex } from './preview-index.mjs';
 
 // The companion CLI carries the product version in both source and packaged layouts.
 const writerVersion = (() => {
@@ -101,6 +102,8 @@ const MIME = {
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const CAPTION_FONT_PATH = fileURLToPath(new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url));
 const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
+const LATIN_CAPTION_FONT_PATH = fileURLToPath(new URL('../../../assets/font/noto-sans/NotoSans-Variable.ttf', import.meta.url));
+const LATIN_CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans.ttf';
 const DEFAULT_THREE_FONT_PATH = fileURLToPath(new URL('../../overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf', import.meta.url));
 const DEFAULT_THREE_FONT_ROUTE = '/__akari/fonts/zen-kaku-gothic-new-black.ttf';
 // 3D オーバーレイのランタイム。どちらも素の IIFE（vendor は window.AkariThree、
@@ -126,7 +129,6 @@ const THREE_ROUTES = {
   // 書き出し（rasterize）は無改造で通るが、プレビューは打ち替え編集をするため
   // 再分割の実装が要る。three と同じ「リポ所有の固定ルート」で配る。
   // budoux は Apache-2.0（vendor/budoux-LICENSE.txt）。
-  // 契約: akari-video-internal contract-2026-08-15-telop-motion-grammar-v0
   '/budoux-ja-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/budoux-ja-bundle.js', import.meta.url)),
   '/text-split.js': fileURLToPath(new URL('../../overlay-runtime/src/text-split.js', import.meta.url)),
 };
@@ -984,7 +986,8 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (pathname === '/' || pathname === '/index.html') {
-    return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    return respond(res, 200, renderPreviewIndex(fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')),
+      'text/html; charset=utf-8');
   }
 
   // 3D ランタイム（リポ所有の固定ルート。断片が 3D を宣言した時だけ取りに来る）
@@ -1016,10 +1019,12 @@ const server = http.createServer(async (req, res) => {
 
   // Fixed route to the repository-owned caption font. It is intentionally not
   // resolved from user input or projectRoot, so traversal cannot select another file.
-  if (pathname === CAPTION_FONT_ROUTE && (req.method === 'GET' || req.method === 'HEAD')) {
+  if ((pathname === CAPTION_FONT_ROUTE || pathname === LATIN_CAPTION_FONT_ROUTE)
+      && (req.method === 'GET' || req.method === 'HEAD')) {
+    const fontPath = pathname === CAPTION_FONT_ROUTE ? CAPTION_FONT_PATH : LATIN_CAPTION_FONT_PATH;
     if (req.method === 'HEAD') {
       try {
-        const size = fs.statSync(CAPTION_FONT_PATH).size;
+        const size = fs.statSync(fontPath).size;
         res.writeHead(200, {
           'content-type': 'font/ttf',
           'content-length': size,
@@ -1031,7 +1036,7 @@ const server = http.createServer(async (req, res) => {
         return respond(res, 404, { error: 'Caption font not found' });
       }
     }
-    return serveFile(res, CAPTION_FONT_PATH, 'font/ttf', {
+    return serveFile(res, fontPath, 'font/ttf', {
       'cache-control': 'public, max-age=31536000, immutable',
     });
   }
@@ -1142,6 +1147,7 @@ function watchedOverlayPaths() {
       const html = fs.readFileSync(path.resolve(projectRoot, htmlPath), 'utf8');
       for (const reference of extractRuntimeAssetReferences(html, htmlPath, String(overlay.id))) {
         add(reference.path, overlay.id);
+        if (reference.fallbackPath !== undefined) add(reference.fallbackPath, overlay.id);
       }
     } catch { /* 断片が未作成でも、作成イベントを受けて次回読み直す。 */ }
   }

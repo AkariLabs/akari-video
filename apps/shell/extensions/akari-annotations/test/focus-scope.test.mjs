@@ -1,14 +1,13 @@
+import { setLanguage } from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  enterFocusScope,
-  exitFocusScope,
-  focusScopeAtBreadcrumb,
-  initialFocusScope,
-  rowsInFocusScope,
-  timelineDoubleClickAction,
-} from '../lib/browser/focus/focus-scope.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { enterFocusScope, exitFocusScope, focusScopeAtBreadcrumb, initialFocusScope, rowsInFocusScope, timelineDoubleClickAction } = await import('../lib/browser/focus/focus-scope.js');
+
 
 const rows = [
   { id: 'g', label: 'フック', itemKind: 'group', sourceKind: 'group', trackId: 'v1', depth: 0, hasChildren: true, collapsed: false, at: 10, duration: 70, ticks: [] },
@@ -32,11 +31,14 @@ test('Esc 相当は 1 段ずつ戻り、パンくずクリックで任意段へ�
   assert.deepEqual(exitFocusScope(rows, enterFocusScope(rows, 'g')), initialFocusScope(rows));
 });
 
-test('ダブルクリック割り当ては動画だけ trimmer、その他は focus', () => {
-  assert.equal(timelineDoubleClickAction('media', 'media'), 'trimmer');
+test('主トラックの cut は trimmer、別トラックの写真・動画とテロップは focus', () => {
+  assert.equal(timelineDoubleClickAction('media', 'media', true), 'trimmer');
+  assert.equal(timelineDoubleClickAction('media', 'media', false), 'focus');
+  assert.equal(timelineDoubleClickAction('item', 'media', false), 'focus');
   assert.equal(timelineDoubleClickAction('group', 'group'), 'focus');
   assert.equal(timelineDoubleClickAction('part', 'html'), 'focus');
   assert.equal(timelineDoubleClickAction('telop', 'telop'), 'focus');
+  assert.equal(timelineDoubleClickAction('caption', 'caption'), 'focus');
 });
 
 test('全体スコープは全行の最小開始から最大終端までを span にする', () => {

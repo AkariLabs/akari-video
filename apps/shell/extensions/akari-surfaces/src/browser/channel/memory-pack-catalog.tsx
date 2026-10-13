@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
@@ -75,7 +76,7 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
         let active = true;
         void Promise.all([props.files.readPeople(props.dir), props.files.readWordBook(props.dir), props.files.readPacks(props.dir)])
             .then(([nextPeople, nextBook, nextPacks]) => { if (active) { setPeople(nextPeople); setBook(nextBook); setPacks(nextPacks); } })
-            .catch(() => { if (active) setError('読み込めませんでした。もう一度開いてください。'); });
+            .catch(() => { if (active) setError(t('surfaces.channel.memoryPackCatalogLoadPacksReopenListTryAgain.error')); });
         return () => { active = false; };
     }, [props.dir.toString(), props.files]);
 
@@ -101,9 +102,9 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
             await props.files.writeWordBook(props.dir, result.book);
             await props.files.writePacks(props.dir, result.packs);
             setPeople(result.people); setBook(result.book); setPacks(result.packs);
-            notify(`『${selected.name}』を取り込みました。人とモノと辞書に、パックとして入りました`);
+            notify(t('surfaces.channel.takeInImportedComesPackPeopleThingsDictionaries.message', { selectedName: selected.name }));
             props.onChanged?.();
-        } catch { setError('取り込めませんでした。もう一度お試しください。'); }
+        } catch { setError(t('surfaces.channel.takeInImportPackTryAgain.error')); }
         finally { setBusy(false); }
     };
     const takeOut = async (): Promise<void> => {
@@ -118,70 +119,70 @@ export function MemoryPackCatalog(props: { channel: string; dir: URI; files: Cha
             await props.files.writeWordBook(props.dir, result.book);
             await props.files.writePacks(props.dir, result.packs);
             setPeople(result.people); setBook(result.book); setPacks(result.packs); setConfirm(false);
-            notify(`『${selected.name}』を外しました（${result.removed} 件）`);
+            notify(t('surfaces.channel.takeOutRemovedItems.message', { selectedName: selected.name, removed: result.removed, n: result.removed }));
             props.onChanged?.();
-        } catch { setError('外せませんでした。もう一度お試しください。'); }
+        } catch { setError(t('surfaces.channel.takeOutRemovePackTryAgain.error')); }
         finally { setBusy(false); }
     };
 
     return <HomeScrim kind='channel-packs' onClose={props.onClose}>
         <style>{channelSheetCss}</style>
-        <h3>記憶パック</h3>
-        <p>分野ごとの、人物・会社・製品のまとまりです。中身はだれでも見られます。取り込むと『人とモノ』と辞書にパックとして入り、あとからパックごと外せます。</p>
+        <h3>{t('surfaces.channel.memoryPackCatalogMemoryPack.heading')}</h3>
+        <p>{t('surfaces.channel.memoryPackCatalogCollectionPeopleCompaniesProductsFieldAnyoneSee.description')}</p>
         {message && <p role='status'>{message}</p>}
         {error && <p role='alert' className='akari-packs-error'>{error}</p>}
         <div className='akari-packs-layout'>
-            <nav className='akari-packs-nav' aria-label='記憶パックの分野'>
-                <button type='button' aria-pressed={filter === 'all'} onClick={() => setFilter('all')}><span>すべて</span><small>{counts.all}</small></button>
-                <button type='button' aria-pressed={filter === 'imported'} onClick={() => setFilter('imported')}><span>取り込み済み</span><small>{counts.imported}</small></button>
+            <nav className='akari-packs-nav' aria-label={t('surfaces.channel.memoryPackCatalogFieldMemoryPack.label')}>
+                <button type='button' aria-pressed={filter === 'all'} onClick={() => setFilter('all')}><span>{t('surfaces.channel.memoryPackCatalogAll.label')}</span><small>{counts.all}</small></button>
+                <button type='button' aria-pressed={filter === 'imported'} onClick={() => setFilter('imported')}><span>{t('surfaces.channel.memoryPackCatalogImported.label')}</span><small>{counts.imported}</small></button>
                 {MEMORY_PACK_GENRES.map(item => <React.Fragment key={item.genre}><h4>{item.genre}</h4>
                     {item.groups.map(group => { const key = `${item.genre} › ${group}`;
                         return <button type='button' key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>
                             <span>{group}</span><small>{MEMORY_PACKS.filter(pack => pack.genre === item.genre && pack.group === group).length}</small></button>; })}
                 </React.Fragment>)}
             </nav>
-            <div className='akari-packs-list' aria-label='記憶パック一覧'>
+            <div className='akari-packs-list' aria-label={t('surfaces.channel.memoryPackCatalogMemoryPackList.label')}>
                 {shown.map(pack => <button type='button' className='akari-packs-card' key={pack.id} aria-pressed={selected.name === pack.name}
-                    onClick={() => choose(pack)}><strong>{pack.name}</strong><small>{pack.group} · {packTotal(pack)} 件 · Akari</small>
-                    <span>{isImported(packs, pack.name) && <small className='akari-packs-badge'>取り込み済み</small>}
-                        {pack.status === 'planned' && <small className='akari-packs-badge'>準備中</small>}</span></button>)}
-                {!shown.length && <p>取り込み済みのパックはありません。</p>}
+                    onClick={() => choose(pack)}><strong>{pack.name}</strong><small>{pack.group} · {packTotal(pack)} {t('surfaces.channel.memoryPackCatalogItemAkari.label')}</small>
+                    <span>{isImported(packs, pack.name) && <small className='akari-packs-badge'>{t('surfaces.channel.memoryPackCatalogImported.label')}</small>}
+                        {pack.status === 'planned' && <small className='akari-packs-badge'>{t('surfaces.channel.memoryPackCatalogComingSoon.label')}</small>}</span></button>)}
+                {!shown.length && <p>{t('surfaces.channel.memoryPackCatalogNoImportedPacks.message')}</p>}
             </div>
-            <section className='akari-packs-detail' aria-label={`${selected.name}の中身`}>
+            <section className='akari-packs-detail' aria-label={t('surfaces.channel.memoryPackCatalogContents.message', { selectedName: selected.name })}>
                 <h4>{selected.name}</h4><p>{selected.description}</p>
-                <small>人物 {selected.counts.people} · 会社 {selected.counts.orgs} · 製品 {selected.counts.products} · 言い換え {selected.counts.words}</small>
-                <h5>入っているものの例</h5>
+                <small>{t('surfaces.channel.memoryPackCounts.label', { people: selected.counts.people, companies: selected.counts.orgs, products: selected.counts.products, replacements: selected.counts.words })}</small>
+                <h5>{t('surfaces.channel.memoryPackCatalogExamplesWhatsIncluded.heading')}</h5>
                 {selected.entries?.slice(0, 6).map((entry, index) => <button type='button' className='akari-packs-example' key={entry.name}
                     aria-pressed={selectedEntry === index} onClick={() => setSelectedEntry(index)}>
                     <span className='akari-packs-initial' aria-hidden='true'>{initialOf(entry.name)}</span>
                     <span className='akari-packs-example-text'><strong>{entry.name}</strong>{entry.role && <small>{entry.role}</small>}</span></button>)}
-                {!selected.entries?.length && <p>中身は準備中です。</p>}
-                <h5>言い換えの例</h5>
-                {packWordExamples(selected).length ? packWordExamples(selected).map(word => <p key={word}>{word}</p>) : <p>準備中です。</p>}
-                <h5>1 件に入っているもの</h5>
+                {!selected.entries?.length && <p>{t('surfaces.channel.memoryPackCatalogContentsPrepared.message')}</p>}
+                <h5>{t('surfaces.channel.memoryPackCatalogExampleParaphrase.heading')}</h5>
+                {packWordExamples(selected).length ? packWordExamples(selected).map(word => <p key={word}>{word}</p>) : <p>{t('surfaces.channel.memoryPackCatalogPreparing.message')}</p>}
+                <h5>{t('surfaces.channel.memoryPackCatalogItemsIncludedItem.heading')}</h5>
                 {example ? <ul className='akari-packs-fields'>
-                    <li>名前: {example.name}</li><li>読み: {example.reading || '未登録'}</li>
-                    <li>別名: {example.aliases?.join('、') || '未登録'}</li><li>役割: {example.role || '未登録'}</li>
-                    <li>使う場面: {defaultScene(example.kind === 'person' ? 'person' : 'org')}</li>
-                    <li>画像の在りか（参照）: 未登録</li>
-                </ul> : <p>中身は準備中です。</p>}
-                <p><small>見本の顔はイラストです。実際のパックは画像そのものを配らず、公式の写真やロゴの在りかと使い方の決まりを配ります（参照配布）。</small></p>
+                    <li>{t('surfaces.channel.memoryPackExampleName.label', { name: example.name })}</li><li>{t('surfaces.channel.memoryPackExampleReading.label', { reading: example.reading || t('surfaces.channel.memoryPackCatalogRegistered.label') })}</li>
+                    <li>{t('surfaces.channel.memoryPackExampleAliases.label', { aliases: example.aliases?.join(t('surfaces.channel.aliasList.separator')) || t('surfaces.channel.memoryPackCatalogRegistered.label') })}</li><li>{t('surfaces.channel.memoryPackExampleRole.label', { role: example.role || t('surfaces.channel.memoryPackCatalogRegistered.label') })}</li>
+                    <li>{t('surfaces.channel.memoryPackExampleUsage.label', { usage: defaultScene(example.kind === 'person' ? 'person' : 'org') })}</li>
+                    <li>{t('surfaces.channel.memoryPackCatalogImageLocationReferenceRegistered.label')}</li>
+                </ul> : <p>{t('surfaces.channel.memoryPackCatalogContentsPrepared.message')}</p>}
+                <p><small>{t('surfaces.channel.memoryPackCatalogSampleFaceIllustrationActualPackHandOut.description')}</small></p>
                 {confirm && <div className='akari-packs-confirm'>
-                    <strong>『{selected.name}』を外す</strong>
-                    <p>このパックから入ったものを、まとめて消します。</p>
-                    <p>人とモノ {removable.people} 件・辞書の言い換え {removable.words} 件</p>
-                    <label><input type='checkbox' checked={keepEdited} onChange={event => setKeepEdited(event.target.checked)} />自分で直したもの（別名や使う場面を書き換えたもの）は残す</label>
-                    <div className='akari-packs-confirm-actions'><button type='button' disabled={busy} onClick={() => void takeOut()}>外す</button>
-                        <button type='button' disabled={busy} onClick={() => setConfirm(false)}>やめる</button></div>
+                    <strong>{t('surfaces.channel.removeMemoryPack.confirm', { name: selected.name })}</strong>
+                    <p>{t('surfaces.channel.memoryPackCatalogDeleteAllItemsPack.message')}</p>
+                    <p>{t('surfaces.channel.removablePackEntries.label', { people: removable.people, replacements: removable.words })}</p>
+                    <label><input type='checkbox' checked={keepEdited} onChange={event => setKeepEdited(event.target.checked)} />{t('surfaces.channel.memoryPackCatalogKeepEntriesEditedIncludingAliasesUsageNotes.label')}</label>
+                    <div className='akari-packs-confirm-actions'><button type='button' disabled={busy} onClick={() => void takeOut()}>{t('surfaces.channel.memoryPackRemove.button')}</button>
+                        <button type='button' disabled={busy} onClick={() => setConfirm(false)}>{t('surfaces.channel.memoryPackCatalogStop.button')}</button></div>
                 </div>}
                 {!confirm && <div className='akari-packs-actions'>
-                    {selected.status === 'planned' ? <button type='button' disabled>準備中（Lab で配布予定）</button>
-                        : imported ? <><button type='button' onClick={props.onOpenPeople}>人とモノで『{selected.name}』を見る</button>
-                            <button type='button' disabled={busy} onClick={() => { setKeepEdited(true); setConfirm(true); }}>外す…</button></>
+                    {selected.status === 'planned' ? <button type='button' disabled>{t('surfaces.channel.memoryPackCatalogPreparationScheduledDistributedLab.button')}</button>
+                        : imported ? <><button type='button' onClick={props.onOpenPeople}>{t('surfaces.channel.viewMemoryPackPeople.button', { name: selected.name })}</button>
+                            <button type='button' disabled={busy} onClick={() => { setKeepEdited(true); setConfirm(true); }}>{t('surfaces.channel.memoryPackRemoveMore.button')}</button></>
                             : <button type='button' disabled={busy} onClick={() => {
                                 if (!proGate('pro', props.hasProKey)) props.onNeedPro(PRO_FEATURE_PACK);
                                 else void takeIn();
-                            }}>☆ 『{selected.name}』を取り込む</button>}
+                            }}>{t('surfaces.channel.importMemoryPack.button', { name: selected.name })}</button>}
                 </div>}
             </section>
         </div>

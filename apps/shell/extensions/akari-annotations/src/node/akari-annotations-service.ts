@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
@@ -327,13 +328,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             request.inputSha256, request.engine, helper, request.invert);
     }
     async photoStageRegionLut(request: { projectRootUri: string; id: string }): Promise<void> {
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(request.id)) throw new Error('フィルターが見つかりません');
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(request.id)) throw new Error(t('annotationscommon.akariAnnotationsService.error.filterNotFound'));
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const preset = await this.findGenerationAsset(`presets/luts/${request.id}/${request.id}.cube`);
         const folder = join(root, 'assets', 'luts', 'photo-region');
         for (const directory of [join(root, 'assets'), join(root, 'assets', 'luts'), folder]) {
             await fs.mkdir(directory, { recursive: true });
-            if (!(await fs.realpath(directory)).startsWith(root + sep)) throw new Error('プロジェクト外には保存できません');
+            if (!(await fs.realpath(directory)).startsWith(root + sep)) throw new Error(t('annotationscommon.akariAnnotationsService.error.cannotSaveOutsideProject'));
         }
         const destination = join(folder, `${request.id}.cube`);
         try { await fs.writeFile(destination, await fs.readFile(preset), { flag: 'wx' }); }
@@ -402,28 +403,28 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return this.narrationCli.voiceCheck(request.audioPath, request.script);
     }
     async voiceCreate(request: VoiceCreateRequest): Promise<{ status: string; profile: string; path: string }> {
-        if (request.consentSelf !== true) throw new Error('本人の声への同意が必要です。');
+        if (request.consentSelf !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.consentUseOwnVoiceRequired'));
         const result = await this.narrationCli.voiceCreate(request);
         this.voiceCreatedProfiles.add(result.profile);
         this.voiceCreatedPaths.set(result.profile, result.path);
         return result;
     }
     async voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }> {
-        if (request.engine !== 'irodori' && request.approved !== true) throw new Error('費用承認が必要です。');
+        if (request.engine !== 'irodori' && request.approved !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         return this.narrationCli.voiceCopy(request);
     }
     async voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }> {
-        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         const result = await this.narrationCli.voiceTry(request);
         this.voiceTempPaths.add(result.path);
         return result;
     }
     async voiceExtend(request: { profile: string; audioPath: string }): Promise<{ path: string; score?: number; warnings?: string[] }> {
-        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error('追加録音の保存先がありません。');
+        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error(t('annotationscommon.akariAnnotationsService.error.noDestinationAdditionalRecording'));
         return this.narrationCli.voiceExtend(request.profile, request.audioPath);
     }
     async voiceFinalize(request: { profile: string; label: string }): Promise<void> {
-        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error('保存する声がありません。');
+        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error(t('annotationscommon.akariAnnotationsService.error.thereNoVoiceSave'));
         await this.narrationCli.voiceRename(request.profile, request.label);
         this.voiceCreatedProfiles.delete(request.profile);
         this.voiceCreatedPaths.delete(request.profile);
@@ -446,7 +447,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return undefined;
     }
     async voiceBeginRecording(extension: 'webm' | 'wav' | 'm4a' | 'mp3'): Promise<{ token: string }> {
-        if (!['webm', 'wav', 'm4a', 'mp3'].includes(extension)) throw new Error('録音形式が不正です。');
+        if (!['webm', 'wav', 'm4a', 'mp3'].includes(extension)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidRecordingFormat'));
         const directory = await fs.mkdtemp(join(tmpdir(), 'akari-voice-recording-'));
         const path = join(directory, `recording.${extension}`);
         await fs.writeFile(path, Buffer.alloc(0), { mode: 0o600 });
@@ -458,15 +459,15 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async voiceAppendRecording(request: { token: string; chunk: string }): Promise<void> {
         const recording = this.voiceRecordings.get(request.token);
         if (!recording || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(request.chunk)
-            || request.chunk.length > 350_000) throw new Error('録音データが不正です。');
+            || request.chunk.length > 350_000) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidRecordingData'));
         const bytes = Buffer.from(request.chunk, 'base64');
-        if (recording.size + bytes.length > 30_000_000) throw new Error('録音データが大きすぎます。');
+        if (recording.size + bytes.length > 30_000_000) throw new Error(t('annotationscommon.akariAnnotationsService.error.recordingDataTooLarge'));
         await fs.appendFile(recording.path, bytes);
         recording.size += bytes.length;
     }
     async voiceFinishRecording(token: string): Promise<{ path: string }> {
         const recording = this.voiceRecordings.get(token);
-        if (!recording || recording.size === 0) throw new Error('録音データがありません。');
+        if (!recording || recording.size === 0) throw new Error(t('annotationscommon.akariAnnotationsService.error.recordingDataMissing'));
         this.voiceRecordings.delete(token);
         return { path: recording.path };
     }
@@ -527,12 +528,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return this.narrationCli.verificationBackend(this.fsPath(projectRootUri));
     }
     async verifyNarration(request: VerifyNarrationRequest): Promise<VerifyNarrationResult> {
-        if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(request.audio)) throw new Error('音声パスが不正です。');
+        if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(request.audio)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAudioPath'));
         return this.narrationCli.verify(request, this.fsPath(request.projectRootUri));
     }
     async generateNarration(request: TimelineRequest<GenerateNarrationRequest>): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
-            throw new Error('費用承認が必要です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         }
         const root = resolve(this.fsPath(request.projectRootUri));
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8')) as {
@@ -614,11 +615,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const item = edit.tracks?.filter(track => track.lane === 'audio').flatMap(track => track.items ?? [])
             .find(row => row.id === itemId);
         const source = edit.sources?.find(row => row.id === item?.source?.src);
-        if (!source?.path || !/^assets\/generated\/[^/]+\.wav$/u.test(source.path)) throw new Error('音声の空の枠がありません。');
+        if (!source?.path || !/^assets\/generated\/[^/]+\.wav$/u.test(source.path)) throw new Error(t('annotationscommon.akariAnnotationsService.error.emptyAudioFrameNotFound'));
         const sidecarPath = join(root, `${source.path}.meta.json`);
         const meta = JSON.parse(await fs.readFile(sidecarPath, 'utf8')) as Record<string, any>;
         if (meta.kind !== 'audio' || !['planned', 'generating', 'done', 'failed'].includes(meta.status)) {
-            throw new Error('音声の空の枠がありません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.emptyAudioFrameNotFound'));
         }
         return { sidecarPath, meta };
     }
@@ -639,17 +640,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async startNarrationBatch(request: TimelineRequest<NarrationBatchRequest>): Promise<NarrationCandidateBatch> {
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId) || !request.script.trim()
-            || !Array.isArray(request.routes) || !request.routes.length) throw new Error('ナレーションの入力が不正です。');
+            || !Array.isArray(request.routes) || !request.routes.length) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidNarrationInput'));
         const routes = request.routes.map(row => row.engine);
         if (new Set(routes).size !== routes.length || request.routes.some(row => !/^[a-z][a-z0-9-]*$/u.test(row.engine)
-            || !row.voice)) throw new Error('エンジンと声の選択が不正です。');
+            || !row.voice)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidEngineVoiceSelection'));
         const engines = (await this.narrationCli.engines()).engines;
         if (request.routes.some(row => !engines.some(engine => engine.id === row.engine
             && (engine.availability.state === 'available' || engine.id === 'voicevox' && engine.availability.state === 'needs')))) {
-            throw new Error('使えないエンジンが含まれています。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.selectionIncludesUnavailableEngine'));
         }
         if (request.routes.some(row => engines.find(engine => engine.id === row.engine)?.place === 'cloud')
-            && request.approved !== true) throw new Error('費用承認が必要です。');
+            && request.approved !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         const frame = await this.narrationFrame(root, request.itemId, request.editUri);
         const existing = [...await readCandidateMeta(root, request.itemId, '.wav'),
             ...await readCandidateMeta(root, request.itemId, '.mp3')];
@@ -666,9 +667,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                         engine: engineId, voice: selected.voice, profile: selected.profile, style: selected.style,
                         irodoriUrl: selected.irodoriUrl, script: request.script, reading: request.reading || request.script,
                         t: request.t, approved: request.approved, editUri: request.editUri }, root, relativePath);
-                    if (this.narrationCandidates.isCancelled(`${root}:${request.itemId}`)) throw new Error('中止しました。');
+                    if (this.narrationCandidates.isCancelled(`${root}:${request.itemId}`)) throw new Error(t('annotationscommon.akariAnnotationsService.error.cancelled'));
                     if (generated.status !== 'ok' || generated.path !== relativePath || !Number(generated.duration_s)) {
-                        throw new Error('音声を生成できませんでした。');
+                        throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotGenerateAudio'));
                     }
                     const bytes = await fs.readFile(join(root, relativePath));
                     const elapsedSeconds = (Date.now() - started) / 1000;
@@ -727,7 +728,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const candidate = [...await readCandidateMeta(root, request.itemId, '.wav'),
             ...await readCandidateMeta(root, request.itemId, '.mp3')].find(row => row.relativePath === request.relativePath);
         if (!candidate || candidate.meta.status !== 'done' || !(candidate.meta.result?.duration_s_actual > 0)) {
-            throw new Error('採用できる候補がありません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.noCandidateCanBeUsed'));
         }
         const extension = extname(candidate.relativePath);
         const directory = join(root, 'out', 'narration');
@@ -745,7 +746,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             for (const id of ids) if (id && /^n-\d{4}$/u.test(id)) number = Math.max(number, Number(id.slice(2)));
         } catch { /* edit.json がまだ無い場合は既存ファイルから採番する。 */ }
         for (;;) {
-            if (++number > 9999) throw new Error('ナレーション ID の上限に達しました。');
+            if (++number > 9999) throw new Error(t('annotationscommon.akariAnnotationsService.error.narrationIdLimitHasBeenReached'));
             const path = `out/narration/n-${String(number).padStart(4, '0')}${extension}`;
             try {
                 await fs.copyFile(candidate.absolutePath, join(root, path), 1);
@@ -767,14 +768,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { id: result.ids[0] };
     }
     async applyNarrations(request: TimelineRequest<ApplyNarrationsRequest>): Promise<{ ids: string[] }> {
-        if (!Array.isArray(request.items) || request.items.length === 0) throw new Error('配置する音声がありません。');
+        if (!Array.isArray(request.items) || request.items.length === 0) throw new Error(t('annotationscommon.akariAnnotationsService.error.noAudioProvidedPlace'));
         const root = resolve(this.fsPath(request.projectRootUri));
         for (const item of request.items) {
-            if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(item.path)) throw new Error('音声パスが不正です。');
-            if (!Number.isFinite(item.t) || item.t < 0) throw new Error('配置時刻が不正です。');
+            if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(item.path)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAudioPath'));
+            if (!Number.isFinite(item.t) || item.t < 0) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidPlacementTime'));
             const audioPath = resolve(root, item.path);
-            if (!audioPath.startsWith(join(root, 'out', 'narration') + sep)) throw new Error('音声パスが不正です。');
-            if (!(await fs.stat(audioPath).then(stat => stat.isFile()).catch(() => false))) throw new Error('音声ファイルがありません。');
+            if (!audioPath.startsWith(join(root, 'out', 'narration') + sep)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAudioPath'));
+            if (!(await fs.stat(audioPath).then(stat => stat.isFile()).catch(() => false))) throw new Error(t('annotationscommon.akariAnnotationsService.error.audioFileNotFound'));
         }
         const editPath = timelineEditPath(root, request.editUri);
         const edit = JSON.parse(await fs.readFile(editPath, 'utf8')) as Record<string, unknown>;
@@ -782,11 +783,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             ? edit.audio as Record<string, unknown> : {};
         const narration = Array.isArray(audio.narration) ? audio.narration as Array<Record<string, unknown>> : [];
         const replaceIds = new Set(request.replaceIds ?? []);
-        if ([...replaceIds].some(id => !narration.some(item => item.id === id))) throw new Error('置き換え元の音声がありません。');
+        if ([...replaceIds].some(id => !narration.some(item => item.id === id))) throw new Error(t('annotationscommon.akariAnnotationsService.error.audioReplaceNotFound'));
         const retained = narration.filter(item => !replaceIds.has(String(item.id)));
         const ids = request.items.map(item => item.id ?? item.path.match(/(n-\d{4})\.(?:wav|mp3)$/u)?.[1] ?? '');
         if (ids.some(id => !/^n-\d{4}$/u.test(id)) || new Set(ids).size !== ids.length
-            || ids.some(id => retained.some(item => item.id === id))) throw new Error('ナレーション ID が不正か重複しています。');
+            || ids.some(id => retained.some(item => item.id === id))) throw new Error(t('annotationscommon.akariAnnotationsService.error.narrationIdInvalidDuplicated'));
         const entries = request.items.map((item, index) => ({ id: ids[index], path: item.path, t: item.t, gain_db: 0,
             script: item.script, reading: item.reading, provenance: item.provenance ?? {},
             ...(item.captionRef ? { caption_ref: item.captionRef } : {}) }));
@@ -917,7 +918,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!request?.projectRootUri || typeof declared !== 'string' || !declared
             || isAbsolute(declared) || /^[a-z]:/iu.test(declared) || declared.includes('\\')
             || declared.split('/').some(part => !part || part === '.' || part === '..')) {
-            throw new Error('素材パスはプロジェクト内の相対パスで指定してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.useProjectRelativeAssetPath'));
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const inside = (target: string): boolean => {
@@ -930,14 +931,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw error;
         });
         if (!source) return {};
-        if (!inside(source)) throw new Error('素材パスがプロジェクトの外を指しています。');
+        if (!inside(source)) throw new Error(t('annotationscommon.akariAnnotationsService.error.assetPathPointsOutsideProject'));
         if (!(await fs.stat(source)).isFile()) return {};
         const sidecarPath = await fs.realpath(`${sourcePath}.meta.json`).catch(error => {
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
             throw error;
         });
         if (sidecarPath) {
-            if (!inside(sidecarPath)) throw new Error('meta がプロジェクトの外を指しています。');
+            if (!inside(sidecarPath)) throw new Error(t('annotationscommon.akariAnnotationsService.error.metadataPathPointsOutsideProject'));
             const meta = JSON.parse(await fs.readFile(sidecarPath, 'utf8')) as GenerationSidecarMeta;
             return { meta };
         }
@@ -950,16 +951,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw error;
         });
         if (!canonical) return {};
-        if (!inside(canonical)) throw new Error('候補がプロジェクトの外を指しています。');
+        if (!inside(canonical)) throw new Error(t('annotationscommon.akariAnnotationsService.error.candidatePointsOutsideProject'));
         const matches: Array<{ path: string; meta: GenerationSidecarMeta }> = [];
         for (const folder of await fs.readdir(canonical, { withFileTypes: true })) {
             if (!folder.isDirectory()) continue;
             const candidateFolder = await fs.realpath(join(canonical, folder.name));
-            if (!inside(candidateFolder)) throw new Error('候補がプロジェクトの外を指しています。');
+            if (!inside(candidateFolder)) throw new Error(t('annotationscommon.akariAnnotationsService.error.candidatePointsOutsideProject'));
             for (const entry of await fs.readdir(candidateFolder, { withFileTypes: true })) {
                 if (!entry.isFile() || !/\.(?:wav|mp3)\.meta\.json$/u.test(entry.name)) continue;
                 const path = await fs.realpath(join(candidateFolder, entry.name));
-                if (!inside(path)) throw new Error('候補 meta がプロジェクトの外を指しています。');
+                if (!inside(path)) throw new Error(t('annotationscommon.akariAnnotationsService.error.candidateMetadataPointsOutsideProject'));
                 try {
                     const meta = JSON.parse(await fs.readFile(path, 'utf8')) as GenerationSidecarMeta;
                     if (meta.kind === 'audio' && meta.status === 'done' && meta.result?.sha256 === sha256
@@ -1085,20 +1086,20 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async extractSourceFrame(request: import('../common/akari-annotations-protocol').ExtractSourceFrameRequest): Promise<
         import('../common/akari-annotations-protocol').ExtractSourceFrameResult
     > {
-        if (!request?.projectRootUri || !['first', 'last'].includes(request.which)) throw new Error('抽出する端が不正です。');
+        if (!request?.projectRootUri || !['first', 'last'].includes(request.which)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidFrameEdgeExtraction'));
         return mediaCache.extractSourceFrame(this.fsPath(request.projectRootUri), request.sourcePath, request.atSeconds);
     }
 
     async readGenerationCatalog(): Promise<ReadGenerationCatalogResult> {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
-        if (!Array.isArray(parsed.models)) throw new Error('生成モデルカタログの models[] がありません。');
+        if (!Array.isArray(parsed.models)) throw new Error(t('annotationscommon.akariAnnotationsService.error.generationModelCatalogHasNoModelsArray'));
         let stillPath: string;
         try {
             stillPath = await this.findGenerationAsset('packages/schemas/ai-models.json');
         } catch (error) {
             console.warn('[akari-annotations] ai-models.json was not found:', error);
-            return { models: parsed.models, stillEstimateError: '料金表がないため見積を出せません' };
+            return { models: parsed.models, stillEstimateError: t('annotationscommon.akariAnnotationsService.error.estimateUnavailablePriceListMissing') };
         }
         let stillModels: { models?: Array<{
                 id: string; price?: { unit?: string; by_quality_1024?: { low: number; medium: number; high: number }; as_of?: string }
@@ -1107,7 +1108,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             stillModels = JSON.parse(await fs.readFile(stillPath, 'utf8'));
         } catch (error) {
             console.warn('[akari-annotations] ai-models.json could not be parsed:', error);
-            return { models: parsed.models, stillEstimateError: '料金表を読めないため見積を出せません' };
+            return { models: parsed.models, stillEstimateError: t('annotationscommon.akariAnnotationsService.error.estimateUnavailableCouldNotReadPriceList') };
         }
         const price = Array.isArray(stillModels?.models)
             ? stillModels.models.find(row => row?.id === 'fal:gpt-image-2.5-flare')?.price : undefined;
@@ -1118,11 +1119,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return { models: parsed.models, stillEstimate: { prices, asOf: price.as_of } };
         }
         console.warn('[akari-annotations] ai-models.json has no valid fal still price');
-        return { models: parsed.models, stillEstimateError: '料金の形式が不正なため見積を出せません' };
+        return { models: parsed.models, stillEstimateError: t('annotationscommon.akariAnnotationsService.error.estimateUnavailableInvalidPriceFormat') };
     }
 
     async readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult> {
-        if (!request?.projectRootUri) throw new Error('projectRootUri が必要です。');
+        if (!request?.projectRootUri) throw new Error(t('annotationscommon.akariAnnotationsService.error.projectrooturiRequired'));
         const modulePath = await this.findGenerationAsset('skills/manage-connections/bin/resolve-connections.mjs');
         const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
         const resolver = await importEsm<{
@@ -1140,15 +1141,15 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
-            throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.projectrooturiDurationLeast05SecondsRequired'));
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
-        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (edit.version !== 2) throw new Error(t('annotationscommon.akariAnnotationsService.error.convertV2BeforeEditing'));
         const canvas = edit.output ?? {};
         const { width, height } = request.aspect ? frameDimensions(request.aspect, canvas) : canvas;
         if (![width, height].every(value => Number.isInteger(value) && value > 0 && value <= 16384)) {
-            throw new Error('edit.json のキャンバス寸法が不正です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidCanvasDimensionsEditJson'));
         }
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const load = async (file: string): Promise<any> => importEsm(pathToFileURL(
@@ -1158,7 +1159,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await fs.mkdir(directory, { recursive: true });
         const rel = relative(root, await fs.realpath(directory));
         if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-            throw new Error('生成先はプロジェクト内で指定してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.chooseDestinationInsideProject'));
         }
         // Render in an isolated staging directory; expose the PNG only after its validated sidecar exists.
         const staging = await fs.mkdtemp(join(directory, '.frame-'));
@@ -1171,7 +1172,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 outPath: join(staging, 'card.png'), width, height,
                 ...(request.aspect ? { loadPuppeteer: async () => null } : {}) });
             const image = await metas.inspectPng(card.path);
-            if (image.width !== width || image.height !== height) throw new Error('文字カードの寸法が一致しません。');
+            if (image.width !== width || image.height !== height) throw new Error(t('annotationscommon.akariAnnotationsService.error.textCardDimensionsDoNotMatch'));
             const meta = metas.plannedStillMeta({ prompt: '', duration_s: request.durationSeconds,
                 at: new Date().toISOString(), asOf: await metas.readCodexModelAsOf(), width, height });
             if (request.aspect) meta.output.aspect = request.aspect;
@@ -1196,20 +1197,20 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
     }> {
         if (!request?.projectRootUri || !request.itemId || !['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '3:2', '21:9'].includes(request.aspect)) {
-            throw new Error('枠と画角を指定してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.chooseFrameAspectRatio'));
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
-        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (edit.version !== 2) throw new Error(t('annotationscommon.akariAnnotationsService.error.convertV2BeforeEditing'));
         const item = edit.tracks?.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
         const sourceId = item?.source?.kind === 'media' ? item.source.src : undefined;
         const source = edit.sources?.find((row: any) => row.id === sourceId);
-        if (!source?.path || !/^assets\/generated\/[^/]+\.png$/u.test(source.path)) throw new Error('空の枠がありません。');
+        if (!source?.path || !/^assets\/generated\/[^/]+\.png$/u.test(source.path)) throw new Error(t('annotationscommon.akariAnnotationsService.error.emptyFrameNotFound'));
         const meta = JSON.parse(await fs.readFile(join(root, `${source.path}.meta.json`), 'utf8'));
-        if (meta.status !== 'planned') throw new Error('生成済みの静止画は変更できません。');
+        if (meta.status !== 'planned') throw new Error(t('annotationscommon.akariAnnotationsService.error.generatedStillImageCannotBeChanged'));
         const previousSize = frameSizeFromResolution(meta.output?.resolution)
             ?? frameSizeFromPng(await fs.readFile(join(root, source.path)));
-        if (!previousSize) throw new Error('文字カードの寸法を読み取れませんでした。');
+        if (!previousSize) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotReadTextCardDimensions'));
         const canvas = edit.output;
         const image = await this.createEmptyGenerationFrame({ projectRootUri: request.projectRootUri, editUri: request.editUri,
             durationSeconds: item.duration / canvas.fps, aspect: request.aspect });
@@ -1228,11 +1229,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         relativePath: string; sha256: string; durationSeconds: number;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
-            throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.projectrooturiDurationLeast05SecondsRequired'));
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
-        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (edit.version !== 2) throw new Error(t('annotationscommon.akariAnnotationsService.error.convertV2BeforeEditing'));
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const load = async (file: string): Promise<any> => importEsm(pathToFileURL(
             await this.findGenerationAsset(file)).toString());
@@ -1246,7 +1247,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await fs.mkdir(directory, { recursive: true });
         const rel = relative(root, await fs.realpath(directory));
         if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-            throw new Error('生成先はプロジェクト内で指定してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.chooseDestinationInsideProject'));
         }
         const staging = await fs.mkdtemp(join(directory, '.frame-audio-'));
         const id = `frame-audio-${Date.now()}-${basename(staging).slice(13)}`;
@@ -1260,7 +1261,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2', '-y', stagedWav], { timeout: 30000 });
             const contents = await fs.readFile(stagedWav);
             if (contents.length <= 44 || contents.toString('ascii', 0, 4) !== 'RIFF'
-                || contents.toString('ascii', 8, 12) !== 'WAVE') throw new Error('無音 wav を作れませんでした。');
+                || contents.toString('ascii', 8, 12) !== 'WAVE') throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotCreateSilentWavFile'));
             const sha256 = createHash('sha256').update(contents).digest('hex');
             const at = new Date().toISOString();
             const meta = metas.plannedStillMeta({ prompt: '', duration_s: request.durationSeconds,
@@ -1287,13 +1288,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult> {
-        if (!request?.modelId) throw new Error('modelId が必要です。');
+        if (!request?.modelId) throw new Error(t('annotationscommon.akariAnnotationsService.error.modelidRequired'));
         const [catalog, validatorPath] = await Promise.all([
             this.readGenerationCatalog(),
             this.findGenerationAsset('packages/generate/src/validate-inputs.mjs')
         ]);
         const model = catalog.models.find(row => row.id === request.modelId);
-        if (!model) throw new Error(`生成モデルがカタログにありません: ${request.modelId}`);
+        if (!model) throw new Error(t('annotationscommon.akariAnnotationsService.error.generationModelNotFoundCatalog', { modelId: String(request.modelId) }));
         const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
         const validator = await importEsm<{
             validateInputs(value: { inputs: Record<string, unknown>; output: Record<string, unknown>; model: unknown }): GenerationValidationResult;
@@ -1303,7 +1304,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async writeGenerationDraft(request: TimelineRequest<WriteGenerationDraftRequest>): Promise<{ ok: true; path: string }> {
         if (!request?.projectRootUri || (!request?.itemId && !request?.fromImage) || !request?.modelId) {
-            throw new Error('projectRootUri / itemId / modelId が必要です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.projectrooturiItemidModelidRequired'));
         }
         const projectRoot = resolve(this.fsPath(request.projectRootUri));
         // Keep the item-id guard used by legacy drafts, but resolve the current source from edit.json.
@@ -1313,7 +1314,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             .find(candidate => candidate.id === request.itemId);
         const source = request.fromImage ? { path: request.fromImage } : item?.source?.kind === 'media'
             ? (edit.sources ?? []).find(candidate => candidate.id === item.source.src) : undefined;
-        if (!source?.path) throw new Error('生成対象の素材が見つかりません。');
+        if (!source?.path) throw new Error(t('annotationscommon.akariAnnotationsService.error.assetGenerationNotFound'));
         const imagePath = await resolveProjectMediaFile(projectRoot, source.path);
         const path = await projectOutputPath(projectRoot, `${source.path}.meta.json`);
         let original: string;
@@ -1323,13 +1324,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
             if (!['.png', '.jpg', '.jpeg', '.webp'].includes(extname(source.path).toLowerCase())) {
-                throw new Error('この素材には生成の記録がありません。静止画か、空の枠で使えます。');
+                throw new Error(t('annotationscommon.akariAnnotationsService.error.assetHasNoGenerationRecordUseAs'));
             }
             original = await this.importedImageGenerationMeta(imagePath, source.path, request.output?.duration_s);
             imported = true;
         }
         const meta = JSON.parse(original);
-        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('素材の meta が不正です。');
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAssetMetadata'));
         if (meta.kind === 'video' && meta.status === 'done' && meta.candidate_of === request.itemId && !request.fromImage) {
             // A selected candidate is evidence: never put its editable next draft in that sidecar.
             generationDraftPath(projectRoot, request.itemId);
@@ -1371,7 +1372,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const token = tokens[index][0];
             if (depth === 1 && token.startsWith('"') && tokens[index + 1]?.[0] === ':'
                 && JSON.parse(token) === 'next') {
-                if (start !== -1) throw new Error('meta に next が重複しています。');
+                if (start !== -1) throw new Error(t('annotationscommon.akariAnnotationsService.error.metadataContainsDuplicateNextEntries'));
                 start = tokens[index + 2].index!;
                 let nested = 0;
                 for (let j = index + 2; j < tokens.length; j++) {
@@ -1422,7 +1423,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult> {
-        if (request?.approved !== true) throw new Error('費用承認が必要です。');
+        if (request?.approved !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         try {
             return request.fromImage
                 ? await this.generationCli.startFromImage(this.fsPath(request.projectRootUri), request.fromImage)
@@ -1457,7 +1458,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
         const sourcePath = edit.sources?.find((row: any) => row.id === item?.source?.src)?.path;
-        if (item?.source?.kind !== 'media' || typeof sourcePath !== 'string') throw new Error('生成対象の枠が見つかりません。');
+        if (item?.source?.kind !== 'media' || typeof sourcePath !== 'string') throw new Error(t('annotationscommon.akariAnnotationsService.error.frameGenerationNotFound'));
         const sidecarPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
         const meta = await fs.readFile(sidecarPath, 'utf8').then(JSON.parse).catch(() => ({}));
         const regenerated = meta.kind === 'video' && meta.status === 'done' && meta.candidate_of === request.itemId;
@@ -1476,13 +1477,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async estimateVideoBatch(request: Omit<VideoBatchRequest, 'approved'>): Promise<VideoBatchEstimate> {
         const frame = await this.videoFrame(request);
         if (!Array.isArray(request.models) || !request.models.length || new Set(request.models).size !== request.models.length) {
-            throw new Error('モデルを重複なく選んでください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.selectEachModelOnlyOnce'));
         }
         const catalog = await this.readGenerationCatalog();
         const models = await Promise.all(request.models.map(async modelId => {
             const model = catalog.models.find(row => row.id === modelId);
             if (!model || model.kind !== 'video') return { modelId, estimateUsd: null, needs_explicit_confirm: false,
-                error: `生成モデルがカタログにありません: ${modelId}` };
+                error: t('annotationscommon.akariAnnotationsService.error.generationModelNotFoundCatalog', { modelId }) };
             const next = frame.meta.next?.kind === 'video' ? frame.meta.next : {};
             const inputs = { ...(next.inputs ?? {}), first_frame: Object.prototype.hasOwnProperty.call(next.inputs ?? {}, 'first_frame')
                 ? next.inputs.first_frame : model.inputs?.first_frame !== 'none' ? { path: frame.sourcePath } : null };
@@ -1492,7 +1493,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const validation = await this.validateGenerationInputs({ modelId, inputs, output });
             if (!validation.ok) return { modelId, estimateUsd: null, needs_explicit_confirm: false,
                 error: validation.messages.filter(message => message.level === 'error').map(message => message.text).join(' / ')
-                    || 'この枠の条件では使えません。' };
+                || t('annotationscommon.akariAnnotationsService.reason.frameUnsupported') };
             const estimateUsd = validation.cost.estimate_usd;
             return { modelId, estimateUsd, asOf: validation.cost.as_of,
                 needs_explicit_confirm: estimateUsd === null };
@@ -1502,7 +1503,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async startGenerateVideoBatch(request: VideoBatchRequest): Promise<VideoCandidateBatch> {
-        if (request.approved !== true) throw new Error('費用承認が必要です。');
+        if (request.approved !== true) throw new Error(t('annotationscommon.akariAnnotationsService.error.costApprovalRequired'));
         const estimate = await this.estimateVideoBatch(request);
         const invalid = estimate.models.find(model => model.error);
         if (invalid) throw new Error(`${invalid.modelId}: ${invalid.error}`);
@@ -1525,7 +1526,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const parsed = result.stdout.trim().split(/\r?\n/u).map(line => { try { return JSON.parse(line); } catch { return undefined; } })
                 .find(row => row?.mp4);
             return { ok: result.ok, ...(result.ok ? { relativePath: parsed?.mp4,
-                elapsedSeconds: parsed?.elapsed_s, costUsd: parsed?.estimate_usd } : { reason: result.reason ?? result.stderr ?? '生成できませんでした。' }) };
+                elapsedSeconds: parsed?.elapsed_s, costUsd: parsed?.estimate_usd } : { reason: result.reason ?? result.stderr ?? t('annotationscommon.akariAnnotationsService.error.generationFailed') }) };
         })) as Promise<VideoCandidateBatch>;
     }
 
@@ -1565,7 +1566,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (pending.length) {
             const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
             const metas = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/generate/src/cli/meta-video.mjs')).toString());
-            for (const row of pending) metas.writeFailed({ metaPath: join(root, `${row.relativePath}.meta.json`), reason: '中止しました。' });
+            for (const row of pending) metas.writeFailed({ metaPath: join(root, `${row.relativePath}.meta.json`), reason: t('annotationscommon.akariAnnotationsService.reason.canceled') });
         }
         return stopped;
     }
@@ -1602,7 +1603,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 directory = parent;
             }
         }
-        throw new Error(`生成ランタイム資産が同梱されていません: ${relativeTarget}`);
+        throw new Error(t('annotationscommon.akariAnnotationsService.error.generationRuntimeAssetMissing', { assetPath: String(relativeTarget) }));
     }
 
     async getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult> {
@@ -1776,33 +1777,33 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult> {
-        if (typeof request?.path !== 'string' || !request.path.trim()) throw new Error('素材パスがありません。');
+        if (typeof request?.path !== 'string' || !request.path.trim()) throw new Error(t('annotationscommon.akariAnnotationsService.error.assetPathMissing'));
         // Media reads already permit external sources. Resolve file URIs with the same fsPath boundary;
         // reject relative paths and other URI schemes instead of resolving against the server cwd.
         const path = /^file:/iu.test(request.path) ? this.fsPath(request.path) : request.path;
-        if (!isAbsolute(path)) throw new Error('素材パスが不正です。');
+        if (!isAbsolute(path)) throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAssetPath'));
         return mediaCache.probeSourceHasAudio(await fs.realpath(path));
     }
 
     async createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult> {
         if (!request?.reviewUri || !request?.projectRootUri || typeof request.text !== 'string') {
-            throw new Error('注釈の内容を入力してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.enterAnnotationContent'));
         }
         // text は typed テキスト（任意）+ strokes を 1 annotation として着地させる画像注釈
         // （契約 2026-07-26 §4-2）に限り省略できる。strokes が無い既存の全経路（動画面 / doc:）は
         // 従来どおり非空の text を必須のまま強制する。
         const hasStrokes = Array.isArray(request.strokes) && request.strokes.length > 0;
         if (!request.text.trim() && !hasStrokes) {
-            throw new Error('注釈の内容を入力してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.enterAnnotationContent'));
         }
         // sourceT: null は doc:<path>#<block-id> / image:<path> target に限り許容する
         // （契約 §2）。動画面の注釈（overlay: / cut: / null target）は従来どおり時刻必須のまま。
         if (request.sourceT === null) {
             if (!isDocOrImageTarget(request.target ?? null)) {
-                throw new Error('動画面の注釈には時刻が必要です。');
+                throw new Error(t('annotationscommon.akariAnnotationsService.error.videoAnnotationNeedsTime'));
             }
         } else if (!Number.isFinite(request.sourceT) || request.sourceT < 0) {
-            throw new Error('注釈の時刻が不正です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidAnnotationTime'));
         }
         const reviewPath = this.fsPath(request.reviewUri);
         const root = this.fsPath(request.projectRootUri);
@@ -1867,7 +1868,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }> {
         if (!request?.reviewUri || !request?.annotationId) {
-            throw new Error('対象の注釈を特定できません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyAnnotation'));
         }
         const reviewPath = this.fsPath(request.reviewUri);
         return this.withReviewLock(reviewPath, async () => {
@@ -1877,7 +1878,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const { annotations } = parseReview(updated);
             const annotation = annotations.find(candidate => candidate.id === request.annotationId);
             if (!annotation) {
-                throw new Error('更新後の注釈を読み取れません。');
+                throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotReadUpdatedAnnotation'));
             }
             return { annotation };
         });
@@ -1885,7 +1886,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async deleteAnnotation(request: DeleteAnnotationRequest): Promise<DeleteAnnotationResult> {
         if (!request?.reviewUri || !request?.annotationId) {
-            throw new Error('対象の注釈を特定できません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyAnnotation'));
         }
         const reviewPath = this.fsPath(request.reviewUri);
         return this.withReviewLock(reviewPath, async () => {
@@ -1898,14 +1899,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     async restoreAnnotation(request: RestoreAnnotationRequest): Promise<RestoreAnnotationResult> {
         if (!request?.reviewUri || !request?.annotation?.id) {
-            throw new Error('対象の注釈を特定できません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyAnnotation'));
         }
         const reviewPath = this.fsPath(request.reviewUri);
         return this.withReviewLock(reviewPath, async () => {
             const baseSource = await this.readReviewForWrite(reviewPath, true);
             const annotations = (JSON.parse(baseSource) as { annotations: Array<{ id?: unknown }> }).annotations;
             if (annotations.some(existing => existing.id === request.annotation.id)) {
-                throw new Error(`注釈 ${request.annotation.id} は既に存在します。`);
+                throw new Error(t('annotationscommon.akariAnnotationsService.error.annotationAlreadyExists', { annotationId: String(request.annotation.id) }));
             }
             const updated = appendAnnotationLine(baseSource, request.annotation);
             await this.writeAtomic(reviewPath, updated);
@@ -1921,11 +1922,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
      */
     async saveCanvas(request: SaveCanvasRequest): Promise<SaveCanvasResult> {
         if (!request?.projectRootUri) {
-            throw new Error('プロジェクトを特定できません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyProject'));
         }
         const aspect = request.aspect;
         if (!aspect || !Number.isFinite(aspect.w) || aspect.w <= 0 || !Number.isFinite(aspect.h) || aspect.h <= 0) {
-            throw new Error('キャンバスの出力解像度が不正です。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.invalidCanvasOutputResolution'));
         }
         const aspectSource = request.aspectSource === 'edit.json' ? 'edit.json' : 'default';
         const memo = typeof request.memo === 'string' && request.memo.trim() ? request.memo.trim() : null;
@@ -1933,7 +1934,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             .map((stroke, index) => this.buildCanvasStroke(stroke, index))
             .filter((stroke): stroke is CanvasStrokeRecord => stroke !== undefined);
         if (strokes.length === 0 && !memo) {
-            throw new Error('ペンで描くかメモを入力してください。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.drawPenEnterNote'));
         }
 
         const root = this.fsPath(request.projectRootUri);
@@ -2026,7 +2027,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 next += 1;
             }
         }
-        throw new Error('キャンバスの採番上限に達しました。');
+        throw new Error(t('annotationscommon.akariAnnotationsService.error.canvasIdLimitHasBeenReached'));
     }
 
     async trimCut(request: TrimCutRequest): Promise<WriteBackResult> {
@@ -2294,16 +2295,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     private replaceCaptionDisplayPolicy(source: string, policy: ReturnType<typeof validateCaptionDisplayPolicy>): string {
         const first = source.search(/\S/u);
-        if (first < 0) throw new Error('captions.json が空です。');
+        if (first < 0) throw new Error(t('annotationscommon.akariAnnotationsService.error.captionsJsonEmpty'));
         const policyText = JSON.stringify(policy, null, 2);
         if (source[first] === '[') {
             const end = source.lastIndexOf(']');
-            if (end < first) throw new Error('captions 配列が閉じていません。');
+            if (end < first) throw new Error(t('annotationscommon.akariAnnotationsService.error.captionsArrayNotClosed'));
             return `{\n  "display_policy": ${policyText.replace(/\n/gu, '\n  ')},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
         }
         const parsed = JSON.parse(source) as unknown;
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            throw new Error('captions.json のルートは object または配列である必要があります。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.rootCaptionsJsonMustBeObjectArray'));
         }
         const match = /(^[ \t]*)"display_policy"\s*:\s*\{/mu.exec(source);
         if (match) {
@@ -2314,7 +2315,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return source.slice(0, open) + replacement + source.slice(close + 1);
         }
         const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
-        if (!captions) throw new Error('captions キーが見つかりません。');
+        if (!captions) throw new Error(t('annotationscommon.akariAnnotationsService.error.captionsKeyNotFound'));
         const indent = captions[1];
         const replacement = policyText.replace(/\n/gu, `\n${indent}`);
         return source.slice(0, captions.index) + `${indent}"display_policy": ${replacement},\n` + source.slice(captions.index);
@@ -2329,7 +2330,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             else if (char === '{') depth++;
             else if (char === '}' && --depth === 0) return index;
         }
-        throw new Error('display_policy object が閉じていません。');
+        throw new Error(t('annotationscommon.akariAnnotationsService.error.displayPolicyObjectNotClosed'));
     }
 
     async setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult> {
@@ -2345,7 +2346,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const used = new Set(existing.flatMap(record => typeof record.id === 'string' ? [record.id] : []));
         const ids: string[] = [];
         const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
-            (left.src ?? null) === (right.src ?? null) && typeof left.t_start === 'number' && typeof left.t_end === 'number'
+            (left.src === undefined || left.src === right.src)
+            && typeof left.t_start === 'number' && typeof left.t_end === 'number'
             && Math.abs(left.t_start - right.t_start) <= 1e-6 && Math.abs(left.t_end - right.t_end) <= 1e-6
             && left.word === right.word;
         for (const upsert of request.upserts) {
@@ -2357,7 +2359,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                     if (!used.has(candidate)) { id = candidate; break; }
                 }
             }
-            if (!id || !/^e-\d{4}$/u.test(id)) throw new Error('emphasis_words の id を採番できません。');
+            if (!id || !/^e-\d{4}$/u.test(id)) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotAssignEmphasisWordsId'));
             used.add(id); ids.push(id);
             const previous = records.findIndex(record => record.id === id || sameSpan(record, upsert));
             const unknown = previous >= 0 ? records[previous] : matched ?? {};
@@ -2411,7 +2413,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         if (!records.length) return source;
         const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
-        if (!captions) throw new Error('captions キーが見つかりません。');
+        if (!captions) throw new Error(t('annotationscommon.akariAnnotationsService.error.captionsKeyNotFound'));
         return source.slice(0, captions.index) + `${captions[1]}"emphasis_words": ${arrayText},\n` + source.slice(captions.index);
     }
 
@@ -2424,7 +2426,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             else if (char === '[') depth++;
             else if (char === ']' && --depth === 0) return index;
         }
-        throw new Error('emphasis_words 配列が閉じていません。');
+        throw new Error(t('annotationscommon.akariAnnotationsService.error.emphasisWordsArrayNotClosed'));
     }
 
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {
@@ -2808,7 +2810,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         if (typeof request.editSource !== 'string' && typeof request.captionsSource !== 'string') {
-            throw new Error('書き戻す内容がありません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.thereNothingWriteBack'));
         }
         const editPath = timelineEditPath(this.fsPath(request.projectRootUri), request.editUri);
         const projectDir = dirname(editPath);
@@ -2819,7 +2821,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (typeof request.captionsSource === 'string') {
             const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : timelineCaptionsPath(editPath);
             if (relative(resolve(captionsPath), resolve(timelineCaptionsPath(editPath))) !== '') {
-                throw new Error('編集データと字幕の組み合わせが一致しません。');
+                throw new Error(t('annotationscommon.akariAnnotationsService.error.editDataCaptionsDoNotMatch'));
             }
             timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
             candidates[basename(captionsPath)] = request.captionsSource;
@@ -2842,17 +2844,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null> {
-        if (!request?.projectRootUri || typeof request.label !== 'string') throw new Error('履歴の保存先を特定できません。');
+        if (!request?.projectRootUri || typeof request.label !== 'string') throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWhereSaveHistory'));
         return snapshotHistory({ projectDir: this.fsPath(request.projectRootUri), label: request.label });
     }
 
     async listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]> {
-        if (!request?.projectRootUri) throw new Error('履歴の保存先を特定できません。');
+        if (!request?.projectRootUri) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWhereSaveHistory'));
         return listHistory(this.fsPath(request.projectRootUri));
     }
 
     async restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }> {
-        if (!request?.projectRootUri || !request.id) throw new Error('復元する履歴を特定できません。');
+        if (!request?.projectRootUri || !request.id) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyHistoryEntryRestore'));
         const projectDir = this.fsPath(request.projectRootUri);
         return restoreHistory(projectDir, request.id, {
             write: async candidates => {
@@ -2876,7 +2878,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
         if (!uri || !projectRootUri) {
-            throw new Error('書き戻し先を特定できません。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWriteBackDestination'));
         }
         const target = this.fsPath(uri);
         const root = this.fsPath(projectRootUri);
@@ -3025,7 +3027,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                     continue;
                 }
                 if (attempt >= 1200) {
-                    throw new Error(`review.json は別の処理が書き込み中です（${lockPath}）`);
+                    throw new Error(t('annotationscommon.akariAnnotationsService.error.anotherProcessWritingReviewJson', { lockPath: String(lockPath) }));
                 }
                 await new Promise(resolve => setTimeout(resolve, 25));
             }
@@ -3046,9 +3048,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw error;
         }
         const raw = JSON.parse(source) as { version?: unknown; annotations?: unknown[] };
-        if (!raw || !Array.isArray(raw.annotations)) throw new Error('review.json に annotations 配列がありません。');
+        if (!raw || !Array.isArray(raw.annotations)) throw new Error(t('annotationscommon.akariAnnotationsService.error.reviewJsonHasNoAnnotationsArray'));
         if (Number.isInteger(raw.version) && (raw.version as number) > 0) {
-            throw new Error(`review.json の version ${raw.version} は新しい形式です。スキル / アプリを更新してください。`);
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.reviewJsonVersionUsesNewerFormatUpdate', { version: String(raw.version) }));
         }
         return source;
     }
@@ -3078,7 +3080,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const manifest = JSON.parse(source) as { compiledAnnotations?: string[] };
                 if (manifest.compiledAnnotations == null) continue;
                 if (!Array.isArray(manifest.compiledAnnotations)) {
-                    throw new Error(`${manifestName} の compiledAnnotations が配列ではありません。`);
+                    throw new Error(t('annotationscommon.akariAnnotationsService.error.compiledannotationsMustBeArray', { manifestName: String(manifestName) }));
                 }
                 for (const id of manifest.compiledAnnotations) {
                     const match = /^a-(\d{4,})$/.exec(id);
@@ -3095,48 +3097,48 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async listAdjustLuts({ projectRootUri }: ListAdjustLutsRequest): Promise<ListAdjustLutsResult> {
-        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error('プロジェクトルートを指定してください。');
+        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error(t('annotationscommon.akariAnnotationsService.error.chooseProjectRoot'));
         try {
             const entries = await fs.readdir(join(this.fsPath(projectRootUri), 'assets', 'luts'), { withFileTypes: true });
             return { refs: entries.filter(entry => entry.isFile() && extname(entry.name).toLowerCase() === '.cube')
                 .map(entry => entry.name).sort((a, b) => a < b ? -1 : a > b ? 1 : 0).map(name => 'assets/luts/' + name) };
         } catch (error) {
             if (['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) return { refs: [] };
-            throw new Error('LUT 一覧を取得できませんでした。');
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotLoadLutList'));
         }
     }
 
     async importAdjustLut({ projectRootUri, sourcePath }: ImportAdjustLutRequest): Promise<ImportAdjustLutResult> {
-        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error('プロジェクトルートを指定してください。');
-        if (typeof sourcePath !== 'string' || !sourcePath.trim() || !isAbsolute(sourcePath)) throw new Error('LUT の絶対パスを指定してください。');
-        if (extname(sourcePath).toLowerCase() !== '.cube') throw new Error('.cube ファイルを選択してください。');
+        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error(t('annotationscommon.akariAnnotationsService.error.chooseProjectRoot'));
+        if (typeof sourcePath !== 'string' || !sourcePath.trim() || !isAbsolute(sourcePath)) throw new Error(t('annotationscommon.akariAnnotationsService.error.provideAbsoluteLutPath'));
+        if (extname(sourcePath).toLowerCase() !== '.cube') throw new Error(t('annotationscommon.akariAnnotationsService.error.selectCubeFile'));
         try {
             const stat = await fs.stat(sourcePath);
-            if (!stat.isFile() || stat.size > 8 * 1024 * 1024) throw new Error('LUT は 8 MB 以下のファイルを指定してください。');
+            if (!stat.isFile() || stat.size > 8 * 1024 * 1024) throw new Error(t('annotationscommon.akariAnnotationsService.error.selectLutFileNoLargerThan8'));
             const data = await fs.readFile(sourcePath);
-            if (data.length > 8 * 1024 * 1024) throw new Error('LUT は 8 MB 以下で指定してください。');
+            if (data.length > 8 * 1024 * 1024) throw new Error(t('annotationscommon.akariAnnotationsService.error.lutFilesMustBeNoLargerThan'));
             const valid = data.toString('utf8').split(/\r?\n/u).slice(0, 64).some(line => {
                 const match = /^\s*LUT_3D_SIZE\s+(\d+)\s*$/u.exec(line);
                 return match && Number(match[1]) >= 2 && Number(match[1]) <= 65;
             });
-            if (!valid) throw new Error('先頭 64 行以内に LUT_3D_SIZE 2〜65 が必要です。');
+            if (!valid) throw new Error(t('annotationscommon.akariAnnotationsService.error.lut3DSizeMustBeFrom'));
             const root = resolve(this.fsPath(projectRootUri));
             const folder = resolve(root, 'assets', 'luts');
             const within = (path: string, parent: string): boolean => path.startsWith(parent + sep);
-            if (!within(folder, root)) throw new Error('プロジェクト外へ LUT を保存できません。');
+            if (!within(folder, root)) throw new Error(t('annotationscommon.akariAnnotationsService.error.cannotSaveLutOutsideProject'));
             // 既存の assets がリンクでもプロジェクト外へ mkdir しない。
             const realRoot = await fs.realpath(root);
             for (const directory of [join(root, 'assets'), folder]) {
                 try { await fs.mkdir(directory, { recursive: true }); } catch (error) {
                     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
                 }
-                if (!within(await fs.realpath(directory), realRoot)) throw new Error('プロジェクト外へ LUT を保存できません。');
+                if (!within(await fs.realpath(directory), realRoot)) throw new Error(t('annotationscommon.akariAnnotationsService.error.cannotSaveLutOutsideProject'));
             }
             const safe = basename(sourcePath, extname(sourcePath)).replace(/[^A-Za-z0-9_-]/gu, '-') || 'lut';
             for (let suffix = 1; ; suffix++) {
                 const name = safe + (suffix === 1 ? '' : '-' + suffix) + '.cube';
                 const dest = resolve(folder, name);
-                if (!within(dest, root)) throw new Error('プロジェクト外へ LUT を保存できません。');
+                if (!within(dest, root)) throw new Error(t('annotationscommon.akariAnnotationsService.error.cannotSaveLutOutsideProject'));
                 try {
                     await fs.writeFile(dest, data, { flag: 'wx' });
                     return { ref: 'assets/luts/' + name };
@@ -3145,7 +3147,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 }
             }
         } catch (error) {
-            throw new Error('LUT を取り込めませんでした: ' + (error instanceof Error ? error.message : String(error)));
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotImportLut') + (error instanceof Error ? error.message : String(error)));
         }
     }
 

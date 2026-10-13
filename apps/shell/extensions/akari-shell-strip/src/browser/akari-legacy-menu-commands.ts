@@ -1,3 +1,4 @@
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { ConfirmDialog, FrontendApplicationContribution } from '@theia/core/lib/browser';
@@ -32,16 +33,16 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
     onStop(): void { this.stopPolling(); }
 
     registerCommands(registry: CommandRegistry): void {
-        registry.registerCommand({ id: AKARI_COMMANDS.railToggleExpanded, label: '左の列を広げる' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.railToggleExpanded, label: t('shell.menu.commands.expandLeftRailText') }, {
             execute: () => {
                 if (document.body.hasAttribute('data-akari-rail-expanded')) document.body.removeAttribute('data-akari-rail-expanded');
                 else document.body.setAttribute('data-akari-rail-expanded', 'true');
             }
         });
-        registry.registerCommand({ id: AKARI_COMMANDS.previewServerOpen, label: 'ブラウザプレビューを開く' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.previewServerOpen, label: t('shell.menu.commands.openBrowserPreviewAction') }, {
             execute: () => this.openPreview()
         });
-        registry.registerCommand({ id: AKARI_COMMANDS.projectCleanData, label: '不要なデータを整理' }, {
+        registry.registerCommand({ id: AKARI_COMMANDS.projectCleanData, label: t('shell.menu.commands.cleanUpUnusedDataText') }, {
             execute: () => this.cleanProject()
         });
     }
@@ -49,9 +50,9 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
     protected async openPreview(): Promise<void> {
         if (this.previewBusy) return;
         const root = (await this.workspace.roots)[0]?.resource;
-        if (!root) { void this.messages.info('プロジェクトを開くとブラウザプレビューを起動できます。'); return; }
+        if (!root) { void this.messages.info(t('shell.menu.commands.openProjectStartBrowserPreviewMessage')); return; }
         if (!(await this.availability.refresh()).exists) {
-            void this.messages.info('edit.json がまだありません。編集を進めてからプレビューしてください。');
+            void this.messages.info(t('shell.menu.commands.noEditJsonYetContinueEditingPreviewingMessage'));
             return;
         }
         this.previewBusy = true;
@@ -67,11 +68,11 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
                 this.beginPolling();
             } else {
                 this.stopPolling();
-                void this.messages.info(status.failureSummary ?? 'ブラウザプレビューを起動できませんでした');
+                void this.messages.info(status.failureSummary ?? t('shell.menu.commands.couldNotStartBrowserPreviewError'));
             }
         } catch (error) {
             this.stopPolling();
-            void this.messages.info(`ブラウザプレビューを起動できませんでした: ${String(error)}`);
+            void this.messages.info(t('shell.menu.commands.browserPreviewFailedWithReasonError', { value1: String(error) }));
         } finally { this.previewBusy = false; }
     }
 
@@ -94,38 +95,38 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
         this.cleanBusy = true;
         try {
             const root = (await this.workspace.roots)[0]?.resource;
-            if (!root) { void this.messages.info('プロジェクトが開かれていないため整理できません'); return; }
+            if (!root) { void this.messages.info(t('shell.menu.commands.openProjectCleaningUpText')); return; }
             const inspected = await this.cleanService.inspect(root.toString());
             const inspection = inspected.inspection;
-            if (!inspected.ok || !inspection) { void this.messages.info(inspected.reason ?? 'プロジェクトを調べられませんでした'); return; }
+            if (!inspected.ok || !inspection) { void this.messages.info(inspected.reason ?? t('shell.menu.commands.couldNotInspectProjectError')); return; }
             if (!inspection.disposable.length) { void this.messages.info(this.describeNothingToClean(inspection)); return; }
             const confirmed = await new ConfirmDialog({
-                title: '不要なデータを整理', msg: this.cleanConfirmation(inspection),
-                ok: `${formatBytes(inspection.disposableBytes)} を削除`, cancel: 'キャンセル'
+                title: t('shell.menu.commands.cleanUpUnusedDataText'), msg: this.cleanConfirmation(inspection),
+                ok: t('shell.menu.commands.deleteAction', { value1: formatBytes(inspection.disposableBytes) }), cancel: t('shell.menu.commands.cancelAction')
             }).open();
             if (!confirmed) return;
             const result = await this.cleanService.clean(root.toString());
             void this.messages.info(result.cleaned
-                ? `不要なデータ ${formatBytes(result.bytes ?? 0)}（${result.count ?? 0} 件）を削除しました`
-                : result.reason ?? '整理できませんでした');
+                ? t('shell.menu.commands.deletedUnusedItemsText', { value1: formatBytes(result.bytes ?? 0), value2: result.count ?? 0, n: result.count ?? 0 })
+                : result.reason ?? t('shell.menu.commands.couldNotCleanUpError'));
         } catch (error) {
-            void this.messages.info(`整理できませんでした: ${String(error)}`);
+            void this.messages.info(t('shell.menu.commands.cleanUpFailedWithReasonError', { value1: String(error) }));
         } finally { this.cleanBusy = false; }
     }
 
     protected describeNothingToClean(inspection: ProjectCleanInspection): string {
         const held = inspection.undecided.filter(entry => entry.heldReason);
-        if (!held.length) return '削除できる不要なデータはありませんでした';
-        return `いま削除できる不要なデータはありません（${held.length} 件 ${formatBytes(
+        if (!held.length) return t('shell.menu.commands.noUnusedDataDeletedText');
+        return t('shell.menu.commands.noUnusedDataDeletedItemsHeldBecauseText', { value1: held.length, n: held.length, value2: formatBytes(
             held.reduce((sum, entry) => sum + entry.bytes, 0)
-        )} は「${held[0].heldReason}」として保留中です）`;
+        ), value3: held[0].heldReason });
     }
 
     protected cleanConfirmation(inspection: ProjectCleanInspection): HTMLElement {
         const node = document.createElement('div');
         const lead = document.createElement('p');
         lead.style.margin = '0 0 8px';
-        lead.textContent = `次の ${inspection.disposable.length} 件（合計 ${formatBytes(inspection.disposableBytes)}）を削除します。原本・書き出し済みの動画・検証の証跡は削除しません。`;
+        lead.textContent = t('shell.menu.commands.deleteTheseItemsTotalOriginalFilesExportedVideosVerificationEvidenceMessage', { value1: inspection.disposable.length, n: inspection.disposable.length, value2: formatBytes(inspection.disposableBytes) });
         node.appendChild(lead);
         const list = document.createElement('ul');
         list.style.cssText = 'margin:0;padding-left:18px;max-height:240px;overflow:auto;font-size:0.9em';
@@ -139,7 +140,7 @@ export class AkariLegacyMenuCommands implements CommandContribution, FrontendApp
         if (held.length) {
             const note = document.createElement('p');
             note.style.cssText = 'margin:8px 0 0;opacity:0.75;font-size:0.9em';
-            note.textContent = `${held.length} 件（${formatBytes(held.reduce((sum, entry) => sum + entry.bytes, 0))}）は「${held[0].heldReason}」のため今回は残します。`;
+            note.textContent = t('shell.menu.commands.keepItemsTimeBecauseMessage', { value1: held.length, n: held.length, value2: formatBytes(held.reduce((sum, entry) => sum + entry.bytes, 0)), value3: held[0].heldReason });
             node.appendChild(note);
         }
         return node;

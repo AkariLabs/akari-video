@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { renderText } from './i18n.mjs';
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, normalize as normalizePath, relative, resolve } from "node:path";
@@ -65,7 +66,7 @@ export function buildPlan({
   const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
   if (isPositiveNumber(fpsOverride) && fpsOverride !== edit.output.fps) {
     throw new Error(
-      "v2 の出力 fps は宣言が正本です。fps を変えるときは retime（全体再スケール）を通してください。",
+      renderText('render.plan.error.fpsOverride'),
     );
   }
   const fps = isPositiveNumber(fpsOverride) ? fpsOverride : edit.output.fps;

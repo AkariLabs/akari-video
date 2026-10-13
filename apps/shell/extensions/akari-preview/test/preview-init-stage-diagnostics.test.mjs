@@ -1,3 +1,10 @@
+import { installPreviewTestI18n } from './helpers/preview-i18n.mjs';
+const restorePreviewTestI18n = installPreviewTestI18n();
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+setLanguage('ja');
+after(() => setLanguage(undefined));
+after(restorePreviewTestI18n);
 // 不具合メモ 第11項: 出力プレビューが灰色のままで、画面にもログにも何も出なかった。
 // ここでは「初期化の各段が失敗したとき、失敗段が診断へ出る」ことを段ごとに失敗注入して見る。
 //

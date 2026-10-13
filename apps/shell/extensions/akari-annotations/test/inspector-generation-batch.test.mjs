@@ -1,8 +1,22 @@
+import { setLanguage, t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import './timeline-harness-dependencies.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildGenerationBatch, executeGenerationBatch } from '../lib/browser/inspector/generation-batch.js';
-import { generationDraftFromMeta } from '../lib/browser/inspector/generation-fields.js';
+
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { buildGenerationBatch, executeGenerationBatch } = await import('../lib/browser/inspector/generation-batch.js');
+const { generationDraftFromMeta } = await import('../lib/browser/inspector/generation-fields.js');
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const planned = (id, start = 0, estimate = .3) => {
   const meta = { version: 1, kind: 'still', status: 'done', next: {

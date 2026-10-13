@@ -2,6 +2,7 @@ import { readInspectorSource } from './inspector-source.mjs';
 import { readAllSourceText, findMember } from './widget-source.mjs';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+import { t } from '@akari-video/i18n';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import * as perspective from '../../lib/browser/inspector/perspective-fields.js';
 import * as transition from '../../lib/browser/inspector/transition-fields.js';
@@ -39,7 +40,7 @@ for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'p
 }
 const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...animator, ...crop, ...framing, ...freeze, ...mappings,
     ...shapeFields, ...motionMarks,
-    TRANSITION_VOCABULARY, composeInspectorSections, nextPhotoBrushItem };
+    TRANSITION_VOCABULARY, composeInspectorSections, nextPhotoBrushItem, t, translate: t };
 delete dependencies.default;
 delete dependencies['module.exports'];
 const code = ts.transpileModule(declarations.join('\n'), {
@@ -55,7 +56,7 @@ export const { perspectiveFields, transitionFields, layerSections, itemSections,
 )(...Object.values(dependencies));
 
 export function timelineMethod(name, dependencies = {}) {
-    dependencies = { isAudioFadeShapeWriteRequest: () => false, ...dependencies };
+    dependencies = { isAudioFadeShapeWriteRequest: () => false, t, translate: t, ...dependencies };
     const { ast, node: method } = findMember(name, { in: 'widget' });
     assert.ok(method, name);
     const code = ts.transpileModule(`class Handler { ${method.getText(ast)} }`, {

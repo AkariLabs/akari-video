@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { HomeScrim } from '../home/home-panels';
@@ -120,7 +121,7 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
             setSelected([]);
             setConfirmIds([]);
             props.onChanged?.();
-        } catch { setError('消せませんでした。もう一度お試しください。'); }
+        } catch { setError(t('surfaces.channel.deleteConfirmedDeleteItemTryAgain.error')); }
         finally { setBusy(false); }
     };
 
@@ -150,77 +151,77 @@ export function ChannelPeopleSheet(props: { channel: string; dir: URI; files: Ch
             setAdding(false);
             setName(''); setReading(''); setAliases(''); setRole(''); setKind('person');
             setScene(defaultScene('person')); setSceneEdited(false); setImageFile(undefined); setCaps([]); setAddToBook(true);
-        } catch { setError('保存できませんでした。内容を確かめてもう一度お試しください。'); }
+        } catch { setError(t('surfaces.channel.saveCheckDetailsTryAgain.error')); }
         finally { setBusy(false); }
     };
 
     return <HomeScrim kind='channel-people' onClose={props.onClose}>
         <style>{channelSheetCss}</style>
-        <h3>{detailEntry ? detailEntry.name : adding ? '人とモノを足す' : '人とモノ'}</h3>
+        <h3>{detailEntry ? detailEntry.name : adding ? t('surfaces.channel.channelPeopleSheetAddPeopleThings.label') : t('surfaces.channel.channelPeopleSheetPeopleThings.label')}</h3>
         {detailEntry ? <ChannelPersonDetail key={detailEntry.id} dir={props.dir} files={props.files} entry={detailEntry} file={file}
             onSaved={next => { setFile(next); setDetailId(undefined); props.onChanged?.(); }} onBack={() => setDetailId(undefined)}
             loadVoiceProfiles={props.loadVoiceProfiles} onOpenSettings={props.onOpenSettings} /> : !adding ? <>
-            <p>動画に出てくる人・キャラクター・会社や製品です。名前と写真（ロゴ）を登録しておくと、文字起こしの直し・テロップの名前・画像を入れる場面で使われます。</p>
+            <p>{t('surfaces.channel.peopleRegistration.description')}</p>
             <div className='akari-people-actions'>
-                <button type='button' data-akari-people-add onClick={() => { setAdding(true); setError(''); }}>足す…</button>
-                <button type='button' data-akari-people-packs onClick={props.onOpenPacks}>記憶パックを探す</button>
-                <button type='button' data-akari-people-find onClick={() => props.onTypePrompt('このチャンネルの動画に出てくる人と会社を見つけて、人とモノの候補にして')}>動画から見つけてもらう</button>
+                <button type='button' data-akari-people-add onClick={() => { setAdding(true); setError(''); }}>{t('surfaces.channel.channelPeopleSheetAdd.button')}</button>
+                <button type='button' data-akari-people-packs onClick={props.onOpenPacks}>{t('surfaces.channel.channelPeopleSheetFindMemoryPack.button')}</button>
+                <button type='button' data-akari-people-find onClick={() => props.onTypePrompt(t('surfaces.channel.channelPeopleSheetFindPeopleCompaniesAppearVideosChannelMake.label'))}>{t('surfaces.channel.channelPeopleSheetGetDiscoveredVideo.button')}</button>
             </div>
             <div className='akari-people-layout'>
                 <aside className='akari-people-filters'>
-                    <h4>種類</h4>
-                    {([['all', 'すべて', counts.all], ...(['person', 'avatar', 'org'] as PersonKind[]).map(value => [value, PERSON_KIND_LABELS[value], counts.byKind[value]])] as Array<[PersonKind | 'all', string, number]>).map(([value, label, count]) =>
+                    <h4>{t('surfaces.channel.channelPeopleSheetType.heading')}</h4>
+                    {([['all', t('surfaces.channel.channelPeopleSheetAll.label'), counts.all], ...(['person', 'avatar', 'org'] as PersonKind[]).map(value => [value, PERSON_KIND_LABELS[value], counts.byKind[value]])] as Array<[PersonKind | 'all', string, number]>).map(([value, label, count]) =>
                         <button type='button' key={value} aria-pressed={kindFilter === value} onClick={() => setKindFilter(value)}><span>{label}</span><small>{count}</small></button>)}
-                    <h4>出どころ</h4>
-                    <button type='button' aria-pressed={sourceFilter === 'all'} onClick={() => setSourceFilter('all')}><span>すべて</span><small>{counts.all}</small></button>
+                    <h4>{t('surfaces.channel.channelPeopleSheetOrigin.heading')}</h4>
+                    <button type='button' aria-pressed={sourceFilter === 'all'} onClick={() => setSourceFilter('all')}><span>{t('surfaces.channel.channelPeopleSheetAll.label')}</span><small>{counts.all}</small></button>
                     {counts.bySource.map(source => <button type='button' key={source.key} aria-pressed={sourceFilter === source.key}
                         onClick={() => setSourceFilter(source.key)}><span>{source.label}</span><small>{source.count}</small></button>)}
                 </aside>
                 <div className='akari-people-list'>
-                    <div className='akari-people-selection'>{selected.length ? <><span>{selected.length} 件を選択中</span>
-                        <button type='button' disabled={busy} onClick={() => setConfirmIds(selected)}>選んだものを消す</button>
-                        <button type='button' onClick={() => { setSelected([]); setConfirmIds([]); }}>選ぶのをやめる</button></>
-                        : <button type='button' disabled={!shown.length} onClick={() => setSelected(shown.map(entry => entry.id))}>すべて選ぶ</button>}</div>
+                    <div className='akari-people-selection'>{selected.length ? <><span>{t('surfaces.channel.selectedPeopleCount.label', { count: selected.length })}</span>
+                        <button type='button' disabled={busy} onClick={() => setConfirmIds(selected)}>{t('surfaces.channel.channelPeopleSheetDeleteSelectedItem.button')}</button>
+                        <button type='button' onClick={() => { setSelected([]); setConfirmIds([]); }}>{t('surfaces.channel.channelPeopleSheetStopChoosing.button')}</button></>
+                        : <button type='button' disabled={!shown.length} onClick={() => setSelected(shown.map(entry => entry.id))}>{t('surfaces.channel.channelPeopleSheetSelectAll.button')}</button>}</div>
                     {confirmIds.length > 0 && <div className='akari-people-confirm'>
-                        <strong>{confirmEntries.length} 件を消しますか？</strong>
+                        <strong>{t('surfaces.channel.deletePeople.confirm', { count: confirmEntries.length, n: confirmEntries.length })}</strong>
                         <p>{summarizeNames(confirmEntries.map(entry => entry.name))}</p>
-                        <div><button type='button' disabled={busy} onClick={() => void deleteConfirmed()}>{confirmEntries.length} 件を消す</button>
-                            <button type='button' onClick={() => setConfirmIds([])}>やめる</button></div>
+                        <div><button type='button' disabled={busy} onClick={() => void deleteConfirmed()}>{t('surfaces.channel.deletePeople.button', { count: confirmEntries.length, n: confirmEntries.length })}</button>
+                            <button type='button' onClick={() => setConfirmIds([])}>{t('surfaces.channel.channelPeopleSheetStop.button')}</button></div>
                     </div>}
                     {shown.length ? shown.map(entry => <div className='akari-people-row' key={entry.id}>
-                        <input type='checkbox' aria-label={`${entry.name}を選ぶ`} checked={selectedSet.has(entry.id)} onChange={event => {
+                        <input type='checkbox' aria-label={t('surfaces.channel.channelPeopleSheetSelect.message', { entryName: entry.name })} checked={selectedSet.has(entry.id)} onChange={event => {
                             setSelected(event.target.checked ? [...selected, entry.id] : selected.filter(id => id !== entry.id)); setConfirmIds([]);
                         }} />
                         <button type='button' className='akari-people-row-open' data-akari-people-row={entry.id} onClick={() => { setDetailId(entry.id); setConfirmIds([]); }}>
                             {personPhoto(entry) ? <img className='akari-people-image' src={props.dir.resolve(personPhoto(entry)!).toString()} alt='' />
                                 : <span className='akari-people-image' aria-hidden='true'>{initialOf(entry.name)}</span>}
                         <span className='akari-people-row-body'><span><strong>{entry.name}</strong><small>{PERSON_KIND_LABELS[entry.kind]}</small>
-                            {entry.pack && <small>☆{entry.pack}</small>}{entry.profile?.birthday && <small>誕生日</small>}{hasVoice(entry) && <small>声あり</small>}</span>
+                            {entry.pack && <small>☆{entry.pack}</small>}{entry.profile?.birthday && <small>{t('surfaces.channel.channelPeopleSheetBirthday.label')}</small>}{hasVoice(entry) && <small>{t('surfaces.channel.channelPeopleSheetVoice.label')}</small>}</span>
                             {entry.role && <span>{entry.role}</span>}
-                            {entry.aliases.length > 0 && <small>別名: {entry.aliases.join('、')}</small>}
-                            {entry.scene && <small>使う場面: {entry.scene}</small>}</span></button>
-                        <button type='button' className='akari-people-remove' aria-label={`${entry.name}を消す`} onClick={() => setConfirmIds([entry.id])}>×</button>
-                    </div>) : <p>まだ登録されていません。</p>}
+                            {entry.aliases.length > 0 && <small>{t('surfaces.channel.personAliases.label', { aliases: entry.aliases.join(t('surfaces.channel.aliasList.separator')) })}</small>}
+                            {entry.scene && <small>{t('surfaces.channel.personUsage.label', { usage: entry.scene })}</small>}</span></button>
+                        <button type='button' className='akari-people-remove' aria-label={t('surfaces.channel.channelPeopleSheetDelete.message', { entryName: entry.name })} onClick={() => setConfirmIds([entry.id])}>×</button>
+                    </div>) : <p>{t('surfaces.channel.channelPeopleSheetRegisteredYet.message')}</p>}
                 </div>
             </div>
-            <p className='akari-people-note'>別名は辞書の「言い換え」にもつながります。パックから入ったものも 1 件ずつ消せます。</p>
+            <p className='akari-people-note'>{t('surfaces.channel.channelPeopleSheetAlternativeNamesAlsoDictionaryParaphrasesAlsoDelete.message')}</p>
         </> : <>
-            <p>名前や画像を登録すると、このチャンネルの動画で使えます。</p>
+            <p>{t('surfaces.channel.channelPeopleSheetRegisterNameImageVideosChannel.message')}</p>
             <div className='akari-people-form'>
-                <label>種類<select value={kind} onChange={event => { const next = event.target.value as PersonKind; setKind(next); if (!sceneEdited) setScene(defaultScene(next)); }}>
+                <label>{t('surfaces.channel.channelPeopleSheetType.label')}<select value={kind} onChange={event => { const next = event.target.value as PersonKind; setKind(next); if (!sceneEdited) setScene(defaultScene(next)); }}>
                     {(['person', 'avatar', 'org'] as PersonKind[]).map(value => <option key={value} value={value}>{PERSON_KIND_LABELS[value]}</option>)}</select></label>
-                <label>名前<input value={name} onChange={event => setName(event.target.value)} /></label>
-                <label>読み<input value={reading} onChange={event => setReading(event.target.value)} /></label>
-                <label>別名（カンマ区切り）<input value={aliases} onChange={event => setAliases(event.target.value)} /></label>
-                <label>役割<input value={role} onChange={event => setRole(event.target.value)} /></label>
-                <label>写真・ロゴ<input type='file' accept='image/*' onChange={event => setImageFile(event.target.files?.[0])} /></label>
-                <label className='akari-people-wide'>使う場面<textarea value={scene} onChange={event => { setScene(event.target.value); setSceneEdited(true); }} /></label>
-                {kind === 'avatar' && <div className='akari-people-wide'><strong>使えること</strong><div className='akari-people-caps'>{AVATAR_CAPS.map(cap =>
+                <label>{t('surfaces.channel.channelPeopleSheetName.label')}<input value={name} onChange={event => setName(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPeopleSheetReading.label')}<input value={reading} onChange={event => setReading(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPeopleSheetAliasesCommaSeparated.label')}<input value={aliases} onChange={event => setAliases(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPeopleSheetRole.label')}<input value={role} onChange={event => setRole(event.target.value)} /></label>
+                <label>{t('surfaces.channel.channelPeopleSheetPhotosLogos.label')}<input type='file' accept='image/*' onChange={event => setImageFile(event.target.files?.[0])} /></label>
+                <label className='akari-people-wide'>{t('surfaces.channel.channelPeopleSheetSituation.label')}<textarea value={scene} onChange={event => { setScene(event.target.value); setSceneEdited(true); }} /></label>
+                {kind === 'avatar' && <div className='akari-people-wide'><strong>{t('surfaces.channel.channelPeopleSheetStrong.label')}</strong><div className='akari-people-caps'>{AVATAR_CAPS.map(cap =>
                     <label key={cap.id}><input type='checkbox' checked={caps.includes(cap.id)} onChange={event => setCaps(event.target.checked ? [...caps, cap.id] : caps.filter(id => id !== cap.id))} />{cap.label}</label>)}</div></div>}
-                <label className='akari-people-wide akari-people-wordbook'><input type='checkbox' checked={addToBook} onChange={event => setAddToBook(event.target.checked)} />別名を辞書の言い換えにも入れる</label>
+                <label className='akari-people-wide akari-people-wordbook'><input type='checkbox' checked={addToBook} onChange={event => setAddToBook(event.target.checked)} />{t('surfaces.channel.channelPeopleSheetAddAliasDictionaryParaphrase.label')}</label>
             </div>
-            <div className='akari-people-form-actions'><button type='button' disabled={!name.trim() || busy} onClick={() => void save()}>保存</button>
-                <button type='button' onClick={() => { setAdding(false); setError(''); }}>やめる</button></div>
+            <div className='akari-people-form-actions'><button type='button' disabled={!name.trim() || busy} onClick={() => void save()}>{t('surfaces.channel.channelPeopleSheetSave.button')}</button>
+                <button type='button' onClick={() => { setAdding(false); setError(''); }}>{t('surfaces.channel.channelPeopleSheetStop.button')}</button></div>
         </>}
         {error && <p className='akari-people-error' role='alert'>{error}</p>}
     </HomeScrim>;

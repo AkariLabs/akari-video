@@ -1,3 +1,4 @@
+import './support/i18n-ja.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -150,10 +151,11 @@ test('filterCatalogItems: カテゴリチップで絞る', () => {
     assert.ok(result.every(item => item.category === '3d'));
 });
 
-test('classifyCatalogAudioItem: sfx だけを音声クリップ、bgm / jingle / タグ無しを BGM に分ける', () => {
+test('classifyCatalogAudioItem: sfx と jingle を音声クリップ、bgm / タグ無しを BGM に分ける', () => {
     assert.equal(classifyCatalogAudioItem({ tags: ['sfx', 'camera'] }), 'sfx');
     assert.equal(classifyCatalogAudioItem({ tags: ['bgm', 'upbeat'] }), 'bgm');
-    assert.equal(classifyCatalogAudioItem({ tags: ['jingle'] }), 'bgm');
+    assert.equal(classifyCatalogAudioItem({ tags: ['jingle'] }), 'sfx');
+    assert.equal(classifyCatalogAudioItem({ tags: ['hit', 'jingle', 'riser'] }), 'sfx');
     assert.equal(classifyCatalogAudioItem({}), 'bgm');
 });
 
@@ -208,7 +210,7 @@ test('deriveCatalogCategoryChips: 音声の位置を BGM → 音声クリップ�
         'overlay', 'still', 'scene3d', CATALOG_AUDIO_BGM_CATEGORY, CATALOG_AUDIO_SFX_CATEGORY, 'broll', 'font'
     ]);
     assert.deepEqual(chips.map(chip => chip.label), ['オーバーレイ', '静止画', '3D', 'BGM', '音声クリップ', 'Bロール', 'フォント']);
-    assert.deepEqual(chips.map(chip => chip.count), [0, 0, 1, 3, 1, 0, 0]);
+    assert.deepEqual(chips.map(chip => chip.count), [0, 0, 1, 2, 2, 0, 0]);
 });
 
 test('deriveCatalogCategoryChips: 未知カテゴリは既存項目を消さず末尾へ追加する', () => {

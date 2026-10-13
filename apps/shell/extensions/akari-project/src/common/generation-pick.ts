@@ -1,3 +1,4 @@
+import { t } from '../common/project-text';
 import { classifyMaterialKind, MaterialKind } from './asset-group-media';
 
 export const GENERATION_PICK_INTO_COMMAND_ID = 'akari.generation.pickInto';
@@ -47,11 +48,11 @@ export function normalizeGenerationPickRequest(request: GenerationPickRequest): 
     const slots = ['first_frame', 'last_frame', 'reference_images', 'reference_videos', 'reference_audios'];
     if (!request || !slots.includes(request.slot) || typeof request.label !== 'string'
         || !Array.isArray(request.accepts) || typeof request.multi !== 'boolean') {
-        throw new TypeError('素材選択の要求が不正です。');
+        throw new TypeError(t('project.generation.assetPicker.invalidAssetSelectionRequestError'));
     }
     const accepts = [...new Set(request.accepts.filter(kind => ['image', 'video', 'audio'].includes(kind)))];
     const max = request.max == null ? null : Number.isFinite(request.max) ? Math.max(0, Math.floor(request.max)) : null;
-    const normalized = { ...request, label: request.label.trim() || 'この枠', accepts, max };
+    const normalized = { ...request, label: request.label.trim() || t('project.generation.assetPicker.slotLabel'), accepts, max };
     const selected = request.multi && Array.isArray(request.selected)
         ? [...new Set(request.selected.map(normalizeGenerationPickPath).filter((path): path is string =>
             !!path && generationPickAccepts(normalized, classifyMaterialKind(path))))] : [];
@@ -68,7 +69,7 @@ export function generationPickBadge(paths: readonly string[], path: string): str
     const kind = classifyMaterialKind(path);
     if (index < 0 || kind === 'other') { return undefined; }
     const ordinal = paths.slice(0, index + 1).filter(selected => classifyMaterialKind(selected) === kind).length;
-    return `@${{ image: '画像', video: '動画', audio: '音声' }[kind]}${ordinal}`;
+    return `@${{ image: t('project.library.shelf.imageLabel'), video: t('project.library.shelf.videoLabel'), audio: t('project.library.shelf.audioMediaLabel') }[kind]}${ordinal}`;
 }
 
 interface PickSession {
@@ -124,12 +125,12 @@ export class GenerationPickController {
         const session = this.session;
         if (!session) { return undefined; }
         if (candidate.unavailableReason) { return candidate.unavailableReason; }
-        if (!generationPickAccepts(session.request, candidate.kind)) { return 'この枠には選べない種類です。'; }
-        if (candidate.path !== undefined && !normalizeGenerationPickPath(candidate.path)) { return 'プロジェクト内の素材を選んでください。'; }
-        if (session.pendingKey) { return '素材を取得中です。'; }
+        if (!generationPickAccepts(session.request, candidate.kind)) { return t('project.generation.assetPicker.assetTypeCannotBeSelectedSlotMessage'); }
+        if (candidate.path !== undefined && !normalizeGenerationPickPath(candidate.path)) { return t('project.generation.assetPicker.chooseAssetProjectAction'); }
+        if (session.pendingKey) { return t('project.generation.assetPicker.downloadingAssetMessage'); }
         const path = this.pathFor(candidate);
         if (session.request.multi && path && session.paths.includes(path)) { return undefined; }
-        if (session.request.max != null && session.paths.length >= session.request.max) { return '選べる数の上限です。'; }
+        if (session.request.max != null && session.paths.length >= session.request.max) { return t('project.generation.assetPicker.selectionLimitReachedMessage'); }
         return undefined;
     }
     async pick(candidate: GenerationPickCandidate): Promise<void> {
@@ -146,7 +147,7 @@ export class GenerationPickController {
                 path = material && normalizeGenerationPickPath(material.relativePath);
                 if (!path || !generationPickAccepts(session.request, material.kind)
                     || !generationPickAccepts(session.request, classifyMaterialKind(path))) {
-                    throw new Error('素材を取得できませんでした。選び直すか、もう一度お試しください。');
+                    throw new Error(t('project.generation.assetPicker.couldNotDownloadAssetChooseAnotherError'));
                 }
                 session.resolved.set(candidate.key, path);
             } catch (error) {

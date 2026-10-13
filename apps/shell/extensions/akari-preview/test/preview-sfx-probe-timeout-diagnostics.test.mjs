@@ -12,6 +12,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readHandlerSource } from './helpers/handler-source.mjs';
+import { setLanguage } from '@akari-video/i18n';
+import { after } from 'node:test';
+
+setLanguage('ja');
+after(() => setLanguage(undefined));
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { t } = require('../lib/common/preview-text.js');
 
 const source = readHandlerSource();
 
@@ -46,8 +55,10 @@ test('打ち切りは全件を診断へ残す（Console の警告は 1 回だけ
 
 test('診断には打ち切り秒数と素材の URL を入れる', () => {
     const body = onTimeoutBody();
-    assert.match(body, /note\('尺プローブ打ち切り（' \+ \(SFX_PROBE_TIMEOUT_MS \/ 1000\)/u);
-    assert.match(body, /\+ ' s 超）: ' \+ src/u);
+    assert.match(body, /preview\.diagnostics\.event\.durationProbeTimeoutStatus/u);
+    assert.match(body, /seconds: SFX_PROBE_TIMEOUT_MS \/ 1000, src/u);
+    assert.equal(t('preview.diagnostics.event.durationProbeTimeoutStatus', { seconds: 8, src: 'asset.mp3' }),
+        '尺プローブ打ち切り（8 s 超）: asset.mp3');
 });
 
 test('診断 API が無い環境でも落ちない（webview の初期化順に依存しない）', () => {

@@ -1,0 +1,4 @@
+{
+  "render.verify.leadingGap.early": "最初の映像トラックが宣言位置より {gap} 秒早く始まっています（素材フレームとの差: 予定位置 {expected}、先行位置 {early}）",
+  "render.verify.leadingGap.ok": "最初の映像トラックの先頭の空き {gap} 秒を保持しています（素材フレームとの差: 予定位置 {expected}、先行位置 {early}）"
+}

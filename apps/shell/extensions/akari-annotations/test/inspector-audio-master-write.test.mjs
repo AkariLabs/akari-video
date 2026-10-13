@@ -1,14 +1,15 @@
+import { setLanguage } from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import { readAllSourceText } from './helpers/widget-source.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  AUDIO_MASTER_DEFAULT_LOUDNORM,
-  AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP,
-  readAudioMasterSnapshot,
-  updateAudioMasterDocument
-} from '../lib/browser/inspector/audio-master.js';
+
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { AUDIO_MASTER_DEFAULT_LOUDNORM, AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP, readAudioMasterSnapshot, updateAudioMasterDocument } = await import('../lib/browser/inspector/audio-master.js');
+
 
 const inspectorSource = readInspectorSource();
 const timelineSource = readAllSourceText();
@@ -20,7 +21,7 @@ test('マスター 4 行を 4 kind の文書レベル write へ対応付ける',
     ['audio-master-loudnorm', 'audio-master-loudnorm'],
     ['audio-master-true-peak', 'audio-master-true-peak']
   ]) {
-    assert.match(inspectorSource, new RegExp(`name: '${name}'[\\s\\S]{0,700}kind: '${kind}'`, 'u'));
+    assert.match(inspectorSource, new RegExp(`name: '${name}'[\\s\\S]{0,1600}kind: '${kind}'`, 'u'));
   }
   assert.match(timelineSource, /return this\.handleAudioMasterWrite\(request\)/u);
   assert.match(timelineSource, /updateAudioMasterDocument\(document, request\)/u);

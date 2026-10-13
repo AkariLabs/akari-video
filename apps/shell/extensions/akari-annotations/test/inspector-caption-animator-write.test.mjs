@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
-import {
-    INSPECTOR_ANIMATOR_BASES, INSPECTOR_ANIMATOR_SHAPES, INSPECTOR_ANIMATOR_NUMBER_FIELDS,
-    INSPECTOR_ANIMATOR_MAX_ITEMS, normalizeInspectorAnimators, nextAnimatorId,
-    addInspectorAnimator, removeInspectorAnimator, moveInspectorAnimator, updateInspectorAnimator
-} from '../lib/browser/inspector/animator-fields.js';
-import { MOTION_EASES } from '../lib/browser/inspector/motion-fields.js';
-import { createNumberField } from '../lib/browser/inspector/number-field.js';
-import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
-import { inspectorSource, itemSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+
+
+
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { inspectorSource, itemSections, visualSnapshot } = await import('./helpers/perspective-transition-fixture.mjs');
+const { INSPECTOR_ANIMATOR_BASES, INSPECTOR_ANIMATOR_SHAPES, INSPECTOR_ANIMATOR_NUMBER_FIELDS, INSPECTOR_ANIMATOR_MAX_ITEMS, normalizeInspectorAnimators, nextAnimatorId, addInspectorAnimator, removeInspectorAnimator, moveInspectorAnimator, updateInspectorAnimator } = await import('../lib/browser/inspector/animator-fields.js');
+const { MOTION_EASES } = await import('../lib/browser/inspector/motion-fields.js');
+const { createNumberField } = await import('../lib/browser/inspector/number-field.js');
+const { composeInspectorSections } = await import('../lib/browser/inspector/section-model.js');
+
 
 const animator = (id = 'a1', fields = {}) => ({
     id, basis: 'chars', shape: 'ramp', start: 0, end: 0.3, offset: 0, amount: {}, ...fields

@@ -1,3 +1,4 @@
+import { t } from './shell-text';
 // 拡張間 import を避けるため、partner-session-service.ts の KIND と
 // AkariAnnotationsWidget.FACTORY_ID を複写する（司令塔裁定7と同じ境界）。
 export const PARTNER_TERMINAL_KIND = 'akari-partner';
@@ -24,8 +25,8 @@ export function shouldCloseAtStartup(widget: StartupWidgetInfo): boolean {
 }
 
 export const BOTTOM_PANEL_MENU_ITEMS = [
-    { id: 'timeline', label: 'タイムライン' },
-    { id: 'terminal', label: 'ターミナル' }
+    { id: 'timeline', get label() { return t('shell.bottomPanel.menu.timelineLabel'); } },
+    { id: 'terminal', get label() { return t('shell.bottomPanel.menu.terminalLabel'); } }
 ] as const;
 
 export type BottomPanelMenuItemId = typeof BOTTOM_PANEL_MENU_ITEMS[number]['id'];

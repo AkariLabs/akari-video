@@ -1,67 +1,62 @@
 ---
 name: overlay-authoring
-description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ、Three.js 3D、モーショングラフィックス、サムネイル、人物の後ろに文字を置く表現を設計・生成・レビューするときに発動する authoring ルーター。
+description: Author and review AKARI Video overlay HTML, captions, tables and charts, Three.js 3D, motion graphics, thumbnails, and text-behind-person effects. Routes the work to the relevant authoring leaf.
 ---
 
-# FORBIDDEN 級ハードルール
+# FORBIDDEN-level hard rules
 
-> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+> **Language**: Respond in the user's language — conversation, questions, approval prompts, and the reports and records you write (including decision-log rows) follow the language the user writes in.
 
-次のいずれかに違反する動画オーバーレイを作成・採用しない。詳細リーフより常に優先する。
+Never create or accept a video overlay that violates any rule below. These rules always outrank the detailed leaves.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` or `captions.json`; grep by ID and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)).
+For writes, use Edit on the matching lines or the edit-store script API.
 
-1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--font-size`、`--color`、`--block-left` のような非予約名を使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。
-   **`--x` / `--y` / `--scale` / `--rotate` はランタイム予約変数**（`packages/render-cut/src/rasterize.mjs` の `renderOverlayNode` が `.akari-overlay-container` へ必ずインライン設定する。値は `overlays[].transform` 由来、`role==="background"` なら恒等値に固定）。断片内でこの 4 変数を**参照（`var(--x, ...)`）することも自前用途で再定義することも禁止**する。継承によりフォールバックが効かず、指定値が無視されて全オーバーレイが原点（0,0・scale 1・rotate 0）へ寄る（実機バグ報告 `overlay-css-var-collision`、2026-08-17。edit-lint は PASS・レンダーも成功するため目視まで気づけない）。位置・拡縮・回転のノブは `--block-left` / `--block-scale` のような非予約名を自分で定義する。
-2. **断片ルートに時刻を置かない。** タイムライン上の開始・長さは `edit.json` が正本で、ランタイムが外側コンテナへ反映する。断片ルートに `data-start` / `data-duration` を置かない。素材本来の長さが必要なら `data-akari-natural-duration`（秒）に記録し、断片内の演出はクリップ先頭を 0 とするローカル秒で書く。
-3. **layout を毎フレーム動かさない。** アニメーションは `transform` / `opacity` 中心にする。4K 映像上の `filter: blur()` と `backdrop-filter` は禁止する。
-4. **wall-clock で絵を決めない。** `Date.now()`、`performance.now()` の経過差、`setTimeout`、`setInterval`、rAF の delta 積算、未 seed の乱数に表示状態を依存させない。シーク時に WAAPI の `currentTime` を設定すれば同じ時刻の絵が再現される決定的設計にする。
-5. **3D の別方式を持ち込まない。** 3D は Three.js + glTF とし、動画テクスチャは `VideoTexture` に編集用プロキシを与える。原本をプレビュー用テクスチャへ直結しない。
-6. **トップレベルを複数にしない。** HTML 断片のルート要素は必ず 1 つにする。AKARI の外側コンテナによる translate / scale / rotate が常に効く構造を保つ。
+Read lang/<content-language>.md for language-specific rules (content language: --lang → intake.json "language" → transcript language → ja; see https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-11-content-language.md). If that file does not exist, read lang/en.md.
 
-## ポインタ当たり判定
+1. **Never hardcode adjustable values.** Expose human-adjustable position, scale, font size, color, spacing, and content through CSS variables. Use nonreserved names such as `--font-size`, `--color`, and `--block-left`. Reference them as `var(--name, fallback)` so they inherit from `edit.json.overlays[].vars`. Do not redefine the same variables on the fragment root: doing so blocks overrides from the outer vars.
+   **`--x` / `--y` / `--scale` / `--rotate` are runtime-reserved variables** (`renderOverlayNode` in `packages/render-cut/src/rasterize.mjs` always sets them inline on `.akari-overlay-container`. Values come from `overlays[].transform`; `role==="background"` forces identity values). **Neither reference these four variables (`var(--x, ...)`) nor redefine them for your own use inside a fragment.** Inheritance prevents the fallback and causes specified values to be ignored, pulling every overlay toward the origin (0,0; scale 1; rotate 0). This was observed in `overlay-css-var-collision` on 2026-08-17; edit-lint passes and rendering succeeds, so it can escape notice until visual inspection. Define nonreserved position, scale, and rotation knobs such as `--block-left` / `--block-scale`.
+2. **Never put timing on the fragment root.** `edit.json` is the SSOT for timeline start and duration; the runtime applies these to the outer container. Do not place `data-start` / `data-duration` on the fragment root. If the asset's natural duration is needed, record it in seconds as `data-akari-natural-duration`; write internal motion in local seconds starting at clip time 0.
+3. **Never animate layout every frame.** Animate mainly `transform` / `opacity`. `filter: blur()` and `backdrop-filter` are forbidden over 4K video.
+4. **Never determine an image from wall-clock time.** Do not depend on `Date.now()`, elapsed differences from `performance.now()`, `setTimeout`, `setInterval`, accumulated rAF deltas, or unseeded randomness. Use deterministic motion so setting WAAPI `currentTime` on seek reproduces the same frame.
+5. **Do not introduce another 3D approach.** Use Three.js + glTF; provide an editing proxy to `VideoTexture`. Never connect the original video directly as a preview texture.
+6. **Do not create multiple top-level elements.** The HTML fragment must have exactly one root element so the AKARI outer container's translate / scale / rotate always applies.
 
-ランタイムが作る全画面コンテナと HTML 断片のルート要素は、余白で下の映像やレイヤーを
-選べるよう既定で `pointer-events: none` になる。背景、枠、影、文字、画像・動画・canvas・SVG
-などを実際に描く可視の子孫だけ、ランタイムが機械判定して `pointer-events: auto` へ戻す。
+## Pointer hit testing
 
-機械判定と異なる当たり方が必要な場合は、対象要素または範囲の祖先へ
-`data-akari-hit="catch"`（配下で拾う）/ `data-akari-hit="pass"`（配下を素通し）を付ける。
-最寄りの明示指定が配下へ継承され、機械判定より優先される。透明なドラッグ面など意図がある
-場合だけ `catch` を使い、全画面ルートへ安易に付けない。
+The runtime makes its full-screen container and the HTML fragment root `pointer-events: none` by default, leaving margins available to select video or layers below. It automatically restores `pointer-events: auto` only on visible descendants that actually draw a background, border, shadow, text, image, video, canvas, or SVG.
 
-## プレビューで直接触れる要素
+If an element needs different hit behavior, put `data-akari-hit="catch"` (catch below it) or `data-akari-hit="pass"` (pass through below it) on the element or an ancestor of the range. The nearest explicit setting inherits downward and outranks automatic detection. Use `catch` only with a deliberate reason, such as a transparent drag surface; do not casually put it on the full-screen root.
 
-これは FORBIDDEN 級のハードルールではない（守らなくても絵は壊れない）が、class も `id` も無い要素は後からプレビューで個別に直す対象にならない。
-人が直接触りそうな要素は、次の形で作る。
+## Elements directly editable in preview
 
-- `id` か class を持つ要素だけがプレビューで直接選べる対象になる。どちらも無い要素を押すと、class か `id` を持ついちばん近い親が選ばれる想定で作る。
-- 棒・ラベル・見出し・アイコン・カードには、意味のある class（`bar`、`value-label`、`legend-item`、`card-title` など）を見た目用のユーティリティ class より前に置く。番地には先頭の class が使われる。
-- 同じ役割の要素には同じ class を付ける（棒 5 本ならすべて `bar`）。番地は同じ class の何番目かで決まるので、増減・並べ替えで番号がずれて隣を指しうる。その断片に要素ごとの上書き（`edit.json` の `source.elements`）が掛かっていれば見直す。
-- SVG は 1 枚の絵として選べる対象になり、中の `rect` や `text` は個別の対象にならない。棒 1 本・ラベル 1 つを触れるようにしたい図は div + CSS で組み、SVG はアイコン・ロゴ・曲線など 1 かたまりで動けば足りる絵に使う。
-- 1 文字ずつ `span` に割る演出では、各 `span` に class が無ければ見出し全体が 1 つの選択対象になる。1 文字ずつ触らせたいときだけ付ける。
-- 棒や箱の仕上がりの寸法は `width` / `height`（px）で決め、隣の要素は flex / grid で並べる。箱を変えると隣の要素が組み直る。`transform: scale()` で寸法を作らない。出現の演出は、終わりが等倍になる `transform`（例: `scaleY(0)` → `scaleY(1)`）と `opacity` で付け、仕上がりの寸法は `width` / `height` だけで決まるようにする。
-- 名札（`data-akari-part`）は、その要素だけ別の時間・動きを持たせ、タイムラインに行として出したいときのもの。
-  class は位置・回転・箱を直せれば足りる要素の目印。名札については [object-tree 契約 §1.3〜1.4](../../docs/contract-2026-08-30-edit-json-v2-object-tree-v0.md) を参照する。
-- class 名は `bar` のような役割の一般名でよい（番地は断片内で数える）。CSS のセレクタは従来どおり断片固有のルート配下に閉じる（例: `.sales-chart .bar`）。
+This is not a FORBIDDEN-level hard rule (the image survives if it is ignored), but an element with neither class nor `id` cannot later be targeted individually in preview. Build likely direct-edit targets as follows.
 
-要素の上書きは `translate` / `rotate` / `width` / `height` を使う設計で子の `transform` に触れないため、[motion.md](motion.md) の外側コンテナの幾何操作と子の演出用 `transform` は両立する。
+- Only elements with a class or `id` can be selected directly in preview. Clicking one without either selects its nearest ancestor with a class or `id`; design with this in mind.
+- Put a meaningful class on bars, labels, headings, icons, and cards (`bar`, `value-label`, `legend-item`, `card-title`, etc.) before visual utility classes. The first class forms the address.
+- Give elements with the same role the same class (all five bars should be `bar`). Addresses use the index within that class, so additions, deletions, or reordering can shift an override to a neighbor. Revisit per-element overrides in `edit.json` `source.elements` if applied to that fragment.
+- An SVG is selectable as one picture; its internal `rect` or `text` is not individually selectable. Build a chart whose individual bars or labels need direct editing with div + CSS. Use SVG for icons, logos, curves, and other pictures that can move as a unit.
+- When splitting a text effect into one `span` per character, the whole heading remains one selection unless each `span` has a class. Add those classes only when character-level editing is intended.
+- Set finished bar or box dimensions with `width` / `height` (px), and arrange neighbors with flex / grid. Changing a box then reflows its neighbors. Never create finished dimensions with `transform: scale()`. Animate entry with `transform` ending at natural size (for example `scaleY(0)` → `scaleY(1)`) and `opacity`, while final dimensions depend only on `width` / `height`.
+- Use a name tag (`data-akari-part`) when an element needs its own time and motion and must appear as a timeline row. A class marks an element whose position, rotation, or box is sufficient to edit. See [object-tree contract §§1.3–1.4](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-08-30-edit-json-v2-object-tree-v0.md) for name tags.
+- A general role name such as `bar` is fine for a class (addresses are counted inside the fragment). Keep CSS selectors scoped under a fragment-specific root as before (for example `.sales-chart .bar`).
 
-# リーフ目次
+Element overrides use `translate` / `rotate` / `width` / `height` and never touch child `transform`, so the outer-container geometry in [motion.md](motion.md) can coexist with child motion transforms.
 
-必要な判断領域だけを読む。
+# Leaf index
 
-- 字幕・テロップの日本語組版、可読性、配置: [telop.md](telop.md)
-- 表・グラフの HTML/CSS 構成とアニメーション: [table.md](table.md)
-- Three.js + glTF、動画テクスチャ、3D 性能: [3d.md](3d.md)。端末の画面・キーの生成や反射調整は [device-materials.md](device-materials.md) も読む。
-- ガラス屈折の宣言、入れ子、ツマミ、静止背景: [glass.md](glass.md)
-- Canvas 2D 世界、DOM シート同期、俯瞰: [world.md](world.md)
-- 新しい描画の種類は `packages/overlay-runtime/runtimes.mjs` のマニフェストへ登録する（追加手順: `packages/overlay-runtime/README.md`）。
-- 決定的モーション、イージング、compositor 制約: [motion.md](motion.md)
-- サムネイルの型、デザイン語彙、生成経路、HTML スクショ: [thumbnail.md](thumbnail.md)
-- 人物切り抜き、HEVC alpha、text-behind-person: [text-behind-person.md](text-behind-person.md)
+Read only the decision area needed.
 
-静止サムネイル用 HTML シートは動画オーバーレイではないため timing data 属性を不要とする。ただし、CSS 変数化、単一ルート、ローカル資産、決定的なスクリーンショットという考え方は維持する。
+- Subtitle and telop readability and placement: [telop.md](telop.md). Language-specific typesetting is in lang/<code>.md.
+- HTML/CSS structure and animation for tables and charts: [table.md](table.md)
+- Three.js + glTF, video textures, and 3D performance: [3d.md](3d.md). Also read [device-materials.md](device-materials.md) for device screens, keys, and reflection tuning.
+- Glass refraction declarations, nesting, knobs, and still backdrops: [glass.md](glass.md)
+- Canvas 2D worlds, DOM-sheet synchronization, and bird's-eye views: [world.md](world.md)
+- Register new rendering types in the `packages/overlay-runtime/runtimes.mjs` manifest (procedure: `packages/overlay-runtime/README.md`).
+- Deterministic motion, easing, and compositor limits: [motion.md](motion.md)
+- Thumbnail patterns, design vocabulary, generation routes, and HTML screenshots: [thumbnail.md](thumbnail.md)
+- Person cutouts, HEVC alpha, and text behind a person: [text-behind-person.md](text-behind-person.md)
 
-ライブラリへ収めるオーバーレイの `meta.json` は素材契約 v1 の `tier` を必ず宣言する。例: `"tier": "free"` と `"license": { "spdx": "CC0-1.0", ... }`。Pro は `"tier": "pro"` とし、`license.spdx` に `CC0-1.0` を指定しない。階層は本人に確認する（[素材 tier 契約](../../docs/contract-2026-10-04-asset-tier-v1.md)）。
+An HTML sheet for a still thumbnail is not a video overlay and needs no timing data attributes. It must still use CSS variables, a single root, local assets, and deterministic screenshots.
+
+An overlay's library `meta.json` must declare asset contract v1 `tier`, for example `"tier": "free"` with `"license": { "spdx": "CC0-1.0", ... }`. Use `"tier": "pro"` for Pro and never specify `CC0-1.0` in `license.spdx`. Confirm the tier with the creator ([asset tier contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-10-04-asset-tier-v1.md)).

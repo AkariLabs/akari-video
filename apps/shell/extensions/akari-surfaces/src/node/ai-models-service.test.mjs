@@ -3,8 +3,12 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import test from 'node:test';
-import { AkariAiModelsServiceImpl } from '../../lib/node/ai-models-service.js';
+import test, { after as afterI18nTest } from 'node:test';
+import { setLanguage } from '@akari-video/i18n';
+setLanguage('ja');
+afterI18nTest(() => setLanguage(undefined));
+const { AkariAiModelsServiceImpl } = await import("../../lib/node/ai-models-service.js");
+
 const model = (id, kind, callable = true) => ({ id, kind, name: id, maker: 'maker', group: id, main: true, callable,
     via: 'local', inputs: {}, outputs: {}, price: null });
 test('一時リポの loadAiModels と会社表を読み、保存・優先順位・破損を扱う', async (t) => {

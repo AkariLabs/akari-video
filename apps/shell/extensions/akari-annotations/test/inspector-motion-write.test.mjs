@@ -1,17 +1,34 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-    MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS, MOTION_EASES, MOTION_PRESET_LABELS,
-    MOTION_DURATION_DEFAULTS, MOTION_AMOUNT_DEFAULTS, normalizeInspectorMotion,
-    updateInspectorMotion, validateInspectorMotion, createMotionWriteRequest
-} from '../lib/browser/inspector/motion-fields.js';
-import { layerSections, itemSections, visualSnapshot, timelineMethod } from './helpers/perspective-transition-fixture.mjs';
-import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
-import { readInspectorAdjustSnapshot } from '../lib/browser/inspector/adjust-fields.js';
-import { maskSourceOptionsForSources } from '../lib/browser/inspector/mask-fields.js';
-import { layerSnapshotChromaKey, legacyTransformOpFor } from '../lib/browser/inspector/field-mappings.js';
-import { isCutFramingWriteRequest } from '../lib/browser/inspector/framing-fields.js';
-import { isCutFreezeWriteRequest } from '../lib/browser/inspector/freeze-fields.js';
+
+
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { layerSections, itemSections, visualSnapshot, timelineMethod } = await import('./helpers/perspective-transition-fixture.mjs');
+const { MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS, MOTION_EASES, MOTION_PRESET_LABELS, MOTION_DURATION_DEFAULTS, MOTION_AMOUNT_DEFAULTS, normalizeInspectorMotion, updateInspectorMotion, validateInspectorMotion, createMotionWriteRequest } = await import('../lib/browser/inspector/motion-fields.js');
+const { updateTreeV2Item } = await import('../lib/common/edit-v2-mutations.js');
+const { readInspectorAdjustSnapshot } = await import('../lib/browser/inspector/adjust-fields.js');
+const { maskSourceOptionsForSources } = await import('../lib/browser/inspector/mask-fields.js');
+const { layerSnapshotChromaKey, legacyTransformOpFor } = await import('../lib/browser/inspector/field-mappings.js');
+const { isCutFramingWriteRequest } = await import('../lib/browser/inspector/framing-fields.js');
+const { isCutFreezeWriteRequest } = await import('../lib/browser/inspector/freeze-fields.js');
+
+
+
+
+
+
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const allMotion = {
     in: { preset: 'slide-up', duration: 12, ease: 'out-cubic', amount: 40 },

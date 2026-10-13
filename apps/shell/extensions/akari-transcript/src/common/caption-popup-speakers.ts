@@ -1,3 +1,4 @@
+import { t } from '../browser/transcript-text';
 import type { TranscribeToolStatus } from './transcribe-steps';
 
 export type SpeakerCount = 'auto' | '1' | '2' | '3' | '4';
@@ -35,20 +36,20 @@ export const VOICE_ENGINE_DOWNLOAD_MB = 160; // 実測（取得する npm 包と
 export const SPEAKER_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b'];
 
 export function voiceInstallFailure(result: { outcome?: string; message?: string } | undefined): string | undefined {
-    return result?.outcome === 'installed' ? undefined : result?.message || '準備できませんでした';
+    return result?.outcome === 'installed' ? undefined : result?.message || t('transcript.captionPopup.speakers.prepareFailed.error');
 }
 
 export function speakerFallbackMessage(voices: VoicesSidecar | undefined, used: number): string | undefined {
     return voices?.fallback === true && typeof voices.requested === 'number'
-        ? `指定の ${voices.requested} 人には分けられなかったので、声から見た ${used} 人で分けました` : undefined;
+        ? t('transcript.captionPopup.speakers.fallback.message', { requested: voices.requested, used }) : undefined;
 }
 
 export function speakerShortNote(voices: VoicesSidecar | undefined, id: string): string | undefined {
-    return voices?.shortSpeakers?.includes(id) ? '声がごく短い（3 秒未満か全体の 3% 未満）' : undefined;
+    return voices?.shortSpeakers?.includes(id) ? t('transcript.captionPopup.speakers.shortVoice.note') : undefined;
 }
 
 export function captionPopupStepNames(split: boolean): string[] {
-    return split ? ['素材', '起こし方', '起こす', '話者を確かめる', '仕上げ'] : ['素材', '起こし方', '起こす', '仕上げ'];
+    return [t('transcript.captionPopup.dialog.assetsLabel'), t('transcript.captionPopup.dialog.transcriptionMethodLabel'), t('transcript.captionPopup.dialog.transcribeLabel'), ...(split ? [t('transcript.captionPopup.dialog.reviewSpeakersAction')] : []), t('transcript.captionPopup.dialog.finishLabel')];
 }
 
 export function voiceEngineReady(tools: readonly TranscribeToolStatus[]): boolean {

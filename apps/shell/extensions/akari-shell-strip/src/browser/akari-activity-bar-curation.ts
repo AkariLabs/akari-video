@@ -1,4 +1,5 @@
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
+import { t } from '../common/shell-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
@@ -207,9 +208,9 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             if (disabled) {
                 const message = this.scopeService.scope === 'channel'
                     ? id === RAIL_SKILLS_WIDGET_ID
-                        ? 'プロジェクトを開くと、スキルをパートナーに頼めます'
-                        : 'プロジェクトを開くと使えます'
-                    : '編集まで進むと使えます';
+                        ? t('shell.leftRail.disabled.openProjectAskPartnerUseSkillsMessage')
+                        : t('shell.leftRail.disabled.openProjectUseAction')
+                    : t('shell.leftRail.disabled.availableStartEditingStatus');
                 void this.messages.info(message);
                 return;
             }
@@ -462,7 +463,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 if (id === RAIL_EXPORT_OPENER_ID) element.setAttribute('data-akari-onboarding-target', EXPORT_ONBOARDING_TARGET);
                 else element.removeAttribute('data-akari-onboarding-target');
                 element.title = disabled.has(id)
-                    ? (id === RAIL_EXPORT_OPENER_ID ? '編集まで進むと使えます' : 'プロジェクトを開くと使えます')
+                    ? (id === RAIL_EXPORT_OPENER_ID ? t('shell.leftRail.disabled.availableStartEditingStatus') : t('shell.leftRail.disabled.openProjectUseAction'))
                     : title.caption || title.label;
             });
         } finally {

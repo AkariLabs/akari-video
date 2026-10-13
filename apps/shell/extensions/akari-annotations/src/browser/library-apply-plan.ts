@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export type ApplyPayload = { kind: 'textanim' | 'textstyle' | 'mystyle' | 'font' | 'lut';
     id?: string; slot?: string; style?: unknown; fontFamily?: string };
 export type ApplyTarget = { kind: 'caption' | 'cut' | 'layer' | 'item'; id: string };
@@ -8,9 +9,9 @@ export type ApplyPlan = { kind: 'caption'; id: string; parts: Part[]; keepSize?:
     | { kind: 'lut'; id: string; lut: string };
 
 export function captionLibraryApplyFeedback(kind?: ApplyPayload['kind']): { history: string; footer: string } | undefined {
-    if (kind === 'textanim') return { history: '動きを当てる', footer: '動きを当てました。' };
-    if (kind === 'textstyle') return { history: 'スタイルを当てる', footer: 'スタイルを当てました。' };
-    if (kind === 'font') return { history: 'フォントを変える', footer: 'フォントを変えました。' };
+    if (kind === 'textanim') return { history: t('annotations.libraryApplyPlan.text.guessTheMovement'), footer: t('annotations.libraryApplyPlan.text.iGuessedTheMovement') };
+    if (kind === 'textstyle') return { history: t('annotations.libraryApplyPlan.text.guessTheStyle'), footer: t('annotations.libraryApplyPlan.text.iGuessedTheStyle') };
+    if (kind === 'font') return { history: t('annotations.libraryApplyPlan.text.changeFont'), footer: t('annotations.libraryApplyPlan.text.iChangedTheFont') };
     return undefined;
 }
 

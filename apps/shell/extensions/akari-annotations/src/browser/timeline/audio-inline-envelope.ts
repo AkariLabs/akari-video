@@ -1,3 +1,5 @@
+import { pluralCountForDisplay } from '../../common/plural-display-count';
+import { t } from '@akari-video/i18n';
 import {
     INLINE_AUDIO_SHAPES, INLINE_FADE_HANDLE_TOP_PX, inlineAddPoint, inlineAudioExpanded, inlineFadeCurve, inlineFadeSeconds,
     inlineGainFromDrag, inlineGainY, inlineMovePoint, inlinePointGainAt, inlineTimeFrame,
@@ -126,7 +128,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
     clip.appendChild(root);
     const commit = (label: string, patch: InlineAudioPatch): void => {
         void options.commit(label, patch).catch(error => options.onError(
-            error instanceof Error ? error.message : '音声の変更を保存できませんでした。'
+            error instanceof Error ? error.message : t('annotationscommon.timelineAudioInlineEnvelope.error.saveAudioChanges')
         ));
     };
     const rectX = (clientX: number): number => clientX - clip.getBoundingClientRect().left;
@@ -163,7 +165,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
         const handle = document.createElement('span');
         handle.dataset.akariAudioFadeHandle = edge;
         handle.setAttribute('role', 'button');
-        handle.setAttribute('aria-label', edge === 'in' ? 'フェードイン' : 'フェードアウト');
+        handle.setAttribute('aria-label', edge === 'in' ? t('annotationscommon.timelineAudioInlineEnvelope.label.fade') : t('annotationscommon.timelineAudioInlineEnvelope.label.fadeOut'));
         const center = edge === 'in' ? Math.max(12, extent) : Math.min(width - 12, width - extent);
         Object.assign(handle.style, {
             position: 'absolute', left: `${center - 10}px`, top: `${INLINE_FADE_HANDLE_TOP_PX}px`, width: '20px', height: '20px',
@@ -183,11 +185,11 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
                 proposed = inlineFadeSeconds(rectX(next.clientX), width, duration, edge, fps);
                 handle.style.left = `${(edge === 'in' ? Math.max(12, proposed / duration * width)
                     : Math.min(width - 12, width - proposed / duration * width)) - 10}px`;
-                readout(root, `${edge === 'in' ? 'フェードイン' : 'フェードアウト'} ${proposed.toFixed(2)} 秒`, center, 19);
+                readout(root, t('annotationscommon.timelineAudioInlineEnvelope.label.seconds', { edge: edge === 'in' ? t('annotationscommon.timelineAudioInlineEnvelope.label.fade') : t('annotationscommon.timelineAudioInlineEnvelope.label.fadeOut'), seconds: proposed.toFixed(2), n: pluralCountForDisplay(proposed.toFixed(2)) }), center, 19);
             }, dragged => {
                 root.querySelector('[data-akari-audio-inline-readout]')?.remove();
-                if (dragged) commit('フェードを変更', { [edge === 'in' ? 'fade_in' : 'fade_out']: proposed });
-                else shapeMenu(handle, shape, selected => commit('フェードの形を変更', {
+                if (dragged) commit(t('annotationscommon.timelineAudioInlineEnvelope.action.changeFade'), { [edge === 'in' ? 'fade_in' : 'fade_out']: proposed });
+                else shapeMenu(handle, shape, selected => commit(t('annotationscommon.timelineAudioInlineEnvelope.action.changeShapeFade'), {
                     [edge === 'in' ? 'fade_in_shape' : 'fade_out_shape']: selected
                 }));
             });
@@ -226,7 +228,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
             const frame = inlineTimeFrame(x, width, duration, fps);
             const points = inlineAddPoint(options.points, frame, durationFrames,
                 inlinePointGainAt(options.points, frame));
-            if (points.length !== options.points.length) commit('音量キーフレームを追加', { keyframes: points });
+            if (points.length !== options.points.length) commit(t('annotationscommon.timelineAudioInlineEnvelope.action.addVolumeKeyframe'), { keyframes: points });
             return;
         }
         const startY = event.clientY;
@@ -237,7 +239,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
             readout(root, `${proposed >= 0 ? '+' : ''}${proposed.toFixed(fine ? 2 : 1)} dB`, x, inlineGainY(proposed, height) - 18);
         }, dragged => {
             root.querySelector('[data-akari-audio-inline-readout]')?.remove();
-            if (dragged && proposed !== options.gainDb) commit('音量を変更', { gain_db: proposed });
+            if (dragged && proposed !== options.gainDb) commit(t('annotationscommon.timelineAudioInlineEnvelope.action.changeVolume'), { gain_db: proposed });
         });
     });
     hit.addEventListener('dblclick', stopEvent);
@@ -248,7 +250,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
         marker.dataset.akariAudioKfIndex = String(index);
         marker.tabIndex = 0;
         marker.setAttribute('role', 'button');
-        marker.setAttribute('aria-label', `音量キーフレーム ${index + 1}`);
+        marker.setAttribute('aria-label', t('annotationscommon.timelineAudioInlineEnvelope.label.volumeKeyframe', { index: index + 1 }));
         const x = durationFrames > 0 ? point.t / durationFrames * width : 0;
         const y = inlineGainY(options.gainDb + point.gain_db, height);
         Object.assign(marker.style, {
@@ -264,7 +266,7 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
             let fine = false;
             const startDigits = event.metaKey || event.ctrlKey
                 || Math.abs(point.gain_db * 10 - Math.round(point.gain_db * 10)) > 1e-7 ? 2 : 1;
-            readout(root, `${(point.t / fps).toFixed(2)} 秒  ${point.gain_db.toFixed(startDigits)} dB`,
+            readout(root, t('annotationscommon.timelineAudioInlineEnvelope.label.secDb', { seconds: (point.t / fps).toFixed(2), gainDb: point.gain_db.toFixed(startDigits) }),
                 x, y - 22);
             dragOn(event, next => {
                 const frame = inlineTimeFrame(rectX(next.clientX), width, duration, fps);
@@ -273,11 +275,11 @@ export function mountAudioInlineEnvelope(clip: HTMLElement, options: AudioInline
                 proposed = inlineMovePoint(options.points, index, frame, deltaDb, durationFrames, fine)[index];
                 marker.style.left = `${proposed.t / durationFrames * width - 7}px`;
                 marker.style.top = `${inlineGainY(options.gainDb + proposed.gain_db, height) - 7}px`;
-                readout(root, `${(proposed.t / fps).toFixed(2)} 秒  ${proposed.gain_db.toFixed(fine ? 2 : 1)} dB`,
+                readout(root, t('annotationscommon.timelineAudioInlineEnvelope.label.secDb', { seconds: (proposed.t / fps).toFixed(2), gainDb: proposed.gain_db.toFixed(fine ? 2 : 1) }),
                     proposed.t / durationFrames * width, inlineGainY(options.gainDb + proposed.gain_db, height) - 22);
             }, dragged => {
                 root.querySelector('[data-akari-audio-inline-readout]')?.remove();
-                if (dragged) commit('音量キーフレームを変更', {
+                if (dragged) commit(t('annotationscommon.timelineAudioInlineEnvelope.action.changeVolumeKeyFrame'), {
                     keyframes: inlineMovePoint(options.points, index, proposed.t, proposed.gain_db, durationFrames, fine)
                 });
                 if (!dragged) marker.focus();

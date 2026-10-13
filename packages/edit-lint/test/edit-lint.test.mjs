@@ -1,7 +1,19 @@
+import { after } from "node:test";
+import { setLanguage } from "../../i18n/index.mjs";
+
+const previousAkariLang = process.env.AKARI_LANG;
+process.env.AKARI_LANG = "ja";
+setLanguage("ja");
+after(() => {
+  setLanguage(undefined);
+  if (previousAkariLang === undefined) delete process.env.AKARI_LANG;
+  else process.env.AKARI_LANG = previousAkariLang;
+});
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,6 +46,9 @@ const preparedFixtures = join(preparedFixtureRoot, "fixtures");
 await cp(fixtureRoot, preparedFixtures, { recursive: true });
 await migrateFixtureTree(preparedFixtures);
 await prepareCutAudioFixtures(preparedFixtures);
+for (const entry of await readdir(preparedFixtures, { withFileTypes: true })) {
+  if (entry.isDirectory()) await mkdir(join(preparedFixtures, entry.name, ".akari"), { recursive: true });
+}
 test.after(() => rm(preparedFixtureRoot, { recursive: true, force: true }));
 const styleParity = JSON.parse(await readFile(join(
   packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
@@ -83,7 +98,7 @@ async function withFixtures(callback) {
 function run(project, args = [], env = {}) {
   return spawnSync(process.execPath, [cliPath, project, "--json", ...args], {
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    env: { ...process.env, AKARI_LANG: 'ja', ...env },
   });
 }
 
@@ -862,8 +877,8 @@ test("captions validate source-time visibility and edited metadata", async () =>
       `${JSON.stringify([
         {
           id: "c-0001",
-          start: 11,
-          end: 12,
+          start: 9.6,
+          end: 10.6,
           text: "字幕A",
           speaker: null,
           sourceRef: null,
@@ -2076,6 +2091,7 @@ test("different sfx on the same track at the same t report info", async () => {
 test("identical sfx on the same track at the same t warn without failing", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-same-path-"));
   try {
+    await mkdir(join(root, ".akari"));
     const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
     edit.sources[0].path = "sample.mp4";
     edit.audio.sfx = [
@@ -2100,6 +2116,7 @@ test("identical sfx on the same track at the same t warn without failing", async
 test("three simultaneous sfx compare paths within the whole time group", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-sfx-overlap-"));
   try {
+    await mkdir(join(root, ".akari"));
     const editPath = join(root, "edit.json");
     const edit = JSON.parse(await readFile(join(fixtureRoot, "sfx-track-overlap-warning", "edit.json"), "utf8"));
     edit.sources[0].path = "sample.mp4";
@@ -2452,3 +2469,21 @@ for (const fixture of ['overlay-range', 'speed-exceeds-timeline-invalid']) {
     });
   });
 }
+
+test("caption entirely inside removed sections is recorded as cut-removed, not a cut-visibility error", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    await writeFile(
+      join(project, "captions.json"),
+      `${JSON.stringify([
+        { id: "c-0001", start: 11, end: 12, text: "字幕A", speaker: null, sourceRef: null, edited: false },
+      ])}\n`,
+      "utf8",
+    );
+    const result = run(project);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const findings = parseResult(result).findings;
+    assert.ok(!findings.some((finding) => finding.check === "captions.cut-visibility"));
+    assert.ok(findings.some((finding) => finding.check === "captions.cut-removed" && finding.severity === "info"));
+  });
+});

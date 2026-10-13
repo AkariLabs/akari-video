@@ -15,6 +15,8 @@ import { readHandlerSource } from './handler-source.mjs';
 
 const require = createRequire(import.meta.url);
 export const diagnosticsModule = require('../../lib/common/preview-init-diagnostics.js');
+const { webviewScriptText } = require('../../lib/common/preview-text.js');
+const previewJa = require('../../../../../../packages/i18n/locales/ja/preview.json');
 
 const handlerPath = fileURLToPath(new URL('../../src/browser/akari-preview-open-handler.ts', import.meta.url));
 const handlerSource = readHandlerSource();
@@ -43,7 +45,7 @@ export function methodTemplateSource(name) {
 
 /** テンプレートを評価して、webview に実際に入る JS 文字列を得る。 */
 export function injectedScript(name) {
-    return vm.runInNewContext(methodTemplateSource(name), { ...diagnosticsModule, JSON, String, Number });
+    return webviewScriptText(vm.runInNewContext(methodTemplateSource(name), { ...diagnosticsModule, JSON, String, Number }));
 }
 
 /** prepareHtml() の本文（スクリプトの並び順の検査に使う）。 */
@@ -157,9 +159,15 @@ export function createPreviewPage({
         querySelector: () => null
     };
     document.documentElement = createElement('html', registry);
+    document.documentElement.lang = 'ja';
     document.body = createElement('body', registry);
     document.documentElement.append(document.body);
     context.document = document;
+    const translations = createElement('script', registry);
+    translations.id = 'akari-preview-text';
+    translations.textContent = JSON.stringify(previewJa);
+    registry.set(translations.id, translations);
+    document.body.append(translations);
 
     for (const id of ['preview-video', 'preview-still', 'preview-stage', 'preview-layers', 'preview-message']) {
         const node = createElement(id === 'preview-video' ? 'video' : 'div', registry);

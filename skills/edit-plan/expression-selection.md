@@ -1,190 +1,131 @@
-# 表現手段を文脈から選ぶ（意味 → 手段）
+# Select expressive means from context (meaning → means)
 
-ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
-`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
-以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+The library defaults to workspace `library/`; without a workspace, use legacy `~/.akari/assets/`. Check the actual path on the first line of `akari-assets list` (or `akari assets list`). Below, `<ライブラリの置き場>` means that displayed library path; audio lives under its `audio/` directory.
 
-シーンごとに「何の表現手段で見せるか」を決めるための選択規約である。[beats.md](beats.md) が
-「どこが見せ場か」を、[beat-sync.md](beat-sync.md) が「見せ場でいつ何を発火するか」を定めるのに対し、
-本リーフは**素材計画（Checkpoint 2）で「そのシーンを何で見せるか」を決める段**を担う。
+These rules choose how to show each scene. [beats.md](beats.md) identifies highlights, [beat-sync.md](beat-sync.md) determines what fires when, and this leaf governs **which expressive means to use for a scene during the asset plan (Checkpoint 2)**.
 
-本リーフは**候補の決め方**であって、承認の省略ではない。ここで決めた候補は従来どおり
-[approvals-and-generation.md](approvals-and-generation.md) の Checkpoint 2（素材計画）を通す
-（§承認ゲートは不変）。
+This leaf specifies **candidate selection**, not a waiver of approval. Candidates still pass Checkpoint 2 (asset plan) under [approvals-and-generation.md](approvals-and-generation.md), as in §Approval gate remains unchanged.
 
-## 選択原則
+## Selection principles
 
-- **意味が手段を決める。手段が先にあるのではない。** そのシーンが視聴者に何を伝える場面かを
-  先に言語化し、その意味から手段を引く。
-- **手段の目新しさ・使いたさを選択理由にしない。** 「3D を入れたい」「せっかくカタログにある」は
-  理由にならない。理由になるのは「このシーンの意味がその手段を要求している」ことだけである。
-- **1 シーン 1 主役。** 同時に主張する手段は 1 つにする。補助（字幕・控えめな装飾）は可だが、
-  主役を 2 つ置かない（3D モデルを回しながら全画面グラフを重ね、さらに語レベルの文字演出を
-  被せる、をしない）。
+- **Meaning determines means; means do not come first.** First state what the scene communicates to viewers, then derive the means from that meaning.
+- **Do not use novelty or desire to use a means as a selection reason.** "I want 3D" or "it is in the catalog" **is not a reason**; only the scene's meaning requiring that means justifies it.
+- **One primary means per scene.** Only one means may make the main claim at a time. Supporting captions or restrained decoration are allowed, but do not combine a rotating 3D model, a full-screen chart, and word-level text effects as competing leads.
 
-## 意味 → 手段の既定対応表
+## Default meaning-to-means mapping
 
-| シーンの意味 | 第一候補 | 第二候補 | 使わない |
+| Scene meaning | First choice | Second choice | Do not use |
 |---|---|---|---|
-| 製品・物体の説明 | 3D モデル（bake-3d カタログ） | 実写 B ロール | 文字だけで説明しない |
-| データ・数値・比較 | HTML グラフ/表 | 文字演出（数値の強調） | 3D の飾り |
-| 手順・操作の説明 | スクリーン録画・資料 | HTML 図解 | 無関係なストック |
-| 場所・雰囲気 | 実写 B ロール | ストック素材 | — |
-| 感情・主張の瞬間 | 文字演出（語レベル） | 人物演出（囲い・ズーム） | 情報系オーバーレイ |
-| 概念・構造の説明 | HTML 図解（図・囲い・矢印） | 3D（空間的な概念のみ） | — |
+| Product or object explanation | 3D model (bake-3d catalog) | Live-action B-roll | Text-only explanation |
+| Data, numbers, comparison | HTML chart/table | Text effect emphasizing a number | Decorative 3D |
+| Steps or operation | Screen recording or reference material | HTML diagram | Unrelated stock footage |
+| Place or atmosphere | Live-action B-roll | Stock footage | — |
+| Moment of emotion or assertion | Word-level text effect | Person treatment (outline or zoom) | Information-heavy overlay |
+| Concept or structure | HTML diagram (shapes, outlines, arrows) | 3D only for spatial concepts | — |
 
-- 表は**意味の側から引く**。手段の側から「この素材をどこで使えるか」と逆引きしない。
-- **「使わない」列は禁止であり、`allowed_means`（§ハードフィルタ）で許可されていても選ばない。**
-  許可は義務ではなく、禁止列を解除もしない。
-- 表に無い意味のシーンは、最も近い行を選んだうえで**どの行を借りたか**を根拠に書く
-  （§根拠の記録）。行を発明しない。
+- Search the table **from meaning to means**, not backward from an available asset.
+- **The "Do not use" column is a prohibition. Never choose it even if `allowed_means` (§Hard filter) allows it.** Permission is not an obligation and does not cancel a prohibition.
+- For a scene meaning absent from the table, choose the closest row and document **which row was borrowed** (§Evidence record). Do not invent a row.
 
-## 表の手段と `allowed_means` 語彙の対応
+## Map table means to `allowed_means` vocabulary
 
-`allowed_means` の語彙は演出カード（decision-cards の `direction` カード）が持つ 7 値であり、
-対応表の呼び方とは粒度が違う。突き合わせは次で固定する。
+`allowed_means` contains seven fixed values from the decision-cards `direction` card, at a different granularity from the mapping table. Use this exact correspondence:
 
-| 対応表の手段 | `allowed_means` の値 |
+| Means in the table | `allowed_means` value |
 |---|---|
-| 3D モデル（bake-3d カタログ） / 3D（空間的な概念のみ） / 3D の飾り | `3D` |
-| 実写 B ロール | `実写 B ロール` |
-| ストック素材 | `ストック素材` |
-| スクリーン録画・資料 | `スクリーン録画・資料` |
-| HTML グラフ/表 / HTML 図解 / 情報系オーバーレイ | `HTML 図解` |
-| 文字演出（語レベル） / 文字演出（数値の強調） | `文字演出` |
-| 人物演出（囲い・ズーム） | 囲い等の重ね物は `HTML 図解`、ズーム等の映像側の変形は**手段チェックの対象外**（素材を伴わないため） |
+| 3D model (bake-3d catalog) / 3D only for spatial concepts / decorative 3D | `3D` |
+| Live-action B-roll | `実写 B ロール` |
+| Stock footage | `ストック素材` |
+| Screen recording or reference material | `スクリーン録画・資料` |
+| HTML chart/table / diagram / information overlay | `HTML 図解` |
+| Word-level text effect / numerical emphasis | `文字演出` |
+| Person treatment (outline or zoom) | Overlaid outlines use `HTML 図解`; image transforms such as zoom are **outside this means check** because they add no asset. |
 
-- `AI 生成` は対応表の**行に現れない**。これは「何で見せるか」ではなく「その素材をどう調達するか」の
-  軸であり、B ロール・ストック・3D・図解のいずれとも直交する。生成で素材を用意するときに
-  **重ねて**効くチェックである（§ハードフィルタ）。
-- overlay HTML を自分で書くこと（[overlay-authoring](../overlay-authoring/SKILL.md)）は
-  `HTML 図解` / `文字演出` のチェックで扱い、`AI 生成` のチェックは画像・動画・音声の生成素材に
-  かける。
+- `AI 生成` **does not appear as a table row**. It describes how to acquire an asset, rather than how the scene is shown, and is independent of B-roll, stock, 3D, and diagrams. Check it **in addition** when generating an asset (§Hard filter).
+- Writing overlay HTML yourself under [overlay-authoring](../overlay-authoring/SKILL.md) uses the `HTML 図解` / `文字演出` checks. Apply `AI 生成` to generated image, video, or audio assets.
 
-## ハードフィルタ — `allowed_means`
+## Hard filter — `allowed_means`
 
-演出カードの `allowed_means`（`<レポートパス>.decisions.json` の `direction` カードの
-`answer.allowed_means`。既定は 7 値すべて許可）に**無い手段は候補から除外する**。
+**Exclude means absent from** the effect card's `allowed_means` (`answer.allowed_means` on the `direction` card in `<レポートパス>.decisions.json`, where the Japanese placeholder means report path). By default, all seven values are allowed.
 
-- **第一候補が除外されたら第二候補へ**。第二候補も除外されたら、その意味の行の候補は尽きている。
-- **全滅なら「その意味のシーンは素の映像 + 字幕」**とする。除外された手段を「近いから」と
-  読み替えて別の手段へ滑らせない（3D が不許可だからストック素材の 3D 風 CG を使う、をしない）。
-- 除外・全滅も**決定である**。何を除外して何に落ちたかを §根拠の記録の形式で残す。
-- `decisions.json` が無い・破損している場合は
-  [report-guide.md](report-guide.md) の汎用カード機構の既定どおり**チャットの明示承認で代替**する
-  （既定で全許可とみなして進めない）。
-- `allowed_means` はハードフィルタであり、演出の強さ（`direction { preset, intensity }` →
-  [beat-sync.md](beat-sync.md)）とは別軸である。`intensity` を上げても不許可の手段は復活しない。
+- **If the first choice is excluded, try the second.** If both are excluded, the row is exhausted.
+- **If all fail, show the scene as plain video plus captions.** Do not reinterpret an excluded means as a nearby one (for example, no 3D-looking stock CG when 3D is disallowed).
+- Exclusion and exhaustion are **decisions**. Record excluded means and fallback under §Evidence record.
+- If `decisions.json` is absent or corrupt, **substitute explicit chat approval** under [report-guide.md](report-guide.md)'s generic-card fallback. Do not assume all values are allowed by default and continue.
+- `allowed_means` is a hard filter, separate from effect strength (`direction { preset, intensity }` in [beat-sync.md](beat-sync.md)). Raising `intensity` never restores a disallowed means.
 
-### AI 生成素材の二重ゲート
+### Two gates for AI-generated assets
 
-`AI 生成` は `allowed_means` に加えて **intake の方針（AI 生成の許可）にも従う**。両方が許可して
-初めて生成素材を候補にできる（片方でも不許可なら、その素材は生成せず「あれば提案」または
-「使わない」へ落とす）。
+`AI 生成` must satisfy **the intake policy permitting AI generation** as well as `allowed_means`. Only when both allow it may a generated asset be considered. If either disallows it, do not generate; fall back to proposing an available asset or not using one.
 
-- 実測（`packages/schemas/intake.schema.json` v0）: intake.json v0 のフィールドは
-  `version` / `tasks` / `target` / `autonomy` / `status` / `submitted_at` であり、**AI 生成の可否を
-  持つ専用フィールドは無い**。したがって intake 側の方針は `target.taste` の自由記述と
-  `decision-log.md` に残る承認記録から読む。
-- どちらからも読み取れないときは「許可されている」とみなさず、
-  [approvals-and-generation.md](approvals-and-generation.md) の生成前宣言で確認してから進む。
+- Measured against `packages/schemas/intake.schema.json` v0: intake.json v0 has `version` / `tasks` / `target` / `autonomy` / `status` / `submitted_at`, with **no dedicated AI-generation permission field**. Read intake policy from `target.taste` free text and approvals recorded in `decision-log.md`.
+- If neither provides an answer, do not assume permission; check through the pre-generation declaration in [approvals-and-generation.md](approvals-and-generation.md) before proceeding.
 
-## カタログ接続 — 手段が決まってから素材を探す
+## Catalog connection — Search assets after choosing means
 
-**手段が決まってから素材を探す**（素材を先に見つけて手段を後付けしない）。探索は
-[report-guide.md](report-guide.md#素材計画) の全スコープ層を近い順（プロジェクト `assets/` →
-上位ディレクトリの `.akari/assets/` → `<ライブラリの置き場>/` → 製品リポ `assets/` →
-`catalog/`）に行い、どの層のヒットかを明記する。
+**Search for assets after choosing a means**, not the other way around. Search all scope layers from nearest to farthest under [report-guide.md](report-guide.md#asset-plan): project `assets/` → parent `.akari/assets/` → `<ライブラリの置き場>/` → product repository `assets/` → `catalog/`. State the layer for each hit.
 
-- **検索キーは `when_to_use` と `tags`** である。`when_to_use` はシーンの意味と直接突き合わせ、
-  `tags` は絞り込みに使う。`title` / `description` の語感だけで選ばない。
-- **ライセンスは `meta.json` で確認してから採用する。** 見るのは `license.spdx` /
-  `license.scope` / `license.attribution_required` と `source.license_at_source`（再配布条件）である。
-  - `attribution_required: true` なら、採用した時点でクレジット文の義務が発生する
-    （編集レポートへ載せる。[beat-sync.md](beat-sync.md) のクレジット運用と同じ）。
-  - **素材単体の再配布を禁じている素材は、プロジェクトへ複製するのは可でも公開リポジトリへ
-    コミットしない。**
-  - `catalog/` は `remote: true` の**取得先索引であり実体を持たない**（[catalog/INDEX.md](../../catalog/INDEX.md)）。
-    未取得なら「取得が要る」ことを素材計画に明記する。
-  - ローカル層に無ければ**アカウントの素材ライブラリ**（無料全部 + `akari store connect` 済みなら
-    購入済みも含む）も検索できる。`akari assets list --tag <t> --query <s>` で候補を絞り、使う素材が
-    決まったら `akari assets fetch <category/id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
-    Pro（Lifetime パス）も 1 件ずつ取れる。Lab の 1 件ページのコピー（`category/id`）を貼れば
-    `akari assets fetch <category/id>` で 1 件取れる。
-    取得後のライセンス確認は上記と同じく `meta.json` で行う。
-  - ATF テロップの描画・プリセット参照表は退役。HTML 素材版は Lab で取得し、
-    取得した素材のライセンスと書体のライセンスを確認する。既存の baked は再生可能。
-- 該当ヒットが無いことを「あれば提案」と記録しない。[report-guide.md](report-guide.md#素材計画) の
-  三択（あれば提案 / なければ生成 / 使わない）へ落とし、プレビュー・検索結果を捏造しない。
+- **Search with `when_to_use` and `tags`.** Match `when_to_use` directly to scene meaning and use `tags` to narrow results. Do not select from the feel of `title` / `description` alone.
+- **Check the license in `meta.json` before adoption.** Inspect `license.spdx` / `license.scope` / `license.attribution_required` and `source.license_at_source` for redistribution conditions.
+  - With `attribution_required: true`, adoption creates a credit-text obligation. Put it in the editing report, as in [beat-sync.md](beat-sync.md)'s credit procedure.
+  - **Do not commit an asset forbidding standalone redistribution to a public repository**, even if copying it into the project is allowed.
+  - `catalog/` with `remote: true` is **an acquisition index, not the asset itself** ([catalog/INDEX.md](https://github.com/AkariLabs/akari-video/blob/main/catalog/INDEX.md)). If not acquired, state the need to acquire it in the asset plan.
+  - If absent locally, search the **account asset library** (all free items plus purchases after `akari store connect`). Narrow with `akari assets list --tag <t> --query <s>`; after selection, fetch into this project with `akari assets fetch <category/id> --project .` (including SHA-256 validation). Pro (Lifetime pass) assets can be fetched one at a time. Pasting a `category/id` copied from one Lab item page lets `akari assets fetch <category/id>` fetch that item. After acquisition, check `meta.json` licensing as above.
+  - ATF text-overlay rendering and preset reference tables are retired. Acquire HTML-asset versions through Lab and check both asset and font licenses. Existing baked assets remain playable.
+- Do not record "propose if available" without an actual hit. Use [report-guide.md](report-guide.md#asset-plan)'s three choices (propose if available / generate if absent / do not use). Do not invent previews or search results.
 
-## 根拠の記録
+## Evidence record
 
-**全選択について**、「シーンの意味 → 表のどの行 → 選んだ素材 id」を編集判断レポートの素材計画へ
-**1 行**で記録する（[beat-sync.md](beat-sync.md) の選択根拠と同じ粒度）。記録先は
-`decision-log.md` の `material` category（[report-guide.md](report-guide.md#decision_log)）である。
+For **every choice**, record **one row** connecting scene meaning → table row → selected asset id in the editing decision record's asset plan, with the same granularity as [beat-sync.md](beat-sync.md)'s evidence. Use the `material` category of `decision-log.md` ([report-guide.md](report-guide.md#decision_log)). Write the pipe labels and their contents in the user's language; the example below shows the Japanese form.
 
 ```text
 <scene id> @ <timeline 秒> | 意味: <シーンの意味> | 行: <対応表の行名> / <第一候補|第二候補|全滅> |
 手段: <allowed_means 語彙> | 素材: <素材 id>（<層> / <license.spdx> / クレジット<要|不要>） | 理由: <1 文>
 ```
 
-- **除外・全滅・不採用も 1 行を書く**（`手段: —（全滅 → 素の映像 + 字幕）` のように書き、何が
-  除外されたかを理由に残す）。黙って落とさない。
-- 素材が生成物（overlay HTML 等）で `id` を持たない場合は、生成物のパスを素材欄に書く。
-- 候補順位を飛ばした場合（第一候補が許可されているのに第二候補を採る等）は、飛ばした理由を
-  理由欄に書く。理由なき逸脱は不可であり、既定は第一候補である。
+- **Write one row for exclusion, exhaustion, and rejection too** (for example `手段: —（全滅 → 素の映像 + 字幕）`, explaining excluded means in the reason). Never silently drop them.
+- If a generated asset such as overlay HTML has no `id`, put its path in the asset field.
+- When skipping candidate rank (such as choosing second while first is allowed), explain why in the reason field. Unexplained deviation is forbidden; first choice is the default.
 
-## 承認ゲートは不変
+## Approval gate remains unchanged
 
-本リーフは候補の決め方であり、承認の省略ではない。
+This leaf chooses candidates; it does not waive approval.
 
-- 素材計画は従来どおり **Checkpoint 2（素材計画）** の人間承認を通す
-  （[approvals-and-generation.md](approvals-and-generation.md)）。
-- `allowed_means` を通過したことは「承認された」ことを意味しない。ハードフィルタは候補を
-  **減らす**だけで、残った候補を自動承認しない。
-- 有償・重い生成（AI 生成素材）は、`allowed_means` と intake の両方を通過していても
-  生成前宣言を省略しない。
+- The asset plan still requires human approval at **Checkpoint 2 (asset plan)** ([approvals-and-generation.md](approvals-and-generation.md)).
+- Passing `allowed_means` does not mean approval. The hard filter only **reduces** candidates; it never auto-approves survivors.
+- For paid or heavy generation (AI-generated assets), never skip the pre-generation declaration even after both `allowed_means` and intake permit it.
 
 ## worked example
 
-### 前提
+### Premise
 
-タスク管理アプリの紹介動画（解説トーン = 真面目）。意味の異なる 3 シーンを扱う。
+Promotional video for a task-management app (explanatory tone = `真面目`, the fixed "serious" value). It has three scenes with different meanings.
 
-| scene | timeline 秒 | シーンの意味 | 内容 |
+| scene | Timeline seconds | Scene meaning | Content |
 |---|---|---|---|
-| `sc-01` | 24.0 | 製品・物体の説明 | アプリの画面を実機に映して見せる |
-| `sc-02` | 98.0 | データ・数値・比較 | 導入前後の処理時間（12 分 → 90 秒） |
-| `sc-03` | 232.0 | 感情・主張の瞬間 | 発話「正直、ここまで変わるとは思っていませんでした。」 |
+| `sc-01` | 24.0 | Product/object explanation | Show the app screen on a physical device |
+| `sc-02` | 98.0 | Data/numbers/comparison | Processing time before and after adoption (12 minutes → 90 seconds) |
+| `sc-03` | 232.0 | Emotion/assertion | Utterance `正直、ここまで変わるとは思っていませんでした。` (surprise at how much changed) |
 
-### ケース 1 — `allowed_means` が全許可（7 値すべて）
+### Case 1 — All seven `allowed_means` values allowed
 
 ```json
 ["実写 B ロール", "スクリーン録画・資料", "ストック素材", "AI 生成", "3D", "HTML 図解", "文字演出"]
 ```
 
-| scene | 表の行 | 第一候補 | フィルタ判定 | 採用手段 | 採用素材 |
+| scene | Table row | First choice | Filter result | Selected means | Selected asset |
 |---|---|---|---|---|---|
-| `sc-01` | 製品・物体の説明 | 3D モデル | `3D` は許可 → 通過 | 3D | `catalog/scene3d/modern-smartphone` |
-| `sc-02` | データ・数値・比較 | HTML グラフ/表 | `HTML 図解` は許可 → 通過 | HTML 図解 | 生成（overlay HTML）+ 書体 `catalog/font/noto-sans-jp` |
-| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | Lab の HTML テロップ（取得後に実物を選定） |
+| `sc-01` | Product/object explanation | 3D model | `3D` allowed → pass | 3D | `catalog/scene3d/modern-smartphone` |
+| `sc-02` | Data/numbers/comparison | HTML chart/table | `HTML 図解` allowed → pass | `HTML 図解` | Generated overlay HTML plus font `catalog/font/noto-sans-jp` |
+| `sc-03` | Emotion/assertion | Word-level text effect | `文字演出` allowed → pass | `文字演出` | Lab HTML text overlay (select actual asset after acquisition) |
 
-素材の選定根拠（カタログ実測）:
+Asset-selection evidence (measured catalog data):
 
-- `sc-01`: `catalog/scene3d/` の 3 件を `when_to_use` で突き合わせ、`modern-smartphone` の
-  「アプリ紹介・UI 解説・プロダクトデモで、実機に画面を映し込んだモックアップ映像を作るとき」が
-  シーンの意味と一致する（`vintage-camera` はレトロ小物、`studio-hdri` は環境光であり不一致）。
-  `license.spdx` = `CC0-1.0` / `attribution_required: false` → クレジット不要。`remote: true` の
-  ため取得が要ることを素材計画に明記する。
-- `sc-02`: `catalog/` にグラフ・表のカテゴリは存在しない（実測のディレクトリは
-  scene3d / audio / avatars / broll / font）。
-  三択の「なければ生成」として overlay HTML を自作し、書体は `catalog/font/noto-sans-jp`
-  （`OFL-1.1` / クレジット不要）を使う。**「使わない」列の 3D の飾りは、`3D` が許可されていても
-  置かない。**
-- `sc-03`: 真面目な解説トーンに合う文字演出を Lab の HTML 素材から選ぶ。
-  未取得なら素材計画に取得が必要と記録する。旧 ATF の検索件数は現在の候補の根拠にしない。
+- `sc-01`: Compare the three `catalog/scene3d/` entries by `when_to_use`. `modern-smartphone` applies to an app introduction, UI explanation, or product demo with a device-screen mockup, matching this scene (`vintage-camera` is a retro prop and `studio-hdri` is environment lighting). `license.spdx` = `CC0-1.0` / `attribution_required: false`, so no credit is needed. State in the asset plan that `remote: true` requires acquisition.
+- `sc-02`: `catalog/` has no chart/table category (measured directories: scene3d / audio / avatars / broll / font). Under "generate if absent," create overlay HTML and use `catalog/font/noto-sans-jp` (`OFL-1.1`, no credit). **Do not add decorative 3D from the "Do not use" column even when `3D` is allowed.**
+- `sc-03`: Choose a Lab HTML text treatment fitting a serious explanatory tone. If not acquired, record that acquisition is needed. Do not use old ATF search counts as evidence for current candidates.
 
-記録行（`decision-log.md` の `material`）:
+Record rows (`material` in `decision-log.md`; the fixed Japanese labels inside the code example remain unchanged):
 
 ```text
 sc-01 @ 24.0 | 意味: 製品・物体の説明 | 行: 製品・物体の説明 / 第一候補 | 手段: 3D | 素材: modern-smartphone（catalog / CC0-1.0 / クレジット不要） | 理由: when_to_use「実機に画面を映し込んだモックアップ」がシーンの意味に一致
@@ -192,64 +133,50 @@ sc-02 @ 98.0 | 意味: データ・数値・比較 | 行: データ・数値・�
 sc-03 @ 232.0 | 意味: 感情・主張の瞬間 | 手段: 文字演出 | 素材: Lab の HTML テロップ（取得・選定待ち） | 理由: 真面目なトーンに合う表現を実物で確認する
 ```
 
-### ケース 2 — `3D` と `AI 生成` が不許可（5 値）
+### Case 2 — `3D` and `AI 生成` disallowed (five values)
 
 ```json
 ["実写 B ロール", "スクリーン録画・資料", "ストック素材", "HTML 図解", "文字演出"]
 ```
 
-| scene | 表の行 | 第一候補 | フィルタ判定 | 採用手段 | 採用素材 |
+| scene | Table row | First choice | Filter result | Selected means | Selected asset |
 |---|---|---|---|---|---|
-| `sc-01` | 製品・物体の説明 | 3D モデル | `3D` が**除外** → 第二候補へ | 実写 B ロール | `catalog/broll/laptop-typing-closeup` |
-| `sc-02` | データ・数値・比較 | HTML グラフ/表 | `HTML 図解` は許可 → 通過 | HTML 図解 | 生成（overlay HTML）+ 書体 `catalog/font/noto-sans-jp` |
-| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | Lab の HTML テロップ（取得後に実物を選定） |
+| `sc-01` | Product/object explanation | 3D model | `3D` **excluded** → second choice | `実写 B ロール` | `catalog/broll/laptop-typing-closeup` |
+| `sc-02` | Data/numbers/comparison | HTML chart/table | `HTML 図解` allowed → pass | `HTML 図解` | Generated overlay HTML plus font `catalog/font/noto-sans-jp` |
+| `sc-03` | Emotion/assertion | Word-level text effect | `文字演出` allowed → pass | `文字演出` | Lab HTML text overlay (select actual asset after acquisition) |
 
-ケース 1 との差分と、`AI 生成` 不許可が効いた箇所:
+Differences from case 1 and effects of disallowing `AI 生成`:
 
-- `sc-01` **だけが変わる**。第一候補の `3D` が除外されたため第二候補「実写 B ロール」へ移り、
-  `catalog/broll/` の唯一のエントリ `laptop-typing-closeup` の `when_to_use`
-  「SaaS/アプリ紹介、リモートワーク解説…作業中であることを示す一般的な手元ショット」が
-  シーンの意味と一致する。`LicenseRef-Mixkit-Free-License` / `attribution_required: false` で
-  クレジットは不要だが、`source.license_at_source` が**素材そのままの再配布を禁じている**ため、
-  プロジェクトへの複製は可・**公開リポジトリへはコミットしない**。
-- `AI 生成` 不許可により、`sc-01` で「3D の代わりに AI 生成の製品カット動画を作る」案は候補に
-  ならない（`実写 B ロール` が許可でも、その素材を**生成で用意する**経路が塞がる）。同じ理由で
-  `sc-03` のテロップ背景に AI 生成画像を敷く案も落ち、語レベルの文字演出だけで構成する。
-- `sc-02` は不変である。`HTML 図解` は許可されたままであり、禁止列の「3D の飾り」は
-  ケース 1 でもケース 2 でも置かない（`allowed_means` の可否と無関係に禁止列だから）。
-- overlay HTML の自作（`sc-02` / `sc-03`）は `HTML 図解` / `文字演出` のチェックで扱うため、
-  `AI 生成` 不許可の影響を受けない（§表の手段と `allowed_means` 語彙の対応）。
+- **Only `sc-01` changes.** Excluding first-choice `3D` moves it to second-choice live-action B-roll. `laptop-typing-closeup`, the sole `catalog/broll/` entry, has `when_to_use` for a generic hands-at-work shot in SaaS/app introductions or remote-work explanations, matching this scene. `LicenseRef-Mixkit-Free-License` / `attribution_required: false` requires no credit, but `source.license_at_source` **forbids redistributing the asset unchanged**. Copying into the project is allowed; **do not commit it to a public repository**.
+- Disallowing `AI 生成` excludes generating a product-cut video instead of 3D for `sc-01`; even if `実写 B ロール` is allowed, **generating** that asset is blocked. It also excludes an AI-generated image behind `sc-03`'s text overlay, leaving only word-level text treatment.
+- `sc-02` is unchanged: `HTML 図解` remains allowed. **Do not place** decorative 3D from the prohibition column in either case, regardless of `allowed_means`.
+- Hand-authored overlay HTML for `sc-02` / `sc-03` falls under `HTML 図解` / `文字演出`, so disallowing `AI 生成` does not affect it (see vocabulary mapping).
 
-記録行（差分のある `sc-01` のみ。`sc-02` / `sc-03` はケース 1 と同一）:
+Record row for changed `sc-01` only; `sc-02` / `sc-03` match case 1:
 
 ```text
 sc-01 @ 24.0 | 意味: 製品・物体の説明 | 行: 製品・物体の説明 / 第二候補 | 手段: 実写 B ロール | 素材: laptop-typing-closeup（catalog / LicenseRef-Mixkit-Free-License / クレジット不要） | 理由: 第一候補 3D が allowed_means で除外。when_to_use「SaaS/アプリ紹介…手元ショット」が一致。再配布禁止のため公開リポジトリへコミットしない
 ```
 
-### 全滅の検算
+### Verify all-candidates-excluded fallback
 
-仮にケース 2 からさらに `実写 B ロール` と `ストック素材` も落ちた場合、`sc-01` の行の候補
-（3D → 実写 B ロール）は尽きる。このとき `sc-01` は**素の映像 + 字幕**とし、次の 1 行を残す。
-「文字だけで説明しない」（禁止列）は表現手段としての文字演出を主役に据えないという意味であり、
-全滅時のフォールバック（素の映像 + 字幕）を禁じるものではない。
+If case 2 also excludes `実写 B ロール` and `ストック素材`, `sc-01` has no remaining row candidates (3D → live-action B-roll). Show `sc-01` as **plain video plus captions** and record the following row. "No text-only explanation" in the prohibition column forbids making text effects the primary means; it does not forbid plain video plus captions as an exhaustion fallback.
 
 ```text
 sc-01 @ 24.0 | 意味: 製品・物体の説明 | 行: 製品・物体の説明 / 全滅 | 手段: —（全滅 → 素の映像 + 字幕） | 素材: なし | 理由: 3D・実写 B ロール・ストック素材がいずれも allowed_means で除外
 ```
 
-### 自己整合の確認
+### Self-consistency check
 
-- 6 件の選択（3 シーン × 2 通り）はすべて対応表の**同じ行の第一候補または第二候補**であり、
-  行をまたいだ選択・表に無い手段は 1 件も無い。
-- 「使わない」列に触れた選択は 0 件（`sc-02` の 3D の飾り、`sc-03` の情報系オーバーレイ、
-  `sc-01` の「文字だけで説明」はいずれも不採用）。
-- **1 シーン 1 主役**: 6 件とも主張する手段は 1 つで、字幕は補助に留めている。
-- 候補順位の逸脱は 0 件（`sc-01` ケース 2 の第二候補は、第一候補がフィルタで除外された結果である）。
-- 記録行は 6 件 + 全滅の検算 1 件のすべてに存在し、いずれも「意味 → 行 → 素材 id」を含む。
+- All six selections (three scenes × two cases) use **first or second choice from the same mapping row**; none crosses rows or invents a means.
+- Zero selections use the "Do not use" column: decorative 3D for `sc-02`, information overlays for `sc-03`, and text-only explanation for `sc-01` were all rejected.
+- **One primary means per scene**: each of the six has one main means, with captions only supporting it.
+- Zero candidate-rank deviations occur: case 2's second choice for `sc-01` follows exclusion of the first.
+- All six choices and the one exhaustion check have record rows, each connecting meaning → row → asset id.
 
-## 検証（2026-07-23 実測）
+## Validation (measured 2026-07-23)
 
-worked example が引いたカタログの実データは次で確認した（`catalog/` は読み取りのみ）。
+The actual catalog data used in the worked example was checked as follows (`catalog/` was read-only):
 
 ```
 $ ls catalog/scene3d | tr '\n' ' '
@@ -262,31 +189,24 @@ $ node -e "const m=require('./catalog/font/noto-sans-jp/meta.json');console.log(
 OFL-1.1 false
 ```
 
-旧 ATF の検索結果は退役により利用不可。HTML 素材の実データは取得後に確認する。
+Old ATF search results are unavailable after retirement. Check actual HTML-asset data after acquisition.
 
-ケース 1 の `sc-02` / `sc-03` の overlay HTML を一時プロジェクトへ置いた `edit.json`
-（`version: 0` + 単一 `source`）は、`validate-edit.mjs` が `OK`、`edit-lint` が
-`PASS (0 findings, 5 skipped)` である（本リーフの選択が既存の検証手順をそのまま通ることの実測。
-検証の正は [execution.md](execution.md) §4 の [edit-lint](../edit-lint/SKILL.md) 実行であり、
-本リーフは検証手順を追加しない）。
+With case 1 `sc-02` / `sc-03` overlay HTML in a temporary project's `edit.json` (`version: 0` plus one `source`), `validate-edit.mjs` returned `OK` and `edit-lint` returned `PASS (0 findings, 5 skipped)`. This measured that these selections pass existing validation. The authoritative check remains [edit-lint](../edit-lint/SKILL.md) from [execution.md](execution.md) §4; this leaf adds no validation procedure.
 
-## よくある間違い
+## Common mistakes
 
-- 手段を先に決め、後からその手段が似合うシーンを探す（意味が手段を決める、の逆流）。
-- 「カタログに良い 3D があったから」を選択理由に書く。目新しさ・使いたさは理由にならない。
-- 1 シーンに主張する手段を 2 つ以上置く（3D + 全画面グラフ + 語レベル文字演出の同時発火）。
-- `allowed_means` を読まずに対応表だけで決める。フィルタは対応表より後段ではなく、**候補を
-  減らす前提条件**である。
-- 第一候補が `allowed_means` で除外されたとき、第二候補へ行かず「近い手段」へ滑らせる
-  （3D 不許可 → 3D 風のストック CG、をしない）。
-- 全滅したのに何かを埋めようとする。全滅の既定は**素の映像 + 字幕**である。
-- 「使わない」列の手段を、`allowed_means` に含まれていることを理由に採用する。許可は義務ではない。
-- `AI 生成` を `allowed_means` だけで判断し、intake の方針を見ない（二重ゲートである）。
-- 素材を `title` / `description` の語感で選び、`when_to_use` と `tags` を突き合わせない。
-- `meta.json` のライセンスを確認せずに採用する。`attribution_required: true` ならクレジット文の
-  義務が、再配布禁止なら公開リポジトリへコミットしない義務が発生する。
-- `catalog/` のエントリを取得済みの実体だと思い込む（`remote: true` の索引であり実体は無い）。
-- 該当ヒットが無いのに「あれば提案」と記録する、またはプレビューを捏造する。
-- 除外・全滅・不採用を記録せずに黙って落とす。除外も決定であり 1 行を残す。
-- 候補順位を飛ばした選択の理由を書かない（理由なき逸脱は不可。既定は第一候補）。
-- ハードフィルタを通ったことを承認と読み替え、Checkpoint 2 を省略する。
+- Choosing a means first, then searching for a scene that suits it; meaning must determine means.
+- Giving "the catalog has a nice 3D asset" as the reason. Novelty or desire to use it is not evidence.
+- Putting two or more competing means in one scene (3D plus full-screen chart plus word-level text effects).
+- Choosing only from the mapping table without reading `allowed_means`. The filter is **a prerequisite that reduces candidates**, not a later step.
+- When `allowed_means` excludes the first choice, slipping to a "similar" means instead of the second (no 3D-looking stock CG when 3D is disallowed).
+- Trying to fill a scene after all candidates fail; the default is **plain video plus captions**.
+- Selecting a means in the "Do not use" column because `allowed_means` includes it. Permission is not an obligation.
+- Checking `AI 生成` only against `allowed_means` and ignoring intake policy; there are two gates.
+- Choosing assets by the feel of `title` / `description` without matching `when_to_use` and `tags`.
+- Adopting without checking the `meta.json` license. `attribution_required: true` obliges a credit line; redistribution restrictions forbid committing the asset publicly.
+- Treating a `catalog/` entry as an acquired file; `remote: true` is only an index.
+- Recording "propose if available" without a hit or inventing a preview.
+- Silently dropping exclusions, exhaustion, or rejection; each is a decision needing a row.
+- Skipping candidate rank without a reason; unexplained deviation is forbidden and first choice is default.
+- Treating passage through the hard filter as approval and skipping Checkpoint 2.

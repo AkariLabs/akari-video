@@ -1,6 +1,7 @@
+import { t } from '../../i18n/index.mjs';
 import { spawnSync } from 'node:child_process';
 
-export const AUDIO_TOO_LONG_MESSAGE = '約 2 時間を超える音声は、今は話者を分けられません（区切って起こしてください）';
+export const AUDIO_TOO_LONG_MESSAGE = t('tools.voice.engine.error.audioTooLong');
 
 export function isAudioBufferLimit(error) {
   return error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || error?.code === 'ENOBUFS'
@@ -15,8 +16,8 @@ export function decodeAudio16k({ ffmpeg = 'ffmpeg', file, start, duration }) {
   args.push('-ac', '1', '-ar', '16000', '-f', 'f32le', 'pipe:1');
   const result = spawnSync(ffmpeg, args, { encoding: 'buffer', maxBuffer: 1024 * 1024 * 512 });
   if (isAudioBufferLimit(result.error)) throw new Error(AUDIO_TOO_LONG_MESSAGE);
-  if (result.error || result.status !== 0) throw new Error(`音声の読み込みに失敗しました: ${result.error?.message || result.stderr.toString('utf8').trim()}`);
-  if (result.stdout.length % 4) throw new Error('音声データの長さが不正です');
+  if (result.error || result.status !== 0) throw new Error(t('tools.voice.engine.error.audioLoadFailed', { message: result.error?.message || result.stderr.toString('utf8').trim() }));
+  if (result.stdout.length % 4) throw new Error(t('tools.voice.engine.error.invalidAudioLength'));
   const bytes = new Uint8Array(result.stdout.length);
   bytes.set(result.stdout);
   return new Float32Array(bytes.buffer);

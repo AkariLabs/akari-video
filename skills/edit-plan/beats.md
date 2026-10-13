@@ -1,97 +1,70 @@
-# 見せ場マーカー（beats）を導出する
+# Derive highlight markers (beats)
 
-> **v2 注記**: edit.json v2 のトップレベルは exact で `beats` を受け付けない。
-> 以下の導出知識は見せ場候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
-> `beats` は v2 で廃止済みであり、消費者側コードも畳んだため、今後も復活させない。
+> **v2 note**: edit.json v2 has an exact top level and rejects `beats`. Use the derivation rules below to record highlight candidates and evidence in the decision record, not v2 `edit.json`. `beats` was retired in v2 and removed from consumer code; do not restore it.
 
-`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
-書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+Do not read all of `edit.json` / `captions.json`; grep by id and read only matching lines ([how to read edit.json](https://github.com/AkariLabs/akari-video/blob/main/docs/guides/edit-json-access.md)). Write by targeted edit or the edit-store script API.
 
-## 原則
+## Principle
 
-`beats[]`（人間向けの呼称は **見せ場マーカー**）は、素材のどこに見せ場があるかという
-**素材固有の事実**を記録する解析結果であり、編集で何を置いたかという結果ではない。
-データの器と検証責務の正は
-[edit.json v1 見せ場マーカー契約](../../docs/contract-2026-07-22-edit-json-v1-beats.md) にある
-（`id` は `^b-\d{4}$` でファイル内一意 / `t` は source 秒 / `kind` は例示 5 種で enum 強制なし /
-`strength` は `[0, 1]` / `basis` は任意 / `src` は v1 のみ）。本リーフはその器へ**何を書くか**、
-すなわち検証済み `analysis.json` から beats を導出する規約を定める。
+`beats[]` (called **highlight markers** in user-facing language) is analysis recording **source-specific facts** about where highlights occur, not the edit's placement results. The authoritative structure and validation duties are in the [edit.json v1 highlight-marker contract](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-22-edit-json-v1-beats.md): `id` matches `^b-\d{4}$` and is unique in the file; `t` is source seconds; `kind` has five examples but no forced enum; `strength` is `[0, 1]`; `basis` is optional; `src` exists only in v1. This leaf specifies **what to write** there by deriving beats from validated `analysis.json`.
 
-- **入力**は検証済み `analysis.json` の `events`（`hook` / `chapter` / `highlight`）と `transcript`。
-- **根拠のない見せ場を発明しない**。書いたすべての beat は、analysis に対応する event または
-  発話を指せなければならない。指せない候補は書かない。
+- **Input** is validated `analysis.json` `events` (`hook` / `chapter` / `highlight`) and `transcript`.
+- **Do not invent unsupported highlights.** Every recorded beat must point to a corresponding analysis event or utterance. Do not record a candidate that cannot.
 
-## 既定マッピング表
+## Default mapping table
 
-| analysis 側 | beats.kind | strength |
+| Analysis source | beats.kind | strength |
 |---|---|---|
-| `hook` event | `hook` | hookScore の値をそのまま |
-| `chapter` event | `turn` | 0.5 既定（章の重要度判断で ±0.2 まで調整可） |
-| `highlight` event **または** transcript のオチ・決め台詞・数値実績の提示（エージェント判断） | `punchline` | highlight 由来: score があればその値、なければ 0.6<br>transcript 由来: 0.5〜0.8。根拠発話を `basis` に引用 |
-| transcript の感情語・登場/種明かし表現（エージェント判断） | `emotion` / `reveal` | 0.5〜0.8。根拠発話を `basis` に引用 |
+| `hook` event | `hook` | Normalized hookScore value |
+| `chapter` event | `turn` | Default 0.5 (may adjust by up to ±0.2 based on chapter importance) |
+| `highlight` event **or** transcript punchline, decisive line, or numerical outcome (agent judgment) | `punchline` | From highlight: normalized score if present, otherwise 0.6<br>From transcript: 0.5–0.8; quote supporting speech in `basis` |
+| Emotional words or entrance/reveal in transcript (agent judgment) | `emotion` / `reveal` | 0.5–0.8; quote supporting speech in `basis` |
 
-`punchline` の供給源を transcript へ広げたのは、**`highlight` event が 0 件の素材では
-`punchline` が原理的に 1 件も生まれない**という実測が dogfood であったためである。transcript
-由来の `punchline` は `emotion` / `reveal` の行と同型に扱う（0.5〜0.8・根拠発話を `basis` に引用）。
-highlight 由来の strength は従来どおり正規化表に従う。
+Transcript became a `punchline` source after dogfooding showed that **assets with zero `highlight` events otherwise can never produce a `punchline`**. Handle transcript-derived `punchline` like `emotion` / `reveal` (0.5–0.8, supporting utterance quoted in `basis`). Highlight-derived strength still follows the normalization table.
 
-### スキーマとの突き合わせ（正規化）
+### Reconcile with the schema (normalization)
 
-`strength` は `[0, 1]` の連続値だが、[analysis.schema.json](../../packages/schemas/analysis.schema.json)
-の該当フィールドは 1〜5 の整数尺度である。上表の「そのまま」「その値」は、次の決定的な
-正規化を通した値を指す。独自の重み付けを発明せず、この式だけを使う。
+`strength` is continuous over `[0, 1]`, while corresponding fields in [analysis.schema.json](https://github.com/AkariLabs/akari-video/blob/main/packages/schemas/analysis.schema.json) are integers from 1 to 5. "Value" in the table above means the value after the following deterministic normalization. Do not invent weights; use only these formulas.
 
-| 元の値 | 正規化 | 例 |
+| Original value | Normalization | Example |
 |---|---|---|
-| `hook` event の `score`（5 軸 `hook` / `self_contained` / `emotion` / `density` / `punch` を各 1〜5 で採点したオブジェクト。単一のスカラーではない） | `(5 軸合計 − 5) / 20`。小数第 2 位で丸める | 合計 21/25 → `0.8`。hook 候補登録の初期閾値 16/25 → `0.55` |
-| `highlight` event の重要度（Schema 上のフィールド名は `score` ではなく `importance`。1〜5 の整数・任意） | `importance / 5` | `importance` 4 → `0.8`。`importance` 省略時は既定 `0.6` |
-| `chapter` event | 尺度フィールドを持たない | 既定 `0.5`。章の重要度判断で ±0.2 まで調整してよい（調整したら理由を `basis` に書く） |
+| `hook` event `score` (an object with five axes, `hook` / `self_contained` / `emotion` / `density` / `punch`, each 1–5; not one scalar) | `(5 軸合計 − 5) / 20` (sum of five axes minus five, divided by 20), rounded to two decimal places | Sum 21/25 → `0.8`; initial hook-candidate registration threshold 16/25 → `0.55` |
+| `highlight` importance (schema field `importance`, not `score`; optional integer 1–5) | `importance / 5` | `importance` 4 → `0.8`; default `0.6` if omitted |
+| `chapter` event | No scale field | Default `0.5`; may adjust up to ±0.2 based on chapter importance (write the reason in `basis`) |
 
-## 座標
+## Coordinates
 
-- `t` は該当 event / 発話の **source 秒をそのまま**使う（timeline 秒へ変換して書かない）。
-  区間を持つ event（`hook` / `highlight`）は `start` を `t` にする。
-- マルチソース（v1）では `src` に該当素材の `sources[].id` を入れる。v0（単一 `source`）では
-  `src` の存在自体が検証エラーになるため書かない。
-- item の `at` が出力フレームであることと
-  対照的である。beats だけは source 秒であることを取り違えない。
+- Use the event or utterance's **source seconds unchanged** for `t`; do not convert to timeline seconds. For interval events (`hook` / `highlight`), use `start` as `t`.
+- For multi-source v1, put the asset's `sources[].id` in `src`. Do not write `src` for v0 (one `source`); its presence causes validation failure.
+- This differs from item `at`, which is in output frames. Beats alone use source seconds.
 
 ## basis
 
-- 由来を必ず書く（例: `"hookScore 0.82 @ 12.4s"` / `"発話『ついに来ました』"`）。
-- 空の `basis` を量産しない。`basis` は任意フィールドだが、「後から誰が読んでも同じ analysis の
-  同じ箇所へ戻れる」ことが見せ場マーカーの価値であり、省略はその価値を捨てることに等しい。
-- 発話を引用するときは transcript の実発言に忠実に書く（要約・言い換えをしない）。
+- Always record provenance (for example, `"hookScore 0.82 @ 12.4s"` / `"発話『ついに来ました』"` (an utterance quotation)).
+- Do not mass-produce empty `basis` values. Although optional, `basis` lets any future reader return to the same analysis location; omitting it loses the highlight marker's value.
+- When quoting speech, use the actual transcript wording, not a summary or paraphrase.
 
-## v0 導出段のガードレール（下限と根拠だけ）
+## v0 derivation guardrails (floor and evidence only)
 
-導出段で課すのは次の 2 つだけである（D3 のツマミ導入までの暫定。素材ジャンルによる調整は
-ツマミ側の仕事であり、ここで勝手に緩めない）。
+Apply only these two rules at derivation (temporary until D3 controls exist; genre-specific adjustment belongs to those controls, so do not relax the rules here).
 
-- **`strength < 0.5` は書かない**（下限）
-- **根拠必須**（§basis。analysis の event または発話を指せない候補は書かない）
+- **Do not write `strength < 0.5`** (floor).
+- **Evidence is required** (§basis; do not write a candidate without a matching analysis event or utterance).
 
-下限を割る候補は「不採用候補」として編集判断レポート（現行運用では
-[decision-log.md](report-guide.md#decision_log) への追記）に残し、`beats` には書かない。
-黙って捨てない・黙って詰め込まないの両方を守る。
+Keep below-floor candidates as rejected candidates in the editing decision record (currently an append to [decision-log.md](report-guide.md#decision_log)), not in `beats`. Neither silently discard nor silently include them.
 
-### 密度は導出段で課さない（発火段へ移した）
+### Do not enforce density at derivation (moved to triggering)
 
-「60 秒あたり最大 2 件」「同一 kind の連続は 20 秒以上空ける」の 2 つは、以前は本リーフの
-導出段にあったが**削除した**。適用先は発火段（[beat-sync.md](beat-sync.md) §評価順の「密度
-ガードレール」）であり、**射影後の timeline 秒**で数える。
+The former derivation limits of "at most two per 60 seconds" and "at least 20 seconds between successive instances of the same kind" were **removed** here. Apply them at the trigger stage ([beat-sync.md](beat-sync.md), density guardrail under evaluation order), counting **post-projection timeline seconds**.
 
-理由は 2 つある。
+There are two reasons:
 
-- `beats` は**素材固有の事実**であり、演出過多の抑制は「素材にいくつ見せ場があるか」ではなく
-  「出力にいくつ演出を置くか」の問題である。関心事が違うものを同じ段で混ぜない。
-- 導出段（source 秒）で密度を課すと、**カットで消える区間の beat が密度枠を消費し、生き残る
-  べき発火を押し出す**。この取りこぼしは dogfood で実測された。射影後に数えれば、落とした
-  区間の見せ場は枠を消費しない。
+- `beats` are **source-specific facts**; limiting effects concerns how many effects appear in the output, not how many highlights the source contains. Do not mix these concerns in one stage.
+- Density at derivation (source seconds) lets **a beat in a cut-away interval consume capacity and displace a trigger that survives**. Dogfooding measured this omission. Counting after projection prevents removed intervals from consuming capacity.
 
 ## worked example
 
-### 入力（`analysis.json` の断片）
+### Input (excerpt of `analysis.json`)
 
 ```json
 {
@@ -121,7 +94,7 @@ highlight 由来の strength は従来どおり正規化表に従う。
 }
 ```
 
-### 判断記録へ残す見せ場候補（旧 `beats` 形は根拠の構造例としてのみ使用）
+### Highlight candidates for the decision record (old `beats` shape illustrates evidence structure only)
 
 ```json
 {
@@ -165,38 +138,27 @@ highlight 由来の strength は従来どおり正規化表に従う。
 }
 ```
 
-この JSON 片は v2 の `edit.json` へ貼り付けない。採用・不採用と `basis` を
-`decision-log.md` へ残し、演出を作るときの入力として使う。
+Do not paste this JSON excerpt into v2 `edit.json`. Record acceptance/rejection and `basis` in `decision-log.md` and use them as input for effects.
 
-### この例で働いたガードレール
+### Guardrails applied in this example
 
-- `strength < 0.5` 不採用: 5 件とも 0.6 以上で下限を満たす。`chapter` の既定 0.5 は下限ちょうどで
-  採用可だが、ここでは章の重要度判断で +0.2 して 0.7 とし、その理由を `basis` に残した。
-- 根拠必須: 5 件とも analysis の event か transcript の発話を指しており、`basis` から同じ箇所へ
-  戻れる。指せない「盛り上がりそうな箇所」は 1 件も書いていない。
-- **密度は数えていない**: `b-0005`（12.4s の `emotion`）は同一 60 秒窓に `hook`（12.4s）と
-  `turn`（48.0s）があり、旧規則（導出段の 60 秒 2 件）なら不採用だった候補である。改訂後は
-  下限と根拠を満たす限り**素材の事実として書く**。演出過多の抑制は発火段が担い、この beat は
-  [beat-sync.md](beat-sync.md) の worked example で強度ゲートに落ちて無音の見せ場になる。
-- **不採用候補**: 下限 0.5 を割る候補（例: 相槌・言い淀みだけを根拠にした `emotion` 候補）は
-  `beats` に書かず、`decision-log.md` に不採用候補として残す。
+- Reject `strength < 0.5`: all five are at least 0.6. The `chapter` default of 0.5 meets the floor, but this example raises it by +0.2 to 0.7 for chapter importance and explains that in `basis`.
+- Evidence required: all five point to an analysis event or transcript utterance; `basis` returns to the same location. No unsupported "potentially exciting" location is written.
+- **Density was not counted**: `b-0005` (12.4s `emotion`) shares a 60-second window with `hook` (12.4s) and `turn` (48.0s), so the old two-per-60-second derivation rule would reject it. Under the revision, write it **as a source fact** if floor and evidence pass. The trigger stage limits effects; this beat fails the intensity gate in [beat-sync.md](beat-sync.md)'s worked example and remains a silent highlight.
+- **Rejected candidate**: a candidate below 0.5 (for example, `emotion` supported only by an acknowledgment or hesitation) goes in `decision-log.md` as rejected, not in `beats`.
 
-## 検証
+## Validation
 
-見せ場候補は `analysis.json` の event / transcript へ戻れるかを検証し、採用判断を
-`decision-log.md` で確認する。v2 の `edit.json` へは書かない。
+Verify each highlight candidate can be traced to an `analysis.json` event or transcript and check adoption in `decision-log.md`. Do not write it into v2 `edit.json`.
 
-## よくある間違い
+## Common mistakes
 
-- `t` に timeline 秒（cut 連結後の時刻）を書く。beats だけは source 秒である。
-- v0 の edit.json に `src` を書く（参照先が定義できないため検証エラー）。
-- hook の 5 軸スコアをスカラーだと思い込み、1〜5 の整数をそのまま `strength` に入れる（範囲外）。
-- 根拠の指せない「盛り上がりそうな箇所」を beats に足す。
-- `basis` を空にする、または「重要」「盛り上がり」のような由来を復元できない語で埋める。
-- 下限 0.5 を割る候補を黙って捨て、不採用候補として記録しない。
-- 導出段で密度（60 秒あたり 2 件・同一 kind の 20 秒間隔）を課して beats を間引く。密度は発火段
-  （[beat-sync.md](beat-sync.md)）の関心事であり、**射影後の timeline 秒**で数える。source 秒で
-  数えると、カットで消える区間の beat が枠を消費して生き残るべき発火を押し出す。
-- `highlight` event が 0 件だからと `punchline` を 1 件も書かずに終える（transcript のオチ・
-  決め台詞・数値実績の提示も供給源である）。
-- `id` を連番以外（`b-1` / `beat-0001` 等）で振る。`^b-\d{4}$` の 4 桁ゼロ埋めである。
+- Writing timeline seconds (after cut concatenation) into `t`; beats use source seconds.
+- Writing `src` in v0 edit.json; there is no referent, so validation fails.
+- Treating a hook's five-axis score as one scalar and putting an integer 1–5 directly into `strength`, outside its range.
+- Adding a "potentially exciting" beat without traceable evidence.
+- Leaving `basis` empty or filling it with provenance-free words such as "important" or "exciting."
+- Silently dropping candidates below the 0.5 floor instead of recording their rejection.
+- Thinning beats during derivation using density (two per 60 seconds, 20 seconds between the same kind). Density belongs to triggering ([beat-sync.md](beat-sync.md)) and uses **post-projection timeline seconds**. Counting source seconds lets cut-away beats displace surviving triggers.
+- Ending with zero `punchline` beats merely because there are zero `highlight` events; transcript punchlines, decisive lines, and numerical outcomes are also sources.
+- Assigning a non-sequential `id` such as `b-1` / `beat-0001`; `^b-\d{4}$` requires four zero-padded digits.

@@ -1,6 +1,6 @@
-# エンジンアダプタ
+# Narration engine adapters
 
-`akari narration generate` サブコマンドで実際にナレーション音声を作る。
+Use `akari narration generate` to create the narration audio:
 
 ```
 akari narration generate \
@@ -13,166 +13,126 @@ akari narration generate \
   [--dry-run] [--yes] [--apply]
 ```
 
-- `--reading-file` は必須。原稿は [reading-text.md](reading-text.md) の規約でかな化した**読み原稿**を渡す
-- `--script-file` は任意。渡した場合、表示原稿として `script` に記録される
-- `--id` を省略すると、`<projectDir>/edit.json` の `audio.narration[]` にある既存 id の最大値 + 1
-  （無ければ `n-0001`）を自動採番する
-- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori / chatterbox / Gemini 3.8 は wav、Fish Audio と fal TTS は mp3）
-- `--apply` を付けると `edit.json` の `audio.narration[]` にエントリを追加し（`audio` / `narration` が
-  無ければ作る）、直後に `packages/schemas/bin/validate-edit.mjs` を実行する。NG なら書き込みを
-  ロールバックする
-- `--apply` を付けない場合、音声ファイルの生成とエントリ JSON の標準出力のみ行い、`edit.json` は
-  変更しない（手動で確認してから追記したい場合に使う）
+- `--reading-file` is required. Pass the prepared reading text described in [reading-text.md](reading-text.md) and the work's language pack.
+- `--script-file` is optional. When supplied, its display text is stored as `script`.
+- When `--id` is omitted, the CLI assigns one greater than the highest existing ID in `<projectDir>/edit.json` `audio.narration[]`, or `n-0001` if there are no entries.
+- Audio is saved under `<projectDir>/out/narration/<id>.<wav|mp3>`: WAV for voicevox, irodori, chatterbox, and Gemini 3.8; MP3 for Fish Audio and fal TTS.
+- `--apply` adds an entry to `edit.json` `audio.narration[]`, creating `audio` or `narration` if needed. It immediately runs `packages/schemas/bin/validate-edit.mjs` and rolls back the write if validation fails.
+- Without `--apply`, the CLI generates the file and prints the entry JSON to stdout but leaves `edit.json` unchanged, allowing manual review before insertion.
 
-## voicevox アダプタ
+## VOICEVOX adapter
 
-- 完全ローカル・無償・API キー不要。既にエンジンが `http://127.0.0.1:50021` で起動していればそれを使い、
-  未起動なら vv-engine の `run` をヘッドレスで自動起動する
-  （`/version` 応答まで最大 60 秒待機。自分が起動した場合のみ生成後に終了させる）
-- run 実行ファイルの解決順: 環境変数 `VOICEVOX_RUN`（絶対パス直指定）→ platform 別既定インストール先
-  — darwin: `/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run`、
-  win32: `%LOCALAPPDATA%\Programs\VOICEVOX\vv-engine\run.exe`（VOICEVOX 0.16+ の既定インストーラ配置先）。
-  それ以外の platform では `VOICEVOX_RUN` 指定が必須（既定パスなし）
-- `/audio_query` → `/synthesis`（speaker id 指定）の順で呼び、wav を得る
-- `--speaker` は VOICEVOX の style id（既定 3 = ずんだもん・ノーマル）。話者名は `/speakers` から解決し、
-  provenance に必須の `provider: voicevox` と `voice: speaker:<id>(<話者名>)` / `credit: VOICEVOX:<話者名>` を記録する（例: `{"provider":"voicevox","voice":"speaker:3","credit":"VOICEVOX:ずんだもん"}`）
-  （キャラクターごとのクレジット表記義務。ハードルール 6）
-- 費用はゼロ。承認ゲートは不要（`--dry-run` 以外はそのまま実行される）
+- VOICEVOX runs locally, costs nothing, and needs no API key. Use an engine already listening at `http://127.0.0.1:50021`; otherwise start vv-engine's `run` headlessly, wait up to 60 seconds for `/version`, and stop it after generation only if AKARI started it.
+- Resolve the executable from `VOICEVOX_RUN` (an absolute path) first, then the platform default: `/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run` on macOS or `%LOCALAPPDATA%\Programs\VOICEVOX\vv-engine\run.exe` on Windows (VOICEVOX 0.16+ installer). Other platforms require `VOICEVOX_RUN`.
+- Call `/audio_query`, then `/synthesis` with the speaker ID, to obtain WAV.
+- `--speaker` is a VOICEVOX style ID; the Japanese default is 3 (Zundamon/Normal). Resolve the speaker name through `/speakers`. Provenance must include `provider: voicevox` and `voice: speaker:<id>(<話者名>)` / `credit: VOICEVOX:<話者名>`, for example `{"provider":"voicevox","voice":"speaker:3","credit":"VOICEVOX:ずんだもん"}`. Character-specific credit is required by hard rule 6.
+- Cost is zero, so no approval gate applies; a call without `--dry-run` proceeds directly.
 
-## irodori アダプタ（お試し）
+## Irodori adapter (experimental)
 
-macOS でも公式 Irodori-TTS-Server を起動できる。サーバーの作業場で `uv sync --extra cpu` と `cp .env.example .env` を行い、次で起動する。初回はモデル約 3.3 GB の取得を含み時間がかかる。M1・16 GB の 2026-09-24 実測は初回 478 秒、2 回目以降は 5.24 秒の 1 文を約 15 秒で生成した。声クローンの品質は未検証。
+The official Irodori-TTS-Server can run on macOS. In its working directory, run `uv sync --extra cpu` and `cp .env.example .env`, then start it as shown below. The first run downloads about 3.3 GB of model data. On an M1 Mac with 16 GB of memory, the September 24, 2026 measurement was 478 seconds for setup; later runs generated one 5.24-second sentence in about 15 seconds. Voice-clone quality has not been verified.
 
 ```sh
 IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
   uv run --no-sync python -m irodori_openai_tts --host 127.0.0.1 --port 8088
 ```
 
-`akari voice copy --profile <id> --engine irodori` で正本の録音をサーバーに登録できる。登録後に `akari narration generate --engine irodori --profile <id>` を指定すると、登録された voice ID を使い、caption は送らない。
+Register the canonical recording on the server with `akari voice copy --profile <id> --engine irodori`. Afterward, `akari narration generate --engine irodori --profile <id>` uses that registered voice ID without sending a caption.
 
-- AKARI はモデルを起動しない。別に起動した Irodori-TTS-Server へ `--engine irodori --irodori-url <url>` で接続する。URL はオプション → `AKARI_IRODORI_URL` → `http://127.0.0.1:8088` の順で決まる。別 PC のサーバーも指定できる。
-- `--voice` は `narrator-male`（既定・落ち着いた男性ナレーター）、`bright-female`（明るい若い女性）、`slow-explainer`（低くゆっくりした解説）の声レシピから選ぶ。`--voice custom --style <声の指示>` で自分で書ける。`--style` を付けるとレシピの caption を置き換える。
-- `voice: "none"` と `irodori.caption` を `/v1/audio/speech` に送り、wav を保存する。参照音声・声クローンは扱わない。`--speed` は 0.25〜4.0。既定のタイムアウトは 600 秒で、`AKARI_IRODORI_TIMEOUT_MS` で変更できる。GPU を推奨し、処理に時間がかかる。
-- 費用は 0。provenance は `provider: irodori`、`engine: irodori-tts-v4-small`、`voice: recipe:<id>` または `caption:custom`、`experimental: true`、`server: <host:port>` を記録する。
+- AKARI does not start the model. Connect to a separately running Irodori-TTS-Server through `--engine irodori --irodori-url <url>`. Resolve the URL from the option, then `AKARI_IRODORI_URL`, then `http://127.0.0.1:8088`. A server on another computer is also supported.
+- Select a recipe with `--voice`: `narrator-male` (the default, calm male narrator), `bright-female` (bright young woman), or `slow-explainer` (lower, slower explanation). Use `--voice custom --style <声の指示>` for a custom caption. `--style` replaces the selected recipe's caption.
+- Send `voice: "none"` and `irodori.caption` to `/v1/audio/speech` and save WAV. This route does not send reference audio or perform voice cloning. `--speed` ranges from 0.25 to 4.0. The default timeout is 600 seconds, configurable with `AKARI_IRODORI_TIMEOUT_MS`. A GPU is recommended; processing can be slow.
+- Cost is zero. Record `provider: irodori`, `engine: irodori-tts-v4-small`, `voice: recipe:<id>` or `caption:custom`, `experimental: true`, and `server: <host:port>` as provenance.
 
-## fal-qwen3 アダプタ（自声クローン）
+## fal-qwen3 adapter (own-voice clone)
 
 
-- `~/.config/akari-video/voice-profiles/<profile>/meta.json` の `embedding_source_url` /
-  `reference_text` を使い、`https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b` へ
-  `text` / `language:"Japanese"` / `speaker_voice_embedding_file_url` / `reference_text` /
-  `max_new_tokens:2048` を POST する
-- 声プロファイルが無ければ先に [voice-profile-setup.md](voice-profile-setup.md) を行う
-- `FAL_KEY` は `~/.akari/credentials.env` から読む（旧 `~/.config/akari-video/credentials.env` も読む）。無ければ KEY 名と置き場を案内して
-  exit 1（API キー直叩き禁止・manage-connections 経由のみ。ハードルール 5）
-- 実行前に見積り（文字数 × $0.09 / 1000 字）を stderr に表示する。**`--yes` を明示しない限り送信せず
-  exit 2**（費用宣言 → 明示承認、ハードルール 4）
-- provenance は `provider: fal` / `engine: qwen-3-tts-1.7b` / `voice: profile:<name>` を記録する
+- Read `embedding_source_url` and `reference_text` from `~/.config/akari-video/voice-profiles/<profile>/meta.json`. POST `text`, `language:"Japanese"`, `speaker_voice_embedding_file_url`, `reference_text`, and `max_new_tokens:2048` to `https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b`. The current Japanese language value is an implementation fact; follow the content-language pack before using this route for another language.
+- If no voice profile exists, complete [voice-profile-setup.md](voice-profile-setup.md) first.
+- Read `FAL_KEY` only through manage-connections from `~/.akari/credentials.env` (the legacy `~/.config/akari-video/credentials.env` is also readable). Never call the API key directly. If absent, report the key name and storage location and exit 1 (hard rule 5).
+- Before execution, show the estimate (character count × $0.09 per 1,000 characters) on stderr. **Without an authorized `--yes`, send nothing and exit 2.** This enforces cost disclosure and explicit approval under hard rule 4.
+- Record `provider: fal`, `engine: qwen-3-tts-1.7b`, and `voice: profile:<name>` as provenance.
 
-## gemini-tts アダプタ（fal 経由）
+## gemini-tts adapter (via fal)
 
-- `--engine gemini-tts --voice Leda` が既定。`--voice` は 30 声から選び、`--style <text>` で話し方を指定できる。
-- 費用見積りは暫定 `$0.05 / 1000 字`。価格未検証のため一覧の `price.verified` と provenance の `price_verified` は `false`。`--yes` 無しでは送信しない。
-- `--speed` は Gemini 側で非対応のため警告して無視する。VOICEVOX では `/audio_query` の `speedScale` に渡す。
-- `--text <原稿>` で文を直接渡せる。`--reading-file` を併用すれば表示文と読みを分けられる。`--caption-ref c-0001 --apply` で生成元の字幕 ID を記録する。
-- `--t` は `--apply` 時に必須。`--apply` しない生成・承認見積りでは省略でき、省略時は 0 秒扱い。
+- The default is `--engine gemini-tts --voice Leda`. Choose among 30 voices with `--voice` and set delivery style with `--style <text>`.
+- The estimated price `$0.05 / 1000 字` is provisional because it has not been verified. Therefore both list `price.verified` and provenance `price_verified` remain `false`; do not send without approved `--yes`.
+- Gemini does not support `--speed`; warn and ignore it. For VOICEVOX, pass speed to `speedScale` in `/audio_query`.
+- Supply text directly with `--text <原稿>`, or use `--reading-file` to distinguish the display script from spoken text. `--caption-ref c-0001 --apply` records the source caption ID.
+- `--t` is mandatory with `--apply`. Without `--apply`, generation or cost preview may omit it; the default is timeline time zero.
 
-## 読み方の指示を本文に混ぜない
+## Do not mix reading instructions with the text
 
-読み方・話し方の指示は `--text` / `--reading-file` / `--script-file` に書かない。抑揚は原稿の書き方（句読点・語順・かな化）で作る。話し方の指示は `--style` だけで渡し、CLI が下表の送り先へ入れる。
+Do not put pronunciation or delivery instructions into `--text`, `--reading-file`, or `--script-file`; those fields contain words to speak. Create intonation through punctuation, word order, and the content-language pack's reading-text conversion. Send delivery instructions only through `--style` on a supported engine; the CLI routes them as shown below.
 
-2026-09-27 の報告（#94）では、`gemini-3.8-flash-tts` の本文の前に「明るくテンポよく読んでください：」を付けると、指示まで読み上げられた。`systemInstruction` は `HTTP 400 Developer instruction is not enabled for this model`。英語の指示にすると原稿まで英訳して読んだ。
+In the September 27, 2026 report (#94), `gemini-3.8-flash-tts` spoke the prepended instruction “Please read this brightly and briskly:” aloud. `systemInstruction` returned `HTTP 400 Developer instruction is not enabled for this model`. An English instruction also caused the model to translate and read the script in English.
 
-| engine | `--style` の送り先 | 備考 |
+| engine | Destination of `--style` | Notes |
 |---|---|---|
-| `gemini-tts` / `gemini-3.1-flash-tts`（fal） | `style_instructions` | 原稿は `prompt` |
-| `gemini-3.8-flash-tts`（Google AI 直接） | `input[0].content[0].annotations[{type:"speech_metadata", style}]` | 原稿は同じ content の `text`。**style 注釈が読み上げられないかは未実測**。聞き取り照合（`akari narration verify`）で指示文が混ざっていないか確かめる |
-| `fish-s2.1-pro` | 角括弧タグ（例: `[whispering]`）に変換して本文の前に置く | Fish の API 仕様のインラインタグ。自然文の指示は書かない |
-| `irodori` | `caption` | 声レシピを置き換える |
-| `voicevox` / `fal-qwen3` / `elevenlabs-v3` / `minimax-2.6-hd` / `chatterbox` / `index-tts-2` | 送らない | `supports.style = false` |
+| `gemini-tts` / `gemini-3.1-flash-tts` (fal) | `style_instructions` | Script text goes in `prompt`. |
+| `gemini-3.8-flash-tts` (direct Google AI) | `input[0].content[0].annotations[{type:"speech_metadata", style}]` | Script text goes in `text` in the same content item. **Whether the style annotation can be spoken aloud is unverified.** Use `akari narration verify` to check for leaked instructions. |
+| `fish-s2.1-pro` | A bracketed inline tag such as `[whispering]` before the text | Follow Fish's tag syntax; do not send a natural-language instruction sentence. |
+| `irodori` | `caption` | Replaces the voice recipe. |
+| `voicevox` / `fal-qwen3` / `elevenlabs-v3` / `minimax-2.6-hd` / `chatterbox` / `index-tts-2` | Do not send | `supports.style = false` |
 
-## エンジン一覧・声一覧の JSON 口
+## Engine and voice lists as JSON
 
-- `akari narration engines --json` は接続状態を含むエンジン一覧を返す。VOICEVOX の起動はしない。
-- `akari narration voices --engine <id> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
-- `akari narration generate ... --json` は stdout に結果 JSON を 1 行で返し、経過ログを stderr に出す。Gemini の費用承認待ちは exit 2 と `status: needs_approval` を返す。
+- `akari narration engines --json` lists engines and connection status without starting VOICEVOX.
+- `akari narration voices --engine <id> --json` lists voices, starting VOICEVOX only if needed to fetch its speakers.
+- `akari narration generate ... --json` prints one result JSON line to stdout and progress to stderr. When Gemini needs cost approval, it exits 2 with `status: needs_approval`.
 
-## VOICEVOX の常駐起動と停止
+## Start and stop persistent VOICEVOX
 
-- `akari narration start --engine voicevox --json` は、停止中なら vv-engine を切り離して起動し、`~/.akari/run/voicevox.pid` に PID を記録する。既に動作中ならその版を返し、起動済みのアプリには触れない。
-- `akari narration stop --engine voicevox --json` は PID ファイルの PID が生存し、実行コマンドが VOICEVOX の `run` と一致するときだけ停止する。古い PID は削除し、ユーザーが起動した VOICEVOX アプリは停止しない。
-- `engines --json` の VOICEVOX `availability.detail` は `running`、`version`、`app_found`、`managed` を返す。設定画面の「止める」は `managed` の場合だけ有効。
-- `generate` の従来の一時自動起動は、生成後に自分が起動した分を止めるまま。`start` で常駐させたエンジンを生成が止めることはない。
+- `akari narration start --engine voicevox --json` starts vv-engine as a detached process when needed and stores its PID in `~/.akari/run/voicevox.pid`. If an engine is already running, it reports that version and leaves the existing app alone.
+- `akari narration stop --engine voicevox --json` stops only a live PID whose command matches VOICEVOX `run`. It removes stale PID files and never stops a VOICEVOX app started by the user.
+- VOICEVOX `availability.detail` in `engines --json` includes `running`, `version`, `app_found`, and `managed`. Enable the settings-screen `止める` ("Stop") control only when `managed` is true.
+- A temporary engine started by `generate` is still stopped after generation. Generation does not stop an engine kept alive by `start`.
 
-## 生成音声の聞き取り照合
+## Verify generated speech by listening and transcription
 
-- `akari narration verify --project <root> (--id n-0001 | --audio <path> --text <字幕の文字>) [--reading <読み原稿>] [--backend auto|speechanalyzer|whisper] --json` は、この Mac の SpeechAnalyzer または whisper.cpp で生成音声を聞き取り、字幕の文字と比べる。クラウドへ送らず、analysis / captions / edit に書かない。使える backend が無ければ exit 3 と `status: unavailable`、理由を返す。
-- 字幕と聞き取りの文字を NFKC、英字小文字化、句読点・記号・空白除去のうえ、文字単位の編集距離で比較する。`score = 1 - 編集距離 / max(文字数)` を小数 3 桁で返し、連続した差を `diffs` にまとめる。読み原稿は比較せず結果に残す。
-- verdict は `ok`（0.9 以上）、`check`（0.7 以上）、`ng`（0.7 未満）。**根拠のない初期値。較正は calibration/ で行う。**
-- `--record <dir>` を明示したときだけ、そのディレクトリの `narration-verify.jsonl` に期待文、読み原稿、聞き取り、score、verdict、engine、voice、backend、時刻を 1 行 JSON で追記する。ポップアップからは指定しない。
+- `akari narration verify --project <root> (--id n-0001 | --audio <path> --text <字幕の文字>) [--reading <読み原稿>] [--backend auto|speechanalyzer|whisper] --json` transcribes the generated audio locally with SpeechAnalyzer or whisper.cpp and compares it with caption text. It sends nothing to the cloud and writes nothing to analysis, captions, or edit. With no available backend, it exits 3 with `status: unavailable` and an explanation.
+- Normalize caption and recognized text with NFKC, lowercase Latin letters, and removal of punctuation, symbols, and spaces. Compare character-level edit distance. Return `score = 1 - 編集距離 / max(文字数)` to three decimals and group consecutive differences in `diffs`. Preserve the reading script in the result without comparing it.
+- Verdicts are `ok` at 0.9 or higher, `check` from 0.7 up to 0.9, and `ng` below 0.7. **These are unvalidated starting thresholds; calibrate them in calibration/.**
+- Only with `--record <dir>`, append one JSON line to that directory's `narration-verify.jsonl`, including expected text, reading text, recognition, score, verdict, engine, voice, backend, and time. Do not set this option from the popup.
 
-## fal の追加 5 エンジン
+## Five additional fal engines
 
-`--engine` の値を替えて使う。fal の鍵と `--yes` が必要。`--profile` を使う場合は本人同意・
-cloud_upload 同意・原稿照合 0.7 以上を要求する。`chatterbox` と `index-tts-2` は正本の wav を
-毎回 `data:audio/wav;base64` の参照音声として送る。`minimax-2.6-hd` は先に
-`akari voice copy --profile <id> --engine minimax-2.6-hd --yes` で写しを登録する。
-正本が 20 MB を超える場合は送信前に exit 2 とする。
+Select the engine with `--engine`. These routes require a fal key and authorized `--yes`. A `--profile` also requires the owner's consent, cloud-upload consent, and script verification of at least 0.7. `chatterbox` and `index-tts-2` send the canonical WAV as a `data:audio/wav;base64` reference on every request. For `minimax-2.6-hd`, register a copy first with `akari voice copy --profile <id> --engine minimax-2.6-hd --yes`. Exit 2 before upload if the canonical recording exceeds 20 MB.
 
-| engine | fal endpoint | 既定の声と根拠 | クローン | 価格の入力値・確認 |
+| Engine | fal endpoint | Default voice and basis | Clone | Price input and verification |
 |---|---|---|---|---|
-| `gemini-3.1-flash-tts` | `fal-ai/gemini-3.1-flash-tts` | Leda。既存 Gemini と同じ 30 声を維持 | なし | トークン建ての調査値のみ。字数換算できず見積不可、verified false |
-| `elevenlabs-v3` | `fal-ai/elevenlabs/tts/eleven-v3` | Rachel。schema の既定値。日本語は `language_code: ja` | なし | 調査値 $0.10 / 1000 字、verified false。1 回 5000 字まで |
-| `minimax-2.6-hd` | `fal-ai/minimax/speech-2.6-hd` | Wise_Woman。schema の `voice_setting` 既定値。`language_boost: Japanese` | registered | 調査の「$0.85 / 生成」は単位不明。見積不可、verified false |
-| `chatterbox` | `fal-ai/chatterbox/text-to-speech/multilingual` | `japanese`。多言語版 schema の voice 言語コード | per-request | 調査値 $0.025 / 1000 字、verified false。1 回 300 字まで |
-| `index-tts-2` | `fal-ai/index-tts-2/text-to-speech` | 既定声なし。`--profile` 必須 | per-request | 調査値 $0.002 / 秒、verified false。5 字/秒で概算 |
+| `gemini-3.1-flash-tts` | `fal-ai/gemini-3.1-flash-tts` | Leda; retains the same 30 voices as the existing Gemini adapter. | None | Only a token-based research price is available; character-based estimation is unavailable. verified false. |
+| `elevenlabs-v3` | `fal-ai/elevenlabs/tts/eleven-v3` | Rachel, the schema default; Japanese requests use `language_code: ja`. | None | Research figure $0.10 per 1,000 characters, verified false; 5,000 characters maximum per request. |
+| `minimax-2.6-hd` | `fal-ai/minimax/speech-2.6-hd` | Wise_Woman, the schema default in `voice_setting`; current `language_boost: Japanese`. | registered | The research figure "$0.85 per generation" has an unknown billing unit, so no estimate is possible; verified false. |
+| `chatterbox` | `fal-ai/chatterbox/text-to-speech/multilingual` | `japanese`, the multilingual schema's voice language code. | per-request | Research figure $0.025 per 1,000 characters, verified false; 300 characters maximum per request. |
+| `index-tts-2` | `fal-ai/index-tts-2/text-to-speech` | No default voice; `--profile` is required. | per-request | Research figure $0.002 per second, verified false; estimate using five characters per second. |
 
-Chatterbox の多言語版 schema は `voice: japanese`、参照音声時は `voice` に data URI と
-`custom_audio_language: japanese` を指定する。Index TTS 2 の `emotional_audio_url` は schema に
-あるが本実装では送らない。参照音声の data URI は既存の fal Qwen3 clone と同じ形式で、
-schema の説明も禁止していない。fal storage への別アップロードはしない。
+The multilingual Chatterbox schema uses `voice: japanese`. For reference audio, pass its data URI in `voice` and set `custom_audio_language: japanese`. Index TTS 2's schema includes `emotional_audio_url`, but this implementation does not send it. The reference data URI has the same format as the existing fal Qwen3 clone, and the schema does not prohibit it. Do not upload the recording separately to fal storage.
 
-## 直接 API の 2 エンジン
+## Two direct API engines
 
-| engine | 経路・鍵 | 声と日本語 | 価格・クローン |
+| Engine | Route and key | Voice and Japanese behavior | Price and cloning |
 |---|---|---|---|
-| `fish-s2.1-pro` | Fish Audio `POST /v1/tts`。`FISH_AUDIO_API_KEY` は https://fish.audio/app/api-keys/ で取得 | 日本語公開声 5 件、既定「元気な女性」。`--style` は角括弧タグに変換 | $15 / 100 万 UTF-8 バイト（日本語 1000 字で約 $0.045）。`--profile` は正本 wav と録音原稿を MessagePack で毎回送る |
-| `gemini-3.8-flash-tts` | Google AI Interactions API。`GEMINI_API_KEY` は https://aistudio.google.com/api-keys で取得 | 日本語対応・既製 30 声、既定 Leda。`--style` は `speech_metadata.style`（本文 `text` とは別の注釈。読み上げられないかは未実測） | 出力 $9 / 100 万トークン、音声 1 秒 = 25 トークン（2026-12-31 まで。2027-01-01 から $18）。入力 $0.50 → $1.00。声クローンは本票対象外 |
+| `fish-s2.1-pro` | Fish Audio `POST /v1/tts`; obtain `FISH_AUDIO_API_KEY` at https://fish.audio/app/api-keys/ | Five public Japanese voices; default "energetic woman." `--style` becomes a bracketed tag. | $15 per million UTF-8 bytes, about $0.045 for 1,000 Japanese characters. With `--profile`, send the canonical WAV and recording script as MessagePack on every request. |
+| `gemini-3.8-flash-tts` | Google AI Interactions API; obtain `GEMINI_API_KEY` at https://aistudio.google.com/api-keys | Supports Japanese; 30 ready-made voices with Leda as default. `--style` uses `speech_metadata.style`, separate from script `text`; whether it can be spoken aloud remains unverified. | Output $9 per million tokens, with 25 tokens per audio second through 2026-12-31, rising to $18 on 2027-01-01. Input rises from $0.50 to $1.00. Voice cloning is not covered by this table. |
 
-両方とも `~/.akari/credentials.env` の鍵を使う。見積後の `--yes` が無ければ
-有償 API を呼ばない。Fish の参照音声には本人同意・cloud_upload 同意・原稿照合 0.7 以上が必要。
-Gemini は PCM 24 kHz / mono / 16 bit を WAV に包み、RIFF 付き応答も受け取る。
-詳細な API 根拠は `packages/akari-launcher/fixtures/narration/direct/` に記録。
+Both read credentials from `~/.akari/credentials.env` and refuse paid calls without authorized `--yes` after the estimate. Fish reference audio additionally requires the owner's consent, cloud-upload consent, and script verification of at least 0.7. Gemini wraps 24 kHz, mono, 16-bit PCM in WAV and accepts a response that already has a RIFF header. Detailed API evidence is in `packages/akari-launcher/fixtures/narration/direct/`.
 
-## エンジンの足し方（表の 1 行）
+## How to add engines (1 row in the table)
 
-fal の OpenAPI schema を `packages/akari-launcher/fixtures/narration/openapi/` に保存してから、
-`packages/akari-launcher/src/tts-engines.mjs` に `row(id, label, endpoint, { price, voices,
-default_voice, supports, buildPayload })` を追加する。`buildPayload` は保存した schema の required
-を満たすことを `tts-engines.test.mjs` で確認する。新しい clone 方式を増やすときは
-`voice-command.mjs` の同意・照合・承認ガードも確認する。
+Save fal's OpenAPI schema in `packages/akari-launcher/fixtures/narration/openapi/`, then add
+`row(id, label, endpoint, { price, voices,
+default_voice, supports, buildPayload })` to
+`packages/akari-launcher/src/tts-engines.mjs`. Check with `tts-engines.test.mjs` that
+`buildPayload` satisfies the saved schema's required fields. When adding a clone method,
+also check the consent, verification, and approval guards in `voice-command.mjs`.
 
 ## `--dry-run`
 
-どのエンジンでも実リクエストを送らない。送るはずのペイロード（API キーと Fish の参照音声はマスク表示）と、
-出力予定パス・見積り費用（voicevox は 0、fal-qwen3 は概算 USD）を標準出力に JSON で出して exit 0 で終わる。
-本番実行前の確認や、有償レーンの費用感を人間に見せる用途に使う。
+This mode sends no request to any engine. It prints the prospective payload with the API key and Fish reference audio masked, the planned output path, and estimated cost (zero for voicevox; approximate USD for fal-qwen3) as JSON on stdout, then exits 0. Use it to review a request and show the person a paid route's expected cost before execution.
 
-## エンジン選択基準・二段運用
+## Engine selection and two-stage operation
 
-| 状況 | 選ぶエンジン |
-|---|---|
-| 尺やテンポを素早く確定したい（仮ナレ・アニマティクス） | voicevox（無償・数秒・承認ゲート不要） |
-| ずんだもん文化圏コンテンツ・キャラ解説・下書き試聴 | voicevox |
-| 本人ナレーションの本番（CM・ブランドコンテンツ） | fal-qwen3（`--profile owner-ja` 等） |
-| 多言語展開（自分の声のまま他言語） | fal-qwen3（クロスリンガルクローン） |
-| 既製の声で日本語の本番ナレーション・話し方を別に指定したい | `gemini-3.8-flash-tts`（`GEMINI_API_KEY`・Google AI 直接）、または `gemini-tts` / `gemini-3.1-flash-tts`（`FAL_KEY`・fal 経由） |
-| 日本語の公開声・参照音声からの声（本人同意つき） | `fish-s2.1-pro`（`FISH_AUDIO_API_KEY`） |
+See lang/<content-language>.md for voice selection and the appropriate draft-to-final workflow. Confirm the selected engine accepts the work's content language before generation.
 
-どのエンジンでも読み方の指示は本文に混ぜない（上の節）。
-
-**二段運用（推奨フロー）**: まず `--engine voicevox` で仮ナレを生成し `--apply` して尺とテンポを
-確定する。方針が固まったら、同じ `--reading-file`（必要なら微調整）・同じ `--t` で
-`--engine fal-qwen3 --profile <name> --yes --apply` を実行し、同じ `id` は使わずに新しい narration
-エントリとして本番音声へ差し替える（古い仮ナレのエントリは編集者が削除する）。仮ナレの段階では
-費用が発生しないため、テンポ調整の反復を何度でも無償で行える。
+For any draft-to-final replacement, keep the same reading file (adjust it only if needed) and timeline `--t`, create a new narration `id`, and have the editor remove the old draft entry. The Japanese pack's example uses `--engine voicevox` for a free draft and then `--engine fal-qwen3 --profile <name> --yes --apply` for the final voice (for example, `--profile owner-ja`); its language-specific choice belongs in lang/ja.md. Because the draft stage has no cost, its timing can be revised repeatedly for free.

@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AiAnswer, INITIAL_ONBOARDING_STATE, nextOnboardingState, OnboardingState, OnboardingStep,
@@ -6,7 +7,7 @@ import { AkariOnboardingService, SampleInformation } from './protocol';
 import { ONBOARDING_CSS } from './style';
 import { automaticGuideTransition, guideRecoveryView } from './recovery-model';
 import { BEFORE_AFTER_DATA_URL } from './before-after-data';
-import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts,
+import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts, guideRequiredPanels,
     guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
     askConnectionCopy, captionCoachPosition, materialPreviewTransportRect, needsCaptionStyleSelection,
     outputCaptionBandRect, GuideRect } from './guide-ui-model';
@@ -15,6 +16,7 @@ import { groupChatLines } from './chat-model';
 import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
     guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
 import { EXPORT_ONBOARDING_TARGET } from 'akari-shell-strip/lib/common/rail-ids';
+import { isGuidePartnerStopError } from './guide-switch-error';
 
 interface CoachSpec {
     key?: string;
@@ -36,26 +38,28 @@ interface CoachSpec {
     place?: 'left' | 'right' | 'top' | 'bottom';
 }
 
-const PROMPT = 'この動画を編集したいです。話している内容に合わせて、テロップ・図解・効果音・BGM を入れてください。';
+const PROMPT = t('surfaces.onboarding.demoPrompt.message');
 const LOG: Array<{ t: number; lines: string[]; live?: string; count?: number;
     captions?: boolean; stage?: number; lint?: boolean }> = [
-    { t: 500, live: '素材を確認しています…', lines: ['素材を確認します。'] },
-    { t: 1300, lines: ['akari media probe assets/サンプル動画.mp4', '37.6 秒 · 1280×720 · 30fps · 音声あり'] },
-    { t: 2300, live: '声の区切りを調べています…', lines: ['書き起こしの語の時刻を、声の波形に合わせ直しました。'] },
-    { t: 3000, live: '本編を置いています…', lines: ['edit.json', '本編を置きました'], count: 0 },
-    { t: 4000, live: '字幕を置いています…', lines: ['字幕を短く分けてつくりました → captions.json'], captions: true },
-    { t: 7400, live: 'タイトルを置いています…', lines: ['冒頭にタイトル、「アカリビデオ」で名札を出しました'], stage: 1 },
-    { t: 8400, live: 'テロップを置いています…', lines: ['「AI と対話」「編集はもう終わってる」をテロップにしました'], stage: 2 },
-    { t: 9500, live: '効果音を合わせています…', lines: ['「パッと」に合わせて、効果音・フラッシュ・ズームを入れました'], stage: 3 },
-    { t: 10700, live: '図解を置いています…', lines: ['「こういう図解」と言った瞬間に、この動画の中身をタイムラインで出しました'], stage: 4 },
-    { t: 11800, live: 'スマホの画面をつくっています…', lines: ['スマホのモックアップに、この動画を縦にして映しました'], stage: 5 },
-    { t: 12900, live: 'BGM を入れています…', lines: ['声の下に BGM を入れ、「BGM も」で音を持ち上げました'], stage: 6 },
-    { t: 13900, live: '字幕を仕上げています…', lines: ['「カラオケ表示」の字幕を、声に合わせて塗られるようにしました'], stage: 7 },
-    { t: 14900, live: 'オチをつけています…', lines: ['最後に「編集 AI」のクレジットを入れました'], stage: 8 },
-    { t: 15800, live: '確認しています…', lines: ['edit-lint .', '問題なし'], lint: true },
-    { t: 16400, live: 'できました', lines: ['できました。プレビューで再生して確かめてください。書き出しは左のメニューの「書き出し…」からできます。'] }
+    { t: 500, live: t('surfaces.onboarding.demoCheckingAssets.status'), lines: [t('surfaces.onboarding.demoCheckAssets.message')] },
+    { t: 1300, lines: ['akari media probe assets/サンプル動画.mp4', t('surfaces.onboarding.demoAssetFacts.message')] },
+    { t: 2300, live: t('surfaces.onboarding.demoCheckingSpeech.status'), lines: [t('surfaces.onboarding.demoAlignedTranscript.message')] },
+    { t: 3000, live: t('surfaces.onboarding.demoPlacingFootage.status'), lines: ['edit.json', t('surfaces.onboarding.demoPlacedFootage.message')], count: 0 },
+    { t: 4000, live: t('surfaces.onboarding.demoAddingCaptions.status'), lines: [t('surfaces.onboarding.demoCreatedCaptions.message')], captions: true },
+    { t: 7400, live: t('surfaces.onboarding.demoAddingTitle.status'), lines: [t('surfaces.onboarding.demoAddedOpeningTitle.message', { title: 'アカリビデオ' })], stage: 1 },
+    { t: 8400, live: t('surfaces.onboarding.demoAddingTextOverlays.status'), lines: [t('surfaces.onboarding.demoAddedTextOverlays.message', { firstQuote: 'AI と対話', secondQuote: '編集はもう終わってる' })], stage: 2 },
+    { t: 9500, live: t('surfaces.onboarding.demoAddingSoundEffects.status'), lines: [t('surfaces.onboarding.demoAddedAccentEffects.message', { cue: 'パッと' })], stage: 3 },
+    { t: 10700, live: t('surfaces.onboarding.demoAddingDiagram.status'), lines: [t('surfaces.onboarding.demoAddedDiagram.message', { cue: 'こういう図解' })], stage: 4 },
+    { t: 11800, live: t('surfaces.onboarding.demoAddingPhone.status'), lines: [t('surfaces.onboarding.demoAddedPhone.message')], stage: 5 },
+    { t: 12900, live: t('surfaces.onboarding.demoAddingMusic.status'), lines: [t('surfaces.onboarding.demoAddedMusic.message', { cue: 'BGM も' })], stage: 6 },
+    { t: 13900, live: t('surfaces.onboarding.demoFinishingCaptions.status'), lines: [t('surfaces.onboarding.demoAddedKaraokeCaptions.message', { style: 'カラオケ表示' })], stage: 7 },
+    { t: 14900, live: t('surfaces.onboarding.demoAddingEnding.status'), lines: [t('surfaces.onboarding.demoAddedCredits.message', { credit: '編集 AI' })], stage: 8 },
+    { t: 15800, live: t('surfaces.onboarding.demoCheckingEdit.status'), lines: ['edit-lint .', t('surfaces.onboarding.demoNoIssues.message')], lint: true },
+    { t: 16400, live: t('surfaces.onboarding.demoFinished.status'), lines: [t('surfaces.onboarding.demoReadyToExport.message')] }
 ];
 const esc = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
+const GUIDE_LAYOUT_KEY = 'akari.onboarding.layoutBeforeGuide';
+interface GuideLayout { left: boolean; bottom: boolean }
 
 export class OnboardingController {
     protected state: OnboardingState = INITIAL_ONBOARDING_STATE;
@@ -65,7 +69,7 @@ export class OnboardingController {
     protected videoUrl?: string;
     protected thumbnailUrl?: string;
     protected logLines: string[] = [];
-    protected live = '素材を確認しています…';
+    protected live = t('surfaces.onboarding.demoCheckingAssets.status');
     protected busy = false;
     protected prepareError = '';
     protected workError = false;
@@ -73,7 +77,10 @@ export class OnboardingController {
     protected timers: number[] = [];
     protected exportPoll?: number;
     protected exportFinishing = false;
+    protected exportFailed = false;
+    protected exportSubmissionFailureVersion?: number;
     protected exportInertObserver?: MutationObserver;
+    protected materialPreviewClickAt = 0;
     protected placeFrame?: number;
     protected lastRects = '';
     protected fogFrom: DOMRect[] = [];
@@ -101,17 +108,32 @@ export class OnboardingController {
     protected partnerRevealAttempts = 0;
     protected lastPartnerRevealAt = 0;
     protected inputCutouts: GuideRect[] = [];
+    protected layoutBeforeGuide?: GuideLayout;
+    protected switchWarningShown = false;
+    protected switchWarningEverShown = false;
+    protected switchWarningCopy = '';
+    protected partnerAlive = false;
+    protected inviteWatchTimer?: number;
+    protected switchConsentGiven = false;
 
     constructor(
         protected readonly service: AkariOnboardingService,
         protected readonly files: FileService,
-        protected readonly openProject: (uri: string) => Promise<void>,
+        protected readonly openProject: (uri: string, busyConfirmed: boolean) => Promise<void>,
         protected readonly showOutput: (uri: string) => Promise<void>,
         protected readonly showAssets: () => Promise<void>,
         protected readonly seekOutput: (uri: string, time: number) => Promise<void>,
         protected readonly startOwnVideo: () => Promise<void>,
         protected readonly openGuideSettings: () => Promise<void>,
-        protected readonly showClosedNotice: () => void
+        protected readonly showClosedNotice: () => void,
+        protected readonly switchWarning: () => string | undefined,
+        protected readonly ensureLayout: (targets: string[]) => Promise<void>,
+        protected readonly readLayout: () => GuideLayout,
+        protected readonly restoreLayout: (layout: GuideLayout) => void,
+        protected readonly exportPhase: () => string,
+        protected readonly exportFailureVersion: () => number,
+        protected readonly resetExport: () => void,
+        protected readonly hasLivePartner: () => Promise<boolean> = async () => false
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -121,6 +143,13 @@ export class OnboardingController {
 
     protected async openUnchecked(initial?: OnboardingState): Promise<void> {
         this.closeVisual();
+        const storedLayout = sessionStorage.getItem(GUIDE_LAYOUT_KEY);
+        if (storedLayout) {
+            try { this.layoutBeforeGuide = JSON.parse(storedLayout) as GuideLayout; }
+            catch { this.layoutBeforeGuide = this.readLayout(); }
+        } else this.layoutBeforeGuide = this.readLayout();
+        sessionStorage.setItem(GUIDE_LAYOUT_KEY, JSON.stringify(this.layoutBeforeGuide));
+        this.switchConsentGiven = false;
         this.state = initial ?? INITIAL_ONBOARDING_STATE;
         this.hero = await this.service.heroDataUrl();
         this.root = document.createElement('div');
@@ -149,6 +178,7 @@ export class OnboardingController {
             document.addEventListener(type, this.guardPointer, true);
         window.addEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
         window.addEventListener('akari.preview.captionSelected', this.handleCaptionSelection as EventListener);
+        window.addEventListener('akari.export.phaseChanged', this.handleExportPhase as EventListener);
         if (this.state.projectUri) {
             try {
                 const prepared = await this.service.prepare();
@@ -165,14 +195,20 @@ export class OnboardingController {
             }
         }
         this.render();
+        this.enterStep();
         this.followTargets();
         if (this.state.step === 'prompt' && this.state.sub === 0) this.startPromptTypewriter();
         if (this.state.step === 'work') void this.startWork();
         if (this.state.step === 'export' && this.state.sub === 2) this.beginExportPoll();
-        this.enterStep();
+        this.updateExportPhase(this.exportPhase());
     }
 
     protected closeVisual(): void {
+        if (this.root && this.layoutBeforeGuide) {
+            this.restoreLayout(this.layoutBeforeGuide);
+            this.layoutBeforeGuide = undefined;
+            sessionStorage.removeItem(GUIDE_LAYOUT_KEY);
+        }
         for (const timer of this.recoveryTimers) window.clearTimeout(timer);
         this.recoveryTimers = [];
         if (this.idleCloseTimer) window.clearTimeout(this.idleCloseTimer);
@@ -185,6 +221,15 @@ export class OnboardingController {
         if (this.exportPoll) window.clearInterval(this.exportPoll);
         this.exportInertObserver?.disconnect();
         this.exportInertObserver = undefined;
+        this.exportFailed = false;
+        this.exportSubmissionFailureVersion = undefined;
+        this.materialPreviewClickAt = 0;
+        if (this.inviteWatchTimer) window.clearTimeout(this.inviteWatchTimer);
+        this.inviteWatchTimer = undefined;
+        this.switchWarningShown = false;
+        this.switchWarningEverShown = false;
+        this.switchWarningCopy = '';
+        this.partnerAlive = false;
         if (this.placeFrame) cancelAnimationFrame(this.placeFrame);
         if (this.fogFrame) cancelAnimationFrame(this.fogFrame);
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
@@ -204,6 +249,7 @@ export class OnboardingController {
         document.removeEventListener('drop', this.handleDrop, true);
         document.removeEventListener('dragover', this.handleDragOver, true);
         window.removeEventListener('keydown', this.handleKeyDown, true);
+        window.removeEventListener('akari.export.phaseChanged', this.handleExportPhase as EventListener);
         for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'])
             document.removeEventListener(type, this.guardPointer, true);
         window.removeEventListener('akari.preview.playbackTick', this.handlePlayback as EventListener);
@@ -316,8 +362,16 @@ export class OnboardingController {
         await this.service.save(next);
         if (!this.root) return;
         this.state = next;
+        if (this.state.step === 'export') {
+            if (sub !== 2) {
+                this.exportFailed = false;
+                this.exportSubmissionFailureVersion = this.exportFailureVersion();
+            }
+        }
         this.render();
         this.enterStep();
+        if (this.state.step === 'export' && sub === 2)
+            this.updateExportPhase(this.exportPhase());
     }
 
     protected enterStep(): void {
@@ -326,6 +380,17 @@ export class OnboardingController {
         this.stepEnteredAt = performance.now();
         this.lastInteractionAt = this.stepEnteredAt;
         const serial = ++this.stepSerial;
+        if (this.inviteWatchTimer) window.clearTimeout(this.inviteWatchTimer);
+        this.inviteWatchTimer = undefined;
+        if (this.state.step === 'invite') void this.refreshInviteWarning(serial);
+        else {
+            this.switchWarningShown = false;
+            this.switchWarningEverShown = false;
+            this.switchWarningCopy = '';
+            this.partnerAlive = false;
+        }
+        this.materialPreviewClickAt = 0;
+        void this.ensureStepLayout(serial);
         this.partnerRevealAttempts = 0;
         if (shouldRevealPartner(this.state.step, serial, this.revealedPartnerSerial)) this.revealPartner();
         this.scheduleHelp();
@@ -335,6 +400,59 @@ export class OnboardingController {
         this.renderRecovery();
         if (this.state.step === 'drag' && !this.state.imported) this.scheduleDragHint();
         if (this.state.step === 'done') this.celebrate();
+    }
+
+    protected currentSwitchWarning(): string | undefined {
+        const busyWarning = this.switchWarning();
+        if (busyWarning) {
+            this.switchWarningCopy = busyWarning;
+            return busyWarning;
+        }
+        return this.switchWarningEverShown && this.partnerAlive ? this.switchWarningCopy : undefined;
+    }
+
+    protected async refreshInviteWarning(serial: number): Promise<void> {
+        if (!this.root || this.state.step !== 'invite' || serial !== this.stepSerial) return;
+        try {
+            const alive = await this.hasLivePartner();
+            if (!this.root || this.state.step !== 'invite' || serial !== this.stepSerial) return;
+            this.partnerAlive = alive;
+            const warningVisible = !!this.currentSwitchWarning();
+            if (!this.busy && warningVisible !== this.switchWarningShown) this.render();
+        } catch { /* Keep the last observed state and retry while the invite is visible. */ }
+        finally {
+            if (this.root && this.state.step === 'invite' && serial === this.stepSerial)
+                this.inviteWatchTimer = window.setTimeout(() => void this.refreshInviteWarning(serial), 500);
+        }
+    }
+
+    protected async ensureStepLayout(serial: number, attempt = 0): Promise<void> {
+        const spec = this.coach();
+        const targets = [...(spec?.holes ?? []), ...(spec?.clear ?? []), ...(spec?.rings ?? [])];
+        const materialPreview = this.state.step === 'matpreview' && this.state.sub === 1;
+        if (!guideRequiredPanels(targets).length && !materialPreview) return;
+        await this.ensureLayout(materialPreview ? [...targets, 'sample-card'] : targets);
+        if (!this.root || serial !== this.stepSerial) return;
+        if (materialPreview && !document.querySelector('[data-akari-onboarding-target="material-preview"]')) {
+            const sampleCard = document.querySelector<HTMLElement>('[data-akari-onboarding-target="sample-card"]');
+            const openCard = sampleCard?.querySelector<HTMLElement>('[data-akari-ui^="asset:"]');
+            if (openCard?.getClientRects().length && Date.now() - this.materialPreviewClickAt >= 3000) {
+                this.materialPreviewClickAt = Date.now();
+                openCard.click();
+            }
+        }
+        this.placeCoach();
+        const missing = targets.filter(target => ['assets', 'sample-card', 'export-result', 'timeline', 'material-preview'].includes(target))
+            .some(target => {
+                const element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${target}"]`);
+                const rect = element?.getBoundingClientRect();
+                return !rect || rect.width <= 0 || rect.height <= 0 || getComputedStyle(element!).visibility === 'hidden';
+            });
+        if (missing && attempt < (materialPreview ? 30 : 3)) {
+            this.timers.push(window.setTimeout(() => {
+                if (this.root && serial === this.stepSerial) void this.ensureStepLayout(serial, attempt + 1);
+            }, materialPreview ? 1000 : 200 + attempt * 350));
+        }
     }
 
     protected revealPartner(): void {
@@ -394,22 +512,22 @@ export class OnboardingController {
         if (view.showFallbackNext && coach && !fallback) {
             let actions = coach.querySelector<HTMLElement>('.ao-actions');
             if (!actions) { actions = document.createElement('div'); actions.className = 'ao-actions'; coach.appendChild(actions); }
-            actions.insertAdjacentHTML('beforeend', '<button class="primary" data-ao="fallback-next">次へ →</button>');
+            actions.insertAdjacentHTML('beforeend', t('surfaces.onboarding.recoveryNext.button'));
             this.lastRects = '';
             this.placeCoach();
         } else if (!view.showFallbackNext) fallback?.remove();
         const closeHost = this.root.querySelector<HTMLElement>('.ao-close-host')!;
         if (view.showIdleClose && !closeHost.firstElementChild)
-            closeHost.innerHTML = '<button class="ao-idle-close" data-ao="idle-close">ガイドを閉じる ×</button>';
+            closeHost.innerHTML = t('surfaces.onboarding.recoveryCloseGuide.description');
         else if (!view.showIdleClose) closeHost.replaceChildren();
         const recoveryHost = this.root.querySelector<HTMLElement>('.ao-recovery-host')!;
         if (view.showError && !recoveryHost.firstElementChild) recoveryHost.innerHTML =
-            '<div class="ao-transition-error" role="alert"><p>先へ進めませんでした。もう一度お試しください。</p><div class="ao-actions"><button class="primary" data-ao="retry-transition">もう一度</button><button data-ao="close-guide">ガイドを閉じる</button></div></div>';
+            t('surfaces.onboarding.recoveryContinueTryAgainTryAgainCloseGuide.description');
         else if (!view.showError) recoveryHost.replaceChildren();
         const skipButton = recoveryHost.querySelector('[data-ao="skip-cleanup"]');
         if (view.showError && this.transitionFailure?.skipCleanup && !skipButton)
             recoveryHost.querySelector('.ao-actions')?.insertAdjacentHTML('beforeend',
-                '<button data-ao="skip-cleanup">片付けを飛ばして次へ</button>');
+                t('surfaces.onboarding.recoverySkipCleanupMove.button'));
         else if (!this.transitionFailure?.skipCleanup) skipButton?.remove();
         recoveryHost.querySelector<HTMLButtonElement>('[data-ao="retry-transition"]')?.toggleAttribute('disabled', !view.showRetry);
     }
@@ -444,7 +562,7 @@ export class OnboardingController {
             if (!coach || coach.querySelector('[data-ao="help-next"]')) return;
             let actions = coach.querySelector<HTMLElement>('.ao-actions');
             if (!actions) { actions = document.createElement('div'); actions.className = 'ao-actions'; coach.appendChild(actions); }
-            actions.insertAdjacentHTML('beforeend', '<button class="primary" data-ao="help-next">次へ</button>');
+            actions.insertAdjacentHTML('beforeend', t('surfaces.onboarding.scheduleHelpNext.button'));
             this.lastRects = '';
             this.placeCoach();
         }, HELP_DELAY.next));
@@ -489,74 +607,88 @@ export class OnboardingController {
 
     protected takeover(): string {
         const brand = introVisual(this.state.step).brand ? '<div class="ao-brand">AKARI VIDEO</div>' : '';
-        if (this.state.step === 'welcome') return `${brand}<h2>AKARI Video へようこそ</h2><div class="ao-actions"><button class="primary" data-ao="next">次へ</button></div>`;
-        if (this.state.step === 'first') return '<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>';
-        if (this.state.step === 'invite') return inviteMarkup(this.busy, esc(this.prepareError));
-        return `<div class="ao-congrats">おめでとうございます</div><h2>はじめての 1 本ができました</h2><button class="ao-magic" data-ao="own"><span>自分の動画で始める</span><b>→</b><i>✦</i><i>✦</i><i>✦</i></button><div class="ao-secondary"><button data-ao="explore">このまま触ってみる</button><span>·</span><button data-ao="again">もう一度見る</button><span>·</span><button data-ao="learn">使い方を学ぶ</button></div>`;
+        if (this.state.step === 'welcome') return t('surfaces.onboarding.takeoverWelcomeAkariVideoNext.message', { brand: brand });
+        if (this.state.step === 'first') return t('surfaces.onboarding.takeoverFirstTimeAkariVideoFirstTimeHave.description');
+        if (this.state.step === 'invite') {
+            const warning = this.currentSwitchWarning();
+            if (!this.busy) {
+                this.switchWarningShown = !!warning;
+                if (warning) this.switchWarningEverShown = true;
+            }
+            return inviteMarkup(this.busy, esc(this.prepareError), warning ? esc(warning) : '');
+        }
+        return t('surfaces.onboarding.done.markup');
     }
 
     protected coach(): CoachSpec | undefined {
         const sub = this.state.sub;
         switch (this.state.step) {
             case 'tour0': return sub === 0
-                ? { title: '画面の構成を知りましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] }
-                : { title: 'これが AKARI Video の画面です', body: '', minimal: true, noDim: true,
-                    buttons: [['次へ →', 'next', false]] };
-            case 'tour1': return { title: '① 左は「素材」です', holes: ['assets'], labels: ['① 素材'],
-                body: '<p>使う動画や写真を、ここに入れます。入れたものはカードで並びます。</p>', buttons: [['次へ', 'next', true]] };
+                ? { title: t('surfaces.onboarding.coachLearnScreenConfiguration.title'), body: '', minimal: true, fullFog: true, buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
+                : { title: t('surfaces.onboarding.coachAkariVideoScreen.title'), body: '', minimal: true, noDim: true,
+                    buttons: [[t('surfaces.onboarding.coachNextArrow.button'), 'next', false]] };
+            case 'tour1': return { title: t('surfaces.onboarding.coachLeftAsset.title'), holes: ['assets'], labels: [t('surfaces.onboarding.coachAsset.label')],
+                body: t('surfaces.onboarding.coachInsertVideosPhotosWantItemsPutArranged.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
             case 'tour2': return sub === 0
-                ? { title: '② 上は「プレビュー」です', holes: ['output'], labels: ['② 上: プレビュー'],
-                    body: '<p>仕上がりを再生して確かめる場所です。</p>', buttons: [['次へ', 'next', true]] }
-                : { title: '② 下は「タイムライン」です', holes: ['timeline'], labels: ['② 下: タイムライン'],
-                    body: '<p>動画・字幕・音が、時間の順に並びます。</p>', buttons: [['次へ', 'next', true]] };
+                ? { title: t('surfaces.onboarding.coachAbovePreview.title'), holes: ['output'], labels: [t('surfaces.onboarding.coachTopPreview.label')],
+                    body: t('surfaces.onboarding.coachPlacePlayCheckFinishedProduct.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
+                : { title: t('surfaces.onboarding.coachBelowTimeline.title'), holes: ['timeline'], labels: [t('surfaces.onboarding.coachBottomTimeline.label')],
+                    body: t('surfaces.onboarding.coachVideosCaptionsSoundsArrangedChronologicalOrder.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
             case 'tour3': return sub === 0
-                ? { title: '③ 右は「AI パートナー」です', holes: ['replay-chat'], labels: ['③ AI パートナー'], place: 'left',
-                    body: '<p>やりたいことを文章で頼むと、AI が編集を進めます。</p><p>右のように、頼んだことと AI の返事が並びます。</p>', buttons: [['次へ', 'next', true]] }
-                : { title: 'では、これを一緒につくってみましょう', body: '', minimal: true, fullFog: true, buttons: [['次へ', 'next', true]] };
+                ? { title: t('surfaces.onboarding.coachRightAiPartner.title'), holes: ['replay-chat'], labels: [t('surfaces.onboarding.coachAiPartner.label')], place: 'left',
+                    body: t('surfaces.onboarding.coachAskWantTextAiProceedEditingShown.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
+                : { title: t('surfaces.onboarding.coachLetsMakeTogether.title'), body: '', minimal: true, fullFog: true, buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
             case 'drag': return this.state.imported
-                ? { title: '素材はもう入っています', holes: ['assets'], body: '<p>次へ進みましょう。</p>', buttons: [['次へ', 'next', true]] }
-                : { title: 'まず素材を入れます', holes: ['assets'], rings: ['finder-file'], wide: true,
-                body: `<p>用意した動画を、左の「素材」へドラッグしてください。</p><p class="ao-note">${navigator.platform.includes('Mac') ? 'Finder' : 'エクスプローラー'}の右側で、中身を再生して確かめられます。</p>`,
-                link: ['import', 'ドラッグしづらいときは、ここを押して入れる'] };
+                ? { title: t('surfaces.onboarding.coachAssetsAlreadyIncluded.title'), holes: ['assets'], body: t('surfaces.onboarding.coachLetsMove.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
+                : { title: t('surfaces.onboarding.coachFirstAddAsset.title'), holes: ['assets'], rings: ['finder-file'], wide: true,
+                body: t('surfaces.onboarding.coachDragPreparedVideoAssetsLeftPreviewContents.description', { fileManager: navigator.platform.includes('Mac') ? 'Finder' : t('surfaces.onboarding.drag.fileExplorer') }),
+                link: ['import', t('surfaces.onboarding.coachHaveDifficultyDraggingPressInsert.label')] };
             case 'matpreview': return sub === 0
                 ? { ...MATERIAL_PREVIEW_SELECT_COPY, clear: ['assets'], rings: ['sample-card'] }
-                : { title: 'ここは「素材プレビュー」です', holes: ['material-preview'], rings: ['material-play-toggle'], body: '<p>下の ▶ で再生できます。確かめたら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                : { title: t('surfaces.onboarding.coachAssetPreview.title'), holes: ['material-preview'], rings: ['material-play-toggle'], body: t('surfaces.onboarding.coachClickBelowPlayOnceConfirmedMoveNext.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
             case 'ask': return sub === 0
-                ? { title: '編集は、右の AI に頼みます', holes: ['partner'], rings: ['answer-choices'], wide: true, place: 'left',
-                    body: '<p>やりたいことを文章で伝えると、AI がタイムラインを組み立てます。いま使っている AI はありますか？</p>',
-                    choices: [['claude', 'Claude', 'Pro・Max'], ['chatgpt', 'ChatGPT', '無料のアカウントでも可'], ['google', 'Google', 'AI Pro・無料のアカウント'], ['none', 'どれも使っていない', ''], ['other', 'ほかの AI', 'Cursor・Copilot・Devin など']] }
-                : { title: '今回は、お手本で流れを見ます', holes: [askHighlightTarget(this.state.answer)], wide: true, place: 'left',
-                    body: `<p>${askConnectionCopy(this.state.answer)}</p><p>このあとは AI を使わずに、頼んでから仕上がるまでをお手本で再生します。本物の AI とは、最後につなげます。</p>`,
-                    buttons: [['お手本を始める', 'replay', true]], link: ['reanswer', '選び直す'] };
+                ? { title: t('surfaces.onboarding.coachEditingAskRightAi.title'), holes: ['partner'], rings: ['answer-choices'], wide: true, place: 'left',
+                    body: t('surfaces.onboarding.coachTellUsWantWritingAiBuildTimeline.description'),
+                    choices: [['claude', 'Claude', t('surfaces.onboarding.coachProMax.label')], ['chatgpt', 'ChatGPT', t('surfaces.onboarding.coachFreeAccountAvailable.label')], ['google', 'Google', t('surfaces.onboarding.coachAiProFreeAccount.label')], ['none', t('surfaces.onboarding.coachNone.label'), ''], ['other', t('surfaces.onboarding.coachOtherAi.label'), t('surfaces.onboarding.coachCursorCopilotDevinEtc.label')]] }
+                : { title: t('surfaces.onboarding.coachTimeLookFlowModel.title'), holes: [askHighlightTarget(this.state.answer)], wide: true, place: 'left',
+                    body: t('surfaces.onboarding.coachPlayProcessOrderingCompletionWithoutAiReal.description', { connectionAdvice: askConnectionCopy(this.state.answer) }),
+                    buttons: [[t('surfaces.onboarding.coachStartExample.label'), 'replay', true]], link: ['reanswer', t('surfaces.onboarding.coachReselect.label')] };
             case 'prompt': return onboardingRevisit(this.state) === 'completed'
-                ? { title: 'お手本はもう終わっています', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
-                    body: '<p>もう一度見るか、次へ進みます。</p>', buttons: [['もう一度見る', 'again-work', false], ['次へ', 'next', true]] }
+                ? { title: t('surfaces.onboarding.coachExampleAlreadyFinished.title'), clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
+                    body: t('surfaces.onboarding.coachLookAgainMove.description'), buttons: [[t('surfaces.onboarding.coachLookAgain.label'), 'again-work', false], [t('surfaces.onboarding.coachNext.label'), 'next', true]] }
                 : sub === 0
-                ? { title: 'AI には、こう頼みます', clear: ['replay-chat'], rings: ['replay-input'], wide: true, place: 'left',
-                    body: `<div class="ao-prompt-entry">「<span class="ao-typed">${esc(this.promptTyped)}</span><span aria-hidden="true">▍</span>」</div><p class="ao-note">自分で打っても大丈夫です。</p>`,
-                    buttons: [['コピー', 'copy', false], ['入力欄に入れる', 'insert', true]] }
-                : { title: '「送る」を押してください', clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
-                    body: '<p>ここから先は、用意したお手本を再生します。AI は使いません。</p>', buttons: [['送る', 'send', true]] };
-            case 'work': return { title: 'AI が編集しています', noDim: true, narrow: true,
-                body: `<p class="ao-live">${esc(this.live)}</p><p>下のタイムラインと上のプレビューに、AI が置いたものが増えていきます。</p><p class="ao-note">お手本は約 18 秒です。実際には数分かかることがあります（未計測）。</p>`,
-                buttons: this.workError ? [['もう一度', 'retry-work', true]] : undefined };
-            case 'play': return sub === 0 ? { title: 'できました。再生してみましょう', clear: ['output'], rings: ['play-button'], bounce: true, body: '<p>▶ を押してください。</p>' }
-                : { title: 'テロップ・図解・効果音・BGM が入りました', holes: ['output'], body: '<p>話に合わせて、言ったその瞬間に出ます。止めるときは、もう一度 ▶ を押します。見終わったら次へ。</p>', buttons: [['次へ', 'next', true]] };
+                ? { title: t('surfaces.onboarding.coachAskAi.title'), clear: ['replay-chat'], rings: ['replay-input'], wide: true, place: 'left',
+                    body: t('surfaces.onboarding.coachTypeYourself.description', { prompt: esc(this.promptTyped) }),
+                    buttons: [[t('surfaces.onboarding.coachCopy.label'), 'copy', false], [t('surfaces.onboarding.coachEnterInputField.label'), 'insert', true]] }
+                : { title: t('surfaces.onboarding.coachSelectSend.title'), clear: ['replay-chat'], rings: ['replay-input'], place: 'left',
+                    body: t('surfaces.onboarding.coachPlayPreparedModelDontAi.description'), buttons: [[t('surfaces.onboarding.coachSend.label'), 'send', true]] };
+            case 'work': return { title: t('surfaces.onboarding.coachEditedAi.title'), noDim: true, narrow: true,
+                body: t('surfaces.onboarding.coachNumberThingsPlacedAiIncreaseTimelineBelow.description', { progress: esc(this.live) }),
+                buttons: this.workError ? [[t('surfaces.onboarding.coachOnceAgain.label'), 'retry-work', true]] : undefined };
+            case 'play': return sub === 0 ? { title: t('surfaces.onboarding.coachLetsPlay.title'), clear: ['output'], rings: ['play-button'], bounce: true, body: t('surfaces.onboarding.coachPress.description') }
+                : { title: t('surfaces.onboarding.coachTextOverlaysDiagramsSoundEffectsMusicPlace.title'), holes: ['output'], body: t('surfaces.onboarding.coachComesOutMomentSayDependingStoryStop.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
             case 'caption': return ([
                 { ...CAPTION_GUIDE_COPY[0], clear: ['output'], rings: ['caption-text'], bounce: true },
                 { ...CAPTION_GUIDE_COPY[1], clear: ['output', 'caption-style'], rings: ['caption-style'],
-                    buttons: [['次へ', 'next', true]] },
-                { ...CAPTION_GUIDE_COPY[2], clear: ['output'], rings: ['caption-text'], buttons: [['次へ', 'next', true]] }
+                    buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] },
+                { ...CAPTION_GUIDE_COPY[2], clear: ['output'], rings: ['caption-text'], buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
             ] as CoachSpec[])[Math.min(sub, 2)];
             case 'daihon': return sub === 0
                 ? { ...DAIHON_GUIDE_COPY[0], clear: ['daihon-button'], rings: ['daihon-button'], bounce: true, place: 'left' }
                 : sub === 1 ? { ...DAIHON_GUIDE_COPY[1], clear: ['daihon', 'output'], rings: ['daihon-first-row'], place: 'top' }
-                : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [['次へ', 'next', true]] };
-            case 'export': return ([
-                { title: '書き出しは、左の列の「書き出し」から', clear: [EXPORT_ONBOARDING_TARGET], rings: [EXPORT_ONBOARDING_TARGET], bounce: true, body: '<p>左の列の「書き出し」を押してください。編集データ（edit.json）ができていると押せます。</p>' },
-                { title: '標準のまま「書き出す」', clear: ['export-dialog'], rings: ['export-submit'], bounce: true, place: 'top', body: '<p>画質や保存先は、ここで変えられます。</p>' },
-                { title: '書き出しています', noDim: true, rings: ['export-progress'], place: 'bottom', body: '<p>進み具合は右下に出ます。そのまま作業を続けても大丈夫です。</p>' },
-                { title: '書き出せました', clear: ['assets'], rings: ['export-result'], body: '<p>できたファイルは「できたもの」に並びます。</p><p>AI パートナーに「書き出して」と頼んでも書き出せます（中身を見せて、確認してから実行します）。</p>', buttons: [['次へ', 'next', true]] }
+                : { ...DAIHON_GUIDE_COPY[2], clear: ['daihon', 'output'], place: 'top', buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] };
+            case 'export': return this.exportFailed && sub === 2
+                ? { title: t('surfaces.onboarding.coachExportFailed.title'), clear: ['export-dialog'],
+                    body: t('surfaces.onboarding.coachExportFailed.description'),
+                    buttons: [
+                        [t('surfaces.onboarding.coachExportRetry.label'), 'export-retry', true],
+                        [t('surfaces.onboarding.coachExportSkip.label'), 'export-skip', false]
+                    ] }
+                : ([
+                { title: t('surfaces.onboarding.coachExportSelectExportLeftColumn.title'), clear: [EXPORT_ONBOARDING_TARGET], rings: [EXPORT_ONBOARDING_TARGET], bounce: true, body: t('surfaces.onboarding.coachClickExportLeftColumnPressEditData.description') },
+                { title: t('surfaces.onboarding.coachExportStandard.title'), clear: ['export-dialog'], rings: ['export-submit'], bounce: true, place: 'top', body: t('surfaces.onboarding.coachChangeImageQualitySaveDestination.description') },
+                { title: t('surfaces.onboarding.coachExporting.title'), noDim: true, rings: ['export-progress'], place: 'bottom', body: t('surfaces.onboarding.coachProgressDisplayedBottomRightOkayContinueWorking.description') },
+                { title: t('surfaces.onboarding.coachExportComplete.title'), clear: ['assets'], rings: ['export-result'], body: t('surfaces.onboarding.coachCreatedFilesListedCompletedAlsoExportAsking.description'), buttons: [[t('surfaces.onboarding.coachNext.label'), 'next', true]] }
             ] as CoachSpec[])[Math.min(sub, 3)];
             default: return undefined;
         }
@@ -573,23 +705,24 @@ export class OnboardingController {
             folder: 'M3 6h7l2 2h9v12H3z', search: 'M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16m6 14 5 5', film: 'M4 3h16v18H4zM4 8h16M4 16h16M8 3v18M16 3v18'
         };
         const icon = (name: string): string => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
-        const nav = (mac ? ['お気に入り', '最近使った項目', 'アプリケーション', 'デスクトップ', 'ダウンロード', '書類', 'ピクチャ', 'ミュージック', 'ムービー', 'iCloud Drive']
-            : ['ホーム', 'ギャラリー', 'OneDrive', 'デスクトップ', 'ダウンロード', 'ドキュメント', 'ピクチャ', 'ミュージック', 'ビデオ', 'PC'])
+        const nav = (mac ? [t('surfaces.onboarding.finderFavorite.label'), t('surfaces.onboarding.finderRecentlyItems.label'), t('surfaces.onboarding.finderApplication.label'), t('surfaces.onboarding.finderDesktop.label'), t('surfaces.onboarding.finderDownload.label'), t('surfaces.onboarding.finderDocuments.label'), t('surfaces.onboarding.finderPicture.label'), t('surfaces.onboarding.finderMusic.label'), t('surfaces.onboarding.finderMovie.label'), 'iCloud Drive']
+            : [t('surfaces.onboarding.finderHome.label'), t('surfaces.onboarding.finderGallery.label'), 'OneDrive', t('surfaces.onboarding.finderDesktop.label'), t('surfaces.onboarding.finderDownload.label'), t('surfaces.onboarding.finderDocument.label'), t('surfaces.onboarding.finderPicture.label'), t('surfaces.onboarding.finderMusic.label'), t('surfaces.onboarding.finderVideo.label'), 'PC'])
             .map(label => `<div class="ao-f-nav">${icon('folder')}<span>${label}</span></div>`).join('');
-        const commands = mac ? `${icon('view')} 表示 <span class="ao-f-sep"></span> ${icon('share')} 共有` : `${icon('plus')} 新規作成 ▾ <span class="ao-f-sep"></span> ${['cut', 'copy', 'paste', 'rename', 'share', 'delete'].map(icon).join('')} <span class="ao-f-sep"></span> ${icon('sort')} 並べ替え ▾ ${icon('view')} 表示 ▾ …`;
-        return `<div class="ao-finder ${mac ? 'mac' : 'windows'}" data-akari-onboarding-target="finder"><div class="ao-f-title"><span class="ao-f-tab">${icon('folder')} AKARI サンプル <span>×</span></span><span class="ao-f-title-end">${mac ? '● ● ●' : '− □ ×'}</span></div><div class="ao-f-toolbar">${commands}</div><div class="ao-f-address">${icon('back')}${icon('next')}${icon('up')}${icon('refresh')}<span class="ao-f-breadcrumb">${mac ? 'Finder' : 'PC'} › ビデオ › AKARI サンプル</span><span class="ao-f-search">${icon('search')} 検索</span></div><div class="ao-f-body"><div class="ao-f-side">${nav}</div><div class="ao-f-files"><div class="ao-f-file" data-ao-file draggable="true">${icon('film')}<span>サンプル動画.mp4<small>ここからドラッグ</small></span></div></div><div class="ao-f-preview"><div>詳細</div><video ${this.videoUrl ? `src="${this.videoUrl}"` : ''} muted autoplay loop playsinline></video><b>サンプル動画.mp4</b><small>種類 MPEG-4 ムービー<br>長さ 00:37<br>サイズ 1280×720</small></div></div><div class="ao-f-status">1 個の項目 <span>1 個選択</span></div></div>`;
+        const commands = mac ? t('surfaces.onboarding.finderDisplayShare.message', { viewIcon: icon('view'), shareIcon: icon('share') }) : t('surfaces.onboarding.finderCreateNewSortView.message', { newIcon: icon('plus'), actions: ['cut', 'copy', 'paste', 'rename', 'share', 'delete'].map(icon).join(''), sortIcon: icon('sort'), viewIcon: icon('view') });
+        return `<div class="ao-finder ${mac ? 'mac' : 'windows'}" data-akari-onboarding-target="finder"><div class="ao-f-title"><span class="ao-f-tab">${icon('folder')} AKARI サンプル <span>×</span></span><span class="ao-f-title-end">${mac ? '● ● ●' : '− □ ×'}</span></div><div class="ao-f-toolbar">${commands}</div><div class="ao-f-address">${icon('back')}${icon('next')}${icon('up')}${icon('refresh')}<span class="ao-f-breadcrumb">${mac ? 'Finder' : 'PC'} › ${t('surfaces.onboarding.finderVideos.label')} › AKARI サンプル</span><span class="ao-f-search">${icon('search')} ${t('surfaces.onboarding.finderSearch.label')}</span></div><div class="ao-f-body"><div class="ao-f-side">${nav}</div><div class="ao-f-files"><div class="ao-f-file" data-ao-file draggable="true">${icon('film')}<span>サンプル動画.mp4<small>${t('surfaces.onboarding.finderDrag.label')}</small></span></div></div><div class="ao-f-preview"><div>${t('surfaces.onboarding.finderDetails.label')}</div><video ${this.videoUrl ? `src="${this.videoUrl}"` : ''} muted autoplay loop playsinline></video><b>サンプル動画.mp4</b><small>${t('surfaces.onboarding.finderTypeMpegMovie.label')}<br>${t('surfaces.onboarding.finderLength.label')} 00:37<br>${t('surfaces.onboarding.finderSize.label')} 1280×720</small></div></div><div class="ao-f-status">${t('surfaces.onboarding.finderItem.label')} <span>${t('surfaces.onboarding.finderSelected.label')}</span></div></div>`;
     }
 
     protected chat(): string {
         const tour = this.state.step.startsWith('tour');
         if (!guideShowsChat(this.state.step)) return '';
-        const lines = tour ? [`完成例です。この動画は、AI にこう頼んでつくりました。`, `> ${PROMPT}`, ...LOG.flatMap(entry => entry.lines)] : this.logLines;
-        const grouped = groupChatLines(lines);
+        const exampleNote = tour ? t('surfaces.onboarding.chatCompletedExampleVideoCreatedAskingAi.message') : undefined;
+        const lines = tour ? [exampleNote!, `> ${PROMPT}`, ...LOG.flatMap(entry => entry.lines)] : this.logLines;
+        const grouped = groupChatLines(lines, exampleNote);
         const messages = grouped.messages.map(message => {
             const content = message.lines.map(line => line.kind === 'code' ? `<code>${esc(line.text)}</code>` : `<p>${esc(line.text)}</p>`).join('');
-            return `<div class="ao-message ${message.role}"><span class="ao-message-name">${message.role === 'user' ? 'あなた' : 'AI パートナー'}</span><div class="ao-bubble">${content}</div></div>`;
+            return t('surfaces.onboarding.chat.message', { role: message.role, speaker: message.role === 'user' ? t('surfaces.onboarding.chat.you') : t('surfaces.onboarding.chat.partner'), content: content });
         }).join('');
-        return `<div class="ao-chat" data-akari-onboarding-target="replay-chat"><h3>${tour ? 'AI パートナー（完成例）' : 'お手本（AI なし）'}</h3><div class="ao-chat-log">${grouped.note ? `<p class="ao-chat-note">${esc(grouped.note)}</p>` : ''}${messages}</div><textarea class="ao-chat-input" data-akari-onboarding-target="replay-input" ${this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly'}>${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : ''}</textarea><button data-ao="send" ${this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled'}>送る</button></div>`;
+        return t('surfaces.onboarding.chatSend.message', { title: tour ? t('surfaces.onboarding.chat.examplePartner') : t('surfaces.onboarding.chat.example'), note: grouped.note ? `<p class="ao-chat-note">${esc(grouped.note)}</p>` : '', messages: messages, readOnly: this.state.step === 'prompt' && !this.state.workCompleted ? '' : 'readonly', prompt: this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? esc(PROMPT) : '', disabled: this.state.step === 'prompt' && this.state.sub && !this.state.workCompleted ? '' : 'disabled' });
     }
 
     protected render(): void {
@@ -626,7 +759,7 @@ export class OnboardingController {
                 hero.innerHTML = visual.hero === 'welcome'
                     ? (this.hero ? `<img src="${this.hero}" alt="">` : '')
                     : visual.hero === 'before-after'
-                        ? `<img src="${BEFORE_AFTER_DATA_URL}" alt="左は素材そのままの動画、右はタイトル・字幕・図解・BGM が入った仕上がり"><div class="ao-before-after-labels"><span>ビフォー</span><span>アフター</span></div><div class="ao-before-after-note">タイトル・字幕・図解・BGM</div>`
+                        ? t('surfaces.onboarding.titleCaptionsIllustrationsBgm.message', { imageUrl: BEFORE_AFTER_DATA_URL })
                         : '';
             }
         } else { takeHost.replaceChildren(); takeHost.dataset.kind = ''; takeHost.dataset.step = ''; }
@@ -636,7 +769,7 @@ export class OnboardingController {
         chatHost.classList.toggle('ao-chat-target', guideTargetsChat(this.state.step, this.state.sub));
         const exampleHost = this.root.querySelector<HTMLElement>('.ao-example-host')!;
         if (this.state.step.startsWith('tour')) {
-            if (!exampleHost.firstElementChild) exampleHost.innerHTML = `<div class="ao-example-preview"><video muted autoplay loop playsinline></video><div class="ao-example-title">AI と話すだけで動画編集</div><div class="ao-example-caption"></div><span class="ao-example-tag">完成例</span></div>`;
+            if (!exampleHost.firstElementChild) exampleHost.innerHTML = `<div class="ao-example-preview"><video muted autoplay loop playsinline></video><div class="ao-example-title">AI と話すだけで動画編集</div><div class="ao-example-caption"></div><span class="ao-example-tag">${t('surfaces.onboarding.exampleBadge.label')}</span></div>`;
             if (!this.videoUrl) void this.loadVideo();
             else {
                 const video = exampleHost.querySelector<HTMLVideoElement>('video');
@@ -644,7 +777,7 @@ export class OnboardingController {
             }
         } else exampleHost.replaceChildren();
         const coachHost = this.root.querySelector<HTMLElement>('.ao-coach-host')!;
-        const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}` : '';
+        const key = spec ? `${this.state.step}:${this.state.sub}:${onboardingRevisit(this.state) ?? ''}:${this.exportFailed ? 'failed' : ''}` : '';
         if (key !== this.coachKey) {
             if (this.bounceTimer) window.clearTimeout(this.bounceTimer);
             this.bounceTimer = undefined;
@@ -687,8 +820,9 @@ export class OnboardingController {
         };
         const choices = spec.choices?.map(([answer, label, note]) => `<button data-ao="answer" data-answer="${answer}"><span class="ao-choice-icon">${icon[answer]}</span><span>${label}${note ? `<small>${note}</small>` : ''}</span></button>`).join('') ?? '';
         const count = onboardingCount(this.state.step);
-        const eyebrow = this.state.step.startsWith('tour') ? '画面を知る' : count ? `STEP ${count.current} / ${count.total}` : '';
-        const back = previousGuidePosition(this.state) && !spec.minimal ? '<button class="ao-back" data-ao="back">← 戻る</button>' : '';
+        const eyebrow = this.state.step.startsWith('tour') ? t('surfaces.onboarding.coachMarkupGetKnowScreen.label') : count ? `STEP ${count.current} / ${count.total}` : '';
+        const back = previousGuidePosition(this.state) && !spec.minimal && !(this.state.step === 'export' && this.state.sub === 2 && this.exportFailed)
+            ? t('surfaces.onboarding.coachMarkupBack.label') : '';
         return `<div class="ao-coach ${spec.wide ? 'wide' : ''} ${spec.narrow ? 'narrow' : ''} ${spec.minimal ? 'minimal' : ''}" role="dialog" aria-live="polite">${eyebrow && !spec.minimal ? `<div class="ao-count">${eyebrow}</div>` : ''}<h3>${spec.title}</h3><div class="ao-body">${spec.body}</div>${choices ? `<div class="ao-choices">${choices}</div>` : ''}${spec.link ? `<button class="ao-link" data-ao="${spec.link[0]}">${spec.link[1]}</button>` : ''}${back || actions ? `<div class="ao-actions">${back}${actions}</div>` : ''}</div>`;
     }
 
@@ -762,7 +896,8 @@ export class OnboardingController {
                 }
             }
             let element = document.querySelector<HTMLElement>(`[data-akari-onboarding-target="${name}"]`);
-            if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]') ?? undefined;
+            if (name === 'export-dialog') element = document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-submit"]')?.closest<HTMLElement>('[role="dialog"]')
+                ?? document.querySelector<HTMLElement>('.akari-export-dialog-host [role="dialog"]') ?? undefined;
             const rect = element?.getBoundingClientRect();
             return rect && rect.width > 0 && rect.height > 0 && element && getComputedStyle(element).display !== 'none'
                 && getComputedStyle(element).visibility === 'visible' ? rect : undefined;
@@ -820,7 +955,17 @@ export class OnboardingController {
         } else rings.replaceChildren();
         const example = this.root.querySelector<HTMLElement>('.ao-example-preview');
         const output = rectOf('output');
-        if (example && output) {
+        // 見本の動画はプレビュー枠に重ねる。枠が見つからない・窓のほぼ全部を占める（プロジェクトが
+        // 開いていない、配置が崩れている）ときは出さない。出すと窓いっぱいで勝手に再生して見えていた。
+        const exampleFits = !!output && output.width > 0 && output.height > 0
+            && output.width <= innerWidth * 0.85 && output.height <= innerHeight * 0.85;
+        if (example) {
+            example.style.display = exampleFits ? '' : 'none';
+            const exampleVideo = example.querySelector('video');
+            if (exampleVideo && !exampleFits && !exampleVideo.paused) exampleVideo.pause();
+            else if (exampleVideo && exampleFits && exampleVideo.paused && exampleVideo.src) void exampleVideo.play().catch(() => undefined);
+        }
+        if (example && output && exampleFits) {
             Object.assign(example.style, { left: `${output.x + 8}px`, top: `${output.y + 38}px`, width: `${Math.max(0, output.width - 16)}px`, height: `${Math.max(0, output.height - 54)}px` });
             const video = example.querySelector('video');
             const caption = example.querySelector<HTMLElement>('.ao-example-caption');
@@ -917,7 +1062,7 @@ export class OnboardingController {
         if (host.dataset.geometry === geometry) return;
         host.dataset.geometry = geometry;
         const path = `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(Math.min(y1, y2) - 110).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
-        host.innerHTML = `<svg width="${innerWidth}" height="${innerHeight}" viewBox="0 0 ${innerWidth} ${innerHeight}"><defs><marker id="ao-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#fb923c"/></marker></defs><path class="ao-hint-path" d="${path}" fill="none" stroke="#fb923c" stroke-width="3.5" stroke-dasharray="10 8" stroke-linecap="round" marker-end="url(#ao-arrow)"/><g>${this.thumbnailUrl ? `<image href="${this.thumbnailUrl}" x="-36" y="-20" width="72" height="40"/>` : '<rect x="-36" y="-20" width="72" height="40" fill="#714327"/>'}<rect x="-36" y="-20" width="72" height="40" fill="none" stroke="white"/><animateMotion dur="2.2s" repeatCount="indefinite" path="${path}" keyPoints="0;1;1" keyTimes="0;.75;1" calcMode="linear"/></g><text x="${x2.toFixed(1)}" y="${(y2 + 52).toFixed(1)}" text-anchor="middle" class="ao-hint-label">ここへドラッグ</text></svg>`;
+        host.innerHTML = `<svg width="${innerWidth}" height="${innerHeight}" viewBox="0 0 ${innerWidth} ${innerHeight}"><defs><marker id="ao-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#fb923c"/></marker></defs><path class="ao-hint-path" d="${path}" fill="none" stroke="#fb923c" stroke-width="3.5" stroke-dasharray="10 8" stroke-linecap="round" marker-end="url(#ao-arrow)"/><g>${this.thumbnailUrl ? `<image href="${this.thumbnailUrl}" x="-36" y="-20" width="72" height="40"/>` : '<rect x="-36" y="-20" width="72" height="40" fill="#714327"/>'}<rect x="-36" y="-20" width="72" height="40" fill="none" stroke="white"/><animateMotion dur="2.2s" repeatCount="indefinite" path="${path}" keyPoints="0;1;1" keyTimes="0;.75;1" calcMode="linear"/></g><text x="${x2.toFixed(1)}" y="${(y2 + 52).toFixed(1)}" text-anchor="middle" class="ao-hint-label">${t('surfaces.onboarding.dragHere.label')}</text></svg>`;
     }
 
     protected celebrate(): void {
@@ -980,6 +1125,17 @@ export class OnboardingController {
         const action = element.dataset.ao;
         if (action !== 'idle-close' && action !== 'close-guide') this.noteInteraction();
         if (action === 'idle-close' || action === 'close-guide') return this.close();
+        if (action === 'export-retry' && this.state.step === 'export' && this.exportFailed) {
+            await this.setSub(1);
+            this.resetExport();
+            if (!this.exportDialogIsOpen()) this.pressExportRailTab();
+            return;
+        }
+        if (action === 'export-skip' && this.state.step === 'export' && this.exportFailed) {
+            document.querySelector<HTMLElement>('[data-akari-onboarding-target="export-close"]')?.click();
+            await this.go('done');
+            return;
+        }
         if (action === 'retry-transition') {
             const retry = this.transitionFailure?.retry;
             if (retry) await retry();
@@ -1025,7 +1181,13 @@ export class OnboardingController {
             }
         }
         else if (action === 'no' || action === 'later') { await this.service.returnToHome(); this.closeVisual(); }
-        else if (action === 'start') await this.prepare();
+        else if (action === 'start') {
+            if (this.busy) return;
+            const warning = this.currentSwitchWarning();
+            if (warning && !this.switchWarningShown) { this.render(); return; }
+            this.switchConsentGiven = this.switchWarningShown;
+            await this.prepare();
+        }
         else if (action === 'import') await this.importSample();
         else if (action === 'answer') {
             const answer = element.dataset.answer as AiAnswer;
@@ -1062,14 +1224,27 @@ export class OnboardingController {
             await this.service.save(this.state);
             await this.service.importSample(prepared.projectUri, prepared.sample.sourcePath);
             await this.service.writeExample(prepared.projectUri, prepared.sample.sourcePath, prepared.sample.segments, prepared.sample.segments.length, true);
+            if (this.currentSwitchWarning() && !this.switchConsentGiven) {
+                this.busy = false;
+                this.render();
+                return;
+            }
+            // Persist the resume point before opening the workspace, which may reload this window.
+            await this.service.save(nextOnboardingState(this.state, 'tour0', 0));
+            await this.openProject(prepared.projectUri, this.switchConsentGiven);
             await this.go('tour0');
             if (this.transitionFailure) { this.busy = false; return; }
-            await this.openProject(prepared.projectUri);
             await this.showOutput(prepared.projectUri);
         } catch (error) {
-            this.prepareError = error instanceof Error && /network|fetch|ECONN|ENOTFOUND|timeout|ETIMEDOUT/i.test(error.message)
-                ? 'サンプル素材を取得できませんでした。インターネット接続を確認してください。'
-                : 'サンプル素材の準備に失敗しました。保存先と空き容量を確認してください。';
+            if (isGuidePartnerStopError(error)) {
+                await this.service.save(this.state).catch(saveError =>
+                    console.warn('[akari-onboarding] invite resume point could not be restored:', saveError));
+            }
+            this.prepareError = isGuidePartnerStopError(error)
+                ? t('surfaces.onboarding.preparePartnerStopFailed.message')
+                : error instanceof Error && /network|fetch|ECONN|ENOTFOUND|timeout|ETIMEDOUT/i.test(error.message)
+                    ? t('surfaces.onboarding.prepareDownloadSampleAssetCheckInternetConnection.message')
+                    : t('surfaces.onboarding.prepareSampleAssetCheckDestinationFreeSpace.message');
             this.busy = false;
             this.render();
         }
@@ -1104,7 +1279,7 @@ export class OnboardingController {
 
     protected restoreExportBackSurface(): void {
         if (this.state.sub === 1) {
-            document.querySelector<HTMLElement>('.akari-export-dialog-host button[aria-label="閉じる"]')?.click();
+            document.querySelector<HTMLElement>('.akari-export-dialog-host .ph button.x')?.click();
         }
     }
 
@@ -1157,7 +1332,10 @@ export class OnboardingController {
         else if (this.state.step === 'daihon' && name === 'daihon-first-row' && this.state.sub === 1) void this.setSub(2);
         else if (this.state.step === 'export') {
             const expected = [EXPORT_ONBOARDING_TARGET, 'export-submit'][this.state.sub];
-            if (name === expected) void this.setSub(this.state.sub + 1);
+            if (name === expected) {
+                if (name === 'export-submit') this.exportSubmissionFailureVersion = this.exportFailureVersion();
+                void this.setSub(this.state.sub + 1);
+            }
             else this.nudge();
         } else if (!['drag', 'play', 'caption', 'matpreview'].includes(this.state.step)) this.nudge();
     };
@@ -1244,7 +1422,7 @@ export class OnboardingController {
                         if (!this.root || this.state.step !== 'work') return;
                         await this.service.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments, count, false);
                         window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
-                        this.live = `字幕を置いています…（${count}/${this.sample.segments.length}）`;
+                        this.live = t('surfaces.onboarding.demoCaptionProgress.status', { count, total: this.sample.segments.length });
                         this.render();
                         const segment = this.sample.segments[count - 1];
                         await this.seekOutput(this.state.projectUri, (segment.start + segment.end) / 2).catch(() => undefined);
@@ -1274,7 +1452,7 @@ export class OnboardingController {
         } catch (error) {
             console.error('[akari-surfaces] onboarding replay failed', error);
             this.workError = true;
-            this.live = 'お手本の保存ができませんでした。書き込み状態を確認して、もう一度お試しください。';
+            this.live = t('surfaces.onboarding.startWorkSaveExampleCheckFilesWritableTryAgain.message');
             this.render();
         } finally { this.busy = false; }
     }
@@ -1282,20 +1460,36 @@ export class OnboardingController {
     protected beginExportPoll(): void {
         if (this.exportPoll) window.clearInterval(this.exportPoll);
         this.exportPoll = window.setInterval(() => {
-            if (this.state.step !== 'export' || this.state.sub !== 2 || !this.state.projectUri || this.exportFinishing) return;
+            if (this.state.step !== 'export' || this.state.sub !== 2 || !this.state.projectUri || this.exportFinishing || this.exportFailed) return;
             void this.service.hasExport(this.state.projectUri).then(async found => {
-                if (!found || this.state.step !== 'export' || this.state.sub !== 2 || this.exportFinishing) return;
+                if (!found || this.state.step !== 'export' || this.state.sub !== 2 || this.exportFinishing || this.exportFailed) return;
                 const dialog = document.querySelector<HTMLElement>('.akari-export-dialog-host');
-                if (dialog && !dialog.textContent?.includes('書き出し完了')) return;
+                if (dialog && !dialog.querySelector('.result .fnm')) return;
                 this.exportFinishing = true;
                 try {
-                    dialog?.querySelector<HTMLButtonElement>('button[aria-label="閉じる"]')?.click();
+                    dialog?.querySelector<HTMLButtonElement>('.ph button.x')?.click();
                     await this.showAssets();
                     window.dispatchEvent(new Event('akari.onboarding.refreshProject'));
                     await this.setSub(3);
                 } finally { this.exportFinishing = false; }
             });
         }, 1000);
+    }
+
+    protected handleExportPhase = (event: CustomEvent<{ phase: string; failureVersion: number }>): void => {
+        this.updateExportPhase(event.detail?.phase, event.detail?.failureVersion);
+    };
+
+    protected updateExportPhase(phase: string, failureVersion = this.exportFailureVersion()): void {
+        if (!this.root || this.state.step !== 'export' || this.state.sub !== 2) return;
+        if (phase === 'failed' && !this.exportFailed
+            && (this.exportSubmissionFailureVersion === undefined || failureVersion > this.exportSubmissionFailureVersion)) {
+            this.exportFailed = true;
+            this.render();
+        } else if ((phase === 'linting' || phase === 'rendering') && this.exportFailed) {
+            this.exportFailed = false;
+            this.render();
+        }
     }
 
 }

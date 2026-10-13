@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { renderText } from './i18n.mjs';
 
 export const AUDIO_LEVEL_THRESHOLD_DB = -80;
 export const MOTION_STATIC_NCC = 0.98;
@@ -38,7 +39,7 @@ export function measureAudioLevel({
 }) {
   const planned = planVolumeIntervals(durationSeconds);
   if (planned.length === 0) {
-    return { ok: false, intervals: [], max_db: null, error: "出力尺が正の有限値ではありません" };
+    return { ok: false, intervals: [], max_db: null, error: renderText('render.verify.audio.invalidDuration') };
   }
 
   const intervals = [];
@@ -108,13 +109,13 @@ export function judgeAudioLevel({ declared, reasons = [], hasAudioStream, measur
   }
 
   if (!measurement || measurement.ok === false || !isDb(measurement.max_db)) {
-    const error = measurement?.error || "volumedetect の結果を解釈できません";
+    const error = measurement?.error || renderText('render.verify.audio.unreadableResult');
     const intervalCount = measurement?.intervals?.length ?? 0;
     return {
       finding: {
         severity: "error",
         check: "verify.audio-level",
-        message: `音量を測定できません（閾値 ${AUDIO_LEVEL_THRESHOLD_DB} dB・${intervalCount} 区間）: ${error}`,
+        message: renderText('render.verify.audio.measureFailed', { threshold: AUDIO_LEVEL_THRESHOLD_DB, count: intervalCount, n: intervalCount, error }),
       },
       record: {
         ...base,
@@ -128,14 +129,14 @@ export function judgeAudioLevel({ declared, reasons = [], hasAudioStream, measur
   const intervals = measurement.intervals ?? [];
   const maxDb = measurement.max_db;
   const maxText = formatDb(maxDb);
-  const countText = `${intervals.length} 区間`;
+  const countText = renderText('render.verify.audio.intervalCount', { count: intervals.length, n: intervals.length });
   if (declared === true && maxDb < AUDIO_LEVEL_THRESHOLD_DB) {
-    const reasonText = normalizedReasons.length > 0 ? normalizedReasons.join("/") : "音声";
+    const reasonText = normalizedReasons.length > 0 ? normalizedReasons.join("/") : renderText('render.verify.audio.reasonAudio');
     return {
       finding: {
         severity: "error",
         check: "verify.audio-level",
-        message: `宣言された音声（${reasonText}）に対し、出力の最大音量が ${maxText} dB（閾値 ${AUDIO_LEVEL_THRESHOLD_DB} dB・${countText}）— デジタル無音`,
+        message: renderText('render.verify.audio.digitalSilence', { reasons: reasonText, max: maxText, threshold: AUDIO_LEVEL_THRESHOLD_DB, intervals: countText }),
       },
       record: { ...base, intervals, max_db: maxDb, verdict: "fail" },
     };
@@ -145,7 +146,7 @@ export function judgeAudioLevel({ declared, reasons = [], hasAudioStream, measur
       finding: {
         severity: "info",
         check: "verify.audio-level",
-        message: `最大音量 ${maxText} dB（${countText}）`,
+        message: renderText('render.verify.audio.maxLevel', { max: maxText, intervals: countText }),
       },
       record: { ...base, intervals, max_db: maxDb, verdict: "pass" },
     };
@@ -157,8 +158,8 @@ export function judgeAudioLevel({ declared, reasons = [], hasAudioStream, measur
       severity: "warning",
       check: "verify.audio-level",
       message: silent
-        ? `音声の宣言が無い無音トラック（${maxText} dB）`
-        : `音声の宣言が無いのに可聴音声（${maxText} dB）`,
+        ? renderText('render.verify.audio.undeclaredSilent', { max: maxText })
+        : renderText('render.verify.audio.undeclaredAudible', { max: maxText }),
     },
     record: { ...base, intervals, max_db: maxDb, verdict: "warning" },
   };
@@ -296,7 +297,7 @@ export function judgeMotion({
       severity: warning ? "warning" : "info",
       check: "verify.motion-static",
       message: warning
-        ? `cut ${probe.cut}: keyframes が異なる画角を宣言する t=${formatSeconds(probe.t1)}s / t=${formatSeconds(probe.t2)}s の出力フレームが酷似（NCC ${formatNcc(ncc)}）— カメラワーク未反映の可能性`
+        ? renderText('render.verify.motion.staticFrames', { cut: probe.cut, t1: formatSeconds(probe.t1), t2: formatSeconds(probe.t2), ncc: formatNcc(ncc) })
         : `cut ${probe.cut}: NCC ${formatNcc(ncc)}`,
     });
   }

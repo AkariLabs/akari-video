@@ -1,3 +1,4 @@
+import { setLanguage } from '@akari-video/i18n';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -6,12 +7,20 @@ import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { spawn } from 'node:child_process';
-import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
-import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
-import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
-import { appendAiStillResultPanel } from '../lib/browser/inspector/ai-still-result-panel.js';
+
+
+
+
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { requireFfmpeg } from './helpers/require-ffmpeg.mjs';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } = await import('../lib/node/still-generation.js');
+const { aiActionCatalog } = await import('../lib/common/ai-action-catalog.js');
+const { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { appendAiStillResultPanel } = await import('../lib/browser/inspector/ai-still-result-panel.js');
+
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const bin = fileURLToPath(new URL('./fixtures/ai-still-routes-bin/', import.meta.url));
@@ -350,7 +359,7 @@ test('同じ枠の三手段を同時に候補化し、進捗と edit 不変、�
   const dir = await workspace();
   try {
     await writeFile(join(dir, 'image-state'), 'delay');
-    const instance = manager(dir);
+    const instance = manager(dir, { FAKE_CODEX_DELAY_MS: '5000' });
     const editBefore = await readFile(join(dir, 'edit.json'));
     const pending = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.some(row =>
@@ -501,9 +510,13 @@ test('バッチ実行中の読み口は最初の完了を残りの実行中に�
 test('次のバッチの進捗は前回結果を拾わず、候補一覧は重複なく新しい順', async () => {
   const dir = await workspace();
   try {
-    const instance = manager(dir);
+    const env = { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`,
+      FAKE_IMAGE_STATE_FILE: join(dir, 'image-state'), FAKE_IMAGE_LOG: join(dir, 'calls.jsonl'),
+      AKARI_CODEX_BIN: join(bin, 'codex'), AKARI_AGY_BIN: join(bin, 'agy'), AKARI_GROK_BIN: join(bin, 'grok') };
+    const instance = new StillGenerationManager(findAsset, { env });
     await instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await writeFile(join(dir, 'image-state'), 'delay');
+    env.FAKE_CODEX_DELAY_MS = '5000';
     const second = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
     await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.filter(row =>
       row.route === route && row.args[0] !== 'models').length >= 2));

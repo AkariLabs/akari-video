@@ -42,7 +42,8 @@ test("OSR は宣言なし・空宣言で余計な config キーや字幕 markup 
 test("宣言なしの HTML は基底のバイト列を保ち、overlay sheet は現行の時刻同期を保つ", () => {
   const page = build({ captions: [{ ...cue, text: "Caption ABC" }] });
   const digest = value => createHash("sha256").update(value).digest("hex");
-  assert.equal(digest(page.html), "fbd423496883180bb711931de726461c6728d725fa35ddba8ccfc450cb820236");
+  const withoutWarningMessages = page.html.replace(/,"messages":\{"longGop":"(?:\\.|[^"\\])*"\}/u, "");
+  assert.equal(digest(withoutWarningMessages), "fbd423496883180bb711931de726461c6728d725fa35ddba8ccfc450cb820236");
   assert.equal(digest(page.overlaySheetHtml), "cff8192aeeca511036d6deee3f2c7d50cda02e612fdec2f450a8800eccd11733");
 });
 

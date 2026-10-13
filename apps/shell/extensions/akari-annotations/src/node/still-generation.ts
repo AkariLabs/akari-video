@@ -1,3 +1,4 @@
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { spawn, type ChildProcess } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -58,7 +59,7 @@ export class StillGenerationManager {
         const fallback = ['/opt/homebrew/bin', '/usr/local/bin', join(homedir(), '.local', 'bin')];
         const env = { ...this.env, PATH: [...new Set([dirname(resolve(cli)), ...entries, ...fallback])].join(delimiter) };
         for (const name of keyNames) delete env[name];
-        return env;
+        return childProcessEnv(env);
     }
 
     private async falKey(): Promise<{ key: string; key_source: string } | undefined> {
@@ -110,14 +111,14 @@ export class StillGenerationManager {
     private async probeRoute(route: Route): Promise<ImageRouteState> {
         if (route === 'fal') {
             const key = await this.falKey();
-            return { id: route, state: key ? 'ready' : 'missing', detail: key ? 'キーを設定済み' : 'キーを設定すると使えます →' };
+            return { id: route, state: key ? 'ready' : 'missing', detail: key ? t('annotationscommon.stillGeneration.probe.keyConfigured') : t('annotationscommon.stillGeneration.probe.setKey') };
         }
         const cli = await this.resolveCli(route);
         const label = route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex';
-        if (!cli) return { id: route, state: 'missing', detail: `${label} CLI が見つかりません` };
+        if (!cli) return { id: route, state: 'missing', detail: t('annotationscommon.stillGeneration.probe.cliMissing', { provider: label }) };
         const args = route === 'codex' ? ['login', 'status'] : ['models'];
         const timeoutMs = this.options.probeTimeoutMsByRoute?.[route] ?? this.options.probeTimeoutMs ?? IMAGE_PROBE_TIMEOUT_MS[route];
-        const timeoutDetail = `確かめられませんでした（${timeoutMs / 1000} 秒で打ち切り）`;
+        const timeoutDetail = t('annotationscommon.stillGeneration.probe.timedOut', { seconds: timeoutMs / 1000, n: timeoutMs / 1000 });
         const inspect = (): Promise<{ code: number | null; output: string; stdout: string; timedOut: boolean }> =>
             new Promise(resolvePromise => {
             let output = '';
@@ -140,18 +141,18 @@ export class StillGenerationManager {
             } catch (error) { output += `\n${String(error)}`; finish(null); }
         });
         const first = await inspect();
-        if (first.timedOut && route === 'codex') return { id: route, state: 'missing', detail: timeoutDetail };
-        if (first.code === null && !first.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした' };
+        if (first.timedOut && route === 'codex') return { id: route, state: 'missing', detail: timeoutDetail, reasonCode: 'probe-unverified' };
+        if (first.code === null && !first.timedOut) return { id: route, state: 'missing', detail: t('annotationscommon.stillGeneration.probe.unverified'), reasonCode: 'probe-unverified' };
         let last = first;
         if (first.timedOut || (route === 'grok' && /^You are not authenticated/iu.test(first.stdout.trimStart().split(/\r?\n/u)[0] ?? ''))) {
             last = await inspect();
-            if (last.timedOut) return { id: route, state: 'unknown', detail: timeoutDetail };
-            if (last.code === null) return { id: route, state: 'missing', detail: '確かめられませんでした' };
+            if (last.timedOut) return { id: route, state: 'unknown', detail: timeoutDetail, reasonCode: 'probe-unverified' };
+            if (last.code === null) return { id: route, state: 'missing', detail: t('annotationscommon.stillGeneration.probe.unverified'), reasonCode: 'probe-unverified' };
         }
         const ready = route === 'codex' ? last.code === 0 && /Logged in/iu.test(last.output)
             : route === 'antigravity' ? last.code === 0 && last.stdout.split(/\r?\n/u).some(line => /^\S+\t\S+/u.test(line))
                 : last.code === 0 && /^You are logged in/iu.test(last.stdout.trimStart().split(/\r?\n/u)[0] ?? '');
-        return { id: route, state: ready ? 'ready' : 'signed-out', detail: ready ? 'サインイン済み' : 'サインインが必要です' };
+        return { id: route, state: ready ? 'ready' : 'signed-out', detail: ready ? t('annotationscommon.stillGeneration.probe.signedIn') : t('annotationscommon.stillGeneration.probe.signInRequired') };
     }
 
     async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string; routes?: Route[] }, candidateMode = false): Promise<GenerateStillResult> {
@@ -161,39 +162,39 @@ export class StillGenerationManager {
     }
 
     private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest & { editUri?: string; routes?: Route[] }, candidateMode: boolean): Promise<GenerateStillResult> {
-        if (!request.prompt?.trim() || !stillAspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
-        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
+        if (!request.prompt?.trim() || !stillAspectText[request.aspect]) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.missingPromptAspect') };
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: t('annotationscommon.stillGeneration.error.invalidItemId') };
         const route = request.route ?? 'codex';
-        if (!(['codex', 'antigravity', 'grok', 'fal'] as const).includes(route)) return { ok: false, reason: '手段が不正です。' };
-        if (route === 'fal' && request.approved !== true) return { ok: false, reason: '費用承認が必要です。' };
+        if (!(['codex', 'antigravity', 'grok', 'fal'] as const).includes(route)) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.invalidRoute') };
+        if (route === 'fal' && request.approved !== true) return { ok: false, reason: t('annotationscommon.stillGeneration.error.costApprovalRequired') };
         const maxReferences = aiActionCatalog([]).find(action => action.id === 'still')!.routes.find(row => row.id === route)!
             .inputs!.reference_images!.max;
         if (!Array.isArray(request.references ?? []) || (request.references?.length ?? 0) > maxReferences) {
-            return { ok: false, reason: route === 'antigravity' ? 'この手段は画像を受け取れません' : `${route} は ${maxReferences} 枚まで` };
+            return { ok: false, reason: route === 'antigravity' ? t('annotationscommon.stillGeneration.reason.referencesUnsupported') : t('annotationscommon.stillGeneration.reason.referencesLimit', { route, count: maxReferences, n: maxReferences }) };
         }
         const root = await fs.realpath(projectRoot);
         const references: Array<{ path: string; sha256: string; absolutePath: string }> = [];
         for (const path of request.references ?? []) {
             if (typeof path !== 'string' || isAbsolute(path) || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path)) {
-                return { ok: false, reason: '参照画像はプロジェクト内の画像ファイルを指定してください。' };
+                return { ok: false, reason: t('annotationscommon.stillGeneration.reason.invalidReference') };
             }
             const absolutePath = await fs.realpath(resolve(root, path)).catch(() => undefined);
             if (!absolutePath || !absolutePath.startsWith(`${root}${sep}`) || !(await fs.stat(absolutePath)).isFile()) {
-                return { ok: false, reason: '参照画像が見つからないか、プロジェクト外です。' };
+                return { ok: false, reason: t('annotationscommon.stillGeneration.reason.referenceNotFound') };
             }
             references.push({ path: relative(root, absolutePath).split(sep).join('/'), absolutePath,
                 sha256: createHash('sha256').update(await fs.readFile(absolutePath)).digest('hex') });
         }
         const cli = route === 'fal' ? undefined : await this.resolveCli(route);
-        if (route !== 'fal' && !cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
+        if (route !== 'fal' && !cli) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.cliMissing', { provider: route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex' }) };
         const falKey = route === 'fal' ? await this.falKey() : undefined;
-        if (route === 'fal' && !falKey) return { ok: false, reason: 'fal のキーを設定してください。' };
+        if (route === 'fal' && !falKey) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.falKeyMissing') };
         const edit = JSON.parse(await fs.readFile(timelineEditPath(root, request.editUri), 'utf8'));
-        if (edit.version !== 2) return { ok: false, reason: 'v2 へ変換してから編集してください。' };
+        if (edit.version !== 2) return { ok: false, reason: t('annotationscommon.stillGeneration.error.convertV2BeforeEditing') };
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
         const sourcePath = edit.sources?.find((source: any) => source.id === item?.source?.src)?.path;
         if (!item || item.source?.kind !== 'media' || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(sourcePath ?? '')) {
-            return { ok: false, reason: '空の枠か静止画を選んでください。' };
+            return { ok: false, reason: t('annotationscommon.stillGeneration.error.selectEmptyFrameStillImage') };
         }
         const outputDir = join(root, 'assets', 'generated');
         await projectOutputPath(root, 'assets/generated/.still-output');
@@ -201,11 +202,11 @@ export class StillGenerationManager {
             await fs.mkdir(join(outputDir, 'candidates'), { recursive: true });
             await fs.mkdir(join(outputDir, 'candidates', request.itemId), { recursive: true });
             const candidateRoot = await fs.realpath(join(outputDir, 'candidates', request.itemId));
-            if (!candidateRoot.startsWith(`${await fs.realpath(outputDir)}${sep}`)) return { ok: false, reason: '生成先がプロジェクト外です。' };
+            if (!candidateRoot.startsWith(`${await fs.realpath(outputDir)}${sep}`)) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.outputOutsideProject') };
         }
         const realOutputDir = await fs.realpath(outputDir);
         const rel = relative(root, realOutputDir);
-        if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return { ok: false, reason: '生成先がプロジェクト外です。' };
+        if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return { ok: false, reason: t('annotationscommon.stillGeneration.reason.outputOutsideProject') };
         const staging = await fs.mkdtemp(join(outputDir, '.still-'));
         const id = `still-${Date.now()}-${basename(staging).slice(7)}`;
         const relativePath = candidateMode
@@ -260,8 +261,8 @@ export class StillGenerationManager {
                 env: { ...this.spawnEnv(cli), [route === 'antigravity' ? 'AKARI_AGY_BIN' : 'AKARI_GROK_BIN']: cli },
                 spawnProcess
             });
-            if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
-            if (!result?.ok) return { ok: false, reason: brief(result?.error ?? `${route} から結果が返りませんでした`) };
+        if (run.cancelled) return { ok: false, cancelled: true, reason: t('annotationscommon.stillGeneration.error.cancelled') };
+        if (!result?.ok) return { ok: false, reason: brief(result?.error ?? t('annotationscommon.stillGeneration.reason.noResult', { route })) };
             let image = await metas.inspectPng(join(staging, 'image.png'));
             const crop = request.cropToAspect === false ? undefined : stillCropPlan(image.width, image.height, request.aspect);
             const croppedFrom = crop ? `${image.width}x${image.height}` : undefined;
@@ -275,13 +276,13 @@ export class StillGenerationManager {
                         const child = spawnProcess(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input,
                             '-vf', crop.filter, '-frames:v', '1', output], { env: this.spawnEnv(ffmpeg), stdio: 'ignore' });
                         child.once('error', reject);
-                        child.once('close', code => code === 0 ? resolvePromise() : reject(new Error('画像を切りそろえられませんでした。')));
+                        child.once('close', code => code === 0 ? resolvePromise() : reject(new Error(t('annotationscommon.stillGeneration.error.couldNotCropImage'))));
                     });
                 }
                 await fs.rename(output, input);
                 image = await metas.inspectPng(input);
                 if (image.width !== crop.width || image.height !== crop.height) {
-                    throw new Error('切りそろえた画像の寸法が一致しません。');
+                    throw new Error(t('annotationscommon.stillGeneration.error.croppedImageDimensionsDoNotMatch'));
                 }
             }
             const oldMeta = oldMetaText ? JSON.parse(oldMetaText) : undefined;
@@ -326,13 +327,13 @@ export class StillGenerationManager {
             const checked = validator.validateGenerationMeta(meta);
             if (!checked.ok) return { ok: false, reason: brief(checked.errors.join('\n')) };
             await fs.writeFile(join(staging, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`);
-            if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
+        if (run.cancelled) return { ok: false, cancelled: true, reason: t('annotationscommon.stillGeneration.error.cancelled') };
             await fs.rename(join(staging, 'meta.json'), `${target}.meta.json`);
             try { await fs.rename(join(staging, 'image.png'), target); }
             catch (error) { await fs.rm(`${target}.meta.json`, { force: true }); throw error; }
             if (run.cancelled) {
                 await Promise.all([fs.rm(target, { force: true }), fs.rm(`${target}.meta.json`, { force: true })]);
-                return { ok: false, cancelled: true, reason: '中止しました。' };
+            return { ok: false, cancelled: true, reason: t('annotationscommon.stillGeneration.error.cancelled') };
             }
             succeeded = true;
             return { ok: true, relativePath, width: image.width, height: image.height, elapsedSeconds: result.elapsed_s, croppedFrom };
@@ -353,11 +354,11 @@ export class StillGenerationManager {
 
     async startGenerateStillBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'> & { routes: Route[]; editUri?: string }): Promise<StillCandidateBatch> {
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId) || !request.prompt?.trim()
-            || !stillAspectText[request.aspect]) throw new Error('枠、指示文、画角を指定してください。');
+            || !stillAspectText[request.aspect]) throw new Error(t('annotationscommon.stillGeneration.error.chooseFramePromptAspectRatio'));
         const routes = [...new Set(request.routes)];
         if (!routes.length || routes.length !== request.routes.length
-            || routes.some(route => !stillRouteIds.has(route))) throw new Error('手段を選んでください。');
-        if (routes.includes('fal') && request.approved !== true) throw new Error('費用承認が必要です。');
+            || routes.some(route => !stillRouteIds.has(route))) throw new Error(t('annotationscommon.stillGeneration.error.selectRoute'));
+        if (routes.includes('fal') && request.approved !== true) throw new Error(t('annotationscommon.stillGeneration.error.costApprovalRequired'));
         const batch = await this.candidates.batch(request.itemId, routes,
             () => this.prepareCompareBatch(projectRoot, { ...request, routes }),
             async route => {
@@ -385,7 +386,7 @@ export class StillGenerationManager {
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
         const sourcePath = edit.sources?.find((source: any) => source.id === item?.source?.src)?.path;
         if (!item || item.source?.kind !== 'media' || typeof sourcePath !== 'string'
-            || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(sourcePath)) throw new Error('空の枠か静止画を選んでください。');
+            || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(sourcePath)) throw new Error(t('annotationscommon.stillGeneration.error.selectEmptyFrameStillImage'));
         const sidecarPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
         const previous = await fs.readFile(sidecarPath, 'utf8').catch(error => {
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
@@ -409,10 +410,10 @@ export class StillGenerationManager {
     async readStillCandidates(projectRoot: string, itemId: string, includeThumbnails = true, editUri?: string): Promise<StillCandidateBatch> {
         const live = this.candidates.state(itemId);
         const root = await fs.realpath(projectRoot);
-        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error(t('annotationscommon.stillGeneration.error.invalidItemId'));
         const directory = join(root, 'assets', 'generated', 'candidates', itemId);
         const realDirectory = await fs.realpath(directory).catch(() => undefined);
-        if (realDirectory && !realDirectory.startsWith(`${root}${sep}`)) throw new Error('候補がプロジェクト外です。');
+        if (realDirectory && !realDirectory.startsWith(`${root}${sep}`)) throw new Error(t('annotationscommon.stillGeneration.error.candidateOutsideProject'));
         const edit = await fs.readFile(timelineEditPath(root, editUri), 'utf8').then(JSON.parse).catch(() => ({}));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === itemId);
         const sourcePath = edit.sources?.find((row: any) => row.id === item?.source?.src)?.path;

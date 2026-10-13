@@ -835,3 +835,50 @@ test("pending pause cannot write after an overlay is hidden or unmounted", async
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(animation.currentTime,2345,"unmounted animation stays released");
 });
+
+// 内部契約 2026-10-11-3d-place §2.4: keyframes[].vars（3D の向き）は render の前に書く。
+// gizmo のライブ値（setLiveVars）はキーフレームより勝ち、外すと静的値・キーフレームへ戻る
+test("3D の向きのキーフレームを render の前に container へ書く", async () => {
+  const host = createHost();
+  const seen = [];
+  host.window.akari.threeRuntime.render = (container) => {
+    seen.push(container.style.getPropertyValue("--akari-3d-rot-y"));
+  };
+  await host.runtime.mount({ output: { fps: 30 }, overlays: [{
+    id: "phone", start: 1, duration: 4, html: THREE_HTML, transform: { x: 0, y: 0, scale: 1 },
+    vars: { "--akari-3d-rot-y": "10" },
+    keyframes: [{ t: 0, vars: { "--akari-3d-rot-y": 0 } }, { t: 30, vars: { "--akari-3d-rot-y": 90 } }],
+  }] });
+  const container = host.stage.children[0];
+  host.runtime.tick(1.5, false);
+  assert.equal(container.style.getPropertyValue("--akari-3d-rot-y"), "45");
+  assert.deepEqual(seen, ["45"]);
+  host.runtime.tick(3, false);
+  assert.equal(container.style.getPropertyValue("--akari-3d-rot-y"), "90");
+});
+
+test("setLiveVars はキーフレームより勝ち、外すと静的値へ戻る", async () => {
+  const host = createHost();
+  await host.runtime.mount({ output: { fps: 30 }, overlays: [
+    { id: "still", start: 0, duration: 4, html: THREE_HTML, vars: { "--akari-3d-rot-x": "5" } },
+    { id: "keyed", start: 0, duration: 4, html: THREE_HTML,
+      keyframes: [{ t: 0, vars: { "--akari-3d-rot-y": 0 } }, { t: 30, vars: { "--akari-3d-rot-y": 90 } }] },
+  ] });
+  const [still, keyed] = host.stage.children;
+  assert.equal(host.runtime.setLiveVars("still", { "--akari-3d-rot-x": 30, "--akari-3d-rot-z": -12, x: 1 }), true);
+  assert.equal(still.style.getPropertyValue("--akari-3d-rot-x"), "30");
+  assert.equal(still.style.getPropertyValue("x"), "");
+  host.runtime.tick(0.5, false);
+  assert.equal(still.style.getPropertyValue("--akari-3d-rot-x"), "30");
+  host.runtime.setLiveVars("still", null);
+  assert.equal(still.style.getPropertyValue("--akari-3d-rot-x"), "5");
+  assert.equal(still.style.getPropertyValue("--akari-3d-rot-z"), "");
+
+  host.runtime.setLiveVars("keyed", { "--akari-3d-rot-y": 12 });
+  host.runtime.tick(0.5, false);
+  assert.equal(keyed.style.getPropertyValue("--akari-3d-rot-y"), "12");
+  host.runtime.setLiveVars("keyed", null);
+  host.runtime.tick(0.5, false);
+  assert.equal(keyed.style.getPropertyValue("--akari-3d-rot-y"), "45");
+  assert.equal(host.runtime.setLiveVars("missing", { "--akari-3d-rot-y": 1 }), false);
+});

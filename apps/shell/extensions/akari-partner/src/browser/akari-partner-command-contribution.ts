@@ -1,8 +1,10 @@
+import { t } from '../common/partner-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
+import { ShellTerminalServerProxy } from '@theia/terminal/lib/common/shell-terminal-protocol';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { PartnerTerminal } from './partner-session-service';
 import { PartnerWebWidget } from './akari-partner-web-widget';
@@ -11,10 +13,11 @@ import { PartnerActivityService } from './partner-activity-service';
 import { typedPromptText } from '../common/type-prompt';
 import { PARTNER_CATALOG } from './partner-catalog';
 import { resolveDeliveryTarget } from '../common/delivery-target';
+import { activePartnerTerminals, stopPartnerTerminals } from './partner-terminal-shutdown';
 
 // ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
 // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
-const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「パートナーを追加」パネルから接続してください';
+const PARTNER_NOT_CONNECTED_MESSAGE = t('partner.navigation.commands.noPartnerConnectedConnectAddPartnerPanelRightStatus');
 
 export function partnerPanelWidth(windowWidth: number, currentWidth: number | undefined): number | undefined {
     return currentWidth === undefined || currentWidth > windowWidth * 0.4
@@ -42,15 +45,15 @@ export function partnerPanelWidth(windowWidth: number, currentWidth: number | un
 export const AkariPartnerCommands = {
     OPEN: {
         id: 'akari.partner.open',
-        label: 'パートナーを開く'
+        label: t('partner.navigation.commands.openPartnerAction')
     } as Command,
     BEGIN_ONBOARDING: {
         id: 'akari.partner.beginOnboarding',
-        label: 'AI パートナーに接続する'
+        label: t('partner.navigation.commands.connectAiPartnerAction')
     } as Command,
     SEND_TO_PARTNER: {
         id: 'akari.partner.send',
-        label: 'パートナーにメッセージを送る'
+        label: t('partner.navigation.commands.sendMessagePartnerAction')
     } as Command,
     /**
      * 輸入リスト④（素材カード「エージェントに頼む」）向けの注入コマンド。
@@ -61,11 +64,13 @@ export const AkariPartnerCommands = {
      */
     INJECT_PROMPT: {
         id: 'akari.partner.injectPrompt',
-        label: '文脈パケットをパートナーへ送る'
+        label: t('partner.navigation.commands.sendContextPacketPartnerText')
     } as Command,
     DELIVERY_TARGET: { id: 'akari.partner.deliveryTarget' } as Command,
     IS_BUSY: { id: 'akari.partner.isBusy' } as Command,
-    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: 'パートナーの入力欄に書く' } as Command
+    STOP_FOR_GUIDE: { id: 'akari.partner.stopForGuide' } as Command,
+    HAS_LIVE_FOR_GUIDE: { id: 'akari.partner.hasLiveForGuide' } as Command,
+    TYPE_PROMPT: { id: 'akari.partner.typePrompt', label: t('partner.navigation.commands.typeInPartnerInputAction') } as Command
 };
 
 @injectable()
@@ -82,6 +87,8 @@ export class AkariPartnerCommandContribution implements CommandContribution {
 
     @inject(TerminalService)
     protected readonly terminals!: TerminalService;
+    @inject(ShellTerminalServerProxy)
+    protected readonly terminalServer!: ShellTerminalServerProxy;
 
     @inject(ClipboardService)
     protected readonly clipboard!: ClipboardService;
@@ -129,6 +136,12 @@ export class AkariPartnerCommandContribution implements CommandContribution {
         });
         registry.registerCommand(AkariPartnerCommands.IS_BUSY, {
             execute: () => this.activity.anyBusy
+        });
+        registry.registerCommand(AkariPartnerCommands.STOP_FOR_GUIDE, {
+            execute: () => stopPartnerTerminals(this.terminals.all, id => this.terminalServer.close(id))
+        });
+        registry.registerCommand(AkariPartnerCommands.HAS_LIVE_FOR_GUIDE, {
+            execute: () => activePartnerTerminals(this.terminals.all).length > 0
         });
         registry.registerCommand(AkariPartnerCommands.TYPE_PROMPT, {
             execute: async (text: unknown): Promise<'typed' | 'no-partner' | 'unsupported'> => {

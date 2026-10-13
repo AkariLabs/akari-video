@@ -198,6 +198,14 @@ const caption = {
   edited: false,
 };
 
+test("字幕の runs はスキーマにあるキーとして受理し、未知のキーは拒否する", () => {
+  const withRuns = { ...caption, runs: [{ from: 0, to: 2, role: "emphasis", style: { color: "#ff0000" } }] };
+  assert.equal(runValue({ captions: [withRuns] }).status, 0);
+  const unknown = runValue({ captions: [{ ...withRuns, unknown_field: true }] });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /未知のキーがあります: unknown_field/u);
+});
+
 test("karaoke / pop の語時刻なしを警告し、語時刻ありなら警告しない", () => {
   for (const style of ["karaoke", "pop"]) {
     for (const words of [undefined, [], [{ text: caption.text, start: 0, end: 2 }]]) {

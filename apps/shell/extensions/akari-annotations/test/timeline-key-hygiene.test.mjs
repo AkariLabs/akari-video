@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { readSourceFile } from './helpers/widget-source.mjs';
 import ts from 'typescript';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
+import { webviewKeydownSource } from '../lib/browser/webview-keydown-source.js';
 
 const source = readSourceFile('widget').ast;
 let handler;
@@ -59,6 +60,7 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
         timelineTabStop: new Element(timeline, 'tabindex'), timelineInput: new Element(timeline, 'input'),
         daihonRows: new Element(null, 'tabindex'),
         outside: new Element(), body, iframe: new Element(null, 'tabindex', 'IFRAME'),
+        codexFrame: new Element(null, 'tabindex', 'IFRAME'),
         libraryCard: new Element(null, 'tabindex'), outsideRoleButton: new Element(null, 'role-button'),
         dialogButton: new Element(null, 'button')
     };
@@ -84,15 +86,21 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
         setTimelineRange: () => {},
         copySelectedItem: () => { counts.copy++; }, applySelection: () => { counts.clear++; },
         cutSelectedItems: () => { counts.cut++; }, pasteClipboard: () => { counts.paste++; },
-        commands: { executeCommand: () => { counts.text++; } }, location: undefined
+        commands: { executeCommand: () => { counts.text++; } }, location: undefined,
+        // プレビュー（Akari の webview）と、Codex 拡張の webview
+        widgetManager: { getWidgets: () => [
+            { viewType: 'akari.preview', node: { contains: other => other === elements.iframe } },
+            { viewType: 'chatgpt.sidebarView', node: { contains: other => other === elements.codexFrame } }
+        ] }
     };
     const factory = new Function('isImeCompositionKeydown', 'document', 'window', 'HTMLElement',
         'PLACE_TEXT_COMMAND_ID', 'getComputedStyle', 'captionEditFocusWithinMarkedWidget',
-        'isFocusOnControl', `return function () { return (${js}); };`);
+        'isFocusOnControl', 'webviewKeydownSource', 'WebviewWidget', `return function () { return (${js}); };`);
     const isFocusOnControl = new Function('HTMLElement', `${controlPolicyJs}; return isFocusOnControl;`)(Element);
     const onKeyDown = factory(event => event.isComposing || event.keyCode === 229,
         document, window, Element, 'place-text', element => ({ visibility: element.visibility }),
-        captionEditFocusWithinMarkedWidget, isFocusOnControl).call(widget);
+        captionEditFocusWithinMarkedWidget, isFocusOnControl, webviewKeydownSource,
+        { FACTORY_ID: 'plugin-webview' }).call(widget);
     onKeyDown({ key, code, isComposing, keyCode, metaKey, ctrlKey: false, altKey: false, shiftKey: false,
         target: elements[eventTarget], preventDefault: () => { counts.prevented++; },
         stopPropagation: () => { counts.stopped++; } });
@@ -115,6 +123,21 @@ test('Space は操作部品と表示中モーダルでは扱わず、通常要�
     }
     assert.equal(dispatch(' ', { focus: 'outside', eventTarget: 'iframe' }).play, 1);
     assert.equal(dispatch(' ', { focus: 'dialogButton', modal: 'theia' }).play, 0);
+});
+
+test('拡張の webview（Claude Code / Codex）の入力欄で打ったキーはタイムラインに渡さない', () => {
+    for (const eventTarget of ['codexFrame']) {
+        for (const focus of ['codexFrame', 'outside']) {
+            const at = { focus, eventTarget };
+            assert.equal(dispatch(' ', at).play, 0, focus);
+            assert.equal(dispatch('t', at).text, 0, focus);
+            assert.equal(dispatch('Delete', at).delete, 0, focus);
+            assert.equal(dispatch('Backspace', at).delete, 0, focus);
+            assert.equal(dispatch('Escape', at).clear, 0, focus);
+            assert.equal(dispatch('v', { ...at, metaKey: true, selectionText: '残った選択' }).prevented, 0, focus);
+        }
+    }
+    assert.equal(dispatch('t', { focus: 'iframe' }).text, 1);
 });
 
 test('台本の行リストにフォーカスした Space は再生を 1 回切り替える', () => {

@@ -13,6 +13,13 @@ import { clampPreviewPlaybackRate } from '../common/preview-playback-rate';
 
 export function frameEngineBootstrapScript(): string {
         return `(() => {
+            const uiText = JSON.parse(document.getElementById('akari-preview-text')?.textContent || '{}');
+            const t = (key, params = {}) => {
+                const language = document.documentElement.lang === 'ja' ? 'ja' : 'en';
+                const form = typeof params.n === 'number' ? (language === 'ja' ? 'other' : new Intl.PluralRules(language).select(params.n)) : null;
+                const selected = form && uiText[key + '_' + form] !== undefined ? key + '_' + form : key;
+                return Object.entries(params).reduce((value, [name, part]) => value.split('{' + name + '}').join(String(part)), uiText[selected] ?? key);
+            };
             const initial = window.__akariPreview || {};
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             let engineSummary = initial.summary || {};
@@ -34,6 +41,8 @@ export function frameEngineBootstrapScript(): string {
 
             // v2 items keep absolute placement on every track, including the first video above HTML.
             // Legacy sequential cuts (and freeze mapping) still use their sequential adapter.
+            // A frozen v2 base cut keeps absolute placement only after a real gap; adjacent
+            // frozen cuts stay sequential so their hold and transition extend the timeline.
             // summary.cuts は表示用の派生配置を含む。最下段（renderTrack が最小）の visual トラックは
             // 逐次 cuts へ戻すことで freeze による尺の伸長と transition の重なりを frame-engine 自身に
             // 再計算させる。上段の visual トラックの cut は at / track（= renderTrack）を保持して絶対配置する。
@@ -68,6 +77,7 @@ export function frameEngineBootstrapScript(): string {
                     .map(cut => cut.renderTrack)
                     .filter(track => Number.isInteger(track) && track >= 0);
                 const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
+                const cursorByTrack = new Map();
                 return summaryCuts.map((cut, index) => {
                     const {
                         at: _derivedAt,
@@ -77,12 +87,26 @@ export function frameEngineBootstrapScript(): string {
                         ...sequential
                     } = cut;
                     const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
-                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze))
+                    const trackKey = Number.isInteger(cut.renderTrack) && cut.renderTrack >= 0
+                        ? cut.renderTrack : baseRenderTrack;
+                    const cursor = cursorByTrack.get(trackKey) ?? 0;
+                    const hasValidAt = Number.isFinite(cut.at) && cut.at >= 0;
+                    const frozenGap = Number(value.editVersion) === 2 && !upperTrack && !!cut.freeze
+                        && hasValidAt && Number(cut.at) > cursor + 1e-6;
+                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze) || frozenGap)
                         ? {
                             track: cut.renderTrack,
-                            ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
+                            ...(hasValidAt ? { at: Number(cut.at) } : {})
                         }
                         : {};
+                    const at = placement.at ?? cursor;
+                    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+                    const freeze = Number.isFinite(cut.freeze?.duration_sec) && cut.freeze.duration_sec > 0
+                        ? cut.freeze.duration_sec : 0;
+                    const transition = cut.transition_out || cut.transitionOut;
+                    const overlap = Number.isFinite(transition?.duration) && transition.duration > 0
+                        ? transition.duration : 0;
+                    cursorByTrack.set(trackKey, at + (Number(cut.out) - Number(cut.in)) / speed + freeze - overlap);
                     return resolveSummaryItemAdjust({
                         ...sequential,
                         ...placement,
@@ -336,11 +360,13 @@ export function frameEngineBootstrapScript(): string {
                 const createVideoSource = (id, url) => {
                     const pool = new engine.ClipSessionPool(id, url, {
                         codecSupport: sourceSupports.get(id) || null,
-                        onWarning: message => showError(message, false),
+                        onWarning: (message, detail) => showError(detail?.code === 'long-gop'
+                            ? t('render.frameEngine.warning.longGop', { id: detail.id, gopSeconds: Number(detail.gopSeconds).toFixed(3) })
+                            : message, false),
                         onSoftwareFallbackDenied: support => {
                             const known = sourceSupports.get(id);
                             if (!(known && (known.hw || known.any))) {
-                                showNotice('ソフトウェアデコード非対応: ' + support.codec);
+                                showNotice(t('preview.frameEngine.status.softwareDecodingUnsupportedPrefix') + support.codec);
                             }
                         }
                     });
@@ -463,13 +489,13 @@ export function frameEngineBootstrapScript(): string {
                     }, generation);
                     if (disposed || generation !== sourceGeneration) return;
                     if (decision.chosen === 'auto-proxy') {
-                        showNotice('プロキシ生成中…（' + id + '）');
+                        showNotice(t('preview.frameEngine.status.generatingProxyPrefix') + id + t('preview.diagnostics.overlay.closeParen'));
                         const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
                         if (window.akari && window.akari.engine && videoUri) {
                             void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
                                 if (disposed || generation !== sourceGeneration) return;
                                 console.warn('[frame-engine] proxy request failed', reason);
-                                showNotice('プロキシを生成できませんでした（' + id + '）');
+                                showNotice(t('preview.frameEngine.status.couldNotGenerateProxyPrefix') + id + t('preview.diagnostics.overlay.closeParen'));
                             });
                         }
                     } else if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
@@ -652,12 +678,12 @@ export function frameEngineBootstrapScript(): string {
                     }
                     let message = '';
                     if (supply?.phase === 'degraded') {
-                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                        message = t('preview.frameEngine.status.someAudioCouldNotPlayedPrefix') + supply.failed.join(', ');
                     } else if (supply?.gate?.holding && supply.gate.heldMs >= 300) {
-                        message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
+                        message = t('preview.frameEngine.status.waitingAudioPrefix') + (supply.gate.heldMs / 1000).toFixed(1) + t('preview.frameEngine.status.waitSecondsSuffix');
                     } else if (statusPlaying && missingAudioSinceMs !== null
                         && performance.now() - missingAudioSinceMs >= 300) {
-                        message = '音声を準備中 ' + (supply.required.length - missing.length) + '/' + supply.required.length;
+                        message = t('preview.frameEngine.status.preparingAudioPrefix') + (supply.required.length - missing.length) + '/' + supply.required.length;
                     }
                     if (audioStatus.textContent !== message) audioStatus.textContent = message;
                     audioStatus.hidden = !message;

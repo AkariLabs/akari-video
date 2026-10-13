@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { NarrationCliManager } from '../lib/node/narration-cli.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { NarrationCliManager } = await import('../lib/node/narration-cli.js');
+
+
 
 for (const engine of ['gemini-tts', 'fal-qwen3']) {
     test(`${engine}: 未承認なら spawn せず費用承認エラーを返す`, async () => {

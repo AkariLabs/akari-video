@@ -1,3 +1,4 @@
+import { t } from '../common/partner-text';
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
@@ -15,6 +16,7 @@ export class PartnerWebWidget extends ReactWidget {
     @inject(AkariPartnerServer) protected readonly server!: AkariPartnerServer;
     @inject(ThemeService) protected readonly themeService!: ThemeService;
     private launch?: PartnerWebLaunch;
+    private activeAgent?: PartnerAgentId;
     private ownerId?: string;
     private host?: HTMLElement;
     private webview?: WebviewTag;
@@ -28,7 +30,7 @@ export class PartnerWebWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = PartnerWebWidget.ID;
-        this.title.label = 'チャット（DeepSeek）';
+        this.title.label = t('partner.partnerPanel.webWidget.chatDeepseekLabel');
         this.title.caption = PARTNER_AGENT_LABELS.deepseek;
         this.title.iconClass = PARTNER_CLI_ICON_CLASSES.deepseek;
         this.title.closable = true;
@@ -38,7 +40,7 @@ export class PartnerWebWidget extends ReactWidget {
                 try { listener.dispose(); } catch { /* Theme cleanup must not block widget disposal. */ }
             }
             this.themeListeners.length = 0;
-            this.cancelLoading?.(new Error('DeepSeek Harness の作業画面が閉じられました'));
+            this.cancelLoading?.(new Error(t('partner.partnerPanel.webWidget.deepseekHarnessWorkspaceClosedText')));
             this.removeWebview();
             void this.closeLaunch();
         });
@@ -49,9 +51,11 @@ export class PartnerWebWidget extends ReactWidget {
     get pid(): number | undefined { return this.launch?.pid; }
     get hasLaunch(): boolean { return !!this.launch; }
     get launchCwd(): string | undefined { return this.launch?.cwd; }
+    get agentId(): PartnerAgentId | undefined { return this.activeAgent; }
 
     async open(agent: PartnerAgentId, launch: PartnerWebLaunch, ownerId: string): Promise<void> {
-        this.title.label = agent === 'deepseek' ? 'チャット（DeepSeek）' : `チャット（${PARTNER_AGENT_LABELS[agent]}）`;
+        this.activeAgent = agent;
+        this.title.label = agent === 'deepseek' ? t('partner.partnerPanel.webWidget.chatDeepseekLabel') : t('partner.partnerPanel.webWidget.chatLabel', { value1: PARTNER_AGENT_LABELS[agent] });
         this.title.caption = PARTNER_AGENT_LABELS[agent];
         this.title.iconClass = PARTNER_CLI_ICON_CLASSES[agent];
         this.launch = launch;
@@ -90,10 +94,10 @@ export class PartnerWebWidget extends ReactWidget {
                 }
                 if (outcome === 'retry') {
                     this.removeWebview();
-                    if (this.isDisposed) throw new Error('DeepSeek Harness の作業画面が閉じられました');
+                    if (this.isDisposed) throw new Error(t('partner.partnerPanel.webWidget.deepseekHarnessWorkspaceClosedText'));
                     continue;
                 }
-                if (this.isDisposed) throw new Error('DeepSeek Harness の作業画面が閉じられました');
+                if (this.isDisposed) throw new Error(t('partner.partnerPanel.webWidget.deepseekHarnessWorkspaceClosedText'));
                 this.loaded = true;
                 this.slowLoading = false;
                 this.update();
@@ -154,7 +158,7 @@ export class PartnerWebWidget extends ReactWidget {
             webview.addEventListener('did-fail-load', event => {
                 if (event.isMainFrame && event.errorCode !== -3) reject(new Error(event.errorDescription));
             });
-            webview.addEventListener('render-process-gone', () => reject(new Error('DeepSeek Harness の画面が停止しました')));
+            webview.addEventListener('render-process-gone', () => reject(new Error(t('partner.partnerPanel.webWidget.deepseekHarnessStoppedStatus'))));
         });
         this.webview = webview;
         this.host?.appendChild(webview);
@@ -173,10 +177,9 @@ export class PartnerWebWidget extends ReactWidget {
                 <div>{this.launch?.providerNote}</div>
                 {this.launch?.guidance && <div>{this.launch.guidance}</div>}
                 {this.launch && !this.loaded && <>
-                    <div>DeepSeek Harness を読み込んでいます…</div>
+                    <div>{t('partner.partnerPanel.webWidget.loadingDeepseekHarnessText')}</div>
                     {this.slowLoading && <div>
-                        時間がかかっています。このウィンドウを前面に出すと読み込みが進みます。
-                        <button onClick={() => this.retryLoading?.()}>再試行</button>
+                        {t('partner.partnerPanel.webWidget.takingBringWindowFrontContinueLoadingMessage').trim()}<button onClick={() => this.retryLoading?.()}>{t('partner.partnerPanel.webWidget.retryAction')}</button>
                     </div>}
                 </>}
             </div>

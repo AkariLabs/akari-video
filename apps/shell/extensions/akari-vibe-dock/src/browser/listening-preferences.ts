@@ -1,3 +1,4 @@
+import { t } from './vibe-text';
 import { PreferenceContribution, PreferenceSchema, PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -13,11 +14,11 @@ export function rememberListeningMic(mic: EarStatus['mic']): void {
 const schema: PreferenceSchema = { properties: {
     [VIBE_MODE_KEY]: {
         type: 'string', enum: ['off', 'screen', 'full'], default: 'off', scope: PreferenceScope.User,
-        description: '声で画面や編集を動かす範囲'
+        description: t('vibe.listening.preferences.howFarVoiceCanControlScreenEditingDescription')
     },
     [LISTENING_ENGINE_KEY]: {
         type: 'string', enum: ['auto', 'speechanalyzer-live', 'record-then-transcribe'],
-        default: 'auto', scope: PreferenceScope.User, description: 'マイクで話すときの聞き取りエンジン'
+        default: 'auto', scope: PreferenceScope.User, description: t('vibe.listening.preferences.listeningEngineMicrophoneInputDescription')
     }
 } };
 

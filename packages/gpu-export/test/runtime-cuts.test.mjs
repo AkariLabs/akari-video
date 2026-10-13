@@ -22,6 +22,22 @@ const RUNTIMES = [
 ];
 
 for (const [name, url] of RUNTIMES) {
+  test(`${name} keeps leading and middle gaps without converting freeze or overlap to absolute placement`, async () => {
+    const normalizedCuts = await loadNormalizedCuts(url);
+    const cuts = normalizedCuts({ cuts: [
+      { id: "first", src: "s", track: 0, at: 2, in: 0, out: 2,
+        freeze: { at_sec: 1, duration_sec: 1 }, transition_out: { type: "dissolve", duration: 0.5 } },
+      { id: "overlap", src: "s", track: 0, at: 4.5, in: 2, out: 4 },
+      { id: "middle-gap", src: "s", track: 0, at: 8, in: 4, out: 5 },
+      { id: "upper", src: "s", track: 1, at: 1, in: 0, out: 1 },
+    ] });
+    assert.equal(cuts[0].at, 2);
+    assert.equal("at" in cuts[1], false);
+    assert.equal(cuts[2].at, 8);
+    assert.equal(cuts[3].at, 1);
+    assert.equal(cuts[3].track, 1);
+  });
+
   test(`${name} normalizedCuts keeps at/track only for upper visual tracks (#31)`, async () => {
     const normalizedCuts = await loadNormalizedCuts(url);
     const cuts = normalizedCuts({

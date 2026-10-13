@@ -4,7 +4,13 @@ import { chmod, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classifyCliFailure, findTaskifyCli, invokeTaskifyCli } from '../lib/node/taskify/taskify-cli.js';
+import { setLanguage } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { classifyCliFailure, findTaskifyCli, invokeTaskifyCli } = await import('../lib/node/taskify/taskify-cli.js');
+
+
 const fake = fileURLToPath(new URL('./fixtures/taskify/fake-cli.mjs', import.meta.url));
 const input = async () => {
   const dir = await mkdtemp(join(tmpdir(), 'taskify-cli-test-'));
@@ -46,8 +52,9 @@ test('bad JSON, login, exit, rate limit, schema and timeout are classified', asy
   for (const [mode, code] of [['bad', 'bad-json'], ['login', 'login'], ['exit', 'unknown'],
     ['rate', 'rate-limit'], ['schema', 'schema'], ['timeout', 'timeout']]) {
     const dir = await input(); process.env.FAKE_TASKIFY_MODE = mode;
-    const result = await invokeTaskifyCli({ agent: 'claude', bin: fake, inputDir: dir, timeoutMs: mode === 'timeout' ? 400 : 1500 });
-    assert.equal(result.error?.code, code, mode); await flags(await call(dir), 'claude');
+    const result = await invokeTaskifyCli({ agent: 'claude', bin: fake, inputDir: dir, timeoutMs: mode === 'timeout' ? 5000 : 1500 });
+    assert.equal(result.error?.code, code, mode);
+    await flags(await call(dir), 'claude');
   }
   assert.equal(classifyCliFailure(1, '', 'Bearer secret-token-value').raw.includes('secret-token-value'), false);
 });

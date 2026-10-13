@@ -1,12 +1,12 @@
-# 承認と生成の統治
+# Approval and generation governance
 
-## 原則
+## Principle
 
-生成の速さより、何を、どの手で、なぜ行ったかを人間が先に理解できることを優先する。推奨は示すが、複数案を黙って既定選択しない。
+Before generation, ensure the human understands what will be done, how, and why; this takes precedence over speed. Make a recommendation, but do not silently default among multiple choices.
 
 ## Decision Communication Contract
 
-有償または重い生成の前に、会話上で次を宣言する。
+Before paid or heavy generation, declare the following in conversation (write the labels in the user's language, following the language pack; see SKILL.md).
 
 ```text
 対象:
@@ -17,93 +17,84 @@
 実行後に残す provenance:
 ```
 
-**有償または外部送信**を伴う場合は、宣言だけで実行せず回答を待つ。無償・ローカルの生成は宣言を `decision-log.md` に書いて進む（`collaborative` では従来どおり回答を待つ）。契約ですでに静止画の作成が承認されている場合も、手と理由は宣言して `decision-log.md` に追記する。失敗時に別の手へ切り替える前も、変更理由と得失を追記する。
+For **paid generation or external transmission**, do not execute after merely declaring it; wait for an answer. For free local generation, write the declaration in `decision-log.md` and proceed (in `collaborative`, still wait for an answer). Even when the contract already approves creating a still, declare the method and reason and append them to `decision-log.md`. Before switching methods after failure, append the reason and tradeoffs.
 
-## 手の優先順と禁止事項
+## Method priority and prohibitions
 
-1. Codex の画像生成を使い、プロジェクトへ画像ファイルを保存する。
-2. Codex で実行不能または不適合なら、理由を示して Akari Cloud API / MCP をエージェント層から使う。
-3. どちらも使えない、品質や権利を満たさない場合は、経路 A の実フレームを使うか、素材を `使わない` とする。
+1. Use Codex image generation and save the image file in the project.
+2. If Codex cannot execute or is unsuitable, explain why and use Akari Cloud API / MCP from the agent layer.
+3. If neither works or quality or rights are insufficient, use a real frame via route A or mark the asset "do not use" in the user's language (Japanese form: `使わない`).
 
-OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求めず、`.env` から探索せず、アプリ本体へ生成通信を実装しない。優先順は黙って fallback する許可ではない。
+Do not use OpenAI, Gemini, or other API keys directly. Do not request keys, search for them in `.env`, or implement generation communication in the app. The priority order does not authorize silent fallback.
 
-### 手 1（Codex 画像生成）の実働確認
+### Verified operation of method 1 (Codex image generation)
 
-**実測済み（2026-07-14）**。`codex-cli 0.144.1`（ChatGPT 認証）で画像ファイルの実生成まで確認した。
+**Measured on 2026-07-14**: actual image-file generation was verified with `codex-cli 0.144.1` (ChatGPT authentication).
 
-- 呼び出し形: 作業ディレクトリへ `cd` してから `codex exec --skip-git-repo-check "<プロンプト>"` をフォアグラウンドで実行する。バックグラウンド起動は即時リターンして生成を待たない既知問題があるため避ける。macOS 標準には `timeout` / `gtimeout` がなく、呼び出し元ツール側のタイムアウトで代替する（目安 600 秒）。
-- 事前確認: `codex features list` で `image_generation` は `stable / true`。`codex doctor` で ChatGPT 認証・websocket 接続が正常であること。
-- 実測結果: プロンプト「16:9 の動画サムネイル用の背景画像を生成。ダークトーン、テック系、抽象グラデーションと光の筋、文字なし。bg-test.png として保存」に対し、**93 秒**で 1664×936（16:9）の PNG 1.7MB が指定ディレクトリに書き出された。視認確認で指示どおりの内容（文字・ロゴ・UI なし）。プロンプトの日本語指示・保存ファイル名指定・アスペクト比指定はいずれも守られた。
-- 既知の失敗モード: ChatGPT アカウントの使用量上限に達していると、画像生成に限らず全ターンが即時 `usage limit` エラーで失敗する（上限リセット待ちまたはプラン変更で回復）。エラー文中に回復予定時刻が出るので完了報告に記録する。
-- 生成後は provenance（手 = codex exec / model or tool version・prompt・ISO 8601 日時）を必ず記録する。
+- Invocation: `cd` to the working directory, then run `codex exec --skip-git-repo-check "<プロンプト>"` in the foreground (the Japanese placeholder means prompt). Avoid background execution: a known issue makes it return immediately without waiting for generation. Standard macOS lacks `timeout` / `gtimeout`; use the calling tool's timeout instead (about 600 seconds).
+- Preflight: `codex features list` reports `image_generation` as `stable / true`; `codex doctor` shows working ChatGPT authentication and websocket connection.
+- Measured result: For the Japanese prompt "Generate a 16:9 video-thumbnail background image, dark tech tone, abstract gradient and light streaks, no text, saved as bg-test.png," a 1664×936 (16:9) PNG of 1.7 MB was written in **93 seconds**. Visual inspection confirmed no text, logo, or UI. The Japanese instructions, requested filename, and aspect ratio were all followed.
+- Known failure mode: when the ChatGPT account reaches its usage limit, every turn, not only image generation, fails immediately with a `usage limit` error (recover after the limit resets or by changing plans). Record the projected recovery time from the error in the completion report.
+- After generation, always record provenance: method = codex exec, model or tool version, prompt, and ISO 8601 time.
 
 ## provenance
 
-生成物ごとに、チャットでの提示内容と `decision-log.md` から次を辿れるようにする。
+For each generated asset, make the following traceable from the chat presentation and `decision-log.md`:
 
-- asset ID と種別
-- 使用した手と、分かる場合は model / tool version
-- prompt と参照素材
-- ISO 8601 の生成日時
-- 出力ファイルとチャットで提示した preview
-- fallback、加工、i2v など後続工程
-- 対応する承認記録
+- Asset ID and type.
+- Method used and model / tool version if known.
+- Prompt and reference assets.
+- ISO 8601 generation time.
+- Output file and preview shown in chat.
+- Fallback, processing, i2v, and later stages.
+- Corresponding approval record.
 
-実フレーム由来なら、生成 prompt の代わりに source、source 時刻、抽出手段を記す。混成案は背景生成と HTML 文字組を別工程として記録する。
+For real frames, record source, source time, and extraction method instead of a generation prompt. Record background generation and HTML typography as separate stages for a hybrid.
 
-## 3 段階チェックポイント（autonomy: collaborative のとき）
+## Three-stage checkpoints (when autonomy is collaborative / Japanese UI: `一緒に作る`)
 
-契約上の checkpoint 数は `autonomy: collaborative` のとき `3`（M5 の確定値）。`checkpoint`（提案つき）/ `full-auto`（そのまま）では 0 で、書き出しの判子はシェルの書き出しボタンが持つ（判子は一回 契約 2026-09-06）。**2026-07-22 改訂**: Checkpoint 1（方針）の
-回答チャネルだった決定カード（`<レポートパス>.decisions.json` + ヘルパー）は、edit-plan 自身の
-レポート生成が analyze-project へ移管されたことに伴い廃止した。Checkpoint 1〜3 のすべてが
-**チャットでの明示承認**に一本化される（正式なレポートは analyze-project の分析レポートのみ、
-方向性の引き出しはチャットで行うという原則）。各 Checkpoint で `decision-log.md` へ追記した直後に
-判断記録レポートを再描画し、パスを提示する（[report-guide §decision_log](report-guide.md#decision_log)）。
-`full-auto`（そのまま）と `checkpoint`（提案つき）では本節のチェックポイントを通らない（[autonomy.md](autonomy.md)）。
+The contractual checkpoint count is `3` for `autonomy: collaborative` ("create together"; Japanese UI label `一緒に作る`; fixed by M5). `checkpoint` ("with suggestions"; Japanese UI label `提案つき`) and `full-auto` ("as requested"; Japanese UI label `そのまま`) have zero; the shell's Export button holds the export authorization (one authorization, contract 2026-09-06). **2026-07-22 revision**: Decision cards (`<レポートパス>.decisions.json` plus helper), formerly Checkpoint 1's response channel, were retired when edit-plan's report generation moved to analyze-project. All three checkpoints now use **explicit chat approval**; the only formal report is analyze-project's analysis report, while direction is developed in chat. Immediately after appending to `decision-log.md` at each checkpoint, regenerate the decision-record report and present its path ([report-guide §decision_log](report-guide.md#decision_log)). `full-auto` and `checkpoint` do not go through this section's checkpoints ([autonomy.md](autonomy.md)).
 
-### Checkpoint 1: 方針
+### Checkpoint 1: Direction
 
-[analyze-project](../analyze-project/SKILL.md) の分析レポートを根拠として、サムネイル案、
-編集方針、カット案をチャットで提示し、選択肢の得失を説明する（推奨案 + 代替案 + 理由。
-「どうしますか」と丸投げしない）。人間から今回の方針に対する明示回答を得たら
-`decision-log.md` に追記し、修正指示があればチャットで再提示する。承認前は素材計画を確定しない。
+Using the [analyze-project](../analyze-project/SKILL.md) analysis report as evidence, present thumbnail ideas, edit direction, and cut proposals in chat, with each option's tradeoffs (recommendation + alternatives + reasons; do not leave the choice at "What would you like?"). When the human explicitly answers for this direction, append the decision to `decision-log.md`; if revision is requested, present it again in chat. Do not settle the asset plan before approval.
 
-**編集実行ゲート**: チャットで明示承認を得るまで、編集実行（素材計画の確定・[execution.md](execution.md)）に進まない。無操作・タイムアウト・過去の包括承認を今回の承認に読み替えない。
+**Editing execution gate**: Do not settle the asset plan or proceed to [execution.md](execution.md) until explicit chat approval arrives. Do not interpret inaction, timeout, or past blanket approval as current approval.
 
-### Checkpoint 2: 素材計画
+### Checkpoint 2: Asset plan
 
-承認済み方針に沿って、BGM とシーン単位素材の三択、静止 preview、provenance を提示する。ここで停止して明示回答を待つ。対応静止画が承認されていない i2v、アバター、動画 B ロールを実行しない。
+Under the approved direction, present three-way choices for BGM and scene assets, still previews, and provenance. Stop here and wait for an explicit answer. Do not run i2v, avatar, or video B-roll generation without approval of the corresponding still.
 
-### Checkpoint 3: 実行
+### Checkpoint 3: Execution
 
-次を manifest として提示する。
+Present the following as a manifest:
 
-- 出力 width / height / fps
-- source と keep range
-- 複数素材の扱い（v2 の `sources[]` + media item か、単一中間マスターへの conform か）
-- 実行する生成、conform、音声・B ロール焼き込み
-- 作る overlay とタイミング
-- 作るファイルと既存ファイルへの影響
+- Output width / height / fps.
+- Sources and keep ranges.
+- Multi-asset handling: v2 `sources[]` plus media items, or conform to one intermediate master.
+- Planned generation, conform, and audio/B-roll baking.
+- Overlays and their timing.
+- Files to create and effects on existing files.
 
-人間が manifest を明示承認した後だけ [execution.md](execution.md) へ進む。素材計画の承認を実行承認と兼用しない。
+Proceed to [execution.md](execution.md) only after the human explicitly approves the manifest. Asset-plan approval is not execution approval.
 
-承認済み画像を i2v へ進めるには、対応画像の承認、素材計画の承認、実行 manifest の承認をすべて確認する。collaborative の checkpoint 数 3 は無操作タイムアウトで減らさない。
+To send an approved image to i2v, verify all three: approval of that image, asset-plan approval, and execution-manifest approval. Never reduce collaborative's three checkpoints because of inactivity or timeout.
 
-## plan-comments.json による差し戻し受領
+## Receive revisions through plan-comments.json
 
-Checkpoint 2 / Checkpoint 3 の再提示に着手する前に、`<plan-dir>/plan-comments.json` の有無を確認する（**チャット返信の解釈より先に本ファイルを読む**）。`research-plan/storyboard.md` の `structure-confirm` と同型の規約であり、正本は [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md)。
+Before preparing a revised Checkpoint 2 or 3 presentation, check for `<plan-dir>/plan-comments.json` (**read this file before interpreting the chat response**). It follows the same convention as `structure-confirm` in `research-plan/storyboard.md`; the canonical contract is [contract-2026-07-25-plan-comments-v0.md](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-plan-comments-v0.md).
 
-- `pass: "scaffold"` の `plan-comments.json` が在れば、Checkpoint 2（素材計画）向けの差し戻しとして扱い、`comments[].target_kind: "clip"`（`target_id` は edit.json v2 の item id）で名指しされたクリップ **だけ**を改訂する。旧 `target_kind: "slot"` は退役した。
-- `pass: "final"` の `plan-comments.json` が在れば、Checkpoint 3（実行）向けの差し戻しとして扱い、`comments[].target_kind: "cut"`（`target_id` は v2 item id）で名指しされたクリップ **だけ**を改訂する。
-- どちらも、名指しされていない clip / cut は無変更のまま次の提示に進む。改訂が終わったら **`plan-comments.json` を削除**してから、更新後の内容を再提示する。
-- ファイルが無い回は、従来どおりチャットの差し戻し指示のみを解釈する。
+- If `plan-comments.json` has `pass: "scaffold"`, treat it as a Checkpoint 2 (asset-plan) revision and revise **only** clips named by `comments[].target_kind: "clip"` (`target_id` is an edit.json v2 item id). The old `target_kind: "slot"` is retired.
+- If `plan-comments.json` has `pass: "final"`, treat it as a Checkpoint 3 (execution) revision and revise **only** clips named by `comments[].target_kind: "cut"` (`target_id` is a v2 item id).
+- In both cases, keep unnamed clips/cuts unchanged for the next presentation. After revision, **delete `plan-comments.json`** before presenting the updated content again.
+- If the file is absent, interpret only chat revision instructions as before.
 
-## よくある間違い
+## Common mistakes
 
-- 提案つきで方針の承認をチャットに求める（autonomy.md §3）。
-- Codex が優先手であることを理由に、生成前宣言を省く。
-- 推奨案だけを見せ、代替案の利点と欠点を隠す。
-- 画像承認だけで i2v を始める。
-- 前回プロジェクトの承認を流用する。
-- fallback 後の手と prompt を provenance に残さない。
-- チャットでの明示承認を得ずに、無操作や沈黙を承認とみなして次工程へ進む。
+- Requesting chat approval for direction in checkpoint mode (autonomy.md §3).
+- Skipping the pre-generation declaration because Codex is the preferred method.
+- Showing only the recommendation and hiding alternatives' benefits and drawbacks.
+- Starting i2v with image approval alone.
+- Reusing a previous project's approval.
+- Failing to record the post-fallback method and prompt in provenance.
+- Treating inaction or silence as approval and moving on without explicit chat approval.

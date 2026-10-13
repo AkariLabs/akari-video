@@ -147,7 +147,7 @@ function resolveV2Write(parsed, command) {
             if (item.source.kind !== 'html' || item.source.part) {
                 throw new Error(`要素の書き戻し対象ではありません: ${itemId}`);
             }
-            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'xyKeyframes']
+            if (['transform', 'html', 'text', 'duplicate', 'params', 'vars', 'varsAt', 'xyKeyframes']
                 .some(key => key in command.patch)
                 || !/^[#.][^\s\[\]]+\[(0|[1-9]\d*)\]$/u.test(ref)
                 || !/^[a-z][a-z0-9-]*$/u.test(tag)
@@ -239,7 +239,8 @@ function resolveV2Write(parsed, command) {
             command = { ...command, patch: { ...command.patch, transform: local } };
         }
         if (item.source.kind === 'group') {
-            if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.params !== undefined) {
+            if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.varsAt !== undefined
+                || command.patch.params !== undefined) {
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
             if (command.patch.xyKeyframes)
@@ -291,8 +292,19 @@ function resolveV2Write(parsed, command) {
                 source.vars = { ...recordOf(source.vars), ...command.patch.vars };
                 editChanged = true;
             }
+            if (command.patch.varsAt) {
+                const seconds = command.playheadSeconds;
+                const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+                const frame = Number.isFinite(seconds)
+                    ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
+                const updated = (0, transform_keyframe_edit_1.writeItemVarsAt)(item, frame, command.patch.varsAt);
+                item.source = updated.source;
+                item.keyframes = updated.keyframes;
+                editChanged = true;
+            }
         }
-        else if (command.patch.html !== undefined || command.patch.params !== undefined || command.patch.vars !== undefined) {
+        else if (command.patch.html !== undefined || command.patch.params !== undefined || command.patch.vars !== undefined
+            || command.patch.varsAt !== undefined) {
             throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {

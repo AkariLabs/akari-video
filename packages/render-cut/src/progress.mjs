@@ -9,6 +9,7 @@ export const VERIFY_CHECKS = [
   "decode",
   "audio-decode",
   "audio-level",
+  "leading-gap-sync",
   "motion",
   "blank-frames",
 ];

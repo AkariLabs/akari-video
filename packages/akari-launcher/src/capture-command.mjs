@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 import { CAPTURE_SCRIPT_RELATIVE, resolveLauncherAssets } from "./repo-assets.mjs";
+import { cliText } from './i18n.mjs';
 
 export async function runCaptureCommand(argv, options = {}) {
   const logError = options.error ?? options.logError ?? ((line) => console.error(line));
@@ -10,12 +11,7 @@ export async function runCaptureCommand(argv, options = {}) {
     // 再インストールで直る欠けではない（同梱漏れは配布物側の問題）。欠けている同梱物と
     // 探索した置き場を名指しして、報告・切り分けに使える形で止める（issue #74）。
     const missing = assets.captureScript ?? CAPTURE_SCRIPT_RELATIVE;
-    logError(
-      `akari capture の実行スクリプトが見つかりません: ${missing}`
-      + `（探索先: ${assets.repoRoot ?? "不明"}）。`
-      + "この AKARI Video 配布物に packages/akari-tools/bin/capture.mjs が同梱されていません。"
-      + "バージョンと OS を添えて https://github.com/AkariLabs/akari-video/issues へ報告してください。",
-    );
+    logError(cliText('cli.capture.error.scriptMissing', { missing, root: assets.repoRoot ?? cliText('cli.capture.label.unknown') }));
     return { exitCode: 1 };
   }
 

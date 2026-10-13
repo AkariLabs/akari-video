@@ -1,3 +1,4 @@
+import { t } from '../common/preview-text';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
@@ -440,6 +441,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected bundledCaptionFontBuffers?: Map<string, Buffer>;
+    protected latinCaptionFontBuffer?: Buffer;
     protected readonly bundledCaptionFontWarnings = new Set<string>();
     protected libraryCaptionFontWarningReported = false;
     protected frameEngineSource: Buffer | null | undefined;
@@ -609,6 +611,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
+            latinCaptionFontUrl: url('caption-latin-font.ttf', this.readLatinCaptionFontBuffer(), 'font/ttf'),
             bundledCaptionFontFaces: [...BUNDLED_CAPTION_FONT_FACES.flatMap(face => {
                 const body = fontBuffers.get(`${face.sourceId ?? face.id}/${face.file}`);
                 return body ? [{ ...face, url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`, body, 'font/ttf') }] : [];
@@ -630,7 +633,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             ancestor = parent;
         }
         const candidate = candidates.find(value => this.isFile(value));
-        if (!candidate) throw new Error('字幕フォント一覧が見つかりません');
+        if (!candidate) throw new Error(t('preview.outputPreview.validation.captionFontListNotFoundError'));
         const importModule = Function('specifier', 'return import(specifier)') as
             (specifier: string) => Promise<{ libraryCaptionFontFaces(env: NodeJS.ProcessEnv): Array<{ id: string; family: string; file: string; weight: string; path: string }> }>;
         return (await importModule(pathToFileURL(candidate).toString())).libraryCaptionFontFaces(process.env);
@@ -653,6 +656,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
         if (buffers.size > 0) this.bundledCaptionFontBuffers = buffers;
         return buffers;
+    }
+
+    protected readLatinCaptionFontBuffer(): Buffer {
+        this.latinCaptionFontBuffer ??= readFileSync(this.findFontAssetPath(
+            join('assets', 'font', 'noto-sans', 'NotoSans-Variable.ttf')));
+        return this.latinCaptionFontBuffer;
     }
 
     protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
@@ -1207,7 +1216,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             ancestor = parent;
         }
         const candidate = candidates.find(value => this.isFile(value));
-        if (!candidate) throw new Error('素材の参照 resolver が見つかりません');
+        if (!candidate) throw new Error(t('preview.outputPreview.validation.assetReferenceResolverNotFoundError'));
         const importModule = Function('specifier', 'return import(specifier)') as
             (specifier: string) => Promise<ReferenceModule>;
         return importModule(pathToFileURL(candidate).toString());
@@ -1294,7 +1303,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async rasterizeTelopPreview(_request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference> {
         // Keep the RPC boundary explicit for older clients; no rendering process is started.
-        throw new Error('telop.retired: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。');
+        throw new Error(t('preview.outputPreview.validation.textOverlayRetiredError'));
     }
 
     async transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult> {
@@ -1424,7 +1433,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     previousErrors = cached.findings
                         .filter(finding => finding.severity === 'error')
                         .map(finding => `[${typeof finding.check === 'string' ? finding.check : 'edit-lint'}] `
-                            + `${typeof finding.message === 'string' ? finding.message : '不明なエラー'}`);
+                            + `${typeof finding.message === 'string' ? finding.message : t('preview.diagnostics.webviewCard.unknownError')}`);
                 }
             } catch {
                 // A missing, unreadable, or stale cache must not affect the decision.
@@ -1637,7 +1646,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (rawEdit?.version !== 2) {
             const planned = planMigration(dirname(this.filePath(request.editUri)), this.filePath(request.editUri), editText);
             if ('blockers' in planned) {
-                throw new Error(`古い edit.json を読み取り専用で開けません: ${planned.blockers.join(' / ')}`);
+                throw new Error(t('preview.outputPreview.validation.couldNotOpenLegacyEditJsonReadOnlyError', { p1: (planned.blockers.join(' / ')) }));
             }
             rawEdit = JSON.parse(planned.nextText);
         }

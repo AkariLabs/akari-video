@@ -1,16 +1,36 @@
+import { t as annotationT, setLanguage as setAnnotationLanguage } from '@akari-video/i18n';
+import * as annotationI18n from '@akari-video/i18n';
 import { readInspectorSource } from './helpers/inspector-source.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { cutSnapshot, photoMaskFields } from './helpers/perspective-transition-fixture.mjs';
-import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
-import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
-import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
-import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
-import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
-import { CAPTION_IMAGE_EXTENSIONS } from '../lib/browser/inspector/ai-transcribe-panel.js';
+import { setLanguage, t } from '@akari-video/i18n';
+import { after as resetLanguageAfter } from 'node:test';
+setLanguage('ja');
+resetLanguageAfter(() => setLanguage(undefined));
+const { cutSnapshot, photoMaskFields } = await import('./helpers/perspective-transition-fixture.mjs');
+const { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } = await import('../lib/browser/inspector/tab-model.js');
+const { aiActionCatalog, describeAiTiles } = await import('../lib/common/ai-action-catalog.js');
+const { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, cutoutAvailabilityFor, photoToolAvailabilityFor } = await import('../lib/browser/inspector/ai-tiles.js');
+const { appendAiStillNotice, stillMismatchNotice } = await import('../lib/browser/inspector/ai-still-panel.js');
+const { appendImageAiPanel } = await import('../lib/browser/inspector/image-ai-panel.js');
+const { isInspectorStillImage } = await import('../lib/browser/inspector/edit-target.js');
+const { CAPTION_IMAGE_EXTENSIONS } = await import('../lib/browser/inspector/ai-transcribe-panel.js');
+
+
+
+
+
+
+
+
+
+setAnnotationLanguage('ja');
+globalThis.t = annotationT;
+globalThis.i18n_1 = annotationI18n;
+test.beforeEach(() => { setAnnotationLanguage('ja'); globalThis.t = annotationT; globalThis.i18n_1 = annotationI18n; });
+test.after(() => { setAnnotationLanguage(undefined); delete globalThis.t; delete globalThis.i18n_1; });
 
 const source = readInspectorSource();
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
@@ -19,6 +39,7 @@ const method = name => widget.members.find(node => node.name?.getText(ast) === n
 const factory = name => ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(ast);
 let openedPhotoPanel;
 const dependencies = {
+  t,
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   LAYER_SECTIONS: () => [],
@@ -112,17 +133,13 @@ const aiTab = root => find(root, byData('data-akari-ui', 'tab:inspector-edit'));
 const aiTile = root => find(root, byData('data-akari-inspector-ai-tile', 'video'));
 const panel = root => find(root, byData('data-akari-ui', 'section:inspector-generation'));
 
-test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理由付き disabled でクリックしても戻らない', () => withDom(() => {
+test('widget: ふつうの動画 cut は編集が押せ、「作る」（静止画・動画にする）を出さない', () => withDom(() => {
   const instance = fixture({ sourcePath: 'ordinary.mp4' });
   instance.render();
   assert.equal(aiTab(instance.body).textContent, 'ホーム');
   assert.equal(aiTab(instance.body).disabled, false);
-  const tile = aiTile(instance.body);
-  assert.match(tile.className, /akari-inspector-ai-disabled/u);
-  assert.equal(tile.attributes.get('aria-disabled'), 'true');
-  assert.equal(find(tile, byClass('akari-inspector-ai-reason')).textContent, '静止画か空の枠で使えます');
-  tile.click();
-  assert.ok(aiTile(instance.body));
+  assert.equal(aiTile(instance.body), undefined);
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-alternatives')), undefined);
   assert.equal(panel(instance.body), undefined);
 }));
 
@@ -390,7 +407,8 @@ test('高画質化は直すに入り、背景生成（近日）は描かない',
   instance.render();
   const alternatives = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-alternatives'));
   const refine = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-refine'));
-  assert.ok(alternatives);
+  // ふつうの写真には「作る」を出さない（仮枠のときだけ）
+  assert.equal(alternatives, undefined);
   assert.ok(refine);
   assert.ok(find(refine, byData('data-akari-image-ai-panel', 'photo-1')));
   assert.equal(find(instance.body, node => node.textContent === '写真を直す'), undefined);

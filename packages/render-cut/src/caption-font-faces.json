@@ -1,4 +1,5 @@
 [
+  {"id":"noto-sans","family":"Noto Sans","file":"NotoSans-Variable.ttf","weight":"100 900","variable":true},
   {"id":"noto-sans-jp","family":"Noto Sans JP","file":"NotoSansJP-Variable.ttf","weight":"100 900","variable":true},
   {"id":"noto-serif-jp","family":"Noto Serif JP","file":"NotoSerifJP-Variable.ttf","weight":"100 900","variable":true},
   {"id":"mplus-rounded-1c","family":"M PLUS Rounded 1c","file":"MPLUSRounded1c-Medium.ttf","weight":"500"},

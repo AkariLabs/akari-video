@@ -1,3 +1,4 @@
+import { t, childProcessEnv } from '@akari-video/i18n';
 import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
@@ -19,7 +20,7 @@ export interface GenerationCliOptions {
 }
 
 const safeItemId = (itemId: string): string => {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error(t('annotationscommon.generationCli.error.invalidItemid'));
     return itemId;
 };
 
@@ -46,14 +47,14 @@ export class GenerationCliManager {
 
     async startCandidate(projectRoot: string, itemId: string, modelId: string): Promise<GenerationCliResult> {
         safeItemId(itemId);
-        if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/u.test(modelId)) throw new Error('modelId が不正です。');
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/u.test(modelId)) throw new Error(t('annotationscommon.generationCli.error.invalidModelid'));
         return this.run(`${itemId}:${modelId}`, ['generate', 'video', projectRoot, '--item', itemId,
             '--model', modelId, '--candidate', '--yes', '--json']);
     }
 
     async startFromImage(projectRoot: string, fromImage: string): Promise<GenerationCliResult> {
         if (!fromImage || fromImage.startsWith('/') || fromImage.includes('\\') || fromImage.split('/').includes('..')
-            || /^[A-Za-z]:/u.test(fromImage)) throw new Error('fromImage はプロジェクト内の相対パスで指定してください。');
+            || /^[A-Za-z]:/u.test(fromImage)) throw new Error(t('annotationscommon.generationCli.error.useProjectRelativePathFromimage'));
         return this.run(`from-image:${fromImage}`, ['generate', 'video', projectRoot, '--from-image', fromImage, '--yes', '--json']);
     }
 
@@ -63,14 +64,14 @@ export class GenerationCliManager {
 
     async cancel(itemId: string): Promise<GenerationCliResult> {
         const child = this.children.get(itemId);
-        if (!child) return { ok: false, reason: 'この item の生成プロセスは動いていません。', stdout: '' };
+        if (!child) return { ok: false, reason: t('annotationscommon.generationCli.reason.notRunning'), stdout: '' };
         child.kill('SIGTERM');
         const timer = setTimeout(() => {
             if (child.exitCode === null) child.kill('SIGKILL');
         }, 3000);
         return new Promise(resolvePromise => child.once('close', code => {
             clearTimeout(timer);
-            resolvePromise({ ok: code === 0, ...(code === 0 ? {} : { reason: `生成を中止しました（exit ${code ?? '不明'}）` }), stdout: '', exitCode: code });
+            resolvePromise({ ok: code === 0, ...(code === 0 ? {} : { reason: t('annotationscommon.generationCli.reason.stopped', { code: code ?? t('annotationscommon.generationCli.label.unknown') }) }), stdout: '', exitCode: code });
         }));
     }
 
@@ -97,16 +98,16 @@ export class GenerationCliManager {
     }
 
     protected async run(itemId: string, args: string[]): Promise<GenerationCliResult> {
-        if (this.children.has(itemId)) return { ok: false, reason: 'この item は生成中です。', stdout: '' };
+        if (this.children.has(itemId)) return { ok: false, reason: t('annotationscommon.generationCli.reason.alreadyGenerating'), stdout: '' };
         const cli = await this.resolveCli();
-        if (!cli) return { ok: false, reason: 'akari generate CLI が見つかりません。', stdout: '' };
+        if (!cli) return { ok: false, reason: t('annotationscommon.generationCli.reason.cliMissing'), stdout: '' };
         return new Promise(resolvePromise => {
             let stdout = '';
             let stderr = '';
             let child: ChildProcess;
             try {
                 child = this.spawnImpl(process.execPath, [cli, ...args], {
-                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' },
+                    env: childProcessEnv({ ...this.env, ELECTRON_RUN_AS_NODE: '1' }),
                     stdio: ['ignore', 'pipe', 'pipe'], detached: false
                 });
             } catch (error) {
@@ -118,7 +119,7 @@ export class GenerationCliManager {
             child.stderr?.on('data', chunk => { stderr += chunk.toString(); });
             const finish = (code: number | null, reason?: string): void => {
                 if (this.children.get(itemId) === child) this.children.delete(itemId);
-                const failure = reason ?? (stderr.trim() || `exit ${code ?? '不明'}`);
+                const failure = reason ?? (stderr.trim() || t('annotationscommon.generationCli.reason.exitCode', { code: code ?? t('annotationscommon.generationCli.label.unknown') }));
                 resolvePromise({ ok: code === 0, ...(code === 0 ? {} : { reason: failure }), stdout, stderr, exitCode: code });
             };
             child.once('error', error => finish(2, error.message));

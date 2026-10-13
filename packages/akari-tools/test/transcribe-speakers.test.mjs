@@ -3,11 +3,15 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
+import { setLanguage } from "../../i18n/index.mjs";
 
 import { runMediaCli } from "../bin/media.mjs";
 import { transcribeMedia } from "../src/media/transcribe.mjs";
+
+setLanguage("ja");
+after(() => setLanguage(undefined));
 
 const temporaryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.tmp-lane");
 const json = async file => JSON.parse(await readFile(file, "utf8"));

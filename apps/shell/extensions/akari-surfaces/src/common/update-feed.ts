@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 /**
  * 更新フィード（`~/.akari/update-check.json`）の評価ロジック。
  *
@@ -191,7 +192,7 @@ export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache 
 
 /** channel が prerelease のときだけ付ける版名の注記（CLI 側 `formatUpdateNotice` と同じ規則）。 */
 function channelSuffix(channel: string | undefined): string {
-    return channel === 'prerelease' ? '（プレリリース）' : '';
+    return channel === 'prerelease' ? t('surfaces.updates.channelSuffixPreRelease.label') : '';
 }
 
 /** ホームバナー本文。「AKARI Video v0.2.0（プレリリース）が利用できます」の形（task.md 指示）。 */
@@ -199,7 +200,7 @@ export function formatHomeBannerText(status: UpdateStatus): string {
     if (!status.available || !status.latestVersion) {
         return '';
     }
-    return `AKARI Video v${status.latestVersion}${channelSuffix(status.channel)}が利用できます`;
+    return t('surfaces.updates.formatHomeBannerTextAkariVideoVAvailable.message', { version: status.latestVersion, channelSuffix: channelSuffix(status.channel) });
 }
 
 /** 「今回はスキップ」で dismissed に記録した新しいキャッシュを組み立てる純粋関数（書き込みは呼び出し側の責務）。 */

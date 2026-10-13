@@ -70,6 +70,7 @@ All contracts follow the
 | File | Contents |
 |---|---|
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | The canonical agent-native architecture rationale (three-layer sandwich, editing model, MVP milestones) |
+| [contract-2026-10-11-ui-i18n.md](./contract-2026-10-11-ui-i18n.md) | UI catalogs, language selection, formatting, and the Japanese text ratchet |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | Versioning and migration principles for data contracts (cross-cutting) |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | Where generated artifacts live (layer definitions, root-level principle, deletion safety) |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | The workspace (CreatorRoot) contract — the layer above projects. Three locations, four ownership layers, first-run flow, portability |
@@ -79,6 +80,7 @@ All contracts follow the
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | Generation v0: placeholder clips, nine normalized input slots, sidecar metadata, model capabilities, state, planned videos, replacement, cost approval, and frame capture (Japanese) |
 | [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
+| [contract-2026-10-11-content-language.md](./contract-2026-10-11-content-language.md) | Content language storage, resolution order, normalization, and language-pack fallback |
 
 ### edit.json (the editing save file)
 

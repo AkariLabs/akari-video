@@ -1,3 +1,4 @@
+import { t } from '@akari-video/i18n';
 export interface CanvasDropTarget {
     id: string;
     name: string;
@@ -42,6 +43,6 @@ export function canvasDropDuration(at: number, duration: number, canvas: CanvasD
 
 export function canvasDropLabel(targets: readonly CanvasDropTarget[], target: CanvasDropTarget): string {
     if (target.name.trim()) return target.name;
-    return `キャンバス ${[...targets].sort((a, b) => a.at - b.at || a.trackIndex - b.trackIndex)
-        .findIndex(candidate => candidate.id === target.id) + 1}`;
+    return t('annotations.canvasDropTarget.text.canvas', { index: [...targets].sort((a, b) => a.at - b.at || a.trackIndex - b.trackIndex)
+        .findIndex(candidate => candidate.id === target.id) + 1 });
 }
