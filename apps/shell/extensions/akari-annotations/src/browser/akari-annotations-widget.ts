@@ -316,11 +316,14 @@ import {
     CaptionDisplayCueLike,
     loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
-    renderAroundCaptionDisplayReload,
     remapCaptionSelection,
+    renderAfterCaptionStateChange,
+    sameCaptionDisplayCueGroups,
+    shouldInvalidateVisualForPath,
     shouldReloadCaptions,
     writeCaptionFragmentBreaksVisible
 } from '../common/caption-track-layout';
+import { RecentCaptionEchoVerifier } from '../common/recent-caption-echo';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -1071,8 +1074,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected gapBand?: HTMLDivElement;
     protected gapCommitting = false;
 
-    protected readonly visualThumbnails = new VisualThumbnailCache(() => this.renderStrip());
+    protected readonly visualThumbnails = new VisualThumbnailCache(() => this.scheduleStripRender());
     protected readonly visualKeys = new WeakMap<HTMLElement, string>();
+    protected visualThumbnailGeometry = new WeakMap<HTMLElement, string>();
     protected visualHover: HTMLDivElement | undefined;
     protected readonly shapeFaceCache = new Map<string, { raw: unknown; presetName?: string; key: string;
         label: string; svg: string; revision: number; frameHeight?: number; faceWidth?: number }>();
@@ -1277,6 +1281,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>;
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
+    protected readonly captionEchoVerifier = new RecentCaptionEchoVerifier(() => {
+        if (!this.isDisposed) void this.reloadCaptionsIfChanged();
+    });
     protected captions: CaptionRecord[] = [];
     protected readonly captionTextSessions = new Map<string, { before: string }>();
     protected lastAppliedCaptionsSource: string | undefined;
@@ -1302,6 +1309,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         meta: GenerationSidecarMeta; binding: GenerationBindingView | null
     }>();
     protected generationSidecarReload = 0;
+    protected loadedGenerationPathsKey: string | undefined;
+    protected savedByStampText: string | undefined;
+    protected savedByStampLoaded = false;
+    protected savedByRoot: string | undefined;
+    protected readonly motionReferenceCache = new Map<string, { items?: Record<string, unknown> }>();
     /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
     protected defaultSource: ResolvedEditSource | undefined;
     protected overlays: EditOverlay[] = [];
@@ -3552,9 +3564,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         if (request.phase === 'draft') {
                             if (!request.value.trim()) return { ok: true };
                             if (!this.captionTextSessions.has(key)) this.captionTextSessions.set(key, { before: await read() });
+                            const reloadGeneration = this.captionReloadGeneration;
                             await this.annotationsService.setCaptionFields({ captionsUri, projectRootUri,
                                 captionId: request.id, text: request.value, draft: true });
-                            await this.reloadCaptionsFromSource(undefined, true);
+                            if (reloadGeneration === this.captionReloadGeneration) {
+                                await this.reloadCaptionsFromSource(undefined, true);
+                            }
                             return { ok: true };
                         }
                         const session = this.captionTextSessions.get(key);
@@ -3792,14 +3807,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const applyStyles = async (
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>,
                         source?: string
-                    ): Promise<boolean> => {
+                    ): Promise<string> => {
                         if (!location.editUri) throw new Error('edit.json がありません。');
-                        let beforeSource = source;
-                        let afterSource = source ?? '';
+                        let afterSource = source;
                         await commitCaptionStyleBatch(styles, source,
                             async () => {
                                 const content = (await this.fileService.readFile(location.captionsUri)).value.toString();
-                                beforeSource ??= content;
+                                afterSource ??= content;
                                 return content;
                             },
                             async captionsSource => {
@@ -3808,26 +3822,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                                     editUri: location.editUri!.toString(), captionsUri, projectRootUri, captionsSource
                                 });
                             });
-                        return captionPaintOnlyChange(beforeSource, afterSource);
+                        return afterSource ?? '';
                     };
-                    const paintOnly = await applyStyles(nextStyles, captionsSource);
+                    const appliedSource = await applyStyles(nextStyles, captionsSource);
                     const feedback = request.kind === 'caption-style-font-family'
                         ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
                         label: feedback?.history ?? '字幕のスタイルを変更',
                         undo: async () => {
-                            const changedPaintOnly = await applyStyles(originalStyles);
-                            if (changedPaintOnly) await this.reloadCaptionStyles();
-                            else await this.reloadCaptions();
+                            await this.reloadCaptionsIfChanged(await applyStyles(originalStyles));
                         },
                         redo: async () => {
-                            const changedPaintOnly = await applyStyles(nextStyles);
-                            if (changedPaintOnly) await this.reloadCaptionStyles();
-                            else await this.reloadCaptions();
+                            await this.reloadCaptionsIfChanged(await applyStyles(nextStyles));
                         }
                     });
-                    if (paintOnly) await this.reloadCaptionStyles();
-                    else await this.reloadCaptions();
+                    await this.reloadCaptionsIfChanged(appliedSource);
                     this.hideNotice();
                     this.footer.textContent = feedback?.footer ?? '字幕のスタイルを更新しました。';
                     return { ok: true };
@@ -8399,6 +8408,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const refreshDaihonCut = (): void => { void this.reloadEdit(); };
         window.addEventListener('akari.daihon.refreshTimeline', refreshDaihonCut);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.refreshTimeline', refreshDaihonCut) });
+        this.toDispose.push(this.captionEchoVerifier);
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {
@@ -8468,9 +8478,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 visualChanged = true;
             }
             for (const change of event.changes) this.htmlPartsCache.delete(change.resource.toString());
+            let motionChanged = false;
+            for (const change of event.changes) {
+                motionChanged = this.motionReferenceCache.delete(change.resource.toString()) || motionChanged;
+                if (change.resource.toString() === this.location.root.resolve(SAVED_BY_PATH).toString()) {
+                    this.savedByStampLoaded = false;
+                }
+            }
+            if (motionChanged) void this.reloadEdit();
             if (event.changes.some(change => this.location!.root.isEqualOrParent(change.resource)
-                && /\.(html?|css|js|mjs|json|png|jpe?g|webp|svg|gif|glb|gltf|bin|hdr|exr|ttf|otf|woff2?)$/i.test(change.resource.path.toString())
-                && !/\/(?:\.akari|\.git|exports)\//.test(change.resource.path.toString()))) {
+                && shouldInvalidateVisualForPath(change.resource.path.toString(),
+                    this.location!.editUri?.path.toString(), this.location!.captionsUri.path.toString()))) {
                 // Also reject in-flight work whose dependencies have not been returned yet.
                 this.visualInputEpoch++;
                 visualChanged = true;
@@ -8482,7 +8500,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
                 this.visualThumbnailRetryTimer = undefined;
             }
-            if (visualChanged) this.renderStrip();
+            if (visualChanged) this.scheduleStripRender();
             if (event.contains(this.location.reviewUri)) {
                 void this.reloadReview();
             }
@@ -8490,11 +8508,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && !this.isRecentWrite(this.location.editUri)) {
                 void this.reloadEdit();
             }
-            if (event.contains(this.location.captionsUri)) void this.reloadCaptionsIfChanged();
+            if (event.contains(this.location.captionsUri)) {
+                if (this.isRecentWrite(this.location.captionsUri)) {
+                    this.captionEchoVerifier?.request(
+                        this.recentWrites.get(this.location.captionsUri.toString()) ?? Date.now());
+                } else {
+                    void this.reloadCaptionsIfChanged();
+                }
+            }
             if (event.contains(this.location.root.resolve('planning/world-map.json'))) {
                 void this.reloadWorldMap().then(() => this.renderStrip());
             }
             if (event.changes.some(change => change.resource.path.toString().endsWith('.meta.json'))) {
+                this.loadedGenerationPathsKey = undefined;
                 void this.reloadGenerationSidecars();
             }
             if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
@@ -8815,12 +8841,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         stampText?: string; currentVersion?: string;
     }> {
         const root = this.location?.root;
+        if (root?.toString() !== this.savedByRoot) {
+            this.savedByRoot = root?.toString();
+            this.savedByStampLoaded = false;
+            this.savedByStampText = undefined;
+        }
         const [stampText, currentVersion] = await Promise.all([
-            root ? this.fileService.readFile(root.resolve(SAVED_BY_PATH))
-                .then(file => file.value.toString()).catch(() => undefined) : Promise.resolve(undefined),
+            root && !this.savedByStampLoaded ? this.fileService.readFile(root.resolve(SAVED_BY_PATH))
+                .then(file => file.value.toString()).catch(() => undefined) : Promise.resolve(this.savedByStampText),
             this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
                 .then(info => info?.version).catch(() => undefined)
         ]);
+        this.savedByStampText = stampText;
+        this.savedByStampLoaded = true;
         return { stampText, currentVersion };
     }
 
@@ -8985,9 +9018,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.loadTrackHeights();
         await this.reloadGenerationSidecars(false);
         if (generation !== this.editReloadGeneration) return;
-        await renderAroundCaptionDisplayReload(
+        await renderAfterCaptionStateChange(
+            () => this.scheduleStripRender(),
             () => this.reloadResolvedCaptionDisplay(),
-            () => this.renderStrip(),
             () => generation === this.editReloadGeneration
         );
     }
@@ -9431,12 +9464,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
             const epoch = this.visualInputEpoch;
             const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
+            const rect = element.getBoundingClientRect();
+            const viewport = this.stripScroll.getBoundingClientRect();
+            const geometry = JSON.stringify([rect.left, rect.right, rect.top, rect.bottom, rect.width, rect.height,
+                viewport.left, viewport.right, viewport.top, viewport.bottom, viewport.width, viewport.height]);
+            const geometryCache = this.visualThumbnailGeometry ??= new WeakMap();
+            if (this.visualKeys.get(element) === key && element.dataset.akariVisualThumbnail === 'ready'
+                && geometryCache.get(element) === geometry
+                && element.querySelector(':scope > .akari-visual-thumbnail-image')) {
+                element.title = label;
+                return;
+            }
+            geometryCache.set(element, geometry);
             const valid = (): boolean => !this.isDisposed && this.location?.editUri?.toString() === editUri
                 && this.visualInputEpoch === epoch && (this.visualDependencyRevisions.get(id) ?? 0) === dependencyRevision
                 && visualThumbnailSnapshot(this.editDocument, id) === editSnapshot;
             this.visualKeys.set(element, key);
-            const rect = element.getBoundingClientRect();
-            const viewport = this.stripScroll.getBoundingClientRect();
             const visible = (): boolean => {
                 if (!element.isConnected || this.visualKeys.get(element) !== key) return false;
                 const bounds = element.getBoundingClientRect();
@@ -9845,6 +9888,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.editSources.flatMap(source => typeof source.path === 'string' ? [source.path] : []),
             ...directMediaPaths
         ])];
+        const pathsKey = JSON.stringify([location.root.toString(), sourcePaths.slice().sort()]);
+        if (!render && pathsKey === this.loadedGenerationPathsKey) return;
         // compare の長い RPC が backend を占めていても、FileService から枠 meta を先に読む。
         const direct = await Promise.all(sourcePaths.filter(path => /^assets\/(?!.*\.\.)/u.test(path)).map(async sourcePath => {
             try {
@@ -9862,7 +9907,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     meta: entry.meta, binding: this.generationSidecars.get(entry.sourcePath)?.binding ?? null
                 });
             }
-            if (render) this.renderStrip();
+            if (render) this.scheduleStripRender();
         }
         const readBackend = async (): Promise<void> => {
             try {
@@ -9878,11 +9923,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         && currentCompleted > readCompleted ? current.meta : entry.meta;
                     return [entry.sourcePath, { meta, binding: entry.binding ?? current?.binding ?? null }] as const;
                 }));
+                this.loadedGenerationPathsKey = pathsKey;
             } catch {
                 if (generation !== this.generationSidecarReload) return;
                 if (!fast) this.generationSidecars.clear();
             }
-            if (render || fast) this.renderStrip();
+            if (render) this.scheduleStripRender();
         };
         if (fast) { void readBackend(); return; }
         await readBackend();
@@ -10051,6 +10097,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
         } | undefined, clipWidth?: number
     ): void {
+        if (!generation && element.dataset.akariGenerationState === 'none'
+            && !element.dataset.akariGenerationElapsedTimer && !element.dataset.akariGenerationTitle
+            && !element.className.includes('akari-generation-')
+            && !element.querySelector('[data-akari-generation-badge]')
+            && !element.querySelector('[data-akari-generation-progress]')) return;
         const previousTimer = Number(element.dataset.akariGenerationElapsedTimer);
         if (previousTimer && typeof window !== 'undefined') window.clearInterval(previousTimer);
         delete element.dataset.akariGenerationElapsedTimer;
@@ -10527,10 +10578,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.captionReloadGeneration) return;
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
-        if (styleOnly) return;
-        await renderAroundCaptionDisplayReload(
-            () => this.reloadResolvedCaptionDisplay(),
-            () => this.renderStrip(),
+        await renderAfterCaptionStateChange(
+            () => this.scheduleStripRender(),
+            styleOnly ? undefined : () => this.reloadResolvedCaptionDisplay(),
             () => generation === this.captionReloadGeneration
         );
     }
@@ -10543,13 +10593,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async reloadResolvedCaptionDisplay(): Promise<void> {
+    protected async reloadResolvedCaptionDisplay(): Promise<boolean> {
         const generation = ++this.captionDisplayReloadGeneration;
         const location = this.location;
         if (!location?.editUri) {
+            const changed = this.captionDisplayCuesBySource.size > 0;
             this.captionDisplayCuesBySource.clear();
             this.captionDisplayFailureWarned = false;
-            return;
+            return changed;
         }
         let failed = false;
         const groups = await loadCaptionDisplayCueGroups(
@@ -10567,9 +10618,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         );
-        if (generation !== this.captionDisplayReloadGeneration) return;
+        if (generation !== this.captionDisplayReloadGeneration) return false;
+        const changed = !sameCaptionDisplayCueGroups(this.captionDisplayCuesBySource, groups);
         this.captionDisplayCuesBySource = groups;
         if (!failed) this.captionDisplayFailureWarned = false;
+        return changed;
     }
 
     protected remapCaptionSelections(previous: readonly CaptionRecord[], next: readonly CaptionRecord[]): void {
@@ -13009,10 +13062,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (reference && !Array.isArray(reference) && typeof reference.path === 'string'
                     && typeof item.id === 'string') {
                     try {
-                        const text = (await this.fileService.readFile(
-                            this.location!.editUri.parent.resolve(reference.path)
-                        )).value.toString();
-                        const motion = JSON.parse(text) as { items?: Record<string, unknown> };
+                        const uri = this.location!.editUri.parent.resolve(reference.path);
+                        const key = uri.toString();
+                        let motion = this.motionReferenceCache.get(key);
+                        if (!motion) {
+                            const text = (await this.fileService.readFile(uri)).value.toString();
+                            motion = JSON.parse(text) as { items?: Record<string, unknown> };
+                            this.motionReferenceCache.set(key, motion);
+                        }
                         const points = motion.items?.[item.id];
                         if (Array.isArray(points)) item.keyframes = points;
                     } catch {

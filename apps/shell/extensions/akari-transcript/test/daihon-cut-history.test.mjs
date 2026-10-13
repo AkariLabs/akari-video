@@ -73,6 +73,30 @@ function harness(initial = before) {
     get applyCalls() { return applyCalls; }, get restoreCalls() { return restoreCalls; } };
 }
 
+test('保存応答後のタイムライン通知は台本 reload の完了を待たない', async () => {
+  const run = harness();
+  let signals = 0;
+  let release;
+  run.widget.refreshCutTimeline = () => { signals++; };
+  run.widget.reload = () => new Promise(resolve => { release = resolve; });
+  const pending = run.widget.applyCutEntries([{ rowId: row.id,
+    range: { in: 2, out: 4, kind: 'row', captionId: 'main', label: '行' } }], '行をカット');
+  for (let attempt = 0; attempt < 30 && signals === 0; attempt++) await Promise.resolve();
+  assert.equal(signals, 1);
+  for (let attempt = 0; attempt < 30 && !release; attempt++) await Promise.resolve();
+  assert.equal(typeof release, 'function');
+  release();
+  await pending;
+  release = undefined;
+  const undo = run.history[0].undo();
+  for (let attempt = 0; attempt < 30 && signals < 2; attempt++) await Promise.resolve();
+  assert.equal(signals, 2);
+  for (let attempt = 0; attempt < 30 && !release; attempt++) await Promise.resolve();
+  assert.equal(typeof release, 'function');
+  release();
+  await undo;
+});
+
 for (const [name, invoke] of [
   ['フィラー', widget => widget.cutFiller(row, 0)],
   ['??', widget => widget.cutUnrecognized(row, { start: 5, end: 6 })],

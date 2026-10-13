@@ -13,6 +13,7 @@ import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../lib/common/hover-po
 
 import { createCaptionHoverPreview } from '../lib/common/caption-hover-preview.js';
 import { mergeCaptionTextStyles } from '../lib/common/caption-store.js';
+import { shouldInvalidateVisualForPath } from '../lib/common/caption-track-layout.js';
 
 const source = readSourceFile('widget').ast;
 const klass = readSourceFile('widget').classNode;
@@ -105,6 +106,20 @@ test('unrelated sibling changes reuse pixels but parent transform changes genera
   f.render(); await wait(200); assert.equal(f.captures.length, 1);
   f.w.editDocument.tracks[0].items[0].transform = { x: 80 };
   f.render(); await until(() => f.captures.length === 2);
+});
+
+test('入力が同じ完成済みサムネイルは再要求せず、依存版が変われば再要求する', async t => {
+  const f = fixture(t);
+  f.render();
+  await until(() => f.element.dataset.akariVisualThumbnail === 'ready');
+  let requests = 0;
+  const request = f.w.visualThumbnails.request.bind(f.w.visualThumbnails);
+  f.w.visualThumbnails.request = (...args) => { requests++; return request(...args); };
+  f.render();
+  assert.equal(requests, 0);
+  f.w.visualDependencyRevisions.set('title', 1);
+  f.render();
+  assert.equal(requests, 1);
 });
 
 test('partially visible long clips repeat cached pixels through pan, while short clips retain contain', async t => {
@@ -323,13 +338,14 @@ test('the real file watcher invalidates motion/edit.json and motion/credit.json 
   };
   visit(klass); assert.ok(watcher);
   const js = ts.transpileModule(`function install(){return ${watcher.getText(source)};}`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const install = new Function(`${js};return install;`)();
+  const install = new Function('SAVED_BY_PATH', 'shouldInvalidateVisualForPath', `${js};return install;`)(
+    '.akari/saved-by.json', shouldInvalidateVisualForPath);
   const U = URI.default ?? URI;
   const uri = path => new U(`file:///project/${path}`);
   let renders = 0, editReloads = 0;
   const w = { location: { root: new U('file:///project'), editUri: uri('edit.json'), reviewUri: uri('review.json'), captionsUri: uri('captions.json') },
     visualInputEpoch: 0, visualDependencies: new Map([['child', [uri('motion/edit.json'), uri('motion/credit.json')]], ['other', [uri('other.html')]]]),
-    htmlPartsCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Map(), renderStrip: () => renders++,
+    htmlPartsCache: new Map(), motionReferenceCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Map(), renderStrip: () => renders++, scheduleStripRender: () => renders++,
     reloadEdit: async () => editReloads++, reloadReview: async () => {}, reloadCaptions: async () => {}, isRecentWrite: () => false };
   const change = path => install.call(w)({ changes: [{ resource: uri(path) }], contains: target => target?.toString() === uri(path).toString() });
   change('motion/edit.json'); change('motion/credit.json');

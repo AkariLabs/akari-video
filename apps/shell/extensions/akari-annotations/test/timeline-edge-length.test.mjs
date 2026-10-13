@@ -174,7 +174,7 @@ test('undo は共通 mutation の 1 手、数値欄のスクラブ途中は onPr
 test('通知は reloadEdit → selection snapshot → onChanged/render → 生成尺再検証につながる', () => {
     assert.match(between(source, 'protected async reloadEdit(', 'protected '), /this.pushSelectionSnapshot\(\)/);
     const model = read('../src/browser/timeline-selection-model.ts');
-    assert.match(model, /set snapshot\(value: TimelineSelectionSnapshot\)[\s\S]*?this.onChangedEmitter.fire\(\)/);
+    assert.match(model, /set snapshot\(value: TimelineSelectionSnapshot\)[\s\S]*?this.notifyChanged\(\)/);
     assert.match(inspectorSource, /this.model.onChanged\(\(\) => \{[\s\S]*?this.render\(\)/);
     assert.match(inspectorSource, /draft.output.duration_s !== identity.duration[\s\S]*?draft.output.duration_s = identity.duration;[\s\S]*?this.validateGenerationDraft/);
 });

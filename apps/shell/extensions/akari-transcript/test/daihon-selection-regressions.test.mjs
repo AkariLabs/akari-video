@@ -136,7 +136,7 @@ test('強調だけ変わった行も再描画され、保存直後に本文の�
     assert.deepEqual(changedWordPresetRowIds(after, new Map(after)), []);
     assert.match(transcript, /changedPresets\.has\(row\.id\)/);
     assert.match(transcript, /this\.word\(word\.text, index, row\.id, this\.wordPresetByRowId\.get\(row\.id\)\?\.\[index\]\)/);
-    assert.match(transcript, /await this\.reload\(\);\s*const preset = TEXTSTYLE_CATALOG\[presetId\]/);
+    assert.match(transcript, /await this\.queueCaptionReloadIfChanged\(\);\s*const preset = TEXTSTYLE_CATALOG\[presetId\]/);
     const start = transcript.indexOf('    protected resolveWordPresets(');
     const end = transcript.indexOf('    protected async loadSilences(', start);
     const ts = require('typescript');

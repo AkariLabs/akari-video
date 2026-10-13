@@ -1,4 +1,5 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common/messaging';
 import {
     AkariAnnotationsClient,
@@ -30,6 +31,7 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
     bind(AkariAnnotationsServiceImpl).toSelf().inSingletonScope();
     bind(AkariAnnotationsService).toService(AkariAnnotationsServiceImpl);
+    bind(BackendApplicationContribution).toService(AkariAnnotationsServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>
         new JsonRpcConnectionHandler<AkariAnnotationsClient>(AKARI_ANNOTATIONS_SERVICE_PATH, client => {
             const service = context.container.get<AkariAnnotationsService>(AkariAnnotationsService);

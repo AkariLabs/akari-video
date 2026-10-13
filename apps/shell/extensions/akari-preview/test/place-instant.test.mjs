@@ -154,7 +154,7 @@ test('台帳の変更通知は全体再構築せずモデル差分へ渡し、�
 });
 
 test('queueCaptionsUpdate は送信した字幕を前回モデルの控えにも保存する', async () => {
-    const body = methodBody('queueCaptionsUpdate');
+    const body = [methodBody('queueCaptionsUpdate'), methodBody('applyCaptionsUpdate')].join('\n');
     const code = ts.transpileModule(`class Subject {
         ${body}
         async loadPreviewCaptions() { return { captions: [{ id: 'c1', text: 'edited' }] }; }

@@ -1,4 +1,5 @@
 import type { MaterialSwapTarget } from '../common/material-replacement';
+import { sameSelectionValue } from '../common/selection-value-equality';
 import type { ImageAiBinding } from '../common/image-ai-binding';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
@@ -521,6 +522,16 @@ export class TimelineSelectionModel {
 
     protected readonly onChangedEmitter = new Emitter<void>();
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
+    private changeScheduled = false;
+
+    private notifyChanged(): void {
+        if (this.changeScheduled) return;
+        this.changeScheduled = true;
+        queueMicrotask(() => {
+            this.changeScheduled = false;
+            this.onChangedEmitter.fire();
+        });
+    }
 
     /** The timeline whose selection is currently shown by the inspector. */
     inspectorOwner?: object;
@@ -560,8 +571,9 @@ export class TimelineSelectionModel {
     }
 
     set snapshot(value: TimelineSelectionSnapshot) {
+        if (sameSelectionValue(this._snapshot, value)) return;
         this._snapshot = value;
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 
     get audioMaster(): TimelineAudioMasterSnapshot {
@@ -569,8 +581,9 @@ export class TimelineSelectionModel {
     }
 
     set audioMaster(value: TimelineAudioMasterSnapshot) {
+        if (sameSelectionValue(this._audioMaster, value)) return;
         this._audioMaster = value;
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 
     get treeSelection(): TimelineTreeItemSelection | undefined {
@@ -578,8 +591,9 @@ export class TimelineSelectionModel {
     }
 
     set treeSelection(value: TimelineTreeItemSelection | undefined) {
+        if (sameSelectionValue(this._treeSelection, value)) return;
         this._treeSelection = value;
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 
     get keyframeSelection(): TimelineKeyframeSelection | undefined {
@@ -587,8 +601,9 @@ export class TimelineSelectionModel {
     }
 
     set keyframeSelection(value: TimelineKeyframeSelection | undefined) {
+        if (sameSelectionValue(this._keyframeSelection, value)) return;
         this._keyframeSelection = value;
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 
     get selectedCaptionIds(): readonly string[] {
@@ -601,7 +616,7 @@ export class TimelineSelectionModel {
             return;
         }
         this._selectedCaptionIds = [...value];
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 
     get fps(): number {
@@ -613,6 +628,6 @@ export class TimelineSelectionModel {
             return;
         }
         this._fps = value;
-        this.onChangedEmitter.fire();
+        this.notifyChanged();
     }
 }

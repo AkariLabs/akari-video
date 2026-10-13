@@ -62,8 +62,11 @@ for (const [name, invoke] of [
 ]) test(`${name} は 1 操作で commit を 1 件だけ増やす`, async () => {
   const f = await fixture(editV2('c-0001'), [caption('c-0001', 0, ['a', 'b']), caption('c-0002', 3, ['c'])], true);
   try { const before = Number((await run('git', ['rev-list', '--count', 'HEAD'], { cwd: f.root })).stdout.trim());
-    const result = await invoke(new AkariAnnotationsServiceImpl(), f.request);
+    const service = new AkariAnnotationsServiceImpl();
+    const result = await invoke(service, f.request);
+    assert.equal(result.committed, false);
+    await service.flushEditCommit(f.root);
     const after = Number((await run('git', ['rev-list', '--count', 'HEAD'], { cwd: f.root })).stdout.trim());
-    assert.equal(result.committed, true); assert.equal(after, before + 1);
+    assert.equal(after, before + 1);
   } finally { await cleanup(f.root); }
 });

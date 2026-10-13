@@ -53,7 +53,7 @@ function method(name) {
 
 // Same compiled-method/real-import approach as preview-audio-request-order.test.mjs.
 export function captionHost(fixture) {
-    const body = ['loadPreviewModel', 'queueCaptionsUpdate', 'previewCaptionTimelineSegments',
+    const body = ['loadPreviewModel', 'queueCaptionsUpdate', 'applyCaptionsUpdate', 'previewCaptionTimelineSegments',
         'previewAudioSidecarFields', 'positiveNumber', 'finiteNumber', 'transform'].map(method).join('\n');
     const bindings = {};
     for (const [, name, path] of compiled.matchAll(/^const (\w+) = require\("([^"]+)"\);$/gmu)) {

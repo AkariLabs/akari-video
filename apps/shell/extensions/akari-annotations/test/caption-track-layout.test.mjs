@@ -7,11 +7,23 @@ import {
     groupCaptionDisplayCues,
     loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
-    renderAroundCaptionDisplayReload,
+    renderAfterCaptionStateChange,
     remapCaptionSelection,
+    sameCaptionDisplayCueGroups,
+    shouldInvalidateVisualForPath,
     shouldReloadCaptions,
     writeCaptionFragmentBreaksVisible
 } from '../lib/common/caption-track-layout.js';
+
+test('字幕と編集の保存通知は汎用ビジュアル再描画を起こさない', () => {
+    const edit = '/project/edit.json';
+    const captions = '/project/captions.json';
+    for (const path of [edit, captions, '/project/.akari/history/1.json',
+        '/project/.akari/lint.json', '/project/assets/.image.json.tmp']) {
+        assert.equal(shouldInvalidateVisualForPath(path, edit, captions), false, path);
+    }
+    assert.equal(shouldInvalidateVisualForPath('/project/assets/cover.png', edit, captions), true);
+});
 
 test('解決 cue を source_cue_id ごとにまとめて時刻順に並べる', () => {
     const grouped = groupCaptionDisplayCues([
@@ -77,31 +89,44 @@ test("区切り表示は 'true' / 'false' を保存し、保存失敗を描画�
     assert.doesNotThrow(() => writeCaptionFragmentBreaksVisible(undefined, true));
 });
 
-test('表示断片の解決前後で順番どおり描画する', async () => {
+test('表示断片の RPC を待たずに描き、結果が違うときだけ再描画する', async () => {
     const order = [];
     let finish;
-    const pending = renderAroundCaptionDisplayReload(
+    const pending = renderAfterCaptionStateChange(
+        () => order.push('render'),
         () => {
             order.push('resolve');
-            return new Promise(resolve => { finish = () => { order.push('resolved'); resolve(); }; });
+            return new Promise(resolve => { finish = changed => { order.push('resolved'); resolve(changed); }; });
         },
-        () => order.push('render'),
         () => true
     );
-    assert.deepEqual(order, ['resolve', 'render']);
-    finish();
+    assert.deepEqual(order, ['render', 'resolve']);
+    finish(false);
     await pending;
-    assert.deepEqual(order, ['resolve', 'render', 'resolved', 'render']);
+    assert.deepEqual(order, ['render', 'resolve', 'resolved']);
+    await renderAfterCaptionStateChange(() => order.push('render'), async () => true);
+    assert.deepEqual(order.slice(-2), ['render', 'render']);
 });
 
-test('古い表示断片の解決では前後どちらも描画しない', async () => {
-    const order = [];
-    await renderAroundCaptionDisplayReload(
-        async () => { order.push('resolve'); },
-        () => order.push('render'),
-        () => false
-    );
-    assert.deepEqual(order, ['resolve']);
+test('追い越しと styleOnly でも最後の状態を描く', async () => {
+    let release;
+    let current = true;
+    let scheduled = 0;
+    const first = renderAfterCaptionStateChange(() => { scheduled++; },
+        () => new Promise(resolve => { release = resolve; }), () => current);
+    current = false;
+    await renderAfterCaptionStateChange(() => { scheduled++; });
+    release(true);
+    await first;
+    assert.equal(scheduled, 2);
+});
+
+test('表示 cue の同一内容を見分ける', () => {
+    const first = new Map([['c1', [{ text: '同じ', start: 0, end: 1 }]]]);
+    const same = new Map([['c1', [{ text: '同じ', start: 0, end: 1 }]]]);
+    const changed = new Map([['c1', [{ text: '変更', start: 0, end: 1 }]]]);
+    assert.equal(sameCaptionDisplayCueGroups(first, same), true);
+    assert.equal(sameCaptionDisplayCueGroups(first, changed), false);
 });
 
 test('選択は残存 id を維持し、結合先へ寄せて重複を除く', () => {
