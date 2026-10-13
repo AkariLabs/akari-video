@@ -5,6 +5,7 @@ import { constants, promises as fs } from 'fs';
 import { homedir } from 'os';
 import { basename, dirname, join } from 'path';
 import { promisify } from 'util';
+import { inflateSync } from 'zlib';
 
 const run = promisify(execFile);
 const EXTENSION = /\.(?:ttf|otf|ttc|woff2?)$/i;
@@ -39,10 +40,14 @@ const SFNT_SIGNATURES = ['\0\x01\0\0', 'OTTO', 'true', 'typ1'];
 const MAX_SFNT_TABLES = 256;
 const MAX_NAME_TABLE_BYTES = 4 * 1024 * 1024;
 
-function sfntName(buffer: Buffer, offset: number, length: number, platform: number): string | undefined {
+function sfntName(buffer: Buffer, offset: number, length: number, platform: number, encoding = 0): string | undefined {
     if (offset < 0 || length < 1 || offset + length > buffer.length) return undefined;
     try {
-        if (platform === 1) return new TextDecoder('macintosh').decode(buffer.subarray(offset, offset + length)).trim() || undefined;
+        if (platform === 1) {
+            if (encoding !== 0 && encoding !== 1) return undefined;
+            return new TextDecoder(encoding === 0 ? 'macintosh' : 'shift_jis', { fatal: true })
+                .decode(buffer.subarray(offset, offset + length)).trim() || undefined;
+        }
         if (platform !== 0 && platform !== 3 || length % 2) return undefined;
         let value = '';
         for (let index = offset; index < offset + length; index += 2) value += String.fromCharCode(buffer.readUInt16BE(index));
@@ -65,7 +70,7 @@ function addSfntNameTable(names: Map<string, string>, table: Buffer): void {
         const length = table.readUInt16BE(record + 8);
         const start = stringOffset + table.readUInt16BE(record + 10);
         if (start + length > table.length) continue;
-        const value = sfntName(table, start, length, platform);
+        const value = sfntName(table, start, length, platform, table.readUInt16BE(record + 2));
         if (!value) continue;
         const priority = platform === 3 && language === 0x0409 ? 3
             : platform === 1 && language === 0 ? 2 : platform === 0 ? 1 : 0;
@@ -81,6 +86,22 @@ function addSfntNameTable(names: Map<string, string>, table: Buffer): void {
 export function sfntFontNames(buffer: Buffer): Map<string, string> {
     const names = new Map<string, string>();
     try {
+        if (buffer.toString('ascii', 0, 4) === 'wOFF') {
+            const count = buffer.readUInt16BE(12);
+            if (count > MAX_SFNT_TABLES || 44 + count * 20 > buffer.length) return names;
+            for (let index = 0; index < count; index++) {
+                const record = 44 + index * 20;
+                if (buffer.toString('ascii', record, record + 4) !== 'name') continue;
+                const offset = buffer.readUInt32BE(record + 4), length = buffer.readUInt32BE(record + 8);
+                const original = buffer.readUInt32BE(record + 12);
+                if (original > MAX_NAME_TABLE_BYTES || offset + length > buffer.length) break;
+                const bytes = buffer.subarray(offset, offset + length);
+                const table = length === original ? bytes : inflateSync(bytes, { maxOutputLength: MAX_NAME_TABLE_BYTES });
+                if (table.length === original) addSfntNameTable(names, table);
+                break;
+            }
+            return names;
+        }
         const offsets: number[] = [];
         if (buffer.toString('ascii', 0, 4) === 'ttcf') {
             if (buffer.length < 12) return names;
@@ -125,6 +146,28 @@ export async function readSfntFontNames(path: string, onRead?: (bytes: number) =
         };
         const header = await readAt(0, 12);
         if (!header) return names;
+        if (header.toString('ascii', 0, 4) === 'wOFF') {
+            const woffHeader = await readAt(0, 44);
+            if (!woffHeader) return names;
+            const count = woffHeader.readUInt16BE(12);
+            if (count > MAX_SFNT_TABLES) return names;
+            const directory = await readAt(44, count * 20);
+            if (!directory) return names;
+            for (let index = 0; index < count; index++) {
+                const record = index * 20;
+                if (directory.toString('ascii', record, record + 4) !== 'name') continue;
+                const offset = directory.readUInt32BE(record + 4), length = directory.readUInt32BE(record + 8);
+                const original = directory.readUInt32BE(record + 12);
+                if (original > MAX_NAME_TABLE_BYTES) break;
+                const bytes = await readAt(offset, length);
+                if (bytes) {
+                    const table = length === original ? bytes : inflateSync(bytes, { maxOutputLength: MAX_NAME_TABLE_BYTES });
+                    if (table.length === original) addSfntNameTable(names, table);
+                }
+                break;
+            }
+            return names;
+        }
         const offsets: number[] = [];
         if (header.toString('ascii', 0, 4) === 'ttcf') {
             const count = header.readUInt32BE(8);
@@ -345,8 +388,16 @@ async function libraryFonts(root: string): Promise<Map<string, string>> {
         try {
             const meta = JSON.parse(await fs.readFile(join(dir, 'meta.json'), 'utf8'));
             const family = meta.title?.replace(/（.*$/u, '').trim();
-            addName(names, family);
-            for (const alias of meta.aliases ?? []) addName(names, alias, family);
+            if (!family) continue;
+            addName(names, family, family);
+            if (Array.isArray(meta.aliases)) for (const alias of meta.aliases) addName(names, alias, family);
+            if (!Array.isArray(meta.aliases)) {
+                const font = files.find(file => EXTENSION.test(file));
+                if (font) {
+                    try { for (const key of (await readSfntFontNames(join(dir, font))).keys()) names.set(key, family); }
+                    catch { /* retain metadata names */ }
+                }
+            }
         } catch { /* ignore malformed library item */ }
     }
     return names;
@@ -425,7 +476,11 @@ async function downloadFontOnce(id: string, title: string, aliases: string[], ma
         await fs.writeFile(join(temp, entry.file), font);
         await fs.writeFile(join(temp, 'OFL.txt'), license);
         await fs.writeFile(join(temp, 'meta.json'), JSON.stringify({ id, category: 'font', title: entry.family || title,
-            aliases, tags: ['font', 'japanese'], license: { spdx: 'OFL-1.1' } }, null, 2));
+            description: 'OFL-1.1 の書体', when_to_use: '字幕やテロップでこの書体を使うとき',
+            aliases, tags: ['font', 'japanese'], knobs: [], ai_usage: 'OFL-1.1 の条件に従って使用する。',
+            requires: [], provenance: { origin: 'Google Fonts から取得', generator: null }, author: 'See OFL.txt',
+            license: { spdx: 'OFL-1.1', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true },
+            tier: 'free' }, null, 2));
         await fs.access(join(temp, entry.file), constants.R_OK);
         await fs.rename(temp, join(parent, id));
     } catch (error) {
