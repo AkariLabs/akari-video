@@ -185,10 +185,8 @@ export function captionItemOverlays(
       onWarning?.(`captions.json item ${captionId} was not found; caption item ${item.id} was skipped`);
       continue;
     }
-    const v1 = Boolean((row.style_sources && !row.style_preset)
-      || (Array.isArray(row.runs) && row.runs.some(run => run?.look || run?.migrated_from)));
-    const renderRow = v1 ? preparedById.get(String(row.id)) ?? row : row;
-    const renderEmphasisWords = v1 && !Array.isArray(prepared)
+    const renderRow = preparedById.get(String(row.id)) ?? row;
+    const renderEmphasisWords = !Array.isArray(prepared)
       ? prepared.emphasis_words ?? editEmphasisWords : emphasisWords;
     // Output-domain caption items may live over layer-only timelines. The shared caption
     // generator clamps output cues to the cut timeline, so supply a timing-only span.

@@ -28,7 +28,8 @@ for (const resolved of [false, true]) test(`${resolved ? 'display_policy' : 'leg
   const plan = resolveCaptionPlan({ captionsRoot, edit });
   const html = plan.overlays.map(overlay => overlay.html).join('');
   assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 1);
-  assert.match(html, /data-akari-shadow-text="犬"/);
+  assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/);
+  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/g, ''), /data-akari-shadow-text=/);
   assert.doesNotMatch(html, /z-index:-999999/);
   assert.equal(plan.captions[0].runs.length, 1);
 });

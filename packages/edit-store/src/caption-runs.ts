@@ -26,6 +26,11 @@ export interface CaptionRun {
         text_shadow?: string;
         ink_outset_px?: number;
         rotate_deg?: number;
+        wrappable?: boolean;
+        gradient?: string;
+        replace_stroke?: boolean;
+        replace_shadow?: boolean;
+        gradient_filter?: boolean;
     };
     motion?: { in?: CaptionRunAnimationSlot; loop?: CaptionRunAnimationSlot; out?: CaptionRunAnimationSlot };
     dormant_animation?: CaptionRun['animation'];
@@ -419,6 +424,34 @@ export function captionRunsRemovedNotice(removedRuns: readonly CaptionRun[], old
 /** Self-contained because preview injects this function into its webview with toString(). */
 export function applyCaptionRunsToHtml(html: string, displayText: string, runs?: readonly CaptionRun[]): string {
     if (!runs?.length) return html;
+    const validColor = (value: unknown): value is string => typeof value === 'string'
+        && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+    const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+    const safeShadow = (value: unknown): value is string => typeof value === 'string'
+        && (value === 'none' || /^[\d\s.,()%#a-fA-Fprgbx-]+$/.test(value));
+    const safeGradient = (value: unknown): value is string => typeof value === 'string'
+        && /^linear-gradient\(-?\d+(?:\.\d+)?deg, (?:#[\da-fA-F]{3,8})(?:, #[\da-fA-F]{3,8}){1,2}\)$/.test(value);
+    runs = runs.map(run => {
+        const value = run?.resolved_look;
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return run;
+        const plate = value.plate;
+        const safePlate = plate && validColor(plate.color) && finite(plate.opacity)
+            && plate.opacity >= 0 && plate.opacity <= 1 && finite(plate.padding_px)
+            && plate.padding_px >= 0 && finite(plate.radius_px) && plate.radius_px >= 0
+            ? { plate } : {};
+        return { ...run, resolved_look: {
+            ...safePlate,
+            ...(safeShadow(value.text_shadow) ? { text_shadow: value.text_shadow } : {}),
+            ...(finite(value.ink_outset_px) && value.ink_outset_px >= 0
+                ? { ink_outset_px: value.ink_outset_px } : {}),
+            ...(finite(value.rotate_deg) ? { rotate_deg: value.rotate_deg } : {}),
+            ...(value.wrappable === true ? { wrappable: true } : {}),
+            ...(safeGradient(value.gradient) ? { gradient: value.gradient } : {}),
+            ...(value.replace_stroke === true ? { replace_stroke: true } : {}),
+            ...(value.replace_shadow === true ? { replace_shadow: true } : {}),
+            ...(value.gradient_filter === true ? { gradient_filter: true } : {})
+        } };
+    });
     const Segmenter = (Intl as typeof Intl & { Segmenter: GraphemeSegmenter }).Segmenter;
     const segment = (value: string): string[] => Array.from(
         new Segmenter(undefined, { granularity: 'grapheme' }).segment(value), item => item.segment);
@@ -428,7 +461,8 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
         && run.from >= 0 && run.to <= chars.length && run.from < run.to)) return html;
     const richRuns = runs.filter(run => run?.resolved_look?.plate || run?.resolved_look?.text_shadow !== undefined);
     const resolved = chars.map((value, index) => ({ text: value, index, style: {} as Record<string, unknown>,
-        role: '', shadow: undefined as string | undefined, plateTransform: false }));
+        role: '', shadow: undefined as string | undefined, plate: false, plateTransform: false,
+        replaceStroke: false }));
     for (const run of runs) {
         if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
             || run.from < 0 || run.to > chars.length || run.from >= run.to) continue;
@@ -444,7 +478,10 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             resolved[index] = { ...resolved[index],
                 role: run.role ?? resolved[index].role,
                 shadow: run.resolved_look?.text_shadow ?? resolved[index].shadow,
-                plateTransform: Boolean(run.resolved_look?.plate) || resolved[index].plateTransform,
+                plate: Boolean(run.resolved_look?.plate) || resolved[index].plate,
+                plateTransform: Boolean(run.resolved_look?.plate || run.resolved_look?.text_shadow !== undefined)
+                    || resolved[index].plateTransform,
+                replaceStroke: Boolean(run.resolved_look?.replace_stroke) || resolved[index].replaceStroke,
                 style: { ...resolved[index].style, ...style,
                     ...(style?.stroke ? { stroke: { ...(resolved[index].style.stroke as object ?? {}), ...(style.stroke as object) } } : {}) } };
         }
@@ -465,7 +502,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             const css: string[] = ['display:inline-block', 'vertical-align:baseline', 'line-height:1'];
             const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
                 ? style.scale : 1;
-            if (scale !== 1) css.push(`font-size:${scale}em`);
+            if (scale !== 1 && !item.plateTransform) css.push(`font-size:${scale}em`);
             // Re-resolve em values on the run: inherited computed lengths stay at the parent's px size.
             if (typeof style.letter_spacing_em === 'number' && Number.isFinite(style.letter_spacing_em)) {
                 css.push(`letter-spacing:${style.letter_spacing_em}em`);
@@ -481,7 +518,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             if (stroke && typeof stroke.width_px === 'number' && Number.isFinite(stroke.width_px)
                 && stroke.width_px >= 0 && (!stroke.color || /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(stroke.color))) {
                 css.push(`-webkit-text-stroke:${stroke.width_px}px ${stroke.color ?? 'currentColor'}`);
-            }
+            } else if (item.replaceStroke) css.push('-webkit-text-stroke:0 transparent');
             const shift = typeof style.baseline_shift_em === 'number' && Number.isFinite(style.baseline_shift_em)
                 ? style.baseline_shift_em : 0;
             const rotate = typeof style.rotate_deg === 'number' && Number.isFinite(style.rotate_deg)
@@ -489,14 +526,18 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             if ((shift || rotate) && !item.plateTransform) css.push(scale === 1
                 ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)`
                 : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
-            if (item.shadow !== undefined) css.push(`text-shadow:none`, `position:relative`,
-                `--akari-run-shadow:${item.shadow}`);
-            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''}${item.shadow !== undefined
+            if (item.shadow !== undefined) {
+                if (item.plate) css.push(`text-shadow:${item.shadow}`);
+                else css.push('text-shadow:none', 'position:relative',
+                    `--akari-run-shadow:${item.shadow}`);
+            }
+            if (/^\s$/u.test(character)) css.push('white-space:pre');
+            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''}${item.shadow !== undefined && !item.plate
                 ? ` data-akari-shadow-text="${escape(character)}"` : ''} style="${css.join(';')}">${escape(character)}</span>`;
         }).join('');
     };
     // Limit parsing to caption line contents, leaving CSS and plate markup untouched.
-    const renderedHtml = html.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g,
+    const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
             const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g,
                 (whole, charOpen: string | undefined, charText: string | undefined,
@@ -514,7 +555,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
         });
     if (!richRuns.length) return renderedHtml;
     let lineStart = 0;
-    const layered = renderedHtml.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g,
+    const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g,
         (_whole, open: string, content: string, close: string) => {
             type Container = { kind: string; start: number; end: number; from: number; to: number };
             type Unit = { index: number; start: number; end: number; containers: Container[] };
@@ -565,17 +606,17 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                     if (prior.from > run.from && prior.from < run.to) boundaries.add(prior.from);
                     if (prior.to > run.from && prior.to < run.to) boundaries.add(prior.to);
                 }
-                const firstTok = (unit: Unit): Container | undefined => unit.containers.find(item => item.kind === 'tok');
                 const groups: Unit[][] = [];
                 let group: Unit[] = [];
                 for (const unit of selected) {
                     const previous = group[group.length - 1];
-                    const tok = firstTok(unit);
-                    const priorTok = previous && firstTok(previous);
                     const crossing = previous && boundaries.has(unit.index);
-                    const partialTokCrossing = previous && tok !== priorTok &&
-                        ((priorTok && group[0].index > priorTok.from) || (tok && selected[selected.length - 1].index + 1 < tok.to));
-                    if (previous && (crossing || partialTokCrossing)) {
+                    const changed = previous && [...previous.containers, ...unit.containers]
+                        .filter(container => !previous.containers.includes(container)
+                            || !unit.containers.includes(container));
+                    const partialCrossing = changed && changed.some(container =>
+                        container.from < selected[0].index || container.to > selected[selected.length - 1].index + 1);
+                    if (previous && (crossing || partialCrossing)) {
                         groups.push(group); group = [];
                     }
                     group.push(unit);
@@ -584,19 +625,16 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 for (const part of groups) {
                     const first = part[0]; const last = part[part.length - 1];
                     let start = first.start; let end = last.end;
-                    const firstToken = firstTok(first); const lastToken = firstTok(last);
-                    if (firstToken && firstToken === lastToken) {
-                        if (first.index === firstToken.from && last.index + 1 === firstToken.to) {
-                            start = firstToken.start; end = firstToken.end;
+                    for (const container of first.containers) {
+                        if (container.from === first.index && container.to <= last.index + 1) {
+                            start = Math.min(start, container.start);
                         }
-                    } else if (firstToken && lastToken && first.index === firstToken.from
-                        && last.index + 1 === lastToken.to) {
-                        start = firstToken.start; end = lastToken.end;
                     }
-                    const firstChar = first.containers.find(item => item.kind === 'char');
-                    const lastChar = last.containers.find(item => item.kind === 'char');
-                    if (start === first.start && firstChar && first.index === firstChar.from) start = firstChar.start;
-                    if (end === last.end && lastChar && last.index + 1 === lastChar.to) end = lastChar.end;
+                    for (const container of last.containers) {
+                        if (container.to === last.index + 1 && container.from >= first.index) {
+                            end = Math.max(end, container.end);
+                        }
+                    }
                     fragments.push({ start, end, runIndex, run, split: groups.length > 1 });
                 }
             }
@@ -612,24 +650,56 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
                 const point = points[pointIndex];
                 for (const fragment of (closings.get(point) ?? []).sort((a, b) => b.start - a.start || b.runIndex - a.runIndex)) {
-                    const style = fragment.run.style ?? fragment.run.look ?? {};
-                    if (fragment.run.resolved_look?.plate && (style.rotate_deg || style.baseline_shift_em)) body += '</span>';
                     body += '</span>';
                 }
                 for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
-                    const plate = fragment.run.resolved_look?.plate;
+                    const resolvedLook = fragment.run.resolved_look;
+                    const plate = resolvedLook?.plate;
                     const style = fragment.run.style ?? fragment.run.look ?? {};
-                    const rotate = typeof style.rotate_deg === 'number' ? style.rotate_deg : 0;
-                    const shift = typeof style.baseline_shift_em === 'number' ? style.baseline_shift_em : 0;
-                    const transform = plate && (rotate || shift)
-                        ? `transform:translateY(${shift}em) rotate(${rotate}deg);transform-origin:center` : '';
-                    body += `<span class="akari-caption__run-frag"${plate ? ` data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : ''}${fragment.run.resolved_look?.ink_outset_px ? ` data-akari-ink-outset="${fragment.run.resolved_look.ink_outset_px}"` : ''}${rotate ? ` data-akari-ink-rotate="${rotate}"` : ''}${fragment.split ? ' data-akari-plate-split="true"' : ''}${plate ? ` style="--akari-plate-pad:${plate.padding_px}px;--akari-plate-radius:${plate.radius_px}px;--akari-plate-color:${escape(plate.color)};--akari-plate-opacity:${plate.opacity};--akari-plate-z:${-1000000 + fragment.runIndex};--akari-plate-transform:${transform ? `translateY(${shift}em) rotate(${rotate}deg)` : 'none'}"` : ''}>`;
-                    if (transform) body += `<span class="akari-caption__run-body" style="${transform}">`;
+                    const rotate = finite(style.rotate_deg) ? style.rotate_deg : 0;
+                    const shift = finite(style.baseline_shift_em) ? style.baseline_shift_em : 0;
+                    const scale = finite(style.scale) && style.scale > 0 ? style.scale : 1;
+                    const rgba = plate ? (() => {
+                        const hex = plate.color.slice(1);
+                        const pairs = hex.length === 3 ? [...hex].map(digit => digit + digit)
+                            : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
+                        const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+                        return `rgba(${pairs.map(pair => parseInt(pair, 16)).join(',')},${Math.round(alpha * plate.opacity * 10000) / 10000})`;
+                    })() : undefined;
+                    const fragCss = [resolvedLook?.wrappable || !rotate ? 'display:inline' : 'display:inline-block',
+                        'position:relative', `z-index:${-1000000 + fragment.runIndex}`, 'line-height:1',
+                        ...(scale !== 1 ? [`font-size:${scale}em`] : []),
+                        ...(shift ? [`top:${shift}em`] : []),
+                        ...(!resolvedLook?.wrappable && rotate ? [`transform:rotate(${rotate}deg)`, 'transform-origin:center'] : []),
+                        ...(plate ? [`background:${rgba}`, `border-radius:${plate.radius_px}px`,
+                            `padding:${plate.padding_px}px`, `margin:-${plate.padding_px}px`,
+                            '-webkit-box-decoration-break:clone', 'box-decoration-break:clone'] : []),
+                        ...(resolvedLook?.gradient_filter && resolvedLook.gradient
+                            ? [`--akari-run-gradient:${resolvedLook.gradient}`] : [])];
+                    const attrs = [plate ? `data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : '',
+                        resolvedLook?.ink_outset_px ? `data-akari-ink-outset="${resolvedLook.ink_outset_px}"` : '',
+                        rotate && !resolvedLook?.wrappable ? `data-akari-ink-rotate="${rotate}"` : '',
+                        fragment.split ? 'data-akari-plate-split="true"' : '',
+                        resolvedLook?.replace_stroke ? 'data-akari-no-stroke="true"' : '',
+                        resolvedLook?.replace_shadow ? 'data-akari-no-shadow="true"' : '',
+                        resolvedLook?.text_shadow !== undefined ? 'data-akari-shadow-override="true"' : '',
+                        resolvedLook?.gradient_filter ? 'data-akari-gradient-filter="true"' : ''];
+                    body += `<span class="akari-caption__run-frag" ${attrs.filter(Boolean).join(' ')} style="${fragCss.join(';')}">`;
                 }
                 if (pointIndex + 1 < points.length) body += content.slice(point, points[pointIndex + 1]);
             }
-            return open + body + close;
+            const gradient = fragments.some(fragment => fragment.run.resolved_look?.gradient);
+            return (gradient ? open.replace(/>$/, ' data-akari-gradient-run="true">') : open) + body + close;
         });
-    const rules = '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]){isolation:isolate;position:relative}.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}.akari-caption__run-frag{display:inline-block;position:relative;line-height:1;vertical-align:baseline}.akari-caption__run-frag[data-akari-plate]::before{content:"";position:absolute;left:calc(-1 * var(--akari-plate-pad));right:calc(-1 * var(--akari-plate-pad));top:calc(-1 * var(--akari-plate-pad));bottom:calc(-1 * var(--akari-plate-pad));border-radius:var(--akari-plate-radius);background:var(--akari-plate-color);opacity:var(--akari-plate-opacity);z-index:var(--akari-plate-z);transform:var(--akari-plate-transform);transform-origin:center;pointer-events:none;user-select:none}.akari-caption__run-body{display:inline-block;line-height:1;vertical-align:baseline}.akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}';
+    const rules = '/*akari-run-rules:start*/' + [
+        '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]):not([data-akari-gradient-run]){isolation:isolate;position:relative}',
+        '.akari-caption__plate:has(.akari-caption__line[data-akari-gradient-run]){isolation:isolate}',
+        '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}',
+        '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__rich-stroke{display:none}',
+        '.akari-caption__run-frag[data-akari-shadow-override] .akari-caption__rich-shadow{display:none}',
+        '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__run:not([style*="-webkit-text-stroke:"]){-webkit-text-stroke:0 transparent}',
+        '.akari-caption__run-frag[data-akari-gradient-filter] .akari-caption__run{background-image:var(--akari-run-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}',
+        '.akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}'
+    ].join('') + '/*akari-run-rules:end*/';
     return layered.includes('</style>') ? layered.replace('</style>', `${rules}</style>`) : `<style>${rules}</style>${layered}`;
 }

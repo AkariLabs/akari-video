@@ -43,8 +43,21 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   const enterDuration = Math.min(animation?.in?.duration_sec ?? .6, maximum);
   const exitDuration = Math.min(animation?.out?.duration_sec ?? .6, maximum);
   let index = 0;
+  let hasPlate = false;
   const rendered = chunks.map(chunk => chunk.open + chunk.parts.map(part => {
-    if (!Array.isArray(part)) return part;
+    if (!Array.isArray(part)) {
+      if (entrance && /^<span\b[^>]*class="akari-caption__run-frag"/u.test(part)
+          && /\bdata-akari-plate(?:=|\s|>)/u.test(part)) {
+        const delay = enterDuration * (index + 1) / count;
+        return part.replace(/style="([^"]*)"/u,
+          (_whole, style) => {
+            hasPlate = true;
+            const color = /(?:^|;)background:([^;]+)/u.exec(style)?.[1] ?? 'transparent';
+            return `style="${style};--akari-run-plate-color:${color};animation:akari-run-plate-in .01s ${delay.toFixed(6)}s linear both paused"`;
+          });
+      }
+      return part;
+    }
     return part.map(char => {
       const i = index++;
       const inDelay = enterDuration * (i + 1) / count;
@@ -58,6 +71,7 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   let position = 0;
   const body = html.replace(pattern, () => rendered[position++]);
   const css = '.akari-caption__type-char{display:inline}'
+    + (hasPlate ? '@keyframes akari-run-plate-in{from{background-color:transparent}to{background-color:var(--akari-run-plate-color)}}' : '')
     + '@keyframes akari-typewriter-char-in{from{opacity:0}to{opacity:1}}'
     + '@keyframes akari-typewriter-char-out{from{opacity:1}to{opacity:0}}';
   return body.replace('</style>', css + '</style>');

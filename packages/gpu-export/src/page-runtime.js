@@ -892,9 +892,10 @@
       .filter(run => typeof run.getBoundingClientRect === 'function')
       .map(run => relativeRect(run.getBoundingClientRect(), origin));
     const runEffectRects = [...unitElement.querySelectorAll('.akari-caption__run-frag')]
-      .map(fragment => expandedCaptionRunRect(relativeRect(fragment.getBoundingClientRect(), origin),
-        Number(fragment.getAttribute('data-akari-ink-outset')),
-        Number(fragment.getAttribute('data-akari-ink-rotate'))));
+      .flatMap(fragment => [...fragment.getClientRects()].map(rect =>
+        expandedCaptionRunRect(relativeRect(rect, origin),
+          Number(fragment.getAttribute('data-akari-ink-outset')),
+          Number(fragment.getAttribute('data-akari-ink-rotate')))));
     const inkRects = [...(block ? [relativeRect(block.getBoundingClientRect(), origin)] : lines),
       ...runRects, ...runEffectRects];
     const ink = inkRects.length ? {

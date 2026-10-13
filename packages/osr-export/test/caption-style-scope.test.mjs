@@ -44,21 +44,22 @@ function captionStyles(sheet) {
     .map(match => ({ scope: match[1], css: match[2] }));
 }
 
-test('run pseudo elements and :has selectors stay inside their caption scope', () => {
+test('run rules are shared once and only apply to matching caption fragments', () => {
   const rich = captionRenderInputFromV1({ captions: [{ text: 'AB', runs: [
     { from: 0, to: 2, look: { background: { color: '#ffd948', padding_px: 5 },
       shadow: { color: '#000000', distance_px: 2 } } }
   ] }] }).captions[0].runs;
   const make = runs => applyCaptionRunsToHtml(
     '<div class="akari-caption"><style></style><p class="akari-caption__line">AB</p></div>', 'AB', runs);
-  const result = scopeCaptionStylesInSheet(make(rich) + make([]));
+  const result = scopeCaptionStylesInSheet(make(rich) + make(rich) + make([]));
   const styles = captionStyles(result);
-  assert.equal(styles.length, 2);
-  const first = `.akari-caption[data-akari-caption-scope="${styles[0].scope}"]`;
-  assert.match(styles[0].css, new RegExp(`${first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\.akari-caption__line:has\\(`));
-  assert.match(styles[0].css, /\.akari-caption__run-frag\[data-akari-plate\]::before/u);
-  assert.match(styles[0].css, /--akari-plate-pad/u);
+  assert.equal(styles.length, 3);
+  assert.equal((result.match(/\.akari-caption__run\[data-akari-shadow-text\]::before/gu) ?? []).length, 1);
+  assert.match(result, /\.akari-caption__line:has\(\.akari-caption__run-frag/u);
+  assert.match(result, /data-akari-plate="true"/u);
+  assert.doesNotMatch(styles[0].css, /akari-caption__run-frag/u);
   assert.doesNotMatch(styles[1].css, /akari-caption__run-frag/u);
+  assert.doesNotMatch(styles[2].css, /akari-caption__run-frag/u);
 });
 
 test('OSR repeat resolution keeps the same run pixels', () => {
@@ -72,7 +73,7 @@ test('OSR repeat resolution keeps the same run pixels', () => {
   const resolved = captionRenderInputFromV1(captions, { output: edit.output });
   const twice = buildOsrPage({ edit, captions: resolved, projectRoot: '/unused', duration: 2,
     frameEngineBundle: '', pageRuntime: '' }).overlaySheetHtml;
-  assert.match(once, /data-akari-ink-outset="4"/u);
+  assert.match(once, /data-akari-ink-outset="8"/u);
   assert.equal(twice, once);
 });
 

@@ -49,7 +49,8 @@ test('one plate is drawn per line fragment and the injected renderer is self-con
   const html = applyCaptionRunsToHtml(line('ABCD'), 'ABCD', runs);
   assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 1);
   assert.equal((html.match(/class="akari-caption__run-frag"/g) ?? []).length, 1);
-  assert.match(html, /data-akari-shadow-text="B"/);
+  assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/);
+  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/g, ''), /data-akari-shadow-text=/);
   assert.doesNotMatch(html, /akari-caption__run-plate|aria-hidden="true"/);
   assert.equal(html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ''), 'ABCD');
   const isolated = runInNewContext(`(${applyCaptionRunsToHtml.toString()})`);
@@ -66,8 +67,8 @@ test('nested plates retain run order, and whole karaoke token has one plate', ()
       style: { color: '#ffffff' }, resolved_look: { plate: { ...plate } }, id: `r${index}` }));
     const html = applyCaptionRunsToHtml(line('ABCD'), 'ABCD', runs);
     assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 2);
-    assert.match(html, /--akari-plate-z:-1000000/);
-    assert.match(html, /--akari-plate-z:-999999/);
+    assert.match(html, /z-index:-1000000/);
+    assert.match(html, /z-index:-999999/);
   }
   const runs = [{ from: 1, to: 3, style: { color: '#ffffff' },
     resolved_look: { plate } }];
@@ -109,7 +110,7 @@ test('run shadow inherits line extras and keeps the stroke width', () => {
   const html = applyCaptionRunsToHtml(line('AB'), 'AB', [{ from: 0, to: 2,
     ...inherited }]);
   assert.match(html, /-webkit-text-stroke-color:transparent/u);
-  assert.doesNotMatch(html, /-webkit-text-stroke:0 transparent/u);
+  assert.match(html, /data-akari-shadow-text="A"/u);
 });
 
 test('GPU path diagnoses word tiles with rich runs and split plates', () => {

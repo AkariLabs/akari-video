@@ -58,7 +58,7 @@ test('migration keeps main and detached caption drawing and GPU decisions', asyn
   }
 });
 
-test('unmigrated detached captions retain legacy preset and scaled-run output', async () => {
+test('unmigrated detached captions resolve their preset and scaled-run output', async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), 'caption-legacy-item-'));
   try {
     await cp(fixture, projectRoot, { recursive: true });
@@ -75,7 +75,35 @@ test('unmigrated detached captions retain legacy preset and scaled-run output', 
     assert.doesNotMatch(overlay.html, /#aefcff/u);
     const bodyAndVars = { html: overlay.html.replace(/<style>[\s\S]*?<\/style>/u, ''), vars: overlay.vars };
     assert.equal(createHash('sha256').update(JSON.stringify(bodyAndVars)).digest('hex'),
-      'a423c68c06f704fe16524d69b35f09245fbdc95cca0a520ca55a72da821d0fcf');
+      '6974c35f57c4f207ba47691e3f6bd3a7d776b6e6a023aec0cf135587f8e2d62a');
+    const migrated = planCaptionLookMigration(root, TEXTSTYLE_CATALOG).next;
+    await writeFile(join(projectRoot, 'captions.json'), `${JSON.stringify(migrated)}\n`);
+    const after = readRenderEdit(edit, undefined, { projectRoot }).edit.overlays
+      .find(item => item.id === 'c2-out');
+    assert.deepEqual(signature([after]), signature([overlay]));
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('detached yellow label has the same markup and variables after migration', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'caption-yellow-item-'));
+  try {
+    await cp(fixture, projectRoot, { recursive: true });
+    const edit = JSON.parse(await readFile(join(projectRoot, 'edit.json'), 'utf8'));
+    const root = JSON.parse(await readFile(join(projectRoot, 'captions.json'), 'utf8'));
+    root.captions[1].style_preset = 'news-yellow-label';
+    root.captions[1].runs = [{ from: 0, to: 2, style: { scale: 1.3, color: '#ff0000' } }];
+    const inspect = async captions => {
+      await writeFile(join(projectRoot, 'captions.json'), `${JSON.stringify(captions)}\n`);
+      return readRenderEdit(edit, undefined, { projectRoot }).edit.overlays
+        .find(item => item.id === 'c2-out');
+    };
+    const before = await inspect(root);
+    const after = await inspect(planCaptionLookMigration(root, TEXTSTYLE_CATALOG).next);
+    assert.deepEqual(signature([after]), signature([before]));
+    assert.match(before.vars['--plate-bg'], /rgba\(255,217,72,0\.98\)/u);
+    assert.match(before.html, /font-size:1\.3em/u);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
@@ -96,7 +124,8 @@ test('detached caption resolves v1 plate, shadow, and glow', async () => {
     const overlay = readRenderEdit(edit, undefined, { projectRoot }).edit.overlays
       .find(item => item.id === 'c2-out');
     assert.match(overlay.html, /data-akari-plate="true"/u);
-    assert.match(overlay.html, /data-akari-shadow-text=/u);
+    assert.match(overlay.html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/u);
+    assert.doesNotMatch(overlay.html.replace(/<style>[\s\S]*?<\/style>/u, ''), /data-akari-shadow-text=/u);
     assert.match(overlay.html, /rgba\(0,229,255,1\)/u);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });

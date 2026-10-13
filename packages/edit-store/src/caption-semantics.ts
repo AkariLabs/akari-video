@@ -7,7 +7,7 @@ export interface CaptionSemanticDiagnostic { code: string; severity: 'error' | '
     path: string; message: string; layer: 'document' | 'project' | 'path' }
 export interface CaptionSemanticsContext {
     captions: { captions?: Array<Record<string, unknown>>; unresolved_runs?: Array<{ run?: CaptionRun }>;
-        emphasis_words?: Array<Record<string, unknown>> }
+        emphasis_words?: Array<Record<string, unknown>>; default_text_style?: unknown }
         | Array<Record<string, unknown>> | null;
     edit?: { cuts?: EditCut[]; sources?: Array<{ id: string }> };
     timeline?: TimelineMapResult | readonly EditCut[];
@@ -69,7 +69,7 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
         const chars = captionGraphemes(typeof row.display_text === 'string' ? row.display_text : String(row.text ?? ''));
         const runs = Array.isArray(row.runs) ? row.runs as CaptionRun[] : [];
         const words = Array.isArray(row.words) ? row.words as Array<{ text?: string }> : [];
-        const hasEmphasisDisplay = words.some(word => emphasisWords.some(item => {
+        const hasEmphasisDisplay = words.some(word => word && typeof word === 'object' && emphasisWords.some(item => {
             if (item.src !== undefined && item.src !== row.src) return false;
             const timedWord = word as { text?: string; sourceText?: string; start?: number; end?: number };
             const text = String(timedWord.sourceText ?? timedWord.text ?? '').normalize('NFKC').toLowerCase();
@@ -111,6 +111,27 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
                 || run.resolved_look?.text_shadow !== undefined
                 || run.look && (Object.prototype.hasOwnProperty.call(run.look, 'shadow')
                     || Object.prototype.hasOwnProperty.call(run.look, 'glow')));
+            const rowStyle = row.text_style && typeof row.text_style === 'object'
+                ? row.text_style as Record<string, unknown> : {};
+            const defaultStyle = !Array.isArray(root) && root?.default_text_style
+                && typeof root.default_text_style === 'object'
+                ? root.default_text_style as Record<string, unknown> : {};
+            const effective = { ...defaultStyle, ...rowStyle };
+            if (richRun && typeof run.look?.rotate_deg === 'number' && run.look.rotate_deg !== 0
+                && (effective.wrap_width_pct || effective.vertical)) {
+                add('captions.run.rotation-wrap', 'warning', path,
+                    '折り返す行の範囲は回転せずに描きます。', 'document');
+            }
+            if (richRun && effective.fill_gradient && !effective.fill
+                && (effective.stroke || effective.stroke_inner || effective.extrude
+                    || effective.shadow || effective.glow)) {
+                add('captions.run.gradient-filter', 'warning', path,
+                    '行の縁や影があるため、範囲のグラデーションを断片で描き直します。', 'document');
+            }
+            if (richRun && effective.fill_gradient && !effective.fill && run.look?.color) {
+                add('captions.run.gradient-color', 'warning', path,
+                    'グラデーションの行では範囲の色を描けません。', 'document');
+            }
             if (ctx.path === 'gpu' && words.length && richRun
                 && (['karaoke', 'pop', 'reveal', 'reveal-word'].includes(String(row.style)) || hasEmphasisDisplay)) {
                 add('captions.style.unsupported-path', 'error', path,
@@ -120,10 +141,22 @@ export function validateCaptionsSemantics(ctx: CaptionSemanticsContext): Caption
                 const touched = tokenRanges.filter(token => token.from < run.to && token.to > run.from);
                 const tokenSplit = touched.length > 1 && (run.from > touched[0].from
                     || run.to < touched[touched.length - 1].to);
+                const emphasisSplit = emphasisWords.some(item => {
+                    if (item.src !== undefined && item.src !== row.src) return false;
+                    const value = captionGraphemes(item.word as string);
+                    const positions: number[] = [];
+                    for (let at = 0; at <= chars.length - value.length; at++) {
+                        if (value.every((char, offset) => chars[at + offset] === char)) positions.push(at);
+                    }
+                    if (positions.length !== 1) return false;
+                    const from = positions[0]; const to = from + value.length;
+                    return (run.from < from && run.to > from && run.to < to)
+                        || (run.from > from && run.from < to && run.to > to);
+                });
                 const crossing = runs.slice(0, runIndex).some(prior => prior && prior.from < run.to
                     && prior.to > run.from && !(prior.from >= run.from && prior.to <= run.to)
                     && !(run.from >= prior.from && run.to <= prior.to));
-                if (tokenSplit || crossing) {
+                if (tokenSplit || emphasisSplit || crossing) {
                     add('captions.run.plate-split', 'warning', path,
                         '語の境界または範囲の交差により、台紙を分けて描きます。', 'document');
                 }

@@ -201,6 +201,7 @@ test('run ink bounds include resolved padding, effect extent, and rotation', () 
   assert.ok(rotated.x > 10 && rotated.y < 20);
   assert.ok(rotated.width >= 36 && rotated.height >= 116);
   assert.match(source, /runEffectRects.*?expandedCaptionRunRect/su);
+  assert.match(source, /run-frag'\)\]\s*\.flatMap\(fragment => \[\.\.\.fragment\.getClientRects\(\)\]/u);
   assert.match(source, /\.\.\.runRects, \.\.\.runEffectRects/u);
 });
 
@@ -208,10 +209,12 @@ test("字幕断片自身の CSS は帯ごとに閉じ、詳細度を変えず @�
   const isolate = new Function(`return (${functionSource("isolateCaptionFragmentCss")})`)();
   const band = '[data-akari-band="3"]';
   const rich = '.akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-1}'
-    + '.akari-caption__run-frag[data-akari-plate]::before{left:var(--akari-plate-pad)}';
+    + '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__rich-stroke{display:none}';
   const scopedRich = isolate(rich, band);
   assert.match(scopedRich, /:where\(\[data-akari-band="3"\]\) \.akari-caption__line:has\(\.akari-caption__run-frag,\.akari-caption__run\[data-akari-shadow-text\]\)::before/u);
-  assert.match(scopedRich, /:where\(\[data-akari-band="3"\]\) \.akari-caption__run-frag\[data-akari-plate\]::before\{left:var\(--akari-plate-pad\)/u);
+  assert.match(scopedRich, /:where\(\[data-akari-band="3"\]\) \.akari-caption__run-frag\[data-akari-no-stroke\] \.akari-caption__rich-stroke\{display:none/u);
+  const marked = isolate('/*akari-run-rules:start*/' + rich + '/*akari-run-rules:end*/', band);
+  assert.equal((marked.match(/:where\(\[data-akari-band="3"\]\)/gu) ?? []).length, 2);
   assert.equal(
     isolate('.a,.b:not(.c,.d)>.e{color:red} .f[data-x="1,2"]{opacity:0}', band),
     ':where([data-akari-band="3"]) .a,:where([data-akari-band="3"]) .b:not(.c,.d)>.e{color:red}'

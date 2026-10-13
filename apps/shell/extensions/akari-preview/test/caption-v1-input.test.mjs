@@ -39,9 +39,11 @@ test('webview injection keeps run rules when editing redraws only a paragraph', 
   const html = injected('<p class="akari-caption__line">猫犬</p>', '猫犬', runs);
   assert.match(html, /^<style>/u);
   assert.match(html, /data-akari-plate="true"/u);
-  assert.match(html, /data-akari-shadow-text="猫"/u);
+  assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/u);
+  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/u, ''), /data-akari-shadow-text=/u);
   assert.equal(html.replace(/<style>[\s\S]*?<\/style>/u, '').replace(/<[^>]+>/gu, ''), '猫犬');
   const bootstrap = readFileSync(new URL('../src/browser/preview-script-bootstrap.ts', import.meta.url), 'utf8');
   assert.match(bootstrap, /document\.head\.appendChild\(runRules\)/u);
   assert.match(bootstrap, /selectEditorGraphemes\(element, from, to\)/u);
+  assert.match(bootstrap, /captionLayer\.addEventListener\('input',[\s\S]*?\.akari-caption__run\[data-akari-shadow-text\][\s\S]*?run\.setAttribute\('data-akari-shadow-text', run\.textContent \|\| ''\)/u);
 });

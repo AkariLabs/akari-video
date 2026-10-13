@@ -51,7 +51,7 @@ function projectEmphasis(rows: CaptionRow[], item: Emphasis):
 }
 
 function rowRuns(row: CaptionRow): CaptionRun[] {
-    return Array.isArray(row.runs) ? row.runs : [];
+    return Array.isArray(row?.runs) ? row.runs : [];
 }
 
 function invalidLegacyRun(run: CaptionRun, row: CaptionRow): boolean {
@@ -138,7 +138,9 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         }
         const effectiveStyle = mergeCaptionLineTextStyles(Array.isArray(source) ? null : source.default_text_style,
             row.text_style);
-        const keepLegacyPixels = effectiveStyle?.reference_height_px !== undefined || effectiveStyle?.layout !== undefined;
+        const layout = (row.text_style as Record<string, unknown> | undefined)?.layout
+            ?? (Array.isArray(source) ? undefined : (source.default_text_style as Record<string, unknown> | undefined)?.layout);
+        const keepLegacyPixels = effectiveStyle?.reference_height_px !== undefined || layout !== undefined;
         if (Array.isArray(row.runs)) row.runs = row.runs.map(run => {
             if (!run || typeof run !== 'object' || Array.isArray(run)) return run;
             if (invalidLegacyRun(run, row)) { invalidLegacyCount++; return run; }
@@ -203,71 +205,139 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         unresolved, notices };
 }
 
-/** Restore the renderer's legacy input without changing a legacy-only document. */
 export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null,
-    output?: { width: number; height: number }): { style: NonNullable<CaptionRun['style']>;
+    output?: { width: number; height: number }, layout?: unknown, policy = false, roundedStroke = false): { style: NonNullable<CaptionRun['style']>;
         resolved_look?: CaptionRun['resolved_look'] } {
+    const color = (value: unknown): value is string => typeof value === 'string'
+        && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+    const finite = (value: unknown, fallback = 0): number =>
+        typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    const effect = (value: unknown): Record<string, unknown> | undefined => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+        const record = value as Record<string, unknown>;
+        if (!color(record.color)) return undefined;
+        const clean: Record<string, unknown> = { color: record.color };
+        for (const key of ['opacity', 'blur_px', 'distance_px', 'angle_deg', 'density', 'spread', 'offset_x', 'offset_y']) {
+            if (typeof record[key] === 'number' && Number.isFinite(record[key])) clean[key] = record[key];
+        }
+        return clean;
+    };
     const scale = typeof look.scale === 'number' && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
-    const lineScale = !output ? 1 : lineStyle?.layout
-        ? resolveCaptionStyleForOutput(lineStyle, output).layout!.scale
+    const effectiveLayout = layout ?? lineStyle?.layout;
+    const lineScale = !output ? 1 : effectiveLayout
+        ? resolveCaptionStyleForOutput({ ...lineStyle, layout: effectiveLayout } as Record<string, unknown>, output).layout!.scale
         : resolveCaptionReferenceScale(lineStyle, output);
     const pxScale = lineScale * scale;
     const style = { ...look } as NonNullable<CaptionRun['style']>;
-    if (style.stroke?.width_px !== undefined) style.stroke = { ...style.stroke,
-        width_px: scaleCaptionPx(style.stroke.width_px, pxScale) };
+    if (style.stroke && typeof style.stroke === 'object') {
+        const stroke = style.stroke;
+        style.stroke = {
+            ...(color(stroke.color) ? { color: stroke.color } : {}),
+            ...(typeof stroke.width_px === 'number' && Number.isFinite(stroke.width_px)
+                ? { width_px: scaleCaptionPx(stroke.width_px, pxScale) } : {})
+        };
+    }
     const background = look.background && typeof look.background === 'object'
         ? look.background as Record<string, unknown> : null;
-    const plate = background && typeof background.color === 'string' ? {
+    const plate = background && color(background.color) ? {
         color: background.color,
-        opacity: typeof background.opacity === 'number' ? background.opacity : 1,
-        padding_px: scaleCaptionPx(typeof background.padding_px === 'number' ? background.padding_px : 0, pxScale),
-        radius_px: scaleCaptionPx(typeof background.radius_px === 'number' ? background.radius_px : 0, pxScale)
+        opacity: Math.max(0, Math.min(1, finite(background.opacity, 1))),
+        padding_px: scaleCaptionPx(Math.max(0, finite(background.padding_px)), pxScale),
+        radius_px: scaleCaptionPx(Math.max(0, finite(background.radius_px)), pxScale)
     } : undefined;
+    const hasStroke = Object.prototype.hasOwnProperty.call(look, 'stroke');
     const hasShadow = Object.prototype.hasOwnProperty.call(look, 'shadow');
     const hasGlow = Object.prototype.hasOwnProperty.call(look, 'glow');
-    const lineShadow = lineStyle?.shadow;
-    const lineGlow = lineStyle?.glow;
-    const shadow = captionTextShadowValue(hasShadow ? look.shadow : lineShadow, undefined,
-        hasShadow ? pxScale : lineScale);
-    const glow = captionTextShadowValue(undefined, hasGlow ? look.glow : lineGlow,
-        hasGlow ? pxScale : lineScale);
-    const extras = lineStyle ? captionRichTextShadowValue({ ...lineStyle, shadow: undefined, glow: undefined }, lineScale) : null;
-    const shadowValue = (hasShadow ? look.shadow : lineShadow) as Record<string, unknown> | undefined;
-    const glowValue = (hasGlow ? look.glow : lineGlow) as Record<string, unknown> | undefined;
-    const shadowExtent = shadowValue && typeof shadowValue.color === 'string'
-        ? scaleCaptionPx(Math.abs(Number(shadowValue.distance_px) || 0) + (Number(shadowValue.blur_px) || 0),
+    const shadowValue = effect(hasShadow ? look.shadow : lineStyle?.shadow);
+    const glowValue = effect(hasGlow ? look.glow : lineStyle?.glow);
+    const shadow = hasShadow && shadowValue && finite(shadowValue.opacity, 1) > 0
+        ? captionTextShadowValue(shadowValue, undefined, pxScale) : null;
+    const glow = hasGlow && glowValue && finite(glowValue.density, 50) > 0
+        ? captionTextShadowValue(undefined, glowValue, pxScale) : null;
+    const lineStroke = lineStyle?.stroke && typeof lineStyle.stroke === 'object'
+        ? lineStyle.stroke as Record<string, unknown> : null;
+    const lineHasStyle = Boolean(lineStyle && Object.keys(lineStyle).length);
+    const lineTextShadow = lineStyle ? captionRichTextShadowValue(lineStyle, lineScale) : null;
+    const extras = !hasStroke && lineStyle
+        ? captionRichTextShadowValue({ ...lineStyle, shadow: undefined, glow: undefined }, lineScale) : null;
+    const lineUsesRoundedStroke = roundedStroke && lineStroke && !Array.isArray(lineStyle?.strokes)
+        && finite(lineStroke.width_px, 1.5) > 0;
+    const roundOutline = !hasStroke && lineUsesRoundedStroke ? Array.from({ length: 32 }, (_, index) => {
+            const radius = scaleCaptionPx(finite(lineStroke.width_px, 1.5), lineScale);
+            const angle = index * Math.PI / 16;
+            const x = Number((Math.cos(angle) * radius).toFixed(3));
+            const y = Number((Math.sin(angle) * radius).toFixed(3));
+            return `${x}px ${y}px 0 ${color(lineStroke.color) ? lineStroke.color : 'rgba(0,0,0,.9)'}`;
+        }).join(',') : null;
+    const defaultOutline = policy && !hasStroke && !lineHasStyle
+        ? '-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85)'
+        : null;
+    const defaultDrop = policy ? '0 0 8px rgba(0,0,0,.6)' : '0 2px 8px rgba(0,0,0,.35)';
+    const inheritedShadow = hasShadow ? null : lineStyle?.shadow
+        ? captionTextShadowValue(lineStyle.shadow, undefined, lineScale)
+        : !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? defaultDrop : null;
+    const inheritedGlow = hasGlow ? null : lineStyle?.glow
+        ? captionTextShadowValue(undefined, lineStyle.glow, lineScale) : null;
+    const shadowExtent = shadowValue && finite(shadowValue.opacity, 1) > 0
+        ? scaleCaptionPx(Math.abs(finite(shadowValue.distance_px)) + finite(shadowValue.blur_px),
             hasShadow ? pxScale : lineScale) : 0;
-    const glowExtent = glowValue && typeof glowValue.color === 'string'
-        ? scaleCaptionPx(Math.abs(Number(glowValue.offset_x) || 0) + Math.abs(Number(glowValue.offset_y) || 0)
-            + 2 * (typeof glowValue.spread === 'number' ? glowValue.spread : 40), hasGlow ? pxScale : lineScale) : 0;
+    const glowExtent = glowValue && finite(glowValue.density, 50) > 0
+        ? scaleCaptionPx(Math.abs(finite(glowValue.offset_x)) + Math.abs(finite(glowValue.offset_y))
+            + 2 * finite(glowValue.spread, 40), hasGlow ? pxScale : lineScale) : 0;
     const inner = lineStyle?.stroke_inner as Record<string, unknown> | undefined;
     const extrude = lineStyle?.extrude as Record<string, unknown> | undefined;
-    const lineExtent = scaleCaptionPx(Math.max(Number(inner?.width_px) || 0,
-        Number(extrude?.depth_px) || 0), lineScale);
-    const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent);
+    const lineExtent = hasStroke ? 0 : scaleCaptionPx(Math.max(finite(inner?.width_px),
+        finite(extrude?.depth_px)), lineScale);
+    const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow
+        && (!policy || !lineHasStyle) ? 8 : 0;
+    const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent,
+        lineExtent, defaultDropExtent);
+    const gradient = lineStyle?.fill_gradient as { colors?: unknown; angle_deg?: unknown } | undefined;
+    const gradientCss = !lineStyle?.fill && Array.isArray(gradient?.colors)
+        && gradient.colors.length >= 2 && gradient.colors.length <= 3
+        && gradient.colors.every(color) && typeof gradient.angle_deg === 'number'
+        && Number.isFinite(gradient.angle_deg)
+        ? `linear-gradient(${gradient.angle_deg}deg, ${gradient.colors.join(', ')})` : undefined;
     return { style, ...(plate || hasShadow || hasGlow ? { resolved_look: {
         ...(plate ? { plate } : {}),
         ink_outset_px: inkOutset,
         rotate_deg: typeof look.rotate_deg === 'number' ? look.rotate_deg : 0,
-        ...(hasShadow || hasGlow ? { text_shadow: [extras, shadow, glow].filter(Boolean).join(', ') || 'none' } : {})
+        wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),
+        ...(gradientCss ? { gradient: gradientCss } : {}),
+        gradient_filter: Boolean(gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner
+            || lineStyle?.extrude || lineStyle?.shadow || lineStyle?.glow)),
+        replace_stroke: hasStroke,
+        replace_shadow: hasShadow,
+        ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [roundOutline, extras, defaultOutline,
+            shadow ?? inheritedShadow, glow ?? inheritedGlow]
+            .filter(Boolean).join(', ') || 'none' } : {})
     } } : {}) };
 }
 
+/** Restore the renderer's legacy input without changing a legacy-only document. */
 export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T,
     options: { output?: { width: number; height: number } } = {}): T {
     const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
-    const diagnostics = validateCaptionsSemantics({ captions: root });
-    const validRuns = rows.map((row, index) => Array.isArray(row.runs)
+    let diagnostics;
+    try { diagnostics = validateCaptionsSemantics({ captions: root }); }
+    catch {
+        const copy = structuredClone(root);
+        for (const row of Array.isArray(copy) ? copy : copy.captions) {
+            if (row && typeof row === 'object') row.runs = [];
+        }
+        return copy;
+    }
+    const validRuns = rows.map((row, index) => Array.isArray(row?.runs)
         ? renderableCaptionRuns(row as CaptionRow & { text: string }, root, { diagnostics, index }) : []);
     if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length
         || rowRuns(row).some(run => run && typeof run === 'object'
-            && (run.look || run.dormant_animation || run.migrated_from)))) return root;
+            && (run.look || run.dormant_animation || run.migrated_from || run.resolved_look)))) return root;
     const copy = structuredClone(root);
     const nextRows: CaptionRow[] = Array.isArray(copy) ? copy : copy.captions;
     const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
     const migrated: Array<{ index: number; item: Emphasis }> = [];
     for (const [rowIndex, row] of nextRows.entries()) {
-        if (!Array.isArray(row.runs)) continue;
+        if (!Array.isArray(row?.runs)) continue;
         row.runs = validRuns[rowIndex];
         const defaultStyle = Array.isArray(copy) ? null : copy.default_text_style;
         const lineStyle = mergeCaptionLineTextStyles(defaultStyle, row.text_style);
@@ -285,8 +355,12 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
                 return [];
             }
             const next = { ...run };
+            delete next.resolved_look;
             if (next.look) {
-                const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output);
+                const layout = (row.text_style as Record<string, unknown> | undefined)?.layout
+                    ?? (defaultStyle as Record<string, unknown> | undefined)?.layout;
+                const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output, layout,
+                    !Array.isArray(copy) && Boolean(copy.display_policy), row.time_domain === 'output');
                 if (!next.style) next.style = resolved.style;
                 if (resolved.resolved_look) next.resolved_look = resolved.resolved_look;
             }

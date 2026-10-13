@@ -5725,6 +5725,13 @@ export function previewBootstrapScript(): string {
                     void commitCaptionEdit();
                 }
             }, true);
+            captionLayer.addEventListener('input', event => {
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
+                for (const run of activeCaptionEdit.element.querySelectorAll(
+                    '.akari-caption__run[data-akari-shadow-text]')) {
+                    run.setAttribute('data-akari-shadow-text', run.textContent || '');
+                }
+            });
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
                 const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));
