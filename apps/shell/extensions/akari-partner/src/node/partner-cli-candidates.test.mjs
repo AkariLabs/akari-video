@@ -17,11 +17,21 @@ test('設定と bootstrap に渡す候補関数は Command Code の正式名と�
     assert.ok(partnerCliCandidates('grok', { homeDir, platform: 'darwin', env }).includes(`${homeDir}/.grok/bin/grok`));
     assert.ok(partnerCliCandidates('devin', { homeDir, platform: 'win32', env: { PATH: '', LOCALAPPDATA: 'C:\\Local' } })
         .some(candidate => /devin[\\/]cli[\\/]bin[\\/]devin\.exe$/.test(candidate)));
+    assert.ok(partnerCliCandidates('muse', { homeDir, platform: 'darwin', env }).includes(`${homeDir}/.local/bin/muse`));
     assert.ok(partnerCliCandidates('pi', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })[0].endsWith('pi.com'));
     assert.ok(partnerCliCandidates('deepseek', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE;.CMD' } })
         .some(candidate => candidate.endsWith('dsh.cmd')));
     assert.ok(partnerCliCandidates('codex', { homeDir, platform: 'win32', env: { PATH: '', PATHEXT: '.COM;.EXE' }, nativeOnly: true })[0].endsWith('codex.exe'));
     assert.match(bootstrapRunner.toString(), /candidatePaths\(config\.agent/);
+});
+
+test('Windows の Muse Code は PATHEXT に依存せず公式 muse.cmd を先に探す', () => {
+    const candidates = partnerCliCandidates('muse', {
+        homeDir: '/tmp/muse-home', platform: 'win32',
+        env: { PATH: '', LOCALAPPDATA: 'C:\\Local', PATHEXT: '.EXE' }
+    });
+    assert.ok(candidates.some(candidate => /Programs[\\/]muse[\\/]muse\.cmd$/.test(candidate)));
+    assert.match(candidates[0], /muse\.cmd$/);
 });
 
 test('Windows の Codex は設定から更新される管理フォルダを ~/.local/bin より先に見る', () => {

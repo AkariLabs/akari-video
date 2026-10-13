@@ -16,7 +16,14 @@ import { DshWebEarlyExitError, launchDshWeb, parseDshWebUrlLine, buildDshWebArgs
 import { DSH_WEB_PORT_MIN, DSH_WEB_PORT_MAX, normalizeWebCwdKey, dshWebPortCandidates,
     canListenOnDshWebPort, selectDshWebPort } from '../../lib/node/dsh-web-port.js';
 import { maskToken, maskDshOutput } from '../../lib/common/dsh-output-mask.js';
-import { AkariPartnerServerImpl, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
+import { AkariPartnerServerImpl, partnerBootstrapTimeoutMs, resolvePartnerProcessLaunch } from '../../lib/node/akari-partner-server.js';
+
+test('Muse Code の導入だけ 30 分、ほかは 10 分で時間切れにする', () => {
+    assert.equal(partnerBootstrapTimeoutMs('muse'), 30 * 60 * 1000);
+    for (const agent of ['claude', 'codex', 'pi', 'deepseek']) {
+        assert.equal(partnerBootstrapTimeoutMs(agent), 10 * 60 * 1000);
+    }
+});
 
 test('同意なしの導入要求は説明表を含む結果になる', async () => {
     class StubServer extends AkariPartnerServerImpl {
@@ -64,11 +71,16 @@ test('POSIX と他パートナーの起動計画は従来どおり変更しな�
     assert.deepEqual(resolvePartnerProcessLaunch('codex', 'C:\\tools\\codex.exe', 'win32', {}), { args: [] });
 });
 
-test('Windows の Pi npm shim も cmd.exe 経由で起動し、Devin は引数なし', () => {
+test('Windows の Pi と Muse Code の cmd shim は cmd.exe 経由で起動し、Devin は引数なし', () => {
     assert.deepEqual(resolvePartnerProcessLaunch('pi', 'C:\\Users\\creator\\.local\\pi.cmd', 'win32', { ComSpec: 'C:\\Windows\\cmd.exe' }), {
         executablePath: 'C:\\Windows\\cmd.exe', args: ['/d', '/s', '/c', 'C:\\Users\\creator\\.local\\pi.cmd']
     });
     assert.deepEqual(resolvePartnerProcessLaunch('devin', 'C:\\devin\\devin.exe', 'win32', {}), { args: [] });
+    assert.deepEqual(resolvePartnerProcessLaunch('muse', 'Programs\\muse\\muse.cmd', 'win32', { ComSpec: 'cmd.exe' },
+        ['--approval-mode', 'on-request']), {
+        executablePath: 'cmd.exe',
+        args: ['/d', '/s', '/c', 'Programs\\muse\\muse.cmd', '--approval-mode', 'on-request']
+    });
 });
 
 test('DeepSeek Harness の PTY 起動計画は web 引数を含めない', () => {

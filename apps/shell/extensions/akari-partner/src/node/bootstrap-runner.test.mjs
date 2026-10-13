@@ -188,7 +188,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
 const NODE_VERSION = '24.21.0';
 
 test('全パートナーの導入情報には提供元とプラットフォーム別の取得元などがある', () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok', 'muse'];
     const runnerSource = bootstrapRunner.toString();
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
@@ -211,7 +211,7 @@ test('全パートナーの導入情報には提供元とプラットフォー�
 });
 
 test('未導入で同意がなければ全エージェントで子プロセスも取得も始めない', async () => {
-    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok'];
+    const agents = ['claude', 'codex', 'opencode', 'commandcode', 'pi', 'deepseek', 'devin', 'copilot', 'cursor', 'antigravity', 'grok', 'muse'];
     for (const platform of ['win32', 'darwin']) {
         for (const agent of agents) {
             for (const consent of ['unset', '0']) {
@@ -519,6 +519,49 @@ const noisyInstallerProgress = `for ((i=0; i<80; i++)); do
 done
 echo 'Error: Login canceled' >&2
 `;
+
+test('Muse Code の開示は公式の取得元、導入先、利用規約と URL 上書きを示す', () => {
+    const mac = partnerInstallDisclosure('muse', 'darwin');
+    const windows = partnerInstallDisclosure('muse', 'win32');
+    assert.equal(mac.name, 'Muse Code');
+    assert.equal(mac.provider, 'Meta');
+    assert.equal(mac.sourceUrl, 'https://dev.meta.ai/install.sh');
+    assert.equal(windows.sourceUrl, 'https://dev.meta.ai/install.ps1');
+    assert.equal(windows.location, '%LOCALAPPDATA%\\Programs\\muse');
+    assert.equal(mac.termsUrl, 'https://www.facebook.com/policies_center/');
+    assert.equal(partnerInstallDisclosure('muse', 'darwin', 'arm64', {
+        AKARI_PARTNER_MUSE_INSTALL_URL: 'https://example.test/muse-install'
+    }).sourceUrl, 'https://example.test/muse-install');
+});
+
+test('Muse Code は bash の公式スクリプトから ~/.local/bin/muse を導入し再利用する', async () => {
+    const home = await makeHome('akari-muse-home-');
+    const spawnLogPath = path.join(home, 'spawn.log');
+    const requestLogPath = path.join(home, 'request.log');
+    const script = `#!/usr/bin/env bash
+[[ -n "$HOME" ]] || exit 90
+mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'echo "muse 1.2.3"' > "$HOME/.local/bin/muse"
+chmod +x "$HOME/.local/bin/muse"
+`;
+    const mock = { origin: 'http://example.test', fixtures: {
+        '/muse-install': fixture(script, 200, 'text/plain')
+    }, spawnLogPath, requestLogPath };
+    try {
+        const first = await runBootstrap({ home, agent: 'muse', mock,
+            extraEnv: { AKARI_PARTNER_MUSE_INSTALL_URL: 'http://example.test/muse-install' } });
+        assert.equal(first.code, 0, first.stderr || first.stdout);
+        assert.match(first.stdout, /"reused":false/);
+        assert.ok(first.stdout.includes(`${home}/.local/bin/muse`));
+        assert.match(await readFile(spawnLogPath, 'utf8'), /\/bin\/bash/);
+        assert.match(await readFile(requestLogPath, 'utf8'), /muse-install/);
+        const second = await runBootstrap({ home, agent: 'muse', mock });
+        assert.equal(second.code, 0, second.stderr || second.stdout);
+        assert.match(second.stdout, /"reused":true/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
 
 test('Devin installer の setup が非 0 でも実体と --version が成功すれば導入済みと判定する', async () => {
     const home = await makeHome('akari-devin-home-');

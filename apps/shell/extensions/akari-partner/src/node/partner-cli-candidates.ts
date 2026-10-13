@@ -13,7 +13,7 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
     const { homeDir, platform, env } = options;
     const names: Record<PartnerAgentId, string> = {
         claude: 'claude', codex: 'codex', opencode: 'opencode', commandcode: 'command-code',
-        pi: 'pi', deepseek: 'dsh', devin: 'devin', copilot: 'copilot', cursor: 'cursor-agent', antigravity: 'agy', grok: 'grok'
+        pi: 'pi', deepseek: 'dsh', devin: 'devin', copilot: 'copilot', cursor: 'cursor-agent', antigravity: 'agy', grok: 'grok', muse: 'muse'
     };
     const name = names[agent];
     const win = platform === 'win32';
@@ -21,6 +21,7 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
     const suffixes = win
         ? agent === 'claude'
             ? options.nativeOnly ? ['.exe'] : ['.exe', '.cmd', '.bat']
+            : agent === 'muse' && !options.nativeOnly ? ['.cmd', ...pathExtensions.filter(extension => extension !== '.cmd')]
             : options.nativeOnly ? ['.exe'] : pathExtensions.length ? pathExtensions : ['.exe', '.cmd', '.bat']
         : [''];
     const local = path.join(homeDir, '.local', 'bin');
@@ -51,6 +52,8 @@ export function partnerCliCandidates(agent: PartnerAgentId, options: {
         extra.push(path.join(localAppData, 'agy', 'bin'));
     } else if (win && agent === 'devin') {
         extra.push(path.join(localAppData, 'devin', 'cli', 'bin'));
+    } else if (win && agent === 'muse') {
+        extra.push(path.join(localAppData, 'Programs', 'muse'));
     }
     for (const directory of extra) {
         for (const suffix of suffixes) { candidates.push(path.join(directory, name + suffix)); }

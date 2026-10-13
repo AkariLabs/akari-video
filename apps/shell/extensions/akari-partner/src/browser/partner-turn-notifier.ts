@@ -37,7 +37,8 @@ const AGENT_LABELS: Record<string, string> = {
     copilot: 'Copilot',
     cursor: 'Cursor',
     antigravity: 'Antigravity',
-    grok: 'Grok'
+    grok: 'Grok',
+    muse: 'Muse Code'
 };
 
 @injectable()
