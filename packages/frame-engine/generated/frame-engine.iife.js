@@ -1700,7 +1700,7 @@ ${indent}`);
         const quoted = preview ? `\uFF08\u300C${preview}${suffix}\u300D${removedRuns.length > 1 ? "\u306A\u3069" : ""}\uFF09` : "";
         return `\u6587\u5B57\u7BC4\u56F2 ${removedRuns.length} \u4EF6${quoted}\u304C\u5916\u308C\u307E\u3057\u305F`;
       }
-      function applyCaptionRunsToHtml(html, displayText, runs) {
+      function applyCaptionRunsToHtml(html, displayText, runs, preserveLineRoot = false, richLayers = false) {
         if (!runs?.length)
           return html;
         const validColor = (value) => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
@@ -1721,8 +1721,7 @@ ${indent}`);
             ...value.wrappable === true ? { wrappable: true } : {},
             ...safeGradient(value.gradient) ? { gradient: value.gradient } : {},
             ...value.replace_stroke === true ? { replace_stroke: true } : {},
-            ...value.replace_shadow === true ? { replace_shadow: true } : {},
-            ...value.gradient_filter === true ? { gradient_filter: true } : {}
+            ...value.replace_shadow === true ? { replace_shadow: true } : {}
           } };
         });
         const Segmenter = Intl.Segmenter;
@@ -1732,6 +1731,8 @@ ${indent}`);
         if (!runs.some((run) => Number.isInteger(run?.from) && Number.isInteger(run?.to) && run.from >= 0 && run.to <= chars.length && run.from < run.to))
           return html;
         const richRuns = runs.filter((run) => run?.resolved_look?.plate || run?.resolved_look?.text_shadow !== void 0);
+        const flow = richRuns.length > 0 && !richRuns.some((run) => run.resolved_look?.gradient) && !richLayers && !html.includes("akari-caption--rich") && !html.includes("akari-caption__rich-");
+        const productLineRoot = html.includes("isolation: isolate;") || preserveLineRoot;
         const resolved = chars.map((value, index) => ({
           text: value,
           index,
@@ -1774,14 +1775,25 @@ ${indent}`);
         const escape = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
         const decode = (value) => value.replace(/&(amp|lt|gt|quot|#0?39);/g, (_3, key) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", "#039": "'" })[key] ?? _3);
         let position = 0;
+        let decorationLine = false;
         const decorate = (encoded) => {
           const value = decode(encoded);
-          return segment(value).map((character) => {
+          const decorated = segment(value).map((character) => {
             const item = resolved[position++];
             if (!item || item.text !== character || !item.role && !Object.keys(item.style).length) {
-              return escape(character);
+              return flow ? `<span class="akari-caption__run-lift" style="position:relative">${escape(character)}</span>` : escape(character);
             }
-            const style = item.style;
+            const style = decorationLine ? { ...item.style } : item.style;
+            if (decorationLine)
+              for (const key of [
+                "scale",
+                "letter_spacing_em",
+                "baseline_shift_em",
+                "rotate_deg",
+                "font_weight",
+                "italic"
+              ])
+                delete style[key];
             const css = ["display:inline-block", "vertical-align:baseline", "line-height:1"];
             const scale = typeof style.scale === "number" && Number.isFinite(style.scale) && style.scale > 0 ? style.scale : 1;
             if (scale !== 1 && !item.plateTransform)
@@ -1811,17 +1823,22 @@ ${indent}`);
             if ((shift || rotate) && !item.plateTransform)
               css.push(scale === 1 ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)` : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
             if (item.shadow !== void 0) {
-              if (item.plate)
-                css.push(`text-shadow:${item.shadow}`);
+              if (flow || !item.plate)
+                css.push("text-shadow:none", ...!flow ? ["position:relative"] : [], `--akari-run-shadow:${item.shadow}`);
               else
-                css.push("text-shadow:none", "position:relative", `--akari-run-shadow:${item.shadow}`);
+                css.push(`text-shadow:${item.shadow}`);
             }
+            if (flow && item.shadow === void 0)
+              css.push("position:relative");
             if (/^\s$/u.test(character))
               css.push("white-space:pre");
-            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""}${item.shadow !== void 0 && !item.plate ? ` data-akari-shadow-text="${escape(character)}"` : ""} style="${css.join(";")}">${escape(character)}</span>`;
+            const copiedShadow = item.shadow !== void 0 && (flow || !item.plate);
+            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""}${copiedShadow ? ` data-akari-shadow-text="${escape(character)}"${flow ? ' data-akari-shadow-flow="true"' : ""}` : ""} style="${css.join(";")}">${escape(character)}</span>`;
           }).join("");
+          return flow ? decorated.replace(/(?:<span class="akari-caption__run-lift" style="position:relative">[^<]*<\/span>){2,}/g, (group) => group.replace(/<\/span><span class="akari-caption__run-lift" style="position:relative">/g, "")) : decorated;
         };
         const renderedHtml = html.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+          decorationLine = open.includes("data-decoration-text=");
           const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g, (whole, charOpen, charText, charClose, tag, plain) => {
             if (charOpen) {
               return charOpen + decorate(charText ?? "") + charClose;
@@ -1834,6 +1851,8 @@ ${indent}`);
           return renderedHtml;
         let lineStart = 0;
         const layered = renderedHtml.replace(/(<p class="akari-caption__line"[^>]*>)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+          decorationLine = open.includes("data-decoration-text=");
+          const lineOpen = flow && productLineRoot ? open.replace(/>$/, ' data-akari-flow-preserve-line-root="true">') : flow && decorationLine ? open.replace(/>$/, ' data-akari-flow-decorated-line="true">') : flow && html.includes('<div class="akari-caption__plate"') ? open.replace(/>$/, ' data-akari-flow-plain-line="true">') : open;
           const units = [];
           const containers = [];
           const stack = [];
@@ -1913,6 +1932,18 @@ ${indent}`);
             }
             if (group.length)
               groups.push(group);
+            for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+              const part = groups[groupIndex];
+              const from = part[0].index;
+              const to = part[part.length - 1].index + 1;
+              const crossing = [...containers, ...fragments].find((item) => item.from < to && item.to > from && (item.from < from && item.to > from && item.to < to || item.from > from && item.from < to && item.to > to));
+              if (!crossing)
+                continue;
+              const boundary = crossing.from > from ? crossing.from : crossing.to;
+              const offset = boundary - from;
+              groups.splice(groupIndex, 1, part.slice(0, offset), part.slice(offset));
+              groupIndex--;
+            }
             for (const part of groups) {
               const first = part[0];
               const last = part[part.length - 1];
@@ -1928,11 +1959,19 @@ ${indent}`);
                   end = Math.max(end, container.end);
                 }
               }
-              fragments.push({ start, end, runIndex, run, split: groups.length > 1 });
+              fragments.push({
+                start,
+                end,
+                from: first.index,
+                to: last.index + 1,
+                runIndex,
+                run,
+                split: groups.length > 1
+              });
             }
           }
           if (!fragments.length)
-            return open + content + close;
+            return lineOpen + content + close;
           const openings = /* @__PURE__ */ new Map();
           const closings = /* @__PURE__ */ new Map();
           for (const fragment of fragments) {
@@ -1941,61 +1980,79 @@ ${indent}`);
           }
           const points = [.../* @__PURE__ */ new Set([...openings.keys(), ...closings.keys(), 0, content.length])].sort((a, b) => a - b);
           let body = "";
+          const activeFragments = [];
+          const plateRgba = (value) => {
+            const hex = value.color.slice(1);
+            const pairs = hex.length === 3 ? [...hex].map((digit) => digit + digit) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
+            const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+            return `rgba(${pairs.map((pair) => parseInt(pair, 16)).join(",")},${Math.round(alpha * value.opacity * 1e4) / 1e4})`;
+          };
           for (let pointIndex = 0; pointIndex < points.length; pointIndex++) {
             const point = points[pointIndex];
             for (const fragment of (closings.get(point) ?? []).sort((a, b) => b.start - a.start || b.runIndex - a.runIndex)) {
               body += "</span>";
+              activeFragments.splice(activeFragments.lastIndexOf(fragment), 1);
             }
             for (const fragment of (openings.get(point) ?? []).sort((a, b) => b.end - a.end || a.runIndex - b.runIndex)) {
               const resolvedLook = fragment.run.resolved_look;
               const plate = resolvedLook?.plate;
-              const style = fragment.run.style ?? fragment.run.look ?? {};
+              const style = decorationLine ? { ...fragment.run.style ?? fragment.run.look ?? {} } : fragment.run.style ?? fragment.run.look ?? {};
+              if (decorationLine)
+                for (const key of [
+                  "scale",
+                  "letter_spacing_em",
+                  "baseline_shift_em",
+                  "rotate_deg",
+                  "font_weight",
+                  "italic"
+                ])
+                  delete style[key];
               const rotate = finite7(style.rotate_deg) ? style.rotate_deg : 0;
               const shift = finite7(style.baseline_shift_em) ? style.baseline_shift_em : 0;
               const scale = finite7(style.scale) && style.scale > 0 ? style.scale : 1;
-              const rgba = plate ? (() => {
-                const hex = plate.color.slice(1);
-                const pairs = hex.length === 3 ? [...hex].map((digit) => digit + digit) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)];
-                const alpha = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
-                return `rgba(${pairs.map((pair) => parseInt(pair, 16)).join(",")},${Math.round(alpha * plate.opacity * 1e4) / 1e4})`;
-              })() : void 0;
+              const rgba = plate ? plateRgba(plate) : void 0;
+              const coveringPlates = plate ? runs.slice(fragment.runIndex + 1).filter((later) => Number.isInteger(later?.from) && Number.isInteger(later?.to) && later.from >= 0 && later.to <= chars.length && later.from < later.to && later.resolved_look?.plate && later.from <= fragment.run.from && later.to >= fragment.run.to && (later.from < fragment.run.from || later.to > fragment.run.to) && later.from <= fragment.from && later.to >= fragment.to).reverse().map((later) => {
+                const color = plateRgba(later.resolved_look.plate);
+                return `linear-gradient(${color},${color})`;
+              }) : [];
               const fragCss = [
                 resolvedLook?.wrappable || !rotate ? "display:inline" : "display:inline-block",
-                "position:relative",
-                `z-index:${-1e6 + fragment.runIndex}`,
+                ...flow ? [] : activeFragments.length ? [] : ["position:relative", `z-index:${-1e6 + fragment.runIndex}`],
                 "line-height:1",
                 ...scale !== 1 ? [`font-size:${scale}em`] : [],
-                ...shift ? [`top:${shift}em`] : [],
+                ...shift ? [flow || activeFragments.length ? "position:relative" : "", `top:${shift}em`].filter(Boolean) : [],
                 ...!resolvedLook?.wrappable && rotate ? [`transform:rotate(${rotate}deg)`, "transform-origin:center"] : [],
                 ...plate ? [
                   `background:${rgba}`,
+                  ...coveringPlates.length ? [`background-image:${coveringPlates.join(",")}`] : [],
                   `border-radius:${plate.radius_px}px`,
                   `padding:${plate.padding_px}px`,
                   `margin:-${plate.padding_px}px`,
                   "-webkit-box-decoration-break:clone",
-                  "box-decoration-break:clone"
-                ] : [],
-                ...resolvedLook?.gradient_filter && resolvedLook.gradient ? [`--akari-run-gradient:${resolvedLook.gradient}`] : []
+                  "box-decoration-break:clone",
+                  ...flow ? ["pointer-events:none"] : []
+                ] : []
               ];
               const attrs = [
+                flow ? 'data-akari-run-flow="true"' : "",
                 plate ? `data-akari-plate="true" data-akari-plate-pad="${plate.padding_px}"` : "",
                 resolvedLook?.ink_outset_px ? `data-akari-ink-outset="${resolvedLook.ink_outset_px}"` : "",
                 rotate && !resolvedLook?.wrappable ? `data-akari-ink-rotate="${rotate}"` : "",
                 fragment.split ? 'data-akari-plate-split="true"' : "",
                 resolvedLook?.replace_stroke ? 'data-akari-no-stroke="true"' : "",
                 resolvedLook?.replace_shadow ? 'data-akari-no-shadow="true"' : "",
-                resolvedLook?.text_shadow !== void 0 ? 'data-akari-shadow-override="true"' : "",
-                resolvedLook?.gradient_filter ? 'data-akari-gradient-filter="true"' : ""
+                resolvedLook?.text_shadow !== void 0 ? 'data-akari-shadow-override="true"' : ""
               ];
               body += `<span class="akari-caption__run-frag" ${attrs.filter(Boolean).join(" ")} style="${fragCss.join(";")}">`;
+              activeFragments.push(fragment);
             }
             if (pointIndex + 1 < points.length)
               body += content.slice(point, points[pointIndex + 1]);
           }
           const gradient = fragments.some((fragment) => fragment.run.resolved_look?.gradient);
-          return (gradient ? open.replace(/>$/, ' data-akari-gradient-run="true">') : open) + body + close;
+          return (gradient ? lineOpen.replace(/>$/, ' data-akari-gradient-run="true">') : lineOpen) + body + close;
         });
-        const rules = "/*akari-run-rules:start*/" + [
+        const legacyRules = [
           ".akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text]):not([data-akari-gradient-run]){isolation:isolate;position:relative}",
           ".akari-caption__plate:has(.akari-caption__line[data-akari-gradient-run]){isolation:isolate}",
           ".akari-caption__line:has(.akari-caption__run-frag,.akari-caption__run[data-akari-shadow-text])::before{z-index:-10000000}",
@@ -2004,8 +2061,22 @@ ${indent}`);
           '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__run:not([style*="-webkit-text-stroke:"]){-webkit-text-stroke:0 transparent}',
           ".akari-caption__run-frag[data-akari-gradient-filter] .akari-caption__run{background-image:var(--akari-run-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}",
           ".akari-caption__run[data-akari-shadow-text]::before{content:attr(data-akari-shadow-text);position:absolute;left:0;top:0;z-index:-1;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none;white-space:pre}"
-        ].join("") + "/*akari-run-rules:end*/";
-        return layered.includes("</style>") ? layered.replace("</style>", `${rules}</style>`) : `<style>${rules}</style>${layered}`;
+        ];
+        const flowRules = [
+          ".akari-caption__plate:has(.akari-caption__run-frag[data-akari-run-flow]){isolation:isolate}",
+          ".akari-caption__plate .akari-caption__line.akari-caption__line[data-akari-flow-plain-line][data-akari-flow-plain-line]{isolation:initial;position:static}",
+          ".akari-caption__plate .akari-caption__line.akari-caption__line[data-akari-flow-decorated-line][data-akari-flow-decorated-line]{isolation:initial}",
+          ".akari-caption__run-frag[data-akari-no-stroke] .akari-caption__rich-stroke{display:none}",
+          ".akari-caption__run-frag[data-akari-shadow-override] .akari-caption__rich-shadow{display:none}",
+          '.akari-caption__run-frag[data-akari-no-stroke] .akari-caption__run:not([style*="-webkit-text-stroke:"]){-webkit-text-stroke:0 transparent}',
+          ".akari-caption__run[data-akari-shadow-flow][data-akari-shadow-text]::before{all:revert;content:attr(data-akari-shadow-text);display:inline-block;inline-size:0;white-space:pre;color:transparent;-webkit-text-stroke-color:transparent;text-decoration:none;text-shadow:var(--akari-run-shadow);pointer-events:none;user-select:none}",
+          '.akari-caption__run[data-akari-shadow-flow][data-akari-shadow-step="in"]::before{animation:akari-typewriter-char-in .01s var(--akari-shadow-in-delay) linear both paused}',
+          '.akari-caption__run[data-akari-shadow-flow][data-akari-shadow-step="out"]::before{animation:akari-shadow-out .01s var(--akari-shadow-out-delay) linear forwards paused}',
+          '.akari-caption__run[data-akari-shadow-flow][data-akari-shadow-step="both"]::before{animation:akari-typewriter-char-in .01s var(--akari-shadow-in-delay) linear both paused,akari-shadow-out .01s var(--akari-shadow-out-delay) linear forwards paused}'
+        ];
+        const rules = "/*akari-run-rules:start*/" + (flow ? flowRules : legacyRules).join("") + "/*akari-run-rules:end*/";
+        const inked = flow ? layered.replace(/(<span class="akari-caption__run"[^>]*data-akari-shadow-flow="true"[^>]*>)([^<]*)(<\/span>)/g, (_whole, open, value, close) => `${open}<span class="akari-caption__run-ink" style="position:relative">${value}</span>${close}`) : layered;
+        return inked.includes("</style>") ? inked.replace("</style>", `${rules}</style>`) : `<style>${rules}</style>${inked}`;
       }
     }
   });
@@ -8973,16 +9044,28 @@ ${indent}`);
             const rowStyle = row.text_style && typeof row.text_style === "object" ? row.text_style : {};
             const defaultStyle = !Array.isArray(root) && root?.default_text_style && typeof root.default_text_style === "object" ? root.default_text_style : {};
             const effective = { ...defaultStyle, ...rowStyle };
+            const runStyle = run.look ?? run.style ?? {};
+            if ((effective.underline === true || effective.strikethrough === true) && ["scale", "letter_spacing_em", "baseline_shift_em", "rotate_deg", "font_weight", "italic"].some((key) => Object.prototype.hasOwnProperty.call(runStyle, key))) {
+              add("captions.run.decoration-shape", "warning", path, "\u4E0B\u7DDA\u30FB\u6253\u3061\u6D88\u3057\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u5B57\u5F62\u3092\u5909\u3048\u308B\u6307\u5B9A\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
+            }
+            const gradientEffects = Boolean(effective.fill_gradient && !effective.fill && (effective.stroke || effective.stroke_inner || effective.extrude || effective.shadow || effective.glow));
+            const hasEffects = Boolean(background || run.resolved_look?.plate || run.resolved_look?.text_shadow !== void 0 || run.look && (Object.prototype.hasOwnProperty.call(run.look, "shadow") || Object.prototype.hasOwnProperty.call(run.look, "glow")));
             if (richRun && typeof run.look?.rotate_deg === "number" && run.look.rotate_deg !== 0 && (effective.wrap_width_pct || effective.vertical)) {
               add("captions.run.rotation-wrap", "warning", path, "\u6298\u308A\u8FD4\u3059\u884C\u306E\u7BC4\u56F2\u306F\u56DE\u8EE2\u305B\u305A\u306B\u63CF\u304D\u307E\u3059\u3002", "document");
             }
-            if (richRun && effective.fill_gradient && !effective.fill && (effective.stroke || effective.stroke_inner || effective.extrude || effective.shadow || effective.glow)) {
-              add("captions.run.gradient-filter", "warning", path, "\u884C\u306E\u7E01\u3084\u5F71\u304C\u3042\u308B\u305F\u3081\u3001\u7BC4\u56F2\u306E\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u3092\u65AD\u7247\u3067\u63CF\u304D\u76F4\u3057\u307E\u3059\u3002", "document");
+            if (hasEffects && gradientEffects) {
+              add("captions.run.gradient-filter", "warning", path, "\u884C\u306B\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u3068\u7E01\u30FB\u5F71\u304C\u3042\u308B\u305F\u3081\u3001\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u30FB\u30B0\u30ED\u30FC\u3092\u63CF\u304D\u307E\u305B\u3093\u3002", "document");
             }
             if (richRun && effective.fill_gradient && !effective.fill && run.look?.color) {
               add("captions.run.gradient-color", "warning", path, "\u30B0\u30E9\u30C7\u30FC\u30B7\u30E7\u30F3\u306E\u884C\u3067\u306F\u7BC4\u56F2\u306E\u8272\u3092\u63CF\u3051\u307E\u305B\u3093\u3002", "document");
             }
-            if (ctx.path === "gpu" && words.length && richRun && (["karaoke", "pop", "reveal", "reveal-word"].includes(String(row.style)) || hasEmphasisDisplay)) {
+            if (ctx.path === "gpu" && !gradientEffects && hasEffects && [
+              effective.animation && effective.animation.in?.id,
+              effective.animation && effective.animation.out?.id
+            ].includes("typewriter")) {
+              add("captions.style.unsupported-path", "error", path, "\u6587\u5B57\u9001\u308A\u3068\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u30FB\u30B0\u30ED\u30FC\u306F GPU \u7D4C\u8DEF\u3067\u4E00\u7DD2\u306B\u63CF\u3051\u307E\u305B\u3093\u3002", "path");
+            }
+            if (ctx.path === "gpu" && words.length && richRun && !gradientEffects && (["karaoke", "pop", "reveal", "reveal-word"].includes(String(row.style)) || hasEmphasisDisplay)) {
               add("captions.style.unsupported-path", "error", path, "\u8A9E\u3054\u3068\u306E\u8868\u793A\u3068\u7BC4\u56F2\u306E\u53F0\u7D19\u30FB\u5F71\u306F GPU \u7D4C\u8DEF\u3067\u4E00\u7DD2\u306B\u63CF\u3051\u307E\u305B\u3093\u3002", "path");
             }
             if (background) {
@@ -9389,7 +9472,8 @@ ${indent}`);
           }
           return clean;
         };
-        const scale = typeof look.scale === "number" && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
+        const shapeLocked = lineStyle?.underline === true || lineStyle?.strikethrough === true;
+        const scale = !shapeLocked && typeof look.scale === "number" && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
         const effectiveLayout = layout ?? lineStyle?.layout;
         const lineScale = !output ? 1 : effectiveLayout ? (0, caption_display_1.resolveCaptionStyleForOutput)({ ...lineStyle, layout: effectiveLayout }, output).layout.scale : (0, caption_display_1.resolveCaptionReferenceScale)(lineStyle, output);
         const pxScale = lineScale * scale;
@@ -9437,16 +9521,17 @@ ${indent}`);
         const extrude = lineStyle?.extrude;
         const lineExtent = hasStroke ? 0 : (0, caption_display_1.scaleCaptionPx)(Math.max(finite7(inner?.width_px), finite7(extrude?.depth_px)), lineScale);
         const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow && (!policy || !lineHasStyle) ? 8 : 0;
-        const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
+        const inkOutset = Math.max(plate && plate.opacity > 0 ? plate.padding_px : 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
         const gradient = lineStyle?.fill_gradient;
         const gradientCss = !lineStyle?.fill && Array.isArray(gradient?.colors) && gradient.colors.length >= 2 && gradient.colors.length <= 3 && gradient.colors.every(color) && typeof gradient.angle_deg === "number" && Number.isFinite(gradient.angle_deg) ? `linear-gradient(${gradient.angle_deg}deg, ${gradient.colors.join(", ")})` : void 0;
+        if (gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner || lineStyle?.extrude || lineStyle?.shadow || lineStyle?.glow))
+          return { style };
         return { style, ...plate || hasShadow || hasGlow ? { resolved_look: {
           ...plate ? { plate } : {},
           ink_outset_px: inkOutset,
           rotate_deg: typeof look.rotate_deg === "number" ? look.rotate_deg : 0,
           wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),
           ...gradientCss ? { gradient: gradientCss } : {},
-          gradient_filter: Boolean(gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner || lineStyle?.extrude || lineStyle?.shadow || lineStyle?.glow)),
           replace_stroke: hasStroke,
           replace_shadow: hasShadow,
           ...hasStroke || hasShadow || hasGlow ? { text_shadow: [

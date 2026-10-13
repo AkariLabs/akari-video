@@ -39,7 +39,6 @@ export interface CaptionRun {
         gradient?: string;
         replace_stroke?: boolean;
         replace_shadow?: boolean;
-        gradient_filter?: boolean;
     };
     motion?: {
         in?: CaptionRunAnimationSlot;
@@ -147,4 +146,4 @@ export declare function moveDeletedCaptionRunsToUnresolved<T extends {
 /** Text-only notice for a caller that can present caption edit results to a user. */
 export declare function captionRunsRemovedNotice(removedRuns: readonly CaptionRun[], oldDisplayText: string): string | undefined;
 /** Self-contained because preview injects this function into its webview with toString(). */
-export declare function applyCaptionRunsToHtml(html: string, displayText: string, runs?: readonly CaptionRun[]): string;
+export declare function applyCaptionRunsToHtml(html: string, displayText: string, runs?: readonly CaptionRun[], preserveLineRoot?: boolean, richLayers?: boolean): string;

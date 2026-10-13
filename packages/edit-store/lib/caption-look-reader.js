@@ -287,7 +287,9 @@ function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, 
         }
         return clean;
     };
-    const scale = typeof look.scale === 'number' && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
+    const shapeLocked = lineStyle?.underline === true || lineStyle?.strikethrough === true;
+    const scale = !shapeLocked && typeof look.scale === 'number' && Number.isFinite(look.scale)
+        && look.scale > 0 ? look.scale : 1;
     const effectiveLayout = layout ?? lineStyle?.layout;
     const lineScale = !output ? 1 : effectiveLayout
         ? (0, caption_display_1.resolveCaptionStyleForOutput)({ ...lineStyle, layout: effectiveLayout }, output).layout.scale
@@ -353,21 +355,24 @@ function resolveCaptionRunLook(look, lineStyle, output, layout, policy = false, 
     const lineExtent = hasStroke ? 0 : (0, caption_display_1.scaleCaptionPx)(Math.max(finite(inner?.width_px), finite(extrude?.depth_px)), lineScale);
     const defaultDropExtent = !hasShadow && !lineUsesRoundedStroke && !lineTextShadow
         && (!policy || !lineHasStyle) ? 8 : 0;
-    const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
+    const inkOutset = Math.max(plate && plate.opacity > 0 ? plate.padding_px : 0, shadowExtent, glowExtent, lineExtent, defaultDropExtent);
     const gradient = lineStyle?.fill_gradient;
     const gradientCss = !lineStyle?.fill && Array.isArray(gradient?.colors)
         && gradient.colors.length >= 2 && gradient.colors.length <= 3
         && gradient.colors.every(color) && typeof gradient.angle_deg === 'number'
         && Number.isFinite(gradient.angle_deg)
         ? `linear-gradient(${gradient.angle_deg}deg, ${gradient.colors.join(', ')})` : undefined;
+    // A gradient painted by the line cannot be reconstructed under its outline or shadow.
+    // Keep the nine legacy style fields, but omit the run's replacement effects.
+    if (gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner || lineStyle?.extrude
+        || lineStyle?.shadow || lineStyle?.glow))
+        return { style };
     return { style, ...(plate || hasShadow || hasGlow ? { resolved_look: {
                 ...(plate ? { plate } : {}),
                 ink_outset_px: inkOutset,
                 rotate_deg: typeof look.rotate_deg === 'number' ? look.rotate_deg : 0,
                 wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),
                 ...(gradientCss ? { gradient: gradientCss } : {}),
-                gradient_filter: Boolean(gradientCss && (lineStyle?.stroke || lineStyle?.stroke_inner
-                    || lineStyle?.extrude || lineStyle?.shadow || lineStyle?.glow)),
                 replace_stroke: hasStroke,
                 replace_shadow: hasShadow,
                 ...(hasStroke || hasShadow || hasGlow ? { text_shadow: [roundOutline, extras, defaultOutline,
