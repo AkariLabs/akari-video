@@ -1,5 +1,5 @@
 /**
- * S3 ペン基盤（review セッション契約 §4.4「プラチナ調 + 控えめなきらめき」）の視覚チューニングと
+ * S3 ペン基盤の視覚チューニングと
  * 描画プリミティブの**単一正本**（パリティ契約 §2.8、Phase 2 共有カーネル抽出・2026-08-02）。
  *
  * 消費者は 3 面:
@@ -10,8 +10,8 @@
  *   3. Web UI（packages/preview-server）— esbuild で public/pen-visuals.bundle.js（ESM）に
  *      バンドルして app.js が import する（preview-engine.bundle.js と同じ供給経路）
  *
- * チューニング裁定（オーナー 2026-08-02）: フェードは 600ms（Web UI 現行値）を正とする。
- * それ以外の値は shell 従来値が正本（契約 §2.8）。
+ * ペンの線はオレンジの芯と暗い縁取りを重ね、きらめきだけを控えめに残す。
+ * 描き味のフェードは 600ms とする。
  * 描線の表示寿命も PEN_TUNING が単一正本で、visibleWindowSec が不透明な窓、fadeOutMs が
  * 窓を過ぎた後の消失時間を定める。描き味の fadeDurationMs とは別の表示規則である。
  */
@@ -20,11 +20,13 @@ export interface PenTuning {
     maxDevicePixelRatio: number;
     coreWidthPx: number;
     staticCoreWidthPx: number;
-    coreAlpha: number;
-    glowAlpha: number;
-    glowSizePx: number;
+    coreColor: string;
+    outlineColor: string;
+    outlineExtraWidthPx: number;
+    sparkleColor: string;
     sparkleSpritePx: number;
     sparklesPerSegment: number;
+    sparkleProbability: number;
     sparkleMaxPoolSize: number;
     sparkleJitterPx: number;
     sparkleMinSizePx: number;
@@ -150,38 +152,25 @@ export function selectVisibleStrokeItems(
 
 export const PEN_TUNING: PenTuning = {
     maxDevicePixelRatio: 2,
-    coreWidthPx: 3.4,
-    staticCoreWidthPx: 3,
-    coreAlpha: 0.98,
-    glowAlpha: 0.5,
-    glowSizePx: 30,
+    coreWidthPx: 2.8,
+    staticCoreWidthPx: 2.8,
+    coreColor: '#ff8a1f',
+    outlineColor: 'rgba(8,10,14,0.6)',
+    outlineExtraWidthPx: 1.6,
+    sparkleColor: 'rgb(255,206,160)',
     sparkleSpritePx: 32,
-    sparklesPerSegment: 2,
-    sparkleMaxPoolSize: 220,
-    sparkleJitterPx: 9,
-    sparkleMinSizePx: 5,
-    sparkleMaxSizePx: 13,
-    sparkleLifetimeMs: 620,
+    sparklesPerSegment: 1,
+    sparkleProbability: 0.5,
+    sparkleMaxPoolSize: 120,
+    sparkleJitterPx: 5,
+    sparkleMinSizePx: 4,
+    sparkleMaxSizePx: 8,
+    sparkleLifetimeMs: 460,
     sparkleTwinkleHz: 2.2,
     visibleWindowSec: 8,
     fadeOutMs: 1500,
     fadeDurationMs: 600
 };
-
-/** グロー用スプライト（動画面 `createGlowSprite` と同一実装）。 */
-export function createGlowSprite(size: number): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
-    gradient.addColorStop(0.4, 'rgba(226,234,255,0.55)');
-    gradient.addColorStop(1, 'rgba(226,234,255,0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    return canvas;
-}
 
 /** きらめき用スプライト（動画面 `createSparkleSprite` と同一実装 — 十字の光条つき）。 */
 export function createSparkleSprite(size: number): HTMLCanvasElement {
@@ -191,12 +180,12 @@ export function createSparkleSprite(size: number): HTMLCanvasElement {
     const ctx = canvas.getContext('2d')!;
     const center = size / 2;
     const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-    gradient.addColorStop(0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.25, 'rgba(255,255,255,0.85)');
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0, PEN_TUNING.sparkleColor);
+    gradient.addColorStop(0.25, PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0.85)'));
+    gradient.addColorStop(1, PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0)'));
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeStyle = PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0.9)');
     ctx.lineWidth = Math.max(1, size * 0.06);
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -208,49 +197,31 @@ export function createSparkleSprite(size: number): HTMLCanvasElement {
     return canvas;
 }
 
-/** プラチナ調グラデーション（動画面 `rebuildPlatinumGradient` と同一実装）。 */
-export function createPlatinumGradient(
-    ctx: CanvasRenderingContext2D, width: number, height: number
-): CanvasGradient {
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(0.48, '#d9deea');
-    gradient.addColorStop(0.72, '#ffffff');
-    gradient.addColorStop(1, '#c8cfdd');
-    return gradient;
-}
-
 /**
- * ペン 1 セグメント分の描画（グロー + プラチナ調コア線）。動画面 `drawSegment` と同一の
- * 見た目ロジック（正規化座標 → キャンバス px 変換・lighter 合成のグロー・プラチナ調ストローク）。
+ * 正規化された点列を一つのパスにし、縁取り全体の後に芯全体を描く。
+ * 描画中の更新も点列全体で呼び直すことで継ぎ目を作らない。
  */
-export function drawPenSegment(
+export function drawPenStroke(
     ctx: CanvasRenderingContext2D,
-    glowSprite: HTMLCanvasElement,
-    platinumGradient: CanvasGradient | null,
-    from: readonly [number, number],
-    to: readonly [number, number],
+    points: ReadonlyArray<readonly [number, number]>,
     canvasWidth: number,
     canvasHeight: number,
-    coreWidthPx: number = PEN_TUNING.coreWidthPx,
-    glowSizePx: number = PEN_TUNING.glowSizePx
+    coreWidthPx: number = PEN_TUNING.coreWidthPx
 ): void {
-    const fromPx: [number, number] = [from[0] * canvasWidth, from[1] * canvasHeight];
-    const toPx: [number, number] = [to[0] * canvasWidth, to[1] * canvasHeight];
+    if (points.length < 2) return;
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = PEN_TUNING.glowAlpha;
-    ctx.drawImage(glowSprite, toPx[0] - glowSizePx / 2, toPx[1] - glowSizePx / 2, glowSizePx, glowSizePx);
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = PEN_TUNING.coreAlpha;
-    ctx.strokeStyle = platinumGradient ?? '#eef2fb';
-    ctx.lineWidth = coreWidthPx;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(fromPx[0], fromPx[1]);
-    ctx.lineTo(toPx[0], toPx[1]);
+    ctx.moveTo(points[0][0] * canvasWidth, points[0][1] * canvasHeight);
+    for (let index = 1; index < points.length; index += 1) {
+        ctx.lineTo(points[index][0] * canvasWidth, points[index][1] * canvasHeight);
+    }
+    ctx.strokeStyle = PEN_TUNING.outlineColor;
+    ctx.lineWidth = coreWidthPx + PEN_TUNING.outlineExtraWidthPx;
+    ctx.stroke();
+    ctx.strokeStyle = PEN_TUNING.coreColor;
+    ctx.lineWidth = coreWidthPx;
     ctx.stroke();
     ctx.restore();
 }

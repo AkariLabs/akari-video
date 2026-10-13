@@ -22,10 +22,8 @@ import {
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
-  createGlowSprite,
   createSparkleSprite,
-  createPlatinumGradient,
-  drawPenSegment as drawPenSegmentShared,
+  drawPenStroke,
 } from '/pen-visuals.bundle.js';
 import { replaceCaptionStyleVariables, applyRichCaptionLayers } from '/caption-style.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
@@ -1780,7 +1778,7 @@ wrapper.addEventListener('pointerdown', (e) => {
   window.addEventListener('pointercancel', onCancel);
 }, true);
 
-// --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
+// --- Pen annotation canvas ---
 function setupPenCanvas() {
   // DPR クランプは shell と同じ正本値（PEN_TUNING.maxDevicePixelRatio）に従う。
   // 裏バッファは表示 px（出力フレーム矩形）基準 — CSS サイズは論理ステージの 100% で、
@@ -1791,35 +1789,20 @@ function setupPenCanvas() {
   penCanvas.height = Math.max(1, Math.round(rect.height * dpr));
   penCanvas.style.width = '100%';
   penCanvas.style.height = '100%';
-  rebuildPlatinumGradient();
 }
 let penCtx = penCanvas.getContext('2d');
-let platinumGradient = null;
 let penCurrentStroke = null;
 let penFadingStrokes = [];
 let penSparkles = [];
-let penGlowSprite = null;
 let penSparkleSprite = null;
 let penAnimHandle = 0;
 
-// PEN_TUNING / スプライト生成は pen-visuals.bundle.js（単一正本）から import する。
-
-function rebuildPlatinumGradient() {
-  const w = penCanvas.width, h = penCanvas.height;
-  platinumGradient = (w > 0 && h > 0) ? createPlatinumGradient(penCtx, w, h) : null;
-}
-
-function drawPenSegment(ctx, from, to) {
-  drawPenSegmentShared(
-    ctx, penGlowSprite, platinumGradient,
-    [from.x, from.y], [to.x, to.y],
-    penCanvas.width, penCanvas.height
-  );
-}
+// PEN_TUNING / 描画プリミティブは pen-visuals.bundle.js（単一正本）から import する。
 
 function spawnPenSparkles(point) {
   const w = penCanvas.width, h = penCanvas.height;
   for (let i = 0; i < PEN_TUNING.sparklesPerSegment; i++) {
+    if (Math.random() >= PEN_TUNING.sparkleProbability) continue;
     if (penSparkles.length >= PEN_TUNING.sparkleMaxPoolSize) penSparkles.shift();
     const angle = Math.random() * Math.PI * 2;
     const jitter = Math.random() * PEN_TUNING.sparkleJitterPx;
@@ -1838,7 +1821,6 @@ function drawPenSparkles(ctx, timestamp) {
   if (!penSparkles.length) return;
   const alive = [];
   ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
   for (const s of penSparkles) {
     const age = timestamp - s.bornAt;
     if (age >= s.lifetimeMs) continue;
@@ -1864,19 +1846,22 @@ function penRecomposite(timestamp) {
   penCtx.clearRect(0, 0, w, h);
   for (const fading of penFadingStrokes) {
     penCtx.globalAlpha = penFadeAlpha(fading, timestamp);
-    drawPenStrokePoints(fading);
+    paintPenStroke(fading);
   }
   penCtx.globalAlpha = 1;
-  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  if (penCurrentStroke) paintPenStroke(penCurrentStroke);
   drawPenSparkles(penCtx, timestamp || performance.now());
 }
 
-function drawPenStrokePoints(stroke) {
+function paintPenStroke(stroke) {
   const pts = stroke.points;
-  if (pts.length < 2) return;
+  drawPenStroke(penCtx, pts.map(point => [point.x, point.y]), penCanvas.width, penCanvas.height);
+}
+
+function spawnPendingPenSparkles(stroke) {
+  const pts = stroke.points;
   let i = stroke.drawnIndex || 0;
   while (i < pts.length - 1) {
-    drawPenSegment(penCtx, pts[i], pts[i + 1]);
     spawnPenSparkles(pts[i + 1]);
     i++;
   }
@@ -1884,7 +1869,7 @@ function drawPenStrokePoints(stroke) {
 }
 
 function penTick(timestamp) {
-  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  if (penCurrentStroke) spawnPendingPenSparkles(penCurrentStroke);
   penFadingStrokes = penFadingStrokes.filter(f => penFadeAlpha(f, timestamp) > 0);
   penRecomposite(timestamp);
   const stillActive = penCurrentStroke !== null || penFadingStrokes.length > 0 || penSparkles.length > 0;
@@ -1896,7 +1881,6 @@ function ensurePenLoop() {
 }
 
 function initPenSprites() {
-  if (!penGlowSprite) penGlowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
   if (!penSparkleSprite) penSparkleSprite = createSparkleSprite(Math.max(48, PEN_TUNING.sparkleSpritePx * 3));
 }
 
@@ -1920,6 +1904,7 @@ function onPenPointerMove(e) {
 }
 function onPenPointerUp(e) {
   if (!penCurrentStroke) return;
+  spawnPendingPenSparkles(penCurrentStroke);
   penCurrentStroke.fadeStartedAt = performance.now();
   penFadingStrokes.push(penCurrentStroke);
   penCurrentStroke = null;
@@ -1933,6 +1918,7 @@ function penEnable(enabled) {
   document.body.style.cursor = enabled ? 'crosshair' : '';
   if (!enabled && !penCurrentStroke) return;
   if (!enabled && penCurrentStroke) {
+    spawnPendingPenSparkles(penCurrentStroke);
     penCurrentStroke.fadeStartedAt = performance.now();
     penFadingStrokes.push(penCurrentStroke);
     penCurrentStroke = null;

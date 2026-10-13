@@ -54,36 +54,25 @@ function selectVisibleStrokeItems(items, context, tuning = PEN_TUNING) {
 }
 var PEN_TUNING = {
   maxDevicePixelRatio: 2,
-  coreWidthPx: 3.4,
-  staticCoreWidthPx: 3,
-  coreAlpha: 0.98,
-  glowAlpha: 0.5,
-  glowSizePx: 30,
+  coreWidthPx: 2.8,
+  staticCoreWidthPx: 2.8,
+  coreColor: "#ff8a1f",
+  outlineColor: "rgba(8,10,14,0.6)",
+  outlineExtraWidthPx: 1.6,
+  sparkleColor: "rgb(255,206,160)",
   sparkleSpritePx: 32,
-  sparklesPerSegment: 2,
-  sparkleMaxPoolSize: 220,
-  sparkleJitterPx: 9,
-  sparkleMinSizePx: 5,
-  sparkleMaxSizePx: 13,
-  sparkleLifetimeMs: 620,
+  sparklesPerSegment: 1,
+  sparkleProbability: 0.5,
+  sparkleMaxPoolSize: 120,
+  sparkleJitterPx: 5,
+  sparkleMinSizePx: 4,
+  sparkleMaxSizePx: 8,
+  sparkleLifetimeMs: 460,
   sparkleTwinkleHz: 2.2,
   visibleWindowSec: 8,
   fadeOutMs: 1500,
   fadeDurationMs: 600
 };
-function createGlowSprite(size) {
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, "rgba(255,255,255,0.95)");
-  gradient.addColorStop(0.4, "rgba(226,234,255,0.55)");
-  gradient.addColorStop(1, "rgba(226,234,255,0)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-  return canvas;
-}
 function createSparkleSprite(size) {
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -91,12 +80,12 @@ function createSparkleSprite(size) {
   const ctx = canvas.getContext("2d");
   const center = size / 2;
   const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-  gradient.addColorStop(0, "rgba(255,255,255,1)");
-  gradient.addColorStop(0.25, "rgba(255,255,255,0.85)");
-  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  gradient.addColorStop(0, PEN_TUNING.sparkleColor);
+  gradient.addColorStop(0.25, PEN_TUNING.sparkleColor.replace("rgb(", "rgba(").replace(")", ",0.85)"));
+  gradient.addColorStop(1, PEN_TUNING.sparkleColor.replace("rgb(", "rgba(").replace(")", ",0)"));
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.strokeStyle = PEN_TUNING.sparkleColor.replace("rgb(", "rgba(").replace(")", ",0.9)");
   ctx.lineWidth = Math.max(1, size * 0.06);
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -107,40 +96,28 @@ function createSparkleSprite(size) {
   ctx.stroke();
   return canvas;
 }
-function createPlatinumGradient(ctx, width, height) {
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#ffffff");
-  gradient.addColorStop(0.48, "#d9deea");
-  gradient.addColorStop(0.72, "#ffffff");
-  gradient.addColorStop(1, "#c8cfdd");
-  return gradient;
-}
-function drawPenSegment(ctx, glowSprite, platinumGradient, from, to, canvasWidth, canvasHeight, coreWidthPx = PEN_TUNING.coreWidthPx, glowSizePx = PEN_TUNING.glowSizePx) {
-  const fromPx = [from[0] * canvasWidth, from[1] * canvasHeight];
-  const toPx = [to[0] * canvasWidth, to[1] * canvasHeight];
+function drawPenStroke(ctx, points, canvasWidth, canvasHeight, coreWidthPx = PEN_TUNING.coreWidthPx) {
+  if (points.length < 2) return;
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = PEN_TUNING.glowAlpha;
-  ctx.drawImage(glowSprite, toPx[0] - glowSizePx / 2, toPx[1] - glowSizePx / 2, glowSizePx, glowSizePx);
-  ctx.restore();
-  ctx.save();
-  ctx.globalAlpha = PEN_TUNING.coreAlpha;
-  ctx.strokeStyle = platinumGradient ?? "#eef2fb";
-  ctx.lineWidth = coreWidthPx;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(fromPx[0], fromPx[1]);
-  ctx.lineTo(toPx[0], toPx[1]);
+  ctx.moveTo(points[0][0] * canvasWidth, points[0][1] * canvasHeight);
+  for (let index = 1; index < points.length; index += 1) {
+    ctx.lineTo(points[index][0] * canvasWidth, points[index][1] * canvasHeight);
+  }
+  ctx.strokeStyle = PEN_TUNING.outlineColor;
+  ctx.lineWidth = coreWidthPx + PEN_TUNING.outlineExtraWidthPx;
+  ctx.stroke();
+  ctx.strokeStyle = PEN_TUNING.coreColor;
+  ctx.lineWidth = coreWidthPx;
   ctx.stroke();
   ctx.restore();
 }
 export {
   PEN_TUNING,
-  createGlowSprite,
-  createPlatinumGradient,
   createSparkleSprite,
-  drawPenSegment,
+  drawPenStroke,
   normalizePersistentStrokeItems,
   resolveStrokeLifetimeAlpha,
   selectVisibleStrokeItems

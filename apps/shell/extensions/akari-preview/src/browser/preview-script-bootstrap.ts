@@ -753,26 +753,12 @@ export function previewBootstrapScript(): string {
             let penCanvasHeight = 0;
             let penCanvasDpr = 1;
             let penAnimationHandle = 0;
-            let platinumGradient = null;
             let staticBitmap = null;
             let lastStrokeLifetimeSignature = '';
             let strokeLifetimeWasAnimating = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const penCtx = penLayer.getContext('2d');
-            const createGlowSprite = size => {
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-                gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
-                gradient.addColorStop(0.4, 'rgba(226,234,255,0.55)');
-                gradient.addColorStop(1, 'rgba(226,234,255,0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, size, size);
-                return canvas;
-            };
             const createSparkleSprite = size => {
                 const canvas = document.createElement('canvas');
                 canvas.width = size;
@@ -780,12 +766,12 @@ export function previewBootstrapScript(): string {
                 const ctx = canvas.getContext('2d');
                 const center = size / 2;
                 const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-                gradient.addColorStop(0, 'rgba(255,255,255,1)');
-                gradient.addColorStop(0.25, 'rgba(255,255,255,0.85)');
-                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                gradient.addColorStop(0, PEN_TUNING.sparkleColor);
+                gradient.addColorStop(0.25, PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0.85)'));
+                gradient.addColorStop(1, PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0)'));
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, size, size);
-                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.strokeStyle = PEN_TUNING.sparkleColor.replace('rgb(', 'rgba(').replace(')', ',0.9)');
                 ctx.lineWidth = Math.max(1, size * 0.06);
                 ctx.lineCap = 'round';
                 ctx.beginPath();
@@ -796,7 +782,6 @@ export function previewBootstrapScript(): string {
                 ctx.stroke();
                 return canvas;
             };
-            const glowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
             const sparkleSprite = createSparkleSprite(Math.max(48, PEN_TUNING.sparkleSpritePx * 3));
             const allocPenCanvas = () => {
                 const canvas = document.createElement('canvas');
@@ -806,72 +791,51 @@ export function previewBootstrapScript(): string {
                 ctx.setTransform(penCanvasDpr, 0, 0, penCanvasDpr, 0, 0);
                 return { canvas, ctx };
             };
-            const rebuildPlatinumGradient = () => {
-                if (!(penCanvasWidth > 0) || !(penCanvasHeight > 0)) { platinumGradient = null; return; }
-                const gradient = penCtx.createLinearGradient(0, 0, penCanvasWidth, penCanvasHeight);
-                gradient.addColorStop(0, '#ffffff');
-                gradient.addColorStop(0.48, '#d9deea');
-                gradient.addColorStop(0.72, '#ffffff');
-                gradient.addColorStop(1, '#c8cfdd');
-                platinumGradient = gradient;
-            };
-            const drawSegment = (ctx, from, to, options) => {
-                const width = (options && options.coreWidthPx) || PEN_TUNING.coreWidthPx;
-                const fromPx = [from[0] * penCanvasWidth, from[1] * penCanvasHeight];
-                const toPx = [to[0] * penCanvasWidth, to[1] * penCanvasHeight];
-                const glowSize = PEN_TUNING.glowSizePx;
+            const drawStrokePath = (ctx, points, width = PEN_TUNING.coreWidthPx) => {
+                if (points.length < 2) return;
                 ctx.save();
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
-                ctx.drawImage(glowSprite, toPx[0] - glowSize / 2, toPx[1] - glowSize / 2, glowSize, glowSize);
-                ctx.restore();
-                ctx.save();
-                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
-                ctx.strokeStyle = platinumGradient || '#eef2fb';
-                ctx.lineWidth = width;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                 ctx.beginPath();
-                ctx.moveTo(fromPx[0], fromPx[1]);
-                ctx.lineTo(toPx[0], toPx[1]);
+                ctx.moveTo(points[0][0] * penCanvasWidth, points[0][1] * penCanvasHeight);
+                for (let index = 1; index < points.length; index += 1) {
+                    ctx.lineTo(points[index][0] * penCanvasWidth, points[index][1] * penCanvasHeight);
+                }
+                ctx.strokeStyle = PEN_TUNING.outlineColor;
+                ctx.lineWidth = width + PEN_TUNING.outlineExtraWidthPx;
+                ctx.stroke();
+                ctx.strokeStyle = PEN_TUNING.coreColor;
+                ctx.lineWidth = width;
                 ctx.stroke();
                 ctx.restore();
             };
             const paintStaticStroke = points => {
                 if (!staticBitmap) return;
-                for (let index = 0; index < points.length - 1; index += 1) {
-                    drawSegment(staticBitmap.ctx, points[index], points[index + 1], { coreWidthPx: PEN_TUNING.staticCoreWidthPx });
-                }
+                drawStrokePath(staticBitmap.ctx, points, PEN_TUNING.staticCoreWidthPx);
             };
             const redrawStrokeFull = stroke => {
                 stroke.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
                 stroke.canvas.height = Math.max(1, Math.round(penCanvasHeight * penCanvasDpr));
                 stroke.ctx.setTransform(penCanvasDpr, 0, 0, penCanvasDpr, 0, 0);
-                for (let index = 0; index < stroke.points.length - 1; index += 1) {
-                    drawSegment(stroke.ctx, stroke.points[index], stroke.points[index + 1]);
-                }
+                drawStrokePath(stroke.ctx, stroke.points);
                 stroke.drawnIndex = Math.max(0, stroke.points.length - 1);
             };
-            // task.md 指示4: rect ツールの描画。pen と同じ platinum グラデーション/グロー質感を
-            // 矩形の輪郭に適用する（drawSegment の 4 辺版ではなく単純な strokeRect 2 パス -- pen ほど
-            // の視覚精度は不要で、コード量と回帰リスクを抑える判断。report.md に記載）。
             const drawRectShape = (ctx, box) => {
                 const x = box[0] * penCanvasWidth;
                 const y = box[1] * penCanvasHeight;
                 const w = box[2] * penCanvasWidth;
                 const h = box[3] * penCanvasHeight;
                 ctx.save();
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
-                ctx.strokeStyle = platinumGradient || '#eef2fb';
-                ctx.lineWidth = PEN_TUNING.coreWidthPx * 2.5;
-                ctx.strokeRect(x, y, w, h);
-                ctx.restore();
-                ctx.save();
-                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
-                ctx.strokeStyle = platinumGradient || '#eef2fb';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.rect(x, y, w, h);
+                ctx.strokeStyle = PEN_TUNING.outlineColor;
+                ctx.lineWidth = PEN_TUNING.coreWidthPx + PEN_TUNING.outlineExtraWidthPx;
+                ctx.stroke();
+                ctx.strokeStyle = PEN_TUNING.coreColor;
                 ctx.lineWidth = PEN_TUNING.coreWidthPx;
-                ctx.strokeRect(x, y, w, h);
+                ctx.stroke();
                 ctx.restore();
             };
             const paintStaticItem = item => {
@@ -934,7 +898,6 @@ export function previewBootstrapScript(): string {
                 penLayer.width = Math.round(cssWidth * dpr);
                 penLayer.height = Math.round(cssHeight * dpr);
                 penCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                rebuildPlatinumGradient();
                 staticBitmap = allocPenCanvas();
                 redrawStaticBitmap();
                 if (currentStroke) redrawStrokeFull(currentStroke);
@@ -950,7 +913,6 @@ export function previewBootstrapScript(): string {
                 if (sparkles.length === 0) return;
                 const alive = [];
                 ctx.save();
-                ctx.globalCompositeOperation = 'lighter';
                 for (const sparkle of sparkles) {
                     const age = timestamp - sparkle.bornAt;
                     if (age >= sparkle.lifetimeMs) continue;
@@ -966,6 +928,7 @@ export function previewBootstrapScript(): string {
             };
             const maybeSpawnSparkle = point => {
                 for (let index = 0; index < PEN_TUNING.sparklesPerSegment; index += 1) {
+                    if (Math.random() >= PEN_TUNING.sparkleProbability) continue;
                     if (sparkles.length >= PEN_TUNING.sparkleMaxPoolSize) sparkles.shift();
                     const angle = Math.random() * Math.PI * 2;
                     const jitter = Math.random() * PEN_TUNING.sparkleJitterPx;
@@ -994,13 +957,14 @@ export function previewBootstrapScript(): string {
             };
             const drawPendingSegments = stroke => {
                 const points = stroke.points;
+                if (stroke.drawnIndex >= points.length - 1) return;
                 while (stroke.drawnIndex < points.length - 1) {
-                    const from = points[stroke.drawnIndex];
                     const to = points[stroke.drawnIndex + 1];
-                    drawSegment(stroke.ctx, from, to);
                     maybeSpawnSparkle(to);
                     stroke.drawnIndex += 1;
                 }
+                stroke.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
+                drawStrokePath(stroke.ctx, points);
             };
             const strokeLifetimeAnimating = () => reviewRecordingActive && persistentStrokeItems.some(item => {
                 const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
@@ -1176,6 +1140,7 @@ export function previewBootstrapScript(): string {
                 if (!currentStroke || currentStroke.pointerId !== event.pointerId) return;
                 event.preventDefault();
                 const completed = currentStroke;
+                drawPendingSegments(completed);
                 currentStroke = null;
                 if (penLayer.hasPointerCapture(event.pointerId)) {
                     penLayer.releasePointerCapture(event.pointerId);
