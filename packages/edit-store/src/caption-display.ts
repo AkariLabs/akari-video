@@ -3,6 +3,7 @@ import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 import { sliceCaptionRuns, type CaptionRun } from './caption-runs';
 import { buildCaptionTimelineSegments } from './caption-timeline';
 import type { EditCut } from './edit-store';
+import { captionEmphasisMatches, type CaptionEmphasisMatchWord } from './caption-emphasis-match';
 
 /**
  * Caption display policy v1.  This is the single pure implementation used by
@@ -149,6 +150,7 @@ export interface CaptionDisplayCue {
     style?: 'karaoke';
     karaoke_offset?: number;
     word_styles?: CaptionDisplayWordStyle[];
+    untimed_emphasis_words?: Array<CaptionEmphasisMatchWord & { style_preset?: string; inherit_caption_size?: boolean }>;
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
 }
@@ -536,6 +538,16 @@ export function resolveCaptionDisplay(
                 fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
             const sourceCaption = captions[occurrence.caption_input_index];
+            const untimedEmphasis = !Array.isArray(sourceCaption.words) || sourceCaption.words.length === 0
+                ? (Array.isArray(captionsRoot.emphasis_words) ? captionsRoot.emphasis_words
+                    : Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : [])
+                    .filter((item): item is CaptionEmphasisMatchWord & { style_preset?: string; inherit_caption_size?: boolean } =>
+                        isRecord(item) && typeof item.id === 'string' && typeof item.word === 'string'
+                        && typeof item.t_start === 'number' && typeof item.t_end === 'number')
+                    .filter(item => group.lines.some(line => captionEmphasisMatches(line,
+                        sourceCaption.start as number, sourceCaption.end as number, [item],
+                        sourceCaption.src as string | undefined).length > 0))
+                : [];
             const karaokeEligible = (sourceCaption.style ?? policy.word_style) === 'karaoke'
                 && karaokeEligibleByCaption.has(occurrence.caption_input_index);
             const wordDisplay = buildCueWordDisplay(
@@ -575,6 +587,7 @@ export function resolveCaptionDisplay(
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
                 ...(wordDisplay ? { words: wordDisplay.words } : {}),
                 ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
+                ...(untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {}),
                 ...(karaoke ? {
                     style: 'karaoke' as const,
                     karaoke_offset: captionDisplayGraphemes(
@@ -690,13 +703,14 @@ function resolveProjectedWordStyles(
     if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some(caption => caption?.style === 'karaoke')) return new Map();
 
     const presetCache = new Map<string, Record<string, string> | null>();
-    const resolvePreset = (presetId: string): Record<string, string> | null => {
-        if (presetCache.has(presetId)) return presetCache.get(presetId)!;
+    const resolvePreset = (presetId: string, inherit: boolean): Record<string, string> | null => {
+        const key = `${presetId}:${inherit}`;
+        if (presetCache.has(key)) return presetCache.get(key)!;
         const resolved = resolveCaptionStylePreset({ style_preset: presetId } as UnknownRecord, TEXTSTYLE_CATALOG);
         const vars = resolved.resolved && isRecord(resolved.record.text_style)
-            ? resolveCaptionWordStyleVars(resolved.record.text_style, output)
+            ? resolveCaptionWordStyleVars(resolved.record.text_style, output, inherit)
             : null;
-        presetCache.set(presetId, vars);
+        presetCache.set(key, vars);
         return vars;
     };
 
@@ -765,12 +779,10 @@ function resolveProjectedWordStyles(
                     || candidate.src === caption.src;
                 if (!sourceMatches
                     || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON) continue;
-                const resolvedVars = resolvePreset(candidate.style_preset);
+                const resolvedVars = resolvePreset(candidate.style_preset, candidate.inherit_caption_size === true);
                 if (!resolvedVars) continue;
                 emphasis = candidate;
-                styleVars = candidate.inherit_caption_size === true
-                    ? Object.fromEntries(Object.entries(resolvedVars).filter(([key]) => key !== '--caption-tok-font-size'))
-                    : resolvedVars;
+                styleVars = resolvedVars;
                 break;
             }
             const value: ProjectedWordStyle = {
@@ -2464,7 +2476,8 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
 
 export function resolveCaptionWordStyleVars(
     style: UnknownRecord,
-    output: { width: number; height: number } | undefined
+    output: { width: number; height: number } | undefined,
+    inheritCaptionSize = false
 ): Record<string, string> {
     const vars: Record<string, string> = {};
     const scale = resolveCaptionReferenceScale(style, output);
@@ -2501,6 +2514,14 @@ export function resolveCaptionWordStyleVars(
     const decorPart = captionTextShadowValue(style.shadow, style.glow, scale);
     if (decorPart) vars['--caption-tok-text-shadow'] = decorPart;
     else if (isRecord(style.stroke)) vars['--caption-tok-text-shadow'] = 'none';
+    if (inheritCaptionSize && finitePositive(style.size_px)) {
+        const base = style.size_px * scale;
+        delete vars['--caption-tok-font-size'];
+        for (const [key, value] of Object.entries(vars)) {
+            vars[key] = value.replace(/(-?(?:\d+\.)?\d+)px\b/gu,
+                (_match, number: string) => `${formatCssNumber(Number(number) / base)}em`);
+        }
+    }
     return vars;
 }
 
@@ -2513,6 +2534,9 @@ const CAPTION_TEXT_TRANSFORM_MAP: Record<string, string> = {
     capitalize: 'capitalize',
     none: 'none'
 };
+
+export const CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(TEXTSTYLE_CATALOG)
+    .map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, undefined, true)]));
 
 export function captionTextShadowValue(shadow: unknown, glow: unknown, scale = 1): string | null {
     const parts: string[] = [];

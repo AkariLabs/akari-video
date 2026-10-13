@@ -1,6 +1,6 @@
 import { CommandRegistry, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { isOSX } from '@theia/core/lib/common/os';
-import { shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
+import { captionDefaultSizePx, shapeMarkup, type ShapeSourceV2 } from '@akari-video/edit-store';
 import { CAPTION_FONT_SIZE_MAX, clampCaptionFontSize } from '../common/caption-size-limit';
 import {
     alignDelta, AlignMode, BarItem, barItems, CAP_OPTIONS, ContextBarState, ContextLayerList, DASH_OPTIONS,
@@ -105,6 +105,12 @@ const ALIGN_LABEL: Record<AlignMode, string> = {
 
 const escapeHtml = (text: string): string => text.replace(/[&<>"']/gu, char =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+
+function captionSizeForState(state: ContextBarState | undefined): number {
+    const size = (state?.item?.textStyle as Record<string, unknown> | undefined)?.sizePx;
+    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size
+        : captionDefaultSizePx(state?.output);
+}
 
 export class PreviewContextBar implements Disposable {
     protected readonly toDispose = new DisposableCollection();
@@ -366,7 +372,7 @@ export class PreviewContextBar implements Disposable {
 
     protected writeCaptionValue(field: string, value: string | number, action: 'captionStyle' | 'captionField' = 'captionStyle'): void {
         const style = (this.state?.item?.textStyle ?? {}) as Record<string, any>;
-        const defaults: Record<string, unknown> = { sizePx: 48, lineHeight: 1.2, letterSpacingEm: 0, opacity: 1,
+        const defaults: Record<string, unknown> = { sizePx: captionSizeForState(this.state), lineHeight: 1.2, letterSpacingEm: 0, opacity: 1,
             color: '#ffffff' };
         const current = style[field] ?? defaults[field];
         this.captionPending ??= new Map<string, unknown>();
@@ -377,6 +383,10 @@ export class PreviewContextBar implements Disposable {
             if (result?.ok === true) return;
             if (this.captionPending.get(field) === value) this.captionPending.delete(field);
         });
+    }
+
+    protected captionSize(): number {
+        return captionSizeForState(this.state);
     }
 
     protected async loadLayers(): Promise<void> {
@@ -492,7 +502,7 @@ export class PreviewContextBar implements Disposable {
         const focusedKey = this.bar.contains(document.activeElement)
             ? (document.activeElement as HTMLElement).closest<HTMLElement>('[data-akari-bar-item]')?.dataset.akariBarItem : undefined;
         const style = (state.item?.textStyle ?? {}) as Record<string, any>;
-        const size = Math.round(Number(style.sizePx) || 48);
+        const size = Math.round(captionSizeForState(this.state));
         this.bar.innerHTML = CAPTION_BAR_ORDER.map(key => key === 'captionSize'
             ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button>`
                 + `<input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${size}" aria-label="サイズ">`
@@ -560,7 +570,7 @@ export class PreviewContextBar implements Disposable {
             + `${ICON[icon]}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
         if (state.kind === 'caption') {
             this.more.innerHTML = this.captionOverflow.map(key => key === 'captionSize'
-                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${Math.round(Number((state.item?.textStyle as Record<string, any>)?.sizePx) || 48)}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
+                ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button><input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${Math.round(captionSizeForState(this.state))}" aria-label="サイズ"><button type="button" data-akari-bar-item="captionSizeInc" aria-label="拡大">＋</button></span>`
                 : this.captionButton(key, true)).join('');
             return;
         }
@@ -828,7 +838,7 @@ export class PreviewContextBar implements Disposable {
             void Promise.resolve().then(() => this.commands.executeCommand('akari.captionPanel.toggle', { panel })).catch(() => undefined);
         } else if (key === 'captionSizeInc' || key === 'captionSizeDec') {
             this.openWindow = null;
-            const base = Number(this.captionPending?.get('sizePx') ?? style.sizePx) || 48;
+            const base = Number(this.captionPending?.get('sizePx') ?? captionSizeForState(this.state));
             const size = clampCaptionFontSize(base + (key === 'captionSizeInc' ? 2 : -2));
             this.writeCaptionValue('sizePx', size);
         } else if (key === 'captionBold') {

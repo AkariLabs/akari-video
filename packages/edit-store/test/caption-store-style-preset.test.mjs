@@ -4,6 +4,8 @@ import test from 'node:test';
 import { parseCaptions, updateCaptionStylePresetInSource } from '../lib/caption-store.js';
 import { resolveCaptionStylePreset } from '../lib/caption-style-preset.js';
 import { captionDefaultSizePx, resolveCaptionLineStyleVars } from '../lib/caption-display.js';
+import { scaledCaptionLook } from '../lib/caption-look-scale.js';
+import { TEXTSTYLE_CATALOG } from '../lib/generated/textstyle-catalog.js';
 
 const caption = (id, extra = {}) => ({
   id, start: 0, end: 1, text: id, speaker: null, sourceRef: null, edited: false, ...extra
@@ -113,7 +115,8 @@ test('ドラッグで動かした位置はテンプレ適用でも残る', () =>
   });
   const result = updateCaptionStylePresetInSource(lines([row]), ['c-1'], 'neon');
   const updated = JSON.parse(result.source)[0];
-  assert.deepEqual(updated.text_style, { size_px: 56, text_anchor: 'bc', position: { y: 0.6276 } });
+  assert.deepEqual(updated.text_style, { size_px: 56, text_anchor: 'bc', position: { y: 0.6276 },
+    ...Object.fromEntries(['shadow', 'glow'].map(key => [key, scaledCaptionLook(TEXTSTYLE_CATALOG.neon.style, 56)[key]])) });
 });
 
 test('見た目を全て明け渡しても大きさは残す', () => {

@@ -3,12 +3,29 @@ import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
   placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
-  myStyleOutputHeight, newMyStyleSlug, captionEffectiveSize } from '../lib/browser/my-style-look.js';
+  myStyleOutputHeight, newMyStyleSlug, captionEffectiveSize, scaledLookForCaption } from '../lib/browser/my-style-look.js';
 import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem,
   supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
-import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
+import { resolveItemAnchors, TEXTSTYLE_CATALOG } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
 import { resolveCaptionReferenceScale, resolveCaptionLineStyleVars, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
+
+test('36 bundled styles keep the inspector look calculation at every target size', () => {
+  assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 36);
+  for (const preset of Object.values(TEXTSTYLE_CATALOG)) for (const size of [38, 56, 64, 96]) {
+    const ratio = size / preset.style.size_px;
+    const expected = { ...preset.style };
+    for (const [key, fields] of Object.entries({ stroke: ['width_px'], background: ['radius_px', 'padding_px'],
+      shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'] })) {
+      if (!preset.style[key]) continue;
+      expected[key] = { ...preset.style[key] };
+      for (const field of fields) if (typeof expected[key][field] === 'number') expected[key][field] *= ratio;
+    }
+    delete expected.size_px;
+    delete expected.reference_height_px;
+    assert.deepEqual(scaledLookForCaption(preset.style, size), expected, `${preset.id}: ${size}`);
+  }
+});
 
 test('実効の見た目を解決し、位置と動きを保存しない', () => {
   const look = effectiveMyStyleLook({ color: '#ffffff', stroke: { color: '#000000', widthPx: 2 },

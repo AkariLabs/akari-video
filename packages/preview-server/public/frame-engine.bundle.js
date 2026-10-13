@@ -3360,12 +3360,41 @@ var require_caption_timeline = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-emphasis-match.js
+var require_caption_emphasis_match = __commonJS({
+  "../edit-store/lib/caption-emphasis-match.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.captionEmphasisMatches = captionEmphasisMatches;
+    function captionEmphasisMatches(text, start, end, words, src) {
+      const matches = [];
+      for (const emphasis of words) {
+        if (emphasis.t_end <= start || emphasis.t_start >= end || src && emphasis.src && emphasis.src !== src)
+          continue;
+        let from = 0;
+        while ((from = text.indexOf(emphasis.word, from)) >= 0) {
+          matches.push({ from, to: from + emphasis.word.length, emphasis });
+          from += emphasis.word.length;
+        }
+      }
+      matches.sort((a, b) => a.from - b.from || b.to - a.to);
+      let occupied = 0;
+      return matches.filter((match) => {
+        if (match.from < occupied)
+          return false;
+        occupied = match.to;
+        return true;
+      });
+    }
+  }
+});
+
 // ../edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
   "../edit-store/lib/caption-display.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+    exports.CAPTION_INHERITED_EMPHASIS_VARS = exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
     exports.captionDefaultSizePx = captionDefaultSizePx;
     exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
     exports.measureCaptionUnits = measureCaptionUnits;
@@ -3405,6 +3434,7 @@ var require_caption_display = __commonJS({
     var textstyle_catalog_1 = require_textstyle_catalog();
     var caption_runs_1 = require_caption_runs();
     var caption_timeline_1 = require_caption_timeline();
+    var caption_emphasis_match_1 = require_caption_emphasis_match();
     exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
     exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
     exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -3799,6 +3829,7 @@ var require_caption_display = __commonJS({
             fail("INVALID_WORD_PROJECTION", `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
           }
           const sourceCaption = captions[occurrence.caption_input_index];
+          const untimedEmphasis = !Array.isArray(sourceCaption.words) || sourceCaption.words.length === 0 ? (Array.isArray(captionsRoot.emphasis_words) ? captionsRoot.emphasis_words : Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : []).filter((item) => isRecord2(item) && typeof item.id === "string" && typeof item.word === "string" && typeof item.t_start === "number" && typeof item.t_end === "number").filter((item) => group.lines.some((line) => (0, caption_emphasis_match_1.captionEmphasisMatches)(line, sourceCaption.start, sourceCaption.end, [item], sourceCaption.src).length > 0)) : [];
           const karaokeEligible = (sourceCaption.style ?? policy.word_style) === "karaoke" && karaokeEligibleByCaption.has(occurrence.caption_input_index);
           const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
           const karaoke = karaokeEligible && Boolean(wordDisplay?.words.some((word) => !word.untimed));
@@ -3826,6 +3857,7 @@ var require_caption_display = __commonJS({
             ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
             ...wordDisplay ? { words: wordDisplay.words } : {},
             ...wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {},
+            ...untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {},
             ...karaoke ? {
               style: "karaoke",
               karaoke_offset: captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
@@ -3930,12 +3962,13 @@ var require_caption_display = __commonJS({
       if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some((caption) => caption?.style === "karaoke"))
         return /* @__PURE__ */ new Map();
       const presetCache = /* @__PURE__ */ new Map();
-      const resolvePreset = (presetId) => {
-        if (presetCache.has(presetId))
-          return presetCache.get(presetId);
+      const resolvePreset = (presetId, inherit) => {
+        const key = `${presetId}:${inherit}`;
+        if (presetCache.has(key))
+          return presetCache.get(key);
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
-        const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionWordStyleVars(resolved.record.text_style, output) : null;
-        presetCache.set(presetId, vars);
+        const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionWordStyleVars(resolved.record.text_style, output, inherit) : null;
+        presetCache.set(key, vars);
         return vars;
       };
       const result = /* @__PURE__ */ new Map();
@@ -4004,11 +4037,11 @@ var require_caption_display = __commonJS({
             const sourceMatches = !(strictText(candidate.src) && strictText(caption.src)) || candidate.src === caption.src;
             if (!sourceMatches || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
               continue;
-            const resolvedVars = resolvePreset(candidate.style_preset);
+            const resolvedVars = resolvePreset(candidate.style_preset, candidate.inherit_caption_size === true);
             if (!resolvedVars)
               continue;
             emphasis = candidate;
-            styleVars = candidate.inherit_caption_size === true ? Object.fromEntries(Object.entries(resolvedVars).filter(([key]) => key !== "--caption-tok-font-size")) : resolvedVars;
+            styleVars = resolvedVars;
             break;
           }
           const value = {
@@ -5574,7 +5607,7 @@ var require_caption_display = __commonJS({
       }
       return { vars, ...layout ? { layout } : {} };
     }
-    function resolveCaptionWordStyleVars(style, output) {
+    function resolveCaptionWordStyleVars(style, output, inheritCaptionSize = false) {
       const vars = {};
       const scale = resolveCaptionReferenceScale(style, output);
       if (typeof style.color === "string")
@@ -5619,6 +5652,13 @@ var require_caption_display = __commonJS({
         vars["--caption-tok-text-shadow"] = decorPart;
       else if (isRecord2(style.stroke))
         vars["--caption-tok-text-shadow"] = "none";
+      if (inheritCaptionSize && finitePositive3(style.size_px)) {
+        const base = style.size_px * scale;
+        delete vars["--caption-tok-font-size"];
+        for (const [key, value] of Object.entries(vars)) {
+          vars[key] = value.replace(/(-?(?:\d+\.)?\d+)px\b/gu, (_match, number) => `${formatCssNumber(Number(number) / base)}em`);
+        }
+      }
       return vars;
     }
     var CAPTION_TEXT_TRANSFORM_MAP = {
@@ -5630,6 +5670,7 @@ var require_caption_display = __commonJS({
       capitalize: "capitalize",
       none: "none"
     };
+    exports.CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(textstyle_catalog_1.TEXTSTYLE_CATALOG).map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, void 0, true)]));
     function captionTextShadowValue(shadow, glow, scale = 1) {
       const parts = [];
       if (isRecord2(shadow) && typeof shadow.color === "string") {
@@ -5806,6 +5847,148 @@ var require_caption_display = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-look-scale.js
+var require_caption_look_scale = __commonJS({
+  "../edit-store/lib/caption-look-scale.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CAPTION_LOOK_RATIO_TOLERANCE = exports.CAPTION_LOOK_PX_FIELDS = void 0;
+    exports.scaledCaptionLookPart = scaledCaptionLookPart;
+    exports.captionLookHasPixels = captionLookHasPixels;
+    exports.captionLookPartRatio = captionLookPartRatio;
+    exports.fillMissingCaptionLookPixels = fillMissingCaptionLookPixels;
+    exports.scaledCaptionLook = scaledCaptionLook;
+    exports.captionPresetDerivedParts = captionPresetDerivedParts;
+    var PX_FIELDS = {
+      stroke: ["width_px"],
+      stroke_inner: ["width_px"],
+      extrude: ["depth_px"],
+      shadow: ["blur_px", "distance_px"],
+      glow: ["spread", "offset_x", "offset_y"],
+      background: ["radius_px", "padding_px", "offset_x", "offset_y"],
+      strokes: ["width_px", "offset_x", "offset_y"],
+      fill: ["pattern.scale"]
+    };
+    exports.CAPTION_LOOK_PX_FIELDS = PX_FIELDS;
+    exports.CAPTION_LOOK_RATIO_TOLERANCE = 1e-6;
+    function object(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+    function scalePart(value, fields, ratio) {
+      if (Array.isArray(value))
+        return value.map((item) => scalePart(item, fields, ratio));
+      if (!object(value))
+        return value;
+      const copy = structuredClone(value);
+      for (const field of fields) {
+        const path = field.split(".");
+        let target = copy;
+        for (const segment of path.slice(0, -1))
+          target = object(target?.[segment]) ? target[segment] : void 0;
+        const last = path.at(-1);
+        if (target && typeof target[last] === "number")
+          target[last] *= ratio;
+      }
+      return copy;
+    }
+    function scaledCaptionLookPart(key, value, ratio) {
+      return scalePart(value, PX_FIELDS[key] ?? [], ratio);
+    }
+    function captionLookHasPixels(key, value) {
+      const paths = PX_FIELDS[key] ?? [];
+      const visit = (part, prefix = "") => {
+        if (Array.isArray(part))
+          return part.some((item) => visit(item, prefix));
+        if (object(part))
+          return Object.entries(part).some(([field, entry]) => visit(entry, prefix ? `${prefix}.${field}` : field));
+        return typeof part === "number" && paths.includes(prefix);
+      };
+      return visit(value);
+    }
+    function captionLookPartRatio(key, preset, override, compareNonPx = true) {
+      const paths = PX_FIELDS[key];
+      return paths ? derivedRatio(preset, override, paths, compareNonPx) : void 0;
+    }
+    function fillMissingCaptionLookPixels(key, preset, override, ratio) {
+      if (key === "strokes" || key === "fill" || !object(preset) || !object(override))
+        return void 0;
+      const copy = structuredClone(override);
+      let added = false;
+      for (const field of PX_FIELDS[key] ?? []) {
+        const path = field.split(".");
+        let source = preset;
+        let target = copy;
+        for (const segment of path.slice(0, -1)) {
+          source = object(source?.[segment]) ? source[segment] : void 0;
+          target = object(target?.[segment]) ? target[segment] : void 0;
+        }
+        const last = path.at(-1);
+        if (source && target && typeof source[last] === "number" && !(last in target)) {
+          target[last] = source[last] * ratio;
+          added = true;
+        }
+      }
+      if (!added)
+        return void 0;
+      for (const [field, value] of Object.entries(preset)) {
+        if (!(field in copy))
+          copy[field] = structuredClone(value);
+      }
+      return copy;
+    }
+    function scaledCaptionLook(look, targetSize) {
+      const base = look.size_px;
+      const ratio = typeof base === "number" && Number.isFinite(base) && base > 0 ? targetSize / base : 1;
+      const scaled = { ...look };
+      for (const [key, fields] of Object.entries(PX_FIELDS)) {
+        if (key in look)
+          scaled[key] = scalePart(look[key], fields, ratio);
+      }
+      delete scaled.size_px;
+      delete scaled.reference_height_px;
+      return scaled;
+    }
+    function close(actual, expected) {
+      return Math.abs(actual - expected) <= exports.CAPTION_LOOK_RATIO_TOLERANCE * Math.abs(expected);
+    }
+    function derivedRatio(base, value, paths, compareNonPx = true) {
+      let ratio;
+      const visit = (source, copy, prefix = "") => {
+        if (Array.isArray(source) || Array.isArray(copy)) {
+          return Array.isArray(source) && Array.isArray(copy) && source.length === copy.length && source.every((item, index) => visit(item, copy[index], prefix));
+        }
+        if (object(source) || object(copy)) {
+          return object(source) && object(copy) && Object.keys(source).length === Object.keys(copy).length && Object.keys(source).every((key) => Object.prototype.hasOwnProperty.call(copy, key) && visit(source[key], copy[key], prefix ? `${prefix}.${key}` : key));
+        }
+        if (!paths.includes(prefix))
+          return !compareNonPx || Object.is(source, copy);
+        if (typeof source !== "number" || typeof copy !== "number" || !Number.isFinite(copy))
+          return false;
+        if (source === 0)
+          return copy === 0;
+        const candidate = copy / source;
+        if (!(candidate > 0))
+          return false;
+        if (ratio === void 0)
+          ratio = candidate;
+        return close(copy, source * ratio);
+      };
+      return visit(base, value) ? ratio ?? 1 : void 0;
+    }
+    function captionPresetDerivedParts(preset, override) {
+      const result = /* @__PURE__ */ new Map();
+      for (const [key, paths] of Object.entries(PX_FIELDS)) {
+        if (!(key in preset) || !(key in override))
+          continue;
+        const ratio = derivedRatio(preset[key], override[key], paths);
+        if (ratio !== void 0)
+          result.set(key, ratio);
+      }
+      return result;
+    }
+  }
+});
+
 // ../edit-store/lib/caption-store.js
 var require_caption_store = __commonJS({
   "../edit-store/lib/caption-store.js"(exports) {
@@ -5834,6 +6017,7 @@ var require_caption_store = __commonJS({
     var caption_style_preset_1 = require_caption_style_preset();
     var textstyle_catalog_merge_1 = require_textstyle_catalog_merge();
     var caption_display_1 = require_caption_display();
+    var caption_look_scale_1 = require_caption_look_scale();
     exports.CAPTION_ZONES = [
       "top-left",
       "top",
@@ -6130,7 +6314,7 @@ var require_caption_store = __commonJS({
       }
       return output;
     }
-    function updateCaptionTextStyleInSource(source, captionId, updates) {
+    function updateCaptionTextStyleInSource(source, captionId, updates, options = {}) {
       if (!captionId) {
         throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
@@ -6138,6 +6322,21 @@ var require_caption_store = __commonJS({
       const array = locateCaptionArray(source);
       const element = findCaptionElement(array.elements, captionId);
       let nextElement = element.text;
+      const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
+      if (updates.sizePx !== void 0) {
+        const record2 = JSON.parse(nextElement);
+        const root = JSON.parse(source);
+        const defaultStyle = isRecord2(root) && isRecord2(root.default_text_style) ? root.default_text_style : {};
+        const preset2 = presetStyle(catalog, record2.style_preset);
+        const fallbackSize = typeof preset2?.size_px === "number" && preset2.size_px > 0 ? preset2.size_px : defaultStyle.size_px;
+        const nextSize = updates.sizePx === null ? fallbackSize : updates.sizePx;
+        if (typeof nextSize === "number" && Number.isFinite(nextSize) && nextSize > 0) {
+          nextElement = rescaleCaptionPresetParts(nextElement, nextSize, source, catalog);
+        }
+      }
+      const record = JSON.parse(nextElement);
+      const preset = presetStyle(catalog, record.style_preset);
+      const derivedParts = preset && isRecord2(record.text_style) ? (0, caption_look_scale_1.captionPresetDerivedParts)(preset, record.text_style) : /* @__PURE__ */ new Map();
       const existing = locateTopLevelProperty(nextElement, "text_style");
       if (!existing) {
         const created = textStylePatchToJson(updates);
@@ -6156,8 +6355,8 @@ var require_caption_store = __commonJS({
         textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, "letter_spacing_em", updates.letterSpacingEm, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = derivedParts.has("shadow") && updates.shadow ? updateNestedStyleObject(textStyle, "shadow", shadowPatchToJson(updates.shadow), `\u5B57\u5E55 ${captionId} \u306E text_style.shadow`) : updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = derivedParts.has("glow") && updates.glow ? updateNestedStyleObject(textStyle, "glow", glowPatchToJson(updates.glow), `\u5B57\u5E55 ${captionId} \u306E text_style.glow`) : updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         for (const [key, value] of [
           ["stroke_inner", updates.strokeInner],
           ["fill_gradient", updates.fillGradient],
@@ -6167,7 +6366,7 @@ var require_caption_store = __commonJS({
             continue;
           const json = value === null ? null : richStyleToJson(key, value);
           const existingRich = locateTopLevelProperty(textStyle, key);
-          textStyle = json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
+          textStyle = json !== null && derivedParts.has(key) ? updateNestedStyleObject(textStyle, key, json, `\u5B57\u5E55 ${captionId} \u306E text_style.${key}`) : json === null ? existingRich ? removeObjectProperty(textStyle, key) : textStyle : existingRich ? (() => {
             const object = locateTopLevelObjectProperty(textStyle, key, key);
             return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
           })() : appendJsonProperty(textStyle, key, json);
@@ -6199,6 +6398,85 @@ var require_caption_store = __commonJS({
         nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
       }
       return replaceElement(source, array.openIndex + 1, element, nextElement);
+    }
+    function presetStyle(catalog, id) {
+      if (typeof id !== "string")
+        return void 0;
+      const preset = catalog instanceof Map ? catalog.get(id) : catalog[id];
+      return preset?.style;
+    }
+    function sameRatio(left, right) {
+      return Math.abs(left - right) <= caption_look_scale_1.CAPTION_LOOK_RATIO_TOLERANCE * Math.abs(right);
+    }
+    function rewriteStyleParts(element, captionId, remove, add = {}, preserveOrder = false) {
+      const existing = locateTopLevelProperty(element, "text_style");
+      const style = existing ? JSON.parse(locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`).text) : {};
+      const removable = remove.filter((key) => Object.prototype.hasOwnProperty.call(style, key) && (!preserveOrder || !Object.prototype.hasOwnProperty.call(add, key)));
+      let next = removable.length ? pruneShadowedTextStyle(element, removable, captionId) : element;
+      if (!Object.keys(add).length)
+        return next;
+      if (!locateTopLevelProperty(next, "text_style"))
+        return appendJsonProperty(next, "text_style", add);
+      const located = locateTopLevelObjectProperty(next, "text_style", `\u5B57\u5E55 ${captionId}`);
+      let value = located.text;
+      for (const [key, part] of Object.entries(add)) {
+        const property = locateTopLevelProperty(value, key);
+        if (property && preserveOrder) {
+          const colon = property.text.indexOf(":");
+          const tail = property.text.slice(colon + 1);
+          const leading = /^\s*/u.exec(tail)?.[0] ?? "";
+          const trailing = /\s*$/u.exec(tail)?.[0] ?? "";
+          value = value.slice(0, property.start) + property.text.slice(0, colon + 1) + leading + JSON.stringify(part) + trailing + value.slice(property.end);
+          continue;
+        }
+        if (property) {
+          value = removeObjectProperty(value, key);
+        }
+        value = appendJsonProperty(value, key, part);
+      }
+      return next.slice(0, located.start) + value + next.slice(located.end);
+    }
+    function rescaleCaptionPresetParts(element, newSize, source, catalog) {
+      const record = JSON.parse(element);
+      const preset = presetStyle(catalog, record.style_preset);
+      if (!preset)
+        return element;
+      const root = JSON.parse(source);
+      const defaultStyle = isRecord2(root.default_text_style) ? root.default_text_style : {};
+      const old = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record, catalog).record.text_style);
+      const oldSize = old?.size_px;
+      if (typeof oldSize !== "number" || !(oldSize > 0))
+        return element;
+      if (newSize === oldSize)
+        return element;
+      const scale = newSize / oldSize;
+      const override = isRecord2(record.text_style) ? record.text_style : {};
+      const remove = [];
+      const add = {};
+      const expectedRatio = typeof preset.size_px === "number" && preset.size_px > 0 ? newSize / preset.size_px : void 0;
+      for (const key of Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS)) {
+        if (!(key in preset) || !(0, caption_look_scale_1.captionLookHasPixels)(key, preset[key]))
+          continue;
+        const current = override[key];
+        let next;
+        if (current === void 0)
+          next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, preset[key], scale);
+        else if ((0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current, false) !== void 0) {
+          next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, current, scale);
+          const oldDerived = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current);
+          if (oldDerived !== void 0 && expectedRatio !== void 0 && sameRatio(oldDerived * scale, expectedRatio)) {
+            next = (0, caption_look_scale_1.scaledCaptionLook)(preset, newSize)[key];
+          }
+        } else
+          next = (0, caption_look_scale_1.fillMissingCaptionLookPixels)(key, preset[key], current, scale);
+        if (next === void 0)
+          continue;
+        const derivedRatio = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], next);
+        remove.push(key);
+        if (derivedRatio === void 0 || !sameRatio(derivedRatio, 1))
+          add[key] = next;
+      }
+      return rewriteStyleParts(element, String(record.id), remove, add, true);
     }
     function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
       if (captionIds.length === 0) {
@@ -6236,6 +6514,8 @@ var require_caption_store = __commonJS({
       for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
         const record = JSON.parse(element.text);
         const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+        const oldPreset = presetStyle(catalog, record.style_preset);
+        const derived = oldPreset && isRecord2(record.text_style) ? (0, caption_look_scale_1.captionPresetDerivedParts)(oldPreset, record.text_style) : /* @__PURE__ */ new Map();
         const oldStyle = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record, catalog).record.text_style);
         const oldSize = typeof oldStyle?.size_px === "number" && Number.isFinite(oldStyle.size_px) && oldStyle.size_px > 0 ? oldStyle.size_px : void 0;
         const oldReference = oldStyle?.reference_height_px;
@@ -6244,6 +6524,7 @@ var require_caption_store = __commonJS({
           if (!hasPreset)
             continue;
           let nextElement2 = removeObjectProperty(element.text, "style_preset");
+          nextElement2 = rewriteStyleParts(nextElement2, captionId, [...derived.keys()]);
           const size2 = oldSize ?? (displayedSize === void 0 ? void 0 : typeof oldReference === "number" ? displayedSize * oldReference / options.output.height : displayedSize);
           nextElement2 = retainCaptionSize(nextElement2, captionId, size2, oldReference);
           output = replaceElement(output, array.openIndex + 1, element, nextElement2);
@@ -6251,12 +6532,18 @@ var require_caption_store = __commonJS({
           continue;
         }
         const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, catalog);
-        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
-          continue;
         const incoming = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, catalog).record.text_style;
         const newReference = isRecord2(record.text_style) && record.text_style.reference_height_px !== void 0 ? record.text_style.reference_height_px : isRecord2(incoming) && incoming.reference_height_px !== void 0 ? incoming.reference_height_px : defaultStyle.reference_height_px;
         const targetReference = oldReference ?? newReference;
-        const size = displayedSize !== void 0 ? oldSize !== void 0 && (oldReference !== void 0 || targetReference === void 0) ? oldSize : typeof targetReference === "number" ? displayedSize * targetReference / options.output.height : displayedSize : oldReference === void 0 && newReference !== void 0 ? void 0 : oldSize;
+        const size = displayedSize !== void 0 ? oldSize !== void 0 && (oldReference !== void 0 || targetReference === void 0) ? oldSize : typeof targetReference === "number" ? displayedSize * targetReference / options.output.height : displayedSize : oldSize;
+        const incomingStyle = isRecord2(incoming) ? incoming : {};
+        const proportional = size !== void 0 && typeof incomingStyle.size_px === "number" && incomingStyle.size_px > 0;
+        const look = proportional && size !== incomingStyle.size_px ? (0, caption_look_scale_1.scaledCaptionLook)(incomingStyle, size) : {};
+        const copies = Object.fromEntries(Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS).filter((key) => key in incomingStyle && key in look && (0, caption_look_scale_1.captionLookHasPixels)(key, incomingStyle[key])).map((key) => [key, look[key]]));
+        const expected = (0, caption_look_scale_1.captionPresetDerivedParts)(incomingStyle, isRecord2(record.text_style) ? record.text_style : {});
+        const copiesMatch = Object.keys(copies).every((key) => expected.has(key) && sameRatio(expected.get(key), size / incomingStyle.size_px));
+        if (hasPreset && record.style_preset === presetId && shadowed.every((key) => key in copies) && copiesMatch && [...derived.keys()].every((key) => key in copies))
+          continue;
         let nextElement;
         if (hasPreset) {
           nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
@@ -6270,7 +6557,7 @@ var require_caption_store = __commonJS({
             nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
           }
         }
-        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+        nextElement = rewriteStyleParts(nextElement, captionId, [.../* @__PURE__ */ new Set([...derived.keys(), ...shadowed])], copies);
         nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;
@@ -18717,6 +19004,8 @@ var require_lib = __commonJS({
     __exportStar(require_caption_clock(), exports);
     __exportStar(require_timeline_map(), exports);
     __exportStar(require_caption_display(), exports);
+    __exportStar(require_caption_look_scale(), exports);
+    __exportStar(require_caption_emphasis_match(), exports);
     __exportStar(require_caption_runs(), exports);
     __exportStar(require_generation_meta(), exports);
     __exportStar(require_edit_v2(), exports);
