@@ -597,11 +597,11 @@ test('ラウンドトリップ: 1 フィールド変更で保存しても拡張�
   assert.equal(style.sizePx, 72, '変更したフィールドは反映される');
   assert.equal(style.color, '#FFFFFF', '既存の基本フィールドは維持される');
   assert.equal(style.fontFamily, 'Dela Gothic One', '拡張フィールド font_family は剥がれ落ちない');
-  assert.deepEqual(style.shadow, { color: '#000000', blurPx: 4 }, '拡張フィールド shadow は剥がれ落ちない');
+  assert.deepEqual(style.shadow, { color: '#000000', blurPx: 7.578947 }, '拡張フィールド shadow は大きさと同じ比で換算する');
   assert.deepEqual(style.animation, { in: { id: 'zoom-pop' } }, '拡張フィールド animation は剥がれ落ちない');
   // 外科編集そのものが影響していないことをソース文字列レベルでも確認する
   assert.match(updated, /"font_family":\s*"Dela Gothic One"/);
-  assert.match(updated, /"blur_px":\s*4/);
+  assert.match(updated, /"blur_px":\s*7\.578947/);
 });
 
 test('mergeCaptionTextStyles は拡張フィールドもネストごとにキー単位で合成する', () => {

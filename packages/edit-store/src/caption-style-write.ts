@@ -123,7 +123,8 @@ export async function reapplyCaptionStyle(projectRoot: string,
 export async function setCaptionSize(projectRoot: string,
     input: { targets: Array<{ caption_id: string }>; size_px: number }, options: CaptionWriteOptions = {}): Promise<WriteResult> {
     const { before, captions } = await readCaptions(projectRoot, options);
-    const result = planCaptionSizeEdit({ ...input, captions });
+    const result = planCaptionSizeEdit({ ...input, captions, catalog: options.catalog
+        ?? loadTextstyleCatalogSync({ env: process.env }).catalog });
     return commit(projectRoot, before, result.next.captions, result.changed, result.notices, options, 'caption-size');
 }
 

@@ -1148,5 +1148,12 @@
   "annotations.timeline.text.couldNotSetScene3dScreen": "Could not set the screen: {reason}",
   "annotations.timeline.text.invalidRotation3dValue": "Invalid 3D rotation value.",
   "annotations.timeline.text.changeRotation3d": "Change 3D rotation",
-  "annotations.timeline.text.addPreviewKeyframes": "Add keyframes for the preview change"
+  "annotations.timeline.text.addPreviewKeyframes": "Add keyframes for the preview change",
+  "annotations.captionLookMigration.offer.fixAppearanceNotice": "You can lock the current look of {count} subtitle lines. Updating or deleting styles later will not change this video's look.",
+  "annotations.captionLookMigration.offer.fixAction": "Lock appearance",
+  "annotations.captionLookMigration.offer.laterAction": "Later",
+  "annotations.captionLookMigration.offer.fixedNotice": "Locked the look of {count} subtitle lines.",
+  "annotations.captionLookMigration.offer.undoAction": "Undo",
+  "annotations.captionLookMigration.offer.undoAfterOtherChangesNotice": "Other changes followed. Use Undo (Ctrl+Z) to return to this change.",
+  "annotations.captionLookMigration.offer.historyLabel": "Lock subtitle appearance"
 }

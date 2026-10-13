@@ -49,12 +49,15 @@ import {
     setCaptionDisplayWordStyle,
     splitCaptionFragments,
     TEXTSTYLE_CATALOG,
+    projectFileContentHash,
+    captionEmphasisOverlapsRange,
     type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
 import { canRestoreCutRange } from '@akari-video/edit-store';
 import { deriveDaihonCutSpans, restoreImpact, sameCutSpanIdentity, type DaihonCutSpan } from '../../common/daihon-cut-spans';
-import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
+import { AkariAnnotationsService, type CaptionCommandResult, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
+import { captionCommandHistory } from 'akari-annotations/lib/browser/caption-command-history';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
@@ -82,6 +85,9 @@ import {
     type DaihonSelection
 } from '../../common/daihon-selection';
 import { normalizeFillerWord } from '../../common/daihon-filler';
+import { expandCaptionRangeToAdjacentWhitespace, wordSelectionToCaptionRange } from '../../common/daihon-word-caption-range';
+import { changedWordMarkRows, readableWordMarkColor } from '../../common/daihon-word-mark-color';
+import { settleCaptionCommand } from '../../common/caption-command-outcome';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import { assessCutOutcome } from '../../common/daihon-cut-outcome';
 import {
@@ -134,7 +140,6 @@ import {
     setCaptionDisplayFragmentsInSource,
     toggleFragmentBoundaryAtOffset
 } from './daihon-caption-surgery';
-import { emphasisIdsCovering, planEmphasisUpserts, readEmphasisWords } from './daihon-emphasis-words';
 import { openWordContextMenu, wordContextMenuGroups, type WordMenuAction } from './daihon-word-context-menu';
 import { nextDaihonCaptionId } from '../../common/daihon-caption-id';
 import { captionRecordingsFromEdit, recordedBadge, type CaptionRecording } from '../../common/daihon-recordings';
@@ -169,6 +174,7 @@ import {
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
+const DAIHON_WORD_SELECTION_CHANGED_EVENT = 'akari.daihon.wordSelectionChanged';
 const TIMELINE_SELECT_CAPTIONS_COMMAND_ID = 'akari.timeline.selectCaptions';
 const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
 const INSPECTOR_OPEN_COMMAND_ID = 'akari.inspector.open';
@@ -222,6 +228,12 @@ interface CaptionExtras {
     displayTiming?: DaihonDisplayTiming;
     animationInId?: string | null;
 }
+
+type SelectedCaptionSource = { id: string; text: string; display_text?: string; start: number; end: number;
+    src?: string; words?: Array<{ text: string; start: number; end: number }>;
+    runs?: Array<{ from: number; to: number }> };
+type SelectedCaptionRoot = SelectedCaptionSource[] | { captions: SelectedCaptionSource[];
+    emphasis_words?: Array<{ src?: string; t_start: number; t_end: number; word: string }> };
 
 type CutRangeEditorTarget =
     | { kind: 'silence'; gap: DaihonRowGap }
@@ -336,7 +348,11 @@ const STYLE = `
 .akari-daihon-word.now { color:var(--theia-akariTheme-accentLight); background:var(--theia-akariTheme-accentTint); box-shadow:inset 0 -2px 0 var(--theia-akariTheme-accentLight); }
 .akari-daihon-word:hover { background:rgba(83,209,188,.15); color:var(--akari-ink, var(--theia-foreground)); }
 .akari-daihon-word.wordsel { background:var(--theia-akariTheme-accentTint); color:var(--akari-ink, var(--theia-foreground)); }
-.akari-daihon-word[data-emphasis-preset] { text-decoration:underline solid rgba(83,209,188,.55) 1.5px; text-underline-offset:3px; color:var(--daihon-word-preset-color, inherit); }
+.akari-daihon-word[data-emphasis-preset] { text-decoration:underline solid rgba(83,209,188,.75) 1.5px; text-underline-offset:3px; }
+.akari-daihon-word[data-emphasis-preset][data-readable-color] { color:var(--daihon-word-preset-color); }
+.akari-daihon-row .akari-daihon-word[data-emphasis-preset][data-mark-background] { background:var(--daihon-word-preset-bg); color:var(--daihon-word-preset-color, var(--akari-ink, var(--theia-foreground))); border-radius:3px; text-decoration:none; }
+.akari-daihon-word[data-emphasis-preset].wordsel { outline:2px solid var(--theia-akariTheme-accentLight); outline-offset:1px; }
+.akari-daihon-word[data-emphasis-preset].now { box-shadow:inset 0 -2px var(--theia-akariTheme-accentLight); }
 .akari-daihon-wgap { display:inline-block; width:6px; height:1.5em; margin:0 -3px; vertical-align:middle; position:relative; cursor:pointer; }
 .akari-daihon-wgap::after { content:"⊕"; display:none; position:absolute; left:-5px; top:-12px; color:var(--theia-akariTheme-accentLight); font-size:12px; z-index:2; }
 .akari-daihon-wgap:hover::after { display:block; }
@@ -618,7 +634,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected captionExtraById = new Map<string, CaptionExtras>();
     protected captionRecordings = new Map<string, CaptionRecording[]>();
     protected readonly captionOverflowUnitsById = new Map<string, number>();
-    protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
+    protected wordPresetByRowId = new Map<string, (string | { color?: string; background?: string } | undefined)[]>();
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
     protected wordUnit: 'word' | 'token' = 'word';
     protected showBreaks = true;
@@ -657,6 +673,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected altAll = false;
     protected rowDrag: RowDragState | undefined;
     protected wordRanges: DaihonWordRange[] = [];
+    protected lastWordSelectionPayload = '';
     protected wordDrag: { row: string; a: number; b: number; moved: boolean; add: boolean } | undefined;
     protected suppressWordClick = false;
     protected reloadPendingAfterDrag = false;
@@ -1350,6 +1367,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.editFps = edit.output?.fps || 30;
             this.captionRecordings = captionRecordingsFromEdit(edit, this.editFps);
             const captions = this.daihonCaptionsForDisplay();
+            const previousWordMarks = this.wordPresetByRowId;
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments, this.editFps);
@@ -1373,7 +1391,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.cutSpans = deriveDaihonCutSpans(next, this.rowGapsForRows(next), this.segments,
                 this.editFps, row => this.sourceIdForRow(row));
             const activeCandidateBar = this.candidateBar;
-            this.renderRows(next, cutSourceChanged);
+            this.renderRows(next, cutSourceChanged, changedWordMarkRows(previousWordMarks, this.wordPresetByRowId));
             if (activeCandidateBar && (!this.candidateBar || this.candidateBar === activeCandidateBar)) {
                 this.candidateBar = this.cutCandidates.some(candidate =>
                     candidate.id === activeCandidateBar.target.id
@@ -1501,7 +1519,10 @@ export class AkariDaihonWidget extends BaseWidget {
                         && span.start <= span.end
                         ? [{ start: span.start, end: span.end }] : [];
                 }) : undefined;
-            const stylePreset = typeof record.style_preset === 'string' ? record.style_preset : undefined;
+            const sources = record.style_sources as { look?: { kind?: string; id?: string } } | undefined;
+            const lookSource = sources?.look;
+            const stylePreset = typeof record.style_preset === 'string' ? record.style_preset
+                : lookSource?.kind === 'builtin' && typeof lookSource.id === 'string' ? lookSource.id : undefined;
             const hasDisplayTiming = Object.prototype.hasOwnProperty.call(record, 'display_timing');
             const hasTextStyle = Object.prototype.hasOwnProperty.call(record, 'text_style');
             result.set(record.id, {
@@ -1517,8 +1538,8 @@ export class AkariDaihonWidget extends BaseWidget {
         return result;
     }
 
-    protected resolveWordPresets(root: unknown, captions: DaihonCaptionLike[]): Map<string, (string | undefined)[]> {
-        if (!root || typeof root !== 'object' || Array.isArray(root)) return new Map();
+    protected resolveWordPresets(root: unknown, captions: DaihonCaptionLike[]): Map<string, (string | { color?: string; background?: string } | undefined)[]> {
+        if (!root || typeof root !== 'object') return new Map();
         const emphasisWords = Array.isArray((root as { emphasis_words?: unknown[] }).emphasis_words)
             ? (root as { emphasis_words: unknown[] }).emphasis_words : [];
         const candidates = emphasisWords.flatMap(value => {
@@ -1530,15 +1551,45 @@ export class AkariDaihonWidget extends BaseWidget {
                 && (record.src === undefined || (typeof record.src === 'string' && /\S/u.test(record.src)))
                 ? [record as { style_preset: string; t_start: number; t_end: number; src?: string }] : [];
         });
-        const result = new Map<string, (string | undefined)[]>();
+        const emphasisBySource = new Map<string, typeof candidates>();
+        const result = new Map<string, (string | { color?: string; background?: string } | undefined)[]>();
+        const rootRows = Array.isArray(root) ? root as Array<{ id?: string; runs?: Array<{ from: number; to: number;
+            look?: { color?: string; background?: { color?: string } } }> }>
+            : Array.isArray((root as { captions?: unknown }).captions)
+            ? (root as { captions: Array<{ id?: string; runs?: Array<{ from: number; to: number;
+                look?: { color?: string; background?: { color?: string } } }> }> }).captions : [];
+        const runsByRow = new Map(rootRows.flatMap(row => row.id && Array.isArray(row.runs)
+            ? [[row.id, row.runs] as const] : []));
         for (const caption of captions) {
-            if (caption.timeDomain === 'output' || !caption.words?.length) continue;
-            if (caption.words.map(word => word.text).join('') !== (caption.displayText ?? caption.text)) continue;
-            const presets = caption.words.map(word => candidates.find(emphasis => {
-                const sourceMatches = !(emphasis.src && caption.src) || emphasis.src === caption.src;
-                return sourceMatches
-                    && Math.min(word.end, emphasis.t_end) - Math.max(word.start, emphasis.t_start) > 0.000001;
+            if (!caption.words?.length) continue;
+            const runs = runsByRow.get(caption.id) ?? [];
+            const display = caption.displayText ?? caption.text;
+            const legacyEligible = caption.timeDomain !== 'output'
+                && caption.words.map(word => word.text).join('') === display;
+            let relevant = candidates;
+            if (caption.src) {
+                let matched = emphasisBySource.get(caption.src);
+                if (!matched) {
+                    matched = candidates.filter(item => !item.src || item.src === caption.src);
+                    emphasisBySource.set(caption.src, matched);
+                }
+                relevant = matched;
+            }
+            const presets: Array<string | { color?: string; background?: string } | undefined> = caption.words.map(word => !legacyEligible ? undefined : relevant.find(emphasis => {
+                return Math.min(word.end, emphasis.t_end) - Math.max(word.start, emphasis.t_start) > 0.000001;
             })?.style_preset);
+            if (runs.length && caption.words.map(word => word.text).join('') === caption.text) {
+                const units = caption.words.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }));
+                const reasons = { words: '', display: '', empty: '' };
+                caption.words.forEach((_word, index) => {
+                    const mapped = wordSelectionToCaptionRange({ text: caption.text, display_text: display,
+                        words: caption.words }, units, { a: index, b: index }, reasons);
+                    if ('reason' in mapped) return;
+                    const run = runs.find(candidate => candidate.from < mapped.range.to
+                        && candidate.to > mapped.range.from && candidate.look);
+                    if (run?.look) presets[index] = { color: run.look.color, background: run.look.background?.color };
+                });
+            }
             if (presets.some(Boolean)) result.set(caption.id, presets);
         }
         return result;
@@ -1788,12 +1839,12 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else if (this.wordRanges.length) {
             const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
-            title.textContent = `「${summary.text.slice(0, 10)}」`; bar.append(title);
+            title.textContent = `「${summary.text.slice(0, 6)}」`; title.title = summary.text; bar.append(title);
             add(t('transcript.daihon.editor.editLabel'), () => {
                 const row = this.rows.find(item => item.id === this.wordRanges[0]?.row);
                 if (row) this.startEdit(row);
             });
-            add(t('transcript.daihon.editor.emphasizeLabel'), () => this.openRowDock('emphasis'));
+            add(t('transcript.daihon.editor.selectedWordsOnlyAction'), () => this.openRowDock('emphasis'));
             const wordCut = add(t('transcript.daihon.editor.cutCutVideoLabel'), () => this.openCutRangeEditorForSelection());
             const wordCutRow = this.rows.find(item => item.id === this.wordRanges[0]?.row);
             const wordCutReason = wordCutRow && this.audioOnlyCutReason(wordCutRow);
@@ -1879,6 +1930,7 @@ export class AkariDaihonWidget extends BaseWidget {
         actions: DaihonCandidateBar['actions']): void {
         this.closePop();
         this.wordRanges = [];
+        this.emitWordSelection();
         this.rowsNode.querySelectorAll('.akari-daihon-word.wordsel').forEach(node => node.classList.remove('wordsel'));
         this.candidateBar = { title, target, actions };
         this.renderActionBar();
@@ -1928,7 +1980,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
-    protected renderRows(next: DaihonRow[], refreshCutMarks = false): void {
+    protected renderRows(next: DaihonRow[], refreshCutMarks = false, changedWordMarks = new Set<string>()): void {
         this.closeCutRangeEditor();
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
@@ -1947,7 +1999,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const sourceSetChanged = previousActiveSourceIds.join('\0') !== this.activeSourceIds.join('\0');
         const previousRows = new Map(this.rows.map(row => [row.id, row]));
         for (const row of next) {
-            if ((sourceSetChanged || previousRows.get(row.id)?.src !== row.src
+            if ((changedWordMarks.has(row.id) || sourceSetChanged || previousRows.get(row.id)?.src !== row.src
                 || previousDuplicates.get(row.id) !== this.duplicateRowIds.get(row.id))
                 && !plan.create.some(candidate => candidate.id === row.id)
                 && !plan.update.some(candidate => candidate.id === row.id)) plan.update.push(row);
@@ -2529,7 +2581,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.dockSelectionHint.hidden = kind !== 'row';
         this.dockTabsNode.replaceChildren();
         const labels: Record<DockTab, string> = { text: t('transcript.daihon.editor.textLabel'), template: t('transcript.daihon.editor.templateLabel'), look: t('transcript.daihon.editor.appearanceLabel'),
-            anim: t('transcript.daihon.editor.animationLabel'), emphasis: t('transcript.daihon.editor.emphasisLabel'), time: t('transcript.daihon.editor.timeLabel') };
+            anim: t('transcript.daihon.editor.animationLabel'), emphasis: t('transcript.daihon.editor.selectedWordsOnlyLabel'), time: t('transcript.daihon.editor.timeLabel') };
         for (const tab of dockTabs(kind)) {
             const button = document.createElement('button'); button.type = 'button';
             button.dataset.dockTab = tab; button.textContent = labels[tab];
@@ -2676,6 +2728,16 @@ export class AkariDaihonWidget extends BaseWidget {
     protected async saveDockLook(ids: string[], field: LookField, value: string | number): Promise<void> {
         if (!this.captionsUri || !this.rootUri) return;
         try {
+            if (field === 'size') {
+                const result = await this.runCaptionCommand(t('transcript.daihon.editor.changeCaptionAppearanceLabel'),
+                    context => this.annotationsService.setCaptionSize({ ...context.request, input: {
+                        targets: ids.map(caption_id => ({ caption_id })), size_px: Number(value)
+                    } }));
+                if (result?.ok) this.notify(result.written.length
+                    ? t('transcript.daihon.editor.captionAppearanceChangedNotice')
+                    : t('transcript.daihon.editor.noChangesChangedNotice'));
+                return;
+            }
             await this.withHistory(t('transcript.daihon.editor.changeCaptionAppearanceLabel'), async () => {
                 for (const captionId of ids) {
                     const caption = this.sourceCaptions.find(item => item.id === captionId);
@@ -2718,7 +2780,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected renderDockEmphasis(): void {
         const spans = this.selectedRangeSpans();
-        const label = document.createElement('div'); label.textContent = spans.map(span => span.word).join(t('transcript.daihon.editor.leadingMiddleDotTrailingText')) || t('transcript.daihon.editor.selectWordText');
+        const label = document.createElement('div'); label.textContent = spans.map(span => span.word).join(t('transcript.daihon.editor.leadingMiddleDotTrailingText')) || t('transcript.daihon.editor.selectWordsForStyleText');
         const grid = document.createElement('div'); grid.className = 'akari-daihon-dock-grid';
         for (const item of this.wordPresetCards()) {
             const button = document.createElement('button'); button.type = 'button'; button.className = 'akari-daihon-tplcard';
@@ -2730,7 +2792,7 @@ export class AkariDaihonWidget extends BaseWidget {
             button.append(preview, name);
             button.addEventListener('click', () => void this.applyWordPreset(item.id)); grid.appendChild(button);
         }
-        const clear = this.popButton(t('transcript.daihon.editor.removeEmphasisAction'), () => void this.clearWordPreset()); clear.disabled = !spans.length;
+        const clear = this.popButton(t('transcript.daihon.editor.restoreSelectedWordsAction'), () => void this.clearWordPreset()); clear.disabled = !spans.length;
         this.dockBody.append(label, grid, clear);
     }
 
@@ -4521,17 +4583,25 @@ export class AkariDaihonWidget extends BaseWidget {
         name: string,
         selected: boolean
     ): Promise<void> {
-        captionIds = captionIds.filter(id => this.sourceCaptions.some(caption => caption.id === id));
+        const available = new Set(this.sourceCaptions.map(caption => caption.id));
+        captionIds = captionIds.filter(id => available.has(id));
         if (!this.captionsUri || !this.rootUri || captionIds.length === 0) return;
         try {
-            let changed = 0;
-            await this.withHistory(t('transcript.daihon.editor.applyCaptionTemplateLabel'), async () => {
-                const result = await this.annotationsService.setCaptionStylePreset({
-                    captionsUri: this.captionsUri!.toString(),
-                    projectRootUri: this.rootUri!.toString(), captionIds, presetId
-                });
-                changed = result.changed;
+            const result = await this.runCaptionCommand(t('transcript.daihon.editor.applyCaptionTemplateLabel'), context => {
+                const targets = captionIds.map(caption_id => ({ caption_id }));
+                if (presetId === null) return this.annotationsService.clearCaptionStyle({ ...context.request,
+                    input: { targets, mode: 'range' } });
+                const preset = TEXTSTYLE_CATALOG[presetId];
+                if (!preset) throw new Error(t('transcript.daihon.editor.styleUnavailableNotice'));
+                const { animation, ...look } = preset.style;
+                return this.annotationsService.applyCaptionStyle({ ...context.request, input: {
+                    targets, parts: { look, motion: animation && typeof animation === 'object'
+                        ? animation as Record<string, unknown> : {} }, source: { kind: 'builtin', id: presetId }
+                } });
             });
+            if (!result?.ok) return;
+            const changed = result.written.length
+                ? new Set(result.changed.flatMap(path => /^captions\[(\d+)\]/u.exec(path)?.[1] ?? [])).size : 0;
             if (changed === 0) {
                 this.notify(t('transcript.daihon.editor.noChangesChangedNotice'));
             } else if (presetId === null) {
@@ -4619,8 +4689,10 @@ export class AkariDaihonWidget extends BaseWidget {
             this.wordRanges = [];
             this.wordUnit = wordUnit;
             const captions = this.daihonCaptionsForDisplay();
+            const previousWordMarks = this.wordPresetByRowId;
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
-            this.renderRows(buildDaihonRows(captions, this.segments));
+            this.renderRows(buildDaihonRows(captions, this.segments), false,
+                changedWordMarkRows(previousWordMarks, this.wordPresetByRowId));
             void this.preferences.set(DAIHON_WORD_UNIT_PREFERENCE, wordUnit, PreferenceScope.User)
                 .then(() => this.openDisplayPop(anchor))
                 .catch(error => this.notifyError(this.errorMessage(error)));
@@ -5026,6 +5098,30 @@ export class AkariDaihonWidget extends BaseWidget {
             this.elements.get(range.row)?.words[index]?.classList.add('wordsel');
         }
         this.renderActionBar();
+        this.emitWordSelection();
+    }
+
+    protected emitWordSelection(): void {
+        const editUri = this.editUri?.normalizePath?.().toString() ?? this.editUri?.toString();
+        if (!editUri || typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+        const sourceRows = Array.isArray(this.captionsRoot)
+            ? this.captionsRoot : (this.captionsRoot as { captions?: unknown[] } | undefined)?.captions;
+        const captions = Array.isArray(sourceRows) ? sourceRows as Array<{ id?: string; text: string;
+            display_text?: string; words?: Array<{ text: string }> }> : [];
+        const byId = new Map(captions.map(caption => [caption.id, caption]));
+        const reasons = { words: '', display: '', empty: '' };
+        const ranges = this.wordRanges.flatMap(selection => {
+            const caption = byId.get(selection.row);
+            const units = this.wordUnitsByRowId.get(selection.row);
+            if (!caption || !units) return [];
+            const result = wordSelectionToCaptionRange(caption, units, selection, reasons);
+            return 'range' in result ? [{ captionId: selection.row, ...result.range }] : [];
+        });
+        const payload = { editUri, ranges };
+        const serialized = JSON.stringify(payload);
+        if (serialized === this.lastWordSelectionPayload) return;
+        this.lastWordSelectionPayload = serialized;
+        window.dispatchEvent(new CustomEvent(DAIHON_WORD_SELECTION_CHANGED_EVENT, { detail: payload }));
     }
 
     protected selectionRows(): Array<{ id: string; words: readonly { text: string; start: number; end: number }[] }> {
@@ -5041,7 +5137,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected wordPresetCards(): Array<{ id: string; name: string; style: Record<string, unknown> }> {
-        const fixed = ['neon', 'glitch', 'title-impact', 'emphasis-red'];
+        const fixed = ['neon', 'glitch', 'title-impact', 'emphasis-red', 'news-yellow-label'];
         const all = orderPresetsForPicker(TEXTSTYLE_CATALOG);
         const ids = [...fixed, ...all.filter(preset => preset.category !== 'subtitle' && !fixed.includes(preset.id)).map(preset => preset.id).slice(0, 1)];
         return ids.flatMap(id => { const preset = TEXTSTYLE_CATALOG[id]; return preset ? [{ id, name: preset.name, style: preset.style }] : []; });
@@ -5089,35 +5185,116 @@ export class AkariDaihonWidget extends BaseWidget {
         if (failed) throw failure;
     }
 
+    protected async runCaptionCommand(label: string, command: (context: {
+        captions: string; edit: string; request: { expectedHashes: { captions: string; edit: string };
+            projectRootUri: string; captionsUri: string; editUri: string }
+    }) => Promise<CaptionCommandResult | undefined>): Promise<CaptionCommandResult | undefined> {
+        if (!this.captionsUri || !this.editUri || !this.rootUri) return undefined;
+        const [captions, edit] = await Promise.all([this.readText(this.captionsUri), this.readText(this.editUri)]);
+        const destination = { projectRootUri: this.rootUri.toString(), captionsUri: this.captionsUri.toString(),
+            editUri: this.editUri.toString() };
+        const result = await command({ captions, edit, request: { ...destination,
+            expectedHashes: { captions: projectFileContentHash(captions), edit: projectFileContentHash(edit) } } });
+        if (!result) return undefined;
+        await settleCaptionCommand(result, { reload: () => this.reload(), notify: message => this.notifyError(message),
+            conflictNotice: t('transcript.daihon.editor.reloadAfterConflictNotice'), record: saved => {
+                const history = daihonHistoryService();
+                history?.push(captionCommandHistory({ ...saved,
+                    roles: { captions: this.captionsUri.path.base, edit: this.editUri.path.base } }, label, destination,
+                request => this.annotationsService.writeEditSnapshot(request), () => this.reload()));
+                if (history) this.pendingUndoAt = Date.now();
+            } });
+        return result;
+    }
+
     protected async applyWordPreset(presetId: string): Promise<void> {
-        if (!this.captionsUri || !this.rootUri) return;
-        const spans = this.selectedRangeSpans();
-        if (!spans.length) return;
+        const preset = TEXTSTYLE_CATALOG[presetId];
+        if (!preset || !this.wordRanges.length) return;
         try {
-            await this.withHistory(t('transcript.daihon.editor.changeWordTemplateLabel'), async () => {
-                const source = await this.readText(this.captionsUri!);
-                await this.annotationsService.setEmphasisWords({ captionsUri: this.captionsUri!.toString(),
-                    projectRootUri: this.rootUri!.toString(), upserts: planEmphasisUpserts(spans.map(span => ({
-                        t_start: span.t_start, t_end: span.t_end, word: span.word,
-                        ...(span.src ? { src: span.src } : {})
-                    })), presetId),
-                    removeIds: emphasisIdsCovering(readEmphasisWords(source), spans) });
+            let selectedText = '';
+            const result = await this.runCaptionCommand(t('transcript.daihon.editor.changeSelectedWordsLookLabel'), async context => {
+                const selected = this.captionTargetsForWords(context.captions);
+                if ('reason' in selected) throw new Error(selected.reason);
+                selectedText = selected.text;
+                const look = { ...preset.style };
+                delete look.animation;
+                return this.annotationsService.applyCaptionStyle({ ...context.request, input: {
+                    targets: selected.targets, parts: { look }, source: { kind: 'builtin', id: presetId }
+                } });
             });
-            const preset = TEXTSTYLE_CATALOG[presetId];
-            this.notify(t('transcript.daihon.editor.rangesWithValuesNotice', { value1: spans.map(span => span.word).join(t('transcript.shared.list.separator')), value2: preset?.name ?? presetId, value3: spans.length }));
-            this.openWordBar();
+            if (result?.ok) {
+                const message = result.written.length
+                    ? t('transcript.daihon.editor.rangesWithValuesNotice', { value1: selectedText,
+                        value2: preset.name, value3: this.wordRanges.length })
+                    : t('transcript.daihon.editor.noChangesChangedNotice');
+                this.notify(`${message}${result.notices.length ? ` ${result.notices.join(' ')}` : ''}`);
+            }
         } catch (error) { this.notifyError(this.errorMessage(error)); }
     }
 
     protected async clearWordPreset(): Promise<void> {
-        if (!this.captionsUri || !this.rootUri) return;
-        const spans = this.selectedRangeSpans();
-        const ids = emphasisIdsCovering(readEmphasisWords(await this.readText(this.captionsUri)), spans);
-        if (!ids.length) { this.notify(t('transcript.daihon.editor.noEmphasisAppliedNotice')); return; }
-        await this.withHistory(t('transcript.daihon.editor.removeWordEmphasisLabel'), async () => {
-            await this.annotationsService.setEmphasisWords({ captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), upserts: [], removeIds: ids });
-        });
-        this.notify(t('transcript.daihon.editor.emphasisRemovedNotice'));
+        try {
+            const result = await this.runCaptionCommand(t('transcript.daihon.editor.restoreSelectedWordsLookLabel'), async context => {
+                const selected = this.captionTargetsForWords(context.captions);
+                if ('reason' in selected) throw new Error(selected.reason);
+                const root = selected.root;
+                const rows = Array.isArray(root) ? root : root.captions;
+                const byId = new Map(rows.map(row => [row.id, row]));
+                const hasLook = selected.targets.some(target => {
+                    const row = byId.get(target.caption_id);
+                    return row && (row.runs?.some(run => run.from < target.range.to && run.to > target.range.from)
+                        || (!Array.isArray(root) && root.emphasis_words?.some(emphasis =>
+                            captionEmphasisOverlapsRange(row, target.range, emphasis))));
+                });
+                if (!hasLook) return undefined;
+                const targets = selected.targets.map(target => {
+                    const row = byId.get(target.caption_id)!;
+                    return { ...target, range: expandCaptionRangeToAdjacentWhitespace(
+                        row.display_text ?? row.text, target.range) };
+                });
+                return this.annotationsService.clearCaptionStyle({ ...context.request,
+                    input: { targets, mode: 'range' } });
+            });
+            if (!result) this.notify(t('transcript.daihon.editor.noSelectedWordStyleNotice'));
+            else if (result.ok) this.notify(result.written.length
+                ? t('transcript.daihon.editor.selectedWordsRestoredNotice')
+                : t('transcript.daihon.editor.noSelectedWordStyleNotice'));
+        } catch (error) { this.notifyError(this.errorMessage(error)); }
+    }
+
+    protected captionTargetsForWords(source: string): { targets: Array<{ caption_id: string;
+        range: { from: number; to: number } }>; text: string;
+        root: SelectedCaptionRoot } | { reason: string } {
+        const root = JSON.parse(source) as SelectedCaptionRoot;
+        const rows = Array.isArray(root) ? root : root && typeof root === 'object'
+            && Array.isArray((root as { captions?: unknown }).captions) ? (root as { captions: unknown[] }).captions : [];
+        const byId = new Map(rows.flatMap(value => value && typeof value === 'object'
+            && typeof (value as { id?: unknown }).id === 'string'
+            ? [[(value as { id: string }).id, value as { id: string; text: string; display_text?: string;
+                words?: Array<{ text: string; start: number; end: number }> }] as const] : []));
+        const previousById = new Map(this.sourceCaptions.map(caption => [caption.id, caption]));
+        const targets: Array<{ caption_id: string; range: { from: number; to: number } }> = [];
+        const labels: string[] = [];
+        const reasons = { words: t('transcript.daihon.editor.wordMappingChangedNotice'),
+            display: t('transcript.daihon.editor.wordDisplayUnmappedNotice'),
+            empty: t('transcript.daihon.editor.wordSelectionEmptyNotice') };
+        for (const selection of this.wordRanges) {
+            const caption = byId.get(selection.row);
+            const previous = previousById.get(selection.row);
+            if (!caption || !previous || previous.text !== caption.text || previous.displayText !== caption.display_text)
+                return { reason: reasons.words };
+            const units = this.wordUnit === 'word' ? groupTokensIntoWords(caption.text, caption.words)
+                : caption.words?.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index })) ?? [];
+            const oldUnits = this.wordUnitsByRowId?.get(selection.row);
+            if (oldUnits && oldUnits.slice(selection.a, selection.b + 1).map(unit => unit.text).join('')
+                !== units.slice(selection.a, selection.b + 1).map(unit => unit.text).join('')) return { reason: reasons.words };
+            const mapped = wordSelectionToCaptionRange(caption, units, selection, reasons);
+            if ('reason' in mapped) return mapped;
+            targets.push({ caption_id: selection.row, range: mapped.range });
+            labels.push(mapped.text);
+        }
+        return targets.length ? { targets, text: labels.join(t('transcript.shared.list.separator')), root }
+            : { reason: reasons.empty };
     }
 
     protected openCutRangeEditorForSelection(): void {
@@ -5563,15 +5740,34 @@ export class AkariDaihonWidget extends BaseWidget {
             ? t('transcript.daihon.editor.linesWithValuesLabel', { value1: visible, value2: this.rows.length, n: this.rows.length }) : t('transcript.daihon.editor.sourceVisibleLineCountLabel', { value1: this.rows.length, n: this.rows.length });
     }
 
-    protected word(text: string, index: number, rowId: string, preset?: string): HTMLSpanElement {
+    protected word(text: string, index: number, rowId: string,
+        preset?: string | { color?: string; background?: string }): HTMLSpanElement {
         const span = document.createElement('span');
         span.className = 'akari-daihon-word';
         span.dataset.wordIndex = String(index);
         span.dataset.rowId = rowId;
         if (preset) {
-            span.dataset.emphasisPreset = preset;
-            const color = TEXTSTYLE_CATALOG[preset]?.style.color;
-            if (typeof color === 'string') span.style.setProperty('--daihon-word-preset-color', color);
+            span.dataset.emphasisPreset = typeof preset === 'string' ? preset : 'run';
+            const color = typeof preset === 'string' ? TEXTSTYLE_CATALOG[preset]?.style.color : preset.color;
+            const background = typeof preset !== 'string' ? preset.background : undefined;
+            if (background) {
+                span.dataset.markBackground = 'true';
+                span.style.setProperty('--daihon-word-preset-bg', background);
+                if (typeof color === 'string') span.style.setProperty('--daihon-word-preset-color', color);
+            } else if (typeof color === 'string') {
+                let backgroundNode: HTMLElement | null = this.rowsNode;
+                let editorBackground = '';
+                while (backgroundNode) {
+                    editorBackground = getComputedStyle(backgroundNode).backgroundColor;
+                    if (editorBackground && editorBackground !== 'transparent'
+                        && !/^rgba\([^)]*,\s*0\s*\)$/u.test(editorBackground)) break;
+                    backgroundNode = backgroundNode.parentElement;
+                }
+                if (readableWordMarkColor(color, editorBackground)) {
+                    span.dataset.readableColor = 'true';
+                    span.style.setProperty('--daihon-word-preset-color', color);
+                }
+            }
         }
         span.textContent = text;
         return span;
@@ -5830,6 +6026,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.qcButton.textContent = 'QC ✓';
         this.selection = EMPTY_SELECTION;
         this.wordRanges = [];
+        this.emitWordSelection();
         this.candidateBar = undefined;
         this.renderActionBar();
         this.dockKind = undefined;

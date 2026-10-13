@@ -19,6 +19,46 @@ import {
 const row = (text, extra = {}) => ({ id: 'c-0001', start: 0, end: 10, text,
   speaker: null, sourceRef: null, edited: false, src: 's1', ...extra });
 
+test('移行済みと同じ強調を旧い入口で三回足しても run は一件のまま', () => {
+  const emphasis = { id: 'e-0001', src: 's1', word: '猫', t_start: 1, t_end: 2,
+    emotion: 'surprise', style_hint: 'one-char-bang' };
+  let document = planCaptionLookMigration({ captions: [row('猫')], emphasis_words: [emphasis] }, {}).next;
+  for (let repeat = 0; repeat < 3; repeat++) {
+    document.emphasis_words = [structuredClone(emphasis)];
+    assert.equal(readCaptionLookV1(document, {}).captions[0].runs.length, 1);
+    document = planCaptionLookMigration(document, {}).next;
+    assert.equal(document.captions[0].runs.length, 1);
+    assert.deepEqual(document.emphasis_words, []);
+  }
+  document.emphasis_words = [{ ...emphasis, emotion: 'anger' }];
+  document = planCaptionLookMigration(document, {}).next;
+  assert.equal(document.captions[0].runs.length, 2);
+});
+
+test('未解決 run の id も数えて読みと移行が同じ次の id を振る', () => {
+  const document = { captions: [row('猫')], emphasis_words: [{ id: 'e-0001', src: 's1',
+    word: '猫', t_start: 1, t_end: 2, emotion: 'surprise', style_hint: 'one-char-bang' }],
+    unresolved_runs: [{ run: { id: 'r-0009', from: 0, to: 1, look: { color: '#ffffff' } } }] };
+  const read = readCaptionLookV1(document, {}).captions[0].runs[0].id;
+  const migrated = planCaptionLookMigration(document, {}).next.captions[0].runs[0].id;
+  assert.equal(read, 'r-0010');
+  assert.equal(migrated, read);
+});
+
+test('未解決 run の出所 id と衝突する強調は読み・移行・描画入力で同じ番号を振る', () => {
+  const emphasis = { id: 'e-0001', src: 's1', word: '猫', t_start: 1, t_end: 2,
+    emotion: 'surprise', style_hint: 'one-char-bang' };
+  const document = { captions: [row('猫', { runs: [{ id: 'r-0001', from: 0, to: 1,
+    look: { color: '#ffffff' } }] })], emphasis_words: [emphasis],
+    unresolved_runs: [{ run: { id: 'r-0009', from: 0, to: 1, migrated_from: 'e-0001' } }] };
+  const read = readCaptionLookV1(document, {}).captions[0].runs[1].migrated_from;
+  const migrated = planCaptionLookMigration(document, {}).next.captions[0].runs[1].migrated_from;
+  const rendered = captionRenderInputFromV1(document).emphasis_words[0].id;
+  assert.equal(read, 'e-0002');
+  assert.equal(migrated, read);
+  assert.equal(rendered, read);
+});
+
 test('壊れ気味の旧強調語も描画入力へ安全に戻す', () => {
   const good = { id: 'e-0001', src: 's1', word: '猫', t_start: 0.7, t_end: 1.2,
     emotion: 'surprise', style_hint: 'one-char-bang' };

@@ -22,9 +22,9 @@ export function captionPanelLookWrite(id: string, look: Record<string, unknown>,
     kind: 'caption-style-my-style'; id: string; value: Record<string, unknown>
 } {
     if (!styleId) return { kind: 'caption-style-my-style', id,
-        value: { parts: [{ kind: 'look', text_style: look }] } };
+        value: { parts: [{ kind: 'look', text_style: look }], keepSize: true } };
     if (styleId.startsWith('mystyle/')) return { kind: 'caption-style-my-style', id,
-        value: { parts: [{ kind: 'look', text_style: look }],
+        value: { parts: [{ kind: 'look', text_style: look }], keepSize: true,
             style_source: { kind: 'my', id: styleId.slice('mystyle/'.length) } } };
     const { animation, ...textStyle } = look;
     const parts = [{ kind: 'look', text_style: textStyle },

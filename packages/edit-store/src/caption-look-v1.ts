@@ -12,6 +12,10 @@ export const CAPTION_RUN_LOOK_FIELDS = new Set([
     'color', 'font_weight', 'italic', 'underline', 'letter_spacing_em', 'scale',
     'baseline_shift_em', 'rotate_deg', 'stroke', 'shadow', 'glow', 'background'
 ]);
+const RUN_LOOK_OMITTED_NAMES: Record<string, string> = {
+    font_family: 'フォント', line_height: '行間', text_transform: '大文字・小文字の変換',
+    fill: '塗り', strokes: '重ねた縁', size_px: '大きさ', reference_height_px: '基準の高さ'
+};
 export const CAPTION_DEFAULT_SIZE_PX = 38;
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -33,13 +37,16 @@ export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
 
 export function sanitizeCaptionRunLook(value: unknown): { look: Record<string, unknown>; omitted: string[]; notices: string[] } {
     if (!record(value)) return { look: {}, omitted: [], notices: [] };
-    const omitted = Object.keys(value).filter(key => !CAPTION_RUN_LOOK_FIELDS.has(key));
+    const omitted = Object.keys(value).filter(key => key !== 'weight' && !CAPTION_RUN_LOOK_FIELDS.has(key));
     const noticed = omitted.filter(key => key !== 'size_px' && key !== 'reference_height_px');
+    const look = Object.fromEntries(Object.entries(value).filter(([key]) => CAPTION_RUN_LOOK_FIELDS.has(key)));
+    if (!Object.prototype.hasOwnProperty.call(look, 'font_weight') && Number.isInteger(value.weight)
+        && (value.weight as number) >= 1 && (value.weight as number) <= 1000)
+        look.font_weight = value.weight;
     return {
-        look: Object.fromEntries(Object.entries(value).filter(([key]) => CAPTION_RUN_LOOK_FIELDS.has(key))),
+        look,
         omitted,
-        notices: noticed.length ? [noticed.includes('font_family')
-            ? 'フォントは字幕全体にだけ当てられます。' : `範囲に使えない見た目を外しました: ${noticed.join('、')}`] : []
+        notices: noticed.map(key => `${RUN_LOOK_OMITTED_NAMES[key] ?? 'この項目'}は字幕全体にだけ当てられます。`)
     };
 }
 

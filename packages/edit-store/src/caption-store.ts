@@ -5,6 +5,8 @@ import { captionGraphemes, captionRunsRemovedNotice, rebaseCaptionRuns, splitCap
 import { applyCaptionStylePresets, type TextstyleCatalog } from './caption-style-preset';
 import { resolveTextstyleCatalog } from './textstyle-catalog-merge';
 import { validateCaptionTextStyle } from './caption-display';
+import { planCaptionSizeEdit, type CaptionRoot } from './caption-style-command';
+import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
 export const CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -597,7 +599,8 @@ export function applyWordBookToCaptionsInSourceWithNotices(
 export function updateCaptionTextStyleInSource(
     source: string,
     captionId: string,
-    updates: CaptionTextStylePatch
+    updates: CaptionTextStylePatch,
+    catalog: TextstyleCatalog = TEXTSTYLE_CATALOG
 ): string {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
@@ -606,6 +609,17 @@ export function updateCaptionTextStyleInSource(
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
+    if (typeof updates.sizePx === 'number') {
+        const planned = planCaptionSizeEdit({ captions: JSON.parse(source) as CaptionRoot,
+            targets: [{ caption_id: captionId }], size_px: updates.sizePx, catalog });
+        if (planned.changed.length) {
+            const rows = Array.isArray(planned.next.captions) ? planned.next.captions : planned.next.captions.captions;
+            const row = rows.find(candidate => candidate.id === captionId)!;
+            for (const key of ['text_style', 'runs', 'style_sources', 'style_preset'] as const)
+                nextElement = syncOptionalCaptionProperty(nextElement, key, row[key], captionId);
+        }
+        updates = { ...updates, sizePx: undefined };
+    }
     const existing = locateTopLevelProperty(nextElement, 'text_style');
     if (!existing) {
         const created = textStylePatchToJson(updates);

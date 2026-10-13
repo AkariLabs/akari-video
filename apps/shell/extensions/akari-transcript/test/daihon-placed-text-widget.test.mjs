@@ -51,6 +51,49 @@ const placed = [
   { id: 'p4', text: '2行', start: 20, end: 27 }
 ].map(caption => ({ ...caption, style: null, timeDomain: 'output', style_preset: 'KEEP' }));
 const uri = name => ({ toString: () => `file:///project/${name}` });
+
+function wordSelectionEvents(selections) {
+  const oldWindow = globalThis.window, oldEvent = globalThis.CustomEvent;
+  const events = [];
+  globalThis.window = { dispatchEvent: event => events.push(event) };
+  globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+  const captions = [
+    { id: 'ja', text: '赤い猫', words: ['赤い', '猫'].map(text => ({ text })) },
+    { id: 'en', text: ' hello world', words: [' hello', ' world'].map(text => ({ text })) }
+  ];
+  const units = new Map([
+    ['ja', captions[0].words.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }))],
+    ['en', captions[1].words.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index }))]
+  ]);
+  const instance = widget({ editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit.json' },
+    captionsRoot: { captions }, wordUnitsByRowId: units, wordRanges: [], lastWordSelectionPayload: '' });
+  try {
+    for (const ranges of selections) { instance.wordRanges = ranges; instance.emitWordSelection(); }
+    assert.ok(events.every(event => event.type === 'akari.daihon.wordSelectionChanged'
+      && event.detail.editUri === 'file:///project/edit.json'));
+    return events.map(event => event.detail.ranges);
+  } finally { globalThis.window = oldWindow; globalThis.CustomEvent = oldEvent; }
+}
+
+test('日本語の一語選択は書記素範囲を一回だけ送る', () => {
+  assert.deepEqual(wordSelectionEvents([[{ row: 'ja', a: 1, b: 1 }], [{ row: 'ja', a: 1, b: 1 }]]),
+    [[{ captionId: 'ja', from: 2, to: 3 }]]);
+});
+
+test('英語の二語選択は先頭の空白を外して送る', () => {
+  assert.deepEqual(wordSelectionEvents([[{ row: 'en', a: 0, b: 1 }]]),
+    [[{ captionId: 'en', from: 1, to: 12 }]]);
+});
+
+test('二行を足して選ぶと二行の書記素範囲を送る', () => {
+  assert.deepEqual(wordSelectionEvents([[{ row: 'ja', a: 1, b: 1 }, { row: 'en', a: 0, b: 1 }]]),
+    [[{ captionId: 'ja', from: 2, to: 3 }, { captionId: 'en', from: 1, to: 12 }]]);
+});
+
+test('語の選択を外すと空の範囲を送る', () => {
+  assert.deepEqual(wordSelectionEvents([[{ row: 'ja', a: 1, b: 1 }], []]),
+    [[{ captionId: 'ja', from: 2, to: 3 }], []]);
+});
 function widget(overrides = {}) {
   return Object.assign(Object.create(AkariDaihonWidget.prototype), {
     rows: buildDaihonRows([...spoken, ...placed], null), sourceCaptions: structuredClone([...spoken, ...placed]),
@@ -61,21 +104,152 @@ function widget(overrides = {}) {
   });
 }
 
-test('全行テンプレは発話だけ、札のテンプレは output caption に適用する', async () => {
-  const documents = structuredClone([...spoken, ...placed]);
+test('全行スタイルは発話だけ、札のスタイルは output caption に一回で適用する', async () => {
   const calls = [];
-  const instance = widget({ async withHistory(_label, operation) { await operation(); }, annotationsService: { async setCaptionStylePreset(request) {
+  const instance = widget({ async runCaptionCommand(_label, operation) {
+    return operation({ request: { projectRootUri: '', captionsUri: '', editUri: '', expectedHashes: {} } });
+  }, annotationsService: { async applyCaptionStyle(request) {
     calls.push(request);
-    for (const caption of documents) if (request.captionIds.includes(caption.id)) caption.style_preset = request.presetId;
-    return { changed: request.captionIds.length };
+    return { ok: true, written: ['captions.json'], changed: request.input.targets.map((_, index) => `captions[${index}].text_style`), notices: [] };
   } } });
   await instance.applyPreset(instance.rowOrder(), 'subtitle-news', 'ニュース', false);
-  assert.deepEqual(calls[0].captionIds, spoken.map(item => item.id));
-  assert.deepEqual(documents.filter(item => item.timeDomain === 'output'), placed);
+  assert.deepEqual(calls[0].input.targets.map(item => item.caption_id), spoken.map(item => item.id));
   await instance.applyPreset(['r1', 'p1'], 'subtitle-standard', '標準', true);
-  assert.deepEqual(calls[1].captionIds, ['r1', 'p1']);
+  assert.deepEqual(calls[1].input.targets.map(item => item.caption_id), ['r1', 'p1']);
   await instance.applyPreset(['p2'], 'subtitle-news', 'ニュース', true);
-  assert.deepEqual(calls[2].captionIds, ['p2']);
+  assert.deepEqual(calls[2].input.targets.map(item => item.caption_id), ['p2']);
+});
+
+test('台本の段階サイズは複数行を一回の setCaptionSize に渡す', async () => {
+  const calls = [];
+  const instance = widget({ async runCaptionCommand(_label, operation) {
+    return operation({ request: { expectedHashes: { captions: 'before', edit: 'before' } } });
+  }, annotationsService: { async setCaptionSize(request) {
+    calls.push(request);
+    return { ok: true, written: ['captions.json'], changed: [], notices: [] };
+  } } });
+  await instance.saveDockLook(['r1', 'r2'], 'size', 72);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].input, { targets: [{ caption_id: 'r1' }, { caption_id: 'r2' }], size_px: 72 });
+  assert.deepEqual(calls[0].expectedHashes, { captions: 'before', edit: 'before' });
+});
+
+test('台本の選んだ一語は look だけを一回の applyCaptionStyle に渡す', async () => {
+  const caption = { id: 'c-0001', text: 'AKARI 便利', start: 0, end: 2,
+    words: [{ text: 'AKARI', start: 0, end: 1 }, { text: ' 便利', start: 1, end: 2 }] };
+  const calls = [];
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 1, b: 1 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify({ captions: [caption] }), request: { expectedHashes: {} } });
+    }, annotationsService: { async applyCaptionStyle(request) {
+      calls.push(request);
+      return { ok: true, written: ['captions.json'], changed: [], notices: [] };
+    } } });
+  await instance.applyWordPreset('news-yellow-label');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].input.targets, [{ caption_id: caption.id, range: { from: 6, to: 8 } }]);
+  assert.deepEqual(Object.keys(calls[0].input.parts), ['look']);
+  assert.deepEqual(calls[0].input.source, { kind: 'builtin', id: 'news-yellow-label' });
+});
+
+test('選択後に語の区切りが変わった行は新しい hash だけで別の語へ当てない', async () => {
+  const caption = { id: 'c-0001', text: '赤い猫', start: 0, end: 1,
+    words: [{ text: '赤い', start: 0, end: 0.5 }, { text: '猫', start: 0.5, end: 1 }] };
+  const calls = [], notices = [];
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 1, b: 1 }],
+    wordUnitsByRowId: new Map([[caption.id, [{ text: '犬', tokenFrom: 1, tokenTo: 1 }]]]),
+    notifyError: message => notices.push(message),
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify({ captions: [caption] }), request: { expectedHashes: {} } });
+    }, annotationsService: { applyCaptionStyle: request => calls.push(request) } });
+  await instance.applyWordPreset('news-yellow-label');
+  assert.deepEqual(calls, []);
+  assert.equal(notices.length, 1);
+});
+
+test('台本の語の印は run の色と台紙が旧い強調より優先する', () => {
+  const instance = widget();
+  const caption = { id: 'c-0001', text: '猫', start: 0, end: 1, src: 's1',
+    words: [{ text: '猫', start: 0, end: 1 }] };
+  const root = { captions: [{ ...caption, runs: [{ from: 0, to: 1,
+    look: { color: '#202020', background: { color: '#ffd948' } } }] }],
+  emphasis_words: [{ word: '猫', src: 's1', t_start: 0, t_end: 1, style_preset: 'emphasis-red' }] };
+  assert.deepEqual(instance.resolveWordPresets(root, [caption]).get(caption.id),
+    [{ color: '#202020', background: '#ffd948' }]);
+});
+
+test('words の連結が本文と異なる行では run の印をずらして出さない', () => {
+  const instance = widget();
+  const caption = { id: 'c-0001', text: '赤い猫', start: 0, end: 1,
+    words: [{ text: '青い', start: 0, end: 0.5 }, { text: '猫', start: 0.5, end: 1 }] };
+  const root = { captions: [{ ...caption, runs: [{ from: 0, to: 2, look: { color: '#ffffff' } }] }] };
+  assert.equal(instance.resolveWordPresets(root, [caption]).has(caption.id), false);
+});
+
+test('隣の範囲の端の空白だけと重なる語には印を付けない', () => {
+  const caption = { id: 'c-0001', text: 'I will explain how the transcript gets a', start: 0, end: 8,
+    words: ['I', ' will', ' explain', ' how', ' the', ' transcript', ' gets', ' a']
+      .map((text, index) => ({ text, start: index, end: index + 1 })) };
+  const root = { captions: [{ ...caption, runs: [
+    { from: 2, to: 7, look: { color: '#202020', background: { color: '#ffd948' } } },
+    { from: 18, to: 22, look: { color: '#202020', background: { color: '#ffd948' } } }
+  ] }] };
+  const marks = widget().resolveWordPresets(root, [caption]).get(caption.id);
+  assert.equal(marks[2], undefined);
+  assert.equal(marks[3], undefined);
+  assert.deepEqual(marks[1], { color: '#202020', background: '#ffd948' });
+  assert.deepEqual(marks[4], { color: '#202020', background: '#ffd948' });
+});
+
+test('中間の語を字幕全体へ戻す RPC は左右の空白まで [6,19) を渡す', async () => {
+  const caption = { id: 'c-0001', text: 'I will explain how the transcript gets a', start: 0, end: 8,
+    words: ['I', ' will', ' explain', ' how', ' the', ' transcript', ' gets', ' a']
+      .map((text, index) => ({ text, start: index, end: index + 1 })),
+    runs: [{ from: 2, to: 22, look: { color: '#202020' } }] };
+  const calls = [];
+  const instance = widget({ sourceCaptions: [{ ...caption, displayText: undefined }],
+    wordRanges: [{ row: caption.id, a: 2, b: 3 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify({ captions: [caption] }), request: { expectedHashes: {} } });
+    }, annotationsService: { async clearCaptionStyle(request) {
+      calls.push(request);
+      return { ok: true, written: ['captions.json'], changed: [], notices: [] };
+    } } });
+  await instance.clearWordPreset();
+  assert.deepEqual(calls[0].input, { targets: [{ caption_id: caption.id, range: { from: 6, to: 19 } }],
+    mode: 'range' });
+});
+
+test('見た目の無い語を戻しても書かず一行で知らせる', async () => {
+  const caption = { id: 'c-0001', text: '猫', start: 0, end: 1,
+    words: [{ text: '猫', start: 0, end: 1 }] };
+  const writes = [], notices = [];
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 0, b: 0 }],
+    notify: message => notices.push(message),
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify({ captions: [caption] }), request: {} });
+    }, annotationsService: { clearCaptionStyle: request => writes.push(request) } });
+  await instance.clearWordPreset();
+  assert.deepEqual(writes, []);
+  assert.deepEqual(notices, ['選んだ文字に見た目は当たっていません']);
+});
+
+test('旧い強調だけの語も range 解除を一回呼ぶ', async () => {
+  const caption = { id: 'c-0001', text: '猫', start: 0, end: 1,
+    words: [{ text: '猫', start: 0, end: 1 }] };
+  const writes = [];
+  const root = { captions: [caption], emphasis_words: [{ word: '猫', t_start: 0, t_end: 1 }] };
+  const instance = widget({ sourceCaptions: [caption], wordRanges: [{ row: caption.id, a: 0, b: 0 }],
+    async runCaptionCommand(_label, operation) {
+      return operation({ captions: JSON.stringify(root), request: { expectedHashes: {} } });
+    }, annotationsService: { async clearCaptionStyle(request) {
+      writes.push(request);
+      return { ok: true, written: ['captions.json'], changed: [], notices: [] };
+    } } });
+  await instance.clearWordPreset();
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].input,
+    { targets: [{ caption_id: caption.id, range: { from: 0, to: 1 } }], mode: 'range' });
 });
 
 test('無音提案と行結合の対象に output は入らない', async () => {
@@ -881,7 +1055,7 @@ test('語と候補を選ぶと下部バーの操作が切り替わる', () => {
   try {
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent),
-      ['「語」', '✎ 直す', '✦ 強調', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
+      ['「語」', '✎ 直す', '✦ 選んだ文字だけ', '✂ 映像ごとカット', '字幕からだけ消す（音声はそのまま）', '⏸ 間を入れる', '✕']);
     instance.candidateBar = { title: 'フィラー「えー」', actions: [{ label: '字幕からだけ消す（音声はそのまま）', run() {} }] };
     instance.renderActionBar();
     assert.deepEqual(actionBar.children.map(child => child.textContent), ['フィラー「えー」', '字幕からだけ消す（音声はそのまま）', '✕']);
