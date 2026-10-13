@@ -4,6 +4,13 @@
   "title": "AKARI Sounds 効果音（v0）",
   "description": "自社音源ライブラリ AKARI Sounds の効果音パック。3 トラック / 3 テイク。全トラック AI 生成（Suno 有料プラン）で、生成記録（日時・プロンプト・生成元 URL）は akari-sounds の catalog.json に公開されている【2026-08-23 縮小】SFX 供給源の参照転換（オーナー裁定）により、whoosh-paper / snap-dry / click-typewriter の 3 点を残して引退。引退記録: 内部リポ assets/audio/sfx-retirement-2026-08-23.json",
   "when_to_use": "紙の風切り（whoosh-paper）・乾いたスナップ（snap-dry）・タイプライター打鍵（click-typewriter）。他の効果音は参照パック（otologic-sfx-selection / soundeffect-lab-* 等）を使う",
+  "i18n": {
+    "en": {
+      "title": "AKARI Sounds Sound Effects (v0)",
+      "description": "A sound-effects pack from the in-house AKARI Sounds library: 3 tracks and 3 takes. All tracks were AI-generated on a paid Suno plan. Generation records (dates, prompts, and source URLs) are published in akari-sounds catalog.json. Reduced on 2026-08-23 after an owner decision to switch SFX supply to reference sources; only whoosh-paper, snap-dry, and click-typewriter remain. Retirement record: assets/audio/sfx-retirement-2026-08-23.json in the internal repository.",
+      "when_to_use": "For a paper whoosh (whoosh-paper), dry snap (snap-dry), or typewriter keystroke (click-typewriter). Use reference packs such as otologic-sfx-selection or soundeffect-lab-* for other effects."
+    }
+  },
   "tags": [
     "akari-sounds",
     "sfx",

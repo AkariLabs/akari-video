@@ -4,6 +4,16 @@
   "title": "現代的なスマートフォン 3D モデル（縁なしスクリーン）",
   "description": "縁なし（edge-to-edge）スクリーンを持つ現代的なスマートフォンの高精細 3D モデル（4K テクスチャ、Base Color / Metallic / Roughness / Mixed AO / Normal / Height）。画面差し込みのモックアップ用途に使える",
   "when_to_use": "アプリ紹介・UI 解説・プロダクトデモで、実機に画面を映し込んだモックアップ映像を作るとき",
+  "i18n": {
+    "en": {
+      "title": "Modern Smartphone 3D Model (Edge-to-Edge Screen)",
+      "description": "A high-detail 3D model of a modern smartphone with an edge-to-edge screen and 4K textures (Base Color / Metallic / Roughness / Mixed AO / Normal / Height). Suitable for mockups with inserted screen content.",
+      "when_to_use": "For making mockup footage that displays an app screen on a real-device-style phone in app introductions, UI explainers, or product demos.",
+      "knobs": {
+        "--rotate-y": "Horizontal rotation"
+      }
+    }
+  },
   "tags": ["product-demo", "smartphone", "mockup", "screen-insert", "ui", "hero-shot", "16:9"],
   "knobs": [
     { "cssVar": "--rotate-y", "type": "slider", "min": -45, "max": 45, "unit": "deg", "group": "pose", "label": "水平回転" }

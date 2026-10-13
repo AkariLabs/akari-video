@@ -4,6 +4,13 @@
   "title": "UI 操作音 SFX パック",
   "description": "ボタン・スイッチ・クリックなど UI 操作を想定した効果音 50 点セット。短く軽い電子音が中心で、画面操作の実演やテロップ出現に合わせやすい",
   "when_to_use": "UI 解説・アプリデモ動画でのクリック/タップ音の同期、テロップやボタンの出現に合わせる短い効果音が欲しいとき",
+  "i18n": {
+    "en": {
+      "title": "UI Click SFX Pack",
+      "description": "A 50-item set of sound effects for buttons, switches, clicks, and other UI operations, mostly short, light electronic sounds that fit screen demonstrations and caption entrances.",
+      "when_to_use": "For syncing clicks and taps in UI explainers or app demos, and for short sounds accompanying captions or buttons as they appear."
+    }
+  },
   "tags": ["sfx", "ui", "click", "notification", "interface"],
   "knobs": [],
   "ai_usage": "取得後は音源をそのまま overlays/broll のタイミングに合わせて配置する用途を想定。音源そのもの（波形）は改変しない。音量調整は edit.json 側のクリップ音量パラメータで行い、素材自体のマスタリングはしない",

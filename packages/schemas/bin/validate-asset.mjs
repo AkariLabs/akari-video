@@ -78,6 +78,7 @@ function validateMeta(value) {
   // タスクで新設 — scene3d ライブ経路の glb 内蔵クリップ一覧を機械可読にする）。
   const optionalFields = [
     "source",
+    "aliases",
     "i18n",
     "remote",
     "matched_by",
@@ -111,6 +112,7 @@ function validateMeta(value) {
   }
 
   validateStringArray(value.tags, "tags");
+  if (hasOwn(value, "aliases")) validateStringArray(value.aliases, "aliases");
   validateStringArray(value.requires, "requires");
   validateKnobs(value.knobs);
   if (hasOwn(value, "i18n")) validateI18n(value.i18n, value.knobs);

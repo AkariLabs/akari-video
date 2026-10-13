@@ -5,6 +5,16 @@
   "aliases": ["コーポレート・ロゴ","コーポレート・ロゴ（ラウンド）","Corporate Logo Rounded"],
   "description": "ロゴタイプJP が源柔ゴシック（源ノ角ゴシック派生）にオリジナルかなを組み合わせた角丸ゴシック。ロゴ風の締まった見出しが作れる。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
   "when_to_use": "企業ロゴ風・タイトルロゴ風の強調見出しやチャンネル名表示に",
+  "i18n": {
+    "en": {
+      "title": "Corporate Logo Rounded Ver. 3",
+      "description": "A rounded-corner sans serif by Logotype.jp combining Gen Jyuu Gothic (derived from Source Han Sans) with original kana. It makes crisp logo-like headlines. OFL-1.1 permits bundling the font later; currently this is a reference-only listing.",
+      "when_to_use": "For emphasized headlines and channel-name displays styled like corporate or title logos.",
+      "aliases": [
+        "Corporate Logo Rounded"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

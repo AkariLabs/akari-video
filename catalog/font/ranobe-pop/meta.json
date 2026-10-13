@@ -5,6 +5,13 @@
   "aliases": ["07ラノベPOP"],
   "description": "フォントな（fontna）のライトノベル風ポップ体。丸みとマジックペンの力強さを併せ持ち、ポップ系テロップの定番。無料・商用可だが再配布不可のため参照配布のみ。",
   "when_to_use": "ポップ・かわいい・ラノベ風のタイトルや見出しテロップに",
+  "i18n": {
+    "en": {
+      "title": "07 Ranobe POP",
+      "description": "A light-novel-style pop font by fontna. It combines rounded forms with marker-pen force and is a staple of pop captions. Free for commercial use, but redistribution is prohibited, so this is a reference-only listing.",
+      "when_to_use": "For pop, cute, or light-novel-style titles and headline captions."
+    }
+  },
   "tags": [
     "font",
     "japanese",

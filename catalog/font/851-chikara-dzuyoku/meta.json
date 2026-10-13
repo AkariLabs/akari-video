@@ -5,6 +5,13 @@
   "aliases": ["851チカラヅヨク","851 Chikara Dzuyoku"],
   "description": "太マジックで書き殴ったような手書きフォント（配布元: 8:51:22 pm）。YouTube のツッコミテロップの超定番。商用利用可・許可不要だが、フォントファイルの再配布・販売は禁止のため参照配布のみ（実体は各自取得）。",
   "when_to_use": "強いツッコミ・怒り・勢い系の手書きテロップに（バラエティの定番トーン）",
+  "i18n": {
+    "en": {
+      "title": "851 Chikara Dzuyoku",
+      "description": "A handwritten font resembling bold marker scrawls (distributed by 8:51:22 pm). A staple for emphatic YouTube reaction captions. Commercial use is allowed without permission, but redistribution or sale of the font files is prohibited, so this is a reference-only listing; users obtain the files themselves.",
+      "when_to_use": "For forceful retorts, anger, and energetic handwritten captions in a classic variety-show style."
+    }
+  },
   "tags": [
     "font",
     "japanese",

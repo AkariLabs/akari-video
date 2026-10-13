@@ -4,6 +4,21 @@
   "title": "ヴィンテージカメラ・ターンテーブル（ベイクレシピ）",
   "description": "クラシックレンジファインダーカメラ（27K tri）をスタジオ HDRI の環境光で周回撮影するヒーローショットを、Blender ヘッドレスで mp4 クリップ素材に焼き込むベイクレシピ。開始角・周回量・見下ろし角・寄り引き・環境光の向きと強さをツマミで調整できる",
   "when_to_use": "レトロ・アナログ演出のオープニングカットや製品紹介のヒーローショットに、実写では用意しにくい滑らかな周回ショットのクリップ素材が要るとき",
+  "i18n": {
+    "en": {
+      "title": "Vintage Camera Turntable (Bake Recipe)",
+      "description": "A bake recipe that renders a hero clip of a classic rangefinder camera (27K triangles) orbiting under studio HDRI lighting to MP4 with headless Blender. Knobs adjust the starting angle, orbit sweep, high-angle tilt, push-in/pull-out, and ambient-light direction and strength.",
+      "when_to_use": "For retro or analog opening shots and product hero shots that need a smooth orbit clip difficult to capture in live action.",
+      "knobs": {
+        "orbit_start_deg": "Orbit start angle",
+        "orbit_sweep_deg": "Orbit sweep",
+        "camera_elevation_deg": "High-angle tilt",
+        "camera_distance": "Push-in/pull-out (automatic framing ratio)",
+        "hdri_rotation_deg": "Ambient light direction",
+        "exposure": "Exposure (ambient light intensity)"
+      }
+    }
+  },
   "tags": ["bake-recipe", "product-demo", "vintage", "camera", "hero-shot", "turntable", "16:9"],
   "knobs": [
     { "param": "orbit_start_deg", "type": "slider", "min": 0, "max": 360, "unit": "deg", "group": "pose", "label": "周回の開始角" },

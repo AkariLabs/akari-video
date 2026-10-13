@@ -5,6 +5,13 @@
   "aliases": ["異世ゴ"],
   "description": "フロップデザインの「異世界転移のぐにゃり感」を再現した歪みゴシック。漢字ゴシック + かな明朝の混植で違和感のある動きを出せる。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
   "when_to_use": "異世界・夢・違和感・酩酊などの演出テロップに",
+  "i18n": {
+    "en": {
+      "title": "Isego",
+      "description": "A distorted sans serif by Flop Design that evokes the warping effect of transport to another world. It mixes sans serif kanji with serif kana for deliberately unsettling motion. OFL-1.1 permits bundling the font later; currently this is a reference-only listing.",
+      "when_to_use": "For otherworldly, dreamlike, disorienting, or intoxicated-looking captions."
+    }
+  },
   "tags": [
     "font",
     "japanese",

@@ -4,6 +4,13 @@
   "title": "AKARI Sounds BGM（v0）",
   "description": "自社音源ライブラリ AKARI Sounds のBGMパック。99 トラック / 110 テイク。全トラック AI 生成（Suno 有料プラン）で、生成記録（日時・プロンプト・生成元 URL）は akari-sounds の catalog.json に公開されている",
   "when_to_use": "解説・Vlog・作業風景などの敷き BGM。テンションや BPM はトラックのタグを参照",
+  "i18n": {
+    "en": {
+      "title": "AKARI Sounds BGM (v0)",
+      "description": "A BGM pack from the in-house AKARI Sounds library: 99 tracks and 110 takes. All tracks were AI-generated on a paid Suno plan. Generation records (dates, prompts, and source URLs) are published in akari-sounds catalog.json.",
+      "when_to_use": "For background music under explainers, vlogs, and work scenes. Check track tags for energy and BPM."
+    }
+  },
   "tags": [
     "akari-sounds",
     "bgm",

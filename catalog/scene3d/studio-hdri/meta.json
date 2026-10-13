@@ -4,6 +4,16 @@
   "title": "スタジオ HDRI（自然光ミックス）",
   "description": "明るいホームオフィス風スタジオを撮影した 24K 高解像度 HDRI。柔らかい自然光とダウンライトが混ざった低コントラストな環境光で、Three.js 上の 3D 素材に自然な反射・陰影を与える",
   "when_to_use": "3D モデル（製品モックアップ等）を画面内に置くシーンで、単色背景ではなく自然な環境光の映り込み・陰影が欲しいとき。特に製品紹介・UI 解説カットの背景/環境光として",
+  "i18n": {
+    "en": {
+      "title": "Studio HDRI (Mixed Natural Light)",
+      "description": "A 24K high-resolution HDRI captured in a bright home-office-style studio. Soft natural light and downlights mix into low-contrast ambient light, giving 3D assets in Three.js natural reflections and shading.",
+      "when_to_use": "For scenes with 3D models such as product mockups that need natural environmental reflections and shading rather than a flat background, especially product introductions and UI explainers.",
+      "knobs": {
+        "--exposure": "Exposure (ambient light intensity)"
+      }
+    }
+  },
   "tags": ["hdri", "environment-light", "studio", "product-demo", "16:9", "9:16"],
   "knobs": [
     { "cssVar": "--exposure", "type": "slider", "min": 0.2, "max": 2, "unit": "x", "group": "lighting", "label": "露出（環境光強度）" }

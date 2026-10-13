@@ -5,6 +5,13 @@
   "aliases": ["棘薔薇フォント"],
   "description": "薔薇の棘のように先端が尖ったアンチック系書体（漢字明朝 + かなゴシック、3 ウェイト）。高貴・ゴシックホラーのトーン。配布元（ゲーム実況フォント）で商用可とされるが、取得時に規約を最終確認のうえ参照配布のみ。",
   "when_to_use": "高貴・毒・ゴシックホラー系の決め台詞や強調テロップに",
+  "i18n": {
+    "en": {
+      "title": "Togebara Font",
+      "description": "An antique-style typeface with rose-thorn-like pointed ends, mixing serif kanji and sans serif kana in three weights. It evokes nobility and gothic horror. The distributor, Game Jikkyou Font, says commercial use is allowed, but terms must be confirmed at acquisition; reference-only listing.",
+      "when_to_use": "For noble, poisonous, or gothic-horror statement captions and emphasized text."
+    }
+  },
   "tags": [
     "font",
     "japanese",

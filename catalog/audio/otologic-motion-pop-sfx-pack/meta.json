@@ -4,6 +4,13 @@
   "title": "OtoLogic モーション・ポップ / 光るオノマトペパック",
   "description": "アニメ調の軽快なポップモーション音4種（Motion-Pop19-1〜4）と、光る/フラッシュ系のオノマトペ音1種（Onoma-Flash10-1 低音バリエーション）の計5点セット。（収録数: 5点）",
   "when_to_use": "キャラクターの可愛い動作・ポップな出現/移動モーション、または光る/フラッシュする演出のアクセントを入れたいとき",
+  "i18n": {
+    "en": {
+      "title": "OtoLogic Motion Pop and Flash Onomatopoeia Pack",
+      "description": "Five effects: four light anime-style pop-motion sounds (Motion-Pop19-1 through 4) and one glowing or flashing onomatopoeia sound (the low-pitched Onoma-Flash10-1 variant). Includes 5 items.",
+      "when_to_use": "For cute character actions, pop entrances or movement, and glowing or flashing accents."
+    }
+  },
   "tags": [
     "sfx",
     "motion",

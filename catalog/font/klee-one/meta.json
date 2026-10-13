@@ -5,6 +5,16 @@
   "aliases": ["Klee One","KleeOne-Regular"],
   "description": "手書きの教科書体（クレー）。人の手のぬくもりが要るシーン・手紙風・ナレーション風テロップに向く。 実体（Regular）は本リポの assets/font/klee-one/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "手書き風・手紙風・やさしいナレーションテロップ",
+  "i18n": {
+    "en": {
+      "title": "Klee One",
+      "description": "A handwritten textbook-style font with a human touch, suited to letter-like and narration-style captions. The Regular file is bundled in assets/font/klee-one/ (added 2026-08-03). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For handwritten or letter-like captions and gentle narration captions.",
+      "aliases": [
+        "KleeOne-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

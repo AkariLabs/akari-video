@@ -4,6 +4,13 @@
   "title": "DOVA-SYNDROME 定番BGM（2:23 AM / Morning）",
   "description": "Vlog・解説の敷きに使える定番の落ち着き/ポップ系 BGM 2 点。（収録数: 2点）",
   "when_to_use": "Vlog の出だし・締め・ガジェット/IT 系の敷き（2_23_AM）、外出・ポジティブな場面（Morning）",
+  "i18n": {
+    "en": {
+      "title": "DOVA-SYNDROME Standard BGM (2:23 AM / Morning)",
+      "description": "Two standard calm and pop background tracks for vlogs and explainers. Includes 2 items.",
+      "when_to_use": "For vlog openings and endings or gadget and IT backgrounds (2_23_AM), and outings or upbeat scenes (Morning)."
+    }
+  },
   "tags": [
     "bgm",
     "calm",

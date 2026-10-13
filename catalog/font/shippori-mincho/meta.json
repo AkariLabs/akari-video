@@ -5,6 +5,16 @@
   "aliases": ["Shippori Mincho","ShipporiMincho-Regular"],
   "description": "ディスプレイ寄りの日本語明朝体。文芸・シネマ・和風の演出に向く representativeな明朝トーン。 実体（Regular）は本リポの assets/font/shippori-mincho/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "シネマ調・和風・感情的な決め台詞のテロップ",
+  "i18n": {
+    "en": {
+      "title": "Shippori Mincho",
+      "description": "A display-oriented Japanese serif with a literary, cinematic, and Japanese-style tone. The Regular file is bundled in assets/font/shippori-mincho/ (added 2026-08-03). This catalog entry remains an index; its source field records the origin.",
+      "when_to_use": "For cinematic or Japanese-style captions and emotionally charged closing lines.",
+      "aliases": [
+        "ShipporiMincho-Regular"
+      ]
+    }
+  },
   "tags": [
     "font",
     "japanese",

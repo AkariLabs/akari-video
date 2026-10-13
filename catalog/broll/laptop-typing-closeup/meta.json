@@ -4,6 +4,13 @@
   "title": "ノート PC タイピング クローズアップ",
   "description": "ノート PC のキーボードを操作する手元のクローズアップ映像（1920x1080 / 24fps / 12秒）。顔が映らないため用途を選ばず、テック・リモートワーク・オンラインサービス関連の説明シーンのつなぎに使える汎用 B ロール",
   "when_to_use": "SaaS/アプリ紹介、リモートワーク解説、オンラインサービスの導入部やシーン転換のつなぎカットなど、「作業中であること」を示す一般的な手元ショットが欲しいシーン",
+  "i18n": {
+    "en": {
+      "title": "Laptop Typing Close-Up",
+      "description": "A close-up of hands typing on a laptop keyboard (1920x1080 / 24fps / 12 seconds). Because no face appears, this versatile B-roll can bridge explanations about tech, remote work, and online services.",
+      "when_to_use": "For SaaS or app introductions, remote-work explainers, and bridging cuts or scene transitions needing a general working-hands shot."
+    }
+  },
   "tags": ["broll", "tech", "desk-work", "laptop", "typing", "remote-work", "16:9", "generic"],
   "knobs": [],
   "ai_usage": "取得後はクロップ・速度調整・色調補正の範囲で使ってよい。手元のみで人物が特定できない汎用ショットのため、他素材とのつなぎ・トランジションの下地として自由に使ってよい。画面内容やロゴの合成差し替えは行わない（実写としての信頼性を損なうため）",
