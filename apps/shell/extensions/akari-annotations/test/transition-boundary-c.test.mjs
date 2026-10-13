@@ -70,6 +70,40 @@ test('Delete on an active boundary removes its transition and never reaches clip
   assert.equal(removed, 1);
 });
 
+test('selecting a clip after a boundary releases the transition Delete target', () => {
+  const state = {
+    activeBoundary: { earlierItemId: 'a', laterItemId: 'b' }, multiSelection: [],
+    selection: undefined, selectionKey: item => item?.kind ?? '',
+    scheduleStripRender() {}, claimInspectorOwner() {}, pushSelectionSnapshot() {},
+    applySelectionClass() {}, publishPrimaryPreviewSelection() {}
+  };
+  state.releaseTransitionBoundaryForOtherSelection = widgetMethod('releaseTransitionBoundaryForOtherSelection');
+  widgetMethod('toggleMultiSelection', { togglePreviewSelection: (_items, item) => [item] })
+    .call(state, { kind: 'cut', index: 0 });
+  assert.equal(state.activeBoundary, undefined);
+  assert.equal(timelineDeletePlan({ keyframe: false, transition: !!state.activeBoundary,
+    gap: false, range: false, selection: !!state.selection,
+    shift: false, autoRipple: false, oneSide: false }).target, 'selection');
+});
+
+test('clearing a boundary republishes the empty inspector selection', () => {
+  let snapshots = 0;
+  let classes = 0;
+  const state = {
+    activeBoundary: { earlierItemId: 'a', laterItemId: 'b' },
+    selection: undefined, multiSelection: [], selectedGap: undefined,
+    selectionKey: () => '', scheduleStripRender() {},
+    exitFocusUnlessSelected() {}, exitTrimmerModeUnlessSelected() {},
+    pushSelectionSnapshot() { snapshots++; }, applySelectionClass() { classes++; },
+    claimInspectorOwner() {}, syncRightPane() {}
+  };
+  state.releaseTransitionBoundaryForOtherSelection = widgetMethod('releaseTransitionBoundaryForOtherSelection');
+  widgetMethod('applySelection').call(state, undefined, false);
+  assert.equal(state.activeBoundary, undefined);
+  assert.equal(snapshots, 1);
+  assert.equal(classes, 1);
+});
+
 test('all same-track neighbours are candidates with separate block reasons', () => {
   assert.deepEqual(computeCutBoundaryCandidates(pair(), 30, 2)[0].blocks, ['multi-track']);
   assert.deepEqual(computeCutBoundaryCandidates(pair({ trackOrderValid: false }))[0].blocks, ['track-order']);

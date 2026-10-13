@@ -3063,10 +3063,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
-        if (!this.transitionPicker && this.activeBoundary) {
-            this.activeBoundary = undefined;
-            this.scheduleStripRender();
-        }
+        const hadBoundary = this.releaseTransitionBoundaryForOtherSelection();
         if (this.selectionKey(this.selection) !== this.selectionKey(selection)) this.setPendingPreviewKeyframes?.(undefined);
         this.exitFocusUnlessSelected?.(selection);
         if (!this.preserveMarqueeRange && this.selectionMarquee) this.clearMarqueeRange();
@@ -3084,7 +3081,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection || hadMultiSelection || hadGap) {
+            if (selection || hadMultiSelection || hadGap || hadBoundary) {
                 this.claimInspectorOwner?.();
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
@@ -3186,6 +3183,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applyPreviewMixedSelection(selection: Array<{ kind: 'caption' | 'layer' | 'overlay'; id: string }>): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         const selected = selection.map(item => {
             const row = this.timelineTreeRows.find(candidate => candidate.id === item.id
                 || item.kind === 'caption' && this.rawKeyframeItem(candidate.id)?.source?.id === item.id);
@@ -3208,6 +3206,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
+        this.releaseTransitionBoundaryForOtherSelection();
         this.previewBagSelection = undefined;
         const candidates = togglePreviewSelection(this.multiSelection.length > 0
             ? this.multiSelection : this.selection ? [this.selection] : [], item,
@@ -3218,6 +3217,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         this.publishPrimaryPreviewSelection(this.selection ?? candidates[candidates.length - 1]);
+    }
+
+    protected releaseTransitionBoundaryForOtherSelection(): boolean {
+        if (this.transitionPicker || !this.activeBoundary) return false;
+        this.activeBoundary = undefined;
+        this.scheduleStripRender();
+        return true;
     }
 
     /**
@@ -3635,8 +3641,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return this.handleAudioAutoLevelWrite(request);
         }
         if (request.kind === 'transition-boundary') {
-            if (request.value && (!Number.isFinite(request.value.duration)
-                || request.value.duration < 0.1 || request.value.duration > 3)) {
+            if (request.value && !isTransitionType(request.value.type)) {
+                return { ok: false, message: t('transition.inspector.error.unknownType') };
+            }
+            const currentDuration = this.rawV2Item?.(request.ref.earlierItemId)?.source?.transition_out?.duration;
+            if (request.value && request.value.duration !== currentDuration
+                && (!Number.isFinite(request.value.duration)
+                    || request.value.duration < 0.1 || request.value.duration > 3)) {
                 return { ok: false, message: t('transition.inspector.error.durationRange') };
             }
             if (this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks)) {
@@ -12174,9 +12185,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, bgmInlineId, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: bgmInlineId, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, bgm.path);
         }
@@ -12283,9 +12298,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, narration.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: narration.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, narration.path);
             const speech = this.audioSpeech?.find(item => item.id === narration.id);
@@ -12462,9 +12481,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 commit: (label, patch) => this.commitEditMutation(label,
                     doc => patchInlineAudioItemForWrite(doc, sfx.id, patch)),
                 onError: message => { this.showNotice(message); this.messages.warn(message); },
-                selectPoint: frame => { this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
-                }; }
+                selectPoint: frame => {
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: sfx.id, property: 'gain_db' as KeyframeProperty, times: [frame]
+                    };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
+                }
             });
             this.applyAudioGenerationChip(element, sfx.path);
         });
@@ -12960,6 +12983,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!earlier || !later) return undefined;
         const declaration = boundary.transitionOut;
         const handle = declaration ? this.transitionHandleInputSync(earlier, later) : undefined;
+        const outgoingCut = this.cuts[earlier.index];
+        const outgoingUri = outgoingCut && !this.isStillImageCut(outgoingCut)
+            ? this.cutVideoUri(outgoingCut) : undefined;
+        const hasOutgoingDuration = outgoingUri
+            && typeof this.videoDurationCache.get(outgoingUri) === 'number';
+        const showHandles = !boundary.blocks.some(block => block === 'gap'
+            || block === 'multi-track' || block === 'track-order');
         const placement = declaration && handle ? placeBoundary({ ...handle,
             actualOverlapSeconds: cutOverlapFrames(earlier, later, this.fps) / this.fps }) : undefined;
         const name = (index: number): string => {
@@ -12973,8 +13003,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             later: { index: boundary.laterIndex + 1, name: name(boundary.laterIndex) },
             ...(declaration ? { declaration: { type: declaration.type, duration: declaration.duration } } : {}),
             placement,
-            outgoingTailRoomSeconds: boundary.blocks.length ? undefined : handle?.outgoingTailRoomSeconds,
-            incomingHeadRoomSeconds: boundary.blocks.length ? undefined : handle?.incomingHeadRoomSeconds,
+            outgoingTailRoomSeconds: showHandles && hasOutgoingDuration ? handle?.outgoingTailRoomSeconds : undefined,
+            incomingHeadRoomSeconds: showHandles ? handle?.incomingHeadRoomSeconds : undefined,
             block: primaryBoundaryBlock(boundary.blocks), locked: boundary.blocks.includes('locked'),
             stripUrl: declaration ? this.transitionPreviewUrls[declaration.type]?.strip : undefined
         });
@@ -13152,7 +13182,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const message = this.boundaryBlockMessage(primaryBoundaryBlock(validation.blocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: false, message };
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
@@ -13196,7 +13225,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const message = this.boundaryBlockMessage(primaryBoundaryBlock(writeBlocks));
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: false, message };
         }
         if (didRetract) {
@@ -13209,14 +13237,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const message = t('annotations.timeline.text.transitionIsShortenedToSecondsNotEnoughMaterial', { duration: seconds, n: seconds });
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: true, message };
         }
         if (handle?.outcome === 'none') {
             const message = ZERO_OVERLAP_TRANSITION_MESSAGE();
             this.showNotice(message);
             this.footer.textContent = message;
-            this.messages.warn(message);
             return { ok: true, message };
         }
         if (!next && earlier && later && cutOverlapFrames(earlier, later, this.fps) > 0) {
@@ -13614,10 +13640,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.commitEditMutation(t('annotations.timeline.text.hitAKeyFrame'), doc => setV2Keyframe(doc, {
             itemId, property, t: timeValue15, value, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
+        const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
         this.selectionModel.keyframeSelection = {
             kind: 'keyframe', itemId, property, times: [timeValue15],
             easing: this.segmentEasingAt(itemId, property, timeValue15)
         };
+        if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
     }
 
     protected async moveTimelineKeyframe(
@@ -13793,10 +13821,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (times.length === 0) throw new Error(t('annotations.timeline.text.thereAreNoKeyframes'));
                 const nearest = times.reduce((best, candidate) =>
                     Math.abs(candidate - timeValue17) < Math.abs(best - timeValue17) ? candidate : best);
+                const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                 this.selectionModel.keyframeSelection = {
                     kind: 'keyframe', itemId, property, times: [nearest],
                     easing: this.segmentEasingAt(itemId, property, nearest)
                 };
+                if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                 this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
                 this.applyKeyframePropertySelectionClass();
                 if (!this.scrollTimelineKeyframeRowIntoView(itemId, property)) {
@@ -13817,10 +13847,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.playheadT = row.at + target / this.fps;
                     this.selectedSourceT = this.outputToSource(this.playheadT);
                     await this.requestSeek(this.playheadT, { domain: 'output' });
+                    const releasedBoundary = this.releaseTransitionBoundaryForOtherSelection();
                     this.selectionModel.keyframeSelection = {
                         kind: 'keyframe', itemId, property, times: [target],
                         easing: this.segmentEasingAt(itemId, property, target)
                     };
+                    if (releasedBoundary) { this.pushSelectionSnapshot(); this.applySelectionClass(); }
                     this.applyKeyframePropertySelectionClass();
                 }
                 return { ok: true };
@@ -14912,6 +14944,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setTimelineRange(state: TimelineRangeState): void {
+        if (state.inFrame !== undefined || state.outFrame !== undefined) {
+            if (this.releaseTransitionBoundaryForOtherSelection()) {
+                this.pushSelectionSnapshot();
+                this.applySelectionClass();
+            }
+        }
         this.timelineRange = state;
         this.renderTimelineRangeState();
     }
@@ -19709,6 +19747,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectedGap = gap;
         this.gapRoot = this.location?.editUri.toString();
         this.renderGapBand();
+        this.pushSelectionSnapshot();
         return true;
     }
 
@@ -20010,6 +20049,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (selected.length === 1) {
                     this.applySelection(selected[0]);
                 } else if (selected.length > 1) {
+                    this.releaseTransitionBoundaryForOtherSelection();
                     this.exitTrimmerModeUnlessSelected(undefined);
                     this.selection = undefined;
                     this.multiSelection = selected;

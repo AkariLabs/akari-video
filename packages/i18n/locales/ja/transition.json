@@ -68,6 +68,7 @@
   "transition.inspector.status.locked": "このトラックはロック中です。変更するにはロックを外してください。",
   "transition.inspector.status.unknown": "この版が知らない種類です。クロスフェードで代用して再生・書き出しします。種類を選び直すと、ほかの設定は残ります。",
   "transition.inspector.error.invalidDuration": "正しい長さを入力してください。",
+  "transition.inspector.error.unknownType": "使えない種類のトランジションです。",
   "transition.inspector.error.unavailable": "ロックされていない境目で既知の種類を選んでください。",
   "transition.inspector.error.durationRange": "長さは 0.1〜3 秒で入力してください。",
   "transition.inspector.error.writeFailed": "トランジションを変更できませんでした。",

@@ -1,6 +1,6 @@
 import { t } from '@akari-video/i18n';
 import { TRANSITION_OPEN_PICKER_COMMAND_ID } from '../../common/transition-boundary-model';
-import { transitionDirectionRequest, transitionDurationRequest, transitionInspectorFields,
+import { transitionDirectionRequest, transitionDurationRequest, transitionDurationTextIsValid, transitionInspectorFields,
     type TimelineTransitionSelection } from '../../common/transition-selection-model';
 import type { InspectorWriteRequest, InspectorWriteResult } from '../timeline-selection-model';
 import { createNumberField } from './number-field';
@@ -72,7 +72,9 @@ export function renderTransitionPanel(
         : t('transition.inspector.action.choose'));
     kind.disabled = fields.type.disabled;
     if (fields.type.reasonKey) kind.title = t(fields.type.reasonKey);
-    kind.addEventListener('click', () => void executeCommand(TRANSITION_OPEN_PICKER_COMMAND_ID));
+    kind.addEventListener('click', () => {
+        if (panel.isConnected) void executeCommand(TRANSITION_OPEN_PICKER_COMMAND_ID);
+    });
     kindRow.value.append(kind);
     if (fields.directions.length > 0) {
         const directionRow = row(t('transition.inspector.label.direction'));
@@ -88,6 +90,7 @@ export function renderTransitionPanel(
             button.disabled = fields.type.disabled;
             if (fields.type.reasonKey) button.title = t(fields.type.reasonKey);
             button.addEventListener('click', () => {
+                if (!panel.isConnected) return;
                 const request = transitionDirectionRequest(snapshot, direction.direction);
                 if (request) void write(request).then(report);
             });
@@ -102,6 +105,7 @@ export function renderTransitionPanel(
             value: fields.duration.value, step: 0.05, min: 0.1, max: 3,
             unit: t('transition.inspector.unit.seconds'), displayPrecision: 2, focusRoot,
             onCommit: async value => {
+                if (!panel.isConnected) return false;
                 try {
                     return report(await write(transitionDurationRequest(snapshot, value)));
                 } catch (error) {
@@ -112,8 +116,10 @@ export function renderTransitionPanel(
             }
         });
         const input = number.querySelector<HTMLInputElement>('input');
+        const originalInputValue = input?.value;
         const invalidInput = (): void => {
-            if (!input || input.value.trim() && Number.isFinite(Number(input.value))) return;
+            if (!input || transitionDurationTextIsValid(input.value)) return;
+            input.value = originalInputValue ?? '';
             report({ ok: false, message: t('transition.inspector.error.invalidDuration') });
         };
         input?.addEventListener('blur', invalidInput, true);
@@ -133,6 +139,7 @@ export function renderTransitionPanel(
         reset.textContent = t('transition.inspector.action.reset');
         reset.disabled = fields.duration.disabled;
         reset.onclick = () => {
+            if (!panel.isConnected) return;
             try {
                 void write(transitionDurationRequest(snapshot, null)).then(report);
             } catch { /* The disabled control cannot issue this request. */ }
@@ -160,7 +167,10 @@ export function renderTransitionPanel(
         remove.textContent = t('transition.inspector.action.remove');
         remove.disabled = fields.remove.disabled;
         if (fields.remove.reasonKey) remove.title = t(fields.remove.reasonKey);
-        remove.onclick = () => void write({ kind: 'transition-boundary', ref: snapshot.ref, value: null }).then(report);
+        remove.onclick = () => {
+            if (!panel.isConnected) return;
+            void write({ kind: 'transition-boundary', ref: snapshot.ref, value: null }).then(report);
+        };
         removeRow.append(remove);
         panel.append(removeRow);
     }

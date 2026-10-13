@@ -3,7 +3,7 @@ import * as annotationI18n from '@akari-video/i18n';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cutOverlapFrames, areCutsAdjacent, transitionFamilyOf,
-    planTransitionHandleWindow } from '@akari-video/edit-store';
+    planTransitionHandleWindow, isTransitionType } from '@akari-video/edit-store';
 
 
 
@@ -13,7 +13,8 @@ import { after as resetLanguageAfter } from 'node:test';
 setLanguage('ja');
 resetLanguageAfter(() => setLanguage(undefined));
 const { timelineMethod, timelineSource } = await import('./helpers/perspective-transition-fixture.mjs');
-const { transitionDurationValue, transitionInspectorFields, createTransitionSelection } = await import('../lib/common/transition-selection-model.js');
+const { transitionDurationValue, transitionDurationTextIsValid, transitionInspectorFields,
+    createTransitionSelection } = await import('../lib/common/transition-selection-model.js');
 const { updateItem: updateV2Item } = await import('../lib/common/edit-v2-mutations.js');
 const { formatTransitionSeconds, roundTransitionDurationForWrite } = await import('../lib/common/transition-duration.js');
 const { resolveBoundaryInDocument, validateTransitionBoundaryWrite } = await import('../lib/common/transition-boundary-write.js');
@@ -54,6 +55,10 @@ test('transition boundary fields cover empty, unknown, blocked, locked and remov
     assert.equal(locked.type.disabled, true);
     assert.equal(locked.remove.disabled, true);
     assert.equal(locked.status.key, 'transition.inspector.status.locked');
+    const lockedWithRoom = transitionInspectorFields(selection({ locked: true, block: 'locked',
+        declaration: { type: 'fade', duration: 0.5 }, outgoingTailRoomSeconds: 1,
+        incomingHeadRoomSeconds: 0.5 }));
+    assert.equal(lockedWithRoom.handles.length, 2);
 });
 
 test('transition duration clamps, rounds and resets; invalid input is rejected', () => {
@@ -62,9 +67,11 @@ test('transition duration clamps, rounds and resets; invalid input is rejected',
     assert.equal(transitionDurationValue(1.23), 1.25);
     assert.equal(transitionDurationValue(null), 0.5);
     assert.throws(() => transitionDurationValue('NaN'));
+    for (const input of ['', '  ', 'abc']) assert.equal(transitionDurationTextIsValid(input), false);
+    assert.equal(transitionDurationTextIsValid('0.5'), true);
 });
 
-const handleWrite = timelineMethod('handleInspectorWrite', { transitionFamilyOf });
+const handleWrite = timelineMethod('handleInspectorWrite', { transitionFamilyOf, isTransitionType });
 test('transition-boundary は applyTransitionOut に委譲し、成功・拒否・通知をそのまま返す', async () => {
     const request = { kind: 'transition-boundary', ref, value: { type: 'dissolve', duration: 0.5 } };
     for (const result of [{ ok: true }, { ok: false, message: 'blocked' }, { ok: true, message: 'clamped' }]) {
@@ -92,6 +99,55 @@ test('transition-boundary rejects out-of-range duration before writing', async (
     }
 });
 
+test('transition-boundary rejects unknown types, permits removal and preserves legacy duration on direction change', async () => {
+    const calls = [];
+    const context = { location: {}, editDocument: { tracks: [] }, currentDuration: 4,
+    rawV2Item() { return { source: { transition_out: { duration: this.currentDuration } } }; },
+    async applyTransitionOut(...args) { calls.push(args); return { ok: true }; },
+    rememberTransitionDirection() {} };
+    const request = value => ({ kind: 'transition-boundary', ref, value });
+    assert.equal((await handleWrite.call(context, request({ type: 'future-kind', duration: 0.5 }))).ok, false);
+    assert.deepEqual(calls, []);
+    assert.equal((await handleWrite.call(context, request(null))).ok, true);
+    assert.equal((await handleWrite.call(context, request({ type: 'wipe-right', duration: 4 }))).ok, true);
+    assert.equal((await handleWrite.call(context, request({ type: 'wipe-right', duration: 3.5 }))).ok, false);
+    assert.equal(calls.length, 2);
+    context.currentDuration = 0.5;
+    assert.equal((await handleWrite.call(context, request({ type: 'wipe-right', duration: 4 }))).ok, false);
+    assert.equal(calls.length, 2);
+});
+
+test('transition snapshot only reports measured outgoing room and keeps readable room when locked', () => {
+    const snapshotFor = timelineMethod('transitionSelectionSnapshot', {
+        sameBoundary: () => true, cutOverlapFrames: () => 0,
+        placeBoundary: () => ({ state: 'full', effectiveSeconds: 0.5 }),
+        createTransitionSelection, primaryBoundaryBlock
+    });
+    const state = {
+        activeBoundary: ref, editDocument: {}, fps: 30,
+        transitionBoundaryCandidates: () => [{ ref, earlierIndex: 0, laterIndex: 1,
+            transitionOut: { type: 'dissolve', duration: 0.5 }, blocks: ['locked'] }],
+        segments: [{ index: 0 }, { index: 1 }], cutItemIds: ['cut-1', 'cut-2'],
+        cuts: [{ out: 5 }, { in: 0.25 }], videoDurationCache: new Map(),
+        isStillImageCut: () => false, cutVideoUri: () => 'clip.mp4',
+        transitionHandleInputSync: () => ({ outgoingTailRoomSeconds: 0,
+            incomingHeadRoomSeconds: 0.25 }), rawKeyframeItem: () => undefined,
+        cutSourceName: () => 'clip', transitionPreviewUrls: {}
+    };
+    for (const cached of [undefined, 'pending', 'unavailable']) {
+        state.videoDurationCache = new Map(cached === undefined ? [] : [['clip.mp4', cached]]);
+        const snapshot = snapshotFor.call(state);
+        assert.equal(snapshot.outgoingTailRoomSeconds, undefined);
+        assert.equal(snapshot.incomingHeadRoomSeconds, 0.25);
+        assert.equal(transitionInspectorFields(snapshot).handles.length, 1);
+    }
+    state.videoDurationCache = new Map([['clip.mp4', 5]]);
+    assert.equal(transitionInspectorFields(snapshotFor.call(state)).handles.length, 2);
+    state.transitionBoundaryCandidates = () => [{ ref, earlierIndex: 0, laterIndex: 1,
+        transitionOut: { type: 'dissolve', duration: 0.5 }, blocks: ['gap'] }];
+    assert.equal(transitionInspectorFields(snapshotFor.call(state)).handles.length, 0);
+});
+
 const applyTransitionOut = timelineMethod('applyTransitionOut', {
     updateV2Item, cutOverlapFrames, areCutsAdjacent, formatTransitionSeconds, roundTransitionDurationForWrite,
     validateTransitionBoundaryWrite, resolveBoundaryInDocument, primaryBoundaryBlock,
@@ -105,7 +161,8 @@ function transitionContext(overrides = {}) {
         cutItemIds: ['cut-1', 'cut-2'], compatibilityTimelineTracks: [{ kind: 'cuts' }],
         segments: [{ index: 0, itemId: 'cut-1', track: 0, tlStart: 0, tlEnd: 5 },
             { index: 1, itemId: 'cut-2', track: 0, tlStart: 5, tlEnd: 10 }],
-        messages: { warn() {} }, unsupportedTransitionTrack() {}, nonAdjacentTransitionTarget() {},
+        messages: { warn() { assert.fail('duplicate transition toast'); } },
+        unsupportedTransitionTrack() {}, nonAdjacentTransitionTarget() {},
         nextSameTrackSegment() { return this.segments[1]; },
         async transitionHandlePlan() { return { outcome: 'full', effectiveSeconds: 0.5, halfSeconds: 0.25 }; },
         transitionBoundaryInputs() { return this.segments.map(segment => ({ ...segment,
@@ -187,6 +244,7 @@ test('applyTransitionOut の clamp とゼロ重なりは ok:true + 通知を返�
         });
         const result = await applyTransitionOut.call(context, 0, { type: 'dissolve', duration: 0.5 });
         assert.equal(result.ok, true);
+        assert.equal(context.notices.length, 1);
         assert.equal(result.message, context.notices[0]);
         assert.ok(result.message);
         assert.equal(context.document.tracks[0].items[0].source.transition_out.duration, outcome === 'clamped' ? 0.2 : 0.5);

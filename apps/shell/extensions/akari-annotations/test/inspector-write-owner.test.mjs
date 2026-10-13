@@ -32,7 +32,7 @@ const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
     'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',
     'inspectorRequestAdjustLutList', 'inspectorRequestAdjustLutImport', 'inspectorRequestKeyframe',
     'inspectorRequestMaterialSwap', 'claimInspectorOwner', 'activateInspectorSelection',
-    'releaseInspectorOwner', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
+    'releaseInspectorOwner', 'releaseTransitionBoundaryForOtherSelection', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
     'remapCaptionSelections'
 ]);
 const timelineCode = ts.transpileModule(`class Timeline { ${timelineMembers} }`, {

@@ -78,11 +78,11 @@ export function transitionInspectorFields(snapshot: TimelineTransitionSelection)
             symbol: DIRECTION_SYMBOLS[direction], pressed: family?.direction === direction, type }] : [];
     }) ?? [];
     const handles: TransitionInspectorFields['handles'] = [];
-    if (!blocked && snapshot.outgoingTailRoomSeconds !== undefined) handles.push({
+    if ((!blocked || snapshot.block === 'locked') && snapshot.outgoingTailRoomSeconds !== undefined) handles.push({
         labelKey: 'transition.inspector.handle.outgoing', index: snapshot.earlier.index,
         seconds: snapshot.outgoingTailRoomSeconds
     });
-    if (!blocked && snapshot.incomingHeadRoomSeconds !== undefined) handles.push({
+    if ((!blocked || snapshot.block === 'locked') && snapshot.incomingHeadRoomSeconds !== undefined) handles.push({
         labelKey: 'transition.inspector.handle.incoming', index: snapshot.later.index,
         seconds: snapshot.incomingHeadRoomSeconds
     });
@@ -116,6 +116,10 @@ export function transitionDurationValue(input: string | number | null): number {
     const parsed = typeof input === 'number' ? input : input.trim() ? Number(input.trim()) : NaN;
     if (!Number.isFinite(parsed)) throw new Error('transition.inspector.error.invalidDuration');
     return Math.min(3, Math.max(0.1, Math.round(parsed * 20) / 20));
+}
+
+export function transitionDurationTextIsValid(input: string): boolean {
+    return input.trim().length > 0 && Number.isFinite(Number(input));
 }
 
 export function transitionDirectionType(family: TransitionFamily, direction: TransitionDirection): TransitionType | undefined {

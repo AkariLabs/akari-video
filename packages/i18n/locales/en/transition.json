@@ -68,6 +68,7 @@
   "transition.inspector.status.locked": "This track is locked. Unlock it to make changes.",
   "transition.inspector.status.unknown": "This version does not recognize this transition type. Playback and export use a crossfade instead. Choosing another type preserves the other settings.",
   "transition.inspector.error.invalidDuration": "Enter a valid duration.",
+  "transition.inspector.error.unknownType": "This transition type is not available.",
   "transition.inspector.error.unavailable": "Choose a known type on an unlocked boundary first.",
   "transition.inspector.error.durationRange": "Duration must be between 0.1 and 3 seconds.",
   "transition.inspector.error.writeFailed": "Could not change the transition.",

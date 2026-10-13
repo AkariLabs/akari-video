@@ -59,6 +59,7 @@ function marqueeState() {
     preparePhotoForSelection() {},
     revealOutputPreview() {},
     clearMarqueeRange: method('clearMarqueeRange'),
+    releaseTransitionBoundaryForOtherSelection: method('releaseTransitionBoundaryForOtherSelection'),
     applySelection: method('applySelection')
   };
   return state;
