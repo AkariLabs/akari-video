@@ -14,6 +14,7 @@ export interface CaptionSemanticsContext {
         unresolved_runs?: Array<{
             run?: CaptionRun;
         }>;
+        emphasis_words?: Array<Record<string, unknown>>;
     } | Array<Record<string, unknown>> | null;
     edit?: {
         cuts?: EditCut[];
@@ -31,4 +32,7 @@ export declare function renderableCaptionRuns(caption: {
     text: string;
     display_text?: string;
     runs?: CaptionRun[];
-}, document: CaptionSemanticsContext['captions']): CaptionRun[];
+}, document: CaptionSemanticsContext['captions'], options?: {
+    diagnostics?: readonly CaptionSemanticDiagnostic[];
+    index?: number;
+}): CaptionRun[];

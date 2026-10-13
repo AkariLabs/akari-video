@@ -42,5 +42,17 @@ export declare function planCaptionLookMigration(captions: CaptionsRoot | Captio
     notices: string[];
 };
 /** Restore the renderer's legacy input without changing a legacy-only document. */
-export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T;
+export declare function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null, output?: {
+    width: number;
+    height: number;
+}): {
+    style: NonNullable<CaptionRun['style']>;
+    resolved_look?: CaptionRun['resolved_look'];
+};
+export declare function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T, options?: {
+    output?: {
+        width: number;
+        height: number;
+    };
+}): T;
 export {};

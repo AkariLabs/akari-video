@@ -25,6 +25,17 @@ export interface CaptionRun {
         out?: CaptionRunAnimationSlot;
     };
     look?: Record<string, unknown>;
+    resolved_look?: {
+        plate?: {
+            color: string;
+            opacity: number;
+            padding_px: number;
+            radius_px: number;
+        };
+        text_shadow?: string;
+        ink_outset_px?: number;
+        rotate_deg?: number;
+    };
     motion?: {
         in?: CaptionRunAnimationSlot;
         loop?: CaptionRunAnimationSlot;

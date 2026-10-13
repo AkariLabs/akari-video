@@ -3,11 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPTION_EMPHASIS_MOTION = void 0;
 exports.readCaptionLookV1 = readCaptionLookV1;
 exports.planCaptionLookMigration = planCaptionLookMigration;
+exports.resolveCaptionRunLook = resolveCaptionRunLook;
 exports.captionRenderInputFromV1 = captionRenderInputFromV1;
 const caption_runs_1 = require("./caption-runs");
 const caption_hash_1 = require("./caption-hash");
 const caption_look_v1_1 = require("./caption-look-v1");
 const caption_style_preset_1 = require("./caption-style-preset");
+const caption_display_1 = require("./caption-display");
+const caption_semantics_1 = require("./caption-semantics");
 exports.CAPTION_EMPHASIS_MOTION = {
     'one-char-bang': 'pop', 'one-char-jumble': 'jitter', 'size-pulse': 'zoom-pulse'
 };
@@ -117,6 +120,7 @@ function planCaptionLookMigration(captions, catalog, _edit) {
         ...(Array.isArray(source) ? [] : (Array.isArray(source.unresolved_runs)
             ? source.unresolved_runs.flatMap(item => item.run ? [item.run] : []) : []))];
     let invalidLegacyCount = 0;
+    let unscaledLegacyCount = 0;
     for (const row of rows) {
         if (row.style_preset) {
             const preset = (0, caption_style_preset_1.resolveCaptionStylePreset)(row, catalog);
@@ -136,12 +140,18 @@ function planCaptionLookMigration(captions, catalog, _edit) {
             else
                 notices.push(`字幕 ${row.id ?? ''} のスタイルが見つかりません。`);
         }
+        const effectiveStyle = (0, caption_display_1.mergeCaptionLineTextStyles)(Array.isArray(source) ? null : source.default_text_style, row.text_style);
+        const keepLegacyPixels = effectiveStyle?.reference_height_px !== undefined || effectiveStyle?.layout !== undefined;
         if (Array.isArray(row.runs))
             row.runs = row.runs.map(run => {
                 if (!run || typeof run !== 'object' || Array.isArray(run))
                     return run;
                 if (invalidLegacyRun(run, row)) {
                     invalidLegacyCount++;
+                    return run;
+                }
+                if (keepLegacyPixels && run.style?.stroke?.width_px !== undefined) {
+                    unscaledLegacyCount++;
                     return run;
                 }
                 const result = { ...run };
@@ -169,6 +179,8 @@ function planCaptionLookMigration(captions, catalog, _edit) {
     }
     if (invalidLegacyCount)
         notices.push(`範囲の外の古い指定 ${invalidLegacyCount} 件はそのまま残しました`);
+    if (unscaledLegacyCount)
+        notices.push(`基準の高さのある行の範囲の縁 ${unscaledLegacyCount} 件は自動で移せません。そのまま残しました`);
     const occupiedIndices = new Set(allRuns.flatMap(run => run && typeof run === 'object'
         && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis.index] : []));
     const migrated = new Set();
@@ -221,18 +233,68 @@ function planCaptionLookMigration(captions, catalog, _edit) {
         unresolved, notices };
 }
 /** Restore the renderer's legacy input without changing a legacy-only document. */
-function captionRenderInputFromV1(root) {
+function resolveCaptionRunLook(look, lineStyle, output) {
+    const scale = typeof look.scale === 'number' && Number.isFinite(look.scale) && look.scale > 0 ? look.scale : 1;
+    const lineScale = !output ? 1 : lineStyle?.layout
+        ? (0, caption_display_1.resolveCaptionStyleForOutput)(lineStyle, output).layout.scale
+        : (0, caption_display_1.resolveCaptionReferenceScale)(lineStyle, output);
+    const pxScale = lineScale * scale;
+    const style = { ...look };
+    if (style.stroke?.width_px !== undefined)
+        style.stroke = { ...style.stroke,
+            width_px: (0, caption_display_1.scaleCaptionPx)(style.stroke.width_px, pxScale) };
+    const background = look.background && typeof look.background === 'object'
+        ? look.background : null;
+    const plate = background && typeof background.color === 'string' ? {
+        color: background.color,
+        opacity: typeof background.opacity === 'number' ? background.opacity : 1,
+        padding_px: (0, caption_display_1.scaleCaptionPx)(typeof background.padding_px === 'number' ? background.padding_px : 0, pxScale),
+        radius_px: (0, caption_display_1.scaleCaptionPx)(typeof background.radius_px === 'number' ? background.radius_px : 0, pxScale)
+    } : undefined;
+    const hasShadow = Object.prototype.hasOwnProperty.call(look, 'shadow');
+    const hasGlow = Object.prototype.hasOwnProperty.call(look, 'glow');
+    const lineShadow = lineStyle?.shadow;
+    const lineGlow = lineStyle?.glow;
+    const shadow = (0, caption_display_1.captionTextShadowValue)(hasShadow ? look.shadow : lineShadow, undefined, hasShadow ? pxScale : lineScale);
+    const glow = (0, caption_display_1.captionTextShadowValue)(undefined, hasGlow ? look.glow : lineGlow, hasGlow ? pxScale : lineScale);
+    const extras = lineStyle ? (0, caption_display_1.captionRichTextShadowValue)({ ...lineStyle, shadow: undefined, glow: undefined }, lineScale) : null;
+    const shadowValue = (hasShadow ? look.shadow : lineShadow);
+    const glowValue = (hasGlow ? look.glow : lineGlow);
+    const shadowExtent = shadowValue && typeof shadowValue.color === 'string'
+        ? (0, caption_display_1.scaleCaptionPx)(Math.abs(Number(shadowValue.distance_px) || 0) + (Number(shadowValue.blur_px) || 0), hasShadow ? pxScale : lineScale) : 0;
+    const glowExtent = glowValue && typeof glowValue.color === 'string'
+        ? (0, caption_display_1.scaleCaptionPx)(Math.abs(Number(glowValue.offset_x) || 0) + Math.abs(Number(glowValue.offset_y) || 0)
+            + 2 * (typeof glowValue.spread === 'number' ? glowValue.spread : 40), hasGlow ? pxScale : lineScale) : 0;
+    const inner = lineStyle?.stroke_inner;
+    const extrude = lineStyle?.extrude;
+    const lineExtent = (0, caption_display_1.scaleCaptionPx)(Math.max(Number(inner?.width_px) || 0, Number(extrude?.depth_px) || 0), lineScale);
+    const inkOutset = Math.max(plate?.padding_px ?? 0, shadowExtent, glowExtent, lineExtent);
+    return { style, ...(plate || hasShadow || hasGlow ? { resolved_look: {
+                ...(plate ? { plate } : {}),
+                ink_outset_px: inkOutset,
+                rotate_deg: typeof look.rotate_deg === 'number' ? look.rotate_deg : 0,
+                ...(hasShadow || hasGlow ? { text_shadow: [extras, shadow, glow].filter(Boolean).join(', ') || 'none' } : {})
+            } } : {}) };
+}
+function captionRenderInputFromV1(root, options = {}) {
     const rows = Array.isArray(root) ? root : root.captions;
-    if (!rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
-        && (run.look || run.dormant_animation || run.migrated_from))))
+    const diagnostics = (0, caption_semantics_1.validateCaptionsSemantics)({ captions: root });
+    const validRuns = rows.map((row, index) => Array.isArray(row.runs)
+        ? (0, caption_semantics_1.renderableCaptionRuns)(row, root, { diagnostics, index }) : []);
+    if (!rows.some((row, index) => validRuns[index].length !== rowRuns(row).length
+        || rowRuns(row).some(run => run && typeof run === 'object'
+            && (run.look || run.dormant_animation || run.migrated_from))))
         return root;
     const copy = structuredClone(root);
     const nextRows = Array.isArray(copy) ? copy : copy.captions;
     const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
     const migrated = [];
-    for (const row of nextRows) {
+    for (const [rowIndex, row] of nextRows.entries()) {
         if (!Array.isArray(row.runs))
             continue;
+        row.runs = validRuns[rowIndex];
+        const defaultStyle = Array.isArray(copy) ? null : copy.default_text_style;
+        const lineStyle = (0, caption_display_1.mergeCaptionLineTextStyles)(defaultStyle, row.text_style);
         row.runs = row.runs.flatMap((run) => {
             if (!run || typeof run !== 'object' || Array.isArray(run))
                 return [run];
@@ -250,14 +312,12 @@ function captionRenderInputFromV1(root) {
                 return [];
             }
             const next = { ...run };
-            if (next.look && !next.style) {
-                const style = { ...next.look };
-                const scale = typeof style.scale === 'number' && style.scale > 0 ? style.scale : 1;
-                if (style.stroke?.width_px !== undefined)
-                    style.stroke = {
-                        ...style.stroke, width_px: (0, caption_runs_1.roundCaptionPixel)(style.stroke.width_px * scale)
-                    };
-                next.style = style;
+            if (next.look) {
+                const resolved = resolveCaptionRunLook(next.look, lineStyle, options.output);
+                if (!next.style)
+                    next.style = resolved.style;
+                if (resolved.resolved_look)
+                    next.resolved_look = resolved.resolved_look;
             }
             delete next.dormant_animation;
             return [next];

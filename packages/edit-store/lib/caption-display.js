@@ -33,6 +33,7 @@ exports.resolveCaptionLineStyleVars = resolveCaptionLineStyleVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
 exports.captionTextShadowValue = captionTextShadowValue;
+exports.captionRichTextShadowValue = captionRichTextShadowValue;
 exports.colorWithOpacity = colorWithOpacity;
 exports.formatCssNumber = formatCssNumber;
 const caption_style_preset_1 = require("./caption-style-preset");
