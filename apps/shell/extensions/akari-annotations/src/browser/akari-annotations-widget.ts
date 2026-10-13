@@ -19841,7 +19841,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectedGap = gap;
         this.gapRoot = this.location?.editUri.toString();
         this.renderGapBand();
-        this.pushSelectionSnapshot();
         return true;
     }
 
