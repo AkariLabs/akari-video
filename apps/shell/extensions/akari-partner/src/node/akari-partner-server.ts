@@ -35,8 +35,11 @@ import { appliedPartnerPermissionMode, normalizePartnerPermissionMode, partnerPe
     PartnerPermissionMode } from '../common/partner-permissions';
 import { DSH_CWD_WORKSPACE_PLUGIN_SOURCE } from './dsh-cwd-workspace-plugin';
 
-const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
+
+export function partnerBootstrapTimeoutMs(agent: PartnerAgentId): number {
+    return (agent === 'muse' ? 30 : 10) * 60 * 1000;
+}
 
 export type PartnerCliHelpProbe = { kind: 'ok'; help: string } | { kind: 'timeout' | 'failed' };
 
@@ -107,12 +110,33 @@ export function probePartnerCliHelp(executablePath: string, platform: NodeJS.Pla
     });
 }
 
-function hasDelimitedWord(text: string, word: string, isWordCharacter: (character: string) => boolean): boolean {
+function delimitedWordIndex(text: string, word: string, isWordCharacter: (character: string) => boolean): number {
     let index = text.indexOf(word);
     while (index !== -1) {
         const before = text[index - 1];
         const after = text[index + word.length];
-        if ((!before || !isWordCharacter(before)) && (!after || !isWordCharacter(after))) return true;
+        if ((!before || !isWordCharacter(before)) && (!after || !isWordCharacter(after))) return index;
+        index = text.indexOf(word, index + 1);
+    }
+    return -1;
+}
+
+function hasDelimitedWord(text: string, word: string, isWordCharacter: (character: string) => boolean): boolean {
+    return delimitedWordIndex(text, word, isWordCharacter) !== -1;
+}
+
+function hasPipedWord(text: string, word: string): boolean {
+    let index = text.indexOf(word);
+    while (index !== -1) {
+        const before = text[index - 1];
+        const after = text[index + word.length];
+        if ((!before || !/[a-zA-Z0-9_-]/.test(before)) && (!after || !/[a-zA-Z0-9_-]/.test(after))) {
+            let left = index - 1;
+            while (left >= 0 && /[ \t]/.test(text[left])) left--;
+            let right = index + word.length;
+            while (right < text.length && /[ \t]/.test(text[right])) right++;
+            if (text[left] === '|' || text[right] === '|') return true;
+        }
         index = text.indexOf(word, index + 1);
     }
     return false;
@@ -122,9 +146,9 @@ export function partnerHelpSupportsArgs(help: string, args: readonly string[]): 
     const [flag, value] = args;
     if (!flag || args.length > 2) return false;
     const lines = help.split(/\r?\n/);
-    const flagInLine = (line: string): boolean => hasDelimitedWord(line, flag, character => /[a-zA-Z0-9_-]/.test(character));
     for (let index = 0; index < lines.length; index++) {
-        if (!flagInLine(lines[index])) continue;
+        const flagIndex = delimitedWordIndex(lines[index], flag, character => /[a-zA-Z0-9_-]/.test(character));
+        if (flagIndex === -1) continue;
         if (!value) return true;
         const detail = [lines[index]];
         for (let next = index + 1; next < Math.min(lines.length, index + 6); next++) {
@@ -138,6 +162,15 @@ export function partnerHelpSupportsArgs(help: string, args: readonly string[]): 
             const close = listed.search(/[)\]]/);
             const values = close >= 0 ? listed.slice(0, close) : listed.split('\n', 1)[0];
             if (hasDelimitedWord(values, value, character => /[a-zA-Z0-9_-]/.test(character))) return true;
+        }
+        if (/^\s*usage\s*:/i.test(lines[index])) continue;
+        const afterFlag = lines[index].slice(flagIndex + flag.length);
+        const nextFlag = afterFlag.search(/--[a-zA-Z]|(?:^|[ \t])-[a-zA-Z](?=[ \t,]|$)/);
+        if (hasPipedWord(nextFlag === -1 ? afterFlag : afterFlag.slice(0, nextFlag), value)) return true;
+        for (let next = index + 1; next < Math.min(lines.length, index + 6); next++) {
+            const line = lines[next];
+            if (/^\s*$|^\S|^\s*(?:--[a-zA-Z]|-[a-zA-Z](?=[\s,]|$))/.test(line)) break;
+            if (hasPipedWord(line, value)) return true;
         }
     }
     return false;
@@ -366,12 +399,13 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
 
         const output = await new Promise<string>((resolve, reject) => {
             const child = this.spawnBootstrapProcess(runtimePath, runnerSource, agent, env);
+            const timeoutMs = partnerBootstrapTimeoutMs(agent);
             let stdout = '';
             let stderr = '';
             const timer = setTimeout(() => {
                 child.kill();
-                reject(new Error(`${agent} bootstrap timed out after ${BOOTSTRAP_TIMEOUT_MS} ms`));
-            }, BOOTSTRAP_TIMEOUT_MS);
+                reject(new Error(`${agent} bootstrap timed out after ${timeoutMs} ms`));
+            }, timeoutMs);
             child.stdout.on('data', chunk => stdout += chunk.toString());
             child.stderr.on('data', chunk => stderr += chunk.toString());
             child.on('error', error => {
