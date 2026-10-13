@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-// captions.json v0 のレコード、語タイミング、語レベル演出、テキストスタイルを依存ゼロで検証する。
+// captions.json の構造と文書の意味を検証する。npm の依存は無く、リポ内の edit-store を使う。
 
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -75,6 +76,17 @@ if (!captionFields || typeof captionFields !== "object" || Array.isArray(caption
   finish();
 }
 const CAPTION_FIELDS = new Set(Object.keys(captionFields));
+const rootSchema = [schema, ...(schema.oneOf ?? []), ...(schema.anyOf ?? [])]
+  .map((candidate) => candidate?.$ref?.startsWith("#/$defs/")
+    ? schema.$defs?.[candidate.$ref.slice("#/$defs/".length)]
+    : candidate)
+  .find((candidate) => candidate?.type === "object" && candidate.required?.includes("captions"));
+const rootFields = rootSchema?.properties;
+if (!rootFields || typeof rootFields !== "object" || Array.isArray(rootFields)) {
+  fail("captions.schema.json のルートの properties がありません");
+  finish();
+}
+const ROOT_FIELDS = new Set(Object.keys(rootFields));
 
 let root;
 try {
@@ -84,7 +96,7 @@ try {
   finish();
 }
 
-validateCaptionsRoot(root);
+if (validateCaptionsRoot(root)) validateDocumentSemantics(root);
 finish();
 
 function validateCaptionsRoot(value) {
@@ -93,12 +105,7 @@ function validateCaptionsRoot(value) {
     captions = value;
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
-      if (
-        key !== "default_text_style"
-        && key !== "display_policy"
-        && key !== "emphasis_words"
-        && key !== "captions"
-      ) {
+      if (!ROOT_FIELDS.has(key)) {
         fail(`captions.json のルートに未知のキーがあります: ${key}`);
       }
     }
@@ -107,24 +114,53 @@ function validateCaptionsRoot(value) {
     }
     if (hasOwn(value, "display_policy")) validateDisplayPolicy(value.display_policy);
     if (hasOwn(value, "emphasis_words")) validateEmphasisWords(value.emphasis_words);
+    if (hasOwn(value, "unresolved_runs")) {
+      if (!Array.isArray(value.unresolved_runs)) {
+        fail("unresolved_runs は配列である必要があります");
+      } else {
+        value.unresolved_runs.forEach((item, index) => {
+          if (!isPlainObject(item)) fail(`unresolved_runs[${index}] は object である必要があります`);
+        });
+      }
+    }
     if (!hasOwn(value, "captions")) {
       fail("captions.json の object ルートでは captions が必須です");
-      return;
+      return false;
     }
     if (!Array.isArray(value.captions)) {
       fail("captions は配列である必要があります");
-      return;
+      return false;
     }
     captions = value.captions;
     if (hasOwn(value, "display_policy")) validateDisplayPolicyCaptions(captions, value.display_policy);
   } else {
     fail("captions.json のルートは配列または object である必要があります");
-    return;
+    return false;
   }
   validateCaptionsArray(
     captions,
     isPlainObject(value) && hasOwn(value, "display_policy") ? value.default_text_style : null,
   );
+  return true;
+}
+
+function validateDocumentSemantics(value) {
+  let validateCaptionsSemantics;
+  try {
+    ({ validateCaptionsSemantics } = createRequire(import.meta.url)("../../edit-store/lib/index.js"));
+    if (typeof validateCaptionsSemantics !== "function") {
+      throw new TypeError("validateCaptionsSemantics がありません");
+    }
+  } catch (error) {
+    fail(`字幕の意味の検証を読み込めません: ${messageOf(error)}`);
+    return;
+  }
+  for (const diagnostic of validateCaptionsSemantics({ captions: value })) {
+    if (diagnostic.layer !== "document" || diagnostic.severity === "info") continue;
+    const message = `${diagnostic.path}: ${diagnostic.message}（${diagnostic.code}）`;
+    if (diagnostic.severity === "error") fail(message);
+    else if (diagnostic.severity === "warning") warnings.push(message);
+  }
 }
 
 // docs/contract-2026-08-23-captions-emphasis-words-v0.md。レコード形と語彙は

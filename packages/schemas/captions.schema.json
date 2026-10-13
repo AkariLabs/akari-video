@@ -378,10 +378,39 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["from", "to"],
+      "allOf": [{
+        "if": { "anyOf": [
+          { "required": ["look"] }, { "required": ["motion"] },
+          { "required": ["anchor"] }, { "required": ["fire"] },
+          { "required": ["style_sources"] }, { "required": ["migrated_from"] }
+        ] },
+        "then": { "required": ["id"] }
+      }],
       "properties": {
+        "id": { "type": "string", "pattern": "^r-\\d{4,}$" },
         "from": { "type": "integer" },
         "to": { "type": "integer" },
         "role": { "type": "string", "minLength": 1 },
+        "look": { "$ref": "#/$defs/captionRunLook" },
+        "motion": { "$ref": "#/$defs/textAnimation" },
+        "emotion": { "type": "string", "minLength": 1 },
+        "anchor": { "$ref": "#/$defs/captionRunAnchor" },
+        "fire": { "enum": ["shown", "spoken", "whole"] },
+        "fire_was": { "enum": ["shown", "spoken", "whole"] },
+        "style_sources": { "$ref": "#/$defs/styleSources" },
+        "needs_review": { "type": "boolean" },
+        "split_from": { "type": "string", "pattern": "^r-\\d{4,}$" },
+        "migrated_from": { "type": "string", "pattern": "^e-\\d{4,}$" },
+        "migrated_emphasis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["index", "item"],
+          "properties": {
+            "index": { "type": "integer", "minimum": 0 },
+            "item": { "$ref": "#/$defs/emphasisWordItem" }
+          }
+        },
+        "dormant_animation": { "$ref": "#/$defs/textAnimation" },
         "style": {
           "type": "object",
           "additionalProperties": false,
@@ -399,7 +428,66 @@
         },
         "animation": { "$ref": "#/$defs/textAnimation" }
       },
-      "$comment": "from/to は display_text または text の書記素オフセット。to は排他。空・範囲外は edit-lint warning として描画時に無視。"
+      "$comment": "from/to は display_text または text の書記素オフセット。to は排他。旧 runs v0 の空・範囲外は edit-lint warning、runs v1 は文書意味の error。"
+    },
+    "captionRunLook": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "font_weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "italic": { "type": "boolean" }, "underline": { "type": "boolean" },
+        "letter_spacing_em": { "type": "number" },
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "baseline_shift_em": { "type": "number" },
+        "rotate_deg": { "type": "number", "minimum": -180, "maximum": 180 },
+        "stroke": { "$ref": "#/$defs/textStrokeStyle" },
+        "shadow": { "$ref": "#/$defs/textShadowStyle" },
+        "glow": { "$ref": "#/$defs/textGlowStyle" },
+        "background": { "$ref": "#/$defs/textBackgroundStyle" }
+      }
+    },
+    "captionRunAnchor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["start", "end", "domain"],
+      "properties": {
+        "src": { "type": "string", "minLength": 1 },
+        "start": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "minimum": 0 },
+        "domain": { "enum": ["source", "output"] }
+      }
+    },
+    "styleSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "id", "original_hash", "applied_hash"],
+      "properties": {
+        "kind": { "enum": ["builtin", "library", "my"] },
+        "id": { "type": "string", "minLength": 1 },
+        "uid": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "original_hash": { "type": "string", "minLength": 1 },
+        "applied_hash": { "type": "string", "minLength": 1 },
+        "applied_at": { "type": "string", "minLength": 1 },
+        "requires": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+          "required": ["id", "version", "hash"], "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "version": { "type": "string" }, "hash": { "type": "string", "minLength": 1 }
+          } } }
+      }
+    },
+    "styleSources": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "look": { "$ref": "#/$defs/styleSource" }, "motion": { "$ref": "#/$defs/styleSource" } }
+    },
+    "unresolvedRun": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run", "old_caption_id", "old_text", "old_src", "old_start", "old_end", "reason"],
+      "properties": {
+        "run": { "$ref": "#/$defs/captionRun" },
+        "old_caption_id": { "type": "string" }, "old_text": { "type": "string" },
+        "old_src": { "type": ["string", "null"] },
+        "old_start": { "type": "number" }, "old_end": { "type": "number" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
     },
     "sourceRef": {
       "oneOf": [
@@ -475,6 +563,7 @@
           "$comment": "解決順は default_text_style < style_preset の style < 同じレコードの text_style。未知 id は値を適用せず、edit-lint が warning を出す。"
         },
         "text_style": { "$ref": "#/$defs/textStyle" },
+        "style_sources": { "$ref": "#/$defs/styleSources" },
         "display_timing": {
           "type": "string",
           "enum": ["full", "speech-tight"],
@@ -542,7 +631,8 @@
           "type": "array",
           "items": { "$ref": "#/$defs/emphasisWordItem" }
         },
-        "captions": { "$ref": "#/$defs/captionsArray" }
+        "captions": { "$ref": "#/$defs/captionsArray" },
+        "unresolved_runs": { "type": "array", "items": { "$ref": "#/$defs/unresolvedRun" } }
       },
       "$comment": "default_text_style と emphasis_words は任意。省略時は従来表示と同値。emphasis_words の席は object ルートだけにあり、配列ルートには存在しない。"
     }

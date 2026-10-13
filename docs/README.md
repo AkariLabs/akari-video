@@ -100,6 +100,7 @@ All contracts follow the
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, picker batch-apply RPC, row badges, and the three free caption presets (Japanese) |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | My Styles v0: portable parts bundle, library storage, effective caption look capture, and value-copy application (Japanese) |
 | [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | Caption grapheme range styles, overlap precedence, rendering, and text edit rebasing (Japanese) |
+| [contract-2026-10-12-caption-look-v1.md](./contract-2026-10-12-caption-look-v1.md) | Caption look v1 data shape, size conversion, run identity, anchors, migration, and validation (Japanese) |
 | [contract-2026-10-02-textstyle-v1-rich.md](./contract-2026-10-02-textstyle-v1-rich.md) | Rich textstyle v1 vocabulary, layered strokes, gradient and pattern fills, rendering paths, and overlay boundary (Japanese) |
 | [contract-2026-10-04-asset-tier-v1.md](./contract-2026-10-04-asset-tier-v1.md) | Asset tier contract v1: free / pro tier field, price deprecation, compatibility rule, pro-vs-CC0 validation, and library-side locking (Japanese) |
 | [contract-2026-10-06-timeline-ripple-v0.md](./contract-2026-10-06-timeline-ripple-v0.md) | Timeline cut, shift, split, and gap closure kernel for edit.json v2 (Japanese) |

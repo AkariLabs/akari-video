@@ -7,8 +7,14 @@ exports.removeCaptionRun = removeCaptionRun;
 exports.captionRunStyleFromLook = captionRunStyleFromLook;
 exports.resolveCaptionRuns = resolveCaptionRuns;
 exports.sliceCaptionRuns = sliceCaptionRuns;
+exports.roundCaptionPixel = roundCaptionPixel;
 exports.rebaseCaptionRuns = rebaseCaptionRuns;
 exports.joinAdjacentCaptionRuns = joinAdjacentCaptionRuns;
+exports.nextCaptionRunId = nextCaptionRunId;
+exports.clearCaptionRunRange = clearCaptionRunRange;
+exports.splitCaptionRuns = splitCaptionRuns;
+exports.unresolvedRunsForDeletedCaption = unresolvedRunsForDeletedCaption;
+exports.moveDeletedCaptionRunsToUnresolved = moveDeletedCaptionRunsToUnresolved;
 exports.captionRunsRemovedNotice = captionRunsRemovedNotice;
 exports.applyCaptionRunsToHtml = applyCaptionRunsToHtml;
 function captionGraphemes(text) {
@@ -150,13 +156,18 @@ function resolveCaptionRuns(text, runs) {
         if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
             || run.from < 0 || run.to > characters.length || run.from >= run.to)
             continue;
+        const runStyle = run.style ?? (run.look ? captionRunStyleFromLook(run.look).style : undefined);
+        if (run.look && !run.style && runStyle?.stroke?.width_px !== undefined) {
+            const scale = typeof run.look.scale === 'number' && run.look.scale > 0 ? run.look.scale : 1;
+            runStyle.stroke = { ...runStyle.stroke, width_px: roundCaptionPixel(runStyle.stroke.width_px * scale) };
+        }
         for (let index = run.from; index < run.to; index++) {
             const prior = characters[index];
             characters[index] = {
                 ...prior,
                 ...(run.role !== undefined ? { role: run.role } : {}),
-                ...(run.style ? { style: { ...prior.style, ...run.style,
-                        ...(run.style.stroke ? { stroke: { ...prior.style?.stroke, ...run.style.stroke } } : {}) } } : {}),
+                ...(runStyle ? { style: { ...prior.style, ...runStyle,
+                        ...(runStyle.stroke ? { stroke: { ...prior.style?.stroke, ...runStyle.stroke } } : {}) } } : {}),
                 ...(run.animation ? { animation: { ...prior.animation, ...run.animation } } : {})
             };
         }
@@ -170,64 +181,204 @@ function sliceCaptionRuns(text, runs, start, end) {
     const from = captionGraphemes(text.slice(0, start)).length;
     const to = captionGraphemes(text.slice(0, end)).length;
     const result = runs.flatMap(run => {
+        if (!run || typeof run !== 'object' || Array.isArray(run))
+            return [run];
         const left = Math.max(from, run.from);
         const right = Math.min(to, run.to);
         return left < right ? [{ ...run, from: left - from, to: right - from }] : [];
     });
     return result.length ? result : undefined;
 }
-/** Rebase a minimal grapheme diff; a deleted range removes its run. */
-function rebaseCaptionRuns(oldText, newText, runs) {
+/** 描画に渡す px 値の浮動小数点誤差をそろえる。 */
+function roundCaptionPixel(value) {
+    return Math.round(value * 1_000_000) / 1_000_000;
+}
+/** 複数の差分区間を、書記素 LCS で対応付ける。 */
+function rebaseCaptionRuns(oldText, newText, runs, options = {}) {
     const oldChars = captionGraphemes(oldText);
     const newChars = captionGraphemes(newText);
-    let before = 0;
-    while (before < oldChars.length && before < newChars.length && oldChars[before] === newChars[before])
-        before++;
-    let after = 0;
-    while (after < oldChars.length - before && after < newChars.length - before
-        && oldChars[oldChars.length - after - 1] === newChars[newChars.length - after - 1])
-        after++;
-    const oldEnd = oldChars.length - after;
-    const newEnd = newChars.length - after;
-    const delta = newEnd - oldEnd;
+    let prefix = 0;
+    while (prefix < Math.min(oldChars.length, newChars.length) && oldChars[prefix] === newChars[prefix])
+        prefix++;
+    let suffix = 0;
+    while (suffix < Math.min(oldChars.length, newChars.length) - prefix
+        && oldChars[oldChars.length - 1 - suffix] === newChars[newChars.length - 1 - suffix])
+        suffix++;
+    const oldMiddle = oldChars.slice(prefix, oldChars.length - suffix);
+    const newMiddle = newChars.slice(prefix, newChars.length - suffix);
+    const lengths = Array.from({ length: oldMiddle.length + 1 }, () => new Uint32Array(newMiddle.length + 1));
+    for (let i = oldMiddle.length - 1; i >= 0; i--)
+        for (let j = newMiddle.length - 1; j >= 0; j--) {
+            lengths[i][j] = oldMiddle[i] === newMiddle[j] ? 1 + lengths[i + 1][j + 1]
+                : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+        }
+    const mapped = new Map();
+    const ambiguous = new Set();
+    for (let n = 0; n < prefix; n++)
+        mapped.set(n, n);
+    let i = 0;
+    let j = 0;
+    while (i < oldMiddle.length && j < newMiddle.length) {
+        if (oldMiddle[i] === newMiddle[j]) {
+            mapped.set(prefix + i, prefix + j);
+            i++;
+            j++;
+        }
+        else if (lengths[i + 1][j] >= lengths[i][j + 1]) {
+            i++;
+        }
+        else {
+            j++;
+        }
+    }
+    const prefixes = Array.from({ length: oldMiddle.length + 1 }, () => new Uint32Array(newMiddle.length + 1));
+    for (let oldIndex = 0; oldIndex < oldMiddle.length; oldIndex++) {
+        for (let newIndex = 0; newIndex < newMiddle.length; newIndex++) {
+            prefixes[oldIndex + 1][newIndex + 1] = oldMiddle[oldIndex] === newMiddle[newIndex]
+                ? prefixes[oldIndex][newIndex] + 1
+                : Math.max(prefixes[oldIndex][newIndex + 1], prefixes[oldIndex + 1][newIndex]);
+        }
+    }
+    for (const oldIndex of [...mapped.keys()].filter(index => index >= prefix)) {
+        const middleIndex = oldIndex - prefix;
+        let choices = 0;
+        for (let newIndex = 0; newIndex < newMiddle.length; newIndex++) {
+            if (oldMiddle[middleIndex] === newMiddle[newIndex]
+                && prefixes[middleIndex][newIndex] + 1 + lengths[middleIndex + 1][newIndex + 1] === lengths[0][0]) {
+                choices++;
+            }
+        }
+        const canSkip = Array.from({ length: newMiddle.length + 1 }, (_, newIndex) => prefixes[middleIndex][newIndex] + lengths[middleIndex + 1][newIndex])
+            .some(length => length === lengths[0][0]);
+        if (choices > 1 || canSkip)
+            ambiguous.add(oldIndex);
+    }
+    for (let n = 0; n < suffix; n++)
+        mapped.set(oldChars.length - suffix + n, newChars.length - suffix + n);
+    const changes = [];
+    let oldBoundary = 0;
+    let newBoundary = 0;
+    for (const [oldIndex, newIndex] of [...mapped, [oldChars.length, newChars.length]]) {
+        if (oldBoundary < oldIndex || newBoundary < newIndex) {
+            changes.push({ oldFrom: oldBoundary, oldTo: oldIndex,
+                newFrom: newBoundary, newTo: newIndex });
+        }
+        oldBoundary = oldIndex + 1;
+        newBoundary = newIndex + 1;
+    }
     const kept = [];
     const removed = [];
     for (const run of runs) {
-        if (run.to <= before) {
-            kept.push(run);
+        const containing = changes.find(change => change.oldFrom <= run.from
+            && run.to <= change.oldTo && change.oldFrom < change.oldTo);
+        if (containing) {
+            if (options.mode === 'project' && containing.newFrom < containing.newTo) {
+                kept.push({ ...run, from: containing.newFrom, to: containing.newTo, needs_review: true });
+            }
+            else
+                removed.push(run);
             continue;
         }
-        if (run.from >= oldEnd) {
-            kept.push({ ...run, from: run.from + delta, to: run.to + delta });
-            continue;
-        }
-        if (run.from >= before && run.to <= oldEnd && newEnd === before) {
+        const matches = Array.from({ length: Math.max(0, run.to - run.from) }, (_, n) => run.from + n)
+            .filter(index => mapped.has(index));
+        if (!matches.length) {
             removed.push(run);
             continue;
         }
-        const from = run.from < before ? run.from : before;
-        const to = run.to > oldEnd ? run.to + delta : newEnd;
-        if (from < to)
-            kept.push({ ...run, from, to });
-        else
-            removed.push(run);
+        let from = mapped.get(matches[0]);
+        let to = mapped.get(matches[matches.length - 1]) + 1;
+        const crossing = changes.filter(change => change.oldFrom < run.to
+            && change.oldTo > run.from && change.oldFrom < change.oldTo);
+        for (const change of crossing) {
+            from = Math.min(from, change.newFrom);
+            to = Math.max(to, change.newTo);
+        }
+        kept.push({ ...run, from, to,
+            ...(crossing.length || matches.length < run.to - run.from || to - from !== run.to - run.from
+                || matches.some(index => ambiguous.has(index))
+                ? { needs_review: true } : {}) });
     }
     return { runs: kept, removed };
 }
+/** @deprecated 結合は明示操作だけで行う。 */
 function joinAdjacentCaptionRuns(runs) {
-    const joined = [];
+    return [...runs];
+}
+function nextCaptionRunId(runs) {
+    const number = runs.reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run?.id ?? '');
+        return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+    return `r-${String(number).padStart(4, '0')}`;
+}
+function clearCaptionRunRange(runs, from, to, allRuns = runs) {
+    const result = [];
+    const used = [...allRuns];
     for (const run of runs) {
-        const previous = joined[joined.length - 1];
-        if (previous && previous.to === run.from
-            && previous.role === run.role
-            && JSON.stringify(previous.style ?? {}) === JSON.stringify(run.style ?? {})
-            && JSON.stringify(previous.animation ?? {}) === JSON.stringify(run.animation ?? {})) {
-            joined[joined.length - 1] = { ...previous, to: run.to };
+        if (run.to <= from || run.from >= to) {
+            result.push(run);
+            continue;
         }
-        else
-            joined.push(run);
+        const baseId = run.id ?? nextCaptionRunId(used);
+        if (!run.id)
+            used.push({ ...run, id: baseId });
+        if (run.from < from)
+            result.push({ ...run, id: baseId, to: from });
+        if (run.to > to) {
+            const id = run.from < from ? nextCaptionRunId(used) : baseId;
+            if (id !== baseId)
+                used.push({ ...run, id });
+            result.push({ ...run, from: to, id,
+                ...(id !== baseId ? { split_from: baseId } : {}) });
+        }
     }
-    return joined;
+    return result;
+}
+function splitCaptionRuns(text, runs, splitUtf16, leftWindow, rightWindow, allRuns = runs) {
+    const boundary = captionGraphemes(text.slice(0, splitUtf16)).length;
+    const left = [];
+    const right = [];
+    const used = [...allRuns];
+    const clip = (run, window) => {
+        if (!run.anchor)
+            return run;
+        const start = Math.max(run.anchor.start, window.start);
+        const end = Math.min(run.anchor.end, window.end);
+        if (start < end)
+            return { ...run, anchor: { ...run.anchor, start, end } };
+        const { anchor: _anchor, ...rest } = run;
+        return run.fire === 'spoken' ? { ...rest, fire: 'shown', fire_was: 'spoken', needs_review: true } : rest;
+    };
+    for (const run of runs) {
+        const baseId = run.id ?? nextCaptionRunId(used);
+        if (!run.id)
+            used.push({ ...run, id: baseId });
+        if (run.from < boundary && run.to > 0)
+            left.push(clip({ ...run, id: baseId,
+                to: Math.min(run.to, boundary) }, leftWindow));
+        if (run.to > boundary) {
+            const crosses = run.from < boundary;
+            const id = crosses ? nextCaptionRunId(used) : baseId;
+            if (crosses && id)
+                used.push({ ...run, id });
+            right.push(clip({ ...run, from: Math.max(0, run.from - boundary), to: run.to - boundary,
+                id, ...(crosses ? { split_from: baseId } : {}) }, rightWindow));
+        }
+    }
+    return { left: left.length ? left : undefined, right: right.length ? right : undefined };
+}
+function unresolvedRunsForDeletedCaption(caption, reason = '行の対応先がありません。') {
+    return (caption.runs ?? []).map(run => ({ run: { ...run }, old_caption_id: caption.id,
+        old_text: caption.text, old_src: caption.src ?? null,
+        old_start: caption.start, old_end: caption.end, reason }));
+}
+function moveDeletedCaptionRunsToUnresolved(root, captionId, reason = '行の対応先がありません。') {
+    const deleted = root.captions.find(row => row.id === captionId);
+    if (!deleted)
+        return structuredClone(root);
+    return { ...structuredClone(root), captions: root.captions.filter(row => row.id !== captionId).map(row => structuredClone(row)),
+        unresolved_runs: [...(root.unresolved_runs ?? []).map(item => structuredClone(item)),
+            ...unresolvedRunsForDeletedCaption(deleted, reason)] };
 }
 /** Text-only notice for a caller that can present caption edit results to a user. */
 function captionRunsRemovedNotice(removedRuns, oldDisplayText) {
@@ -258,11 +409,21 @@ function applyCaptionRunsToHtml(html, displayText, runs) {
         if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to)
             || run.from < 0 || run.to > chars.length || run.from >= run.to)
             continue;
+        const style = run.style ?? (run.look ? { ...run.look } : undefined);
+        if (run.look && !run.style && style) {
+            const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
+                ? style.scale : 1;
+            const stroke = style.stroke;
+            if (stroke && typeof stroke.width_px === 'number')
+                style.stroke = {
+                    ...stroke, width_px: Math.round(stroke.width_px * scale * 1_000_000) / 1_000_000
+                };
+        }
         for (let index = run.from; index < run.to; index++) {
             resolved[index] = { ...resolved[index],
                 role: run.role ?? resolved[index].role,
-                style: { ...resolved[index].style, ...run.style,
-                    ...(run.style?.stroke ? { stroke: { ...(resolved[index].style.stroke ?? {}), ...run.style.stroke } } : {}) } };
+                style: { ...resolved[index].style, ...style,
+                    ...(style?.stroke ? { stroke: { ...(resolved[index].style.stroke ?? {}), ...style.stroke } } : {}) } };
         }
     }
     const escape = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;')

@@ -35,6 +35,7 @@ const args = {
     codex: [['--approve-for-me'], ['--dangerously-bypass-approvals-and-sandbox']],
     grok: [['--permission-mode', 'auto'], ['--always-approve']],
     devin: [['--permission-mode', 'smart'], ['--permission-mode', 'bypass']],
+    muse: [['--approval-mode', 'on-request'], ['--yolo']],
     cursor: [['--auto-review'], ['--yolo']],
     copilot: [['--allow-all'], ['--allow-all']],
     antigravity: [['--dangerously-skip-permissions'], ['--dangerously-skip-permissions']],
@@ -59,6 +60,9 @@ test('カタログの全 agent × 3 モードが対応表と一致する', () =>
     assert.equal(appliedPartnerPermissionMode('claude', 'auto', []), 'default');
     assert.equal(appliedPartnerPermissionMode('opencode', 'auto', []), 'default');
     assert.equal(appliedPartnerPermissionMode('deepseek', 'ask', []), 'default');
+    assert.equal(appliedPartnerPermissionMode('muse', 'auto', partnerPermissionArgs('muse', 'auto')), 'auto');
+    assert.equal(appliedPartnerPermissionMode('muse', 'ask', partnerPermissionArgs('muse', 'ask')), 'default');
+    assert.equal(appliedPartnerPermissionMode('muse', 'bypass', partnerPermissionArgs('muse', 'bypass')), 'bypass');
     for (const agent of ['copilot', 'antigravity', 'commandcode', 'pi']) {
         assert.equal(appliedPartnerPermissionMode(agent, 'auto', partnerPermissionArgs(agent, 'auto')), 'bypass', agent);
     }
@@ -106,6 +110,48 @@ test('prepareLaunch は値付きフラグを help の選択肢で確認する', 
         .prepareLaunch('claude', executable, 'auto');
     assert.deepEqual(accepted.args, ['--permission-mode', 'auto']);
     assert.equal(accepted.appliedPermissionMode, 'auto');
+});
+
+const museHelpExcerpt = `      --approval-mode <MODE>
+          Tool approval mode: untrusted|on-request|never (default: on-request)
+      --permission-profile <ID>
+          Select a named permission profile for this session.
+      --approval-judge <off|on>
+          LLM approval judge for Prompt-bound calls (default: on)
+      --no-session-log
+          Do not persist session event logs to disk
+      --echo-delay-ms <MS>
+          Deterministic echo reply delay (echo provider only)
+
+Safety (approval and the sandbox are ON by default):
+      --yolo
+          Disable approval and sandboxing and trust this workspace for this run`;
+
+test('Muse Code は help が認める権限引数だけを渡し、適用モードを記録する', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-muse-permission-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const executable = join(root, 'muse');
+    await writeFile(executable, 'fake executable');
+    class Server extends AkariPartnerServerImpl {
+        constructor(help) { super(); this.help = help; }
+        async probeCliHelp() { return { kind: 'ok', help: this.help }; }
+        resolveCliPathEnv() { return {}; }
+        resolveMediaBinEnv() { return {}; }
+    }
+    const server = new Server(museHelpExcerpt);
+    const auto = await server.prepareLaunch('muse', executable, 'auto');
+    assert.deepEqual(auto.args, ['--approval-mode', 'on-request']);
+    assert.equal(auto.appliedPermissionMode, 'auto');
+    const ask = await server.prepareLaunch('muse', executable, 'ask');
+    assert.deepEqual(ask.args, []);
+    assert.equal(ask.appliedPermissionMode, 'default');
+    const bypass = await server.prepareLaunch('muse', executable, 'bypass');
+    assert.deepEqual(bypass.args, ['--yolo']);
+    assert.equal(bypass.appliedPermissionMode, 'bypass');
+    const missing = await new Server('--approval-mode <MODE>\n  Tool approval mode: untrusted|never (default: on-request)')
+        .prepareLaunch('muse', executable, 'auto');
+    assert.deepEqual(missing.args, []);
+    assert.equal(missing.appliedPermissionMode, 'default');
 });
 
 test('時間切れ・失敗は覚えず次回再確認し、正常な --help は更新時刻まで覚える', async t => {
@@ -272,6 +318,58 @@ test('値付きフラグは help の選択肢にも値があるときだけ採�
         ['--dangerously-skip-permissions']), false);
     assert.equal(partnerHelpSupportsArgs('--allow-all-but-sandbox', ['--allow-all']), false);
     assert.equal(partnerHelpSupportsArgs('  --allow-all, --help', ['--allow-all']), true);
+});
+
+test('Muse Code 1.4.7 の help は縦棒の選択肢と値なしフラグを認識する', () => {
+    assert.equal(partnerHelpSupportsArgs(museHelpExcerpt, ['--approval-mode', 'on-request']), true);
+    assert.equal(partnerHelpSupportsArgs(museHelpExcerpt, ['--approval-mode', 'auto']), false);
+    assert.equal(partnerHelpSupportsArgs(museHelpExcerpt, ['--yolo']), true);
+    assert.equal(partnerHelpSupportsArgs(museHelpExcerpt, ['--approval-judge', 'off']), true);
+});
+
+test('縦棒の選択肢は対象フラグの説明範囲だけで判定する', () => {
+    const falseHelps = [
+        '  --color <auto|always|never>  (see also --approval-mode)',
+        '  --approval-mode <MODE>\nCommands:\n  config get|set|auto',
+        '  --approval-mode <MODE>\n  -c <auto|always>',
+        '  --approval-mode <MODE>\n  -c --color <auto|always>',
+        '  --approval-mode <MODE>\nUsage: muse --approval-mode auto|always',
+        '  --approval-mode <MODE> --color <auto|always>',
+        'Usage: muse --approval-mode auto|always'
+    ];
+    for (const help of falseHelps) {
+        assert.equal(partnerHelpSupportsArgs(help, ['--approval-mode', 'auto']), false, help);
+    }
+    assert.equal(partnerHelpSupportsArgs('  --approval-mode <MODE>\n    untrusted | on-request | never',
+        ['--approval-mode', 'on-request']), true);
+});
+
+test('長い英数字の help 行でも縦棒判定はすぐ終わる', () => {
+    const help = `  --approval-mode <MODE> ${'a'.repeat(40_000)}`;
+    const start = performance.now();
+    assert.equal(partnerHelpSupportsArgs(help, ['--approval-mode', 'auto']), false);
+    assert.ok(performance.now() - start < 200);
+});
+
+test('default の言及だけでは値付きフラグを認めない', () => {
+    assert.equal(partnerHelpSupportsArgs('--approval-mode <MODE>\n  Tool approval mode (default: on-request)',
+        ['--approval-mode', 'on-request']), false);
+    assert.equal(partnerHelpSupportsArgs('--approval-mode <MODE>\n  Tool approval mode: untrusted|never (default: on-request)',
+        ['--approval-mode', 'on-request']), false);
+    assert.equal(partnerHelpSupportsArgs('--approval-mode <MODE>\n  Tool approval mode (default: on-request)\n  --approval-judge <off|on>',
+        ['--approval-mode', 'off']), false);
+});
+
+test('Claude、Grok、Devin の help 判定は従来どおり', () => {
+    const cases = [
+        ['--permission-mode <MODE>\n  (choices: "acceptEdits", "auto", "bypass")', 'auto'],
+        ['--permission-mode <MODE>\n  (choices: "default", "auto", "bypass")', 'auto'],
+        ['--permission-mode <MODE>\n  [possible values: default, smart, bypass]', 'smart']
+    ];
+    for (const [help, value] of cases) {
+        assert.equal(partnerHelpSupportsArgs(help, ['--permission-mode', value]), true);
+        assert.equal(partnerHelpSupportsArgs(help, ['--permission-mode', 'unknown']), false);
+    }
 });
 
 test('偽の実行ファイルの --help 応答でフラグを確認する', async t => {

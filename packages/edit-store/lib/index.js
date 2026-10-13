@@ -38,6 +38,11 @@ __exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
 __exportStar(require("./caption-runs"), exports);
+__exportStar(require("./caption-look-v1"), exports);
+__exportStar(require("./caption-look-reader"), exports);
+__exportStar(require("./caption-hash"), exports);
+__exportStar(require("./caption-anchor-map"), exports);
+__exportStar(require("./caption-semantics"), exports);
 __exportStar(require("./generation-meta"), exports);
 // Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.
 __exportStar(require("./edit-v2"), exports);

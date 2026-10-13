@@ -22,7 +22,7 @@ test('Command Code CLI がパートナーカタログに一意な CLI として�
         description: 'Command Code を PTY タブで直接使います',
         recommended: false
     }]);
-    assert.equal(catalog.filter(entry => entry.form === 'cli').length, 10);
+    assert.equal(catalog.filter(entry => entry.form === 'cli').length, 11);
     assert.equal(catalog.filter(entry => entry.form === 'web').length, 1);
 });
 
@@ -39,15 +39,17 @@ test('Command Code アイコンは公式 16px favicon のバイト列を使う',
     );
 });
 
-test('Pi と Devin の CLI と DeepSeek の Web がそれぞれ一意に並ぶ', async () => {
+test('Pi と Devin と Muse Code の CLI と DeepSeek の Web がそれぞれ一意に並ぶ', async () => {
     const catalog = JSON.parse(await readFile(catalogUrl, 'utf8'));
     for (const [agent, id, name, form] of [
         ['pi', 'earendil/pi-cli', 'Pi CLI', 'cli'],
         ['devin', 'cognition/devin-cli', 'Devin CLI', 'cli'],
+        ['muse', 'meta/muse-code-cli', 'Muse Code CLI', 'cli'],
         ['deepseek', 'deepseek/dsh-web', 'DeepSeek Harness', 'web']
     ]) {
         const matches = catalog.filter(entry => entry.agent === agent);
         assert.equal(matches.length, 1);
+        assert.equal(catalog.filter(entry => entry.id === id).length, 1, id);
         assert.equal(matches[0].id, id);
         assert.equal(matches[0].name, name);
         assert.equal(matches[0].form, form);

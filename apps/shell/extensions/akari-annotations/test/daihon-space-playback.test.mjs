@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode.js';
+import { webviewKeydownSource } from '../lib/browser/webview-keydown-source.js';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -55,7 +56,7 @@ class Element {
 }
 const isFocusOnControl = new Function('HTMLElement', `${controlPolicyJs}; return isFocusOnControl;`)(Element);
 
-function probe(focused, { composing = false, modal = false, captionEditing = false } = {}) {
+function probe(focused, { composing = false, modal = false, captionEditing = false, webviews = [] } = {}) {
   const contexts = {};
   const body = new Element('BODY');
   const document = {
@@ -75,17 +76,19 @@ function probe(focused, { composing = false, modal = false, captionEditing = fal
   };
   const Harness = new Function('window', 'document', 'HTMLElement', 'Disposable',
     'isEditableEventTarget', 'isImeCompositionKeydown', 'captionEditFocusWithinMarkedWidget',
-    'getComputedStyle', 'isFocusOnControl', `${harnessSource}; return Harness;`)(
+    'getComputedStyle', 'isFocusOnControl', 'webviewKeydownSource', 'WebviewWidget', `${harnessSource}; return Harness;`)(
     window, document, Element, { create: dispose => ({ dispose }) },
     isEditableEventTarget, isImeCompositionKeydown,
-    element => captionEditing && element === focused, () => ({ visibility: 'visible' }), isFocusOnControl
+    element => captionEditing && element === focused, () => ({ visibility: 'visible' }), isFocusOnControl,
+    webviewKeydownSource, { FACTORY_ID: 'plugin-webview' }
   );
   const owner = new Harness();
   const widget = { node: { contains: () => false }, canRunRegisteredShortcut: () => false };
   owner.shortcutTimelineWidget = () => widget;
   owner.deps = {
     contextKeys: { setContext: (name, value) => { contexts[name] = value; } },
-    history: { handleKeydown() {} }
+    history: { handleKeydown() {} },
+    widgetManager: { getWidgets: factoryId => factoryId === 'plugin-webview' ? webviews : [] }
   };
   owner.start();
   keydown({ key: ' ', code: 'Space', keyCode: composing ? 229 : 32,
@@ -145,4 +148,17 @@ test('Theia consumes a matched playback key before Chromium can scroll the row l
   });
   await Promise.resolve();
   assert.deepEqual(calls, [playback.command.id, 'preventDefault', 'stopPropagation']);
+});
+
+test('Space playback stays disabled while typing in an extension webview (Claude Code / Codex)', () => {
+  const owned = frame => ({ node: { contains: other => other === frame } });
+  const codex = new Element('IFRAME');
+  const typing = probe(codex, { webviews: [{ ...owned(codex), viewType: 'chatgpt.sidebarView' }] });
+  assert.equal(typing.enabled, false);
+  assert.equal(typing.contexts.akariEditableFocus, true);
+  assert.equal(typing.contexts.akariHistoryEditableFocus, true);
+  const preview = new Element('IFRAME');
+  const forwarded = probe(preview, { webviews: [{ ...owned(preview), viewType: 'akari.preview' }] });
+  assert.equal(forwarded.enabled, true);
+  assert.equal(forwarded.contexts.akariTimelineFocus, true);
 });

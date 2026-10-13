@@ -15,6 +15,11 @@ export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './caption-runs';
+export * from './caption-look-v1';
+export * from './caption-look-reader';
+export * from './caption-hash';
+export * from './caption-anchor-map';
+export * from './caption-semantics';
 export * from './generation-meta';
 // Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.
 export * from './edit-v2';

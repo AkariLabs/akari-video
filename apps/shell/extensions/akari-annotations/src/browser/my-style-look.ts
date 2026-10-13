@@ -1,7 +1,8 @@
 import { t } from '@akari-video/i18n';
 import { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
-import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
-import { CAPTION_DEFAULT_SIZE_PX } from 'akari-preview/lib/common/textstyle-sample';
+import { TEXTSTYLE_CATALOG, CAPTION_ROW_LOOK_FIELDS as LOOK_FIELDS, sanitizeMyStyleLook,
+    scaledLookForCaption, captionEffectiveSize } from '@akari-video/edit-store';
+export { sanitizeMyStyleLook, scaledLookForCaption, captionEffectiveSize } from '@akari-video/edit-store';
 export { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 
 import { mergeCaptionTextStyles, type CaptionAnimation, type CaptionTextStyle, type CaptionTextStylePatch } from '../common/caption-store';
@@ -16,14 +17,6 @@ const KEYS: Readonly<Record<string, string>> = {
     blurPx: 'blur_px', distancePx: 'distance_px', angleDeg: 'angle_deg', spread: 'spread'
 };
 const SKIP = new Set(['position', 'textAnchor', 'text_anchor', 'zone', 'animation', 'layout']);
-const LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>> = {
-    color: true, size_px: true, reference_height_px: true, font_family: true,
-    font_weight: true, weight: true, line_height: true, letter_spacing_em: true,
-    text_transform: true, fill: true, strokes: true,
-    stroke: ['color', 'width_px'], background: ['color', 'opacity', 'radius_px', 'padding_px', 'mode'],
-    shadow: ['color', 'opacity', 'blur_px', 'distance_px', 'angle_deg'],
-    glow: ['color', 'density', 'spread', 'offset_x', 'offset_y']
-};
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 export function newMyStyleUid(now = Date.now()): string {
@@ -115,65 +108,6 @@ export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: u
     if (layout !== undefined && height !== undefined) {
         throw new Error(t('annotations.myStyleLook.text.myStyleCannotBeAppliedBecauseThe'));
     }
-}
-
-export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
-    if (!record(value)) return {};
-    const look: Record<string, unknown> = {};
-    for (const [key, allowed] of Object.entries(LOOK_FIELDS)) {
-        if (!(key in value)) continue;
-        const entry = value[key];
-        if (allowed === true) look[key] = entry;
-        else if (record(entry)) look[key] = Object.fromEntries(
-            Object.entries(entry).filter(([field]) => allowed.includes(field)));
-    }
-    return look;
-}
-
-export function scaledLookForCaption(look: Record<string, unknown>, targetSize: number): Record<string, unknown> {
-    const presetSize = look.size_px;
-    const ratio = typeof presetSize === 'number' && Number.isFinite(presetSize) && presetSize > 0
-        ? targetSize / presetSize : 1;
-    const scaled = { ...look };
-    for (const [key, fields] of Object.entries({
-        stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y']
-    })) {
-        const value = look[key];
-        if (!record(value)) continue;
-        const copy = { ...value };
-        for (const field of fields) {
-            const current = copy[field];
-            if (typeof current === 'number') copy[field] = current * ratio;
-        }
-        scaled[key] = copy;
-    }
-    if (Array.isArray(look.strokes)) scaled.strokes = look.strokes.map(entry => {
-        if (!record(entry)) return entry;
-        const stroke = { ...entry };
-        for (const field of ['width_px', 'offset_x', 'offset_y']) {
-            const current = stroke[field];
-            if (typeof current === 'number') stroke[field] = current * ratio;
-        }
-        return stroke;
-    });
-    if (record(look.fill) && look.fill.type === 'pattern' && record(look.fill.pattern)) {
-        const pattern = { ...look.fill.pattern };
-        if (typeof pattern.scale === 'number') pattern.scale *= ratio;
-        scaled.fill = { ...look.fill, pattern };
-    }
-    delete scaled.size_px;
-    delete scaled.reference_height_px;
-    return scaled;
-}
-
-export function captionEffectiveSize(row: Record<string, unknown>, defaultStyle: Record<string, unknown>,
-    catalog: Record<string, { style: Record<string, unknown> }> = TEXTSTYLE_CATALOG): number {
-    const before = record(row.text_style) ? row.text_style : {};
-    const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
-    const presetStyle = record(preset) ? preset : {};
-    const size = before.size_px ?? presetStyle.size_px ?? defaultStyle.size_px ?? CAPTION_DEFAULT_SIZE_PX;
-    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : CAPTION_DEFAULT_SIZE_PX;
 }
 
 /** One source write replaces every look field and removes style_preset on all selected cues. */

@@ -1,7 +1,7 @@
 import { t } from './partner-text';
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
-export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'muse';
 import type { PartnerAppliedPermissionMode, PartnerPermissionMode } from './partner-permissions';
 
 export interface PartnerInstallDisclosure {
