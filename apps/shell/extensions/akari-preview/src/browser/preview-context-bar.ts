@@ -379,9 +379,27 @@ export class PreviewContextBar implements Disposable {
         const pending = this.captionPending.get(field);
         if (!captionValueChanged(current, pending, value)) return;
         this.captionPending.set(field, value);
+        const liveFields = new Set(['sizePx', 'lineHeight', 'letterSpacingEm', 'strokeWidth', 'opacity']);
+        if (liveFields.has(field)) this.host.sendMessage({ type: 'akari-preview-caption-style-live', field,
+            value: field === 'opacity' ? Number(value) * 100 : value });
+        else if (this.state?.selectedId) {
+            const textStyle = Object.fromEntries(this.captionPending);
+            if (field === 'weight') textStyle.fontWeight = value;
+            this.host.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: this.state.selectedId, textStyle });
+        }
+        this.render();
         void this.run({ action, field, value }).then(result => {
             if (result?.ok === true) return;
-            if (this.captionPending.get(field) === value) this.captionPending.delete(field);
+            if (this.captionPending.get(field) === value) {
+                this.captionPending.delete(field);
+                if (liveFields.has(field)) this.host.sendMessage({ type: 'akari-preview-caption-style-live', field, value: null });
+                else if (this.state?.selectedId) this.host.sendMessage({
+                    type: 'akari-preview-caption-style-preview', captionId: this.state.selectedId,
+                    ...(this.captionPending.size
+                        ? { textStyle: Object.fromEntries(this.captionPending) } : { failed: true })
+                });
+                this.render();
+            }
         });
     }
 
@@ -470,7 +488,7 @@ export class PreviewContextBar implements Disposable {
     }
 
     protected captionButton(key: string, overflow = false): string {
-        const style = (this.state?.item?.textStyle ?? {}) as Record<string, any>;
+        const style = { ...(this.state?.item?.textStyle ?? {}), ...Object.fromEntries(this.captionPending ?? []) } as Record<string, any>;
         const label: Record<string, string> = { captionFont: 'フォント', captionTextColor: '文字の色', captionBold: '太字',
             captionItalic: '斜体', captionUnderline: '下線', captionStrike: '取り消し線', captionCase: '大文字小文字',
             captionAlign: '配置', captionBullet: '箇条書き', captionSpacing: '間隔', captionVertical: '縦書き',
@@ -495,14 +513,14 @@ export class PreviewContextBar implements Disposable {
 
     protected renderCaptionBar(): void {
         const state = this.state!;
-        const signature = JSON.stringify([state.item, this.openWindow, this.moreOpen, this.captionPanel]);
+        const signature = JSON.stringify([state.item, [...(this.captionPending ?? [])], this.openWindow, this.moreOpen, this.captionPanel]);
         if (signature === this.barSignature) return;
         this.barSignature = signature;
         this.bar.hidden = false;
         const focusedKey = this.bar.contains(document.activeElement)
             ? (document.activeElement as HTMLElement).closest<HTMLElement>('[data-akari-bar-item]')?.dataset.akariBarItem : undefined;
-        const style = (state.item?.textStyle ?? {}) as Record<string, any>;
-        const size = Math.round(captionSizeForState(this.state));
+        const style = { ...(state.item?.textStyle ?? {}), ...Object.fromEntries(this.captionPending ?? []) } as Record<string, any>;
+        const size = Math.round(Number(this.captionPending?.get('sizePx')) || captionSizeForState(this.state));
         this.bar.innerHTML = CAPTION_BAR_ORDER.map(key => key === 'captionSize'
             ? `<span class="akari-ctx-size" data-akari-bar-item="captionSize"><button type="button" data-akari-bar-item="captionSizeDec" aria-label="縮小">−</button>`
                 + `<input type="number" data-akari-caption-size min="1" max="${CAPTION_FONT_SIZE_MAX}" value="${size}" aria-label="サイズ">`
@@ -813,7 +831,7 @@ export class PreviewContextBar implements Disposable {
             this.openWindow = null;
             if (key === 'captionBold') {
                 const style = (state.item?.textStyle ?? {}) as Record<string, any>;
-                void this.run({ action: 'captionStyle', field: 'weight', value: Number(style.weight ?? style.fontWeight) === 900 ? 400 : 900 });
+                this.writeCaptionValue('weight', Number(this.captionPending.get('weight') ?? style.weight ?? style.fontWeight) === 900 ? 400 : 900);
             } else void this.run({ action: key === 'style' ? 'copyStyle' : key });
         } else if (item.kind === 'window') {
             this.openWindow = this.openWindow === key ? null : key;
@@ -843,7 +861,7 @@ export class PreviewContextBar implements Disposable {
             this.writeCaptionValue('sizePx', size);
         } else if (key === 'captionBold') {
             this.openWindow = null;
-            void this.run({ action: 'captionStyle', field: 'weight', value: Number(style.weight ?? style.fontWeight) >= 700 ? 400 : 900 });
+            this.writeCaptionValue('weight', Number(this.captionPending.get('weight') ?? style.weight ?? style.fontWeight) >= 700 ? 400 : 900);
         } else if (key === 'captionItalic' || key === 'captionUnderline' || key === 'captionStrike'
             || key === 'captionBullet' || key === 'captionVertical') {
             this.openWindow = null;

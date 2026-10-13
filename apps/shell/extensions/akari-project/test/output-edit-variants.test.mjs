@@ -59,7 +59,7 @@ test('outputs collection includes root edit variants and keeps canonical edit fi
     instance.outputsGeneration = 0;
     instance.collectTopLevelFiles = async uri => uri === root ? files : [];
     instance.collectPlanFiles = async () => [];
-    instance.collectRootFilesNamed = async () => [];
+    instance.collectRootFilesNamed = () => [];
     instance.buildOutputEntry = async (_, file, kind) => ({ kind, name: file.resource.path.base, mtime: file.mtime });
     instance.hydrateOutputThumbnails = async () => {};
     await instance.loadOutputs();

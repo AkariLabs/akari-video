@@ -28,6 +28,7 @@ import {
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { cutMotionReferencePaths } from '@akari-video/edit-store';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
@@ -65,6 +66,7 @@ import { selectionScrollTop } from './selection-reveal';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
 import { shouldUseKaraokeWords } from '../../common/karaoke-words';
 import { changedWordPresetRowIds, planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
+import { certainFragmentOverflow, DaihonFragmentCache, type DaihonFragmentResult } from '../../common/daihon-fragment-cache';
 import {
     buildDaihonRows,
     type DaihonCaptionLike,
@@ -678,6 +680,13 @@ export class AkariDaihonWidget extends BaseWidget {
     protected duplicateRowIds = new Map<string, string>();
     protected readonly captionAudioCache = new Map<string, boolean | undefined>();
     protected silencesBySourceId = new Map<string, DaihonSilenceSpan[]>();
+    protected automaticFragmentCache = new DaihonFragmentCache();
+    protected pendingAutomaticFragments = new Map<string, { key: string; timer: ReturnType<typeof setTimeout> }>();
+    protected materialSourcesKey = '';
+    protected sidecarRevision = 0;
+    protected loadedSidecarRevision = -1;
+    protected lastAppliedCaptionSource: string | undefined;
+    protected pendingCaptionSource: string | undefined;
     protected rootUri: URI | undefined;
     protected editUri: URI | undefined;
     protected captionsUri: URI | undefined;
@@ -1182,6 +1191,10 @@ export class AkariDaihonWidget extends BaseWidget {
     async configure(): Promise<void> {
         if (this.configured) return;
         this.configured = true;
+        this.toDispose.push({ dispose: () => {
+            for (const pending of this.pendingAutomaticFragments.values()) clearTimeout(pending.timer);
+            this.pendingAutomaticFragments.clear();
+        } });
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
         this.showCutMarks = this.preferences.get(DAIHON_SHOW_CUT_MARKS_PREFERENCE, true);
@@ -1208,16 +1221,21 @@ export class AkariDaihonWidget extends BaseWidget {
             const meaningful = event.changes.filter(change => shouldReloadDaihonChanges(
                 [change.resource.toString()], this.captionsUri?.toString() ?? '', false));
             const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
+            const sidecarChanged = meaningful.some(change => /[\\/]\.akari[\\/]sidecars[\\/]/u.test(change.resource.path.toString())
+                || change.resource.path.base === 'cuts.json');
+            if (sidecarChanged) this.sidecarRevision++;
+            const captionChanged = meaningful.some(change => change.resource.toString() === this.captionsUri?.toString());
             const relevant = meaningful.some(change => change.resource.toString() === this.editUri?.toString()
-                || (change.resource.toString() === this.captionsUri?.toString()
-                    && !this.captionEditQueue.hasOwnedCaptionChange())
                 || change.resource.toString() === dictionaryUri?.toString()
-                || change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
-            if (meaningful.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
+                || sidecarChanged && this.rootUri?.isEqualOrParent(change.resource));
+            if (sidecarChanged) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
             }
             // The guide creates edit.json after this widget has already configured itself.
             // Discover the new project on that first file event as well as later edits.
+            if (captionChanged && !relevant) {
+                this.reloadTail = this.queueCaptionReloadIfChanged();
+            }
             if (relevant || (!this.editUri && meaningful.some(change =>
                 isTimelineEditFileName(change.resource.path.base) && this.rootUri?.isEqualOrParent(change.resource)))) this.queueReload();
         }));
@@ -1244,6 +1262,22 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected queueReload(): void {
         void this.requestReload();
+    }
+
+    protected async queueCaptionReloadIfChanged(): Promise<void> {
+        if (!this.captionsUri) return;
+        try {
+            const source = await this.readText(this.captionsUri);
+            if (source === this.lastAppliedCaptionSource || source === this.pendingCaptionSource) return;
+            this.pendingCaptionSource = source;
+            try {
+                await this.requestReload();
+            } finally {
+                if (this.pendingCaptionSource === source) this.pendingCaptionSource = undefined;
+            }
+        } catch {
+            await this.requestReload();
+        }
     }
 
     protected requestReload(): Promise<boolean> {
@@ -1419,9 +1453,16 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.editSources = selectCaptionSources(editForSources, {}, this.editUri?.parent.toString());
         this.sourceColors = sourceBadgeColors(this.editSources);
-        this.silencesBySourceId = new Map();
-        const silenceLoad = this.loadSilences();
-        await this.refreshCaptionsButton(this.editSources).catch(error => {
+        const sourcesKey = JSON.stringify([this.editUri?.toString(),
+            this.editSources.map(source => [source.id, source.path])]);
+        const materialsChanged = sourcesKey !== this.materialSourcesKey
+            || this.loadedSidecarRevision !== this.sidecarRevision;
+        if (materialsChanged) {
+            this.materialSourcesKey = sourcesKey;
+            this.loadedSidecarRevision = this.sidecarRevision;
+        }
+        const silenceLoad = materialsChanged ? this.loadSilences() : Promise.resolve();
+        if (materialsChanged) await this.refreshCaptionsButton(this.editSources).catch(error => {
             this.captionsButton.disabled = true;
             this.notifyError(this.errorMessage(error));
         });
@@ -1461,6 +1502,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
             this.missingCaptionsUri = undefined;
             const { source: captionsSource, parsed, root: captionsRoot } = captionsRead;
+            this.lastAppliedCaptionSource = captionsSource;
             this.speakerDictionary = parseSpeakerDictionary(dictionarySource);
             this.captionsRoot = captionsRoot;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
@@ -1481,12 +1523,17 @@ export class AkariDaihonWidget extends BaseWidget {
             this.attachments = attachmentRanges(edit as Parameters<typeof attachmentRanges>[0], next,
                 this.sourceCaptions.filter(caption => caption.timeDomain === 'output').length);
             this.handEditedCaptionIds.clear();
-            this.cutSources = [];
-            for (const source of this.editSources) {
-                const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
-                    .catch(error => { this.notifyError(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
-                this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
-                for (const line of handEditedLines(artifacts?.cuts ?? null)) {
+            if (materialsChanged) {
+                this.cutSources = [];
+                for (const source of this.editSources) {
+                    const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
+                        .catch(error => { this.notifyError(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
+                    this.cutSources.push({ sourceId: source.id, cuts: artifacts?.cuts ?? null });
+                }
+            }
+            for (const source of this.cutSources) {
+                const cuts = source.cuts;
+                for (const line of handEditedLines(cuts)) {
                     const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
                 }
             }
@@ -1601,15 +1648,64 @@ export class AkariDaihonWidget extends BaseWidget {
             const effective = policy.wrap === 'fold'
                 ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
                 : policy;
-            const result = splitCaptionFragments(text, effective);
+            const cache = this.automaticFragmentCache ??= new DaihonFragmentCache();
+            const key = cache.key(text, effective);
+            const units = measureCaptionUnits(text);
+            const split = (): DaihonFragmentResult => {
+                if (certainFragmentOverflow(units, effective.max_line_units)) return { overflow: true };
+                const result = splitCaptionFragments(text, effective);
+                return { fragments: result.fragments.length > 1 ? result.fragments : undefined,
+                    overflow: !!result.overflow };
+            };
+            let result = cache.get(key);
+            if (!result && units >= 48 && this.isAttached
+                && !certainFragmentOverflow(units, effective.max_line_units)) {
+                this.scheduleAutomaticFragments(captionId, key, split);
+                return undefined;
+            }
+            result ??= cache.compute(key, split);
             if (result.overflow) {
                 this.captionOverflowUnitsById.set(captionId, policy.max_line_units);
                 return undefined;
             }
-            return result.fragments.length > 1 ? result.fragments : undefined;
+            return result.fragments;
         } catch {
             return undefined;
         }
+    }
+
+    protected scheduleAutomaticFragments(captionId: string, key: string, split: () => DaihonFragmentResult): void {
+        const pending = this.pendingAutomaticFragments ??= new Map();
+        const previous = pending.get(captionId);
+        if (previous?.key === key) return;
+        if (previous) clearTimeout(previous.timer);
+        const editKey = this.editUri?.toString();
+        const timer = setTimeout(() => {
+            if (pending.get(captionId)?.key !== key || this.isDisposed) return;
+            pending.delete(captionId);
+            try {
+                this.automaticFragmentCache.compute(key, split);
+                if (this.editUri?.toString() !== editKey) return;
+                const caption = this.sourceCaptions.find(item => item.id === captionId);
+                if (!caption || this.captionExtraById.get(captionId)?.hasDisplayFragments) return;
+                const policy = daihonDisplayPolicyForWrite(this.captionsRoot, this.displayKnobs);
+                const effective = policy.wrap === 'fold'
+                    ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
+                    : policy;
+                if (this.automaticFragmentCache.key(caption.text, effective) !== key) return;
+                const [row] = buildDaihonRows([
+                    this.toDaihonCaption(caption, this.captionExtraById.get(captionId), policy)
+                ], this.segments, this.editFps);
+                const index = this.rows.findIndex(item => item.id === captionId);
+                if (row && index >= 0 && this.editing?.id !== captionId && this.elements.has(captionId)) {
+                    this.rows[index] = row;
+                    this.replaceRenderedRow(row);
+                }
+            } catch (error) {
+                console.warn('[akari-daihon] 自動の表示区切りを更新できません。', error);
+            }
+        }, 700);
+        pending.set(captionId, { key, timer });
     }
 
     protected captionExtras(source: string): Map<string, CaptionExtras> {
@@ -3041,8 +3137,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                 captionId: row.id, start, end, edited: true
             }).then(() => undefined));
-            await this.reload();
-        } catch (error) { await this.reload(); this.notifyError(this.errorMessage(error)); }
+            await this.queueCaptionReloadIfChanged();
+        } catch (error) { await this.requestReload(); this.notifyError(this.errorMessage(error)); }
     }
 
     protected openPlacedMenu(captionId: string): void {
@@ -4226,10 +4322,10 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
                 removedFrames = result.removedFrames;
                 cutWarnings = result.warnings ?? [];
+                if (removedFrames > 0) this.refreshCutTimeline();
             }, true);
             if (removedFrames === 0) { this.notifyError(cutWarnings[0] ?? 'カットできる区間が見つかりませんでした。'); return; }
             await this.reload();
-            this.refreshCutTimeline();
             const only = entries[0];
             const rowText = this.rows.find(row => row.id === only?.rowId)?.text.trim();
             const rowCharacters = Array.from(rowText ?? '');
@@ -4245,7 +4341,9 @@ export class AkariDaihonWidget extends BaseWidget {
             if (cutWarnings.includes('映像のある部分だけ切りました。'))
                 this.notify('映像のある部分だけ切りました');
         } catch (error) {
-            this.notifyError(this.errorMessage(error));
+            const message = this.errorMessage(error);
+            this.notifyError(/^(TypeError|ReferenceError|Error):/u.test(message)
+                ? 'この区間をカットできませんでした。編集データを確認してください。' : message);
         }
     }
 
@@ -4307,10 +4405,10 @@ export class AkariDaihonWidget extends BaseWidget {
                     range: span.restoreRange!, label: 'カットを戻す'
                 });
                 if (!result.restored) throw new Error(result.reason);
+                this.refreshCutTimeline();
             }, true);
             this.closePop();
             await this.reload();
-            this.refreshCutTimeline();
             this.showCutToast('カットを戻しました', () => void this.historyService.undo());
         } catch (error) {
             this.notifyError(this.errorMessage(error));
@@ -4733,14 +4831,14 @@ export class AkariDaihonWidget extends BaseWidget {
                     label: 'カットの範囲を直す'
                 });
                 if (applied.removedFrames === 0) throw new Error(applied.warnings?.[0] ?? '新しい範囲をカットできませんでした。');
+                this.refreshCutTimeline();
             }, true, true);
             await this.reload();
-            this.refreshCutTimeline();
             this.showCutToast('カットの範囲を直しました', () => void this.historyService.undo());
             this.closeCutRangeEditor();
         } catch (error) {
-            await this.reload();
             this.refreshCutTimeline();
+            await this.reload();
             this.closeCutRangeEditor();
             this.notifyError(this.errorMessage(error));
         }
@@ -4776,9 +4874,13 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
                 removedFrames = result.removedFrames;
                 warnings = result.warnings ?? [];
+                if (removedFrames > 0) this.refreshCutTimeline?.();
             }, true);
             const changed = before !== await this.readText(this.editUri);
-            if (changed) { await this.reload(); this.refreshCutTimeline?.(); }
+            if (changed) {
+                if (removedFrames === 0) this.refreshCutTimeline?.();
+                await this.reload();
+            }
             const seconds = removedFrames / this.editFps;
             const refusals = warnings.filter(warning => warning !== '映像のある部分だけ切りました。');
             const refused = Math.min(selected.length, refusals.length);
@@ -5389,6 +5491,7 @@ export class AkariDaihonWidget extends BaseWidget {
         recordOnFailure = false): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         const [editBefore, captionsBefore] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
+        const motionBefore = refreshTimeline ? await this.readCutMotionSnapshots(editBefore) : new Map<string, string>();
         let failed = false;
         let failure: unknown;
         try { await operation(); } catch (error) {
@@ -5398,17 +5501,36 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const [editAfter, captionsAfter] = await Promise.all([this.readText(this.editUri), this.readText(this.captionsUri)]);
         if (editBefore !== editAfter || captionsBefore !== captionsAfter) {
-            const write = async (editSource: string, captionsSource: string): Promise<void> => {
+            const motionAfter = refreshTimeline ? await this.readCutMotionSnapshots(editAfter) : new Map<string, string>();
+            const write = async (editSource: string, captionsSource: string,
+                motion: ReadonlyMap<string, string>): Promise<void> => {
+                for (const [path, source] of motion) {
+                    const uri = this.editUri!.parent.resolve(path);
+                    await this.fileService.createFolder(uri.parent);
+                    await this.fileService.writeFile(uri, BinaryBuffer.fromString(source));
+                }
                 await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionsUri: this.captionsUri!.toString(), editSource, captionsSource });
-                await this.reload();
                 if (refreshTimeline) this.refreshCutTimeline();
+                await this.reload();
             };
             const history = daihonHistoryService();
-            history?.push({ label, undo: () => write(editBefore, captionsBefore), redo: () => write(editAfter, captionsAfter) });
+            history?.push({ label, undo: () => write(editBefore, captionsBefore, motionBefore),
+                redo: () => write(editAfter, captionsAfter, motionAfter) });
             if (history) this.pendingUndoAt = Date.now();
         }
         if (failed) throw failure;
+    }
+
+    protected async readCutMotionSnapshots(editSource: string): Promise<Map<string, string>> {
+        const snapshots = new Map<string, string>();
+        if (!this.editUri) return snapshots;
+        const edit = JSON.parse(editSource) as { tracks?: unknown };
+        await Promise.all(cutMotionReferencePaths(edit).map(async path => {
+            try { snapshots.set(path, await this.readText(this.editUri!.parent.resolve(path))); }
+            catch { /* A missing bag is rejected if a cut tries to use it. */ }
+        }));
+        return snapshots;
     }
 
     protected async applyWordPreset(presetId: string): Promise<void> {
@@ -5425,7 +5547,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     })), presetId),
                     removeIds: emphasisIdsCovering(readEmphasisWords(source), spans) });
             });
-            await this.reload();
+            await this.queueCaptionReloadIfChanged();
             const preset = TEXTSTYLE_CATALOG[presetId];
             this.notify(`「${spans.map(span => span.word).join('・')}」に ${preset?.name ?? presetId}（${spans.length} 範囲）`);
             this.openWordBar();
@@ -5440,7 +5562,7 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.withHistory('語の強調を外す', async () => {
             await this.annotationsService.setEmphasisWords({ captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), upserts: [], removeIds: ids });
         });
-        await this.reload();
+        await this.queueCaptionReloadIfChanged();
         this.notify('強調を外しました');
     }
 

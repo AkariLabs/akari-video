@@ -123,6 +123,62 @@ test('欠落は空表示になり、作成イベントで字幕を読み込む',
   assert.equal(run.notices.length, 0);
 });
 
+test('字幕だけの変更と watcher エコーは素材別の再取得を起こさない', async () => {
+  let source = captions;
+  let silences = 0;
+  let artifacts = 0;
+  let renders = 0;
+  const run = fixture(() => source);
+  run.instance.loadSilences = async () => { silences++; };
+  run.instance.projectService.readTranscribeArtifacts = async () => { artifacts++; return {}; };
+  run.instance.renderRows = next => { run.instance.rows = next; renders++; };
+  const change = watchChanges(run);
+  await run.instance.configure();
+  assert.equal(silences, 1);
+  assert.equal(artifacts, 1);
+  source = JSON.stringify({ captions: [{ ...caption, text: '更新' }] });
+  change(captionsUri);
+  await run.instance.reloadTail;
+  assert.equal(run.instance.rows[0].text, '更新');
+  assert.equal(silences, 1);
+  assert.equal(artifacts, 1);
+  const afterChange = renders;
+  change(captionsUri);
+  await run.instance.reloadTail;
+  assert.equal(renders, afterChange);
+  assert.equal(silences, 1);
+  assert.equal(artifacts, 1);
+});
+
+test('同じ字幕本文の watcher と保存後要求は処理中でも reload 一回に合流する', async () => {
+  const run = fixture(() => captions);
+  let reloads = 0;
+  let release;
+  run.instance.requestReload = async () => {
+    reloads++;
+    await new Promise(resolve => { release = resolve; });
+  };
+  const first = run.instance.queueCaptionReloadIfChanged();
+  await Promise.resolve();
+  await run.instance.queueCaptionReloadIfChanged();
+  assert.equal(reloads, 1);
+  release();
+  await first;
+});
+
+test('字幕本文が同じでも edit の変更は台本へ反映する', async () => {
+  let editSource = edit;
+  const run = fixture(() => captions, () => editSource);
+  const change = watchChanges(run);
+  await run.instance.configure();
+  const before = run.renders.length;
+  editSource = JSON.stringify({ ...JSON.parse(edit), output: { fps: 24 } });
+  change(editUri);
+  await run.instance.reloadTail;
+  assert.equal(run.renders.length, before + 1);
+  assert.equal(run.instance.editFps, 24);
+});
+
 test('初回読み込みが失敗しても次の変更イベント 1 回で復帰する', async () => {
   let editSource = JSON.stringify({ version: 1, tracks: {} });
   const run = fixture(() => captions, () => editSource);

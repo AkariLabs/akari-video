@@ -94,6 +94,19 @@ test('すでに Promise 待ちの refresh も実行直前に gesture を確認�
     assert.equal(f.calls[0][5], undefined);
 });
 
+test('待機中の連続更新は最新本文一回にまとめ、強制再構築を保つ', async () => {
+    const f = hostFixture();
+    let release;
+    f.widget.akariPreviewRefresh = new Promise(resolve => { release = resolve; });
+    f.queue(true, 'first edit');
+    f.queue(false, 'latest edit');
+    release();
+    await f.widget.akariPreviewRefresh;
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls[0][4], true);
+    assert.equal(f.calls[0][5], 'latest edit');
+});
+
 test('純粋キューは最後の明示 seek と forceRebuild を維持する', () => {
     const original = { active: true, writeRevision: 1 };
     const first = reducePreviewGesture(original, {

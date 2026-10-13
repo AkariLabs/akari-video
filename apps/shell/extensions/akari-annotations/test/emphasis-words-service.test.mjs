@@ -38,3 +38,41 @@ test('wraps array root without changing the captions array bytes', async () => {
     const after = await readFile(data.captionsPath, 'utf8'); assert.ok(after.includes(before)); assert.equal(JSON.parse(after).emphasis_words.length, 1);
   } finally { await rm(data.root, { recursive: true, force: true }); }
 });
+
+test('語の強調の保存応答は Git 完了を待たず、連続保存を一つにまとめる', async () => {
+  const data = await fixture();
+  try {
+    const service = new AkariAnnotationsServiceImpl();
+    let commits = 0;
+    let release;
+    service.commitIfOwnRoot = async () => {
+      commits++;
+      await new Promise(resolve => { release = resolve; });
+      return true;
+    };
+    const result = await service.setEmphasisWords({ ...data.request,
+      upserts: [{ t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+    assert.equal(result.committed, false);
+    await service.setEmphasisWords({ ...data.request,
+      upserts: [{ t_start: 1, t_end: 2, word: 'B', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+    assert.equal(commits, 0);
+    const pending = service.flushEditCommit(data.root);
+    assert.equal(commits, 1);
+    release();
+    await pending;
+  } finally { await rm(data.root, { recursive: true, force: true }); }
+});
+
+test('終了時は保留中の Git 記録を待ってから閉じる', async () => {
+  const data = await fixture();
+  try {
+    const service = new AkariAnnotationsServiceImpl();
+    let commits = 0;
+    service.commitIfOwnRoot = async () => { commits++; return true; };
+    await service.setEmphasisWords({ ...data.request,
+      upserts: [{ t_start: 0, t_end: 1, word: 'A', emotion: 'neutral', style_preset: 'neon' }], removeIds: [] });
+    assert.equal(commits, 0);
+    await service.onStop();
+    assert.equal(commits, 1);
+  } finally { await rm(data.root, { recursive: true, force: true }); }
+});

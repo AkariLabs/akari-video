@@ -30,6 +30,7 @@ const expectedSources = [
   'caption-words-rederive.ts',
   'cut-adjacency.ts',
   'cut-audio-split-ops.ts',
+  'cut-keyframe-references.ts',
   'cut-ranges.ts',
   'ducking.ts',
   'edit-store.ts',

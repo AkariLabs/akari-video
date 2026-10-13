@@ -136,7 +136,7 @@ test('強調だけ変わった行も再描画され、保存直後に本文の�
     assert.deepEqual(changedWordPresetRowIds(after, new Map(after)), []);
     assert.match(transcript, /changedPresets\.has\(row\.id\)/);
     assert.match(transcript, /this\.word\(word\.text, index, row\.id, this\.wordPresetByRowId\.get\(row\.id\)\?\.\[index\]\)/);
-    assert.match(transcript, /await this\.reload\(\);\s*const preset = TEXTSTYLE_CATALOG\[presetId\]/);
+    assert.match(transcript, /await this\.queueCaptionReloadIfChanged\(\);\s*const preset = TEXTSTYLE_CATALOG\[presetId\]/);
     const start = transcript.indexOf('    protected resolveWordPresets(');
     const end = transcript.indexOf('    protected async loadSilences(', start);
     const ts = require('typescript');
@@ -163,7 +163,8 @@ test('強調プリセットと src は保存され、更新通知がプレビュ
     const end = preview.indexOf('const renderCaptionToken =', start);
     assert.ok(start >= 0 && end > start);
     const renderer = preview.slice(start, end).replace('${JSON.stringify(TEXTSTYLE_CATALOG)}',
-        JSON.stringify({ 'emphasis-red': { style: { color: '#ff1744', weight: 700 } } }));
+        JSON.stringify({ 'emphasis-red': { style: { color: '#ff1744', weight: 700 } } }))
+        .replace('${JSON.stringify(CAPTION_INHERITED_EMPHASIS_VARS)}', '[]');
     const html = vm.runInNewContext(`${renderer}\nrenderEmphasisCaptionToken(
         { text: '今日は', start: 2.35, end: 2.75 }, 2,
         { id: 'e-0001', word: '今日は', t_start: 2.35, t_end: 2.75,

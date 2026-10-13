@@ -77,7 +77,7 @@ for (const prior of ['undefined', 'empty', 'static']) {
         await Promise.all([widget.akariPreviewRefresh, widget.akariPreviewCaptionsUpdate]);
         assert.equal(earlyMessages, 0, '字幕だけを旧モデルで送信してはいけない');
         assert.ok(events.indexOf('captions') < events.indexOf('model'));
-        assert.ok(events.indexOf('model') < events.indexOf('send'));
+        assert.ok(events.indexOf('model') < events.indexOf('send'), JSON.stringify({ events, track: widget.akariPreviewSummary?.captionTrackId, messages }));
         assert.deepEqual(messages[0].captions[0].animatorKeyframes, fixture.bag.keyframes);
         assert.equal(messages[0].captions[0].animatorStart, 0);
     });
@@ -170,10 +170,10 @@ test('初期モデルと字幕差分更新は同じ純関数で宣言を供給�
     assert.equal(source.match(/widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal/g)?.length, 2);
     assert.match(source, /widget\.akariPreviewCaptionAnimatorInternal = model\.captionAnimatorInternal;\s*if \(!forceRebuild/);
     const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
-    const start = compiled.indexOf('queueCaptionsUpdate(widget) {');
+    const start = compiled.indexOf('queueCaptionsUpdate(widget, sourceOverride) {');
     const end = compiled.indexOf('previewModelSnapshot(', start);
     assert.ok(start >= 0 && end > start);
-    const host = vm.runInNewContext('({' + compiled.slice(start, end).trim() + '})', {
+    const host = vm.runInNewContext('(new (class { ' + compiled.slice(start, end).trim() + ' }))', {
         edit_summary_fields_1: { buildCaptionAnimatorSummaryFields: project },
         preview_items_1: { projectPreviewCaptionRows: (_internal, rows) => rows },
         exports: { normalizePreviewCaptionClock: values => values }, console

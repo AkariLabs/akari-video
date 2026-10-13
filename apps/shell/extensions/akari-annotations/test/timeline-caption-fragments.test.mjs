@@ -55,13 +55,20 @@ function between(source, startNeedle, endNeedle) {
 }
 
 test('captions watcher は recent-write 時刻ゲートを使わず内容差分を確認する', () => {
-    const watcher = between(widget, 'this.fileService.onDidFilesChange(event => {', 'protected isRecentWrite(uri: URI)');
-    assert.match(watcher, /if \(event\.contains\(this\.location\.captionsUri\)\) void this\.reloadCaptionsIfChanged\(\);/);
-    assert.doesNotMatch(watcher, /event\.contains\(this\.location\.captionsUri\)[^;]*isRecentWrite/);
+    const watcher = between(widget, 'this.fileService.onDidFilesChange(event => {', 'protected showDeferredLintResult(');
+    assert.match(watcher, /this\.watchedCaptionsReload\.request\(\)/);
+    assert.match(widget, /shouldReloadCaptions\(this\.lastAppliedCaptionsSource, nextSource\)/);
+    assert.doesNotMatch(watcher, /isRecentWrite|captionEchoVerifier/);
+    assert.match(watcher, /this\.watchedEditReload\.request\(\)/);
 });
 
 test('書き込み完了通知は captionsUri の本文を即時 reload へ渡す', () => {
     assert.match(widget, /annotationsClient\.onDidWriteEvent\(detail => \{[\s\S]*?detail\.uri === this\.location\?\.captionsUri\.toString\(\)[\s\S]*?reloadCaptionsIfChanged\(detail\.content\)/);
+});
+
+test('インスペクターの途中保存は通知済みなら二度目の reload を省く', () => {
+    const write = between(widget, "case 'caption-text':", "case 'bgm-duck-db':");
+    assert.match(write, /const reloadGeneration = this\.captionReloadGeneration;[\s\S]*?setCaptionFields\([\s\S]*?if \(reloadGeneration === this\.captionReloadGeneration\)/);
 });
 
 test('字幕チップの signature は解決 cue を含み、非操作サブブロックを append する', () => {
@@ -78,13 +85,15 @@ test('字幕トラックヘッダの signature は区切り表示の現在値を
     assert.match(headers, /track\.kind === 'captions' \? \[this\.captionFragmentBreaksVisible\(\)\] : \[\]/);
 });
 
-test('字幕と edit の reload は共通ヘルパから各 1 回だけ表示断片を解決する', () => {
+test('字幕と edit は状態の反映直後に描画を予約する', () => {
     const captionsReload = between(widget, 'protected async reloadCaptionsFromSource(', 'protected remapCaptionSelections(');
-    assert.equal(captionsReload.match(/\(\) => this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
-    assert.doesNotMatch(captionsReload, /await this\.reloadResolvedCaptionDisplay\(\)/);
+    assert.match(captionsReload, /renderAfterCaptionStateChange\(/);
+    assert.match(captionsReload, /styleOnly \? undefined : \(\) => this\.reloadResolvedCaptionDisplay\(\)/);
+    assert.match(captionsReload, /this\.scheduleStripRender\(\)/);
     const editReload = between(widget, 'protected async reloadEdit(', 'protected async resolveLegacyEditForOpen(');
-    assert.equal(editReload.match(/\(\) => this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
-    assert.doesNotMatch(editReload, /await this\.reloadResolvedCaptionDisplay\(\)/);
+    assert.match(editReload, /renderAfterCaptionStateChange\(/);
+    assert.match(editReload, /\(\) => this\.reloadResolvedCaptionDisplay\(\)/);
+    assert.match(editReload, /this\.scheduleStripRender\(\)/);
 });
 
 test('字幕サブブロックは最小幅を持ち、親帯からはみ出さない', () => {

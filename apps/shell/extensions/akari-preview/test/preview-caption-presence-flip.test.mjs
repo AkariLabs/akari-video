@@ -4,14 +4,14 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const compiled = readHandlerCompiled();
-const start = compiled.indexOf('queueCaptionsUpdate(widget) {');
+const start = compiled.indexOf('queueCaptionsUpdate(widget, sourceOverride) {');
 const end = compiled.indexOf('previewModelSnapshot(', start);
 assert.ok(start >= 0 && end > start);
 const cue = { id: 'c1', start: 0, end: 1, text: 'Added later' };
 
 function setup(captions, captionTrackId) {
     const errors = [];
-    const host = vm.runInNewContext('({' + compiled.slice(start, end).trim() + '})', {
+    const host = vm.runInNewContext('(new (class { ' + compiled.slice(start, end).trim() + ' }))', {
         exports: { normalizePreviewCaptionClock: values => values },
         edit_summary_fields_1: { buildCaptionAnimatorSummaryFields: values => values },
         console: { error: (...args) => errors.push(args) }
@@ -120,6 +120,25 @@ test('cue text, paint, runs and emphasis arrive together as a caption-only updat
     assert.equal(messages[0].captions[0].runs[0].style.font_weight, 900);
     assert.deepEqual(messages[0].emphasisWords, emphasisWords);
     assert.equal(widget.akariPreviewModelSnapshot.captions[0].text, changed.text);
+});
+
+test('連続した字幕通知は実行中一回と最新一回に合流する', async () => {
+    const { host, widget, messages } = setup([cue], 't-captions-implied');
+    let reads = 0;
+    let release;
+    host.loadPreviewCaptions = async () => {
+        reads++;
+        if (reads === 1) await new Promise(resolve => { release = resolve; });
+        return { captions: [cue] };
+    };
+    host.queueCaptionsUpdate(widget);
+    host.queueCaptionsUpdate(widget);
+    host.queueCaptionsUpdate(widget);
+    assert.equal(reads, 1);
+    release();
+    await widget.akariPreviewCaptionsUpdate;
+    assert.equal(reads, 2);
+    assert.equal(messages.length, 2);
 });
 
 test('caption plate uses auto for missing tracks and preserves the shared z-order for string track IDs', () => {

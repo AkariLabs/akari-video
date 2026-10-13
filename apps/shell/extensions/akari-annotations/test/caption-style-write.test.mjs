@@ -72,6 +72,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
       writeEditSnapshot: async entry => { writes.push(entry); } },
     pushHistory: entry => { history.push(entry); },
     reloadCaptions: async () => {}, reloadCaptionStyles: async () => {},
+    reloadCaptionsIfChanged: async () => {},
     reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   let result;

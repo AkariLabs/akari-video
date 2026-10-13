@@ -5,6 +5,9 @@ import { writeAtomic, writeProjectFilesGuarded, scheduleProjectLint, type EditLi
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
+import { cutMotionReferencePaths, hydrateCutMotionReferences, restoreUncutMotionReferences } from '@akari-video/edit-store';
+import { serializeMotion } from '@akari-video/edit-store/lib/canonical';
+import { prepareV2KeyframeDistribution, type EditV2Document } from '../common/edit-v2-mutations';
 import {
     applyCutRanges as applyCutRangesToSource,
     restoreCutRange as restoreCutRangeInSource,
@@ -2293,9 +2296,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             }
             await this.writeProjectFileGuarded(captionsPath, updated.source);
             const projectRoot = this.fsPath(request.projectRootUri);
-            const committed = this.commitWrite(projectRoot, '字幕テンプレを適用')
-                || await this.commitIfOwnRoot(projectRoot, '字幕テンプレを適用', [captionsPath]);
-            return { committed, changed: updated.changed, beforeSource };
+            this.queueEditCommit(projectRoot, '字幕テンプレを適用', [captionsPath]);
+            return { committed: false, changed: updated.changed, beforeSource };
         });
     }
 
@@ -2316,9 +2318,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
             await this.writeProjectFileGuarded(captionsPath, updated);
             const projectRoot = this.fsPath(request.projectRootUri);
-            const committed = this.commitWrite(projectRoot, '字幕の表示設定を変更')
-                || await this.commitIfOwnRoot(projectRoot, '字幕の表示設定を変更', [captionsPath]);
-            return { committed, changed: 1, beforeSource };
+            this.queueEditCommit(projectRoot, '字幕の表示設定を変更', [captionsPath]);
+            return { committed: false, changed: 1, beforeSource };
         });
     }
 
@@ -2414,9 +2415,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             if (updated === beforeSource) return { committed: false, changed: 0, beforeSource, ids };
             await this.writeProjectFileGuarded(captionsPath, updated);
             const root = this.fsPath(request.projectRootUri);
-            const committed = this.commitWrite(root, '語の強調を変更')
-                || await this.commitIfOwnRoot(root, '語の強調を変更', [captionsPath]);
-            return { committed, changed: request.upserts.length + existing.filter(record => remove.has(String(record.id))).length,
+            this.queueEditCommit(root, '語の強調を変更', [captionsPath]);
+            return { committed: false, changed: request.upserts.length + existing.filter(record => remove.has(String(record.id))).length,
                 beforeSource, ids };
         });
     }
@@ -2586,9 +2586,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             await this.writeProjectFileGuarded(captionsPath, updated);
             await this.refreshAnchorsAfterCaptionWrite(captionsPath);
             const label = '字幕を分割';
-            const committed = await this.commitWrite(projectRoot, label)
-                || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
-            return { committed };
+            this.queueEditCommit(projectRoot, label, [captionsPath]);
+            return { committed: false };
         });
     }
 
@@ -2602,9 +2601,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             await this.writeProjectFileGuarded(captionsPath, updated);
             await this.refreshAnchorsAfterCaptionWrite(captionsPath);
             const label = '字幕を結合';
-            const committed = await this.commitWrite(projectRoot, label)
-                || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
-            return { committed };
+            this.queueEditCommit(projectRoot, label, [captionsPath]);
+            return { committed: false };
         });
     }
 
@@ -2658,7 +2656,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const beforeSource = await fs.readFile(editPath, 'utf8');
+        if (request.ranges.length === 0) return { committed: false, removedFrames: 0, beforeSource, warnings: [] };
         let cutInput = beforeSource;
+        const motionBags = new Map<string, unknown>();
         const anchors = new Map<string, unknown>();
         if (detectEditVersion(beforeSource) === 2) {
             const edit = JSON.parse(beforeSource) as { tracks?: Array<{ items?: unknown[] }> };
@@ -2679,6 +2679,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const anchorFree = withoutItemAnchors(edit);
                 cutInput = `${JSON.stringify(anchorFree, null, 2)}\n`;
             }
+            const cutDocument = JSON.parse(cutInput) as EditV2Document;
+            const motionPaths = cutMotionReferencePaths(cutDocument);
+            await Promise.all(motionPaths.map(async path => {
+                try {
+                    motionBags.set(path, JSON.parse(await fs.readFile(join(dirname(editPath), path), 'utf8')));
+                } catch {
+                    // A sliced item with an unreadable bag is rejected before any write.
+                }
+            }));
+            if (motionPaths.length) cutInput = `${JSON.stringify(hydrateCutMotionReferences(cutDocument, motionBags), null, 2)}\n`;
         }
         // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
         const applied = applyCutRangesToSource(cutInput, request.ranges as unknown as CutRange[], {});
@@ -2714,13 +2724,71 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 if (code !== 'ENOENT') console.warn('[akari-annotations] captions.json のアンカー更新をスキップしました。', error);
             }
         }
+        let motionWrites: Array<{ path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }> = [];
+        if (detectEditVersion(updated) === 2) {
+            const restored = restoreUncutMotionReferences(JSON.parse(beforeSource) as EditV2Document,
+                JSON.parse(updated) as EditV2Document, motionBags);
+            const distribution = prepareV2KeyframeDistribution(restored);
+            updated = `${JSON.stringify(distribution.document, null, 2)}\n`;
+            motionWrites = distribution.writes;
+        }
+        if (JSON.stringify(JSON.parse(updated)) === JSON.stringify(JSON.parse(beforeSource))) {
+            return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+        }
         for (const warning of applied.warnings) console.warn(`[akari-annotations] ${warning}`);
-        await this.writeProjectFileGuarded(editPath, updated);
+        if (motionWrites.length) {
+            await this.writeCutWithMotion(editPath, updated, motionWrites);
+        } else await this.writeProjectFileGuarded(editPath, updated);
         const projectRoot = this.fsPath(request.projectRootUri);
-        const committedByStandardPath = await this.commitWrite(projectRoot, request.label);
-        const committed = committedByStandardPath
-            || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
-        return { committed, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+        this.queueEditCommit(projectRoot, request.label, [editPath]);
+        return { committed: false, removedFrames: applied.removedFrames, beforeSource, warnings: applied.warnings };
+    }
+
+    private async writeCutWithMotion(editPath: string, editSource: string,
+        writes: readonly { path: string; group: string; itemId: string; points: readonly Record<string, unknown>[] }[]): Promise<void> {
+        const projectDir = dirname(editPath);
+        const originals = new Map<string, string | undefined>();
+        const candidates: Record<string, string> = {};
+        for (const write of writes) {
+            if (!(write.path in candidates)) {
+                let previous: string | undefined;
+                try { previous = await fs.readFile(join(projectDir, write.path), 'utf8'); }
+                catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+                }
+                originals.set(write.path, previous);
+                let bag: { version: number; group: string; items: Record<string, unknown> };
+                try {
+                    bag = previous ? JSON.parse(previous) as typeof bag
+                        : { version: 0, group: write.group, items: {} };
+                } catch {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                if (!bag || typeof bag !== 'object' || bag.version !== 0 || bag.group !== write.group
+                    || !bag.items || typeof bag.items !== 'object' || Array.isArray(bag.items)) {
+                    throw new Error('動きの記録の袋を読み込めないため、カットできません。');
+                }
+                candidates[write.path] = serializeMotion(bag);
+            }
+            const bag = JSON.parse(candidates[write.path]) as { version: 0; group: string; items: Record<string, unknown> };
+            bag.items[write.itemId] = structuredClone(write.points);
+            candidates[write.path] = serializeMotion(bag);
+        }
+        candidates[basename(editPath)] = editSource;
+        for (const name of Object.keys(candidates)) this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+        try {
+            await this.writeSnapshotCandidates(projectDir, candidates, {
+                appVersion: await this.shellWriterVersion(),
+                onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
+                onLintResult: result => this.notifyDeferredLint(projectDir, result)
+            });
+        } catch (error) {
+            for (const [path, original] of originals) {
+                if (original === undefined) await fs.rm(join(projectDir, path), { force: true });
+                else await writeAtomic(join(projectDir, path), original);
+            }
+            throw error;
+        }
     }
 
     async restoreCutRange(request: RestoreCutRangeRequest): Promise<RestoreCutRangeResponse> {
@@ -2742,7 +2810,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         await this.writeProjectFileGuarded(editPath, updated);
         const root = this.fsPath(request.projectRootUri);
-        await this.commitWrite(root, request.label) || await this.commitIfOwnRoot(root, request.label, [editPath]);
+        this.queueEditCommit(root, request.label, [editPath]);
         return { restored: true };
     }
 
@@ -3011,11 +3079,73 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     /**
      * 編集 RPC は保存の臨界経路で commit しないため常に false を返す。
-     * この所有範囲で残す節目 commit は createAnnotation の承認ゲート記録と saveCanvas の記録。
+     * 字幕・edit の Git 記録は別キューで行い、応答時点の committed は false とする。
+     * createAnnotation の承認ゲート記録と saveCanvas の記録は同期経路を維持する。
      * 書き出し経路の commit は本タスクのファイル境界外にあり、本タスクでは未実装。
      */
     protected commitWrite(_root: string, _message: string): boolean {
         return false;
+    }
+
+    private readonly pendingEditCommits = new Map<string, {
+        paths: Set<string>; message: string; timer?: ReturnType<typeof setTimeout>; running: boolean;
+        runningTask?: Promise<boolean>;
+    }>();
+    private stopping = false;
+
+    async onStop(): Promise<void> {
+        this.stopping = true;
+        for (const pending of this.pendingEditCommits.values()) {
+            if (pending.timer) clearTimeout(pending.timer);
+            pending.timer = undefined;
+        }
+        for (const [root, pending] of this.pendingEditCommits) {
+            while (pending.runningTask || pending.paths.size > 0) {
+                if (pending.runningTask) await pending.runningTask.catch(() => false);
+                else await this.flushEditCommit(root);
+            }
+        }
+    }
+
+    protected queueEditCommit(root: string, message: string, paths: string[]): void {
+        let pending = this.pendingEditCommits.get(root);
+        if (!pending) {
+            pending = { paths: new Set(), message, running: false };
+            this.pendingEditCommits.set(root, pending);
+        }
+        paths.forEach(path => pending!.paths.add(path));
+        pending.message = message;
+        if (pending.timer) clearTimeout(pending.timer);
+        if (this.stopping) void this.flushEditCommit(root);
+        else pending.timer = setTimeout(() => void this.flushEditCommit(root), 500);
+    }
+
+    private async flushEditCommit(root: string): Promise<void> {
+        const pending = this.pendingEditCommits.get(root);
+        if (!pending || pending.running) return;
+        pending.timer = undefined;
+        if (pending.paths.size === 0) return;
+        const paths = [...pending.paths];
+        const message = pending.message;
+        pending.paths.clear();
+        pending.running = true;
+        try {
+            pending.runningTask = this.commitIfOwnRoot(root, message, paths);
+            await pending.runningTask;
+        } catch (error) {
+            console.warn('[akari-annotations] 編集の Git 記録に失敗しました。', error);
+        } finally {
+            pending.running = false;
+            pending.runningTask = undefined;
+            if (pending.paths.size > 0) {
+                if (!this.stopping) {
+                    if (pending.timer) clearTimeout(pending.timer);
+                    pending.timer = setTimeout(() => void this.flushEditCommit(root), 500);
+                }
+            } else {
+                this.pendingEditCommits.delete(root);
+            }
+        }
     }
 
     protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<string> {

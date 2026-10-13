@@ -123,7 +123,8 @@ test('台帳の変更通知は全体再構築せずモデル差分へ渡し、�
     const context = { ...host, exports: {}, widget, identityUri: editUri, kind: 'output',
         placement: { content: before, baseline: Promise.resolve(before), key: 'still/a',
             at: Date.now(), until: Date.now() + 1000 },
-        RECENT_WRITE_WINDOW_MS: 1000, isOwnAssetReferenceChange, Date, Set, console };
+        RECENT_WRITE_WINDOW_MS: 1000, isOwnAssetReferenceChange, Date, Set, console,
+        queueWatchedEdit: () => undefined };
     vm.runInContext(body, vm.createContext(context));
     const handler = context.exports.handler;
     handler({ changes: [{ resource: referencesUri }] });
@@ -154,7 +155,7 @@ test('台帳の変更通知は全体再構築せずモデル差分へ渡し、�
 });
 
 test('queueCaptionsUpdate は送信した字幕を前回モデルの控えにも保存する', async () => {
-    const body = methodBody('queueCaptionsUpdate');
+    const body = [methodBody('queueCaptionsUpdate'), methodBody('applyCaptionsUpdate')].join('\n');
     const code = ts.transpileModule(`class Subject {
         ${body}
         async loadPreviewCaptions() { return { captions: [{ id: 'c1', text: 'edited' }] }; }
@@ -174,6 +175,41 @@ test('queueCaptionsUpdate は送信した字幕を前回モデルの控えにも
     await widget.akariPreviewCaptionsUpdate;
     assert.equal(sent[0].captions[0].text, 'edited');
     assert.equal(widget.akariPreviewModelSnapshot.captions[0].text, 'edited');
+});
+
+test('保存通知の字幕本文を再読込せず使い、同じ watcher エコーは再描画しない', async () => {
+    const body = [methodBody('queueCaptionsUpdate'), methodBody('applyCaptionsUpdate')].join('\n');
+    const code = ts.transpileModule(`class Subject {
+        ${body}
+        async readText() { this.reads++; return this.disk; }
+        async loadPreviewCaptions(_uri, _edit, source) { this.sources.push(source); return { captions: [{ id: 'c1', text: source }] }; }
+        previewCaptionTimelineSegments() { return []; }
+    }
+    exports.Subject = Subject;`, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+    const sandbox = { exports: {}, console,
+        normalizePreviewCaptionClock: captions => captions,
+        buildCaptionAnimatorSummaryFields: captions => captions };
+    vm.runInNewContext(code, sandbox);
+    const subject = new sandbox.exports.Subject();
+    subject.disk = '保存済み'; subject.reads = 0; subject.sources = [];
+    const messages = [];
+    const widget = { akariPreviewCaptionsUri: 'captions', akariPreviewRefresh: Promise.resolve(),
+        akariPreviewSummary: { cuts: [], output: { fps: 30 }, captionTrackId: 'captions' },
+        akariPreviewModelSnapshot: { captions: [] }, isDisposed: false,
+        sendMessage: message => messages.push(message) };
+    subject.queueCaptionsUpdate(widget, '保存済み');
+    await widget.akariPreviewCaptionsUpdate;
+    assert.equal(subject.reads, 0);
+    assert.equal(messages.length, 1);
+    subject.queueCaptionsUpdate(widget);
+    await widget.akariPreviewCaptionsUpdate;
+    assert.equal(subject.reads, 1);
+    assert.equal(messages.length, 1);
+    subject.disk = '外部の変更';
+    subject.queueCaptionsUpdate(widget);
+    await widget.akariPreviewCaptionsUpdate;
+    assert.equal(subject.reads, 2);
+    assert.equal(messages.length, 2);
 });
 
 test('webview のモデル更新はページを保ったまま image layer の要素を 1 つ足す', async () => {

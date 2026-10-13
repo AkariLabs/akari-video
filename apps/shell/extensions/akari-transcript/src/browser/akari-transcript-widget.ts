@@ -74,7 +74,12 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected applyingModel = false;
     protected saveTimer = 0;
     protected saveTail = Promise.resolve();
-    protected recentWrite = 0;
+    protected lastAppliedCaptionsSource: string | undefined;
+    protected lastAppliedEditSource: string | undefined;
+    protected watchedCaptionsPending = false;
+    protected watchedCaptionsRunning = false;
+    protected watchedEditPending = false;
+    protected watchedEditRunning = false;
     protected configured = false;
 
     @postConstruct()
@@ -227,10 +232,10 @@ export class AkariTranscriptWidget extends BaseWidget {
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (this.editUri && event.contains(this.editUri)) {
-                void this.reloadEdit();
+                void this.reloadWatchedEdit();
             }
-            if (this.captionsUri && event.contains(this.captionsUri) && Date.now() - this.recentWrite > 1000) {
-                void this.reloadCaptions();
+            if (this.captionsUri && event.contains(this.captionsUri)) {
+                void this.reloadWatchedCaptions();
             }
         }));
         try {
@@ -282,13 +287,40 @@ export class AkariTranscriptWidget extends BaseWidget {
         await Promise.all([this.reloadCaptions(), this.reloadEdit()]);
     }
 
-    protected async reloadCaptions(): Promise<void> {
+    protected async reloadWatchedCaptions(): Promise<void> {
+        this.watchedCaptionsPending = true;
+        if (this.watchedCaptionsRunning) return;
+        this.watchedCaptionsRunning = true;
+        try {
+            while (this.watchedCaptionsPending) {
+                this.watchedCaptionsPending = false;
+                const source = this.captionsUri ? await this.readText(this.captionsUri).catch(() => undefined) : undefined;
+                if (source !== this.lastAppliedCaptionsSource) await this.reloadCaptions(source);
+            }
+        } finally { this.watchedCaptionsRunning = false; }
+    }
+
+    protected async reloadWatchedEdit(): Promise<void> {
+        this.watchedEditPending = true;
+        if (this.watchedEditRunning) return;
+        this.watchedEditRunning = true;
+        try {
+            while (this.watchedEditPending) {
+                this.watchedEditPending = false;
+                const source = this.editUri ? await this.readText(this.editUri).catch(() => undefined) : undefined;
+                if (source !== this.lastAppliedEditSource) await this.reloadEdit(source);
+            }
+        } finally { this.watchedEditRunning = false; }
+    }
+
+    protected async reloadCaptions(sourceOverride?: string): Promise<void> {
         if (!this.captionsUri) {
             return;
         }
         try {
-            const source = await this.readText(this.captionsUri);
+            const source = sourceOverride ?? await this.readText(this.captionsUri);
             const parsed = parseCaptions(source);
+            this.lastAppliedCaptionsSource = source;
             this.captions = parsed.captions;
             const availableDisplayTextIds = new Set(this.captions
                 .filter(caption => caption.displayText !== undefined)
@@ -325,11 +357,13 @@ export class AkariTranscriptWidget extends BaseWidget {
         await this.checkOverlayCoverage();
     }
 
-    protected async reloadEdit(): Promise<void> {
+    protected async reloadEdit(sourceOverride?: string): Promise<void> {
         this.keepRanges = [];
         if (this.editUri) {
             try {
-                const edit = JSON.parse(await this.readText(this.editUri));
+                const source = sourceOverride ?? await this.readText(this.editUri);
+                const edit = JSON.parse(source);
+                this.lastAppliedEditSource = source;
                 if (Array.isArray(edit?.cuts)) {
                     this.keepRanges = edit.cuts.flatMap((value: any) => {
                         const input = Number(value?.in);
@@ -359,7 +393,6 @@ export class AkariTranscriptWidget extends BaseWidget {
                 : undefined;
             const generated = regenerateCaptions(this.analysisSource, existing);
             await this.fileService.createFolder(this.captionsUri.parent, { fromUserGesture: false });
-            this.recentWrite = Date.now();
             await this.writeCaptionsGuarded(generated.source);
             await this.reloadCaptions();
             this.showWarnings(generated.warnings);
@@ -414,7 +447,6 @@ export class AkariTranscriptWidget extends BaseWidget {
                 this.showWarnings(result.notices);
                 return;
             }
-            this.recentWrite = Date.now();
             await this.writeCaptionsGuarded(result.source);
             this.rebuildFromSource(result.source);
             this.footer.textContent = this.savedFooterText(result);
@@ -432,6 +464,7 @@ export class AkariTranscriptWidget extends BaseWidget {
      */
     protected rebuildFromSource(source: string): void {
         this.captions = parseCaptions(source).captions;
+        this.lastAppliedCaptionsSource = source;
         const availableDisplayTextIds = new Set(this.captions
             .filter(caption => caption.displayText !== undefined)
             .map(caption => caption.id));

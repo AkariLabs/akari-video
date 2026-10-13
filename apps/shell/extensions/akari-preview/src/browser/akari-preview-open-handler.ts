@@ -98,6 +98,7 @@ import {
 import {
     AssetStreamRequest,
     AkariPreviewService,
+    FragmentAssetPreviewResult,
     OverlayRuntimeAssetUrls,
     PreviewAudioSidecarRequest,
     ReadGenerationSidecarsResult,
@@ -472,6 +473,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
     protected readonly captionDisplayFallbackState: { lastCode?: string } = {};
     protected readonly lastLoadedCaptions = new Map<string, LoadedPreviewCaptions>();
+    protected readonly sharedAssetStreams = new Map<string, {
+        stream: Promise<VideoStreamReference>; uses: number;
+    }>();
+    protected readonly sharedAssetStreamKeys = new Map<string, string>();
+    protected readonly fragmentRewriteStreamKeys = new Map<string, string>();
+    protected fragmentRewriteCache = new Map<string, Promise<FragmentAssetPreviewResult>>();
+    protected assetResolutionCache = new Map<string, Promise<string | undefined>>();
+    protected lastEditOutputByUri = new Map<string, { width: number; height: number }>();
+    protected refreshTasks = new WeakMap<PreviewWidgetMarker, {
+        running: boolean; latest?: () => Promise<void>; drain?: () => void; predecessor?: Promise<void>;
+        pendingForce?: boolean;
+    }>();
     protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
@@ -3571,6 +3584,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic);
         disposables.push({ dispose: () => window.removeEventListener('akari-library-placement-diagnostic', onPlacementDiagnostic) });
+        let watchedEditPending = false;
+        let watchedEditRunning = false;
+        let lastQueuedEditContent: string | undefined;
+        const queueWatchedEdit = (): void => {
+            watchedEditPending = true;
+            if (watchedEditRunning) return;
+            watchedEditRunning = true;
+            void (async () => {
+                try {
+                    while (watchedEditPending && !widget.isDisposed) {
+                        watchedEditPending = false;
+                        const uri = widget.akariPreviewEditUri;
+                        if (!uri) continue;
+                        const source = await this.readText(uri);
+                        if (source !== lastQueuedEditContent) {
+                            lastQueuedEditContent = source;
+                            this.queueRefresh(widget, identityUri, kind, undefined, false, source);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('[akari-preview] edit.json を読み取れませんでした', error);
+                    this.queueRefresh(widget, identityUri, kind, undefined, false);
+                } finally {
+                    watchedEditRunning = false;
+                    if (watchedEditPending && !widget.isDisposed) queueWatchedEdit();
+                }
+            })();
+        };
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
@@ -3587,6 +3628,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const editSuffix = widget.akariPreviewEditUri
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
             for (const change of event.changes) {
+                if (change.resource.path?.toString().includes('/assets/')
+                    || change.resource.path?.toString().endsWith('/.akari/asset-references.json')) {
+                    this.assetResolutionCache?.clear();
+                    this.fragmentRewriteCache?.clear();
+                } else if (/\.html?$/iu.test(change.resource.path?.toString() ?? '')) {
+                    this.fragmentRewriteCache?.clear();
+                }
                 const key = change.resource.toString();
                 const referencesUri = widget.akariPreviewEditUri?.parent.resolve('.akari/asset-references.json');
                 if (referencesUri && key === referencesUri.toString()) {
@@ -3623,12 +3671,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // URI の先頭が videoUri/editUri 生成時と食い違う。basename + 直上ディレクトリ名の
                 // suffix 一致もフォールバックとして見る。
                 const suffix = this.resourceSuffix(change.resource);
-                const writtenAt = this.recentWriteAt(change.resource);
                 if (key === captionsKey || (captionsSuffix !== undefined && suffix === captionsSuffix)) {
-                    captionsChanged ||= Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
+                    captionsChanged = true;
+                    continue;
+                }
+                if (editKey && (key === editKey || suffix === editSuffix)) {
+                    queueWatchedEdit();
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                    const writtenAt = this.recentWriteAt(change.resource);
                     const recent = widget as PreviewWidgetMarker & { akariPreviewJustAddedUris?: Map<string, number>;
                         akariPreviewJustAddedSuffixes?: Map<string, number> };
                     const added = recent.akariPreviewJustAddedUris?.get(key)
@@ -3660,8 +3712,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         };
         // 書き込み完了の直接通知（watcher を待たない速い経路）。
-        // watcher 経路は残したまま並走させ、こちらで処理した書き込みは recentWrites の窓で
-        // 後から来る watcher イベントを落とす（= 同じ 1 回の編集で差分メッセージは 1 通だけ）。
+        // watcher の再読込は内容差分で判定する。
         // 外部（CLI / 外部エディタ / AI パートナー）からの書き込みはこの通知が来ないので、
         // 従来どおり watcher 経路だけで更新される。
         const onEditStoreDidWrite = (event: Event): void => {
@@ -3687,7 +3738,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 || this.resourceSuffix(written) === this.resourceSuffix(captionsUri))) {
                 this.markRecentWrite(written);
                 this.markRecentWrite(captionsUri);
-                this.queueCaptionsUpdate(widget);
+                this.queueCaptionsUpdate(widget, detail.content);
                 return;
             }
             // 一致した URI にだけ印を付け、後続 watcher の重複通知を抑える。
@@ -3697,6 +3748,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.markRecentWrite(written);
             this.markRecentWrite(editUri);
+            lastQueuedEditContent = detail.content;
             this.queueRefresh(widget, identityUri, kind, undefined, false, detail.content);
         };
         disposables.push(listen(window, EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite));
@@ -4001,7 +4053,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             logSwapTrial(swapTrial.identity, 'refresh_queued');
         }
         const queuedWriteRevision = this.previewGestureGuards.get(widget)?.writeRevision;
-        const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
             // 順番待ち中に保存が完了した場合だけ古い通知本文を失効させる。
             if (this.previewGestureGuards.get(widget)?.writeRevision !== queuedWriteRevision) editSource = undefined;
@@ -4029,14 +4080,38 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 restore.playing
             );
         };
-        widget.akariPreviewRefresh = previous.then(
-            refresh,
-            refresh
-        ).catch(error => {
-            widget.akariPreviewQueuedEditSource = undefined;
-            console.error('[akari-preview] failed to refresh preview', error);
-            this.handleRefreshFailure(widget, error);
-        });
+        let state = (this.refreshTasks ??= new WeakMap()).get(widget);
+        if (!state) {
+            state = { running: false, predecessor: widget.akariPreviewRefresh };
+            this.refreshTasks.set(widget, state);
+        }
+        forceRebuild ||= state.pendingForce === true;
+        state.pendingForce = forceRebuild;
+        state.latest = refresh;
+        state.drain ??= () => {
+            if (state!.running) return;
+            state!.running = true;
+            widget.akariPreviewRefresh = (async () => {
+                await state!.predecessor?.catch(() => undefined);
+                state!.predecessor = undefined;
+                while (state!.latest) {
+                    const next = state!.latest;
+                    state!.latest = undefined;
+                    state!.pendingForce = false;
+                    try {
+                        await next();
+                    } catch (error) {
+                        widget.akariPreviewQueuedEditSource = undefined;
+                        console.error('[akari-preview] failed to refresh preview', error);
+                        this.handleRefreshFailure(widget, error);
+                    }
+                }
+            })().finally(() => {
+                state!.running = false;
+                if (state!.latest) state!.drain?.();
+            });
+        };
+        state.drain();
     }
 
     protected handleRefreshFailure(widget: PreviewWidgetMarker, error: unknown): void {
@@ -4071,14 +4146,41 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         );
     }
 
-    protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
-        const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
-        widget.akariPreviewCaptionsUpdate = previous.then(async () => {
-            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+    protected queueCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): void {
+        const state = widget as PreviewWidgetMarker & {
+            akariPreviewCaptionUpdateRunning?: boolean; akariPreviewCaptionUpdatePending?: boolean;
+            akariPreviewCaptionPendingSource?: string;
+        };
+        state.akariPreviewCaptionUpdatePending = true;
+        state.akariPreviewCaptionPendingSource = sourceOverride;
+        if (state.akariPreviewCaptionUpdateRunning) return;
+        state.akariPreviewCaptionUpdateRunning = true;
+        widget.akariPreviewCaptionsUpdate = (async () => {
+            while (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
+                state.akariPreviewCaptionUpdatePending = false;
+                const source = state.akariPreviewCaptionPendingSource;
+                state.akariPreviewCaptionPendingSource = undefined;
+                await this.applyCaptionsUpdate(widget, source);
+            }
+        })().catch(error => console.error('[akari-preview] failed to update captions', error)).finally(() => {
+            state.akariPreviewCaptionUpdateRunning = false;
+            if (state.akariPreviewCaptionUpdatePending && !widget.isDisposed) {
+                this.queueCaptionsUpdate(widget, state.akariPreviewCaptionPendingSource);
+            }
+        });
+    }
+
+    protected async applyCaptionsUpdate(widget: PreviewWidgetMarker, sourceOverride?: string): Promise<void> {
+            const state = widget as PreviewWidgetMarker & { akariPreviewLastCaptionContent?: string };
+            const source = sourceOverride ?? (widget.akariPreviewCaptionsUri
+                ? await this.readText(widget.akariPreviewCaptionsUri).catch(() => undefined) : undefined);
+            if (source !== undefined && source === state.akariPreviewLastCaptionContent) return;
+            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri, source);
             // 字幕 RPC が先着しても、同時に読込中の edit の宣言・cut 時計を使う。
             // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
             await widget.akariPreviewRefresh;
             if (widget.isDisposed) return;
+            state.akariPreviewLastCaptionContent = source;
             // 出力プレビューの identity は edit URI。raw は字幕レーンを持たない。
             // 先行 refresh の完了後に判定することで、連続した字幕通知でも
             // レーン追加の refresh は一度だけになり、以後は差分更新へ戻る。
@@ -4107,7 +4209,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.akariPreviewModelSnapshot.emphasisWords = emphasisWords;
             }
             widget.sendMessage({ type: 'akari-preview-captions-update', captions: nextCaptions, emphasisWords });
-        }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
     protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssetUrls): PreviewModelDiffInput {
@@ -5125,9 +5226,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 通知に全文が載っていても省けない（captions.json は別ファイルで通知に含まれない）。
         // edit.json 読み出しとは先に並走させる。正規化時には captions 段の導出へ必要なので
         // await する（途中書き込みで読めない間は直前の字幕を保持する）。
-        const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
-        const rawCaptionsPromise = captionsUri
-            ? this.readText(captionsUri).catch(() => '') : Promise.resolve('');
+        let capturedCaptionSource: string | undefined;
+        const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri, undefined,
+            source => { capturedCaptionSource = source; });
+        const rawCaptionsPromise = captionsPromise.then(() => capturedCaptionSource
+            ?? (captionsUri ? this.readText(captionsUri).catch(() => '') : ''));
         const assetStreams = new Map<string, { id: string; url: string }>();
         // 同じ資産へ同時に来た要求を 1 本の createAssetStream に合流させる（素材解決を並列化しても
         // ストリームが二重生成されない）。assetUris への登録は要求時に行う（task/2026-09-02-preview-perf）。
@@ -5162,6 +5265,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const rawEdit = (() => {
                 try { return JSON.parse(editText) as unknown; } catch { return undefined; }
             })();
+            const editOutput = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                ? (rawEdit as { output?: { width?: unknown; height?: unknown } }).output : undefined;
+            if (typeof editOutput?.width === 'number' && typeof editOutput.height === 'number') {
+                (this.lastEditOutputByUri ??= new Map()).set(editUri.toString(), {
+                    width: editOutput.width, height: editOutput.height
+                });
+            } else {
+                this.lastEditOutputByUri?.delete(editUri.toString());
+            }
             const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
                 ? (rawEdit as { version?: unknown }).version
                 : undefined;
@@ -5562,11 +5674,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             registerOverlayUri(fragmentUri);
                             overlayHtmlTasks.set(rawHtml, this.readText(fragmentUri).then(
                                 async text => {
-                                    const result = await this.previewService.rewriteFragmentAssets({
-                                        projectRootUri: editUri.parent.toString(), html: text,
-                                        htmlPath: rawHtml, overlayId: item.id,
-                                        workspaceRoots: await this.currentWorkspaceRoots()
-                                    });
+                                    const rewriteKey = JSON.stringify([editUri.parent.toString(), rawHtml, item.id, text]);
+                                    let pending = (this.fragmentRewriteCache ??= new Map()).get(rewriteKey);
+                                    if (!pending) {
+                                        pending = this.currentWorkspaceRoots().then(workspaceRoots =>
+                                            this.previewService.rewriteFragmentAssets({
+                                                projectRootUri: editUri.parent.toString(), html: text,
+                                                htmlPath: rawHtml, overlayId: item.id, workspaceRoots
+                                            }));
+                                        this.fragmentRewriteCache.set(rewriteKey, pending);
+                                        void pending.catch(() => {
+                                            if (this.fragmentRewriteCache.get(rewriteKey) === pending) {
+                                                this.fragmentRewriteCache.delete(rewriteKey);
+                                            }
+                                        });
+                                    }
+                                    const result = await pending;
+                                    for (const stream of result.streams) {
+                                        const sharedKey = `fragment:${stream.id}`;
+                                        let shared = this.sharedAssetStreams?.get(sharedKey);
+                                        if (!shared && this.sharedAssetStreams && this.sharedAssetStreamKeys) {
+                                            shared = { stream: Promise.resolve(stream), uses: 0 };
+                                            this.sharedAssetStreams.set(sharedKey, shared);
+                                            this.sharedAssetStreamKeys.set(stream.id, sharedKey);
+                                            this.fragmentRewriteStreamKeys?.set(stream.id, rewriteKey);
+                                        }
+                                        if (shared) shared.uses++;
+                                    }
                                     overlayHtml.set(rawHtml, result.html);
                                     for (const stream of result.streams) {
                                         assetStreams.set(`fragment:${rawHtml}:${stream.uri}`, stream);
@@ -6684,25 +6818,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected async loadPreviewCaptions(
         captionsUri: URI | undefined,
-        editUri?: URI
+        editUri?: URI,
+        sourceOverride?: string,
+        captureSource?: (source: string) => void
     ): Promise<LoadedPreviewCaptions> {
         if (!captionsUri) {
             return { captions: [] };
         }
         const key = captionsUri.toString();
         try {
-            let source = await this.readText(captionsUri);
+            let source = sourceOverride ?? await this.readText(captionsUri);
             if (!source.trim()) {
                 // A truncate-and-write can expose a zero-byte file briefly. Confirm that
                 // it stays empty before clearing captions; partial nonempty JSON stays cached.
                 await new Promise<void>(resolve => setTimeout(resolve, 150));
                 source = await this.readText(captionsUri);
                 if (!source.trim()) {
+                    captureSource?.(source);
                     const empty = { captions: [] };
                     this.lastLoadedCaptions.set(key, empty);
                     return empty;
                 }
             }
+            captureSource?.(source);
             let loaded: LoadedPreviewCaptions;
             if (editUri) {
                 const rawRoot = JSON.parse(source);
@@ -6737,14 +6875,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }),
                         emphasisWords: resolved.emphasisWords
                     }),
-                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri),
+                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri, source),
                     warn: code => this.messages.warn(
                         `字幕の表示設定を解決できないため、設定を無視して表示しています: ${code}`
                     ),
                     state: this.captionDisplayFallbackState
                 });
             } else {
-                loaded = await this.loadLegacyPreviewCaptions(captionsUri, editUri);
+                loaded = await this.loadLegacyPreviewCaptions(captionsUri, editUri, source);
             }
             this.lastLoadedCaptions.set(key, loaded);
             return loaded;
@@ -6758,16 +6896,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
-    protected async loadLegacyPreviewCaptions(captionsUri: URI, editUri?: URI): Promise<LoadedPreviewCaptions> {
-        const source = await this.readText(captionsUri);
-        let output: { width: number; height: number } | undefined;
-        if (editUri) {
+    protected async loadLegacyPreviewCaptions(captionsUri: URI, editUri?: URI, sourceOverride?: string): Promise<LoadedPreviewCaptions> {
+        const source = sourceOverride ?? await this.readText(captionsUri);
+        let output = editUri ? this.lastEditOutputByUri?.get(editUri.toString()) : undefined;
+        if (editUri && !output) {
             try {
                 const edit = JSON.parse(await this.readText(editUri)) as { output?: unknown };
                 if (edit.output && typeof edit.output === 'object'
                     && typeof (edit.output as { width?: unknown }).width === 'number'
                     && typeof (edit.output as { height?: unknown }).height === 'number') {
                     output = edit.output as { width: number; height: number };
+                    (this.lastEditOutputByUri ??= new Map()).set(editUri.toString(), output);
                 }
             } catch {
                 // Legacy caption loading remains fail-open when edit output is unavailable.
@@ -8778,10 +8917,19 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     protected async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {
-        return this.previewService.createAssetStream({
-            ...request,
-            workspaceRoots: await this.currentWorkspaceRoots()
-        });
+        const key = request.assetUri;
+        let entry = this.sharedAssetStreams.get(key);
+        if (!entry) {
+            const stream = this.currentWorkspaceRoots().then(workspaceRoots =>
+                this.previewService.createAssetStream({ ...request, workspaceRoots }));
+            entry = { stream, uses: 0 };
+            this.sharedAssetStreams.set(key, entry);
+            void stream.then(value => this.sharedAssetStreamKeys.set(value.id, key), () => {
+                if (this.sharedAssetStreams.get(key)?.stream === stream) this.sharedAssetStreams.delete(key);
+            });
+        }
+        entry.uses++;
+        return entry.stream;
     }
 
     protected async isInsideWorkspace(uri: URI): Promise<boolean> {
@@ -8815,6 +8963,18 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected async disposeAssetStreams(ids: string[]): Promise<void> {
         await Promise.all(ids.map(async id => {
+            const key = this.sharedAssetStreamKeys.get(id);
+            if (key) {
+                const entry = this.sharedAssetStreams.get(key);
+                if (entry && --entry.uses > 0) return;
+                this.sharedAssetStreams.delete(key);
+                this.sharedAssetStreamKeys.delete(id);
+                const rewriteKey = this.fragmentRewriteStreamKeys?.get(id);
+                if (rewriteKey) {
+                    this.fragmentRewriteStreamKeys.delete(id);
+                    this.fragmentRewriteCache.delete(rewriteKey);
+                }
+            }
             try {
                 await this.previewService.disposeAssetStream(id);
             } catch (error) {
@@ -8897,10 +9057,22 @@ body { display: grid; place-items: center; padding: 32px; }
             case 'relative':
             default: {
                 if (!pathValue.replace(/\\/g, '/').startsWith('assets/')) return editUri.parent.resolve(pathValue);
-                const resolved = await this.previewService.resolveProjectAssetUri({
-                    projectRootUri: editUri.parent.toString(), declaredPath: pathValue,
-                    workspaceRoots: await this.currentWorkspaceRoots()
-                });
+                const projectRootUri = editUri.parent.toString();
+                const key = JSON.stringify([projectRootUri, pathValue]);
+                let pending = (this.assetResolutionCache ??= new Map()).get(key);
+                if (!pending) {
+                    pending = this.currentWorkspaceRoots().then(workspaceRoots =>
+                        this.previewService.resolveProjectAssetUri({
+                            projectRootUri, declaredPath: pathValue, workspaceRoots
+                        })).then(value => value ?? undefined);
+                    this.assetResolutionCache.set(key, pending);
+                    void pending.then(value => {
+                        if (!value && this.assetResolutionCache.get(key) === pending) this.assetResolutionCache.delete(key);
+                    }, () => {
+                        if (this.assetResolutionCache.get(key) === pending) this.assetResolutionCache.delete(key);
+                    });
+                }
+                const resolved = await pending;
                 return resolved ? new URI(resolved) : editUri.parent.resolve(pathValue);
             }
         }

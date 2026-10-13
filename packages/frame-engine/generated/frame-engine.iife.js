@@ -4929,17 +4929,35 @@ ${indent}`);
       }
       function splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, maximumFragments) {
         const ends = [...boundaries, text.length];
+        const units = new Array(text.length + 1).fill(0);
+        for (let index = 0; index < text.length; ) {
+          const character = String.fromCodePoint(text.codePointAt(index));
+          const next = index + character.length;
+          const value = /^[\x00-\x7F]$/u.test(character) ? 0.5 : 1;
+          for (let cursor = index + 1; cursor <= next; cursor++)
+            units[cursor] = units[index] + value;
+          index = next;
+        }
+        const allowed = new Set(ends.filter((end) => end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])));
+        const memo = /* @__PURE__ */ new Map();
         const visit = (start, remaining) => {
           if (start === text.length)
             return [];
           if (remaining === 0)
             return void 0;
-          const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans)) && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+          const key = `${start}:${remaining}`;
+          if (memo.has(key))
+            return memo.get(key);
+          const candidates = ends.filter((end) => end > start && units[end] - units[start] <= policy.max_line_units && allowed.has(end)).reverse();
           for (const end of candidates) {
             const rest = visit(end, remaining - 1);
-            if (rest)
-              return [text.slice(start, end), ...rest];
+            if (rest) {
+              const result = [text.slice(start, end), ...rest];
+              memo.set(key, result);
+              return result;
+            }
           }
+          memo.set(key, void 0);
           return void 0;
         };
         for (let count = 3; count <= maximumFragments; count++) {
@@ -14113,6 +14131,9 @@ ${indent}`);
         return { ...item, at: at2, duration, source: { ...item.source } };
       }
       function retimeItem(item, at2, duration, ratio) {
+        if (item.keyframes !== void 0 && !Array.isArray(item.keyframes)) {
+          throw new Error("\u3053\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u52D5\u304D\u306E\u8A18\u9332\u3092\u5225\u30D5\u30A1\u30A4\u30EB\u306B\u6301\u3063\u3066\u3044\u308B\u305F\u3081\u3001\u30D5\u30EC\u30FC\u30E0\u30EC\u30FC\u30C8\u3092\u5909\u66F4\u3067\u304D\u307E\u305B\u3093\u3002");
+        }
         return {
           ...item,
           at: at2,
@@ -16487,8 +16508,12 @@ ${indent}`);
           part.source.in = sourceIn + sourceSpan * offset / item.duration;
           part.source.out = sourceIn + sourceSpan * (offset + part.duration) / item.duration;
         }
-        if (item.keyframes)
+        if (item.keyframes) {
+          if (!Array.isArray(item.keyframes)) {
+            throw new Error("\u3053\u306E\u533A\u9593\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u52D5\u304D\u306E\u8A18\u9332\u306E\u888B\u3092\u8AAD\u307F\u8FBC\u3081\u306A\u3044\u305F\u3081\u3001\u5206\u5272\u3067\u304D\u307E\u305B\u3093\u3002");
+          }
           part.keyframes = keysInWindow(item.keyframes, offset, offset + part.duration);
+        }
         if ("items" in item && item.items && "items" in part) {
           part.items = item.items.flatMap((child) => {
             const childStart = Math.max(child.at, offset);
@@ -16824,6 +16849,8 @@ ${indent}`);
             try {
               result = group ? applySyncGroupCutEdit(current, range, group, opts, false) : applyV2Edit(current, [range], opts, [], void 0, false, false);
             } catch (error) {
+              if (error instanceof Error && error.message.includes("\u52D5\u304D\u306E\u8A18\u9332\u306E\u888B\u3092\u8AAD\u307F\u8FBC\u3081\u306A\u3044"))
+                throw error;
               if (!group)
                 throw error;
               warnings2.push(`\u540C\u671F\u3057\u305F\u7D20\u6750\u3092\u5207\u308C\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u914D\u7F6E\u3068\u30AB\u30C3\u30C8\u7BC4\u56F2\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
@@ -17578,7 +17605,7 @@ ${indent}`);
         return appearance(left) === appearance(right);
       }
       function hasTimedAppearance(item) {
-        return !!(item.keyframes?.length || item.animator?.length || item.motion || item.items?.length);
+        return !!(item.keyframes && (!Array.isArray(item.keyframes) || item.keyframes.length) || item.animator?.length || item.motion || item.items?.length);
       }
       function sameCutResult(left, right, sourceTolerance = SOURCE_TOLERANCE, frameTolerance = 0) {
         const comparable = (track) => track.items.map((item) => {
@@ -17622,7 +17649,7 @@ ${indent}`);
           const candidateTrack = restored.tracks[trackIndex];
           if (leftIndex < 0 || rightIndex < 0) {
             const solo = originalTrack.items[leftIndex < 0 ? rightIndex : leftIndex];
-            if (solo.keyframes?.length)
+            if (solo.keyframes && (!Array.isArray(solo.keyframes) || solo.keyframes.length))
               return RESTORE_APPEARANCE;
             if (solo.source.src !== originalLeft.source.src)
               return RESTORE_UNAVAILABLE;
@@ -17673,7 +17700,7 @@ ${indent}`);
             return RESTORE_UNAVAILABLE;
           const left = originalTrack.items[leftIndex];
           const right = originalTrack.items[rightIndex];
-          if (left.keyframes?.length || right.keyframes?.length)
+          if (left.keyframes && (!Array.isArray(left.keyframes) || left.keyframes.length) || right.keyframes && (!Array.isArray(right.keyframes) || right.keyframes.length))
             return RESTORE_APPEARANCE;
           const tolerance = audioFrameTolerance(left, right, originalLeft, originalRight);
           const audioAtGap = right.at - left.at - left.duration;
@@ -18396,6 +18423,96 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/cut-keyframe-references.js
+  var require_cut_keyframe_references = __commonJS({
+    "packages/edit-store/lib/cut-keyframe-references.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.cutMotionReferencePaths = cutMotionReferencePaths;
+      exports.hydrateCutMotionReferences = hydrateCutMotionReferences;
+      exports.restoreUncutMotionReferences = restoreUncutMotionReferences;
+      var MOTION_FILE_VERSION = 0;
+      function record2(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+      function reference(value) {
+        return record2(value) && typeof value.path === "string" && /^motion\/[^/\\]+\.json$/u.test(value.path) && Number.isInteger(value.count) && value.count >= 2;
+      }
+      function visit(edit, callback) {
+        const items = (value) => {
+          if (!Array.isArray(value))
+            return;
+          for (const item of value) {
+            if (!record2(item))
+              continue;
+            callback(item);
+            items(item.items);
+          }
+        };
+        if (Array.isArray(edit.tracks))
+          for (const track of edit.tracks) {
+            if (record2(track))
+              items(track.items);
+          }
+      }
+      function cutMotionReferencePaths(edit) {
+        const paths = /* @__PURE__ */ new Set();
+        visit(edit, (item) => {
+          if (reference(item.keyframes))
+            paths.add(item.keyframes.path);
+        });
+        return [...paths];
+      }
+      function pointsFor(item, bags) {
+        if (!reference(item.keyframes) || typeof item.id !== "string" || !Number.isInteger(item.duration))
+          return void 0;
+        const bag = bags.get(item.keyframes.path);
+        const group = item.keyframes.path.slice("motion/".length, -".json".length);
+        if (!record2(bag) || bag.version !== MOTION_FILE_VERSION || bag.group !== group || !record2(bag.items))
+          return void 0;
+        const points = bag.items[item.id];
+        if (!Array.isArray(points) || points.length !== item.keyframes.count)
+          return void 0;
+        let previous = -1;
+        for (const point of points) {
+          if (!record2(point) || !Number.isInteger(point.t) || point.t <= previous || point.t < 0 || point.t > item.duration)
+            return void 0;
+          previous = point.t;
+        }
+        return structuredClone(points);
+      }
+      function hydrateCutMotionReferences(edit, bags) {
+        const result = structuredClone(edit);
+        visit(result, (item) => {
+          const points = pointsFor(item, bags);
+          if (points)
+            item.keyframes = points;
+        });
+        return result;
+      }
+      function restoreUncutMotionReferences(before, after, bags) {
+        const originals = /* @__PURE__ */ new Map();
+        visit(before, (item) => {
+          if (typeof item.id === "string" && reference(item.keyframes))
+            originals.set(item.id, item);
+        });
+        const result = structuredClone(after);
+        visit(result, (item) => {
+          if (typeof item.id !== "string" || !Array.isArray(item.keyframes))
+            return;
+          const original = originals.get(item.id);
+          if (!original || item.duration !== original.duration || JSON.stringify(item.source) !== JSON.stringify(original.source))
+            return;
+          const points = pointsFor(original, bags);
+          if (points && JSON.stringify(item.keyframes) === JSON.stringify(points)) {
+            item.keyframes = structuredClone(original.keyframes);
+          }
+        });
+        return result;
+      }
+    }
+  });
+
   // packages/edit-store/lib/adjust-css-approx.js
   var require_adjust_css_approx = __commonJS({
     "packages/edit-store/lib/adjust-css-approx.js"(exports) {
@@ -19040,6 +19157,7 @@ ${indent}`);
       __exportStar(require_shape_markup(), exports);
       __exportStar(require_shape_preset(), exports);
       __exportStar(require_cut_ranges(), exports);
+      __exportStar(require_cut_keyframe_references(), exports);
       __exportStar(require_ripple(), exports);
       __exportStar(require_adjust_css_approx(), exports);
       var legacy_parse_1 = require_legacy_parse();

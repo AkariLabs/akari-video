@@ -71,6 +71,9 @@ function retimeAudioItem(item, ratio) {
     return { ...item, at, duration, source: { ...item.source } };
 }
 function retimeItem(item, at, duration, ratio) {
+    if (item.keyframes !== undefined && !Array.isArray(item.keyframes)) {
+        throw new Error('このクリップは動きの記録を別ファイルに持っているため、フレームレートを変更できません。');
+    }
     return {
         ...item,
         at,

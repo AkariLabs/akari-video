@@ -42,6 +42,7 @@ export * from './item-anchor';
 export * from './shape-markup';
 export * from './shape-preset';
 export * from './cut-ranges';
+export * from './cut-keyframe-references';
 export * from './ripple';
 export * from './adjust-css-approx';
 export { parseEdit } from './migrate/legacy-parse';

@@ -11,7 +11,7 @@ const deps={timeline_selection_model_1:{captionIdForTreeSelection:()=>undefined}
  edit_v2_mutations_1:require('../lib/common/edit-v2-mutations.js'),
  edit_load_failure_1:require('../lib/common/edit-load-failure.js'),
  timeline_collapsed_state_1:{TimelineCollapsedState:class{}},audio_master_1:{readAudioMasterSnapshot:()=>({})},
- caption_track_layout_1:{renderAroundCaptionDisplayReload:async(load,render)=>{await load();render();}},
+ caption_track_layout_1:{renderAfterCaptionStateChange:async(render,load)=>{render();await load?.();}},
  derive_timeline_tracks_1:{sortDefaultTimelineTracks:tracks=>tracks}};
 for (const [, alias] of source.matchAll(/\b(edit_store(?:_\d+)?)\./g)) deps[alias] = store;
 const Widget=new Function(...Object.keys(deps),`return class {${['reloadEdit','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','pushSelectionSnapshot','applySelection','handleLayerSelection','handleCutSelection'].map(method).join('\n')}}`)(...Object.values(deps));
@@ -26,7 +26,7 @@ function harness(doc=fixture()){
   invalidateContentExtent(){},itemLocations:new Map(),sourceMap:new Map(),layerTransitionWarnings:new Map(),timelineTreePartsByHtml:new Map(),timelineCollapsedIds:new Set(),treeRowsByTrack:new Map(),
   withSfxFade:()=>[],withNarrationEnvelope:items=>items??[],withBgmEnvelope:()=>undefined,pinAudioGroupToBottom:tracks=>tracks,
   refreshReferenceMediaUris: async () => {}, rebuildSourceMap(){},showWarnings(){},showNotice:message=>{throw Error(message);},rebuildSegments(){},notifyCaptionSourceMappingWarning(){},
-  applyStoredTrackFlags:async()=>{},syncTimelineTrackTogglesToPreview(){},loadTrackHeights:async()=>{},reloadGenerationSidecars:async()=>{},reloadResolvedCaptionDisplay:async()=>{},renderStrip(){},
+  applyStoredTrackFlags:async()=>{},syncTimelineTrackTogglesToPreview(){},loadTrackHeights:async()=>{},reloadGenerationSidecars:async()=>{},reloadResolvedCaptionDisplay:async()=>{},renderStrip(){},scheduleStripRender(){},
   selectionKey:value=>JSON.stringify(value),publishPrimaryPreviewSelection(){},
   canHandlePlaybackTick:()=>true,exitTrimmerModeUnlessSelected(){},applySelectionClass(){},syncRightPane(){},revealOutputPreview(){},revealPreviewSelection(){},selectionModel:{},multiSelection:[],finishMaterialSwap:async()=>{ended++;},
   snapshotForSelection:selection=>selection.kind==='cut'?(w.cutItemIds[selection.index]?{kind:'cut',itemId:w.cutItemIds[selection.index]}:undefined)
@@ -77,7 +77,9 @@ test('actual deselection during an asynchronous reload is not resurrected',async
  w.materialSwap={target:{itemId:'broll-1',kind:'visual'}};
  const next=replacement.replaceMaterial(doc,{itemId:'broll-1',relativePath:'assets/still/br-example/broll.png',kind:'image'});
  let resume;w.resolveLegacyEditForOpen=text=>new Promise(resolve=>{resume=()=>resolve(text);});
- const reload=w.reloadEdit(JSON.stringify(next));w.selection=undefined;w.pushSelectionSnapshot();resume();await reload;
+ const reload=w.reloadEdit(JSON.stringify(next));w.selection=undefined;w.pushSelectionSnapshot();
+ for(let attempt=0;attempt<10&&!resume;attempt++) await Promise.resolve();
+ assert.equal(typeof resume,'function');resume();await reload;
  assert.equal(w.selection,undefined);assert.ok(ended()>0);
 });
 

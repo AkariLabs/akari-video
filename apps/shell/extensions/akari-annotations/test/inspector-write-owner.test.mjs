@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { withCaptionPreviewFailure } from '../lib/browser/inspector/caption-preview-write.js';
+import { CoalescedCaptionWrites } from '../lib/common/coalesced-caption-writes.js';
 
 function extractClass(source, className, names) {
     const ast = ts.createSourceFile(`${className}.ts`, source, ts.ScriptTarget.Latest, true);
@@ -21,7 +22,7 @@ const timelineSource = readSourceFile('widget').text;
 const inspectorSource = readInspectorSource();
 const contributionSource = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 const timelineMembers = extractClass(timelineSource, 'AkariAnnotationsWidget', [
-    'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',
+    'captionStyleWrites', 'inspectorRequestWrite', 'inspectorRequestLivePreview', 'inspectorRequestAdjustBypass',
     'inspectorRequestAdjustLutList', 'inspectorRequestAdjustLutImport', 'inspectorRequestKeyframe',
     'inspectorRequestMaterialSwap', 'claimInspectorOwner', 'activateInspectorSelection',
     'releaseInspectorOwner', 'applySelection', 'pushSelectionSnapshot', 'selectCaptions',
@@ -31,9 +32,9 @@ const timelineCode = ts.transpileModule(`class Timeline { ${timelineMembers} }`,
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const Timeline = new Function('readAudioMasterSnapshot', 'remapCaptionSelection',
-    'withCaptionPreviewFailure', `${timelineCode}\nreturn Timeline;`)(
+    'withCaptionPreviewFailure', 'CoalescedCaptionWrites', `${timelineCode}\nreturn Timeline;`)(
     () => ({ enabled: false }), (_before, after, ids) => ids.filter(id => after.some(caption => caption.id === id)),
-    withCaptionPreviewFailure
+    withCaptionPreviewFailure, CoalescedCaptionWrites
 );
 
 function fixture(name, model) {

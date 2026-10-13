@@ -75,6 +75,7 @@ import { createInspectorIcon } from './inspector/icons';
 import { isInspectorStillImage } from './inspector/edit-target';
 import { captionEffectPatch, captionEffectTransitionPatch, captionEffectPreviewStyle, CAPTION_EFFECT_GROUPS } from './inspector/caption-style-effects';
 import { captionEffectImage, scheduleCaptionEffectImages } from './inspector/caption-effect-images';
+import { writeCaptionWeightOptimistically } from './inspector/caption-weight-choice';
 import { type CaptionMotionServices } from './inspector/caption-motion-panel';
 import { captionWordStyleWrite, readCaptionBagMotionContext, readCaptionMotionCue,
     readOwnerMotion, upsertCaptionEmphasis } from './inspector/caption-motion-document';
@@ -201,6 +202,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
     protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
+    protected readonly captionWeightWriteRevisions = new Map<string, number>();
 
     protected runCaptionPanelPreview(action: CaptionPanelPreviewAction): { close: boolean; commit: boolean } {
         const transition = advanceCaptionPanelPreview(this.captionPanelPreview, action);
@@ -5146,7 +5148,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 result = { ok: false, message: String(error) };
             }
             if (!result.ok) {
-                revert();
+                if (snapshot.kind === 'caption' && fieldName.startsWith('caption-')) this.render();
+                else revert();
                 if (field.liveSelect) field.liveSelect(undefined);
                 if (field.liveColor) this.restoreShapePaintLive(fieldName, snapshot, editValue, field.liveColor);
                 this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
@@ -5342,9 +5345,33 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.appendChild(document.createTextNode(label));
                 button.addEventListener('click', () => {
                     if (field.inputKind === 'caption-weight') {
-                        void write(snapshot, value).then(result => {
-                            if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
-                        });
+                        const captionId = snapshot.kind === 'caption' ? snapshot.id : '';
+                        const revision = (this.captionWeightWriteRevisions.get(captionId) ?? 0) + 1;
+                        this.captionWeightWriteRevisions.set(captionId, revision);
+                        const paint = (selected: string): void => {
+                            for (const choice of Array.from(choices.querySelectorAll<HTMLButtonElement>('.akari-caption-choice'))) {
+                                choice.setAttribute('aria-pressed', String(choice.dataset.value === selected));
+                            }
+                        };
+                        const preview = (state: 'start' | 'committed' | 'failed', weight: number): void => {
+                            if (!captionId) return;
+                            if (state === 'failed' && this.model.snapshot?.kind === 'caption'
+                                && this.model.snapshot.id === captionId) return;
+                            window.dispatchEvent(new CustomEvent('akari-caption-panel-preview', { detail: {
+                                captionId,
+                                ...(state === 'start' ? { textStyle: { fontWeight: weight, weight } }
+                                    : state === 'committed' ? { textStyle: null, committed: true } : { failed: true })
+                            } }));
+                        };
+                        void writeCaptionWeightOptimistically(editValue, value, paint, preview,
+                            () => write(snapshot, value), () => this.captionWeightWriteRevisions.get(captionId) === revision,
+                            () => this.model.snapshot?.kind === 'caption' && this.model.snapshot.id === captionId)
+                            .then(result => {
+                                if (!result.ok) {
+                                    this.render();
+                                    this.showFieldNotice(result.message ?? '太さを書き込めませんでした。');
+                                }
+                            }, error => this.showFieldNotice(String(error)));
                     } else {
                         void commitValue(value, () => undefined);
                     }
