@@ -40,10 +40,15 @@ test('webview injection keeps run rules when editing redraws only a paragraph', 
   assert.match(html, /^<style>/u);
   assert.match(html, /data-akari-plate="true"/u);
   assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/u);
-  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/u, ''), /data-akari-shadow-text=/u);
+  assert.match(html, /data-akari-shadow-text="猫"/u);
+  assert.match(html, /class="akari-caption__run-ink"/u);
   assert.equal(html.replace(/<style>[\s\S]*?<\/style>/u, '').replace(/<[^>]+>/gu, ''), '猫犬');
   const bootstrap = readFileSync(new URL('../src/browser/preview-script-bootstrap.ts', import.meta.url), 'utf8');
   assert.match(bootstrap, /document\.head\.appendChild\(runRules\)/u);
   assert.match(bootstrap, /selectEditorGraphemes\(element, from, to\)/u);
-  assert.match(bootstrap, /captionLayer\.addEventListener\('input',[\s\S]*?\.akari-caption__run\[data-akari-shadow-text\][\s\S]*?run\.setAttribute\('data-akari-shadow-text', run\.textContent \|\| ''\)/u);
+  assert.match(bootstrap, /const syncRunShadowText = element => \{[\s\S]*?\.akari-caption__run\[data-akari-shadow-text\][\s\S]*?run\.setAttribute\('data-akari-shadow-text', run\.textContent \|\| ''\)/u);
+  assert.match(bootstrap, /element\.replaceChildren\([\s\S]*?syncRunShadowText\(element\)/u);
+  assert.match(bootstrap, /captionLayer\.addEventListener\('input',[\s\S]*?syncRunShadowText\(activeCaptionEdit\.element\)/u);
+  assert.match(bootstrap, /const captionHasScaledRun = caption => !\(caption\?\.textStyle\?\.underline === true[\s\S]*?caption\?\.textStyle\?\.strikethrough === true\)/u);
+  assert.match(bootstrap, /renderCaptionRuns\(captionHtml, caption\.text, caption\.runs,[\s\S]*?--plate-ext-bg/u);
 });

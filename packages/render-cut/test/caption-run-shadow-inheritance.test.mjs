@@ -78,7 +78,8 @@ function lineShadow(overlay) {
 function runShadow(overlay) {
   const tags = [...overlay.html.matchAll(/<span class="akari-caption__run"[^>]*style="([^"]+)"/gu)];
   assert.ok(tags.length > 0);
-  const values = tags.map(tag => /(?:^|;)text-shadow:([^;]+)/u.exec(tag[1])?.[1]);
+  const values = tags.map(tag => /(?:^|;)--akari-run-shadow:([^;]+)/u.exec(tag[1])?.[1]
+    ?? /(?:^|;)text-shadow:([^;]+)/u.exec(tag[1])?.[1]);
   assert.ok(values.every(Boolean));
   assert.ok(values.every(value => value === values[0]));
   return values[0];

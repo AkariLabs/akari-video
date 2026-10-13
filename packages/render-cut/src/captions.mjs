@@ -374,7 +374,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
           ? sliceCaptionRuns(caption.runSourceText, caption.runs, caption.runTextStart, caption.runTextEnd)
           : caption.runs
         : undefined;
-      const sizeToInk = runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
+      const sizeToInk = !(textStyle?.underline === true || textStyle?.strikethrough === true)
+        && runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
       const words = style || emphasisWords.length > 0
         ? clipWordsToRange(projectedCaption.words, range.sourceStart, range.sourceEnd)
         : [];
@@ -433,7 +434,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               words: allWords,
             });
       if (runs?.length) {
-        html = applyCaptionRunsToHtml(html, displayText, runs);
+        html = applyCaptionRunsToHtml(html, displayText, runs, false,
+          textStyle?.fill !== undefined || textStyle?.strokes !== undefined);
       }
       html = decorateTypewriterHtml(html, textStyle?.animation, range.duration);
       html = applyCaptionRichLayers(html, textStyle, output);
@@ -467,14 +469,16 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(decorateTypewriterHtml(applyResolvedCaptionAnimation(
-      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
+      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text,
+        cue.runs, false, cue.text_style?.fill !== undefined || cue.text_style?.strokes !== undefined),
       cue.text_style?.animation, cue.end - cue.start
     ), cue.text_style?.animation, cue.end - cue.start), cue.text_style, output),
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
     vars: { ...(stripAnimationOnlyLookVars(cue.text_style, cue.style_vars) ?? {}), ...resolvedCaptionRoundedStrokeVars(cue), ...(cue.style_vars?.['--caption-wrap-width']
-      || cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+      || !(cue.text_style?.underline === true || cue.text_style?.strikethrough === true)
+        && cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
       ? captionPlateMarginVars(cue.text_style, Boolean(cue.style_vars?.['--caption-wrap-width'])) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
@@ -517,7 +521,8 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
   const richGradientCss = cue?.text_style?.fill_gradient && !cue?.text_style?.fill
     ? '      background-image:var(--caption-fill-gradient,none);\n      -webkit-background-clip:var(--caption-fill-clip,border-box);\n      -webkit-text-fill-color:var(--caption-fill-color,currentColor);\n      -webkit-text-stroke:0 transparent;\n      text-shadow:none;\n      filter:var(--caption-fill-filter,none);\n'
     : '';
-  const sizeToInk = cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
+  const sizeToInk = !(cue?.text_style?.underline === true || cue?.text_style?.strikethrough === true)
+    && cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
   const karaoke = cue?.style === 'karaoke' && Array.isArray(cue?.words) && cue.words.length > 0;
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;

@@ -44,8 +44,19 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   const exitDuration = Math.min(animation?.out?.duration_sec ?? .6, maximum);
   let index = 0;
   let hasPlate = false;
+  let hasShadowCopy = false;
   const rendered = chunks.map(chunk => chunk.open + chunk.parts.map(part => {
     if (!Array.isArray(part)) {
+      if (/^<span\b[^>]*class="akari-caption__run"/u.test(part)
+          && /\bdata-akari-shadow-text=/u.test(part)) {
+        const inDelay = enterDuration * (index + 1) / count;
+        const outDelay = Math.max(0, overlayDuration - exitDuration) + exitDuration * index / count;
+        hasShadowCopy = true;
+        return part.replace(/style="([^"]*)"/u, (_whole, style) =>
+          `style="${style}${entrance ? `;--akari-shadow-in-delay:${inDelay.toFixed(6)}s` : ''}`
+          + `${exit ? `;--akari-shadow-out-delay:${outDelay.toFixed(6)}s` : ''}"`)
+          .replace(/>$/u, ` data-akari-shadow-step="${entrance && exit ? 'both' : entrance ? 'in' : 'out'}">`);
+      }
       if (entrance && /^<span\b[^>]*class="akari-caption__run-frag"/u.test(part)
           && /\bdata-akari-plate(?:=|\s|>)/u.test(part)) {
         const delay = enterDuration * (index + 1) / count;
@@ -71,7 +82,11 @@ export function decorateTypewriterHtml(html, animation, overlayDuration) {
   let position = 0;
   const body = html.replace(pattern, () => rendered[position++]);
   const css = '.akari-caption__type-char{display:inline}'
-    + (hasPlate ? '@keyframes akari-run-plate-in{from{background-color:transparent}to{background-color:var(--akari-run-plate-color)}}' : '')
+    + (hasPlate ? '@keyframes akari-run-plate-in{from{background-color:transparent;background-image:none}to{background-color:var(--akari-run-plate-color)}}' : '')
+    + (hasShadowCopy ? '.akari-caption__run[data-akari-shadow-step="in"]::before{animation:akari-typewriter-char-in .01s var(--akari-shadow-in-delay) linear both paused}'
+      + '.akari-caption__run[data-akari-shadow-step="out"]::before{animation:akari-shadow-out .01s var(--akari-shadow-out-delay) linear forwards paused}'
+      + '.akari-caption__run[data-akari-shadow-step="both"]::before{animation:akari-typewriter-char-in .01s var(--akari-shadow-in-delay) linear both paused,akari-shadow-out .01s var(--akari-shadow-out-delay) linear forwards paused}'
+      + '@keyframes akari-shadow-out{from{visibility:visible}to{visibility:hidden}}' : '')
     + '@keyframes akari-typewriter-char-in{from{opacity:0}to{opacity:1}}'
     + '@keyframes akari-typewriter-char-out{from{opacity:1}to{opacity:0}}';
   return body.replace('</style>', css + '</style>');

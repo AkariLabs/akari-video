@@ -54,8 +54,8 @@ test('run rules are shared once and only apply to matching caption fragments', (
   const result = scopeCaptionStylesInSheet(make(rich) + make(rich) + make([]));
   const styles = captionStyles(result);
   assert.equal(styles.length, 3);
-  assert.equal((result.match(/\.akari-caption__run\[data-akari-shadow-text\]::before/gu) ?? []).length, 1);
-  assert.match(result, /\.akari-caption__line:has\(\.akari-caption__run-frag/u);
+  assert.equal((result.match(/\.akari-caption__run\[data-akari-shadow-flow\]\[data-akari-shadow-text\]::before/gu) ?? []).length, 1);
+  assert.match(result, /\.akari-caption__plate:has\(\.akari-caption__run-frag/u);
   assert.match(result, /data-akari-plate="true"/u);
   assert.doesNotMatch(styles[0].css, /akari-caption__run-frag/u);
   assert.doesNotMatch(styles[1].css, /akari-caption__run-frag/u);

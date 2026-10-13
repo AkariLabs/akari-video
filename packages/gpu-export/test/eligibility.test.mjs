@@ -231,6 +231,44 @@ test('word tiles with a run plate or shadow use the OSR path', () => {
   }
 });
 
+test('typewriter with run effects uses OSR in either direction', () => {
+  for (const slot of ['in', 'out']) for (const look of [
+    { background: { color: '#ffffff' } }, { glow: { color: '#ffffff' } },
+    { shadow: { color: '#ffffff' } },
+  ]) {
+    const result = evaluate([], [{ id: 'tw', start: 0, end: 1, text: 'x',
+      text_style: { animation: { [slot]: { id: 'typewriter' } } },
+      runs: [{ from: 0, to: 1, look }] }]);
+    assert.equal(result.eligible, false);
+    assert.equal(result.entries[0].reason, 'caption-run-effects-typewriter');
+  }
+});
+
+test('GPU page builder agrees with direct eligibility for typewriter run effects', () => {
+  const edit = { output: { width: 640, height: 360, fps: 30 }, cuts: [], overlays: [] };
+  const captions = { captions: [{ id: 'c-0001', start: 0, end: 2, text: 'AB',
+    text_style: { animation: { in: { id: 'typewriter' } } },
+    runs: [{ id: 'r-0001', from: 0, to: 1,
+      look: { background: { color: '#ffd948', padding_px: 8 } } }] }] };
+  const direct = evaluateGpuEligibility({ edit, captions });
+  const page = buildGpuPage({ edit, captions, overlays: [], duration: 2,
+    frameEngineBundle: '', pageRuntime: '', slotParamsRuntime: '',
+    itemKeyframesRuntime: '', itemMotionRuntime: '' });
+  assert.equal(direct.entries[0].reason, 'caption-run-effects-typewriter');
+  assert.equal(page.eligibility.entries[0].reason, direct.entries[0].reason);
+});
+
+test('gradient with an outline ignores run effect declarations for GPU eligibility', () => {
+  const row = { id: 'grad', start: 0, end: 1, text: 'AB',
+    text_style: { fill_gradient: { colors: ['#ffee00', '#ff2200'], angle_deg: 90 },
+      stroke: { color: '#000000', width_px: 3 } } };
+  const withEffects = evaluate([], [{ ...row, runs: [{ from: 0, to: 1,
+    look: { background: { color: '#ffd948' }, glow: { color: '#00e5ff' } } }] }]);
+  const withoutEffects = evaluate([], [{ ...row, runs: [{ from: 0, to: 1,
+    look: {} }] }]);
+  assert.deepEqual(withEffects.entries, withoutEffects.entries);
+});
+
 test("unknown word style and unknown caption motion fail closed", () => {
   const result = evaluate([], [
     { id: "style", start: 0, end: 1, text: "x", style: "future" },

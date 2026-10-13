@@ -68,9 +68,19 @@ test('typewriter delays the plate until its first character appears', () => {
   const rendered = decorateTypewriterHtml(html, { in: { id: 'typewriter', duration_sec: 1 } }, 2);
   assert.match(rendered, /run-frag"[^>]*animation:akari-run-plate-in \.01s 0\.500000s/u);
   assert.match(rendered, /--akari-run-plate-color:#ffd948/u);
-  assert.match(rendered, /@keyframes akari-run-plate-in\{from\{background-color:transparent\}to\{background-color:var\(--akari-run-plate-color\)\}\}/u);
+  assert.match(rendered, /@keyframes akari-run-plate-in\{from\{background-color:transparent;background-image:none\}to\{background-color:var\(--akari-run-plate-color\)\}\}/u);
   assert.doesNotMatch(rendered, /visibility/u);
   assert.equal((rendered.match(/akari-typewriter-char-in \.01s/gu) ?? []).length, 4);
+});
+
+test('typewriter hides a covering plate image until the fragment appears', () => {
+  const html = '<style></style><p class="akari-caption__line">'
+    + '<span class="akari-caption__run-frag" data-akari-plate="true"'
+    + ' style="display:inline;background:rgba(255,0,0,1);background-image:linear-gradient(rgba(255,255,0,1),rgba(255,255,0,1))">AB</span></p>';
+  const rendered = decorateTypewriterHtml(html, { in: { id: 'typewriter' } }, 2);
+  assert.match(rendered, /background-image:linear-gradient\(rgba\(255,255,0,1\),rgba\(255,255,0,1\)\)/u);
+  assert.match(rendered, /--akari-run-plate-color:rgba\(255,0,0,1\)/u);
+  assert.match(rendered, /from\{background-color:transparent;background-image:none\}to\{/u);
 });
 
 test('typewriter without a plate keeps the original HTML bytes', () => {
@@ -92,4 +102,19 @@ test('typewriter without a plate keeps the original HTML bytes', () => {
   const shadowOnly = '<style></style><p class="akari-caption__line">'
     + '<span class="akari-caption__run-frag" style="display:inline">AB</span></p>';
   assert.doesNotMatch(decorateTypewriterHtml(shadowOnly, animation, 2), /akari-run-plate-in/u);
+});
+
+test('typewriter keeps run shadow copies hidden until their character step', () => {
+  const html = '<style></style><p class="akari-caption__line">A'
+    + '<span class="akari-caption__run" data-akari-shadow-text="B" data-akari-shadow-flow="true"'
+    + ' style="text-shadow:none;--akari-run-shadow:0 0 2px #fff">'
+    + '<span class="akari-caption__run-ink" style="position:relative">B</span></span>C</p>';
+  const rendered = decorateTypewriterHtml(html, {
+    in: { id: 'typewriter', duration_sec: 1 }, out: { id: 'typewriter', duration_sec: .5 },
+  }, 2);
+  assert.match(rendered, /data-akari-shadow-step="both"/u);
+  assert.match(rendered, /--akari-shadow-in-delay:0\.666667s/u);
+  assert.match(rendered, /--akari-shadow-out-delay:1\.666667s/u);
+  assert.match(rendered, /akari-shadow-out/u);
+  assert.equal((rendered.match(/class="akari-caption__type-char"/gu) ?? []).length, 6);
 });

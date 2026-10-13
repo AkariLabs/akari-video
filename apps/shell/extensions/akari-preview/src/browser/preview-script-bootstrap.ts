@@ -4817,6 +4817,12 @@ export function previewBootstrapScript(): string {
                 selection.addRange(range);
                 return true;
             };
+            const syncRunShadowText = element => {
+                for (const run of element.querySelectorAll('.akari-caption__run[data-akari-shadow-text]')) {
+                    // Editing may place the new text inside or beside the positioned ink span.
+                    run.setAttribute('data-akari-shadow-text', run.textContent || '');
+                }
+            };
             const refreshActiveCaptionRuns = () => {
                 const edit = activeCaptionEdit;
                 if (!edit) return;
@@ -4842,7 +4848,8 @@ export function previewBootstrapScript(): string {
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                     const holder = document.createElement('div');
                     holder.innerHTML = renderCaptionRuns('<p class="akari-caption__line">' + escaped + '</p>',
-                        text, caption.runs);
+                        text, caption.runs, false,
+                        caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined);
                     const runRules = holder.querySelector('style');
                     if (runRules && !document.getElementById('akari-caption-run-rules')) {
                         runRules.id = 'akari-caption-run-rules';
@@ -4852,6 +4859,7 @@ export function previewBootstrapScript(): string {
                     const content = line?.querySelector('.akari-caption__tok') || line;
                     if (!content) return;
                     element.replaceChildren(...Array.from(content.childNodes));
+                    syncRunShadowText(element);
                 } else if (element.querySelector('.akari-caption__run')) {
                     element.textContent = text;
                 } else return;
@@ -5727,10 +5735,7 @@ export function previewBootstrapScript(): string {
             }, true);
             captionLayer.addEventListener('input', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
-                for (const run of activeCaptionEdit.element.querySelectorAll(
-                    '.akari-caption__run[data-akari-shadow-text]')) {
-                    run.setAttribute('data-akari-shadow-text', run.textContent || '');
-                }
+                syncRunShadowText(activeCaptionEdit.element);
             });
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
@@ -7833,7 +7838,8 @@ export function previewBootstrapScript(): string {
             const richPreviewWords = (line, renderText) => Array.from(
                 new Intl.Segmenter(undefined, { granularity: 'word' }).segment(line), part => part.segment
             ).map(word => '<span class="akari-caption__tok">' + renderText(word) + '</span>').join('');
-            const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
+            const captionHasScaledRun = caption => !(caption?.textStyle?.underline === true
+                || caption?.textStyle?.strikethrough === true) && Boolean(caption?.runs?.some(run =>
                 Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
             const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
                 ? '.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}'
@@ -8162,8 +8168,9 @@ export function previewBootstrapScript(): string {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
                     const wrapWidthActive = Boolean(caption?.textStyleVars?.['--caption-wrap-width']);
-                    if (wrapWidthActive
-                        || caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                    if (wrapWidthActive || (!(caption?.textStyle?.underline === true
+                        || caption?.textStyle?.strikethrough === true) && Boolean(caption?.runs?.some(run =>
+                        Number.isFinite(run?.style?.scale) && run.style.scale !== 1)))) {
                         captionPlate.dataset.captionSizedRun = '';
                         const captionPositionX = caption?.textStyle?.position?.x;
                         const captionAnchor = caption?.textStyle?.text_anchor;
@@ -8223,7 +8230,10 @@ export function previewBootstrapScript(): string {
                                     + captionTextAnimationPlateAttrs(captionAnimation) + '>');
                         }
                         captionHtml = caption.runs?.length
-                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
+                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs,
+                                Boolean(caption.textStyleVars?.['--plate-ext-bg']),
+                                caption.textStyle?.fill !== undefined || caption.textStyle?.strokes !== undefined)
+                            : captionHtml;
                         if (caption.textStyle?.animation?.in?.id === 'typewriter'
                             || caption.textStyle?.animation?.out?.id === 'typewriter') {
                             captionHtml = decorateCaptionTypewriterHtml(captionHtml,

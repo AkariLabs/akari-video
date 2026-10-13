@@ -200,9 +200,21 @@ test('run ink bounds include resolved padding, effect extent, and rotation', () 
   const rotated = expand({ x: 10, y: 20, width: 100, height: 20 }, 8, 90);
   assert.ok(rotated.x > 10 && rotated.y < 20);
   assert.ok(rotated.width >= 36 && rotated.height >= 116);
-  assert.match(source, /runEffectRects.*?expandedCaptionRunRect/su);
-  assert.match(source, /run-frag'\)\]\s*\.flatMap\(fragment => \[\.\.\.fragment\.getClientRects\(\)\]/u);
-  assert.match(source, /\.\.\.runRects, \.\.\.runEffectRects/u);
+  const measure = new Function('relativeRect', 'expandedCaptionRunRect',
+    `return (${functionSource('measureCaptionRunEffectRects')})`)(
+      new Function(`return (${functionSource('relativeRect')})`)(), expand);
+  const fragment = {
+    getClientRects: () => [
+      { left: 10, top: 20, right: 110, bottom: 40, width: 100, height: 20 },
+      { left: 20, top: 50, right: 60, bottom: 70, width: 40, height: 20 },
+    ],
+    getAttribute: name => ({ 'data-akari-ink-outset': '8', 'data-akari-ink-rotate': '90' })[name],
+  };
+  const rects = measure({ querySelectorAll: () => [fragment] }, { left: 0, top: 0 });
+  assert.deepEqual(rects, [
+    expand({ x: 10, y: 20, width: 100, height: 20 }, 8, 90),
+    expand({ x: 20, y: 50, width: 40, height: 20 }, 8, 90),
+  ]);
 });
 
 test("字幕断片自身の CSS は帯ごとに閉じ、詳細度を変えず @規則はそのまま残す", () => {

@@ -10,6 +10,79 @@ const plate = { color: '#ffd948', opacity: 0.8, padding_px: 8, radius_px: 3 };
 const look = { scale: 1.5, stroke: { color: '#ffffff', width_px: 2 },
   shadow: { color: '#000000', distance_px: 4, blur_px: 6, opacity: 0.5 },
   background: plate };
+const plateRun = (from, to, color) => ({ from, to,
+  resolved_look: { plate: { ...plate, color, opacity: 1 } } });
+const fragmentStyles = html => [...html.matchAll(/<span class="akari-caption__run-frag"[^>]* style="([^"]+)"/gu)]
+  .map(match => match[1]);
+const visibleText = html => html.replace(/<style>[\s\S]*?<\/style>/gu, '').replace(/<[^>]+>/gu, '');
+
+test('a later surrounding plate covers each earlier inner fragment without splitting it', () => {
+  const red = plateRun(6, 9, '#ff0000');
+  const yellow = plateRun(3, 9, '#ffff00');
+  for (const [source, text, runs, count, covered] of [
+    [line('ABCDEFGHIJ'), 'ABCDEFGHIJ', [red, yellow], 2, 1],
+    [line('ABCDEFGHIJ'), 'ABCDEFGHIJ', [plateRun(5, 7, '#ff0000'), yellow], 2, 1],
+    [line('ABCDE') + line('FGHIJ'), 'ABCDEFGHIJ', [red, yellow], 3, 1],
+    [line('ABCDE') + line('FGHIJ'), 'ABCDEFGHIJ',
+      [plateRun(3, 8, '#ff0000'), plateRun(1, 9, '#ffff00')], 4, 2],
+  ]) {
+    const html = applyCaptionRunsToHtml(source, text, runs);
+    const styles = fragmentStyles(html);
+    assert.equal(styles.length, count);
+    assert.equal(styles.filter(style => style.includes('background-image:linear-gradient(rgba(255,255,0,1),rgba(255,255,0,1))')).length,
+      covered);
+    assert.ok(styles.some(style => style.includes('background:rgba(255,0,0,1);background-image:linear-gradient(')));
+    assert.equal(visibleText(html), text);
+  }
+  const triple = applyCaptionRunsToHtml(line('ABCDEFGHIJ'), 'ABCDEFGHIJ', [
+    red, yellow, plateRun(2, 10, '#0000ff')]);
+  assert.match(fragmentStyles(triple).find(style => style.includes('background:rgba(255,0,0,1)')),
+    /background-image:linear-gradient\(rgba\(0,0,255,1\),rgba\(0,0,255,1\)\),linear-gradient\(rgba\(255,255,0,1\),rgba\(255,255,0,1\)\)/u);
+});
+
+test('inner later, equal, crossing and shadow-only runs add no covering image', () => {
+  const cases = [
+    [plateRun(3, 9, '#ff0000'), plateRun(6, 9, '#ffff00')],
+    [plateRun(3, 9, '#ff0000'), plateRun(3, 9, '#ffff00')],
+    [plateRun(3, 7, '#ff0000'), plateRun(5, 9, '#ffff00')],
+    [plateRun(6, 9, '#ff0000'), { from: 3, to: 9, resolved_look: { text_shadow: 'none' } }],
+    [plateRun(6, 9, '#ff0000'), plateRun(-1, 10, '#ffff00')],
+  ];
+  for (const runs of cases) {
+    const html = applyCaptionRunsToHtml(line('ABCDEFGHIJ'), 'ABCDEFGHIJ', runs);
+    assert.ok(fragmentStyles(html).length >= 2);
+    assert.ok(fragmentStyles(html).every(style => !style.includes('background-image:')));
+    assert.equal(visibleText(html), 'ABCDEFGHIJ');
+  }
+});
+
+test('nested and crossing fragments stay in their outer context on gradient and layered lines', () => {
+  const source = line('ABCDEFGHIJ');
+  for (const mode of ['gradient', 'layers']) {
+    const render = runs => applyCaptionRunsToHtml(source, 'ABCDEFGHIJ', mode === 'gradient'
+      ? runs.map(run => ({ ...run, resolved_look: { ...run.resolved_look,
+        gradient: 'linear-gradient(90deg, #ffffff, #000000)' } })) : runs,
+    false, mode === 'layers');
+    for (const ranges of [
+      [[3, 9], [5, 7]], [[5, 7], [3, 9]], [[3, 7], [5, 9]], [[3, 9], [3, 9]],
+    ]) {
+      const html = render(ranges.map(([from, to], index) => plateRun(from, to,
+        index ? '#ffff00' : '#ff0000')));
+      const styles = fragmentStyles(html);
+      assert.ok(styles.length >= 2);
+      assert.match(styles[0], /position:relative;z-index:-(?:1000000|999999)/u);
+      assert.ok(styles.slice(1).some(style => !style.includes('z-index:')));
+      if (ranges[0][0] > ranges[1][0]) assert.ok(styles.some(style =>
+        style.includes('background:rgba(255,0,0,1);background-image:linear-gradient(rgba(255,255,0,1),rgba(255,255,0,1))')));
+      assert.equal(visibleText(html), 'ABCDEFGHIJ');
+    }
+    const separate = render([plateRun(0, 2, '#ff0000'), plateRun(5, 7, '#ffff00')]);
+    assert.deepEqual(fragmentStyles(separate), [
+      'display:inline;position:relative;z-index:-1000000;line-height:1;background:rgba(255,0,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone',
+      'display:inline;position:relative;z-index:-999999;line-height:1;background:rgba(255,255,0,1);border-radius:3px;padding:8px;margin:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone',
+    ]);
+  }
+});
 
 test('run px values use the line reference height and run scale exactly once', () => {
   for (const [reference, expected] of [[1080, 1.5], [1920, 0.84375]]) {
@@ -49,8 +122,8 @@ test('one plate is drawn per line fragment and the injected renderer is self-con
   const html = applyCaptionRunsToHtml(line('ABCD'), 'ABCD', runs);
   assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 1);
   assert.equal((html.match(/class="akari-caption__run-frag"/g) ?? []).length, 1);
-  assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/);
-  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/g, ''), /data-akari-shadow-text=/);
+  assert.match(html, /class="akari-caption__run"[^>]*data-akari-shadow-text="B"/);
+  assert.match(html, /class="akari-caption__run-ink" style="position:relative">B/);
   assert.doesNotMatch(html, /akari-caption__run-plate|aria-hidden="true"/);
   assert.equal(html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ''), 'ABCD');
   const isolated = runInNewContext(`(${applyCaptionRunsToHtml.toString()})`);
@@ -64,12 +137,32 @@ test('nested plates retain run order, and whole karaoke token has one plate', ()
   for (const ranges of [[[0, 4], [1, 3]], [[1, 3], [0, 4]],
     [[0, 3], [0, 4]], [[1, 4], [0, 4]]]) {
     const runs = ranges.map(([from, to], index) => ({ from, to,
-      style: { color: '#ffffff' }, resolved_look: { plate: { ...plate } }, id: `r${index}` }));
+      style: { color: '#ffffff' }, resolved_look: { plate: { ...plate,
+        color: index === 0 ? '#ff0000' : '#0000ff' } }, id: `r${index}` }));
     const html = applyCaptionRunsToHtml(line('ABCD'), 'ABCD', runs);
     assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 2);
-    assert.match(html, /z-index:-1000000/);
-    assert.match(html, /z-index:-999999/);
+    assert.doesNotMatch(html, /z-index:/);
+    const first = html.indexOf('class="akari-caption__run-frag"');
+    const second = html.indexOf('class="akari-caption__run-frag"', first + 1);
+    assert.ok(first >= 0 && second > first);
+    const firstIsOuter = ranges[0][0] <= ranges[1][0] && ranges[0][1] >= ranges[1][1];
+    assert.ok(html.slice(first, second).includes(firstIsOuter
+      ? 'background:rgba(255,0,0' : 'background:rgba(0,0,255'));
   }
+  const forward = applyCaptionRunsToHtml(line('ABCDE'), 'ABCDE', [
+    { from: 0, to: 3, style: { color: '#fff' }, resolved_look: { plate: { ...plate, color: '#ff0000' } } },
+    { from: 2, to: 5, style: { color: '#fff' }, resolved_look: { plate: { ...plate, color: '#0000ff' } } }
+  ]);
+  const reverse = applyCaptionRunsToHtml(line('ABCDE'), 'ABCDE', [
+    { from: 2, to: 5, style: { color: '#fff' }, resolved_look: { plate: { ...plate, color: '#0000ff' } } },
+    { from: 0, to: 3, style: { color: '#fff' }, resolved_look: { plate: { ...plate, color: '#ff0000' } } }
+  ]);
+  assert.notEqual(forward, reverse);
+  const beforeC = html => html.slice(0, html.indexOf('>C</span>'));
+  assert.ok(beforeC(forward).lastIndexOf('background:rgba(0,0,255')
+    > beforeC(forward).lastIndexOf('background:rgba(255,0,0'));
+  assert.ok(beforeC(reverse).lastIndexOf('background:rgba(255,0,0')
+    > beforeC(reverse).lastIndexOf('background:rgba(0,0,255'));
   const runs = [{ from: 1, to: 3, style: { color: '#ffffff' },
     resolved_look: { plate } }];
   const html = applyCaptionRunsToHtml(line('A<span class="akari-caption__tok">BC</span>D'), 'ABCD', runs);
@@ -123,6 +216,13 @@ test('GPU path diagnoses word tiles with rich runs and split plates', () => {
   assert.ok(diagnostics.some(item => item.code === 'captions.run.plate-split'));
 });
 
+test('GPU path diagnoses typewriter run effects after look resolution', () => {
+  const row = { text: 'AB', text_style: { animation: { in: { id: 'typewriter' } } },
+    runs: [{ from: 0, to: 1, resolved_look: { plate } }] };
+  const diagnostics = validateCaptionsSemantics({ captions: { captions: [row] }, path: 'gpu' });
+  assert.equal(diagnostics.filter(item => item.code === 'captions.style.unsupported-path').length, 1);
+});
+
 test('GPU path diagnoses emphasis word tiles on the same source and time', () => {
   const caption = { text: 'AB', src: 'main', start: 1, end: 2,
     words: [{ text: 'AB', start: 1, end: 2 }],
@@ -134,6 +234,52 @@ test('GPU path diagnoses emphasis word tiles on the same source and time', () =>
   assert.equal(diagnose(emphasis).length, 1);
   assert.equal(diagnose({ ...emphasis, src: 'other' }).length, 0);
   assert.equal(diagnose({ ...emphasis, t_start: 3, t_end: 4 }).length, 0);
+});
+
+test('decorated lines ignore run shape while retaining color and effects', () => {
+  for (const decoration of ['underline', 'strikethrough']) for (const policy of [false, true]) {
+    const source = line('今日は黄色のラベルを試します')
+      .replace('class="akari-caption__line"', 'class="akari-caption__line" data-decoration-text="今日は黄色のラベルを試します"')
+      .replace('<div>', `<div class="${policy ? 'akari-caption--single-line' : 'akari-caption'}">`);
+    const from = 6; const to = 9;
+    const shaped = [{ from, to, style: { scale: 1.5, color: '#ff3355', rotate_deg: 8,
+      baseline_shift_em: -.2, font_weight: 800, italic: true, letter_spacing_em: .2 } }];
+    const color = [{ from, to, style: { color: '#ff3355' } }];
+    assert.equal(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', shaped),
+      applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します', color));
+    const warnings = validateCaptionsSemantics({ captions: { captions: [{ text: '今日は黄色のラベルを試します',
+      text_style: { [decoration]: true }, runs: shaped }] } });
+    assert.equal(warnings.filter(item => item.code === 'captions.run.decoration-shape').length, 1);
+    assert.match(applyCaptionRunsToHtml(source, '今日は黄色のラベルを試します',
+      [{ from, to, resolved_look: { plate }, style: { color: '#ff3355' } }]), /data-akari-plate="true"/);
+    assert.match(applyCaptionRunsToHtml(line('今日は黄色のラベルを試します'),
+      '今日は黄色のラベルを試します', shaped), /font-size:1\.5em/);
+  }
+});
+
+test('gradient with line effects drops run replacements before drawing', () => {
+  const lineStyle = { fill_gradient: { colors: ['#ffee00', '#ff2200'], angle_deg: 90 },
+    stroke: { color: '#000000', width_px: 4 } };
+  const full = resolveCaptionRunLook({ color: '#ff3355', background: plate,
+    glow: { color: '#00e5ff', density: 80 } }, lineStyle);
+  const plain = resolveCaptionRunLook({ color: '#ff3355' }, lineStyle);
+  assert.equal(full.resolved_look, undefined);
+  assert.deepEqual(full.style.color, plain.style.color);
+  const source = line('AB');
+  assert.equal(applyCaptionRunsToHtml(source, 'AB', [{ from: 0, to: 1, ...full }]),
+    applyCaptionRunsToHtml(source, 'AB', [{ from: 0, to: 1, ...plain }]));
+  assert.ok(resolveCaptionRunLook({ background: plate }, { fill_gradient: lineStyle.fill_gradient }).resolved_look?.plate);
+});
+
+test('flow drawing lifts plain text in every line without a run z index', () => {
+  const html = applyCaptionRunsToHtml(line('AB') + line('CD'), 'ABCD', [{
+    from: 2, to: 3, style: { color: '#ffffff' }, resolved_look: { plate },
+  }]);
+  assert.doesNotMatch(html, /z-index:/u);
+  assert.match(html, /class="akari-caption__run-lift" style="position:relative">AB<\/span>/u);
+  assert.match(html, /class="akari-caption__run-lift" style="position:relative">D<\/span>/u);
+  assert.match(html, /data-akari-run-flow="true"/u);
+  assert.equal(html.replace(/<style>[\s\S]*?<\/style>/gu, '').replace(/<[^>]+>/gu, ''), 'ABCD');
 });
 
 test('all token boundaries preserve nesting and visible text', () => {

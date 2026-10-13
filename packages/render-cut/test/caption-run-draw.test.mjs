@@ -29,9 +29,44 @@ for (const resolved of [false, true]) test(`${resolved ? 'display_policy' : 'leg
   const html = plan.overlays.map(overlay => overlay.html).join('');
   assert.equal((html.match(/data-akari-plate="true"/g) ?? []).length, 1);
   assert.match(html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/);
-  assert.doesNotMatch(html.replace(/<style>[\s\S]*?<\/style>/g, ''), /data-akari-shadow-text=/);
-  assert.doesNotMatch(html, /z-index:-999999/);
+  assert.match(html, /data-akari-shadow-text="犬"/);
+  assert.match(html, /akari-caption__run-ink/);
+  assert.doesNotMatch(html, /z-index:/);
   assert.equal(plan.captions[0].runs.length, 1);
+});
+
+for (const resolved of [false, true]) for (const decoration of ['underline', 'strikethrough']) {
+  test(`${resolved ? 'display_policy' : 'legacy'} ${decoration} keeps the same run markup with shape omitted`, () => {
+    const source = style => ({ ...(resolved ? { display_policy: policy } : {}), captions: [{
+      id: 'c-0001', src: 's1', start: 0, end: 2, text: '今日は黄色のラベルを試します',
+      text_style: { [decoration]: true }, runs: [{ from: 6, to: 9, style }],
+    }] });
+    const html = style => resolveCaptionPlan({ captionsRoot: source(style), edit }).overlays[0].html;
+    assert.equal(html({ scale: 1.5, color: '#ff3355' }), html({ color: '#ff3355' }));
+    assert.match(html({ color: '#ff3355' }), /color:#ff3355/u);
+    assert.match(html({ color: '#ff3355' }), /data-decoration-text=/u);
+    const v1 = look => resolveCaptionPlan({ captionsRoot: {
+      ...(resolved ? { display_policy: policy } : {}), captions: [{
+        id: 'c-0001', src: 's1', start: 0, end: 2, text: '今日は黄色のラベルを試します',
+        text_style: { [decoration]: true }, runs: [{ from: 6, to: 9, look }],
+      }],
+    }, edit }).overlays[0].html;
+    const stroke = { color: '#ffffff', width_px: 3 };
+    assert.equal(v1({ scale: 1.5, stroke }), v1({ stroke }));
+  });
+}
+
+for (const resolved of [false, true]) test(`${resolved ? 'display_policy' : 'legacy'} gradient outline omits run effects`, () => {
+  const source = look => ({ ...(resolved ? { display_policy: policy } : {}), captions: [{
+    id: 'c-0001', src: 's1', start: 0, end: 2, text: 'ABCDE',
+    text_style: { fill_gradient: { colors: ['#ffee00', '#ff2200'], angle_deg: 90 },
+      stroke: { color: '#000000', width_px: 4 } },
+    runs: [{ from: 1, to: 3, look }],
+  }] });
+  const html = look => resolveCaptionPlan({ captionsRoot: source(look), edit }).overlays[0].html;
+  assert.equal(html({ color: '#ff3355', background,
+    shadow: { color: '#000000', distance_px: 3 },
+    glow: { color: '#00e5ff', density: 80 } }), html({ color: '#ff3355' }));
 });
 
 test('migration preserves legacy stroke pixels on a reference-height line', () => {
@@ -54,5 +89,7 @@ test('rich line layers leave one run plate outside their text copies', () => {
   const [overlay] = resolveCaptionPlan({ captionsRoot, edit }).overlays;
   assert.equal((overlay.html.match(/data-akari-plate="true"/g) ?? []).length, 1);
   assert.match(overlay.html, /akari-caption__rich-segment/);
+  assert.match(overlay.html, /z-index:-1000000/);
+  assert.doesNotMatch(overlay.html, /data-akari-run-flow/);
   assert.doesNotMatch(overlay.html, /akari-caption__rich-shadow[^>]*>\s*<span class="akari-caption__run-frag"[^>]*data-akari-plate/);
 });

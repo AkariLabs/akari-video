@@ -71,7 +71,8 @@ function measured(chars = true) {
       : selector === ".akari-caption__run-frag" ? [] : words,
   };
   const { measureCaptionUnit } = extract(
-    ["measureCaptionUnit", "relativeRect", "expandedCaptionRunRect", "tokenRole", "tokenStyle", "tokenTiming", "cssSeconds"],
+    ["measureCaptionUnit", "measureCaptionRunEffectRects", "relativeRect", "expandedCaptionRunRect",
+      "tokenRole", "tokenStyle", "tokenTiming", "cssSeconds"],
     { getComputedStyle: () => ({ fontSize: "20px" }) },
   );
   return measureCaptionUnit(root, 0);

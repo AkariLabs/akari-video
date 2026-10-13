@@ -32,9 +32,11 @@ test('inline plate uses cloned padding without changing spaces or adding visible
     { id: 'r-0001', from: 9, to: 16, look: rich }
   ] }] }).captions[0].runs;
   const html = render(text, runs);
-  assert.match(html, /display:inline;position:relative;z-index:-1000000;line-height:1;background:rgba\(/u);
-  assert.match(html, /padding:12px;margin:-12px;-webkit-box-decoration-break:clone;box-decoration-break:clone/u);
+  assert.match(html, /display:inline;line-height:1;background:rgba\(/u);
+  assert.match(html, /padding:12px;margin:-12px;-webkit-box-decoration-break:clone;box-decoration-break:clone;pointer-events:none/u);
+  assert.doesNotMatch(html, /z-index:/u);
   assert.match(html, /white-space:pre/u);
+  assert.match(html, /data-akari-flow-plain-line="true"/u);
   assert.doesNotMatch(html, /run-frag\[data-akari-plate\]::before/u);
   assert.equal(plain(html), text);
 });
@@ -192,11 +194,11 @@ test('run effects replace only declared components on both caption routes', () =
       const tags = characterTags(body);
       assert.equal(tags.length, 2, `${policy} ${name} ${choice.name} characters`);
       for (const tag of tags) {
-        assert.equal(tag.includes('data-akari-shadow-text'), false,
+        assert.equal(tag.includes('data-akari-shadow-text'), choice.name !== 'plate',
           `${policy} ${name} ${choice.name} shadow copy`);
-        assert.equal(tag.includes(`text-shadow:${expected}`), choice.name !== 'plate',
+        assert.equal(tag.includes('text-shadow:none'), choice.name !== 'plate',
           `${policy} ${name} ${choice.name} shadow declaration`);
-        assert.equal(tag.includes('--akari-run-shadow:'), false,
+        assert.equal(tag.includes('--akari-run-shadow:'), choice.name !== 'plate',
           `${policy} ${name} ${choice.name} shadow variable`);
       }
     }
@@ -220,9 +222,9 @@ test('plate effects draw on characters while plate-free effects retain the shado
       const tags = characterTags(renderRoute(policy, 'AB', [{ from: 0, to: 2, ...run }]));
       assert.equal(tags.length, 2);
       for (const tag of tags) {
-        assert.ok(tag.includes(`text-shadow:${run.resolved_look.text_shadow}`));
-        assert.ok(!tag.includes('data-akari-shadow-text'));
-        assert.ok(!tag.includes('--akari-run-shadow:'));
+        assert.ok(tag.includes('text-shadow:none'));
+        assert.ok(tag.includes('data-akari-shadow-text'));
+        assert.ok(tag.includes(`--akari-run-shadow:${run.resolved_look.text_shadow}`));
       }
     }
   }
@@ -245,9 +247,24 @@ test('a surrounding plate keeps nested shadow effects above its background', () 
   ]);
   const tags = characterTags(html);
   assert.equal(tags.length, 3);
-  assert.ok(tags[1].includes(`text-shadow:${glow.resolved_look.text_shadow}`));
-  assert.ok(!tags[1].includes('data-akari-shadow-text'));
-  assert.ok(!tags[1].includes('--akari-run-shadow:'));
+  assert.ok(tags[1].includes('text-shadow:none'));
+  assert.ok(tags[1].includes('data-akari-shadow-text'));
+  assert.ok(tags[1].includes(`--akari-run-shadow:${glow.resolved_look.text_shadow}`));
+});
+
+test('transparent plate leaves the run shadow copy and ink extent identical', () => {
+  const effect = { color: '#ffffff', shadow: { color: '#ff0033', opacity: 1,
+    blur_px: 3, distance_px: 7, angle_deg: 45 } };
+  const bare = resolveCaptionRunLook(effect, {});
+  const plated = resolveCaptionRunLook({ ...effect,
+    background: { ...background, opacity: 0 } }, {});
+  const html = value => render('AB', [{ from: 0, to: 2, ...value }]);
+  const stripPlate = value => value
+    .replace(/ data-akari-plate="true" data-akari-plate-pad="[^"]+"/gu, '')
+    .replace(/;background:rgba\([^)]*\);border-radius:[^;]+;padding:[^;]+;margin:[^;]+;-webkit-box-decoration-break:clone;box-decoration-break:clone;pointer-events:none/gu, '');
+  assert.equal(stripPlate(html(plated)), html(bare));
+  assert.match(html(plated), /data-akari-shadow-flow="true"/u);
+  assert.match(html(bare), /class="akari-caption__run-ink"/u);
 });
 
 test('untrusted resolved declarations cannot enter attributes or CSS declarations', () => {

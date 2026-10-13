@@ -125,8 +125,31 @@ test('detached caption resolves v1 plate, shadow, and glow', async () => {
       .find(item => item.id === 'c2-out');
     assert.match(overlay.html, /data-akari-plate="true"/u);
     assert.match(overlay.html, /class="akari-caption__run"[^>]*text-shadow:[^;"']+/u);
-    assert.doesNotMatch(overlay.html.replace(/<style>[\s\S]*?<\/style>/u, ''), /data-akari-shadow-text=/u);
+    assert.match(overlay.html, /data-akari-shadow-text=/u);
+    assert.match(overlay.html, /class="akari-caption__run-ink"/u);
     assert.match(overlay.html, /rgba\(0,229,255,1\)/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('detached typewriter caption with run effects retains the OSR eligibility reason', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'caption-typewriter-item-'));
+  try {
+    await cp(fixture, projectRoot, { recursive: true });
+    const edit = JSON.parse(await readFile(join(projectRoot, 'edit.json'), 'utf8'));
+    const root = JSON.parse(await readFile(join(projectRoot, 'captions.json'), 'utf8'));
+    root.captions[1].text_style = { animation: { in: { id: 'typewriter' } } };
+    root.captions[1].runs = [{ id: 'r-0001', from: 0, to: 1,
+      look: { background: { color: '#ffd948', padding_px: 8 } } }];
+    await writeFile(join(projectRoot, 'captions.json'), `${JSON.stringify(root)}\n`);
+    const rendered = readRenderEdit(edit, undefined, { projectRoot });
+    assert.match(rendered.edit.overlays.find(item => item.id === 'c2-out').html,
+      /data-akari-plate="true"/u);
+    const page = buildGpuPage({ edit: rendered.edit, captions: root,
+      overlays: rendered.edit.overlays, projectRoot, duration: 5 });
+    assert.equal(page.eligibility.entries.find(item => item.id === root.captions[1].id)?.reason,
+      'caption-run-effects-typewriter');
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
