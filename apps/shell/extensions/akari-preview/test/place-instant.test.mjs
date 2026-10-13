@@ -14,6 +14,11 @@ vm.runInNewContext(compiled, { exports, require: () => ({
     samePageOverlayReferences: (a, b) => JSON.stringify(a.overlayUris) === JSON.stringify(b.overlayUris)
 }) });
 const { classifyPreviewModelUpdate, isOwnAssetReferenceChange } = exports;
+const watchedMediaExports = {};
+vm.runInNewContext(ts.transpileModule(
+    readFileSync(new URL('../src/common/preview-watched-media.ts', import.meta.url), 'utf8'),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: watchedMediaExports });
+const { previewWatchedMediaChange } = watchedMediaExports;
 
 test('生成 PNG の差分では生成情報を新しい layer より先に送る', () => {
     const handler = readHandlerSource();
@@ -120,10 +125,14 @@ test('台帳の変更通知は全体再構築せずモデル差分へ渡し、�
         { category: 'still', id: 'a' }, { category: 'still', id: 'z' }] });
     const host = { readText: async () => content, resourceSuffix: () => 'edit', recentWriteAt: () => 0,
         queueRefresh: (...args) => calls.push(args) };
+    const settleDelays = [];
     const context = { ...host, exports: {}, widget, identityUri: editUri, kind: 'output',
         placement: { content: before, baseline: Promise.resolve(before), key: 'still/a',
             at: Date.now(), until: Date.now() + 1000 },
-        RECENT_WRITE_WINDOW_MS: 1000, isOwnAssetReferenceChange, Date, Set, console };
+        RECENT_WRITE_WINDOW_MS: 1000, WATCHED_MEDIA_SETTLE_MS: 250, isOwnAssetReferenceChange,
+        previewWatchedMediaChange, watchedMediaSettle: undefined,
+        window: { clearTimeout: () => undefined, setTimeout: (run, delay) => { settleDelays.push(delay); run(); return 1; } },
+        Date, Set, console };
     vm.runInContext(body, vm.createContext(context));
     const handler = context.exports.handler;
     handler({ changes: [{ resource: referencesUri }] });
@@ -151,6 +160,25 @@ test('台帳の変更通知は全体再構築せずモデル差分へ渡し、�
         path: { base: 'frame-1.png', toString: () => '/project/assets/generated/frame-1.png' } };
     handler({ changes: [{ resource: generated }] });
     assert.equal(calls.length, 3, '追加した仮枠の png の通知では全体更新しない');
+    // 配信できなかった素材は、置いた直後の猶予の中でも落とさない。落ち着くのを待って再構築で読み直す。
+    widget.akariPreviewWatchedMediaResources = new Set([generatedKey]);
+    widget.akariPreviewUnservedMediaResources = new Set([generatedKey]);
+    handler({ changes: [{ resource: generated }] });
+    assert.equal(calls.length, 4, 'まだ届いていなかった素材の通知は読み直す');
+    assert.equal(calls[3][4], true, '素材だけの変更はモデルの差分に出ないので再構築する');
+    assert.deepEqual(settleDelays, [250]);
+    // 追跡対象に無い静止画の cut ソースも見張る。配信できている素材には、見張り始めた直後の猶予を当てる。
+    const stillKey = 'file:///project/assets/photo.jpg';
+    const still = { toString: () => stillKey, path: { base: 'photo.jpg', toString: () => '/project/assets/photo.jpg' } };
+    widget.akariPreviewWatchedMediaResources = new Set([stillKey]);
+    widget.akariPreviewUnservedMediaResources = new Set();
+    widget.akariPreviewJustAddedUris = new Map([[stillKey, Date.now()]]);
+    handler({ changes: [{ resource: still }] });
+    assert.equal(calls.length, 4, '取り込んだ直後の遅れた通知では読み直さない');
+    widget.akariPreviewJustAddedUris = new Map([[stillKey, Date.now() - 5000]]);
+    handler({ changes: [{ resource: still }] });
+    assert.equal(calls.length, 5, '同じ名前で作り直された静止画は読み直す');
+    assert.equal(calls[4][4], true);
 });
 
 test('queueCaptionsUpdate は送信した字幕を前回モデルの控えにも保存する', async () => {
