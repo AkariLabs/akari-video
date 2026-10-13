@@ -3236,6 +3236,23 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
 }
 function projectSpeechDeclarations(cuts, options) {
   const fps = finitePositive2(options?.fps) ? options.fps : 30;
+  const virtualCuts = cuts.map((cut) => {
+    const speed = finitePositive2(cut?.speed) ? cut.speed : 1;
+    const holdSec = freezeDuration(cut?.freeze);
+    return {
+      ...cut,
+      transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0,
+      out: cut.out + holdSec * speed
+    };
+  });
+  return projectSpeechDeclarationsFromWindows(
+    cuts,
+    options,
+    buildTimelineMap(virtualCuts, { fps }).transitionWindows
+  );
+}
+function projectSpeechDeclarationsFromWindows(cuts, options, transitionWindows) {
+  const fps = finitePositive2(options?.fps) ? options.fps : 30;
   const normalizedCuts = cuts.map((cut) => ({
     ...cut,
     transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
@@ -3245,20 +3262,19 @@ function projectSpeechDeclarations(cuts, options) {
     const holdSec = freezeDuration(cut?.freeze);
     return { ...cut, out: cut.out + holdSec * speed };
   });
-  const map = buildTimelineMap(virtualCuts, { fps });
   const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
   const clipWindows = new Map(computeCutTrackSegments(usable.map((entry) => entry.cut)).map((segment) => [
     usable[segment.index].index,
     { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
   ]));
   const outgoingEnds = /* @__PURE__ */ new Map();
-  for (const window of map.transitionWindows) {
+  for (const window of transitionWindows) {
     for (const participant of [window.outgoing, window.incoming]) {
       const clip = clipWindows.get(participant.cutIndex);
       const cut = normalizedCuts[participant.cutIndex];
       if (!clip || !cut || typeof participant.in !== "number") continue;
       const speed = finitePositive2(cut.speed) ? cut.speed : 1;
-      clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+      clip.cutTimelineStart = finitePositive2(participant.holdHeadSeconds) ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed : participant.outStart - (participant.in - cut.in) / speed;
     }
     const outgoing = clipWindows.get(window.outgoing.cutIndex);
     const incoming = clipWindows.get(window.incoming.cutIndex);
@@ -3325,7 +3341,7 @@ function projectSpeechDeclarations(cuts, options) {
     });
     declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
   }
-  for (const window of map.transitionWindows) {
+  for (const window of transitionWindows) {
     if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null) continue;
     const incomingCut = normalizedCuts[window.incoming.cutIndex];
     const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
@@ -7082,6 +7098,7 @@ export {
   projectAudioFadeShapes,
   projectLayerSpeechDeclarations,
   projectSpeechDeclarations,
+  projectSpeechDeclarationsFromWindows,
   projectSpeechKeyIntervals,
   removeStyleAttachedItems,
   resolveCaptionLineStyleVars,

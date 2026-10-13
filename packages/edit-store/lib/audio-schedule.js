@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWebAudioSchedule = buildWebAudioSchedule;
 exports.projectSpeechDeclarations = projectSpeechDeclarations;
+exports.projectSpeechDeclarationsFromWindows = projectSpeechDeclarationsFromWindows;
 exports.projectLayerSpeechDeclarations = projectLayerSpeechDeclarations;
 const audio_ownership_1 = require("./audio-ownership");
 const ducking_1 = require("./ducking");
@@ -360,6 +361,20 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
  */
 function projectSpeechDeclarations(cuts, options) {
     const fps = finitePositive(options?.fps) ? options.fps : 30;
+    const virtualCuts = cuts.map(cut => {
+        const speed = finitePositive(cut?.speed) ? cut.speed : 1;
+        const holdSec = freezeDuration(cut?.freeze);
+        return { ...cut, transitionOut: cut.transitionOut ?? cut.transition_out ?? undefined,
+            out: cut.out + holdSec * speed };
+    });
+    return projectSpeechDeclarationsFromWindows(cuts, options, (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps }).transitionWindows);
+}
+/**
+ * @internal
+ * 窓の形が決まっているときに、その窓から音の宣言を作る。テストと、窓を別に持つ呼び出し側のための口。
+ */
+function projectSpeechDeclarationsFromWindows(cuts, options, transitionWindows) {
+    const fps = finitePositive(options?.fps) ? options.fps : 30;
     const normalizedCuts = cuts.map(cut => ({
         ...cut,
         transitionOut: cut.transitionOut ?? cut.transition_out ?? undefined
@@ -369,7 +384,6 @@ function projectSpeechDeclarations(cuts, options) {
         const holdSec = freezeDuration(cut?.freeze);
         return { ...cut, out: cut.out + holdSec * speed };
     });
-    const map = (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps });
     // Keep every clip's window, including clips absent from the visual winner map.
     // Match buildTimelineMap's usable-cut filtering before resolving track cursors.
     const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
@@ -378,7 +392,7 @@ function projectSpeechDeclarations(cuts, options) {
         { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
     ]));
     const outgoingEnds = new Map();
-    for (const window of map.transitionWindows) {
+    for (const window of transitionWindows) {
         for (const participant of [window.outgoing, window.incoming]) {
             const clip = clipWindows.get(participant.cutIndex);
             const cut = normalizedCuts[participant.cutIndex];
@@ -386,7 +400,9 @@ function projectSpeechDeclarations(cuts, options) {
                 continue;
             const speed = finitePositive(cut.speed) ? cut.speed : 1;
             // Transition slices retain the source mapping after hidden-handle adjustment.
-            clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+            clip.cutTimelineStart = finitePositive(participant.holdHeadSeconds)
+                ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed
+                : participant.outStart - (participant.in - cut.in) / speed;
         }
         const outgoing = clipWindows.get(window.outgoing.cutIndex);
         const incoming = clipWindows.get(window.incoming.cutIndex);
@@ -449,7 +465,7 @@ function projectSpeechDeclarations(cuts, options) {
         });
         declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
     }
-    for (const window of map.transitionWindows) {
+    for (const window of transitionWindows) {
         if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null)
             continue;
         const incomingCut = normalizedCuts[window.incoming.cutIndex];

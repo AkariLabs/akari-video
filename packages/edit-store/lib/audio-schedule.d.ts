@@ -1,4 +1,5 @@
 import { DuckInterval } from './ducking';
+import { buildTimelineMap } from './timeline-map';
 import { type EditCut } from './edit-store';
 export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 export interface WebAudioDecodedItem {
@@ -149,6 +150,14 @@ export declare function projectSpeechDeclarations(cuts: readonly WebAudioSpeechC
     fps: number;
     layers?: readonly WebAudioSpeechLayer[];
 }): WebAudioSpeechDeclaration[];
+/**
+ * @internal
+ * 窓の形が決まっているときに、その窓から音の宣言を作る。テストと、窓を別に持つ呼び出し側のための口。
+ */
+export declare function projectSpeechDeclarationsFromWindows(cuts: readonly WebAudioSpeechCut[], options: {
+    fps: number;
+    layers?: readonly WebAudioSpeechLayer[];
+}, transitionWindows: ReturnType<typeof buildTimelineMap>['transitionWindows']): WebAudioSpeechDeclaration[];
 /** Layer timing is output time; only moving source regions supply speech. */
 export interface WebAudioSpeechLayer {
     id?: string;
