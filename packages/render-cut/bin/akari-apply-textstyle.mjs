@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isMainModule } from "./is-main-module.mjs";
 
 const USAGE = "使い方: akari-apply-textstyle <project-dir> <preset-id> [--caption <index|id>...] [--dry-run]";
 const DEEP_MERGE_KEYS = ["stroke", "background", "shadow", "glow", "position", "animation"];
+const requireEditStore = createRequire(import.meta.url);
+const { planCaptionStyleEdit } = requireEditStore("../../edit-store/lib/caption-style-command.js");
+const { applyCaptionStyle } = requireEditStore("../../edit-store/lib/caption-style-write.js");
+const { projectFileHash } = requireEditStore("../../edit-store/lib/write-gate.js");
 
 export function resolvePresetStyleFields(preset) {
   const style = preset.style ?? {};
@@ -34,7 +39,7 @@ export function mergeTextStyle(existing, incoming) {
   return merged;
 }
 
-export async function runCli(args, io = console) {
+export async function runCli(args, io = console, hooks = {}) {
   try {
     const options = parseArguments(args);
     const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -43,27 +48,39 @@ export async function runCli(args, io = console) {
     const captionsPath = resolve(options.projectDir, "captions.json");
     const captionsRoot = await loadCaptions(captionsPath);
     const changes = [];
-    let updatedRoot = captionsRoot.root;
+    const targets = [];
 
     if (options.captionSelectors.length === 0) {
-      const before = captionsRoot.defaultTextStyle ?? null;
-      const after = mergeTextStyle(captionsRoot.defaultTextStyle, presetFields);
-      changes.push({ target: "default_text_style", before, after });
-      updatedRoot = captionsRoot.isArrayRoot
-        ? { default_text_style: after, captions: captionsRoot.captionsArray }
-        : { ...captionsRoot.root, default_text_style: after };
+      changes.push({ target: "default_text_style" });
+      targets.push({ default: true });
     } else {
-      const targets = options.captionSelectors.map((selector) =>
-        resolveCaptionTarget(captionsRoot.captionsArray, selector));
-      for (const index of targets) {
+      for (const selector of options.captionSelectors) {
+        const index = resolveCaptionTarget(captionsRoot.captionsArray, selector);
         const caption = captionsRoot.captionsArray[index];
         if (caption === null || typeof caption !== "object" || Array.isArray(caption)) {
           throw new Error(`captions[${index}] はオブジェクトである必要があります。`);
         }
-        const before = caption.text_style ?? null;
-        const after = mergeTextStyle(caption.text_style, presetFields);
-        caption.text_style = after;
-        changes.push({ target: `captions[${index}].text_style`, before, after });
+        changes.push({ target: `captions[${index}].text_style` });
+        targets.push(/^\d+$/u.test(selector) ? { caption_index: index } : { caption_id: selector });
+      }
+    }
+
+    const command = { targets, parts: { look: presetFields },
+      source: { kind: 'builtin', id: options.presetId }, legacy: { merge: 'deep' } };
+    const planned = planCaptionStyleEdit({ captions: captionsRoot.root, ...command });
+    const written = options.dryRun ? planned.next.captions : JSON.parse((await applyCaptionStyle(options.projectDir, command, {
+      expectedHashes: { 'captions.json': captionsRoot.hash },
+      beforeCommit: () => hooks.beforeWrite?.(captionsPath),
+    })).after['captions.json'].text);
+    const rows = (root) => Array.isArray(root) ? root : root.captions;
+    for (const change of changes) {
+      if (change.target === 'default_text_style') {
+        change.before = captionsRoot.defaultTextStyle ?? null;
+        change.after = Array.isArray(written) ? null : written.default_text_style ?? null;
+      } else {
+        const index = Number(change.target.match(/^captions\[(\d+)\]/u)[1]);
+        change.before = rows(captionsRoot.root)[index].text_style ?? null;
+        change.after = rows(written)[index].text_style ?? null;
       }
     }
 
@@ -73,9 +90,6 @@ export async function runCli(args, io = console) {
       dry_run: options.dryRun,
       changes,
     };
-    if (!options.dryRun) {
-      await writeFile(captionsPath, `${JSON.stringify(updatedRoot, null, 2)}\n`, "utf8");
-    }
     io.log(JSON.stringify(result, null, 2));
     return 0;
   } catch (error) {
@@ -144,8 +158,10 @@ async function loadPresetCandidates(repoRoot) {
 
 async function loadCaptions(captionsPath) {
   let source;
+  let bytes;
   try {
-    source = await readFile(captionsPath, "utf8");
+    bytes = await readFile(captionsPath);
+    source = bytes.toString('utf8');
   } catch (error) {
     if (error?.code === "ENOENT") {
       throw new Error(`captions.json が見つかりません: ${captionsPath}`);
@@ -163,6 +179,7 @@ async function loadCaptions(captionsPath) {
   if (Array.isArray(root)) {
     return {
       root,
+      hash: projectFileHash(bytes),
       captionsArray: root,
       defaultTextStyle: undefined,
       isArrayRoot: true,
@@ -174,6 +191,7 @@ async function loadCaptions(captionsPath) {
     }
     return {
       root,
+      hash: projectFileHash(bytes),
       captionsArray: root.captions,
       defaultTextStyle: root.default_text_style,
       isArrayRoot: false,

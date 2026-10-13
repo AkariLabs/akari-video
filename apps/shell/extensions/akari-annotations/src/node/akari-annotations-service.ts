@@ -2,7 +2,12 @@ import { t } from '@akari-video/i18n';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
-import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
+import { writeAtomic, writeProjectFilesGuarded, writeProjectFilesTransactional, captureProjectLintBaseline,
+    scheduleProjectLint, writeSavedByStamp, recoverInterruptedProjectWrite, ConflictError } from '@akari-video/edit-store/lib/write-gate';
+import { applyCaptionStyle as applyCaptionStyleWrite, clearCaptionStyle as clearCaptionStyleWrite,
+    reapplyCaptionStyle as reapplyCaptionStyleWrite, setCaptionSize as setCaptionSizeWrite,
+    applyCaptionLookMigration, type CaptionWriteOptions } from '@akari-video/edit-store/lib/caption-style-write';
+import { CaptionsInvalidError } from '@akari-video/edit-store/lib/caption-look-shape';
 import { loadTextstyleCatalogSync } from '@akari-video/edit-store/lib/textstyle-library-node';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
@@ -42,6 +47,8 @@ import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
     AkariAnnotationsService,
+    ApplyCaptionStyleRequest, ClearCaptionStyleRequest, ReapplyCaptionStyleRequest,
+    SetCaptionSizeRequest, MigrateCaptionLookRequest, CaptionCommandResult,
     ApplyCutRangesRequest,
     ApplyCutRangesResult,
     RestoreCutRangeRequest,
@@ -2807,6 +2814,85 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
      * 従来の FileService 直書きは git commit していなかったため、
      * この RPC も commit しない（committed は常に false）。
      */
+    private captionCommandPath(request: { projectRootUri: string; editUri?: string; captionsUri?: string }):
+        { root: string; captionsName: string; editName: string } {
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const editPath = request.editUri ? timelineEditPath(projectRoot, request.editUri)
+            : request.captionsUri ? timelineEditPathForCaptions(this.fsPath(request.captionsUri), projectRoot)
+                : timelineEditPath(projectRoot);
+        const root = dirname(editPath);
+        const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : timelineCaptionsPath(editPath);
+        this.requireWriteRequest(URI.fromFilePath(captionsPath).toString(), request.projectRootUri);
+        if (resolve(timelineEditPathForCaptions(captionsPath, projectRoot)) !== resolve(editPath))
+            throw new Error(t('annotationscommon.akariAnnotationsService.error.editDataCaptionsDoNotMatch'));
+        return { root, captionsName: basename(captionsPath), editName: basename(editPath) };
+    }
+
+    private async runCaptionCommand(request: { projectRootUri: string; editUri?: string; captionsUri?: string;
+        expectedHashes?: { edit?: string | null; captions?: string | null } },
+        operation: (root: string, options: CaptionWriteOptions) => Promise<{
+            written: string[]; notices: string[]; changed: string[]; recovered?: string;
+            before: Record<string, { hash: string | null; text: string | null }>;
+            after: Record<string, { hash: string | null; text: string | null }>;
+            items?: unknown[]; diff?: unknown[] }>): Promise<CaptionCommandResult> {
+        const { root, captionsName, editName } = this.captionCommandPath(request);
+        const expectedHashes: Record<string, string | null> = {};
+        if (request.expectedHashes && Object.prototype.hasOwnProperty.call(request.expectedHashes, 'captions'))
+            expectedHashes[captionsName] = request.expectedHashes.captions ?? null;
+        if (request.expectedHashes && Object.prototype.hasOwnProperty.call(request.expectedHashes, 'edit'))
+            expectedHashes[editName] = request.expectedHashes.edit ?? null;
+        try {
+            const result = await operation(root, {
+                expectedHashes, files: { captions: captionsName, edit: editName },
+                appVersion: await this.shellWriterVersion(),
+                onWillWrite: path => { this.client?.onWillWrite(URI.fromFilePath(path).toString()); },
+                onDidWrite: (path, text) => this.notifyDidWrite(path, text),
+                onLintResult: lint => this.client?.onLintResult({
+                    projectRootUri: request.projectRootUri, pass: lint.pass, errors: lint.errors,
+                    writtenFiles: [captionsName], findings: lint.findings
+                })
+            });
+            return { ok: true, ...result };
+        } catch (error) {
+            if (error instanceof ConflictError) return { ok: false, conflict: true, files: error.files, message: error.message };
+            if (error instanceof CaptionsInvalidError) return { ok: false, invalid: true,
+                diagnostics: error.diagnostics, message: error.message };
+            throw error;
+        }
+    }
+
+    async applyCaptionStyle(request: ApplyCaptionStyleRequest): Promise<CaptionCommandResult> {
+        return this.runCaptionCommand(request, (root, options) => applyCaptionStyleWrite(root, request.input, options));
+    }
+
+    async clearCaptionStyle(request: ClearCaptionStyleRequest): Promise<CaptionCommandResult> {
+        return this.runCaptionCommand(request, (root, options) => clearCaptionStyleWrite(root, request.input, options));
+    }
+
+    async reapplyCaptionStyle(request: ReapplyCaptionStyleRequest): Promise<CaptionCommandResult> {
+        const entries = request.input.styles.entries;
+        const styles = { lookup: (source: Record<string, unknown>) => entries.find(entry =>
+            entry.source.kind === source.kind && entry.source.id === source.id
+            && (entry.source.uid === undefined || entry.source.uid === source.uid)) };
+        return this.runCaptionCommand(request, (root, options) => reapplyCaptionStyleWrite(root,
+            { ...request.input, styles }, options));
+    }
+
+    async setCaptionSize(request: SetCaptionSizeRequest): Promise<CaptionCommandResult> {
+        return this.runCaptionCommand(request, (root, options) => setCaptionSizeWrite(root, request.input, options));
+    }
+
+    async migrateCaptionLook(request: MigrateCaptionLookRequest): Promise<CaptionCommandResult> {
+        return this.runCaptionCommand(request, (root, options) => applyCaptionLookMigration(root,
+            { ...options, dryRun: request.input.dryRun }));
+    }
+
+    async recoverInterruptedWrite(request: { projectRootUri: string }): Promise<{ notice?: string }> {
+        if (!request?.projectRootUri) throw new Error(t('annotationscommon.akariAnnotationsService.error.couldNotIdentifyWriteBackDestination'));
+        const notice = await recoverInterruptedProjectWrite(this.fsPath(request.projectRootUri));
+        return notice ? { notice } : {};
+    }
+
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         if (typeof request.editSource !== 'string' && typeof request.captionsSource !== 'string') {
@@ -2826,19 +2912,41 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             timelineEditPathForCaptions(captionsPath, this.fsPath(request.projectRootUri));
             candidates[basename(captionsPath)] = request.captionsSource;
         }
-        for (const name of Object.keys(candidates)) {
+        if (request.expectedHashes === undefined) for (const name of Object.keys(candidates)) {
             this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+        }
+        const notifyLint = (result: { pass: boolean; errors: string[]; findings: Array<{
+            severity?: string; message?: string; check?: string; path?: string;
+            range?: { start?: number; end?: number }; preexisting?: boolean }> }) => this.client?.onLintResult({
+            projectRootUri: URI.fromFilePath(projectDir).toString(), pass: result.pass, errors: result.errors,
+            writtenFiles: Object.keys(candidates), findings: result.findings
+        });
+        if (request.expectedHashes !== undefined) {
+            await captureProjectLintBaseline(projectDir);
+            try {
+                await writeProjectFilesTransactional(projectDir, { label: 'edit-snapshot', files:
+                    Object.fromEntries(Object.entries(candidates).map(([name, next]) => [name, {
+                        next, ...(name === basename(editPath) && Object.prototype.hasOwnProperty.call(request.expectedHashes, 'edit')
+                            ? { expectedHash: request.expectedHashes!.edit } : {}),
+                        ...(name === basename(timelineCaptionsPath(editPath)) && Object.prototype.hasOwnProperty.call(request.expectedHashes, 'captions')
+                            ? { expectedHash: request.expectedHashes!.captions } : {})
+                    }])) }, { onWillWrite: path => this.client?.onWillWrite(URI.fromFilePath(path).toString()),
+                    onDidWrite: async (path, text, name) => {
+                        if (name === basename(editPath)) await writeSavedByStamp(projectDir, await this.shellWriterVersion());
+                        this.notifyDidWrite(path, text);
+                    } });
+            } catch (error) {
+                if (error instanceof ConflictError) return { committed: false, conflict: true,
+                    files: error.files, message: error.message };
+                throw error;
+            }
+            scheduleProjectLint(projectDir, { onLintResult: notifyLint });
+            return { committed: false };
         }
         await writeProjectFilesGuarded(projectDir, candidates, {
             appVersion: await this.shellWriterVersion(),
             onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
-            onLintResult: result => this.client?.onLintResult({
-                projectRootUri: URI.fromFilePath(projectDir).toString(),
-                pass: result.pass,
-                errors: result.errors,
-                writtenFiles: Object.keys(candidates),
-                findings: result.findings
-            })
+            onLintResult: notifyLint
         });
         return { committed: false };
     }

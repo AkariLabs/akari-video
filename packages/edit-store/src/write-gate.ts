@@ -18,9 +18,11 @@
  */
 
 import { promises as fs, statSync } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, sep } from 'path';
 import { pathToFileURL } from 'url';
 import { tmpdir } from 'os';
+import { hostname } from 'os';
+import { createHash, randomUUID } from 'crypto';
 import { renameRetryWarningLogged, renameWithRetry } from './history-store';
 // index.ts の SAVED_BY_PATH と同値に保つ（Node 専用入口は index を import しない）。
 export const SAVED_BY_PATH = '.akari/saved-by.json';
@@ -69,6 +71,7 @@ export interface DeferredLintOptions {
      * ここで例外を投げても保存は完了済みなので、呼び出し側は握りつぶして保存を維持する。
      */
     onDidWrite?: (filePath: string, content: string) => void;
+    onRecovered?: (notice: string) => void;
 }
 
 interface EditLintModule {
@@ -307,6 +310,257 @@ export async function writeSavedByStamp(projectRoot: string, appVersion: string 
     }
 }
 
+export function projectFileHash(bytes: Buffer | Uint8Array | string): string {
+    return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+export class ConflictError extends Error {
+    readonly code = 'AKARI_WRITE_CONFLICT';
+    readonly files: string[];
+    constructor(files: string[]) {
+        super(`ほかの変更があったので書きませんでした。もう一度実行してください: ${files.join('、')}`);
+        this.name = 'ConflictError';
+        this.files = files;
+    }
+}
+
+type TransactionFile = { expectedHash?: string | null; next: string | null };
+type TransactionHooks = {
+    now?: () => number;
+    processAlive?: (pid: number) => boolean;
+    rename?: (source: string, target: string, index: number) => Promise<void>;
+    crashAfterJournal?: boolean;
+    crashAfterFirstRename?: boolean;
+};
+export type TransactionOptions = {
+    waitTimeoutMs?: number;
+    writeUnchanged?: boolean;
+    onRecovered?: (notice: string) => void;
+    onWillWrite?: (destination: string, name: string) => void;
+    onDidWrite?: (path: string, content: string, name: string) => void | Promise<void>;
+    hooks?: TransactionHooks;
+};
+type JournalFile = { path: string; existed: boolean; original_hash: string | null;
+    next_hash: string; backup: string | null };
+type Journal = { version: 1; id: string; label: string; pid: number; host: string;
+    created_at: string; files: JournalFile[] };
+const JOURNAL_VERSION = 1;
+
+const projectWriteChains = new Map<string, Promise<void>>();
+const pause = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
+const absent = (error: unknown) => (error as NodeJS.ErrnoException)?.code === 'ENOENT';
+
+async function readBytes(path: string): Promise<Buffer | undefined> {
+    try { return await fs.readFile(path); } catch (error) { if (absent(error)) return undefined; throw error; }
+}
+
+function safeRelative(root: string, relative: string): string {
+    const target = resolve(root, relative);
+    if (!relative || target === resolve(root) || !target.startsWith(resolve(root) + sep)) {
+        throw new Error(`書き込み先がプロジェクトの外です: ${relative}`);
+    }
+    return target;
+}
+
+function ownerAlive(pid: number): boolean {
+    try { process.kill(pid, 0); return true; }
+    catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
+}
+
+async function claimDirectory(claim: string, deadline: number): Promise<void> {
+    for (;;) {
+        try { await fs.mkdir(claim); return; }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+        try {
+            const age = Date.now() - (await fs.stat(claim)).mtimeMs;
+            if (age > 30_000) await fs.rmdir(claim).catch(() => undefined);
+        } catch (error) { if (!absent(error)) throw error; }
+        if (Date.now() > deadline) throw new Error('書き込みの待ち時間を超えました。もう一度実行してください。');
+        await pause(12);
+    }
+}
+
+async function acquireProjectLock(projectRoot: string, options: TransactionOptions): Promise<() => Promise<void>> {
+    const folder = join(projectRoot, '.akari');
+    await fs.mkdir(folder, { recursive: true });
+    const lock = join(folder, 'write.lock');
+    const claim = join(folder, 'write.lock.claim');
+    const deadline = Date.now() + (options.waitTimeoutMs ?? 31_000);
+    const now = options.hooks?.now ?? Date.now;
+    const host = hostname();
+    for (;;) {
+        await claimDirectory(claim, deadline);
+        let mine: string | undefined;
+        try {
+            let existing = await readBytes(lock);
+            if (existing) {
+                let owner: { pid?: number; host?: string; created_at?: string } = {};
+                try { owner = JSON.parse(existing.toString('utf8')) as typeof owner; } catch { /* 壊れた lock は期限後に奪う */ }
+                const created = Date.parse(owner.created_at ?? '');
+                const age = now() - (Number.isFinite(created) ? created : (await fs.stat(lock)).mtimeMs);
+                const stale = age > 30_000 || owner.host === host && typeof owner.pid === 'number'
+                    && !(options.hooks?.processAlive ?? ownerAlive)(owner.pid);
+                if (stale) { await fs.rm(lock, { force: true }); existing = undefined; }
+            }
+            if (!existing) {
+                mine = JSON.stringify({ pid: process.pid, host, created_at: new Date(now()).toISOString() });
+                await fs.writeFile(lock, mine, { flag: 'wx' });
+            }
+        } finally { await fs.rmdir(claim); }
+        if (mine) {
+            const owned = mine;
+            return async () => {
+                await claimDirectory(claim, Date.now() + 31_000);
+                try { if ((await readBytes(lock))?.toString('utf8') === owned) await fs.rm(lock, { force: true }); }
+                finally { await fs.rmdir(claim); }
+            };
+        }
+        if (Date.now() > deadline) throw new Error('書き込みの待ち時間を超えました。もう一度実行してください。');
+        await pause(25);
+    }
+}
+
+async function recoverJournalUnderLock(projectRoot: string): Promise<string | undefined> {
+    const journalPath = join(projectRoot, '.akari', 'write-journal.json');
+    const bytes = await readBytes(journalPath);
+    if (!bytes) return undefined;
+    const journalRoot = join(projectRoot, '.akari', 'work', 'journal');
+    let journal: Journal;
+    try {
+        journal = JSON.parse(bytes.toString('utf8')) as Journal;
+        if (journal.version !== JOURNAL_VERSION || !/^[\da-f-]+$/i.test(journal.id) || !Array.isArray(journal.files)) throw new Error();
+        for (const file of journal.files) {
+            safeRelative(projectRoot, file.path);
+            if (file.backup && !file.backup.startsWith(`.akari/work/journal/${journal.id}/`)) throw new Error();
+        }
+    } catch {
+        await fs.mkdir(journalRoot, { recursive: true });
+        await fs.rename(journalPath, join(journalRoot, `broken-${randomUUID()}.json`));
+        return '前回の書き込み記録が壊れていたので退避しました。ファイルは変更していません。';
+    }
+    const restored: string[] = [];
+    const preserved: string[] = [];
+    for (const file of journal.files) {
+        const destination = safeRelative(projectRoot, file.path);
+        const current = await readBytes(destination);
+        const currentHash = current ? projectFileHash(current) : null;
+        if (currentHash === file.original_hash) continue;
+        if (currentHash !== file.next_hash) { preserved.push(file.path); continue; }
+        if (file.existed && file.backup) {
+            const backup = await fs.readFile(safeRelative(projectRoot, file.backup));
+            await writeAtomicBytes(destination, backup);
+        } else await fs.rm(destination, { force: true });
+        restored.push(file.path);
+    }
+    await fs.rm(journalPath, { force: true });
+    await fs.rm(join(journalRoot, journal.id), { recursive: true, force: true });
+    return `前回の書き込みが途中で止まったので元に戻しました${restored.length ? `: ${restored.join('、')}` : ''}`
+        + (preserved.length ? `。${preserved.map(path => `${path} はその後に変更されていたのでそのままにしました`).join('。')}` : '');
+}
+
+async function removeEmptyJournalRoot(projectRoot: string): Promise<void> {
+    await fs.rmdir(join(projectRoot, '.akari', 'work', 'journal')).catch(() => undefined);
+}
+
+async function writeAtomicBytes(destination: string, content: Buffer): Promise<void> {
+    await fs.mkdir(dirname(destination), { recursive: true });
+    const temporary = `${destination}.${process.pid}.${randomUUID()}.tmp`;
+    try { await fs.writeFile(temporary, content); await renameWithRetry(temporary, destination); }
+    catch (error) { await fs.rm(temporary, { force: true }); throw error; }
+}
+
+export async function recoverInterruptedProjectWrite(projectRoot: string): Promise<string | undefined> {
+    const release = await acquireProjectLock(projectRoot, {});
+    try { return await recoverJournalUnderLock(projectRoot); }
+    finally { await removeEmptyJournalRoot(projectRoot); await release(); }
+}
+
+export async function writeProjectFilesTransactional(projectRoot: string,
+    input: { files: Record<string, TransactionFile>; label: string }, options: TransactionOptions = {}):
+    Promise<{ written: string[]; recovered?: string }> {
+    const key = resolve(projectRoot);
+    const previous = projectWriteChains.get(key) ?? Promise.resolve();
+    let finish!: () => void;
+    const completion = new Promise<void>(done => { finish = done; });
+    projectWriteChains.set(key, completion);
+    await previous.catch(() => undefined);
+    let release: (() => Promise<void>) | undefined;
+    try {
+        release = await acquireProjectLock(projectRoot, options);
+        const recovered = await recoverJournalUnderLock(projectRoot);
+        if (recovered) options.onRecovered?.(recovered);
+        const entries = Object.entries(input.files);
+        const originals = await Promise.all(entries.map(async ([name]) => readBytes(safeRelative(projectRoot, name))));
+        const conflicts = entries.flatMap(([name, candidate], index) => candidate.expectedHash === undefined
+            || candidate.expectedHash === (originals[index] ? projectFileHash(originals[index]!) : null) ? [] : [name]);
+        if (conflicts.length) throw new ConflictError(conflicts);
+        const writes = entries.flatMap(([name, candidate], index) => candidate.next === null
+            || !options.writeUnchanged && originals[index]?.equals(Buffer.from(candidate.next, 'utf8'))
+            ? [] : [{ name, next: candidate.next!, original: originals[index] }]);
+        if (!writes.length) return { written: [], ...(recovered ? { recovered } : {}) };
+        const id = randomUUID();
+        const backupRoot = join(projectRoot, '.akari', 'work', 'journal', id);
+        const journalPath = join(projectRoot, '.akari', 'write-journal.json');
+        try {
+            await fs.mkdir(backupRoot, { recursive: true });
+            const files: JournalFile[] = [];
+            for (let index = 0; index < writes.length; index++) {
+                const item = writes[index];
+                const backup = item.original ? `.akari/work/journal/${id}/${index}.bin` : null;
+                if (backup) await fs.writeFile(safeRelative(projectRoot, backup), item.original!);
+                files.push({ path: item.name, existed: !!item.original,
+                    original_hash: item.original ? projectFileHash(item.original) : null,
+                    next_hash: projectFileHash(item.next), backup });
+            }
+            const journal: Journal = { version: 1, id, label: input.label, pid: process.pid, host: hostname(),
+                created_at: new Date(options.hooks?.now?.() ?? Date.now()).toISOString(), files };
+            await writeAtomic(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+        } catch (error) {
+            await fs.rm(backupRoot, { recursive: true, force: true });
+            throw error;
+        }
+        let written = 0;
+        try {
+            if (options.hooks?.crashAfterJournal) throw new SimulatedCrash();
+            for (const item of writes) {
+                await writeAtomic(safeRelative(projectRoot, item.name), item.next,
+                    async (source, target) => {
+                        try { options.onWillWrite?.(target, item.name); }
+                        catch (error) { console.warn('[edit-store] onWillWrite の通知に失敗しました。', error); }
+                        if (options.hooks?.rename) await options.hooks.rename(source, target, written + 1);
+                        else await renameWithRetry(source, target);
+                    });
+                written++;
+                await options.onDidWrite?.(safeRelative(projectRoot, item.name), item.next, item.name);
+                if (written === 1 && options.hooks?.crashAfterFirstRename) throw new SimulatedCrash();
+            }
+        } catch (error) {
+            if (error instanceof SimulatedCrash) throw error;
+            let restored = true;
+            for (let index = written - 1; index >= 0; index--) {
+                const item = writes[index];
+                try {
+                    if (item.original) await writeAtomicBytes(safeRelative(projectRoot, item.name), item.original);
+                    else await fs.rm(safeRelative(projectRoot, item.name), { force: true });
+                } catch { restored = false; }
+            }
+            if (restored) {
+                await fs.rm(journalPath, { force: true });
+                await fs.rm(backupRoot, { recursive: true, force: true });
+            }
+            throw error;
+        }
+        await fs.rm(journalPath, { force: true });
+        await fs.rm(backupRoot, { recursive: true, force: true });
+        return { written: writes.map(item => item.name), ...(recovered ? { recovered } : {}) };
+    } finally {
+        try { if (release) { await removeEmptyJournalRoot(projectRoot); await release(); } }
+        finally { finish(); if (projectWriteChains.get(key) === completion) projectWriteChains.delete(key); }
+    }
+}
+
+class SimulatedCrash extends Error {}
+
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 
 export async function writeProjectFilesGuarded(
@@ -318,31 +572,30 @@ export async function writeProjectFilesGuarded(
     if (typeof editCandidate === 'string') {
         assertNoCamelCaseTransitionOut(editCandidate);
     }
+    await captureProjectLintBaseline(projectRoot);
+    const files = Object.fromEntries(Object.entries(candidates)
+        .map(([name, next]) => [name, { next }]));
+    await writeProjectFilesTransactional(projectRoot, { files, label: 'guarded' }, {
+        writeUnchanged: true,
+        onRecovered: options.onRecovered ?? (notice => console.warn(notice)),
+        onDidWrite: async (_destination, text, name) => {
+            if (name === 'edit.json') {
+                await writeSavedByStamp(projectRoot, options.appVersion ?? defaultSavedByAppVersion);
+            }
+            if (options.onDidWrite) {
+                try { options.onDidWrite(join(projectRoot, name), text); }
+                catch (error) { console.warn('[edit-store] onDidWrite の通知に失敗しました（保存は完了しています）。', error); }
+            }
+        }
+    });
+    scheduleProjectLint(projectRoot, options);
+}
+
+export async function captureProjectLintBaseline(projectRoot: string): Promise<void> {
     const lintKey = resolve(projectRoot);
     if (!pendingLintBaselines.has(lintKey)) {
         pendingLintBaselines.set(lintKey, lastLintFindings.get(lintKey) ?? await readPersistedLintFindings(projectRoot));
     }
-    for (const [name, text] of Object.entries(candidates)) {
-        if (text === null) {
-            continue;
-        }
-        const destination = join(projectRoot, name);
-        await writeAtomic(destination, text);
-        if (name === 'edit.json') {
-            const version = options.appVersion ?? defaultSavedByAppVersion;
-            await writeSavedByStamp(projectRoot, version);
-        }
-        // edit.json とスタンプの rename が完了したら同期で通知する。lint スケジュールより前に出すことで、
-        // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
-        if (options.onDidWrite) {
-            try {
-                options.onDidWrite(destination, text);
-            } catch (error) {
-                console.warn('[edit-store] onDidWrite の通知に失敗しました（保存は完了しています）。', error);
-            }
-        }
-    }
-    scheduleProjectLint(projectRoot, options);
 }
 
 /** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */
@@ -461,7 +714,8 @@ async function readPersistedLintFindings(projectRoot: string): Promise<EditLintF
 const writeChains = new Map<string, Promise<void>>();
 let writeSequence = 0;
 
-export async function writeAtomic(destination: string, content: string): Promise<void> {
+export async function writeAtomic(destination: string, content: string,
+    rename: (source: string, target: string) => Promise<void> = renameWithRetry): Promise<void> {
     const previous = writeChains.get(destination) ?? Promise.resolve();
     const next = previous
         .catch(() => undefined)
@@ -470,7 +724,7 @@ export async function writeAtomic(destination: string, content: string): Promise
             const temporary = `${destination}.${process.pid}.${++writeSequence}.tmp`;
             try {
                 await fs.writeFile(temporary, content, 'utf8');
-                await renameWithRetry(temporary, destination);
+                await rename(temporary, destination);
             } catch (error) {
                 await fs.rm(temporary, { force: true }).catch(() => undefined);
                 throw error;

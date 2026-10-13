@@ -19,8 +19,10 @@ import { readContentLanguage } from "../../content-language/src/node.mjs";
 import { captionLanguageDefaults, normalizeLanguage } from "../../content-language/src/index.mjs";
 
 const { writeProjectFilesGuarded } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const { applyCaptionLookMigration } = createRequire(import.meta.url)("../../edit-store/lib/caption-style-write.js");
 const usage = () => [
   toolsText('tools.captions.help.usage'), "",
+  toolsText('tools.captions.help.migrateLook'),
   ...['source', 'retime', 'readout', 'minDuration', 'split', 'maxChars', 'maxSeconds', 'pause', 'wordBook', 'noWordBook', 'force', 'dryRun'].map((name) => toolsText(`tools.captions.help.${name}`)),
   "  --json", "  --help",
 ].join("\n");
@@ -33,6 +35,22 @@ export async function runCaptionsCli(argv, options = {}) {
     return 0;
   }
   try {
+    if (argv[0] === 'migrate-look') {
+      const [command, directory, ...rest] = argv;
+      void command;
+      if (!directory || directory.startsWith('-')) throw new Error(toolsText('tools.captions.error.projectRequired'));
+      for (const flag of rest) if (flag !== '--dry-run' && flag !== '--json')
+        throw new Error(toolsText('tools.captions.error.unknownOption', { option: flag }));
+      const dryRun = rest.includes('--dry-run');
+      const result = await applyCaptionLookMigration(path.resolve(options.cwd ?? process.cwd(), directory), { dryRun });
+      const summary = { dry_run: dryRun, changed: result.diff.length, diff: result.diff, notices: result.notices,
+        written: result.written };
+      if (rest.includes('--json')) stdout(JSON.stringify(summary));
+      else { stdout(toolsText('tools.captions.result.migrateLook', { count: result.diff.length }));
+        for (const item of result.diff) stdout(`${item.path}: ${JSON.stringify(item.before)} → ${JSON.stringify(item.after)}`);
+        for (const notice of result.notices) stdout(notice); }
+      return 0;
+    }
     const [directory, ...rest] = argv;
     if (directory.startsWith("-")) throw new Error(toolsText('tools.captions.error.projectRequired'));
     const parsed = parseOptions(rest);
@@ -149,7 +167,8 @@ export async function runCaptionsCli(argv, options = {}) {
     if (!(parsed.dryRun && parsed.json)) stdout(JSON.stringify(summary));
     return 0;
   } catch (error) {
-    stderr(error instanceof Error ? error.message : String(error));
+    stderr(error?.code === 'AKARI_WRITE_CONFLICT' ? toolsText('tools.captions.error.writeConflict')
+      : error instanceof Error ? error.message : String(error));
     return 1;
   }
 }

@@ -7,12 +7,14 @@ export function libraryTextstyleApplyPayload(item: PresetShowcaseItem,
     catalog: Record<string, { style: Record<string, unknown> }> = resolveTextstyleCatalog({}).catalog
 ): ReturnType<typeof presetApplyPayload> | {
     kind: 'mystyle'; style: { keepSize: true; catalog: Record<string, { style: Record<string, unknown> }>;
+        style_source: { kind: 'builtin' | 'library'; id: string };
         parts: Array<{ kind: string; text_style?: Record<string, unknown>;
         animation?: Record<string, unknown> }> }
 } {
     if (item.kind !== 'textstyle' || !item.style) return presetApplyPayload(item);
     const { animation, ...look } = item.style as Record<string, unknown>;
-    return { kind: 'mystyle', style: { keepSize: true, catalog, parts: [
+    return { kind: 'mystyle', style: { keepSize: true, catalog,
+        style_source: { kind: item.origin === 'library' ? 'library' : 'builtin', id: item.id }, parts: [
         { kind: 'look', text_style: look },
         ...(animation && typeof animation === 'object' && !Array.isArray(animation)
             ? [{ kind: 'motion', animation: animation as Record<string, unknown> }] : [])

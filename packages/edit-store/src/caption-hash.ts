@@ -6,7 +6,12 @@ export function captionValueHash(value: unknown): string {
             Object.keys(entry).sort().map(key => [key, sorted((entry as Record<string, unknown>)[key])]));
         return entry;
     };
-    const bytes = new TextEncoder().encode(JSON.stringify(sorted(value)));
+    return projectFileContentHash(JSON.stringify(sorted(value)));
+}
+
+/** UTF-8 の生バイト列をブラウザでも同じ SHA-256 にする。 */
+export function projectFileContentHash(text: string): string {
+    const bytes = new TextEncoder().encode(text);
     const length = Math.ceil((bytes.length + 9) / 64) * 64;
     const padded = new Uint8Array(length);
     padded.set(bytes);

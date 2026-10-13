@@ -18,7 +18,7 @@ import { runValidateWordBookCli } from "../../schemas/bin/validate-word-book.mjs
 import { updateAnalysisTranscript } from "../src/media/record.mjs";
 
 const {
-  applyWordBookToCaptionsInSource,
+  applyWordBookToCaptionsInSourceWithNotices,
 } = createRequire(import.meta.url)("../../edit-store/lib/caption-store.js");
 const {
   writeProjectFilesGuarded,
@@ -164,6 +164,7 @@ async function runApply(argv, { stdout, env }) {
     dry_run: parsed.dryRun === true,
     analysis: { files: analysisPaths.length, changed_files: changedFiles, stats: total },
     captions: captionResult,
+    ...(captions.notices?.length ? { notices: captions.notices } : {}),
   };
   if (parsed.json) {
     stdout(JSON.stringify(result));
@@ -174,6 +175,7 @@ async function runApply(argv, { stdout, env }) {
     stdout(toolsText('tools.wordBook.result.captions', { replaced: captionResult.replaced, n: captionResult.replaced,
       rows: toolsText('tools.wordBook.result.rowCount', { written: captionResult.records_written, n: captionResult.records_written }),
       dryRun: parsed.dryRun ? toolsText('tools.wordBook.result.dryRun') : '' }));
+    for (const notice of captions.notices ?? []) stdout(notice);
   }
   return 0;
 }
@@ -256,7 +258,8 @@ async function inspectCaptions(projectRoot, matcher) {
   return {
     ...applied.stats,
     records_written: changes.length,
-    source: changes.length === 0 ? source : applyWordBookToCaptionsInSource(source, changes),
+    ...(changes.length === 0 ? { source, notices: [] }
+      : applyWordBookToCaptionsInSourceWithNotices(source, changes)),
   };
 }
 

@@ -1,5 +1,6 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 import type { CaptionDisplayPolicy, CaptionTextStyle, CaptionTextStylePatch } from '@akari-video/edit-store';
+import type { CaptionStyleEditInput, CaptionClearTarget, CaptionStyleTarget, CaptionStyleSource } from '@akari-video/edit-store';
 import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
 import type { ImageAiBinding } from './image-ai-binding';
 
@@ -779,6 +780,9 @@ export interface SetCaptionStylePresetRequest {
 export interface WriteBackResult {
     committed: boolean;
     notices?: string[];
+    conflict?: true;
+    files?: string[];
+    message?: string;
 }
 
 export interface SetCaptionStylePresetResult extends WriteBackResult {
@@ -834,7 +838,30 @@ export interface WriteEditSnapshotRequest {
     editSource?: string;
     captionsUri?: string;
     captionsSource?: string;
+    expectedHashes?: { edit?: string | null; captions?: string | null };
 }
+
+export interface CaptionCommandRequest<Input> {
+    projectRootUri: string;
+    editUri?: string;
+    captionsUri?: string;
+    input: Input;
+    expectedHashes?: { edit?: string | null; captions?: string | null };
+}
+export type ApplyCaptionStyleRequest = CaptionCommandRequest<Omit<CaptionStyleEditInput,
+    'captions' | 'edit' | 'assetReferences' | 'legacy' | 'catalog'>>;
+export type ClearCaptionStyleRequest = CaptionCommandRequest<{ targets: CaptionClearTarget[]; mode: 'run' | 'range' }>;
+export type SetCaptionSizeRequest = CaptionCommandRequest<{ targets: Array<{ caption_id: string }>; size_px: number }>;
+export type ReapplyCaptionStyleRequest = CaptionCommandRequest<{ targets?: CaptionStyleTarget[];
+    styles: { entries: Array<{ source: CaptionStyleSource; look?: Record<string, unknown>;
+        motion?: Record<string, unknown>; revision?: number }> };
+    apply?: Array<{ target: CaptionStyleTarget; part: 'look' | 'motion' }> }>;
+export type MigrateCaptionLookRequest = CaptionCommandRequest<{ dryRun?: boolean }>;
+export type CaptionCommandResult = { ok: true; written: string[]; notices: string[]; changed: string[];
+    recovered?: string; before: Record<string, { hash: string | null; text: string | null }>;
+    after: Record<string, { hash: string | null; text: string | null }>;
+    items?: unknown[]; diff?: unknown[] } | { ok: false; conflict: true; files: string[]; message: string }
+    | { ok: false; invalid: true; diagnostics: unknown[]; message: string };
 
 export interface EditHistoryEntry {
     id: string;
@@ -1040,6 +1067,12 @@ export interface AkariAnnotationsService {
     setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
     setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
+    applyCaptionStyle(request: ApplyCaptionStyleRequest): Promise<CaptionCommandResult>;
+    clearCaptionStyle(request: ClearCaptionStyleRequest): Promise<CaptionCommandResult>;
+    reapplyCaptionStyle(request: ReapplyCaptionStyleRequest): Promise<CaptionCommandResult>;
+    setCaptionSize(request: SetCaptionSizeRequest): Promise<CaptionCommandResult>;
+    migrateCaptionLook(request: MigrateCaptionLookRequest): Promise<CaptionCommandResult>;
+    recoverInterruptedWrite(request: { projectRootUri: string }): Promise<{ notice?: string }>;
     snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null>;
     listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]>;
     restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }>;

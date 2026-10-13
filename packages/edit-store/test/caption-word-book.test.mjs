@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyWordBookToCaptionsInSource } from "../lib/caption-store.js";
+import { applyWordBookToCaptionsInSource, applyWordBookToCaptionsInSourceWithNotices } from "../lib/caption-store.js";
 
 const base = (id, extra = {}) => ({
   id, start: 0, end: 2, text: "あかり ビデオ", speaker: null,
@@ -23,6 +23,14 @@ test("4 フィールドを同じ字幕レコードへ同時に書き換える", 
   assert.deepEqual(result.words, words);
   assert.equal(result.display_text, "AKARI Video");
   assert.deepEqual(result.display_fragments, ["AKARI Video"]);
+});
+
+test('単語帳の削除で空になって外れた範囲を通知する', () => {
+  const source = JSON.stringify([base('c-0001', { text: '猫犬',
+    runs: [{ id: 'r-0001', from: 0, to: 1, look: { color: '#ffffff' } }] })]);
+  const result = applyWordBookToCaptionsInSourceWithNotices(source, [{ id: 'c-0001', text: '犬' }]);
+  assert.equal(JSON.parse(result.source)[0].runs, undefined);
+  assert.ok(result.notices.length > 0);
 });
 
 test("changes が空なら同じ文字列参照を返す", () => {
