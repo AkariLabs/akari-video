@@ -16451,6 +16451,7 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildWebAudioSchedule = buildWebAudioSchedule2;
       exports.projectSpeechDeclarations = projectSpeechDeclarations3;
+      exports.projectSpeechDeclarationsFromWindows = projectSpeechDeclarationsFromWindows;
       exports.projectLayerSpeechDeclarations = projectLayerSpeechDeclarations2;
       var audio_ownership_1 = require_audio_ownership();
       var ducking_1 = require_ducking();
@@ -16760,6 +16761,19 @@ ${indent}`);
       }
       function projectSpeechDeclarations3(cuts, options) {
         const fps = finitePositive4(options?.fps) ? options.fps : 30;
+        const virtualCuts = cuts.map((cut) => {
+          const speed = finitePositive4(cut?.speed) ? cut.speed : 1;
+          const holdSec = freezeDuration(cut?.freeze);
+          return {
+            ...cut,
+            transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0,
+            out: cut.out + holdSec * speed
+          };
+        });
+        return projectSpeechDeclarationsFromWindows(cuts, options, (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps }).transitionWindows);
+      }
+      function projectSpeechDeclarationsFromWindows(cuts, options, transitionWindows) {
+        const fps = finitePositive4(options?.fps) ? options.fps : 30;
         const normalizedCuts = cuts.map((cut) => ({
           ...cut,
           transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
@@ -16769,21 +16783,20 @@ ${indent}`);
           const holdSec = freezeDuration(cut?.freeze);
           return { ...cut, out: cut.out + holdSec * speed };
         });
-        const map = (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps });
         const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
         const clipWindows = new Map((0, edit_store_1.computeCutTrackSegments)(usable.map((entry) => entry.cut)).map((segment) => [
           usable[segment.index].index,
           { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
         ]));
         const outgoingEnds = /* @__PURE__ */ new Map();
-        for (const window2 of map.transitionWindows) {
+        for (const window2 of transitionWindows) {
           for (const participant of [window2.outgoing, window2.incoming]) {
             const clip = clipWindows.get(participant.cutIndex);
             const cut = normalizedCuts[participant.cutIndex];
             if (!clip || !cut || typeof participant.in !== "number")
               continue;
             const speed = finitePositive4(cut.speed) ? cut.speed : 1;
-            clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+            clip.cutTimelineStart = finitePositive4(participant.holdHeadSeconds) ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed : participant.outStart - (participant.in - cut.in) / speed;
           }
           const outgoing = clipWindows.get(window2.outgoing.cutIndex);
           const incoming = clipWindows.get(window2.incoming.cutIndex);
@@ -16853,7 +16866,7 @@ ${indent}`);
           });
           declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
         }
-        for (const window2 of map.transitionWindows) {
+        for (const window2 of transitionWindows) {
           if (window2.outgoing.cutIndex === null || window2.incoming.cutIndex === null)
             continue;
           const incomingCut = normalizedCuts[window2.incoming.cutIndex];

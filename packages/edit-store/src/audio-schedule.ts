@@ -582,6 +582,26 @@ export function projectSpeechDeclarations(
     options: { fps: number; layers?: readonly WebAudioSpeechLayer[] }
 ): WebAudioSpeechDeclaration[] {
     const fps = finitePositive(options?.fps) ? options.fps : 30;
+    const virtualCuts: EditCut[] = cuts.map(cut => {
+        const speed = finitePositive(cut?.speed) ? cut.speed as number : 1;
+        const holdSec = freezeDuration(cut?.freeze);
+        return { ...cut, transitionOut: cut.transitionOut ?? cut.transition_out ?? undefined,
+            out: cut.out + holdSec * speed };
+    });
+    return projectSpeechDeclarationsFromWindows(cuts, options,
+        buildTimelineMap(virtualCuts, { fps }).transitionWindows);
+}
+
+/**
+ * @internal
+ * 窓の形が決まっているときに、その窓から音の宣言を作る。テストと、窓を別に持つ呼び出し側のための口。
+ */
+export function projectSpeechDeclarationsFromWindows(
+    cuts: readonly WebAudioSpeechCut[],
+    options: { fps: number; layers?: readonly WebAudioSpeechLayer[] },
+    transitionWindows: ReturnType<typeof buildTimelineMap>['transitionWindows']
+): WebAudioSpeechDeclaration[] {
+    const fps = finitePositive(options?.fps) ? options.fps : 30;
     const normalizedCuts: WebAudioSpeechCut[] = cuts.map(cut => ({
         ...cut,
         transitionOut: cut.transitionOut ?? cut.transition_out ?? undefined
@@ -591,7 +611,6 @@ export function projectSpeechDeclarations(
         const holdSec = freezeDuration(cut?.freeze);
         return { ...cut, out: cut.out + holdSec * speed };
     });
-    const map = buildTimelineMap(virtualCuts, { fps });
     // Keep every clip's window, including clips absent from the visual winner map.
     // Match buildTimelineMap's usable-cut filtering before resolving track cursors.
     const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) =>
@@ -601,14 +620,16 @@ export function projectSpeechDeclarations(
         { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
     ]));
     const outgoingEnds = new Map<number, number>();
-    for (const window of map.transitionWindows) {
+    for (const window of transitionWindows) {
         for (const participant of [window.outgoing, window.incoming]) {
             const clip = clipWindows.get(participant.cutIndex!);
             const cut = normalizedCuts[participant.cutIndex!];
             if (!clip || !cut || typeof participant.in !== 'number') continue;
             const speed = finitePositive(cut.speed) ? cut.speed as number : 1;
             // Transition slices retain the source mapping after hidden-handle adjustment.
-            clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+            clip.cutTimelineStart = finitePositive(participant.holdHeadSeconds)
+                ? participant.outStart + participant.holdHeadSeconds - (participant.in - cut.in) / speed
+                : participant.outStart - (participant.in - cut.in) / speed;
         }
         const outgoing = clipWindows.get(window.outgoing.cutIndex!);
         const incoming = clipWindows.get(window.incoming.cutIndex!);
@@ -668,7 +689,7 @@ export function projectSpeechDeclarations(
         });
         declarationsByCut.set(cutIndex, declarations.slice(firstDeclaration));
     }
-    for (const window of map.transitionWindows) {
+    for (const window of transitionWindows) {
         if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null) continue;
         const incomingCut = normalizedCuts[window.incoming.cutIndex];
         const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
