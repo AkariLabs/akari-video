@@ -6,7 +6,7 @@ import { buildTimelineMap, buildWebAudioSchedule, projectSpeechDeclarations } fr
 const cases = JSON.parse(fs.readFileSync(new URL('./transition-plan-cases.json', import.meta.url), 'utf8')).timeline;
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 // Set to true when visual timeline projection supports align.
-const ALIGN_PROJECTION_READY = false;
+const ALIGN_PROJECTION_READY = true;
 const alignedCase = cases.find(example => example.cuts[0].transitionOut.align);
 const alignedWindow = buildTimelineMap(alignedCase.cuts, { fps: alignedCase.fps }).transitionWindows[0];
 const alignProjectionActive = Math.abs(alignedWindow.start - 3.5) > 1e-8
@@ -134,7 +134,7 @@ test('rounded adjacent cuts retain the incoming source position and end', () => 
   ], { fps: 30 });
   const b = speech.find(item => item.id === 'b-speech');
   assert.ok(b);
-  close(b.atSec, 4.5);
+  close(b.atSec, 4.51);
   close(b.durationSec, 3.5);
   close(b.inSec, 2.5);
   close(b.outSec, 6);

@@ -11,7 +11,7 @@
  *     のインライン注入で共有。v2 の絶対配置を常にマルチトラック平坦化する。
  */
 import { EditCut } from './edit-store';
-import type { TransitionBoundaryPlan } from './transition-plan';
+import { type TransitionBoundaryPlan } from './transition-plan';
 export interface TimelineTransitionPlate {
     start: number;
     end: number;

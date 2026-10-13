@@ -1,6 +1,7 @@
 import { addFinding, isNonEmptyString, isPositiveNumber, isRecord } from "./shared.mjs";
-import { lintText } from '../i18n.mjs';
-import { areCutsAdjacent, captionsHaveRenderableCues, collectFitBasisCandidates, cutOverlapFrames, findCrossTrackLayerEvacuations, isStillImageSourcePath, planTransitionHandleWindow, withoutItemAnchors } from "./external.mjs";
+import { freezeDurationSeconds } from '../cut-timeline.mjs';
+import { lintText, lintTextWithFallback } from '../i18n.mjs';
+import { areCutsAdjacent, captionsHaveRenderableCues, collectFitBasisCandidates, cutOverlapFrames, findCrossTrackLayerEvacuations, isStillImageSourcePath, planTrackTransitions, transitionPlanClipsFromCuts, withoutItemAnchors } from "./external.mjs";
 
 /**
  * 幾何の統一 G1: `output.geometry` を持たない v2 文書は fit 互換モード（出力へ contain fit した後に
@@ -24,6 +25,39 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
     .filter(source => isRecord(source) && typeof source.id === "string")
     .map(source => [source.id, source.path]));
   const isStillCut = cut => isStillImageSourcePath(sourcePaths.get(cut?.src) ?? cut?.src);
+  const planCuts = (Array.isArray(cuts) ? cuts : []).map(cut => ({
+    ...cut, transitionOut: cut?.transition_out ?? cut?.transitionOut
+  }));
+  for (const track of transitionPlanClipsFromCuts(planCuts, {
+    fps, resolve: cut => ({ stillImage: isStillCut(cut), freezeSeconds: freezeDurationSeconds(cut?.freeze) })
+  })) {
+    for (const plan of planTrackTransitions(track.clips, { fps })) {
+      if (plan.legacyOverlap || plan.state === 'ok') continue;
+      const earlierIndex = Number(plan.earlierId);
+      const laterIndex = Number(plan.laterId);
+      const earlier = segments.find(segment => segment.index === earlierIndex);
+      const later = segments.find(segment => segment.index === laterIndex);
+      const path = `edit.json#cuts[${earlierIndex}].transition_out`;
+      if (plan.state === 'none') {
+        addFinding(findings, {
+          severity: 'warning', check: 'cuts.transition-out.zero-overlap',
+          message: lintText('lint-messages.cuts.transition.zeroOverlap'), path,
+          ...(earlier && later ? { range: { start: earlier.end, end: later.start } } : {})
+        });
+      } else {
+        const seconds = plan.effectiveSeconds;
+        const reason = plan.reasons.join(', ') || 'available handles';
+        addFinding(findings, {
+          severity: 'info', check: 'cuts.transition-out.shortened',
+          message: lintTextWithFallback('lint-messages.cuts.transition.shortened',
+            { seconds, declared: plan.declaredSeconds, reason },
+            `Transition shortened from ${plan.declaredSeconds} s to ${seconds} s (${reason}).`),
+          path,
+          range: { start: plan.cutSeconds + plan.startOffsetSeconds, end: plan.cutSeconds + plan.endOffsetSeconds }
+        });
+      }
+    }
+  }
   for (let position = 0; position < segments.length; position += 1) {
     const earlier = segments[position];
     const transition = cuts?.[earlier.index]?.transition_out;
@@ -35,29 +69,7 @@ export function validateTransitionAdjacency(cuts, segments, sources, fps, findin
       { tlStart: later.start },
       fps,
     );
-    if (overlapFrames === 0) {
-      const outgoingCut = cuts?.[earlier.index];
-      const incomingCut = cuts?.[later.index];
-      const incomingSpeed = isPositiveNumber(incomingCut?.speed) ? incomingCut.speed : 1;
-      const plan = planTransitionHandleWindow({
-        declaredSeconds: transition.duration,
-        outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
-        incomingHeadRoomSeconds: isStillCut(incomingCut)
-          ? Number.POSITIVE_INFINITY : Math.max(0, Number(incomingCut?.in) || 0) / incomingSpeed,
-        outgoingDurationSeconds: Math.max(0, earlier.end - earlier.start),
-        incomingDurationSeconds: Math.max(0, later.end - later.start),
-      });
-      if (plan.effectiveSeconds <= 0) {
-        addFinding(findings, {
-          severity: "warning",
-          check: "cuts.transition-out.zero-overlap",
-          message: lintText('lint-messages.cuts.transition.zeroOverlap'),
-          path: `edit.json#cuts[${earlier.index}].transition_out`,
-          range: { start: earlier.end, end: later.start },
-        });
-      }
-      continue;
-    }
+    if (overlapFrames === 0) continue;
     // 正の重なりは、宣言尺未満なら既存の短縮クランプ、宣言尺超なら track-overlap が担当する。
     if (overlapFrames > 0 || areCutsAdjacent(
       { tlEnd: earlier.end, transitionOut: { duration: transition.duration } },
