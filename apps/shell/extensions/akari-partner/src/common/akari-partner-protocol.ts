@@ -3,6 +3,7 @@ export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
 export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'pi' | 'deepseek' | 'devin' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'muse';
 import type { PartnerAppliedPermissionMode, PartnerPermissionMode } from './partner-permissions';
+import type { ExtensionCliAlignment } from './extension-cli-alignment';
 
 export interface PartnerInstallDisclosure {
     name: string;
@@ -133,6 +134,11 @@ export interface AkariPartnerServer {
     bootstrap(agent: PartnerAgentId, workspaceRootUri?: string, installConsent?: boolean, forceReinstall?: boolean): Promise<PartnerBootstrapOutcome>;
     getInstallDisclosure(agent: PartnerAgentId): Promise<PartnerInstallDisclosure>;
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
+    /**
+     * 拡張（`packagePath` = 配備された拡張の中身）に同梱の CLI と AKARI 管理の CLI の版を比べ、
+     * 管理側が新しければその実体を返す。調べられないときは理由だけを返し、例外を投げない。
+     */
+    resolveExtensionCli(agent: PartnerAgentId, packagePath: string): Promise<ExtensionCliAlignment>;
     /**
      * task/2026-08-17-shell-managed-cli: `akari` CLI をアプリ管理でユーザー領域へ
      * 自動配備する（npm も sudo も使わない）。パッケージ実行時は自アプリと同じ版の

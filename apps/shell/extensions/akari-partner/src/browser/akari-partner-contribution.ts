@@ -11,6 +11,7 @@ import { VSXExtensionsViewContainer } from '@theia/vsx-registry/lib/browser/vsx-
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
+import { PartnerExtensionCliAligner } from './partner-extension-cli-aligner';
 import { installPartnerTerminalStyle } from './partner-terminal-style';
 import { markPartnerShuttingDown } from '../common/partner-last-session';
 
@@ -41,6 +42,9 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
     @inject(PartnerExtensionUpdater)
     protected readonly extensionUpdater!: PartnerExtensionUpdater;
 
+    @inject(PartnerExtensionCliAligner)
+    protected readonly extensionCliAligner!: PartnerExtensionCliAligner;
+
     async onStart(app: FrontendApplication): Promise<void> {
         installPartnerTerminalStyle();
         this.applyDefaultPaneWidth(app);
@@ -57,6 +61,7 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
             await this.shell.addWidget(catalog, { area: 'left', rank: 300 });
         }
         void this.extensionUpdater.checkOnStartup();
+        void this.extensionCliAligner.alignOnStartup();
     }
 
     /**
