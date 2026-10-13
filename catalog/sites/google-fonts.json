@@ -24,9 +24,6 @@
   },
   "direct_fetch_allowed": false,
   "recommendations": [
-    "audio/akari-sounds-bgm",
-    "audio/akari-sounds-jingle",
-    "audio/akari-sounds-sfx",
     "font/klee-one",
     "font/noto-serif-jp",
     "font/dela-gothic-one",

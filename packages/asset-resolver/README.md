@@ -20,6 +20,9 @@
 
 ```sh
 akari-assets list [--category <c>] [--source <lab|site|own>] [--json]          # 合成カタログ一覧（取得状態バッジ込み）
+akari-assets catalog [--json]                       # 同梱カタログの場所と項目数
+akari-assets show <category/id> [--json]            # 取得先とライセンスを確認
+akari-assets validate <dir>                         # 取り込んだ素材を検証
 akari-assets add <path...> --plan [--json]            # ファイル・フォルダの取り込み計画
 akari-assets add --apply <plan.json> [--json]         # 確認済み計画を複製して登録
 akari-assets fetch <id> [--project <dir>] [--force]   # 素材を解決してローカルへ登録
@@ -27,6 +30,10 @@ akari-assets migrate [--dry-run]                      # 旧置き場を再移行
 akari-assets sync                                      # カタログを取得してローカルにキャッシュ
 akari-assets browse [--port <n>]                       # ローカル HTTP サーバでカタログを閲覧・投入
 ```
+
+同梱カタログの場所は `AKARI_CATALOG_ROOT` で上書きできる。`list` の `↗` は外部サイトの参照で、取得済みの素材ではない。
+`同梱済み` の行はアプリに実体も入っており、`list --json` / `show --json` の `bundledAssetDir` がその場所を示す。
+この場合も `state` は `reference` のままで、ライブラリのキャッシュとは区別する。
 
 `list` の状態バッジ: `☁` 未取得 / `✓` 取得済み（ローカルにキャッシュ済み） / `¥<price>` 未購入 /
 `[installed]` `akari store install` で導入済み。

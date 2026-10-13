@@ -84,6 +84,7 @@ function validateMeta(value) {
     "min_app_version",
     "min_overlay_runtime_version",
     "motion_presets",
+    "aliases",
     "price", // deprecated; optional until the next contract version
   ];
   const allowedFields = [...requiredFields, ...optionalFields];
@@ -110,6 +111,10 @@ function validateMeta(value) {
   }
 
   validateStringArray(value.tags, "tags");
+  if (hasOwn(value, "aliases") && (!Array.isArray(value.aliases)
+      || value.aliases.some(alias => typeof alias !== "string" || !alias.trim()))) {
+    fail("aliases は空でない文字列の配列である必要があります");
+  }
   validateStringArray(value.requires, "requires");
   validateKnobs(value.knobs);
   validateProvenance(value.provenance);

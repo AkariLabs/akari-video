@@ -10,24 +10,24 @@ import { CatalogItemMeta } from './catalog-reader';
 
 const CATALOG_TARGET_KIND = t('project.catalog.agentPrompt.catalogAssetLabel');
 
-const CATALOG_IMPORT_REQUEST =
-    t('project.catalog.agentPrompt.getAssetUsingItsCatalogReferenceMessage') +
-    t('project.catalog.agentPrompt.followSetupLibrarySkillLabel');
-
 /** 「取り込む」= 固定パケット。要素: id・category・title・source.url（あれば）・license.spdx（あれば）。 */
 export function composeCatalogImportPrompt(item: CatalogItemMeta): string {
-    return composeAgentContextPacket(CATALOG_TARGET_KIND, catalogDescriptorFields(item, false), CATALOG_IMPORT_REQUEST);
+    const request = t('project.catalog.agentPrompt.getAssetUsingItsCatalogReferenceMessage') +
+        t('project.catalog.agentPrompt.followSetupLibrarySkillLabel') +
+        t('project.catalog.agentPrompt.showDetailsLabel', { ref: `${item.category}/${item.id}` });
+    return collapseToSingleLine(composeAgentContextPacket(CATALOG_TARGET_KIND, catalogDescriptorFields(item, false), request));
 }
 
 /** 「頼む」= 同要素 + when_to_use の先頭 1 文 + ユーザー入力文。 */
 export function composeCatalogAskAgentPrompt(item: CatalogItemMeta, request: string): string {
-    return composeAgentContextPacket(CATALOG_TARGET_KIND, catalogDescriptorFields(item, true), request);
+    return collapseToSingleLine(composeAgentContextPacket(CATALOG_TARGET_KIND, catalogDescriptorFields(item, true), request));
 }
 
 const CATALOG_PACK_TARGET_KIND = t('project.catalog.agentPrompt.catalogAssetPackLabel');
 const CATALOG_PACK_IMPORT_REQUEST =
     t('project.catalog.agentPrompt.getAllFreeAssetsPackAreMessage') +
-    t('project.catalog.agentPrompt.followSetupLibrarySkillLabel');
+    t('project.catalog.agentPrompt.followSetupLibrarySkillLabel') +
+    t('project.catalog.agentPrompt.showEachDetailsLabel');
 
 /** パック「まとめて取り込む」の列挙対象 1 件（CatalogItemMeta の必須 3 フィールドだけで足りる）。 */
 export interface CatalogPackImportItem {
@@ -51,12 +51,14 @@ export function composeCatalogPackImportPrompt(packTitle: string, items: readonl
 
 function catalogDescriptorFields(item: CatalogItemMeta, includeWhenToUse: boolean): AgentContextField[] {
     const fields: AgentContextField[] = [
-        { value: item.id },
-        { label: 'category', value: item.category },
+        { value: `${item.category}/${item.id}` },
         { label: 'title', value: item.title }
     ];
     if (item.source?.url) {
         fields.push({ label: 'source:', value: item.source.url });
+    }
+    if (item.source?.acquisition) {
+        fields.push({ label: 'acquisition:', value: item.source.acquisition });
     }
     if (item.license?.spdx) {
         fields.push({ label: 'license:', value: item.license.spdx });
