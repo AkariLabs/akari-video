@@ -53,7 +53,7 @@ export class TaskOperations {
         const skipped = unique.length - eligible.length;
         if (skipped) this.ports.warn(t('annotationscommon.taskOperations.message.excludedFromTarget', { skipped: skipped, n: skipped }));
         if (!eligible.length) return { sent: [], skipped, route: 'none' };
-        let target: { form: 'cli' | 'extension' | 'none'; agent?: string; focusCommandId?: string };
+        let target: { form: 'cli' | 'extension' | 'web' | 'none'; agent?: string; focusCommandId?: string };
         try { target = await this.ports.execute('akari.partner.deliveryTarget') as typeof target; }
         catch { target = { form: 'none' }; }
         const choice = chooseRoute({ target: target.form, count: eligible.length });
@@ -73,7 +73,6 @@ export class TaskOperations {
             }
             if (choice.route === 'pty') {
                 if (await this.ports.execute('akari.partner.injectPrompt', packet) !== true) {
-                    this.ports.warn(t('annotationscommon.taskOperations.message.sendPartner'));
                     return { sent: [], skipped, route: choice.route };
                 }
             } else {
