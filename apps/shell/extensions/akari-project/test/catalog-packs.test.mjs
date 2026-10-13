@@ -1,6 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCatalogPacksFile } from '../lib/common/catalog-packs.js';
+import { readFileSync } from 'node:fs';
+import { localizedCatalogPackText, parseCatalogPacksFile } from '../lib/common/catalog-packs.js';
+
+test('pack title and description resolve independently and preserve the base summary', () => {
+    const [pack] = parseCatalogPacksFile(JSON.stringify({ packs: [{ id: 'p', category: 'font', title: '基底', summary: '説明',
+        i18n: { en: { title: 'English' }, fr: { description: 'Description' } } }] }));
+    assert.equal(localizedCatalogPackText(pack, 'title', 'en'), 'English');
+    assert.equal(localizedCatalogPackText(pack, 'description', 'en'), '説明');
+    assert.equal(localizedCatalogPackText(pack, 'title', 'fr'), 'English');
+    assert.equal(localizedCatalogPackText(pack, 'description', 'fr'), 'Description');
+    assert.equal(localizedCatalogPackText(pack, 'title', 'ja'), '基底');
+    assert.equal(pack.summary, '説明');
+});
+
+test('distributed packs have English copy and no internal curation note', () => {
+    const raw = readFileSync(new URL('../../../../../catalog/packs.json', import.meta.url), 'utf8');
+    const packs = parseCatalogPacksFile(raw);
+    assert.equal(packs.length, 2);
+    assert.doesNotMatch(raw, /選別の正本/u);
+    for (const pack of packs) {
+        assert.ok(localizedCatalogPackText(pack, 'title', 'en'));
+        assert.ok(localizedCatalogPackText(pack, 'description', 'en'));
+        assert.equal(localizedCatalogPackText(pack, 'title', 'ja'), pack.title);
+    }
+});
 
 // catalog/packs.json（パック台帳）の寛容リーダー単体テスト（task.md L0:
 // 欠損・壊れ JSON・スキーマ不一致・要素ごとの必須フィールド欠落のどれでも落ちない）。

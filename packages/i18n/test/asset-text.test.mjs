@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { localizedAssetText, localizedKnobLabel, translatedKnobLabel, localizedPresetText } from '../index.mjs';
+import { localizedAssetText, localizedKnobGroup, localizedKnobLabel, translatedKnobLabel, localizedPresetText } from '../index.mjs';
 
 const meta = { id: 'sample', title: '基底', aliases: ['別名'], description: '基底の説明',
     knobs: [{ cssVar: '--tone', label: '色調' }, { param: 'speed', label: '速さ' }],
@@ -35,6 +35,22 @@ test('preset fields use the same fallback order', () => {
     assert.equal(localizedPresetText(row, 'name', 'fr'), 'Fade');
     assert.equal(localizedPresetText(row, 'category', 'fr'), 'Transition');
     assert.equal(localizedPresetText(row, 'description', 'en'), undefined);
+});
+
+test('preset usage falls back by field without disappearing', () => {
+    const row = { id: 'look', when_to_use: '基底', i18n: { en: { name: 'Look' }, fr: { when_to_use: 'Usage' } } };
+    assert.equal(localizedPresetText(row, 'when_to_use', 'ja'), '基底');
+    assert.equal(localizedPresetText(row, 'when_to_use', 'en'), '基底');
+    assert.equal(localizedPresetText(row, 'when_to_use', 'fr'), 'Usage');
+});
+
+test('knob groups resolve Japanese catalog keys and per-language metadata without warnings', () => {
+    const meta = { i18n: { en: { groups: { style: 'Style' } }, fr: { groups: { style: 'Style FR' } } } };
+    assert.equal(localizedKnobGroup(meta, 'style', 'ja'), 'スタイル');
+    assert.equal(localizedKnobGroup(meta, 'style', 'en'), 'Style');
+    assert.equal(localizedKnobGroup(meta, 'style', 'fr'), 'Style FR');
+    assert.equal(localizedKnobGroup(meta, 'unknown-group', 'ja'), 'unknown-group');
+    assert.equal(localizedKnobGroup(meta, 'unknown-group', 'fr'), 'unknown-group');
 });
 
 

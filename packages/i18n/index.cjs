@@ -128,6 +128,19 @@ function localizedAssetText(meta, field, language) {
 function localizedPresetText(row, field, language) {
   return localizedValue(row, field, language);
 }
+function localizedKnobGroup(meta, group, language) {
+  const base = usableText(group);
+  if (!base) return group;
+  if (language === 'ja') {
+    const key = `inspector.knobGroup.${base}.label`;
+    return Object.hasOwn(ja, key) ? t(key, {}, 'ja') : base;
+  }
+  const translated = lang => {
+    const groups = translation(meta, lang)?.groups;
+    return isRecord(groups) ? usableText(groups[base]) : undefined;
+  };
+  return translated(language) ?? translated('en') ?? base;
+}
 function translatedKnobLabel(meta, knob, language) {
   if (language === 'ja') return undefined;
   const key = usableText(knob?.cssVar) ?? usableText(knob?.param) ?? usableText(knob?.name);
@@ -142,4 +155,4 @@ function localizedKnobLabel(meta, knob, language) {
   return translatedKnobLabel(meta, knob, language) ?? usableText(knob?.label) ?? key;
 }
 
-module.exports = { localizedAssetText, localizedPresetText, localizedKnobLabel, translatedKnobLabel, t, getLanguage, setLanguage, setChildProcessLanguage, childProcessEnv, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };
+module.exports = { localizedAssetText, localizedPresetText, localizedKnobGroup, localizedKnobLabel, translatedKnobLabel, t, getLanguage, setLanguage, setChildProcessLanguage, childProcessEnv, normalizeLanguage, osLanguage, formatDate, formatNumber, formatCurrency, compareText };

@@ -13,6 +13,7 @@ export interface PresetShowcaseItem {
     category?: string;
     description?: string;
     whenToUse?: string;
+    baseWhenToUse?: string;
     sampleText?: string;
     previewUrl?: string;
     origin?: 'builtin' | 'library';
@@ -43,6 +44,11 @@ export function presetApplyPayload(item: PresetShowcaseItem): { kind: PresetShow
     if (item.kind === 'lut') return { kind: 'lut', id: item.id };
     if (item.kind === 'textanim') return { kind: 'textanim', id: item.id, slot: item.tags[0] };
     return { kind: 'textstyle', id: item.id, style: item.style };
+}
+
+export function presetShowcaseTooltip(item: Pick<PresetShowcaseItem, 'kind' | 'name' | 'category' | 'description' | 'sampleText' | 'whenToUse' | 'baseWhenToUse'>): string {
+    if (item.kind === 'lut') return [item.description, item.whenToUse ?? item.baseWhenToUse].filter(Boolean).join('\n');
+    return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
 }
 
 export interface PresetShowcaseChip {
@@ -94,7 +100,7 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind, 
             continue;
         }
         const row = parsed as { id: string; name: string; i18n?: Record<string, Record<string, string>>; [key: string]: unknown };
-        const local = (field: 'name' | 'category' | 'description' | 'sample_text') => localizedPresetText(row, field, language);
+        const local = (field: 'name' | 'category' | 'description' | 'sample_text' | 'when_to_use') => localizedPresetText(row, field, language);
         const searchNames = [row.name, ...Object.values(row.i18n ?? {}).map(value => value.name).filter(isNonEmptyString)];
         if (kind === 'textanim') {
             if (!isNonEmptyString(parsed.category)
@@ -139,12 +145,15 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind, 
         if (!isNonEmptyString(parsed.description) || !isNonEmptyString(parsed.when_to_use)) {
             continue;
         }
+        const translatedUsage = language === 'ja' ? undefined
+            : [row.i18n?.[language]?.when_to_use, row.i18n?.en?.when_to_use].find(isNonEmptyString);
         items.push({
             kind,
             id: parsed.id,
             name: local('name') ?? row.id, ...(row.i18n ? { searchNames } : {}),
             description: local('description'),
-            whenToUse: language === 'ja' ? parsed.when_to_use : undefined,
+            whenToUse: language === 'ja' ? local('when_to_use') : translatedUsage,
+            ...(language !== 'ja' && !translatedUsage ? { baseWhenToUse: parsed.when_to_use } : {}),
             tags
         });
     }

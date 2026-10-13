@@ -27,3 +27,21 @@ test('asset translations validate with matching knob keys', t => {
         assert.equal(result.status, expected, `${name}: ${result.stderr}`);
     }
 });
+
+test('group translations accept declared groups and reject unknown groups', t => {
+    const meta = fixture('valid');
+    const group = meta.knobs.find(knob => knob.group)?.group;
+    assert.ok(group);
+    meta.i18n.en.groups = { [group]: 'Controls' };
+    assert.equal(validate(meta), true, JSON.stringify(validate.errors));
+    const root = mkdtempSync(join(tmpdir(), 'asset-groups-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const dir = join(root, 'overlay', 'lower-third-clean');
+    cpSync(baseDir, dir, { recursive: true });
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+    assert.equal(spawnSync(process.execPath, [cli, dir], { encoding: 'utf8' }).status, 0);
+    meta.i18n.en.groups = { missing: 'Missing' };
+    assert.equal(validate(meta), true); // The schema validates shape; the CLI checks references.
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+    assert.equal(spawnSync(process.execPath, [cli, dir], { encoding: 'utf8' }).status, 1);
+});

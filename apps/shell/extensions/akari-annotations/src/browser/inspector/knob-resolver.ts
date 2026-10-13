@@ -1,10 +1,11 @@
-import { t, getLanguage, translatedKnobLabel } from '@akari-video/i18n';
+import { t, getLanguage, translatedKnobLabel, localizedKnobGroup } from '@akari-video/i18n';
 export type InspectorKnobType = 'text' | 'color' | 'slider' | 'dropdown' | 'checkbox' | 'media';
 
 export interface InspectorKnob {
     name: string;
     type: InspectorKnobType;
     group: string;
+    groupLabel?: string;
     label?: string;
     min?: number;
     max?: number;
@@ -37,10 +38,12 @@ export function parseInspectorKnobs(value: unknown, language = getLanguage()): I
         const translated = translatedKnobLabel(value as { i18n?: Record<string, { knobs?: Record<string, string> }> },
             { name }, language);
         const label = translated ?? (typeof knob.label === 'string' ? knob.label : undefined);
+        const group = typeof knob.group === 'string' && knob.group.trim() ? knob.group : t('inspector.knobResolver.label.controls');
         return [{
             name,
             type: knob.type as InspectorKnobType,
-            group: typeof knob.group === 'string' && knob.group.trim() ? knob.group : t('inspector.knobResolver.label.controls'),
+            group,
+            groupLabel: localizedKnobGroup(value as { i18n?: Record<string, { groups?: Record<string, string> }> }, group, language),
             ...(label !== undefined ? { label } : {}),
             ...(typeof knob.min === 'number' ? { min: knob.min } : {}),
             ...(typeof knob.max === 'number' ? { max: knob.max } : {}),

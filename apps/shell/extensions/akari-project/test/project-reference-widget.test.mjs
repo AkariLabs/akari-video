@@ -8,6 +8,8 @@ import { referencePresentation } from '../lib/common/project-asset-reference.js'
 import { resolveLibraryAssetMedia } from '../lib/common/library-asset-placement.js';
 import { assetGroupOpenTarget } from '../lib/common/asset-group-open-target.js';
 import { countReferences } from '../lib/common/project-reference-check.js';
+import { referenceMaterialBaseName, referenceMaterialCardTitle } from '../lib/common/material-card-layout.js';
+import { getLanguage } from '@akari-video/i18n';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const React = require('react');
@@ -33,9 +35,11 @@ function fixture() {
     let approve = true;
     const ConfirmDialog = class { constructor(options) { dialogs.push(options); } async open() { return approve; } };
     const names = ['URI', 'React', 'referencePresentation', 'resolveLibraryAssetMedia', 'assetGroupOpenTarget', 'countReferences',
-        'ConfirmDialog', 'AKARI_BORDER', 'AKARI_RADIUS', 'AKARI_SURFACE', 'document', 'HTMLImageElement'];
+        'ConfirmDialog', 'AKARI_BORDER', 'AKARI_RADIUS', 'AKARI_SURFACE', 'document', 'HTMLImageElement',
+        'referenceMaterialBaseName', 'referenceMaterialCardTitle', 'getLanguage'];
     const values = [URI, React, referencePresentation, resolveLibraryAssetMedia, assetGroupOpenTarget, countReferences,
-        ConfirmDialog, { hairline: 'none' }, { panel: 8 }, { raised: 'raised', elevated: 'elevated' }, fakeDocument, FakeImageElement];
+        ConfirmDialog, { hairline: 'none' }, { panel: 8 }, { raised: 'raised', elevated: 'elevated' }, fakeDocument, FakeImageElement,
+        referenceMaterialBaseName, referenceMaterialCardTitle, getLanguage];
     const Handler = new Function(...names, `${code}; return Handler;`)(...values);
     const handler = new Handler();
     const root = URI.fromFilePath('/project');

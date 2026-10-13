@@ -94,6 +94,9 @@ body.akari-onboarding-export-active .akari-export-dialog-host { z-index:21474829
 #akari-onboarding-v1 .ao-ring.bounce { animation:ao-glow 1.6s ease-in-out infinite,ao-ping 1.2s ease-in-out infinite; }
 #akari-onboarding-v1 .ao-ring.bounce::after { content:""; position:absolute; inset:-3px; border:2px solid #fb923c; border-radius:12px; animation:ao-ripple 1.2s ease-out infinite; }
 #akari-onboarding-v1 .ao-coach { width:340px; padding:15px 17px; background:#17130f; color:#e5e5e5; border:1px solid #f9731699; border-radius:12px; box-shadow:0 18px 50px #000a; animation:ao-coach-in .5s cubic-bezier(.2,.7,.2,1) both; transition:left .25s ease,top .25s ease; }
+#akari-onboarding-v1 .ao-coach.ao-coach-constrained { display:flex; flex-direction:column; }
+#akari-onboarding-v1 .ao-coach.ao-coach-constrained .ao-body { min-height:0; overflow-y:auto; }
+#akari-onboarding-v1 .ao-coach.ao-coach-constrained .ao-actions { flex-shrink:0; }
 #akari-onboarding-v1 .ao-coach.wide { width:390px; }
 #akari-onboarding-v1 .ao-coach.narrow { width:300px; }
 #akari-onboarding-v1 .ao-coach.out { animation:none; opacity:0; transform:translateY(-6px); filter:blur(3px); transition:opacity .17s,transform .17s,filter .17s; }

@@ -282,17 +282,26 @@ function validateHttpUrl(value, label) {
 function validateI18n(i18n, knobs) {
   if (!isPlainObject(i18n)) { fail("i18n は object である必要があります"); return; }
   const knobKeys = new Set(Array.isArray(knobs) ? knobs.flatMap(knob => [knob?.cssVar, knob?.param].filter(Boolean)) : []);
+  const groupKeys = new Set(Array.isArray(knobs) ? knobs.map(knob => knob?.group).filter(Boolean) : []);
   for (const [lang, entry] of Object.entries(i18n)) {
     if (!/^[a-z]{2,3}$/.test(lang) || lang === "ja") fail(`i18n の言語キーが不正です: ${lang}`);
     if (!isPlainObject(entry)) { fail(`i18n.${lang} は object である必要があります`); continue; }
     for (const [field, value] of Object.entries(entry)) {
       const label = `i18n.${lang}.${field}`;
-      if (!["title", "aliases", "description", "when_to_use", "knobs"].includes(field)) { fail(`未定義の翻訳フィールドです: ${label}`); continue; }
+      if (!["title", "aliases", "description", "when_to_use", "knobs", "groups"].includes(field)) { fail(`未定義の翻訳フィールドです: ${label}`); continue; }
       if (field === "aliases") { validateStringArray(value, label); continue; }
       if (field === "knobs") {
         if (!isPlainObject(value)) { fail(`${label} は object である必要があります`); continue; }
         for (const [key, text] of Object.entries(value)) {
           if (!knobKeys.has(key)) fail(`${label} の knob が存在しません: ${key}`);
+          validateNonEmptyString(text, `${label}.${key}`);
+        }
+        continue;
+      }
+      if (field === "groups") {
+        if (!isPlainObject(value)) { fail(`${label} は object である必要があります`); continue; }
+        for (const [key, text] of Object.entries(value)) {
+          if (!groupKeys.has(key)) fail(`${label} の group が存在しません: ${key}`);
           validateNonEmptyString(text, `${label}.${key}`);
         }
         continue;

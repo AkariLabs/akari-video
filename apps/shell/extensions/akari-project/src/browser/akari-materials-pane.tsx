@@ -1,4 +1,5 @@
 import { t } from '../common/project-text';
+import { getLanguage } from '@akari-video/i18n';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
@@ -28,7 +29,8 @@ import { MaterialRangeHandles } from './material-range-handles';
 import { MaterialRange } from '../common/material-range';
 import { applyMaterialViewPatch, filterMaterials, MaterialViewKind, MaterialViewPatch, MaterialViewState, sortMaterials } from '../common/material-view';
 import { referencePresentation } from '../common/project-asset-reference';
-import { materialCardLayout, mergeMaterialCardMeta } from '../common/material-card-layout';
+import { materialCardLayout, materialCardTitle, materialStoredName, referenceMaterialBaseName,
+    referenceMaterialCardTitle, mergeMaterialCardMeta } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { resolveLibraryAssetMedia } from '../common/library-asset-placement';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
@@ -48,6 +50,8 @@ export interface MaterialCardEntry {
     /** グループの主メディア。ドラッグとタイムライン追加だけに使う。 */
     mediaRelativePath?: string;
     name: string;
+    /** Base metadata name for operations that can persist a name. */
+    baseName?: string;
     kind: MaterialKind;
     analyzed: boolean;
     durationSeconds?: number;
@@ -501,7 +505,8 @@ export class AkariMaterialsPane {
                 ...(card ?? { uri: root.resolve(`${state.relativePath}/meta.json`), kind: 'other', analyzed: false, unorganized: false }),
                 ...(openFile ? { uri: URI.fromFilePath(openFile.path) } : {}),
                 thumbnailUri: preview ? URI.fromFilePath(preview.path) : undefined,
-                name: reference.title ?? known?.title ?? reference.id,
+                name: referenceMaterialCardTitle(reference, known, card, getLanguage()),
+                baseName: referenceMaterialBaseName(reference, known),
                 relativePath: state.relativePath,
                 mediaRelativePath: media.mediaName ? `${state.relativePath}/${media.mediaName}` : undefined,
                 kind: media.kind === 'other' ? card?.kind ?? 'other' : media.kind,
@@ -526,7 +531,8 @@ export class AkariMaterialsPane {
             uri: openUri,
             relativePath,
             mediaRelativePath: media.mediaName ? `${relativePath}/${media.mediaName}` : undefined,
-            name: meta?.title || dirName,
+            name: materialCardTitle(meta, dirName, getLanguage()),
+            baseName: meta?.title || dirName,
             kind: media.kind,
             analyzed: false,
             thumbnailUri: previewChild?.resource,
@@ -862,7 +868,7 @@ export class AkariMaterialsPane {
             return;
         }
         const assetsUri = root.resolve('assets');
-        const targetName = await this.availableAssetName(assetsUri, entry.name);
+        const targetName = await this.availableAssetName(assetsUri, materialStoredName(entry));
         try {
             await this.host.files.move(entry.uri, assetsUri.resolve(targetName), { overwrite: false });
         } catch {
@@ -1068,7 +1074,7 @@ export class AkariMaterialsPane {
             name: string; thumb?: string; width?: number; height?: number } = {
             relativePath: entry.mediaRelativePath ?? entry.relativePath,
             kind: entry.kind,
-            name: entry.name,
+            name: materialStoredName(entry),
             ...(known && Number.isFinite(known.width) && (known.width ?? 0) > 0
                 && Number.isFinite(known.height) && (known.height ?? 0) > 0
                 ? { width: known.width, height: known.height } : {}),

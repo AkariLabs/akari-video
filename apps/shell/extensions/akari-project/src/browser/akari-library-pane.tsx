@@ -12,6 +12,8 @@ import { FileStat } from '@theia/filesystem/lib/common/files';
 import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode, catalogItemCategoryChipKey } from '../common/catalog-reader';
 import { AkariProjectService, AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
+import { localizedCatalogPackText } from '../common/catalog-packs';
+import { presetShowcaseTooltip } from '../common/preset-showcase';
 import { baseCatalogItemForAgent, CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
@@ -314,7 +316,7 @@ export class AkariLibraryPane {
             >
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{group.pack.title}</span>
+                        <span style={{ fontWeight: 700 }}>{localizedCatalogPackText(group.pack, 'title', getLanguage())}</span>
                         <span data-akari-catalog-pack-breakdown style={{ fontSize: '0.78em', opacity: 0.75 }}>
                             {formatCatalogPackBreakdown(summarizeCatalogPackDistribution(group.items))}
                         </span>
@@ -332,8 +334,8 @@ export class AkariLibraryPane {
                     >
                         {t('project.library.pane.importAllAction')}</button>
                 </div>
-                {group.pack.summary && (
-                    <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{group.pack.summary}</p>
+                {localizedCatalogPackText(group.pack, 'description', getLanguage()) && (
+                    <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{localizedCatalogPackText(group.pack, 'description', getLanguage())}</p>
                 )}
                 <div style={this.host.catalogViewMode === 'grid'
                     ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }
@@ -513,10 +515,7 @@ export class AkariLibraryPane {
     }
 
     public presetShowcaseTitle(item: PresetShowcaseItem): string {
-        if (item.kind === 'lut') {
-            return [item.description, item.whenToUse].filter(Boolean).join('\n');
-        }
-        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
+        return presetShowcaseTooltip(item);
     }
 
     public presetShowcaseIcon(item: PresetShowcaseItem): string {

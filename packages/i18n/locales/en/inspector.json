@@ -1,4 +1,10 @@
 {
+  "inspector.knobGroup.style.label": "Style",
+  "inspector.knobGroup.typography.label": "Typography",
+  "inspector.knobGroup.layout.label": "Layout",
+  "inspector.knobGroup.content.label": "Content",
+  "inspector.knobGroup.pose.label": "Camera pose",
+  "inspector.knobGroup.light.label": "Lighting",
   "inspector.adjustEditors.error.couldNotSaveAdjustments": "Could not save adjustments.",
   "inspector.adjustEditors.title.doubleClickResetChannel": "Double-click to reset channel",
   "inspector.adjustEditors.title.dragShiftColorDoubleClickReset": "Drag to shift color / Double-click to reset",

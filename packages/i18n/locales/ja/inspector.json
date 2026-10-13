@@ -1,4 +1,10 @@
 {
+  "inspector.knobGroup.style.label": "スタイル",
+  "inspector.knobGroup.typography.label": "文字",
+  "inspector.knobGroup.layout.label": "レイアウト",
+  "inspector.knobGroup.content.label": "内容",
+  "inspector.knobGroup.pose.label": "カメラ姿勢",
+  "inspector.knobGroup.light.label": "照明",
   "inspector.adjustEditors.error.couldNotSaveAdjustments": "調整を保存できませんでした。",
   "inspector.adjustEditors.title.doubleClickResetChannel": "ダブルクリックでチャンネルをリセット",
   "inspector.adjustEditors.title.dragShiftColorDoubleClickReset": "ドラッグで色シフト / ダブルクリックでリセット",
