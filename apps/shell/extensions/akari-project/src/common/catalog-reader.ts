@@ -1,3 +1,4 @@
+import type { AssetTranslation } from '@akari-video/i18n';
 import { t } from '../common/project-text';
 /**
  * `catalog/` 配下の各アイテムディレクトリにある meta.json を寛容リーダーで読む。
@@ -26,6 +27,7 @@ export interface CatalogItemMeta {
     category: string;
     title: string;
     aliases?: string[];
+    i18n?: Record<string, AssetTranslation>;
     description?: string;
     tags?: string[];
     when_to_use?: string;
@@ -154,6 +156,7 @@ export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
         id,
         category,
         title,
+        ...(isRecord(parsed.i18n) ? { i18n: parsed.i18n as Record<string, AssetTranslation> } : {}),
         ...(Array.isArray(parsed.aliases) ? { aliases: parsed.aliases.filter((alias): alias is string => typeof alias === 'string' && !!alias.trim()) } : {}),
         description: typeof parsed.description === 'string' ? parsed.description : undefined,
         tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
@@ -176,9 +179,19 @@ export interface CatalogSearchable {
     category: string;
     title: string;
     description?: string;
+    aliases?: string[];
+    baseTitle?: string;
+    baseAliases?: string[];
+    i18n?: Record<string, AssetTranslation>;
     tags?: string[];
     /** resolver 合成分の生成プロンプト（provenance.prompt）。あれば検索対象に含める。 */
     prompt?: string;
+}
+
+export function catalogSearchTitles(item: Pick<CatalogSearchable, 'title' | 'baseTitle' | 'i18n'>): string[] {
+    const translations = Object.values(item.i18n ?? {}).filter((value): value is AssetTranslation => !!value && typeof value === 'object');
+    return [item.title, item.baseTitle, ...translations.map(value => value.title)]
+        .filter((value): value is string => typeof value === 'string' && /\S/u.test(value));
 }
 
 /**
@@ -198,7 +211,10 @@ export function filterCatalogItems<T extends CatalogSearchable>(
         if (!normalizedQuery) {
             return true;
         }
-        const haystack = [item.title, item.id, item.description ?? '', item.prompt ?? '', ...(item.tags ?? [])]
+        const translations = Object.values(item.i18n ?? {}).filter((value): value is AssetTranslation => !!value && typeof value === 'object');
+        const haystack = [...catalogSearchTitles(item), item.id, item.description ?? '', item.prompt ?? '',
+            ...(item.aliases ?? []), ...(item.baseAliases ?? []), ...(item.tags ?? []),
+            ...translations.flatMap(translation => Array.isArray(translation.aliases) ? translation.aliases : [])]
             .join(' ')
             .toLowerCase();
         return haystack.includes(normalizedQuery);

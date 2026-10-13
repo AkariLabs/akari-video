@@ -1,5 +1,5 @@
 import { t } from '../common/preview-text';
-import { getLanguage } from '@akari-video/i18n';
+import { getLanguage, localizedKnobLabel } from '@akari-video/i18n';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -17,6 +17,11 @@ interface FragmentPreviewKnob {
     min?: number;
     max?: number;
     unit?: string;
+}
+
+export function localizeFragmentPreviewKnobs(meta: { i18n?: Record<string, { knobs?: Record<string, string> }> },
+    knobs: FragmentPreviewKnob[], language: string): FragmentPreviewKnob[] {
+    return knobs.map(knob => ({ ...knob, label: localizedKnobLabel(meta, knob, language) ?? knob.label }));
 }
 
 @injectable()
@@ -100,6 +105,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                     && (value.type !== 'slider' || (typeof value.min === 'number' && Number.isFinite(value.min)
                         && typeof value.max === 'number' && Number.isFinite(value.max) && value.max > value.min));
             }) : [];
+            const localizedKnobs = localizeFragmentPreviewKnobs(meta, knobs, getLanguage());
             const assets = await this.previewService.getOverlayRuntimeAssetUrls();
             const result = await this.previewService.rewriteFragmentAssets({
                 projectRootUri: uri.parent.toString(), html, htmlPath: 'fragment.html', overlayId: 'asset',
@@ -110,7 +116,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                 await release();
                 return;
             }
-            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`, knobs));
+            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`, localizedKnobs));
         } catch (error) {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);

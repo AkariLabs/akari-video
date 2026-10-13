@@ -153,7 +153,7 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
     const context = vm.createContext({
         setTimeout: callback => { timers.push(callback); return callback; },
         clearTimeout: callback => { const index = timers.indexOf(callback); if (index >= 0) timers.splice(index, 1); },
-        AKARI_CATALOG_ROOT_PREFERENCE: 'catalogRoot', EMPTY_PRESET_SHOWCASE: {},
+        AKARI_CATALOG_ROOT_PREFERENCE: 'catalogRoot', EMPTY_PRESET_SHOWCASE: {}, getLanguage: () => 'ja',
         registerLibraryTextstylePresets: () => undefined
     });
     vm.runInContext(code, context);
@@ -164,7 +164,10 @@ test('the shelf polls after its first render, replaces the thumbnail, and stops 
         catalogThumbnailPollGeneration: 0, isVisible: true, topView: 'catalog',
         libraryPane: {}, preferences: { get: () => '' }, update: () => { renders++; },
         projectService: {
-            getAssetCatalogView: async () => ({ items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] }),
+            getAssetCatalogView: async (_root, _intent, language) => {
+                assert.equal(language, 'ja');
+                return { items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] };
+            },
             getPresetShowcase: async () => ({}), getLibraryTextstylePresets: async () => [],
             getLibraryUsage: async () => ({}), listMyStyles: async () => [],
             getLibraryFavorites: async () => [], getTransitionPreviewUrls: async () => ({}),
@@ -211,7 +214,7 @@ test('disposing the shelf clears its poll timer and invalidates an already queue
     const context = vm.createContext({
         setTimeout: callback => { timers.push(callback); return callback; },
         clearTimeout: callback => { const index = timers.indexOf(callback); if (index >= 0) timers.splice(index, 1); },
-        AKARI_CATALOG_ROOT_PREFERENCE: 'catalogRoot', EMPTY_PRESET_SHOWCASE: {},
+        AKARI_CATALOG_ROOT_PREFERENCE: 'catalogRoot', EMPTY_PRESET_SHOWCASE: {}, getLanguage: () => 'en',
         registerLibraryTextstylePresets: () => undefined
     });
     vm.runInContext(code, context);
@@ -222,7 +225,10 @@ test('disposing the shelf clears its poll timer and invalidates an already queue
         toDispose: { push: entry => disposables.push(entry) },
         libraryPane: {}, preferences: { get: () => '' }, update: () => undefined,
         projectService: {
-            getAssetCatalogView: async () => ({ items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] }),
+            getAssetCatalogView: async (_root, _intent, language) => {
+                assert.equal(language, 'en');
+                return { items: [{ key: 'still/a', category: 'still', previewUrl: 'file:///a.png' }], packs: [] };
+            },
             getPresetShowcase: async () => ({}), getLibraryTextstylePresets: async () => [],
             getLibraryUsage: async () => ({}), listMyStyles: async () => [],
             getLibraryFavorites: async () => [], getTransitionPreviewUrls: async () => ({}),

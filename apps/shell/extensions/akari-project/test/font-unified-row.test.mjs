@@ -1,5 +1,6 @@
 import './support/i18n-ja.mjs';
 import assert from 'node:assert/strict';
+import { setLanguage } from '@akari-video/i18n';
 import { readFile, readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import test from 'node:test';
@@ -80,4 +81,30 @@ test('31 書体すべて同じ高さの行で、見本・状態・ホバーを�
             row.props['data-akari-hover-preview-source'])?.kind, 'font');
     }
     assert.equal(images, 13);
+});
+
+
+test('font row uses translated display name while retaining the base family', () => {
+    const id = 'noto-sans-jp';
+    const baseTitle = 'Noto Sans JP';
+    const previous = libraryFontLabel(id, baseTitle);
+    assert.equal(libraryFontLabel(id, baseTitle, baseTitle).display, previous.display);
+    assert.equal(libraryFontLabel(id, 'Japanese Sans', baseTitle).display, 'Japanese Sans');
+    assert.equal(libraryFontLabel(id, 'Japanese Sans', baseTitle).english, 'Japanese Sans');
+    assert.deepEqual(libraryFontLabel(id, baseTitle, undefined), previous);
+
+    const card = { props: { availability: { status: 'available' }, favorite: false,
+        onApply() {}, onDragStart() {}, onDragEnd() {}, onContextMenu() {}, onInfo() {} } };
+    for (const [language, title, original, expected] of [
+        ['ja', baseTitle, baseTitle, previous.english ?? baseTitle],
+        ['en', 'Japanese Sans', baseTitle, 'Japanese Sans'],
+        ['en', baseTitle, undefined, previous.english ?? baseTitle]
+    ]) {
+        setLanguage(language);
+        const row = LibraryTextFontRow({ item: { id, key: `font/${id}`, category: 'font', title,
+            baseTitle: original }, card });
+        const label = nodes(row, node => node.props?.['data-akari-font-english'] !== undefined)[0];
+        assert.equal(label.children[0], expected);
+    }
+    setLanguage('ja');
 });

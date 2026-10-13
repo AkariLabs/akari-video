@@ -1,0 +1,90 @@
+{
+  "id": "lower-third-clean",
+  "category": "overlay",
+  "title": "クリーン・ロワーサード",
+  "description": "名前と肩書を端正な2行で見せる、ダークプレートとアクセントラインのロワーサード。日本語の人物紹介に最適化している。",
+  "when_to_use": "インタビュー、登壇者紹介、採用・企業映像など、話者の名前と肩書を落ち着いたトーンで提示するシーン",
+  "tags": [
+    "lower-third",
+    "nameplate",
+    "interview",
+    "corporate",
+    "clean",
+    "japanese",
+    "16:9"
+  ],
+  "knobs": [
+    {
+      "cssVar": "--primary-color",
+      "type": "color",
+      "group": "style",
+      "label": "プレート色"
+    },
+    {
+      "cssVar": "--accent-color",
+      "type": "color",
+      "group": "style",
+      "label": "アクセント色"
+    },
+    {
+      "cssVar": "--text-color",
+      "type": "color",
+      "group": "style",
+      "label": "名前の色"
+    },
+    {
+      "cssVar": "--muted-color",
+      "type": "color",
+      "group": "style",
+      "label": "肩書の色"
+    },
+    {
+      "cssVar": "--font-size",
+      "type": "slider",
+      "min": 24,
+      "max": 64,
+      "unit": "px",
+      "group": "typography",
+      "label": "名前サイズ"
+    },
+    {
+      "cssVar": "--role-font-size",
+      "type": "slider",
+      "min": 12,
+      "max": 30,
+      "unit": "px",
+      "group": "typography",
+      "label": "肩書サイズ"
+    },
+    {
+      "cssVar": "--max-width",
+      "type": "slider",
+      "min": 320,
+      "max": 880,
+      "unit": "px",
+      "group": "layout",
+      "label": "最大幅"
+    }
+  ],
+  "ai_usage": "Fixture only.",
+  "requires": [],
+  "provenance": {
+    "origin": "fixture",
+    "generator": null
+  },
+  "author": "Example",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "tier": "free",
+  "price": null,
+  "matched_by": "title-normalized",
+  "i18n": {
+    "en": {
+      "unknown": "x"
+    }
+  }
+}

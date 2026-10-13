@@ -1,3 +1,4 @@
+import { getLanguage } from '@akari-video/i18n';
 import { t } from '../common/project-text';
 import type { MaterialSwapRequest } from '../common/material-swap-candidates';
 import { RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
@@ -85,7 +86,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
         getWorkspaceRoot: () => this.workflow.workspaceRoot?.toString(),
         getCatalogItems: async () => {
             const preferenceRoot = this.preferences.get<string>('akari.catalog.root', '');
-            return (await this.projectService.getAssetCatalogView(preferenceRoot, 'user')).items;
+            return (await this.projectService.getAssetCatalogView(preferenceRoot, 'user', getLanguage())).items;
         },
         resolveAsset: (ref, projectRoot) => this.projectService.resolveAsset(ref, projectRoot),
         fileExists: (projectRoot, relativePath) => this.files.exists(new URI(projectRoot).resolve(relativePath)),
