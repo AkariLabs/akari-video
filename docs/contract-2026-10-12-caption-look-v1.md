@@ -51,4 +51,4 @@ source anchor は字幕が描かれる同じ素材の配置ごとに、速度と
 
 ## 検証
 
-構造は captions schema が判定する。文書の意味では v1 run の範囲外、ファイル内の run id 重複、anchor のない `spoken` を error として保存を拒む。旧 runs v0 の範囲外・空の区間は従来どおり `captions.run-range` の warning とする。意味の error は診断を出す。描画経路での除外は後の版で行う（除外に使う純関数 `renderableCaptionRuns` は用意済み）。プロジェクトの意味では anchor の写像不能や表示窓の外を warning とし、経路の対応では選んだ描画経路が motion を描けるか判定する。診断はコード・重大度・パス・日本語メッセージを共有する。
+構造は captions schema が判定する。文書の意味では v1 run の範囲外、ファイル内の run id 重複、anchor のない `spoken` を error として保存を拒む。`validate-captions` も文書の意味の層を呼び、error があれば非 0 で終了する。旧 runs v0 の範囲外・空の区間は従来どおり `captions.run-range` の warning とする。意味の error は診断を出す。描画経路での除外は後の版で行う（除外に使う純関数 `renderableCaptionRuns` は用意済み）。プロジェクトの意味では anchor の写像不能や表示窓の外を warning とし、経路の対応では選んだ描画経路が motion を描けるか判定する。診断はコード・重大度・パス・日本語メッセージを共有する。
