@@ -123,8 +123,24 @@ export function permissionSelection(permission: 'auto' | 'all' | 'checkpoints' |
     return permission === 'auto' || permission === 'all' ? 'automatic' : permission;
 }
 
-export function contextUsageLabel(used?: number, limit?: number): string {
+export function contextUsage(used?: number, limit?: number, completed = false): {
+    state: 'known' | 'no-limit' | 'unavailable' | 'empty'; label: string; percentage: number
+} {
     const number = (value: number): string => new Intl.NumberFormat('ja-JP').format(value);
-    const percentage = limit && used !== undefined ? `${Math.min(100, Math.round(used / limit * 100))}%` : '—%';
-    return `使用量 ${used === undefined ? '—' : number(used)} / 上限 ${limit ? number(limit) : '—'} トークン · ${percentage}`;
+    if (used === undefined) return completed
+        ? { state: 'unavailable', label: 'この相手は使用量を表示できません', percentage: 0 }
+        : { state: 'empty', label: 'まだ使用量はありません', percentage: 0 };
+    if (!limit) return { state: 'no-limit', label: `使用量 ${number(used)} トークン（上限は分かりません）`, percentage: 0 };
+    const percentage = Math.min(100, Math.round(used / limit * 100));
+    return { state: 'known', label: `使用量 ${number(used)} / 上限 ${number(limit)} トークン · ${percentage}%`, percentage };
+}
+
+export function contextUsageLabel(used?: number, limit?: number, completed = false): string {
+    return contextUsage(used, limit, completed).label;
+}
+
+export function restoreDraft<T>(queued: readonly { text: string; attachments: readonly T[] }[],
+    currentText: string, currentAttachments: readonly T[]): { text: string; attachments: T[] } {
+    return { text: [...queued.map(item => item.text).filter(Boolean), currentText].filter(Boolean).join('\n'),
+        attachments: [...queued.flatMap(item => item.attachments), ...currentAttachments] };
 }

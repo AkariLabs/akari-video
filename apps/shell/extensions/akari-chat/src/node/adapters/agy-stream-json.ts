@@ -9,6 +9,7 @@ import type { ChatEvent, ToolKind } from '../../common/chat-events';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { acpCandidates, findAcpExecutable, type AcpAgentDefinition } from './acp-agents';
 import { projectSkills } from './project-skills';
+import { reapChildGroup, terminateChild } from './terminate';
 
 const AGENT: AcpAgentDefinition = {
     id: 'antigravity', name: 'Antigravity', executable: 'agy', args: [], extraDirs: [],
@@ -230,7 +231,9 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
     private async getModels(executable: string, cwd: string): Promise<ChatCapabilities['models']> {
         if (this.models) return this.models;
         this.models = await new Promise(resolve => {
-            const child = spawn(executable, ['models'], { cwd, stdio: ['ignore', 'pipe', 'ignore'], shell: false });
+            const child = spawn(executable, ['models'], { cwd, stdio: ['ignore', 'pipe', 'ignore'], shell: false,
+                detached: process.platform !== 'win32' });
+            reapChildGroup(child);
             child.stdout.setEncoding('utf8');
             let output = '';
             let settled = false;
@@ -240,7 +243,7 @@ export class AgyStreamJsonAdapter implements ChatAdapter {
                 clearTimeout(timeout);
                 resolve(models);
             };
-            const timeout = setTimeout(() => { child.kill(); finish([]); }, 10000);
+            const timeout = setTimeout(() => { void terminateChild(child); finish([]); }, 10000);
             child.stdout.on('data', chunk => { output = (output + chunk).slice(0, 100000); });
             child.on('error', () => finish([]));
             child.on('close', code => finish(code === 0 ? parseAgyModels(output) : []));
@@ -291,8 +294,7 @@ class AgySession implements ChatAdapterSession {
         if (this.pending || this.closed) { this.restart = true; return; }
         const child = this.child;
         this.child = undefined;
-        child?.stdin.end();
-        child?.kill();
+        void terminateChild(child);
         this.launch();
     }
 
@@ -330,8 +332,9 @@ class AgySession implements ChatAdapterSession {
 
     private launch(): ChildProcessWithoutNullStreams {
         const child = spawn(this.executable, agyArgs(this.opts, this.ref), {
-            cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
+            cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, detached: process.platform !== 'win32'
         });
+        reapChildGroup(child);
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         this.child = child;
@@ -371,7 +374,7 @@ class AgySession implements ChatAdapterSession {
         if (this.closed) return Promise.reject(new Error('closed'));
         let child = this.child;
         if (this.restart || !child || !child.stdin.writable || child.stdin.destroyed) {
-            if (child) { child.stdin.end(); child.kill(); }
+            void terminateChild(child);
             child = this.launch();
         }
         const content = [text, describeAttachments(attachments)].filter(Boolean).join('\n\n');
@@ -402,7 +405,7 @@ class AgySession implements ChatAdapterSession {
             if (timeout) clearTimeout(timeout);
             if (this.pending?.child === child) {
                 this.failTurn(child, 'interrupted');
-                child.kill();
+                void terminateChild(child);
             }
         }
     }
@@ -415,8 +418,7 @@ class AgySession implements ChatAdapterSession {
         this.closed = true;
         const child = this.child;
         this.child = undefined;
-        child?.stdin.end();
-        child?.kill();
+        await terminateChild(child);
         if (this.pending) {
             clearTimeout(this.pending.timeout);
             this.pending.reject(new Error('closed'));

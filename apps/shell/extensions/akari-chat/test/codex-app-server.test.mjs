@@ -52,7 +52,10 @@ process.stdin.on('data', chunk => {
     }
     else if (msg.method === 'skills/list') reply(msg.id,{data:[{cwd:process.cwd(),skills:[{name:'edit-lint',description:'Check edit'}]}]});
     else if (msg.method === 'thread/start') { active = 'thread-'+(++threadNumber); reply(msg.id,{thread:{id:active},model:msg.params.model||'model-one'}); }
-    else if (msg.method === 'thread/resume') { active = msg.params.threadId; reply(msg.id,{thread:{id:active},model:'model-one'}); }
+    else if (msg.method === 'thread/resume') {
+      if (fs.existsSync('reject-resume')) send({jsonrpc:'2.0',id:msg.id,error:{code:-32603,message:'no rollout found for thread id missing'}});
+      else { active = msg.params.threadId; reply(msg.id,{thread:{id:active},model:'model-one'}); }
+    }
     else if (msg.method === 'turn/start') {
       if (fs.existsSync('reject-summary') && msg.params.summary) {
         send({jsonrpc:'2.0',id:msg.id,error:{code:-32602,message:'reasoning summary is unsupported'}});
@@ -405,6 +408,15 @@ test('foreign model and effort are omitted, while a valid model refreshes the se
         try {
             assert.equal(Object.hasOwn((await received(cwd)).find(row => row.method === 'thread/resume').params, 'model'), false);
         } finally { await resumed.close(); }
+    });
+});
+
+test('a rejected thread/resume is distinguishable from a process startup failure', async () => {
+    await withTemp(async cwd => {
+        await writeFile(join(cwd, 'reject-resume'), '1');
+        const adapter = new CodexAppServerAdapter(await fakeExecutable(cwd));
+        await assert.rejects(adapter.start({ cwd, resume: 'missing', permission: 'auto' }),
+            /akari-chat:resume-missing:no rollout found/);
     });
 });
 

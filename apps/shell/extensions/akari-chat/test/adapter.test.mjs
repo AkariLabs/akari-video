@@ -44,7 +44,8 @@ if (process.argv.includes('--version')) {
     process.exit(0);
 }
 const mode = fs.existsSync('mode.txt') ? fs.readFileSync('mode.txt', 'utf8').trim() : 'persistent';
-if (mode === 'resume-init-exit') process.exit(2);
+if (mode === 'resume-init-exit') { process.stderr.write('No conversation found with session ID: missing\\n'); process.exit(2); }
+if (mode === 'resume-startup-exit') process.exit(2);
 if (mode === 'hold-input-close') setInterval(() => {}, 1000);
 if (mode === 'interrupt-result') process.on('SIGINT', () => {
     process.stdout.write(JSON.stringify({ type: 'result', subtype: 'error_during_execution', is_error: true }) + '\\n', () => process.exit(0));
@@ -60,6 +61,13 @@ process.stdin.on('data', chunk => {
         buffer = buffer.slice(end + 1);
         if (!line) continue;
         const user = JSON.parse(line);
+        if (user.type === 'control_request' && user.request?.subtype === 'initialize') {
+            if (mode === 'initialize-commands') console.log(JSON.stringify({ type: 'control_response', response: {
+                subtype: 'success', request_id: user.request_id, response: { commands: [
+                    { name: 'docx', description: 'Write docs (claude.ai sync)', builtin: true }, { name: 'help', builtin: true }
+                ] } } }));
+            continue;
+        }
         fs.appendFileSync('received.jsonl', JSON.stringify(user) + '\\n');
         if (mode === 'permission') {
             if (user.type === 'control_response') {
@@ -70,7 +78,7 @@ process.stdin.on('data', chunk => {
             }
             continue;
         }
-        console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5', slash_commands: ['edit-lint', 'help'], skills: ['edit-lint'] }));
+        console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-fixed', model: 'claude-haiku-5-5', slash_commands: mode === 'initialize-commands' ? ['anthropic-skills:docx', 'help'] : ['edit-lint', 'help'], skills: mode === 'initialize-commands' ? ['anthropic-skills:docx'] : ['edit-lint'] }));
         if (mode === 'hold-turn' || mode === 'interrupt-result') continue;
         console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 1, output_tokens: 1 }, modelUsage: { 'claude-haiku-5-5': { contextWindow: 1000000 } } }));
         if (mode === 'exit') setTimeout(() => process.exit(0), 5);
@@ -127,6 +135,40 @@ test('Claude resume process exit before init reports a missing conversation', as
                 await new Promise(resolve => setTimeout(resolve, 10));
             }
             assert.equal(session.initialError?.message, 'No conversation found');
+        } finally { await session.close(); }
+    });
+});
+
+test('Claude resume process exit without a missing-conversation diagnostic reports startup failure', async () => {
+    await withTempDirectory('akari-chat-resume-', async cwd => {
+        await writeFile(join(cwd, 'mode.txt'), 'resume-startup-exit');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto', resume: 'saved' });
+        try {
+            for (let attempt = 0; attempt < 100 && !session.initialError; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+            assert.equal(session.initialError?.resumeFailure, 'startup');
+            assert.match(session.initialError?.message || '', /終了しました/);
+        } finally { await session.close(); }
+    });
+});
+
+test('Claude initialize commands stay authoritative after the first turn init', async () => {
+    await withTempDirectory('akari-chat-commands-', async cwd => {
+        await writeFile(join(cwd, 'mode.txt'), 'initialize-commands');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto' });
+        try {
+            let before = [];
+            for (let attempt = 0; attempt < 100; attempt++) {
+                before = await session.listCommands();
+                if (before.length === 2) break;
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+            assert.deepEqual(before.map(item => [item.name, item.kind]), [['docx', 'command'], ['help', 'command']]);
+            await session.send('hello', []);
+            const after = await session.listCommands();
+            assert.deepEqual(after.map(item => item.name), before.map(item => item.name));
+            assert.deepEqual(after.map(item => item.kind), ['skill', 'command']);
         } finally { await session.close(); }
     });
 });

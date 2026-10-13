@@ -125,6 +125,7 @@ test('available commands identify project skills and thought chunks stream', asy
         session.handleUpdate({ sessionUpdate: 'available_commands_update', availableCommands: [
             { name: 'edit-lint', description: 'ACP description' }, { name: 'local' }, { name: 'help', description: 'Help' }
         ] });
+        assert.ok(events.some(event => event.type === 'commands.changed'));
         assert.deepEqual(await session.listCommands(), [
             { name: 'edit-lint', description: 'ACP description', kind: 'skill' },
             { name: 'local', description: 'Local description', kind: 'skill' },
@@ -134,6 +135,16 @@ test('available commands identify project skills and thought chunks stream', asy
         session.handleUpdate({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: '中' } });
         assert.deepEqual(events.filter(event => event.type === 'thinking.delta').map(event => event.text), ['考え', '中']);
     } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test('commands arriving before session/new or session/load response are available immediately', async () => {
+    await withSession('early-commands', async ({ session }) => {
+        assert.deepEqual((await session.listCommands()).map(command => command.name), ['first', 'second']);
+    });
+    await withSession('early-commands', async ({ session, events }) => {
+        assert.deepEqual((await session.listCommands()).map(command => command.name), ['first', 'second']);
+        assert.equal(events.some(event => event.type === 'message.start' || event.type === 'message.delta'), false);
+    }, { resume: 'session-fixed' });
 });
 
 test('all permission prefers allow_always', async () => {

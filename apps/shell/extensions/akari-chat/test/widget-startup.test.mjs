@@ -245,7 +245,7 @@ test('Codex waiting state shows elapsed thinking until activity arrives', async 
     widget.chat = { send: () => new Promise(resolve => { finishSend = resolve; }) };
     widget.outbox.push({ text: '質問', attachments: [] });
     const sending = widget.flushOutbox();
-    await Promise.resolve();
+    for (let attempt = 0; attempt < 10 && !finishSend; attempt++) await Promise.resolve();
     widget.now = widget.turnStartedAt + 3200;
     assert.equal(showElapsedThinking(widget.busy, widget.turnHasActivity, !!widget.thinking), true);
     assert.equal(thinkingLabel(widget.turnStartedAt, widget.now, false), '考えています… 3 秒');

@@ -9,20 +9,13 @@ import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { projectSkills } from './project-skills';
 import { describeAttachments } from '../../common/chat-attachments';
 import { findAcpExecutable, AcpAgentDefinition, AcpDetectionEnvironment } from './acp-agents';
+import { reapChildGroup, terminateChild } from './terminate';
 
 type JsonObject = Record<string, unknown>;
 type RpcError = Error & { code?: number; crashed?: boolean };
 type PendingRpc = { resolve: (value: JsonObject) => void; reject: (error: RpcError) => void; timer?: ReturnType<typeof setTimeout> };
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 type ConfigOption = { id: string; category?: string; type?: string; currentValue?: string; options?: Array<{ value: string; name?: string; description?: string }> };
-
-function terminateChild(child: ChildProcessWithoutNullStreams | undefined): void {
-    if (!child) return;
-    child.kill('SIGTERM');
-    const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
-    timer.unref();
-    child.once('close', () => clearTimeout(timer));
-}
 
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 const TOOL_KINDS: Record<string, ToolKind> = {
@@ -111,6 +104,8 @@ export class AcpSession implements ChatAdapterSession {
     initialError?: Extract<ChatEvent, { type: 'error' }>;
     private sessionAnnounced = false;
     private loadActive = false;
+    private openingSession = false;
+    private readonly openingUpdates: Array<{ sessionId: string; update: JsonObject }> = [];
     private closed = false;
     private turnActive = false;
     private interrupted = false;
@@ -154,10 +149,12 @@ export class AcpSession implements ChatAdapterSession {
             return;
         }
         try {
+            this.openingSession = true;
             this.canonicalCwd = await realpath(this.opts.cwd);
             const child = spawn(this.executable, [...this.agent.args, ...(this.opts.model && this.agent.modelArgs ? this.agent.modelArgs(this.opts.model) : [])], {
-                cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false
+                cwd: this.opts.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, detached: process.platform !== 'win32'
             });
+            reapChildGroup(child);
             this.child = child;
             child.stdout.setEncoding('utf8');
             child.stderr.setEncoding('utf8');
@@ -180,6 +177,15 @@ export class AcpSession implements ChatAdapterSession {
             }, 600000);
             this.ref = string(result.sessionId) || (this.loadActive ? this.opts.resume || '' : '');
             this.readSessionOptions(result);
+            this.openingSession = false;
+            for (const pending of this.openingUpdates.splice(0)) {
+                if (pending.sessionId && pending.sessionId !== this.ref) continue;
+                const type = string(pending.update.sessionUpdate);
+                if (!this.loadActive || ['available_commands_update', 'config_option_update',
+                    'current_mode_update', 'model_update', 'current_model_update'].includes(type)) {
+                    this.handleUpdate(pending.update);
+                }
+            }
             this.loadActive = false;
             if (this.opts.model && this.supportsInitialModel(this.opts.model)) {
                 try { await this.setModel(this.opts.model); } catch { /* The session is usable with its current model. */ }
@@ -188,9 +194,12 @@ export class AcpSession implements ChatAdapterSession {
                 try { await this.setEffort(this.opts.effort); } catch { /* The session is usable with its current effort. */ }
             }
         } catch (cause) {
+            const missing = this.loadActive && !(cause as RpcError).crashed && !/timeout/i.test(String((cause as Error).message));
+            this.openingSession = false;
+            this.openingUpdates.length = 0;
             this.loadActive = false;
-            this.fail(cause as RpcError, true);
-            terminateChild(this.child);
+            this.fail(cause as RpcError, true, missing ? 'missing' : 'startup');
+            await terminateChild(this.child);
             this.child = undefined;
         }
     }
@@ -253,9 +262,15 @@ export class AcpSession implements ChatAdapterSession {
         const method = string(packet.method);
         if (packet.id !== undefined) {
             void this.handleAgentRequest(packet.id as string | number, method, object(packet.params));
-        } else if (method === 'session/update' && !this.loadActive) {
+        } else if (method === 'session/update') {
             const params = object(packet.params);
-            if (!params.sessionId || params.sessionId === this.ref) { this.handleUpdate(object(params.update)); }
+            if (this.openingSession) {
+                if (this.openingUpdates.length < 200) this.openingUpdates.push({
+                    sessionId: string(params.sessionId), update: object(params.update)
+                });
+            } else if (!this.loadActive && (!params.sessionId || params.sessionId === this.ref)) {
+                this.handleUpdate(object(params.update));
+            }
         }
     }
 
@@ -480,6 +495,7 @@ export class AcpSession implements ChatAdapterSession {
                 name: string(object(item).name), description: string(object(item).description) || undefined,
                 kind: 'command' as const
             })).filter(item => item.name) : [];
+            this.emit({ type: 'commands.changed' });
         } else if (type === 'config_option_update') {
             if (Array.isArray(update.configOptions)) {
                 this.configOptions = update.configOptions.map(item => object(item) as ConfigOption);
@@ -487,6 +503,8 @@ export class AcpSession implements ChatAdapterSession {
                 const option = object(update.configOption) as ConfigOption;
                 if (option.id) { this.configOptions = [...this.configOptions.filter(item => item.id !== option.id), option]; }
             }
+        } else if (type === 'model_update' || type === 'current_model_update') {
+            this.model = string(update.modelId) || string(update.model) || this.model;
         } else if (type === 'current_mode_update') {
             // The active mode is carried by the agent; choices remain in modes.
         } else if (type === 'usage_update') {
@@ -499,8 +517,11 @@ export class AcpSession implements ChatAdapterSession {
         }
     }
 
-    private fail(cause: RpcError, turn: boolean): void {
+    private fail(cause: RpcError, turn: boolean, resumeFailure?: 'missing' | 'startup'): void {
         const event = classify(cause, this.stderr);
+        if (this.opts.resume && event.kind !== 'auth' && event.kind !== 'not-installed' && event.kind !== 'rate-limit') {
+            event.resumeFailure = resumeFailure;
+        }
         if (event.kind === 'auth') {
             const reason = safeReason(cause.message);
             event.message = `${this.agent.name} にログインしてください（ターミナルで ${this.agent.loginHint}）${reason ? ` — ${reason}` : ''}`;
@@ -631,11 +652,11 @@ export class AcpSession implements ChatAdapterSession {
             this.pendingPermission = undefined;
         }
         if (this.child && this.sessionCapabilities.close && this.ref) {
-            try { await this.request('session/close', { sessionId: this.ref }, 3000); } catch { /* Shutdown continues. */ }
+            try { await this.request('session/close', { sessionId: this.ref }, 50); } catch { /* Shutdown continues. */ }
         }
         const child = this.child;
         this.child = undefined;
-        terminateChild(child);
+        await terminateChild(child);
         for (const pending of this.pending.values()) { if (pending.timer) { clearTimeout(pending.timer); } pending.reject(new Error('closed')); }
         this.pending.clear();
     }

@@ -9,6 +9,7 @@ import type { AkariChatClient, AkariChatService, ChatHistoryEntry } from '../com
 import { chatAdapters } from './adapters';
 import { claudeConfiguredModel, claudeInitialCapabilities } from './adapters/claude-stream-json';
 import type { ChatAdapterSession } from './adapters/adapter';
+import { waitForTerminations } from './adapters/terminate';
 import { addHistory, readHistory, readHistoryForWrite, titleFromText, updateHistory, writeHistory, renameHistory, removeHistory } from './history';
 import { appendTranscript, loadTranscript, readDefaults, writeDefaults, type ChatDefaults } from './chat-storage';
 
@@ -41,6 +42,7 @@ export class AkariChatServiceImpl implements AkariChatService {
     private readonly transcriptTails = new Map<string, Promise<void>>();
     private readonly starts = new Map<string, { controller: AbortController; chatId?: string }>();
     private readonly cancelledStarts = new Set<string>();
+    private readonly closing = new Set<Promise<void>>();
     private agentCache?: Promise<ChatAgentInfo[]>;
     private defaultsTail: Promise<void> = Promise.resolve();
 
@@ -86,6 +88,8 @@ export class AkariChatServiceImpl implements AkariChatService {
         for (const current of this.sessions.values()) current.controller.abort();
         const ids = [...this.sessions.keys()];
         await Promise.allSettled(ids.map(id => this.close(id)));
+        await Promise.allSettled([...this.closing]);
+        await waitForTerminations();
     }
 
     async dispose(): Promise<void> {
@@ -148,7 +152,7 @@ export class AkariChatServiceImpl implements AkariChatService {
         if (event.type === 'tool' && event.kind === 'think' && event.status === 'running' &&
             current.pendingTranscript?.type === 'thinking.delta' && current.pendingTranscript.id === event.id) return;
         this.flushTranscript(chatId, current);
-        this.appendRecord(chatId, current, event);
+        if (event.type !== 'commands.changed') this.appendRecord(chatId, current, event);
     }
 
     async loadTranscript(cwd: string, historyId: string) {
@@ -231,11 +235,15 @@ export class AkariChatServiceImpl implements AkariChatService {
                     interrupt: async () => undefined, close: async () => undefined
                 } satisfies ChatAdapterSession;
             }
-            const message = initialError?.message || String(error);
-            const kind = initialError?.kind || (/auth|login|log in|sign in/i.test(message) ? 'auth' : 'other');
-            this.emit(chatId, { type: 'error', kind, message });
+            const missing = String(error).includes('akari-chat:resume-missing:');
+            const message = initialError?.message || String(error).replace(/^Error: akari-chat:resume-missing:/, '');
+            const kind = initialError?.kind || (/auth|login|log in|sign in/i.test(message) ? 'auth'
+                : /rate.?limit|quota|too many requests|\b429\b/i.test(message) ? 'rate-limit' : 'other');
+            this.emit(chatId, { type: 'error', kind, message,
+                ...(options.resume ? { resumeFailure: missing ? 'missing' as const : 'startup' as const } : {}) });
             const failed: ChatAdapterSession = {
-                sessionRef: '', initialError: { type: 'error', kind, message }, capabilities: async () => EMPTY_CAPABILITIES,
+                sessionRef: '', initialError: { type: 'error', kind, message,
+                    ...(options.resume ? { resumeFailure: missing ? 'missing' as const : 'startup' as const } : {}) }, capabilities: async () => EMPTY_CAPABILITIES,
                 onEvent: () => ({ dispose: () => undefined }),
                 send: async () => { this.emit(chatId, { type: 'turn.end', ok: false, reason: kind }); },
                 interrupt: async () => undefined, close: async () => undefined
@@ -285,7 +293,7 @@ export class AkariChatServiceImpl implements AkariChatService {
                 this.emit(chatId, { type: 'error', kind: session.initialError.kind,
                     message: `${session.initialError.message}。会話を閉じて、起動をやり直してください。` });
                 this.emit(chatId, { type: 'turn.end', ok: false, reason: session.initialError.kind });
-                return;
+                throw new Error('akari-chat:not-delivered');
             }
             this.record(chatId, { type: 'user', text, attachments });
             const skill = current.agent === 'claude' ? /^\/([\w:-]+)(?=\s|$)/.exec(text)?.[1] : undefined;
@@ -344,9 +352,14 @@ export class AkariChatServiceImpl implements AkariChatService {
         const current = this.require(chatId);
         this.flushTranscript(chatId, current);
         this.sessions.delete(chatId);
-        await (await current.ready).close();
-        await this.transcriptTails.get(chatId);
-        await this.historyTails.get(current.cwd);
+        current.controller.abort();
+        const closing = (async () => {
+            await (await current.ready).close();
+            await this.transcriptTails.get(chatId);
+            await this.historyTails.get(current.cwd);
+        })();
+        this.closing.add(closing);
+        void closing.finally(() => this.closing.delete(closing)).catch(() => undefined);
     }
 
     async listHistory(cwd: string): Promise<ChatHistoryEntry[]> {

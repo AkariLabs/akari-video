@@ -29,8 +29,13 @@ export function modelLabel(models: ChatCapabilities['models'], chosen?: string, 
 
 export function resumeFailure(error: Extract<ChatEvent, { type: 'error' }>, beforeReady: boolean, firstTurn: boolean): boolean {
     if (error.kind === 'auth' || error.kind === 'not-installed' || error.kind === 'rate-limit') return false;
-    return beforeReady || /no (?:conversation|rollout|thread|session) found/i.test(error.message)
+    return !!error.resumeFailure || beforeReady || /no (?:conversation|rollout|thread|session) found/i.test(error.message)
         || firstTurn && /error_during_execution/i.test(error.message);
+}
+
+export function resumeFailureKind(error: Extract<ChatEvent, { type: 'error' }>): 'missing' | 'startup' {
+    return error.resumeFailure || (/no (?:conversation|rollout|thread|session) found/i.test(error.message)
+        ? 'missing' : 'startup');
 }
 
 export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' }>, agentName: string, initial: boolean, agentId: string, resumeFailed = false): {
@@ -39,7 +44,9 @@ export function chatErrorPresentation(error: Extract<ChatEvent, { type: 'error' 
     const unsupported = agentId === 'gemini' && /no longer supported|Antigravity/i.test(error.message);
     return {
         ...(error.kind === 'auth' ? { heading: `${agentName} にログインが必要です` } : {}),
-        reason: resumeFailed ? 'この会話は開けません。相手側に会話が残っていません。' : unsupported
+        reason: resumeFailed ? resumeFailureKind(error) === 'missing'
+            ? 'この会話は開けません。相手側に会話が残っていません。'
+            : `${agentName} を起動できませんでした。もう一度開いてください。` : unsupported
             ? 'Gemini CLI は個人向けの Google ログインでは使えなくなりました（Antigravity へ移行）。'
             : error.message,
         nextStep: resumeFailed || initial || error.kind === 'auth' || error.kind === 'not-installed'

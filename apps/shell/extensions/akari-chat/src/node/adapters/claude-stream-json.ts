@@ -6,9 +6,11 @@ import { extname, join } from 'path';
 import type { ChatAgentInfo, ChatCapabilities, ChatAdapterPermission } from '../../common/chat-agent';
 import { describeAttachments, type ChatAttachment } from '../../common/chat-attachments';
 import type { ChatEvent } from '../../common/chat-events';
+import type { ChatCommand } from '../../common/chat-protocol';
 import type { ChatAdapter, ChatAdapterSession } from './adapter';
 import { ClaudeStreamParser } from './claude-stream-parser';
 import { projectSkills, pluginSkills } from './project-skills';
+import { reapChildGroup, terminateChild } from './terminate';
 
 export { ClaudeStreamParser } from './claude-stream-parser';
 
@@ -179,6 +181,9 @@ class ClaudeSession implements ChatAdapterSession {
     private sendTail: Promise<void> = Promise.resolve();
     private ref: string;
     private stderr = '';
+    private initializedCommands?: ChatCommand[];
+    private initializedBuiltinNames = new Set<string>();
+    private initializeRequestId = '';
     private closed = false;
     private restart = false;
     private interrupted = false;
@@ -209,6 +214,20 @@ class ClaudeSession implements ChatAdapterSession {
     async listCommands() {
         const local = await projectSkills(this.opts.cwd, ['.claude/skills', '.agents/skills']);
         const plugins = await pluginSkills(this.opts.cwd);
+        if (this.initializedCommands) {
+            const skills = this.parser.initialized
+                ? this.parser.skills.map(name => name.replace(/^\//, ''))
+                : [...local, ...plugins].map(command => command.name);
+            return this.initializedCommands.map(command => ({ ...command,
+                kind: (this.parser.initialized
+                    ? skills.some(skill => skill === command.name || skill.endsWith(`:${command.name}`)
+                        || command.name.endsWith(`:${skill}`))
+                    : !this.initializedBuiltinNames.has(command.name)
+                        && (skills.some(skill => skill === command.name || skill.endsWith(`:${command.name}`)
+                            || command.name.endsWith(`:${skill}`))
+                            || /\((?:user|project|claude\.ai sync)\)\s*$/i.test(command.description || '')))
+                    ? 'skill' as const : 'command' as const }));
+        }
         if (!this.parser.initialized) return [...local, ...plugins];
         const descriptions = new Map([...local, ...plugins].map(command => [command.name, command.description]));
         const skills = new Set(this.parser.skills.map(name => name.replace(/^\//, '')));
@@ -229,8 +248,7 @@ class ClaudeSession implements ChatAdapterSession {
         if (this.pending || this.closed) { this.restart = true; return; }
         const child = this.child;
         this.child = undefined;
-        child?.stdin.end();
-        child?.kill();
+        void terminateChild(child);
         this.launch();
     }
 
@@ -332,14 +350,21 @@ class ClaudeSession implements ChatAdapterSession {
         const child = spawn(this.executable, args, {
             cwd: this.opts.cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
-            shell: false
+            shell: false,
+            detached: process.platform !== 'win32'
         });
+        reapChildGroup(child);
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         this.child = child;
         this.restart = false;
         this.interrupted = false;
         this.stderr = '';
+        this.initializedCommands = undefined;
+        this.initializedBuiltinNames.clear();
+        this.initializeRequestId = `akari-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        child.stdin.write(JSON.stringify({ type: 'control_request', request_id: this.initializeRequestId,
+            request: { subtype: 'initialize' } }) + '\n');
         let buffer = '';
 
         child.stdout.on('data', data => {
@@ -356,7 +381,19 @@ class ClaudeSession implements ChatAdapterSession {
                 }
                 try {
                     const row = JSON.parse(line);
-                    if (row.type === 'control_request' && row.request?.subtype === 'can_use_tool') {
+                    if (row.type === 'control_response' && row.response?.request_id === this.initializeRequestId) {
+                        const commands = row.response?.response?.commands;
+                        if (row.response?.subtype === 'success' && Array.isArray(commands)) {
+                            this.initializedBuiltinNames = new Set(commands.filter((item: { builtin?: boolean }) => item.builtin)
+                                .map((item: { name: string }) => item.name.replace(/^\//, '')));
+                            this.initializedCommands = commands.filter((item: { name?: unknown }) => typeof item.name === 'string')
+                                .map((item: { name: string; description?: string }) => ({
+                                    name: item.name.replace(/^\//, ''), description: item.description,
+                                    kind: 'command' as const
+                                }));
+                            this.publish({ type: 'commands.changed' });
+                        }
+                    } else if (row.type === 'control_request' && row.request?.subtype === 'can_use_tool') {
                         if (this.permissionRequest) void this.answerPermission(false);
                         this.permissionRequest = { id: String(row.request_id), input: row.request.input || {}, child };
                         this.parser.permissionPending(String(row.request.tool_use_id || ''),
@@ -365,7 +402,14 @@ class ClaudeSession implements ChatAdapterSession {
                         this.publish({ type: 'ask', id: `permission-${row.request_id}`,
                             question: `${row.request.tool_name || '操作'} を許可しますか？${description ? ` ${description}` : ''}`,
                             options: [{ label: '許可' }, { label: '拒否' }] });
-                    } else this.parser.accept(row);
+                    } else {
+                        const commandsBefore = `${this.parser.slashCommands.join('\u0000')}|${this.parser.skills.join('\u0000')}`;
+                        this.parser.accept(row);
+                        if (this.parser.initialized && !this.initializedCommands
+                            && commandsBefore !== `${this.parser.slashCommands.join('\u0000')}|${this.parser.skills.join('\u0000')}`) {
+                            this.publish({ type: 'commands.changed' });
+                        }
+                    }
                 } catch {
                     // A malformed line is isolated from the rest of the stream.
                 }
@@ -404,9 +448,12 @@ class ClaudeSession implements ChatAdapterSession {
             if (this.child !== child) {
                 return;
             }
-            if (this.opts.resume && !this.parser.initialized && !this.pending && !this.closed
+            if (this.opts.resume && !this.parser.initialized && !this.closed
                 && !/not logged in|authentication_failed/i.test(this.stderr)) {
-                this.initialError = { type: 'error', kind: 'other', message: 'No conversation found' };
+                const missing = /no (?:conversation|rollout|thread|session) found/i.test(this.stderr);
+                this.initialError = { type: 'error', kind: 'other',
+                    message: missing ? 'No conversation found' : `Claude Code が終了しました (${code})`,
+                    resumeFailure: missing ? 'missing' : 'startup' };
                 this.publish(this.initialError);
             }
             if (this.permissionRequest?.child === child) this.permissionRequest = undefined;
@@ -428,8 +475,7 @@ class ClaudeSession implements ChatAdapterSession {
         let child = this.child;
         if (this.restart || !child || child.stdin.destroyed || child.stdin.writableEnded || !child.stdin.writable) {
             if (child) {
-                child.stdin.end();
-                child.kill();
+                void terminateChild(child);
             }
             this.child = undefined;
             child = this.launch();
@@ -472,7 +518,7 @@ class ClaudeSession implements ChatAdapterSession {
                         if (this.child === target) {
                             this.child = undefined;
                         }
-                        target.kill();
+                        void terminateChild(target);
                         try {
                             attempt(this.launch(), 1);
                         } catch (launchError) {
@@ -561,12 +607,11 @@ class ClaudeSession implements ChatAdapterSession {
     }
 
     async close(): Promise<void> {
-        await this.answerPermission(false);
+        void this.answerPermission(false);
         this.closed = true;
         const child = this.child;
         this.child = undefined;
-        child?.stdin.end();
-        child?.kill();
+        await terminateChild(child);
         if (this.pending) {
             const pending = this.pending;
             if (pending) {

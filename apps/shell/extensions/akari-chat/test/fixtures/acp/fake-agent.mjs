@@ -41,6 +41,12 @@ function handle(packet) {
                 ? 'auth_required'
                 : `This client is no longer supported. Contact person${String.fromCharCode(64)}example.test with ${'A'.repeat(40)} to migrate.` } });
         } else {
+            if (mode === 'early-commands') {
+                update({ sessionUpdate: 'available_commands_update', availableCommands: [{ name: 'first' }] });
+                update({ sessionUpdate: 'available_commands_update', availableCommands: [
+                    { name: 'first' }, { name: 'second' }
+                ] });
+            }
             reply(packet.id, { sessionId: 'session-fixed', ...(mode === 'init-close' ? {} : { sessionCapabilities: { close: true } }),
                 ...(mode === 'models-list'
                     ? { models: { currentModelId: 'listed', availableModels: [{ modelId: 'listed', name: 'Listed' }, { modelId: 'another', name: 'Another' }] } }
@@ -49,6 +55,8 @@ function handle(packet) {
         }
     } else if (packet.method === 'session/load') {
         if (mode === 'hold-session-load') { return; }
+        if (mode === 'early-commands') update({ sessionUpdate: 'available_commands_update',
+            availableCommands: [{ name: 'first' }, { name: 'second' }] });
         update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'old message' } });
         reply(packet.id, { sessionId: packet.params.sessionId, sessionCapabilities: { close: true } });
     } else if (packet.method === 'session/prompt') {

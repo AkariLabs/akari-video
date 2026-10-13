@@ -3,19 +3,27 @@ import { BackendApplicationContribution } from '@theia/core/lib/node/backend-app
 import { ConnectionContainerModule } from '@theia/core/lib/node/messaging/connection-container-module';
 import { AKARI_CHAT_SERVICE_PATH, AkariChatService, AkariChatClient } from '../common/chat-protocol';
 import { AkariChatServiceImpl } from './akari-chat-service';
+import { waitForTerminations } from './adapters/terminate';
 
 export class AkariChatSessionRegistry implements BackendApplicationContribution {
     private readonly services = new Set<AkariChatServiceImpl>();
+    private readonly disposing = new Map<AkariChatServiceImpl, Promise<void>>();
 
     add(service: AkariChatServiceImpl): void { this.services.add(service); }
 
-    async remove(service: AkariChatServiceImpl): Promise<void> {
+    remove(service: AkariChatServiceImpl): Promise<void> {
+        const ongoing = this.disposing.get(service);
+        if (ongoing) return ongoing;
         this.services.delete(service);
-        await service.dispose();
+        const disposal = service.dispose();
+        this.disposing.set(service, disposal);
+        void disposal.finally(() => this.disposing.delete(service)).catch(() => undefined);
+        return disposal;
     }
 
     async onStop(): Promise<void> {
-        await Promise.allSettled([...this.services].map(service => this.remove(service)));
+        await Promise.allSettled([...this.services].map(service => this.remove(service)).concat([...this.disposing.values()]));
+        await waitForTerminations();
     }
 }
 
