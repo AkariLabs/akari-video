@@ -342,7 +342,7 @@ function applyWordBookToCaptionsInSource(source, changes) {
         if (Array.isArray(previous.runs) && previous.runs.length) {
             const oldDisplay = previous.display_text ?? previous.text;
             const newDisplay = change.display_text ?? change.text;
-            const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, previous.runs);
+            const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, previous.runs, { mode: 'project' });
             nextElement = syncOptionalCaptionProperty(nextElement, 'runs', rebased.runs.length ? rebased.runs : undefined, change.id);
         }
         nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
@@ -631,10 +631,12 @@ function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
         const split = textA.length;
         const rawText = String(record.text);
         const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
-        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs;
+        const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs, { mode: 'project' }).runs;
         const document = JSON.parse(source);
         const allRuns = (Array.isArray(document) ? document : document.captions ?? [])
             .flatMap(row => row.runs ?? []);
+        if (!Array.isArray(document))
+            allRuns.push(...(document.unresolved_runs ?? []).flatMap(item => item.run ? [item.run] : []));
         const pieces = (0, caption_runs_1.splitCaptionRuns)(rawText, runs, split, { start: Number(recordA.start), end: Number(recordA.end) }, { start: Number(recordB.start), end: Number(recordB.end) }, allRuns);
         const runsA = pieces.left;
         const runsB = pieces.right;
@@ -690,7 +692,7 @@ function mergeCaptionLines(source, captionIds) {
             const rawText = String(record.text ?? '');
             const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
             const runs = Array.isArray(record.runs)
-                ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs).runs : [];
+                ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record.runs, { mode: 'project' }).runs : [];
             const projected = runs.map(run => ({ ...run, from: run.from + offset, to: run.to + offset }));
             offset += (0, caption_runs_1.captionGraphemes)(rawText).length;
             return projected;

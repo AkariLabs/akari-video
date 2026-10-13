@@ -20,10 +20,6 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
   const captionsRoot = captions;
   // The caller supplies the v2 cut projection; never interpret raw tracks as cuts.
   const timeline = Array.isArray(edit?.cuts) ? edit.cuts : undefined;
-  for (const diagnostic of validateCaptionsSemantics({ captions, edit, timeline })) {
-    addFinding(findings, { severity: diagnostic.severity, check: diagnostic.code,
-      message: diagnostic.message, path: diagnostic.path });
-  }
   const wordBook = resolveWordBookSync({ projectRoot: paths.projectRoot, env: process.env });
   const wordBookMatcher = buildMatcher(wordBook.entries);
   for (const layer of wordBook.layers) {
@@ -219,7 +215,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           return;
         }
         const range = outOfRange.get(runIndex);
-        if (range) {
+        if (range && !["id", "look", "motion", "anchor", "fire"].some(key => Object.hasOwn(run, key))) {
           addFinding(findings, { severity: "warning", check: "captions.run-range",
             message: `run range [${run.from}, ${run.to}) is outside ${range.count} displayed graphemes or empty; ignored`, path });
         }
@@ -427,6 +423,10 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
     } catch (error) {
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }
+  }
+  for (const diagnostic of validateCaptionsSemantics({ captions: captionsRoot, edit, timeline })) {
+    addFinding(findings, { severity: diagnostic.severity, check: diagnostic.code,
+      message: diagnostic.message, path: diagnostic.path });
   }
 }
 

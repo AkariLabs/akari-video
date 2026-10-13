@@ -31,6 +31,7 @@ export interface CaptionRun {
     needs_review?: boolean;
     split_from?: string;
     migrated_from?: string;
+    migrated_emphasis?: { index: number; item: Record<string, unknown> };
 }
 
 export interface CaptionRunAnimationSlot {
@@ -177,7 +178,7 @@ export function resolveCaptionRuns(text: string, runs?: readonly CaptionRun[]): 
         const runStyle = run.style ?? (run.look ? captionRunStyleFromLook(run.look).style : undefined);
         if (run.look && !run.style && runStyle?.stroke?.width_px !== undefined) {
             const scale = typeof run.look.scale === 'number' && run.look.scale > 0 ? run.look.scale : 1;
-            runStyle.stroke = { ...runStyle.stroke, width_px: runStyle.stroke.width_px * scale };
+            runStyle.stroke = { ...runStyle.stroke, width_px: roundCaptionPixel(runStyle.stroke.width_px * scale) };
         }
         for (let index = run.from; index < run.to; index++) {
             const prior = characters[index];
@@ -207,48 +208,64 @@ export function sliceCaptionRuns(text: string, runs: readonly CaptionRun[] | und
     return result.length ? result : undefined;
 }
 
+/** 描画に渡す px 値の浮動小数点誤差をそろえる。 */
+export function roundCaptionPixel(value: number): number {
+    return Math.round(value * 1_000_000) / 1_000_000;
+}
+
 /** 複数の差分区間を、書記素 LCS で対応付ける。 */
-export function rebaseCaptionRuns(oldText: string, newText: string, runs: readonly CaptionRun[]):
+export function rebaseCaptionRuns(oldText: string, newText: string, runs: readonly CaptionRun[],
+    options: { mode?: 'edit' | 'project' } = {}):
     { runs: CaptionRun[]; removed: CaptionRun[] } {
     const oldChars = captionGraphemes(oldText);
     const newChars = captionGraphemes(newText);
-    const lengths = Array.from({ length: oldChars.length + 1 }, () => new Uint32Array(newChars.length + 1));
-    for (let i = oldChars.length - 1; i >= 0; i--) for (let j = newChars.length - 1; j >= 0; j--) {
-        lengths[i][j] = oldChars[i] === newChars[j] ? 1 + lengths[i + 1][j + 1]
+    let prefix = 0;
+    while (prefix < Math.min(oldChars.length, newChars.length) && oldChars[prefix] === newChars[prefix]) prefix++;
+    let suffix = 0;
+    while (suffix < Math.min(oldChars.length, newChars.length) - prefix
+        && oldChars[oldChars.length - 1 - suffix] === newChars[newChars.length - 1 - suffix]) suffix++;
+    const oldMiddle = oldChars.slice(prefix, oldChars.length - suffix);
+    const newMiddle = newChars.slice(prefix, newChars.length - suffix);
+    const lengths = Array.from({ length: oldMiddle.length + 1 }, () => new Uint32Array(newMiddle.length + 1));
+    for (let i = oldMiddle.length - 1; i >= 0; i--) for (let j = newMiddle.length - 1; j >= 0; j--) {
+        lengths[i][j] = oldMiddle[i] === newMiddle[j] ? 1 + lengths[i + 1][j + 1]
             : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
     }
     const mapped = new Map<number, number>();
     const ambiguous = new Set<number>();
+    for (let n = 0; n < prefix; n++) mapped.set(n, n);
     let i = 0; let j = 0;
-    while (i < oldChars.length && j < newChars.length) {
-        if (oldChars[i] === newChars[j]) {
-            mapped.set(i, j);
+    while (i < oldMiddle.length && j < newMiddle.length) {
+        if (oldMiddle[i] === newMiddle[j]) {
+            mapped.set(prefix + i, prefix + j);
             i++; j++;
         } else if (lengths[i + 1][j] >= lengths[i][j + 1]) {
             i++;
         } else { j++; }
     }
-    const prefixes = Array.from({ length: oldChars.length + 1 }, () => new Uint32Array(newChars.length + 1));
-    for (let oldIndex = 0; oldIndex < oldChars.length; oldIndex++) {
-        for (let newIndex = 0; newIndex < newChars.length; newIndex++) {
-            prefixes[oldIndex + 1][newIndex + 1] = oldChars[oldIndex] === newChars[newIndex]
+    const prefixes = Array.from({ length: oldMiddle.length + 1 }, () => new Uint32Array(newMiddle.length + 1));
+    for (let oldIndex = 0; oldIndex < oldMiddle.length; oldIndex++) {
+        for (let newIndex = 0; newIndex < newMiddle.length; newIndex++) {
+            prefixes[oldIndex + 1][newIndex + 1] = oldMiddle[oldIndex] === newMiddle[newIndex]
                 ? prefixes[oldIndex][newIndex] + 1
                 : Math.max(prefixes[oldIndex][newIndex + 1], prefixes[oldIndex + 1][newIndex]);
         }
     }
-    for (const oldIndex of mapped.keys()) {
+    for (const oldIndex of [...mapped.keys()].filter(index => index >= prefix)) {
+        const middleIndex = oldIndex - prefix;
         let choices = 0;
-        for (let newIndex = 0; newIndex < newChars.length; newIndex++) {
-            if (oldChars[oldIndex] === newChars[newIndex]
-                && prefixes[oldIndex][newIndex] + 1 + lengths[oldIndex + 1][newIndex + 1] === lengths[0][0]) {
+        for (let newIndex = 0; newIndex < newMiddle.length; newIndex++) {
+            if (oldMiddle[middleIndex] === newMiddle[newIndex]
+                && prefixes[middleIndex][newIndex] + 1 + lengths[middleIndex + 1][newIndex + 1] === lengths[0][0]) {
                 choices++;
             }
         }
-        const canSkip = Array.from({ length: newChars.length + 1 }, (_, newIndex) =>
-            prefixes[oldIndex][newIndex] + lengths[oldIndex + 1][newIndex])
+        const canSkip = Array.from({ length: newMiddle.length + 1 }, (_, newIndex) =>
+            prefixes[middleIndex][newIndex] + lengths[middleIndex + 1][newIndex])
             .some(length => length === lengths[0][0]);
         if (choices > 1 || canSkip) ambiguous.add(oldIndex);
     }
+    for (let n = 0; n < suffix; n++) mapped.set(oldChars.length - suffix + n, newChars.length - suffix + n);
     const changes: Array<{ oldFrom: number; oldTo: number; newFrom: number; newTo: number }> = [];
     let oldBoundary = 0; let newBoundary = 0;
     for (const [oldIndex, newIndex] of [...mapped, [oldChars.length, newChars.length] as [number, number]]) {
@@ -263,7 +280,12 @@ export function rebaseCaptionRuns(oldText: string, newText: string, runs: readon
     for (const run of runs) {
         const containing = changes.find(change => change.oldFrom <= run.from
             && run.to <= change.oldTo && change.oldFrom < change.oldTo);
-        if (containing) { removed.push(run); continue; }
+        if (containing) {
+            if (options.mode === 'project' && containing.newFrom < containing.newTo) {
+                kept.push({ ...run, from: containing.newFrom, to: containing.newTo, needs_review: true });
+            } else removed.push(run);
+            continue;
+        }
         const matches = Array.from({ length: Math.max(0, run.to - run.from) }, (_, n) => run.from + n)
             .filter(index => mapped.has(index));
         if (!matches.length) { removed.push(run); continue; }
@@ -283,20 +305,23 @@ export function rebaseCaptionRuns(oldText: string, newText: string, runs: readon
     return { runs: kept, removed };
 }
 
+/** @deprecated 結合は明示操作だけで行う。 */
 export function joinAdjacentCaptionRuns(runs: readonly CaptionRun[]): CaptionRun[] {
     return [...runs];
 }
 
 export function nextCaptionRunId(runs: readonly CaptionRun[]): string {
-    const used = new Set(runs.map(run => run.id).filter((id): id is string => !!id));
-    let number = 1;
-    while (used.has(`r-${String(number).padStart(4, '0')}`)) number++;
+    const number = runs.reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run?.id ?? '');
+        return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
     return `r-${String(number).padStart(4, '0')}`;
 }
 
-export function clearCaptionRunRange(runs: readonly CaptionRun[], from: number, to: number): CaptionRun[] {
+export function clearCaptionRunRange(runs: readonly CaptionRun[], from: number, to: number,
+    allRuns: readonly CaptionRun[] = runs): CaptionRun[] {
     const result: CaptionRun[] = [];
-    const used = [...runs];
+    const used = [...allRuns];
     for (const run of runs) {
         if (run.to <= from || run.from >= to) { result.push(run); continue; }
         const baseId = run.id ?? nextCaptionRunId(used);
@@ -404,7 +429,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 ? style.scale : 1;
             const stroke = style.stroke as { width_px?: number } | undefined;
             if (stroke && typeof stroke.width_px === 'number') style.stroke = {
-                ...stroke, width_px: stroke.width_px * scale };
+                ...stroke, width_px: Math.round(stroke.width_px * scale * 1_000_000) / 1_000_000 };
         }
         for (let index = run.from; index < run.to; index++) {
             resolved[index] = { ...resolved[index],

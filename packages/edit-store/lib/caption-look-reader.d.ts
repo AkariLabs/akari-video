@@ -19,6 +19,7 @@ type Emphasis = {
     emotion: string;
     style_hint?: string;
     style_preset?: string;
+    [key: string]: unknown;
 };
 type CaptionsRoot = {
     captions: CaptionRow[];

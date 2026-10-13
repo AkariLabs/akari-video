@@ -14,7 +14,7 @@ export interface CaptionSemanticsContext {
         unresolved_runs?: Array<{
             run?: CaptionRun;
         }>;
-    } | Array<Record<string, unknown>>;
+    } | Array<Record<string, unknown>> | null;
     edit?: {
         cuts?: EditCut[];
         sources?: Array<{

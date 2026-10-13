@@ -11,7 +11,7 @@ test('移行を一回と二回行っても書き出しの HTML と CSS 変数が
     words: [{ text: '猫', start: 0, end: 1 }, { text: '犬', start: 1, end: 2 },
       { text: '鳥', start: 2, end: 3 }],
     style_preset: 'neon', runs: [{ from: 1, to: 2,
-      style: { color: '#ff0000', scale: 1.5, stroke: { width_px: 3, color: '#ffffff' } },
+      style: { color: '#ff0000', scale: 0.7, stroke: { width_px: 6, color: '#ffffff' } },
       animation: { in: { id: 'pop' } } }] }],
     emphasis_words: [
       { id: 'e-0001', src: 's1', word: '猫', t_start: 0, t_end: 1,

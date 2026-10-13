@@ -16,7 +16,7 @@ export interface CaptionAnchorRow {
 export interface AnchorOutput {
     start?: number;
     end?: number;
-    fire: 'shown' | 'spoken' | 'whole';
+    fire: 'shown' | 'spoken' | 'whole' | 'none';
     placement?: number;
     diagnostics: Array<{
         code: string;

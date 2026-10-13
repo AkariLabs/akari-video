@@ -17,6 +17,7 @@ export * from './caption-display';
 export * from './caption-runs';
 export * from './caption-look-v1';
 export * from './caption-look-reader';
+export * from './caption-hash';
 export * from './caption-anchor-map';
 export * from './caption-semantics';
 export * from './generation-meta';

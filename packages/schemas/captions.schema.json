@@ -401,6 +401,15 @@
         "needs_review": { "type": "boolean" },
         "split_from": { "type": "string", "pattern": "^r-\\d{4,}$" },
         "migrated_from": { "type": "string", "pattern": "^e-\\d{4,}$" },
+        "migrated_emphasis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["index", "item"],
+          "properties": {
+            "index": { "type": "integer", "minimum": 0 },
+            "item": { "$ref": "#/$defs/emphasisWordItem" }
+          }
+        },
         "dormant_animation": { "$ref": "#/$defs/textAnimation" },
         "style": {
           "type": "object",
@@ -419,7 +428,7 @@
         },
         "animation": { "$ref": "#/$defs/textAnimation" }
       },
-      "$comment": "from/to は display_text または text の書記素オフセット。to は排他。空・範囲外は edit-lint warning として描画時に無視。"
+      "$comment": "from/to は display_text または text の書記素オフセット。to は排他。旧 runs v0 の空・範囲外は edit-lint warning、runs v1 は文書意味の error。"
     },
     "captionRunLook": {
       "type": "object", "additionalProperties": false,

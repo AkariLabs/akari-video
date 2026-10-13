@@ -1,11 +1,12 @@
-import { captionGraphemes, nextCaptionRunId, type CaptionRun } from './caption-runs';
+import { captionGraphemes, nextCaptionRunId, roundCaptionPixel, type CaptionRun } from './caption-runs';
+import { captionValueHash } from './caption-hash';
 import { sanitizeMyStyleLook } from './caption-look-v1';
 import { resolveCaptionStylePreset, type TextstyleCatalog } from './caption-style-preset';
 
 type CaptionRow = Record<string, unknown> & { id?: string; start?: number; end?: number; text?: string;
     display_text?: string; src?: string; runs?: CaptionRun[]; style_preset?: string };
 type Emphasis = { id: string; src?: string; t_start: number; t_end: number; word: string;
-    emotion: string; style_hint?: string; style_preset?: string };
+    emotion: string; style_hint?: string; style_preset?: string; [key: string]: unknown };
 type CaptionsRoot = { captions: CaptionRow[]; emphasis_words?: Emphasis[]; [key: string]: unknown };
 
 export const CAPTION_EMPHASIS_MOTION: Readonly<Record<string, string>> = {
@@ -15,13 +16,6 @@ const DEFAULT_HINT: Readonly<Record<string, string>> = {
     pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang',
     disgust: 'one-char-jumble', joy: 'size-pulse', emphasis: 'size-pulse'
 };
-
-function hash(value: unknown): string {
-    const text = JSON.stringify(value);
-    let n = 2166136261;
-    for (const char of text) { n ^= char.charCodeAt(0); n = Math.imul(n, 16777619); }
-    return `fnv1a:${(n >>> 0).toString(16).padStart(8, '0')}`;
-}
 
 function intervalForEmphasis(row: CaptionRow, emphasis: Emphasis): { from: number; to: number } | undefined {
     if (emphasis.src && emphasis.src !== row.src) return undefined;
@@ -55,12 +49,13 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
     { captions: CaptionRow[]; notices: string[] } {
     const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
     const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
-    const projected = new Map<string, { id: string | undefined; from: number; to: number; motion: string }>();
-    const allRuns = rows.flatMap(row => row.runs ?? []);
-    for (const item of emphasis) {
+    const projected = new Map<string, { id: string | undefined; from: number; to: number; motion: string; index: number }>();
+    const allRuns = [...rows.flatMap(row => row.runs ?? []), ...(Array.isArray(root) ? [] :
+        (Array.isArray(root.unresolved_runs) ? (root.unresolved_runs as Array<{ run?: CaptionRun }>).flatMap(item => item.run ? [item.run] : []) : []))];
+    for (const [index, item] of emphasis.entries()) {
         const candidate = projectEmphasis(rows, item);
         if (candidate) projected.set(item.id, { id: candidate.row.id,
-            ...candidate.interval, motion: candidate.motion });
+            ...candidate.interval, motion: candidate.motion, index });
     }
     const notices: string[] = [];
     const captions = rows.map(row => {
@@ -74,13 +69,14 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
             if (!interval || interval.id !== row.id) continue;
             const projection: CaptionRun = { id: nextCaptionRunId(allRuns), from: interval.from, to: interval.to,
                 role: 'emphasis', emotion: item.emotion, migrated_from: item.id,
+                migrated_emphasis: { index: interval.index, item: structuredClone(item) },
                 anchor: { ...(item.src ? { src: item.src } : {}), start: item.t_start,
                     end: item.t_end, domain: 'source' }, fire: 'spoken',
                 motion: { in: { id: interval.motion } } };
             runs.push(projection); allRuns.push(projection);
         }
         if (row.style_preset && !resolved.resolved) notices.push(`字幕 ${row.id ?? ''} のスタイルが見つかりません。`);
-        return { ...resolved.record, runs };
+        return { ...resolved.record, ...(runs.length || Object.hasOwn(row, 'runs') ? { runs } : {}) };
     });
     return { captions, notices };
 }
@@ -106,21 +102,21 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
                 const applied = (preset.record.text_style ?? {}) as Record<string, unknown>;
                 row.text_style = structuredClone(applied);
                 row.style_sources = { ...((row.style_sources ?? {}) as object),
-                    look: { kind: 'builtin', id, original_hash: hash(sanitizeMyStyleLook(original)),
-                        applied_hash: hash(sanitizeMyStyleLook(row.text_style)) },
+                    look: { kind: 'builtin', id, original_hash: captionValueHash(sanitizeMyStyleLook(original)),
+                        applied_hash: captionValueHash(sanitizeMyStyleLook(row.text_style)) },
                     ...(applied.animation ? { motion: { kind: 'builtin', id,
-                        original_hash: hash(original.animation ?? {}), applied_hash: hash(applied.animation) } } : {}) };
+                        original_hash: captionValueHash(original.animation ?? {}), applied_hash: captionValueHash(applied.animation) } } : {}) };
                 delete row.style_preset;
             } else notices.push(`字幕 ${row.id ?? ''} のスタイルが見つかりません。`);
         }
-        row.runs = (row.runs ?? []).map(run => {
+        if (Array.isArray(row.runs)) row.runs = row.runs.map(run => {
             const result = { ...run };
             if (result.style) {
                 const scale = typeof result.style.scale === 'number' && result.style.scale > 0
                     ? result.style.scale : 1;
                 const look = { ...result.style };
                 if (look.stroke?.width_px !== undefined) look.stroke = {
-                    ...look.stroke, width_px: look.stroke.width_px / scale };
+                    ...look.stroke, width_px: roundCaptionPixel(look.stroke.width_px / scale) };
                 result.look = look; delete result.style;
             }
             if (result.animation) { result.dormant_animation = result.animation; delete result.animation; }
@@ -129,18 +125,21 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         });
     }
     const migrated = new Set<string>();
-    for (const item of emphasis) {
+    for (const [index, item] of emphasis.entries()) {
         if (rows.some(row => row.runs?.some(run => run.migrated_from === item.id))) { migrated.add(item.id); continue; }
         const candidate = projectEmphasis(rows, item);
         if (!candidate) { unresolved.push(item); notices.push(`強調語 ${item.id} は可逆に移行できません`); continue; }
         const { row, interval, motion } = candidate;
         const run: CaptionRun = { id: nextCaptionRunId(allRuns), ...interval, role: 'emphasis',
-            emotion: item.emotion, migrated_from: item.id, fire: 'spoken',
+            emotion: item.emotion, migrated_from: item.id,
+            migrated_emphasis: { index, item: structuredClone(item) }, fire: 'spoken',
             anchor: { ...(item.src ? { src: item.src } : {}), start: item.t_start,
                 end: item.t_end, domain: 'source' }, motion: { in: { id: motion } } };
-        row.runs!.push(run); allRuns.push(run); migrated.add(item.id);
+        (row.runs ??= []).push(run); allRuns.push(run); migrated.add(item.id);
     }
-    if (!Array.isArray(source)) source.emphasis_words = emphasis.filter(item => !migrated.has(item.id));
+    if (!Array.isArray(source) && Object.hasOwn(source, 'emphasis_words')) {
+        source.emphasis_words = emphasis.filter(item => !migrated.has(item.id));
+    }
     const originalRows = Array.isArray(captions) ? captions : captions.captions;
     const diff: Array<{ path: string; before: unknown; after: unknown }> = [];
     rows.forEach((row, index) => {
@@ -165,12 +164,15 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
     const copy = structuredClone(root);
     const nextRows: CaptionRow[] = Array.isArray(copy) ? copy : copy.captions;
     const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
+    const migrated: Array<{ index: number; item: Emphasis }> = [];
     for (const row of nextRows) {
         row.runs = (row.runs ?? []).flatMap((run: CaptionRun) => {
             if (run.migrated_from && !run.look && run.anchor) {
                 const hint = Object.keys(CAPTION_EMPHASIS_MOTION)
                     .find(key => CAPTION_EMPHASIS_MOTION[key] === run.motion?.in?.id);
-                if (hint) emphasis.push({ id: run.migrated_from,
+                const restored = run.migrated_emphasis?.item as Emphasis | undefined;
+                if (restored) migrated.push({ index: run.migrated_emphasis!.index, item: structuredClone(restored) });
+                else if (hint) emphasis.push({ id: run.migrated_from,
                     word: captionGraphemes(row.display_text ?? row.text ?? '').slice(run.from, run.to).join(''),
                     t_start: run.anchor.start, t_end: run.anchor.end, emotion: run.emotion ?? 'emphasis',
                     style_hint: hint, ...(run.anchor.src ? { src: run.anchor.src } : {}) });
@@ -181,14 +183,21 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
                 const style = { ...next.look } as NonNullable<CaptionRun['style']>;
                 const scale = typeof style.scale === 'number' && style.scale > 0 ? style.scale : 1;
                 if (style.stroke?.width_px !== undefined) style.stroke = {
-                    ...style.stroke, width_px: style.stroke.width_px * scale };
+                    ...style.stroke, width_px: roundCaptionPixel(style.stroke.width_px * scale) };
                 next.style = style;
             }
             delete next.dormant_animation;
             return [next];
         });
     }
-    if (!Array.isArray(copy)) copy.emphasis_words = emphasis.sort((left, right) =>
-        left.id.localeCompare(right.id, undefined, { numeric: true }));
+    if (!Array.isArray(copy) && (Object.hasOwn(copy, 'emphasis_words') || migrated.length)) {
+        const restored: Emphasis[] = [];
+        const remaining = [...emphasis];
+        const indexed = new Map(migrated.map(entry => [entry.index, entry.item]));
+        for (let index = 0; index < emphasis.length + migrated.length; index++) {
+            restored.push(indexed.get(index) ?? remaining.shift()!);
+        }
+        copy.emphasis_words = restored;
+    }
     return copy;
 }

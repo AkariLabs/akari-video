@@ -12,6 +12,7 @@ export const CAPTION_RUN_LOOK_FIELDS = new Set([
     'color', 'font_weight', 'italic', 'underline', 'letter_spacing_em', 'scale',
     'baseline_shift_em', 'rotate_deg', 'stroke', 'shadow', 'glow', 'background'
 ]);
+export const CAPTION_DEFAULT_SIZE_PX = 38;
 
 function record(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -33,11 +34,12 @@ export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
 export function sanitizeCaptionRunLook(value: unknown): { look: Record<string, unknown>; omitted: string[]; notices: string[] } {
     if (!record(value)) return { look: {}, omitted: [], notices: [] };
     const omitted = Object.keys(value).filter(key => !CAPTION_RUN_LOOK_FIELDS.has(key));
+    const noticed = omitted.filter(key => key !== 'size_px' && key !== 'reference_height_px');
     return {
         look: Object.fromEntries(Object.entries(value).filter(([key]) => CAPTION_RUN_LOOK_FIELDS.has(key))),
         omitted,
-        notices: omitted.length ? [omitted.includes('font_family')
-            ? 'フォントは字幕全体にだけ当てられます。' : `範囲に使えない見た目を外しました: ${omitted.join('、')}`] : []
+        notices: noticed.length ? [noticed.includes('font_family')
+            ? 'フォントは字幕全体にだけ当てられます。' : `範囲に使えない見た目を外しました: ${noticed.join('、')}`] : []
     };
 }
 
@@ -90,8 +92,8 @@ export function captionEffectiveSize(row: Record<string, unknown>, defaultStyle:
     const before = record(row.text_style) ? row.text_style : {};
     const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
     const presetStyle = record(preset) ? preset : {};
-    const size = before.size_px ?? presetStyle.size_px ?? defaultStyle.size_px ?? 38;
-    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : 38;
+    const size = before.size_px ?? presetStyle.size_px ?? defaultStyle.size_px ?? CAPTION_DEFAULT_SIZE_PX;
+    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : CAPTION_DEFAULT_SIZE_PX;
 }
 
 export function lookForCaptionAtSize(look: Record<string, unknown>, targetSize: number,

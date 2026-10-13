@@ -1,5 +1,6 @@
 export declare const CAPTION_ROW_LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>>;
 export declare const CAPTION_RUN_LOOK_FIELDS: Set<string>;
+export declare const CAPTION_DEFAULT_SIZE_PX = 38;
 export declare function sanitizeMyStyleLook(value: unknown): Record<string, unknown>;
 export declare function sanitizeCaptionRunLook(value: unknown): {
     look: Record<string, unknown>;

@@ -5,17 +5,17 @@ import { captionGraphemes } from './caption-runs';
 
 export interface RunAnchor { src?: string; start: number; end: number; domain: 'source' | 'output' }
 export interface CaptionAnchorRow { src?: string; start: number; end: number; time_domain?: 'source' | 'output' }
-export interface AnchorOutput { start?: number; end?: number; fire: 'shown' | 'spoken' | 'whole';
+export interface AnchorOutput { start?: number; end?: number; fire: 'shown' | 'spoken' | 'whole' | 'none';
     placement?: number; diagnostics: Array<{ code: string; severity: 'warning' | 'info'; message: string }> }
 
 export function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAnchorRow,
-    timeline: TimelineMapResult | readonly EditCut[], fire: CaptionRun['fire'] = 'spoken'): AnchorOutput[] {
+    timeline: TimelineMapResult | readonly EditCut[], fire: CaptionRun['fire'] = 'shown'): AnchorOutput[] {
     const map = Array.isArray(timeline) ? buildTimelineMap(timeline as readonly EditCut[]) : timeline as TimelineMapResult;
     const warning = (code: string, message: string): AnchorOutput =>
         ({ fire: 'shown', diagnostics: [{ code, severity: 'warning', message }] });
     if (!anchor) return [{ fire: 'shown', diagnostics: [] }];
     const clip = (start: number, end: number, windowStart: number, windowEnd: number, placement?: number): AnchorOutput => {
-        if (start >= windowEnd) return { fire: 'shown', placement,
+        if (start >= windowEnd) return { fire: 'none', placement,
             diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning', message: '発火が表示窓の後にあります。' }] };
         const before = start < windowStart;
         return { start: Math.max(start, windowStart), end: Math.min(Math.max(end, windowStart), windowEnd),
@@ -27,13 +27,14 @@ export function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAn
     const placements = map.segments.filter(segment => segment.kind === 'src' && segment.src === src
         && segment.in !== undefined && segment.out !== undefined && segment.in < caption.end && segment.out > caption.start);
     if (anchor.end <= caption.start && placements.length) return placements.map(segment => ({
-        start: segment.outStart + (caption.start - segment.in!) / (segment.speed && segment.speed > 0 ? segment.speed : 1),
+        start: segment.outStart + (Math.max(caption.start, segment.in!) - segment.in!)
+            / (segment.speed && segment.speed > 0 ? segment.speed : 1),
         fire: fire ?? 'shown', placement: segment.cutIndex ?? undefined,
         diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning',
             message: '発火を表示窓の始まりへ寄せました。' }]
     }));
     if (anchor.start >= caption.end && placements.length) return placements.map(segment => ({
-        fire: 'shown', placement: segment.cutIndex ?? undefined,
+        fire: 'none', placement: segment.cutIndex ?? undefined,
         diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning',
             message: '発火が表示窓の後にあります。' }]
     }));
@@ -45,9 +46,14 @@ export function anchorToOutput(anchor: RunAnchor | undefined, caption: CaptionAn
         const sourceStart = Math.max(anchor.start, segment.in!);
         const sourceEnd = Math.min(anchor.end, segment.out!);
         if (!(sourceStart < sourceEnd)) continue;
-        results.push(clip(segment.outStart + (sourceStart - segment.in!) / speed,
+        const result = clip(segment.outStart + (sourceStart - segment.in!) / speed,
             segment.outStart + (sourceEnd - segment.in!) / speed, windowStart, windowEnd,
-            segment.cutIndex ?? undefined));
+            segment.cutIndex ?? undefined);
+        if (anchor.start < Math.max(caption.start, segment.in!) && !result.diagnostics.length) {
+            result.diagnostics.push({ code: 'captions.run.anchor-window', severity: 'warning',
+                message: '発火を表示窓の始まりへ寄せました。' });
+        }
+        results.push(result);
     }
     return results.length ? results : [warning('captions.run.anchor-cut', '発火する素材の区間がカットで消えました。')];
 }

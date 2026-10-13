@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   scaleCaptionLookPixels, lookForCaptionAtSize, sanitizeCaptionRunLook,
   rebaseCaptionRuns, splitCaptionRuns, nextCaptionRunId, clearCaptionRunRange,
-  joinAdjacentCaptionRuns, anchorToOutput, anchorForCaptionRange, fitCaptionMotionWindow,
+  anchorToOutput, anchorForCaptionRange, fitCaptionMotionWindow, buildTimelineMap,
   unresolvedRunsForDeletedCaption,
   moveDeletedCaptionRunsToUnresolved,
   splitCaptionLine, mergeCaptionLines,
@@ -11,7 +12,8 @@ import {
   captionRenderInputFromV1,
   resolveCaptionStylePreset, resolveCaptionWordStyleVars, resolveCaptionStyleForOutput,
   lookForCaptionRow, lookForCaptionRun, applyCaptionRunsToHtml,
-  applyWordBookToCaptionsInSource
+  applyWordBookToCaptionsInSource, captionValueHash, captionEffectiveSize,
+  CAPTION_DEFAULT_SIZE_PX, parseCaptions, insertCaptionLine
 } from '../lib/index.js';
 
 const row = (text, extra = {}) => ({ id: 'c-0001', start: 0, end: 10, text,
@@ -106,6 +108,13 @@ test('換算: 範囲の font_family は落として日本語で通知する', ()
   assert.match(result.notices[0], /フォント/);
 });
 
+test('換算: size_px と reference_height_px は範囲から落としても通知しない', () => {
+  const result = sanitizeCaptionRunLook({ size_px: 80, reference_height_px: 1920, color: '#fff' });
+  assert.deepEqual(result.omitted, ['size_px', 'reference_height_px']);
+  assert.deepEqual(result.notices, []);
+  assert.equal(captionEffectiveSize(row('猫'), {}), CAPTION_DEFAULT_SIZE_PX);
+});
+
 test('付け替え: 赤い猫と青い犬を白い猫と黒い犬にしても猫の範囲を保つ', () => {
   assert.deepEqual(rebaseCaptionRuns('赤い猫と青い犬', '白い猫と黒い犬',
     [{ id: 'r-0001', from: 2, to: 3 }]).runs[0], { id: 'r-0001', from: 2, to: 3 });
@@ -117,14 +126,34 @@ test('付け替え: 単語帳の AKARI 置換でも便利の範囲を保つ', ()
   assert.deepEqual(changed.captions[0].runs[0], { id: 'r-0001', from: 6, to: 8 });
 });
 
+test('付け替え: 単語帳の「あかり」範囲を AKARI 全体へ写して要確認にする', () => {
+  const source = JSON.stringify({ captions: [row('あかりは便利', { runs: [{ id: 'r-0001', from: 0, to: 3 }] })] });
+  const changed = JSON.parse(applyWordBookToCaptionsInSource(source, [{ id: 'c-0001', text: 'AKARIは便利' }]));
+  assert.deepEqual(changed.captions[0].runs[0],
+    { id: 'r-0001', from: 0, to: 5, needs_review: true });
+});
+
+test('付け替え: 純粋な削除の内側だけを外し置換は残す', () => {
+  const run = [{ id: 'r-0001', from: 0, to: 3 }];
+  assert.equal(rebaseCaptionRuns('あかり', '', run, { mode: 'project' }).removed.length, 1);
+  assert.deepEqual(rebaseCaptionRuns('あかり', 'AKARI', run, { mode: 'project' }).runs[0],
+    { ...run[0], from: 0, to: 5, needs_review: true });
+});
+
 test('付け替え: LCS の同点候補には needs_review を付ける', () => {
   const result = rebaseCaptionRuns('AB', 'BA', [{ from: 1, to: 2 }]);
   assert.equal(result.runs[0].needs_review, true);
 });
 
-test('付け替え: 同じ文字が複製された同点も needs_review にする', () => {
+test('付け替え: 共通の先頭が確定した後の同じ文字の追加は要確認にしない', () => {
   const result = rebaseCaptionRuns('猫', '猫猫', [{ from: 0, to: 1 }]);
-  assert.equal(result.runs[0].needs_review, true);
+  assert.equal(result.runs[0].needs_review, undefined);
+});
+
+test('付け替え: 「すごい」の直後に「い」を足しても範囲と確認状態を保つ', () => {
+  assert.deepEqual(rebaseCaptionRuns('すごい', 'すごいい',
+    [{ id: 'r-0001', from: 0, to: 3 }]).runs,
+  [{ id: 'r-0001', from: 0, to: 3 }]);
 });
 
 test('分割: spoken の両側 anchor を行の時刻へ切り詰める', () => {
@@ -147,14 +176,28 @@ test('分割: anchor が空の側は shown、fire_was、needs_review を持つ',
   assert.equal(split.right[0].needs_review, true);
 });
 
-test('結合: ファイル全体の採番で id が衝突しない', () => {
-  assert.equal(nextCaptionRunId([{ id: 'r-0001' }, { id: 'r-0002' }]), 'r-0003');
+test('採番: r-0001 と r-0003 があれば次は r-0004', () => {
+  assert.equal(nextCaptionRunId([{ id: 'r-0001' }, { id: 'r-0003' }]), 'r-0004');
+  assert.equal(nextCaptionRunId([{ id: 'r-9999' }]), 'r-10000');
 });
 
-test('結合: 色も時刻も違う隣接 run は自動結合されない', () => {
-  const runs = [{ from: 0, to: 1, look: { color: '#f00' }, anchor: { start: 0, end: 1 } },
-    { from: 1, to: 2, look: { color: '#00f' }, anchor: { start: 1, end: 2 } }];
-  assert.equal(joinAdjacentCaptionRuns(runs).length, 2);
+test('採番: 未解決の r-0009 があれば分割の次は r-0010', () => {
+  const original = row('猫犬', { start: 0, end: 2, words: [
+    { text: '猫', start: 0, end: 1 }, { text: '犬', start: 1, end: 2 }],
+  runs: [{ id: 'r-0001', from: 0, to: 2 }] });
+  const source = { captions: [original], unresolved_runs: [{ run: { id: 'r-0009', from: 0, to: 1 },
+    old_caption_id: 'old', old_text: '猫', old_src: 's1', old_start: 0, old_end: 1, reason: '移動' }] };
+  const split = JSON.parse(splitCaptionLine(JSON.stringify(source), 'c-0001', 1, 'c-0002'));
+  assert.equal(split.captions[1].runs[0].id, 'r-0010');
+  assert.equal(clearCaptionRunRange([{ id: 'r-0001', from: 0, to: 3 }], 1, 2,
+    [source.captions[0].runs[0], source.unresolved_runs[0].run])[1].id, 'r-0010');
+});
+
+test('採番: reader の emphasis 投影も未解決 r-0009 の後を使う', () => {
+  const root = { captions: [row('猫')],
+    emphasis_words: [{ id: 'e-0001', src: 's1', word: '猫', t_start: 0, t_end: 1, emotion: 'joy' }],
+    unresolved_runs: [{ run: { id: 'r-0009', from: 0, to: 1 } }] };
+  assert.equal(readCaptionLookV1(root, {}).captions[0].runs[0].id, 'r-0010');
 });
 
 test('保存経路: 分割後に結合しても run の id と独立した範囲を保つ', () => {
@@ -165,6 +208,27 @@ test('保存経路: 分割後に結合しても run の id と独立した範囲
   const merged = JSON.parse(mergeCaptionLines(split, ['c-0001', 'c-0002']));
   assert.equal(merged.captions[0].runs.length, 2);
   assert.equal(new Set(merged.captions[0].runs.map(run => run.id)).size, 2);
+});
+
+test('保存経路: AKARI の範囲は表示から原文への分割と結合でも消えない', () => {
+  const original = row('あかりは便利', { start: 0, end: 2, display_text: 'AKARIは便利',
+    words: [{ text: 'あかり', start: 0, end: 1 }, { text: 'は便利', start: 1, end: 2 }],
+    runs: [{ id: 'r-0001', from: 0, to: 5 }] });
+  const split = splitCaptionLine(JSON.stringify({ captions: [original] }), 'c-0001', 1, 'c-0002');
+  const parts = JSON.parse(split).captions;
+  assert.deepEqual(parts[0].runs[0], { id: 'r-0001', from: 0, to: 3, needs_review: true });
+  const merged = JSON.parse(mergeCaptionLines(split, ['c-0001', 'c-0002']));
+  assert.deepEqual(merged.captions[0].runs[0], parts[0].runs[0]);
+});
+
+test('結合: 色も時刻も違う隣接 run は mergeCaptionLines 後も二件のまま', () => {
+  const first = row('猫', { start: 0, end: 1, runs: [{ id: 'r-0001', from: 0, to: 1,
+    look: { color: '#f00' }, anchor: { start: 0, end: 1, domain: 'source' } }] });
+  const second = row('犬', { id: 'c-0002', start: 1, end: 2, runs: [{ id: 'r-0002', from: 0, to: 1,
+    look: { color: '#00f' }, anchor: { start: 1, end: 2, domain: 'source' } }] });
+  const merged = JSON.parse(mergeCaptionLines(JSON.stringify({ captions: [first, second] }), ['c-0001', 'c-0002']));
+  assert.deepEqual(merged.captions[0].runs.map(run => [run.id, run.from, run.to]),
+    [['r-0001', 0, 1], ['r-0002', 1, 2]]);
 });
 
 test('行の消失: unresolved_runs 用に旧行の素材と時刻を残す', () => {
@@ -195,6 +259,13 @@ const timeline = { segments: [
 test('写像: s1 の後の s2 の 2 秒は出力 12 秒', () => {
   assert.equal(anchorToOutput({ src: 's2', start: 2, end: 3, domain: 'source' },
     { src: 's2', start: 0, end: 10 }, timeline)[0].start, 12);
+});
+
+test('写像: buildTimelineMap の実配置で s2 の 2 秒は出力 12 秒', () => {
+  const map = buildTimelineMap([{ id: 'cut-1', src: 's1', in: 0, out: 10, at: 0, track: 0 },
+    { id: 'cut-2', src: 's2', in: 0, out: 10, at: 10, track: 0 }]);
+  assert.equal(anchorToOutput({ src: 's2', start: 2, end: 3, domain: 'source' },
+    { src: 's2', start: 0, end: 10 }, map)[0].start, 12);
 });
 
 test('写像: 同じ素材の 2 回使用は配置ごとに発火する', () => {
@@ -229,8 +300,19 @@ test('写像: 表示窓より前の発火は窓の始まりへ寄せ、後なら
   const after = anchorToOutput({ src: 's1', start: 6, end: 7, domain: 'source' },
     { src: 's1', start: 2, end: 5 }, timeline)[0];
   assert.equal(before.start, 2);
+  assert.equal(before.fire, 'shown');
   assert.equal(after.start, undefined);
+  assert.equal(after.fire, 'none');
   assert.equal(after.diagnostics[0].code, 'captions.run.anchor-window');
+});
+
+test('写像: 配置 in=6 のとき字幕 5 秒の開始は出力 4 秒に寄せる', () => {
+  const map = { segments: [{ kind: 'src', src: 's1', in: 6, out: 10,
+    speed: 1, outStart: 4, outEnd: 8, cutIndex: 0 }] };
+  const result = anchorToOutput({ src: 's1', start: 4, end: 5, domain: 'source' },
+    { src: 's1', start: 5, end: 8 }, map)[0];
+  assert.equal(result.start, 4);
+  assert.equal(result.fire, 'shown');
 });
 
 test('移行: emphasis 3 件、runs v0、style_preset を 2 回移しても増えない', () => {
@@ -251,6 +333,64 @@ test('移行: runs v0 の animation は dormant_animation で描画用 motion �
     runs: [{ from: 0, to: 1, animation: { in: { id: 'pop' } } }] })] }, {}).next;
   assert.equal(result.captions[0].runs[0].motion, undefined);
   assert.deepEqual(result.captions[0].runs[0].dormant_animation, { in: { id: 'pop' } });
+});
+
+test('移行: 旧形式が無ければ元と深く等しく diff も空', () => {
+  const original = { captions: [row('猫')] };
+  const result = planCaptionLookMigration(original, {});
+  assert.deepEqual(result.next, original);
+  assert.deepEqual(result.diff, []);
+  assert.equal(Object.hasOwn(result.next.captions[0], 'runs'), false);
+  assert.equal(Object.hasOwn(result.next, 'emphasis_words'), false);
+  assert.equal(Object.hasOwn(readCaptionLookV1(original, {}).captions[0], 'runs'), false);
+  const withEmpty = { captions: [row('猫', { runs: [] })], emphasis_words: [] };
+  assert.deepEqual(planCaptionLookMigration(withEmpty, {}).next, withEmpty);
+});
+
+test('移行: 縁の 6px と scale 0.7、5px と scale 1.3 を厳密に戻す', () => {
+  for (const [width, scale] of [[6, 0.7], [5, 1.3]]) {
+    const original = { captions: [row('猫', { runs: [{ from: 0, to: 1,
+      style: { scale, stroke: { color: '#fff', width_px: width } } }] })] };
+    const migrated = planCaptionLookMigration(original, {}).next;
+    const restored = captionRenderInputFromV1(migrated);
+    assert.equal(restored.captions[0].runs[0].style.stroke.width_px, width);
+    assert.match(applyCaptionRunsToHtml('<p class="akari-caption__line">猫</p>', '猫',
+      migrated.captions[0].runs), new RegExp(`-webkit-text-stroke:${width}px`));
+  }
+});
+
+test('移行: emphasis の順序、追加項目、style_hint の省略を復元する', () => {
+  const emphasis = [
+    { id: 'e-0009', src: 's1', word: '猫', t_start: 0, t_end: 1, emotion: 'joy', note: '先頭' },
+    { id: 'e-0001', src: 's1', word: '犬', t_start: 1, t_end: 2,
+      emotion: 'joy', style_hint: 'color-only', note: '残す' },
+    { id: 'e-0005', src: 's1', word: '鳥', t_start: 2, t_end: 3,
+      emotion: 'surprise', style_hint: 'one-char-bang', extra: { k: '値' } }
+  ];
+  const original = { captions: [row('猫犬鳥', { start: 0, end: 3 })], emphasis_words: emphasis };
+  const migrated = planCaptionLookMigration(original, {}).next;
+  assert.equal(migrated.emphasis_words.length, 1);
+  assert.deepEqual(captionRenderInputFromV1(migrated).emphasis_words, emphasis);
+  assert.equal(Object.hasOwn(captionRenderInputFromV1(migrated).emphasis_words[0], 'style_hint'), false);
+});
+
+test('出所: 日本語と絵文字を含む正規化 SHA-256 は node:crypto と一致し鍵順に依らない', () => {
+  const value = { 日本語: { z: '😀', a: ['猫', { b: 2, a: 1 }] }, x: true };
+  const normalized = { x: true, 日本語: { a: ['猫', { a: 1, b: 2 }], z: '😀' } };
+  const expected = createHash('sha256').update(JSON.stringify(normalized), 'utf8').digest('hex');
+  assert.equal(captionValueHash(value), `sha256:${expected}`);
+  assert.equal(captionValueHash(value), captionValueHash(normalized));
+});
+
+test('出所: textStyleToJson の保存順を通しても applied_hash は変わらない', () => {
+  const catalog = { sample: { style: { shadow: { color: '#fff', blur_px: 2 },
+    size_px: 80, color: '#f00' } } };
+  const migrated = planCaptionLookMigration({ captions: [row('猫', { style_preset: 'sample' })] }, catalog).next;
+  const before = migrated.captions[0].style_sources.look.applied_hash;
+  const parsed = parseCaptions(JSON.stringify(migrated)).captions[0];
+  const written = JSON.parse(insertCaptionLine(JSON.stringify({ captions: [] }),
+    { ...parsed, id: 'c-0002' }));
+  assert.equal(captionValueHash(written.captions[0].text_style), before);
 });
 
 test('移行: 行 preset の前後で render-cut 用 CSS 変数とテキストを保つ', () => {
@@ -322,6 +462,59 @@ test('検証: anchor が写せないと warning', () => {
   })] }, timeline: { segments: [] } });
   assert.equal(diagnostics[0].severity, 'warning');
   assert.equal(diagnostics[0].code, 'captions.run.anchor-cut');
+});
+
+test('検証: 行の時刻の外の anchor は error ではなく warning', () => {
+  const diagnostics = validateCaptionsSemantics({ captions: { captions: [row('猫', {
+    runs: [{ id: 'r-0001', from: 0, to: 1, fire: 'spoken',
+      anchor: { src: 's1', start: 11, end: 12, domain: 'source' } }]
+  })] } });
+  assert.equal(diagnostics.find(item => item.code === 'captions.run.anchor-window').severity, 'warning');
+  assert.equal(diagnostics.some(item => item.severity === 'error'), false);
+});
+
+test('検証: 配置がある行の窓外 anchor は写像の警告を一件だけ出す', () => {
+  const fixture = { captions: [row('猫', { start: 5, end: 8, runs: [
+    { id: 'r-0001', from: 0, to: 1, fire: 'spoken',
+      anchor: { src: 's1', start: 4, end: 6, domain: 'source' } }
+  ] })] };
+  const cuts = [{ id: 'cut-1', src: 's1', in: 0, out: 10, at: 0, track: 0 }];
+  const warnings = validateCaptionsSemantics({ captions: fixture, timeline: cuts })
+    .filter(item => item.path === 'captions.json#captions[0].runs[0]'
+      && item.code === 'captions.run.anchor-window');
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].severity, 'warning');
+  assert.equal(warnings[0].message, '発火を表示窓の始まりへ寄せました。');
+});
+
+test('検証: 配置がない行の窓外 anchor は静的な警告を一件だけ出す', () => {
+  const diagnostics = validateCaptionsSemantics({ captions: { captions: [row('猫', {
+    start: 5, end: 8, runs: [{ id: 'r-0001', from: 0, to: 1, fire: 'spoken',
+      anchor: { src: 's1', start: 4, end: 6, domain: 'source' } }]
+  })] } });
+  const warnings = diagnostics.filter(item => item.path === 'captions.json#captions[0].runs[0]'
+    && item.code === 'captions.run.anchor-window');
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].severity, 'warning');
+  assert.equal(warnings[0].message, '範囲の実測時刻を行の表示窓へ切り詰めます。');
+});
+
+test('検証: 同じ素材の複数配置でも同じ範囲の警告は一件にまとめる', () => {
+  const cuts = [0, 10].map((at, index) =>
+    ({ id: `cut-${index + 1}`, src: 's1', in: 0, out: 10, at, track: 0 }));
+  const diagnostics = validateCaptionsSemantics({ captions: { captions: [row('猫', {
+    start: 5, end: 8, runs: [{ id: 'r-0001', from: 0, to: 1, fire: 'spoken',
+      anchor: { src: 's1', start: 4, end: 6, domain: 'source' } }]
+  })] }, timeline: cuts });
+  assert.equal(diagnostics.filter(item => item.path === 'captions.json#captions[0].runs[0]'
+    && item.code === 'captions.run.anchor-window').length, 1);
+});
+
+test('検証: null ルートと null 行・run を飛ばして例外を出さない', () => {
+  assert.deepEqual(validateCaptionsSemantics({ captions: null }), []);
+  assert.deepEqual(validateCaptionsSemantics({ captions: { captions: null } }), []);
+  assert.deepEqual(validateCaptionsSemantics({ captions: { captions: [null,
+    row('猫', { runs: [null, 1] })] } }), []);
 });
 
 test('検証: GPU で描けない motion は経路だけ error', () => {

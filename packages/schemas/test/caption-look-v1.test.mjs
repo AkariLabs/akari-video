@@ -14,6 +14,8 @@ test('スキーマ: runs v1 と unresolved_runs と style_sources を受理す�
     emotion: 'joy', anchor: { src: 's1', start: 0, end: 1, domain: 'source' }, fire: 'spoken',
     style_sources: { look: { kind: 'builtin', id: 'sample', original_hash: 'a', applied_hash: 'b' } },
     needs_review: false, split_from: 'r-0002', migrated_from: 'e-0001',
+    migrated_emphasis: { index: 2, item: { id: 'e-0001', word: '猫', src: 's1',
+      t_start: 0, t_end: 1, emotion: 'joy', note: '追加項目' } },
     dormant_animation: { loop: { id: 'float' } } };
   const root = { captions: [row({ runs: [run], style_sources: run.style_sources })],
     unresolved_runs: [{ run, old_caption_id: 'c-0002', old_text: '猫', old_src: 's1',

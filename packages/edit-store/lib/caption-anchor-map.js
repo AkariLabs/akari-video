@@ -6,14 +6,14 @@ exports.inferCaptionDisplayToSource = inferCaptionDisplayToSource;
 exports.fitCaptionMotionWindow = fitCaptionMotionWindow;
 const timeline_map_1 = require("./timeline-map");
 const caption_runs_1 = require("./caption-runs");
-function anchorToOutput(anchor, caption, timeline, fire = 'spoken') {
+function anchorToOutput(anchor, caption, timeline, fire = 'shown') {
     const map = Array.isArray(timeline) ? (0, timeline_map_1.buildTimelineMap)(timeline) : timeline;
     const warning = (code, message) => ({ fire: 'shown', diagnostics: [{ code, severity: 'warning', message }] });
     if (!anchor)
         return [{ fire: 'shown', diagnostics: [] }];
     const clip = (start, end, windowStart, windowEnd, placement) => {
         if (start >= windowEnd)
-            return { fire: 'shown', placement,
+            return { fire: 'none', placement,
                 diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning', message: '発火が表示窓の後にあります。' }] };
         const before = start < windowStart;
         return { start: Math.max(start, windowStart), end: Math.min(Math.max(end, windowStart), windowEnd),
@@ -27,14 +27,15 @@ function anchorToOutput(anchor, caption, timeline, fire = 'spoken') {
         && segment.in !== undefined && segment.out !== undefined && segment.in < caption.end && segment.out > caption.start);
     if (anchor.end <= caption.start && placements.length)
         return placements.map(segment => ({
-            start: segment.outStart + (caption.start - segment.in) / (segment.speed && segment.speed > 0 ? segment.speed : 1),
+            start: segment.outStart + (Math.max(caption.start, segment.in) - segment.in)
+                / (segment.speed && segment.speed > 0 ? segment.speed : 1),
             fire: fire ?? 'shown', placement: segment.cutIndex ?? undefined,
             diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning',
                     message: '発火を表示窓の始まりへ寄せました。' }]
         }));
     if (anchor.start >= caption.end && placements.length)
         return placements.map(segment => ({
-            fire: 'shown', placement: segment.cutIndex ?? undefined,
+            fire: 'none', placement: segment.cutIndex ?? undefined,
             diagnostics: [{ code: 'captions.run.anchor-window', severity: 'warning',
                     message: '発火が表示窓の後にあります。' }]
         }));
@@ -47,7 +48,12 @@ function anchorToOutput(anchor, caption, timeline, fire = 'spoken') {
         const sourceEnd = Math.min(anchor.end, segment.out);
         if (!(sourceStart < sourceEnd))
             continue;
-        results.push(clip(segment.outStart + (sourceStart - segment.in) / speed, segment.outStart + (sourceEnd - segment.in) / speed, windowStart, windowEnd, segment.cutIndex ?? undefined));
+        const result = clip(segment.outStart + (sourceStart - segment.in) / speed, segment.outStart + (sourceEnd - segment.in) / speed, windowStart, windowEnd, segment.cutIndex ?? undefined);
+        if (anchor.start < Math.max(caption.start, segment.in) && !result.diagnostics.length) {
+            result.diagnostics.push({ code: 'captions.run.anchor-window', severity: 'warning',
+                message: '発火を表示窓の始まりへ寄せました。' });
+        }
+        results.push(result);
     }
     return results.length ? results : [warning('captions.run.anchor-cut', '発火する素材の区間がカットで消えました。')];
 }

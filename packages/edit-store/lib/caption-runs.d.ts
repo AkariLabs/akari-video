@@ -44,6 +44,10 @@ export interface CaptionRun {
     needs_review?: boolean;
     split_from?: string;
     migrated_from?: string;
+    migrated_emphasis?: {
+        index: number;
+        item: Record<string, unknown>;
+    };
 }
 export interface CaptionRunAnimationSlot {
     id: string;
@@ -73,14 +77,19 @@ export declare function captionRunStyleFromLook(look: Record<string, unknown>, b
 export declare function resolveCaptionRuns(text: string, runs?: readonly CaptionRun[]): ResolvedCaptionRunChar[];
 /** Project a displayed substring, including one side of a manual line split. */
 export declare function sliceCaptionRuns(text: string, runs: readonly CaptionRun[] | undefined, start: number, end: number): CaptionRun[] | undefined;
+/** 描画に渡す px 値の浮動小数点誤差をそろえる。 */
+export declare function roundCaptionPixel(value: number): number;
 /** 複数の差分区間を、書記素 LCS で対応付ける。 */
-export declare function rebaseCaptionRuns(oldText: string, newText: string, runs: readonly CaptionRun[]): {
+export declare function rebaseCaptionRuns(oldText: string, newText: string, runs: readonly CaptionRun[], options?: {
+    mode?: 'edit' | 'project';
+}): {
     runs: CaptionRun[];
     removed: CaptionRun[];
 };
+/** @deprecated 結合は明示操作だけで行う。 */
 export declare function joinAdjacentCaptionRuns(runs: readonly CaptionRun[]): CaptionRun[];
 export declare function nextCaptionRunId(runs: readonly CaptionRun[]): string;
-export declare function clearCaptionRunRange(runs: readonly CaptionRun[], from: number, to: number): CaptionRun[];
+export declare function clearCaptionRunRange(runs: readonly CaptionRun[], from: number, to: number, allRuns?: readonly CaptionRun[]): CaptionRun[];
 export declare function splitCaptionRuns(text: string, runs: readonly CaptionRun[], splitUtf16: number, leftWindow: {
     start: number;
     end: number;
