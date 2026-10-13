@@ -253,6 +253,28 @@ class CandidateInputsCliManager extends GenerationCliManager {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    async getTransitionBoundaryPreviewUrls(): Promise<Record<string, { preview?: string; strip?: string }>> {
+        const index = await this.findGenerationAsset('presets/transitions/index.jsonl').catch(() => undefined);
+        if (!index) return {};
+        const urls: Record<string, { preview?: string; strip?: string }> = {};
+        try {
+            for (const line of (await fs.readFile(index, 'utf8')).split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                const item = JSON.parse(line) as { id?: string; preview?: string; preview_strip?: string };
+                const id = item.id;
+                if (!id || !/^[a-z0-9][a-z0-9-]*$/u.test(id)
+                    || item.preview !== `${id}/preview.webp`
+                    || item.preview_strip !== `${id}/preview-strip.webp`) continue;
+                const preview = await this.findGenerationAsset(`presets/transitions/${id}/preview.webp`).catch(() => undefined);
+                const strip = await this.findGenerationAsset(`presets/transitions/${id}/preview-strip.webp`).catch(() => undefined);
+                if (preview || strip) urls[id] = {
+                    ...(preview ? { preview: pathToFileURL(preview).toString() } : {}),
+                    ...(strip ? { strip: pathToFileURL(strip).toString() } : {})
+                };
+            }
+        } catch { return {}; }
+        return urls;
+    }
     @inject(ApplicationServer)
     protected readonly applicationServer!: ApplicationServer;
     private writerVersionPromise?: Promise<string | undefined>;

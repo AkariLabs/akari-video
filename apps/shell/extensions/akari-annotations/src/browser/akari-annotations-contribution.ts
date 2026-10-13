@@ -73,6 +73,8 @@ import { parseDocTarget } from '../common/doc-target';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
+import { TRANSITION_OPEN_PICKER_COMMAND_ID, TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID,
+    TRANSITION_REMOVE_COMMAND_ID, TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID } from '../common/transition-boundary-model';
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { captionPanelSelection } from './inspector/caption-panel-selection';
 import { editUriForVisibleTimeline, setActiveTimelineEditUri } from './active-timeline';
@@ -428,6 +430,34 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     registerCommands(commands: CommandRegistry): void {
         this.getShortcutKeybindings().registerCommands(commands);
+        const activeTransition = (): AkariAnnotationsWidget | undefined => {
+            const widget = this.timelineWidget;
+            if (widget?.activeBoundaryRef) return widget;
+            widget?.showTransitionSelectionPrompt();
+            this.messages.info(t('transition.picker.notice.selectBoundaryFirst'));
+            return undefined;
+        };
+        commands.registerCommand({ id: TRANSITION_OPEN_PICKER_COMMAND_ID,
+            label: t('transition.picker.command.openPicker'), category: t('transition.picker.command.category') }, {
+            execute: () => activeTransition()?.openActiveTransitionPicker()
+        });
+        commands.registerCommand({ id: TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID,
+            label: t('transition.picker.command.applyToActiveBoundary'), category: t('transition.picker.command.category') }, {
+            execute: (argument?: { type?: unknown }) => activeTransition()?.applyToActiveTransitionBoundary(argument?.type)
+        });
+        commands.registerCommand({ id: TRANSITION_REMOVE_COMMAND_ID,
+            label: t('transition.picker.command.remove'), category: t('transition.picker.command.category') }, {
+            execute: () => activeTransition()?.removeActiveTransition()
+        });
+        commands.registerCommand({ id: TRANSITION_REVEAL_IN_INSPECTOR_COMMAND_ID,
+            label: t('transition.picker.command.revealInInspector'), category: t('transition.picker.command.category') }, {
+            execute: async () => {
+                const widget = activeTransition();
+                if (!widget?.revealActiveTransitionInInspector()) return false;
+                await this.openInspectorPanel();
+                return true;
+            }
+        });
         commands.registerCommand({ id: 'akari.timeline.toggleVisibility', label: t('annotations.annotationsContribution.text.hideShowTimeline'), category: t('annotations.annotationsContribution.text.timeline') }, {
             execute: () => this.setTimelineHidden(!this.timelineHidden),
             isToggled: () => this.timelineHidden

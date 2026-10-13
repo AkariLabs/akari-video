@@ -66,9 +66,9 @@ test('inline timeline surfaces and marks resolve the shared variables', () => {
   assert.match(metrics, /STRIP_BACKGROUND = 'var\(--akari-tl-lane\)'/u);
   for (const [name, token] of [
     ['RULER_TICK_COLOR', 'tick'], ['RULER_BAND_BACKGROUND', 'ruler'],
-    ['STRIP_BORDER_COLOR', 'border'], ['PLAYHEAD_COLOR', 'playhead'],
-    ['TRANSITION_BADGE_NEUTRAL_BORDER_COLOR', 'transition-neutral']
+    ['STRIP_BORDER_COLOR', 'border'], ['PLAYHEAD_COLOR', 'playhead']
   ]) assert.ok(widget.includes(`const ${name} = 'var(--akari-tl-${token})'`), name);
+  assert.match(css, /\.akari-transition-boundary \{[\s\S]*?border: 1px solid var\(--akari-tl-transition-neutral\)/u);
   assert.match(widget, /style="stroke: \$\{PLAYHEAD_COLOR\}"/u);
   assert.match(widget, /const waveformStyle = getComputedStyle\(this\.node\);/u);
   assert.match(widget, /waveformStyle\.getPropertyValue\('--akari-tl-waveform'\)/u);

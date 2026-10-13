@@ -28,6 +28,7 @@ export const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
+const TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID = 'akari.transition.applyToActiveBoundary';
 
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
@@ -70,6 +71,7 @@ export interface LibraryPaneHost {
 }
 
 export class AkariLibraryPane {
+    protected transitionDragEndedAt = -Infinity;
     public catalogPickError?: string;
     protected catalogPicking = false;
     /**
@@ -429,7 +431,15 @@ export class AkariLibraryPane {
                                         data-akari-favorite={this.host.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
                                         title={t('project.library.pane.labelJaDragCutBoundaryLabel', { labelJa: transition.labelJa })}
                                         onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
-                                        onDragEnd={() => this.host.handleLibraryTransitionDragEnd()}
+                                        onDragEnd={() => {
+                                            this.transitionDragEndedAt = performance.now();
+                                            this.host.handleLibraryTransitionDragEnd();
+                                        }}
+                                        onClick={() => {
+                                            if (performance.now() - this.transitionDragEndedAt < 400) return;
+                                            void this.host.commandService.executeCommand(
+                                                TRANSITION_APPLY_TO_ACTIVE_BOUNDARY_COMMAND_ID, { type: transition.id });
+                                        }}
                                         onContextMenu={event => this.host.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
                                         onKeyDown={event => {
                                             if (event.key === 'Enter' && event.target === event.currentTarget) {

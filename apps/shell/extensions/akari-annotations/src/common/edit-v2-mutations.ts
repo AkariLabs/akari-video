@@ -1,4 +1,5 @@
 import { t } from '@akari-video/i18n';
+import { mergeTransitionDeclaration } from './transition-boundary-model';
 /**
  * edit.json v2 の全文スナップショット用ミューテーション。
  *
@@ -882,7 +883,13 @@ export function updateItem(
         const source = recordOf(found.item.source, t('annotationscommon.editV2Mutations.field.clipSource'));
         if (Object.prototype.hasOwnProperty.call(sourcePatch, 'in')) requireSeconds(sourcePatch.in, 'source.in');
         if (Object.prototype.hasOwnProperty.call(sourcePatch, 'out')) requireSeconds(sourcePatch.out, 'source.out');
-        next.source = mergeNullable(source, sourcePatch);
+        const normalizedSourcePatch = { ...sourcePatch };
+        if (isRecord(normalizedSourcePatch.transition_out)) {
+            normalizedSourcePatch.transition_out = mergeTransitionDeclaration(source.transition_out, {
+                type: String(normalizedSourcePatch.transition_out.type), duration: Number(normalizedSourcePatch.transition_out.duration)
+            });
+        }
+        next.source = mergeNullable(source, normalizedSourcePatch);
     }
     found.track.items[found.itemIndex] = next;
     return value;
