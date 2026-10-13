@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { webviewKeydownSource } from '../lib/browser/webview-keydown-source.js';
 
 setAnnotationLanguage('ja');
 globalThis.t = annotationT;
@@ -161,8 +162,8 @@ test('Escape clears a range even when no item is selected', () => {
   state.node = { contains: () => false };
   state.isEditableTarget = () => false;
   const create = new Function('document', 'HTMLElement', 'isImeCompositionKeydown',
-    'captionEditFocusWithinMarkedWidget', `${code}\nreturn create;`)(
-    document, HTMLElement, () => false, () => false);
+    'captionEditFocusWithinMarkedWidget', 'webviewKeydownSource', 'WebviewWidget', `${code}\nreturn create;`)(
+    document, HTMLElement, () => false, () => false, webviewKeydownSource, { FACTORY_ID: 'plugin-webview' });
   const keydownHandler = create.call(state);
   let prevented = false;
   keydownHandler({ key: 'Escape', target: body,
