@@ -1,6 +1,6 @@
 // F-49: akari-preview-open-handler.ts から機械移設した webview 注入スクリプト（テンプレート文字列の本文は無改変）。
 import { createCaptionStylePreviewController } from '../common/caption-style-preview';
-import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { CAPTION_INHERITED_EMPHASIS_VARS, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { clampPreviewMaterialRange, materialDragPayload, normalizeMaterialRange, positionMaterialPlace,
     type MaterialDragIdentity } from '../common/material-range-messages';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
@@ -7501,6 +7501,7 @@ export function previewBootstrapScript(): string {
                 }).join('');
             };
             const emphasisPresets = ${JSON.stringify(TEXTSTYLE_CATALOG)};
+            const inheritedEmphasisVars = ${JSON.stringify(CAPTION_INHERITED_EMPHASIS_VARS)};
             const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
                 emphasis.t_end > word.start
                 && emphasis.t_start < word.end
@@ -7529,6 +7530,54 @@ export function previewBootstrapScript(): string {
                     span.style.textShadow = '0 0 ' + preset.shadow.blur_px + 'px '
                         + (preset.shadow.color || color);
                 }
+                if (emphasis.inherit_caption_size === true && inheritedEmphasisVars[emphasis.style_preset]) {
+                    const vars = inheritedEmphasisVars[emphasis.style_preset];
+                    if (vars['--caption-tok-webkit-text-stroke']) {
+                        span.style.setProperty('-webkit-text-stroke', vars['--caption-tok-webkit-text-stroke'], 'important');
+                    }
+                    if (vars['--caption-tok-text-shadow']) {
+                        span.style.setProperty('text-shadow', vars['--caption-tok-text-shadow'], 'important');
+                    }
+                }
+            };
+            const clearKaraokePaintForEmphasis = line => {
+                for (const token of [...line.querySelectorAll('.akari-caption__tok--karaoke, .akari-caption__tok--karaoke-done, .akari-caption__tok--karaoke-smooth')]) {
+                    const markers = [...token.querySelectorAll('[data-emphasis-id]')];
+                    if (!markers.length) continue;
+                    if (markers.map(marker => marker.textContent || '').join('') === token.textContent) {
+                        token.classList.remove('akari-caption__tok--karaoke', 'akari-caption__tok--karaoke-done',
+                            'akari-caption__tok--karaoke-smooth');
+                        token.removeAttribute('data-karaoke-text');
+                        continue;
+                    }
+                    const children = [...token.childNodes];
+                    if (!children.some(child => child.nodeType === Node.ELEMENT_NODE
+                        && child.matches('[data-emphasis-id]'))) continue;
+                    const fragment = document.createDocumentFragment();
+                    const total = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(token.textContent || '')].length;
+                    const delay = parseFloat(token.style.getPropertyValue('--akari-tok-delay'));
+                    const duration = parseFloat(token.style.getPropertyValue('--akari-tok-dur'));
+                    let offset = 0;
+                    for (const child of children) {
+                        const value = child.textContent || '';
+                        const length = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].length;
+                        if (child.nodeType === Node.ELEMENT_NODE && child.matches('[data-emphasis-id]')) {
+                            child.classList.add('akari-caption__tok');
+                            fragment.appendChild(child);
+                        } else if (value) {
+                            const copy = token.cloneNode(false);
+                            copy.appendChild(child);
+                            if (copy.hasAttribute('data-karaoke-text')) copy.dataset.karaokeText = value;
+                            if (total > 0 && Number.isFinite(delay) && Number.isFinite(duration)) {
+                                copy.style.setProperty('--akari-tok-delay', formatCaptionSeconds(delay + duration * offset / total) + 's');
+                                copy.style.setProperty('--akari-tok-dur', formatCaptionSeconds(duration * length / total) + 's');
+                            }
+                            fragment.appendChild(copy);
+                        }
+                        offset += length;
+                    }
+                    token.replaceWith(fragment);
+                }
             };
             const decorateCaptionEmphasis = (host, caption) => {
                 if (!host.ownerDocument || !emphasisWords.length) return;
@@ -7543,6 +7592,7 @@ export function previewBootstrapScript(): string {
                                 applyEmphasisPaint(run, emphasis);
                             }
                         }
+                        clearKaraokePaintForEmphasis(line);
                         continue;
                     }
                     const matches = captionEmphasisMatchesFn(line.textContent || '',
@@ -7556,6 +7606,10 @@ export function previewBootstrapScript(): string {
                     for (const node of nodes) {
                         const value = node.textContent || '';
                         const end = offset + value.length;
+                        if (node.parentElement?.closest('[data-emphasis-preset]')) {
+                            offset = end;
+                            continue;
+                        }
                         const intersecting = matches.filter(match => match.from < end && match.to > offset);
                         if (intersecting.length) {
                             const fragment = document.createDocumentFragment();
@@ -7578,6 +7632,7 @@ export function previewBootstrapScript(): string {
                         }
                         offset = end;
                     }
+                    clearKaraokePaintForEmphasis(line);
                 }
             };
             const resolveEmphasisStyle = emphasis => {

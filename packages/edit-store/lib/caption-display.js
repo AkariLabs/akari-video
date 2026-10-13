@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.CAPTION_INHERITED_EMPHASIS_VARS = exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_RICH_LAYER_CSS = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
 exports.captionDefaultSizePx = captionDefaultSizePx;
 exports.alignCaptionRichFillPhase = alignCaptionRichFillPhase;
 exports.measureCaptionUnits = measureCaptionUnits;
@@ -40,6 +40,7 @@ const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 const caption_runs_1 = require("./caption-runs");
 const caption_timeline_1 = require("./caption-timeline");
+const caption_emphasis_match_1 = require("./caption-emphasis-match");
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -402,6 +403,13 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
             const sourceCaption = captions[occurrence.caption_input_index];
+            const untimedEmphasis = !Array.isArray(sourceCaption.words) || sourceCaption.words.length === 0
+                ? (Array.isArray(captionsRoot.emphasis_words) ? captionsRoot.emphasis_words
+                    : Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : [])
+                    .filter((item) => isRecord(item) && typeof item.id === 'string' && typeof item.word === 'string'
+                    && typeof item.t_start === 'number' && typeof item.t_end === 'number')
+                    .filter(item => group.lines.some(line => (0, caption_emphasis_match_1.captionEmphasisMatches)(line, sourceCaption.start, sourceCaption.end, [item], sourceCaption.src).length > 0))
+                : [];
             const karaokeEligible = (sourceCaption.style ?? policy.word_style) === 'karaoke'
                 && karaokeEligibleByCaption.has(occurrence.caption_input_index);
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text, karaokeEligible);
@@ -432,6 +440,7 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
                 ...(wordDisplay ? { words: wordDisplay.words } : {}),
                 ...(wordDisplay?.wordStyles.length ? { word_styles: wordDisplay.wordStyles } : {}),
+                ...(untimedEmphasis.length ? { untimed_emphasis_words: untimedEmphasis } : {}),
                 ...(karaoke ? {
                     style: 'karaoke',
                     karaoke_offset: captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
@@ -539,14 +548,15 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
     if (emphasisWords.length === 0 && !defaultKaraoke && !captions.some(caption => caption?.style === 'karaoke'))
         return new Map();
     const presetCache = new Map();
-    const resolvePreset = (presetId) => {
-        if (presetCache.has(presetId))
-            return presetCache.get(presetId);
+    const resolvePreset = (presetId, inherit) => {
+        const key = `${presetId}:${inherit}`;
+        if (presetCache.has(key))
+            return presetCache.get(key);
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
         const vars = resolved.resolved && isRecord(resolved.record.text_style)
-            ? resolveCaptionWordStyleVars(resolved.record.text_style, output)
+            ? resolveCaptionWordStyleVars(resolved.record.text_style, output, inherit)
             : null;
-        presetCache.set(presetId, vars);
+        presetCache.set(key, vars);
         return vars;
     };
     const result = new Map();
@@ -625,13 +635,11 @@ function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, 
                 if (!sourceMatches
                     || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
                     continue;
-                const resolvedVars = resolvePreset(candidate.style_preset);
+                const resolvedVars = resolvePreset(candidate.style_preset, candidate.inherit_caption_size === true);
                 if (!resolvedVars)
                     continue;
                 emphasis = candidate;
-                styleVars = candidate.inherit_caption_size === true
-                    ? Object.fromEntries(Object.entries(resolvedVars).filter(([key]) => key !== '--caption-tok-font-size'))
-                    : resolvedVars;
+                styleVars = resolvedVars;
                 break;
             }
             const value = {
@@ -2366,7 +2374,7 @@ function resolveCaptionStyleForOutput(style, output) {
     }
     return { vars, ...(layout ? { layout } : {}) };
 }
-function resolveCaptionWordStyleVars(style, output) {
+function resolveCaptionWordStyleVars(style, output, inheritCaptionSize = false) {
     const vars = {};
     const scale = resolveCaptionReferenceScale(style, output);
     if (typeof style.color === 'string')
@@ -2412,6 +2420,13 @@ function resolveCaptionWordStyleVars(style, output) {
         vars['--caption-tok-text-shadow'] = decorPart;
     else if (isRecord(style.stroke))
         vars['--caption-tok-text-shadow'] = 'none';
+    if (inheritCaptionSize && finitePositive(style.size_px)) {
+        const base = style.size_px * scale;
+        delete vars['--caption-tok-font-size'];
+        for (const [key, value] of Object.entries(vars)) {
+            vars[key] = value.replace(/(-?(?:\d+\.)?\d+)px\b/gu, (_match, number) => `${formatCssNumber(Number(number) / base)}em`);
+        }
+    }
     return vars;
 }
 const CAPTION_TEXT_TRANSFORM_MAP = {
@@ -2423,6 +2438,8 @@ const CAPTION_TEXT_TRANSFORM_MAP = {
     capitalize: 'capitalize',
     none: 'none'
 };
+exports.CAPTION_INHERITED_EMPHASIS_VARS = Object.fromEntries(Object.entries(textstyle_catalog_1.TEXTSTYLE_CATALOG)
+    .map(([id, preset]) => [id, resolveCaptionWordStyleVars(preset.style, undefined, true)]));
 function captionTextShadowValue(shadow, glow, scale = 1) {
     const parts = [];
     if (isRecord(shadow) && typeof shadow.color === 'string') {

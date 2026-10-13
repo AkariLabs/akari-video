@@ -23,6 +23,7 @@ const caption_runs_1 = require("./caption-runs");
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_merge_1 = require("./textstyle-catalog-merge");
 const caption_display_1 = require("./caption-display");
+const caption_look_scale_1 = require("./caption-look-scale");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -346,7 +347,7 @@ function applyWordBookToCaptionsInSource(source, changes) {
     }
     return output;
 }
-function updateCaptionTextStyleInSource(source, captionId, updates) {
+function updateCaptionTextStyleInSource(source, captionId, updates, options = {}) {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
@@ -354,6 +355,23 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
+    const catalog = options.catalog ?? (0, textstyle_catalog_merge_1.resolveTextstyleCatalog)().catalog;
+    if (updates.sizePx !== undefined) {
+        const record = JSON.parse(nextElement);
+        const root = JSON.parse(source);
+        const defaultStyle = isRecord(root) && isRecord(root.default_text_style) ? root.default_text_style : {};
+        const preset = presetStyle(catalog, record.style_preset);
+        const fallbackSize = typeof preset?.size_px === 'number' && preset.size_px > 0
+            ? preset.size_px : defaultStyle.size_px;
+        const nextSize = updates.sizePx === null ? fallbackSize : updates.sizePx;
+        if (typeof nextSize === 'number' && Number.isFinite(nextSize) && nextSize > 0) {
+            nextElement = rescaleCaptionPresetParts(nextElement, nextSize, source, catalog);
+        }
+    }
+    const record = JSON.parse(nextElement);
+    const preset = presetStyle(catalog, record.style_preset);
+    const derivedParts = preset && isRecord(record.text_style)
+        ? (0, caption_look_scale_1.captionPresetDerivedParts)(preset, record.text_style) : new Map();
     const existing = locateTopLevelProperty(nextElement, 'text_style');
     if (!existing) {
         const created = textStylePatchToJson(updates);
@@ -373,8 +391,12 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
         textStyle = updateOptionalStyleProperty(textStyle, 'line_height', updates.lineHeight, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'letter_spacing_em', updates.letterSpacingEm, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'font_family', updates.fontFamily, `字幕 ${captionId} の text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, 'shadow', updates.shadow, `字幕 ${captionId} の text_style`);
-        textStyle = updateOptionalObjectStyleProperty(textStyle, 'glow', updates.glow, `字幕 ${captionId} の text_style`);
+        textStyle = derivedParts.has('shadow') && updates.shadow
+            ? updateNestedStyleObject(textStyle, 'shadow', shadowPatchToJson(updates.shadow), `字幕 ${captionId} の text_style.shadow`)
+            : updateOptionalObjectStyleProperty(textStyle, 'shadow', updates.shadow, `字幕 ${captionId} の text_style`);
+        textStyle = derivedParts.has('glow') && updates.glow
+            ? updateNestedStyleObject(textStyle, 'glow', glowPatchToJson(updates.glow), `字幕 ${captionId} の text_style.glow`)
+            : updateOptionalObjectStyleProperty(textStyle, 'glow', updates.glow, `字幕 ${captionId} の text_style`);
         for (const [key, value] of [
             ['stroke_inner', updates.strokeInner], ['fill_gradient', updates.fillGradient], ['extrude', updates.extrude]
         ]) {
@@ -382,14 +404,16 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
                 continue;
             const json = value === null ? null : richStyleToJson(key, value);
             const existingRich = locateTopLevelProperty(textStyle, key);
-            textStyle = json === null
-                ? existingRich ? removeObjectProperty(textStyle, key) : textStyle
-                : existingRich
-                    ? (() => {
-                        const object = locateTopLevelObjectProperty(textStyle, key, key);
-                        return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
-                    })()
-                    : appendJsonProperty(textStyle, key, json);
+            textStyle = json !== null && derivedParts.has(key)
+                ? updateNestedStyleObject(textStyle, key, json, `字幕 ${captionId} の text_style.${key}`)
+                : json === null
+                    ? existingRich ? removeObjectProperty(textStyle, key) : textStyle
+                    : existingRich
+                        ? (() => {
+                            const object = locateTopLevelObjectProperty(textStyle, key, key);
+                            return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
+                        })()
+                        : appendJsonProperty(textStyle, key, json);
         }
         textStyle = updateOptionalStyleProperty(textStyle, 'zone', updates.zone, `字幕 ${captionId} の text_style`);
         textStyle = updateNestedStyleObject(textStyle, 'stroke', {
@@ -421,6 +445,92 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+function presetStyle(catalog, id) {
+    if (typeof id !== 'string')
+        return undefined;
+    const preset = catalog instanceof Map ? catalog.get(id) : catalog[id];
+    return preset?.style;
+}
+function sameRatio(left, right) {
+    return Math.abs(left - right) <= caption_look_scale_1.CAPTION_LOOK_RATIO_TOLERANCE * Math.abs(right);
+}
+function rewriteStyleParts(element, captionId, remove, add = {}, preserveOrder = false) {
+    const existing = locateTopLevelProperty(element, 'text_style');
+    const style = existing
+        ? JSON.parse(locateTopLevelObjectProperty(element, 'text_style', `字幕 ${captionId}`).text)
+        : {};
+    const removable = remove.filter(key => Object.prototype.hasOwnProperty.call(style, key)
+        && (!preserveOrder || !Object.prototype.hasOwnProperty.call(add, key)));
+    let next = removable.length ? pruneShadowedTextStyle(element, removable, captionId) : element;
+    if (!Object.keys(add).length)
+        return next;
+    if (!locateTopLevelProperty(next, 'text_style'))
+        return appendJsonProperty(next, 'text_style', add);
+    const located = locateTopLevelObjectProperty(next, 'text_style', `字幕 ${captionId}`);
+    let value = located.text;
+    for (const [key, part] of Object.entries(add)) {
+        const property = locateTopLevelProperty(value, key);
+        if (property && preserveOrder) {
+            const colon = property.text.indexOf(':');
+            const tail = property.text.slice(colon + 1);
+            const leading = /^\s*/u.exec(tail)?.[0] ?? '';
+            const trailing = /\s*$/u.exec(tail)?.[0] ?? '';
+            value = value.slice(0, property.start) + property.text.slice(0, colon + 1)
+                + leading + JSON.stringify(part) + trailing + value.slice(property.end);
+            continue;
+        }
+        if (property) {
+            value = removeObjectProperty(value, key);
+        }
+        value = appendJsonProperty(value, key, part);
+    }
+    return next.slice(0, located.start) + value + next.slice(located.end);
+}
+function rescaleCaptionPresetParts(element, newSize, source, catalog) {
+    const record = JSON.parse(element);
+    const preset = presetStyle(catalog, record.style_preset);
+    if (!preset)
+        return element;
+    const root = JSON.parse(source);
+    const defaultStyle = isRecord(root.default_text_style) ? root.default_text_style : {};
+    const old = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record, catalog).record.text_style);
+    const oldSize = old?.size_px;
+    if (typeof oldSize !== 'number' || !(oldSize > 0))
+        return element;
+    if (newSize === oldSize)
+        return element;
+    const scale = newSize / oldSize;
+    const override = isRecord(record.text_style) ? record.text_style : {};
+    const remove = [];
+    const add = {};
+    const expectedRatio = typeof preset.size_px === 'number' && preset.size_px > 0
+        ? newSize / preset.size_px : undefined;
+    for (const key of Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS)) {
+        if (!(key in preset) || !(0, caption_look_scale_1.captionLookHasPixels)(key, preset[key]))
+            continue;
+        const current = override[key];
+        let next;
+        if (current === undefined)
+            next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, preset[key], scale);
+        else if ((0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current, false) !== undefined) {
+            next = (0, caption_look_scale_1.scaledCaptionLookPart)(key, current, scale);
+            const oldDerived = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], current);
+            if (oldDerived !== undefined && expectedRatio !== undefined
+                && sameRatio(oldDerived * scale, expectedRatio)) {
+                next = (0, caption_look_scale_1.scaledCaptionLook)(preset, newSize)[key];
+            }
+        }
+        else
+            next = (0, caption_look_scale_1.fillMissingCaptionLookPixels)(key, preset[key], current, scale);
+        if (next === undefined)
+            continue;
+        const derivedRatio = (0, caption_look_scale_1.captionLookPartRatio)(key, preset[key], next);
+        remove.push(key);
+        if (derivedRatio === undefined || !sameRatio(derivedRatio, 1))
+            add[key] = next;
+    }
+    return rewriteStyleParts(element, String(record.id), remove, add, true);
 }
 function updateCaptionStylePresetInSource(source, captionIds, presetId, options = {}) {
     if (captionIds.length === 0) {
@@ -461,6 +571,9 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
     for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
         const record = JSON.parse(element.text);
         const hasPreset = Object.prototype.hasOwnProperty.call(record, 'style_preset');
+        const oldPreset = presetStyle(catalog, record.style_preset);
+        const derived = oldPreset && isRecord(record.text_style)
+            ? (0, caption_look_scale_1.captionPresetDerivedParts)(oldPreset, record.text_style) : new Map();
         const oldStyle = (0, caption_display_1.mergeCaptionDisplayStyles)(defaultStyle, (0, caption_style_preset_1.resolveCaptionStylePreset)(record, catalog).record.text_style);
         const oldSize = typeof oldStyle?.size_px === 'number' && Number.isFinite(oldStyle.size_px) && oldStyle.size_px > 0
             ? oldStyle.size_px : undefined;
@@ -473,6 +586,7 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
             if (!hasPreset)
                 continue;
             let nextElement = removeObjectProperty(element.text, 'style_preset');
+            nextElement = rewriteStyleParts(nextElement, captionId, [...derived.keys()]);
             const size = oldSize ?? (displayedSize === undefined ? undefined
                 : typeof oldReference === 'number' ? displayedSize * oldReference / options.output.height : displayedSize);
             nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
@@ -481,10 +595,6 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
             continue;
         }
         const shadowed = shadowedPresetStyleKeys(presetId, record.text_style, catalog);
-        // 同じテンプレの再適用でも、そのテンプレを覆い隠している字幕個別の指定が残っていれば
-        // 掃除する仕事が残っている（「変更はありません」で終わらせない）。
-        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
-            continue;
         const incoming = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, catalog).record.text_style;
         const newReference = isRecord(record.text_style) && record.text_style.reference_height_px !== undefined
             ? record.text_style.reference_height_px
@@ -494,7 +604,21 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
         const size = displayedSize !== undefined
             ? oldSize !== undefined && (oldReference !== undefined || targetReference === undefined) ? oldSize
                 : typeof targetReference === 'number' ? displayedSize * targetReference / options.output.height : displayedSize
-            : oldReference === undefined && newReference !== undefined ? undefined : oldSize;
+            : oldSize;
+        const incomingStyle = isRecord(incoming) ? incoming : {};
+        const proportional = size !== undefined && typeof incomingStyle.size_px === 'number'
+            && incomingStyle.size_px > 0;
+        const look = proportional && size !== incomingStyle.size_px
+            ? (0, caption_look_scale_1.scaledCaptionLook)(incomingStyle, size) : {};
+        const copies = Object.fromEntries(Object.keys(caption_look_scale_1.CAPTION_LOOK_PX_FIELDS)
+            .filter(key => key in incomingStyle && key in look && (0, caption_look_scale_1.captionLookHasPixels)(key, incomingStyle[key]))
+            .map(key => [key, look[key]]));
+        const expected = (0, caption_look_scale_1.captionPresetDerivedParts)(incomingStyle, isRecord(record.text_style) ? record.text_style : {});
+        const copiesMatch = Object.keys(copies).every(key => expected.has(key)
+            && sameRatio(expected.get(key), size / incomingStyle.size_px));
+        if (hasPreset && record.style_preset === presetId && shadowed.every(key => key in copies)
+            && copiesMatch && [...derived.keys()].every(key => key in copies))
+            continue;
         let nextElement;
         if (hasPreset) {
             nextElement = replaceCaptionJsonProperty(element.text, 'style_preset', presetId, captionId);
@@ -514,7 +638,7 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId, options 
                     + element.text.slice(textStyle.start);
             }
         }
-        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
+        nextElement = rewriteStyleParts(nextElement, captionId, [...new Set([...derived.keys(), ...shadowed])], copies);
         nextElement = retainCaptionSize(nextElement, captionId, size, oldReference);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;

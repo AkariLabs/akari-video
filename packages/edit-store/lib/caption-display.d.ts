@@ -1,4 +1,5 @@
 import { type CaptionRun } from './caption-runs';
+import { type CaptionEmphasisMatchWord } from './caption-emphasis-match';
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -73,6 +74,10 @@ export interface CaptionDisplayCue {
     style?: 'karaoke';
     karaoke_offset?: number;
     word_styles?: CaptionDisplayWordStyle[];
+    untimed_emphasis_words?: Array<CaptionEmphasisMatchWord & {
+        style_preset?: string;
+        inherit_caption_size?: boolean;
+    }>;
     runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
 }
@@ -273,7 +278,10 @@ export declare function resolveCaptionStyleForOutput(style: UnknownRecord, outpu
 export declare function resolveCaptionWordStyleVars(style: UnknownRecord, output: {
     width: number;
     height: number;
-} | undefined): Record<string, string>;
+} | undefined, inheritCaptionSize?: boolean): Record<string, string>;
+export declare const CAPTION_INHERITED_EMPHASIS_VARS: {
+    [k: string]: Record<string, string>;
+};
 export declare function captionTextShadowValue(shadow: unknown, glow: unknown, scale?: number): string | null;
 export declare function colorWithOpacity(color: string, explicitOpacity?: number): string;
 export declare function formatCssNumber(value: number): string;

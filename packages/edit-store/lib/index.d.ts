@@ -14,6 +14,8 @@ export * from './caption-window';
 export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
+export * from './caption-look-scale';
+export * from './caption-emphasis-match';
 export * from './caption-runs';
 export * from './generation-meta';
 export * from './edit-v2';

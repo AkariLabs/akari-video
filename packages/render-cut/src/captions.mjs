@@ -16,6 +16,7 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   applyCaptionRunsToHtml,
+  captionEmphasisMatches,
   sliceCaptionRuns,
   captionWindowSeconds,
   dedupeCaptionOccurrences,
@@ -418,6 +419,9 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               captionAnimation,
               animator: caption.animator,
               words: allWords,
+              ...(!allWords.length ? { untimedEmphasisWords: emphasisWords.filter(item =>
+                captionEmphasisMatches(displayText, caption.start, caption.end, [item], caption.src).length) } : {}),
+              output,
             });
       if (runs?.length) {
         html = applyCaptionRunsToHtml(html, displayText, runs);
@@ -440,6 +444,34 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   return overlays;
 }
 
+function renderUntimedEmphasisLine(line, words, start = -Infinity, end = Infinity, src, output,
+  renderText = escapeHtml, wrapPlain = false) {
+  const matches = captionEmphasisMatches(line, start, end, words, src);
+  let cursor = 0;
+  let markup = '';
+  const plain = value => wrapPlain && value
+    ? `<span class="akari-caption__tok">${renderText(value)}</span>` : renderText(value);
+  for (const { from, to, emphasis } of matches) {
+    markup += plain(line.slice(cursor, from));
+    const preset = TEXTSTYLE_CATALOG[emphasis.style_preset]?.style;
+    const vars = emphasis._presetStyleVars ?? (preset
+      ? resolveCaptionWordStyleVars(preset, output, emphasis.inherit_caption_size === true) : {});
+    const color = vars['--caption-tok-color'] ?? '#f97316';
+    const mapping = {
+      '--caption-tok-font-size': 'font-size', '--caption-tok-font-family': 'font-family',
+      '--caption-tok-font-weight': 'font-weight', '--caption-tok-letter-spacing': 'letter-spacing',
+      '--caption-tok-webkit-text-stroke': '-webkit-text-stroke',
+      '--caption-tok-text-shadow': 'text-shadow', '--caption-tok-line-height': 'line-height',
+    };
+    const style = [`color:${color}`, `-webkit-text-fill-color:${color}`,
+      ...Object.entries(mapping).filter(([key]) => vars[key])
+        .map(([key, property]) => `${property}:${vars[key]}`)].join(';');
+    markup += `<span class="akari-caption__tok akari-caption__tok--emphasis" data-emphasis-id="${escapeHtml(emphasis.id)}" style="${escapeHtml(style)}">${renderText(line.slice(from, to))}</span>`;
+    cursor = to;
+  }
+  return markup + plain(line.slice(cursor));
+}
+
 function resolvedCaptionRoundedStrokeVars(cue) {
   const stroke = cue?.cut_index === -1
     ? roundedCaptionStrokeShadows(cue.style_vars?.['--caption-stroke'], cue.style_vars?.['--caption-text-shadow']) : null;
@@ -454,7 +486,7 @@ export function generateResolvedCaptionOverlays(displayResult, fontFaces = capti
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
     html: applyCaptionRichLayers(decorateTypewriterHtml(applyResolvedCaptionAnimation(
-      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces), cue.text, cue.runs),
+      applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue, fontFaces, output), cue.text, cue.runs),
       cue.text_style?.animation, cue.end - cue.start
     ), cue.text_style?.animation, cue.end - cue.start), cue.text_style, output),
     start: cue.start,
@@ -495,7 +527,7 @@ function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = captionFontFaces()) {
+export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = captionFontFaces(), output) {
   const requested = new Set(captionFontFamilies(cue?.text_style?.font_family ?? cue?.style_vars?.['--caption-font-family']));
   const matchingFaces = requested.size ? fontFaces.filter(face => requested.has(face.family)) : [];
   const fontFaceCss = matchingFaces.length
@@ -509,7 +541,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
   const richTokens = cue?.text_style?.fill !== undefined || cue?.text_style?.strokes !== undefined;
-  const renderedText = hasWordStyles || karaoke
+  let renderedText = hasWordStyles || karaoke
     ? renderResolvedCaptionWords(cue.words, cue.word_styles ?? [], cue?.text_style?.vertical === true, cue)
     : richTokens && Array.isArray(cue?.words) && cue.words.length > 0
       ? renderResolvedCaptionWords(cue.words, [], cue?.text_style?.vertical === true)
@@ -520,6 +552,12 @@ export function renderResolvedSingleLineCaption(text, lines, cue, fontFaces = ca
     : Array.isArray(lines) && lines.length >= 2 && cue?.text_style?.vertical !== true
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
+  if (cue?.untimed_emphasis_words?.length && !cue?.words?.some(word => !word.untimed)) {
+    renderedText = (Array.isArray(lines) && lines.length ? lines : [text])
+      .map(line => renderUntimedEmphasisLine(line, cue.untimed_emphasis_words,
+        -Infinity, Infinity, undefined, output, escapeHtml, richTokens))
+      .join('</p><p class="akari-caption__line">');
+  }
   const wordPresetCss = hasWordStyles || karaoke ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
   const karaokeCss = karaoke ? `
     @keyframes akari-caption-karaoke-lit { from { color:var(--caption-color,#fff); } to { color:var(--caption-highlight-color,#ffd94a); } }
@@ -940,7 +978,11 @@ export function renderCaptionFragment(text, options = {}) {
   const charText = captionCharRenderer(options.animator);
   const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText));
   const markup = lines
-    .map((line) => `<p class="akari-caption__line">${charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
+    .map((line) => `<p class="akari-caption__line">${options.untimedEmphasisWords?.length
+      ? renderUntimedEmphasisLine(line, options.untimedEmphasisWords,
+        -Infinity, Infinity, undefined, options.output, charText ?? escapeHtml,
+        options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined)
+      : charText || options.contextStyle?.fill !== undefined || options.contextStyle?.strokes !== undefined
       ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText ? charText(word) : escapeHtml(word)}</span>`).join("")
       : escapeHtml(line)}</p>`)
     .join("");
@@ -1816,8 +1858,7 @@ function normalizeEmphasisWords(value, output) {
       ? resolveCaptionStylePreset({ style_preset: item.style_preset }, TEXTSTYLE_CATALOG)
       : null;
     if (preset?.resolved) {
-      const vars = resolveCaptionWordStyleVars(preset.record.text_style, output);
-      if (item.inherit_caption_size === true) delete vars["--caption-tok-font-size"];
+      const vars = resolveCaptionWordStyleVars(preset.record.text_style, output, item.inherit_caption_size === true);
       normalized.push({ ...item, _presetStyleVars: vars });
     } else normalized.push(item);
   }

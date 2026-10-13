@@ -1,4 +1,5 @@
 type JsonObject = Record<string, unknown>;
+export { captionEmphasisMatches } from '@akari-video/edit-store';
 
 const isObjectRoot = (value: unknown): value is JsonObject =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -62,23 +63,3 @@ export function normalizePreviewEmphasisWords(value: unknown): PreviewEmphasisWo
 }
 
 /** Find the exact visible substring even when a resolved cue has no timed words. */
-export function captionEmphasisMatches(text: string, start: number, end: number,
-    words: readonly PreviewEmphasisWord[], src?: string): Array<{ from: number; to: number; emphasis: PreviewEmphasisWord }> {
-    const matches: Array<{ from: number; to: number; emphasis: PreviewEmphasisWord }> = [];
-    for (const emphasis of words) {
-        if (emphasis.t_end <= start || emphasis.t_start >= end
-            || src && emphasis.src && emphasis.src !== src) continue;
-        let from = 0;
-        while ((from = text.indexOf(emphasis.word, from)) >= 0) {
-            matches.push({ from, to: from + emphasis.word.length, emphasis });
-            from += emphasis.word.length;
-        }
-    }
-    matches.sort((a, b) => a.from - b.from || b.to - a.to);
-    let occupied = 0;
-    return matches.filter(match => {
-        if (match.from < occupied) return false;
-        occupied = match.to;
-        return true;
-    });
-}

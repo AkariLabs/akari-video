@@ -1,5 +1,5 @@
 import { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
-import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
+import { scaledCaptionLook, TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
 import { CAPTION_DEFAULT_SIZE_PX } from 'akari-preview/lib/common/textstyle-sample';
 export { supportedMyStyleAttachPart } from '@akari-video/edit-store/lib/my-style-parts';
 
@@ -130,40 +130,7 @@ export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
 }
 
 export function scaledLookForCaption(look: Record<string, unknown>, targetSize: number): Record<string, unknown> {
-    const presetSize = look.size_px;
-    const ratio = typeof presetSize === 'number' && Number.isFinite(presetSize) && presetSize > 0
-        ? targetSize / presetSize : 1;
-    const scaled = { ...look };
-    for (const [key, fields] of Object.entries({
-        stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y']
-    })) {
-        const value = look[key];
-        if (!record(value)) continue;
-        const copy = { ...value };
-        for (const field of fields) {
-            const current = copy[field];
-            if (typeof current === 'number') copy[field] = current * ratio;
-        }
-        scaled[key] = copy;
-    }
-    if (Array.isArray(look.strokes)) scaled.strokes = look.strokes.map(entry => {
-        if (!record(entry)) return entry;
-        const stroke = { ...entry };
-        for (const field of ['width_px', 'offset_x', 'offset_y']) {
-            const current = stroke[field];
-            if (typeof current === 'number') stroke[field] = current * ratio;
-        }
-        return stroke;
-    });
-    if (record(look.fill) && look.fill.type === 'pattern' && record(look.fill.pattern)) {
-        const pattern = { ...look.fill.pattern };
-        if (typeof pattern.scale === 'number') pattern.scale *= ratio;
-        scaled.fill = { ...look.fill, pattern };
-    }
-    delete scaled.size_px;
-    delete scaled.reference_height_px;
-    return scaled;
+    return scaledCaptionLook(look, targetSize);
 }
 
 export function captionEffectiveSize(row: Record<string, unknown>, defaultStyle: Record<string, unknown>,

@@ -37,6 +37,8 @@ __exportStar(require("./caption-window"), exports);
 __exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
+__exportStar(require("./caption-look-scale"), exports);
+__exportStar(require("./caption-emphasis-match"), exports);
 __exportStar(require("./caption-runs"), exports);
 __exportStar(require("./generation-meta"), exports);
 // Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.

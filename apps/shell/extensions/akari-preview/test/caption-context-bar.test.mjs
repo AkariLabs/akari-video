@@ -23,6 +23,24 @@ test('字幕の上のメニューは試作 v2 の順で 1 段の項目を持つ'
     assert.deepEqual(barItems({ ...state, selectedId: null }), []);
 });
 
+test('指定のない字幕は出力向きの表示サイズを使い、拡大と縮小もそこから始める', () => {
+    for (const [output, expected] of [
+        [{ width: 1920, height: 1080 }, 38], [{ width: 1080, height: 1920 }, 65]
+    ]) {
+        const writes = [];
+        const view = Object.create(PreviewContextBar.prototype);
+        Object.assign(view, { state: { ...state, item: { textStyle: {} }, output }, captionPending: new Map(),
+            render: () => undefined,
+            writeCaptionValue: (field, value) => writes.push([field, value]) });
+        assert.equal(view.captionSize(), expected);
+        view.onCaptionBarAction('captionSizeInc');
+        view.onCaptionBarAction('captionSizeDec');
+        assert.deepEqual(writes, [['sizePx', expected + 2], ['sizePx', expected - 2]]);
+        view.state.item.textStyle.sizePx = 56;
+        assert.equal(view.captionSize(), 56);
+    }
+});
+
 test('狭い幅では右から畳みフォント・サイズ・スタイルを残す', () => {
     const widths = Object.fromEntries(CAPTION_BAR_ORDER.map(key => [key,
         key === 'captionFont' ? 94 : key === 'captionSize' ? 78
