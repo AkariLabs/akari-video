@@ -34,6 +34,8 @@ import {
   validateCaptionTextStyle,
 } from '../lib/caption-display.js';
 import {
+  applyCaptionRunsToHtml,
+  captionGraphemes,
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionStylePreset,
@@ -371,6 +373,151 @@ test('manual display_fragments with lines=2 wrap=multi become one simultaneous t
   const singleLine = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 6 }] });
   assert.deepEqual(singleLine.display_cues.map(cue => cue.text), fragments);
   assert.ok(singleLine.display_cues.every(cue => cue.display_lines === undefined));
+});
+
+test('manual English fragments trim line edges after grouping', () => {
+  const root = {
+    display_policy: { ...englishPolicy(20), lines: 2, wrap: 'multi' },
+    captions: [caption('c-space', 0, 2, 'When the score is high,', {
+      display_fragments: ['When ', 'the score is high,'],
+    })],
+  };
+  const [grouped] = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.equal(grouped.overflow, undefined);
+  assert.equal(grouped.line_override, true);
+  assert.deepEqual(grouped.display_lines, ['When', 'the score is high,']);
+  // Separate <p> lines render in cue.text order, so run ranges exclude the boundary space.
+  assert.equal(grouped.text, 'Whenthe score is high,');
+  assert.equal(grouped.text, joinCaptionLines(grouped.display_lines, 'en'));
+  const single = resolveCaptionDisplay({ ...root, display_policy: { ...root.display_policy, lines: 1 } },
+    { cuts: [] }).display_cues;
+  assert.equal(single.length, 2);
+  assert.equal(single[0].text, 'When');
+  assert.equal(single[1].text, 'the score is high,');
+});
+
+test('manual Japanese fragments remove a trailing space from the first line', () => {
+  const root = { display_policy: { ...policy, max_line_units: 20, lines: 1 },
+    captions: [caption('c-ja-space', 0, 2, '今日は AKARI Videoを使う', {
+      display_fragments: ['今日は ', 'AKARI Videoを使う'],
+    })] };
+  const cues = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.equal(cues.length, 2);
+  assert.equal(cues[0].text, '今日は');
+  assert.equal(cues[0].overflow, undefined);
+});
+
+test('vertical manual cues keep spaces between lines and trim only cue edges', () => {
+  const root = { display_policy: { ...policy, max_line_units: 20, lines: 2, wrap: 'multi',
+    word_style: 'karaoke' }, default_text_style: { vertical: true },
+  captions: [caption('c-vertical-space', 0, 2, '今日は AKARI Videoを使う', {
+    display_fragments: ['今日は ', 'AKARI Videoを使う'],
+    runs: [{ from: 3, to: 4, role: 'space' }],
+    words: [
+      { text: '今日は ', start: 0, end: 0.5 },
+      { text: 'AKARI Videoを使う', start: 0.5, end: 2 },
+    ],
+  })] };
+  const [cue] = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.equal(cue.overflow, undefined);
+  assert.equal(cue.text_style.vertical, true);
+  assert.equal(cue.text, '今日は AKARI Videoを使う');
+  assert.deepEqual(cue.display_lines, ['今日は ', 'AKARI Videoを使う']);
+  assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+  assert.equal(cue.words[0].line, 0);
+  assert.equal(cue.words.at(-1).line, 1);
+  assert.equal(captionGraphemes(cue.text).slice(cue.runs[0].from, cue.runs[0].to).join(''), ' ');
+  assert.equal(cue.karaoke_offset, 0);
+
+  const edges = resolveCaptionDisplay({ display_policy: { ...policy, max_line_units: 20,
+    lines: 2, wrap: 'multi' }, default_text_style: { vertical: true },
+  captions: [caption('c-vertical-edges', 0, 4, '今日は AKARI  Videoを使う', {
+    display_fragments: ['今日は ', 'AKARI ', ' Video', 'を使う'],
+  })] }, { cuts: [] }).display_cues;
+  assert.deepEqual(edges.map(item => item.text), ['今日は AKARI', 'Videoを使う']);
+  assert.deepEqual(edges.map(item => item.display_lines),
+    [['今日は ', 'AKARI'], ['Video', 'を使う']]);
+});
+
+test('manual fragment runs retain their letters after edge whitespace is removed', () => {
+  const text = 'When the score is high,';
+  const runs = [
+    { from: 0, to: 4, role: 'opening' },
+    { from: 4, to: 5, role: 'removed-space' },
+    { from: 9, to: 14, role: 'score' },
+  ];
+  for (const fragments of [['When ', 'the score is high,'], ['When', ' the score is high,']]) {
+    for (const lines of [1, 2]) {
+      const root = { display_policy: { ...englishPolicy(20), lines, wrap: 'multi' },
+        captions: [caption('c-run', 0, 2, text, { display_fragments: fragments, runs })] };
+      const cues = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+      assert.equal(cues.length, lines === 2 ? 1 : 2);
+      const selected = cues.flatMap(cue => (cue.runs ?? []).map(run => ({
+        role: run.role, text: captionGraphemes(cue.text).slice(run.from, run.to).join(''),
+      })));
+      assert.deepEqual(selected, [
+        { role: 'opening', text: 'When' }, { role: 'score', text: 'score' },
+      ]);
+      if (lines === 2) {
+        const html = cues[0].display_lines.map(line =>
+          `<p class="akari-caption__line">${line}</p>`).join('');
+        const rendered = applyCaptionRunsToHtml(html, cues[0].text, cues[0].runs);
+        const scoreChars = [...rendered.matchAll(/data-role="score"[^>]*>([^<]*)<\/span>/gu)]
+          .map(match => match[1]);
+        assert.equal(scoreChars.join(''), 'score');
+      }
+    }
+  }
+});
+
+test('manual whitespace-only fragments remain invalid', () => {
+  const root = { display_policy: englishPolicy(3),
+    captions: [caption('c-blank', 0, 2, 'ab cd', {
+      display_fragments: ['ab', ' ', 'cd'],
+    })] };
+  const [cue] = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.equal(cue.overflow?.code, 'INVALID_MANUAL_FRAGMENTS');
+  assert.equal(cue.text, 'ab cd');
+});
+
+test('manual karaoke words trim with their lines and retain source start offset', () => {
+  const root = { display_policy: { ...englishPolicy(20), lines: 1, word_style: 'karaoke' },
+    captions: [caption('c-karaoke-space', 0, 2, 'When the score', {
+      display_fragments: ['When', ' the score'],
+      words: [
+        { text: 'When', start: 0, end: 0.5 },
+        { text: ' the', start: 0.5, end: 1 },
+        { text: ' score', start: 1, end: 2 },
+      ],
+    })] };
+  const cues = resolveCaptionDisplay(root, { cuts: [] }).display_cues;
+  assert.deepEqual(cues.map(cue => cue.words.map(word => word.text).join('')),
+    cues.map(cue => cue.text));
+  assert.deepEqual(cues.map(cue => cue.karaoke_offset), [0, 5]);
+  assert.equal(cues[1].text, 'the score');
+  assert.deepEqual(cues[1].words.map(word => word.text), ['the', ' score']);
+});
+
+test('manual word style indices close over a removed whitespace word', () => {
+  const root = {
+    display_policy: { ...englishPolicy(20), lines: 2, wrap: 'multi' },
+    emphasis_words: [{ id: 'e-score', src: 'a', t_start: 1.6, t_end: 1.8,
+      word: 'score', emotion: 'neutral', style_preset: 'neon' }],
+    captions: [caption('c-style-space', 0, 2, 'When the score', {
+      src: 'a', display_fragments: ['When', ' the score'],
+      words: [
+        { text: 'When', start: 0, end: 0.5 },
+        { text: ' ', start: 0.5, end: 0.6 },
+        { text: 'the ', start: 0.6, end: 1.4 },
+        { text: 'score', start: 1.4, end: 2 },
+      ],
+    })],
+  };
+  const [cue] = resolveCaptionDisplay(root, { cuts: [{ src: 'a', in: 0, out: 2 }] }).display_cues;
+  assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+  assert.equal(cue.words.some(word => word.text === ' '), false);
+  assert.ok(cue.word_styles.some(style =>
+    cue.words.slice(style.from, style.to).map(word => word.text).join('').trim() === 'score'));
 });
 
 test('manual display_fragments with lines=2 wrap=fold stay as two unfolded cues', () => {
