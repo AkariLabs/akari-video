@@ -116,6 +116,14 @@
     "recommended": false
   },
   {
+    "id": "meta/muse-code-cli",
+    "agent": "muse",
+    "form": "cli",
+    "name": "Muse Code CLI",
+    "description": "Meta の Muse Code（muse）を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
     "id": "deepseek/dsh-web",
     "agent": "deepseek",
     "form": "web",

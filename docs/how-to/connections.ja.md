@@ -51,11 +51,16 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 CLI 内で `/exit` などを実行しても「タブを閉じた」扱いにはならず、次回も自動で開きます。止めるにはタブを閉じるか設定をオフにしてください。
 
 デスクトップシェルの接続ボタンはパートナーカタログを開きます。
-現在のカタログには、PTY タブで動く **CLI 10 種** — Claude Code・Codex・
-opencode・Command Code・Pi・Devin・Copilot・Cursor・Antigravity・Grok Build —
+現在のカタログには、PTY タブで動く **CLI 11 種** — Claude Code・Codex・
+opencode・Command Code・Pi・Devin・Copilot・Cursor・Antigravity・Grok Build・Muse Code —
 と Claude Code / Codex のエディタ拡張 2 種があります。
 Command Code は Node.js 22 以上が必要で、未導入時は公式の
 `npm install -g command-code` パッケージ経路をシェルが使います。
+Muse Code は公式のインストールスクリプトで導入します（Windows の導入先は
+`%LOCALAPPDATA%\Programs\muse`）。初回の起動では Muse Code が作業フォルダを信頼するかを尋ね、
+信頼するとプロジェクトのスキルを読み込みます。Windows では、初回に Muse Code が
+サンドボックスの準備のため管理者の確認（ユーザーアカウント制御）を出します。
+確認が出ている間、タブには何も表示されません。
 DeepSeek Harness は npm 経路（`npm install -g @deepseek-ai/dsh`）で導入し、
 ブラウザを開かず右パネルの作業画面に表示します。作業対象は開いている
 プロジェクトのフォルダです。OpenCode Go のログインまたは DeepSeek の
@@ -77,7 +82,9 @@ DeepSeek の Settings で配色を明示的に選んだ場合はそちらを優�
 この設定は利用者ごとに保存され、プロジェクトの設定ファイルからは変更できません。
 **毎回確認**は各ツールの既定の権限動作、**すべて許可**は確認を省き、対応する
 ツールではサンドボックスも解除します。自動では Claude Code と Grok の `auto`、
-Codex と Cursor の自動審査、Devin の `smart` を使います。起動時の自動モードが無い
+Codex と Cursor の自動審査、Devin の `smart`、Muse Code の `on-request`（自動審査）を使います。
+Muse Code は既定が自動審査（`on-request`）なので、毎回確認でも自動と同じ動きになります。
+Muse Code の「すべて許可」には `--yolo` を渡します。起動時の自動モードが無い
 Copilot・Antigravity・Command Code・Pi は、自動でもすべて許可の引数で起動します。
 Pi には承認の仕組みが無いため、どのモードでもタブには「すべて許可で起動」と表示されます。
 opencode は自動ではツールの既定動作を使います。DeepSeek Harness は自動と毎回確認で

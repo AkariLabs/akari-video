@@ -88,6 +88,13 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
             location: windows ? '%USERPROFILE%\\.grok\\bin' : '~/.grok/bin',
             environment: windows ? powershellEffects : installerEffects,
             termsUrl: 'https://x.ai/legal/terms-of-service'
+        },
+        muse: {
+            name: 'Muse Code', provider: 'Meta',
+            sourceUrl: windows ? 'https://dev.meta.ai/install.ps1' : 'https://dev.meta.ai/install.sh',
+            location: windows ? '%LOCALAPPDATA%\\Programs\\muse' : t('partner.partnerSetup.bootstrap.localBinProviderInstallLocationText'),
+            environment: windows ? powershellEffects : installerEffects,
+            termsUrl: 'https://www.facebook.com/policies_center/'
         }
     };
     const overrideNames: Record<PartnerAgentId, string> = {
@@ -95,7 +102,7 @@ export function partnerInstallDisclosure(agent: PartnerAgentId, platform: string
         opencode: 'AKARI_PARTNER_OPENCODE_INSTALL_URL', commandcode: '', pi: '', deepseek: '',
         devin: 'AKARI_PARTNER_DEVIN_INSTALL_URL', copilot: 'AKARI_PARTNER_COPILOT_INSTALL_URL',
         cursor: 'AKARI_PARTNER_CURSOR_INSTALL_URL', antigravity: 'AKARI_PARTNER_ANTIGRAVITY_INSTALL_URL',
-        grok: 'AKARI_PARTNER_GROK_INSTALL_URL'
+        grok: 'AKARI_PARTNER_GROK_INSTALL_URL', muse: 'AKARI_PARTNER_MUSE_INSTALL_URL'
     };
     const override = env[overrideNames[agent]];
     return override ? { ...table[agent], sourceUrl: override } : table[agent];
@@ -578,7 +585,7 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         console.log(t('partner.partnerSetup.bootstrap.codexCodeModeHostBesideRealpathText', { value1: result, value2: executable }));
     }
 
-    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'devin';
+    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'devin' | 'muse';
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
@@ -668,6 +675,15 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
             // install is structurally undetectable (task/2026-08-17-partner-grok-install-detection).
             manualInstallCommand: t('partner.partnerSetup.bootstrap.curlFsslLinkBashNpmInstallGXaiOfficialGrokText'),
             manualInstallCommandWin32: t('partner.partnerSetup.bootstrap.powershellCIrmLinkIexNpmInstallGXaiOfficialText')
+        },
+        muse: {
+            agent: 'muse',
+            installUrlEnvVar: 'AKARI_PARTNER_MUSE_INSTALL_URL',
+            defaultInstallUrl: 'https://dev.meta.ai/install.sh',
+            defaultInstallUrlWin32: 'https://dev.meta.ai/install.ps1',
+            manualInstallCommand: 'curl -fsSL https://dev.meta.ai/install.sh | bash',
+            manualInstallCommandWin32: 'irm https://dev.meta.ai/install.ps1 | iex',
+            posixInterpreter: '/bin/bash'
         }
     };
 
@@ -1426,8 +1442,8 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
             && agent !== 'commandcode' && agent !== 'pi' && agent !== 'deepseek' && agent !== 'devin'
             && agent !== 'copilot' && agent !== 'cursor'
-            && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, deepseek, devin, copilot, cursor, antigravity, or grok');
+            && agent !== 'antigravity' && agent !== 'grok' && agent !== 'muse') {
+            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, deepseek, devin, copilot, cursor, antigravity, grok, or muse');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
