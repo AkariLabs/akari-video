@@ -167,3 +167,14 @@ test('composeState: entitledProducts に kit 商品を載せ、資格情報な�
   assert.deepEqual(disconnectedState.entitledProducts, []);
   assert.equal(disconnectedFetchCount, 0);
 });
+
+test('catalog and composed state retain translated titles', async () => {
+  const { env, catalog, catalogPath } = setupFixtureEnv();
+  catalog.items[0].i18n = { en: { title: 'Small still' } };
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const loaded = await loadCatalog({ env, includeInstalled: false });
+  assert.deepEqual(loaded.items[0].i18n, catalog.items[0].i18n);
+  assert.deepEqual((await composeState({ env })).items[0].i18n, catalog.items[0].i18n);
+  await cacheCatalog(env, catalog);
+  assert.deepEqual((await readCatalogCache(env)).items[0].i18n, catalog.items[0].i18n);
+});

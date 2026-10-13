@@ -13,10 +13,10 @@ export async function applyCatalogFont(item: AssetCatalogViewItem, actions: {
     if (!availability || availability.status === 'pending' || availability.status === 'failed') {
         availability = await actions.resolveBeforeApply(item) ?? {
             status: 'failed',
-            family: item.title.replace(/（.*$/u, '').trim(), bytes: availability?.bytes
+            family: (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim(), bytes: availability?.bytes
         };
     }
-    const family = availability?.family || item.title.replace(/（.*$/u, '').trim();
+    const family = availability?.family || (item.baseTitle ?? item.title).replace(/（.*$/u, '').trim();
     if (availability?.status === 'download') {
         if (!await actions.confirmDownload(item.title, availability.bytes ?? 0)) return;
         await actions.download(item.id);

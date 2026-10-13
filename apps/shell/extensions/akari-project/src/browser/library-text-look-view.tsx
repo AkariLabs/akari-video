@@ -16,7 +16,7 @@ export function LibraryTextFontRow(props: { item: AssetCatalogViewItem; faceFami
     card: React.ReactElement<React.ComponentProps<typeof FontShelfCard>> }): React.ReactElement {
     const { item } = props;
     const card = props.card.props;
-    const label = libraryFontLabel(item.id, item.title);
+    const label = libraryFontLabel(item.id, item.title, item.baseTitle);
     const rowUrl = item.previewUrl?.endsWith('/row.webp') ? item.previewUrl : undefined;
     const sampleUrl = rowUrl?.replace(/row\.webp$/, 'sample.webp');
     return <div role='button' tabIndex={0} draggable data-akari-library-card='list'

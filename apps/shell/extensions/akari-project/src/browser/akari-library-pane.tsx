@@ -11,7 +11,7 @@ import { FileStat } from '@theia/filesystem/lib/common/files';
 import { CATALOG_CATEGORIES, CatalogItemMeta, CatalogViewMode, catalogItemCategoryChipKey } from '../common/catalog-reader';
 import { AkariProjectService, AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus, PresetShowcaseKind, PresetShowcaseItem } from '../common/akari-project-protocol';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
-import { CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
+import { baseCatalogItemForAgent, CatalogPackGroup, deriveCatalogEmptyStateKind, deriveCatalogResolverNotice, formatCatalogPackBreakdown, summarizeCatalogPackDistribution } from '../common/asset-catalog-view';
 import { rankRecentLibraryItems } from '../common/library-source-view';
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import { TransitionStrip } from './library-shelf-visuals-view';
@@ -223,16 +223,7 @@ export class AkariLibraryPane {
      * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
      */
     public toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
-        return {
-            id: item.id,
-            category: item.category,
-            title: item.title,
-            description: item.description,
-            tags: item.tags,
-            when_to_use: item.whenToUse,
-            license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
-            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
-        };
+        return baseCatalogItemForAgent(item);
     }
 
     /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分（origin='local' 専用）。 */

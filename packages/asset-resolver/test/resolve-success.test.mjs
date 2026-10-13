@@ -53,3 +53,25 @@ test('resolve: --project 相当（project オプション）でプロジェク�
   assert.equal(result.projectDir, path.join(projectDir, 'assets', 'still', 'mini-still'));
   assert.ok(existsSync(path.join(result.projectDir, 'meta.json')));
 });
+
+test('resolve preserves translated metadata in the library and project copy', async () => {
+  const { env, root, baseDir, catalog, catalogPath } = setupFixtureEnv();
+  const { createHash } = await import('node:crypto');
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const sourceMeta = path.join(baseDir, 'still', 'mini-still', 'v1', 'meta.json');
+  const meta = JSON.parse(readFileSync(sourceMeta, 'utf8'));
+  meta.i18n = { en: { title: 'Small still', knobs: {} } };
+  const bytes = Buffer.from(JSON.stringify(meta));
+  writeFileSync(sourceMeta, bytes);
+  catalog.items[0].i18n = { en: { title: 'Small still' } };
+  const descriptor = catalog.items[0].files.find(file => file.name === 'meta.json');
+  descriptor.bytes = bytes.length;
+  descriptor.sha256 = createHash('sha256').update(bytes).digest('hex');
+  writeFileSync(catalogPath, JSON.stringify(catalog));
+  const project = path.join(root, 'project');
+  mkdirSync(project);
+  const result = await resolveAsset('mini-still', { env, project });
+  for (const dir of [result.dir, result.projectDir]) {
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'meta.json'), 'utf8')).i18n, meta.i18n);
+  }
+});

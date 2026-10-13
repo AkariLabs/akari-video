@@ -78,6 +78,7 @@ function validateMeta(value) {
   // タスクで新設 — scene3d ライブ経路の glb 内蔵クリップ一覧を機械可読にする）。
   const optionalFields = [
     "source",
+    "i18n",
     "remote",
     "matched_by",
     "version",
@@ -112,6 +113,7 @@ function validateMeta(value) {
   validateStringArray(value.tags, "tags");
   validateStringArray(value.requires, "requires");
   validateKnobs(value.knobs);
+  if (hasOwn(value, "i18n")) validateI18n(value.i18n, value.knobs);
   validateProvenance(value.provenance);
   validateLicense(value.license);
 
@@ -272,6 +274,29 @@ function validateHttpUrl(value, label) {
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     fail(`${label} は http(s) URL である必要があります: ${value}`);
+  }
+}
+
+function validateI18n(i18n, knobs) {
+  if (!isPlainObject(i18n)) { fail("i18n は object である必要があります"); return; }
+  const knobKeys = new Set(Array.isArray(knobs) ? knobs.flatMap(knob => [knob?.cssVar, knob?.param].filter(Boolean)) : []);
+  for (const [lang, entry] of Object.entries(i18n)) {
+    if (!/^[a-z]{2,3}$/.test(lang) || lang === "ja") fail(`i18n の言語キーが不正です: ${lang}`);
+    if (!isPlainObject(entry)) { fail(`i18n.${lang} は object である必要があります`); continue; }
+    for (const [field, value] of Object.entries(entry)) {
+      const label = `i18n.${lang}.${field}`;
+      if (!["title", "aliases", "description", "when_to_use", "knobs"].includes(field)) { fail(`未定義の翻訳フィールドです: ${label}`); continue; }
+      if (field === "aliases") { validateStringArray(value, label); continue; }
+      if (field === "knobs") {
+        if (!isPlainObject(value)) { fail(`${label} は object である必要があります`); continue; }
+        for (const [key, text] of Object.entries(value)) {
+          if (!knobKeys.has(key)) fail(`${label} の knob が存在しません: ${key}`);
+          validateNonEmptyString(text, `${label}.${key}`);
+        }
+        continue;
+      }
+      validateNonEmptyString(value, label);
+    }
   }
 }
 

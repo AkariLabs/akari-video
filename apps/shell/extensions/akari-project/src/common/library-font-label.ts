@@ -11,9 +11,11 @@ const DISPLAY_NAMES: Readonly<Record<string, string>> = {
     'zen-maru-gothic': 'Zen丸ゴシック'
 };
 
-export function libraryFontLabel(id: string, title: string): { display: string; english?: string } {
+export function libraryFontLabel(id: string, title: string, baseTitle?: string): { display: string; english?: string } {
+    const familyTitle = baseTitle ?? title;
+    if (baseTitle !== undefined && title !== baseTitle) return { display: title, english: title };
     const display = DISPLAY_NAMES[id] ?? title;
-    const family = title.replace(/（.*$/, '').trim();
+    const family = familyTitle.replace(/（.*$/, '').trim();
     return {
         display,
         english: display !== title ? title : /[A-Za-z]/u.test(family) && family !== display ? family : undefined

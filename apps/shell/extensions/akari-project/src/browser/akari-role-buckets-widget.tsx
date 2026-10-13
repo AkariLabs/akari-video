@@ -1,3 +1,4 @@
+import { getLanguage } from '@akari-video/i18n';
 import { t } from '../common/project-text';
 import { AkariOutputsPane, OutputsPaneHost } from './akari-outputs-pane';
 import { AkariMaterialsPane, MaterialCardEntry, MaterialsPaneHost } from './akari-materials-pane';
@@ -56,6 +57,7 @@ import { isEditDataFileName } from '../common/edit-data-file';
 import {
     CatalogCategoryChip,
     CatalogViewMode,
+    catalogSearchTitles,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     normalizeCatalogViewMode
@@ -1311,7 +1313,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.libraryPane.catalogPickError = undefined;
         const [view, presetShowcase, libraryTextstyles, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
-            this.projectService.getAssetCatalogView(preferenceRoot, intent),
+            this.projectService.getAssetCatalogView(preferenceRoot, intent, getLanguage()),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
             this.projectService.getLibraryTextstylePresets().catch(() => []),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
@@ -1435,7 +1437,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
         return rankLibraryShelfItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter)),
-            item => this.catalogQuery && item.title.toLocaleLowerCase().includes(this.catalogQuery.toLocaleLowerCase()) ? 1 : 0);
+            item => this.catalogQuery && catalogSearchTitles(item).some(title => title.toLocaleLowerCase().includes(this.catalogQuery.toLocaleLowerCase())) ? 1 : 0);
     }
 
     /** 検索の右のフィルター（4 節）の今の状態。出どころは librarySourceFilter を正とする。 */

@@ -43,3 +43,15 @@ for (const category of ['overlay', 'scene3d']) {
     assert.deepEqual((await readdir(dest)).sort(), ['fragment.html', 'meta.json', 'variants']);
   });
 }
+
+test('project copy preserves translated metadata', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'translated-project-copy-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = path.join(root, 'source');
+  const project = path.join(root, 'project');
+  await mkdir(source); await mkdir(project);
+  const meta = { id: 'board', i18n: { en: { title: 'Board', knobs: { '--tone': 'Tone' } } } };
+  await writeFile(path.join(source, 'meta.json'), JSON.stringify(meta));
+  const dest = await copyIntoProject(source, project, 'overlay', 'board');
+  assert.deepEqual(JSON.parse(await readFile(path.join(dest, 'meta.json'), 'utf8')).i18n, meta.i18n);
+});

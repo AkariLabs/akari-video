@@ -44,16 +44,19 @@ function catalogItem(packId, pack, item) {
   }
   const itemRoots = (pack.readRoots ?? [pack.root]).map(root => localPathWithin(root, item.path));
   let metaTier;
+  let metaI18n;
   for (const root of itemRoots) {
     try {
       const meta = JSON.parse(readFileSync(path.join(root, 'meta.json'), 'utf8'));
       if (Object.hasOwn(meta, 'tier') || Object.hasOwn(meta, 'price')) metaTier = assetTier(meta);
+      if (meta.i18n && typeof meta.i18n === 'object' && !Array.isArray(meta.i18n)) metaI18n = meta.i18n;
       break;
     } catch (error) {
       if (error?.code !== 'ENOENT') break;
     }
   }
   const tier = Object.hasOwn(item, 'tier') ? assetTier(item) : metaTier;
+  const indexI18n = item.i18n && typeof item.i18n === 'object' && !Array.isArray(item.i18n) ? item.i18n : undefined;
 
   return {
     id: item.id,
@@ -62,6 +65,7 @@ function catalogItem(packId, pack, item) {
     version: item.version,
     price: 0,
     ...(tier ? { tier } : {}),
+    ...((indexI18n ?? metaI18n) ? { i18n: indexI18n ?? metaI18n } : {}),
     source: 'installed',
     files: item.files.map((file) => {
       if (!file || typeof file.path !== 'string' || !file.path
