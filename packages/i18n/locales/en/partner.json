@@ -66,6 +66,8 @@
   "partner.partnerPanel.entry.installStartAction": "Install and Start",
   "partner.partnerPanel.entry.openAction": "Open",
   "partner.partnerPanel.entry.startAction": "Start",
+  "partner.partnerPanel.extensionCli.switchedToBundledCliReloadText": "{value1} now uses the CLI bundled with the extension again. Reload to apply.",
+  "partner.partnerPanel.extensionCli.switchedToManagedCliReloadText": "The CLI inside {value1} is an old version ({value2}), so it now uses the newer one installed by AKARI ({value3}). Reload to choose the newer models.",
   "partner.partnerPanel.extensionUpdater.couldNotCompareExtensionVersionsError": "Could not compare extension versions",
   "partner.partnerPanel.extensionUpdater.couldNotGetExtensionInformationError": "Could not get extension information",
   "partner.partnerPanel.extensionUpdater.couldNotGetLatestExtensionInformationError": "Could not get latest extension information",

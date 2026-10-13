@@ -49,6 +49,10 @@
         "executableNames": ["codex", "codex-aarch64-apple-darwin"],
         "platformTokens": ["darwin-arm64", "macos-aarch64", "aarch64-apple-darwin"]
       }
+    },
+    "managedCli": {
+      "preference": "chatgpt.cliExecutable",
+      "platforms": ["win32-x64"]
     }
   },
   {

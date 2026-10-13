@@ -66,6 +66,8 @@
   "partner.partnerPanel.entry.installStartAction": "インストールして始める",
   "partner.partnerPanel.entry.openAction": "開く",
   "partner.partnerPanel.entry.startAction": "始める",
+  "partner.partnerPanel.extensionCli.switchedToBundledCliReloadText": "{value1} を、拡張に入っている CLI を使う設定に戻しました。反映には再読み込みが必要です",
+  "partner.partnerPanel.extensionCli.switchedToManagedCliReloadText": "{value1} の中の CLI が古い版（{value2}）なので、AKARI が入れた新しい版（{value3}）を使うように切り替えました。再読み込みすると新しいモデルを選べます",
   "partner.partnerPanel.extensionUpdater.couldNotCompareExtensionVersionsError": "拡張のバージョンを比較できませんでした",
   "partner.partnerPanel.extensionUpdater.couldNotGetExtensionInformationError": "拡張の情報を取得できませんでした",
   "partner.partnerPanel.extensionUpdater.couldNotGetLatestExtensionInformationError": "最新の拡張情報を取得できませんでした",

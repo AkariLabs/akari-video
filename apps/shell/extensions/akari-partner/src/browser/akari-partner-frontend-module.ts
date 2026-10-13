@@ -13,11 +13,13 @@ import { PartnerWebWidget } from './akari-partner-web-widget';
 import { AkariPartnerCommandContribution } from './akari-partner-command-contribution';
 import { PartnerSessionService } from './partner-session-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
+import { PartnerExtensionCliAligner } from './partner-extension-cli-aligner';
 import { PartnerTurnNotifier } from './partner-turn-notifier';
 import { PartnerActivityService } from './partner-activity-service';
 
 export default new ContainerModule(bind => {
     bind(PartnerExtensionUpdater).toSelf().inSingletonScope();
+    bind(PartnerExtensionCliAligner).toSelf().inSingletonScope();
     bind(AkariPartnerServer).toDynamicValue(ctx =>
         ServiceConnectionProvider.createProxy(ctx.container, AKARI_PARTNER_SERVICE_PATH)
     ).inSingletonScope();
