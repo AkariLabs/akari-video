@@ -8,16 +8,25 @@ type CaptionRow = Record<string, unknown> & { id?: string; start?: number; end?:
 type Emphasis = { id: string; src?: string; t_start: number; t_end: number; word: string;
     emotion: string; style_hint?: string; style_preset?: string; [key: string]: unknown };
 type CaptionsRoot = { captions: CaptionRow[]; emphasis_words?: Emphasis[]; [key: string]: unknown };
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+const captionRows = (root: CaptionsRoot | CaptionRow[]): CaptionRow[] =>
+    Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+const emphasisWords = (root: CaptionsRoot | CaptionRow[]): Emphasis[] =>
+    Array.isArray(root) || !Array.isArray(root?.emphasis_words) ? [] : root.emphasis_words;
+const unresolvedRuns = (root: CaptionsRoot | CaptionRow[]): CaptionRun[] =>
+    Array.isArray(root) || !Array.isArray(root?.unresolved_runs) ? []
+        : (root.unresolved_runs as unknown[]).flatMap(item => isRecord(item) && isRecord(item.run)
+            ? [item.run as unknown as CaptionRun] : []);
 
 /** 旧い強調の ID は移行済み run に残った出所 ID も予約済みとして扱う。 */
 export function nextEmphasisWordId(root: CaptionsRoot | CaptionRow[]): string {
-    const rows = Array.isArray(root) ? root : root.captions;
-    const used = new Set<string>(Array.isArray(root) ? [] : (root.emphasis_words ?? []).map(item => item.id));
-    for (const row of rows) for (const run of row.runs ?? [])
+    const used = new Set<string>(emphasisWords(root).flatMap(item => isRecord(item) && typeof item.id === 'string'
+        ? [item.id] : []));
+    for (const row of captionRows(root)) for (const run of rowRuns(row))
+        if (isRecord(run) && typeof run.migrated_from === 'string') used.add(run.migrated_from);
+    for (const run of unresolvedRuns(root))
         if (typeof run.migrated_from === 'string') used.add(run.migrated_from);
-    if (!Array.isArray(root) && Array.isArray(root.unresolved_runs))
-        for (const entry of root.unresolved_runs as Array<{ run?: CaptionRun }>)
-            if (typeof entry.run?.migrated_from === 'string') used.add(entry.run.migrated_from);
     let number = 1;
     while (used.has(`e-${String(number).padStart(4, '0')}`)) number++;
     if (number > 9999) throw new Error('強調語の id に空きがありません。');
@@ -54,6 +63,7 @@ function projectEmphasis(rows: CaptionRow[], item: Emphasis):
     const motion = CAPTION_EMPHASIS_MOTION[hint];
     if (!motion) return undefined;
     const candidates = rows.flatMap(row => {
+        if (!isRecord(row)) return [];
         if (row.runs !== undefined && (!Array.isArray(row.runs)
             || row.runs.some(run => !run || typeof run !== 'object' || Array.isArray(run)))) return [];
         const interval = intervalForEmphasis(row, item);
@@ -63,7 +73,7 @@ function projectEmphasis(rows: CaptionRow[], item: Emphasis):
 }
 
 function rowRuns(row: CaptionRow): CaptionRun[] {
-    return Array.isArray(row.runs) ? row.runs : [];
+    return isRecord(row) && Array.isArray(row.runs) ? row.runs : [];
 }
 
 function invalidLegacyRun(run: CaptionRun, row: CaptionRow): boolean {
@@ -77,15 +87,15 @@ function invalidLegacyRun(run: CaptionRun, row: CaptionRow): boolean {
 
 export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: TextstyleCatalog):
     { captions: CaptionRow[]; notices: string[] } {
-    const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
-    const emphasis = Array.isArray(root) ? [] : root.emphasis_words ?? [];
+    const rows = captionRows(root);
+    const emphasis = emphasisWords(root);
     const projected = new Map<string, { id: string | undefined; from: number; to: number; motion: string; index: number }>();
-    const allRuns = [...rows.flatMap(rowRuns), ...(Array.isArray(root) ? [] :
-        (Array.isArray(root.unresolved_runs) ? (root.unresolved_runs as Array<{ run?: CaptionRun }>).flatMap(item => item.run ? [item.run] : []) : []))];
+    const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
     const occupiedIndices = new Set(allRuns.flatMap(run => run && typeof run === 'object'
         && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis!.index] : []));
     let originalIndex = 0;
     for (const item of emphasis) {
+        if (!isRecord(item)) continue;
         while (occupiedIndices.has(originalIndex)) originalIndex++;
         const index = originalIndex++;
         const candidate = projectEmphasis(rows, item);
@@ -94,12 +104,14 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
     }
     const notices: string[] = [];
     const captions = rows.map(row => {
+        if (!isRecord(row)) return row;
         const resolved = resolveCaptionStylePreset(row, catalog);
         const runs = rowRuns(row).map(run => !run || typeof run !== 'object' || Array.isArray(run)
             || invalidLegacyRun(run, row) ? run : { ...run,
                 ...(run.style && !run.look ? { look: { ...run.style } } : {}),
                 ...(run.animation && !run.dormant_animation ? { dormant_animation: run.animation } : {}) });
         for (const item of emphasis) {
+            if (!isRecord(item)) continue;
             if (runs.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) continue;
             const interval = projected.get(item.id);
             if (!interval || interval.id !== row.id) continue;
@@ -122,15 +134,14 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
     _edit?: unknown): { next: CaptionsRoot | CaptionRow[]; diff: Array<{ path: string; before: unknown; after: unknown }>;
         unresolved: Emphasis[]; notices: string[] } {
     const source = structuredClone(captions);
-    const rows = Array.isArray(source) ? source : source.captions;
-    const emphasis = Array.isArray(source) ? [] : source.emphasis_words ?? [];
+    const rows = captionRows(source);
+    const emphasis = emphasisWords(source);
     const unresolved: Emphasis[] = [];
     const notices: string[] = [];
-    const allRuns = [...rows.flatMap(rowRuns),
-        ...(Array.isArray(source) ? [] : (Array.isArray(source.unresolved_runs)
-            ? (source.unresolved_runs as Array<{ run?: CaptionRun }>).flatMap(item => item.run ? [item.run] : []) : []))];
+    const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(source)];
     let invalidLegacyCount = 0;
     for (const row of rows) {
+        if (!isRecord(row)) continue;
         if (row.style_preset) {
             const preset = resolveCaptionStylePreset(row, catalog);
             if (preset.resolved) {
@@ -170,6 +181,7 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
     const migrated = new Set<string>();
     let originalIndex = 0;
     for (const item of emphasis) {
+        if (!isRecord(item)) continue;
         while (occupiedIndices.has(originalIndex)) originalIndex++;
         const index = originalIndex++;
         if (allRuns.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) {
@@ -188,13 +200,14 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         (row.runs ??= []).push(run); allRuns.push(run); migrated.add(item.id);
         occupiedIndices.add(index);
     }
-    if (!Array.isArray(source) && Object.prototype.hasOwnProperty.call(source, 'emphasis_words')) {
-        source.emphasis_words = emphasis.filter(item => !migrated.has(item.id));
+    if (!Array.isArray(source) && Array.isArray(source.emphasis_words)) {
+        source.emphasis_words = emphasis.filter(item => !isRecord(item) || !migrated.has(item.id));
     }
-    const originalRows = Array.isArray(captions) ? captions : captions.captions;
+    const originalRows = captionRows(captions);
     const diff: Array<{ path: string; before: unknown; after: unknown }> = [];
     rows.forEach((row, index) => {
-        const before = originalRows[index] ?? {};
+        if (!isRecord(row)) return;
+        const before = isRecord(originalRows[index]) ? originalRows[index] : {};
         for (const key of new Set([...Object.keys(before), ...Object.keys(row)])) {
             if (JSON.stringify(before[key]) !== JSON.stringify(row[key])) diff.push({
                 path: `captions[${index}].${key}`, before: before[key], after: row[key] });
@@ -210,25 +223,27 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
 
 /** Restore the renderer's legacy input without changing a legacy-only document. */
 export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(root: T): T {
-    const rows: CaptionRow[] = Array.isArray(root) ? root : root.captions;
-    const legacyIds = Array.isArray(root) ? [] : (root.emphasis_words ?? []).map(item => item.id);
+    const rows = captionRows(root);
+    const legacyIds = emphasisWords(root).flatMap(item => isRecord(item) ? [item.id] : []);
     if (!rows.some(row => rowRuns(row).some(run => run && typeof run === 'object'
         && (run.look || run.dormant_animation || run.migrated_from)))
         && new Set(legacyIds).size === legacyIds.length) return root;
     const copy = structuredClone(root);
-    const nextRows: CaptionRow[] = Array.isArray(copy) ? copy : copy.captions;
-    const emphasis = Array.isArray(copy) ? [] : [...(copy.emphasis_words ?? [])];
+    const nextRows = captionRows(copy);
+    const emphasis = [...emphasisWords(copy)];
     const migratedIds = new Set<string>();
     for (const row of nextRows) for (const run of rowRuns(row))
         if (typeof run?.migrated_from === 'string') migratedIds.add(run.migrated_from);
     const ids = new Set<string>();
     for (const item of emphasis) {
+        if (!isRecord(item)) continue;
         if (ids.has(item.id) || migratedIds.has(item.id))
             item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
         ids.add(item.id);
     }
     const migrated: Array<{ index: number; item: Emphasis }> = [];
     for (const row of nextRows) {
+        if (!isRecord(row)) continue;
         if (!Array.isArray(row.runs)) continue;
         row.runs = row.runs.flatMap((run: CaptionRun) => {
             if (!run || typeof run !== 'object' || Array.isArray(run)) return [run];
@@ -266,7 +281,7 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
             return [next];
         });
     }
-    if (!Array.isArray(copy) && (Object.prototype.hasOwnProperty.call(copy, 'emphasis_words') || migrated.length)) {
+    if (!Array.isArray(copy) && (Array.isArray(copy.emphasis_words) || migrated.length)) {
         const restored = [...emphasis];
         for (const entry of migrated.sort((left, right) => left.index - right.index)) {
             restored.splice(Math.min(entry.index, restored.length), 0, entry.item);

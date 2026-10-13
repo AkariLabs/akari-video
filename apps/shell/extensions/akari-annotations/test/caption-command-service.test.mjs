@@ -109,9 +109,25 @@ test('中断した書き込みをプロジェクトを読む前に回復でき�
     'captions.json': { expectedHash: projectFileHash(before), next: '途中' }
   } }, { hooks: { crashAfterFirstRename: true } }));
   const result = await f.service.recoverInterruptedWrite({ projectRootUri: f.request.projectRootUri });
-  assert.match(result.notice, /前回の途中で止まった書き込み/);
+  assert.match(result.notice, /前回の書き込みが途中で止まったので元に戻しました: captions\.json/);
   assert.equal(await read(f.captionsPath), before);
 }));
+
+test('回復 RPC は戻したファイルが無い理由を正しく通知する', async () => {
+  for (const mode of ['元のまま', 'その後に変更', '退避なし']) await fixture(async f => {
+    const before = await read(f.captionsPath);
+    await assert.rejects(writeProjectFilesTransactional(f.root, { label: '中断', files: {
+      'captions.json': { expectedHash: projectFileHash(before), next: '途中' }
+    } }, { hooks: { [mode === '元のまま' ? 'crashAfterJournal' : 'crashAfterFirstRename']: true } }));
+    if (mode === 'その後に変更') await writeFile(f.captionsPath, '第三者');
+    if (mode === '退避なし') await rm(join(f.root, '.akari', 'work'), { recursive: true });
+    const result = await f.service.recoverInterruptedWrite({ projectRootUri: f.request.projectRootUri });
+    assert.doesNotMatch(result.notice, /元に戻しました/);
+    if (mode === '元のまま') assert.match(result.notice, /ファイルは元のままでした/);
+    if (mode === 'その後に変更') assert.match(result.notice, /その後に変更されていたのでそのまま/);
+    if (mode === '退避なし') assert.match(result.notice, /退避が見つからないので戻せませんでした/);
+  });
+});
 
 test('回復 RPC は記録の無いプロジェクトに .akari を作らずファイルの URI を拒む', async () => fixture(async f => {
   assert.deepEqual(await f.service.recoverInterruptedWrite({ projectRootUri: f.request.projectRootUri }), {});

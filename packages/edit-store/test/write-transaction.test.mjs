@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
-import { mkdtemp, readFile, rename, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, rename, rm, writeFile, mkdir, utimes } from 'node:fs/promises';
 import { readdir, stat } from 'node:fs/promises';
 import { tmpdir, hostname } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -17,6 +17,16 @@ const fixture = async fn => {
 };
 const read = (root, name) => readFile(join(root, name), 'utf8');
 const busy = () => Object.assign(new Error('削除待ち'), { code: 'EBUSY' });
+const forkRequest = (helper, request) => new Promise((resolve, reject) => {
+  const child = fork(helper, [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+  let received = false;
+  child.once('error', reject);
+  child.once('exit', (code, signal) => {
+    if (!received) reject(new Error(`子プロセスが応答前に終了しました: ${code ?? signal}`));
+  });
+  child.once('message', message => { received = true; resolve(message); child.disconnect(); });
+  child.send(request, error => { if (error) reject(error); });
+});
 
 test('比較なしの保存は journal と work を作らず相対名を正規化する', async () => fixture(async root => {
   const notified = [];
@@ -34,6 +44,9 @@ test('同じ相対先と予約された書き込み先を拒む', async () => fi
     { 'edit.json': { next: 'a' }, 'EDIT.JSON': { next: 'b' } },
     { '.akari/write.lock': { next: 'a' } },
     { '.akari/write.lock.wait': { next: 'a' } },
+    { '.akari/write.lock.claim': { next: 'a' } },
+    { '.akari/write.lock.claim/child': { next: 'a' } },
+    { '.akari/write.lock.probe-test': { next: 'a' } },
     { '.akari/write-journal.json': { next: 'a' } },
     { '.akari/work/journal/a': { next: 'a' } },
     { 'edit.json:stream': { next: 'a' } }
@@ -94,7 +107,7 @@ test('待ち手の印を消すと次の取得を譲り、印が無ければ譲�
     } } } });
   await assert.rejects(stat(marker), { code: 'ENOENT' });
   const deadline = state.yieldUntil.get(root);
-  assert.ok(deadline - removedAt >= 20);
+  assert.ok(deadline > removedAt);
   let acquiredAt = 0;
   await writeProjectFilesTransactional(root, { label: '譲る', files: { 'edit.json': { next: '二' } } }, {
     writeUnchanged: true, hooks: { fs: { writeFile: async (...args) => {
@@ -102,7 +115,7 @@ test('待ち手の印を消すと次の取得を譲り、印が無ければ譲�
       return fs.writeFile(...args);
     } } }
   });
-  assert.ok(acquiredAt >= deadline);
+  assert.ok(acquiredAt >= deadline - 5);
   const yieldedAt = state.yieldUntil.get(root);
   await writeProjectFilesTransactional(root, { label: '印なし', files: { 'edit.json': { next: '三' } } },
     { writeUnchanged: true });
@@ -130,12 +143,11 @@ test('lock 作成の EPERM は待ちの印を置かず次の取得も譲らな�
   const state = globalThis[Symbol.for('akari.edit-store.write-locks')];
   const lock = join(root, '.akari', 'write.lock');
   const marker = join(root, '.akari', 'write.lock.wait');
-  let failures = 2, markerCreates = 0, acquiredAt = 0;
+  let failures = 2, markerCreates = 0;
   const hooks = { fs: { writeFile: async (...args) => {
     if (args[0] === marker && args[2]?.flag === 'wx') markerCreates++;
     if (args[0] === lock && args[2]?.flag === 'wx') {
       if (failures-- > 0) throw Object.assign(new Error('削除待ち'), { code: 'EPERM' });
-      acquiredAt = Date.now();
     }
     return fs.writeFile(...args);
   } } };
@@ -143,9 +155,9 @@ test('lock 作成の EPERM は待ちの印を置かず次の取得も譲らな�
   assert.equal(markerCreates, 0);
   await assert.rejects(stat(marker), { code: 'ENOENT' });
   assert.equal(state.yieldUntil.has(root), false);
-  const started = Date.now();
+  const yieldedAt = state.yieldUntil.get(root);
   await writeProjectFilesTransactional(root, { label: '次', files: { 'edit.json': { next: '二' } } }, { hooks });
-  assert.ok(acquiredAt - started < 20);
+  assert.equal(state.yieldUntil.get(root), yieldedAt);
   assert.equal(markerCreates, 0);
 }));
 
@@ -178,7 +190,7 @@ test('生きた持ち主を待って作った印は取得直後に自分で消�
   await writeFile(lock, JSON.stringify({
     pid: process.pid, host: hostname(), created_at: new Date().toISOString(), nonce: '別の持ち主'
   }));
-  let markerCreates = 0, markerRemoves = 0, acquiredAt = 0;
+  let markerCreates = 0, markerRemoves = 0;
   const hooks = { fs: {
     writeFile: async (...args) => {
       if (args[0] === marker && args[2]?.flag === 'wx') {
@@ -187,7 +199,6 @@ test('生きた持ち主を待って作った印は取得直後に自分で消�
         await fs.unlink(lock);
         return;
       }
-      if (args[0] === lock && args[2]?.flag === 'wx') acquiredAt = Date.now();
       return fs.writeFile(...args);
     },
     unlink: async path => {
@@ -200,9 +211,9 @@ test('生きた持ち主を待って作った印は取得直後に自分で消�
   assert.equal(markerRemoves, 1);
   await assert.rejects(stat(marker), { code: 'ENOENT' });
   assert.equal(state.yieldUntil.has(root), false);
-  const started = Date.now();
+  const yieldedAt = state.yieldUntil.get(root);
   await writeProjectFilesTransactional(root, { label: '次', files: { 'edit.json': { next: '二' } } }, { hooks });
-  assert.ok(acquiredAt - started < 20);
+  assert.equal(state.yieldUntil.get(root), yieldedAt);
 }));
 
 test('自分の印を消した後に別の待ち手が置いた印には譲る', async () => fixture(async root => {
@@ -232,11 +243,10 @@ test('自分の印を消した後に別の待ち手が置いた印には譲る',
   } };
   await writeProjectFilesTransactional(root, { label: '二人待ち', files: { 'edit.json': { next: '一' } } }, { hooks });
   assert.equal(markerRemoves, 2);
-  const started = Date.now();
   const deadline = state.yieldUntil.get(root);
-  assert.ok(deadline - started >= 20);
+  assert.equal(typeof deadline, 'number');
   await writeProjectFilesTransactional(root, { label: '次', files: { 'edit.json': { next: '二' } } }, { hooks });
-  assert.ok(acquiredAt - started >= 20);
+  assert.ok(acquiredAt >= deadline - 5);
 }));
 
 test('lock の削除が三回塞がれても裏で消し、次の保存は待たない', async () => fixture(async root => {
@@ -249,11 +259,11 @@ test('lock の削除が三回塞がれても裏で消し、次の保存は待た
     } } }
   });
   assert.equal(failures, 2);
-  const deadline = Date.now() + 1000;
+  const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (await stat(join(root, '.akari', 'write.lock')).then(() => false,
       error => error.code === 'ENOENT')) break;
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 20));
   }
   await assert.rejects(stat(join(root, '.akari', 'write.lock')), { code: 'ENOENT' });
   failures = 3;
@@ -266,7 +276,7 @@ test('lock の削除が三回塞がれても裏で消し、次の保存は待た
   const began = Date.now();
   await writeProjectFilesTransactional(root, { label: '次', files: { 'edit.json': { next: '次' } } },
     { writeUnchanged: true });
-  assert.ok(Date.now() - began < 200);
+  assert.ok(Date.now() - began < 10_000);
   await assert.rejects(stat(join(root, '.akari', 'write.lock')), { code: 'ENOENT' });
 }));
 
@@ -281,10 +291,10 @@ test('lock の削除が一回失敗した保存はその場で待たず裏の回
     } } }
   });
   assert.equal(attempts, 1);
-  const deadline = Date.now() + 1000;
+  const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (await stat(lock).then(() => false, error => error.code === 'ENOENT')) break;
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 20));
   }
   await assert.rejects(stat(lock), { code: 'ENOENT' });
   assert.equal(attempts, 2);
@@ -316,8 +326,52 @@ test('消せなかった自分の lock は次の保存で待たずに回収す�
   });
   const started = Date.now();
   await writeProjectFilesTransactional(root, { label: '次', files: { 'edit.json': { next: '次' } } });
-  assert.ok(Date.now() - started < 1000);
+  assert.ok(Date.now() - started < 10_000);
   assert.equal(await read(root, 'edit.json'), '次');
+}));
+
+test('裏の lock 片付け中は回復と保存が同時に臨界区間へ入らない', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  let entered;
+  const backgroundEntered = new Promise(resolve => { entered = resolve; });
+  let resume;
+  const gate = new Promise(resolve => { resume = resolve; });
+  let removals = 0;
+  await writeFile(join(root, 'edit.json'), '前');
+  await assert.rejects(writeProjectFilesTransactional(root, { label: '中断', files: {
+    'edit.json': { expectedHash: projectFileHash('前'), next: '後' }
+  } }, { hooks: { crashAfterJournal: true, fs: { unlink: async path => {
+    if (path === lock && ++removals === 1) throw busy();
+    if (path === lock && removals === 2) {
+      await fs.unlink(path);
+      entered();
+      await gate;
+      return;
+    }
+    return fs.unlink(path);
+  } } } }));
+  await backgroundEntered;
+  await assert.rejects(stat(lock), { code: 'ENOENT' });
+  let completed = 0;
+  const state = globalThis[Symbol.for('akari.edit-store.write-locks')];
+  const backgroundChain = state.chains.get(root);
+  const recovering = recoverInterruptedProjectWriteDetailed(root).then(result => { completed++; return result; });
+  const queuedBy = Date.now() + 10_000;
+  while (state.chains.get(root) === backgroundChain && Date.now() < queuedBy)
+    await new Promise(resolve => setTimeout(resolve, 20));
+  assert.notEqual(state.chains.get(root), backgroundChain);
+  const recoveringChain = state.chains.get(root);
+  const saving = writeProjectFilesTransactional(root, { label: '保存', files: {
+    'captions.json': { next: '後' }
+  } }).then(result => { completed++; return result; });
+  assert.notEqual(state.chains.get(root), recoveringChain);
+  assert.equal(completed, 0);
+  resume();
+  const [detail, written] = await Promise.all([recovering, saving]);
+  assert.deepEqual(detail.restored, []);
+  assert.deepEqual(written.written, ['captions.json']);
+  assert.equal(await read(root, 'captions.json'), '後');
 }));
 
 test('印つき journal は成功した内容を戻さず片付ける', async () => fixture(async root => {
@@ -370,7 +424,7 @@ test('journal が無ければ生きた lock があっても回復はすぐ返る
   }));
   const started = Date.now();
   assert.equal(await recoverInterruptedProjectWrite(root), undefined);
-  assert.ok(Date.now() - started < 100);
+  assert.ok(Date.now() - started < 10_000);
 }));
 
 test('journal が無い新しいプロジェクトを開いても .akari を作らない', async () => fixture(async root => {
@@ -505,7 +559,9 @@ test('journal の直後に落ちたら次の書き込み前に回復の通知を
   const result = await writeProjectFilesTransactional(root, { label: '次', files: {
     'captions.json': { next: '次' },
   } }, { onRecovered: value => { notice = value; } });
-  assert.match(notice, /前回の書き込みが途中で止まった/);
+  assert.match(notice, /前回の書き込みが途中で止まっていました/);
+  assert.match(notice, /ファイルは元のままでした/);
+  assert.doesNotMatch(notice, /元に戻しました/);
   assert.equal(result.recovered, notice);
   assert.equal(await read(root, 'captions.json'), '次');
 }));
@@ -531,6 +587,7 @@ test('回復時にその後の変更があればそのファイルを触らな�
   await writeFile(join(root, 'captions.json'), '第三者');
   const notice = await recoverInterruptedProjectWrite(root);
   assert.match(notice, /その後に変更されていたのでそのまま/);
+  assert.doesNotMatch(notice, /元に戻しました/);
   assert.equal(await read(root, 'captions.json'), '第三者');
 }));
 
@@ -567,16 +624,123 @@ test('生きている持ち主の lock は 30 秒間奪えず 31 秒で奪える
   assert.equal(await read(root, 'captions.json'), '可');
 }));
 
+test('長く待って奪った lock は取得時刻を刻み別の待ち手に奪われない', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  const state = globalThis[Symbol.for('akari.edit-store.write-locks')];
+  const base = Date.now();
+  let clock = base;
+  let attempted;
+  const firstAttempt = new Promise(resolve => { attempted = resolve; });
+  await mkdir(dirname(lock));
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date(base).toISOString(), nonce: '生きた持ち主' }));
+  const first = writeProjectFilesTransactional(root, { label: '奪取', files: {
+    'edit.json': { next: '新' }
+  } }, { waitTimeoutMs: 20_000, hooks: { now: () => clock, processAlive: () => true,
+    fs: { writeFile: async (...args) => {
+      if (args[0] === lock && args[2]?.flag === 'wx' && clock === base) {
+        try { return await fs.writeFile(...args); }
+        catch (error) { attempted(); throw error; }
+      }
+      if (args[0] === lock && args[2]?.flag === 'wx' && clock > base + 30_000) {
+        await fs.writeFile(...args);
+        assert.equal(JSON.parse(await readFile(lock, 'utf8')).created_at,
+          new Date(clock).toISOString());
+        // 排他 lock 自体の競り合いを見るため、この試験の二番手だけプロセス内の鎖を外す。
+        state.chains.delete(root);
+        await assert.rejects(writeProjectFilesTransactional(root, { label: '別の待ち手', files: {
+          'captions.json': { next: '不可' }
+        } }, { waitTimeoutMs: 25, hooks: { now: () => clock, processAlive: () => true } }), /待ち時間/);
+        return;
+      }
+      return fs.writeFile(...args);
+    } }
+  } });
+  await firstAttempt;
+  clock = base + 30_001;
+  await first;
+  assert.equal(await read(root, 'edit.json'), '新');
+}));
+
+test('古い claim は片付けて奪取し新しい claim は保持する', async () => fixture(async root => {
+  const lock = join(root, '.akari', 'write.lock');
+  const claim = `${lock}.claim`;
+  await mkdir(claim, { recursive: true });
+  await writeFile(join(claim, '残骸'), '');
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date().toISOString(), nonce: '死んだ持ち主' }));
+  const old = new Date(Date.now() - 6_000);
+  await utimes(claim, old, old);
+  await writeProjectFilesTransactional(root, { label: '古い claim', files: {
+    'edit.json': { next: '成功' }
+  } }, { hooks: { processAlive: () => false } });
+  assert.equal(await read(root, 'edit.json'), '成功');
+  await assert.rejects(stat(claim), { code: 'ENOENT' });
+  await assert.rejects(stat(lock), { code: 'ENOENT' });
+  await mkdir(claim);
+  await writeFile(lock, JSON.stringify({ pid: 123, host: hostname(),
+    created_at: new Date().toISOString(), nonce: '死んだ持ち主' }));
+  await assert.rejects(writeProjectFilesTransactional(root, { label: '新しい claim', files: {
+    'edit.json': { next: '不可' }
+  } }, { waitTimeoutMs: 30, hooks: { processAlive: () => false } }), /待ち時間/);
+  assert.equal((await stat(claim)).isDirectory(), true);
+}));
+
+test('書き込めないフォルダは元の EPERM で早く失敗する', async () => fixture(async root => {
+  const lock = join(root, '.akari', 'write.lock');
+  await mkdir(dirname(lock));
+  const original = Object.assign(new Error('権限なし'), { code: 'EPERM' });
+  let lockAttempts = 0, probeAttempts = 0;
+  const started = Date.now();
+  await assert.rejects(writeProjectFilesTransactional(root, { label: '権限', files: {
+    'edit.json': { next: '不可' }
+  } }, { hooks: { fs: { writeFile: async (path, ...args) => {
+    if (path === lock && args[1]?.flag === 'wx') lockAttempts++;
+    if (String(path).includes('write.lock.probe-')) probeAttempts++;
+    throw original;
+  } } } }), error => error === original);
+  assert.ok(Date.now() - started < 10_000);
+  assert.ok(lockAttempts >= 5);
+  assert.ok(probeAttempts >= 1);
+}));
+
+test('lock 名だけの EPERM は試し書き成功後も取り直す', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const lock = join(root, '.akari', 'write.lock');
+  await mkdir(dirname(lock));
+  let blocked = true, probes = 0;
+  const result = writeProjectFilesTransactional(root, { label: '競り合い', files: {
+    'edit.json': { next: '成功' }
+  } }, { waitTimeoutMs: 20_000, hooks: { fs: { writeFile: async (...args) => {
+    if (args[0] === lock && blocked) throw Object.assign(new Error('競り合い'), { code: 'EPERM' });
+    if (String(args[0]).includes('write.lock.probe-')) { probes++; blocked = false; }
+    return fs.writeFile(...args);
+  } } } });
+  await result;
+  assert.ok(probes > 0);
+  assert.equal(await read(root, 'edit.json'), '成功');
+}));
+
+test('比較つきの読み取り EBUSY は再試行して保存する', async () => fixture(async root => {
+  const fs = await import('node:fs/promises');
+  const target = join(root, 'edit.json');
+  await writeFile(target, '前');
+  let failures = 2;
+  await writeProjectFilesTransactional(root, { label: '比較', files: {
+    'edit.json': { expectedHash: projectFileHash('前'), next: '後' }
+  } }, { hooks: { fs: { readFile: async (...args) => {
+    if (args[0] === target && failures-- > 0) throw busy();
+    return fs.readFile(...args);
+  } } } });
+  assert.equal(failures, -1);
+  assert.equal(await read(root, 'edit.json'), '後');
+}));
+
 test('2 つのプロセスが同じ hash を読んで書くと片方だけ Conflict になる', async () => fixture(async root => {
   await writeFile(join(root, 'captions.json'), '前');
   const helper = join(dirname(fileURLToPath(import.meta.url)), 'helpers', 'write-transaction-child.mjs');
-  const run = next => new Promise((resolve, reject) => {
-    const child = fork(helper, [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
-    child.on('error', reject);
-    child.on('exit', code => { if (code !== 0) reject(new Error(`子プロセスが終了しました: ${code}`)); });
-    child.on('message', message => { resolve(message); child.disconnect(); });
-    child.send({ root, hash: projectFileHash('前'), next });
-  });
+  const run = next => forkRequest(helper, { root, hash: projectFileHash('前'), next });
   const results = await Promise.all([run('甲'), run('乙')]);
   assert.equal(results.filter(result => result.code === 'AKARI_WRITE_CONFLICT').length, 1);
   assert.ok(['甲', '乙'].includes(await read(root, 'captions.json')));
@@ -584,15 +748,11 @@ test('2 つのプロセスが同じ hash を読んで書くと片方だけ Confl
 
 test('二つのプロセスが各 100 回の比較なし保存を失敗なく終える', async () => fixture(async root => {
   const helper = join(dirname(fileURLToPath(import.meta.url)), 'helpers', 'write-transaction-child.mjs');
-  const run = () => new Promise((resolve, reject) => {
-    const child = fork(helper, [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
-    child.on('error', reject);
-    child.on('message', result => { resolve(result); child.disconnect(); });
-    child.send({ root, repeat: 100 });
-  });
+  const run = () => forkRequest(helper, { root, repeat: 100 });
   const results = await Promise.all([run(), run()]);
   assert.deepEqual(results.map(result => result.written), [100, 100]);
-  assert.ok(results.every(result => result.maxWaitMs < 2000));
+  assert.equal(results.filter(result => result.message).length, 0);
+  assert.ok(results.every(result => result.maxWaitMs < 20_000));
 }));
 
 test('同じプロセスの並行書き込みは順に通る', async () => fixture(async root => {

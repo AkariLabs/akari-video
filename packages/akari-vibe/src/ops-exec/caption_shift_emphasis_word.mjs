@@ -1,7 +1,5 @@
 import { captionFor } from '../exec-support/caption_shift_emphasis_shift.mjs';
 import { measuredAnchor } from '../exec-support/caption_shift_emphasis_word.mjs';
-import { createRequire } from 'node:module';
-const { nextEmphasisWordId } = createRequire(import.meta.url)('../../../edit-store/lib/caption-look-reader.js');
 export default { id: 'caption_emphasis', apply(env, d) {
         const fail = reason => env.log.push(`caption_emphasis → 未適用（${reason}）`);
         const cap = captionFor(env.captions, d.target), word = d.caption_emphasis_word;
@@ -22,7 +20,8 @@ export default { id: 'caption_emphasis', apply(env, d) {
             if (entries.some(e => e.word === word && e.t_start === anchor.t_start && e.t_end === anchor.t_end && e.src === anchor.src)) {
                 env.log.push(`caption_emphasis ${cap.id} → 「${word}」は追加済み`); return;
             }
-            const id = nextEmphasisWordId(root);
+            if (typeof env.editStore?.nextEmphasisWordId !== 'function') return fail('強調語の id を採番できません');
+            const id = env.editStore.nextEmphasisWordId(root);
             root.emphasis_words = [...entries, { id, ...anchor, word, emotion: 'emphasis' }];
             const next = JSON.stringify(root, null, 2) + '\n';
             const parsed = env.editStore.parseCaptions(next);

@@ -2907,12 +2907,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             ...(detail.broken ? [t('annotationscommon.akariAnnotationsService.recovery.broken')] : []),
             ...(detail.restored.length ? [t('annotationscommon.akariAnnotationsService.recovery.restored', {
                 files: detail.restored.join(t('annotationscommon.akariAnnotationsService.recovery.fileSeparator'))
-            })] : []),
+            })] : !detail.broken ? [t('annotationscommon.akariAnnotationsService.recovery.interrupted')] : []),
             ...detail.preserved.map(file => t('annotationscommon.akariAnnotationsService.recovery.preserved', { file })),
             ...detail.missing.map(file => t('annotationscommon.akariAnnotationsService.recovery.missing', { file }))
         ];
-        return { notice: notices.length ? notices.join(t('annotationscommon.akariAnnotationsService.recovery.sentenceSeparator'))
-            : t('annotationscommon.akariAnnotationsService.recovery.interrupted') };
+        return { notice: !detail.broken && !detail.restored.length && !detail.preserved.length && !detail.missing.length
+            ? t('annotationscommon.akariAnnotationsService.recovery.unchanged')
+            : notices.join(t('annotationscommon.akariAnnotationsService.recovery.sentenceSeparator')) };
     }
 
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {

@@ -19,6 +19,70 @@ import {
 const row = (text, extra = {}) => ({ id: 'c-0001', start: 0, end: 10, text,
   speaker: null, sourceRef: null, edited: false, src: 's1', ...extra });
 
+test('壊れ気味の旧強調語も描画入力へ安全に戻す', () => {
+  const good = { id: 'e-0001', src: 's1', word: '猫', t_start: 0.7, t_end: 1.2,
+    emotion: 'surprise', style_hint: 'one-char-bang' };
+  const line = { id: 'c-0001', src: 's1', start: 0, end: 2, text: '今日は猫の話',
+    words: [{ text: '今日', start: 0, end: 0.3 }, { text: 'は', start: 0.3, end: 0.7 },
+      { text: '猫', start: 0.7, end: 1.2 }, { text: 'の', start: 1.2, end: 1.4 },
+      { text: '話', start: 1.4, end: 2 }] };
+  const other = { ...good, word: '話', t_start: 1.4, t_end: 2 };
+  const noId = ({ id, ...value }) => value;
+  const cases = [
+    { words: [null, good], expected: [null, 'e-0001'] },
+    { words: ['x', good], expected: [null, 'e-0001'] },
+    { words: {}, expected: {} },
+    { words: 'text', expected: 'text' },
+    { words: null, expected: null },
+    { words: [noId(good), noId(other)], expected: [null, 'e-0001'] },
+    { words: [{ ...good, id: 'x' }, { ...other, id: 'x' }], expected: ['x', 'e-0001'] },
+    { words: [null, good], line: { ...line, runs: [{ id: 'r-0001', from: 0, to: 2,
+      look: { color: '#ff0000' } }] }, expected: [null, 'e-0001'] },
+    { words: [good, { ...other }], line: { ...line, runs: [null] }, expected: ['e-0001', 'e-0002'] },
+    { words: [good, { ...other }], line: { ...line, runs: {} }, expected: ['e-0001', 'e-0002'] },
+    { words: [good, { ...other }], rows: [line, null], expected: ['e-0001', 'e-0002'] }
+  ];
+  for (const [index, item] of cases.entries()) {
+    const root = { captions: item.rows ?? [item.line ?? line], emphasis_words: item.words };
+    let actual;
+    assert.doesNotThrow(() => { actual = captionRenderInputFromV1(root); });
+    if (Array.isArray(item.expected)) assert.deepEqual(actual.emphasis_words.map(word => word?.id ?? null), item.expected,
+      `例 ${index + 1}`);
+    else assert.deepEqual(actual.emphasis_words, item.expected, `例 ${index + 1}`);
+    if (index === 8 || index === 9) assert.deepEqual(actual.captions[0].runs, item.line.runs);
+    if (index === 10) assert.equal(actual.captions[1], null);
+    if (index < 5) assert.equal(actual, root);
+  }
+});
+
+test('壊れた行や run を飛ばして読める強調 id だけを避ける', () => {
+  const base = { id: 'c-0001', text: '猫', start: 0, end: 1 };
+  const inputs = [
+    { captions: [base], emphasis_words: [null, { id: 'e-0001' }] },
+    { captions: [base], emphasis_words: {} },
+    { emphasis_words: [{ id: 'e-0001' }] },
+    { captions: [{ ...base, runs: [null, { migrated_from: 'e-0001' }] }] },
+    { captions: [{ ...base, runs: {} }] },
+    { captions: [null, base] },
+    { captions: [base], unresolved_runs: [null, {}, { run: null },
+      { run: { migrated_from: 'e-0001' } }] }
+  ];
+  assert.deepEqual(inputs.map(nextEmphasisWordId),
+    ['e-0002', 'e-0001', 'e-0002', 'e-0002', 'e-0001', 'e-0001', 'e-0002']);
+  for (const root of inputs) {
+    assert.doesNotThrow(() => readCaptionLookV1(root, {}));
+    assert.doesNotThrow(() => planCaptionLookMigration(root, {}));
+  }
+});
+
+test('v1 run を描画へ戻しても配列でない強調語は触らない', () => {
+  const root = { captions: [row('猫', { runs: [{ id: 'r-0001', from: 0, to: 1,
+    look: { color: '#ff0000' } }] })], emphasis_words: { old: true } };
+  const actual = captionRenderInputFromV1(root);
+  assert.deepEqual(actual.emphasis_words, { old: true });
+  assert.equal(actual.captions[0].runs[0].style.color, '#ff0000');
+});
+
 test('layout の字幕に大きさを保って当てると size_px が残る', () => {
   const layout = { mode: 'reference-pixel', reference_width_px: 1920,
     reference_height_px: 1080, left_px: 0, width_px: 1000, bottom_px: 0,

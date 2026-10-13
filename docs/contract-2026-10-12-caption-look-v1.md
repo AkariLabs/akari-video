@@ -81,6 +81,9 @@ lock を待つ側は `.akari/write.lock.wait` に印を置く。放す側は loc
 
 Node 側の `applyCaptionStyle`、`clearCaptionStyle`、`reapplyCaptionStyle`、`setCaptionSize` は読んだ全文の hash を比較してから保存し、書く前と後の全文・hash を返す。対象ファイルは既定の `captions.json` / `edit.json` に加え、プロジェクト直下の対応する `captions.<slug>.json` / `edit.<slug>.json` を指定できる。期待 hash は役割名（`captions` / `edit`）または実ファイル名で受け、前後の全文と `written` は実ファイル名を鍵にする。読んだだけのファイルも競合の比較に含める。保存前に v1 の項目の形と文書の意味を検査し、error があれば `AKARI_CAPTIONS_INVALID` と診断を返して書かない。形の検査は旧い行の他の項目や v0 の run の形を理由に拒まない。edit-lint も同じ v1 の形の診断を表示する。
 
+書き込み lock の奪取に使う `.akari/write.lock.claim` は、5 秒を超えて残ったものを取り除いてから再取得する。書き込み先のフォルダで作成権限が無いと確かめたときは、待ち上限を待たずに権限エラーを返す。
+`.akari/write.lock.claim` とその下、および試し書き名 `.akari/write.lock.probe-*` は書き込み先に指定できない。
+
 ## 移行と CLI
 
 移行と preset の解決には同梱とライブラリを合わせた現在の textstyle カタログを使う。移行は現在の edit.json も読んで計画し、書き込む前の字幕データを保存境界の期待 hash として扱う。出所を指定せず look または motion を当てた場合、その部品の古い `style_sources` を消す。両部品の出所が無くなれば `style_sources` 自体を消す。
