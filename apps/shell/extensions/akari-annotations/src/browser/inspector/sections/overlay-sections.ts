@@ -96,6 +96,7 @@ export function OVERLAY_SECTIONS(
         }] : [])
     ];
     const groups = new Map<string, InspectorFieldDef<TimelineOverlaySelection>[]>();
+    const groupLabels = new Map<string, string>();
     const rawVars = snapshot.payload.vars;
     const variableEntries = rawVars && typeof rawVars === 'object' && !Array.isArray(rawVars)
         ? Object.entries(rawVars as Record<string, unknown>) : [];
@@ -115,15 +116,18 @@ export function OVERLAY_SECTIONS(
         const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
         const knob = findKnobForVar(knobs, name);
         const group = knob?.group ?? t('inspector.overlaySections.label.controls');
+        groupLabels.set(group, knob?.groupLabel ?? group);
         const fields = groups.get(group) ?? [];
         const kind = knob ? knobControlKind(knob.type) : 'text';
         const fontKnob = knob ? isFontFamilyKnob(knob) : false;
         const fontOptions = fontKnob ? renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces)
             .map(font => fontFaces.get(font.id) ?? font.family) : [];
         if (fontKnob && typeof value === 'string' && value && !fontOptions.includes(value)) fontOptions.unshift(value);
+        const label = knob?.label ?? `vars.${name}`;
         fields.push({
                 name: `var-${name.replace(/[^a-z0-9_-]+/giu, '-')}`,
-                label: knob?.label ?? `vars.${name}`,
+                label,
+                title: label,
                 getValue: () => formatPayloadValue(value),
                 getEditValue: () => knob?.type === 'slider' && typeof value === 'string'
                     ? String(Number.parseFloat(value)) : String(value ?? ''),
@@ -151,7 +155,7 @@ export function OVERLAY_SECTIONS(
     }
     const knobSections: InspectorSection<TimelineOverlaySelection>[] = [...groups].map(([group, fields], index) => ({
         id: `knobs:${index}-${group.replace(/[^a-z0-9_-]+/giu, '-') || 'default'}`,
-        label: group || t('inspector.overlaySections.label.controls'), fields
+        label: groupLabels.get(group) || t('inspector.overlaySections.label.controls'), fields
     }));
     const opacity = typeof snapshot.payload.opacity === 'number' ? snapshot.payload.opacity : 1;
     const blend = typeof snapshot.payload.blend === 'string' ? snapshot.payload.blend : 'normal';

@@ -9,6 +9,7 @@
       "title": "Smartphone Screen Mockup (Bake Recipe)",
       "description": "A bake recipe that inserts any still or video, such as a UI capture or app screen, into the display of a modern edge-to-edge smartphone model and renders a hero shot. The media knob screen_src replaces only the screen content; body shape and materials stay intact.",
       "when_to_use": "For a convincing opening mockup in app introductions, UI explainers, or product demos, showing your app on a real-device-style model. The same recipe bakes either a still screenshot or a short screen recording.",
+      "groups": {"content":"Content","pose":"Camera pose","light":"Lighting"},
       "knobs": {
         "screen_src": "Still images/videos displayed on screen",
         "screen_brightness": "Screen brightness (emission intensity)",

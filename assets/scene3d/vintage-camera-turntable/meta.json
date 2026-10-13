@@ -9,6 +9,7 @@
       "title": "Vintage Camera Turntable (Bake Recipe)",
       "description": "A bake recipe that renders a hero clip of a classic rangefinder camera (27K triangles) orbiting under studio HDRI lighting to MP4 with headless Blender. Knobs adjust the starting angle, orbit sweep, high-angle tilt, push-in/pull-out, and ambient-light direction and strength.",
       "when_to_use": "For retro or analog opening shots and product hero shots that need a smooth orbit clip difficult to capture in live action.",
+      "groups": {"pose":"Camera pose","light":"Lighting"},
       "knobs": {
         "orbit_start_deg": "Orbit start angle",
         "orbit_sweep_deg": "Orbit sweep",

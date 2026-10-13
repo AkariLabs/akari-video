@@ -11,7 +11,7 @@ import { BEFORE_AFTER_DATA_URL } from './before-after-data';
 import { guideShowsChat, guideTargetsChat, guideNeedsPartner, shouldRevealPartner, guideInputCutouts, guideRequiredPanels,
     guideBlockerClipPath, pointInGuideCutouts, shouldBlockGuidePointer, partnerFallbackReady, askHighlightTarget,
     askConnectionCopy, captionCoachPosition, materialPreviewTransportRect, needsCaptionStyleSelection,
-    outputCaptionBandRect, GuideRect } from './guide-ui-model';
+    outputCaptionBandRect, guideCoachPlacement, heldGuideCoachTop, GuideCoachHold, GuideRect } from './guide-ui-model';
 import { introVisual, inviteMarkup } from './intro-model';
 import { groupChatLines } from './chat-model';
 import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
@@ -90,6 +90,7 @@ export class OnboardingController {
     protected fogTo: DOMRect[] = [];
     protected fogFrame?: number;
     protected coachKey = '';
+    protected coachHold?: GuideCoachHold<HTMLElement>;
     protected coachToken = 0;
     protected dragStarted = false;
     protected dragHintTimer?: number;
@@ -953,9 +954,14 @@ export class OnboardingController {
         }
         const all = [...framed, ...clear];
         const chatRect = chat?.getBoundingClientRect();
-        const serial = JSON.stringify([this.state.step, this.state.sub, ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]),
+        const typingPrompt = this.state.step === 'prompt' && this.state.sub === 0;
+        const basis = JSON.stringify([this.state.step, this.state.sub,
+            ...(typingPrompt ? [innerWidth, innerHeight] : []),
+            ...all.map(rect => [rect.x, rect.y, rect.width, rect.height]),
             ring && [ring.x, ring.y, ring.width, ring.height], chatRect && [chatRect.x, chatRect.y, chatRect.width, chatRect.height],
             ...captionObstacles.map(rect => [rect.x, rect.y, rect.width, rect.height])]);
+        const serial = typingPrompt
+            ? JSON.stringify([basis, coach?.querySelector<HTMLElement>('.ao-body')?.scrollHeight]) : basis;
         if (serial === this.lastRects) return;
         this.lastRects = serial;
         dim.classList.toggle('clear', !!spec.noDim);
@@ -995,25 +1001,28 @@ export class OnboardingController {
         if (this.state.step === 'daihon' && this.state.sub > 0) {
             coach.style.width = `${Math.max(190, (rectOf('output')?.left ?? 250) - 26)}px`;
         }
-        const width = coach.offsetWidth, height = coach.offsetHeight;
-        let x = anchor ? anchor.right + 14 : (innerWidth - width) / 2;
-        let y = anchor ? anchor.top + (anchor.height - height) / 2 : (innerHeight - height) / 2;
-        if (spec.minimal) { x = (innerWidth - width) / 2; y = innerHeight * (spec.noDim ? .66 : .42) - height / 2; }
-        else if (spec.place === 'left') x = (anchor?.left ?? innerWidth / 2) - width - 14;
-        else if (spec.place === 'top') { x = (anchor?.left ?? innerWidth / 2) + ((anchor?.width ?? 0) - width) / 2; y = (anchor?.top ?? innerHeight / 2) - height - 14; }
-        else if (spec.place === 'bottom') { x = (anchor?.left ?? innerWidth / 2) + ((anchor?.width ?? 0) - width) / 2; y = (anchor?.bottom ?? innerHeight / 2) + 14; }
-        if (x + width > innerWidth - 12 && anchor) x = anchor.left - width - 14;
-        if (x < 8 && anchor && !spec.minimal) x = anchor.right + 14;
-        if (this.state.step === 'work') { x = 20; y = innerHeight * .53; }
-        if (this.state.step === 'drag') { x = (anchor?.right ?? 240) + 14; y = innerHeight - height - 24; }
-        if (this.state.step === 'daihon' && this.state.sub > 0) { x = 12; y = 66; }
-        if (this.state.step === 'caption' && this.state.sub > 0) {
-            const outputRect = rectOf('output');
-            if (outputRect) ({ x, y } = captionCoachPosition({ width: innerWidth, height: innerHeight },
-                { width, height }, outputRect, captionObstacles));
+        coach.style.maxHeight = '';
+        coach.classList.remove('ao-coach-constrained');
+        if (coach.offsetHeight > innerHeight - 40) {
+            coach.classList.add('ao-coach-constrained');
+            coach.style.maxHeight = `${Math.max(0, innerHeight - 40)}px`;
         }
-        coach.style.left = `${Math.max(8, Math.min(x, innerWidth - width - 8))}px`;
-        coach.style.top = `${Math.max(8, Math.min(y, innerHeight - height - 32))}px`;
+        const width = coach.offsetWidth, height = coach.offsetHeight;
+        const actionsRect = coach.querySelector<HTMLElement>('.ao-actions')?.getBoundingClientRect();
+        const coachRect = coach.getBoundingClientRect();
+        const actionsHeight = actionsRect?.height ?? 0;
+        const actionsBottomInset = actionsRect ? Math.max(0, coachRect.bottom - actionsRect.bottom) : 0;
+        const outputRect = this.state.step === 'caption' && this.state.sub > 0 ? rectOf('output') : undefined;
+        const captionPosition = outputRect ? captionCoachPosition({ width: innerWidth, height: innerHeight },
+            { width, height }, outputRect, captionObstacles) : undefined;
+        const previousTop = heldGuideCoachTop(this.coachHold, coach, basis, this.state.step, this.state.sub);
+        const bounds = guideCoachPlacement({ width: innerWidth, height: innerHeight },
+            { width, height, actionsHeight, actionsBottomInset }, anchor,
+            { minimal: spec.minimal, noDim: spec.noDim, place: spec.place, step: this.state.step, sub: this.state.sub,
+                previousTop, captionPosition });
+        coach.style.left = `${bounds.left}px`;
+        coach.style.top = `${bounds.top}px`;
+        this.coachHold = { element: coach, basis, top: bounds.top };
     }
 
     protected paintFog(rects: DOMRect[], framed = 0, labels?: string[]): void {

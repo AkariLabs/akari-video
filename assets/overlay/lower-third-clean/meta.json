@@ -9,6 +9,7 @@
       "title": "Clean Lower Third",
       "description": "A lower third with a dark plate and accent line, presenting name and title in two neat lines. Optimized for introducing a person in Japanese.",
       "when_to_use": "For calmly presenting a speaker's name and title in interviews, speaker introductions, recruitment videos, and corporate footage.",
+      "groups": {"style":"Style","typography":"Typography","layout":"Layout"},
       "knobs": {
         "--primary-color": "Plate color",
         "--accent-color": "Accent color",

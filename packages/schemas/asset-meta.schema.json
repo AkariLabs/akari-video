@@ -81,7 +81,8 @@
           "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
           "description": { "type": "string", "minLength": 1, "pattern": "\\S" },
           "when_to_use": { "type": "string", "minLength": 1, "pattern": "\\S" },
-          "knobs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1, "pattern": "\\S" } }
+          "knobs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+          "groups": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1, "pattern": "\\S" } }
         }
       }
     },

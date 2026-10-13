@@ -1,6 +1,6 @@
 import { getLanguage, localizedPresetText, t } from '@akari-video/i18n';
 import { createCaptionHoverPreview } from '../../common/caption-hover-preview';
-import { CAPTION_PANEL_FONTS } from '../../common/caption-panel-catalog';
+import { CAPTION_PANEL_FONTS, CAPTION_PANEL_FONT_EN_TITLES } from '../../common/caption-panel-catalog';
 import { filterCaptionPanelFonts } from '../../common/caption-font-label';
 import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
@@ -11,6 +11,14 @@ import { applyLibraryTextStyleSample, CAPTION_DEFAULT_SIZE_PX, LIBRARY_TEXTSTYLE
 import { scaledLookForCaption } from '../my-style-look';
 
 export const CAPTION_PANEL_STYLES = Object.values(TEXTSTYLE_CATALOG);
+
+export function captionPanelFontName(font: { id: string; title: string; displayName?: string }, language: string): string {
+    return language === 'ja' ? font.displayName ?? font.title : CAPTION_PANEL_FONT_EN_TITLES[font.id] ?? font.title;
+}
+
+export function captionPanelFontControlName(font: { id: string; title: string; displayName?: string }, language: string): string {
+    return language === 'ja' ? font.title : captionPanelFontName(font, language);
+}
 
 export function captionPanelPresetName(item: CaptionPanelPreset): string {
     if (item.origin === 'library') return item.name;
@@ -236,7 +244,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const font = CAPTION_PANEL_FONTS.find(item => item.id === id);
             const family = fontFaces.get(id) ?? catalogAvailability[id]?.family;
             if (!font || !family) continue;
-            recent.append(previewable(button(document, font.title, () => {
+            recent.append(previewable(button(document, captionPanelFontControlName(font, getLanguage()), () => {
                 actions.confirm(); actions.font(family, undefined, id);
             }), { fontFamily: family }, actions));
         }
@@ -259,7 +267,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             chevron.className = 'akari-caption-font-chevron';
             chevron.disabled = weights.length <= 1;
             chevron.setAttribute('aria-expanded', String(state.expandedFont === font.id && weights.length > 1));
-            chevron.setAttribute('aria-label', t('inspector.captionPanels.label.weight', { fontName: font.title, action: state.expandedFont === font.id ? t('inspector.captionPanels.label.close') : t('inspector.captionPanels.label.open') }));
+            chevron.setAttribute('aria-label', t('inspector.captionPanels.label.weight', { fontName: captionPanelFontControlName(font, getLanguage()), action: state.expandedFont === font.id ? t('inspector.captionPanels.label.close') : t('inspector.captionPanels.label.open') }));
             row.append(chevron);
             const face = button(document, '', () => {
                 actions.confirm(); actions.font(family, undefined, font.id);
@@ -268,9 +276,9 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             const faceText = document.createElement('span'); faceText.className = 'akari-caption-font-face-text';
             const name = document.createElement('span'); name.className = 'akari-caption-font-name';
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
-            name.textContent = font.displayName ?? font.title;
+            name.textContent = captionPanelFontName(font, getLanguage());
             const english = document.createElement('span'); english.className = 'akari-caption-font-english';
-            english.textContent = font.title;
+            english.textContent = getLanguage() === 'ja' ? font.title : '';
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
             detail.textContent = captionFontRowDetail(font.tags);
             const status = document.createElement('span'); status.className = 'akari-caption-font-status';
