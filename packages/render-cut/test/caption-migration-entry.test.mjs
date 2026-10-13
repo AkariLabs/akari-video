@@ -9,6 +9,7 @@ import test from 'node:test';
 import { readRenderEdit } from '../src/internal-render.mjs';
 import { resolveCaptionPlan } from '../src/caption-resolve.mjs';
 import { buildGpuPage } from '../../gpu-export/src/page-builder.mjs';
+import { evaluateGpuEligibility } from '../../gpu-export/src/eligibility.mjs';
 
 const require = createRequire(import.meta.url);
 const { planCaptionLookMigration, TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
@@ -150,6 +151,43 @@ test('detached typewriter caption with run effects retains the OSR eligibility r
       overlays: rendered.edit.overlays, projectRoot, duration: 5 });
     assert.equal(page.eligibility.entries.find(item => item.id === root.captions[1].id)?.reason,
       'caption-run-effects-typewriter');
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('main and detached caption entrances agree on zero effects and plates', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'caption-entry-effects-'));
+  try {
+    await cp(fixture, projectRoot, { recursive: true });
+    const edit = JSON.parse(await readFile(join(projectRoot, 'edit.json'), 'utf8'));
+    const root = JSON.parse(await readFile(join(projectRoot, 'captions.json'), 'utf8'));
+    const row = root.captions[1];
+    edit.tracks[2].items[0].at = 31;
+    edit.tracks[2].items[0].duration = 30;
+    row.style = 'karaoke';
+    row.words = [{ text: row.text, start: row.start, end: row.end }];
+    const zero = { color: '#ff3355', stroke: { width_px: 0 },
+      shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 } };
+    for (const [look, reason] of [
+      [zero, 'words-native'],
+      [{ ...zero, background: { color: '#ffffff' } }, 'caption-run-plate-words-native'],
+    ]) {
+      row.runs = [{ id: 'r-0001', from: 0, to: 1, look }];
+      await writeFile(join(projectRoot, 'captions.json'), `${JSON.stringify(root)}\n`);
+      const rendered = readRenderEdit(edit, undefined, { projectRoot });
+      const detached = rendered.edit.overlays.find(item => item.id === 'c2-out');
+      assert.ok(detached);
+      assert.equal(/data-akari-plate="true"/u.test(detached.html), Boolean(look.background));
+      const direct = evaluateGpuEligibility({ edit: rendered.edit, captions: root });
+      const main = buildGpuPage({ edit: rendered.edit, captions: root, overlays: [],
+        projectRoot, duration: 5 });
+      const item = buildGpuPage({ edit: rendered.edit, captions: root,
+        overlays: rendered.edit.overlays, projectRoot, duration: 5 });
+      for (const result of [direct, main.eligibility, item.eligibility]) {
+        assert.equal(result.entries.find(entry => entry.id === row.id)?.reason, reason);
+      }
+    }
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

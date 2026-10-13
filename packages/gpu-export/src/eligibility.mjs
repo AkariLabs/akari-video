@@ -5,6 +5,10 @@ import { runtimes as overlayRuntimes, readDeclarations } from "../../overlay-run
 import { captionFontFaces, captionFontFamilies } from '../../render-cut/src/caption-font-faces.mjs';
 import { captionLanguageDefaults, normalizeLanguage } from '../../content-language/src/index.mjs';
 import { accessSync, constants, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { captionRunHasOutsideEffect } = require('../../edit-store/lib/index.js');
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -435,9 +439,8 @@ export function evaluateGpuEligibility({
     const gradientEffects = textStyle?.fill_gradient && !textStyle?.fill
       && (textStyle?.stroke || textStyle?.stroke_inner || textStyle?.extrude
         || textStyle?.shadow || textStyle?.glow);
-    const richRun = !gradientEffects && Array.isArray(cue?.runs) && cue.runs.some(run => run?.resolved_look?.plate
-      || run?.resolved_look?.text_shadow !== undefined || run?.look?.background
-      || run?.look?.shadow !== undefined || run?.look?.glow !== undefined);
+    const richRun = !gradientEffects && Array.isArray(cue?.runs)
+      && cue.runs.some(run => run && captionRunHasOutsideEffect(run));
     if (richRun && [animation?.in?.id, animation?.out?.id].includes('typewriter')) {
       entries.push(entry('caption', id, 'unsupported', 'caption-run-effects-typewriter', ['runs', 'text_style.animation']));
       continue;

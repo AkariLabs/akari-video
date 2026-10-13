@@ -23,6 +23,7 @@ export interface CaptionRun {
     look?: Record<string, unknown>;
     resolved_look?: {
         plate?: { color: string; opacity: number; padding_px: number; radius_px: number };
+        outside_effect?: boolean;
         text_shadow?: string;
         ink_outset_px?: number;
         rotate_deg?: number;

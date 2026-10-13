@@ -223,6 +223,47 @@ test('GPU path diagnoses typewriter run effects after look resolution', () => {
   assert.equal(diagnostics.filter(item => item.code === 'captions.style.unsupported-path').length, 1);
 });
 
+test('GPU path ignores explicit zero run effects and keeps active effects', () => {
+  const zero = { color: '#ff3355', stroke: { width_px: 0 },
+    shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 } };
+  for (const key of ['stroke', 'shadow', 'glow']) {
+    const resolved = resolveCaptionRunLook({ [key]: zero[key] }, {});
+    assert.equal(resolved.resolved_look?.outside_effect ?? false, false);
+  }
+  const cases = [
+    { style: 'karaoke', words: [{ text: 'AB' }], look: zero, unsupported: false },
+    { style: 'karaoke', words: [{ text: 'AB' }],
+      look: { ...zero, background: { color: '#ffffff', opacity: 0 } }, unsupported: false },
+    { style: 'karaoke', words: [{ text: 'AB' }],
+      look: { ...zero, background: { color: '#ffffff' } }, unsupported: true },
+    { text_style: { animation: { in: { id: 'typewriter' } } }, look: zero, unsupported: false },
+    { text_style: { animation: { in: { id: 'typewriter' } } },
+      look: { ...zero, shadow: { color: '#000000', opacity: 0.9 } }, unsupported: true },
+  ];
+  for (const item of cases) {
+    const resolved = resolveCaptionRunLook(item.look, {});
+    assert.equal(resolved.resolved_look?.outside_effect, item.unsupported);
+    const row = { text: 'AB', style: item.style, words: item.words, text_style: item.text_style,
+      runs: [{ id: 'r-0001', from: 0, to: 2, look: item.look, ...resolved }] };
+    const diagnostics = validateCaptionsSemantics({ captions: { captions: [row] }, path: 'gpu' });
+    assert.equal(diagnostics.some(entry => entry.code === 'captions.style.unsupported-path'),
+      item.unsupported);
+  }
+});
+
+test('wrapped zero-effect fragments keep rotation warning without a GPU path error', () => {
+  const look = { rotate_deg: 8, stroke: { width_px: 0 },
+    shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 } };
+  const resolved = resolveCaptionRunLook(look, {});
+  assert.equal(resolved.resolved_look?.outside_effect, false);
+  const row = { text: 'AB', style: 'karaoke', words: [{ text: 'AB' }],
+    text_style: { wrap_width_pct: 30 }, runs: [{ from: 0, to: 2, look, ...resolved }] };
+  const diagnostics = validateCaptionsSemantics({ captions: { captions: [row] }, path: 'gpu' });
+  assert.equal(diagnostics.filter(item => item.code === 'captions.run.rotation-wrap'
+    && item.severity === 'warning').length, 1);
+  assert.equal(diagnostics.filter(item => item.code === 'captions.style.unsupported-path').length, 0);
+});
+
 test('GPU path diagnoses emphasis word tiles on the same source and time', () => {
   const caption = { text: 'AB', src: 'main', start: 1, end: 2,
     words: [{ text: 'AB', start: 1, end: 2 }],

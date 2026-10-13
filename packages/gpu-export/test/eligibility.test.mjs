@@ -244,6 +244,29 @@ test('typewriter with run effects uses OSR in either direction', () => {
   }
 });
 
+test('explicit zero run effects keep word and typewriter captions on GPU', () => {
+  const zero = { color: '#ff3355', stroke: { width_px: 0 },
+    shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 } };
+  const cases = [
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: zero, reason: 'words-native' },
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: { ...zero, background: { color: '#ffffff', opacity: 0 } }, reason: 'words-native' },
+    { row: { style: 'karaoke', words: [{ text: 'x', start: 0, end: 1 }] },
+      look: { ...zero, background: { color: '#ffffff' } }, reason: 'caption-run-plate-words-native' },
+    { row: { text_style: { animation: { in: { id: 'typewriter' } } } },
+      look: zero, reason: 'caption-sprite' },
+    { row: { text_style: { animation: { in: { id: 'typewriter' } } } },
+      look: { ...zero, shadow: { color: '#000000', opacity: 0.9 } },
+      reason: 'caption-run-effects-typewriter' },
+  ];
+  for (const { row, look, reason } of cases) {
+    const result = evaluate([], [{ id: 'run', start: 0, end: 1, text: 'x', ...row,
+      runs: [{ id: 'r-0001', from: 0, to: 1, look }] }]);
+    assert.equal(result.entries[0].reason, reason);
+  }
+});
+
 test('GPU page builder agrees with direct eligibility for typewriter run effects', () => {
   const edit = { output: { width: 640, height: 360, fps: 30 }, cuts: [], overlays: [] };
   const captions = { captions: [{ id: 'c-0001', start: 0, end: 2, text: 'AB',

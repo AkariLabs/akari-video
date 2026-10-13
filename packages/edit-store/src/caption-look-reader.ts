@@ -236,6 +236,23 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         unresolved, notices: [...new Set(notices)] };
 }
 
+export function captionRunHasOutsideEffect(run: Pick<CaptionRun, 'look' | 'resolved_look'>): boolean {
+    const resolved = run.resolved_look;
+    if (typeof resolved?.outside_effect === 'boolean') return resolved.outside_effect;
+    if (resolved?.plate || resolved?.text_shadow !== undefined) return true;
+    const look = run.look;
+    if (!look) return false;
+    const active = (value: unknown, strength: string, fallback: number): boolean => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+        const effect = value as Record<string, unknown>;
+        if (typeof effect.color !== 'string' || !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(effect.color)) return false;
+        const amount = effect[strength];
+        return (typeof amount === 'number' && Number.isFinite(amount) ? amount : fallback) > 0;
+    };
+    return active(look.background, 'opacity', 1)
+        || active(look.shadow, 'opacity', 1) || active(look.glow, 'density', 50);
+}
+
 export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: Record<string, unknown> | null,
     output?: { width: number; height: number }, layout?: unknown, policy = false, roundedStroke = false): { style: NonNullable<CaptionRun['style']>;
         resolved_look?: CaptionRun['resolved_look'] } {
@@ -338,6 +355,7 @@ export function resolveCaptionRunLook(look: Record<string, unknown>, lineStyle: 
         || lineStyle?.shadow || lineStyle?.glow)) return { style };
     return { style, ...(plate || hasShadow || hasGlow ? { resolved_look: {
         ...(plate ? { plate } : {}),
+        outside_effect: captionRunHasOutsideEffect({ look }),
         ink_outset_px: inkOutset,
         rotate_deg: typeof look.rotate_deg === 'number' ? look.rotate_deg : 0,
         wrappable: Boolean(lineStyle?.wrap_width_pct || lineStyle?.vertical),
