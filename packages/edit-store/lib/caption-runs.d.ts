@@ -1,5 +1,6 @@
 /** Character-range caption styling. Offsets always count displayed graphemes. */
 export interface CaptionRun {
+    id?: string;
     from: number;
     to: number;
     role?: string;
@@ -23,6 +24,26 @@ export interface CaptionRun {
         loop?: CaptionRunAnimationSlot;
         out?: CaptionRunAnimationSlot;
     };
+    look?: Record<string, unknown>;
+    motion?: {
+        in?: CaptionRunAnimationSlot;
+        loop?: CaptionRunAnimationSlot;
+        out?: CaptionRunAnimationSlot;
+    };
+    dormant_animation?: CaptionRun['animation'];
+    emotion?: string;
+    anchor?: {
+        src?: string;
+        start: number;
+        end: number;
+        domain: 'source' | 'output';
+    };
+    fire?: 'shown' | 'spoken' | 'whole';
+    fire_was?: 'shown' | 'spoken' | 'whole';
+    style_sources?: Record<string, unknown>;
+    needs_review?: boolean;
+    split_from?: string;
+    migrated_from?: string;
 }
 export interface CaptionRunAnimationSlot {
     id: string;
@@ -52,12 +73,52 @@ export declare function captionRunStyleFromLook(look: Record<string, unknown>, b
 export declare function resolveCaptionRuns(text: string, runs?: readonly CaptionRun[]): ResolvedCaptionRunChar[];
 /** Project a displayed substring, including one side of a manual line split. */
 export declare function sliceCaptionRuns(text: string, runs: readonly CaptionRun[] | undefined, start: number, end: number): CaptionRun[] | undefined;
-/** Rebase a minimal grapheme diff; a deleted range removes its run. */
+/** 複数の差分区間を、書記素 LCS で対応付ける。 */
 export declare function rebaseCaptionRuns(oldText: string, newText: string, runs: readonly CaptionRun[]): {
     runs: CaptionRun[];
     removed: CaptionRun[];
 };
 export declare function joinAdjacentCaptionRuns(runs: readonly CaptionRun[]): CaptionRun[];
+export declare function nextCaptionRunId(runs: readonly CaptionRun[]): string;
+export declare function clearCaptionRunRange(runs: readonly CaptionRun[], from: number, to: number): CaptionRun[];
+export declare function splitCaptionRuns(text: string, runs: readonly CaptionRun[], splitUtf16: number, leftWindow: {
+    start: number;
+    end: number;
+}, rightWindow: {
+    start: number;
+    end: number;
+}, allRuns?: readonly CaptionRun[]): {
+    left?: CaptionRun[];
+    right?: CaptionRun[];
+};
+export interface UnresolvedCaptionRun {
+    run: CaptionRun;
+    old_caption_id: string;
+    old_text: string;
+    old_src: string | null;
+    old_start: number;
+    old_end: number;
+    reason: string;
+}
+export declare function unresolvedRunsForDeletedCaption(caption: {
+    id: string;
+    text: string;
+    src?: string;
+    start: number;
+    end: number;
+    runs?: CaptionRun[];
+}, reason?: string): UnresolvedCaptionRun[];
+export declare function moveDeletedCaptionRunsToUnresolved<T extends {
+    captions: Array<{
+        id: string;
+        text: string;
+        src?: string;
+        start: number;
+        end: number;
+        runs?: CaptionRun[];
+    }>;
+    unresolved_runs?: UnresolvedCaptionRun[];
+}>(root: T, captionId: string, reason?: string): T;
 /** Text-only notice for a caller that can present caption edit results to a user. */
 export declare function captionRunsRemovedNotice(removedRuns: readonly CaptionRun[], oldDisplayText: string): string | undefined;
 /** Self-contained because preview injects this function into its webview with toString(). */

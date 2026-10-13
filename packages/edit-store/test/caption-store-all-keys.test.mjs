@@ -4,6 +4,16 @@ import { readFile } from 'node:fs/promises';
 
 import { insertCaptionLine } from '../lib/caption-store.js';
 
+test('ルートの未解決範囲を行の追加後も保全する', () => {
+  const unresolved = [{ run: { id: 'r-0001', from: 0, to: 1 }, old_caption_id: 'c-old',
+    old_text: '旧', old_src: 's1', old_start: 0, old_end: 1, reason: '行が消えた' }];
+  const source = JSON.stringify({ captions: [], unresolved_runs: unresolved });
+  const next = JSON.parse(insertCaptionLine(source, { id: 'c-0001', start: 0, end: 1,
+    text: '新', speaker: null, sourceRef: null, edited: false }));
+  assert.deepEqual(next.unresolved_runs, unresolved);
+  assert.deepEqual(Object.keys(next), ['captions', 'unresolved_runs']);
+});
+
 const schema = JSON.parse(await readFile(
   new URL('../../schemas/captions.schema.json', import.meta.url),
   'utf8'
@@ -31,6 +41,7 @@ const optionalValues = {
   display_fragments: { field: 'displayFragments', value: ['前半', '後半'], json: ['前半', '後半'] },
   style_preset: { field: 'stylePreset', value: 'subtitle-standard', json: 'subtitle-standard' },
   text_style: { field: 'textStyle', value: { color: '#ffffff' }, json: { color: '#ffffff' } },
+  style_sources: { field: 'styleSources', value: { look: { kind: 'builtin', id: 'sample', original_hash: 'x', applied_hash: 'y' } }, json: { look: { kind: 'builtin', id: 'sample', original_hash: 'x', applied_hash: 'y' } } },
   display_timing: { field: 'extra', value: { display_timing: 'speech-tight' }, json: 'speech-tight' },
   runs: { field: 'runs', value: [{ from: 0, to: 1, role: 'emphasis' }],
     json: [{ from: 0, to: 1, role: 'emphasis' }] }

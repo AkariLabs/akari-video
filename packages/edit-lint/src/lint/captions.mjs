@@ -2,7 +2,7 @@ import { segmentDuration } from "../cut-timeline.mjs";
 import { buildMatcher, protectedTermsFrom } from "../../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../../word-book/src/index.mjs";
 import { EPSILON, addFinding, captionFinding, isFiniteNumber, isNonEmptyString, isPositiveNumber, isRecord, relativePath } from "./shared.mjs";
-import { resolveCaptionDisplay } from "./external.mjs";
+import { resolveCaptionDisplay, validateCaptionsSemantics, CAPTION_RUN_FIELDS } from "./external.mjs";
 import { validateCaptionAnimation, validateTextStyle } from "./caption-style.mjs";
 
 export function validateCaptionRunRanges(caption) {
@@ -18,6 +18,12 @@ export function validateCaptionRunRanges(caption) {
 export function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
+  // The caller supplies the v2 cut projection; never interpret raw tracks as cuts.
+  const timeline = Array.isArray(edit?.cuts) ? edit.cuts : undefined;
+  for (const diagnostic of validateCaptionsSemantics({ captions, edit, timeline })) {
+    addFinding(findings, { severity: diagnostic.severity, check: diagnostic.code,
+      message: diagnostic.message, path: diagnostic.path });
+  }
   const wordBook = resolveWordBookSync({ projectRoot: paths.projectRoot, env: process.env });
   const wordBookMatcher = buildMatcher(wordBook.entries);
   for (const layer of wordBook.layers) {
@@ -52,7 +58,8 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       if (field !== "default_text_style"
         && field !== "display_policy"
         && field !== "emphasis_words"
-        && field !== "captions") {
+        && field !== "captions"
+        && field !== "unresolved_runs") {
         captionFinding(
           findings,
           "captions.schema",
@@ -104,7 +111,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style", "runs"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style", "runs", "style_sources"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -207,7 +214,7 @@ export function validateCaptions(captions, edit, analysis, findings, paths, cuts
           || (run.style !== undefined && (!isRecord(run.style)
             || Object.keys(run.style).some(key => !["color", "font_weight", "scale", "baseline_shift_em", "rotate_deg", "letter_spacing_em", "stroke", "italic", "underline"].includes(key))))
           || (run.animation !== undefined && !isRecord(run.animation))
-          || Object.keys(run).some(key => !["from", "to", "role", "style", "animation"].includes(key))) {
+          || Object.keys(run).some(key => !CAPTION_RUN_FIELDS.has(key))) {
           captionFinding(findings, "captions.schema", "run has invalid fields or types", path);
           return;
         }
