@@ -476,9 +476,9 @@ async function downloadFontOnce(id: string, title: string, aliases: string[], ma
         await fs.writeFile(join(temp, entry.file), font);
         await fs.writeFile(join(temp, 'OFL.txt'), license);
         await fs.writeFile(join(temp, 'meta.json'), JSON.stringify({ id, category: 'font', title: entry.family || title,
-            description: 'OFL-1.1 の書体', when_to_use: '字幕やテロップでこの書体を使うとき',
-            aliases, tags: ['font', 'japanese'], knobs: [], ai_usage: 'OFL-1.1 の条件に従って使用する。',
-            requires: [], provenance: { origin: 'Google Fonts から取得', generator: null }, author: 'See OFL.txt',
+            description: 'OFL-1.1 typeface', when_to_use: 'Captions and titles that use this typeface',
+            aliases, tags: ['font', 'japanese'], knobs: [], ai_usage: 'Use under the terms of OFL-1.1.',
+            requires: [], provenance: { origin: 'Downloaded from Google Fonts', generator: null }, author: 'See OFL.txt',
             license: { spdx: 'OFL-1.1', scope: 'commercial-ok', attribution_required: false, ai_training_allowed: true },
             tier: 'free' }, null, 2));
         await fs.access(join(temp, entry.file), constants.R_OK);

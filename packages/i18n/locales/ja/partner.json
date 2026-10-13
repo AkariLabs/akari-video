@@ -41,6 +41,7 @@
   "partner.navigation.commands.openPartnerAction": "パートナーを開く",
   "partner.navigation.commands.partnerNotOpenWarning": "パートナーが開いていません。パートナーを開くか、依頼文をコピーしてください。",
   "partner.navigation.commands.requestCopiedPastePartnerInputInfo": "依頼文をコピーしました。{name} の入力欄に貼り付けて送ってください。",
+  "partner.navigation.commands.requestCopiedOpenPartnerInfo": "依頼文をコピーしました。開いたパートナーの入力欄に貼り付けて送ってください。",
   "partner.navigation.commands.sendContextPacketPartnerText": "文脈パケットをパートナーへ送る",
   "partner.navigation.commands.sendMessagePartnerAction": "パートナーにメッセージを送る",
   "partner.navigation.commands.typeInPartnerInputAction": "パートナーの入力欄に書く",

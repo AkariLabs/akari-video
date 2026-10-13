@@ -503,7 +503,7 @@
   "project.library.textPage.addTextLabel": "+ Add text",
   "project.library.textPage.applyHoverPreviewAction": "Apply · Hover to preview",
   "project.library.textPage.favoritesLabel": "Favorites",
-  "project.library.textPage.fontPreviewTitleLabel": "Font preview for {title}: 文字もじモジ",
+  "project.library.textPage.fontPreviewTitleLabel": "Font preview for {title}",
   "project.library.textPage.fontSpecimenLabel": "文字もじモジ",
   "project.library.textPage.styleLabel": "Style",
   "project.library.textPage.textLabel": "Text",

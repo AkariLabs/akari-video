@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, open, readFile, readdir, rm, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { fontNames, normalizeFontName as normalizeResolverFontName } from '../../../../../packages/asset-resolver/src/font-names.mjs';
 
@@ -16,11 +17,8 @@ const { applyCatalogFont } = require('../lib/common/font-apply-flow.js');
 const manifest = JSON.parse(await readFile(new URL('../../../../../catalog/font/download-manifest.json', import.meta.url)));
 const catalogRoot = new URL('../../../../../catalog/font/', import.meta.url);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const laneTmp = new URL('../../../../../.tmp-lane/', import.meta.url).pathname;
-
 async function temporaryFontDir(prefix) {
-    await mkdir(laneTmp, { recursive: true });
-    return mkdtemp(join(laneTmp, prefix));
+    return mkdtemp(join(tmpdir(), prefix));
 }
 
 function utf16be(value) {
@@ -80,7 +78,7 @@ test('synthetic sfnt names agree with the resolver, including Mac Japanese recor
         { id: 4, platform: 1, encoding: 1, language: 11, bytes: Buffer.from([0x82, 0xa0]) }
     ]);
     const shell = [...sfntFontNames(bytes).keys()].sort();
-    const resolver = fontNames(bytes).all.map(normalizeResolverFontName).sort();
+    const resolver = [...new Set(fontNames(bytes).all.map(normalizeResolverFontName))].sort();
     assert.deepEqual(shell, resolver);
 });
 
@@ -235,7 +233,7 @@ test('巨大な ttf と ttc の name テーブルだけを読み、全バッフ�
 });
 
 test('同梱の日本語フォントでも部分読みと従来の全バッファ解析が一致する', async () => {
-    const path = new URL('../../../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url).pathname;
+    const path = fileURLToPath(new URL('../../../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url));
     const buffer = await readFile(path);
     let bytesRead = 0;
     const partial = await readSfntFontNames(path, bytes => { bytesRead += bytes; });

@@ -64,10 +64,14 @@ export interface CaptionPanelFontRow {
     tags: readonly string[]; bundled: boolean; own?: boolean;
 }
 
-export function firstCaptionFontFamilies(faces: readonly ({ id: string; family: string } | undefined)[]): Map<string, string> {
-    const families = new Map<string, string>();
+export function firstCaptionFontFamilies(faces: readonly ({ id: string; family: string; source?: 'library' } | undefined)[]):
+    Map<string, string> & { libraryIds: Set<string> } {
+    const families = Object.assign(new Map<string, string>(), { libraryIds: new Set<string>() });
     for (const face of faces) {
-        if (face && !families.has(face.id)) families.set(face.id, face.family);
+        if (face && !families.has(face.id)) {
+            families.set(face.id, face.family);
+            if (face.source === 'library') families.libraryIds.add(face.id);
+        }
     }
     return families;
 }
@@ -78,8 +82,9 @@ export function captionPanelFontRows(catalog: readonly CaptionPanelFontRow[], fa
     const rows: CaptionPanelFontRow[] = catalog.map(font => ({ ...font,
         family: faces.get(font.id) ?? availability[font.id]?.family ?? font.family }));
     const known = new Set(rows.map(font => font.id));
+    const libraryIds = (faces as ReadonlyMap<string, string> & { libraryIds?: ReadonlySet<string> }).libraryIds;
     for (const [id, family] of faces) {
-        if (known.has(id)) continue;
+        if (known.has(id) || !libraryIds?.has(id)) continue;
         rows.push({ id, title: family, family, tags: [], bundled: false, own: true });
         known.add(id);
     }

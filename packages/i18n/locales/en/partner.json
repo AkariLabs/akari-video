@@ -41,6 +41,7 @@
   "partner.navigation.commands.openPartnerAction": "Open Partner",
   "partner.navigation.commands.partnerNotOpenWarning": "No Partner is open. Open a Partner or copy the request.",
   "partner.navigation.commands.requestCopiedPastePartnerInputInfo": "Request copied. Paste it into {name}'s input field and send it.",
+  "partner.navigation.commands.requestCopiedOpenPartnerInfo": "Request copied. Paste it into the Partner input field after opening it, then send it.",
   "partner.navigation.commands.sendContextPacketPartnerText": "Send context packet to Partner",
   "partner.navigation.commands.sendMessagePartnerAction": "Send a message to Partner",
   "partner.navigation.commands.typeInPartnerInputAction": "Type in Partner's input field",

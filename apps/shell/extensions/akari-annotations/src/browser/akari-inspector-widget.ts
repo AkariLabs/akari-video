@@ -199,7 +199,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
     protected captionPanelStyles: CaptionPanelPreset[] = [];
     protected captionPanelItemSize?: number;
-    protected captionPanelFontFaces = new Map<string, string>();
+    protected captionPanelFontFaces = Object.assign(new Map<string, string>(), { libraryIds: new Set<string>() });
     protected captionPanelFontGeneration = 0;
     protected captionPanelFontsLoaded = false;
     protected captionRowFontsLoading = false;
@@ -254,8 +254,9 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async loadCaptionPanelData(): Promise<void> {
+        const fontGeneration = ++this.captionPanelFontGeneration;
         const fonts = this.captionPreviewService?.getOverlayRuntimeAssetUrls().then(assets => {
-            if (assets) this.registerCaptionPanelFonts(assets);
+            if (assets && fontGeneration === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, fontGeneration);
             if (this.captionPanel) this.render();
         }).catch(error => this.showFieldNotice(String(error)));
         const myStyles = this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles')
@@ -289,9 +290,8 @@ export class AkariInspectorWidget extends BaseWidget {
         await Promise.allSettled([fonts, myStyles, presets, itemSize]);
     }
 
-    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
+    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls, generation: number): void {
         this.captionPanelFontsLoaded = true;
-        const generation = ++this.captionPanelFontGeneration;
         const faces = [...assets.bundledCaptionFontFaces,
             { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
         let css = document.querySelector<HTMLStyleElement>('style[data-akari-caption-panel-fonts]');
@@ -334,8 +334,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected ensureCaptionRowFontFace(): void {
         if (this.captionPanelFontsLoaded || this.captionRowFontsLoading || !this.captionPreviewService) return;
         this.captionRowFontsLoading = true;
+        const generation = ++this.captionPanelFontGeneration;
         void this.captionPreviewService.getOverlayRuntimeAssetUrls()
-            .then(assets => this.registerCaptionPanelFonts(assets))
+            .then(assets => { if (generation === this.captionPanelFontGeneration) this.registerCaptionPanelFonts(assets, generation); })
             .catch(() => { this.captionRowFontsLoading = false; });
     }
     protected readonly fieldNotice = document.createElement('div');
@@ -475,8 +476,10 @@ export class AkariInspectorWidget extends BaseWidget {
         this.node.classList.add('akari-inspector-widget');
         const refreshFonts = (): void => {
             if (!this.captionPreviewService) return;
+            const generation = ++this.captionPanelFontGeneration;
             void this.captionPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
-                this.registerCaptionPanelFonts(assets);
+                if (generation !== this.captionPanelFontGeneration) return;
+                this.registerCaptionPanelFonts(assets, generation);
                 this.render();
             }).catch(() => undefined);
         };

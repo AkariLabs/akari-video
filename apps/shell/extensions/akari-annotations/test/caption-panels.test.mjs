@@ -46,6 +46,11 @@ const actions = { close() {}, switchTo() {}, font() {}, style() {}, save() {}, o
 const state = () => ({ query: '', filtersOpen: true, filters: new Set(), recentFonts: [], recentStyles: [] });
 const faces = new Map(CAPTION_PANEL_FONTS.filter(font => font.bundled).map(font => [font.id,
     font.id === 'noto-sans-jp' ? CAPTION_FONT_FAMILY : font.family]));
+faces.set('noto-sans-jp-direct', CAPTION_FONT_FAMILY);
+const withOwnFont = () => firstCaptionFontFamilies([
+    ...[...faces].map(([id, family]) => ({ id, family })),
+    { id: 'my-font', family: '私の書体', source: 'library' }
+]);
 
 test('同じコマンドで閉じ、別のコマンドで切り替え、文字以外の選択で閉じる', () => {
     assert.equal(nextCaptionPanel(null, 'font', true), 'font');
@@ -95,12 +100,14 @@ test('表示できる 9 書体だけを検索・複数タグ AND フィルター
 });
 
 test('読み込んだ自前の書体を一行にまとめ、名前と family で検索できる', () => {
-    const imported = firstCaptionFontFamilies([{ id: 'my-font', family: '私の書体' },
-        { id: 'my-font', family: '別名' }]);
+    const imported = firstCaptionFontFamilies([{ id: 'my-font', family: '私の書体', source: 'library' },
+        { id: 'my-font', family: '別名', source: 'library' }]);
     assert.equal(imported.get('my-font'), '私の書体');
-    const loaded = new Map([...faces, ...imported]);
+    const loaded = withOwnFont();
     const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
     assert.equal(rows.length, 10);
+    assert.equal(rows.some(row => row.id === 'noto-sans-jp-direct'), false);
+    assert.deepEqual(rows.filter(row => row.own).map(row => row.id), ['my-font']);
     assert.deepEqual(rows.filter(row => row.id === 'my-font').map(row => row.title), ['私の書体']);
     assert.equal(filterCaptionPanelFonts(rows, '私の', new Set())[0].id, 'my-font');
     assert.equal(filterCaptionPanelFonts(rows, '私の書体', new Set(['gothic'])).some(row => row.id === 'my-font'), false);
@@ -118,7 +125,7 @@ test('読み込んだ自前の書体を一行にまとめ、名前と family で
 });
 
 test('最近使ったフォントは現在の描画可能な family だけから id を引く', () => {
-    const loaded = new Map([...faces, ['my-font', '私の書体']]);
+    const loaded = withOwnFont();
     const rows = captionPanelFontRows(renderableCaptionFonts(CAPTION_PANEL_FONTS, loaded), loaded);
     assert.equal(recentCaptionFontId(undefined, rows), undefined);
     assert.equal(recentCaptionFontId('851チカラヅヨク', rows), undefined);
@@ -133,7 +140,7 @@ test('最近使ったフォントは現在の描画可能な family だけから
 test('最近使ったフォントは使える書体だけを描き、自前の書体を選べる', () => {
     const viewState = state();
     viewState.recentFonts = ['851-chikara-dzuyoku', 'my-font', 'missing'];
-    const loaded = new Map([...faces, ['my-font', '私の書体']]);
+    const loaded = withOwnFont();
     const applied = [];
     const panel = createCaptionPanel(document, 'font', viewState, [], loaded,
         { ...actions, font: (...args) => applied.push(args) });

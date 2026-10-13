@@ -576,15 +576,21 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const url = (name: string, body: Buffer, mimeType: string): string =>
             `${origin}${this.registerStaticAsset(name, body, mimeType)}`;
         const fontBuffers = this.loadBundledCaptionFontBuffers();
-        let libraryFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }> = [];
+        let libraryFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string; source: 'library' }> = [];
         try {
+            const registeredByPath = new Map<string, { body: Buffer; url: string }>();
             libraryFontFaces = (await this.loadLibraryCaptionFontFaces()).map(face => {
-                const body = readFileSync(face.path);
-                const suffix = extname(face.file).toLowerCase();
-                const mime = new Map([['.otf', 'font/otf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']]).get(suffix) ?? 'font/ttf';
-                const name = `caption-library-${createHash('sha256').update(face.path).update(body).digest('hex').slice(0, 16)}${suffix}`;
+                let registered = registeredByPath.get(face.path);
+                if (!registered) {
+                    const body = readFileSync(face.path);
+                    const suffix = extname(face.file).toLowerCase();
+                    const mime = new Map([['.otf', 'font/otf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']]).get(suffix) ?? 'font/ttf';
+                    const name = `caption-library-${createHash('sha256').update(face.path).update(body).digest('hex').slice(0, 16)}${suffix}`;
+                    registered = { body, url: url(name, body, mime) };
+                    registeredByPath.set(face.path, registered);
+                }
                 return { id: face.id, family: face.family, file: face.file, weight: face.weight,
-                    url: url(name, body, mime) };
+                    url: registered.url, source: 'library' as const };
             });
         } catch (error) {
             if (!this.libraryCaptionFontWarningReported) {

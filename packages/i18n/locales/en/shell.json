@@ -178,6 +178,8 @@
   "shell.export.session.lintIssuesResolvedExportMessage": "Lint issues are resolved. You can export now.",
   "shell.export.session.lintReportLabel": "\nLint report: {value1}",
   "shell.export.session.lintWarningStatus": "Lint warning",
+  "shell.export.session.partnerNotOpenMessage": "Partner is not open",
+  "shell.export.session.requestCopiedPastePartnerInputInfo": "Request copied. Paste it into the Partner input field",
   "shell.export.settings.aboutHalfFileSizeNotSupportedXMessage": "About half the file size. Not supported by X.",
   "shell.export.settings.applePlatformStreamingStatus": "For Apple platform streaming",
   "shell.export.settings.audioLabel": "Audio",

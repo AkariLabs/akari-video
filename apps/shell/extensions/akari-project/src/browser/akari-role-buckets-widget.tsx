@@ -78,7 +78,7 @@ import {
     LibraryMenuTarget, libraryMenuTargetKey, premiumPromptText
 } from '../common/library-card-menu';
 import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
-import { applyCatalogFont } from '../common/font-apply-flow';
+import { applyCatalogFont, fontFamily } from '../common/font-apply-flow';
 import {
     LibraryAssetCard, LibraryCardStyles, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
@@ -2007,7 +2007,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 void this.applyFontItem(item);
                 return;
             }
-            const payload = { kind: 'font', id, fontFamily: item.fontAvailability.family || title.replace(/（.*$/, '').trim(), key,
+            const payload = { kind: 'font', id, fontFamily: fontFamily(item), key,
                 ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
             event.dataTransfer.effectAllowed = 'copy';
@@ -3377,11 +3377,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
             else if (id === 'remove-library') {
                 await this.libraryPane.removeLibraryItem(item);
-                if (item.category === 'font') {
-                    await this.loadAssetCatalogView('user');
-                    if (!this.assetCatalogItems.some(entry => entry.key === item.key && entry.libraryDir === item.libraryDir)) {
-                        await this.refreshLibraryFonts();
-                    }
+                if (item.category === 'font' &&
+                    !this.assetCatalogItems.some(entry => entry.key === item.key && entry.libraryDir === item.libraryDir)) {
+                    await this.refreshLibraryFonts();
                 }
             }
             return;
@@ -3536,8 +3534,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         void this.materialPreviewService.getOverlayRuntimeAssetUrls().then(assets => {
             if (generation !== this.libraryStyleFontsGeneration) return;
             const registered = new Map<string, string>();
-            for (const face of [...assets.bundledCaptionFontFaces,
-                { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY }]) {
+            for (const face of assets.bundledCaptionFontFaces) {
+                if (face.source !== 'library') continue;
                 if (!registered.has(face.id)) registered.set(face.id, face.family);
             }
             this.libraryStyleFontFaces = registered;

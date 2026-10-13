@@ -195,7 +195,7 @@ export class AkariPartnerCommandContribution implements CommandContribution {
                 const web = await this.widgetManager.getWidget<PartnerWebWidget>(PartnerWebWidget.ID);
                 const webRunning = !!web?.isRunning();
                 const extension = this.extensionTarget(webRunning);
-                const route = resolvePromptRoute({
+                let route = resolvePromptRoute({
                     hasChannel: widget.hasDeliveryChannel,
                     hasLiveTerminal: !!terminal,
                     visibleExtension: extension?.agent
@@ -203,8 +203,15 @@ export class AkariPartnerCommandContribution implements CommandContribution {
                     webPartner: webRunning && web?.agentId ? { agent: web.agentId } : undefined
                 });
                 if (route.route === 'pty' && widget.sendFromExternal(text)) return true;
-                if (route.route === 'reattach-pty' && terminal && widget.reattachDeliveryTerminal(terminal)) {
-                    if (widget.sendFromExternal(text)) return true;
+                if (route.route === 'reattach-pty') {
+                    if (terminal && widget.reattachDeliveryTerminal(terminal) && widget.sendFromExternal(text)) return true;
+                    route = resolvePromptRoute({
+                        hasChannel: false,
+                        hasLiveTerminal: false,
+                        visibleExtension: extension?.agent
+                            ? { agent: extension.agent, focusCommandId: extension.focusCommandId } : undefined,
+                        webPartner: webRunning && web?.agentId ? { agent: web.agentId } : undefined
+                    });
                 }
                 if (route.route === 'copy') {
                     try { await this.clipboard.writeText(text); }
@@ -229,6 +236,12 @@ export class AkariPartnerCommandContribution implements CommandContribution {
                 void this.messages.warn(t('partner.navigation.commands.partnerNotOpenWarning'), open, copy)
                     .then(async choice => {
                         if (choice === open) {
+                            try {
+                                await this.clipboard.writeText(text);
+                                this.messages.info(t('partner.navigation.commands.requestCopiedOpenPartnerInfo'));
+                            } catch {
+                                await this.messages.warn(t('partner.navigation.commands.couldNotCopyRequestCopyManuallyWarning', { request: text }));
+                            }
                             try { await registry.executeCommand(AkariPartnerCommands.OPEN.id); }
                             catch { /* 元の案内は表示済み。 */ }
                         }
