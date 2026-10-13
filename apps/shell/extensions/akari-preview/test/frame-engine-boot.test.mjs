@@ -233,6 +233,18 @@ test('watchdog 原因は error を優先し rejection だけなら補足へ回�
         '初期化が 15000 ms 以内に完了しませんでした (data-frame-engine-ready=false)'
             + ' / engine エラー: Frame engine: decoder failed'
     );
+
+    // あとから出た別の例外が「最初のエラー」になっても、画面に出ている engine の失敗を落とさない。
+    const laterError = executeWatchdog({
+        error: { message: 'Uncaught ReferenceError: later timer', filename: 'webview.html', lineno: 679, colno: 1 },
+        root: { dataset: { frameEngineReady: 'false' } },
+        engineErrorText: 'Frame engine: decoder failed'
+    });
+    assert.equal(
+        laterError.dataset.frameEngineBootFailure,
+        '最初のエラー: Uncaught ReferenceError: later timer (webview.html:679)'
+            + ' / engine エラー: Frame engine: decoder failed'
+    );
 });
 
 test('watchdog は error と rejection を区別した診断 JSON を dataset へ載せる', () => {
