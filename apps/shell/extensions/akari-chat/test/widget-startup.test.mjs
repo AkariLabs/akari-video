@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { ChatInputIme } = require('../lib/browser/chat-input-ime.js');
-const { modelLabel } = require('../lib/common/chat-ui-logic.js');
+const { modelLabel, chatErrorPresentation } = require('../lib/common/chat-ui-logic.js');
 const { showElapsedThinking, thinkingLabel } = require('../lib/browser/chat-view-logic.js');
 const Module = require('node:module');
 const widgetPath = require.resolve('../lib/browser/akari-chat-widget.js');
@@ -295,6 +295,119 @@ test('RPC failures leave the start pending until ready without crashing', async 
     assert.equal(widget.capabilities, capabilities);
     assert.equal(widget.error, undefined);
     widget.stopWaiting();
+});
+
+test('live events after transcript restore update the new rows with reused IDs', () => {
+    const widget = new AkariChatWidget();
+    widget.chatId = 'saved';
+    widget.items = [
+        { type: 'message', id: 'm', text: '前' },
+        { type: 'thinking', id: 't', text: '前', startedAt: 0, open: false, status: 'done' },
+        { type: 'tool', event: { type: 'tool', id: 'tool', kind: 'read', title: '前', status: 'done' } }
+    ];
+    widget.liveStart = widget.items.length;
+    const originalFrame = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = () => 1;
+    try {
+        widget.receive('saved', { type: 'message.start', id: 'm', role: 'assistant' });
+        widget.receive('saved', { type: 'message.delta', id: 'm', text: '後' });
+        widget.receive('saved', { type: 'thinking.delta', id: 't', text: '新しく' });
+        widget.receive('saved', { type: 'tool', id: 't', kind: 'think', title: '思考', status: 'done' });
+        widget.receive('saved', { type: 'tool', id: 'tool', kind: 'read', title: '後', status: 'running' });
+        widget.receive('saved', { type: 'tool', id: 'tool', kind: 'read', title: '後', status: 'done' });
+    } finally { globalThis.requestAnimationFrame = originalFrame; }
+    assert.deepEqual(widget.items.filter(item => item.type === 'message').map(item => item.text), ['前', '後']);
+    assert.deepEqual(widget.items.filter(item => item.type === 'thinking').map(item => item.text), ['前', '新しく']);
+    assert.deepEqual(widget.items.filter(item => item.type === 'tool').map(item => item.event.title), ['前', '後']);
+});
+
+test('startup error stops preparation but a temporary RPC failure does not', async () => {
+    const widget = new AkariChatWidget();
+    widget.agents = [{ id: 'gemini', name: 'Gemini CLI', installed: true, transport: 'acp' }];
+    widget.selectedAgent = 'gemini';
+    widget.workspace = { roots: Promise.resolve([{ resource: { path: { fsPath: () => '/project' } } }]) };
+    widget.chat = { getDefaults: async () => ({}), listCommands: async () => [],
+        start: async () => ({ chatId: 'failed', capabilities: { models: [] } }) };
+    assert.equal(await widget.ensureChat(), 'failed');
+    assert.equal(widget.ready, false);
+    widget.frame = 1;
+    widget.receive('failed', { type: 'error', kind: 'auth', message: 'login required' });
+    assert.equal(widget.ready, true);
+    assert.equal(widget.ticker, undefined);
+});
+
+test('start response with an error ends preparation before ready', async () => {
+    const widget = new AkariChatWidget();
+    widget.agents = [{ id: 'gemini', name: 'Gemini CLI', installed: true, transport: 'acp' }];
+    widget.selectedAgent = 'gemini';
+    widget.workspace = { roots: Promise.resolve([{ resource: { path: { fsPath: () => '/project' } } }]) };
+    widget.chat = { getDefaults: async () => ({}), listCommands: async () => [],
+        start: async () => ({ chatId: 'failed', capabilities: { models: [] },
+            error: { kind: 'auth', message: 'login required' } }) };
+    assert.equal(await widget.ensureChat(), 'failed');
+    assert.equal(widget.ready, true);
+    assert.equal(widget.ticker, undefined);
+});
+
+test('resume startup failure keeps transcript and offers a fresh conversation', async () => {
+    const widget = new AkariChatWidget();
+    widget.agents = [{ id: 'codex', name: 'Codex', installed: true, transport: 'codex-app-server' }];
+    widget.workspace = { roots: Promise.resolve([{ resource: { path: { fsPath: () => '/project' } } }]) };
+    widget.chat = { loadTranscript: async () => [{ at: '2026-10-11T00:00:00Z',
+        event: { type: 'message.start', id: 'old', role: 'assistant' } }],
+        resume: async () => ({ chatId: 'saved', capabilities: { models: [] } }),
+        listCommands: async () => [] };
+    const entry = { id: 'saved', agent: 'codex', title: '前の会話', sessionRef: 'missing' };
+    await widget.resume(entry);
+    widget.frame = 1;
+    widget.receive('saved', { type: 'error', kind: 'other', message: 'no rollout found for thread id hidden' });
+    assert.equal(widget.items.length, 1);
+    assert.equal(widget.errorIsResume, true);
+    assert.equal(widget.ready, true);
+    assert.equal(widget.ticker, undefined);
+});
+
+test('Claude resume failure remains Japanese when error and turn end arrive in either order', () => {
+    const session = { type: 'session', sessionId: 'missing', agent: 'claude', cwd: '/project' };
+    const failedTurn = { type: 'turn.end', ok: false, reason: 'error_during_execution' };
+    const missing = { type: 'error', kind: 'other', message: 'No conversation found' };
+    for (const trailing of [[failedTurn, missing], [missing, failedTurn]]) {
+        const widget = new AkariChatWidget();
+        widget.chatId = 'saved';
+        widget.resumedChatId = 'saved';
+        widget.resumeFirstTurn = true;
+        widget.chat = { listCommands: async () => [] };
+        widget.frame = 1;
+        const shown = () => chatErrorPresentation(widget.error, 'Claude Code', false, 'claude', widget.errorIsResume);
+        widget.receive('saved', session);
+        widget.receive('saved', { type: 'ready' });
+        for (const event of trailing) {
+            widget.receive('saved', event);
+            assert.equal(widget.errorIsResume, true);
+            assert.equal(shown().reason, 'この会話は開けません。相手側に会話が残っていません。');
+            assert.equal(shown().nextStep, true);
+        }
+        widget.receive('saved', { type: 'turn.end', ok: false, reason: 'crashed' });
+        assert.equal(widget.errorIsResume, true);
+        widget.receive('saved', { type: 'error', kind: 'other', message: 'later failure' });
+        assert.equal(shown().reason, 'この会話は開けません。相手側に会話が残っていません。');
+        widget.receive('saved', { type: 'error', kind: 'auth', message: 'login required' });
+        assert.equal(widget.errorIsResume, false);
+        assert.equal(shown().heading, 'Claude Code にログインが必要です');
+        widget.receive('saved', missing);
+        widget.receive('saved', failedTurn);
+        assert.equal(widget.errorIsResume, false);
+        assert.equal(shown().heading, 'Claude Code にログインが必要です');
+        widget.receive('saved', { type: 'turn.end', ok: true });
+        assert.equal(widget.errorIsResume, false);
+    }
+    const late = new AkariChatWidget();
+    late.chatId = 'saved';
+    late.resumedChatId = 'saved';
+    late.readyEventSeen = true;
+    late.frame = 1;
+    late.receive('saved', missing);
+    assert.equal(late.errorIsResume, true);
 });
 
 test('saved transcript appears before the resumed conversation', async () => {

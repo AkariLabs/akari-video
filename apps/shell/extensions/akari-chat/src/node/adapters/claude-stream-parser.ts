@@ -430,7 +430,7 @@ export class ClaudeStreamParser {
         this.emit({
             type: 'turn.end',
             ok: !row.is_error && row.subtype !== 'error_during_execution',
-            reason: row.is_error ? row.result || row.subtype : undefined
+            reason: row.is_error || row.subtype === 'error_during_execution' ? row.result || row.subtype : undefined
         });
         this.compacted = false;
         this.emittedError = false;

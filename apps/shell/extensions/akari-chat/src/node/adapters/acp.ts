@@ -16,6 +16,14 @@ type PendingRpc = { resolve: (value: JsonObject) => void; reject: (error: RpcErr
 type ToolEvent = Extract<ChatEvent, { type: 'tool' }>;
 type ConfigOption = { id: string; category?: string; type?: string; currentValue?: string; options?: Array<{ value: string; name?: string; description?: string }> };
 
+function terminateChild(child: ChildProcessWithoutNullStreams | undefined): void {
+    if (!child) return;
+    child.kill('SIGTERM');
+    const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
+    timer.unref();
+    child.once('close', () => clearTimeout(timer));
+}
+
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 const TOOL_KINDS: Record<string, ToolKind> = {
     read: 'read', list: 'read', write: 'write', edit: 'write', delete: 'write', move: 'write', search: 'search',
@@ -182,7 +190,7 @@ export class AcpSession implements ChatAdapterSession {
         } catch (cause) {
             this.loadActive = false;
             this.fail(cause as RpcError, true);
-            this.child?.kill();
+            terminateChild(this.child);
             this.child = undefined;
         }
     }
@@ -627,12 +635,7 @@ export class AcpSession implements ChatAdapterSession {
         }
         const child = this.child;
         this.child = undefined;
-        if (child) {
-            child.kill('SIGTERM');
-            const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
-            timer.unref();
-            child.once('close', () => clearTimeout(timer));
-        }
+        terminateChild(child);
         for (const pending of this.pending.values()) { if (pending.timer) { clearTimeout(pending.timer); } pending.reject(new Error('closed')); }
         this.pending.clear();
     }

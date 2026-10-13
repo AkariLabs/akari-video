@@ -15,15 +15,17 @@ export type TranscriptViewItem =
 
 export function transcriptToItems(rows: { at: string; event: ChatEvent }[]): TranscriptViewItem[] {
     const items: TranscriptViewItem[] = [];
+    let turnStart = 0;
     for (const { at, event } of rows) {
         if (event.type === 'user') items.push({ type: 'user', text: event.text, attachments: event.attachments });
         else if (event.type === 'message.start') items.push({ type: 'message', id: event.id, text: '' });
         else if (event.type === 'message.delta') {
-            let item = items.find(row => row.type === 'message' && row.id === event.id);
+            let item = items.slice(turnStart).reverse().find(row => row.type === 'message' && row.id === event.id);
             if (!item) { item = { type: 'message', id: event.id, text: '' }; items.push(item); }
             if (item.type === 'message') item.text += event.text;
         } else if (event.type === 'thinking.delta' || (event.type === 'tool' && event.kind === 'think')) {
-            const item = items.find(row => row.type === 'thinking' && row.id === event.id);
+            const previous = items.slice(turnStart).reverse().find(row => row.type === 'thinking' && row.id === event.id);
+            const item = previous?.type === 'thinking' && (previous.status === 'running' || event.type === 'tool' && event.status !== 'running') ? previous : undefined;
             const thinking = item?.type === 'thinking' ? item : { type: 'thinking' as const,
                 id: event.id, text: '', startedAt: Date.parse(at) || 0, open: false,
                 status: 'running' as const };
@@ -38,16 +40,24 @@ export function transcriptToItems(rows: { at: string; event: ChatEvent }[]): Tra
                 if (event.durationMs !== undefined) thinking.durationMs = event.durationMs;
             }
         } else if (event.type === 'tool') {
-            const index = items.findIndex(row => row.type === 'tool' && row.event.id === event.id);
+            let index = -1;
+            for (let position = items.length - 1; position >= turnStart; position--) {
+                const row = items[position];
+                if (row.type === 'tool' && row.event.id === event.id
+                    && (row.event.status === 'running' || event.status !== 'running')) { index = position; break; }
+            }
             if (index < 0) items.push({ type: 'tool', event });
             else items[index] = { type: 'tool', event };
         } else if (event.type === 'files') items.push({ type: 'files', files: event.files });
         else if (event.type === 'ask') items.push({ type: 'ask', event });
-        else if (event.type === 'turn.end') for (const item of items) {
-            if (item.type === 'thinking' && item.status === 'running') {
-                item.status = 'done';
-                item.durationMs = Math.max(0, Date.parse(at) - item.startedAt);
+        else if (event.type === 'turn.end') {
+            for (const item of items) {
+                if (item.type === 'thinking' && item.status === 'running') {
+                    item.status = 'done';
+                    item.durationMs = Math.max(0, Date.parse(at) - item.startedAt);
+                }
             }
+            turnStart = items.length;
         }
     }
     return items;
@@ -65,7 +75,16 @@ export async function optionalRpc<T>(call: () => Promise<T>, timeoutMs = 700): P
 
 export function commandMatches(commands: ChatMenuCommand[], query: string): ChatMenuCommand[] {
     const needle = query.toLocaleLowerCase();
-    return commands.filter(command => `${command.name} ${command.label || ''} ${command.description || ''}`.toLocaleLowerCase().includes(needle));
+    if (!needle) return commands;
+    const matches = [[], [], [], []] as ChatMenuCommand[][];
+    for (const command of commands) {
+        const name = command.name.toLocaleLowerCase();
+        if (name.startsWith(needle)) matches[0].push(command);
+        else if (name.split(':').slice(1).some(part => part.startsWith(needle))) matches[1].push(command);
+        else if (name.includes(needle)) matches[2].push(command);
+        else if (`${command.label || ''} ${command.description || ''}`.toLocaleLowerCase().includes(needle)) matches[3].push(command);
+    }
+    return matches.flat();
 }
 
 export function commandGroups(commands: ChatMenuCommand[]): { kind: 'skill' | 'command' | 'local'; label: string; rows: { command: ChatMenuCommand; index: number }[] }[] {

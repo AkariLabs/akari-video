@@ -259,6 +259,20 @@ test('auth errors show the agent reason and next actions; ordinary turn errors d
     assert.equal(agy.reason, 'Antigravity model unavailable');
 });
 
+test('resume failure has a Japanese action without exposing provider errors', () => {
+    const { resumeFailure } = require('../lib/common/chat-ui-logic.js');
+    for (const message of ['Error: no rollout found for thread id abc', 'Internal error: OpenCode service failure']) {
+        const error = { type: 'error', kind: 'other', message };
+        assert.equal(resumeFailure(error, true, true), true);
+        const display = chatErrorPresentation(error, 'Codex', true, 'codex', true);
+        assert.equal(display.reason, 'この会話は開けません。相手側に会話が残っていません。');
+        assert.equal(display.nextStep, true);
+    }
+    assert.equal(resumeFailure({ type: 'error', kind: 'auth', message: 'login required' }, true, true), false);
+    assert.equal(resumeFailure({ type: 'error', kind: 'other', message: 'error_during_execution' }, false, true), true);
+    assert.equal(resumeFailure({ type: 'error', kind: 'other', message: 'No conversation found' }, false, false), true);
+});
+
 test('sending marks chat as the last partner, even after another startup writes its marker', async () => {
     const saved = new Map();
     const storage = { setData: async (key, value) => { saved.set(key, value); } };

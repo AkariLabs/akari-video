@@ -13,7 +13,7 @@ const {
     claudeUserMessage,
     normalizeClaudeModel
 } = require('../lib/node/adapters/claude-stream-json.js');
-const { describeAttachments } = require('../lib/common/chat-attachments.js');
+const { describeAttachments, reviewTimeSpan } = require('../lib/common/chat-attachments.js');
 const {
     addHistory,
     updateHistory,
@@ -44,6 +44,7 @@ if (process.argv.includes('--version')) {
     process.exit(0);
 }
 const mode = fs.existsSync('mode.txt') ? fs.readFileSync('mode.txt', 'utf8').trim() : 'persistent';
+if (mode === 'resume-init-exit') process.exit(2);
 if (mode === 'hold-input-close') setInterval(() => {}, 1000);
 if (mode === 'interrupt-result') process.on('SIGINT', () => {
     process.stdout.write(JSON.stringify({ type: 'result', subtype: 'error_during_execution', is_error: true }) + '\\n', () => process.exit(0));
@@ -115,6 +116,25 @@ test('Claude lists initialized skills and restarts immediately with resume on mo
             assert.fail('Claude did not restart after model change');
         } finally { await session.close(); }
     });
+});
+
+test('Claude resume process exit before init reports a missing conversation', async () => {
+    await withTempDirectory('akari-chat-resume-', async cwd => {
+        await writeFile(join(cwd, 'mode.txt'), 'resume-init-exit');
+        const session = await new ClaudeStreamJsonAdapter(await fakeExecutable(cwd)).start({ cwd, permission: 'auto', resume: 'missing' });
+        try {
+            for (let attempt = 0; attempt < 100 && !session.initialError; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+            assert.equal(session.initialError?.message, 'No conversation found');
+        } finally { await session.close(); }
+    });
+});
+
+test('review range uses the same time span in attachment text and chip', () => {
+    const mark = { tool: 'range', source: 'preview', sourceLabel: '編集中のプレビュー', time: 20, timeEnd: 24, text: '確認' };
+    assert.equal(reviewTimeSpan(mark), '0:20〜0:24');
+    assert.match(describeAttachments([{ kind: 'review', label: '範囲', review: mark }]), /0:20〜0:24/);
 });
 
 test('Claude lists project and enabled plugin skills before init, then uses init commands', async () => {

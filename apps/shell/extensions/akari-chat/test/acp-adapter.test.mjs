@@ -67,6 +67,49 @@ test('prompt streams messages, thought, plan, tools, permission and finish', asy
     });
 });
 
+test('failed ACP startup kills a child that ignores SIGTERM', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-acp-exit-'));
+    const script = join(root, 'agent.mjs');
+    await writeFile(script, `import { writeFileSync } from 'node:fs';
+writeFileSync('pid.txt', String(process.pid));
+process.on('SIGTERM', () => {});
+let buffer = '';
+process.stdin.on('data', chunk => {
+    buffer += chunk;
+    let end;
+    while ((end = buffer.indexOf('\\n')) >= 0) {
+        const row = JSON.parse(buffer.slice(0, end));
+        buffer = buffer.slice(end + 1);
+        const packet = row.method === 'initialize'
+            ? { id: row.id, result: { agentCapabilities: { loadSession: true } } }
+            : { id: row.id, error: { code: -32001, message: 'start failed' } };
+        process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...packet }) + '\\n');
+    }
+});
+setInterval(() => {}, 1000);
+`);
+    let pid;
+    try {
+        const adapter = new AcpAdapter({ ...acpAgents[0], args: [script] }, process.execPath);
+        const session = await adapter.start({ cwd: root, permission: 'auto' });
+        pid = Number(await readFile(join(root, 'pid.txt'), 'utf8'));
+        assert.equal(session.initialError?.kind, 'other');
+        const deadline = Date.now() + 4000;
+        while (Date.now() < deadline) {
+            try { process.kill(pid, 0); } catch (error) {
+                if (error.code === 'ESRCH') { pid = undefined; break; }
+                throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        assert.equal(pid, undefined);
+        await session.close();
+    } finally {
+        if (pid) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test('available commands identify project skills and thought chunks stream', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'akari-acp-commands-'));
     try {
