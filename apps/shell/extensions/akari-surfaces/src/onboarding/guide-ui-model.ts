@@ -47,8 +47,9 @@ export interface GuideCoachHold<Element> { element: Element; basis: string; top:
 
 /** A typed prompt may reuse its top only when the same coach and placement inputs remain. */
 export function heldGuideCoachTop<Element>(hold: GuideCoachHold<Element> | undefined, element: Element,
-    basis: string, step: OnboardingStep, sub: number): number | undefined {
-    return step === 'prompt' && sub === 0 && hold?.element === element && hold.basis === basis ? hold.top : undefined;
+    basis: string, step: OnboardingStep, sub: number, forced: boolean): number | undefined {
+    return !forced && step === 'prompt' && sub === 0 && hold?.element === element && hold.basis === basis
+        ? hold.top : undefined;
 }
 
 /** Clamp the measured outer coach rectangle; reserve room below it for the guide chrome. */
