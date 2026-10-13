@@ -211,15 +211,28 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         const requested = (language ?? getLanguage()).split('-')[0].toLowerCase();
         const candidates = previous?.projectUri ? [previous.sampleId ?? SAMPLE_BY_LANG.ja] :
             [SAMPLE_BY_LANG[requested], SAMPLE_BY_LANG.en, SAMPLE_BY_LANG.ja];
+        const distinctCandidates = [...new Set(candidates.filter((candidate): candidate is string => !!candidate))];
         let sampleId: string | undefined;
-        let bundled: string | undefined;
-        for (const candidate of candidates) {
-            if (!candidate || sampleId) continue;
+        let guide: OnboardingGuide | undefined;
+        let guideError: unknown;
+        for (const [index, candidate] of distinctCandidates.entries()) {
             const found = await this.bundledSample(candidate);
-            if (found) { sampleId = candidate; bundled = found; }
+            if (!found) continue;
+            try {
+                guide = await this.readGuide(found);
+                sampleId = candidate;
+                break;
+            } catch (error) {
+                if (previous?.projectUri) throw error;
+                guideError = error;
+                console.warn(`[akari-onboarding] Guide for ${candidate} is unavailable; ${index < distinctCandidates.length - 1
+                    ? 'trying the next sample.' : 'no usable sample remains.'}`);
+            }
         }
-        if (!sampleId || !bundled) throw new Error(`Missing bundled onboarding sample ${candidates.filter(Boolean).join(', ')} (guide.json)`);
-        const guide = await this.readGuide(bundled);
+        if (!sampleId || !guide) {
+            if (guideError) throw guideError;
+            throw new Error(`Missing bundled onboarding sample ${candidates.filter(Boolean).join(', ')} (guide.json)`);
+        }
         let projectPath = previous?.projectUri ? fileURLToPath(previous.projectUri) : undefined;
         if (!projectPath || !await fs.stat(projectPath).then(stat => stat.isDirectory(), () => false)) {
             const videos = join(rootPath, 'channels', 'my-channel', 'videos');

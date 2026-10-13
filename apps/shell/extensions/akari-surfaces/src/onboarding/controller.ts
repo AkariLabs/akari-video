@@ -18,6 +18,7 @@ import { CAPTION_GUIDE_COPY, DAIHON_GUIDE_COPY, MATERIAL_PREVIEW_SELECT_COPY,
     guideOffersHelpNext, guideWaitingHint, HELP_DELAY } from './guide-copy';
 import { EXPORT_ONBOARDING_TARGET } from 'akari-shell-strip/lib/common/rail-ids';
 import { isGuidePartnerStopError } from './guide-switch-error';
+import sampleAssetNames = require('./sample-asset-names.json');
 
 interface CoachSpec {
     key?: string;
@@ -857,7 +858,8 @@ export class OnboardingController {
 
     protected followTargets(): void {
         if (!this.root) return;
-        const assetName = this.sample?.guide?.asset_name;
+        const sampleId = this.state.sampleId ?? 'talkinghead-desk-ja-01';
+        const assetName = this.sample?.guide?.asset_name ?? sampleAssetNames[sampleId];
         if (assetName && !this.sampleCard?.isConnected) {
             this.sampleCard = Array.from(document.querySelectorAll<HTMLElement>('[data-akari-material-path]'))
                 .find(element => element.dataset.akariMaterialPath === `assets/${assetName}`);
