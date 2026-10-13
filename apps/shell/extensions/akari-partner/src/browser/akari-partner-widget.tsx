@@ -180,6 +180,20 @@ export class AkariPartnerWidget extends ReactWidget {
     get deliveryChannelAgent(): string | undefined {
         return this.channel && this.selected?.form === 'cli' ? this.selected.agent : undefined;
     }
+    get hasDeliveryChannel(): boolean {
+        return !!this.channel && !!this.terminal && !this.terminal.isDisposed &&
+            !this.terminal.exitStatus && this.terminal.terminalId >= 0;
+    }
+
+    reattachDeliveryTerminal(terminal: TerminalWidget): boolean {
+        if (terminal.isDisposed || terminal.exitStatus || terminal.terminalId < 0 || terminal.kind !== PartnerTerminal.KIND) return false;
+        const entry = PARTNER_CATALOG.find(candidate => candidate.form === 'cli' &&
+            (terminalEntryId(terminal) === candidate.id ||
+                (!terminalEntryId(terminal) && terminalAgent(terminal) === candidate.agent))) as PartnerCliCatalogEntry | undefined;
+        if (!entry) return false;
+        this.syncTerminalState(terminal, entry, true);
+        return true;
+    }
     protected messages: ChatMessage[] = [];
     protected composerValue = '';
     protected devMode = false;
@@ -1103,6 +1117,10 @@ export class AkariPartnerWidget extends ReactWidget {
                 this.channel?.dispose();
                 this.channel = undefined;
                 this.terminal = undefined;
+                const replacement = this.terminalService.all.find(candidate => candidate !== terminal &&
+                    candidate.kind === PartnerTerminal.KIND && !candidate.isDisposed &&
+                    !candidate.exitStatus && candidate.terminalId >= 0);
+                if (replacement) this.reattachDeliveryTerminal(replacement);
             }
             this.update();
         };
