@@ -563,8 +563,7 @@ export function resolveCaptionDisplay(
                 ? captionDisplayGraphemes(projectedCaptions[occurrence.caption_input_index].displayText.slice(0, group.charStart)).length
                 : undefined;
             const display = resolved.manual && !resolved.overflow
-                ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset,
-                    resolvedStyle?.vertical === true)
+                ? trimManualCueDisplay(group.lines, policy.locale, cueRuns, wordDisplay, karaokeOffset)
                 : {
                     text,
                     lines: group.lines,
@@ -929,13 +928,12 @@ function trimManualCueDisplay(
     locale: string,
     runs: CaptionRun[] | undefined,
     wordDisplay: { words: CaptionDisplayWord[]; wordStyles: CaptionDisplayWordStyle[] } | undefined,
-    karaokeOffset: number | undefined,
-    vertical: boolean
+    karaokeOffset: number | undefined
 ): { text: string; lines: string[]; runs?: CaptionRun[]; words?: CaptionDisplayWord[];
     wordStyles?: CaptionDisplayWordStyle[]; karaokeOffset?: number } {
     const kept = lines.map((line, index) => ({
-        start: vertical && index > 0 ? 0 : line.length - line.trimStart().length,
-        end: vertical && index < lines.length - 1 ? line.length : line.trimEnd().length
+        start: index > 0 ? 0 : line.length - line.trimStart().length,
+        end: index < lines.length - 1 ? line.length : line.trimEnd().length
     }));
     const trimmedLines = lines.map((line, index) => line.slice(kept[index].start, kept[index].end));
     if (lines.every((line, index) => line === trimmedLines[index])) {
