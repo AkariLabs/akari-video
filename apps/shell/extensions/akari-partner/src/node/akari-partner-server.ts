@@ -25,6 +25,8 @@ import { buildPartnerConnectionMarker } from '../common/partner-connection-marke
 import { bootstrapRunner, partnerInstallDisclosure } from './bootstrap-runner';
 import { spawnBootstrapProcess } from './bootstrap-process';
 import { partnerCliCandidates } from './partner-cli-candidates';
+import { resolveExtensionCli } from './extension-cli-alignment';
+import { ExtensionCliAlignment } from '../common/extension-cli-alignment';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli, readInstalledAppVersion } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 import { buildDshPatchYaml, buildDshSessionId, detectDeepSeekConnection } from './dsh-patch';
@@ -618,6 +620,28 @@ export class AkariPartnerServerImpl implements AkariPartnerServer, BackendApplic
         } catch (error) {
             return { checked: false, found: false, reason: this.errorMessage(error) };
         }
+    }
+
+    async resolveExtensionCli(agent: PartnerAgentId, packagePath: string): Promise<ExtensionCliAlignment> {
+        return resolveExtensionCli(agent, packagePath ? this.toFsPath(packagePath) : '', {
+            platform: process.platform,
+            arch: process.arch,
+            homeDir: homedir(),
+            env: process.env,
+            listDirectory: async directory => {
+                try { return await fs.readdir(directory); } catch { return []; }
+            },
+            isFile: async file => {
+                try { return (await fs.stat(file)).isFile(); } catch { return false; }
+            },
+            readText: async file => {
+                try { return await fs.readFile(file, 'utf8'); } catch { return undefined; }
+            },
+            readVersionOutput: executable => new Promise(resolve => {
+                execFile(executable, ['--version'], { timeout: 5000, windowsHide: true },
+                    (error, stdout) => resolve(error ? undefined : String(stdout)));
+            })
+        });
     }
 
     protected async findExecutable(

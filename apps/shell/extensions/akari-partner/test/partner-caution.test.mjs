@@ -19,7 +19,7 @@ const CAUTION_TEXT = '拡張ホストが再起動すると会話が切れます�
 
 const BASE_KEYS = ['id', 'agent', 'name', 'description', 'recommended'];
 const EXTENSION_KEYS = ['extensionId', 'viewContainerIds', 'binaryVerification'];
-const KNOWN_KEYS = new Set([...BASE_KEYS, ...EXTENSION_KEYS, 'form', 'caution']);
+const KNOWN_KEYS = new Set([...BASE_KEYS, ...EXTENSION_KEYS, 'form', 'caution', 'managedCli']);
 
 const readCatalog = async () => JSON.parse(await readFile(catalogUrl, 'utf8'));
 

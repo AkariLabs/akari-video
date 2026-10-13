@@ -5,6 +5,7 @@ import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { StorageService } from '@theia/core/lib/browser/storage-service';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PartnerExtensionUpdater } from './partner-extension-updater';
+import { PartnerExtensionCliAligner } from './partner-extension-cli-aligner';
 import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
@@ -113,6 +114,9 @@ export class AkariPartnerWidget extends ReactWidget {
 
     @inject(PartnerExtensionUpdater)
     protected readonly extensionUpdater!: PartnerExtensionUpdater;
+
+    @inject(PartnerExtensionCliAligner)
+    protected readonly extensionCliAligner!: PartnerExtensionCliAligner;
 
     @inject(PluginViewRegistry)
     protected readonly pluginViewRegistry!: PluginViewRegistry;
@@ -483,6 +487,7 @@ export class AkariPartnerWidget extends ReactWidget {
             } else if (outcome.kind === 'failed') {
                 this.setWarning(entry, t('partner.partnerPanel.widget.couldNotUpdateExtensionOpeningCurrentVersionError', { value1: outcome.detail }));
             }
+            await this.alignExtensionCli(entry);
             await this.openExtension(entry);
             return;
         }
@@ -712,11 +717,18 @@ export class AkariPartnerWidget extends ReactWidget {
                 this.setProgress(entry, t('partner.partnerPanel.widget.verifyingPlatformBinaryText'), platformKey);
                 await this.verifyPlatformBinary(entry, verification);
             }
+            await this.alignExtensionCli(entry);
             await this.openExtension(entry);
         } catch (error) {
             this.setFailure(entry, t('partner.partnerPanel.widget.couldNotSetUpError', { value1: entry.name }), this.errorMessage(error));
             console.error('[akari-partner] extension onboarding failed:', error);
         }
+    }
+
+    /** 拡張に同梱の CLI が古いとき、AKARI 管理の CLI を使わせる。設定を変えたら再読み込みを勧める（開くのは待たせない）。 */
+    protected async alignExtensionCli(entry: PartnerExtensionCatalogEntry): Promise<void> {
+        const outcome = await this.extensionCliAligner.align(entry);
+        if (outcome.changed && outcome.detail) void this.extensionCliAligner.offerReload(outcome.detail);
     }
 
     protected async openExtension(entry: PartnerExtensionCatalogEntry): Promise<void> {
