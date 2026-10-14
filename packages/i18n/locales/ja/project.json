@@ -425,6 +425,7 @@
   "project.library.shelf.downloadApplyAction": "ダウンロードして当てる",
   "project.library.shelf.downloadingAssetAddItAgainWhenMessage": "素材を取得中です。完了してからもう一度追加してください。",
   "project.library.shelf.downloadingStatus": "取得中…",
+  "project.library.shelf.downloadingTitleSizeMessage": "{title}をダウンロードしています（約 {value1} MB）。終わると選択中の文字に当たります。",
   "project.library.shelf.downloadTitleQuestion": "{title}をダウンロードしますか？",
   "project.library.shelf.dropHereImportAsAssetAction": "ここに落とすと素材に取り込みます",
   "project.library.shelf.dropHereImportIntoLibraryAction": "ここに落とすとライブラリへ取り込みます",

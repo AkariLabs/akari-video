@@ -3277,9 +3277,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }
                     return checked;
                 },
-                confirmDownload: async (title, bytes) => new ConfirmDialog({ title: t('project.library.shelf.downloadTitleQuestion', { title: title }),
-                    msg: t('project.library.shelf.downloadAboutMbUseItMacAction', { value1: (bytes / 1048576).toFixed(1) }),
-                    ok: t('project.library.shelf.downloadApplyAction'), cancel: t('project.library.pane.cancelLabel') }).open(),
+                // 無料で取得できる書体は確認を挟まず、押したらすぐ取得を始める。何が起きているかは通知で伝える。
+                confirmDownload: async (title, bytes) => {
+                    void this.messages.info(t('project.library.shelf.downloadingTitleSizeMessage',
+                        { title: title, value1: (bytes / 1048576).toFixed(1) }), { timeout: 5000 });
+                    return true;
+                },
                 download: async id => this.projectService.downloadCatalogFont(id,
                     this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '')),
                 offerSource: async (_title, source, unverified) => {

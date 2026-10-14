@@ -425,6 +425,7 @@
   "project.library.shelf.downloadApplyAction": "Download and apply",
   "project.library.shelf.downloadingAssetAddItAgainWhenMessage": "Downloading the asset. Add it again when the download finishes.",
   "project.library.shelf.downloadingStatus": "Downloading…",
+  "project.library.shelf.downloadingTitleSizeMessage": "Downloading {title} (about {value1} MB). It will be applied to the selected text when it finishes.",
   "project.library.shelf.downloadTitleQuestion": "Download {title}?",
   "project.library.shelf.dropHereImportAsAssetAction": "Drop here to import as an asset",
   "project.library.shelf.dropHereImportIntoLibraryAction": "Drop here to import into the library",
