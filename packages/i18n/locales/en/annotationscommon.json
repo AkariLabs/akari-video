@@ -856,6 +856,7 @@
   "annotationscommon.audioKeyframeEditor.notice.minimumPoints": "At least two keyframes are required. Add a point or delete this one.",
   "annotationscommon.audioKeyframeEditor.error.duplicateTime": "Only one keyframe can be placed at a given time.",
   "annotationscommon.captionPanelState.font.rowDetail": "Aa Bb 123 · Bundled{fallback}",
+  "annotationscommon.captionPanelState.font.rowDetailUnbundled": "Aa Bb 123{fallback}",
   "annotationscommon.captionPanelState.font.japaneseFallback": " · Japanese text uses a fallback font",
   "annotationscommon.captionSourceMap.warning.hiddenCaptions_one": "{count} caption with an unknown source is hidden. Each caption in captions.json needs src when the project has multiple sources.",
   "annotationscommon.captionSourceMap.warning.hiddenCaptions_other": "{count} captions with unknown sources are hidden. Each caption in captions.json needs src when the project has multiple sources.",
@@ -892,5 +893,13 @@
   "annotationscommon.voiceCloneDialog.separator.engines": ", ",
   "annotationscommon.timelineKeyframeRows.label.rotation3d": "3D rotation",
   "annotationscommon.editV2Mutations.error.easingSegmentNotFound": "No segment to set the easing on.",
-  "annotationscommon.scene3dItem.label.motionNone": "None (stop)"
+  "annotationscommon.scene3dItem.label.motionNone": "None (stop)",
+  "annotationscommon.akariAnnotationsService.recovery.broken": "The previous write record was damaged and moved aside",
+  "annotationscommon.akariAnnotationsService.recovery.restored": "The previous write was interrupted, so these files were restored: {files}",
+  "annotationscommon.akariAnnotationsService.recovery.preserved": "Kept {file} because it changed afterward",
+  "annotationscommon.akariAnnotationsService.recovery.missing": "Could not restore {file} because its backup is missing",
+  "annotationscommon.akariAnnotationsService.recovery.interrupted": "The previous write was interrupted",
+  "annotationscommon.akariAnnotationsService.recovery.unchanged": "The previous write was interrupted, but the files remained unchanged",
+  "annotationscommon.akariAnnotationsService.recovery.fileSeparator": ", ",
+  "annotationscommon.akariAnnotationsService.recovery.sentenceSeparator": ". "
 }

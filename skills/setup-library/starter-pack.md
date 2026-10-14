@@ -1,12 +1,14 @@
 # Browse the catalog and propose a starter pack
 
-## 1. Follow catalog/INDEX.md
+## 1. Inspect the bundled catalog
 
-Read `catalog/INDEX.md` → each category's `catalog/<category>/INDEX.md` → individual `catalog/<category>/<id>/meta.json` (`remote: true`). Follow the same route as the `assets/` LLM Wiki.
+Run `akari assets catalog --json` for the catalog location and counts. If it exits 1, report that the bundled catalog was not found; do not infer paths or invent inventory. Run `akari assets list --source site --json` for external entries, adding `--category <c>` or `--query <s>` when useful. For each candidate, run `akari assets show <category/id> --json` and read `meta.source.url`, `meta.source.acquisition`, `meta.source.license_at_source`, `meta.source.attribution_required`, `meta.license`, and `meta.tags`. These same commands work in a repository checkout and in an installed app.
 
-If a category is still being prepared and `INDEX.md` has no entry rows, report that it has no assets available to propose yet. Do not substitute a note about future additions for actual inventory. Never invent IDs, URLs, or licenses.
+If the list is empty, or a requested category has no entries, report that it has no assets available to propose. Do not substitute a note about future additions for actual inventory. Never invent IDs, URLs, or licenses.
 
-Also inspect existing `assets/<category>/INDEX.md`; do not propose duplicates if similar assets already exist locally.
+Also inspect `cached` rows in `akari assets list` and existing `assets/<category>/INDEX.md`; do not propose duplicates if similar assets already exist locally.
+Entries with a non-null `bundledAssetDir` already have their files bundled with the app, even though their `state` remains `reference`; exclude them from acquisition candidates.
+In the proposal, mark them `同梱済みのため対象外`, just as existing local assets are marked `既存 assets/ に既にあるため対象外`.
 
 ## 2. Ask about intended use
 
@@ -26,7 +28,7 @@ Here, consider only external catalog entries with `source.url`. akari-r2 entries
 - Prioritize entries whose `source.license_at_source` is CC0-equivalent (no attribution required; commercial use and modification allowed).
 - Entries with `source.attribution_required: true` may be included, but always flag this in the proposal.
 - Include entries whose `source.acquisition` is `login` / `purchase` only if the user permits them.
-- List only entries actually present in `catalog/`.
+- List only entries actually returned by the bundled catalog commands.
 
 ## 4. Proposal format
 
@@ -34,6 +36,7 @@ For each category, show ID, title, license_at_source, acquisition, and a brief r
 
 ```text
 [telop] lower-third-clean は既存 assets/ に既にあるため対象外。
+[font]  <id> は同梱済みのため対象外。
 [font]  <id> — <title>（license: CC0 1.0 / acquisition: direct）— 日本語見出し向け
 [3d]    <id> — <title>（license: CC-BY 4.0 / acquisition: direct / ⚠ attribution 必須）— 製品モックアップ
 ```
@@ -52,7 +55,7 @@ Do not proceed to [fetch-and-validate.md](fetch-and-validate.md) until approved.
 
 ## Common mistakes
 
-- Proposing nonexistent `catalog/` categories/entries just to meet demand.
+- Proposing nonexistent bundled-catalog categories/entries just to meet demand.
 - Proposing everything without asking about intended use.
 - Hiding or omitting notes about `attribution_required` or `acquisition: purchase`.
 - Proceeding on assumed approval without an explicit YES.

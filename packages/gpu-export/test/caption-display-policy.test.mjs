@@ -266,11 +266,11 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "a56bf9a43207fe98ced5a79e8cd8a6eaaa394dcff9a2bbbd857d9bd4a1855332",
+      html: "b420cf67fa3750a91c3cb0820a9cb7fedee20028d808168cf6a31ed324397fc7",
       sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "1af2861430d7998a851300394cbdadf1b0a225e5450315354ac019c15dab8923",
+      html: "765f2ab5c24a2bdfbe88bbe98abfe7e9166bab29ac8d4ba55b1ccd78ffa27c19",
       sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };

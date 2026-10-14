@@ -27,6 +27,7 @@ export declare function lookForCaptionRow(row: Record<string, unknown>, defaultS
     text_style?: Record<string, unknown>;
     notices: string[];
     reason?: string;
+    reasonCode?: 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT';
 };
 export declare function lookForCaptionRun(row: Record<string, unknown>, defaultStyle: Record<string, unknown>, styleLook: Record<string, unknown>, catalog?: Record<string, {
     style: Record<string, unknown>;

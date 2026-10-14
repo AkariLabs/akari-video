@@ -13,7 +13,7 @@ Below, `<ライブラリの置き場>` is the existing library-location placehol
 
 ## 2. Procedure
 
-1. Establish targets: `catalog/audio/candidates.json` cards or user-specified distribution-page URLs.
+1. Establish targets: cards in the candidate file at `audioCandidatesPath` (`akari assets catalog --json`) or user-specified distribution-page URLs.
 2. Open the page and target only file URLs actually read there (never construct guessed URLs).
 3. Acquire serially. Sleep 3–5 seconds between requests; retry failures at most 1 time.
    No bulk or parallel acquisition.

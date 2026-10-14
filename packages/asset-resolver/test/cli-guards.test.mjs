@@ -26,7 +26,9 @@ async function fixture(t) {
   const home = path.join(temp, 'home'), creator = path.join(temp, 'creator');
   const root = path.join(creator, 'library'), legacy = path.join(home, 'assets');
   const env = { ...process.env, HOME: temp, AKARI_HOME: home, AKARI_CREATOR_ROOT: creator,
-    AKARI_LIBRARY_ROOT: root, AKARI_ASSETS_CATALOG: path.join(temp, 'catalog.json') };
+    AKARI_LIBRARY_ROOT: root, AKARI_ASSETS_CATALOG: path.join(temp, 'catalog.json'),
+    AKARI_CATALOG_ROOT: path.join(temp, 'bundled-catalog') };
+  await fs.mkdir(env.AKARI_CATALOG_ROOT);
   await createCreatorRoot(creator);
   await fs.mkdir(path.join(legacy, 'still/card'), { recursive: true });
   await fs.writeFile(path.join(legacy, 'still/card/frame.png'), 'original bytes');

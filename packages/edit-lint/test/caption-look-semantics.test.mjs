@@ -70,3 +70,24 @@ test('壊れた null ルートと null 行・run は構造の診断になり例�
     assert.ok(findings.some(item => item.check === 'captions.schema'));
   }
 });
+
+test('edit-lint は壊れた v1 の 6 形を構造 error にする', () => {
+  const changes = [
+    run => { run.fire = 'bogus'; }, run => { run.id = 'zzz'; },
+    run => { run.look = 5; }, run => { delete run.id; },
+    run => { run.anchor = 'x'; },
+  ];
+  for (const change of changes) {
+    const run = { id: 'r-0001', from: 0, to: 1, look: { color: '#fff' } };
+    change(run);
+    const findings = [];
+    validateCaptions([{ id: 'c-0001', start: 0, end: 2, text: '猫', speaker: null,
+      sourceRef: null, edited: false, runs: [run] }], { cuts: [], sources: [] }, null,
+    findings, { projectRoot: process.cwd(), captionsPath: 'captions.json' }, 0, new Set());
+    assert.ok(findings.some(item => item.check === 'captions.look.shape' && item.severity === 'error'));
+  }
+  const findings = [];
+  validateCaptions({ captions: [], unresolved_runs: 'x' }, { cuts: [], sources: [] }, null,
+    findings, { projectRoot: process.cwd(), captionsPath: 'captions.json' }, 0, new Set());
+  assert.ok(findings.some(item => item.check === 'captions.look.shape' && item.severity === 'error'));
+});

@@ -12,6 +12,8 @@
   "tools.media.error.perSheetRange": "--per-sheet は 1〜12 で指定してください",
   "tools.transcribe.error.whisperMissing": "whisper.cpp の実行ファイルまたはモデルが見つかりません",
   "tools.captions.help.usage": "使い方: akari captions <project-dir> [options]",
+  "tools.captions.result.migrateLook": "字幕の見た目の移行: {count} 件の差分",
+  "tools.captions.error.writeConflict": "ほかの変更があったので書きませんでした。もう一度実行してください",
   "tools.captions.help.source": "  --source <sources[].id|媒体パス>",
   "tools.captions.help.retime": "  --retime            既存字幕の語時刻を発話へ合わせ直す",
   "tools.captions.help.readout": "  --readout <秒>       読み切り猶予（既定 0.3）",

@@ -26,6 +26,7 @@ const {
   resolveRecordTrackZ,
   partitionPreviewMediaPlanes,
   toAnchorCaptions,
+  captionOutlineRuntime,
 } = require("../../edit-store/lib/index.js");
 const { loadTextstyleCatalogSync } = require("../../edit-store/lib/textstyle-library-node.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "..", "frame-engine", "generated", "frame-engine.iife.js");
@@ -161,6 +162,7 @@ export function buildOsrPage({
   ${stampRow ? '<div id="akari-stamp" aria-hidden="true"></div>' : ""}
   <script>window.__akariEncodeStamp=${stampFunctionSource()};window.__AKARI_OSR_CONFIG__=${safeJson(config)};${multipleBands ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>${inlineScript(frameEngineBundle)}</script>
+  <script>(${captionOutlineRuntime.toString()})().install(document);</script>
   <script>${inlineScript(pageRuntime)}</script>
 </body>
 </html>

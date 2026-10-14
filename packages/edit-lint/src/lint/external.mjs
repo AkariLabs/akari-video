@@ -21,6 +21,7 @@ export const {
   TRANSITION_FILL_IDS,
   withoutItemAnchors,
   validateCaptionsSemantics,
+  validateCaptionLookV1Shape,
 } = createRequire(import.meta.url)("../../../edit-store/lib/index.js");
 
 

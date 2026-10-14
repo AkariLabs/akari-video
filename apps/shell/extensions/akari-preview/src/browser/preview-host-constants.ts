@@ -44,6 +44,8 @@ export const EDIT_STORE_DID_WRITE_EVENT = 'akari.editStore.didWrite';
 // 直接通知で処理した書き込みを、後から来る watcher イベントで二重に処理しないための窓。
 // akari-annotations 側の recentWrites（1 秒窓）と同型。
 export const RECENT_WRITE_WINDOW_MS = 1000;
+// あとから届いた素材は、書き込みの間に通知が何度も来る。最後の通知からこの間だけ待って 1 回で読み直す。
+export const WATCHED_MEDIA_SETTLE_MS = 250;
 export const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 export const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 export const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';

@@ -369,6 +369,7 @@
   "inspector.captionPanels.label.close": "閉じる",
   "inspector.captionPanels.label.open": "開く",
   "inspector.captionPanels.text.available": "使える",
+  "inspector.captionPanels.text.addedByYou": "自分で入れた",
   "inspector.captionPanels.label.recentStyles": "最近使ったスタイル",
   "inspector.captionPanels.label.textStyle": "テキストスタイル",
   "inspector.captionPanels.label.myStyle": "マイスタイル",

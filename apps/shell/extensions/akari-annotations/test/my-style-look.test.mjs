@@ -5,15 +5,122 @@ import { readSourceFile } from './helpers/widget-source.mjs';
 import test from 'node:test';
 import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
   placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
-  myStyleOutputHeight, newMyStyleSlug, captionEffectiveSize } from '../lib/browser/my-style-look.js';
+  myStyleOutputHeight, newMyStyleSlug, captionEffectiveSize, scaledLookForCaption,
+  sanitizeMyStyleLook, assertMyStyleLayoutCompatible } from '../lib/browser/my-style-look.js';
 import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem,
   supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
+import { CAPTION_ROW_LOOK_FIELDS as LOOK_FIELDS, TEXTSTYLE_CATALOG } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
 import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
+import { applyCaptionMotionDelta } from '../lib/browser/inspector/caption-multi-targets.js';
 
 setLanguage('ja');
 test.after(() => setLanguage(undefined));
+
+test('大量の行へ当てる処理は対象数に対して線形に近い', () => {
+  const measure = count => {
+    const rows = Array.from({ length: count }, (_, index) => ({ id: `c-${String(index).padStart(4, '0')}`,
+      start: index, end: index + 1, text: '字幕', text_style: { size_px: 38 } }));
+    const ids = rows.map(row => row.id);
+    const began = performance.now();
+    replaceMyStylePartsInSource(JSON.stringify({ captions: rows }), ids,
+      [{ kind: 'look', text_style: { size_px: 56, color: '#ffffff', stroke: { color: '#000000', width_px: 4 } } }],
+      { keepSize: true });
+    return performance.now() - began;
+  };
+  measure(30);
+  const small = measure(500);
+  const large = measure(1700);
+  assert.ok(large < 1500, `1700 行: ${large}ms`);
+  assert.ok(large / Math.max(small, 1) < 8, `500 行: ${small}ms; 1700 行: ${large}ms`);
+});
+
+// 載せ替え前の参照実装。見た目の値と JSON の並びを固定するためテスト内に保持する。
+function replaceBeforeCommand(source, ids, parts, options = {}) {
+  const lookPart = parts.find(part => part.kind === 'look');
+  const motionPart = parts.find(part => part.kind === 'motion');
+  const look = sanitizeMyStyleLook(lookPart?.text_style);
+  const document = JSON.parse(source);
+  const rows = Array.isArray(document) ? document : document.captions;
+  const defaultStyle = document.default_text_style ?? {};
+  const catalog = options.catalog ?? TEXTSTYLE_CATALOG;
+  for (const id of new Set(ids)) {
+    const matches = rows.filter(row => row && row.id === id);
+    if (matches.length !== 1) throw new Error('字幕が一意に見つかりません');
+    const row = matches[0];
+    const before = row.text_style ?? {};
+    const next = { ...before };
+    if (lookPart) {
+      for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
+      if (options.keepSize) {
+        const preset = typeof row.style_preset === 'string' ? catalog[row.style_preset]?.style : undefined;
+        const presetStyle = preset ?? {};
+        const targetSize = captionEffectiveSize(row, defaultStyle, catalog);
+        const referenceHeight = before.reference_height_px ?? presetStyle.reference_height_px
+          ?? defaultStyle.reference_height_px;
+        Object.assign(next, scaledLookForCaption(look, targetSize));
+        next.size_px = targetSize;
+        if (referenceHeight !== undefined) next.reference_height_px = referenceHeight;
+      } else Object.assign(next, look);
+      assertMyStyleLayoutCompatible(defaultStyle, next);
+      delete row.style_preset;
+    }
+    if (motionPart) next.animation = options.motionDelta
+      ? applyCaptionMotionDelta(before.animation, options.motionDelta) : motionPart.animation;
+    if (Object.keys(next).length) row.text_style = next;
+    else delete row.text_style;
+  }
+  return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+test('マイスタイルの載せ替えは look と motion の組合せで以前と同じ JSON を作る', () => {
+  let cases = 0;
+  for (const kind of ['look', 'motion', 'both']) for (const keepSize of [true, false])
+    for (const preset of [true, false]) for (const size of [true, false])
+      for (const reference of [true, false]) for (const layout of [true, false]) {
+        const row = { id: 'c-0001', text: '猫', start: 0, end: 1,
+          ...(preset ? { style_preset: 'neon' } : {}),
+          text_style: { color: '#f00', ...(size ? { size_px: 38 } : {}),
+            ...(layout ? { layout: { mode: 'reference-pixel' } } : {}) } };
+        const source = `${JSON.stringify({ default_text_style: { size_px: 42,
+          ...(reference ? { reference_height_px: 1920 } : {}) }, captions: [row] }, null, 2)}\n`;
+        const parts = [
+          ...(kind !== 'motion' ? [{ kind: 'look', text_style: { size_px: 56,
+            color: '#fff', stroke: { color: '#000', width_px: 4 } } }] : []),
+          ...(kind !== 'look' ? [{ kind: 'motion', animation: { in: { id: 'pop' } } }] : [])
+        ];
+        let expected;
+        try { expected = replaceBeforeCommand(source, ['c-0001'], parts, { keepSize }); }
+        catch { assert.throws(() => replaceMyStylePartsInSource(source, ['c-0001'], parts,
+          { keepSize, source: { kind: 'my', id: 'test' } })); cases++; continue; }
+        const actual = replaceMyStylePartsInSource(source, ['c-0001'], parts,
+          { keepSize, source: { kind: 'my', id: 'test' }, now: '2026-10-13T00:00:00Z' });
+        const parsed = JSON.parse(actual);
+        delete parsed.captions[0].style_sources;
+        assert.deepEqual(parsed, JSON.parse(expected));
+        assert.equal(`${JSON.stringify(parsed, null, 2)}\n`, expected);
+        cases++;
+      }
+  assert.ok(cases >= 12);
+});
+
+test('見た目も動きも無い attach 部品は載せ替え前と同じ字幕を返す', () => {
+  const source = JSON.stringify({ captions: [{ id: 'c-0001', text_style: { color: '#fff' } }] });
+  const parts = [{ kind: 'sfx' }, { kind: 'decor' }, { kind: 'fx' }];
+  assert.equal(replaceMyStylePartsInSource(source, ['c-0001'], parts),
+    replaceBeforeCommand(source, ['c-0001'], parts));
+  assert.throws(() => replaceMyStylePartsInSource(source, ['missing'], parts));
+});
+
+test('motion だけと motionDelta は載せ替え前と同じ動きと並びを返す', () => {
+  const source = JSON.stringify({ captions: [{ id: 'c-0001', text_style: {
+    color: '#fff', animation: { in: { id: 'fade-up' }, out: { id: 'fade-down' } } } }] });
+  const parts = [{ kind: 'motion', animation: { in: { id: 'pop' } } }];
+  const motionDelta = { set: { in: { id: 'pop' } }, remove: [] };
+  assert.equal(replaceMyStylePartsInSource(source, ['c-0001'], parts, { motionDelta }),
+    replaceBeforeCommand(source, ['c-0001'], parts, { motionDelta }));
+});
 
 test('実効の見た目を解決し、位置と動きを保存しない', () => {
   const look = effectiveMyStyleLook({ color: '#ffffff', stroke: { color: '#000000', widthPx: 2 },

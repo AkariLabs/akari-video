@@ -112,7 +112,8 @@ export function lookForCaptionAtSize(look: Record<string, unknown>, targetSize: 
 
 export function lookForCaptionRow(row: Record<string, unknown>, defaultStyle: Record<string, unknown>,
     styleLook: Record<string, unknown>, options: { size: 'keep' | 'style'; catalog?: Record<string, { style: Record<string, unknown> }> }):
-    { text_style?: Record<string, unknown>; notices: string[]; reason?: string } {
+    { text_style?: Record<string, unknown>; notices: string[]; reason?: string;
+        reasonCode?: 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT' } {
     const before = record(row.text_style) ? row.text_style : {};
     const targetSize = captionEffectiveSize(row, defaultStyle, options.catalog);
     const source = sanitizeMyStyleLook(styleLook);
@@ -132,7 +133,8 @@ export function lookForCaptionRow(row: Record<string, unknown>, defaultStyle: Re
         }
     }
     if (textStyle.layout !== undefined && textStyle.reference_height_px !== undefined) {
-        return { notices: [], reason: 'layout と reference_height_px を同時に指定できません' };
+        return { notices: [], reason: 'layout と reference_height_px を同時に指定できません',
+            reasonCode: 'AKARI_CAPTION_LAYOUT_REFERENCE_CONFLICT' };
     }
     return { text_style: textStyle, notices: [] };
 }
