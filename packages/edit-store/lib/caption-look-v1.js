@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CAPTION_DEFAULT_SIZE_PX = exports.CAPTION_RUN_LOOK_FIELDS = exports.CAPTION_ROW_LOOK_FIELDS = void 0;
+exports.CAPTION_PIXEL_FIELDS = exports.CAPTION_DEFAULT_SIZE_PX = exports.CAPTION_RUN_LOOK_FIELDS = exports.CAPTION_ROW_LOOK_FIELDS = void 0;
 exports.sanitizeMyStyleLook = sanitizeMyStyleLook;
 exports.sanitizeCaptionRunLook = sanitizeCaptionRunLook;
 exports.scaleCaptionLookPixels = scaleCaptionLookPixels;
@@ -22,7 +22,16 @@ exports.CAPTION_RUN_LOOK_FIELDS = new Set([
     'color', 'font_weight', 'italic', 'underline', 'letter_spacing_em', 'scale',
     'baseline_shift_em', 'rotate_deg', 'stroke', 'shadow', 'glow', 'background'
 ]);
+const RUN_LOOK_OMITTED_NAMES = {
+    font_family: 'フォント', line_height: '行間', text_transform: '大文字・小文字の変換',
+    fill: '塗り', strokes: '重ねた縁', size_px: '大きさ', reference_height_px: '基準の高さ'
+};
 exports.CAPTION_DEFAULT_SIZE_PX = 38;
+exports.CAPTION_PIXEL_FIELDS = {
+    stroke: ['width_px'], background: ['radius_px', 'padding_px'],
+    shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'],
+    strokes: ['width_px', 'offset_x', 'offset_y'], 'fill.pattern': ['scale']
+};
 function record(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -44,13 +53,16 @@ function sanitizeMyStyleLook(value) {
 function sanitizeCaptionRunLook(value) {
     if (!record(value))
         return { look: {}, omitted: [], notices: [] };
-    const omitted = Object.keys(value).filter(key => !exports.CAPTION_RUN_LOOK_FIELDS.has(key));
+    const omitted = Object.keys(value).filter(key => key !== 'weight' && !exports.CAPTION_RUN_LOOK_FIELDS.has(key));
     const noticed = omitted.filter(key => key !== 'size_px' && key !== 'reference_height_px');
+    const look = Object.fromEntries(Object.entries(value).filter(([key]) => exports.CAPTION_RUN_LOOK_FIELDS.has(key)));
+    if (!Object.prototype.hasOwnProperty.call(look, 'font_weight') && Number.isInteger(value.weight)
+        && value.weight >= 1 && value.weight <= 1000)
+        look.font_weight = value.weight;
     return {
-        look: Object.fromEntries(Object.entries(value).filter(([key]) => exports.CAPTION_RUN_LOOK_FIELDS.has(key))),
+        look,
         omitted,
-        notices: noticed.length ? [noticed.includes('font_family')
-                ? 'フォントは字幕全体にだけ当てられます。' : `範囲に使えない見た目を外しました: ${noticed.join('、')}`] : []
+        notices: noticed.map(key => `${RUN_LOOK_OMITTED_NAMES[key] ?? 'この項目'}は字幕全体にだけ当てられます。`)
     };
 }
 /** 保存座標系で px 値だけを換算する。 */
@@ -59,10 +71,9 @@ function scaleCaptionLookPixels(look, targetSize) {
     const ratio = typeof presetSize === 'number' && Number.isFinite(presetSize) && presetSize > 0
         ? targetSize / presetSize : 1;
     const scaled = { ...look };
-    for (const [key, fields] of Object.entries({
-        stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y']
-    })) {
+    for (const [key, fields] of Object.entries(exports.CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern')
+            continue;
         const value = look[key];
         if (!record(value))
             continue;
@@ -79,7 +90,7 @@ function scaleCaptionLookPixels(look, targetSize) {
             if (!record(entry))
                 return entry;
             const stroke = { ...entry };
-            for (const field of ['width_px', 'offset_x', 'offset_y']) {
+            for (const field of exports.CAPTION_PIXEL_FIELDS.strokes) {
                 const current = stroke[field];
                 if (typeof current === 'number')
                     stroke[field] = current * ratio;

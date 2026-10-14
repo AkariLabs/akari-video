@@ -2259,7 +2259,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
+        const updated = request.textStyle?.sizePx === undefined || request.textStyle.sizePx === null
+            ? updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {})
+            : updateCaptionTextStyleInSource(source, request.captionId, request.textStyle,
+                loadTextstyleCatalogSync({ env: process.env }).catalog);
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
     }
@@ -2821,7 +2824,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const root = dirname(editPath);
         const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : timelineCaptionsPath(editPath);
         this.requireWriteRequest(URI.fromFilePath(captionsPath).toString(), request.projectRootUri);
-        if (resolve(timelineEditPathForCaptions(captionsPath, projectRoot)) !== resolve(editPath))
+        if (relative(resolve(timelineEditPathForCaptions(captionsPath, projectRoot)), resolve(editPath)) !== '')
             throw new Error(t('annotationscommon.akariAnnotationsService.error.editDataCaptionsDoNotMatch'));
         return { root, captionsName: basename(captionsPath), editName: basename(editPath) };
     }

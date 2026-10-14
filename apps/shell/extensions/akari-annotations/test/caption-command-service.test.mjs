@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, stat, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -21,6 +21,38 @@ async function fixture(fn, row = caption()) {
   finally { await rm(root, { recursive: true, force: true }); }
 }
 const read = path => readFile(path, 'utf8');
+
+test('Windows のドライブ文字と日本語 URI の大小差でも字幕コマンドと比較付き保存が通る',
+  { skip: process.platform !== 'win32' }, async () => fixture(async f => {
+    const folder = join(f.root, '日本語の字幕');
+    await mkdir(folder);
+    const editPath = join(folder, 'edit.json');
+    const captionsPath = join(folder, 'captions.json');
+    await writeFile(editPath, await read(f.editPath));
+    await writeFile(captionsPath, await read(f.captionsPath));
+    const caseUri = (path, drive) => {
+      const value = new URL(uri(path));
+      value.pathname = value.pathname.replace(/^\/[A-Za-z]:/u, `/${drive}:`);
+      return value.toString();
+    };
+    const drive = /^file:\/\/\/([A-Za-z]):/u.exec(uri(folder))[1];
+    const request = { projectRootUri: caseUri(folder, drive.toLowerCase()),
+      editUri: caseUri(editPath, drive.toUpperCase()),
+      captionsUri: caseUri(captionsPath, drive.toLowerCase()) };
+    assert.match(request.captionsUri, /%E6%97%A5/u);
+    const applied = await f.service.applyCaptionStyle({ ...request,
+      input: { targets: [{ caption_id: 'c-0001' }], parts: { look: { color: '#ffffff' } } } });
+    assert.equal(applied.ok, true);
+    const sized = await f.service.setCaptionSize({ ...request,
+      input: { targets: [{ caption_id: 'c-0001' }], size_px: 72 } });
+    assert.equal(sized.ok, true);
+    const dry = await f.service.migrateCaptionLook({ ...request, input: { dryRun: true } });
+    assert.equal(dry.ok, true);
+    const before = await read(captionsPath);
+    const snapshot = await f.service.writeEditSnapshot({ ...request, captionsSource: before,
+      expectedHashes: { captions: projectFileHash(before) } });
+    assert.equal(snapshot.conflict, undefined);
+  }));
 
 test('字幕の適用・解除・当て直し・大きさ変更 RPC が前後の全文を返す', async () => fixture(async f => {
   const before = await read(f.captionsPath);

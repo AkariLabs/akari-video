@@ -36,6 +36,14 @@ export function nextEmphasisWordId(root: CaptionsRoot | CaptionRow[]): string {
     return `e-${String(number).padStart(4, '0')}`;
 }
 
+function migratedRunMatches(run: CaptionRun, interval: { from: number; to: number },
+    item: Emphasis, motion: string): boolean {
+    return run.from === interval.from && run.to === interval.to && run.emotion === item.emotion
+        && run.motion?.in?.id === motion && Object.keys(run.motion ?? {}).length === 1
+        && run.anchor?.start === item.t_start && run.anchor?.end === item.t_end
+        && (run.anchor?.src ?? undefined) === (item.src ?? undefined);
+}
+
 export const CAPTION_EMPHASIS_MOTION: Readonly<Record<string, string>> = {
     'one-char-bang': 'pop', 'one-char-jumble': 'jitter', 'size-pulse': 'zoom-pulse'
 };
@@ -44,18 +52,25 @@ const DEFAULT_HINT: Readonly<Record<string, string>> = {
     disgust: 'one-char-jumble', joy: 'size-pulse', emphasis: 'size-pulse'
 };
 
+export function captionEmphasisWordIntervals(row: Pick<CaptionRow, 'text' | 'display_text'>,
+    wordText: string): Array<{ from: number; to: number }> {
+    const chars = captionGraphemes(row.display_text ?? row.text ?? '');
+    const word = captionGraphemes(wordText);
+    const matches: Array<{ from: number; to: number }> = [];
+    if (!word.length) return matches;
+    for (let i = 0; i <= chars.length - word.length; i++) {
+        if (word.every((char, n) => chars[i + n] === char)) matches.push({ from: i, to: i + word.length });
+    }
+    return matches;
+}
+
 function intervalForEmphasis(row: CaptionRow, emphasis: Emphasis): { from: number; to: number } | undefined {
     if (emphasis.src && emphasis.src !== row.src) return undefined;
     if (typeof row.start !== 'number' || typeof row.end !== 'number'
         || emphasis.t_start < row.start || emphasis.t_end > row.end
         || emphasis.t_start >= emphasis.t_end) return undefined;
-    const chars = captionGraphemes(row.display_text ?? row.text ?? '');
-    const word = captionGraphemes(emphasis.word);
-    const matches: number[] = [];
-    for (let i = 0; i <= chars.length - word.length; i++) {
-        if (word.every((char, n) => chars[i + n] === char)) matches.push(i);
-    }
-    return matches.length === 1 ? { from: matches[0], to: matches[0] + word.length } : undefined;
+    const matches = captionEmphasisWordIntervals(row, emphasis.word);
+    return matches.length === 1 ? matches[0] : undefined;
 }
 
 function projectEmphasis(rows: CaptionRow[], item: Emphasis):
@@ -91,9 +106,12 @@ function invalidLegacyRun(run: CaptionRun, row: CaptionRow): boolean {
 export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: TextstyleCatalog):
     { captions: CaptionRow[]; notices: string[] } {
     const rows = captionRows(root);
-    const emphasis = emphasisWords(root);
+    const emphasis = emphasisWords(root).map(item => isRecord(item) ? { ...item } : item);
     const projected = new Map<string, { id: string | undefined; from: number; to: number; motion: string; index: number }>();
     const allRuns = [...rows.flatMap(rowRuns), ...unresolvedRuns(root)];
+    for (const item of emphasis) if (isRecord(item) && allRuns.some(run => run?.migrated_from === item.id))
+        item.id = nextEmphasisWordId({ captions: rows, emphasis_words: emphasis,
+            unresolved_runs: Array.isArray(root) ? [] : root.unresolved_runs });
     const occupiedIndices = new Set(allRuns.flatMap(run => run && typeof run === 'object'
         && Number.isInteger(run.migrated_emphasis?.index) ? [run.migrated_emphasis!.index] : []));
     let originalIndex = 0;
@@ -118,6 +136,8 @@ export function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: Te
             if (runs.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) continue;
             const interval = projected.get(item.id);
             if (!interval || interval.id !== row.id) continue;
+            if (runs.some(run => run && typeof run === 'object'
+                && migratedRunMatches(run, interval, item, interval.motion))) continue;
             const projection: CaptionRun = { id: nextCaptionRunId(allRuns), from: interval.from, to: interval.to,
                 role: 'emphasis', emotion: item.emotion, migrated_from: item.id,
                 migrated_emphasis: { index: interval.index, item: structuredClone(item) },
@@ -199,12 +219,17 @@ export function planCaptionLookMigration(captions: CaptionsRoot | CaptionRow[], 
         if (!isRecord(item)) continue;
         while (occupiedIndices.has(originalIndex)) originalIndex++;
         const index = originalIndex++;
+        const candidate = projectEmphasis(rows, item);
+        if (candidate && rowRuns(candidate.row).some(run => migratedRunMatches(run, candidate.interval,
+            item, candidate.motion))) {
+            migrated.add(item.id);
+            continue;
+        }
         if (allRuns.some(run => run && typeof run === 'object' && run.migrated_from === item.id)) {
             const old = item.id;
             item.id = nextEmphasisWordId(source);
             notices.push(`強調語 ${old} は id が重なっていたので ${item.id} に振り直しました`);
         }
-        const candidate = projectEmphasis(rows, item);
         if (!candidate) { unresolved.push(item); notices.push(`強調語 ${item.id} は可逆に移行できません`); continue; }
         const { row, interval, motion } = candidate;
         const run: CaptionRun = { id: nextCaptionRunId(allRuns), ...interval, role: 'emphasis',
@@ -380,14 +405,17 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
     const copy = structuredClone(root);
     const nextRows = captionRows(copy);
     const emphasis = [...emphasisWords(copy)];
+    const nextId = (items: Emphasis[]) => nextEmphasisWordId({ captions: nextRows,
+        emphasis_words: items, unresolved_runs: Array.isArray(copy) ? [] : copy.unresolved_runs });
     const migratedIds = new Set<string>();
     for (const row of nextRows) for (const run of rowRuns(row))
         if (typeof run?.migrated_from === 'string') migratedIds.add(run.migrated_from);
+    for (const run of unresolvedRuns(copy)) if (typeof run.migrated_from === 'string') migratedIds.add(run.migrated_from);
     const ids = new Set<string>();
     for (const item of emphasis) {
         if (!isRecord(item)) continue;
         if (ids.has(item.id) || migratedIds.has(item.id))
-            item.id = nextEmphasisWordId({ captions: nextRows, emphasis_words: emphasis });
+            item.id = nextId(emphasis);
         ids.add(item.id);
     }
     const migrated: Array<{ index: number; item: Emphasis }> = [];
@@ -405,14 +433,12 @@ export function captionRenderInputFromV1<T extends CaptionsRoot | CaptionRow[]>(
                 const restored = run.migrated_emphasis?.item as Emphasis | undefined;
                 if (restored) {
                     const item = structuredClone(restored);
-                    if (ids.has(item.id)) item.id = nextEmphasisWordId({ captions: nextRows,
-                        emphasis_words: [...emphasis, ...migrated.map(entry => entry.item)] });
+                    if (ids.has(item.id)) item.id = nextId([...emphasis, ...migrated.map(entry => entry.item)]);
                     ids.add(item.id);
                     migrated.push({ index: run.migrated_emphasis!.index, item });
                 } else if (hint) {
                     let id = run.migrated_from;
-                    if (ids.has(id)) id = nextEmphasisWordId({ captions: nextRows,
-                        emphasis_words: [...emphasis, ...migrated.map(entry => entry.item)] });
+                    if (ids.has(id)) id = nextId([...emphasis, ...migrated.map(entry => entry.item)]);
                     ids.add(id);
                     emphasis.push({ id,
                     word: captionGraphemes(row.display_text ?? row.text ?? '').slice(run.from, run.to).join(''),

@@ -185,7 +185,7 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
   assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);
   assert.ok(rows.every(row => !('glow' in row.text_style) && !('style_preset' in row)
-    && row.text_style.animation.in.id === 'fade-up' && row.text_style.reference_height_px === 1920));
+    && row.text_style.animation.in.id === 'fade-up' && !('reference_height_px' in row.text_style)), JSON.stringify(rows));
   await result.history[0].undo();
   assert.equal(result.writes[1].captionsSource, source);
   await result.history[0].redo();
@@ -253,7 +253,7 @@ test('効果音部品は captions と edit を 1 書き込み・undo 1 回で復
   assert.equal(result.writes[1].captionsSource, source);
 });
 
-test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {
+test('既定 layout の複数選択はスタイルの基準高さを運ばずに一括適用する', async () => {
   const captions = [caption('one'), caption('two')];
   const source = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
     reference_width_px: 1920, reference_height_px: 1080, left_px: 261, width_px: 1120,
@@ -262,9 +262,10 @@ test('既定 layout と基準高さが衝突する複数選択は RPC 前に全�
     text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
   const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
-    captions, targets, source, source, false);
-  assert.match(result.result.message, /layout.*基準高さ/);
-  assert.equal(result.writes.length, 0);
+    captions, targets, source, source, true);
+  assert.equal(result.writes.length, 1);
+  assert.ok(JSON.parse(result.writes[0].captionsSource).captions.every(row =>
+    row.text_style.color === '#f00' && !('reference_height_px' in row.text_style)));
 });
 
 test('プリセット付き字幕の太さは合成後も選択値になり、undo は cue 側指定だけ戻す', async () => {

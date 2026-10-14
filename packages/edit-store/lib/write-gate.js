@@ -250,9 +250,10 @@ const JOURNAL_VERSION = 1;
 const sharedSymbol = Symbol.for('akari.edit-store.write-locks');
 const sharedGlobal = globalThis;
 const sharedState = sharedGlobal[sharedSymbol] ?? (sharedGlobal[sharedSymbol] = {
-    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map()
+    chains: new Map(), unreleased: new Map(), committed: new Set(), yieldUntil: new Map(), activeClaims: new Set()
 });
 sharedState.yieldUntil ??= new Map();
+sharedState.activeClaims ??= new Set();
 const projectWriteChains = sharedState.chains;
 const pause = (ms) => new Promise(done => setTimeout(done, ms));
 const absent = (error) => error?.code === 'ENOENT';
@@ -373,6 +374,8 @@ async function acquireProjectLock(projectRoot, options) {
     const nonce = (0, crypto_1.randomUUID)();
     let permissionFailures = 0;
     let permissionFailureAt = 0;
+    let probeAttempts = 0;
+    let probeSucceeded = false;
     let placedWaitMark = false;
     const clearOwnWaitMark = async () => {
         if (!placedWaitMark)
@@ -390,11 +393,11 @@ async function acquireProjectLock(projectRoot, options) {
         }
         catch { /* ほかの待ち手の印や一時的な失敗は待機を妨げない。 */ }
     };
-    const releaseOwned = (ownedNonce, acquiredAt) => async () => {
+    const releaseOwned = (ownedNonce, acquiredAt, reused = false) => async () => {
         // 長時間の処理中に lock を奪われた場合は、別の持ち主の lock を消さない。
-        if (now() - acquiredAt >= 30_000) {
+        if (reused || now() - acquiredAt >= 30_000) {
             try {
-                const current = await readBytes(lock);
+                const current = await readBytes(lock, ops);
                 if (!current || JSON.parse(current.toString('utf8')).nonce !== ownedNonce)
                     return;
             }
@@ -426,6 +429,24 @@ async function acquireProjectLock(projectRoot, options) {
     const yieldMs = (sharedState.yieldUntil.get((0, path_1.resolve)(projectRoot)) ?? 0) - Date.now();
     if (yieldMs > 0)
         await pause(yieldMs);
+    try {
+        const probes = (await ops.readdir(folder)).filter(name => name.startsWith('write.lock.probe-')).slice(0, 16);
+        for (const name of probes) {
+            const probe = (0, path_1.join)(folder, name);
+            try {
+                if (now() - (await ops.stat(probe)).mtimeMs > 5_000)
+                    await ops.unlink(probe);
+            }
+            catch (error) {
+                if (!absent(error) && !retryCodes.has(error.code ?? ''))
+                    throw error;
+            }
+        }
+    }
+    catch (error) {
+        if (!absent(error))
+            throw error;
+    }
     for (;;) {
         const acquiredAt = now();
         try {
@@ -450,17 +471,24 @@ async function acquireProjectLock(projectRoot, options) {
                     if (permissionFailures++ === 0)
                         permissionFailureAt = Date.now();
                     if (permissionFailures >= 5 && Date.now() - permissionFailureAt >= 50) {
-                        const probe = (0, path_1.join)(folder, `write.lock.probe-${(0, crypto_1.randomUUID)()}`);
-                        try {
-                            await ops.writeFile(probe, '', { flag: 'wx' });
+                        if (!probeSucceeded && probeAttempts < 2) {
+                            probeAttempts++;
+                            const probe = (0, path_1.join)(folder, `write.lock.probe-${(0, crypto_1.randomUUID)()}`);
+                            try {
+                                await ops.writeFile(probe, '', { flag: 'wx' });
+                            }
+                            catch (probeError) {
+                                const probeCode = probeError.code;
+                                if (probeCode === 'EPERM' || probeCode === 'EACCES')
+                                    throw error;
+                                throw probeError;
+                            }
+                            probeSucceeded = true;
+                            await retryFs(() => ops.unlink(probe)).catch(() => undefined);
                         }
-                        catch (probeError) {
-                            const probeCode = probeError.code;
-                            if (probeCode === 'EPERM' || probeCode === 'EACCES')
-                                throw error;
-                            throw probeError;
+                        else if (!probeSucceeded) {
+                            throw error;
                         }
-                        await ops.unlink(probe);
                         permissionFailures = 0;
                     }
                 }
@@ -473,7 +501,7 @@ async function acquireProjectLock(projectRoot, options) {
         }
         let existing;
         try {
-            existing = await readBytes(lock);
+            existing = await readBytes(lock, ops);
         }
         catch (error) {
             if (!retryCodes.has(error.code ?? ''))
@@ -489,13 +517,13 @@ async function acquireProjectLock(projectRoot, options) {
                 owner = JSON.parse(existing.toString('utf8'));
             }
             catch { /* 壊れた lock は期限後に奪う */ }
+            const created = Date.parse(owner.created_at ?? '');
             if (owner.host === host && owner.pid === process.pid && typeof owner.nonce === 'string'
                 && owner.nonce === sharedState.unreleased.get(lock)) {
                 sharedState.unreleased.delete(lock);
                 await clearOwnWaitMark();
-                return releaseOwned(owner.nonce, now());
+                return releaseOwned(owner.nonce, Number.isFinite(created) ? created : now(), true);
             }
-            const created = Date.parse(owner.created_at ?? '');
             let age;
             try {
                 age = now() - (Number.isFinite(created) ? created : (await fs_1.promises.stat(lock)).mtimeMs);
@@ -514,8 +542,26 @@ async function acquireProjectLock(projectRoot, options) {
                 // 奪取だけ claim で直列化し、取得済みの相手の lock を消さない。
                 const clearStaleClaim = async () => {
                     try {
-                        const stat = await fs_1.promises.stat(claim);
-                        if (Date.now() - stat.mtimeMs > 5_000)
+                        const stat = await ops.stat(claim);
+                        let claimant = {};
+                        try {
+                            const parsed = JSON.parse((await ops.readFile((0, path_1.join)(claim, 'owner.json'))).toString('utf8'));
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+                                claimant = parsed;
+                        }
+                        catch { /* 識別できない claim は期限後だけ取り除く */ }
+                        if (sharedState.activeClaims.has(claim))
+                            return;
+                        if (claimant.host === host && claimant.pid === process.pid) {
+                            await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
+                            return;
+                        }
+                        const live = claimant.host === host && Number.isInteger(claimant.pid)
+                            && (claimant.pid ?? 0) > 0 && (options.hooks?.processAlive ?? ownerAlive)(claimant.pid);
+                        const createdAt = Date.parse(claimant.created_at ?? '');
+                        const age = live && Number.isFinite(createdAt) && createdAt <= now()
+                            ? now() - createdAt : now() - stat.mtimeMs;
+                        if (age > (live ? 30_000 : 5_000))
                             await retryFs(() => ops.rm(claim, { recursive: true, force: true }));
                     }
                     catch (error) {
@@ -524,15 +570,45 @@ async function acquireProjectLock(projectRoot, options) {
                     }
                 };
                 let claimed = false;
+                let claimOwner = '';
+                let keepClaim = false;
                 try {
                     await clearStaleClaim();
                     await retryFs(() => ops.mkdir(claim));
                     claimed = true;
-                    const current = await readBytes(lock);
-                    if (current?.equals(existing)) {
-                        await retryFs(() => ops.unlink(lock)).catch(error => { if (!absent(error))
-                            throw error; });
-                        sharedState.unreleased.delete(lock);
+                    sharedState.activeClaims.add(claim);
+                    claimOwner = JSON.stringify({ pid: process.pid, host, created_at: new Date(now()).toISOString(), nonce });
+                    await retryFs(() => ops.writeFile((0, path_1.join)(claim, 'owner.json'), claimOwner));
+                    const current = await readBytes(lock, ops);
+                    const ownerBytes = await readBytes((0, path_1.join)(claim, 'owner.json'), ops);
+                    if (current?.equals(existing) && ownerBytes?.toString('utf8') === claimOwner) {
+                        const retired = (0, path_1.join)(claim, `retired-${nonce}`);
+                        let renameSucceeded = false;
+                        try {
+                            await retryFs(() => ops.rename(lock, retired));
+                            renameSucceeded = true;
+                        }
+                        catch (error) {
+                            if (!absent(error))
+                                throw error;
+                        }
+                        if (renameSucceeded) {
+                            const retiredBytes = await readBytes(retired, ops);
+                            if (retiredBytes?.equals(existing)) {
+                                await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                                sharedState.unreleased.delete(lock);
+                            }
+                            else {
+                                const restored = await retryFs(() => ops.link(retired, lock))
+                                    .then(() => true, () => false);
+                                if (!restored && !await readBytes(lock, ops)) {
+                                    keepClaim = true;
+                                    throw new Error('退避した lock を元の場所へ戻せませんでした。');
+                                }
+                                if (restored)
+                                    await retryFs(() => ops.unlink(retired)).catch(() => undefined);
+                            }
+                        }
                     }
                 }
                 catch (error) {
@@ -543,8 +619,12 @@ async function acquireProjectLock(projectRoot, options) {
                         throw error;
                 }
                 finally {
-                    if (claimed)
-                        await retryFs(() => ops.rmdir(claim)).catch(() => undefined);
+                    if (claimed) {
+                        const ownerBytes = await readBytes((0, path_1.join)(claim, 'owner.json'), ops).catch(() => undefined);
+                        if (!keepClaim && ownerBytes?.toString('utf8') === claimOwner)
+                            await retryFs(() => ops.rm(claim, { recursive: true, force: true })).catch(() => undefined);
+                        sharedState.activeClaims.delete(claim);
+                    }
                 }
             }
             else if (typeof owner.pid === 'number' && Number.isInteger(owner.pid) && owner.pid > 0
@@ -668,6 +748,7 @@ async function writeJournal(destination, content, options) {
         throw error;
     }
 }
+/** 保存の onDidWrite 通知の中から await しない。 */
 async function recoverInterruptedProjectWrite(projectRoot) {
     const detail = await recoverInterruptedProjectWriteDetailed(projectRoot);
     return detail && recoveryNotice(detail);

@@ -57,6 +57,6 @@ export function planLibraryApply(payload: ApplyPayload, target?: ApplyTarget): A
         catalog?: Record<string, { style: Record<string, unknown> }> } | undefined;
     return Array.isArray(style?.parts) ? { kind: 'caption', id: target.id,
         parts: style.parts.filter(part => part && ['look', 'motion', 'sfx', 'fx', 'decor'].includes(part.kind)),
-        ...(style.keepSize === true ? { keepSize: true, catalog: style.catalog } : {}),
+        keepSize: true, ...(style.catalog ? { catalog: style.catalog } : {}),
         ...(style.style_source ? { style_source: style.style_source } : {}) } : undefined;
 }

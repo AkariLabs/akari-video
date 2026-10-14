@@ -260,14 +260,15 @@ test('効果無しを保存して、当て先の既定 glow も実効値で無�
     density: effective.glow.density }), /rgba\(0,0,0,0\)/);
 });
 
-test('置換後の default layout と cue layout を事前に検出し、置いた文字も拒否する', () => {
+test('既存字幕では基準高さを運ばず、置いた文字の layout 衝突は拒否する', () => {
   const layout = { mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
     left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1 };
   const look = { color: '#f00', reference_height_px: 1920 };
   const source = JSON.stringify({ default_text_style: { layout }, captions: [
     { id: 'one', text_style: { color: '#fff' } }, { id: 'two', text_style: { color: '#fff' } }
   ] });
-  assert.throws(() => replaceMyStyleLookInSource(source, ['one', 'two'], look), /layout.*基準高さ/);
+  assert.equal(JSON.parse(replaceMyStyleLookInSource(source, ['one', 'two'], look))
+    .captions[0].text_style.reference_height_px, undefined);
   assert.throws(() => placedMyStyleTextStyle({ position: { y: .5 } }, look,
     { layout: { mode: 'reference-pixel' } }), /layout.*基準高さ/);
 });
@@ -294,8 +295,8 @@ test('look は余分な効果を消し、位置・動き・任意欄を保ち、
   const cue = JSON.parse(updated).captions[0];
   assert.equal('style_preset' in cue, false);
   assert.deepEqual(cue.text_style, { animation: { in: { id: 'pop' } }, position: { y: 0.3 },
-    zone: 'top', other: 'keep', color: '#f00', size_px: 80, reference_height_px: 1920,
-    stroke: { color: '#fff', width_px: 4 } });
+    zone: 'top', other: 'keep', color: '#f00', size_px: 120,
+    stroke: { color: '#fff', width_px: 6 } });
   assert.equal(myStyleOutputHeight('{"output":{"height":1920}}'), 1920);
   assert.equal(scaleCaptionPx(80, resolveCaptionReferenceScale(
     { reference_height_px: 1920 }, { width: 1920, height: 1080 })), 45);
@@ -374,7 +375,7 @@ test('ツリー選択の仮表示も合算カタログから字幕の実効サ�
     text_style: { size_px: 56 } }, {}, catalog), 56);
 });
 
-test('pattern のタイル寸法だけをサイズ比で変え、マイスタイルは保存値をそのまま当てる', () => {
+test('pattern のタイル寸法を換算し、マイスタイルも既存字幕の大きさを保つ', () => {
   const look = { size_px: 168, reference_height_px: 1920,
     fill: { type: 'pattern', pattern: { id: 'dot', scale: 1.5, fg: '#fff', bg: '#000' } },
     strokes: [{ color: '#000', width_px: 10, offset_y: 3 }] };
@@ -385,10 +386,7 @@ test('pattern のタイル寸法だけをサイズ比で変え、マイスタイ
   assert.equal(kept.strokes[0].width_px, 10 * (56 / 168));
   assert.equal(kept.strokes[0].offset_y, 1);
   const saved = JSON.parse(replaceMyStyleLookInSource(source, ['one'], look)).captions[0].text_style;
-  assert.equal(saved.size_px, 168);
-  assert.equal(saved.reference_height_px, 1920);
-  assert.deepEqual(saved.fill, look.fill);
-  assert.deepEqual(saved.strokes, look.strokes);
+  assert.deepEqual(saved, kept);
 });
 
 test('利用台帳は既存の行を保持して追記する', () => {

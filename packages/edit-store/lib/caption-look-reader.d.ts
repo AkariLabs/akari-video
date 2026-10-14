@@ -29,6 +29,10 @@ type CaptionsRoot = {
 /** 旧い強調の ID は移行済み run に残った出所 ID も予約済みとして扱う。 */
 export declare function nextEmphasisWordId(root: CaptionsRoot | CaptionRow[]): string;
 export declare const CAPTION_EMPHASIS_MOTION: Readonly<Record<string, string>>;
+export declare function captionEmphasisWordIntervals(row: Pick<CaptionRow, 'text' | 'display_text'>, wordText: string): Array<{
+    from: number;
+    to: number;
+}>;
 export declare function readCaptionLookV1(root: CaptionsRoot | CaptionRow[], catalog: TextstyleCatalog): {
     captions: CaptionRow[];
     notices: string[];

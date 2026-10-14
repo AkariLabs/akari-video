@@ -125,6 +125,7 @@ export type RecoveryDetail = {
     missing: string[];
     broken?: true;
 };
+/** 保存の onDidWrite 通知の中から await しない。 */
 export declare function recoverInterruptedProjectWrite(projectRoot: string): Promise<string | undefined>;
 export declare function recoverInterruptedProjectWriteDetailed(projectRoot: string): Promise<RecoveryDetail | undefined>;
 export declare function writeProjectFilesTransactional(projectRoot: string, input: {

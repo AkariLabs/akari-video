@@ -1,11 +1,14 @@
 import { captionValueHash } from './caption-hash';
 import { anchorForCaptionRange } from './caption-anchor-map';
-import { CAPTION_ROW_LOOK_FIELDS, captionEffectiveSize, lookForCaptionRow, lookForCaptionRun,
+import { CAPTION_PIXEL_FIELDS, CAPTION_ROW_LOOK_FIELDS, captionEffectiveSize, lookForCaptionRow, lookForCaptionRun,
     sanitizeCaptionRunLook, sanitizeMyStyleLook, scaleCaptionLookPixels } from './caption-look-v1';
-import { captionGraphemes, clearCaptionRunRange, nextCaptionRunId, roundCaptionPixel,
+import { captionGraphemes, roundCaptionPixel,
     type CaptionRun } from './caption-runs';
 import { mergePresetTextStyle, resolveCaptionStylePreset, type TextstyleCatalog } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
+import { mergeCaptionDisplayStyles, validateCaptionTextStyle } from './caption-display';
+import { CaptionsInvalidError } from './caption-look-shape';
+import { captionEmphasisWordIntervals } from './caption-look-reader';
 
 type Row = Record<string, unknown> & { id?: string; text?: string; display_text?: string; runs?: CaptionRun[] };
 export type CaptionRoot = Row[] | { captions: Row[]; default_text_style?: Record<string, unknown>;
@@ -23,7 +26,7 @@ export type CaptionStyleEditInput = { captions: CaptionRoot; edit?: unknown; ass
     targets: CaptionStyleTarget[]; parts: CaptionStyleParts; source?: CaptionStyleSource;
     catalog?: TextstyleCatalog; now?: string | Date; legacy?: CaptionStyleLegacy };
 type Plan = { next: { captions: CaptionRoot; edit?: unknown; assetReferences?: unknown };
-    changed: string[]; notices: string[] };
+    changed: string[]; notices: string[]; notice_codes: Array<{ code: string; params?: Record<string, string | number> }> };
 const record = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 const rowsOf = (root: CaptionRoot): Row[] => Array.isArray(root) ? root : root.captions;
@@ -44,6 +47,135 @@ const catalogRecord = (catalog: TextstyleCatalog): Record<string, { style: Recor
 const allRuns = (root: CaptionRoot): CaptionRun[] => [...rowsOf(root).flatMap(row => Array.isArray(row.runs) ? row.runs : []),
     ...(!Array.isArray(root) && Array.isArray(root.unresolved_runs)
         ? root.unresolved_runs.flatMap(item => item.run ? [item.run] : []) : [])];
+
+function styleErrors(row: Row, base: Record<string, unknown>): string[] {
+    const style = record(row.text_style) ? row.text_style : {};
+    const errors = new Set<string>();
+    const collect = (candidate: Record<string, unknown>) => {
+        for (const [key, value] of Object.entries(candidate)) {
+            try { validateCaptionTextStyle({ [key]: value }); }
+            catch (error) { errors.add((error as Error).message); }
+        }
+        if (Object.prototype.hasOwnProperty.call(candidate, 'zone')
+            && Object.prototype.hasOwnProperty.call(candidate, 'layout'))
+            errors.add('text_style cannot contain both zone and layout');
+        if (Object.prototype.hasOwnProperty.call(candidate, 'layout')
+            && Object.prototype.hasOwnProperty.call(candidate, 'reference_height_px'))
+            errors.add('text_style cannot contain both layout and reference_height_px');
+    };
+    collect(style);
+    try { collect(mergeCaptionDisplayStyles(base, style) ?? {}); }
+    catch (error) { errors.add((error as Error).message); }
+    return [...errors];
+}
+
+export function assertChangedCaptionStyles(before: CaptionRoot, after: CaptionRoot, changed: string[]): void {
+    const indices = new Set<number>();
+    for (const path of changed) {
+        const match = /^captions\[(\d+)\]/.exec(path);
+        if (match) indices.add(Number(match[1]));
+    }
+    const diagnostics = [...indices].flatMap(index => {
+        const previous = styleErrors(rowsOf(before)[index], defaultOf(before));
+        return styleErrors(rowsOf(after)[index], defaultOf(after))
+            .filter(message => !previous.includes(message))
+            .map(message => ({ code: 'captions.style.invalid', severity: 'error' as const,
+                path: `captions[${index}].text_style`, message, layer: 'document' as const }));
+    });
+    if (diagnostics.length) throw new CaptionsInvalidError(diagnostics);
+}
+
+function noticeCodes(notices: string[], omitted: string[]): Plan['notice_codes'] {
+    return notices.map((message): Plan['notice_codes'][number] => {
+        const field = omitted.find(key => sanitizeCaptionRunLook({ [key]: true }).notices.includes(message));
+        if (field) return { code: 'run-look-omitted', params: { field } };
+        if (message.includes('実測の単語に対応付けられません')) return { code: 'anchor-unmapped' };
+        if (message.includes('スタイル') && message.includes('見つかりません')) return { code: 'style-not-found' };
+        return { code: 'other', params: { message } };
+    });
+}
+export const captionNoticeCodes = noticeCodes;
+
+function splitCaptionRuns(row: Row, runs: CaptionRun[], range: { from: number; to: number },
+    newRunId: () => string, preserve?: CaptionRun): CaptionRun[] {
+    return runs.flatMap(run => {
+        if (run === preserve) return [run];
+        if (run.to <= range.from || run.from >= range.to) return [run];
+        const id = run.id ?? newRunId();
+        const pieces: CaptionRun[] = [];
+        if (run.from < range.from) pieces.push({ ...run, id, to: range.from });
+        if (run.to > range.to) {
+            const rightId = run.from < range.from ? newRunId() : id;
+            pieces.push({ ...run, id: rightId, from: range.to,
+                ...(rightId !== id ? { split_from: id } : {}) });
+        }
+        for (const piece of pieces) if (run.anchor) {
+            const anchor = anchorForCaptionRange(row as Row & { text: string; start: number; end: number },
+                piece.from, piece.to).anchor;
+            if (anchor) piece.anchor = anchor;
+            else {
+                delete piece.anchor;
+                if (piece.fire === 'spoken') {
+                    piece.fire = 'shown'; piece.fire_was = 'spoken'; piece.needs_review = true;
+                }
+            }
+        }
+        return pieces;
+    });
+}
+
+type EmphasisWord = { src?: string; t_start: number; t_end: number; word: string };
+export function captionEmphasisOverlapsRange(row: Row, range: { from: number; to: number },
+    emphasis: EmphasisWord, resolvedAnchor?: ReturnType<typeof anchorForCaptionRange>): boolean {
+    if (row.time_domain === 'output') return false;
+    if (emphasis.src && row.src && emphasis.src !== row.src) return false;
+    const anchor = (resolvedAnchor ?? anchorForCaptionRange(
+        row as Row & { text: string; start: number; end: number }, range.from, range.to)).anchor;
+    if (anchor && Math.min(anchor.end, emphasis.t_end) - Math.max(anchor.start, emphasis.t_start) <= 1e-6) return false;
+    if (!anchor && (typeof row.start !== 'number' || typeof row.end !== 'number'
+        || emphasis.t_start < row.start || emphasis.t_end > row.end)) return false;
+    if (anchor && emphasis.src && row.src) return true;
+    return captionEmphasisWordIntervals(row, emphasis.word.trim())
+        .some(interval => interval.from < range.to && interval.to > range.from);
+}
+
+function nonWhitespaceRange(row: Row, range: { from: number; to: number }): { from: number; to: number } | undefined {
+    const chars = captionGraphemes(row.display_text ?? row.text ?? '');
+    let { from, to } = range;
+    while (from < to && /^\s$/u.test(chars[from])) from++;
+    while (to > from && /^\s$/u.test(chars[to - 1])) to--;
+    return from < to ? { from, to } : undefined;
+}
+
+function removeOverlappingEmphasis(root: CaptionRoot, row: Row, range: { from: number; to: number },
+    changed: string[]): void {
+    if (Array.isArray(root) || !Array.isArray(root.emphasis_words)) return;
+    const selected = nonWhitespaceRange(row, range);
+    if (!selected) return;
+    const emphasis = root.emphasis_words as unknown[];
+    const before = emphasis.length;
+    const anchor = anchorForCaptionRange(row as Row & { text: string; start: number; end: number },
+        selected.from, selected.to);
+    root.emphasis_words = emphasis.filter(item => !record(item)
+        || !captionEmphasisOverlapsRange(row, selected, item as EmphasisWord, anchor));
+    if ((root.emphasis_words as unknown[]).length !== before && !changed.includes('emphasis_words')) changed.push('emphasis_words');
+}
+
+function rowIndexOf(root: CaptionRoot): Map<string, { row: Row; index: number; count: number }> {
+    const index = new Map<string, { row: Row; index: number; count: number }>();
+    rowsOf(root).forEach((row, number) => {
+        if (typeof row.id !== 'string') return;
+        const previous = index.get(row.id);
+        index.set(row.id, { row, index: number, count: (previous?.count ?? 0) + 1 });
+    });
+    return index;
+}
+
+function indexedRow(index: Map<string, { row: Row; index: number; count: number }>, id: string) {
+    const found = index.get(id);
+    if (!found || found.count !== 1) throw new Error(`字幕 ${id} が一意に見つかりません。`);
+    return found;
+}
 
 function resolveRange(row: Row, range: { from: number; to: number } | { quote: string; occurrence?: number }):
     { from: number; to: number } {
@@ -151,6 +283,9 @@ function migratePreset(row: Row, catalog: TextstyleCatalog, notices: string[], a
     const sources = record(row.style_sources) ? { ...row.style_sources } : {};
     sources.look = sourceRecord({ kind: 'builtin', id }, projectedLook(original ?? {}),
         projectedLook(record(row.text_style) ? row.text_style : {}), at);
+    if (record(original?.animation) && record(row.text_style) && record(row.text_style.animation))
+        sources.motion = sourceRecord({ kind: 'builtin', id }, original.animation,
+            row.text_style.animation, at);
     row.style_sources = sources;
     delete row.style_preset;
 }
@@ -187,6 +322,7 @@ export function planCaptionStyleEdit(input: CaptionStyleEditInput): Plan {
     const catalogObject = catalogRecord(catalog);
     const changed: string[] = [];
     const notices: string[] = [];
+    const omittedFields: string[] = [];
     const at = input.now instanceof Date ? input.now.toISOString()
         : typeof input.now === 'string' ? new Date(input.now).toISOString() : new Date().toISOString();
     for (const target of input.targets) {
@@ -223,20 +359,36 @@ export function planCaptionStyleEdit(input: CaptionStyleEditInput): Plan {
         const { row } = indexed;
         if (target.range) {
             const { from, to } = resolveRange(row, target.range);
-            const runs = Array.isArray(row.runs) ? row.runs : [];
+            let runs = Array.isArray(row.runs) ? row.runs : [];
             let run: CaptionRun | undefined;
             for (const candidate of runs) if (candidate.id && candidate.from === from && candidate.to === to) run = candidate;
+            const overlapIndex = !run && parts.look && !input.legacy
+                ? runs.findIndex(candidate => candidate.from < to && candidate.to > from) : -1;
+            const insertionIndex = overlapIndex < 0 ? runs.length
+                : overlapIndex + (runs[overlapIndex].from < from ? 1 : 0);
+            if (parts.look && !input.legacy) {
+                runs = splitCaptionRuns(row, runs, { from, to }, newRunId, run);
+                if (runs.length) row.runs = runs;
+                else delete row.runs;
+            }
             if (!run) {
                 run = { id: newRunId(), from, to };
                 const anchor = anchorForCaptionRange(row as Row & { text: string; start: number; end: number }, from, to);
                 if (anchor.anchor) run.anchor = anchor.anchor;
                 else notices.push(...anchor.diagnostics.map(item => item.message));
-                runs.push(run); row.runs = runs;
+                runs.splice(insertionIndex, 0, run); row.runs = runs;
             }
             if (parts.look) {
                 const result = lookForCaptionRun(row, defaultOf(captions), parts.look, catalogObject);
-                run.look = input.legacy ? result.look : roundPixels(result.look);
+                const look = input.legacy ? result.look : roundPixels(result.look);
+                if (!input.legacy) {
+                    if (!Object.prototype.hasOwnProperty.call(look, 'stroke')) look.stroke = { width_px: 0 };
+                    if (!Object.prototype.hasOwnProperty.call(look, 'shadow')) look.shadow = { color: '#000000', opacity: 0 };
+                    if (!Object.prototype.hasOwnProperty.call(look, 'glow')) look.glow = { color: '#000000', density: 0 };
+                }
+                run.look = look;
                 notices.push(...result.notices);
+                omittedFields.push(...sanitizeCaptionRunLook(parts.look).omitted);
             }
             if (parts.motion) {
                 if (Object.keys(parts.motion).length) run.motion = structuredClone(parts.motion) as CaptionRun['motion'];
@@ -244,6 +396,7 @@ export function planCaptionStyleEdit(input: CaptionStyleEditInput): Plan {
             }
             updateSources(run, parts, input.source,
                 parts.look ? projectedRunLook(parts.look) : {}, parts.motion ?? {}, at);
+            removeOverlappingEmphasis(captions, row, { from, to }, changed);
             changed.push(`captions[${indexed.index}].runs`);
             continue;
         }
@@ -262,8 +415,11 @@ export function planCaptionStyleEdit(input: CaptionStyleEditInput): Plan {
             parts.look ? projectedLook(parts.look) : {}, parts.motion ?? {}, at);
         changed.push(`captions[${indexed.index}].text_style`);
     }
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    const uniqueNotices = [...new Set(notices)];
     return { next: { captions, ...(input.edit === undefined ? {} : { edit: input.edit }),
-        ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) }, changed, notices: [...new Set(notices)] };
+        ...(input.assetReferences === undefined ? {} : { assetReferences: input.assetReferences }) },
+    changed, notices: uniqueNotices, notice_codes: noticeCodes(uniqueNotices, omittedFields) };
 }
 
 export type CaptionClearTarget = { caption_id: string; run_id?: string; range?: { from: number; to: number }
@@ -271,8 +427,14 @@ export type CaptionClearTarget = { caption_id: string; run_id?: string; range?: 
 export function planCaptionStyleClear(input: { captions: CaptionRoot; targets: CaptionClearTarget[]; mode: 'run' | 'range' }): Plan {
     const captions = structuredClone(input.captions);
     const changed: string[] = [];
+    const index = rowIndexOf(captions);
+    let nextRun = allRuns(captions).reduce((max, run) => {
+        const match = /^r-(\d{4,})$/.exec(run.id ?? '');
+        return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+    const newRunId = () => `r-${String(nextRun++).padStart(4, '0')}`;
     for (const target of input.targets) {
-        const row = findRow(captions, target.caption_id);
+        const { row, index: rowNumber } = indexedRow(index, target.caption_id);
         if (!target.range && !target.run_id) {
             if (record(row.text_style)) {
                 const style = { ...row.text_style };
@@ -284,24 +446,33 @@ export function planCaptionStyleClear(input: { captions: CaptionRoot; targets: C
             }
             delete row.style_sources;
             delete row.style_preset;
-            changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+            changed.push(`captions[${rowNumber}].text_style`);
             continue;
         }
         const runs = Array.isArray(row.runs) ? row.runs : [];
         const range = target.range ? resolveRange(row, target.range) : undefined;
         if (input.mode === 'run') {
+            const removed = runs.filter(run => target.run_id ? run.id === target.run_id
+                : run.from === range?.from && run.to === range?.to);
             const before = runs.length;
-            row.runs = runs.filter(run => target.run_id ? run.id !== target.run_id
+            const remaining = runs.filter(run => target.run_id ? run.id !== target.run_id
                 : run.from !== range?.from || run.to !== range?.to);
-            if (row.runs.length === before) throw new Error('外す文字範囲がありません。');
+            if (remaining.length === before) throw new Error('外す文字範囲がありません。');
+            if (remaining.length) row.runs = remaining;
+            else delete row.runs;
+            for (const run of removed) removeOverlappingEmphasis(captions, row, run, changed);
         } else {
             const selected = range ?? runs.find(run => run.id === target.run_id);
             if (!selected) throw new Error('戻す文字範囲がありません。');
-            row.runs = clearCaptionRunRange(runs, selected.from, selected.to, allRuns(captions));
+            const remaining = splitCaptionRuns(row, runs, selected, newRunId);
+            if (remaining.length) row.runs = remaining;
+            else delete row.runs;
+            removeOverlappingEmphasis(captions, row, selected, changed);
         }
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].runs`);
+        changed.push(`captions[${rowNumber}].runs`);
     }
-    return { next: { captions }, changed, notices: [] };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices: [], notice_codes: [] };
 }
 
 export type ReapplyItem = { target: CaptionStyleTarget; part: 'look' | 'motion'; source: Record<string, unknown>;
@@ -310,7 +481,8 @@ export function planCaptionStyleReapply(input: { captions: CaptionRoot; targets?
     styles: { builtin?: TextstyleCatalog; lookup?: (source: Record<string, unknown>) =>
         { look?: Record<string, unknown>; motion?: Record<string, unknown>; revision?: number } | undefined };
     apply?: Array<{ target: CaptionStyleTarget; part: 'look' | 'motion' }> }):
-    { items: ReapplyItem[]; next?: { captions: CaptionRoot }; notices: string[] } {
+    { items: ReapplyItem[]; next?: { captions: CaptionRoot }; notices: string[];
+        notice_codes: Plan['notice_codes'] } {
     const items: ReapplyItem[] = [];
     const notices: string[] = [];
     const wanted = input.targets;
@@ -353,54 +525,75 @@ export function planCaptionStyleReapply(input: { captions: CaptionRoot; targets?
             }
         }
     }
-    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: [...new Set(notices)] };
+    const uniqueNotices = [...new Set(notices)];
+    return { items, ...(input.apply ? { next: { captions: root } } : {}), notices: uniqueNotices,
+        notice_codes: noticeCodes(uniqueNotices, []) };
+}
+
+export function resizeCaptionRow(row: Row, defaultStyle: Record<string, unknown>, size: number,
+    catalog: TextstyleCatalog = TEXTSTYLE_CATALOG, notices: string[] = [], at = new Date().toISOString()): boolean {
+    const beforeSize = captionEffectiveSize(row, defaultStyle, catalogRecord(catalog));
+    if (beforeSize === size) return false;
+    migratePreset(row, catalog, notices, at);
+    const style = record(row.text_style) ? row.text_style : {};
+    let effective: Record<string, unknown>;
+    try { effective = mergeCaptionDisplayStyles(defaultStyle, style) ?? {}; }
+    catch { effective = { ...defaultStyle, ...style }; }
+    const oldRunHashes = Array.isArray(row.runs) ? row.runs.map(run => run.look ? captionValueHash(run.look) : undefined) : [];
+    const scaled = roundPixels(scaleCaptionLookPixels({ ...effective, size_px: beforeSize }, size));
+    const nextStyle: Record<string, unknown> = { ...style, size_px: size };
+    for (const [key, fields] of Object.entries(CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern' || !record(scaled[key])) continue;
+        if (fields.some(field => typeof (scaled[key] as Record<string, unknown>)[field] === 'number')) nextStyle[key] = scaled[key];
+    }
+    if (Array.isArray(scaled.strokes) && scaled.strokes.some(stroke => record(stroke)
+        && CAPTION_PIXEL_FIELDS.strokes.some(field => typeof stroke[field] === 'number')))
+        nextStyle.strokes = scaled.strokes;
+    if (record(scaled.fill) && record(scaled.fill.pattern)
+        && typeof scaled.fill.pattern.scale === 'number') nextStyle.fill = scaled.fill;
+    const sources = record(row.style_sources) ? row.style_sources : undefined;
+    const lookSource = sources && record(sources.look) ? sources.look : undefined;
+    const matched = !!lookSource && captionValueHash(projectedLook(style)) === lookSource.applied_hash;
+    row.text_style = nextStyle;
+    if (matched && lookSource) lookSource.applied_hash = captionValueHash(projectedLook(nextStyle));
+    if (Array.isArray(row.runs)) row.runs = row.runs.map((run, index) => {
+        if (!run.look) return run;
+        const look = roundPixels(scaleCaptionLookPixels({ ...run.look, size_px: beforeSize }, size));
+        delete look.size_px;
+        const next = { ...run, look };
+        const source = record(next.style_sources) && record(next.style_sources.look) ? next.style_sources.look : undefined;
+        if (source && oldRunHashes[index] === source.applied_hash) source.applied_hash = captionValueHash(look);
+        return next;
+    });
+    return true;
 }
 
 export function planCaptionSizeEdit(input: { captions: CaptionRoot; targets: Array<{ caption_id: string }>;
-    size_px: number }): Plan {
+    size_px: number; catalog?: TextstyleCatalog }): Plan {
     if (!Number.isFinite(input.size_px) || input.size_px <= 0) throw new Error('大きさは正の数にしてください。');
     const captions = structuredClone(input.captions);
     const changed: string[] = [];
+    const notices: string[] = [];
+    const index = rowIndexOf(captions);
+    const catalog = catalogRecord(input.catalog ?? TEXTSTYLE_CATALOG) as TextstyleCatalog;
     for (const target of input.targets) {
-        const row = findRow(captions, target.caption_id);
-        const beforeSize = captionEffectiveSize(row, defaultOf(captions));
-        if (beforeSize === input.size_px) continue;
-        const style = record(row.text_style) ? row.text_style : {};
-        const oldRunHashes = Array.isArray(row.runs) ? row.runs.map(run => run.look ? captionValueHash(run.look) : undefined) : [];
-        const scaled = scaleCaptionLookPixels({ ...style, size_px: beforeSize }, input.size_px);
-        const nextStyle = roundPixels(scaled);
-        nextStyle.size_px = input.size_px;
-        row.text_style = nextStyle;
-        if (Array.isArray(row.runs)) row.runs = row.runs.map(run => run.look
-            ? { ...run, look: roundPixels(scaleCaptionLookPixels({ ...run.look, size_px: beforeSize }, input.size_px)) }
-            : run).map(run => {
-                if (run.look) delete run.look.size_px;
-                return run;
-            });
-        const sources = record(row.style_sources) ? row.style_sources : undefined;
-        const lookSource = sources && record(sources.look) ? sources.look : undefined;
-        if (lookSource && captionValueHash(projectedLook(style)) === lookSource.applied_hash) {
-            lookSource.applied_hash = captionValueHash(projectedLook(nextStyle));
-        }
-        if (Array.isArray(row.runs)) for (const [index, run] of row.runs.entries()) {
-            const source = record(run.style_sources) && record(run.style_sources.look) ? run.style_sources.look : undefined;
-            if (source && run.look && oldRunHashes[index] === source.applied_hash)
-                source.applied_hash = captionValueHash(run.look);
-        }
-        changed.push(`captions[${rowsOf(captions).indexOf(row)}].text_style`);
+        const found = indexedRow(index, target.caption_id);
+        if (resizeCaptionRow(found.row, defaultOf(captions), input.size_px, catalog, notices))
+            changed.push(`captions[${found.index}].text_style`);
     }
-    return { next: { captions }, changed, notices: [] };
+    assertChangedCaptionStyles(input.captions, captions, changed);
+    return { next: { captions }, changed, notices, notice_codes: noticeCodes(notices, []) };
 }
 
 function roundPixels(value: Record<string, unknown>): Record<string, unknown> {
     const next = structuredClone(value);
-    for (const [key, fields] of Object.entries({ stroke: ['width_px'], background: ['radius_px', 'padding_px'],
-        shadow: ['blur_px', 'distance_px'], glow: ['spread', 'offset_x', 'offset_y'] })) {
+    for (const [key, fields] of Object.entries(CAPTION_PIXEL_FIELDS)) {
+        if (key === 'strokes' || key === 'fill.pattern') continue;
         const object = next[key]; if (!record(object)) continue;
         for (const field of fields) if (typeof object[field] === 'number') object[field] = roundCaptionPixel(object[field] as number);
     }
     if (Array.isArray(next.strokes)) for (const stroke of next.strokes) if (record(stroke))
-        for (const field of ['width_px', 'offset_x', 'offset_y'])
+        for (const field of CAPTION_PIXEL_FIELDS.strokes)
             if (typeof stroke[field] === 'number') stroke[field] = roundCaptionPixel(stroke[field] as number);
     if (record(next.fill) && record(next.fill.pattern) && typeof next.fill.pattern.scale === 'number')
         next.fill.pattern.scale = roundCaptionPixel(next.fill.pattern.scale);
